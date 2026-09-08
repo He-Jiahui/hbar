@@ -1,6 +1,14 @@
 import { z } from 'zod'
-import { HbarError, idSchema, planStateSchema, planStepSchema, runModeSchema } from '@hbar/contracts'
-import type { PlanState, PlanStep, RunMode, SessionEvent } from '@hbar/contracts'
+import {
+  HbarError,
+  idSchema,
+  planStateSchema,
+  planStepSchema,
+  runModeSchema,
+  userInputQuestionSchema,
+  userInputRequestSchema,
+} from '@hbar/contracts'
+import type { PlanState, PlanStep, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from './instructions.ts'
@@ -20,6 +28,7 @@ const updatePlanSchema = z.object({
   explanation: z.string().max(4_000).optional(),
   plan: z.array(planStepSchema).max(100),
 })
+const requestUserInputSchema = z.object({ questions: z.array(userInputQuestionSchema).min(1).max(3) })
 
 function escapeXml(value: string) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -147,6 +156,26 @@ class PlanRuntime implements PlanService {
     })
   }
 
+  async requestUserInput(
+    sessionId: string,
+    runId: string,
+    callId: string,
+    questions: UserInputQuestion[],
+    signal: AbortSignal,
+  ) {
+    return this.api.userInput.request(
+      userInputRequestSchema.parse({
+        requestId: crypto.randomUUID(),
+        sessionId,
+        runId,
+        callId,
+        questions,
+        isBlocking: true,
+      }),
+      signal,
+    )
+  }
+
   private async persistPlan(plan: PlanState, runId?: string) {
     await this.api.sessions.append(plan.sessionId, 'plan.updated', { plan }, runId)
     this.plans.set(plan.sessionId, plan)
@@ -193,6 +222,25 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
         const parsed = updatePlanSchema.parse(args)
         const plan = await runtime.update(context.session.id, parsed.plan, parsed.explanation ?? null, context.run.id)
         return { text: 'Plan updated', details: plan }
+      },
+    },
+    {
+      name: 'request_user_input',
+      description: 'Request user input for one to three short questions and wait for the response. This tool is only available in Plan mode.',
+      inputSchema: requestUserInputSchema,
+      effect: 'read',
+      execute: async (args, context) => {
+        if (context.run.input.mode !== 'plan')
+          throw new HbarError('PLAN_MODE', 'request_user_input is unavailable in Default mode')
+        const parsed = requestUserInputSchema.parse(args)
+        const response = await runtime.requestUserInput(
+          context.session.id,
+          context.run.id,
+          context.callId,
+          parsed.questions,
+          context.signal,
+        )
+        return { text: JSON.stringify(response), details: response }
       },
     },
   ]

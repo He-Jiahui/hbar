@@ -27,6 +27,8 @@ import type {
   BrowserScreenshot,
   ComputerScreen,
   ComputerAction,
+  UserInputRequest,
+  UserInputResponse,
   UserInput,
   UIContribution,
   Usage,
@@ -292,10 +294,14 @@ export interface HbarAPI {
   tools: ToolRegistry
   hooks: HookRegistry
   sessions: SessionService
+  userInput: UserInputService
   notify(event: import('@hbar/contracts').WireNotification): void
   changed(kind: string): void
   panels: { register(panel: Omit<UIContribution, 'owner'>): Disposer }
   service<T>(name: string): T
+}
+export interface UserInputService {
+  request(request: UserInputRequest, signal: AbortSignal): Promise<UserInputResponse>
 }
 declare module 'cordis' {
   interface Context {

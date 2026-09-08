@@ -71,6 +71,38 @@ export const planStateSchema = z.object({
   updatedAt: z.number().int().nonnegative(),
 })
 export type PlanState = z.infer<typeof planStateSchema>
+
+const userInputIdSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
+export const userInputOptionSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  description: z.string().trim().min(1).max(500),
+})
+export type UserInputOption = z.infer<typeof userInputOptionSchema>
+export const userInputQuestionSchema = z.object({
+  id: userInputIdSchema,
+  header: z.string().trim().min(1).max(12),
+  question: z.string().trim().min(1).max(4_000),
+  options: z.array(userInputOptionSchema).min(2).max(3),
+  isOther: z.boolean().optional(),
+  isSecret: z.boolean().optional(),
+})
+export type UserInputQuestion = z.infer<typeof userInputQuestionSchema>
+export const userInputRequestSchema = z.object({
+  requestId: idSchema,
+  sessionId: idSchema,
+  runId: idSchema,
+  callId: idSchema,
+  questions: z.array(userInputQuestionSchema).min(1).max(3),
+  isBlocking: z.boolean().default(true),
+})
+export type UserInputRequest = z.infer<typeof userInputRequestSchema>
+export const userInputAnswerSchema = z.object({ answers: z.array(z.string().max(4_000)).max(10) })
+export type UserInputAnswer = z.infer<typeof userInputAnswerSchema>
+export const userInputResponseSchema = z.object({
+  requestId: idSchema,
+  answers: z.record(userInputIdSchema, userInputAnswerSchema),
+})
+export type UserInputResponse = z.infer<typeof userInputResponseSchema>
 export const budgetPhaseSchema = z.enum(['active', 'exhausted', 'completed', 'stopped'])
 export type BudgetPhase = z.infer<typeof budgetPhaseSchema>
 export const sessionBudgetSchema = z.object({
@@ -351,6 +383,7 @@ export interface SessionSnapshot {
   messages: Message[]
   runs: Run[]
   approvals: Approval[]
+  userInputs: UserInputRequest[]
   usage: Usage
   cursor: number
   hasOlder: boolean
@@ -505,6 +538,8 @@ export type WireNotification =
   | { method: 'git.changed'; params: { cwd: string } }
   | { method: 'browser.changed'; params: { sessionId: string; contextId: string } }
   | { method: 'computer.changed'; params: { sessionId: string } }
+  | { method: 'user_input.requested'; params: UserInputRequest }
+  | { method: 'user_input.resolved'; params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse } }
   | { method: 'auth.revoked'; params: { reason: string } }
 
 export const rpcSchemas = {
@@ -677,6 +712,10 @@ export const rpcSchemas = {
   'run.start': z.object({ sessionId: idSchema, requestId: idSchema, input: inputSchema, modelId: idSchema }),
   'run.cancel': z.object({ runId: idSchema }),
   'approval.resolve': z.object({ approvalId: idSchema, decision: z.enum(['allowed', 'denied']) }),
+  'user_input.resolve': z.object({
+    requestId: idSchema,
+    answers: z.record(userInputIdSchema, userInputAnswerSchema),
+  }),
   'context.compact': z.object({ sessionId: idSchema, modelId: idSchema }),
   'provider.save': z.object({ provider: providerSchema, apiKey: z.string().max(8192).optional() }),
   'provider.delete': z.object({ id: idSchema }),
@@ -773,6 +812,7 @@ export interface RpcResults {
   'run.start': Run
   'run.cancel': null
   'approval.resolve': null
+  'user_input.resolve': { accepted: boolean }
   'context.compact': { summary: string }
   'provider.save': ModelInfo
   'provider.delete': null

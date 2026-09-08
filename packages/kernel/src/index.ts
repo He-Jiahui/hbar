@@ -2,7 +2,14 @@ import { readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { join, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { HbarError, approvalModeSchema, inputSchema, providerSchema } from '@hbar/contracts'
+import {
+  HbarError,
+  approvalModeSchema,
+  inputSchema,
+  providerSchema,
+  userInputRequestSchema,
+  userInputResponseSchema,
+} from '@hbar/contracts'
 import type {
   Approval,
   ArtifactRef,
@@ -15,6 +22,8 @@ import type {
   Run,
   SessionEvent,
   SessionSnapshot,
+  UserInputRequest,
+  UserInputResponse,
   UserInput,
   WireNotification,
 } from '@hbar/contracts'
@@ -29,6 +38,7 @@ import type {
   PolicyProvider,
   ToolContext,
   ToolResult,
+  UserInputService,
 } from '@hbar/plugin-sdk'
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
 import type { PathLayout, StoragePort } from '@hbar/storage'
@@ -172,6 +182,10 @@ export class Kernel {
   private wakeups = new Set<string>()
   private listeners = new Set<(event: WireNotification) => void>()
   private approvals = new Map<string, (allowed: boolean) => void>()
+  private userInputs = new Map<
+    string,
+    { request: UserInputRequest; settle: (response?: UserInputResponse, error?: unknown) => Promise<boolean> }
+  >()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private maintenance = false
@@ -205,6 +219,9 @@ export class Kernel {
           snapshot: (id) => this.snapshot(id),
           append: (id, type, data, runId, stepId) => this.append(id, type, data, runId, stepId),
         },
+        userInput: {
+          request: (request, signal) => this.requestUserInput(request, signal),
+        } satisfies UserInputService,
         notify: (event) => this.publish(event),
         changed: (kind) => this.changed(kind),
       },
@@ -470,6 +487,9 @@ export class Kernel {
   async snapshot(id: string, before?: number, limit?: number): Promise<SessionSnapshot> {
     const snapshot = await this.storage.call('snapshot', id, before, limit)
     snapshot.streams = [...this.streams.values()].filter((s) => s.sessionId === id)
+    snapshot.userInputs = [...this.userInputs.values()]
+      .filter(({ request }) => request.sessionId === id)
+      .map(({ request }) => request)
     return snapshot
   }
   async submit(sessionId: string, requestId: string, input: UserInput, modelId: string) {
@@ -831,6 +851,86 @@ export class Kernel {
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'running'))
     }
   }
+  async requestUserInput(raw: UserInputRequest, signal: AbortSignal): Promise<UserInputResponse> {
+    const parsed = userInputRequestSchema.parse(raw)
+    const request = userInputRequestSchema.parse({
+      ...parsed,
+      questions: parsed.questions.map((question) => ({
+        ...question,
+        isOther: question.isOther ?? true,
+        isSecret: question.isSecret ?? false,
+      })),
+    })
+    await this.storage.call('session', request.sessionId)
+    const run = await this.storage.call('run', request.runId)
+    if (run.sessionId !== request.sessionId)
+      throw new HbarError('USER_INPUT_INVALID', 'User input request does not belong to the current session')
+    if (request.questions.some((question, index) => request.questions.findIndex((item) => item.id === question.id) !== index))
+      throw new HbarError('USER_INPUT_INVALID', 'Question ids must be unique')
+    if (request.questions.some((question) => {
+      const labels = question.options.map((option) => option.label.toLocaleLowerCase())
+      return new Set(labels).size !== labels.length
+    }))
+      throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
+    if (this.userInputs.has(request.requestId))
+      throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
+    signal.throwIfAborted()
+
+    let settled = false
+    let resolve!: (response: UserInputResponse) => void
+    let reject!: (error: unknown) => void
+    const outcome = new Promise<UserInputResponse>((done, fail) => {
+      resolve = done
+      reject = fail
+    })
+    const settle = async (response?: UserInputResponse, error?: unknown) => {
+      if (settled) return false
+      settled = true
+      this.userInputs.delete(request.requestId)
+      const data = {
+        requestId: request.requestId,
+        sessionId: request.sessionId,
+        cancelled: response === undefined,
+        ...(response === undefined ? {} : { response }),
+      }
+      try {
+        await this.append(request.sessionId, 'user_input.resolved', data, request.runId)
+      } catch (appendError) {
+        console.error('Failed to persist user input resolution:', appendError)
+      }
+      this.publish({ method: 'user_input.resolved', params: data })
+      if (response === undefined) reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+      else resolve(response)
+      return true
+    }
+    this.userInputs.set(request.requestId, { request, settle })
+    const onAbort = () => {
+      void settle(undefined, signal.reason ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    try {
+      await this.append(request.sessionId, 'user_input.requested', request, request.runId)
+      if (!settled) this.publish({ method: 'user_input.requested', params: request })
+      if (signal.aborted) onAbort()
+      return await outcome
+    } catch (error) {
+      if (!settled) await settle(undefined, error)
+      throw error
+    } finally {
+      signal.removeEventListener('abort', onAbort)
+      this.userInputs.delete(request.requestId)
+    }
+  }
+  async resolveUserInput(requestId: string, rawAnswers: Record<string, { answers: string[] }>) {
+    const entry = this.userInputs.get(requestId)
+    if (!entry) return false
+    const response = userInputResponseSchema.parse({ requestId, answers: rawAnswers })
+    const questionIds = new Set(entry.request.questions.map((question) => question.id))
+    if (Object.keys(response.answers).some((id) => !questionIds.has(id)))
+      throw new HbarError('USER_INPUT_INVALID', 'Answers contain an unknown question id')
+    await entry.settle(response)
+    return true
+  }
   async resolveApproval(id: string, decision: Approval['status']) {
     const result = await this.storage.call('resolveApproval', id, decision)
     if (result) {
@@ -999,6 +1099,8 @@ export class Kernel {
     this.closing = true
     for (const active of this.active.values()) active.controller.abort(new Error('Host shutting down'))
     await this.waitForIdle()
+    for (const pending of this.userInputs.values())
+      await pending.settle(undefined, new HbarError('USER_INPUT_CANCELLED', 'Host shutting down'))
     await this.plugins.close()
     await this.storage.close()
   }

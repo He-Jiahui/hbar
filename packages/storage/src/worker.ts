@@ -265,6 +265,7 @@ const methods: StorageMethods = {
       approvals: (
         db.query("SELECT * FROM approvals WHERE sessionId=? AND status='pending'").all(sessionId) as Row[]
       ).map(approvalRow),
+      userInputs: [],
       usage,
       cursor: session.seq,
       streams: [],

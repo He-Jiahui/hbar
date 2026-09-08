@@ -296,6 +296,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         await kernel.resolveApproval(p.approvalId, p.decision)
         return null
       }
+      case 'user_input.resolve': {
+        const p = rpcSchemas[method].parse(raw)
+        return { accepted: await kernel.resolveUserInput(p.requestId, p.answers) }
+      }
       case 'context.compact': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.compact(p.sessionId, p.modelId)

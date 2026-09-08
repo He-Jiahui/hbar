@@ -70,3 +70,33 @@ test('plan mode uses medium reasoning unless the caller explicitly chooses an ef
   expect((await kernel.storage.call('run', explicit.id)).input.thinking).toBe('high')
   await kernel.waitForIdle()
 })
+
+test('plan mode request_user_input pauses the run and resumes with validated answers', async () => {
+  const { kernel, session } = await fixture()
+  await kernel.setPermissionMode('allow')
+  const mode = kernel.plugins.get<{ set(id: string, value: 'default' | 'plan'): Promise<{ mode: 'default' | 'plan' }> }>('mode')
+  await mode.set(session.id, 'plan')
+  const run = await kernel.submit(
+    session.id,
+    'request-user-input',
+    {
+      mode: 'plan',
+      text: '/tool request_user_input {"questions":[{"id":"scope","header":"Scope","question":"Which scope should the plan cover?","options":[{"label":"App","description":"Cover the application flow."},{"label":"API","description":"Cover the API contract."}]}]}',
+      images: [],
+    },
+    'local-fixture',
+  )
+  let pending = (await kernel.snapshot(session.id)).userInputs[0]
+  for (let attempt = 0; attempt < 100 && !pending; attempt++) {
+    await Bun.sleep(5)
+    pending = (await kernel.snapshot(session.id)).userInputs[0]
+  }
+  expect(pending?.questions[0]?.id).toBe('scope')
+  expect(pending).toBeTruthy()
+  expect(await kernel.resolveUserInput(pending!.requestId, { scope: { answers: ['App'] } })).toBeTrue()
+  await kernel.waitForIdle()
+  const snapshot = await kernel.snapshot(session.id)
+  expect(snapshot.userInputs).toHaveLength(0)
+  expect(snapshot.messages.flatMap((message) => message.content).some((block) => block.type === 'tool_result' && block.name === 'request_user_input' && block.text.includes('App'))).toBeTrue()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+})
