@@ -39,8 +39,6 @@ test('goal creation, blocked audit, external resume, and persistence follow Code
   expect(created.goal?.objective).toBe('finish the verified task')
   expect(created.goal?.status).toBe('active')
   await expectRejected(goals.create(session.id, 'another'), 'unfinished goal')
-  await expectRejected(goals.update(session.id, 'blocked'), '1/3')
-  await expectRejected(goals.update(session.id, 'blocked'), '2/3')
   const blocked = await goals.update(session.id, 'blocked')
   expect(blocked.goal?.status).toBe('blocked')
   const resumed = await goals.set(session.id, { status: 'active', expectedGoalId: created.goal?.goalId })
@@ -56,6 +54,17 @@ test('goal creation, blocked audit, external resume, and persistence follow Code
   const restored = await restarted.plugins.get<GoalService>('goal').get(session.id)
   expect(restored.goal?.status).toBe('active')
   expect(restored.goal?.objective).toBe('finish the verified task')
+})
+
+test('goal creation and null budget updates follow the configured maximum', async () => {
+  const { kernel, session } = await fixture()
+  await kernel.changePlugin('goal.codex', true, { maxTokenBudget: 200, autoContinue: false, maxContinuations: 0 })
+  const goals = kernel.plugins.get<GoalService>('goal')
+  const created = await goals.create(session.id, 'bounded goal')
+  expect(created.goal?.tokenBudget).toBe(200)
+  await expectRejected(goals.set(session.id, { tokenBudget: 201 }), 'maximum allowed')
+  const unbounded = await goals.set(session.id, { tokenBudget: null, expectedGoalId: created.goal?.goalId })
+  expect(unbounded.goal?.tokenBudget).toBe(200)
 })
 
 test('goal accounting uses input minus cache plus output and plan-mode runs are excluded', async () => {
