@@ -187,6 +187,36 @@ export class ComputerRuntime implements ComputerUseService {
     private readonly backend: ComputerBackend = process.platform === 'win32' ? new WindowsComputerBackend(config.timeoutMs, config.maxScreenshotBytes) : new UnavailableComputerBackend(),
   ) {}
 
+  private async bounded<T>(parent: AbortSignal, operation: (signal: AbortSignal) => Promise<T>) {
+    const controller = new AbortController()
+    let rejectTimeout: ((reason?: unknown) => void) | undefined
+    let rejectAbort: ((reason?: unknown) => void) | undefined
+    const timeoutError = new HbarError('COMPUTER_TIMEOUT', 'Computer operation timed out')
+    const timeout = new Promise<never>((_, reject) => {
+      rejectTimeout = reject
+    })
+    const aborted = new Promise<never>((_, reject) => {
+      rejectAbort = reject
+    })
+    const onAbort = () => {
+      const reason: unknown = parent.reason ?? new HbarError('COMPUTER_ABORTED', 'Computer operation was cancelled')
+      controller.abort(reason)
+      rejectAbort?.(reason)
+    }
+    const timer = setTimeout(() => {
+      controller.abort(timeoutError)
+      rejectTimeout?.(timeoutError)
+    }, this.config.timeoutMs)
+    parent.addEventListener('abort', onAbort, { once: true })
+    if (parent.aborted) onAbort()
+    try {
+      return await Promise.race([Promise.resolve().then(() => operation(controller.signal)), timeout, aborted])
+    } finally {
+      clearTimeout(timer)
+      parent.removeEventListener('abort', onAbort)
+    }
+  }
+
   private async session(sessionId: string) { await this.api.sessions.get(sessionId) }
   authorize(appId?: string) {
     const requirement = requirementFor(this.config, appId)
@@ -201,47 +231,51 @@ export class ComputerRuntime implements ComputerUseService {
   }
   async status(sessionId: string) {
     await this.session(sessionId)
-    return { available: await this.backend.available(), platform: process.platform, appId: this.activeApps.get(sessionId) ?? null }
+    const signal = new AbortController().signal
+    return {
+      available: await this.bounded(signal, () => Promise.resolve(this.backend.available())),
+      platform: process.platform,
+      appId: this.activeApps.get(sessionId) ?? null,
+    }
   }
   async screenshot(sessionId: string, appId?: string, signal = new AbortController().signal) {
     await this.session(sessionId); this.authorize(appId)
-    const screen = computerScreenSchema.parse(await this.backend.screenshot(appId, signal))
+    const screen = computerScreenSchema.parse(await this.bounded(signal, (boundedSignal) => this.backend.screenshot(appId, boundedSignal)))
     if (Buffer.byteLength(screen.data, 'base64') > this.config.maxScreenshotBytes) throw new HbarError('COMPUTER_SCREENSHOT_LIMIT', 'Computer screenshot exceeds the configured limit')
     this.mark(sessionId, appId)
     return screen
   }
-  private async action(sessionId: string, action: string, appId: string | undefined, operation: () => Promise<void>) {
-    await this.session(sessionId); this.authorize(appId); await operation(); this.mark(sessionId, appId)
+  private async action(
+    sessionId: string,
+    action: string,
+    appId: string | undefined,
+    signal: AbortSignal,
+    operation: (boundedSignal: AbortSignal) => Promise<void>,
+  ) {
+    await this.session(sessionId); this.authorize(appId); await this.bounded(signal, operation); this.mark(sessionId, appId)
     return computerActionSchema.parse({ action, accepted: true })
   }
-  async click(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'click', appId, () => this.backend.click(x, y, appId, signal)) }
-  async doubleClick(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'double_click', appId, () => this.backend.doubleClick(x, y, appId, signal)) }
-  async type(sessionId: string, text: string, appId?: string, signal = new AbortController().signal) { if (text.length > MAX_TEXT) throw new HbarError('COMPUTER_TEXT_LIMIT', 'Computer text input is too long'); return this.action(sessionId, 'type', appId, () => this.backend.type(text, appId, signal)) }
-  async key(sessionId: string, key: string, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'key', appId, () => this.backend.key(key, appId, signal)) }
-  async scroll(sessionId: string, deltaX: number, deltaY: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'scroll', appId, () => this.backend.scroll(deltaX, deltaY, appId, signal)) }
-  async move(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'move', appId, () => this.backend.move(x, y, appId, signal)) }
+  async click(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'click', appId, signal, (boundedSignal) => this.backend.click(x, y, appId, boundedSignal)) }
+  async doubleClick(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'double_click', appId, signal, (boundedSignal) => this.backend.doubleClick(x, y, appId, boundedSignal)) }
+  async type(sessionId: string, text: string, appId?: string, signal = new AbortController().signal) { if (text.length > MAX_TEXT) throw new HbarError('COMPUTER_TEXT_LIMIT', 'Computer text input is too long'); return this.action(sessionId, 'type', appId, signal, (boundedSignal) => this.backend.type(text, appId, boundedSignal)) }
+  async key(sessionId: string, key: string, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'key', appId, signal, (boundedSignal) => this.backend.key(key, appId, boundedSignal)) }
+  async scroll(sessionId: string, deltaX: number, deltaY: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'scroll', appId, signal, (boundedSignal) => this.backend.scroll(deltaX, deltaY, appId, boundedSignal)) }
+  async move(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'move', appId, signal, (boundedSignal) => this.backend.move(x, y, appId, boundedSignal)) }
   async wait(sessionId: string, milliseconds: number, appId?: string, signal = new AbortController().signal) {
     await this.session(sessionId); this.authorize(appId)
-    await new Promise<void>((resolve, reject) => {
-      let settled = false
-      const timer = setTimeout(() => {
-        settled = true
-        signal.removeEventListener('abort', abort)
-        resolve()
-      }, milliseconds)
+    await this.bounded(signal, (boundedSignal) => new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, milliseconds)
       const abort = () => {
-        if (settled) return
-        settled = true
         clearTimeout(timer)
-        reject(signal.reason ?? new Error('Aborted'))
+        reject(boundedSignal.reason ?? new HbarError('COMPUTER_ABORTED', 'Computer operation was cancelled'))
       }
-      signal.addEventListener('abort', abort, { once: true })
-      if (signal.aborted) abort()
-    })
+      boundedSignal.addEventListener('abort', abort, { once: true })
+      if (boundedSignal.aborted) abort()
+    }))
     this.mark(sessionId, appId)
     return computerActionSchema.parse({ action: 'wait', accepted: true })
   }
-  async launch(sessionId: string, appId: string, signal = new AbortController().signal) { return this.action(sessionId, 'launch', appId, () => this.backend.launch(appId, signal)) }
+  async launch(sessionId: string, appId: string, signal = new AbortController().signal) { return this.action(sessionId, 'launch', appId, signal, (boundedSignal) => this.backend.launch(appId, boundedSignal)) }
 }
 
 const appArgs = z.object({ app_id: z.string().max(1_000).optional() })

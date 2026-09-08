@@ -68,3 +68,29 @@ test('computer wait observes cancellation without leaving a successful action', 
     expect(error instanceof Error ? error.message : String(error)).toContain('stop')
   }
 })
+
+test('computer actions enforce the configured timeout when a backend ignores cancellation', async () => {
+  const { api } = fakeApi()
+  let aborted = false
+  const backend = new FakeComputer() as unknown as ComputerBackend
+  backend.click = async (_x: number, _y: number, _appId: string | undefined, signal: AbortSignal) => {
+    await new Promise<void>((resolve) => {
+      signal.addEventListener('abort', () => {
+        aborted = true
+        resolve()
+      }, { once: true })
+    })
+  }
+  const runtime = new ComputerRuntime(
+    api,
+    computerConfigSchema.parse({ timeoutMs: 10, default_app_access: 'allow' }),
+    backend,
+  )
+  try {
+    await runtime.click('session-1', 1, 2)
+    throw new Error('expected timeout')
+  } catch (error) {
+    expect((error as { code?: string }).code).toBe('COMPUTER_TIMEOUT')
+  }
+  expect(aborted).toBeTrue()
+})
