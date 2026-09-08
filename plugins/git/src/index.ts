@@ -295,6 +295,7 @@ export class GitRuntime implements GitService {
     private readonly config: GitConfig,
     private readonly runner: GitRunner = new ProcessGitRunner(),
     private readonly allowExternalCwd = false,
+    private readonly onChanged?: (cwd: string) => void | Promise<void>,
   ) {
     this.rootPromise = realpath(root)
     this.worktreeRootPromise = config.worktreeRoot
@@ -303,7 +304,18 @@ export class GitRuntime implements GitService {
   }
 
   scoped(root: string) {
-    return new GitRuntime(root, this.config, this.runner, false)
+    return new GitRuntime(root, this.config, this.runner, false, this.onChanged)
+  }
+
+  private async notifyChanged(cwd: string) {
+    if (!this.onChanged) return
+    try {
+      await this.onChanged(cwd)
+    } catch (error) {
+      // Notifications are observational; a disconnected client must not turn
+      // a successful Git mutation into a failed command.
+      console.error('Git change notification failed:', error)
+    }
   }
 
   private async resolveWithinRoot(requested?: string) {
@@ -441,7 +453,9 @@ export class GitRuntime implements GitService {
     await this.run(path, args, signal)
     const head = (await this.run(path, ['rev-parse', 'HEAD'], signal)).stdout.trim()
     const commits = await this.log(path, 1, signal)
-    return gitCommitInfoSchema.parse(commits[0] ?? { sha: head, shortSha: head.slice(0, 7), author: '', authoredAt: '', subject: message.split(/\r?\n/, 1)[0] })
+    const result = gitCommitInfoSchema.parse(commits[0] ?? { sha: head, shortSha: head.slice(0, 7), author: '', authoredAt: '', subject: message.split(/\r?\n/, 1)[0] })
+    await this.notifyChanged(path)
+    return result
   }
 
   async branch(cwd: string | undefined, operation: GitBranchOperation = {}, signal?: AbortSignal): Promise<GitBranchInfo[] | GitBranchInfo> {
@@ -465,6 +479,7 @@ export class GitRuntime implements GitService {
     if (operation.operation === 'create') await this.run(path, ['switch', '-c', name], signal)
     else if (operation.operation === 'switch') await this.run(path, ['switch', name], signal)
     else await this.run(path, ['branch', operation.force ? '-D' : '-d', name], signal)
+    await this.notifyChanged(path)
     const listed = await this.branch(path, {}, signal)
     if (Array.isArray(listed)) return listed.find((item) => item.name === name) ?? listed[0] ?? gitBranchInfoSchema.parse({ name, current: false, remote: null, upstream: null, ahead: 0, behind: 0 })
     return listed
@@ -490,10 +505,12 @@ export class GitRuntime implements GitService {
       }
       args.push(target, ...(branch && !operation.createBranch ? [branch] : []))
       await this.run(path, args, signal)
+      await this.notifyChanged(path)
       const entries = (await this.worktree(path, {}, signal)) as GitWorktreeInfo[]
       return entries.find((item) => resolve(item.path) === target) ?? entries[entries.length - 1]!
     }
     await this.run(path, ['worktree', 'remove', ...(operation.operation === 'remove' && operation.force ? ['--force'] : []), target], signal)
+    await this.notifyChanged(path)
     return { path: target, head: null, branch: null, bare: false, locked: false, prunable: false }
   }
 
@@ -538,6 +555,7 @@ function scopedTool(runtime: GitRuntime, context: { workspace: { path: string } 
 
 export function gitTools(runtime: GitRuntime): ToolDefinition[] {
   return [
+    { name: 'git_info', description: 'Read the current Git commit, branch, and sanitized origin metadata.', inputSchema: cwdSchema, effect: 'read', execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).info(parsed.cwd, context.signal)) } },
     { name: 'git_status', description: 'Inspect the current Git repository status, branch, upstream, and sanitized origin URL.', inputSchema: cwdSchema, effect: 'read', execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).status(parsed.cwd, context.signal)) } },
     { name: 'git_diff', description: 'Read a bounded Git diff for the workspace. Paths are relative to the workspace.', inputSchema: diffArgs, effect: 'read', execute: async (args, context) => { const parsed = diffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diff(parsed.cwd, parsed, context.signal)) } },
     { name: 'git_log', description: 'Read recent Git commits from the workspace.', inputSchema: logArgs, effect: 'read', execute: async (args, context) => { const parsed = logArgs.parse(args); return toolResult(await scopedTool(runtime, context).log(parsed.cwd, parsed.limit, context.signal)) } },
@@ -555,7 +573,7 @@ export const gitPlugin = definePlugin({
     name: 'Codex Git management',
     version: '1.0.0',
     apiVersion: '^1.0.0',
-    description: 'Bounded Git status, diff, history, commit, branch, and worktree operations',
+    description: 'Bounded Git metadata, status, diff, history, commit, branch, and worktree operations',
     scope: 'host',
     required: true,
     provides: { git: '1.0.0' },
@@ -565,7 +583,9 @@ export const gitPlugin = definePlugin({
   async apply(ctx, rawConfig) {
     const config = gitConfigSchema.parse(rawConfig)
     const root = ctx.hbar.api.scope.kind === 'host' ? process.cwd() : process.cwd()
-    const runtime = new GitRuntime(root, config, new ProcessGitRunner(), true)
+    const runtime = new GitRuntime(root, config, new ProcessGitRunner(), true, (cwd) =>
+      ctx.hbar.api.notify({ method: 'git.changed', params: { cwd } }),
+    )
     provide<GitService>(ctx, 'git', runtime)
     for (const tool of gitTools(runtime)) ctx.hbar.api.tools.register(tool)
   },

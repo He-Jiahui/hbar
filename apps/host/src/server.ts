@@ -201,6 +201,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<GitService>('git').status(p.cwd)
       }
+      case 'git.info': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').info(p.cwd)
+      }
       case 'git.diff': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<GitService>('git').diff(p.cwd, p)

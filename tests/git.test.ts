@@ -47,7 +47,24 @@ test('Git status, history, and remote metadata are bounded and sanitized', async
   expect(status.dirty).toBeTrue()
   expect(status.entries.some((entry) => entry.path === 'dirty.txt')).toBeTrue()
   expect(status.originUrl).toBe('https://example.invalid/hbar.git')
+  expect(await runtime.info()).toEqual({
+    sha: status.head,
+    branch: status.branch,
+    originUrl: status.originUrl,
+  })
   expect((await runtime.log(root, 1))[0]?.subject).toBe('initial')
+})
+
+test('Git mutations emit an observational change notification after success', async () => {
+  const { root } = await fixture()
+  const changed: string[] = []
+  const runtime = new GitRuntime(root, gitConfigSchema.parse({}), undefined, false, (cwd) => {
+    changed.push(cwd)
+  })
+  await writeFile(join(root, 'notify.txt'), 'change\n')
+  await runtime.commit(root, { message: 'notify', paths: ['notify.txt'], stage: true })
+  expect(changed).toHaveLength(1)
+  expect(changed[0]?.replaceAll('\\', '/')).toBe(root.replaceAll('\\', '/'))
 })
 
 test('Git commit, branch, and worktree operations use validated paths', async () => {

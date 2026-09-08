@@ -19,6 +19,7 @@ import type {
   SessionBudget,
   GitStatus,
   GitDiff,
+  GitInfo,
   GitCommitInfo,
   GitBranchInfo,
   GitWorktreeInfo,
@@ -186,6 +187,7 @@ export type GitWorktreeOperation =
   | { operation: 'add'; path: string; branch?: string | undefined; createBranch?: boolean | undefined }
   | { operation: 'remove'; path: string; force?: boolean | undefined }
 export interface GitService {
+  info(cwd?: string, signal?: AbortSignal): Promise<GitInfo>
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
   diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>
   log(cwd?: string, limit?: number, signal?: AbortSignal): Promise<GitCommitInfo[]>

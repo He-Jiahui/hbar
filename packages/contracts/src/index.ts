@@ -593,6 +593,7 @@ export const rpcSchemas = {
   'budget.get': z.object({ sessionId: idSchema }),
   'budget.set': z.object({ sessionId: idSchema, limit: z.number().int().positive() }),
   'budget.clear': z.object({ sessionId: idSchema }),
+  'git.info': z.object({ cwd: z.string().min(1).max(4_000).optional() }),
   'git.status': z.object({ cwd: z.string().min(1).max(4_000).optional() }),
   'git.diff': z.object({
     cwd: z.string().min(1).max(4_000).optional(),
@@ -785,6 +786,7 @@ export interface RpcResults {
   'budget.get': SessionBudget | null
   'budget.set': SessionBudget
   'budget.clear': { cleared: boolean }
+  'git.info': GitInfo
   'git.status': GitStatus
   'git.diff': GitDiff
   'git.log': GitCommitInfo[]
