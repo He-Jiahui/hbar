@@ -92,6 +92,7 @@ test('plan mode request_user_input pauses the run and resumes with validated ans
     pending = (await kernel.snapshot(session.id)).userInputs[0]
   }
   expect(pending?.questions[0]?.id).toBe('scope')
+  expect(pending?.questions[0]?.isOther).toBe(false)
   expect(pending).toBeTruthy()
   expect(await kernel.resolveUserInput(pending!.requestId, { scope: { answers: ['App'] } })).toBeTrue()
   await kernel.waitForIdle()

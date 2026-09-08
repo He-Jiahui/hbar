@@ -862,7 +862,7 @@ export class Kernel {
       ...parsed,
       questions: parsed.questions.map((question) => ({
         ...question,
-        isOther: question.isOther ?? true,
+        isOther: question.isOther ?? false,
         isSecret: question.isSecret ?? false,
       })),
     })
