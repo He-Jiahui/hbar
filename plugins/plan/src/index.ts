@@ -3,6 +3,7 @@ import { HbarError, idSchema, planStateSchema, planStepSchema, runModeSchema } f
 import type { PlanState, PlanStep, RunMode, SessionEvent } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
+import { PLAN_MODE_INSTRUCTIONS } from './instructions.ts'
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
@@ -165,9 +166,7 @@ class PlanRuntime implements PlanService {
       : 'There is no saved plan yet.'
     const prompt = [
       '<plan_mode>',
-      'Explore and reason before making changes. Only read-only tools are available in this mode.',
-      'When the plan is ready, describe concise ordered steps and an optional explanation in your response. Do not make changes in this mode.',
-      'Do not claim implementation is complete while plan mode is active.',
+      PLAN_MODE_INSTRUCTIONS,
       prior,
       '</plan_mode>',
     ].join('\n')

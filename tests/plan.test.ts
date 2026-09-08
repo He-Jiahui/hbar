@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { PlanService } from '@hbar/plugin-sdk'
+import { PLAN_MODE_INSTRUCTIONS } from '../plugins/plan/src/instructions.ts'
 
 const resources: Array<{ root: string; kernel: Kernel }> = []
 
@@ -49,4 +50,11 @@ test('plan mode state survives a host restart', async () => {
   const restarted = await Kernel.create({ home: join(root, 'data'), demo: true, secrets: new MemorySecrets() })
   resources.push({ root, kernel: restarted })
   expect((await restarted.plugins.get<typeof mode>('mode').get(session.id)).mode).toBe('plan')
+})
+
+test('plan mode exposes the Codex collaboration rules separately from update_plan', () => {
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('You are in Plan Mode until a developer message explicitly ends it.')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('update_plan is a checklist and progress tool; it does not enter or exit Plan Mode.')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('Do not perform mutating actions.')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('<proposed_plan>')
 })
