@@ -229,6 +229,8 @@ api.registerComposerAction({
 
 `id` 在插件内必须稳定且唯一；工作台会按插件 ID 命名空间隔离贡献，并在插件停用时自动移除。`group` 可用 `session`、`context`、`tools` 或 `extensions`，`icon` 使用 SDK 白名单中的图标名。没有 `execute` 的 action 会在当前菜单中显示为不可用；插件可以显式提供 `disabled` 与 `disabledReason` 来表达当前会话不满足的前置条件。内置的 Goal、Plan、Budget、图片和文件入口也使用同一份契约，因此后续接入 Host 控制器不需要改菜单布局。
 
+内置文件入口会将普通文件上传为内容哈希 artifact，并把 `file` 内容块写入 Session 历史。每条消息的图片与文件合计最多 12 个，单个 artifact 最大 10 MiB；文本附件只以有界 UTF-8 文本交给模型，二进制附件保留元数据和受鉴权下载引用。图片继续按模型的 `imageInput` 能力校验，普通文件不会绕过该模型能力检查。
+
 模型输出的 Markdown 不允许安装插件或运行 JS。Client 插件是明确加载的可信软件，与模型输出属于不同信任来源。当前没有第三方插件沙箱。
 
 ## 验证示例

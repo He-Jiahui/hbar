@@ -32,7 +32,7 @@ Host 与 UI 的进程生命周期分离。React 业务组件通过 SDK 访问 Ho
 - 扩展点为 `context.build`、`model.request`、`tool.before`、`tool.after`、`step.end`、`run.end`。
 - 取消请求立即中止对应 AbortController。排队输入可单独取消。窗口关闭、浏览器断线不会取消 Run。
 
-默认限制：单 Run 20 分钟、64 个 Step，Shell 120 秒；文件读写 2 MiB，图片 10 MiB、每条输入最多 12 张，WS 输入帧 1 MiB、每个连接最多 32 个在途命令，慢客户端断开后以快照恢复。默认工具顺序执行。可信插件必须遵守 AbortSignal 和 disposer，故意忽略它们的插件需要未来的进程隔离才能强制约束。
+默认限制：单 Run 20 分钟、64 个 Step，Shell 120 秒；工作区文件读写 2 MiB，聊天附件 10 MiB、每条输入最多 12 个混合附件，文本附件传给模型前最多 120,000 个字符，WS 输入帧 1 MiB、每个连接最多 32 个在途命令，慢客户端断开后以快照恢复。默认工具顺序执行。可信插件必须遵守 AbortSignal 和 disposer，故意忽略它们的插件需要未来的进程隔离才能强制约束。
 
 ## 持久化与恢复
 
@@ -85,7 +85,7 @@ Markdown 使用 GFM 和 sanitize，禁用原始 HTML；外部图片不自动取�
 | Sub-agents            | 创建独立 Session；父子关系、取消传播、预算归属均由插件负责                               |
 | 团队                  | 依赖子代理；任务 DAG、成员和持久邮箱；基础 Session 不依赖团队                            |
 | 统计、Trace、diagnose | 当前已有用量、事件查看和只读诊断；聚合报表、完整 Trace 和修复流程后续插件扩展            |
-| 多模态                | 首版为图片输入与附件显示；音视频、生成、转码独立 provider                                |
+| 多模态                | 图片输入和受鉴权的混合文件附件；文本文件按上限注入模型，非图片附件以下载引用显示；音视频、生成、转码独立 provider |
 | IM、MCP               | 消息/工具适配插件；复用审批、幂等和运行入口；维护外部会话映射                            |
 | 终端                  | 后续 xterm.js + Bun PTY；当前 Shell 工具不是交互式终端                                   |
 | browser-use           | 受管浏览器 + Playwright，画面与输入通过 Host 转发；不依赖任意网站 iframe                 |
