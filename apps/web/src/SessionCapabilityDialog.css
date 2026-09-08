@@ -216,6 +216,27 @@
   margin-top: 0;
 }
 
+.composer-footer-model {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.composer-footer-model em {
+  flex: 0 0 auto;
+  color: #b9a677;
+  font-style: normal;
+}
+
+.composer-footer-model small {
+  min-width: 0;
+  overflow: hidden;
+  color: #727b8c;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 560px) {
   .session-capability-summary {
     grid-template-columns: 1fr;
@@ -241,3 +262,41 @@
     display: none;
   }
 }
+
+
+.icon-button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid transparent;
+  color: #aeb6c4;
+}
+
+.icon-button:hover {
+  border-color: #5b4a4b;
+  background: #3b3032;
+  color: #e2b5b6;
+}
+
+.composer-footer-model {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.composer-footer-model em {
+  flex: 0 0 auto;
+  color: #b9a677;
+  font-style: normal;
+}
+
+.composer-footer-model small {
+  min-width: 0;
+  overflow: hidden;
+  color: #727b8c;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
