@@ -17,7 +17,7 @@ class FakeBrowser implements BrowserBackend {
   pages = new Map<string, BrowserBackendPage>()
   actions: string[] = []
   available() { return true }
-  async navigate(contextId: string, pageId: string, url: string) {
+  async navigate(contextId: string, pageId: string, url: string, _signal: AbortSignal) {
     const page = { url, title: 'Example' }
     this.pages.set(`${contextId}:${pageId}`, page)
     return page
@@ -79,4 +79,51 @@ test('browser runtime refuses history and full CDP by default', async () => {
   } catch (error) {
     expect(error instanceof Error ? error.message : String(error)).toContain('denied')
   }
+})
+
+test('browser origin policies prefer exact origins over wildcard entries', () => {
+  const { api } = fakeApi()
+  const runtime = new BrowserRuntime(
+    api,
+    browserConfigSchema.parse({
+      default_origin_policy: { access: 'deny' },
+      origins: {
+        '*': { access: 'deny' },
+        'https://*.example.test': { access: 'ask' },
+        'https://app.example.test': { access: 'allow' },
+      },
+    }),
+    new FakeBrowser(),
+  )
+  expect(runtime.authorizeOrigin('https://app.example.test/').requirement).toBe('allow')
+  expect(runtime.authorizeOrigin('https://other.example.test/').requirement).toBe('ask')
+})
+
+test('browser operations enforce timeout even when a backend ignores cancellation', async () => {
+  const { api } = fakeApi()
+  let aborted = false
+  class ObservingBrowser extends FakeBrowser {
+    override async navigate(_contextId: string, _pageId: string, _url: string, signal: AbortSignal) {
+      await new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => {
+          aborted = true
+          resolve()
+        }, { once: true })
+      })
+      return { url: 'https://example.test/', title: 'Example' }
+    }
+  }
+  const backend = new ObservingBrowser()
+  const runtime = new BrowserRuntime(
+    api,
+    browserConfigSchema.parse({ timeoutMs: 10, default_origin_policy: { access: 'allow' } }),
+    backend,
+  )
+  try {
+    await runtime.navigate('session-1', 'https://example.test/')
+    throw new Error('expected timeout')
+  } catch (error) {
+    expect((error as { code?: string }).code).toBe('BROWSER_TIMEOUT')
+  }
+  expect(aborted).toBeTrue()
 })

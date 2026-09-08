@@ -6,11 +6,7 @@ import {
   browserSnapshotSchema,
   browserUseConfigSchema,
 } from '@hbar/contracts'
-import type {
-  BrowserPage,
-  BrowserSnapshot,
-  BrowserUseConfig as ContractBrowserConfig,
-} from '@hbar/contracts'
+import type { BrowserPage, BrowserSnapshot, BrowserUseConfig as ContractBrowserConfig } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { BrowserUseService, HbarAPI, ToolDefinition } from '@hbar/plugin-sdk'
 
@@ -38,9 +34,26 @@ export interface BrowserBackend {
   navigate(contextId: string, pageId: string, url: string, signal: AbortSignal): Promise<BrowserBackendPage>
   snapshot(contextId: string, pageId: string, signal: AbortSignal): Promise<{ text: string }>
   click(contextId: string, pageId: string, selector: string, signal: AbortSignal): Promise<BrowserBackendPage>
-  type(contextId: string, pageId: string, selector: string, text: string, signal: AbortSignal): Promise<BrowserBackendPage>
-  press(contextId: string, pageId: string, key: string, selector: string | undefined, signal: AbortSignal): Promise<BrowserBackendPage>
-  screenshot(contextId: string, pageId: string, fullPage: boolean, signal: AbortSignal): Promise<{ mime: string; data: string }>
+  type(
+    contextId: string,
+    pageId: string,
+    selector: string,
+    text: string,
+    signal: AbortSignal,
+  ): Promise<BrowserBackendPage>
+  press(
+    contextId: string,
+    pageId: string,
+    key: string,
+    selector: string | undefined,
+    signal: AbortSignal,
+  ): Promise<BrowserBackendPage>
+  screenshot(
+    contextId: string,
+    pageId: string,
+    fullPage: boolean,
+    signal: AbortSignal,
+  ): Promise<{ mime: string; data: string }>
   evaluate(contextId: string, pageId: string, expression: string, signal: AbortSignal): Promise<unknown>
   close(contextId: string, pageId?: string, signal?: AbortSignal): Promise<void>
   history(contextId: string): Promise<string[]>
@@ -66,7 +79,10 @@ function textFromHtml(html: string) {
 }
 
 async function responseText(response: Response, limit: number) {
-  if (!response.body) return { text: await response.text(), truncated: false }
+  if (!response.body) {
+    const text = await response.text()
+    return { text: text.slice(0, limit), truncated: text.length > limit }
+  }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let text = ''
@@ -83,11 +99,44 @@ async function responseText(response: Response, limit: number) {
         break
       }
     }
-    text += decoder.decode()
+    if (!truncated) text += decoder.decode()
   } finally {
     reader.releaseLock()
   }
   return { text, truncated }
+}
+
+function boundedSignal(parent: AbortSignal, timeoutMs: number) {
+  const controller = new AbortController()
+  let rejectTimeout: ((reason?: unknown) => void) | undefined
+  let rejectAbort: ((reason?: unknown) => void) | undefined
+  const timeoutError = new HbarError('BROWSER_TIMEOUT', 'Browser operation timed out')
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    rejectTimeout = reject
+  })
+  const abortPromise = new Promise<never>((_, reject) => {
+    rejectAbort = reject
+  })
+  const timeout = setTimeout(() => {
+    controller.abort(timeoutError)
+    rejectTimeout?.(timeoutError)
+  }, timeoutMs)
+  const abort = () => {
+    const reason: unknown = (parent.reason as unknown) ?? new HbarError('BROWSER_ABORTED', 'Browser operation was cancelled')
+    controller.abort(reason)
+    rejectAbort?.(reason)
+  }
+  parent.addEventListener('abort', abort, { once: true })
+  if (parent.aborted) abort()
+  return {
+    signal: controller.signal,
+    timeout: timeoutPromise,
+    aborted: abortPromise,
+    dispose: () => {
+      clearTimeout(timeout)
+      parent.removeEventListener('abort', abort)
+    },
+  }
 }
 
 /** A useful no-dependency backend for navigation and text snapshots. */
@@ -103,7 +152,11 @@ export class FetchBrowserBackend implements BrowserBackend {
     const body = await responseText(response, MAX_SNAPSHOT)
     signal.throwIfAborted()
     const html = body.text
-    const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, ' ').trim() ?? ''
+    const title =
+      html
+        .match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]
+        ?.replace(/\s+/g, ' ')
+        .trim() ?? ''
     const page = { url: response.url || url, title, text: textFromHtml(html) }
     this.pages.set(`${contextId}:${pageId}`, page)
     const history = this.histories.get(contextId) ?? []
@@ -116,12 +169,23 @@ export class FetchBrowserBackend implements BrowserBackend {
     if (!page) throw new HbarError('BROWSER_PAGE_NOT_FOUND', 'Navigate a page before requesting a snapshot')
     return { text: page.text }
   }
-  click() { return unavailable('Click') }
-  type() { return unavailable('Typing') }
-  press() { return unavailable('Key presses') }
-  screenshot() { return unavailable('Screenshots') }
-  evaluate() { return unavailable('Evaluation') }
-  async close(contextId: string, pageId?: string) {
+  click() {
+    return unavailable('Click')
+  }
+  type() {
+    return unavailable('Typing')
+  }
+  press() {
+    return unavailable('Key presses')
+  }
+  screenshot() {
+    return unavailable('Screenshots')
+  }
+  evaluate() {
+    return unavailable('Evaluation')
+  }
+  async close(contextId: string, pageId?: string, signal?: AbortSignal) {
+    signal?.throwIfAborted()
     if (pageId) this.pages.delete(`${contextId}:${pageId}`)
     else for (const key of this.pages.keys()) if (key.startsWith(`${contextId}:`)) this.pages.delete(key)
     if (!pageId) this.histories.delete(contextId)
@@ -157,16 +221,36 @@ function originMatches(pattern: string, origin: string) {
     const actual = new URL(origin)
     if (expected.protocol !== actual.protocol) return false
     const host = expected.hostname
+    if (expected.port && expected.port !== actual.port) return false
     return host.startsWith('*.')
-      ? (actual.hostname === host.slice(2) || actual.hostname.endsWith(`.${host.slice(2)}`))
+      ? actual.hostname === host.slice(2) || actual.hostname.endsWith(`.${host.slice(2)}`)
       : expected.hostname === actual.hostname && expected.port === actual.port
   } catch {
     return false
   }
 }
 
+function originSpecificity(pattern: string, origin: string) {
+  if (pattern === origin) return 3
+  if (pattern === '*') return 0
+  try {
+    const expected = new URL(pattern)
+    const actual = new URL(origin)
+    if (expected.protocol !== actual.protocol || (expected.port && expected.port !== actual.port)) return -1
+    if (expected.hostname.startsWith('*.')) {
+      const suffix = expected.hostname.slice(2)
+      return actual.hostname === suffix || actual.hostname.endsWith(`.${suffix}`) ? 1 : -1
+    }
+    return expected.hostname === actual.hostname && expected.port === actual.port ? 2 : -1
+  } catch {
+    return -1
+  }
+}
+
 function policyValue(config: BrowserConfig, origin: string, capability: OriginCapability) {
-  const matching = Object.entries(config.origins).find(([pattern]) => originMatches(pattern, origin))?.[1]
+  const matching = Object.entries(config.origins)
+    .filter(([pattern]) => originMatches(pattern, origin))
+    .sort(([left], [right]) => originSpecificity(right, origin) - originSpecificity(left, origin))[0]?.[1]
   const fallback = config.default_origin_policy as ContractBrowserConfig['default_origin_policy']
   return matching?.[capability] ?? fallback[capability] ?? (capability === 'full_cdp_access' ? 'deny' : 'ask')
 }
@@ -183,6 +267,15 @@ export class BrowserRuntime implements BrowserUseService {
     private readonly backend: BrowserBackend = backendFactory(),
   ) {}
 
+  private async bounded<T>(parent: AbortSignal, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const bounded = boundedSignal(parent, this.config.timeoutMs)
+    try {
+      return await Promise.race([Promise.resolve().then(() => operation(bounded.signal)), bounded.timeout, bounded.aborted])
+    } finally {
+      bounded.dispose()
+    }
+  }
+
   private async session(sessionId: string) {
     await this.api.sessions.get(sessionId)
   }
@@ -194,7 +287,8 @@ export class BrowserRuntime implements BrowserUseService {
     const contextId = requested ?? `browser-${crypto.randomUUID()}`
     let pages = sessions.get(contextId)
     if (!pages) {
-      if (sessions.size >= this.config.maxContexts) throw new HbarError('BROWSER_CONTEXT_LIMIT', 'Browser context limit reached')
+      if (sessions.size >= this.config.maxContexts)
+        throw new HbarError('BROWSER_CONTEXT_LIMIT', 'Browser context limit reached')
       pages = new Map()
       sessions.set(contextId, pages)
     }
@@ -213,25 +307,41 @@ export class BrowserRuntime implements BrowserUseService {
   authorizeOrigin(value: string, capability: OriginCapability = 'access') {
     const url = validUrl(value)
     const requirement = policyValue(this.config, url.origin, capability)
-    if (requirement === 'deny') throw new HbarError('BROWSER_ORIGIN_DENIED', `${capability} is denied for ${url.origin}`)
+    if (requirement === 'deny')
+      throw new HbarError('BROWSER_ORIGIN_DENIED', `${capability} is denied for ${url.origin}`)
     return { url, requirement }
   }
 
   async status(sessionId: string) {
     await this.session(sessionId)
     const sessions = this.contexts.get(sessionId) ?? new Map<string, Map<string, PageState>>()
-    const contexts = [...sessions.values()].flatMap((pages) => [...pages.values()].map(({ sessionId: _sessionId, ...page }) => page))
-    const history = [...new Set((await Promise.all([...sessions.keys()].map((id) => this.backend.history(id)))).flat())].slice(-100)
-    return { available: await this.backend.available(), contexts, history }
+    const contexts = [...sessions.values()].flatMap((pages) =>
+      [...pages.values()].map(({ sessionId: _sessionId, ...page }) => page),
+    )
+    const signal = new AbortController().signal
+    const history = [
+      ...new Set((await Promise.all([...sessions.keys()].map((id) => this.bounded(signal, () => this.backend.history(id))))).flat()),
+    ].slice(-100)
+    return { available: await this.bounded(signal, () => Promise.resolve(this.backend.available())), contexts, history }
   }
 
-  async navigate(sessionId: string, value: string, requestedContext?: string, requestedPage?: string, signal = new AbortController().signal) {
+  async navigate(
+    sessionId: string,
+    value: string,
+    requestedContext?: string,
+    requestedPage?: string,
+    signal = new AbortController().signal,
+  ) {
     const { url } = this.authorizeOrigin(value)
     const { sessions, contextId, pages } = await this.context(sessionId, requestedContext)
-    if (requestedPage && !pages.has(requestedPage)) throw new HbarError('BROWSER_PAGE_NOT_FOUND', 'Browser page not found')
-    if (!requestedPage && pages.size >= this.config.maxPagesPerContext) throw new HbarError('BROWSER_PAGE_LIMIT', 'Browser page limit reached')
+    if (requestedPage && !pages.has(requestedPage))
+      throw new HbarError('BROWSER_PAGE_NOT_FOUND', 'Browser page not found')
+    if (!requestedPage && pages.size >= this.config.maxPagesPerContext)
+      throw new HbarError('BROWSER_PAGE_LIMIT', 'Browser page limit reached')
     const pageId = requestedPage ?? `page-${crypto.randomUUID()}`
-    const result = await this.backend.navigate(contextId, pageId, url.href, signal)
+    const result = await this.bounded(signal, (boundedSignal) =>
+      this.backend.navigate(contextId, pageId, url.href, boundedSignal),
+    )
     this.authorizeOrigin(result.url)
     const page = browserPageSchema.parse({ contextId, pageId, url: result.url, title: result.title })
     pages.set(pageId, { ...page, sessionId })
@@ -241,59 +351,124 @@ export class BrowserRuntime implements BrowserUseService {
     return page
   }
 
-  async snapshot(sessionId: string, contextId?: string, pageId?: string, signal = new AbortController().signal): Promise<BrowserSnapshot> {
+  async snapshot(
+    sessionId: string,
+    contextId?: string,
+    pageId?: string,
+    signal = new AbortController().signal,
+  ): Promise<BrowserSnapshot> {
     const located = this.page(sessionId, contextId, pageId)
-    const result = await this.backend.snapshot(located.contextId, located.state.pageId, signal)
+    const result = await this.bounded(signal, (boundedSignal) =>
+      this.backend.snapshot(located.contextId, located.state.pageId, boundedSignal),
+    )
     const text = result.text.slice(0, this.config.maxSnapshotChars)
     return browserSnapshotSchema.parse({ page: located.state, text, truncated: result.text.length > text.length })
   }
 
-  async click(sessionId: string, selector: string, contextId?: string, pageId?: string, signal = new AbortController().signal) {
+  async click(
+    sessionId: string,
+    selector: string,
+    contextId?: string,
+    pageId?: string,
+    signal = new AbortController().signal,
+  ) {
     const located = this.page(sessionId, contextId, pageId)
-    const result = await this.backend.click(located.contextId, located.state.pageId, selector, signal)
+    const result = await this.bounded(signal, (boundedSignal) =>
+      this.backend.click(located.contextId, located.state.pageId, selector, boundedSignal),
+    )
     return this.updatePage(located, result)
   }
 
-  async type(sessionId: string, selector: string, text: string, contextId?: string, pageId?: string, signal = new AbortController().signal) {
+  async type(
+    sessionId: string,
+    selector: string,
+    text: string,
+    contextId?: string,
+    pageId?: string,
+    signal = new AbortController().signal,
+  ) {
     const located = this.page(sessionId, contextId, pageId)
-    const result = await this.backend.type(located.contextId, located.state.pageId, selector, text, signal)
+    const result = await this.bounded(signal, (boundedSignal) =>
+      this.backend.type(located.contextId, located.state.pageId, selector, text, boundedSignal),
+    )
     return this.updatePage(located, result)
   }
 
-  async press(sessionId: string, key: string, selector?: string, contextId?: string, pageId?: string, signal = new AbortController().signal) {
+  async press(
+    sessionId: string,
+    key: string,
+    selector?: string,
+    contextId?: string,
+    pageId?: string,
+    signal = new AbortController().signal,
+  ) {
     const located = this.page(sessionId, contextId, pageId)
-    const result = await this.backend.press(located.contextId, located.state.pageId, key, selector, signal)
+    const result = await this.bounded(signal, (boundedSignal) =>
+      this.backend.press(located.contextId, located.state.pageId, key, selector, boundedSignal),
+    )
     return this.updatePage(located, result)
   }
 
   private updatePage(located: ReturnType<BrowserRuntime['page']>, result: BrowserBackendPage) {
-    const page = browserPageSchema.parse({ contextId: located.contextId, pageId: located.state.pageId, url: result.url, title: result.title })
+    const page = browserPageSchema.parse({
+      contextId: located.contextId,
+      pageId: located.state.pageId,
+      url: result.url,
+      title: result.title,
+    })
     located.pages.set(page.pageId, { ...page, sessionId: located.state.sessionId })
-    this.api.notify({ method: 'browser.changed', params: { sessionId: located.state.sessionId, contextId: located.contextId } })
+    this.api.notify({
+      method: 'browser.changed',
+      params: { sessionId: located.state.sessionId, contextId: located.contextId },
+    })
     this.api.changed('browser')
     return page
   }
 
-  async screenshot(sessionId: string, fullPage = false, contextId?: string, pageId?: string, signal = new AbortController().signal) {
+  async screenshot(
+    sessionId: string,
+    fullPage = false,
+    contextId?: string,
+    pageId?: string,
+    signal = new AbortController().signal,
+  ) {
     const located = this.page(sessionId, contextId, pageId)
-    const result = await this.backend.screenshot(located.contextId, located.state.pageId, fullPage, signal)
+    const result = await this.bounded(signal, (boundedSignal) =>
+      this.backend.screenshot(located.contextId, located.state.pageId, fullPage, boundedSignal),
+    )
     const bytes = Buffer.byteLength(result.data, 'base64')
-    if (bytes > this.config.maxScreenshotBytes) throw new HbarError('BROWSER_SCREENSHOT_LIMIT', 'Browser screenshot exceeds the configured limit')
-    return browserScreenshotSchema.parse({ page: located.state, mime: result.mime, data: result.data, truncated: false })
+    if (bytes > this.config.maxScreenshotBytes)
+      throw new HbarError('BROWSER_SCREENSHOT_LIMIT', 'Browser screenshot exceeds the configured limit')
+    return browserScreenshotSchema.parse({
+      page: located.state,
+      mime: result.mime,
+      data: result.data,
+      truncated: false,
+    })
   }
 
-  async evaluate(sessionId: string, expression: string, contextId?: string, pageId?: string, signal = new AbortController().signal) {
+  async evaluate(
+    sessionId: string,
+    expression: string,
+    contextId?: string,
+    pageId?: string,
+    signal = new AbortController().signal,
+  ) {
     const located = this.page(sessionId, contextId, pageId)
     this.authorizeOrigin(located.state.url, 'full_cdp_access')
-    const value = await this.backend.evaluate(located.contextId, located.state.pageId, expression, signal)
-    if (JSON.stringify(value).length > this.config.maxSnapshotChars) throw new HbarError('BROWSER_RESULT_LIMIT', 'Browser evaluation result is too large')
+    const value = await this.bounded(signal, (boundedSignal) =>
+      this.backend.evaluate(located.contextId, located.state.pageId, expression, boundedSignal),
+    )
+    if (JSON.stringify(value).length > this.config.maxSnapshotChars)
+      throw new HbarError('BROWSER_RESULT_LIMIT', 'Browser evaluation result is too large')
     return { value }
   }
 
   async close(sessionId: string, contextId?: string, pageId?: string, signal = new AbortController().signal) {
     await this.session(sessionId)
     if (!contextId) {
-      for (const id of this.contexts.get(sessionId)?.keys() ?? []) await this.backend.close(id, undefined, signal)
+      for (const id of this.contexts.get(sessionId)?.keys() ?? [])
+        await this.bounded(signal, (boundedSignal) => this.backend.close(id, undefined, boundedSignal))
       const closed = this.contexts.delete(sessionId)
       if (closed) this.api.changed('browser')
       return { closed }
@@ -301,7 +476,7 @@ export class BrowserRuntime implements BrowserUseService {
     const sessions = this.contexts.get(sessionId)
     const pages = sessions?.get(contextId)
     if (!pages) return { closed: false }
-    await this.backend.close(contextId, pageId, signal)
+    await this.bounded(signal, (boundedSignal) => this.backend.close(contextId, pageId, boundedSignal))
     if (pageId) pages.delete(pageId)
     else sessions?.delete(contextId)
     if (sessions && sessions.size === 0) this.contexts.delete(sessionId)
@@ -312,10 +487,12 @@ export class BrowserRuntime implements BrowserUseService {
 
   async history(sessionId: string, contextId?: string) {
     await this.session(sessionId)
-    if (!this.config.allow_history_access) throw new HbarError('BROWSER_HISTORY_DENIED', 'Browser history access is disabled')
+    if (!this.config.allow_history_access)
+      throw new HbarError('BROWSER_HISTORY_DENIED', 'Browser history access is disabled')
     const sessions = this.contexts.get(sessionId)
     const ids = contextId ? [contextId] : [...(sessions?.keys() ?? [])]
-    return [...new Set((await Promise.all(ids.map((id) => this.backend.history(id)))).flat())].slice(-100)
+    const signal = new AbortController().signal
+    return [...new Set((await Promise.all(ids.map((id) => this.bounded(signal, () => this.backend.history(id))))).flat())].slice(-100)
   }
 
   async dispose() {
@@ -326,24 +503,140 @@ export class BrowserRuntime implements BrowserUseService {
   }
 }
 
-const contextArgs = z.object({ context_id: z.string().min(1).max(160).optional(), page_id: z.string().min(1).max(160).optional() })
+const contextArgs = z.object({
+  context_id: z.string().min(1).max(160).optional(),
+  page_id: z.string().min(1).max(160).optional(),
+})
 function result(value: unknown) {
   return { text: JSON.stringify(value), details: value }
 }
 
 export function browserTools(runtime: BrowserRuntime): ToolDefinition[] {
   return [
-    { name: 'browser_status', description: 'List active browser contexts and pages.', inputSchema: z.object({}), effect: 'network', execute: async (_args, c) => result(await runtime.status(c.session.id)) },
-    { name: 'browser_navigate', description: 'Navigate a browser page to an approved HTTP(S) origin.', inputSchema: z.object({ url: z.string().url().max(4_000), ...contextArgs.shape }), effect: 'network', execute: async (args, c) => { const p = z.object({ url: z.string(), ...contextArgs.shape }).parse(args); return result(await runtime.navigate(c.session.id, p.url, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_snapshot', description: 'Read a bounded text snapshot of the current page.', inputSchema: contextArgs, effect: 'network', execute: async (args, c) => { const p = contextArgs.parse(args); return result(await runtime.snapshot(c.session.id, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_click', description: 'Click a selector in the current browser page.', inputSchema: z.object({ selector: z.string().min(1).max(4_000), ...contextArgs.shape }), effect: 'network', execute: async (args, c) => { const p = z.object({ selector: z.string(), ...contextArgs.shape }).parse(args); return result(await runtime.click(c.session.id, p.selector, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_type', description: 'Type bounded text into a selector in the current browser page.', inputSchema: z.object({ selector: z.string().min(1).max(4_000), text: z.string().max(16_000), ...contextArgs.shape }), effect: 'network', execute: async (args, c) => { const p = z.object({ selector: z.string(), text: z.string(), ...contextArgs.shape }).parse(args); return result(await runtime.type(c.session.id, p.selector, p.text, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_press_key', description: 'Press a key in the current browser page.', inputSchema: z.object({ key: z.string().min(1).max(100), selector: z.string().max(4_000).optional(), ...contextArgs.shape }), effect: 'network', execute: async (args, c) => { const p = z.object({ key: z.string(), selector: z.string().optional(), ...contextArgs.shape }).parse(args); return result(await runtime.press(c.session.id, p.key, p.selector, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_press', description: 'Alias for browser_press_key.', inputSchema: z.object({ key: z.string().min(1).max(100), selector: z.string().max(4_000).optional(), ...contextArgs.shape }), effect: 'network', execute: async (args, c) => { const p = z.object({ key: z.string(), selector: z.string().optional(), ...contextArgs.shape }).parse(args); return result(await runtime.press(c.session.id, p.key, p.selector, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_screenshot', description: 'Capture the current browser page as an image.', inputSchema: z.object({ full_page: z.boolean().default(false), ...contextArgs.shape }), effect: 'network', execute: async (args, c) => { const p = z.object({ full_page: z.boolean().default(false), ...contextArgs.shape }).parse(args); const shot = await runtime.screenshot(c.session.id, p.full_page, p.context_id, p.page_id, c.signal); return { text: `Browser screenshot ${shot.page.url}`, content: [{ type: 'image' as const, data: shot.data, mimeType: shot.mime }], details: shot } } },
-    { name: 'browser_evaluate', description: 'Evaluate an expression only when full CDP access is allowed for the page origin.', inputSchema: z.object({ expression: z.string().min(1).max(16_000), ...contextArgs.shape }), effect: 'network', execute: async (args, c) => { const p = z.object({ expression: z.string(), ...contextArgs.shape }).parse(args); return result(await runtime.evaluate(c.session.id, p.expression, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_close', description: 'Close a browser page or context.', inputSchema: contextArgs, effect: 'network', execute: async (args, c) => { const p = contextArgs.parse(args); return result(await runtime.close(c.session.id, p.context_id, p.page_id, c.signal)) } },
-    { name: 'browser_history', description: 'Read browser history only when allow_history_access is enabled.', inputSchema: z.object({ context_id: z.string().min(1).max(160).optional() }), effect: 'network', execute: async (args, c) => { const p = z.object({ context_id: z.string().optional() }).parse(args); return result(await runtime.history(c.session.id, p.context_id)) } },
+    {
+      name: 'browser_status',
+      description: 'List active browser contexts and pages.',
+      inputSchema: z.object({}),
+      effect: 'network',
+      execute: async (_args, c) => result(await runtime.status(c.session.id)),
+    },
+    {
+      name: 'browser_navigate',
+      description: 'Navigate a browser page to an approved HTTP(S) origin.',
+      inputSchema: z.object({ url: z.string().url().max(4_000), ...contextArgs.shape }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ url: z.string(), ...contextArgs.shape }).parse(args)
+        return result(await runtime.navigate(c.session.id, p.url, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_snapshot',
+      description: 'Read a bounded text snapshot of the current page.',
+      inputSchema: contextArgs,
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = contextArgs.parse(args)
+        return result(await runtime.snapshot(c.session.id, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_click',
+      description: 'Click a selector in the current browser page.',
+      inputSchema: z.object({ selector: z.string().min(1).max(4_000), ...contextArgs.shape }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ selector: z.string(), ...contextArgs.shape }).parse(args)
+        return result(await runtime.click(c.session.id, p.selector, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_type',
+      description: 'Type bounded text into a selector in the current browser page.',
+      inputSchema: z.object({
+        selector: z.string().min(1).max(4_000),
+        text: z.string().max(16_000),
+        ...contextArgs.shape,
+      }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ selector: z.string(), text: z.string(), ...contextArgs.shape }).parse(args)
+        return result(await runtime.type(c.session.id, p.selector, p.text, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_press_key',
+      description: 'Press a key in the current browser page.',
+      inputSchema: z.object({
+        key: z.string().min(1).max(100),
+        selector: z.string().max(4_000).optional(),
+        ...contextArgs.shape,
+      }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ key: z.string(), selector: z.string().optional(), ...contextArgs.shape }).parse(args)
+        return result(await runtime.press(c.session.id, p.key, p.selector, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_press',
+      description: 'Alias for browser_press_key.',
+      inputSchema: z.object({
+        key: z.string().min(1).max(100),
+        selector: z.string().max(4_000).optional(),
+        ...contextArgs.shape,
+      }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ key: z.string(), selector: z.string().optional(), ...contextArgs.shape }).parse(args)
+        return result(await runtime.press(c.session.id, p.key, p.selector, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_screenshot',
+      description: 'Capture the current browser page as an image.',
+      inputSchema: z.object({ full_page: z.boolean().default(false), ...contextArgs.shape }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ full_page: z.boolean().default(false), ...contextArgs.shape }).parse(args)
+        const shot = await runtime.screenshot(c.session.id, p.full_page, p.context_id, p.page_id, c.signal)
+        return {
+          text: `Browser screenshot ${shot.page.url}`,
+          content: [{ type: 'image' as const, data: shot.data, mimeType: shot.mime }],
+          details: shot,
+        }
+      },
+    },
+    {
+      name: 'browser_evaluate',
+      description: 'Evaluate an expression only when full CDP access is allowed for the page origin.',
+      inputSchema: z.object({ expression: z.string().min(1).max(16_000), ...contextArgs.shape }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ expression: z.string(), ...contextArgs.shape }).parse(args)
+        return result(await runtime.evaluate(c.session.id, p.expression, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_close',
+      description: 'Close a browser page or context.',
+      inputSchema: contextArgs,
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = contextArgs.parse(args)
+        return result(await runtime.close(c.session.id, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_history',
+      description: 'Read browser history only when allow_history_access is enabled.',
+      inputSchema: z.object({ context_id: z.string().min(1).max(160).optional() }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ context_id: z.string().optional() }).parse(args)
+        return result(await runtime.history(c.session.id, p.context_id))
+      },
+    },
   ]
 }
 
