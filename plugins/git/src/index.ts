@@ -46,6 +46,7 @@ export interface GitCommandResult {
   stderr: string
   code: number
   truncated: boolean
+  timedOut?: boolean
 }
 
 export interface GitRunner {
@@ -108,6 +109,7 @@ export class ProcessGitRunner implements GitRunner {
       windowsHide: true,
     })
     const state = { truncated: false }
+    let timedOut = false
     let terminating: Promise<void> | undefined
     const terminate = () =>
       (terminating ??= (async () => {
@@ -125,7 +127,10 @@ export class ProcessGitRunner implements GitRunner {
       })())
     const onAbort = () => void terminate().catch(() => {})
     signal.addEventListener('abort', onAbort, { once: true })
-    const timeout = setTimeout(onAbort, limits.timeoutMs)
+    const timeout = setTimeout(() => {
+      timedOut = true
+      onAbort()
+    }, limits.timeoutMs)
     try {
       const perStream = Math.max(1, Math.floor(limits.maxOutputBytes / 2))
       const [stdout, stderr, code] = await Promise.all([
@@ -135,7 +140,7 @@ export class ProcessGitRunner implements GitRunner {
       ])
       if (terminating) await terminating
       signal.throwIfAborted()
-      return { stdout, stderr, code, truncated: state.truncated }
+      return { stdout, stderr, code, truncated: state.truncated, timedOut }
     } finally {
       clearTimeout(timeout)
       signal.removeEventListener('abort', onAbort)
@@ -329,6 +334,7 @@ export class GitRuntime implements GitService {
       timeoutMs: this.config.timeoutMs,
       maxOutputBytes: this.config.maxOutputBytes,
     })
+    if (result.timedOut) throw new HbarError('GIT_TIMEOUT', `Git command exceeded ${this.config.timeoutMs}ms`)
     if (result.code !== 0)
       throw new HbarError('GIT_COMMAND_FAILED', result.stderr.trim() || result.stdout.trim() || `git exited with ${result.code}`)
     return result

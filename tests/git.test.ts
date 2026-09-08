@@ -85,6 +85,20 @@ test('Git command runner never turns a path into shell syntax', async () => {
   expect(calls[0]).toContain('name;touch-owned-file')
 })
 
+test('Git command timeout is surfaced distinctly from repository failures', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-git-timeout-'))
+  roots.push(root)
+  const runtime = new GitRuntime(root, gitConfigSchema.parse({ timeoutMs: 10 }), {
+    run: async () => ({ stdout: '', stderr: '', code: 143, truncated: false, timedOut: true }),
+  })
+  try {
+    await runtime.diff(root)
+    throw new Error('expected git timeout')
+  } catch (error) {
+    expect((error as { code?: string }).code).toBe('GIT_TIMEOUT')
+  }
+})
+
 test('Git branch tracking keeps exact ahead and behind counts', async () => {
   const { root, runtime } = await fixture()
   const remote = await mkdtemp(join(tmpdir(), 'hbar-git-remote-'))
