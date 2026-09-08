@@ -124,6 +124,11 @@
     flex-direction: column;
   }
 
+  .settings-search {
+    flex: 0 0 auto;
+    min-height: 32px;
+  }
+
   .model-filter {
     width: 100%;
   }

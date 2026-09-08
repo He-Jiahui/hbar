@@ -24,7 +24,7 @@ async function login(context: BrowserContext, page: Page) {
 async function visible(locator: Locator) {
   for (let index = 0; index < await locator.count(); index += 1) {
     const candidate = locator.nth(index)
-    if (await candidate.boundingBox()) return candidate
+    if (await candidate.isVisible()) return candidate
   }
   throw new Error('Expected a visible locator')
 }
