@@ -89,6 +89,26 @@ export default {
 
 通过 `api.react` 使用工作台同一个 React 实例，避免将第二个 React 打包进插件。`api.client` 是带类型的网络接口；`api.config` 是已经校验的配置。`registerPanel`、`registerRenderer`、`onEvent` 和 `effect` 都会在停用、配置变化时释放。内容渲染器接受 source 字符串，插件应自行校验它的 JSON 或领域格式。
 
+Client 插件也可以向 Session composer 左下角的 `+` 菜单贡献能力：
+
+```typescript
+api.registerComposerAction({
+  id: 'review',
+  label: 'Review changes',
+  description: 'Inspect the current diff',
+  group: 'extensions',
+  icon: 'puzzle',
+  keywords: ['review', 'diff'],
+  requiresSession: true,
+  execute({ sessionId }) {
+    if (!sessionId) return
+    // Call a typed Client method or open a plugin-owned panel here.
+  },
+})
+```
+
+`id` 在插件内必须稳定且唯一；工作台会按插件 ID 命名空间隔离贡献，并在插件停用时自动移除。`group` 可用 `session`、`context`、`tools` 或 `extensions`，`icon` 使用 SDK 白名单中的图标名。没有 `execute` 的 action 会在当前菜单中显示为不可用；插件可以显式提供 `disabled` 与 `disabledReason` 来表达当前会话不满足的前置条件。内置的 Goal、Plan、Budget、图片和文件入口也使用同一份契约，因此后续接入 Host 控制器不需要改菜单布局。
+
 模型输出的 Markdown 不允许安装插件或运行 JS。Client 插件是明确加载的可信软件，与模型输出属于不同信任来源。当前没有第三方插件沙箱。
 
 ## 验证示例

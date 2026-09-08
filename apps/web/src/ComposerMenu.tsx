@@ -184,7 +184,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
                         <strong>{action.label}</strong>
                         {action.description && <small>{action.description}</small>}
                       </span>
-                      {action.disabled && <span className="composer-menu-status">接入中</span>}
+                      {action.disabled && <span className="composer-menu-status">不可用</span>}
                     </button>
                   )
                 })}

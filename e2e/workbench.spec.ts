@@ -33,6 +33,27 @@ async function send(page: Page, text: string) {
   await page.getByRole('button', { name: '发送', exact: true }).filter({ visible: true }).click()
 }
 
+test('composer plus menu exposes mode and attachment capabilities', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const plus = page.getByRole('button', { name: '添加能力', exact: true }).filter({ visible: true })
+    await plus.click()
+    await expect(page.getByRole('menu', { name: '会话能力', exact: true })).toBeVisible()
+    for (const label of ['Goal 模式', 'Plan 模式', 'Budget 模式', '添加图片', '添加文件'])
+      await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Goal 模式', exact: true })).toBeDisabled()
+    await expect(page.getByRole('menuitem', { name: '添加文件', exact: true })).toBeDisabled()
+
+    const chooserPromise = page.waitForEvent('filechooser')
+    await page.getByRole('menuitem', { name: '添加图片', exact: true }).click()
+    const chooser = await chooserPromise
+    expect(chooser.isMultiple()).toBe(true)
+    expect(await page.getByRole('menu', { name: '会话能力', exact: true }).count()).toBe(0)
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('desktop pairs, sends Chinese input, approves a tool, recovers layout and cancels a run', async ({ page }) => {
   const fixture = await controller()
   const errors: string[] = []
