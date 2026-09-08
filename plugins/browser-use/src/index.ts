@@ -9,6 +9,9 @@ import {
 import type { BrowserPage, BrowserSnapshot, BrowserUseConfig as ContractBrowserConfig } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { BrowserUseService, HbarAPI, ToolDefinition } from '@hbar/plugin-sdk'
+import { AutoBrowserBackend, PlaywrightBrowserBackend } from './playwright-backend.ts'
+
+export { AutoBrowserBackend, PlaywrightBrowserBackend } from './playwright-backend.ts'
 
 const MAX_CONTEXTS = 8
 const MAX_PAGES = 16
@@ -16,6 +19,9 @@ const MAX_SNAPSHOT = 256_000
 const MAX_SCREENSHOT = 2_000_000
 
 export const browserConfigSchema = browserUseConfigSchema.extend({
+  backend: z.enum(['auto', 'fetch', 'playwright']).default('auto'),
+  headless: z.boolean().default(true),
+  executablePath: z.string().min(1).max(4_000).optional(),
   maxContexts: z.number().int().positive().max(MAX_CONTEXTS).default(4),
   maxPagesPerContext: z.number().int().positive().max(MAX_PAGES).default(8),
   maxSnapshotChars: z.number().int().positive().max(MAX_SNAPSHOT).default(MAX_SNAPSHOT),
@@ -57,6 +63,7 @@ export interface BrowserBackend {
   evaluate(contextId: string, pageId: string, expression: string, signal: AbortSignal): Promise<unknown>
   close(contextId: string, pageId?: string, signal?: AbortSignal): Promise<void>
   history(contextId: string): Promise<string[]>
+  dispose?(): Promise<void> | void
 }
 
 function unavailable(operation: string): never {
@@ -195,9 +202,21 @@ export class FetchBrowserBackend implements BrowserBackend {
   }
 }
 
-let backendFactory: () => BrowserBackend = () => new FetchBrowserBackend()
+let backendFactory: (() => BrowserBackend) | undefined
 export function setBrowserBackendFactory(factory: () => BrowserBackend) {
   backendFactory = factory
+}
+
+function defaultBrowserBackend(config: BrowserConfig): BrowserBackend {
+  const playwright = new PlaywrightBrowserBackend({
+    headless: config.headless,
+    ...(config.executablePath ? { executablePath: config.executablePath } : {}),
+    timeoutMs: config.timeoutMs,
+  })
+  if (config.backend === 'playwright') return playwright
+  const fetchBackend = new FetchBrowserBackend()
+  if (config.backend === 'fetch') return fetchBackend
+  return new AutoBrowserBackend(playwright, fetchBackend)
 }
 
 type OriginCapability = 'access' | 'downloads' | 'uploads' | 'full_cdp_access'
@@ -261,11 +280,14 @@ interface PageState extends BrowserPage {
 
 export class BrowserRuntime implements BrowserUseService {
   private contexts = new Map<string, Map<string, Map<string, PageState>>>()
+  private readonly backend: BrowserBackend
   constructor(
     private readonly api: HbarAPI,
     private readonly config: BrowserConfig,
-    private readonly backend: BrowserBackend = backendFactory(),
-  ) {}
+    backend?: BrowserBackend,
+  ) {
+    this.backend = backend ?? backendFactory?.() ?? defaultBrowserBackend(config)
+  }
 
   private async bounded<T>(parent: AbortSignal, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const bounded = boundedSignal(parent, this.config.timeoutMs)
@@ -312,13 +334,12 @@ export class BrowserRuntime implements BrowserUseService {
     return { url, requirement }
   }
 
-  async status(sessionId: string) {
+  async status(sessionId: string, signal = new AbortController().signal) {
     await this.session(sessionId)
     const sessions = this.contexts.get(sessionId) ?? new Map<string, Map<string, PageState>>()
     const contexts = [...sessions.values()].flatMap((pages) =>
       [...pages.values()].map(({ sessionId: _sessionId, ...page }) => page),
     )
-    const signal = new AbortController().signal
     const history = this.config.allow_history_access
       ? [
           ...new Set(
@@ -489,13 +510,12 @@ export class BrowserRuntime implements BrowserUseService {
     return { closed: true }
   }
 
-  async history(sessionId: string, contextId?: string) {
+  async history(sessionId: string, contextId?: string, signal = new AbortController().signal) {
     await this.session(sessionId)
     if (!this.config.allow_history_access)
       throw new HbarError('BROWSER_HISTORY_DENIED', 'Browser history access is disabled')
     const sessions = this.contexts.get(sessionId)
     const ids = contextId ? [contextId] : [...(sessions?.keys() ?? [])]
-    const signal = new AbortController().signal
     return [...new Set((await Promise.all(ids.map((id) => this.bounded(signal, () => this.backend.history(id))))).flat())].slice(-100)
   }
 
@@ -504,6 +524,7 @@ export class BrowserRuntime implements BrowserUseService {
       for (const contextId of sessions.keys()) await this.backend.close(contextId).catch(() => {})
       this.contexts.delete(sessionId)
     }
+    await this.backend.dispose?.()
   }
 }
 
@@ -522,7 +543,7 @@ export function browserTools(runtime: BrowserRuntime): ToolDefinition[] {
       description: 'List active browser contexts and pages.',
       inputSchema: z.object({}),
       effect: 'network',
-      execute: async (_args, c) => result(await runtime.status(c.session.id)),
+      execute: async (_args, c) => result(await runtime.status(c.session.id, c.signal)),
     },
     {
       name: 'browser_navigate',
@@ -638,7 +659,7 @@ export function browserTools(runtime: BrowserRuntime): ToolDefinition[] {
       effect: 'network',
       execute: async (args, c) => {
         const p = z.object({ context_id: z.string().optional() }).parse(args)
-        return result(await runtime.history(c.session.id, p.context_id))
+        return result(await runtime.history(c.session.id, p.context_id, c.signal))
       },
     },
   ]

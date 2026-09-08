@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { BrowserRuntime, browserConfigSchema } from '../plugins/browser-use/src/index.ts'
+import { BrowserRuntime, PlaywrightBrowserBackend, browserConfigSchema } from '../plugins/browser-use/src/index.ts'
 import type { BrowserBackend, BrowserBackendPage } from '../plugins/browser-use/src/index.ts'
 import type { HbarAPI } from '@hbar/plugin-sdk'
 
@@ -127,4 +127,19 @@ test('browser operations enforce timeout even when a backend ignores cancellatio
     expect((error as { code?: string }).code).toBe('BROWSER_TIMEOUT')
   }
   expect(aborted).toBeTrue()
+})
+
+test('playwright backend reports a missing browser executable explicitly', async () => {
+  const backend = new PlaywrightBrowserBackend({
+    headless: true,
+    executablePath: 'C:/hbar/missing-playwright-browser.exe',
+    timeoutMs: 10,
+  })
+  expect(await backend.available()).toBeFalse()
+  try {
+    await backend.navigate('context', 'page', 'https://example.test/', new AbortController().signal)
+    throw new Error('expected unavailable backend')
+  } catch (error) {
+    expect((error as { code?: string }).code).toBe('BROWSER_BACKEND_UNAVAILABLE')
+  }
 })

@@ -203,7 +203,7 @@ export interface GitService {
   diffToRemote(cwd?: string, signal?: AbortSignal): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {
-  status(sessionId: string): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
+  status(sessionId: string, signal?: AbortSignal): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
   navigate(
     sessionId: string,
     url: string,
@@ -250,7 +250,7 @@ export interface BrowserUseService {
     signal?: AbortSignal,
   ): Promise<{ value: unknown }>
   close(sessionId: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<{ closed: boolean }>
-  history(sessionId: string, contextId?: string): Promise<string[]>
+  history(sessionId: string, contextId?: string, signal?: AbortSignal): Promise<string[]>
 }
 export interface ComputerUseService {
   status(sessionId: string): Promise<{ available: boolean; platform: string; appId: string | null }>
