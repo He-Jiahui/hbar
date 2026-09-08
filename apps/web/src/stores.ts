@@ -262,6 +262,32 @@ function onEvent(event: WireNotification) {
     })
     if (gap && useWorkbench.getState().activeSession === event.params.sessionId)
       void openSession(event.params.sessionId).catch(report)
+  } else if (event.method === 'user_input.requested') {
+    useSessions.setState((state) => {
+      const snapshot = state.snapshots[event.params.sessionId]
+      const userInputs = snapshot?.userInputs ?? []
+      if (!snapshot || userInputs.some((item) => item.requestId === event.params.requestId)) return state
+      return {
+        snapshots: {
+          ...state.snapshots,
+          [event.params.sessionId]: { ...snapshot, userInputs: [...userInputs, event.params] },
+        },
+      }
+    })
+  } else if (event.method === 'user_input.resolved') {
+    useSessions.setState((state) => {
+      const snapshot = state.snapshots[event.params.sessionId]
+      if (!snapshot) return state
+      return {
+        snapshots: {
+          ...state.snapshots,
+          [event.params.sessionId]: {
+            ...snapshot,
+            userInputs: (snapshot.userInputs ?? []).filter((item) => item.requestId !== event.params.requestId),
+          },
+        },
+      }
+    })
   } else if (event.method === 'session.event') applyEvent(event.params)
 }
 export function applyEvent(event: SessionEvent) {

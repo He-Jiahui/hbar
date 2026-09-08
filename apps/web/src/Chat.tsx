@@ -16,7 +16,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
-import type { ArtifactRef, ContentBlock, Message, UserInput } from '@hbar/contracts'
+import type { ArtifactRef, ContentBlock, Message, UserInput, UserInputRequest } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
   client,
@@ -82,6 +82,103 @@ function approvalSummary(tool: string, args: Record<string, unknown>): string {
   if (typeof args.path === 'string') return `${tool} · ${args.path}`
   if (typeof args.command === 'string') return `${tool} · ${args.command}`
   return tool
+}
+function UserInputPrompt({ request }: { request: UserInputRequest }) {
+  const [selected, setSelected] = useState<Record<string, string>>({})
+  const [other, setOther] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  async function submit() {
+    const answers = Object.fromEntries(
+      request.questions.map((question) => {
+        const value = selected[question.id] === '__other__' ? other[question.id] : selected[question.id]
+        return [question.id, { answers: value?.trim() ? [value.trim()] : [] }]
+      }),
+    )
+    if (request.questions.some((question) => !answers[question.id]?.answers.length)) {
+      setError('请回答所有问题')
+      return
+    }
+    setError('')
+    setSaving(true)
+    try {
+      const result = await client().call('user_input.resolve', { requestId: request.requestId, answers })
+      if (!result.accepted) setError('问题已由其他客户端处理或已取消')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <section className="user-input-prompt" aria-label="需要你的回答">
+      <div className="user-input-heading">
+        <strong>需要你的回答</strong>
+        <span>{request.questions.length} 个问题</span>
+      </div>
+      <div className="user-input-questions">
+        {request.questions.map((question) => (
+          <fieldset key={question.id}>
+            <legend>
+              <span>{question.header}</span>
+              {question.question}
+            </legend>
+            <div className="user-input-options">
+              {question.options.map((option) => (
+                <label key={option.label} className="user-input-option">
+                  <input
+                    type="radio"
+                    name={`${request.requestId}:${question.id}`}
+                    value={option.label}
+                    checked={selected[question.id] === option.label}
+                    disabled={saving}
+                    onChange={() => setSelected((current) => ({ ...current, [question.id]: option.label }))}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </label>
+              ))}
+              {question.isOther !== false && (
+                <label className="user-input-option">
+                  <input
+                    type="radio"
+                    name={`${request.requestId}:${question.id}`}
+                    value="__other__"
+                    checked={selected[question.id] === '__other__'}
+                    disabled={saving}
+                    onChange={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
+                  />
+                  <span>
+                    <strong>其他</strong>
+                    <input
+                      type={question.isSecret ? 'password' : 'text'}
+                      value={other[question.id] ?? ''}
+                      disabled={saving}
+                      placeholder="填写其他答案"
+                      onFocus={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
+                      onChange={(event) => {
+                        setSelected((current) => ({ ...current, [question.id]: '__other__' }))
+                        setOther((current) => ({ ...current, [question.id]: event.target.value }))
+                      }}
+                    />
+                  </span>
+                </label>
+              )}
+            </div>
+          </fieldset>
+        ))}
+      </div>
+      {error && <p className="inline-error">{error}</p>}
+      <div className="user-input-actions">
+        <button type="button" className="button primary" disabled={saving} onClick={() => void submit()}>
+          {saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
+          提交回答
+        </button>
+      </div>
+    </section>
+  )
 }
 function MessageView({ message }: { message: Message }) {
   const [copied, setCopied] = useState(false)
@@ -231,7 +328,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
       return () => cancelAnimationFrame(id)
     }
     return undefined
-  }, [sessionId, totalSize, streamText, snapshot?.approvals.length])
+  }, [sessionId, totalSize, streamText, snapshot?.approvals.length, snapshot?.userInputs.length])
   const setDraft = (text: string) =>
     useWorkbench.setState((state) => ({ drafts: { ...state.drafts, [sessionId || 'new']: text } }))
   async function send() {
@@ -441,6 +538,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
         </button>
       )}
       <div className="composer-area">
+        {(snapshot?.userInputs ?? []).map((request) => <UserInputPrompt key={request.requestId} request={request} />)}
         {snapshot?.approvals.map((approval) => (
           <section className="approval" key={approval.id}>
             <div className="approval-heading">
