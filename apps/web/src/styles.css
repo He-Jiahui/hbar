@@ -1094,6 +1094,14 @@ p {
   object-fit: cover;
   border-radius: 2px;
 }
+.attachment-chip-icon {
+  flex: 0 0 auto;
+  color: #9dbbff;
+}
+.attachment-chip-file {
+  min-width: 150px;
+  padding-left: 6px;
+}
 .attachment-chip span {
   overflow: hidden;
   text-overflow: ellipsis;

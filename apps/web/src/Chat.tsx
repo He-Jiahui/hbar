@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Copy,
   FileCode2,
+  FileText,
   GitBranch,
   LoaderCircle,
   ShieldCheck,
@@ -177,11 +178,14 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
   const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
   const [images, setImages] = useState<ArtifactRef[]>([]),
+    [files, setFiles] = useState<ArtifactRef[]>([]),
     [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
+  const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
   const [atBottom, setAtBottom] = useState(true)
   const scroll = useRef<HTMLDivElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
+    pendingAttachmentKind = useRef<'image' | 'file'>('image'),
     composing = useRef(false),
     stick = useRef(true)
   const pendingRequest = useRef<{ key: string; requestId: string } | null>(null)
@@ -231,7 +235,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
   const setDraft = (text: string) =>
     useWorkbench.setState((state) => ({ drafts: { ...state.drafts, [sessionId || 'new']: text } }))
   async function send() {
-    if (busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length)) return
+    if (busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length && !files.length)) return
     if (!modelId) {
       onSettings()
       return
@@ -245,7 +249,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
         await refreshCatalog()
         await openSession(target)
       }
-      const input: UserInput = { text: draft, images, approval: approvalMode }
+      const input: UserInput = { text: draft, images, files, approval: approvalMode }
       const key = JSON.stringify({ target, input, modelId })
       if (pendingRequest.current?.key !== key) pendingRequest.current = { key, requestId: newRequestId() }
       await client().call('run.start', {
@@ -257,6 +261,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
       pendingRequest.current = null
       setDraft('')
       setImages([])
+      setFiles([])
       stick.current = true
       if (!snapshot) await openSession(target)
     } catch (error) {
@@ -265,16 +270,29 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
       setBusy(false)
     }
   }
-  async function attach(files: FileList | null) {
-    if (!files) return
+  async function attach(selected: FileList | null) {
+    if (!selected) return
+    const capacity = 12 - images.length - files.length
+    if (capacity <= 0) {
+      report(new Error('一条消息最多附加 12 个文件'))
+      if (fileInput.current) fileInput.current.value = ''
+      return
+    }
     setUploading(true)
+    const uploadedImages: ArtifactRef[] = []
+    const uploadedFiles: ArtifactRef[] = []
     try {
-      const uploaded: ArtifactRef[] = []
-      for (const file of [...files].slice(0, 12 - images.length)) uploaded.push(await client().upload(file))
-      setImages((current) => [...current, ...uploaded])
+      for (const file of [...selected].slice(0, capacity)) {
+        const artifact = await client().upload(file)
+        if (pendingAttachmentKind.current === 'image' && artifact.mime.startsWith('image/'))
+          uploadedImages.push(artifact)
+        else uploadedFiles.push(artifact)
+      }
     } catch (error) {
       report(error)
     } finally {
+      if (uploadedImages.length) setImages((current) => [...current, ...uploadedImages])
+      if (uploadedFiles.length) setFiles((current) => [...current, ...uploadedFiles])
       setUploading(false)
       if (fileInput.current) fileInput.current.value = ''
     }
@@ -285,13 +303,17 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
       return
     }
     if (!action.execute) return
+    if (action.id === 'add-image') pendingAttachmentKind.current = 'image'
+    else if (action.id === 'add-file') pendingAttachmentKind.current = 'file'
     void Promise.resolve(
       action.execute({
         ...(sessionId ? { sessionId } : {}),
         ...(workspaceId ? { workspaceId } : {}),
         openFilePicker: (options) => {
           if (fileInput.current) {
-            fileInput.current.accept = options?.accept ?? IMAGE_ACCEPT
+            const accept = options?.accept ?? (pendingAttachmentKind.current === 'file' ? '*/*' : IMAGE_ACCEPT)
+            setPickerAccept(accept)
+            fileInput.current.accept = accept
             fileInput.current.multiple = options?.multiple ?? true
             fileInput.current.click()
           }
@@ -396,6 +418,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
               onClick={() => {
                 setDraft(lastRun.input.text)
                 setImages(lastRun.input.images)
+                setFiles(lastRun.input.files ?? [])
               }}
             >
               重新编辑
@@ -488,7 +511,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
             void send()
           }}
         >
-          {images.length > 0 && (
+          {(images.length > 0 || files.length > 0) && (
             <div className="attachment-strip">
               {images.map((image) => (
                 <div className="attachment-chip" key={image.id}>
@@ -499,6 +522,20 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
                     title="移除图片"
                     aria-label="移除图片"
                     onClick={() => setImages((list) => list.filter((item) => item.id !== image.id))}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              {files.map((file) => (
+                <div className="attachment-chip attachment-chip-file" key={`file:${file.id}`}>
+                  <FileText size={18} className="attachment-chip-icon" aria-hidden="true" />
+                  <span title={file.name}>{file.name}</span>
+                  <button
+                    type="button"
+                    title={`移除文件 ${file.name}`}
+                    aria-label={`移除文件 ${file.name}`}
+                    onClick={() => setFiles((list) => list.filter((item) => item.id !== file.id))}
                   >
                     <X size={12} />
                   </button>
@@ -533,7 +570,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
                 className="visually-hidden"
                 ref={fileInput}
                 type="file"
-                accept={IMAGE_ACCEPT}
+                accept={pickerAccept}
                 multiple
                 onChange={(event) => void attach(event.target.files)}
               />
@@ -559,7 +596,11 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
                 title={activeRun ? '加入队列' : '发送'}
                 aria-label="发送"
                 disabled={
-                  busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length) || !workspaceId
+                  busy ||
+                  uploading ||
+                  sessionInfo?.archived ||
+                  (!draft.trim() && !images.length && !files.length) ||
+                  !workspaceId
                 }
               >
                 {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}

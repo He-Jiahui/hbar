@@ -1,9 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { ComposerAction } from '@hbar/ui-sdk'
-import {
-  BUILTIN_COMPOSER_ACTIONS,
-  buildComposerActions,
-} from './composer-actions'
+import { BUILTIN_COMPOSER_ACTIONS, buildComposerActions } from './composer-actions'
 import { filterComposerActions } from './ComposerMenu'
 
 const available = {
@@ -17,15 +14,9 @@ const available = {
 describe('composer capability actions', () => {
   test('keeps the mode and attachment actions in a stable order', () => {
     const actions = buildComposerActions([], available)
-    expect(actions.map((action) => action.id)).toEqual([
-      'goal',
-      'plan',
-      'budget',
-      'add-image',
-      'add-file',
-    ])
+    expect(actions.map((action) => action.id)).toEqual(['goal', 'plan', 'budget', 'add-image', 'add-file'])
     expect(actions.find((action) => action.id === 'add-image')?.disabled).toBeUndefined()
-    expect(actions.find((action) => action.id === 'add-file')?.disabled).toBe(true)
+    expect(actions.find((action) => action.id === 'add-file')?.disabled).toBeUndefined()
     expect(actions.find((action) => action.id === 'goal')?.disabled).toBeUndefined()
     expect(actions.find((action) => action.id === 'plan')?.disabled).toBeUndefined()
     expect(actions.find((action) => action.id === 'budget')?.disabled).toBeUndefined()
@@ -47,6 +38,22 @@ describe('composer capability actions', () => {
     expect(byId.goal?.disabled).toBe(true)
     expect(byId.plan?.disabledReason).toBe('请先打开一个会话')
     expect(byId['add-image']?.disabled).toBeUndefined()
+    expect(byId['add-file']?.disabled).toBeUndefined()
+  })
+
+  test('opens image and generic file pickers with the matching filters', async () => {
+    const opened: { accept?: string; multiple?: boolean }[] = []
+    const context = {
+      openFilePicker: (options?: { accept?: string; multiple?: boolean }) => opened.push(options ?? {}),
+    }
+    for (const id of ['add-image', 'add-file']) {
+      const action = BUILTIN_COMPOSER_ACTIONS.find((item) => item.id === id)
+      await action?.execute?.(context)
+    }
+    expect(opened).toEqual([
+      { accept: 'image/png,image/jpeg,image/webp,image/gif', multiple: true },
+      { accept: '*/*', multiple: true },
+    ])
   })
 
   test('searches labels, descriptions and plugin keywords', () => {

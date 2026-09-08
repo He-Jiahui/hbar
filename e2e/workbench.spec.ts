@@ -42,8 +42,17 @@ test('composer plus menu exposes mode and attachment capabilities', async ({ pag
     for (const label of ['Goal 模式', 'Plan 模式', 'Budget 模式', '添加图片', '添加文件'])
       await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Goal 模式', exact: true })).toBeDisabled()
-    await expect(page.getByRole('menuitem', { name: '添加文件', exact: true })).toBeDisabled()
+    await expect(page.getByRole('menuitem', { name: '添加文件', exact: true })).toBeEnabled()
 
+    const fileChooserPromise = page.waitForEvent('filechooser')
+    await page.getByRole('menuitem', { name: '添加文件', exact: true }).click()
+    const fileChooser = await fileChooserPromise
+    expect(fileChooser.isMultiple()).toBe(true)
+    await fileChooser.setFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('attachment') })
+    await expect(page.locator('.attachment-chip-file')).toBeVisible()
+    await page.getByRole('button', { name: '移除文件 notes.txt', exact: true }).click()
+
+    await plus.click()
     const chooserPromise = page.waitForEvent('filechooser')
     await page.getByRole('menuitem', { name: '添加图片', exact: true }).click()
     const chooser = await chooserPromise

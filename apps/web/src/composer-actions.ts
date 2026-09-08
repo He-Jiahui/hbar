@@ -54,8 +54,7 @@ export const BUILTIN_COMPOSER_ACTIONS: readonly ComposerAction[] = [
     group: 'context',
     icon: 'file',
     keywords: ['file', '文件', 'attach', '附件'],
-    disabled: true,
-    disabledReason: '通用文件附件将在下一阶段开放',
+    execute: ({ openFilePicker }) => openFilePicker({ accept: '*/*', multiple: true }),
   },
 ]
 
@@ -70,14 +69,11 @@ export function buildComposerActions(
   const builtins = BUILTIN_COMPOSER_ACTIONS.map((action) => {
     if (action.id === 'add-image' && !availability.canAttachImages)
       return disabledAction(action, '当前模型或连接不支持图片附件')
-    if (action.id === 'goal' && availability.hasGoalPlugin === false)
-      return disabledAction(action, 'Goal 插件未启用')
-    if (action.id === 'plan' && availability.hasPlanPlugin === false)
-      return disabledAction(action, 'Plan 插件未启用')
+    if (action.id === 'goal' && availability.hasGoalPlugin === false) return disabledAction(action, 'Goal 插件未启用')
+    if (action.id === 'plan' && availability.hasPlanPlugin === false) return disabledAction(action, 'Plan 插件未启用')
     if (action.id === 'budget' && availability.hasBudgetPlugin === false)
       return disabledAction(action, 'Budget 插件未启用')
-    if (action.requiresSession && !availability.hasSession)
-      return disabledAction(action, '请先打开一个会话')
+    if (action.requiresSession && !availability.hasSession) return disabledAction(action, '请先打开一个会话')
     return action
   })
   const extensions = contributed.map((action) => {
