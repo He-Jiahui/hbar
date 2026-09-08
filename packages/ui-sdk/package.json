@@ -4,6 +4,11 @@
   "type": "module",
   "private": true,
   "exports": "./src/index.ts",
+  "dependencies": {
+    "@hbar/client": "workspace:*",
+    "@hbar/contracts": "workspace:*",
+    "@hbar/terminal": "workspace:*"
+  },
   "peerDependencies": {
     "react": "^19.0.0"
   }

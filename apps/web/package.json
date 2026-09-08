@@ -5,6 +5,8 @@
   "type": "module",
   "dependencies": {
     "@hbar/client": "workspace:*",
-    "@hbar/contracts": "workspace:*"
+    "@hbar/contracts": "workspace:*",
+    "@hbar/terminal": "workspace:*",
+    "@hbar/ui-sdk": "workspace:*"
   }
 }

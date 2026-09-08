@@ -1,4 +1,4 @@
-import { test, expect, type Page, type BrowserContext } from '@playwright/test'
+import { test, expect, type Locator, type Page, type BrowserContext } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { HbarClient } from '../packages/client/src/index'
 
@@ -21,14 +21,22 @@ async function login(context: BrowserContext, page: Page) {
   return fixture
 }
 
+async function visible(locator: Locator) {
+  for (let index = 0; index < await locator.count(); index += 1) {
+    const candidate = locator.nth(index)
+    if (await candidate.boundingBox()) return candidate
+  }
+  throw new Error('Expected a visible locator')
+}
+
 test('session capability actions open the Goal, Plan, and Budget panel', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
-    const newSession = page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true }).first()
+    const newSession = await visible(page.locator('button[aria-label="新建会话"]'))
     await newSession.click()
     await expect(page.locator('.chat-panel').filter({ visible: true })).toBeVisible()
 
-    const plus = page.getByRole('button', { name: '添加能力', exact: true }).filter({ visible: true })
+    const plus = await visible(page.locator('button[aria-label="添加能力"]'))
     await plus.click()
     await expect(page.getByRole('menuitem', { name: 'Goal 模式', exact: true })).toBeEnabled()
     await page.getByRole('menuitem', { name: 'Goal 模式', exact: true }).click()

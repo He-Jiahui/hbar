@@ -1,13 +1,13 @@
-export type TerminalCommandGroup = 'session' | 'run' | 'model' | 'extensions' | 'system'
-
-export interface TerminalCommand {
-  id: string
-  title: string
-  description: string
-  usage: string
-  aliases?: readonly string[] | undefined
-  group: TerminalCommandGroup
-}
+import type { TerminalCommand, TerminalKeybinding } from '@hbar/contracts'
+export type {
+  TerminalCommand,
+  TerminalCommandGroup,
+  TerminalCommandResult,
+  TerminalContribution,
+  TerminalEvent,
+  TerminalKeybinding,
+  TerminalSnapshot,
+} from '@hbar/contracts'
 
 export interface CommandInvocation {
   command: string
@@ -15,21 +15,13 @@ export interface CommandInvocation {
   source: string
 }
 
-export type TerminalInput =
-  | { kind: 'message'; text: string }
-  | { kind: 'command'; invocation: CommandInvocation }
+export type TerminalInput = { kind: 'message'; text: string } | { kind: 'command'; invocation: CommandInvocation }
 
 export interface CompletionCandidate {
   value: string
   label: string
   description?: string | undefined
   kind: 'command' | 'argument' | 'session' | 'model' | 'plugin' | 'skill'
-}
-
-export interface KeyBinding {
-  key: string
-  command: string
-  when?: string | undefined
 }
 
 export interface ApprovalPrompt {
@@ -39,17 +31,7 @@ export interface ApprovalPrompt {
   args: Record<string, unknown>
 }
 
-export type TerminalEvent =
-  | { type: 'status'; message: string }
-  | { type: 'markdown'; markdown: string; append?: boolean | undefined }
-  | { type: 'approval'; prompt: ApprovalPrompt }
-  | { type: 'error'; message: string }
-  | { type: 'session.changed'; sessionId: string }
-
-export type TerminalCommandHandler<Context> = (
-  invocation: CommandInvocation,
-  context: Context,
-) => void | Promise<void>
+export type TerminalCommandHandler<Context> = (invocation: CommandInvocation, context: Context) => void | Promise<void>
 
 interface RegisteredCommand<Context> {
   command: TerminalCommand
@@ -84,7 +66,10 @@ export class CommandRegistry<Context> {
   complete(prefix: string): CompletionCandidate[] {
     const normalized = normalizeName(prefix)
     return this.list()
-      .filter((command) => command.id.startsWith(normalized) || command.aliases?.some((alias) => alias.startsWith(normalized)))
+      .filter(
+        (command) =>
+          command.id.startsWith(normalized) || command.aliases?.some((alias) => alias.startsWith(normalized)),
+      )
       .map((command) => ({
         value: `/${command.id}`,
         label: command.usage,
@@ -134,6 +119,7 @@ function tokenize(source: string): string[] {
 
 export function parseTerminalInput(source: string): TerminalInput {
   const value = source.trim()
+  if (value.startsWith('//')) return { kind: 'message', text: value.slice(1) }
   if (!value.startsWith('/')) return { kind: 'message', text: value }
   const [command = '', ...args] = tokenize(value.slice(1))
   return { kind: 'command', invocation: { command: normalizeName(command), args, source: value } }
@@ -143,20 +129,63 @@ export const BUILTIN_TERMINAL_COMMANDS = [
   { id: 'help', title: 'Help', description: 'List keyboard and slash commands', usage: '/help', group: 'system' },
   { id: 'new', title: 'New session', description: 'Create and select a session', usage: '/new', group: 'session' },
   { id: 'sessions', title: 'Sessions', description: 'List project sessions', usage: '/sessions', group: 'session' },
-  { id: 'switch', title: 'Switch session', description: 'Select a session', usage: '/switch <id|name>', aliases: ['resume'], group: 'session' },
+  {
+    id: 'switch',
+    title: 'Switch session',
+    description: 'Select a session',
+    usage: '/switch <id|name>',
+    aliases: ['resume'],
+    group: 'session',
+  },
   { id: 'fork', title: 'Fork session', description: 'Fork the current session', usage: '/fork', group: 'session' },
-  { id: 'archive', title: 'Archive session', description: 'Archive the current session', usage: '/archive', group: 'session' },
+  {
+    id: 'archive',
+    title: 'Archive session',
+    description: 'Archive the current session',
+    usage: '/archive',
+    group: 'session',
+  },
   { id: 'model', title: 'Model', description: 'List or select a model', usage: '/model [id|name]', group: 'model' },
-  { id: 'thinking', title: 'Thinking', description: 'Set the reasoning level', usage: '/thinking <level>', group: 'model' },
+  {
+    id: 'thinking',
+    title: 'Thinking',
+    description: 'Set the reasoning level',
+    usage: '/thinking <level>',
+    group: 'model',
+  },
   { id: 'compact', title: 'Compact', description: 'Compact the current context', usage: '/compact', group: 'run' },
-  { id: 'approve', title: 'Approve', description: 'Approve a pending tool call', usage: '/approve [approval-id]', group: 'run' },
+  {
+    id: 'approve',
+    title: 'Approve',
+    description: 'Approve a pending tool call',
+    usage: '/approve [approval-id]',
+    group: 'run',
+  },
   { id: 'deny', title: 'Deny', description: 'Deny a pending tool call', usage: '/deny [approval-id]', group: 'run' },
   { id: 'stop', title: 'Stop', description: 'Cancel the current session run', usage: '/stop', group: 'run' },
   { id: 'retry', title: 'Retry', description: 'Repeat the last message', usage: '/retry', group: 'run' },
-  { id: 'export', title: 'Export', description: 'Export canonical session JSONL', usage: '/export [path]', group: 'session' },
-  { id: 'plugins', title: 'Plugins', description: 'Inspect and manage plugins', usage: '/plugins [action]', group: 'extensions' },
+  {
+    id: 'export',
+    title: 'Export',
+    description: 'Export canonical session JSONL',
+    usage: '/export [path]',
+    group: 'session',
+  },
+  {
+    id: 'plugins',
+    title: 'Plugins',
+    description: 'Inspect and manage plugins',
+    usage: '/plugins [action]',
+    group: 'extensions',
+  },
   { id: 'skills', title: 'Skills', description: 'List global skills', usage: '/skills', group: 'extensions' },
-  { id: 'settings', title: 'Settings', description: 'Inspect or change settings', usage: '/settings [approval <mode>]', group: 'system' },
+  {
+    id: 'settings',
+    title: 'Settings',
+    description: 'Inspect or change settings',
+    usage: '/settings [approval <mode>]',
+    group: 'system',
+  },
   { id: 'paths', title: 'Paths', description: 'Show active data and cache paths', usage: '/paths', group: 'system' },
   { id: 'diagnose', title: 'Diagnose', description: 'Run Host diagnostics', usage: '/diagnose', group: 'system' },
   { id: 'clear', title: 'Clear', description: 'Clear the visible transcript', usage: '/clear', group: 'system' },
@@ -167,4 +196,4 @@ export const DEFAULT_KEYBINDINGS = [
   { key: 'ctrl+c', command: 'run.cancel-or-clear' },
   { key: 'ctrl+l', command: 'view.clear' },
   { key: 'ctrl+p', command: 'session.next' },
-] as const satisfies readonly KeyBinding[]
+] as const satisfies readonly TerminalKeybinding[]

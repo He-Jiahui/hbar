@@ -23,6 +23,14 @@ struct Connection {
     instance_id: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PathPointer {
+    version: u8,
+    data_root: PathBuf,
+    cache_root: PathBuf,
+}
+
 #[tauri::command]
 fn connection_info(
     window: tauri::WebviewWindow,
@@ -37,9 +45,10 @@ fn connection_info(
     Ok(state.inner().clone())
 }
 
-fn existing(home: &Path) -> Option<Connection> {
+fn existing(data_root: &Path) -> Option<Connection> {
     let connection: Connection =
-        serde_json::from_slice(&fs::read(home.join("connection.json")).ok()?).ok()?;
+        serde_json::from_slice(&fs::read(data_root.join("settings").join("connection.json")).ok()?)
+            .ok()?;
     let url = tauri::Url::parse(&connection.url).ok()?;
     if url.scheme() != "http" || url.host_str() != Some("127.0.0.1") {
         return None;
@@ -58,13 +67,43 @@ fn existing(home: &Path) -> Option<Connection> {
     (status["instanceId"].as_str() == Some(&connection.instance_id)).then_some(connection)
 }
 
-fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Error>> {
-    let home = std::env::var_os("HBAR_HOME")
+fn path_roots(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+    if let Some(home) = std::env::var_os("HBAR_HOME") {
+        let data_root = PathBuf::from(home);
+        return Ok((data_root.clone(), data_root.join("cache")));
+    }
+    let system_root = if cfg!(windows) {
+        std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or(app.path().home_dir()?.join("AppData").join("Local"))
+            .join("hbar")
+    } else {
+        app.path().app_local_data_dir()?
+    };
+    let pointer_file = system_root.join("paths.json");
+    let pointer = fs::read(pointer_file)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<PathPointer>(&bytes).ok())
+        .filter(|value| value.version == 1);
+    let data_root = std::env::var_os("HBAR_DATA_ROOT")
         .map(PathBuf::from)
-        .unwrap_or(app.path().home_dir()?.join(".hbar"));
-    let home = dunce::simplified(&home).to_path_buf();
-    fs::create_dir_all(&home)?;
-    if let Some(connection) = existing(&home) {
+        .or_else(|| pointer.as_ref().map(|value| value.data_root.clone()))
+        .unwrap_or_else(|| system_root.join("data"));
+    let cache_root = std::env::var_os("HBAR_CACHE_ROOT")
+        .map(PathBuf::from)
+        .or_else(|| pointer.map(|value| value.cache_root))
+        .unwrap_or_else(|| system_root.join("cache"));
+    Ok((
+        dunce::simplified(&data_root).to_path_buf(),
+        dunce::simplified(&cache_root).to_path_buf(),
+    ))
+}
+
+fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Error>> {
+    let (data_root, cache_root) = path_roots(app)?;
+    fs::create_dir_all(data_root.join("settings"))?;
+    fs::create_dir_all(&cache_root)?;
+    if let Some(connection) = existing(&data_root) {
         return Ok(connection);
     }
     let resources = if cfg!(debug_assertions) {
@@ -75,15 +114,19 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
     // Tauri returns verbatim Windows paths; Bun's module loader expects ordinary drive/UNC paths.
     let resources = dunce::simplified(&resources).to_path_buf();
     let executable = resources.join(if cfg!(windows) { "bun.exe" } else { "bun" });
+    let diagnostics = data_root.join("diagnostics");
+    fs::create_dir_all(&diagnostics)?;
     let log = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(home.join("host.log"))?;
+        .open(diagnostics.join("desktop-host.log"))?;
     let mut command = Command::new(executable);
     command
         .arg(resources.join("host.js"))
-        .args(["--desktop", "--port", "0", "--home"])
-        .arg(&home)
+        .args(["--desktop", "--port", "0", "--data-root"])
+        .arg(&data_root)
+        .arg("--cache-root")
+        .arg(&cache_root)
         .env("HBAR_STORAGE_WORKER", resources.join("storage-worker.js"))
         .env("HBAR_WEB_ROOT", resources.join("web"))
         .stdin(Stdio::null())
@@ -103,20 +146,20 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
     let mut child = command.spawn()?;
     let started = Instant::now();
     loop {
-        if let Some(connection) = existing(&home) {
+        if let Some(connection) = existing(&data_root) {
             return Ok(connection);
         }
         if let Some(status) = child.try_wait()? {
             return Err(format!(
                 "Host exited with {status}. See {}",
-                home.join("host.log").display()
+                diagnostics.join("desktop-host.log").display()
             )
             .into());
         }
         if started.elapsed() > Duration::from_secs(30) {
             return Err(format!(
                 "Host startup timed out. See {}",
-                home.join("host.log").display()
+                diagnostics.join("desktop-host.log").display()
             )
             .into());
         }

@@ -3,12 +3,12 @@ import { appendFile, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Database } from 'bun:sqlite'
-import { Storage, createPathLayout, ensurePathLayout, writePathPointer } from '@hbar/storage'
+import { SessionLogWriter, Storage, createPathLayout, ensurePathLayout, writePathPointer } from '@hbar/storage'
+import type { SessionEvent } from '@hbar/contracts'
 
 const roots: string[] = []
 afterEach(async () => {
-  for (const root of roots.splice(0))
-    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
 })
 
 async function layoutFixture() {
@@ -92,6 +92,44 @@ test('startup rejects an indexed event whose canonical JSONL file is missing', a
   const row = db.query('SELECT logPath FROM session_event_index LIMIT 1').get() as { logPath: string }
   db.close()
   await rm(join(layout.sessions, row.logPath), { force: true })
+  storage = new Storage(layout.database, layout)
+  await expect(storage.call('ready')).rejects.toThrow('SESSION_LOG_CORRUPTED')
+  await storage.close()
+})
+
+test('session logs shard by local event date while sequence numbers remain continuous', () => {
+  const root = join(tmpdir(), `hbar-log-${crypto.randomUUID()}`)
+  roots.push(root)
+  const writer = new SessionLogWriter(root)
+  const event = (seq: number, time: number): SessionEvent => ({
+    eventId: crypto.randomUUID(),
+    sessionId: 'session-1',
+    seq,
+    runId: null,
+    stepId: null,
+    type: 'diagnostic.note',
+    data: { seq },
+    time,
+    version: 1,
+  })
+  const first = writer.append('project-1', event(1, new Date(2026, 0, 31, 23, 59).getTime()))
+  const second = writer.append('project-1', event(2, new Date(2026, 1, 1, 0, 1).getTime()))
+  expect(first.relativePath).toBe('project-1/2026/01/31/session-1.jsonl')
+  expect(second.relativePath).toBe('project-1/2026/02/01/session-1.jsonl')
+  expect(second.offset).toBe(0)
+})
+
+test('startup rejects a modified canonical JSONL record by content hash', async () => {
+  const { layout } = await layoutFixture()
+  let storage = new Storage(layout.database, layout)
+  await storage.call('ready')
+  const workspace = await storage.call('createWorkspace', layout.dataRoot, 'fixture')
+  const session = await storage.call('createSession', workspace.id)
+  await storage.call('append', session.id, 'diagnostic.note', { original: true })
+  const log = (await files(layout.sessions)).find((path) => path.endsWith(`${session.id}.jsonl`))!
+  await storage.close()
+  const content = await readFile(log, 'utf8')
+  await Bun.write(log, content.replace('"original":true', '"original":false'))
   storage = new Storage(layout.database, layout)
   await expect(storage.call('ready')).rejects.toThrow('SESSION_LOG_CORRUPTED')
   await storage.close()

@@ -22,6 +22,7 @@ import {
   Settings2,
   ShieldCheck,
   Square,
+  TerminalSquare,
   X,
 } from 'lucide-react'
 import type { FileEntry, Session, SessionEvent } from '@hbar/contracts'
@@ -44,6 +45,7 @@ import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
 import { defaultLayout, restoreLayout } from './workbench/layout'
+import TerminalPanel from './TerminalPanel'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
@@ -462,6 +464,24 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === '`') {
+        event.preventDefault()
+        const button = document.querySelector<HTMLButtonElement>('button[aria-label="终端"]')
+        if (button) button.click()
+        else openPanel('terminal', '终端', 'terminal', undefined, 'bottom')
+      } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
+        event.preventDefault()
+        const button = document.querySelector<HTMLButtonElement>('button[aria-label="终端"]')
+        if (button) button.click()
+        else openPanel('terminal', '终端', 'terminal', undefined, 'bottom')
+        setTimeout(() => window.dispatchEvent(new Event('hbar:terminal-commands')), 300)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
+  useEffect(() => {
     if (plugins) void syncUIPlugins(plugins)
   }, [plugins])
   useEffect(() => {
@@ -527,11 +547,13 @@ export default function App() {
             ? 'settings'
             : component === 'diagnose'
               ? 'diagnose'
-              : component === 'file'
-                ? 'file'
-                : component === 'plugin'
-                  ? 'plugin'
-                  : 'chat',
+              : component === 'terminal'
+                ? 'terminal'
+                : component === 'file'
+                  ? 'file'
+                  : component === 'plugin'
+                    ? 'plugin'
+                    : 'chat',
       )
     }
     if (!model.getNodeById(id))
@@ -588,6 +610,15 @@ export default function App() {
         return <FileViewer path={config.path!} workspaceId={config.workspaceId!} />
       case 'diagnose':
         return <Diagnose />
+      case 'terminal':
+        return (
+          <TerminalPanel
+            onSettings={settings}
+            onClose={() => {
+              model.doAction(Actions.deleteTab(node.getId()))
+            }}
+          />
+        )
       case 'plugin':
         return renderPlugin(config.panelId ?? '')
       default:
@@ -669,6 +700,13 @@ export default function App() {
         <button title="设置" aria-label="设置" onClick={settings}>
           <Settings2 size={17} />
         </button>
+        <button
+          title="终端"
+          aria-label="终端"
+          onClick={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
+        >
+          <TerminalSquare size={17} />
+        </button>
       </header>
       <div className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}>
         <nav className="tool-rail left-rail">
@@ -731,6 +769,8 @@ export default function App() {
                 <FileViewer path={mobileFile} workspaceId={workspaceId} />
               ) : mobileView === 'diagnose' ? (
                 <Diagnose />
+              ) : mobileView === 'terminal' ? (
+                <TerminalPanel onSettings={() => setMobileView('settings')} onClose={() => setMobileView('chat')} />
               ) : mobileView === 'plugin' ? (
                 renderPlugin(mobilePanel)
               ) : mobileView === 'plugins' ? (
@@ -796,6 +836,13 @@ export default function App() {
           )}
         </main>
         <nav className="tool-rail right-rail">
+          <button
+            title="终端"
+            aria-label="终端"
+            onClick={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
+          >
+            <TerminalSquare size={18} />
+          </button>
           <button title="运行与事件" aria-label="运行与事件" onClick={() => openPanel('activity', '运行', 'activity')}>
             <Activity size={18} />
           </button>

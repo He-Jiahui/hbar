@@ -40,14 +40,7 @@ export const runModeSchema = z.enum(['default', 'plan'])
 export type RunMode = z.infer<typeof runModeSchema>
 export const runSourceSchema = z.enum(['user', 'goal', 'system'])
 export type RunSource = z.infer<typeof runSourceSchema>
-export const goalStatusSchema = z.enum([
-  'active',
-  'paused',
-  'blocked',
-  'usage_limited',
-  'budget_limited',
-  'complete',
-])
+export const goalStatusSchema = z.enum(['active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'complete'])
 export type GoalStatus = z.infer<typeof goalStatusSchema>
 export const threadGoalSchema = z.object({
   threadId: idSchema,
@@ -105,7 +98,10 @@ export const gitStatusSchema = z.object({
   cwd: z.string().min(1).max(4_000),
   root: z.string().min(1).max(4_000).nullable(),
   branch: z.string().min(1).max(1_000).nullable(),
-  head: z.string().regex(/^[0-9a-f]{7,64}$/i).nullable(),
+  head: z
+    .string()
+    .regex(/^[0-9a-f]{7,64}$/i)
+    .nullable(),
   upstream: z.string().min(1).max(1_000).nullable(),
   ahead: z.number().int().nonnegative(),
   behind: z.number().int().nonnegative(),
@@ -140,7 +136,10 @@ export const gitBranchInfoSchema = z.object({
 export type GitBranchInfo = z.infer<typeof gitBranchInfoSchema>
 export const gitWorktreeInfoSchema = z.object({
   path: z.string().min(1).max(4_000),
-  head: z.string().regex(/^[0-9a-f]{7,64}$/i).nullable(),
+  head: z
+    .string()
+    .regex(/^[0-9a-f]{7,64}$/i)
+    .nullable(),
   branch: z.string().max(1_000).nullable(),
   bare: z.boolean(),
   locked: z.boolean(),
@@ -148,7 +147,10 @@ export const gitWorktreeInfoSchema = z.object({
 })
 export type GitWorktreeInfo = z.infer<typeof gitWorktreeInfoSchema>
 export const gitInfoSchema = z.object({
-  sha: z.string().regex(/^[0-9a-f]{7,64}$/i).nullable(),
+  sha: z
+    .string()
+    .regex(/^[0-9a-f]{7,64}$/i)
+    .nullable(),
   branch: z.string().max(1_000).nullable(),
   originUrl: z.string().max(4_000).nullable(),
 })
@@ -390,6 +392,15 @@ export interface PluginInfo {
   dependencies?: Record<string, string> | undefined
   peerDependencies?: Record<string, string> | undefined
   optionalDependencies?: Record<string, string> | undefined
+  activationEvents?: string[] | undefined
+  contributes?:
+    | {
+        commands: TerminalContribution[]
+        panels: Record<string, unknown>[]
+        renderers: Record<string, unknown>[]
+      }
+    | undefined
+  terminalCommands?: TerminalContribution[] | undefined
   path?: string | undefined
   projectId?: string | undefined
   error?: string | undefined
@@ -403,6 +414,62 @@ export interface UIContribution {
   content: string
   owner: string
 }
+export const terminalCommandGroupSchema = z.enum(['session', 'run', 'model', 'extensions', 'system'])
+export type TerminalCommandGroup = z.infer<typeof terminalCommandGroupSchema>
+export const terminalCommandSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9._-]{0,127}$/),
+  title: z.string().min(1).max(120),
+  description: z.string().max(500),
+  usage: z.string().min(1).max(300),
+  aliases: z
+    .array(z.string().regex(/^[a-z][a-z0-9._-]{0,127}$/))
+    .max(20)
+    .optional(),
+  group: terminalCommandGroupSchema,
+  scope: z.enum(['global', 'workspace', 'session']).optional(),
+  permissions: z.array(z.string().min(1).max(100)).max(50).optional(),
+  headless: z.boolean().optional(),
+  mutates: z.boolean().optional(),
+  completion: z.array(z.string().max(300)).max(100).optional(),
+})
+export type TerminalCommand = z.infer<typeof terminalCommandSchema>
+export const terminalContributionSchema = terminalCommandSchema.extend({ owner: idSchema.optional() })
+export type TerminalContribution = z.infer<typeof terminalContributionSchema>
+export const terminalCommandResultSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  markdown: z.string().optional(),
+  data: z.unknown().optional(),
+})
+export type TerminalCommandResult = z.infer<typeof terminalCommandResultSchema>
+export const terminalKeybindingSchema = z.object({
+  key: z.string().min(1).max(100),
+  command: z.string().min(1).max(160),
+  when: z.string().max(300).optional(),
+})
+export type TerminalKeybinding = z.infer<typeof terminalKeybindingSchema>
+export const terminalEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('status'), message: z.string() }),
+  z.object({ type: z.literal('markdown'), markdown: z.string(), append: z.boolean().optional() }),
+  z.object({
+    type: z.literal('approval'),
+    prompt: z.object({ id: idSchema, tool: z.string(), summary: z.string(), args: z.record(z.string(), z.unknown()) }),
+  }),
+  z.object({ type: z.literal('error'), message: z.string() }),
+  z.object({ type: z.literal('session.changed'), sessionId: idSchema }),
+])
+export type TerminalEvent = z.infer<typeof terminalEventSchema>
+export const terminalSnapshotSchema = z.object({
+  workspaceId: idSchema.nullable(),
+  sessionId: idSchema.nullable(),
+  sessions: z.array(z.object({ id: idSchema, title: z.string(), running: z.boolean() })),
+  input: z.string(),
+  runId: idSchema.nullable(),
+  modelId: idSchema.nullable(),
+  thinking: thinkingLevelSchema,
+  cwd: z.string(),
+  notifications: z.array(terminalEventSchema),
+})
+export type TerminalSnapshot = z.infer<typeof terminalSnapshotSchema>
 export interface HostInfo {
   version: string
   protocol: number
@@ -480,7 +547,10 @@ export const rpcSchemas = {
     cached: z.boolean().default(false),
     paths: z.array(z.string().min(1).max(4_000)).max(100).default([]),
   }),
-  'git.log': z.object({ cwd: z.string().min(1).max(4_000).optional(), limit: z.number().int().min(1).max(100).default(20) }),
+  'git.log': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    limit: z.number().int().min(1).max(100).default(20),
+  }),
   'git.commit': z.object({
     cwd: z.string().min(1).max(4_000).optional(),
     message: z.string().trim().min(1).max(4_000),
@@ -503,24 +573,88 @@ export const rpcSchemas = {
   }),
   'git.diff_to_remote': z.object({ cwd: z.string().min(1).max(4_000).optional() }),
   'browser.status': z.object({ sessionId: idSchema }),
-  'browser.navigate': z.object({ sessionId: idSchema, url: z.string().url().max(4_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.navigate': z.object({
+    sessionId: idSchema,
+    url: z.string().url().max(4_000),
+    contextId: idSchema.optional(),
+    pageId: idSchema.optional(),
+  }),
   'browser.snapshot': z.object({ sessionId: idSchema, contextId: idSchema.optional(), pageId: idSchema.optional() }),
-  'browser.click': z.object({ sessionId: idSchema, selector: z.string().min(1).max(4_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
-  'browser.type': z.object({ sessionId: idSchema, selector: z.string().min(1).max(4_000), text: z.string().max(16_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
-  'browser.press': z.object({ sessionId: idSchema, key: z.string().min(1).max(100), selector: z.string().max(4_000).optional(), contextId: idSchema.optional(), pageId: idSchema.optional() }),
-  'browser.screenshot': z.object({ sessionId: idSchema, fullPage: z.boolean().default(false), contextId: idSchema.optional(), pageId: idSchema.optional() }),
-  'browser.evaluate': z.object({ sessionId: idSchema, expression: z.string().min(1).max(16_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.click': z.object({
+    sessionId: idSchema,
+    selector: z.string().min(1).max(4_000),
+    contextId: idSchema.optional(),
+    pageId: idSchema.optional(),
+  }),
+  'browser.type': z.object({
+    sessionId: idSchema,
+    selector: z.string().min(1).max(4_000),
+    text: z.string().max(16_000),
+    contextId: idSchema.optional(),
+    pageId: idSchema.optional(),
+  }),
+  'browser.press': z.object({
+    sessionId: idSchema,
+    key: z.string().min(1).max(100),
+    selector: z.string().max(4_000).optional(),
+    contextId: idSchema.optional(),
+    pageId: idSchema.optional(),
+  }),
+  'browser.screenshot': z.object({
+    sessionId: idSchema,
+    fullPage: z.boolean().default(false),
+    contextId: idSchema.optional(),
+    pageId: idSchema.optional(),
+  }),
+  'browser.evaluate': z.object({
+    sessionId: idSchema,
+    expression: z.string().min(1).max(16_000),
+    contextId: idSchema.optional(),
+    pageId: idSchema.optional(),
+  }),
   'browser.close': z.object({ sessionId: idSchema, contextId: idSchema.optional(), pageId: idSchema.optional() }),
   'browser.history': z.object({ sessionId: idSchema, contextId: idSchema.optional() }),
   'computer.status': z.object({ sessionId: idSchema }),
   'computer.screenshot': z.object({ sessionId: idSchema, appId: z.string().max(1_000).optional() }),
-  'computer.click': z.object({ sessionId: idSchema, x: z.number().int().min(0).max(10_000), y: z.number().int().min(0).max(10_000), appId: z.string().max(1_000).optional() }),
-  'computer.double_click': z.object({ sessionId: idSchema, x: z.number().int().min(0).max(10_000), y: z.number().int().min(0).max(10_000), appId: z.string().max(1_000).optional() }),
-  'computer.type': z.object({ sessionId: idSchema, text: z.string().max(16_000), appId: z.string().max(1_000).optional() }),
-  'computer.key': z.object({ sessionId: idSchema, key: z.string().min(1).max(100), appId: z.string().max(1_000).optional() }),
-  'computer.scroll': z.object({ sessionId: idSchema, deltaX: z.number().int().min(-10_000).max(10_000).default(0), deltaY: z.number().int().min(-10_000).max(10_000), appId: z.string().max(1_000).optional() }),
-  'computer.move': z.object({ sessionId: idSchema, x: z.number().int().min(0).max(10_000), y: z.number().int().min(0).max(10_000), appId: z.string().max(1_000).optional() }),
-  'computer.wait': z.object({ sessionId: idSchema, milliseconds: z.number().int().min(0).max(60_000), appId: z.string().max(1_000).optional() }),
+  'computer.click': z.object({
+    sessionId: idSchema,
+    x: z.number().int().min(0).max(10_000),
+    y: z.number().int().min(0).max(10_000),
+    appId: z.string().max(1_000).optional(),
+  }),
+  'computer.double_click': z.object({
+    sessionId: idSchema,
+    x: z.number().int().min(0).max(10_000),
+    y: z.number().int().min(0).max(10_000),
+    appId: z.string().max(1_000).optional(),
+  }),
+  'computer.type': z.object({
+    sessionId: idSchema,
+    text: z.string().max(16_000),
+    appId: z.string().max(1_000).optional(),
+  }),
+  'computer.key': z.object({
+    sessionId: idSchema,
+    key: z.string().min(1).max(100),
+    appId: z.string().max(1_000).optional(),
+  }),
+  'computer.scroll': z.object({
+    sessionId: idSchema,
+    deltaX: z.number().int().min(-10_000).max(10_000).default(0),
+    deltaY: z.number().int().min(-10_000).max(10_000),
+    appId: z.string().max(1_000).optional(),
+  }),
+  'computer.move': z.object({
+    sessionId: idSchema,
+    x: z.number().int().min(0).max(10_000),
+    y: z.number().int().min(0).max(10_000),
+    appId: z.string().max(1_000).optional(),
+  }),
+  'computer.wait': z.object({
+    sessionId: idSchema,
+    milliseconds: z.number().int().min(0).max(60_000),
+    appId: z.string().max(1_000).optional(),
+  }),
   'computer.launch': z.object({ sessionId: idSchema, appId: z.string().min(1).max(1_000) }),
   'workspace.create': z.object({ path: z.string().min(1).max(4000) }),
   'session.create': z.object({ workspaceId: idSchema, title: z.string().max(160).optional() }),
@@ -574,6 +708,7 @@ export interface RpcResults {
     settings: string
     artifacts: string
     pointerFile: string
+    cacheBytes: number
     restartRequired: boolean
   }
   'system.paths.validate': { dataRoot: string; cacheRoot: string; valid: true }
@@ -643,7 +778,10 @@ export interface RpcResults {
   'plugin.enable': PluginInfo[]
   'plugin.disable': PluginInfo[]
   'plugin.resolve': { order: string[]; enabled: string[] }
-  'plugin.graph': { nodes: { id: string; version: string; enabled: boolean }[]; edges: { from: string; to: string; kind: string; range: string }[] }
+  'plugin.graph': {
+    nodes: { id: string; version: string; enabled: boolean }[]
+    edges: { from: string; to: string; kind: string; range: string }[]
+  }
   'plugin.lock': { version: 1; plugins: Record<string, unknown> }
   'plugin.doctor': { ok: boolean; errors: string[]; order?: string[] }
   'device.list': Device[]

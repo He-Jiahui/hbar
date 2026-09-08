@@ -1,4 +1,4 @@
-import { realpath, stat, writeFile } from 'node:fs/promises'
+import { readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { join, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
@@ -25,6 +25,7 @@ import type {
   HarnessDriver,
   ModelRegistry,
   ModelRequest,
+  ModeService,
   PolicyProvider,
   ToolContext,
   ToolResult,
@@ -34,6 +35,12 @@ import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
 import piPlugin from '@hbar/pi-driver'
 import localTools, { executionPlugin, LocalExecution } from '@hbar/local-tools'
+import goalPlugin from '@hbar/goal'
+import planPlugin from '@hbar/plan'
+import budgetPlugin from '@hbar/budget'
+import gitPlugin from '@hbar/git'
+import browserPlugin from '@hbar/browser-use'
+import computerPlugin from '@hbar/computer-use'
 import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
@@ -287,6 +294,12 @@ export class Kernel {
       }),
     )
     this.plugins.add(localTools)
+    this.plugins.add(goalPlugin)
+    this.plugins.add(planPlugin)
+    this.plugins.add(budgetPlugin)
+    this.plugins.add(gitPlugin)
+    this.plugins.add(browserPlugin)
+    this.plugins.add(computerPlugin)
   }
   subscribe(listener: (event: WireNotification) => void) {
     this.listeners.add(listener)
@@ -400,6 +413,12 @@ export class Kernel {
   }
   async submit(sessionId: string, requestId: string, input: UserInput, modelId: string) {
     input = inputSchema.parse(input)
+    const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
+    input = {
+      ...input,
+      mode,
+      ...(input.source === undefined ? { source: 'user' as const } : {}),
+    }
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
     this.admissions++
     try {
@@ -414,7 +433,7 @@ export class Kernel {
       }
       const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId)
       if (run.status === 'queued') {
-        await this.append(sessionId, 'run.queued', { run }, run.id)
+        if (run.queuedEvent) this.publishEvent(run.queuedEvent)
         this.kick(sessionId)
       }
       this.changed('sessions')
@@ -646,7 +665,12 @@ export class Kernel {
     try {
       context.signal.throwIfAborted()
       const initial = tool.inputSchema.parse(rawArgs) as Record<string, unknown>
-      const transformed = await scope.hooks.dispatch('tool.before', { name, args: structuredClone(initial), context })
+      const transformed = await scope.hooks.dispatch('tool.before', {
+        name,
+        args: structuredClone(initial),
+        context,
+        tool,
+      })
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
       const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       const mode = context.run.input.approval ?? this.permissionModeValue
@@ -794,7 +818,22 @@ export class Kernel {
     if (this.active.size || this.drains.size || this.admissions || this.maintenance || this.closing)
       throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
   }
-  paths() {
+  private async cacheSize(root: string): Promise<number> {
+    let total = 0
+    let entries = 0
+    const visit = async (path: string): Promise<void> => {
+      if (entries > 50_000) return
+      for (const entry of await readdir(path, { withFileTypes: true }).catch(() => [])) {
+        entries++
+        const child = join(path, entry.name)
+        if (entry.isDirectory()) await visit(child)
+        else if (entry.isFile()) total += (await stat(child).catch(() => ({ size: 0 }))).size
+      }
+    }
+    await visit(root)
+    return total
+  }
+  async paths() {
     const { layout } = this.options
     return {
       dataRoot: layout.dataRoot,
@@ -807,6 +846,7 @@ export class Kernel {
       settings: layout.settings,
       artifacts: layout.artifacts,
       pointerFile: layout.pointerFile,
+      cacheBytes: await this.cacheSize(layout.cacheRoot),
       restartRequired: false,
     }
   }
@@ -821,7 +861,7 @@ export class Kernel {
       const layout = await validatePathRoots(dataRoot, cacheRoot, this.options.layout.pointerFile)
       await writePathPointer(layout)
       this.changed('paths')
-      return { ...this.paths(), dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, restartRequired: true }
+      return { ...(await this.paths()), dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, restartRequired: true }
     } finally {
       this.maintenance = false
     }

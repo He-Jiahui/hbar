@@ -3,6 +3,7 @@ import { BUILTIN_TERMINAL_COMMANDS, CommandRegistry, parseTerminalInput } from '
 
 test('terminal parser preserves quoted arguments and distinguishes messages', () => {
   expect(parseTerminalInput('  explain this code  ')).toEqual({ kind: 'message', text: 'explain this code' })
+  expect(parseTerminalInput('//tool read_file')).toEqual({ kind: 'message', text: '/tool read_file' })
   expect(parseTerminalInput('/export "D:\\Reports\\session one.jsonl"')).toEqual({
     kind: 'command',
     invocation: {

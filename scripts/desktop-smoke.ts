@@ -38,7 +38,11 @@ async function until<T>(read: () => Promise<T>, limit = 30_000): Promise<T> {
 try {
   const connection = await until(
     async () =>
-      JSON.parse(await readFile(join(root, 'connection.json'), 'utf8')) as { url: string; token: string; pid: number },
+      JSON.parse(await readFile(join(root, 'settings', 'connection.json'), 'utf8')) as {
+        url: string
+        token: string
+        pid: number
+      },
   )
   hostPid = connection.pid
   browser = await until(() => chromium.connectOverCDP('http://127.0.0.1:9431'))
@@ -109,7 +113,7 @@ try {
     'PASS: Native WebView paired; closing hides window; Host survives desktop exit; independent run cancellation works.',
   )
 } catch (error) {
-  console.error(await readFile(join(root, 'host.log'), 'utf8').catch(() => 'No host log'))
+  console.error(await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'))
   throw error
 } finally {
   api?.disconnect()

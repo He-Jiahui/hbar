@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { create } from 'zustand'
 import type { PluginInfo } from '@hbar/contracts'
-import type { ClientPanel, ComposerAction, ClientPlugin } from '@hbar/ui-sdk'
+import type { ClientPanel, ClientPlugin, ClientTerminalCommand, ComposerAction } from '@hbar/ui-sdk'
 import { client, report, useConnection } from './stores'
 
 interface RegisteredPanel extends ClientPanel {
@@ -10,11 +10,15 @@ interface RegisteredPanel extends ClientPanel {
 interface RegisteredComposerAction extends ComposerAction {
   owner: string
 }
+interface RegisteredTerminalCommand extends ClientTerminalCommand {
+  owner: string
+}
 export const useUIPlugins = create<{
   panels: RegisteredPanel[]
   composerActions: RegisteredComposerAction[]
+  terminalCommands: RegisteredTerminalCommand[]
   renderers: Record<string, React.ComponentType<{ source: string }>>
-}>(() => ({ panels: [], composerActions: [], renderers: {} }))
+}>(() => ({ panels: [], composerActions: [], terminalCommands: [], renderers: {} }))
 const loaded = new Map<string, { key: string; dispose(): void }>()
 let update = Promise.resolve()
 export function syncUIPlugins(plugins: PluginInfo[]) {
@@ -74,6 +78,18 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               return own(() =>
                 useUIPlugins.setState((state) => ({
                   composerActions: state.composerActions.filter((item) => item.id !== id),
+                })),
+              )
+            },
+            registerTerminalCommand(command) {
+              const id = command.id
+              if (useUIPlugins.getState().terminalCommands.some((item) => item.id === id))
+                throw new Error(`Duplicate terminal command ${id}`)
+              const registered = { ...command, id, owner: plugin.id }
+              useUIPlugins.setState((state) => ({ terminalCommands: [...state.terminalCommands, registered] }))
+              return own(() =>
+                useUIPlugins.setState((state) => ({
+                  terminalCommands: state.terminalCommands.filter((item) => item.id !== id || item.owner !== plugin.id),
                 })),
               )
             },

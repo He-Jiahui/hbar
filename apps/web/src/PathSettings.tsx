@@ -56,6 +56,7 @@ export default function PathSettings() {
       </div>
       {state.current && (
         <dl className="path-details">
+          <dt>缓存占用</dt><dd>{formatBytes(state.current.cacheBytes)}</dd>
           <dt>会话日志</dt>
           <dd>{state.current.sessions}</dd>
           <dt>SQLite</dt>
@@ -106,4 +107,11 @@ export default function PathSettings() {
       </div>
     </section>
   )
+}
+
+function formatBytes(value: number) {
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
+  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`
+  return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }

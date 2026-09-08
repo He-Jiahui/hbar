@@ -10,6 +10,7 @@ import {
   Network,
   Plus,
   RefreshCw,
+  Search,
   Save,
   ShieldCheck,
   Stethoscope,
@@ -366,11 +367,23 @@ export default function Settings() {
     [pluginPath, setPluginPath] = useState(''),
     [pluginScope, setPluginScope] = useState<'global' | 'project'>('global'),
     [pluginReport, setPluginReport] = useState(''),
-    [copied, setCopied] = useState(false)
+    [copied, setCopied] = useState(false),
+    [modelQuery, setModelQuery] = useState(''),
+    [modelFilter, setModelFilter] = useState<'all' | 'connected' | 'needs-key'>('all')
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId)
+  const models = data?.models ?? []
+  const filteredModels = models.filter((model) => {
+    const query = modelQuery.trim().toLocaleLowerCase()
+    const matchesQuery =
+      !query ||
+      [model.name, model.model, model.protocol, model.baseUrl].some((part) => part.toLocaleLowerCase().includes(query))
+    const connected = model.protocol === 'mock' || model.hasKey
+    const matchesFilter = modelFilter === 'all' || (modelFilter === 'connected' ? connected : !connected)
+    return matchesQuery && matchesFilter
+  })
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
@@ -429,41 +442,109 @@ export default function Settings() {
         </section>
       )}
       {tab === 'models' && (
-        <section className="settings-section">
+        <section className="settings-section models-section">
           <div className="section-toolbar">
-            <h2>供应商与模型</h2>
+            <div className="model-section-title">
+              <h2>供应商与模型</h2>
+              <span>{models.length} 个连接</span>
+            </div>
             <button className="button" onClick={() => setEditor('new')}>
               <Plus size={14} />
               添加模型
             </button>
           </div>
-          {data?.models.length ? (
-            data.models.map((model) => (
-              <div className="model-row" key={model.id}>
-                <div className="model-icon">
-                  <Network size={18} />
+          <div className="model-list-toolbar">
+            <label className="settings-search">
+              <Search size={14} />
+              <input
+                aria-label="搜索供应商或模型"
+                placeholder="搜索供应商、模型或地址"
+                value={modelQuery}
+                onChange={(event) => setModelQuery(event.target.value)}
+              />
+            </label>
+            <div className="model-filter segmented" role="group" aria-label="模型状态">
+              <button
+                type="button"
+                className={modelFilter === 'all' ? 'selected' : ''}
+                onClick={() => setModelFilter('all')}
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                className={modelFilter === 'connected' ? 'selected' : ''}
+                onClick={() => setModelFilter('connected')}
+              >
+                已连接
+              </button>
+              <button
+                type="button"
+                className={modelFilter === 'needs-key' ? 'selected' : ''}
+                onClick={() => setModelFilter('needs-key')}
+              >
+                待配置
+              </button>
+            </div>
+          </div>
+          {filteredModels.length ? (
+            filteredModels.map((model) => {
+              const connected = model.protocol === 'mock' || model.hasKey
+              return (
+                <div className="model-row" key={model.id}>
+                  <div className="model-icon">
+                    <Network size={18} />
+                  </div>
+                  <button className="model-details" onClick={() => setEditor(model)}>
+                    <strong>{model.name}</strong>
+                    <span>{model.model}</span>
+                    <small>{model.protocol === 'mock' ? 'Local fixture' : model.baseUrl}</small>
+                  </button>
+                  <span className={`model-connection ${connected ? 'connected' : 'needs-key'}`}>
+                    <KeyRound size={12} />
+                    {model.protocol === 'mock' ? '本地' : connected ? '已连接' : '待配置 Key'}
+                  </span>
+                  <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
+                  <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
+                  {!connected && (
+                    <button className="model-key-action button" onClick={() => setEditor(model)}>
+                      <KeyRound size={13} />
+                      配置 Key
+                    </button>
+                  )}
+                  <button
+                    title={`删除 ${model.name}`}
+                    aria-label={`删除 ${model.name}`}
+                    onClick={() => {
+                      if (window.confirm(`删除模型 ${model.name}？`))
+                        void client().call('provider.delete', { id: model.id }).then(refreshCatalog).catch(report)
+                    }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
-                <button className="model-details" onClick={() => setEditor(model)}>
-                  <strong>{model.name}</strong>
-                  <span>{model.model}</span>
-                  <small>{model.protocol === 'mock' ? 'Local fixture' : model.baseUrl}</small>
-                </button>
-                <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
-                <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
-                <button
-                  title={`删除 ${model.name}`}
-                  aria-label={`删除 ${model.name}`}
-                  onClick={() => {
-                    if (window.confirm(`删除模型 ${model.name}？`))
-                      void client().call('provider.delete', { id: model.id }).then(refreshCatalog).catch(report)
-                  }}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))
+              )
+            })
           ) : (
-            <div className="empty-list">尚未配置模型</div>
+            <div className="empty-list model-empty-state">
+              {models.length ? (
+                <>
+                  <span>没有匹配的模型</span>
+                  <button
+                    type="button"
+                    className="text-command"
+                    onClick={() => {
+                      setModelQuery('')
+                      setModelFilter('all')
+                    }}
+                  >
+                    清除筛选
+                  </button>
+                </>
+              ) : (
+                '尚未配置模型'
+              )}
+            </div>
           )}
         </section>
       )}

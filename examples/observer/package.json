@@ -8,6 +8,24 @@
     "scope": "global",
     "host": "index.ts",
     "client": "client.ts",
-    "permissions": ["storage"]
+    "permissions": [
+      "storage"
+    ],
+    "contributes": {
+      "commands": [
+        {
+          "id": "observer.ping",
+          "title": "Observer ping",
+          "description": "Verify that the observer Client plugin is active",
+          "usage": "/observer.ping",
+          "group": "extensions",
+          "scope": "workspace",
+          "permissions": [],
+          "headless": false,
+          "mutates": false,
+          "completion": []
+        }
+      ]
+    }
   }
 }

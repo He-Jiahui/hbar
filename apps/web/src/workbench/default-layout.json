@@ -20,6 +20,17 @@
       "children": [
         {
           "type": "tab",
+          "id": "terminal",
+          "name": "终端",
+          "component": "terminal",
+          "enableClose": true,
+          "config": {
+            "region": "bottom",
+            "module": "terminal"
+          }
+        },
+        {
+          "type": "tab",
           "id": "diagnose",
           "name": "诊断",
           "component": "diagnose",

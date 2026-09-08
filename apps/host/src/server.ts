@@ -6,7 +6,16 @@ import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas 
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 import { Kernel } from '@hbar/kernel'
-import type { ExecutionProvider, GoalService, ModeService, PlanService } from '@hbar/plugin-sdk'
+import type {
+  BrowserUseService,
+  BudgetService,
+  ComputerUseService,
+  ExecutionProvider,
+  GitService,
+  GoalService,
+  ModeService,
+  PlanService,
+} from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 
@@ -176,6 +185,52 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<ModeService>('mode').set(p.sessionId, p.mode)
       }
+      case 'budget.get': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BudgetService>('budget').get(p.sessionId)
+      }
+      case 'budget.set': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BudgetService>('budget').set(p.sessionId, p.limit)
+      }
+      case 'budget.clear': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BudgetService>('budget').clear(p.sessionId)
+      }
+      case 'git.status': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').status(p.cwd)
+      }
+      case 'git.diff': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').diff(p.cwd, p)
+      }
+      case 'git.log': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').log(p.cwd, p.limit)
+      }
+      case 'git.commit': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').commit(p.cwd, p)
+      }
+      case 'git.branch': {
+        const p = rpcSchemas[method].parse(raw)
+        const operation = p.operation === 'list' ? {} : { operation: p.operation, name: p.name!, force: p.force }
+        return kernel.plugins.get<GitService>('git').branch(p.cwd, operation)
+      }
+      case 'git.worktree': {
+        const p = rpcSchemas[method].parse(raw)
+        const operation = p.operation === 'list'
+          ? {}
+          : p.operation === 'add'
+            ? { operation: 'add' as const, path: p.path!, branch: p.branch, createBranch: p.createBranch }
+            : { operation: 'remove' as const, path: p.path!, force: p.force }
+        return kernel.plugins.get<GitService>('git').worktree(p.cwd, operation)
+      }
+      case 'git.diff_to_remote': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').diffToRemote(p.cwd)
+      }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.createWorkspace(p.path)
@@ -288,6 +343,86 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return kernel.plugins.lock()
       case 'plugin.doctor':
         return kernel.plugins.doctor()
+      case 'browser.status': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').status(p.sessionId)
+      }
+      case 'browser.navigate': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').navigate(p.sessionId, p.url, p.contextId, p.pageId)
+      }
+      case 'browser.snapshot': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').snapshot(p.sessionId, p.contextId, p.pageId)
+      }
+      case 'browser.click': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').click(p.sessionId, p.selector, p.contextId, p.pageId)
+      }
+      case 'browser.type': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').type(p.sessionId, p.selector, p.text, p.contextId, p.pageId)
+      }
+      case 'browser.press': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').press(p.sessionId, p.key, p.selector, p.contextId, p.pageId)
+      }
+      case 'browser.screenshot': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
+      }
+      case 'browser.evaluate': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').evaluate(p.sessionId, p.expression, p.contextId, p.pageId)
+      }
+      case 'browser.close': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').close(p.sessionId, p.contextId, p.pageId)
+      }
+      case 'browser.history': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').history(p.sessionId, p.contextId)
+      }
+      case 'computer.status': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').status(p.sessionId)
+      }
+      case 'computer.screenshot': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').screenshot(p.sessionId, p.appId)
+      }
+      case 'computer.click': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').click(p.sessionId, p.x, p.y, p.appId)
+      }
+      case 'computer.double_click': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').doubleClick(p.sessionId, p.x, p.y, p.appId)
+      }
+      case 'computer.type': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').type(p.sessionId, p.text, p.appId)
+      }
+      case 'computer.key': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').key(p.sessionId, p.key, p.appId)
+      }
+      case 'computer.scroll': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').scroll(p.sessionId, p.deltaX, p.deltaY, p.appId)
+      }
+      case 'computer.move': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').move(p.sessionId, p.x, p.y, p.appId)
+      }
+      case 'computer.wait': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').wait(p.sessionId, p.milliseconds, p.appId)
+      }
+      case 'computer.launch': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ComputerUseService>('computer').launch(p.sessionId, p.appId)
+      }
       case 'device.list':
         return kernel.storage.call('devices')
       case 'device.revoke': {

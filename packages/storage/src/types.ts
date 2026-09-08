@@ -37,7 +37,12 @@ export interface StorageMethods {
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
   compact(sessionId: string, throughSeq: number, summary: string, modelId: string): SessionEvent
   fork(sessionId: string, atSeq?: number): Session
-  enqueue(sessionId: string, requestId: string, input: UserInput, modelId: string): Run
+  enqueue(
+    sessionId: string,
+    requestId: string,
+    input: UserInput,
+    modelId: string,
+  ): Run & { queuedEvent?: SessionEvent | undefined }
   claim(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string): SessionEvent

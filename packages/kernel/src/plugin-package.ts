@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { extract as extractTar } from 'tar'
 import { Open } from 'unzipper'
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, terminalCommandSchema } from '@hbar/contracts'
 
 export const packageNameSchema = z
   .string()
@@ -31,7 +31,7 @@ export const pluginPackageSchema = z.object({
     activationEvents: z.array(z.string()).default(['host.start']),
     contributes: z
       .object({
-        commands: z.array(z.record(z.string(), z.unknown())).default([]),
+        commands: z.array(terminalCommandSchema).default([]),
         panels: z.array(z.record(z.string(), z.unknown())).default([]),
         renderers: z.array(z.record(z.string(), z.unknown())).default([]),
       })
@@ -59,7 +59,8 @@ async function assertTree(root: string, current = root, state = { entries: 0, by
     if (state.entries > 10_000) throw new HbarError('PLUGIN_LIMIT', 'Plugin contains more than 10,000 entries')
     const path = join(current, entry.name)
     const info = await lstat(path)
-    if (info.isSymbolicLink()) throw new HbarError('PLUGIN_ARCHIVE', `Symbolic links are not allowed: ${relative(root, path)}`)
+    if (info.isSymbolicLink())
+      throw new HbarError('PLUGIN_ARCHIVE', `Symbolic links are not allowed: ${relative(root, path)}`)
     if (info.isDirectory()) await assertTree(root, path, state)
     else {
       state.bytes += info.size

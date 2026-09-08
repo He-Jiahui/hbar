@@ -11,7 +11,7 @@ export interface SessionLogLocation {
   hash: string
 }
 
-const durableEvent = /^(message\.committed|run\.|tool\.started|tool\.unknown|approval\.|context\.compacted|session\.)/
+const durableEvent = /^(message\.committed|run\.|tool\.started|tool\.unknown|approval\.|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.)/
 
 function dayParts(time: number) {
   const date = new Date(time)

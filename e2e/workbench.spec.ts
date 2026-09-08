@@ -234,18 +234,85 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
   }
 })
 
+test('terminal panel supports keyboard commands, concurrent sessions, approval and mobile layout', async ({
+  page,
+  context,
+}) => {
+  const fixture = await login(context, page)
+  try {
+    await page.keyboard.press('Control+Backquote')
+    const terminal = page.locator('.terminal-panel').filter({ visible: true })
+    await expect(terminal).toBeVisible()
+    const input = terminal.getByRole('textbox', { name: '终端输入', exact: true })
+    await input.fill('/he')
+    await expect(terminal.getByRole('listbox', { name: '命令补全' })).toBeVisible()
+    await input.press('Tab')
+    await expect(input).toHaveValue('/help ')
+    await input.press('Enter')
+    await expect(terminal).toContainText('终端命令')
+
+    await input.fill('//slow')
+    await input.press('Enter')
+    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toBeVisible()
+    const firstSession = await terminal.getByRole('combobox', { name: '终端 Session' }).inputValue()
+    await input.fill('/new')
+    await input.press('Enter')
+    await expect(terminal.getByRole('combobox', { name: '终端 Session' })).not.toHaveValue(firstSession)
+    await input.fill('来自第二个 Session')
+    await input.press('Enter')
+    await expect(terminal.locator('.terminal-assistant')).toContainText('来自第二个 Session')
+
+    await terminal.getByRole('combobox', { name: '终端 Session' }).selectOption(firstSession)
+    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toBeVisible()
+    await terminal.getByRole('button', { name: '停止运行', exact: true }).click()
+    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toHaveCount(0)
+
+    await input.fill('//tool write_file {"path":"terminal-approved.txt","text":"ok"}')
+    await input.press('Enter')
+    await expect(terminal).toContainText('等待审批')
+    await terminal.getByRole('button', { name: '批准', exact: true }).click()
+    await expect.poll(() => readFile(`${fixture.root}/terminal-approved.txt`, 'utf8').catch(() => '')).toBe('ok')
+    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toHaveCount(0)
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-terminal.png` })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: '终端', exact: true }).filter({ visible: true }).first().click()
+    await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
+    await page.screenshot({ path: `artifacts/${Date.now()}-mobile-terminal.png` })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('a client plugin adds an interactive panel and unloads it without a core edit', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
     await expect.poll(async () => (await fixture.api.call('system.bootstrap', {})).host.activeRuns).toBe(0)
     await fixture.api.call('plugin.install', { path: resolve('examples/observer') })
     await expect(page.getByRole('button', { name: 'Observer counter', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: '终端', exact: true }).filter({ visible: true }).first().click()
+    const terminal = page.locator('.terminal-panel').filter({ visible: true })
+    const terminalInput = terminal.getByRole('textbox', { name: '终端输入', exact: true })
+    await terminalInput.fill('/observer')
+    await expect(terminal.getByRole('option', { name: /observer\.ping/ })).toBeVisible()
+    await terminalInput.press('Tab')
+    await terminalInput.press('Enter')
+    await expect(terminal).toContainText('Observer Client plugin is active.')
     await page.getByRole('button', { name: 'Observer counter', exact: true }).click()
     await page.getByRole('button', { name: 'Increment counter' }).click()
     await expect(page.locator('.plugin-panel output')).toHaveText('1')
     await fixture.api.call('plugin.set', { id: 'hbar-example-observer', enabled: false })
     await expect(page.getByRole('button', { name: 'Observer counter', exact: true })).toHaveCount(0)
     await expect(page.locator('.plugin-panel output')).toHaveCount(0)
+    const activeTerminal = page.locator('.terminal-panel').filter({ visible: true })
+    if (!(await activeTerminal.isVisible())) await page.getByRole('tab', { name: '终端', exact: true }).click()
+    await page
+      .locator('.terminal-panel')
+      .filter({ visible: true })
+      .getByRole('textbox', { name: '终端输入' })
+      .fill('/observer')
+    await expect(page.getByRole('option', { name: /observer\.ping/ })).toHaveCount(0)
   } finally {
     fixture.api.disconnect()
   }

@@ -276,6 +276,7 @@ export class GitRuntime implements GitService {
     root: string,
     private readonly config: GitConfig,
     private readonly runner: GitRunner = new ProcessGitRunner(),
+    private readonly allowExternalCwd = false,
   ) {
     this.rootPromise = realpath(root)
     this.worktreeRootPromise = config.worktreeRoot
@@ -284,13 +285,22 @@ export class GitRuntime implements GitService {
   }
 
   scoped(root: string) {
-    return new GitRuntime(root, this.config, this.runner)
+    return new GitRuntime(root, this.config, this.runner, false)
   }
 
   private async resolveWithinRoot(requested?: string) {
     const root = await this.rootPromise
     const candidate = resolve(root, requested ?? '.')
-    if (!inside(root, candidate)) throw new HbarError('PATH_DENIED', 'Git path is outside the workspace')
+    if (!inside(root, candidate)) {
+      if (!this.allowExternalCwd || !requested || !isAbsolute(requested))
+        throw new HbarError('PATH_DENIED', 'Git path is outside the workspace')
+      try {
+        return await realpath(candidate)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return candidate
+        throw error
+      }
+    }
     try {
       const actual = await realpath(candidate)
       if (!inside(root, actual)) throw new HbarError('PATH_DENIED', 'Git path resolves outside the workspace')
@@ -482,7 +492,7 @@ export const gitPlugin = definePlugin({
   async apply(ctx, rawConfig) {
     const config = gitConfigSchema.parse(rawConfig)
     const root = ctx.hbar.api.scope.kind === 'host' ? process.cwd() : process.cwd()
-    const runtime = new GitRuntime(root, config)
+    const runtime = new GitRuntime(root, config, new ProcessGitRunner(), true)
     provide<GitService>(ctx, 'git', runtime)
     for (const tool of gitTools(runtime)) ctx.hbar.api.tools.register(tool)
   },

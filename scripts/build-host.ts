@@ -15,6 +15,7 @@ for (const [entry, name] of [
     naming: name,
     target: 'bun',
     packages: 'bundle',
+    external: ['@aws-sdk/client-s3'],
     minify: false,
     sourcemap: 'external',
   })

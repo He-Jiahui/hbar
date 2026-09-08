@@ -16,7 +16,7 @@ import type {
   ToolRegistry,
 } from '@hbar/plugin-sdk'
 import type { PluginInfo, UIContribution } from '@hbar/contracts'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, terminalCommandSchema } from '@hbar/contracts'
 import { satisfies, valid } from 'semver'
 import { z } from 'zod'
 import type { StoragePort } from '@hbar/storage'
@@ -91,6 +91,14 @@ const manifestSchema = z.object({
   dependencies: z.record(z.string(), z.string()).optional(),
   peerDependencies: z.record(z.string(), z.string()).optional(),
   optionalDependencies: z.record(z.string(), z.string()).optional(),
+  activationEvents: z.array(z.string()).optional(),
+  contributes: z
+    .object({
+      commands: z.array(terminalCommandSchema),
+      panels: z.array(z.record(z.string(), z.unknown())),
+      renderers: z.array(z.record(z.string(), z.unknown())),
+    })
+    .optional(),
   permissions: z.array(z.string()),
   clientEntry: z.string().optional(),
 })
@@ -276,6 +284,9 @@ export class PluginManager {
         dependencies: manifest.dependencies,
         peerDependencies: manifest.peerDependencies,
         optionalDependencies: manifest.optionalDependencies,
+        activationEvents: manifest.activationEvents,
+        contributes: manifest.contributes,
+        terminalCommands: manifest.contributes?.commands,
         path,
         projectId,
       },
@@ -326,6 +337,8 @@ export class PluginManager {
         dependencies: pkg.hbar.dependencies,
         peerDependencies: pkg.hbar.peerDependencies,
         optionalDependencies: pkg.hbar.optionalDependencies,
+        activationEvents: pkg.hbar.activationEvents,
+        contributes: pkg.hbar.contributes,
         permissions: pkg.hbar.permissions.length ? pkg.hbar.permissions : loaded.default.manifest.permissions,
       }),
     }
@@ -506,7 +519,9 @@ export class PluginManager {
       throw new HbarError('REQUIRED_PLUGIN', 'This capability is required by the active profile')
     if (entry.plugin.manifest.restartRequired)
       throw new HbarError('RESTART_REQUIRED', 'Change this provider through the startup profile and restart the host')
-    const old = new Map([...this.entries].map(([key, value]) => [key, { enabled: value.enabled, config: value.config }]))
+    const old = new Map(
+      [...this.entries].map(([key, value]) => [key, { enabled: value.enabled, config: value.config }]),
+    )
     if (enabled) {
       const byPackage = new Map([...this.entries.values()].map((value) => [packageId(value.plugin.manifest), value]))
       const enable = (value: Installed, chain: string[]) => {
@@ -517,8 +532,7 @@ export class PluginManager {
           ...value.plugin.manifest.dependencies,
         })) {
           const upstream = byPackage.get(dependency)
-          if (!upstream)
-            throw new HbarError('PLUGIN_DEPENDENCY', `${name} requires missing ${dependency}@${range}`)
+          if (!upstream) throw new HbarError('PLUGIN_DEPENDENCY', `${name} requires missing ${dependency}@${range}`)
           if (!satisfies(upstream.plugin.manifest.version, range))
             throw new HbarError(
               'PLUGIN_VERSION',
@@ -538,7 +552,10 @@ export class PluginManager {
           Boolean(value.plugin.manifest.dependencies?.[name] ?? value.plugin.manifest.peerDependencies?.[name]),
       )
       if (dependent)
-        throw new HbarError('PLUGIN_DEPENDENCY', `${packageId(dependent.plugin.manifest)} depends on ${name}; disable it first`)
+        throw new HbarError(
+          'PLUGIN_DEPENDENCY',
+          `${packageId(dependent.plugin.manifest)} depends on ${name}; disable it first`,
+        )
       entry.enabled = false
     }
     entry.config = config ?? entry.config
@@ -550,7 +567,12 @@ export class PluginManager {
       await this.mountAll()
       await this.storage.call(
         'setPlugins',
-        [...this.entries].map(([key, value]) => ({ id: key, enabled: value.enabled, config: value.config, path: value.path })),
+        [...this.entries].map(([key, value]) => ({
+          id: key,
+          enabled: value.enabled,
+          config: value.config,
+          path: value.path,
+        })),
       )
       await this.writeLock()
     } catch (error) {
@@ -615,7 +637,8 @@ export class PluginManager {
       await this.writeLock()
       if (entry.path && this.options.pluginRoot) {
         const rel = relative(this.options.pluginRoot, entry.path)
-        if (rel.startsWith('..') || isAbsolute(rel)) throw new HbarError('PLUGIN_STORAGE', 'Refusing to remove an unmanaged path')
+        if (rel.startsWith('..') || isAbsolute(rel))
+          throw new HbarError('PLUGIN_STORAGE', 'Refusing to remove an unmanaged path')
         await rm(entry.path, { recursive: true, force: true })
       }
     } catch (error) {
@@ -634,9 +657,24 @@ export class PluginManager {
     const edges = [...this.entries.values()].flatMap((entry) => {
       const from = packageId(entry.plugin.manifest)
       return [
-        ...Object.entries(entry.plugin.manifest.dependencies ?? {}).map(([to, range]) => ({ from, to, range, kind: 'dependency' })),
-        ...Object.entries(entry.plugin.manifest.peerDependencies ?? {}).map(([to, range]) => ({ from, to, range, kind: 'peerDependency' })),
-        ...Object.entries(entry.plugin.manifest.optionalDependencies ?? {}).map(([to, range]) => ({ from, to, range, kind: 'optionalDependency' })),
+        ...Object.entries(entry.plugin.manifest.dependencies ?? {}).map(([to, range]) => ({
+          from,
+          to,
+          range,
+          kind: 'dependency',
+        })),
+        ...Object.entries(entry.plugin.manifest.peerDependencies ?? {}).map(([to, range]) => ({
+          from,
+          to,
+          range,
+          kind: 'peerDependency',
+        })),
+        ...Object.entries(entry.plugin.manifest.optionalDependencies ?? {}).map(([to, range]) => ({
+          from,
+          to,
+          range,
+          kind: 'optionalDependency',
+        })),
       ]
     })
     return { nodes, edges }
@@ -666,12 +704,16 @@ export class PluginManager {
         version: manifest.version,
         scope: manifest.installScope ?? 'global',
         source: 'local',
-        path: this.options.pluginRoot ? relative(this.options.pluginRoot, entry.path).replaceAll('\\', '/') : entry.path,
+        path: this.options.pluginRoot
+          ? relative(this.options.pluginRoot, entry.path).replaceAll('\\', '/')
+          : entry.path,
         integrity: await treeIntegrity(entry.path),
         enabled: entry.enabled,
         dependencies: manifest.dependencies ?? {},
         peerDependencies: manifest.peerDependencies ?? {},
         optionalDependencies: manifest.optionalDependencies ?? {},
+        activationEvents: manifest.activationEvents ?? [],
+        contributes: manifest.contributes ?? { commands: [], panels: [], renderers: [] },
       }
     }
     return { version: 1 as const, plugins }

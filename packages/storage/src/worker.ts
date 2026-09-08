@@ -356,7 +356,8 @@ const methods: StorageMethods = {
         null,
         null,
       )
-      return run
+      const queuedEvent = appendEvent(sessionId, 'run.queued', { run }, run.id)
+      return { ...run, queuedEvent }
     })(),
   claim: (sessionId) =>
     db.transaction(() => {

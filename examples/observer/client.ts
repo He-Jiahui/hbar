@@ -23,5 +23,19 @@ export default {
       },
     })
     api.registerRenderer('observer', ({ source }) => h('pre', { 'data-observer-renderer': true }, source.toUpperCase()))
+    api.registerTerminalCommand({
+      id: 'observer.ping',
+      title: 'Observer ping',
+      description: 'Verify that the observer Client plugin is active',
+      usage: '/observer.ping',
+      group: 'extensions',
+      scope: 'workspace',
+      permissions: [],
+      headless: false,
+      mutates: false,
+      execute({ writeMarkdown }) {
+        writeMarkdown('Observer Client plugin is active.')
+      },
+    })
   },
 } satisfies ClientPlugin

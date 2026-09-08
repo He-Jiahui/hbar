@@ -10,6 +10,7 @@ import type {
   Session,
   SessionEvent,
   SessionSnapshot,
+  TerminalContribution,
   ThreadGoal,
   PlanState,
   RunMode,
@@ -35,9 +36,7 @@ import type {
 export { Context }
 export type Disposer = () => void | Promise<void>
 export type ScopeKind = 'host' | 'workspace' | 'session' | 'run' | 'client'
-export type ToolResultContent =
-  | { type: 'text'; text: string }
-  | { type: 'image'; data: string; mimeType: string }
+export type ToolResultContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
 export interface ScopeDescriptor {
   kind: ScopeKind
   id: string
@@ -149,12 +148,7 @@ export interface GoalService {
 }
 export interface PlanService {
   get(sessionId: string): Promise<PlanState | null>
-  update(
-    sessionId: string,
-    plan: PlanStep[],
-    explanation?: string | null,
-    turnId?: string | null,
-  ): Promise<PlanState>
+  update(sessionId: string, plan: PlanStep[], explanation?: string | null, turnId?: string | null): Promise<PlanState>
   clear(sessionId: string): Promise<{ cleared: boolean }>
 }
 export interface ModeService {
@@ -187,19 +181,65 @@ export interface GitService {
   diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>
   log(cwd?: string, limit?: number, signal?: AbortSignal): Promise<GitCommitInfo[]>
   commit(cwd: string | undefined, options: GitCommitOptions, signal?: AbortSignal): Promise<GitCommitInfo>
-  branch(cwd: string | undefined, operation?: GitBranchOperation, signal?: AbortSignal): Promise<GitBranchInfo[] | GitBranchInfo>
-  worktree(cwd: string | undefined, operation?: GitWorktreeOperation, signal?: AbortSignal): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
+  branch(
+    cwd: string | undefined,
+    operation?: GitBranchOperation,
+    signal?: AbortSignal,
+  ): Promise<GitBranchInfo[] | GitBranchInfo>
+  worktree(
+    cwd: string | undefined,
+    operation?: GitWorktreeOperation,
+    signal?: AbortSignal,
+  ): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
   diffToRemote(cwd?: string, signal?: AbortSignal): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {
   status(sessionId: string): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
-  navigate(sessionId: string, url: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
+  navigate(
+    sessionId: string,
+    url: string,
+    contextId?: string,
+    pageId?: string,
+    signal?: AbortSignal,
+  ): Promise<BrowserPage>
   snapshot(sessionId: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserSnapshot>
-  click(sessionId: string, selector: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
-  type(sessionId: string, selector: string, text: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
-  press(sessionId: string, key: string, selector?: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
-  screenshot(sessionId: string, fullPage?: boolean, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserScreenshot>
-  evaluate(sessionId: string, expression: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<{ value: unknown }>
+  click(
+    sessionId: string,
+    selector: string,
+    contextId?: string,
+    pageId?: string,
+    signal?: AbortSignal,
+  ): Promise<BrowserPage>
+  type(
+    sessionId: string,
+    selector: string,
+    text: string,
+    contextId?: string,
+    pageId?: string,
+    signal?: AbortSignal,
+  ): Promise<BrowserPage>
+  press(
+    sessionId: string,
+    key: string,
+    selector?: string,
+    contextId?: string,
+    pageId?: string,
+    signal?: AbortSignal,
+  ): Promise<BrowserPage>
+  screenshot(
+    sessionId: string,
+    fullPage?: boolean,
+    contextId?: string,
+    pageId?: string,
+    signal?: AbortSignal,
+  ): Promise<BrowserScreenshot>
+  evaluate(
+    sessionId: string,
+    expression: string,
+    contextId?: string,
+    pageId?: string,
+    signal?: AbortSignal,
+  ): Promise<{ value: unknown }>
   close(sessionId: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<{ closed: boolean }>
   history(sessionId: string, contextId?: string): Promise<string[]>
 }
@@ -210,7 +250,13 @@ export interface ComputerUseService {
   doubleClick(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
   type(sessionId: string, text: string, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
   key(sessionId: string, key: string, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
-  scroll(sessionId: string, deltaX: number, deltaY: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  scroll(
+    sessionId: string,
+    deltaX: number,
+    deltaY: number,
+    appId?: string,
+    signal?: AbortSignal,
+  ): Promise<ComputerAction>
   move(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
   wait(sessionId: string, milliseconds: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
   launch(sessionId: string, appId: string, signal?: AbortSignal): Promise<ComputerAction>
@@ -293,6 +339,14 @@ export interface PluginManifest {
   dependencies?: Record<string, string> | undefined
   peerDependencies?: Record<string, string> | undefined
   optionalDependencies?: Record<string, string> | undefined
+  activationEvents?: string[] | undefined
+  contributes?:
+    | {
+        commands: TerminalContribution[]
+        panels: Record<string, unknown>[]
+        renderers: Record<string, unknown>[]
+      }
+    | undefined
   permissions: string[]
   clientEntry?: string | undefined
 }
