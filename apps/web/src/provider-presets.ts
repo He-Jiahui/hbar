@@ -13,6 +13,7 @@ export interface ProviderPreset {
   reasoning: boolean
   inputPrice: number
   outputPrice: number
+  modelOptions: readonly string[]
 }
 
 export const providerPresets: readonly ProviderPreset[] = [
@@ -29,6 +30,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: true,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: ['gpt-5.5', 'gpt-5.6', 'gpt-5.5-mini'],
   },
   {
     id: 'anthropic',
@@ -43,6 +45,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: true,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: ['claude-sonnet-4-5', 'claude-opus-4-1', 'claude-haiku-4-5'],
   },
   {
     id: 'deepseek',
@@ -57,6 +60,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: false,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: ['deepseek-chat', 'deepseek-reasoner'],
   },
   {
     id: 'openrouter',
@@ -71,6 +75,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: true,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: ['openai/gpt-5.5', 'anthropic/claude-sonnet-4-5', 'google/gemini-2.5-flash'],
   },
   {
     id: 'gemini',
@@ -85,6 +90,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: false,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.0-flash'],
   },
   {
     id: 'ollama',
@@ -99,6 +105,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: false,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: ['llama3.2', 'qwen3:8b', 'deepseek-r1'],
   },
   {
     id: 'moonshot',
@@ -113,6 +120,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: true,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: ['kimi-k2.5', 'kimi-k2-thinking'],
   },
   {
     id: 'custom',
@@ -127,6 +135,7 @@ export const providerPresets: readonly ProviderPreset[] = [
     reasoning: false,
     inputPrice: 0,
     outputPrice: 0,
+    modelOptions: [],
   },
 ] as const
 

@@ -7,6 +7,7 @@ import { setApprovalMode, useWorkbench } from './stores'
 export interface PermissionSelectorProps {
   compact?: boolean
   className?: string
+  placement?: 'above' | 'below'
 }
 
 function ModeIcon({ mode }: { mode: ApprovalMode }) {
@@ -15,7 +16,7 @@ function ModeIcon({ mode }: { mode: ApprovalMode }) {
   return <ShieldCheck size={14} />
 }
 
-export default function PermissionSelector({ compact = true, className = '' }: PermissionSelectorProps) {
+export default function PermissionSelector({ compact = true, className = '', placement = 'above' }: PermissionSelectorProps) {
   const mode = useWorkbench((state) => state.approvalMode)
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -38,7 +39,10 @@ export default function PermissionSelector({ compact = true, className = '' }: P
   }, [open])
 
   return (
-    <div className={`permission-selector ${compact ? 'permission-selector-compact' : ''} ${className}`.trim()} ref={root}>
+    <div
+      className={`permission-selector permission-placement-${placement} ${compact ? 'permission-selector-compact' : ''} ${className}`.trim()}
+      ref={root}
+    >
       <button
         type="button"
         className={`permission-trigger permission-tone-${selected.tone}`}

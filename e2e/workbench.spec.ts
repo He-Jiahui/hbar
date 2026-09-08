@@ -54,6 +54,41 @@ test('composer plus menu exposes mode and attachment capabilities', async ({ pag
   }
 })
 
+test('model picker and permission preset survive a refresh', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const modelPicker = page.getByRole('button', { name: /选择模型，当前/ }).filter({ visible: true })
+    await modelPicker.click()
+    await expect(page.getByRole('textbox', { name: '搜索模型', exact: true })).toBeVisible()
+    await page.getByRole('textbox', { name: '搜索模型', exact: true }).fill('fixture')
+    await expect(page.getByRole('menuitemradio', { name: /Local fixture/ })).toBeVisible()
+    await page.getByRole('menuitemradio', { name: /Local fixture/ }).click()
+
+    const permission = page.getByRole('button', { name: '询问', exact: true }).filter({ visible: true })
+    await permission.click()
+    await page.getByRole('menuitemradio', { name: /工作区自动执行/ }).click()
+    await expect(page.getByRole('button', { name: '自动执行', exact: true }).filter({ visible: true })).toBeVisible()
+    await expect.poll(async () => (await fixture.api.call('permission.get', {})).mode).toBe('allow')
+
+    await page.reload()
+    await expect(page.locator('.app-shell')).toBeVisible()
+    await expect(page.getByRole('button', { name: '自动执行', exact: true }).filter({ visible: true })).toBeVisible()
+
+    await page.getByRole('button', { name: '设置', exact: true }).first().click()
+    await expect(page.getByRole('heading', { name: '供应商与模型' })).toBeVisible()
+    await page.getByRole('button', { name: '添加模型', exact: true }).click()
+    const editor = page.getByRole('dialog', { name: '添加模型', exact: true })
+    await expect(editor).toBeVisible()
+    await editor.getByRole('button', { name: /OpenAI 官方 OpenAI API/ }).click()
+    await expect(editor.locator('.provider-connection-summary')).toContainText('https://api.openai.com/v1')
+    await expect(editor.getByRole('combobox', { name: '模型 ID' })).toHaveValue('gpt-5.5')
+    await editor.getByRole('button', { name: '取消', exact: true }).click()
+  } finally {
+    await fixture.api.call('permission.set', { mode: 'ask' }).catch(() => {})
+    fixture.api.disconnect()
+  }
+})
+
 test('desktop pairs, sends Chinese input, approves a tool, recovers layout and cancels a run', async ({ page }) => {
   const fixture = await controller()
   const errors: string[] = []
@@ -177,7 +212,7 @@ test('a client plugin adds an interactive panel and unloads it without a core ed
     await page.getByRole('button', { name: 'Observer counter', exact: true }).click()
     await page.getByRole('button', { name: 'Increment counter' }).click()
     await expect(page.locator('.plugin-panel output')).toHaveText('1')
-    await fixture.api.call('plugin.set', { id: 'example.observer', enabled: false })
+    await fixture.api.call('plugin.set', { id: 'hbar-example-observer', enabled: false })
     await expect(page.getByRole('button', { name: 'Observer counter', exact: true })).toHaveCount(0)
     await expect(page.locator('.plugin-panel output')).toHaveCount(0)
   } finally {

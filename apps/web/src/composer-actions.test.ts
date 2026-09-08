@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { ComposerAction } from '../../../packages/ui-sdk/src/index'
+import type { ComposerAction } from '@hbar/ui-sdk'
 import {
   BUILTIN_COMPOSER_ACTIONS,
   buildComposerActions,

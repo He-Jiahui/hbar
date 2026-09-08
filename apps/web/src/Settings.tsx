@@ -62,6 +62,8 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
     ? providerPresets.find((preset) => preset.name === provider.name || preset.baseUrl === provider.baseUrl)?.id ?? 'custom'
     : 'deepseek'
   const [presetId, setPresetId] = useState(initialPreset)
+  const selectedPreset = providerPresets.find((preset) => preset.id === presetId) ?? providerPresets.at(-1)!
+  const customConnection = presetId === 'custom'
   const [value, setValue] = useState<ProviderConfig>(() =>
     provider ? { ...provider } : providerFromPreset(providerPresets.find((preset) => preset.id === 'deepseek')!),
   )
@@ -109,29 +111,50 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             <p>选择预设后只需填写 API Key；模型和地址都可以继续调整。</p>
           </fieldset>
         )}
-        <label>
-          名称
-          <input autoFocus value={value.name} onChange={(event) => field('name', event.target.value)} required />
-        </label>
-        <label>
-          协议
-          <select
-            value={value.protocol}
-            onChange={(event) => field('protocol', event.target.value as ProviderConfig['protocol'])}
-          >
-            <option value="openai-completions">OpenAI Chat Completions</option>
-            <option value="openai-responses">OpenAI Responses</option>
-            <option value="anthropic-messages">Anthropic Messages</option>
-            {provider?.protocol === 'mock' && <option value="mock">Local fixture</option>}
-          </select>
-        </label>
-        <label>
-          API 地址
-          <input type="url" value={value.baseUrl} onChange={(event) => field('baseUrl', event.target.value)} required />
-        </label>
+        {customConnection ? (
+          <>
+            <label>
+              名称
+              <input autoFocus value={value.name} onChange={(event) => field('name', event.target.value)} required />
+            </label>
+            <label>
+              协议
+              <select
+                value={value.protocol}
+                onChange={(event) => field('protocol', event.target.value as ProviderConfig['protocol'])}
+              >
+                <option value="openai-completions">OpenAI Chat Completions</option>
+                <option value="openai-responses">OpenAI Responses</option>
+                <option value="anthropic-messages">Anthropic Messages</option>
+                {provider?.protocol === 'mock' && <option value="mock">Local fixture</option>}
+              </select>
+            </label>
+            <label>
+              API 地址
+              <input type="url" value={value.baseUrl} onChange={(event) => field('baseUrl', event.target.value)} required />
+            </label>
+          </>
+        ) : (
+          <div className="provider-connection-summary">
+            <div>
+              <strong>{selectedPreset.name}</strong>
+              <span>{selectedPreset.description}</span>
+            </div>
+            <code>{value.baseUrl}</code>
+          </div>
+        )}
         <label>
           模型 ID
-          <input value={value.model} onChange={(event) => field('model', event.target.value)} required />
+          <input
+            list={`provider-models-${presetId}`}
+            autoFocus={!customConnection}
+            value={value.model}
+            onChange={(event) => field('model', event.target.value)}
+            required
+          />
+          <datalist id={`provider-models-${presetId}`}>
+            {selectedPreset.modelOptions.map((model) => <option value={model} key={model} />)}
+          </datalist>
         </label>
         <label>
           API Key
@@ -146,7 +169,7 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             />
           </div>
         </label>
-        <details className="advanced">
+        <details className="advanced" open={customConnection}>
           <summary>高级设置</summary>
           <div className="form-grid">
             <label>
@@ -337,7 +360,7 @@ export default function Settings() {
               <h2>工具权限</h2>
               <p className="section-description">控制 hbar 是否需要在写入文件或运行命令前暂停。</p>
             </div>
-            <PermissionSelector compact={false} />
+            <PermissionSelector compact={false} placement="below" />
           </div>
           <div className="permission-settings-list">
             <div className="permission-setting-row">

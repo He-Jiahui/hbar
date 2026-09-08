@@ -614,7 +614,7 @@ export default function App() {
       case undefined:
         return <div className="empty-tool">面板不可用</div>
       case 'conversation':
-        return <Chat {...(config.sessionId ? { sessionId: config.sessionId } : {})} onSettings={settings} />
+        return <Chat {...(config?.sessionId ? { sessionId: config.sessionId } : {})} onSettings={settings} />
       case 'settings':
         return <Settings />
       case 'activity':

@@ -31,6 +31,7 @@ import {
 import Markdown from './Markdown'
 import { copyText, newRequestId } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
+import ModelPicker from './ModelPicker'
 import ComposerMenu from './ComposerMenu'
 import { buildComposerActions, IMAGE_ACCEPT } from './composer-actions'
 import { useUIPlugins } from './ui-plugins'
@@ -420,9 +421,10 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
               <button
                 className="button approval-remember"
                 onClick={() => {
-                  void setApprovalMode('allow').then(() =>
-                    client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' }),
-                  ).catch(report)
+                  void (async () => {
+                    if (!(await setApprovalMode('allow'))) return
+                    await client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' })
+                  })().catch(report)
                 }}
               >
                 <ShieldCheck size={14} />
@@ -491,59 +493,44 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
               }
             }}
           />
-            <div className="composer-toolbar">
-              <div className="composer-left">
-                <ComposerMenu actions={composerActions} onSelect={selectComposerAction} />
-                <input
-                  className="visually-hidden"
-                  ref={fileInput}
-                  type="file"
-                  accept={IMAGE_ACCEPT}
-                  multiple
-                  onChange={(event) => void attach(event.target.files)}
-                />
-                {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
-                <PermissionSelector />
-              </div>
-              <div className="composer-right">
-                <select
-                  aria-label="选择模型"
-                  value={modelId}
-                  onChange={(event) => useWorkbench.setState({ modelId: event.target.value })}
-                >
-                  <option value="" disabled>
-                    选择模型
-                  </option>
-                  {catalog?.models.map((model) => (
-                    <option value={model.id} key={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-                </select>
-                {activeRun && (
-                  <button
-                    type="button"
-                    className="stop-button"
-                    title="停止运行"
-                    aria-label="停止运行"
-                    onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
-                  >
-                    <Square size={14} fill="currentColor" />
-                  </button>
-                )}
-                <button
-                  className="send-button"
-                  type="submit"
-                  title={activeRun ? '加入队列' : '发送'}
-                  aria-label="发送"
-                  disabled={
-                    busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length) || !workspaceId
-                  }
-                >
-                  {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
-                </button>
-              </div>
+          <div className="composer-toolbar">
+            <div className="composer-left">
+              <ComposerMenu actions={composerActions} onSelect={selectComposerAction} />
+              <input
+                className="visually-hidden"
+                ref={fileInput}
+                type="file"
+                accept={IMAGE_ACCEPT}
+                multiple
+                onChange={(event) => void attach(event.target.files)}
+              />
+              {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
+              <PermissionSelector />
             </div>
+            <div className="composer-right">
+              <ModelPicker onSettings={onSettings} />
+              {activeRun && (
+                <button
+                  type="button"
+                  className="stop-button"
+                  title="停止运行"
+                  aria-label="停止运行"
+                  onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
+                >
+                  <Square size={14} fill="currentColor" />
+                </button>
+              )}
+              <button
+                className="send-button"
+                type="submit"
+                title={activeRun ? '加入队列' : '发送'}
+                aria-label="发送"
+                disabled={busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length) || !workspaceId}
+              >
+                {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
+              </button>
+            </div>
+          </div>
         </form>
         <div className="composer-footer">
           <span>{modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'}</span>
