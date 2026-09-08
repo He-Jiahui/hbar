@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { userInputQuestionSchema, userInputResponseSchema } from '@hbar/contracts'
 import type { PlanService } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from '../plugins/plan/src/instructions.ts'
 
@@ -61,6 +62,20 @@ test('plan mode exposes the Codex collaboration rules separately from update_pla
   expect(PLAN_MODE_INSTRUCTIONS).toContain('<proposed_plan>')
 })
 
+test('request user input contracts preserve free-text wire questions and answer-only responses', () => {
+  const question = userInputQuestionSchema.parse({
+    id: 'details',
+    header: 'Details',
+    question: 'What constraint should the plan account for?',
+  })
+  expect(question.options).toBeUndefined()
+  expect(question.isOther).toBe(false)
+  expect(question.isSecret).toBe(false)
+  expect(userInputResponseSchema.parse({ answers: { details: { answers: ['offline'] } } })).toEqual({
+    answers: { details: { answers: ['offline'] } },
+  })
+})
+
 test('plan mode uses medium reasoning unless the caller explicitly chooses an effort', async () => {
   const { kernel, session } = await fixture()
   const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }> }>('mode')
@@ -94,12 +109,18 @@ test('plan mode request_user_input pauses the run and resumes with validated ans
     pending = (await kernel.snapshot(session.id)).userInputs[0]
   }
   expect(pending?.questions[0]?.id).toBe('scope')
-  expect(pending?.questions[0]?.isOther).toBe(false)
+  expect(pending?.questions[0]?.isOther).toBe(true)
   expect(pending).toBeTruthy()
   expect(await kernel.resolveUserInput(pending!.requestId, { scope: { answers: ['App'] } })).toBeTrue()
   await kernel.waitForIdle()
   const snapshot = await kernel.snapshot(session.id)
   expect(snapshot.userInputs).toHaveLength(0)
   expect(snapshot.messages.flatMap((message) => message.content).some((block) => block.type === 'tool_result' && block.name === 'request_user_input' && block.text.includes('App'))).toBeTrue()
+  const responseBlock = snapshot.messages
+    .flatMap((message) => message.content)
+    .find((block) => block.type === 'tool_result' && block.name === 'request_user_input')
+  expect(responseBlock?.type === 'tool_result' ? JSON.parse(responseBlock.text) : null).toEqual({
+    answers: { scope: { answers: ['App'] } },
+  })
   expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
 })

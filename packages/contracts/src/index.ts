@@ -82,27 +82,39 @@ export const userInputQuestionSchema = z.object({
   id: userInputIdSchema,
   header: z.string().trim().min(1).max(12),
   question: z.string().trim().min(1).max(4_000),
-  options: z.array(userInputOptionSchema).min(2).max(3),
-  isOther: z.boolean().optional(),
-  isSecret: z.boolean().optional(),
+  // The wire protocol also supports free-text-only questions. The model
+  // control-tool schema below is stricter and requires suggested choices.
+  options: z.array(userInputOptionSchema).max(3).optional(),
+  isOther: z.boolean().default(false),
+  isSecret: z.boolean().default(false),
 })
 export type UserInputQuestion = z.infer<typeof userInputQuestionSchema>
+/** Shape accepted by the synchronous model control tool. */
+export const userInputToolQuestionSchema = userInputQuestionSchema.extend({
+  options: z.array(userInputOptionSchema).min(2).max(3),
+})
+export type UserInputToolQuestion = z.infer<typeof userInputToolQuestionSchema>
 export const userInputRequestSchema = z.object({
   requestId: idSchema,
   sessionId: idSchema,
   runId: idSchema,
   callId: idSchema,
+  turnId: idSchema.optional(),
   questions: z.array(userInputQuestionSchema).min(1).max(3),
   isBlocking: z.boolean().default(true),
+  /** @deprecated `isBlocking` determines whether the client waits. */
+  autoResolutionMs: z.number().int().nonnegative().max(86_400_000).optional(),
 })
 export type UserInputRequest = z.infer<typeof userInputRequestSchema>
 export const userInputAnswerSchema = z.object({ answers: z.array(z.string().max(4_000)).max(10) })
 export type UserInputAnswer = z.infer<typeof userInputAnswerSchema>
 export const userInputResponseSchema = z.object({
-  requestId: idSchema,
   answers: z.record(userInputIdSchema, userInputAnswerSchema),
 })
 export type UserInputResponse = z.infer<typeof userInputResponseSchema>
+/** Internal transport envelope; Codex responses themselves contain answers only. */
+export const userInputResolutionSchema = userInputResponseSchema.extend({ requestId: idSchema })
+export type UserInputResolution = z.infer<typeof userInputResolutionSchema>
 export const budgetPhaseSchema = z.enum(['active', 'exhausted', 'completed', 'stopped'])
 export type BudgetPhase = z.infer<typeof budgetPhaseSchema>
 export const sessionBudgetSchema = z.object({

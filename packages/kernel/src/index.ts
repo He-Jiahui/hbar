@@ -521,6 +521,9 @@ export class Kernel {
         images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
+      // A new turn clears unresolved interactive requests, matching Codex's
+      // turn-start lifecycle and preventing stale prompts from blocking work.
+      await this.clearPendingUserInputs(sessionId, new HbarError('USER_INPUT_CANCELLED', 'A new turn started'))
       const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId)
       if (run.status === 'queued') {
         if (run.queuedEvent) this.publishEvent(run.queuedEvent)
@@ -876,7 +879,7 @@ export class Kernel {
     if (request.questions.some((question, index) => request.questions.findIndex((item) => item.id === question.id) !== index))
       throw new HbarError('USER_INPUT_INVALID', 'Question ids must be unique')
     if (request.questions.some((question) => {
-      const labels = question.options.map((option) => option.label.toLocaleLowerCase())
+      const labels = (question.options ?? []).map((option) => option.label.toLocaleLowerCase())
       return new Set(labels).size !== labels.length
     }))
       throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
@@ -932,12 +935,17 @@ export class Kernel {
   async resolveUserInput(requestId: string, rawAnswers: Record<string, { answers: string[] }>) {
     const entry = this.userInputs.get(requestId)
     if (!entry) return false
-    const response = userInputResponseSchema.parse({ requestId, answers: rawAnswers })
+    const response = userInputResponseSchema.parse({ answers: rawAnswers })
     const questionIds = new Set(entry.request.questions.map((question) => question.id))
     if (Object.keys(response.answers).some((id) => !questionIds.has(id)))
       throw new HbarError('USER_INPUT_INVALID', 'Answers contain an unknown question id')
     await entry.settle(response)
     return true
+  }
+
+  private async clearPendingUserInputs(sessionId: string, reason: unknown) {
+    const pending = [...this.userInputs.values()].filter(({ request }) => request.sessionId === sessionId)
+    for (const entry of pending) await entry.settle(undefined, reason)
   }
   async resolveApproval(id: string, decision: Approval['status']) {
     const result = await this.storage.call('resolveApproval', id, decision)

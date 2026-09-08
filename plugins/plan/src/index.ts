@@ -6,6 +6,7 @@ import {
   planStepSchema,
   runModeSchema,
   userInputQuestionSchema,
+  userInputToolQuestionSchema,
   userInputRequestSchema,
 } from '@hbar/contracts'
 import type { PlanState, PlanStep, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
@@ -18,6 +19,9 @@ const RESTORE_CONCURRENCY = 8
 
 export const planConfigSchema = z.object({
   maxRestoreEvents: z.number().int().min(1_000).max(MAX_RESTORE_EVENTS).default(MAX_RESTORE_EVENTS),
+  // Codex keeps the synchronous control tool Plan-only by default. Hosts may
+  // explicitly enable it in Default mode for compatibility with that feature.
+  allowDefaultModeRequestUserInput: z.boolean().default(false),
 })
 export type PlanConfig = z.infer<typeof planConfigSchema>
 
@@ -28,7 +32,10 @@ const updatePlanSchema = z.object({
   explanation: z.string().max(4_000).optional(),
   plan: z.array(planStepSchema).max(100),
 })
-const requestUserInputSchema = z.object({ questions: z.array(userInputQuestionSchema).min(1).max(3) })
+// The model-facing schema intentionally exposes only the fields in Codex's
+// tool contract. Wire events add normalized `isOther`/`isSecret` defaults.
+const requestUserInputQuestionSchema = userInputToolQuestionSchema.pick({ id: true, header: true, question: true, options: true })
+const requestUserInputSchema = z.object({ questions: z.array(requestUserInputQuestionSchema).min(1).max(3) })
 
 function escapeXml(value: string) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -160,20 +167,41 @@ class PlanRuntime implements PlanService {
     sessionId: string,
     runId: string,
     callId: string,
+    mode: RunMode,
     questions: UserInputQuestion[],
     signal: AbortSignal,
   ) {
+    if (!this.canRequestUserInput(mode))
+      throw new HbarError('PLAN_MODE', `request_user_input is unavailable in ${mode === 'plan' ? 'Plan' : 'Default'} mode`)
+    const normalizedQuestions = questions.map((question) => ({
+      ...question,
+      // Codex always adds the free-form choice for this tool, regardless of
+      // whether the model supplied an `isOther` value.
+      isOther: true,
+      isSecret: question.isSecret ?? false,
+    }))
     return this.api.userInput.request(
       userInputRequestSchema.parse({
         requestId: crypto.randomUUID(),
         sessionId,
         runId,
         callId,
-        questions,
-        isBlocking: true,
+        questions: normalizedQuestions,
+        isBlocking: mode === 'plan',
+        autoResolutionMs: undefined,
       }),
       signal,
     )
+  }
+
+  canRequestUserInput(mode: RunMode) {
+    return mode === 'plan' || (mode === 'default' && this.config.allowDefaultModeRequestUserInput)
+  }
+
+  requestUserInputDescription() {
+    return this.config.allowDefaultModeRequestUserInput
+      ? 'Request user input for one to three short questions and wait for the response. This tool is only available in Default or Plan mode.'
+      : 'Request user input for one to three short questions and wait for the response. This tool is only available in Plan mode.'
   }
 
   private async persistPlan(plan: PlanState, runId?: string) {
@@ -226,18 +254,20 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
     },
     {
       name: 'request_user_input',
-      description: 'Request user input for one to three short questions and wait for the response. This tool is only available in Plan mode.',
+      description: runtime.requestUserInputDescription(),
       inputSchema: requestUserInputSchema,
       effect: 'read',
       execute: async (args, context) => {
-        if (context.run.input.mode !== 'plan')
-          throw new HbarError('PLAN_MODE', 'request_user_input is unavailable in Default mode')
+        const mode = context.run.input.mode ?? 'default'
+        if (!runtime.canRequestUserInput(mode))
+          throw new HbarError('PLAN_MODE', `request_user_input is unavailable in ${mode === 'plan' ? 'Plan' : 'Default'} mode`)
         const parsed = requestUserInputSchema.parse(args)
         const response = await runtime.requestUserInput(
           context.session.id,
           context.run.id,
           context.callId,
-          parsed.questions,
+          mode,
+          parsed.questions.map((question) => userInputQuestionSchema.parse(question)),
           context.signal,
         )
         return { text: JSON.stringify(response), details: response }

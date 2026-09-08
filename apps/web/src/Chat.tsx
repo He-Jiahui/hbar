@@ -91,7 +91,11 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
   async function submit() {
     const answers = Object.fromEntries(
       request.questions.map((question) => {
-        const value = selected[question.id] === '__other__' ? other[question.id] : selected[question.id]
+        const value = question.options?.length
+          ? selected[question.id] === '__other__'
+            ? other[question.id]
+            : selected[question.id]
+          : other[question.id]
         return [question.id, { answers: value?.trim() ? [value.trim()] : [] }]
       }),
     )
@@ -124,7 +128,7 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
               {question.question}
             </legend>
             <div className="user-input-options">
-              {question.options.map((option) => (
+              {question.options?.map((option) => (
                 <label key={option.label} className="user-input-option">
                   <input
                     type="radio"
@@ -140,7 +144,7 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
                   </span>
                 </label>
               ))}
-              {question.isOther !== false && (
+              {question.options?.length ? question.isOther !== false && (
                 <label className="user-input-option">
                   <input
                     type="radio"
@@ -163,6 +167,19 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
                         onChange={(event) => setOther((current) => ({ ...current, [question.id]: event.target.value }))}
                       />
                     )}
+                  </span>
+                </label>
+              ) : (
+                <label className="user-input-option user-input-freeform">
+                  <span>
+                    <strong>填写答案</strong>
+                    <input
+                      aria-label={`${question.header} 答案`}
+                      type={question.isSecret ? 'password' : 'text'}
+                      value={other[question.id] ?? ''}
+                      disabled={saving}
+                      onChange={(event) => setOther((current) => ({ ...current, [question.id]: event.target.value }))}
+                    />
                   </span>
                 </label>
               )}
