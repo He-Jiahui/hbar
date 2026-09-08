@@ -87,7 +87,15 @@ function isImageMime(mime: string): boolean {
 function isTextArtifact(mime: string, name: string): boolean {
   if (mime.startsWith('text/')) return true
   if (
-    ['application/json', 'application/ld+json', 'application/javascript', 'application/typescript', 'application/xml', 'application/x-sh', 'application/x-yaml'].includes(mime)
+    [
+      'application/json',
+      'application/ld+json',
+      'application/javascript',
+      'application/typescript',
+      'application/xml',
+      'application/x-sh',
+      'application/x-yaml',
+    ].includes(mime)
   )
     return true
   const dot = name.lastIndexOf('.')
@@ -179,29 +187,33 @@ export class Kernel {
     this.secrets =
       options.secrets ??
       new NativeSecrets(`hbar.${createHash('sha256').update(options.home).digest('hex').slice(0, 20)}`)
-    this.plugins = new PluginManager(this.storage, {
-      tools: this.tools,
-      hooks: this.hooks,
-      sessions: {
-        get: (id) => this.storage.call('session', id),
-        list: async (workspaceId) => {
-          const sessions = await this.storage.call('sessions')
-          return workspaceId ? sessions.filter((session) => session.workspaceId === workspaceId) : sessions
+    this.plugins = new PluginManager(
+      this.storage,
+      {
+        tools: this.tools,
+        hooks: this.hooks,
+        sessions: {
+          get: (id) => this.storage.call('session', id),
+          list: async (workspaceId) => {
+            const sessions = await this.storage.call('sessions')
+            return workspaceId ? sessions.filter((session) => session.workspaceId === workspaceId) : sessions
+          },
+          events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
+          create: (id, title) => this.createSession(id, title),
+          submit: (...args) => this.submit(...args),
+          cancel: (id) => this.cancel(id),
+          snapshot: (id) => this.snapshot(id),
+          append: (id, type, data, runId, stepId) => this.append(id, type, data, runId, stepId),
         },
-        events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
-        create: (id, title) => this.createSession(id, title),
-        submit: (...args) => this.submit(...args),
-        cancel: (id) => this.cancel(id),
-        snapshot: (id) => this.snapshot(id),
-        append: (id, type, data, runId, stepId) => this.append(id, type, data, runId, stepId),
+        notify: (event) => this.publish(event),
+        changed: (kind) => this.changed(kind),
       },
-      notify: (event) => this.publish(event),
-      changed: (kind) => this.changed(kind),
-    }, {
-      pluginRoot: options.layout.plugins,
-      pluginLock: options.layout.pluginLock,
-      pluginExtract: options.layout.cache.pluginExtract,
-    })
+      {
+        pluginRoot: options.layout.plugins,
+        pluginLock: options.layout.pluginLock,
+        pluginExtract: options.layout.cache.pluginExtract,
+      },
+    )
   }
   static async create(options: KernelOptions): Promise<Kernel> {
     const layout =
@@ -755,7 +767,8 @@ export class Kernel {
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
       const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       const mode = context.run.input.approval ?? this.permissionModeValue
-      if (decision === 'deny' || (decision === 'ask' && mode === 'deny')) throw new HbarError('DENIED', 'Tool denied by policy')
+      if (decision === 'deny' || (decision === 'ask' && mode === 'deny'))
+        throw new HbarError('DENIED', 'Tool denied by policy')
       if (decision === 'ask' && mode === 'ask' && !(await this.requestApproval(name, args, context)))
         throw new HbarError('DENIED', 'User denied the tool call')
       context.signal.throwIfAborted()

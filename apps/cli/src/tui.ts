@@ -25,7 +25,8 @@ function blockText(message: Message) {
       if (block.type === 'thinking') return `<details><summary>Thinking</summary>\n\n${block.text}\n\n</details>`
       if (block.type === 'image') return `![${block.artifact.name}](attachment:${block.artifact.id})`
       if (block.type === 'file') return `[${block.artifact.name}](attachment:${block.artifact.id})`
-      if (block.type === 'tool_call') return `\`\`\`json\n${JSON.stringify({ tool: block.name, args: block.args }, null, 2)}\n\`\`\``
+      if (block.type === 'tool_call')
+        return `\`\`\`json\n${JSON.stringify({ tool: block.name, args: block.args }, null, 2)}\n\`\`\``
       return `> ${block.isError ? 'Tool failed' : 'Tool result'} · ${block.name}\n>\n> ${block.text.replaceAll('\n', '\n> ')}`
     })
     .join('\n\n')
@@ -33,7 +34,10 @@ function blockText(message: Message) {
 
 function transcript(snapshot: SessionSnapshot) {
   return snapshot.messages
-    .map((message) => `### ${message.role === 'user' ? 'You' : message.role === 'assistant' ? 'hbar' : message.role}\n\n${blockText(message)}`)
+    .map(
+      (message) =>
+        `### ${message.role === 'user' ? 'You' : message.role === 'assistant' ? 'hbar' : message.role}\n\n${blockText(message)}`,
+    )
     .join('\n\n---\n\n')
 }
 
@@ -158,9 +162,10 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     const activeStream = streams.get(session.id)
     const streamText = activeStream?.text ?? ''
     const streamThinking = activeStream?.thinking ?? ''
-    const stream = streamText || streamThinking
-      ? `\n\n---\n\n### hbar\n\n${streamThinking ? `> Thinking\n>\n> ${streamThinking.replaceAll('\n', '\n> ')}\n\n` : ''}${streamText}`
-      : ''
+    const stream =
+      streamText || streamThinking
+        ? `\n\n---\n\n### hbar\n\n${streamThinking ? `> Thinking\n>\n> ${streamThinking.replaceAll('\n', '\n> ')}\n\n` : ''}${streamText}`
+        : ''
     markdown.streaming = Boolean(streamText || streamThinking)
     markdown.content = `${base}${stream}${note ? `\n\n---\n\n${note}` : ''}`
     scroll.scrollTo(Number.MAX_SAFE_INTEGER)
@@ -263,7 +268,9 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
       await refreshCatalog()
       const rows = runtime.bootstrap.sessions
         .filter((item) => item.workspaceId === runtime.project.id)
-        .map((item) => `| ${item.id} | ${item.title.replaceAll('|', '\\|')} | ${item.archived ? 'archived' : 'active'} |`)
+        .map(
+          (item) => `| ${item.id} | ${item.title.replaceAll('|', '\\|')} | ${item.archived ? 'archived' : 'active'} |`,
+        )
       return render(`### Sessions\n\n| ID | Title | State |\n| --- | --- | --- |\n${rows.join('\n')}`)
     }
     if (command === 'switch' || command === 'resume') return switchSession(argument)
@@ -276,7 +283,9 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     if (command === 'model') {
       await refreshCatalog()
       if (!argument)
-        return render(`### Models\n\n${runtime.bootstrap.models.map((item) => `- \`${item.id}\` · ${item.name} · ${item.model}`).join('\n')}`)
+        return render(
+          `### Models\n\n${runtime.bootstrap.models.map((item) => `- \`${item.id}\` · ${item.name} · ${item.model}`).join('\n')}`,
+        )
       modelId = selectModel(runtime.bootstrap, argument)
       return updateHeader()
     }
@@ -317,14 +326,24 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
         await runtime.client.call('plugin.install', { path: idOrPath, projectId: runtime.project.id })
       else if (action === 'enable' && idOrPath) await runtime.client.call('plugin.enable', { id: idOrPath })
       else if (action === 'disable' && idOrPath) await runtime.client.call('plugin.disable', { id: idOrPath })
-      else if (action === 'doctor') return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('plugin.doctor', {}), null, 2)}\n\`\`\``)
+      else if (action === 'doctor')
+        return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('plugin.doctor', {}), null, 2)}\n\`\`\``)
       else if (action !== 'list') throw new Error('Use /plugins list|install|enable|disable|doctor')
       await refreshCatalog()
-      return render(`### Plugins\n\n${runtime.bootstrap.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n')}`)
+      return render(
+        `### Plugins\n\n${runtime.bootstrap.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n')}`,
+      )
     }
     if (command === 'skills') {
       const skills = await readdir(resolve(runtime.layout.skills, 'global'), { withFileTypes: true }).catch(() => [])
-      return render(`### Global skills\n\n${skills.filter((item) => item.isDirectory()).map((item) => `- ${item.name}`).join('\n') || 'No skills installed.'}`)
+      return render(
+        `### Global skills\n\n${
+          skills
+            .filter((item) => item.isDirectory())
+            .map((item) => `- ${item.name}`)
+            .join('\n') || 'No skills installed.'
+        }`,
+      )
     }
     if (command === 'settings') {
       if (args[0] === 'approval' && ['deny', 'ask', 'allow'].includes(args[1] ?? '')) {

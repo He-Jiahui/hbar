@@ -41,7 +41,13 @@ function block(block: ContentBlock, key: number) {
     )
   if (block.type === 'file')
     return (
-      <a className="terminal-file" key={key} href={client().artifactUrl(block.artifact.id)} target="_blank" rel="noreferrer">
+      <a
+        className="terminal-file"
+        key={key}
+        href={client().artifactUrl(block.artifact.id)}
+        target="_blank"
+        rel="noreferrer"
+      >
         {block.artifact.name}
       </a>
     )

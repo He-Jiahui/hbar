@@ -236,8 +236,7 @@ async function toPiMessages(
           }
           const file = await readFile(block.artifact.id)
           const header = `[attached file: ${file.name} (${file.mime}, ${file.size} bytes)]`
-          if (file.text === null)
-            content.push({ type: 'text', text: `${header}\n[binary content omitted]` })
+          if (file.text === null) content.push({ type: 'text', text: `${header}\n[binary content omitted]` })
           else
             content.push({
               type: 'text',

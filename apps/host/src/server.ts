@@ -220,11 +220,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.worktree': {
         const p = rpcSchemas[method].parse(raw)
-        const operation = p.operation === 'list'
-          ? {}
-          : p.operation === 'add'
-            ? { operation: 'add' as const, path: p.path!, branch: p.branch, createBranch: p.createBranch }
-            : { operation: 'remove' as const, path: p.path!, force: p.force }
+        const operation =
+          p.operation === 'list'
+            ? {}
+            : p.operation === 'add'
+              ? { operation: 'add' as const, path: p.path!, branch: p.branch, createBranch: p.createBranch }
+              : { operation: 'remove' as const, path: p.path!, force: p.force }
         return kernel.plugins.get<GitService>('git').worktree(p.cwd, operation)
       }
       case 'git.diff_to_remote': {
@@ -361,19 +362,27 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.type': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').type(p.sessionId, p.selector, p.text, p.contextId, p.pageId)
+        return kernel.plugins
+          .get<BrowserUseService>('browser')
+          .type(p.sessionId, p.selector, p.text, p.contextId, p.pageId)
       }
       case 'browser.press': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').press(p.sessionId, p.key, p.selector, p.contextId, p.pageId)
+        return kernel.plugins
+          .get<BrowserUseService>('browser')
+          .press(p.sessionId, p.key, p.selector, p.contextId, p.pageId)
       }
       case 'browser.screenshot': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
+        return kernel.plugins
+          .get<BrowserUseService>('browser')
+          .screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
       }
       case 'browser.evaluate': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').evaluate(p.sessionId, p.expression, p.contextId, p.pageId)
+        return kernel.plugins
+          .get<BrowserUseService>('browser')
+          .evaluate(p.sessionId, p.expression, p.contextId, p.pageId)
       }
       case 'browser.close': {
         const p = rpcSchemas[method].parse(raw)

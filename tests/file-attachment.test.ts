@@ -49,7 +49,12 @@ test('file attachments persist as message blocks and reach the fixture model as 
 
 test('generic files are accepted while malformed image signatures remain rejected', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-file-validation-'))
-  const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, demo: true, secrets: new MemorySecrets() })
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
   resources.push({ root, kernel })
 
   const artifact = await kernel.upload('payload.bin', 'application/octet-stream', Uint8Array.from([0, 1, 2, 3]))

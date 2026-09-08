@@ -199,13 +199,20 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
   const totalSize = virtual.getTotalSize()
   const streamText = snapshot?.streams.map((stream) => stream.text.length + stream.thinking.length).join(',')
   const composerActions = useMemo(
-    () => buildComposerActions(contributedActions, {
-      hasSession: Boolean(sessionId),
-      canAttachImages: Boolean(catalog?.models.find((model) => model.id === modelId)?.imageInput),
-      hasGoalPlugin: Boolean(catalog?.plugins.some((plugin) => plugin.id === 'goal.codex' && plugin.status === 'active')),
-      hasPlanPlugin: Boolean(catalog?.plugins.some((plugin) => plugin.id === 'plan.codex' && plugin.status === 'active')),
-      hasBudgetPlugin: Boolean(catalog?.plugins.some((plugin) => plugin.id === 'budget.codex' && plugin.status === 'active')),
-    }),
+    () =>
+      buildComposerActions(contributedActions, {
+        hasSession: Boolean(sessionId),
+        canAttachImages: Boolean(catalog?.models.find((model) => model.id === modelId)?.imageInput),
+        hasGoalPlugin: Boolean(
+          catalog?.plugins.some((plugin) => plugin.id === 'goal.codex' && plugin.status === 'active'),
+        ),
+        hasPlanPlugin: Boolean(
+          catalog?.plugins.some((plugin) => plugin.id === 'plan.codex' && plugin.status === 'active'),
+        ),
+        hasBudgetPlugin: Boolean(
+          catalog?.plugins.some((plugin) => plugin.id === 'budget.codex' && plugin.status === 'active'),
+        ),
+      }),
     [catalog?.models, catalog?.plugins, contributedActions, modelId, sessionId],
   )
   useEffect(() => {
@@ -278,17 +285,19 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
       return
     }
     if (!action.execute) return
-    void Promise.resolve(action.execute({
-      ...(sessionId ? { sessionId } : {}),
-      ...(workspaceId ? { workspaceId } : {}),
-      openFilePicker: (options) => {
-        if (fileInput.current) {
-          fileInput.current.accept = options?.accept ?? IMAGE_ACCEPT
-          fileInput.current.multiple = options?.multiple ?? true
-          fileInput.current.click()
-        }
-      },
-    })).catch(report)
+    void Promise.resolve(
+      action.execute({
+        ...(sessionId ? { sessionId } : {}),
+        ...(workspaceId ? { workspaceId } : {}),
+        openFilePicker: (options) => {
+          if (fileInput.current) {
+            fileInput.current.accept = options?.accept ?? IMAGE_ACCEPT
+            fileInput.current.multiple = options?.multiple ?? true
+            fileInput.current.click()
+          }
+        },
+      }),
+    ).catch(report)
   }
   return (
     <div className="chat-panel">
@@ -549,7 +558,9 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
                 type="submit"
                 title={activeRun ? '加入队列' : '发送'}
                 aria-label="发送"
-                disabled={busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length) || !workspaceId}
+                disabled={
+                  busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length) || !workspaceId
+                }
               >
                 {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
               </button>
@@ -561,7 +572,8 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
             {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}
             {capabilityState?.budget && (
               <em title="当前会话 token 预算">
-                预算 {capabilityState.budget.remainingTokens.toLocaleString()} / {capabilityState.budget.limit.toLocaleString()}
+                预算 {capabilityState.budget.remainingTokens.toLocaleString()} /{' '}
+                {capabilityState.budget.limit.toLocaleString()}
               </em>
             )}
             <small>{modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'}</small>
