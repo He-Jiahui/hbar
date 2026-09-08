@@ -67,6 +67,7 @@ test('browser runtime refuses history and full CDP by default', async () => {
   const { api } = fakeApi()
   const runtime = new BrowserRuntime(api, browserConfigSchema.parse({}), new FakeBrowser())
   await runtime.navigate('session-1', 'https://example.test/')
+  expect((await runtime.status('session-1')).history).toEqual([])
   try {
     await runtime.history('session-1')
     throw new Error('expected history denial')

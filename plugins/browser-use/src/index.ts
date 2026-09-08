@@ -319,9 +319,13 @@ export class BrowserRuntime implements BrowserUseService {
       [...pages.values()].map(({ sessionId: _sessionId, ...page }) => page),
     )
     const signal = new AbortController().signal
-    const history = [
-      ...new Set((await Promise.all([...sessions.keys()].map((id) => this.bounded(signal, () => this.backend.history(id))))).flat()),
-    ].slice(-100)
+    const history = this.config.allow_history_access
+      ? [
+          ...new Set(
+            (await Promise.all([...sessions.keys()].map((id) => this.bounded(signal, () => this.backend.history(id))))).flat(),
+          ),
+        ].slice(-100)
+      : []
     return { available: await this.bounded(signal, () => Promise.resolve(this.backend.available())), contexts, history }
   }
 
