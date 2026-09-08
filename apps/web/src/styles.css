@@ -3155,6 +3155,31 @@ textarea:hover {
   background: #302d27;
   box-shadow: 0 4px 14px #0000002b;
 }
+.user-input-prompt {
+  border-color: #4e6488;
+  border-radius: 8px;
+  background: #252a32;
+  box-shadow: 0 4px 14px #0000002b;
+}
+.user-input-option {
+  border-color: #3f4858;
+  border-radius: 6px;
+  background: #20242a;
+}
+.user-input-option:hover {
+  border-color: #5a6d8d;
+  background: #292f39;
+}
+.user-input-option:has(input[type='radio']:checked) {
+  border-color: #6f9ee8;
+  background: #2c3b52;
+  box-shadow: inset 2px 0 0 #78a5e8;
+}
+.user-input-option input[type='text'],
+.user-input-option input[type='password'] {
+  border-radius: 5px;
+  background: #1b1e23;
+}
 .tool-panel-tabs,
 .settings-tabs {
   gap: 6px;

@@ -111,7 +111,7 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
     }
   }
   return (
-    <section className="user-input-prompt" aria-label="需要你的回答">
+    <section className="user-input-prompt" aria-label="需要你的回答" aria-busy={saving}>
       <div className="user-input-heading">
         <strong>需要你的回答</strong>
         <span>{request.questions.length} 个问题</span>
@@ -152,17 +152,17 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
                   />
                   <span>
                     <strong>其他</strong>
-                    <input
-                      type={question.isSecret ? 'password' : 'text'}
-                      value={other[question.id] ?? ''}
-                      disabled={saving}
-                      placeholder="填写其他答案"
-                      onFocus={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
-                      onChange={(event) => {
-                        setSelected((current) => ({ ...current, [question.id]: '__other__' }))
-                        setOther((current) => ({ ...current, [question.id]: event.target.value }))
-                      }}
-                    />
+                    {selected[question.id] === '__other__' && (
+                      <input
+                        autoFocus
+                        aria-label={`${question.header} 其他答案`}
+                        type={question.isSecret ? 'password' : 'text'}
+                        value={other[question.id] ?? ''}
+                        disabled={saving}
+                        placeholder="填写其他答案"
+                        onChange={(event) => setOther((current) => ({ ...current, [question.id]: event.target.value }))}
+                      />
+                    )}
                   </span>
                 </label>
               )}
@@ -170,7 +170,11 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
           </fieldset>
         ))}
       </div>
-      {error && <p className="inline-error">{error}</p>}
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="user-input-actions">
         <button type="button" className="button primary" disabled={saving} onClick={() => void submit()}>
           {saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
@@ -538,7 +542,9 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
         </button>
       )}
       <div className="composer-area">
-        {(snapshot?.userInputs ?? []).map((request) => <UserInputPrompt key={request.requestId} request={request} />)}
+        {(snapshot?.userInputs ?? []).map((request) => (
+          <UserInputPrompt key={request.requestId} request={request} />
+        ))}
         {snapshot?.approvals.map((approval) => (
           <section className="approval" key={approval.id}>
             <div className="approval-heading">
