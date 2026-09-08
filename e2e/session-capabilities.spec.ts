@@ -36,9 +36,11 @@ test('session capability actions open the Goal, Plan, and Budget panel', async (
     await newSession.click()
     await expect(page.locator('.chat-panel').filter({ visible: true })).toBeVisible()
 
-    const plus = page.locator('.chat-panel:visible button[aria-label="添加能力"]')
+    const chat = page.getByRole('tabpanel', { name: 'New session', exact: true })
+    const plus = chat.locator('button[aria-label="添加能力"]')
     await expect(plus).toHaveCount(1)
-    await plus.click({ force: true })
+    await expect(plus).toBeVisible()
+    await plus.click()
     await expect(page.getByRole('menuitem', { name: 'Goal 模式', exact: true })).toBeEnabled()
     await page.getByRole('menuitem', { name: 'Goal 模式', exact: true }).click()
 
