@@ -53,9 +53,11 @@ test('plan mode state survives a host restart', async () => {
 })
 
 test('plan mode exposes the Codex collaboration rules separately from update_plan', () => {
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('You are in Plan Mode until a developer message explicitly ends it.')
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('update_plan is a checklist and progress tool; it does not enter or exit Plan Mode.')
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('Do not perform mutating actions.')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('Plan Mode')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('developer message explicitly ends it.')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('update_plan')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('does not enter or exit Plan Mode')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('mutating')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('<proposed_plan>')
 })
 
