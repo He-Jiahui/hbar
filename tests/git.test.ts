@@ -84,3 +84,21 @@ test('Git command runner never turns a path into shell syntax', async () => {
   await runtime.diff(root, { paths: ['name;touch-owned-file'] })
   expect(calls[0]).toContain('name;touch-owned-file')
 })
+
+test('Git branch tracking keeps exact ahead and behind counts', async () => {
+  const { root, runtime } = await fixture()
+  const remote = await mkdtemp(join(tmpdir(), 'hbar-git-remote-'))
+  roots.push(remote)
+  await runGit(remote, ['init', '--bare', '-q'])
+  await runGit(root, ['remote', 'add', 'origin', remote])
+  await runGit(root, ['push', '-u', 'origin', 'HEAD'])
+  for (const number of [1, 2]) {
+    await writeFile(join(root, `ahead-${number}.txt`), `${number}\n`)
+    await runGit(root, ['add', `ahead-${number}.txt`])
+    await runGit(root, ['commit', '-q', '-m', `ahead ${number}`])
+  }
+  const current = (await runtime.branch(root, { operation: 'list' }) as { name: string; current: boolean; ahead: number; behind: number }[])
+    .find((entry) => entry.current)
+  expect(current?.ahead).toBe(2)
+  expect(current?.behind).toBe(0)
+})

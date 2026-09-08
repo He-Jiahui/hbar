@@ -68,8 +68,18 @@ function environment(): Record<string, string> {
     'LANG',
     'LC_ALL',
   ])
-  const result: Record<string, string> = { GIT_TERMINAL_PROMPT: '0' }
+  const result: Record<string, string> = {
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_EDITOR: 'true',
+    GIT_PAGER: 'cat',
+    GIT_SEQUENCE_EDITOR: 'true',
+    GIT_TERMINAL_PROMPT: '0',
+    LANG: 'C',
+    LC_ALL: 'C',
+  }
   for (const [key, value] of Object.entries(process.env)) if (value !== undefined && allowed.has(key.toUpperCase())) result[key] = value
+  result.LANG = 'C'
+  result.LC_ALL = 'C'
   return result
 }
 
@@ -181,7 +191,9 @@ function parseStatus(output: string, cwd: string): GitStatus {
   let behind = 0
   if (header.startsWith('## ')) {
     const value = header.slice(3)
-    const [left, tracking] = value.split('...')
+    const separator = value.indexOf('...')
+    const left = separator < 0 ? value : value.slice(0, separator)
+    const tracking = separator < 0 ? undefined : value.slice(separator + 3)
     branch = left === 'HEAD (no branch)' || left === 'No commits yet on' ? null : left || null
     if (tracking) {
       const match = tracking.match(/^([^\s[]+)(?:\s+\[(.*?)\])?$/)
@@ -386,14 +398,16 @@ export class GitRuntime implements GitService {
   async branch(cwd: string | undefined, operation: GitBranchOperation = {}, signal?: AbortSignal): Promise<GitBranchInfo[] | GitBranchInfo> {
     const path = await this.resolveWithinRoot(cwd)
     if (!operation.operation || operation.operation === 'list') {
-      const result = await this.tryRun(path, ['for-each-ref', '--format=%(refname:short)%x00%(HEAD)%x00%(upstream:short)%x00%(upstream:trackshort)%x00', 'refs/heads'], signal)
+      const result = await this.tryRun(path, ['for-each-ref', '--format=%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track)%00', 'refs/heads'], signal)
       const current = (await this.tryRun(path, ['branch', '--show-current'], signal))?.stdout.trim() ?? ''
       const entries: GitBranchInfo[] = []
       const fields = (result?.stdout ?? '').split('\0')
       for (let offset = 0; offset + 3 < fields.length; offset += 4) {
         const [name, marker, upstream, track] = fields.slice(offset, offset + 4)
         if (!name) continue
-        entries.push(gitBranchInfoSchema.parse({ name, current: marker === '* ' || name === current, remote: upstream?.split('/')[0] ?? null, upstream: upstream || null, ahead: track === '>' ? 1 : 0, behind: track === '<' ? 1 : 0 }))
+        const ahead = Number(track?.match(/ahead (\d+)/)?.[1] ?? 0)
+        const behind = Number(track?.match(/behind (\d+)/)?.[1] ?? 0)
+        entries.push(gitBranchInfoSchema.parse({ name, current: marker === '*' || marker === '* ' || name === current, remote: upstream?.split('/')[0] ?? null, upstream: upstream || null, ahead, behind }))
       }
       return entries
     }
