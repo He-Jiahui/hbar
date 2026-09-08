@@ -3,7 +3,7 @@ import { appendFile, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Database } from 'bun:sqlite'
-import { SessionLogWriter, Storage, createPathLayout, ensurePathLayout, writePathPointer } from '@hbar/storage'
+import { isDurableSessionEvent, SessionLogWriter, Storage, createPathLayout, ensurePathLayout, writePathPointer } from '@hbar/storage'
 import type { SessionEvent } from '@hbar/contracts'
 
 const roots: string[] = []
@@ -117,6 +117,12 @@ test('session logs shard by local event date while sequence numbers remain conti
   expect(first.relativePath).toBe('project-1/2026/01/31/session-1.jsonl')
   expect(second.relativePath).toBe('project-1/2026/02/01/session-1.jsonl')
   expect(second.offset).toBe(0)
+})
+
+test('user input request and resolution events are durable session facts', () => {
+  expect(isDurableSessionEvent('user_input.requested')).toBeTrue()
+  expect(isDurableSessionEvent('user_input.resolved')).toBeTrue()
+  expect(isDurableSessionEvent('diagnostic.note')).toBeFalse()
 })
 
 test('startup rejects a modified canonical JSONL record by content hash', async () => {

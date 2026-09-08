@@ -11,7 +11,12 @@ export interface SessionLogLocation {
   hash: string
 }
 
-const durableEvent = /^(message\.committed|run\.|tool\.started|tool\.unknown|approval\.|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.)/
+const durableEvent = /^(message\.committed|run\.|tool\.started|tool\.unknown|approval\.|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.|user_input\.)/
+
+/** Events whose acknowledgement must include the canonical log on disk. */
+export function isDurableSessionEvent(type: string) {
+  return durableEvent.test(type)
+}
 
 function dayParts(time: number) {
   const date = new Date(time)
@@ -34,7 +39,7 @@ export class SessionLogWriter {
       const offset = fstatSync(descriptor).size
       let written = 0
       while (written < line.length) written += writeSync(descriptor, line, written, line.length - written)
-      if (durableEvent.test(event.type)) fsyncSync(descriptor)
+      if (isDurableSessionEvent(event.type)) fsyncSync(descriptor)
       return {
         path,
         relativePath: relative(this.root, path).replaceAll('\\', '/'),
