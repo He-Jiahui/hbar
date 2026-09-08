@@ -6,6 +6,7 @@
 - [架构说明](docs/architecture.md)：进程、运行模型、持久化和扩展边界
 - [插件开发](docs/plugins.md)：Host/Client 插件接口和生命周期
 - [验证说明](docs/testing.md)：自动化测试、性能基线和手动验收
+- [项目工程规范](.agents/skills/hbar-engineering/SKILL.md)：模块边界、MVVM/MVC、工作台设计、增量同步、严格检查和逐功能提交要求
 
 ## 开发环境
 
