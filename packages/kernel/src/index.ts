@@ -127,12 +127,19 @@ export class Kernel {
       hooks: this.hooks,
       sessions: {
         get: (id) => this.storage.call('session', id),
+        list: async (workspaceId) => {
+          const sessions = await this.storage.call('sessions')
+          return workspaceId ? sessions.filter((session) => session.workspaceId === workspaceId) : sessions
+        },
+        events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
         create: (id, title) => this.createSession(id, title),
         submit: (...args) => this.submit(...args),
         cancel: (id) => this.cancel(id),
         snapshot: (id) => this.snapshot(id),
-        append: (id, type, data, runId) => this.append(id, type, data, runId),
+        append: (id, type, data, runId, stepId) => this.append(id, type, data, runId, stepId),
       },
+      notify: (event) => this.publish(event),
+      changed: (kind) => this.changed(kind),
     }, {
       pluginRoot: options.layout.plugins,
       pluginLock: options.layout.pluginLock,
@@ -460,7 +467,7 @@ export class Kernel {
       this.active.set(sessionId, { run, controller, context: scope })
       if (this.cancelled.has(run.id)) controller.abort(new Error('Cancelled by user'))
       const timer = setTimeout(() => controller.abort(new Error('Run exceeded its 20-minute limit')), 20 * 60_000)
-      let status = 'completed',
+      let status: Run['status'] = 'completed',
         failure: string | undefined
       try {
         this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
@@ -549,13 +556,12 @@ export class Kernel {
       } finally {
         clearTimeout(timer)
         for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
-        this.publishEvent(
-          await this.storage.call('setRun', run.id, status as 'completed' | 'cancelled' | 'failed', failure),
-        )
+        const settledEvent = await this.storage.call('setRun', run.id, status, failure)
+        this.publishEvent(settledEvent)
         this.active.delete(sessionId)
         this.cancelled.delete(run.id)
         await scope.hooks
-          .dispatch('run.end', { sessionId, runId: run.id, status })
+          .dispatch('run.end', { sessionId, runId: run.id, status, run: await this.storage.call('run', run.id) })
           .catch((error) => console.error('Run observer failed:', error))
         await scope.dispose()
         this.changed('sessions')

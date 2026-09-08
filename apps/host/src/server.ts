@@ -6,7 +6,7 @@ import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas 
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 import { Kernel } from '@hbar/kernel'
-import type { ExecutionProvider } from '@hbar/plugin-sdk'
+import type { ExecutionProvider, GoalService, ModeService, PlanService } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 
@@ -135,6 +135,46 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'permission.set': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.setPermissionMode(p.mode)
+      }
+      case 'goal.get': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GoalService>('goal').get(p.sessionId)
+      }
+      case 'goal.create': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GoalService>('goal').create(p.sessionId, p.objective, p.tokenBudget)
+      }
+      case 'goal.update': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GoalService>('goal').update(p.sessionId, p.status)
+      }
+      case 'goal.set': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GoalService>('goal').set(p.sessionId, p)
+      }
+      case 'goal.clear': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GoalService>('goal').clear(p.sessionId)
+      }
+      case 'plan.get': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<PlanService>('plan').get(p.sessionId)
+      }
+      case 'plan.update': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<PlanService>('plan').update(p.sessionId, p.plan, p.explanation, p.turnId)
+      }
+      case 'plan.clear': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<PlanService>('plan').clear(p.sessionId)
+      }
+      case 'mode.get': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ModeService>('mode').get(p.sessionId)
+      }
+      case 'mode.set': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<ModeService>('mode').set(p.sessionId, p.mode)
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)

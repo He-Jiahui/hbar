@@ -36,11 +36,54 @@ export const approvalModeSchema = z.enum(['deny', 'allow', 'ask'])
 export type ApprovalMode = z.infer<typeof approvalModeSchema>
 export const permissionModeSchema = approvalModeSchema
 export type PermissionMode = ApprovalMode
+export const runModeSchema = z.enum(['default', 'plan'])
+export type RunMode = z.infer<typeof runModeSchema>
+export const runSourceSchema = z.enum(['user', 'goal', 'system'])
+export type RunSource = z.infer<typeof runSourceSchema>
+export const goalStatusSchema = z.enum([
+  'active',
+  'paused',
+  'blocked',
+  'usage_limited',
+  'budget_limited',
+  'complete',
+])
+export type GoalStatus = z.infer<typeof goalStatusSchema>
+export const threadGoalSchema = z.object({
+  threadId: idSchema,
+  /** Internal identity used to reject stale external mutations. */
+  goalId: idSchema.optional(),
+  objective: z.string().min(1).max(4_000),
+  status: goalStatusSchema,
+  tokenBudget: z.number().int().positive().nullable(),
+  tokensUsed: z.number().int().nonnegative(),
+  timeUsedSeconds: z.number().int().nonnegative(),
+  createdAt: z.number().int().nonnegative(),
+  updatedAt: z.number().int().nonnegative(),
+})
+export type ThreadGoal = z.infer<typeof threadGoalSchema>
+export const planStepStatusSchema = z.enum(['pending', 'in_progress', 'completed'])
+export type PlanStepStatus = z.infer<typeof planStepStatusSchema>
+export const planStepSchema = z.object({
+  step: z.string().min(1).max(4_000),
+  status: planStepStatusSchema,
+})
+export type PlanStep = z.infer<typeof planStepSchema>
+export const planStateSchema = z.object({
+  sessionId: idSchema,
+  turnId: idSchema.nullable(),
+  explanation: z.string().max(4_000).nullable(),
+  plan: z.array(planStepSchema).max(100),
+  updatedAt: z.number().int().nonnegative(),
+})
+export type PlanState = z.infer<typeof planStateSchema>
 export const inputSchema = z.object({
   text: z.string().max(200_000),
   images: z.array(artifactSchema).max(12).default([]),
   thinking: thinkingLevelSchema.optional(),
   approval: approvalModeSchema.optional(),
+  mode: runModeSchema.optional(),
+  source: runSourceSchema.optional(),
 })
 export type UserInput = z.infer<typeof inputSchema>
 export const usageSchema = z.object({
@@ -210,6 +253,10 @@ export type WireNotification =
   | { method: 'session.event'; params: SessionEvent }
   | { method: 'stream.update'; params: LiveStream }
   | { method: 'host.changed'; params: { kind: string } }
+  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal } }
+  | { method: 'goal.cleared'; params: { sessionId: string } }
+  | { method: 'plan.updated'; params: PlanState }
+  | { method: 'mode.changed'; params: { sessionId: string; mode: RunMode } }
   | { method: 'auth.revoked'; params: { reason: string } }
 
 export const rpcSchemas = {
@@ -222,6 +269,32 @@ export const rpcSchemas = {
   'system.restart': z.object({}),
   'permission.get': z.object({}),
   'permission.set': z.object({ mode: permissionModeSchema }),
+  'goal.get': z.object({ sessionId: idSchema }),
+  'goal.create': z.object({
+    sessionId: idSchema,
+    objective: z.string().trim().min(1).max(4_000),
+    tokenBudget: z.number().int().positive().optional(),
+  }),
+  'goal.update': z.object({ sessionId: idSchema, status: z.enum(['complete', 'blocked']) }),
+  'goal.set': z.object({
+    sessionId: idSchema,
+    objective: z.string().trim().min(1).max(4_000).nullable().optional(),
+    status: goalStatusSchema.nullable().optional(),
+    tokenBudget: z.number().int().positive().nullable().optional(),
+    expectedGoalId: idSchema.optional(),
+    maxTokenBudget: z.number().int().positive().optional(),
+  }),
+  'goal.clear': z.object({ sessionId: idSchema }),
+  'plan.get': z.object({ sessionId: idSchema }),
+  'plan.update': z.object({
+    sessionId: idSchema,
+    turnId: idSchema.nullable().optional(),
+    explanation: z.string().max(4_000).nullable().optional(),
+    plan: z.array(planStepSchema).max(100),
+  }),
+  'plan.clear': z.object({ sessionId: idSchema }),
+  'mode.get': z.object({ sessionId: idSchema }),
+  'mode.set': z.object({ sessionId: idSchema, mode: runModeSchema }),
   'workspace.create': z.object({ path: z.string().min(1).max(4000) }),
   'session.create': z.object({ workspaceId: idSchema, title: z.string().max(160).optional() }),
   'session.snapshot': z.object({
@@ -281,6 +354,16 @@ export interface RpcResults {
   'system.restart': { accepted: boolean; restartRequired: boolean }
   'permission.get': { mode: PermissionMode }
   'permission.set': { mode: PermissionMode }
+  'goal.get': { goal: ThreadGoal | null; remainingTokens: number | null }
+  'goal.create': { goal: ThreadGoal; remainingTokens: number | null }
+  'goal.update': { goal: ThreadGoal; remainingTokens: number | null; completionBudgetReport?: string }
+  'goal.set': { goal: ThreadGoal; remainingTokens: number | null }
+  'goal.clear': { cleared: boolean }
+  'plan.get': PlanState | null
+  'plan.update': PlanState
+  'plan.clear': { cleared: boolean }
+  'mode.get': { mode: RunMode }
+  'mode.set': { mode: RunMode }
   'workspace.create': Workspace
   'session.create': Session
   'session.snapshot': SessionSnapshot

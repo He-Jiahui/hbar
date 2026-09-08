@@ -10,6 +10,11 @@ import type {
   Session,
   SessionEvent,
   SessionSnapshot,
+  ThreadGoal,
+  PlanState,
+  RunMode,
+  GoalStatus,
+  PlanStep,
   UserInput,
   UIContribution,
   Usage,
@@ -98,11 +103,46 @@ export interface HarnessDriver {
 }
 export interface SessionService {
   get(id: string): Promise<Session>
+  list(workspaceId?: string): Promise<Session[]>
+  events(id: string, after?: number, limit?: number): Promise<SessionEvent[]>
   create(workspaceId: string, title?: string): Promise<Session>
   submit(sessionId: string, requestId: string, input: UserInput, modelId: string): Promise<Run>
   cancel(runId: string): Promise<void>
   snapshot(sessionId: string): Promise<SessionSnapshot>
-  append(sessionId: string, type: string, data: unknown, runId?: string): Promise<SessionEvent>
+  append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): Promise<SessionEvent>
+}
+export interface GoalSetInput {
+  objective?: string | null | undefined
+  status?: GoalStatus | null | undefined
+  tokenBudget?: number | null | undefined
+  expectedGoalId?: string | undefined
+  maxTokenBudget?: number | undefined
+}
+export interface GoalToolResponse {
+  goal: ThreadGoal | null
+  remainingTokens: number | null
+  completionBudgetReport?: string
+}
+export interface GoalService {
+  get(sessionId: string): Promise<GoalToolResponse>
+  create(sessionId: string, objective: string, tokenBudget?: number): Promise<GoalToolResponse>
+  set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
+  update(sessionId: string, status: 'complete' | 'blocked', runId?: string): Promise<GoalToolResponse>
+  clear(sessionId: string): Promise<{ cleared: boolean }>
+}
+export interface PlanService {
+  get(sessionId: string): Promise<PlanState | null>
+  update(
+    sessionId: string,
+    plan: PlanStep[],
+    explanation?: string | null,
+    turnId?: string | null,
+  ): Promise<PlanState>
+  clear(sessionId: string): Promise<{ cleared: boolean }>
+}
+export interface ModeService {
+  get(sessionId: string): Promise<{ mode: RunMode }>
+  set(sessionId: string, mode: RunMode): Promise<{ mode: RunMode }>
 }
 export interface CompactionProvider {
   shouldCompact(request: ModelRequest): boolean
@@ -114,7 +154,7 @@ export interface HookEvents {
   'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext }
   'tool.after': { name: string; result: ToolResult; context: ToolContext }
   'step.end': { sessionId: string; runId: string; stepId: string }
-  'run.end': { sessionId: string; runId: string; status: string }
+  'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
 }
 export interface HookRegistry {
   on<K extends keyof HookEvents>(
@@ -128,6 +168,8 @@ export interface HbarAPI {
   tools: ToolRegistry
   hooks: HookRegistry
   sessions: SessionService
+  notify(event: import('@hbar/contracts').WireNotification): void
+  changed(kind: string): void
   panels: { register(panel: Omit<UIContribution, 'owner'>): Disposer }
   service<T>(name: string): T
 }
