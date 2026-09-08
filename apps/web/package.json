@@ -2,5 +2,9 @@
   "name": "@hbar/web",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@hbar/client": "workspace:*",
+    "@hbar/contracts": "workspace:*"
+  }
 }

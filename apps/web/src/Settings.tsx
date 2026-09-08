@@ -3,13 +3,16 @@ import {
   Check,
   ChevronRight,
   Copy,
+  GitBranch,
   KeyRound,
+  LockKeyhole,
   Monitor,
   Network,
   Plus,
   RefreshCw,
   Save,
   ShieldCheck,
+  Stethoscope,
   Trash2,
   X,
 } from 'lucide-react'
@@ -20,6 +23,7 @@ import { copyText } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
 import { permissionPreset } from './permissions'
 import { providerFromPreset, providerPresets } from './provider-presets'
+import PathSettings from './PathSettings'
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -59,7 +63,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
 }
 function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): void }) {
   const initialPreset = provider
-    ? providerPresets.find((preset) => preset.name === provider.name || preset.baseUrl === provider.baseUrl)?.id ?? 'custom'
+    ? (providerPresets.find((preset) => preset.name === provider.name || preset.baseUrl === provider.baseUrl)?.id ??
+      'custom')
     : 'deepseek'
   const [presetId, setPresetId] = useState(initialPreset)
   const selectedPreset = providerPresets.find((preset) => preset.id === presetId) ?? providerPresets.at(-1)!
@@ -131,7 +136,12 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             </label>
             <label>
               API 地址
-              <input type="url" value={value.baseUrl} onChange={(event) => field('baseUrl', event.target.value)} required />
+              <input
+                type="url"
+                value={value.baseUrl}
+                onChange={(event) => field('baseUrl', event.target.value)}
+                required
+              />
             </label>
           </>
         ) : (
@@ -153,7 +163,9 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             required
           />
           <datalist id={`provider-models-${presetId}`}>
-            {selectedPreset.modelOptions.map((model) => <option value={model} key={model} />)}
+            {selectedPreset.modelOptions.map((model) => (
+              <option value={model} key={model} />
+            ))}
           </datalist>
         </label>
         <label>
@@ -248,12 +260,16 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
 }
 function PluginRow({ plugin }: { plugin: PluginInfo }) {
   const [expanded, setExpanded] = useState(false),
-    [config, setConfig] = useState(JSON.stringify(plugin.config, null, 2))
+    [config, setConfig] = useState(JSON.stringify(plugin.config, null, 2)),
+    [error, setError] = useState(plugin.error ?? '')
   async function apply(enabled: boolean, configuration?: Record<string, unknown>) {
+    setError('')
     try {
-      await client().call('plugin.set', { id: plugin.id, enabled, config: configuration })
+      if (configuration) await client().call('plugin.set', { id: plugin.id, enabled, config: configuration })
+      else await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id: plugin.id })
       await refreshCatalog()
     } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
       report(error)
     }
   }
@@ -284,11 +300,36 @@ function PluginRow({ plugin }: { plugin: PluginInfo }) {
       {expanded && (
         <div className="plugin-detail">
           <dl>
+            <dt>安装范围</dt>
+            <dd>{plugin.installScope === 'project' ? `项目 · ${plugin.projectId ?? '未知'}` : '全局'}</dd>
             <dt>提供服务</dt>
             <dd>{plugin.provides.join(', ') || '—'}</dd>
             <dt>依赖服务</dt>
             <dd>{plugin.requires.join(', ') || '—'}</dd>
+            <dt>包依赖</dt>
+            <dd>
+              {Object.entries(plugin.dependencies ?? {})
+                .map(([id, range]) => `${id}@${range}`)
+                .join(', ') || '—'}
+            </dd>
+            <dt>宿主依赖</dt>
+            <dd>
+              {Object.entries(plugin.peerDependencies ?? {})
+                .map(([id, range]) => `${id}@${range}`)
+                .join(', ') || '—'}
+            </dd>
+            <dt>可选依赖</dt>
+            <dd>
+              {Object.entries(plugin.optionalDependencies ?? {})
+                .map(([id, range]) => `${id}@${range}`)
+                .join(', ') || '—'}
+            </dd>
           </dl>
+          {error && (
+            <p className="inline-error plugin-error" role="alert">
+              {error}
+            </p>
+          )}
           <label>
             配置
             <textarea
@@ -318,11 +359,13 @@ function PluginRow({ plugin }: { plugin: PluginInfo }) {
   )
 }
 export default function Settings() {
-  const [tab, setTab] = useState<'models' | 'permissions' | 'plugins' | 'devices'>('models'),
+  const [tab, setTab] = useState<'models' | 'permissions' | 'paths' | 'plugins' | 'devices'>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
   const [devices, setDevices] = useState<Device[]>([]),
     [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null),
     [pluginPath, setPluginPath] = useState(''),
+    [pluginScope, setPluginScope] = useState<'global' | 'project'>('global'),
+    [pluginReport, setPluginReport] = useState(''),
     [copied, setCopied] = useState(false)
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
@@ -346,6 +389,9 @@ export default function Settings() {
         <button className={tab === 'permissions' ? 'selected' : ''} onClick={() => setTab('permissions')}>
           权限
         </button>
+        <button className={tab === 'paths' ? 'selected' : ''} onClick={() => setTab('paths')}>
+          存储
+        </button>
         <button className={tab === 'plugins' ? 'selected' : ''} onClick={() => setTab('plugins')}>
           插件
         </button>
@@ -364,7 +410,9 @@ export default function Settings() {
           </div>
           <div className="permission-settings-list">
             <div className="permission-setting-row">
-              <div className="permission-setting-icon permission-tone-balanced"><ShieldCheck size={16} /></div>
+              <div className="permission-setting-icon permission-tone-balanced">
+                <ShieldCheck size={16} />
+              </div>
               <div>
                 <strong>当前默认模式</strong>
                 <span>{permissionPreset(approvalMode).description}</span>
@@ -419,30 +467,83 @@ export default function Settings() {
           )}
         </section>
       )}
+      {tab === 'paths' && <PathSettings />}
       {tab === 'plugins' && (
         <section className="settings-section">
           <div className="section-toolbar">
             <h2>已安装插件</h2>
-            <span>{data?.plugins.length ?? 0}</span>
+            <div className="plugin-tools">
+              <button
+                className="button"
+                onClick={() =>
+                  void client()
+                    .call('plugin.doctor', {})
+                    .then((value) => setPluginReport(JSON.stringify(value, null, 2)))
+                    .catch(report)
+                }
+              >
+                <Stethoscope size={14} />
+                检查
+              </button>
+              <button
+                className="button"
+                onClick={() =>
+                  void client()
+                    .call('plugin.graph', {})
+                    .then((value) => setPluginReport(JSON.stringify(value, null, 2)))
+                    .catch(report)
+                }
+              >
+                <GitBranch size={14} />
+                依赖图
+              </button>
+              <button
+                className="button icon-button"
+                title="查看插件锁"
+                aria-label="查看插件锁"
+                onClick={() =>
+                  void client()
+                    .call('plugin.lock', {})
+                    .then((value) => setPluginReport(JSON.stringify(value, null, 2)))
+                    .catch(report)
+                }
+              >
+                <LockKeyhole size={14} />
+              </button>
+            </div>
           </div>
+          {pluginReport && <pre className="plugin-report">{pluginReport}</pre>}
           {data?.plugins.map((plugin) => (
             <PluginRow key={plugin.id} plugin={plugin} />
           ))}
           <div className="install-plugin">
             <label>
-              本地插件目录
+              本地插件目录或归档
               <input
                 value={pluginPath}
                 placeholder="D:\Plugins\my-plugin"
                 onChange={(event) => setPluginPath(event.target.value)}
               />
             </label>
+            <label>
+              安装范围
+              <select
+                value={pluginScope}
+                onChange={(event) => setPluginScope(event.target.value as 'global' | 'project')}
+              >
+                <option value="global">全局</option>
+                <option value="project">当前项目</option>
+              </select>
+            </label>
             <button
               className="button"
-              disabled={!pluginPath}
+              disabled={!pluginPath || (pluginScope === 'project' && !workspaceId)}
               onClick={() =>
                 void client()
-                  .call('plugin.install', { path: pluginPath, ...(workspaceId ? { projectId: workspaceId } : {}) })
+                  .call('plugin.install', {
+                    path: pluginPath,
+                    ...(pluginScope === 'project' && workspaceId ? { projectId: workspaceId } : {}),
+                  })
                   .then(() => {
                     setPluginPath('')
                     return refreshCatalog()
@@ -524,9 +625,7 @@ export default function Settings() {
           ))}
         </section>
       )}
-      {editor && (
-        <ProviderEditor {...(editor === 'new' ? {} : { provider: editor })} close={() => setEditor(null)} />
-      )}
+      {editor && <ProviderEditor {...(editor === 'new' ? {} : { provider: editor })} close={() => setEditor(null)} />}
     </div>
   )
 }

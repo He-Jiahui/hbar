@@ -203,6 +203,37 @@ test('phone supports send, denial, files and model settings without horizontal o
   }
 })
 
+test('storage paths and plugin dependencies are manageable on desktop and phone', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    await page.getByRole('button', { name: '设置', exact: true }).first().click()
+    await page.getByRole('button', { name: '存储', exact: true }).filter({ visible: true }).click()
+    await expect(page.getByRole('heading', { name: '存储目录', exact: true })).toBeVisible()
+    const dataRoot = page.getByRole('textbox', { name: /数据目录/ })
+    const cacheRoot = page.getByRole('textbox', { name: /缓存目录/ })
+    await expect(dataRoot).not.toHaveValue('')
+    await expect(cacheRoot).not.toHaveValue('')
+    await page.getByRole('button', { name: '验证目录', exact: true }).click()
+    await expect(page.locator('.path-details')).toContainText('hbar.sqlite')
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-storage-settings.png` })
+
+    await page.getByRole('button', { name: '插件', exact: true }).filter({ visible: true }).click()
+    await page.getByRole('button', { name: '检查', exact: true }).click()
+    await expect(page.locator('.plugin-report')).toContainText('"ok": true')
+    await page.locator('.plugin-expand').first().click()
+    await expect(page.locator('.plugin-detail').first()).toContainText('包依赖')
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.locator('.mobile-nav').getByRole('button', { name: '设置', exact: true }).click()
+    await page.getByRole('button', { name: '存储', exact: true }).filter({ visible: true }).click()
+    await expect(page.getByRole('heading', { name: '存储目录', exact: true })).toBeVisible()
+    await page.screenshot({ path: `artifacts/${Date.now()}-mobile-storage-settings.png` })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('a client plugin adds an interactive panel and unloads it without a core edit', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
