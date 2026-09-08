@@ -17,6 +17,7 @@ export interface StoragePort {
 
 export class Storage {
   private worker: Worker
+  private exited: Promise<void>
   private nextId = 0
   private pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>()
   private stopped = false
@@ -27,6 +28,9 @@ export class Storage {
         sessions: layout?.sessions,
         diagnostics: layout?.diagnostics,
       },
+    })
+    this.exited = new Promise((resolve) => {
+      this.worker.once('exit', () => resolve())
     })
     this.worker.on('message', (reply: StorageReply) => {
       const handler = this.pending.get(reply.id)
@@ -54,9 +58,11 @@ export class Storage {
     })
   }
   async close(): Promise<void> {
-    if (this.stopped) return
-    await this.call('close')
-    this.stopped = true
-    await this.worker.terminate()
+    if (!this.stopped) {
+      await this.call('close')
+      this.stopped = true
+      await this.worker.terminate()
+    }
+    await this.exited
   }
 }
