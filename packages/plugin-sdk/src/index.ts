@@ -15,6 +15,17 @@ import type {
   RunMode,
   GoalStatus,
   PlanStep,
+  SessionBudget,
+  GitStatus,
+  GitDiff,
+  GitCommitInfo,
+  GitBranchInfo,
+  GitWorktreeInfo,
+  BrowserPage,
+  BrowserSnapshot,
+  BrowserScreenshot,
+  ComputerScreen,
+  ComputerAction,
   UserInput,
   UIContribution,
   Usage,
@@ -79,6 +90,12 @@ export interface ModelRequest {
   system: string
   messages: Message[]
   model: ProviderConfig
+  context?: {
+    sessionId: string
+    runId?: string | undefined
+    mode?: RunMode | undefined
+    source?: import('@hbar/contracts').RunSource | undefined
+  }
 }
 export interface DriverInput {
   session: Session
@@ -144,6 +161,60 @@ export interface ModeService {
   get(sessionId: string): Promise<{ mode: RunMode }>
   set(sessionId: string, mode: RunMode): Promise<{ mode: RunMode }>
 }
+export interface BudgetService {
+  get(sessionId: string): Promise<SessionBudget | null>
+  set(sessionId: string, limit: number): Promise<SessionBudget>
+  clear(sessionId: string): Promise<{ cleared: boolean }>
+}
+export interface GitDiffOptions {
+  cached?: boolean | undefined
+  paths?: string[] | undefined
+}
+export interface GitCommitOptions {
+  message: string
+  paths?: string[] | undefined
+  stage?: boolean | undefined
+}
+export type GitBranchOperation =
+  | { operation?: 'list' | undefined }
+  | { operation: 'create' | 'switch' | 'delete'; name: string; force?: boolean | undefined }
+export type GitWorktreeOperation =
+  | { operation?: 'list' | undefined }
+  | { operation: 'add'; path: string; branch?: string | undefined; createBranch?: boolean | undefined }
+  | { operation: 'remove'; path: string; force?: boolean | undefined }
+export interface GitService {
+  status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
+  diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>
+  log(cwd?: string, limit?: number, signal?: AbortSignal): Promise<GitCommitInfo[]>
+  commit(cwd: string | undefined, options: GitCommitOptions, signal?: AbortSignal): Promise<GitCommitInfo>
+  branch(cwd: string | undefined, operation?: GitBranchOperation, signal?: AbortSignal): Promise<GitBranchInfo[] | GitBranchInfo>
+  worktree(cwd: string | undefined, operation?: GitWorktreeOperation, signal?: AbortSignal): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
+  diffToRemote(cwd?: string, signal?: AbortSignal): Promise<{ sha: string; diff: string; truncated: boolean } | null>
+}
+export interface BrowserUseService {
+  status(sessionId: string): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
+  navigate(sessionId: string, url: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
+  snapshot(sessionId: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserSnapshot>
+  click(sessionId: string, selector: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
+  type(sessionId: string, selector: string, text: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
+  press(sessionId: string, key: string, selector?: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserPage>
+  screenshot(sessionId: string, fullPage?: boolean, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserScreenshot>
+  evaluate(sessionId: string, expression: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<{ value: unknown }>
+  close(sessionId: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<{ closed: boolean }>
+  history(sessionId: string, contextId?: string): Promise<string[]>
+}
+export interface ComputerUseService {
+  status(sessionId: string): Promise<{ available: boolean; platform: string; appId: string | null }>
+  screenshot(sessionId: string, appId?: string, signal?: AbortSignal): Promise<ComputerScreen>
+  click(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  doubleClick(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  type(sessionId: string, text: string, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  key(sessionId: string, key: string, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  scroll(sessionId: string, deltaX: number, deltaY: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  move(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  wait(sessionId: string, milliseconds: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
+  launch(sessionId: string, appId: string, signal?: AbortSignal): Promise<ComputerAction>
+}
 export interface CompactionProvider {
   shouldCompact(request: ModelRequest): boolean
   retainMessages: number
@@ -151,7 +222,7 @@ export interface CompactionProvider {
 export interface HookEvents {
   'context.build': ModelRequest
   'model.request': ModelRequest
-  'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext }
+  'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
   'tool.after': { name: string; result: ToolResult; context: ToolContext }
   'step.end': { sessionId: string; runId: string; stepId: string }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }

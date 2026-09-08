@@ -77,6 +77,165 @@ export const planStateSchema = z.object({
   updatedAt: z.number().int().nonnegative(),
 })
 export type PlanState = z.infer<typeof planStateSchema>
+export const budgetPhaseSchema = z.enum(['active', 'exhausted', 'completed', 'stopped'])
+export type BudgetPhase = z.infer<typeof budgetPhaseSchema>
+export const sessionBudgetSchema = z.object({
+  sessionId: idSchema,
+  budgetId: idSchema,
+  limit: z.number().int().positive(),
+  phase: budgetPhaseSchema,
+  usedTokens: z.number().int().nonnegative(),
+  remainingTokens: z.number().int().nonnegative(),
+  revision: z.number().int().positive(),
+  createdAt: z.number().int().nonnegative(),
+  updatedAt: z.number().int().nonnegative(),
+})
+export type SessionBudget = z.infer<typeof sessionBudgetSchema>
+
+// Git metadata and operation results are intentionally bounded so a dirty
+// repository cannot turn a notification or RPC response into an unbounded log.
+export const gitStatusEntrySchema = z.object({
+  index: z.string().length(1),
+  worktree: z.string().length(1),
+  path: z.string().min(1).max(4_000),
+  originalPath: z.string().min(1).max(4_000).optional(),
+})
+export type GitStatusEntry = z.infer<typeof gitStatusEntrySchema>
+export const gitStatusSchema = z.object({
+  cwd: z.string().min(1).max(4_000),
+  root: z.string().min(1).max(4_000).nullable(),
+  branch: z.string().min(1).max(1_000).nullable(),
+  head: z.string().regex(/^[0-9a-f]{7,64}$/i).nullable(),
+  upstream: z.string().min(1).max(1_000).nullable(),
+  ahead: z.number().int().nonnegative(),
+  behind: z.number().int().nonnegative(),
+  dirty: z.boolean(),
+  entries: z.array(gitStatusEntrySchema).max(5_000),
+  originUrl: z.string().max(4_000).nullable(),
+})
+export type GitStatus = z.infer<typeof gitStatusSchema>
+export const gitDiffSchema = z.object({
+  cwd: z.string().min(1).max(4_000),
+  diff: z.string().max(512_000),
+  cached: z.boolean(),
+  truncated: z.boolean(),
+})
+export type GitDiff = z.infer<typeof gitDiffSchema>
+export const gitCommitInfoSchema = z.object({
+  sha: z.string().regex(/^[0-9a-f]{7,64}$/i),
+  shortSha: z.string().regex(/^[0-9a-f]{7,64}$/i),
+  author: z.string().max(1_000),
+  authoredAt: z.string().max(100),
+  subject: z.string().max(4_000),
+})
+export type GitCommitInfo = z.infer<typeof gitCommitInfoSchema>
+export const gitBranchInfoSchema = z.object({
+  name: z.string().min(1).max(1_000),
+  current: z.boolean(),
+  remote: z.string().max(1_000).nullable(),
+  upstream: z.string().max(1_000).nullable(),
+  ahead: z.number().int().nonnegative(),
+  behind: z.number().int().nonnegative(),
+})
+export type GitBranchInfo = z.infer<typeof gitBranchInfoSchema>
+export const gitWorktreeInfoSchema = z.object({
+  path: z.string().min(1).max(4_000),
+  head: z.string().regex(/^[0-9a-f]{7,64}$/i).nullable(),
+  branch: z.string().max(1_000).nullable(),
+  bare: z.boolean(),
+  locked: z.boolean(),
+  prunable: z.boolean(),
+})
+export type GitWorktreeInfo = z.infer<typeof gitWorktreeInfoSchema>
+export const gitInfoSchema = z.object({
+  sha: z.string().regex(/^[0-9a-f]{7,64}$/i).nullable(),
+  branch: z.string().max(1_000).nullable(),
+  originUrl: z.string().max(4_000).nullable(),
+})
+export type GitInfo = z.infer<typeof gitInfoSchema>
+
+export const accessRequirementSchema = z.enum(['allow', 'ask', 'deny'])
+export type AccessRequirement = z.infer<typeof accessRequirementSchema>
+export const browserUseAccessApprovalLifetimeSchema = z.enum(['turn', 'thread'])
+export type BrowserUseAccessApprovalLifetime = z.infer<typeof browserUseAccessApprovalLifetimeSchema>
+export const browserUseOriginPolicySchema = z.object({
+  access: accessRequirementSchema.optional(),
+  downloads: accessRequirementSchema.optional(),
+  uploads: accessRequirementSchema.optional(),
+  full_cdp_access: accessRequirementSchema.optional(),
+  auto_review: accessRequirementSchema.optional(),
+  persistent_approval: z.boolean().optional(),
+  access_approval_lifetime: browserUseAccessApprovalLifetimeSchema.optional(),
+})
+export type BrowserUseOriginPolicy = z.infer<typeof browserUseOriginPolicySchema>
+export const browserUseConfigSchema = z.object({
+  allow_webmcp: z.boolean().default(false),
+  allow_history_access: z.boolean().default(false),
+  disable_auto_review: z.boolean().default(false),
+  allow_global_persistent_approval: z.boolean().default(false),
+  default_origin_policy: browserUseOriginPolicySchema.default({ access: 'ask' }),
+  origins: z.record(z.string(), browserUseOriginPolicySchema).default({}),
+})
+export type BrowserUseConfig = z.infer<typeof browserUseConfigSchema>
+export const browserPageSchema = z.object({
+  contextId: idSchema,
+  pageId: idSchema,
+  url: z.string().max(4_000),
+  title: z.string().max(1_000),
+})
+export type BrowserPage = z.infer<typeof browserPageSchema>
+export const browserSnapshotSchema = z.object({
+  page: browserPageSchema,
+  text: z.string().max(256_000),
+  truncated: z.boolean(),
+})
+export type BrowserSnapshot = z.infer<typeof browserSnapshotSchema>
+export const browserScreenshotSchema = z.object({
+  page: browserPageSchema,
+  mime: z.string().max(120),
+  data: z.string().max(2_000_000),
+  truncated: z.boolean(),
+})
+export type BrowserScreenshot = z.infer<typeof browserScreenshotSchema>
+
+export const computerUseMacosConfigSchema = z.object({
+  bundle_ids: z.record(z.string(), accessRequirementSchema).default({}),
+})
+export type ComputerUseMacosConfig = z.infer<typeof computerUseMacosConfigSchema>
+export const computerUseWindowsExeSchema = z.object({
+  publisher_name: z.string().min(1).max(1_000),
+  product_name: z.string().min(1).max(1_000),
+  binary_name: z.string().min(1).max(1_000).optional(),
+  access: accessRequirementSchema,
+})
+export type ComputerUseWindowsExe = z.infer<typeof computerUseWindowsExeSchema>
+export const computerUseWindowsConfigSchema = z.object({
+  aumids: z.record(z.string(), accessRequirementSchema).default({}),
+  exes: z.array(computerUseWindowsExeSchema).max(100).default([]),
+})
+export type ComputerUseWindowsConfig = z.infer<typeof computerUseWindowsConfigSchema>
+export const computerUseConfigSchema = z.object({
+  allow_locked_computer_use: z.boolean().default(false),
+  allow_persistent_approval: z.boolean().default(false),
+  default_app_access: accessRequirementSchema.default('ask'),
+  macos: computerUseMacosConfigSchema.default({ bundle_ids: {} }),
+  windows: computerUseWindowsConfigSchema.default({ aumids: {}, exes: [] }),
+})
+export type ComputerUseConfig = z.infer<typeof computerUseConfigSchema>
+export const computerScreenSchema = z.object({
+  width: z.number().int().positive().max(10_000),
+  height: z.number().int().positive().max(10_000),
+  mime: z.string().max(120),
+  data: z.string().max(2_000_000),
+})
+export type ComputerScreen = z.infer<typeof computerScreenSchema>
+export const computerActionSchema = z.object({
+  action: z.string().min(1).max(80),
+  accepted: z.boolean(),
+  screen: computerScreenSchema.optional(),
+  message: z.string().max(4_000).optional(),
+})
+export type ComputerAction = z.infer<typeof computerActionSchema>
 export const inputSchema = z.object({
   text: z.string().max(200_000),
   images: z.array(artifactSchema).max(12).default([]),
@@ -269,6 +428,11 @@ export type WireNotification =
   | { method: 'goal.cleared'; params: { sessionId: string } }
   | { method: 'plan.updated'; params: PlanState }
   | { method: 'mode.changed'; params: { sessionId: string; mode: RunMode } }
+  | { method: 'budget.updated'; params: { sessionId: string; runId: string | null; budget: SessionBudget } }
+  | { method: 'budget.cleared'; params: { sessionId: string } }
+  | { method: 'git.changed'; params: { cwd: string } }
+  | { method: 'browser.changed'; params: { sessionId: string; contextId: string } }
+  | { method: 'computer.changed'; params: { sessionId: string } }
   | { method: 'auth.revoked'; params: { reason: string } }
 
 export const rpcSchemas = {
@@ -307,6 +471,57 @@ export const rpcSchemas = {
   'plan.clear': z.object({ sessionId: idSchema }),
   'mode.get': z.object({ sessionId: idSchema }),
   'mode.set': z.object({ sessionId: idSchema, mode: runModeSchema }),
+  'budget.get': z.object({ sessionId: idSchema }),
+  'budget.set': z.object({ sessionId: idSchema, limit: z.number().int().positive() }),
+  'budget.clear': z.object({ sessionId: idSchema }),
+  'git.status': z.object({ cwd: z.string().min(1).max(4_000).optional() }),
+  'git.diff': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    cached: z.boolean().default(false),
+    paths: z.array(z.string().min(1).max(4_000)).max(100).default([]),
+  }),
+  'git.log': z.object({ cwd: z.string().min(1).max(4_000).optional(), limit: z.number().int().min(1).max(100).default(20) }),
+  'git.commit': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    message: z.string().trim().min(1).max(4_000),
+    paths: z.array(z.string().min(1).max(4_000)).max(100).default([]),
+    stage: z.boolean().default(false),
+  }),
+  'git.branch': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    operation: z.enum(['list', 'create', 'switch', 'delete']).default('list'),
+    name: z.string().trim().min(1).max(1_000).optional(),
+    force: z.boolean().default(false),
+  }),
+  'git.worktree': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    operation: z.enum(['list', 'add', 'remove']).default('list'),
+    path: z.string().min(1).max(4_000).optional(),
+    branch: z.string().trim().min(1).max(1_000).optional(),
+    createBranch: z.boolean().default(false),
+    force: z.boolean().default(false),
+  }),
+  'git.diff_to_remote': z.object({ cwd: z.string().min(1).max(4_000).optional() }),
+  'browser.status': z.object({ sessionId: idSchema }),
+  'browser.navigate': z.object({ sessionId: idSchema, url: z.string().url().max(4_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.snapshot': z.object({ sessionId: idSchema, contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.click': z.object({ sessionId: idSchema, selector: z.string().min(1).max(4_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.type': z.object({ sessionId: idSchema, selector: z.string().min(1).max(4_000), text: z.string().max(16_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.press': z.object({ sessionId: idSchema, key: z.string().min(1).max(100), selector: z.string().max(4_000).optional(), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.screenshot': z.object({ sessionId: idSchema, fullPage: z.boolean().default(false), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.evaluate': z.object({ sessionId: idSchema, expression: z.string().min(1).max(16_000), contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.close': z.object({ sessionId: idSchema, contextId: idSchema.optional(), pageId: idSchema.optional() }),
+  'browser.history': z.object({ sessionId: idSchema, contextId: idSchema.optional() }),
+  'computer.status': z.object({ sessionId: idSchema }),
+  'computer.screenshot': z.object({ sessionId: idSchema, appId: z.string().max(1_000).optional() }),
+  'computer.click': z.object({ sessionId: idSchema, x: z.number().int().min(0).max(10_000), y: z.number().int().min(0).max(10_000), appId: z.string().max(1_000).optional() }),
+  'computer.double_click': z.object({ sessionId: idSchema, x: z.number().int().min(0).max(10_000), y: z.number().int().min(0).max(10_000), appId: z.string().max(1_000).optional() }),
+  'computer.type': z.object({ sessionId: idSchema, text: z.string().max(16_000), appId: z.string().max(1_000).optional() }),
+  'computer.key': z.object({ sessionId: idSchema, key: z.string().min(1).max(100), appId: z.string().max(1_000).optional() }),
+  'computer.scroll': z.object({ sessionId: idSchema, deltaX: z.number().int().min(-10_000).max(10_000).default(0), deltaY: z.number().int().min(-10_000).max(10_000), appId: z.string().max(1_000).optional() }),
+  'computer.move': z.object({ sessionId: idSchema, x: z.number().int().min(0).max(10_000), y: z.number().int().min(0).max(10_000), appId: z.string().max(1_000).optional() }),
+  'computer.wait': z.object({ sessionId: idSchema, milliseconds: z.number().int().min(0).max(60_000), appId: z.string().max(1_000).optional() }),
+  'computer.launch': z.object({ sessionId: idSchema, appId: z.string().min(1).max(1_000) }),
   'workspace.create': z.object({ path: z.string().min(1).max(4000) }),
   'session.create': z.object({ workspaceId: idSchema, title: z.string().max(160).optional() }),
   'session.snapshot': z.object({
@@ -376,6 +591,36 @@ export interface RpcResults {
   'plan.clear': { cleared: boolean }
   'mode.get': { mode: RunMode }
   'mode.set': { mode: RunMode }
+  'budget.get': SessionBudget | null
+  'budget.set': SessionBudget
+  'budget.clear': { cleared: boolean }
+  'git.status': GitStatus
+  'git.diff': GitDiff
+  'git.log': GitCommitInfo[]
+  'git.commit': GitCommitInfo
+  'git.branch': GitBranchInfo[] | GitBranchInfo
+  'git.worktree': GitWorktreeInfo[] | GitWorktreeInfo
+  'git.diff_to_remote': { sha: string; diff: string; truncated: boolean } | null
+  'browser.status': { available: boolean; contexts: BrowserPage[]; history: string[] }
+  'browser.navigate': BrowserPage
+  'browser.snapshot': BrowserSnapshot
+  'browser.click': BrowserPage
+  'browser.type': BrowserPage
+  'browser.press': BrowserPage
+  'browser.screenshot': BrowserScreenshot
+  'browser.evaluate': { value: unknown }
+  'browser.close': { closed: boolean }
+  'browser.history': string[]
+  'computer.status': { available: boolean; platform: string; appId: string | null }
+  'computer.screenshot': ComputerScreen
+  'computer.click': ComputerAction
+  'computer.double_click': ComputerAction
+  'computer.type': ComputerAction
+  'computer.key': ComputerAction
+  'computer.scroll': ComputerAction
+  'computer.move': ComputerAction
+  'computer.wait': ComputerAction
+  'computer.launch': ComputerAction
   'workspace.create': Workspace
   'session.create': Session
   'session.snapshot': SessionSnapshot
