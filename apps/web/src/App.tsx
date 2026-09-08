@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Actions, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
-import type { IJsonModel } from 'flexlayout-react'
 import {
   Activity,
   Archive,
@@ -44,6 +43,7 @@ import Settings, { Modal } from './Settings'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
+import { defaultLayout, restoreLayout } from './workbench/layout'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
@@ -433,37 +433,6 @@ function Diagnose() {
     </div>
   )
 }
-function initialLayout(): IJsonModel {
-  return {
-    global: { tabSetEnableMaximize: true, tabSetMinWidth: 230, tabSetMinHeight: 180, tabEnableRename: false },
-    borders: [
-      {
-        type: 'border',
-        location: 'bottom',
-        size: 200,
-        selected: -1,
-        children: [{ type: 'tab', id: 'diagnose', name: '诊断', component: 'diagnose' }],
-      },
-    ],
-    layout: {
-      type: 'row',
-      children: [
-        {
-          type: 'tabset',
-          id: 'main',
-          weight: 74,
-          children: [{ type: 'tab', id: 'welcome', name: '新会话', component: 'conversation', enableClose: false }],
-        },
-        {
-          type: 'tabset',
-          id: 'tools',
-          weight: 26,
-          children: [{ type: 'tab', id: 'activity', name: '运行', component: 'activity' }],
-        },
-      ],
-    },
-  }
-}
 export default function App() {
   const status = useConnection((state) => state.status),
     data = useCatalog((state) => state.data),
@@ -485,11 +454,7 @@ export default function App() {
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
   const [model, setModel] = useState(() => {
-    try {
-      return Model.fromJson((useWorkbench.getState().layout as IJsonModel | null) ?? initialLayout())
-    } catch {
-      return Model.fromJson(initialLayout())
-    }
+    return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
   })
   useEffect(() => {
     const onResize = () => setSmall(window.innerWidth < 900)
@@ -738,7 +703,7 @@ export default function App() {
             aria-label="恢复默认布局"
             onClick={() => {
               useWorkbench.setState({ layout: null })
-              setModel(Model.fromJson(initialLayout()))
+              setModel(Model.fromJson(defaultLayout()))
             }}
           >
             <LayoutGrid size={18} />

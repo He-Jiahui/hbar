@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "global": {
+    "tabSetEnableMaximize": true,
+    "tabSetMinWidth": 230,
+    "tabSetMinHeight": 180,
+    "tabEnableRename": false,
+    "tabEnableRenderOnDemand": true,
+    "tabSetEnableTabScrollbar": false,
+    "borderEnableAutoHide": false
+  },
+  "borders": [
+    {
+      "type": "border",
+      "id": "bottom-tools",
+      "location": "bottom",
+      "size": 200,
+      "selected": -1,
+      "show": true,
+      "children": [
+        {
+          "type": "tab",
+          "id": "diagnose",
+          "name": "诊断",
+          "component": "diagnose",
+          "enableClose": false,
+          "config": {
+            "region": "bottom",
+            "module": "diagnostics"
+          }
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "type": "row",
+    "id": "root",
+    "children": [
+      {
+        "type": "tabset",
+        "id": "main",
+        "name": "编辑区",
+        "weight": 74,
+        "enableMaximize": true,
+        "children": [
+          {
+            "type": "tab",
+            "id": "welcome",
+            "name": "新会话",
+            "component": "conversation",
+            "enableClose": false,
+            "config": {
+              "region": "editor",
+              "module": "conversation"
+            }
+          }
+        ]
+      },
+      {
+        "type": "tabset",
+        "id": "tools",
+        "name": "工具窗口",
+        "weight": 26,
+        "enableMaximize": true,
+        "children": [
+          {
+            "type": "tab",
+            "id": "activity",
+            "name": "运行",
+            "component": "activity",
+            "enableClose": false,
+            "config": {
+              "region": "right",
+              "module": "activity"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
