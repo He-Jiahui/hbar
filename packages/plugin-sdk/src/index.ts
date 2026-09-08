@@ -106,6 +106,13 @@ export interface DriverInput {
   signal: AbortSignal
   resolveKey(modelId: string): Promise<string | null>
   readImage(id: string): Promise<{ mime: string; data: string }>
+  readFile(id: string): Promise<{
+    name: string
+    mime: string
+    size: number
+    text: string | null
+    truncated: boolean
+  }>
   emit(type: string, data: unknown, stepId?: string): Promise<SessionEvent>
   commit(role: Message['role'], content: ContentBlock[], messageId?: string, providerData?: unknown): Promise<Message>
   stream(id: string, text: string, thinking: string): void

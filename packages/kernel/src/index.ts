@@ -45,6 +45,55 @@ import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
 
+const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
+const MAX_ATTACHMENTS = 12
+const MAX_FILE_TEXT = 120_000
+const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
+const TEXT_EXTENSIONS = new Set([
+  '.c',
+  '.cc',
+  '.cfg',
+  '.conf',
+  '.cpp',
+  '.css',
+  '.csv',
+  '.h',
+  '.hpp',
+  '.html',
+  '.ini',
+  '.java',
+  '.js',
+  '.json',
+  '.jsx',
+  '.log',
+  '.md',
+  '.mjs',
+  '.rs',
+  '.scss',
+  '.sh',
+  '.sql',
+  '.svg',
+  '.toml',
+  '.ts',
+  '.tsx',
+  '.txt',
+  '.yaml',
+  '.yml',
+  '.xml',
+])
+function isImageMime(mime: string): boolean {
+  return (IMAGE_MIMES as readonly string[]).includes(mime)
+}
+function isTextArtifact(mime: string, name: string): boolean {
+  if (mime.startsWith('text/')) return true
+  if (
+    ['application/json', 'application/ld+json', 'application/javascript', 'application/typescript', 'application/xml', 'application/x-sh', 'application/x-yaml'].includes(mime)
+  )
+    return true
+  const dot = name.lastIndexOf('.')
+  return dot >= 0 && TEXT_EXTENSIONS.has(name.slice(dot).toLowerCase())
+}
+
 export interface SecretStore {
   get(id: string): Promise<string | null>
   set(id: string, value: string): Promise<void>
@@ -413,6 +462,10 @@ export class Kernel {
   }
   async submit(sessionId: string, requestId: string, input: UserInput, modelId: string) {
     input = inputSchema.parse(input)
+    const files = input.files ?? []
+    if (input.images.length + files.length > MAX_ATTACHMENTS)
+      throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
+    input = { ...input, files }
     const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
     input = {
       ...input,
@@ -422,14 +475,15 @@ export class Kernel {
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
     this.admissions++
     try {
-      if (!input.text.trim() && !input.images.length && input.source !== 'goal')
-        throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image')
+      if (!input.text.trim() && !input.images.length && !files.length && input.source !== 'goal')
+        throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       if (input.images.length && !model.imageInput)
         throw new HbarError('UNSUPPORTED_IMAGE', 'Selected model does not accept images')
       input = {
         ...input,
         images: await Promise.all(input.images.map((image) => this.storage.call('artifact', image.id))),
+        files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
       const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId)
       if (run.status === 'queued') {
@@ -499,11 +553,17 @@ export class Kernel {
         const content: ContentBlock[] = [
           ...(run.input.text ? [{ type: 'text' as const, text: run.input.text }] : []),
           ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
+          ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
         ]
         this.publishEvent((await this.storage.call('commit', sessionId, run.id, 'user', content)).event)
         if (session.title === 'New session')
           await this.updateSession(sessionId, {
-            title: (run.input.text.trim() || run.input.images[0]?.name || 'Image session').slice(0, 80),
+            title: (
+              run.input.text.trim() ||
+              run.input.images[0]?.name ||
+              run.input.files?.[0]?.name ||
+              'Attachment session'
+            ).slice(0, 80),
           })
         const driver = this.plugins.get<HarnessDriver>('driver')
         const input: DriverInput = {
@@ -522,6 +582,27 @@ export class Kernel {
               data: Buffer.from(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer()).toString(
                 'base64',
               ),
+            }
+          },
+          readFile: async (id) => {
+            const artifact = await this.storage.call('artifact', id)
+            const bytes = new Uint8Array(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer())
+            if (!isTextArtifact(artifact.mime, artifact.name))
+              return { name: artifact.name, mime: artifact.mime, size: artifact.size, text: null, truncated: false }
+            let text: string | null
+            try {
+              const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+              text = decoded.includes('\u0000') ? null : decoded
+            } catch {
+              text = null
+            }
+            const truncated = text !== null && text.length > MAX_FILE_TEXT
+            return {
+              name: artifact.name,
+              mime: artifact.mime,
+              size: artifact.size,
+              text: text === null ? null : text.slice(0, MAX_FILE_TEXT),
+              truncated,
             }
           },
           emit: (type, data, stepId) => this.append(sessionId, type, data, run.id, stepId),
@@ -790,22 +871,30 @@ export class Kernel {
     return { summary: result.text }
   }
   async upload(name: string, mime: string, bytes: Uint8Array): Promise<ArtifactRef> {
-    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mime))
-      throw new HbarError('UNSUPPORTED_TYPE', 'Only PNG, JPEG, WebP, and GIF images are supported')
-    if (!bytes.length || bytes.length > 10 * 1024 * 1024)
-      throw new HbarError('FILE_LIMIT', 'Image size must be between 1 byte and 10 MiB')
-    const signature = Buffer.from(bytes)
-    const valid =
-      mime === 'image/png'
-        ? signature.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-        : mime === 'image/jpeg'
-          ? signature[0] === 255 && signature[1] === 216
-          : mime === 'image/gif'
-            ? signature.subarray(0, 3).toString() === 'GIF'
-            : signature.subarray(0, 4).toString() === 'RIFF' && signature.subarray(8, 12).toString() === 'WEBP'
-    if (!valid) throw new HbarError('UNSUPPORTED_TYPE', 'Image data does not match its declared type')
+    const normalizedMime = (mime.trim().split(';', 1)[0] || 'application/octet-stream').toLowerCase()
+    if (normalizedMime.length > 120 || /[\r\n]/.test(normalizedMime))
+      throw new HbarError('UNSUPPORTED_TYPE', 'File type is invalid')
+    if (!bytes.length || bytes.length > MAX_ARTIFACT_BYTES)
+      throw new HbarError('FILE_LIMIT', 'File size must be between 1 byte and 10 MiB')
+    if (isImageMime(normalizedMime)) {
+      const signature = Buffer.from(bytes)
+      const valid =
+        normalizedMime === 'image/png'
+          ? signature.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+          : normalizedMime === 'image/jpeg'
+            ? signature[0] === 255 && signature[1] === 216
+            : normalizedMime === 'image/gif'
+              ? signature.subarray(0, 3).toString() === 'GIF'
+              : signature.subarray(0, 4).toString() === 'RIFF' && signature.subarray(8, 12).toString() === 'WEBP'
+      if (!valid) throw new HbarError('UNSUPPORTED_TYPE', 'Image data does not match its declared type')
+    }
     const id = createHash('sha256').update(bytes).digest('hex')
-    const artifact = { id, name: basename(name).slice(0, 240), mime, size: bytes.length }
+    const artifact = {
+      id,
+      name: basename(name).slice(0, 240) || 'attachment',
+      mime: normalizedMime,
+      size: bytes.length,
+    }
     try {
       await writeFile(join(this.options.layout.artifacts, id), bytes, { flag: 'wx', mode: 0o600 })
     } catch (error) {

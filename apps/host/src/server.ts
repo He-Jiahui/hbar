@@ -518,10 +518,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           const match = /^\/api\/artifacts\/([a-f0-9]{64})$/.exec(url.pathname)
           if (match && request.method === 'GET') {
             const artifact = await kernel.storage.call('artifact', match[1]!)
+            const disposition = artifact.mime.startsWith('image/') ? 'inline' : 'attachment'
             return response(request, Bun.file(join(kernel.options.layout.artifacts, artifact.id)), 200, {
               'Content-Type': artifact.mime,
               'Content-Security-Policy': "default-src 'none'",
-              'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(artifact.name)}`,
+              'Content-Disposition': `${disposition}; filename*=UTF-8''${encodeURIComponent(artifact.name)}`,
             })
           }
           return json(request, { error: 'Not found' }, 404)

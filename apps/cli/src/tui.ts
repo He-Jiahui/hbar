@@ -24,6 +24,7 @@ function blockText(message: Message) {
       if (block.type === 'text') return block.text
       if (block.type === 'thinking') return `<details><summary>Thinking</summary>\n\n${block.text}\n\n</details>`
       if (block.type === 'image') return `![${block.artifact.name}](attachment:${block.artifact.id})`
+      if (block.type === 'file') return `[${block.artifact.name}](attachment:${block.artifact.id})`
       if (block.type === 'tool_call') return `\`\`\`json\n${JSON.stringify({ tool: block.name, args: block.args }, null, 2)}\n\`\`\``
       return `> ${block.isError ? 'Tool failed' : 'Tool result'} · ${block.name}\n>\n> ${block.text.replaceAll('\n', '\n> ')}`
     })

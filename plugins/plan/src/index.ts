@@ -102,7 +102,9 @@ class PlanRuntime implements PlanService {
 
   async update(sessionId: string, steps: PlanStep[], explanation?: string | null, turnId?: string | null) {
     return this.serial(sessionId, async () => {
-      const parsedSteps = z.array(planStepSchema).min(1).max(100).parse(steps)
+      // Codex accepts an empty checklist; an empty update is the wire-level
+      // equivalent of clearing the current plan.
+      const parsedSteps = z.array(planStepSchema).max(100).parse(steps)
       const state = planStateSchema.parse({
         sessionId,
         turnId: turnId ?? null,
@@ -120,6 +122,7 @@ class PlanRuntime implements PlanService {
       if (!this.plans.has(sessionId)) return { cleared: false }
       await this.api.sessions.append(sessionId, 'plan.cleared', { sessionId })
       this.plans.delete(sessionId)
+      this.api.notify({ method: 'plan.cleared', params: { sessionId } })
       this.api.changed('plans')
       return { cleared: true }
     })

@@ -211,6 +211,7 @@ async function toPiMessages(
   messages: Message[],
   model: ProviderConfig,
   readImage?: DriverInput['readImage'],
+  readFile?: DriverInput['readFile'],
   transientToolContent = new Map<string, ToolResultContent[]>(),
 ): Promise<PiMessage[]> {
   const output: PiMessage[] = []
@@ -227,6 +228,21 @@ async function toPiMessages(
             const image = await readImage(block.artifact.id)
             content.push({ type: 'image', data: image.data, mimeType: image.mime })
           }
+        }
+        if (block.type === 'file') {
+          if (!readFile) {
+            content.push({ type: 'text', text: `[attached file: ${block.artifact.name}]` })
+            continue
+          }
+          const file = await readFile(block.artifact.id)
+          const header = `[attached file: ${file.name} (${file.mime}, ${file.size} bytes)]`
+          if (file.text === null)
+            content.push({ type: 'text', text: `${header}\n[binary content omitted]` })
+          else
+            content.push({
+              type: 'text',
+              text: `${header}\n--- begin file ---\n${file.text}${file.truncated ? '\n[content truncated]' : ''}\n--- end file ---`,
+            })
         }
       }
       output.push({ role: 'user', content, timestamp: message.createdAt })
@@ -365,7 +381,13 @@ export class PiDriver implements HarnessDriver {
           request.model,
           {
             systemPrompt: request.system,
-            messages: await toPiMessages(request.messages, request.model, input.readImage, transientToolContent),
+            messages: await toPiMessages(
+              request.messages,
+              request.model,
+              input.readImage,
+              input.readFile,
+              transientToolContent,
+            ),
             tools,
           },
           await input.resolveKey(request.model.id),
@@ -380,7 +402,7 @@ export class PiDriver implements HarnessDriver {
       [],
       {
         systemPrompt: input.request.system,
-        messages: await toPiMessages(input.request.messages, input.request.model, input.readImage),
+        messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
         tools,
       },
       {
@@ -401,7 +423,7 @@ export class PiDriver implements HarnessDriver {
       request.model,
       {
         systemPrompt: request.system,
-        messages: await toPiMessages(request.messages, { ...request.model, imageInput: true }),
+        messages: await toPiMessages(request.messages, { ...request.model, imageInput: true }, undefined, undefined),
       },
       apiKey,
       signal,

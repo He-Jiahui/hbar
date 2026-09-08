@@ -196,6 +196,8 @@ export function applySessionCapabilityEvent(event: WireNotification) {
     const current = useSessionCapabilities.getState().sessions[event.params.sessionId]?.plan
     if (!current || event.params.updatedAt >= current.updatedAt)
       useSessionCapabilities.getState().setSession(event.params.sessionId, { plan: event.params, saving: false, error: '' })
+  } else if (event.method === 'plan.cleared') {
+    useSessionCapabilities.getState().setSession(event.params.sessionId, { plan: null, saving: false, error: '' })
   } else if (event.method === 'mode.changed') {
     useSessionCapabilities.getState().setSession(event.params.sessionId, { mode: event.params.mode, saving: false, error: '' })
   } else if (event.method === 'budget.updated') {

@@ -39,6 +39,12 @@ function block(block: ContentBlock, key: number) {
         alt={block.artifact.name}
       />
     )
+  if (block.type === 'file')
+    return (
+      <a className="terminal-file" key={key} href={client().artifactUrl(block.artifact.id)} target="_blank" rel="noreferrer">
+        {block.artifact.name}
+      </a>
+    )
   if (block.type === 'tool_call')
     return <pre key={key}>{JSON.stringify({ tool: block.name, args: block.args }, null, 2)}</pre>
   return (

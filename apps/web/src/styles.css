@@ -935,6 +935,20 @@ p {
   display: block;
   margin: 8px 0;
 }
+.attachment-file,
+.terminal-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: #9dbbff;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.attachment-file:hover,
+.terminal-file:hover {
+  text-decoration: underline;
+}
 .conversation-tail {
   height: 18px;
 }
@@ -1613,6 +1627,10 @@ p {
   max-width: min(100%, 640px);
   max-height: 420px;
   object-fit: contain;
+}
+.terminal-file {
+  margin: 4px 0;
+  font: 11px/1.5 var(--mono);
 }
 .terminal-approval {
   border: 1px solid #615b43;

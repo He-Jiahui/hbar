@@ -120,6 +120,19 @@ function MessageView({ message }: { message: Message }) {
                 />
               </a>
             )
+          if (block.type === 'file')
+            return (
+              <a
+                className="attachment-file"
+                key={index}
+                href={client().artifactUrl(block.artifact.id)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FileCode2 size={15} />
+                <span>{block.artifact.name}</span>
+              </a>
+            )
           if (block.type === 'tool_call')
             return (
               <div className="tool-call" key={index}>

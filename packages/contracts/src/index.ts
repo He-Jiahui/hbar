@@ -14,6 +14,7 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
   z.object({ type: z.literal('thinking'), text: z.string() }),
   z.object({ type: z.literal('image'), artifact: artifactSchema }),
+  z.object({ type: z.literal('file'), artifact: artifactSchema }),
   z.object({
     type: z.literal('tool_call'),
     callId: idSchema,
@@ -241,6 +242,9 @@ export type ComputerAction = z.infer<typeof computerActionSchema>
 export const inputSchema = z.object({
   text: z.string().max(200_000),
   images: z.array(artifactSchema).max(12).default([]),
+  // Kept optional for wire compatibility with runs persisted before file
+  // attachments were introduced. Kernel normalization supplies an empty list.
+  files: z.array(artifactSchema).max(12).optional(),
   thinking: thinkingLevelSchema.optional(),
   approval: approvalModeSchema.optional(),
   mode: runModeSchema.optional(),
@@ -494,6 +498,7 @@ export type WireNotification =
   | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal } }
   | { method: 'goal.cleared'; params: { sessionId: string } }
   | { method: 'plan.updated'; params: PlanState }
+  | { method: 'plan.cleared'; params: { sessionId: string } }
   | { method: 'mode.changed'; params: { sessionId: string; mode: RunMode } }
   | { method: 'budget.updated'; params: { sessionId: string; runId: string | null; budget: SessionBudget } }
   | { method: 'budget.cleared'; params: { sessionId: string } }
