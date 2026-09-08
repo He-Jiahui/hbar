@@ -5,8 +5,8 @@ import {
   planStateSchema,
   planStepSchema,
   runModeSchema,
+  userInputOptionSchema,
   userInputQuestionSchema,
-  userInputToolQuestionSchema,
   userInputRequestSchema,
 } from '@hbar/contracts'
 import type { PlanState, PlanStep, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
@@ -32,9 +32,17 @@ const updatePlanSchema = z.object({
   explanation: z.string().max(4_000).optional(),
   plan: z.array(planStepSchema).max(100),
 })
-// The model-facing schema intentionally exposes only the fields in Codex's
-// tool contract. Wire events add normalized `isOther`/`isSecret` defaults.
-const requestUserInputQuestionSchema = userInputToolQuestionSchema.pick({ id: true, header: true, question: true, options: true })
+// Keep model-facing optional fields optional in JSON Schema. Zod defaults are
+// useful for wire normalization but otherwise make providers treat them as
+// required properties before the tool call reaches the runtime.
+const requestUserInputQuestionSchema = z.object({
+  id: idSchema,
+  header: z.string().trim().min(1).max(12),
+  question: z.string().trim().min(1).max(4_000),
+  options: z.array(userInputOptionSchema).max(3).optional(),
+  isOther: z.boolean().optional(),
+  isSecret: z.boolean().optional(),
+})
 const requestUserInputSchema = z.object({ questions: z.array(requestUserInputQuestionSchema).min(1).max(3) })
 
 function escapeXml(value: string) {
@@ -175,9 +183,9 @@ class PlanRuntime implements PlanService {
       throw new HbarError('PLAN_MODE', `request_user_input is unavailable in ${mode === 'plan' ? 'Plan' : 'Default'} mode`)
     const normalizedQuestions = questions.map((question) => ({
       ...question,
-      // Codex always adds the free-form choice for this tool, regardless of
-      // whether the model supplied an `isOther` value.
-      isOther: true,
+      // Codex defaults these optional controls to false on the wire. Preserve
+      // an explicit true value so providers can opt into a free-form choice.
+      isOther: question.isOther ?? false,
       isSecret: question.isSecret ?? false,
     }))
     return this.api.userInput.request(
