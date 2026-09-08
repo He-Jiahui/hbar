@@ -253,7 +253,7 @@ export interface BrowserUseService {
   history(sessionId: string, contextId?: string, signal?: AbortSignal): Promise<string[]>
 }
 export interface ComputerUseService {
-  status(sessionId: string): Promise<{ available: boolean; platform: string; appId: string | null }>
+  status(sessionId: string, signal?: AbortSignal): Promise<{ available: boolean; platform: string; appId: string | null }>
   screenshot(sessionId: string, appId?: string, signal?: AbortSignal): Promise<ComputerScreen>
   click(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
   doubleClick(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>

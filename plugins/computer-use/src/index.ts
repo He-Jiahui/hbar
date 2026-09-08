@@ -20,6 +20,7 @@ export type ComputerConfig = z.infer<typeof computerConfigSchema>
 
 export interface ComputerBackend {
   available(): boolean | Promise<boolean>
+  isLocked?(signal: AbortSignal): boolean | Promise<boolean>
   screenshot(appId: string | undefined, signal: AbortSignal): Promise<ComputerScreen>
   click(x: number, y: number, appId: string | undefined, signal: AbortSignal): Promise<void>
   doubleClick(x: number, y: number, appId: string | undefined, signal: AbortSignal): Promise<void>
@@ -28,6 +29,7 @@ export interface ComputerBackend {
   scroll(deltaX: number, deltaY: number, appId: string | undefined, signal: AbortSignal): Promise<void>
   move(x: number, y: number, appId: string | undefined, signal: AbortSignal): Promise<void>
   launch(appId: string, signal: AbortSignal): Promise<void>
+  dispose?(): Promise<void> | void
 }
 
 function unavailable(): never {
@@ -55,6 +57,7 @@ async function runPowerShell(script: string, values: Record<string, string>, sig
     windowsHide: true,
   })
   let terminating: Promise<void> | undefined
+  let timedOut = false
   const terminate = () =>
     (terminating ??= (async () => {
       const killer = Bun.spawn(['taskkill.exe', '/PID', String(child.pid), '/T', '/F'], {
@@ -66,11 +69,15 @@ async function runPowerShell(script: string, values: Record<string, string>, sig
     })())
   const onAbort = () => void terminate().catch(() => {})
   signal.addEventListener('abort', onAbort, { once: true })
-  const timer = setTimeout(onAbort, timeoutMs)
+  const timer = setTimeout(() => {
+    timedOut = true
+    onAbort()
+  }, timeoutMs)
   try {
     const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited])
     if (terminating) await terminating
     signal.throwIfAborted()
+    if (timedOut) throw new HbarError('COMPUTER_TIMEOUT', `Computer command exceeded ${timeoutMs}ms`)
     if (code !== 0) throw new HbarError('COMPUTER_ACTION_FAILED', stderr.trim() || stdout.trim() || `PowerShell exited with ${code}`)
     if (stdout.length > maxOutputBytes) throw new HbarError('COMPUTER_OUTPUT_LIMIT', 'Computer backend output exceeded its limit')
     return stdout.trim()
@@ -111,7 +118,7 @@ $payload | ConvertTo-Json -Compress
 $graphics.Dispose(); $bitmap.Dispose(); $stream.Dispose()
 `
 
-const keyboardScript = `
+const textScript = `
 Add-Type -AssemblyName System.Windows.Forms
 function Escape-SendKeys([string]$value) {
   $value.Replace('\\','{\\}').Replace('+','{+}').Replace('^','{^}').Replace('%','{%}').Replace('~','{~}').Replace('(','{(}').Replace(')','{)}').Replace('{','{{}').Replace('}','{}}').Replace('[','{[}').Replace(']','{]}')
@@ -119,9 +126,69 @@ function Escape-SendKeys([string]$value) {
 [System.Windows.Forms.SendKeys]::SendWait((Escape-SendKeys $env:HBAR_VALUE))
 `
 
+const keyScript = `
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.SendKeys]::SendWait($env:HBAR_VALUE)
+`
+
+const lockScript = `
+$locked = Get-Process -Name LogonUI -ErrorAction SilentlyContinue
+if ($locked) { 'true' } else { 'false' }
+`
+
+const keyNames: Record<string, string> = {
+  Enter: '{ENTER}',
+  Return: '{ENTER}',
+  Tab: '{TAB}',
+  Escape: '{ESC}',
+  Esc: '{ESC}',
+  Backspace: '{BACKSPACE}',
+  Delete: '{DELETE}',
+  Insert: '{INSERT}',
+  Home: '{HOME}',
+  End: '{END}',
+  PageUp: '{PGUP}',
+  PageDown: '{PGDN}',
+  ArrowUp: '{UP}',
+  ArrowDown: '{DOWN}',
+  ArrowLeft: '{LEFT}',
+  ArrowRight: '{RIGHT}',
+  F1: '{F1}',
+  F2: '{F2}',
+  F3: '{F3}',
+  F4: '{F4}',
+  F5: '{F5}',
+  F6: '{F6}',
+  F7: '{F7}',
+  F8: '{F8}',
+  F9: '{F9}',
+  F10: '{F10}',
+  F11: '{F11}',
+  F12: '{F12}',
+}
+
+function sendKeysValue(value: string) {
+  const parts = value.split('+').map((part) => part.trim()).filter(Boolean)
+  if (!parts.length || parts.length > 5) throw new HbarError('COMPUTER_INVALID_KEY', 'Invalid key or key chord')
+  const base = keyNames[parts.at(-1)!] ?? parts.at(-1)!
+  if (!/^(?:\{[A-Z0-9]+\}|[ -~])$/.test(base)) throw new HbarError('COMPUTER_INVALID_KEY', 'Invalid key or key chord')
+  const modifiers = parts.slice(0, -1).map((part) => {
+    if (part === 'Ctrl' || part === 'Control') return '^'
+    if (part === 'Alt' || part === 'Option') return '%'
+    if (part === 'Shift') return '+'
+    return null
+  })
+  if (modifiers.some((value) => value === null)) throw new HbarError('COMPUTER_INVALID_KEY', 'Invalid key modifier')
+  return `${modifiers.join('')}${base}`
+}
+
 export class WindowsComputerBackend implements ComputerBackend {
   constructor(private readonly timeoutMs = 30_000, private readonly maxScreenshotBytes = MAX_SCREENSHOT) {}
   available() { return process.platform === 'win32' }
+  async isLocked(signal: AbortSignal) {
+    const raw = await runPowerShell(lockScript, {}, signal, this.timeoutMs, 32)
+    return raw.trim().toLocaleLowerCase() === 'true'
+  }
   async screenshot(_appId: string | undefined, signal: AbortSignal) {
     const raw = await runPowerShell(screenshotScript, {}, signal, this.timeoutMs, this.maxScreenshotBytes)
     let value: unknown
@@ -137,10 +204,10 @@ export class WindowsComputerBackend implements ComputerBackend {
     await runPowerShell(mouseScript, { X: String(x), Y: String(y), ACTION: 'double_click' }, signal, this.timeoutMs, 2_000)
   }
   async type(text: string, _appId: string | undefined, signal: AbortSignal) {
-    await runPowerShell(keyboardScript, { VALUE: text }, signal, this.timeoutMs, 2_000)
+    await runPowerShell(textScript, { VALUE: text }, signal, this.timeoutMs, 2_000)
   }
   async key(key: string, _appId: string | undefined, signal: AbortSignal) {
-    await runPowerShell(keyboardScript, { VALUE: key }, signal, this.timeoutMs, 2_000)
+    await runPowerShell(keyScript, { VALUE: sendKeysValue(key) }, signal, this.timeoutMs, 2_000)
   }
   async scroll(deltaX: number, deltaY: number, _appId: string | undefined, signal: AbortSignal) {
     if (deltaX !== 0) throw new HbarError('COMPUTER_UNSUPPORTED_ACTION', 'Native Windows backend only supports vertical scrolling')
@@ -151,7 +218,7 @@ export class WindowsComputerBackend implements ComputerBackend {
   }
   async launch(appId: string, signal: AbortSignal) {
     if (!/^[A-Za-z0-9._-]{1,1000}$/.test(appId)) throw new HbarError('COMPUTER_INVALID_APP', 'Only an approved application identifier may be launched')
-    await runPowerShell('Start-Process -FilePath ("shell:AppsFolder\\" + $env:HBAR_APP)', { APP: appId }, signal, this.timeoutMs, 2_000)
+    await runPowerShell('if ($env:HBAR_APP -match \'\\.exe$\') { Start-Process -FilePath $env:HBAR_APP } else { Start-Process -FilePath ("shell:AppsFolder\\" + $env:HBAR_APP) }', { APP: appId }, signal, this.timeoutMs, 2_000)
   }
 }
 
@@ -165,6 +232,11 @@ export class UnavailableComputerBackend implements ComputerBackend {
   scroll() { return unavailable() }
   move() { return unavailable() }
   launch() { return unavailable() }
+}
+
+let backendFactory: (() => ComputerBackend) | undefined
+export function setComputerBackendFactory(factory: () => ComputerBackend) {
+  backendFactory = factory
 }
 
 function requirementFor(config: ComputerConfig, appId: string | undefined) {
@@ -181,11 +253,14 @@ function requirementFor(config: ComputerConfig, appId: string | undefined) {
 
 export class ComputerRuntime implements ComputerUseService {
   private activeApps = new Map<string, string | null>()
+  private readonly backend: ComputerBackend
   constructor(
     private readonly api: HbarAPI,
     private readonly config: ComputerConfig,
-    private readonly backend: ComputerBackend = process.platform === 'win32' ? new WindowsComputerBackend(config.timeoutMs, config.maxScreenshotBytes) : new UnavailableComputerBackend(),
-  ) {}
+    backend?: ComputerBackend,
+  ) {
+    this.backend = backend ?? backendFactory?.() ?? (process.platform === 'win32' ? new WindowsComputerBackend(config.timeoutMs, config.maxScreenshotBytes) : new UnavailableComputerBackend())
+  }
 
   private async bounded<T>(parent: AbortSignal, operation: (signal: AbortSignal) => Promise<T>) {
     const controller = new AbortController()
@@ -218,6 +293,11 @@ export class ComputerRuntime implements ComputerUseService {
   }
 
   private async session(sessionId: string) { await this.api.sessions.get(sessionId) }
+  private async assertUnlocked(signal: AbortSignal) {
+    if (this.config.allow_locked_computer_use || !this.backend.isLocked) return
+    if (await this.bounded(signal, (boundedSignal) => Promise.resolve(this.backend.isLocked!(boundedSignal))))
+      throw new HbarError('COMPUTER_LOCKED', 'Computer use is disabled while the workstation is locked')
+  }
   authorize(appId?: string) {
     const requirement = requirementFor(this.config, appId)
     if (requirement === 'deny') throw new HbarError('COMPUTER_APP_DENIED', `Computer use is denied for ${appId ?? 'the active desktop'}`)
@@ -229,9 +309,8 @@ export class ComputerRuntime implements ComputerUseService {
     this.api.notify({ method: 'computer.changed', params: { sessionId } })
     this.api.changed('computer')
   }
-  async status(sessionId: string) {
+  async status(sessionId: string, signal = new AbortController().signal) {
     await this.session(sessionId)
-    const signal = new AbortController().signal
     return {
       available: await this.bounded(signal, () => Promise.resolve(this.backend.available())),
       platform: process.platform,
@@ -239,7 +318,7 @@ export class ComputerRuntime implements ComputerUseService {
     }
   }
   async screenshot(sessionId: string, appId?: string, signal = new AbortController().signal) {
-    await this.session(sessionId); this.authorize(appId)
+    await this.session(sessionId); this.authorize(appId); await this.assertUnlocked(signal)
     const screen = computerScreenSchema.parse(await this.bounded(signal, (boundedSignal) => this.backend.screenshot(appId, boundedSignal)))
     if (Buffer.byteLength(screen.data, 'base64') > this.config.maxScreenshotBytes) throw new HbarError('COMPUTER_SCREENSHOT_LIMIT', 'Computer screenshot exceeds the configured limit')
     this.mark(sessionId, appId)
@@ -252,7 +331,7 @@ export class ComputerRuntime implements ComputerUseService {
     signal: AbortSignal,
     operation: (boundedSignal: AbortSignal) => Promise<void>,
   ) {
-    await this.session(sessionId); this.authorize(appId); await this.bounded(signal, operation); this.mark(sessionId, appId)
+    await this.session(sessionId); this.authorize(appId); await this.assertUnlocked(signal); await this.bounded(signal, operation); this.mark(sessionId, appId)
     return computerActionSchema.parse({ action, accepted: true })
   }
   async click(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'click', appId, signal, (boundedSignal) => this.backend.click(x, y, appId, boundedSignal)) }
@@ -262,7 +341,7 @@ export class ComputerRuntime implements ComputerUseService {
   async scroll(sessionId: string, deltaX: number, deltaY: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'scroll', appId, signal, (boundedSignal) => this.backend.scroll(deltaX, deltaY, appId, boundedSignal)) }
   async move(sessionId: string, x: number, y: number, appId?: string, signal = new AbortController().signal) { return this.action(sessionId, 'move', appId, signal, (boundedSignal) => this.backend.move(x, y, appId, boundedSignal)) }
   async wait(sessionId: string, milliseconds: number, appId?: string, signal = new AbortController().signal) {
-    await this.session(sessionId); this.authorize(appId)
+    await this.session(sessionId); this.authorize(appId); await this.assertUnlocked(signal)
     await this.bounded(signal, (boundedSignal) => new Promise<void>((resolve, reject) => {
       const timer = setTimeout(resolve, milliseconds)
       const abort = () => {
@@ -276,6 +355,10 @@ export class ComputerRuntime implements ComputerUseService {
     return computerActionSchema.parse({ action: 'wait', accepted: true })
   }
   async launch(sessionId: string, appId: string, signal = new AbortController().signal) { return this.action(sessionId, 'launch', appId, signal, (boundedSignal) => this.backend.launch(appId, boundedSignal)) }
+  async dispose() {
+    await this.backend.dispose?.()
+    this.activeApps.clear()
+  }
 }
 
 const appArgs = z.object({ app_id: z.string().max(1_000).optional() })
@@ -284,7 +367,7 @@ function result(value: unknown) { return { text: JSON.stringify(value), details:
 
 export function computerTools(runtime: ComputerRuntime): ToolDefinition[] {
   return [
-    { name: 'computer_status', description: 'Report desktop backend availability and active application.', inputSchema: z.object({}), effect: 'read', execute: async (_args, c) => result(await runtime.status(c.session.id)) },
+    { name: 'computer_status', description: 'Report desktop backend availability and active application.', inputSchema: z.object({}), effect: 'read', execute: async (_args, c) => result(await runtime.status(c.session.id, c.signal)) },
     { name: 'computer_screenshot', description: 'Capture the desktop as an image. Requires computer-use approval.', inputSchema: appArgs, effect: 'process', execute: async (args, c) => { const p = appArgs.parse(args); const screen = await runtime.screenshot(c.session.id, p.app_id, c.signal); return { text: `Computer screenshot ${screen.width}x${screen.height}`, content: [{ type: 'image' as const, data: screen.data, mimeType: screen.mime }], details: screen } } },
     { name: 'computer_click', description: 'Click a screen coordinate. Requires computer-use approval.', inputSchema: pointArgs, effect: 'process', execute: async (args, c) => { const p = pointArgs.parse(args); return result(await runtime.click(c.session.id, p.x, p.y, p.app_id, c.signal)) } },
     { name: 'computer_double_click', description: 'Double-click a screen coordinate. Requires computer-use approval.', inputSchema: pointArgs, effect: 'process', execute: async (args, c) => { const p = pointArgs.parse(args); return result(await runtime.doubleClick(c.session.id, p.x, p.y, p.app_id, c.signal)) } },
@@ -316,6 +399,7 @@ export const computerPlugin = definePlugin({
     const runtime = new ComputerRuntime(ctx.hbar.api, config)
     provide<ComputerUseService>(ctx, 'computer', runtime)
     provide<ComputerUseService>(ctx, 'computer-use', runtime)
+    ctx.effect(() => () => { void runtime.dispose() })
     for (const tool of computerTools(runtime)) ctx.hbar.api.tools.register(tool)
   },
 })

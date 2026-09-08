@@ -18,6 +18,7 @@ function fakeApi() {
 class FakeComputer implements ComputerBackend {
   actions: string[] = []
   available() { return true }
+  isLocked(_signal?: AbortSignal): boolean | Promise<boolean> { return false }
   async screenshot() { return { width: 12, height: 8, mime: 'image/png', data: 'iVBORw0KGgo=' } }
   async click() { this.actions.push('click') }
   async doubleClick() { this.actions.push('double_click') }
@@ -93,4 +94,23 @@ test('computer actions enforce the configured timeout when a backend ignores can
     expect((error as { code?: string }).code).toBe('COMPUTER_TIMEOUT')
   }
   expect(aborted).toBeTrue()
+})
+
+test('computer runtime refuses a locked workstation unless explicitly allowed', async () => {
+  const { api } = fakeApi()
+  const backend = new FakeComputer()
+  backend.isLocked = async () => true
+  const runtime = new ComputerRuntime(api, computerConfigSchema.parse({ default_app_access: 'allow' }), backend)
+  try {
+    await runtime.screenshot('session-1')
+    throw new Error('expected locked workstation denial')
+  } catch (error) {
+    expect((error as { code?: string }).code).toBe('COMPUTER_LOCKED')
+  }
+  const allowed = new ComputerRuntime(
+    api,
+    computerConfigSchema.parse({ default_app_access: 'allow', allow_locked_computer_use: true }),
+    backend,
+  )
+  expect((await allowed.screenshot('session-1')).width).toBe(12)
 })
