@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "hbar",
+  "version": "0.1.0",
+  "identifier": "dev.hbar.workbench",
+  "build": { "frontendDist": "../../../dist/web" },
+  "app": { "windows": [], "security": { "csp": null } },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": { "../../../dist/desktop-resources/": "runtime/" },
+    "windows": { "nsis": { "installMode": "currentUser" } }
+  }
+}

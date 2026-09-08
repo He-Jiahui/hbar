@@ -1,0 +1,115 @@
+import { afterEach, expect, test } from 'bun:test'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { Kernel, MemorySecrets } from '@hbar/kernel'
+import type { Approval } from '@hbar/contracts'
+import { dependencyOrder } from '../packages/kernel/src/plugins.ts'
+import type { PluginManifest } from '@hbar/plugin-sdk'
+
+const resources: { root: string; kernel: Kernel }[] = []
+afterEach(async () => {
+  for (const { root, kernel } of resources.splice(0)) {
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+async function fixture() {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-kernel-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  resources.push({ root, kernel })
+  const workspace = (await kernel.storage.call('workspaces'))[0]!
+  const session = await kernel.createSession(workspace.id)
+  return { root, kernel, session }
+}
+test('Pi streams and persists a real run; duplicate request ids do not duplicate model execution', async () => {
+  const { kernel, session } = await fixture()
+  const input = { text: 'hello', images: [] }
+  const a = await kernel.submit(session.id, 'same-request', input, 'local-fixture')
+  const b = await kernel.submit(session.id, 'same-request', input, 'local-fixture')
+  expect(a.id).toBe(b.id)
+  await kernel.waitForIdle()
+  const snapshot = await kernel.snapshot(session.id)
+  expect(snapshot.runs[0]?.status).toBe('completed')
+  expect(snapshot.messages.map((m) => m.role)).toEqual(['user', 'assistant'])
+  expect(snapshot.usage.output).toBeGreaterThan(0)
+  expect((await kernel.storage.call('events', session.id, 0)).filter((e) => e.type === 'request.started')).toHaveLength(
+    1,
+  )
+})
+test('write approval runs through the tool gate; denial never writes', async () => {
+  const { root, kernel, session } = await fixture()
+  let approvals = 0
+  kernel.subscribe((event) => {
+    if (event.method === 'session.event' && event.params.type === 'approval.requested') {
+      const approval = event.params.data as Approval
+      void kernel.resolveApproval(approval.id, ++approvals === 1 ? 'denied' : 'allowed')
+    }
+  })
+  await kernel.submit(
+    session.id,
+    'denied',
+    { text: '/tool write_file {"path":"result.txt","text":"accepted"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect(await Bun.file(join(root, 'result.txt')).exists()).toBe(false)
+  await kernel.submit(
+    session.id,
+    'allowed',
+    { text: '/tool write_file {"path":"result.txt","text":"accepted"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect(await readFile(join(root, 'result.txt'), 'utf8')).toBe('accepted')
+  expect((await kernel.snapshot(session.id)).messages.filter((m) => m.role === 'tool')).toHaveLength(2)
+})
+test('cancel settles an active stream and plugin unload removes registrations', async () => {
+  const { kernel, session } = await fixture()
+  const run = await kernel.submit(session.id, 'cancel', { text: '/slow', images: [] }, 'local-fixture')
+  for (let i = 0; i < 100 && !kernel.streams.size; i++) await Bun.sleep(10)
+  await kernel.cancel(run.id)
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('cancelled')
+  expect(kernel.streams.size).toBe(0)
+  expect(kernel.tools.get('read_file')).toBeDefined()
+  await kernel.changePlugin('tools.workspace', false)
+  expect(kernel.tools.get('read_file')).toBeUndefined()
+  await kernel.changePlugin('tools.workspace', true)
+  expect(kernel.tools.get('read_file')).toBeDefined()
+})
+test('dependency checks reject missing providers, duplicates, cycles, and incompatible versions', () => {
+  const base = (id: string): PluginManifest => ({
+    id,
+    name: id,
+    version: '1.0.0',
+    apiVersion: '^1.0.0',
+    description: '',
+    scope: 'host',
+    permissions: [],
+  })
+  expect(() => dependencyOrder([{ ...base('a'), requires: { missing: '^1.0.0' } }])).toThrow('requires')
+  expect(() =>
+    dependencyOrder([
+      { ...base('a'), provides: { x: '1.0.0' } },
+      { ...base('b'), provides: { x: '1.0.0' } },
+    ]),
+  ).toThrow('Multiple')
+  expect(() =>
+    dependencyOrder([
+      { ...base('a'), provides: { x: '1.0.0' }, requires: { y: '*' } },
+      { ...base('b'), provides: { y: '1.0.0' }, requires: { x: '*' } },
+    ]),
+  ).toThrow(' -> ')
+  expect(() =>
+    dependencyOrder([
+      { ...base('a'), provides: { x: '1.0.0' } },
+      { ...base('b'), requires: { x: '^2.0.0' } },
+    ]),
+  ).toThrow('found 1.0.0')
+})

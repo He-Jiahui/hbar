@@ -1,0 +1,9 @@
+{
+  "name": "hbar-example-observer",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "hbar": {
+    "host": "index.ts"
+  }
+}
