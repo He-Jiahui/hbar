@@ -29,6 +29,13 @@ test('model settings can search and filter configured connections', async ({ pag
 
     await page.getByRole('button', { name: '待配置', exact: true }).click()
     await expect(page.getByText('没有匹配的模型', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: '全部', exact: true }).click()
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.locator('.mobile-nav').getByRole('button', { name: '设置', exact: true }).click()
+    await expect(page.getByRole('textbox', { name: '搜索供应商或模型', exact: true })).toBeVisible()
+    await expect(page.locator('.model-row')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   } finally {
     fixture.api.disconnect()
   }
