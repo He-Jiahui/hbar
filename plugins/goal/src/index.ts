@@ -14,6 +14,7 @@ import type {
 
 const MAX_EVENTS = 100_000
 const MAX_AUDIT_RUNS = 32
+const MAX_EXECUTION_FAILURE_RUNS = 32
 const MAX_ACCOUNTED_RUNS = 256
 
 export const goalConfigSchema = z.object({
@@ -29,6 +30,8 @@ const persistedGoalSchema = threadGoalSchema.extend({
   goalId: z.string().min(1).max(160),
   blockedAuditStreak: z.number().int().nonnegative().default(0),
   blockedAuditRuns: z.array(z.string().min(1).max(160)).max(MAX_AUDIT_RUNS).default([]),
+  executionFailureStreak: z.number().int().nonnegative().default(0),
+  executionFailureRuns: z.array(z.string().min(1).max(160)).max(MAX_EXECUTION_FAILURE_RUNS).default([]),
   continuationCount: z.number().int().nonnegative().default(0),
   accountedRuns: z.array(z.string().min(1).max(160)).max(MAX_ACCOUNTED_RUNS).default([]),
 })
@@ -80,7 +83,8 @@ function eventGoal(event: SessionEvent): PersistedGoal | null {
 
 function executionFailureState(events: SessionEvent[], runId: string) {
   let failedExecution = false
-  let successfulTool = false
+  let successfulExecution = false
+  const executionTools = new Set(['exec', 'shell', 'run_command'])
   for (const event of events) {
     if (event.runId !== runId || event.type !== 'message.committed') continue
     const parsed = z
@@ -90,12 +94,20 @@ function executionFailureState(events: SessionEvent[], runId: string) {
     for (const block of parsed.data.content) {
       if (!block || typeof block !== 'object') continue
       const value = block as { type?: unknown; name?: unknown; isError?: unknown }
-      if (value.type !== 'tool_result') continue
-      if (value.name === 'exec' && value.isError === true) failedExecution = true
-      if (value.isError !== true) successfulTool = true
+      if (value.type !== 'tool_result' || !executionTools.has(String(value.name))) continue
+      if (value.isError === true) failedExecution = true
+      else successfulExecution = true
     }
   }
-  return { failedExecution, successfulTool }
+  return { failedExecution, successfulExecution }
+}
+
+function isUsageLimitError(run: Run) {
+  return (
+    run.status === 'failed' &&
+    typeof run.error === 'string' &&
+    /(usage[_ -]?limit|rate[_ -]?limit|quota|too many requests|insufficient (?:credits|quota)|\b429\b)/i.test(run.error)
+  )
 }
 
 function usageDelta(events: SessionEvent[], runId: string) {
@@ -118,7 +130,6 @@ function elapsedSeconds(run: Run) {
 
 class GoalRuntime implements GoalService {
   private goals = new Map<string, PersistedGoal>()
-  private executionFailures = new Map<string, { goalId: string; streak: number; runs: string[] }>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
 
@@ -133,7 +144,8 @@ class GoalRuntime implements GoalService {
       const batch = sessions.slice(offset, offset + 8)
       await Promise.all(
         batch.map(async (session) => {
-          const events = await this.api.sessions.events(session.id, 0, MAX_EVENTS)
+          const events = await this.api.sessions.events(session.id, 0, MAX_EVENTS + 1)
+          if (events.length > MAX_EVENTS) throw new HbarError('GOAL_RESTORE_LIMIT', `Goal replay for ${session.id} exceeded ${MAX_EVENTS} events`)
           for (const event of events) {
             if (event.type === 'goal.cleared') {
               this.goals.delete(session.id)
@@ -226,11 +238,12 @@ class GoalRuntime implements GoalService {
         updatedAt: now,
         blockedAuditStreak: 0,
         blockedAuditRuns: [],
+        executionFailureStreak: 0,
+        executionFailureRuns: [],
         continuationCount: 0,
         accountedRuns: [],
       }
       await this.persist(goal, undefined, 'goal.created')
-      this.executionFailures.delete(sessionId)
       return response(goal)
     })
   }
@@ -239,7 +252,7 @@ class GoalRuntime implements GoalService {
     return this.serial(sessionId, async () => {
       const existing = this.goals.get(sessionId)
       const objective = input.objective === undefined || input.objective === null ? undefined : this.validateObjective(input.objective)
-      const budgetWasProvided = Object.hasOwn(input, 'tokenBudget')
+      const budgetWasProvided = input.tokenBudget !== undefined
       const maxTokenBudget = input.maxTokenBudget ?? this.config.maxTokenBudget
       const budget = budgetWasProvided
         ? this.validateBudget(input.tokenBudget ?? maxTokenBudget, maxTokenBudget)
@@ -261,11 +274,12 @@ class GoalRuntime implements GoalService {
           updatedAt: now,
           blockedAuditStreak: 0,
           blockedAuditRuns: [],
+          executionFailureStreak: 0,
+          executionFailureRuns: [],
           continuationCount: 0,
           accountedRuns: [],
         }
         await this.persist(goal)
-        this.executionFailures.delete(sessionId)
         return response(goal)
       }
       if (input.expectedGoalId && input.expectedGoalId !== existing.goalId)
@@ -287,9 +301,9 @@ class GoalRuntime implements GoalService {
         tokenBudget: requestedBudget,
         updatedAt: Date.now(),
         ...(status === 'active' ? { blockedAuditStreak: 0, blockedAuditRuns: [], continuationCount: 0 } : {}),
+        ...(['active', 'complete', 'blocked'].includes(status) ? { executionFailureStreak: 0, executionFailureRuns: [] } : {}),
       }
       await this.persist(goal)
-      if (status === 'active' || status === 'complete' || status === 'blocked') this.executionFailures.delete(sessionId)
       return response(goal)
     })
   }
@@ -303,9 +317,10 @@ class GoalRuntime implements GoalService {
         status,
         updatedAt: Date.now(),
         ...(status === 'complete' ? { continuationCount: 0 } : {}),
+        executionFailureStreak: 0,
+        executionFailureRuns: [],
       }
       await this.persist(goal, runId)
-      this.executionFailures.delete(sessionId)
       const report = status === 'complete' ? completionReport(goal) : undefined
       return response(goal, report)
     })
@@ -329,24 +344,19 @@ class GoalRuntime implements GoalService {
       const tokenDelta = usageDelta(events, event.runId)
       const timeDelta = elapsedSeconds(run)
       const failure = executionFailureState(events, event.runId)
-      const priorFailure = this.executionFailures.get(event.sessionId)
-      let failureStreak = 0
-      if (failure.successfulTool || !failure.failedExecution) {
-        this.executionFailures.delete(event.sessionId)
-      } else if (priorFailure?.goalId === existing.goalId) {
-        failureStreak = priorFailure.streak + 1
-      } else {
-        failureStreak = 1
-      }
-      if (failure.failedExecution && !failure.successfulTool)
-        this.executionFailures.set(event.sessionId, {
-          goalId: existing.goalId,
-          streak: failureStreak,
-          runs: [...(priorFailure?.runs ?? []), event.runId].slice(-MAX_AUDIT_RUNS),
-        })
+      const alreadyTracked = existing.executionFailureRuns.includes(event.runId)
+      const failureStreak = failure.failedExecution && !failure.successfulExecution
+        ? alreadyTracked ? existing.executionFailureStreak : existing.executionFailureStreak + 1
+        : 0
+      const failureRuns = failure.failedExecution && !failure.successfulExecution
+        ? (alreadyTracked ? existing.executionFailureRuns : [...existing.executionFailureRuns, event.runId]).slice(-MAX_EXECUTION_FAILURE_RUNS)
+        : []
       const autoBlocked = failureStreak >= 3 && existing.status === 'active'
+      const usageLimited = isUsageLimitError(run) && ['active', 'budget_limited'].includes(existing.status)
       const status: GoalStatus =
-        autoBlocked
+        usageLimited
+          ? 'usage_limited'
+          : autoBlocked
           ? 'blocked'
           : event.status === 'failed' && existing.status === 'active'
             ? 'blocked'
@@ -359,10 +369,11 @@ class GoalRuntime implements GoalService {
         tokensUsed: existing.tokensUsed + tokenDelta,
         timeUsedSeconds: existing.timeUsedSeconds + timeDelta,
         updatedAt: Date.now(),
+        executionFailureStreak: usageLimited || autoBlocked ? 0 : failureStreak,
+        executionFailureRuns: usageLimited || autoBlocked ? [] : failureRuns,
         accountedRuns: [...existing.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
       }
       await this.persist(goal, event.runId, 'goal.accounted')
-      if (status === 'blocked') this.executionFailures.delete(event.sessionId)
       if (
         this.config.autoContinue &&
         event.status === 'completed' &&

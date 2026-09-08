@@ -63,6 +63,8 @@ test('goal creation and null budget updates follow the configured maximum', asyn
   const created = await goals.create(session.id, 'bounded goal')
   expect(created.goal?.tokenBudget).toBe(200)
   await expectRejected(goals.set(session.id, { tokenBudget: 201 }), 'maximum allowed')
+  const kept = await goals.set(session.id, { tokenBudget: undefined, expectedGoalId: created.goal?.goalId })
+  expect(kept.goal?.tokenBudget).toBe(200)
   const unbounded = await goals.set(session.id, { tokenBudget: null, expectedGoalId: created.goal?.goalId })
   expect(unbounded.goal?.tokenBudget).toBe(200)
 })
