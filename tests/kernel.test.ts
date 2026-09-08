@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import type { Approval } from '@hbar/contracts'
+import type { Approval, StreamDelta } from '@hbar/contracts'
 import { dependencyOrder } from '../packages/kernel/src/plugins.ts'
 import type { PluginManifest } from '@hbar/plugin-sdk'
 
@@ -108,6 +108,28 @@ test('cancel settles an active stream and plugin unload removes registrations', 
   expect(kernel.tools.get('read_file')).toBeUndefined()
   await kernel.changePlugin('tools.workspace', true)
   expect(kernel.tools.get('read_file')).toBeDefined()
+})
+test('stream notifications carry bounded append deltas with independent offsets', async () => {
+  const { kernel, session } = await fixture()
+  const deltas: StreamDelta[] = []
+  kernel.subscribe((event) => {
+    if (event.method === 'stream.update') deltas.push(event.params)
+  })
+  const run = await kernel.submit(session.id, 'stream-deltas', { text: '/slow', images: [] }, 'local-fixture')
+  for (let i = 0; i < 100 && deltas.length < 3; i++) await Bun.sleep(20)
+  await kernel.cancel(run.id)
+  await kernel.waitForIdle()
+  expect(deltas.length).toBeGreaterThanOrEqual(3)
+  let text = '',
+    thinking = ''
+  for (const delta of deltas) {
+    expect(delta.operation).toBe('append')
+    expect(delta.textOffset).toBe(text.length)
+    expect(delta.thinkingOffset).toBe(thinking.length)
+    expect(delta.text.length + delta.thinking.length).toBeLessThan(200)
+    text += delta.text
+    thinking += delta.thinking
+  }
 })
 test('dependency checks reject missing providers, duplicates, cycles, and incompatible versions', () => {
   const base = (id: string): PluginManifest => ({

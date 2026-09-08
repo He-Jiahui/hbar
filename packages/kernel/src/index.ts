@@ -102,6 +102,7 @@ export class Kernel {
   readonly instanceId = crypto.randomUUID()
   readonly secrets: SecretStore
   readonly streams = new Map<string, LiveStream>()
+  private streamPublished = new Map<string, { text: string; thinking: string; version: number }>()
   readonly active = new Map<string, ActiveRun>()
   private drains = new Map<string, Promise<void>>()
   private wakeups = new Set<string>()
@@ -365,8 +366,9 @@ export class Kernel {
     return this.permissionModeValue
   }
   async setPermissionMode(mode: 'deny' | 'allow' | 'ask') {
-    this.permissionModeValue = approvalModeSchema.parse(mode)
-    await this.storage.call('setSetting', 'permission.mode', this.permissionModeValue)
+    const next = approvalModeSchema.parse(mode)
+    await this.storage.call('setSetting', 'permission.mode', next)
+    this.permissionModeValue = next
     this.changed('permissions')
     return { mode: this.permissionModeValue }
   }
@@ -401,7 +403,7 @@ export class Kernel {
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
     this.admissions++
     try {
-      if (!input.text.trim() && !input.images.length)
+      if (!input.text.trim() && !input.images.length && input.source !== 'goal')
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       if (input.images.length && !model.imageInput)
@@ -489,7 +491,7 @@ export class Kernel {
           session,
           workspace,
           run,
-          request: await this.buildRequest(sessionId, model, scope.hooks),
+          request: await this.buildRequest(sessionId, model, scope.hooks, run),
           apiKey,
           signal: controller.signal,
           tools: scope.tools.list(),
@@ -510,16 +512,15 @@ export class Kernel {
             this.publishEvent(result.event)
             return result.message
           },
-          stream: (id, text, thinking) =>
-            this.updateStream({ id, sessionId, runId: run.id, text, thinking, offset: text.length + thinking.length }),
+          stream: (id, text, thinking) => this.updateStream({ id, sessionId, runId: run.id, text, thinking }),
           execute: (name, args, callId) =>
             this.execute(name, args, { session, workspace, run, signal: controller.signal, callId }, scope),
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
-            let request = await this.buildRequest(sessionId, model, scope.hooks)
+            let request = await this.buildRequest(sessionId, model, scope.hooks, run)
             if (this.plugins.get<CompactionProvider>('compaction').shouldCompact(request)) {
               await this.compactInternal(sessionId, model, controller.signal, run.id)
-              request = await this.buildRequest(sessionId, model, scope.hooks)
+              request = await this.buildRequest(sessionId, model, scope.hooks, run)
             }
             request = await scope.hooks.dispatch('model.request', request)
             const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
@@ -568,7 +569,12 @@ export class Kernel {
       }
     }
   }
-  private async buildRequest(sessionId: string, model: ProviderConfig, hooks = this.hooks): Promise<ModelRequest> {
+  private async buildRequest(
+    sessionId: string,
+    model: ProviderConfig,
+    hooks = this.hooks,
+    run?: Run,
+  ): Promise<ModelRequest> {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
     const workspace = await this.storage.call('workspace', session.workspaceId)
@@ -576,17 +582,48 @@ export class Kernel {
       system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
       messages: context.messages,
       model,
+      context: {
+        sessionId,
+        ...(run ? { runId: run.id } : {}),
+        ...(run?.input.mode ? { mode: run.input.mode } : {}),
+        ...(run?.input.source ? { source: run.input.source } : {}),
+      },
     })
   }
-  private updateStream(stream: LiveStream) {
-    this.streams.set(stream.id, stream)
+  private updateStream(stream: Omit<LiveStream, 'offset' | 'version'>) {
+    const published = this.streamPublished.get(stream.id)
+    this.streams.set(stream.id, {
+      ...stream,
+      offset: stream.text.length + stream.thinking.length,
+      version: published?.version ?? 0,
+    })
     if (this.streamTimers.has(stream.id)) return
     this.streamTimers.set(
       stream.id,
       setTimeout(() => {
         this.streamTimers.delete(stream.id)
         const current = this.streams.get(stream.id)
-        if (current) this.publish({ method: 'stream.update', params: current })
+        if (current) {
+          const prior = this.streamPublished.get(stream.id) ?? { text: '', thinking: '', version: 0 }
+          const append = current.text.startsWith(prior.text) && current.thinking.startsWith(prior.thinking)
+          const version = prior.version + 1
+          this.publish({
+            method: 'stream.update',
+            params: {
+              id: current.id,
+              sessionId: current.sessionId,
+              runId: current.runId,
+              operation: append ? 'append' : 'reset',
+              text: append ? current.text.slice(prior.text.length) : current.text,
+              thinking: append ? current.thinking.slice(prior.thinking.length) : current.thinking,
+              textOffset: append ? prior.text.length : 0,
+              thinkingOffset: append ? prior.thinking.length : 0,
+              version,
+            },
+          })
+          this.streamPublished.set(stream.id, { text: current.text, thinking: current.thinking, version })
+          current.version = version
+        }
       }, 33),
     )
   }
@@ -594,6 +631,7 @@ export class Kernel {
     clearTimeout(this.streamTimers.get(id))
     this.streamTimers.delete(id)
     this.streams.delete(id)
+    this.streamPublished.delete(id)
   }
   private async execute(
     name: string,

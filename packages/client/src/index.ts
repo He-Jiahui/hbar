@@ -143,7 +143,21 @@ export class HbarClient implements ClientTransport {
     for (const event of result.events)
       for (const listener of this.events) listener({ method: 'session.event', params: event })
     for (const stream of result.streams)
-      for (const listener of this.events) listener({ method: 'stream.update', params: stream })
+      for (const listener of this.events)
+        listener({
+          method: 'stream.update',
+          params: {
+            id: stream.id,
+            sessionId: stream.sessionId,
+            runId: stream.runId,
+            operation: 'reset',
+            text: stream.text,
+            thinking: stream.thinking,
+            textOffset: 0,
+            thinkingOffset: 0,
+            version: stream.version,
+          },
+        })
     this.follows.set(sessionId, Math.max(this.follows.get(sessionId) ?? 0, result.cursor))
     return result
   }

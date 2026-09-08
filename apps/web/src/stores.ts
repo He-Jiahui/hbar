@@ -75,23 +75,31 @@ export const useWorkbench = create(
 export const useNotice = create<{ error: string; notice: string }>(() => ({ error: '', notice: '' }))
 export const report = (error: unknown) =>
   useNotice.setState({ error: error instanceof Error ? error.message : String(error) })
-export async function setApprovalMode(mode: ApprovalMode) {
+export async function setApprovalMode(mode: ApprovalMode): Promise<boolean> {
   const previous = useWorkbench.getState().approvalMode
   useWorkbench.setState({ approvalMode: mode })
   const connection = useConnection.getState().client
-  if (!connection) return
+  if (!connection) {
+    useWorkbench.setState({ approvalMode: previous })
+    return false
+  }
   try {
     await connection.call('permission.set', { mode })
+    return true
   } catch (error) {
     useWorkbench.setState({ approvalMode: previous })
     report(error)
+    return false
   }
 }
 export async function loadApprovalMode() {
   const connection = client()
   const result = await connection.call('permission.get', {})
-  if (client() !== connection || !isApprovalMode(result.mode)) return
+  if (useConnection.getState().client !== connection || !isApprovalMode(result.mode)) return
   useWorkbench.setState({ approvalMode: result.mode })
+}
+export function selectModel(modelId: string) {
+  useWorkbench.setState({ modelId })
 }
 export function client(): HbarClient {
   const value = useConnection.getState().client
@@ -190,6 +198,10 @@ export async function loadOlder(sessionId: string) {
 }
 function onEvent(event: WireNotification) {
   if (event.method === 'host.changed') {
+    if (event.params.kind === 'permissions') {
+      void loadApprovalMode().catch(report)
+      return
+    }
     clearTimeout(refreshTimer)
     refreshTimer = setTimeout(() => {
       void refreshCatalog().catch(report)
@@ -197,16 +209,41 @@ function onEvent(event: WireNotification) {
     if (event.params.kind === 'resync' && useWorkbench.getState().activeSession)
       void openSession(useWorkbench.getState().activeSession).catch(report)
   } else if (event.method === 'stream.update') {
+    let gap = false
     useSessions.setState((state) => {
       const snapshot = state.snapshots[event.params.sessionId]
       if (!snapshot || snapshot.messages.some((m) => m.id === event.params.id)) return state
       const streams = new Map(snapshot.streams.map((s) => [s.id, s]))
       const previous = streams.get(event.params.id)
-      if (!previous || previous.offset <= event.params.offset) streams.set(event.params.id, event.params)
+      if (previous && event.params.version <= previous.version) return state
+      if (
+        event.params.operation === 'append' &&
+        (event.params.textOffset !== (previous?.text.length ?? 0) ||
+          event.params.thinkingOffset !== (previous?.thinking.length ?? 0))
+      ) {
+        gap = true
+        return state
+      }
+      const text = event.params.operation === 'reset' ? event.params.text : `${previous?.text ?? ''}${event.params.text}`
+      const thinking =
+        event.params.operation === 'reset'
+          ? event.params.thinking
+          : `${previous?.thinking ?? ''}${event.params.thinking}`
+      streams.set(event.params.id, {
+        id: event.params.id,
+        sessionId: event.params.sessionId,
+        runId: event.params.runId,
+        text,
+        thinking,
+        offset: text.length + thinking.length,
+        version: event.params.version,
+      })
       return {
         snapshots: { ...state.snapshots, [event.params.sessionId]: { ...snapshot, streams: [...streams.values()] } },
       }
     })
+    if (gap && useWorkbench.getState().activeSession === event.params.sessionId)
+      void openSession(event.params.sessionId).catch(report)
   } else if (event.method === 'session.event') applyEvent(event.params)
 }
 export function applyEvent(event: SessionEvent) {

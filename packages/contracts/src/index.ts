@@ -168,6 +168,18 @@ export interface LiveStream {
   text: string
   thinking: string
   offset: number
+  version: number
+}
+export interface StreamDelta {
+  id: string
+  sessionId: string
+  runId: string
+  operation: 'append' | 'reset'
+  text: string
+  thinking: string
+  textOffset: number
+  thinkingOffset: number
+  version: number
 }
 export interface SessionSnapshot {
   session: Session
@@ -251,7 +263,7 @@ export interface Bootstrap {
 }
 export type WireNotification =
   | { method: 'session.event'; params: SessionEvent }
-  | { method: 'stream.update'; params: LiveStream }
+  | { method: 'stream.update'; params: StreamDelta }
   | { method: 'host.changed'; params: { kind: string } }
   | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal } }
   | { method: 'goal.cleared'; params: { sessionId: string } }
