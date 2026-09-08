@@ -75,22 +75,32 @@ export const useWorkbench = create(
 export const useNotice = create<{ error: string; notice: string }>(() => ({ error: '', notice: '' }))
 export const report = (error: unknown) =>
   useNotice.setState({ error: error instanceof Error ? error.message : String(error) })
+let approvalSequence = 0
+let approvalQueue: Promise<void> = Promise.resolve()
 export async function setApprovalMode(mode: ApprovalMode): Promise<boolean> {
+  const sequence = ++approvalSequence
   const previous = useWorkbench.getState().approvalMode
+  if (previous === mode) return true
   useWorkbench.setState({ approvalMode: mode })
   const connection = useConnection.getState().client
-  if (!connection) {
-    useWorkbench.setState({ approvalMode: previous })
-    return false
-  }
-  try {
-    await connection.call('permission.set', { mode })
-    return true
-  } catch (error) {
-    useWorkbench.setState({ approvalMode: previous })
-    report(error)
-    return false
-  }
+  const request = approvalQueue.catch(() => {}).then(async () => {
+    if (!connection) {
+      if (sequence === approvalSequence) useWorkbench.setState({ approvalMode: previous })
+      return false
+    }
+    try {
+      await connection.call('permission.set', { mode })
+      return true
+    } catch (error) {
+      if (sequence === approvalSequence) {
+        useWorkbench.setState({ approvalMode: previous })
+        report(error)
+      }
+      return false
+    }
+  })
+  approvalQueue = request.then(() => undefined, () => undefined)
+  return request
 }
 export async function loadApprovalMode() {
   const connection = client()
