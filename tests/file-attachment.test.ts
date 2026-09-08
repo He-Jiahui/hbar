@@ -2,6 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { HbarError } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 
 const resources: { root: string; kernel: Kernel }[] = []
@@ -62,4 +63,15 @@ test('generic files are accepted while malformed image signatures remain rejecte
   await expect(kernel.upload('bad.png', 'image/png', Uint8Array.from([1, 2, 3]))).rejects.toThrow(
     'Image data does not match its declared type',
   )
+  const workspace = (await kernel.storage.call('workspaces'))[0]!
+  const session = await kernel.createSession(workspace.id)
+  let submitError: unknown
+  try {
+    await kernel.submit(session.id, 'forged-image', { text: 'wrong channel', images: [artifact] }, 'local-fixture')
+  } catch (error) {
+    submitError = error
+  }
+  expect(submitError).toBeInstanceOf(HbarError)
+  expect((submitError as HbarError).code).toBe('UNSUPPORTED_IMAGE')
+  expect((submitError as HbarError).message).toBe('Image attachments must reference validated image artifacts')
 })

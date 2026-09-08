@@ -513,9 +513,12 @@ export class Kernel {
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       if (input.images.length && !model.imageInput)
         throw new HbarError('UNSUPPORTED_IMAGE', 'Selected model does not accept images')
+      const imageArtifacts = await Promise.all(input.images.map((image) => this.storage.call('artifact', image.id)))
+      if (imageArtifacts.some((artifact) => !isImageMime(artifact.mime)))
+        throw new HbarError('UNSUPPORTED_IMAGE', 'Image attachments must reference validated image artifacts')
       input = {
         ...input,
-        images: await Promise.all(input.images.map((image) => this.storage.call('artifact', image.id))),
+        images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
       const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId)
