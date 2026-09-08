@@ -4,5 +4,12 @@
   "private": true,
   "type": "module",
   "bin": { "hbar": "./src/main.ts" },
-  "exports": "./src/main.ts"
+  "exports": "./src/main.ts",
+  "dependencies": {
+    "@hbar/client": "workspace:*",
+    "@hbar/contracts": "workspace:*",
+    "@hbar/storage": "workspace:*",
+    "@hbar/terminal": "workspace:*",
+    "@opentui/core": "0.4.5"
+  }
 }
