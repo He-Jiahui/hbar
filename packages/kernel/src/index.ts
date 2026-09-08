@@ -482,6 +482,7 @@ export class Kernel {
     input = {
       ...input,
       mode,
+      ...(mode === 'plan' && input.thinking === undefined ? { thinking: 'medium' as const } : {}),
       ...(input.source === undefined ? { source: 'user' as const } : {}),
     }
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')

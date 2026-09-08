@@ -58,3 +58,15 @@ test('plan mode exposes the Codex collaboration rules separately from update_pla
   expect(PLAN_MODE_INSTRUCTIONS).toContain('Do not perform mutating actions.')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('<proposed_plan>')
 })
+
+test('plan mode uses medium reasoning unless the caller explicitly chooses an effort', async () => {
+  const { kernel, session } = await fixture()
+  const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }> }>('mode')
+  await mode.set(session.id, 'plan')
+  const inherited = await kernel.submit(session.id, 'plan-medium', { text: 'inspect', images: [] }, 'local-fixture')
+  expect((await kernel.storage.call('run', inherited.id)).input.thinking).toBe('medium')
+  await kernel.waitForIdle()
+  const explicit = await kernel.submit(session.id, 'plan-high', { text: 'inspect', images: [], thinking: 'high' }, 'local-fixture')
+  expect((await kernel.storage.call('run', explicit.id)).input.thinking).toBe('high')
+  await kernel.waitForIdle()
+})
