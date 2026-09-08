@@ -32,6 +32,7 @@ const MAX_PATH = 4_000
 const MAX_OUTPUT = 512_000
 const MAX_LOG = 100
 const MAX_WORKTREES = 100
+const MAX_UNTRACKED_FILES = 1_000
 
 export const gitConfigSchema = z.object({
   timeoutMs: z.number().int().positive().max(120_000).default(30_000),
@@ -349,6 +350,48 @@ export class GitRuntime implements GitService {
     }
   }
 
+  private async remoteBase(cwd: string, status: GitStatus, signal?: AbortSignal) {
+    let reference = status.upstream
+    if (!reference && status.branch) {
+      const refs = await this.tryRun(cwd, ['for-each-ref', '--format=%(refname:short)%00', 'refs/remotes'], signal)
+      const candidates = (refs?.stdout ?? '').split('\0').filter((value) => value && value !== 'HEAD')
+      reference = candidates.find((value) => {
+        const slash = value.indexOf('/')
+        return slash >= 0 && value.slice(slash + 1) === status.branch
+      }) ?? candidates[0] ?? null
+    }
+    if (!reference) return null
+    const resolved = await this.tryRun(cwd, ['rev-parse', '--verify', reference], signal)
+    const sha = resolved?.stdout.trim()
+    return sha ? { reference, sha } : null
+  }
+
+  private async untrackedDiff(cwd: string, paths: string[], signal?: AbortSignal) {
+    const nullDevice = process.platform === 'win32' ? 'NUL' : '/dev/null'
+    const chunks: string[] = []
+    let size = 0
+    for (const path of paths.slice(0, MAX_UNTRACKED_FILES)) {
+      const result = await this.runner.run(
+        cwd,
+        ['diff', '--no-ext-diff', '--no-index', '--', nullDevice, path],
+        signal ?? new AbortController().signal,
+        { timeoutMs: this.config.timeoutMs, maxOutputBytes: this.config.maxOutputBytes },
+      )
+      if (result.timedOut) throw new HbarError('GIT_TIMEOUT', `Git command exceeded ${this.config.timeoutMs}ms`)
+      // `git diff --no-index` returns 1 when the files differ, which is the
+      // expected result for every untracked file.
+      if (result.code !== 0 && result.code !== 1)
+        throw new HbarError('GIT_COMMAND_FAILED', result.stderr.trim() || result.stdout.trim() || `git exited with ${result.code}`)
+      if (!result.stdout) continue
+      const remaining = this.config.maxOutputBytes - size
+      if (remaining <= 0) break
+      chunks.push(result.stdout.slice(0, remaining))
+      size += Math.min(result.stdout.length, remaining)
+      if (result.stdout.length > remaining) break
+    }
+    return { diff: chunks.join(''), truncated: paths.length > MAX_UNTRACKED_FILES || size >= this.config.maxOutputBytes }
+  }
+
   async status(cwd?: string, signal?: AbortSignal): Promise<GitStatus> {
     const path = await this.resolveWithinRoot(cwd)
     const status = await this.tryRun(path, ['status', '--porcelain=v1', '-z', '--branch'], signal)
@@ -457,9 +500,19 @@ export class GitRuntime implements GitService {
   async diffToRemote(cwd?: string, signal?: AbortSignal) {
     const path = await this.resolveWithinRoot(cwd)
     const status = await this.status(path, signal)
-    if (!status.upstream || !status.head) return null
-    const result = await this.run(path, ['diff', '--no-ext-diff', `${status.upstream}...HEAD`], signal)
-    return { sha: status.head, diff: result.stdout, truncated: result.truncated }
+    const base = await this.remoteBase(path, status, signal)
+    if (!base) return null
+    const tracked = await this.run(path, ['diff', '--no-ext-diff', base.reference], signal)
+    const untracked = await this.tryRun(path, ['ls-files', '--others', '--exclude-standard', '-z'], signal)
+    const untrackedPaths = (untracked?.stdout ?? '').split('\0').filter(Boolean)
+    const extra = await this.untrackedDiff(path, untrackedPaths, signal)
+    const diff = `${tracked.stdout}${extra.diff}`
+    const truncated = tracked.truncated || extra.truncated || diff.length > this.config.maxOutputBytes
+    return {
+      sha: base.sha,
+      diff: diff.slice(0, this.config.maxOutputBytes),
+      truncated,
+    }
   }
 
   async info(cwd?: string, signal?: AbortSignal): Promise<GitInfo> {
