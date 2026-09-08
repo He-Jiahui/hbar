@@ -35,6 +35,8 @@ import ModelPicker from './ModelPicker'
 import ComposerMenu from './ComposerMenu'
 import { buildComposerActions, IMAGE_ACCEPT } from './composer-actions'
 import { useUIPlugins } from './ui-plugins'
+import SessionCapabilityDialog from './SessionCapabilityDialog'
+import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
 function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_result' }> }) {
@@ -159,6 +161,8 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId)
   const contributedActions = useUIPlugins((state) => state.composerActions)
+  const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
+  const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
   const [images, setImages] = useState<ArtifactRef[]>([]),
     [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
@@ -185,8 +189,11 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
     () => buildComposerActions(contributedActions, {
       hasSession: Boolean(sessionId),
       canAttachImages: Boolean(catalog?.models.find((model) => model.id === modelId)?.imageInput),
+      hasGoalPlugin: Boolean(catalog?.plugins.some((plugin) => plugin.id === 'goal.codex' && plugin.status === 'active')),
+      hasPlanPlugin: Boolean(catalog?.plugins.some((plugin) => plugin.id === 'plan.codex' && plugin.status === 'active')),
+      hasBudgetPlugin: Boolean(catalog?.plugins.some((plugin) => plugin.id === 'budget.codex' && plugin.status === 'active')),
     }),
-    [catalog?.models, contributedActions, modelId, sessionId],
+    [catalog?.models, catalog?.plugins, contributedActions, modelId, sessionId],
   )
   useEffect(() => {
     stick.current = true
@@ -253,6 +260,10 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
     }
   }
   function selectComposerAction(action: ComposerAction) {
+    if (action.id === 'goal' || action.id === 'plan' || action.id === 'budget') {
+      setCapabilityDialog(action.id)
+      return
+    }
     if (!action.execute) return
     void Promise.resolve(action.execute({
       ...(sessionId ? { sessionId } : {}),
@@ -533,10 +544,25 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
           </div>
         </form>
         <div className="composer-footer">
-          <span>{modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'}</span>
+          <span className="composer-footer-model">
+            {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}
+            {capabilityState?.budget && (
+              <em title="当前会话 token 预算">
+                预算 {capabilityState.budget.remainingTokens.toLocaleString()} / {capabilityState.budget.limit.toLocaleString()}
+              </em>
+            )}
+            <small>{modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'}</small>
+          </span>
           <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString() : 0} tokens</span>
         </div>
       </div>
+      {capabilityDialog && sessionId && (
+        <SessionCapabilityDialog
+          sessionId={sessionId}
+          initialTab={capabilityDialog}
+          onClose={() => setCapabilityDialog(null)}
+        />
+      )}
     </div>
   )
 }

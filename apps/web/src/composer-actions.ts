@@ -5,6 +5,9 @@ export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 export type ComposerActionAvailability = {
   hasSession: boolean
   canAttachImages: boolean
+  hasGoalPlugin?: boolean
+  hasPlanPlugin?: boolean
+  hasBudgetPlugin?: boolean
 }
 
 export const BUILTIN_COMPOSER_ACTIONS: readonly ComposerAction[] = [
@@ -16,8 +19,6 @@ export const BUILTIN_COMPOSER_ACTIONS: readonly ComposerAction[] = [
     icon: 'target',
     keywords: ['goal', '目标', '自治'],
     requiresSession: true,
-    disabled: true,
-    disabledReason: 'Goal 插件正在接入',
   },
   {
     id: 'plan',
@@ -27,8 +28,6 @@ export const BUILTIN_COMPOSER_ACTIONS: readonly ComposerAction[] = [
     icon: 'clipboard-list',
     keywords: ['plan', '计划', '只读'],
     requiresSession: true,
-    disabled: true,
-    disabledReason: 'Plan 插件正在接入',
   },
   {
     id: 'budget',
@@ -38,8 +37,6 @@ export const BUILTIN_COMPOSER_ACTIONS: readonly ComposerAction[] = [
     icon: 'gauge',
     keywords: ['budget', '预算', 'token'],
     requiresSession: true,
-    disabled: true,
-    disabledReason: 'Budget 插件正在接入',
   },
   {
     id: 'add-image',
@@ -73,6 +70,12 @@ export function buildComposerActions(
   const builtins = BUILTIN_COMPOSER_ACTIONS.map((action) => {
     if (action.id === 'add-image' && !availability.canAttachImages)
       return disabledAction(action, '当前模型或连接不支持图片附件')
+    if (action.id === 'goal' && availability.hasGoalPlugin === false)
+      return disabledAction(action, 'Goal 插件未启用')
+    if (action.id === 'plan' && availability.hasPlanPlugin === false)
+      return disabledAction(action, 'Plan 插件未启用')
+    if (action.id === 'budget' && availability.hasBudgetPlugin === false)
+      return disabledAction(action, 'Budget 插件未启用')
     if (action.requiresSession && !availability.hasSession)
       return disabledAction(action, '请先打开一个会话')
     return action

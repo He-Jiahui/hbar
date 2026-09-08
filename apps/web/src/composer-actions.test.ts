@@ -6,7 +6,13 @@ import {
 } from './composer-actions'
 import { filterComposerActions } from './ComposerMenu'
 
-const available = { hasSession: true, canAttachImages: true }
+const available = {
+  hasSession: true,
+  canAttachImages: true,
+  hasGoalPlugin: true,
+  hasPlanPlugin: true,
+  hasBudgetPlugin: true,
+}
 
 describe('composer capability actions', () => {
   test('keeps the mode and attachment actions in a stable order', () => {
@@ -20,6 +26,19 @@ describe('composer capability actions', () => {
     ])
     expect(actions.find((action) => action.id === 'add-image')?.disabled).toBeUndefined()
     expect(actions.find((action) => action.id === 'add-file')?.disabled).toBe(true)
+    expect(actions.find((action) => action.id === 'goal')?.disabled).toBeUndefined()
+    expect(actions.find((action) => action.id === 'plan')?.disabled).toBeUndefined()
+    expect(actions.find((action) => action.id === 'budget')?.disabled).toBeUndefined()
+  })
+
+  test('keeps a missing host plugin visible but unavailable', () => {
+    const actions = buildComposerActions([], {
+      ...available,
+      hasBudgetPlugin: false,
+    })
+    const budget = actions.find((action) => action.id === 'budget')
+    expect(budget?.disabled).toBe(true)
+    expect(budget?.disabledReason).toBe('Budget 插件未启用')
   })
 
   test('disables session modes in a draft without hiding them', () => {

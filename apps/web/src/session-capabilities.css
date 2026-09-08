@@ -1,0 +1,243 @@
+.session-capability-dialog {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.session-capability-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid #3b3e45;
+  scrollbar-width: thin;
+}
+
+.session-capability-tabs button {
+  display: inline-flex;
+  min-height: 31px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: #aeb5c2;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.session-capability-tabs button:hover,
+.session-capability-tabs button.selected {
+  border-color: #4b5260;
+  background: #343840;
+  color: #e4e7ec;
+}
+
+.session-capability-tabs button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline-offset: -2px;
+}
+
+.session-capability-pane {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 13px;
+  padding: 16px;
+}
+
+.session-capability-pane > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #b9c0cc;
+  font-size: 11px;
+}
+
+.session-capability-pane textarea,
+.session-capability-pane input,
+.session-capability-pane select {
+  width: 100%;
+  min-width: 0;
+}
+
+.session-capability-pane textarea {
+  resize: vertical;
+}
+
+.session-capability-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.session-capability-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #3d424c;
+  border-radius: 6px;
+  background: #25272c;
+}
+
+.session-capability-summary > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-capability-summary strong {
+  overflow: hidden;
+  color: #e0e4eb;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-capability-mode {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #3d424c;
+  border-radius: 6px;
+  background: #25272c;
+}
+
+.session-capability-mode button {
+  min-height: 29px;
+  padding: 5px 12px;
+}
+
+.session-capability-note {
+  margin: 0;
+  padding: 9px 10px;
+  border-left: 2px solid #5c7db5;
+  background: #252a33;
+  color: #b8c2d3;
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.session-plan-list {
+  display: flex;
+  min-height: 38px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-plan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 105px 28px;
+  gap: 6px;
+  align-items: center;
+}
+
+.session-plan-row input,
+.session-plan-row select {
+  min-width: 0;
+  min-height: 29px;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.session-plan-row .icon-button {
+  width: 28px;
+  height: 28px;
+}
+
+.session-plan-add {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 5px;
+}
+
+.danger-button {
+  color: #e0aaa9;
+}
+
+.budget-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid #3d424c;
+  border-radius: 6px;
+  background: #25272c;
+}
+
+.budget-meter-heading,
+.budget-meter-values {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.budget-meter-heading strong {
+  color: #e0e4eb;
+  font-size: 12px;
+}
+
+.budget-meter-heading span,
+.budget-meter-values {
+  color: #9ca5b5;
+  font: 10px var(--mono);
+}
+
+.budget-meter-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #181a1e;
+}
+
+.budget-meter-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #668dca;
+  transition: width 0.2s ease;
+}
+
+.budget-meter-exhausted .budget-meter-track span {
+  background: #c7777e;
+}
+
+.session-capability-pane .modal-footer {
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
+@media (max-width: 560px) {
+  .session-capability-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .session-capability-mode {
+    width: 100%;
+  }
+
+  .session-capability-mode button {
+    flex: 1 1 0;
+  }
+
+  .session-plan-row {
+    grid-template-columns: minmax(0, 1fr) 92px 28px;
+  }
+
+  .session-capability-pane .modal-footer > button {
+    flex: 1 1 auto;
+  }
+
+  .composer-footer-model em {
+    display: none;
+  }
+}

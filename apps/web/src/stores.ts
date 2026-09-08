@@ -16,6 +16,11 @@ import type {
   WireNotification,
 } from '@hbar/contracts'
 import { isApprovalMode } from './permissions'
+import {
+  applySessionCapabilityEvent,
+  loadSessionCapabilities,
+  resetSessionCapabilities,
+} from './session-capabilities'
 
 export const useConnection = create<{
   client: HbarClient | null
@@ -127,6 +132,7 @@ export async function connectHost(url: string, token?: string) {
   const next = new HbarClient(url, token)
   useConnection.setState({ client: next, url, status: 'connecting', error: '' })
   useSessions.setState({ snapshots: {}, loading: new Set() })
+  resetSessionCapabilities()
   bufferedEvents.clear()
   next.onStatus((status) => {
     if (connectionGeneration !== generation) return
@@ -176,6 +182,7 @@ export async function openSession(sessionId: string) {
     useSessions.setState((state) => ({ snapshots: { ...state.snapshots, [sessionId]: snapshot } }))
     bufferedEvents.delete(sessionId)
     await connection.follow(sessionId, snapshot.cursor)
+    await loadSessionCapabilities(sessionId, connection, () => useConnection.getState().client === connection)
     const session = useCatalog.getState().data?.sessions.find((s) => s.id === sessionId)
     if (session) useWorkbench.setState({ workspaceId: session.workspaceId })
   } finally {
@@ -207,6 +214,7 @@ export async function loadOlder(sessionId: string) {
   })
 }
 function onEvent(event: WireNotification) {
+  applySessionCapabilityEvent(event)
   if (event.method === 'host.changed') {
     if (event.params.kind === 'permissions') {
       void loadApprovalMode().catch(report)
