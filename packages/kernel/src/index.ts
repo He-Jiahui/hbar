@@ -1,8 +1,8 @@
-import { mkdir, realpath, stat, writeFile } from 'node:fs/promises'
+import { realpath, stat, writeFile } from 'node:fs/promises'
 import { join, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { HbarError, inputSchema, providerSchema } from '@hbar/contracts'
+import { HbarError, approvalModeSchema, inputSchema, providerSchema } from '@hbar/contracts'
 import type {
   Approval,
   ArtifactRef,
@@ -22,7 +22,6 @@ import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   DriverInput,
-  ExecutionProvider,
   HarnessDriver,
   ModelRegistry,
   ModelRequest,
@@ -30,8 +29,8 @@ import type {
   ToolContext,
   ToolResult,
 } from '@hbar/plugin-sdk'
-import { Storage } from '@hbar/storage'
-import type { StoragePort } from '@hbar/storage'
+import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
+import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
 import piPlugin from '@hbar/pi-driver'
 import localTools, { executionPlugin, LocalExecution } from '@hbar/local-tools'
@@ -69,11 +68,20 @@ class NativeSecrets implements SecretStore {
   }
 }
 export interface KernelOptions {
+  /** Former single-root option, retained for embedded and test callers. */
+  home?: string | undefined
+  dataRoot?: string | undefined
+  cacheRoot?: string | undefined
+  pointerFile?: string | undefined
+  layout?: PathLayout | undefined
+  demo?: boolean | undefined
+  workspace?: string | undefined
+  secrets?: SecretStore | undefined
+  profile?: KernelProfile | undefined
+}
+interface ResolvedKernelOptions extends KernelOptions {
   home: string
-  demo?: boolean
-  workspace?: string
-  secrets?: SecretStore
-  profile?: KernelProfile
+  layout: PathLayout
 }
 export interface KernelProfile {
   replacements?: Record<string, HbarPlugin>
@@ -102,14 +110,15 @@ export class Kernel {
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private maintenance = false
+  private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
   private admissions = 0
   private closing = false
   recovered = 0
   private constructor(
-    readonly options: KernelOptions,
+    readonly options: ResolvedKernelOptions,
     storage?: StoragePort,
   ) {
-    this.storage = storage ?? new Storage(join(options.home, 'hbar.sqlite'))
+    this.storage = storage ?? new Storage(options.layout.database, options.layout)
     this.secrets =
       options.secrets ??
       new NativeSecrets(`hbar.${createHash('sha256').update(options.home).digest('hex').slice(0, 20)}`)
@@ -124,13 +133,29 @@ export class Kernel {
         snapshot: (id) => this.snapshot(id),
         append: (id, type, data, runId) => this.append(id, type, data, runId),
       },
+    }, {
+      pluginRoot: options.layout.plugins,
+      pluginLock: options.layout.pluginLock,
+      pluginExtract: options.layout.cache.pluginExtract,
     })
   }
   static async create(options: KernelOptions): Promise<Kernel> {
-    await mkdir(join(options.home, 'attachments'), { recursive: true })
-    const kernel = new Kernel(options, await options.profile?.createStorage?.(options.home))
+    const layout =
+      options.layout ??
+      (await resolvePathLayout({
+        home: options.home,
+        dataRoot: options.dataRoot,
+        cacheRoot: options.cacheRoot,
+        pointerFile: options.pointerFile,
+      }))
+    await ensurePathLayout(layout)
+    const resolved: ResolvedKernelOptions = { ...options, home: layout.dataRoot, layout }
+    const kernel = new Kernel(resolved, await options.profile?.createStorage?.(layout.dataRoot))
     try {
       await kernel.storage.call('ready')
+      const storedPermission = await kernel.storage.call('getSetting', 'permission.mode')
+      const parsedPermission = approvalModeSchema.safeParse(storedPermission)
+      kernel.permissionModeValue = parsedPermission.success ? parsedPermission.data : 'ask'
       kernel.recovered = await kernel.storage.call('recover')
       kernel.registerDefaults()
       for (const [id, plugin] of Object.entries(options.profile?.replacements ?? {})) kernel.plugins.replace(id, plugin)
@@ -205,7 +230,7 @@ export class Kernel {
     this.plugins.add(piPlugin)
     this.plugins.add({
       ...executionPlugin,
-      apply: (ctx) => provide(ctx, 'execution', new LocalExecution([this.options.home])),
+      apply: (ctx) => provide(ctx, 'execution', new LocalExecution([this.options.layout.dataRoot])),
     })
     this.plugins.add(
       definePlugin({
@@ -294,6 +319,12 @@ export class Kernel {
     this.changed('sessions')
     return session
   }
+  async updateSession(id: string, update: { title?: string; archived?: boolean }) {
+    const { session, event } = await this.storage.call('updateSession', id, update)
+    this.publishEvent(event)
+    this.changed('sessions')
+    return session
+  }
   async models(): Promise<ModelInfo[]> {
     const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
     return Promise.all(
@@ -322,6 +353,15 @@ export class Kernel {
     } finally {
       this.maintenance = false
     }
+  }
+  permissionMode() {
+    return this.permissionModeValue
+  }
+  async setPermissionMode(mode: 'deny' | 'allow' | 'ask') {
+    this.permissionModeValue = approvalModeSchema.parse(mode)
+    await this.storage.call('setSetting', 'permission.mode', this.permissionModeValue)
+    this.changed('permissions')
+    return { mode: this.permissionModeValue }
   }
   async deleteProvider(id: string) {
     this.assertIdle()
@@ -434,7 +474,7 @@ export class Kernel {
         ]
         this.publishEvent((await this.storage.call('commit', sessionId, run.id, 'user', content)).event)
         if (session.title === 'New session')
-          await this.storage.call('updateSession', sessionId, {
+          await this.updateSession(sessionId, {
             title: (run.input.text.trim() || run.input.images[0]?.name || 'Image session').slice(0, 80),
           })
         const driver = this.plugins.get<HarnessDriver>('driver')
@@ -451,7 +491,7 @@ export class Kernel {
             const artifact = await this.storage.call('artifact', id)
             return {
               mime: artifact.mime,
-              data: Buffer.from(await Bun.file(join(this.options.home, 'attachments', id)).arrayBuffer()).toString(
+              data: Buffer.from(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer()).toString(
                 'base64',
               ),
             }
@@ -565,8 +605,9 @@ export class Kernel {
       const transformed = await scope.hooks.dispatch('tool.before', { name, args: structuredClone(initial), context })
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
       const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
-      if (decision === 'deny') throw new HbarError('DENIED', 'Tool denied by policy')
-      if (decision === 'ask' && !(await this.requestApproval(name, args, context)))
+      const mode = context.run.input.approval ?? this.permissionModeValue
+      if (decision === 'deny' || (decision === 'ask' && mode === 'deny')) throw new HbarError('DENIED', 'Tool denied by policy')
+      if (decision === 'ask' && mode === 'ask' && !(await this.requestApproval(name, args, context)))
         throw new HbarError('DENIED', 'User denied the tool call')
       context.signal.throwIfAborted()
       this.publishEvent(
@@ -698,7 +739,7 @@ export class Kernel {
     const id = createHash('sha256').update(bytes).digest('hex')
     const artifact = { id, name: basename(name).slice(0, 240), mime, size: bytes.length }
     try {
-      await writeFile(join(this.options.home, 'attachments', id), bytes, { flag: 'wx', mode: 0o600 })
+      await writeFile(join(this.options.layout.artifacts, id), bytes, { flag: 'wx', mode: 0o600 })
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
     }
@@ -708,6 +749,38 @@ export class Kernel {
   assertIdle() {
     if (this.active.size || this.drains.size || this.admissions || this.maintenance || this.closing)
       throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
+  }
+  paths() {
+    const { layout } = this.options
+    return {
+      dataRoot: layout.dataRoot,
+      cacheRoot: layout.cacheRoot,
+      database: layout.database,
+      sessions: layout.sessions,
+      skills: layout.skills,
+      plugins: layout.plugins,
+      diagnostics: layout.diagnostics,
+      settings: layout.settings,
+      artifacts: layout.artifacts,
+      pointerFile: layout.pointerFile,
+      restartRequired: false,
+    }
+  }
+  async validatePaths(dataRoot: string, cacheRoot: string) {
+    const layout = await validatePathRoots(dataRoot, cacheRoot, this.options.layout.pointerFile)
+    return { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, valid: true as const }
+  }
+  async setPaths(dataRoot: string, cacheRoot: string) {
+    this.assertIdle()
+    this.maintenance = true
+    try {
+      const layout = await validatePathRoots(dataRoot, cacheRoot, this.options.layout.pointerFile)
+      await writePathPointer(layout)
+      this.changed('paths')
+      return { ...this.paths(), dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, restartRequired: true }
+    } finally {
+      this.maintenance = false
+    }
   }
   async changePlugin(id: string, enabled: boolean, config?: Record<string, unknown>) {
     this.assertIdle()
@@ -720,11 +793,12 @@ export class Kernel {
       this.maintenance = false
     }
   }
-  async installPlugin(path: string) {
+  async installPlugin(path: string, projectId?: string) {
     this.assertIdle()
     this.maintenance = true
     try {
-      const plugins = await this.plugins.install(path)
+      if (projectId) await this.storage.call('workspace', projectId)
+      const plugins = await this.plugins.install(path, projectId)
       this.changed('plugins')
       return plugins
     } finally {

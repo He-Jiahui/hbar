@@ -119,7 +119,9 @@ try {
   if (hostPid) {
     try {
       process.kill(hostPid)
-    } catch {}
+    } catch {
+      // The Host may already have exited with the desktop process.
+    }
   }
   await Bun.sleep(200)
   await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })

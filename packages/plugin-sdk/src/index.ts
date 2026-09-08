@@ -19,6 +19,9 @@ import type {
 export { Context }
 export type Disposer = () => void | Promise<void>
 export type ScopeKind = 'host' | 'workspace' | 'session' | 'run' | 'client'
+export type ToolResultContent =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string }
 export interface ScopeDescriptor {
   kind: ScopeKind
   id: string
@@ -29,6 +32,7 @@ export interface ScopeDescriptor {
 }
 export interface ToolResult {
   text: string
+  content?: ToolResultContent[]
   isError?: boolean
   details?: unknown
 }
@@ -59,6 +63,7 @@ export interface ModelRegistry {
 export interface ExecutionProvider {
   list(workspace: string, path: string): Promise<FileEntry[]>
   read(workspace: string, path: string): Promise<string>
+  readBytes(workspace: string, path: string): Promise<Uint8Array>
   write(workspace: string, path: string, text: string): Promise<{ before: string; after: string; path: string }>
   exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult>
 }
@@ -158,18 +163,25 @@ export function service<T>(ctx: Context, name: string): T {
 }
 export interface PluginManifest {
   id: string
+  /** npm-compatible package identity. Defaults to id for built-in plugins. */
+  packageName?: string | undefined
   name: string
   version: string
   apiVersion: string
   description: string
   scope: ScopeKind
-  required?: boolean
-  restartRequired?: boolean
-  provides?: Record<string, string>
-  requires?: Record<string, string>
-  optional?: Record<string, string>
+  /** Installation layer is independent from Cordis runtime scope. */
+  installScope?: 'global' | 'project' | undefined
+  required?: boolean | undefined
+  restartRequired?: boolean | undefined
+  provides?: Record<string, string> | undefined
+  requires?: Record<string, string> | undefined
+  optional?: Record<string, string> | undefined
+  dependencies?: Record<string, string> | undefined
+  peerDependencies?: Record<string, string> | undefined
+  optionalDependencies?: Record<string, string> | undefined
   permissions: string[]
-  clientEntry?: string
+  clientEntry?: string | undefined
 }
 export interface HbarPlugin {
   manifest: PluginManifest

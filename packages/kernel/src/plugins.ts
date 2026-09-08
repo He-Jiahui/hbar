@@ -1,6 +1,6 @@
-import { readFile, realpath } from 'node:fs/promises'
+import { mkdir, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { resolve, dirname, relative, isAbsolute, join } from 'node:path'
+import { resolve, relative, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Context, HbarService, service } from '@hbar/plugin-sdk'
 import type {
@@ -20,6 +20,14 @@ import { HbarError } from '@hbar/contracts'
 import { satisfies, valid } from 'semver'
 import { z } from 'zod'
 import type { StoragePort } from '@hbar/storage'
+import {
+  installPluginTree,
+  packageNameSchema,
+  pluginDirectory,
+  readPluginPackage,
+  stagePlugin,
+  treeIntegrity,
+} from './plugin-package.ts'
 
 export class Tools implements ToolRegistry {
   constructor(private parent?: ToolRegistry) {}
@@ -67,17 +75,22 @@ export class Hooks implements HookRegistry {
   }
 }
 const manifestSchema = z.object({
-  id: z.string().regex(/^[a-z][a-z0-9.-]{0,95}$/),
+  id: z.union([z.string().regex(/^[a-z][a-z0-9.-]{0,95}$/), packageNameSchema]),
+  packageName: packageNameSchema.optional(),
   name: z.string().min(1),
   version: z.string().refine((v) => Boolean(valid(v))),
   apiVersion: z.string(),
   description: z.string(),
   scope: z.enum(['host', 'workspace', 'session', 'run', 'client']),
+  installScope: z.enum(['global', 'project']).optional(),
   required: z.boolean().optional(),
   restartRequired: z.boolean().optional(),
   provides: z.record(z.string(), z.string()).optional(),
   requires: z.record(z.string(), z.string()).optional(),
   optional: z.record(z.string(), z.string()).optional(),
+  dependencies: z.record(z.string(), z.string()).optional(),
+  peerDependencies: z.record(z.string(), z.string()).optional(),
+  optionalDependencies: z.record(z.string(), z.string()).optional(),
   permissions: z.array(z.string()),
   clientEntry: z.string().optional(),
 })
@@ -85,10 +98,11 @@ interface Installed {
   plugin: HbarPlugin
   enabled: boolean
   config: Record<string, unknown>
-  path?: string
+  path?: string | undefined
   info: PluginInfo
-  clientCode?: string
-  dispose?: Disposer
+  clientCode?: string | undefined
+  dispose?: Disposer | undefined
+  projectId?: string | undefined
 }
 export interface RuntimeScope {
   ctx: Context
@@ -96,6 +110,50 @@ export interface RuntimeScope {
   hooks: Hooks
   descriptor: ScopeDescriptor
   dispose(): Promise<void>
+}
+
+function packageId(manifest: PluginManifest) {
+  return manifest.packageName ?? manifest.id
+}
+
+export function packageDependencyOrder(manifests: PluginManifest[]): string[] {
+  const byPackage = new Map(manifests.map((manifest) => [packageId(manifest), manifest]))
+  if (byPackage.size !== manifests.length) throw new HbarError('PLUGIN_CONFLICT', 'Duplicate plugin package id')
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
+  const order: string[] = []
+  const visit = (manifest: PluginManifest, chain: string[]) => {
+    const id = packageId(manifest)
+    if (visiting.has(id)) throw new HbarError('PLUGIN_CYCLE', [...chain, id].join(' -> '))
+    if (visited.has(id)) return
+    visiting.add(id)
+    for (const [dependency, range] of Object.entries({
+      ...manifest.peerDependencies,
+      ...manifest.dependencies,
+    })) {
+      const upstream = byPackage.get(dependency)
+      if (!upstream)
+        throw new HbarError(
+          'PLUGIN_DEPENDENCY',
+          `${id} requires ${dependency}@${range}; install the missing dependency before enabling ${id}`,
+        )
+      if (!satisfies(upstream.version, range))
+        throw new HbarError(
+          'PLUGIN_VERSION',
+          `${id} requires ${dependency}@${range}, found ${upstream.version}; install a compatible version first`,
+        )
+      visit(upstream, [...chain, id])
+    }
+    for (const [dependency, range] of Object.entries(manifest.optionalDependencies ?? {})) {
+      const upstream = byPackage.get(dependency)
+      if (upstream && satisfies(upstream.version, range)) visit(upstream, [...chain, id])
+    }
+    visiting.delete(id)
+    visited.add(id)
+    order.push(manifest.id)
+  }
+  for (const manifest of manifests) visit(manifest, [])
+  return order
 }
 
 export function dependencyOrder(manifests: PluginManifest[]): string[] {
@@ -156,6 +214,7 @@ export class PluginManager {
   constructor(
     private storage: StoragePort,
     private api: Omit<HbarAPI, 'panels' | 'service' | 'scope'>,
+    private options: { pluginRoot?: string; pluginLock?: string; pluginExtract?: string } = {},
   ) {
     new HbarService(this.ctx, this.makeAPI('core', this.ctx))
   }
@@ -192,7 +251,7 @@ export class PluginManager {
       },
     }
   }
-  add(plugin: HbarPlugin, path?: string) {
+  add(plugin: HbarPlugin, path?: string, projectId?: string) {
     const manifest = manifestSchema.parse(plugin.manifest)
     if (this.entries.has(manifest.id)) throw new HbarError('PLUGIN_CONFLICT', `Already installed: ${manifest.id}`)
     this.entries.set(manifest.id, {
@@ -200,8 +259,10 @@ export class PluginManager {
       enabled: true,
       config: {},
       path,
+      projectId,
       info: {
         id: manifest.id,
+        packageName: manifest.packageName,
         name: manifest.name,
         version: manifest.version,
         required: Boolean(manifest.required),
@@ -210,6 +271,13 @@ export class PluginManager {
         provides: Object.keys(manifest.provides ?? {}),
         requires: Object.keys(manifest.requires ?? {}),
         config: {},
+        installScope: manifest.installScope,
+        runtimeScope: manifest.scope,
+        dependencies: manifest.dependencies,
+        peerDependencies: manifest.peerDependencies,
+        optionalDependencies: manifest.optionalDependencies,
+        path,
+        projectId,
       },
     })
   }
@@ -234,10 +302,9 @@ export class PluginManager {
       },
     })
   }
-  async loadLocal(path: string) {
+  async loadLocal(path: string, projectId?: string) {
     const root = await realpath(path)
-    const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as { hbar?: { host?: string } }
-    if (!pkg.hbar?.host) throw new HbarError('PLUGIN_MANIFEST', 'package.json must declare hbar.host')
+    const pkg = await readPluginPackage(root)
     const entry = await realpath(resolve(root, pkg.hbar.host))
     const rel = relative(root, entry)
     if (rel.startsWith('..') || isAbsolute(rel))
@@ -245,10 +312,31 @@ export class PluginManager {
     const loaded = (await import(pathToFileURL(entry).href)) as { default?: HbarPlugin }
     if (!loaded.default || typeof loaded.default.apply !== 'function')
       throw new HbarError('PLUGIN_MANIFEST', 'Export a default HbarPlugin')
-    this.add(loaded.default, root)
-    if (loaded.default.manifest.clientEntry) {
+    const plugin: HbarPlugin = {
+      ...loaded.default,
+      manifest: manifestSchema.parse({
+        ...loaded.default.manifest,
+        id: pkg.name,
+        packageName: pkg.name,
+        version: pkg.version,
+        apiVersion: pkg.hbar.apiVersion,
+        installScope: pkg.hbar.scope,
+        scope: pkg.hbar.runtimeScope ?? loaded.default.manifest.scope,
+        clientEntry: pkg.hbar.client ?? loaded.default.manifest.clientEntry,
+        dependencies: pkg.hbar.dependencies,
+        peerDependencies: pkg.hbar.peerDependencies,
+        optionalDependencies: pkg.hbar.optionalDependencies,
+        permissions: pkg.hbar.permissions.length ? pkg.hbar.permissions : loaded.default.manifest.permissions,
+      }),
+    }
+    if (pkg.hbar.scope === 'project' && !projectId)
+      throw new HbarError('PLUGIN_SCOPE', `Project plugin ${pkg.name} has no project owner`)
+    if (pkg.hbar.scope === 'project' && ['host', 'client'].includes(plugin.manifest.scope))
+      throw new HbarError('PLUGIN_SCOPE', 'Project plugins must use workspace, session, or run runtime scope')
+    this.add(plugin, root, projectId)
+    if (plugin.manifest.clientEntry) {
       try {
-        const clientEntry = await realpath(resolve(root, loaded.default.manifest.clientEntry))
+        const clientEntry = await realpath(resolve(root, plugin.manifest.clientEntry))
         const clientRelative = relative(root, clientEntry)
         if (clientRelative.startsWith('..') || isAbsolute(clientRelative))
           throw new HbarError('PLUGIN_MANIFEST', 'Client entry must be inside the plugin directory')
@@ -256,21 +344,25 @@ export class PluginManager {
         if (!result.success) throw new AggregateError(result.logs, 'Client plugin build failed')
         if (result.outputs.length !== 1)
           throw new HbarError('PLUGIN_MANIFEST', 'Client entry must bundle into one self-contained JavaScript module')
-        const installed = this.entries.get(loaded.default.manifest.id)!
+        const installed = this.entries.get(plugin.manifest.id)!
         installed.clientCode = await result.outputs[0]!.text()
-        installed.info.clientEntry = `/api/plugins/${installed.info.id}/client.js?v=${createHash('sha256').update(installed.clientCode).digest('hex').slice(0, 12)}`
+        installed.info.clientEntry = `/api/plugins/${encodeURIComponent(installed.info.id)}/client.js?v=${createHash('sha256').update(installed.clientCode).digest('hex').slice(0, 12)}`
       } catch (error) {
-        this.entries.delete(loaded.default.manifest.id)
+        this.entries.delete(plugin.manifest.id)
         throw error
       }
     }
-    return loaded.default.manifest.id
+    return plugin.manifest.id
   }
   async start() {
     for (const stored of await this.storage.call('plugins')) {
       if (stored.path && !this.entries.has(stored.id)) {
         try {
-          await this.loadLocal(stored.path)
+          const relativePath = this.options.pluginRoot
+            ? relative(this.options.pluginRoot, stored.path).replaceAll('\\', '/')
+            : ''
+          const projectId = relativePath.startsWith('projects/') ? relativePath.split('/')[1] : undefined
+          await this.loadLocal(stored.path, projectId)
         } catch (error) {
           console.error(`Plugin ${stored.id}:`, error)
         }
@@ -298,7 +390,10 @@ export class PluginManager {
     const descriptor: ScopeDescriptor = { ...parent?.descriptor, kind, id, [`${kind}Id`]: id }
     const tools = new Tools(parent?.tools ?? this.api.tools),
       hooks = new Hooks(parent?.hooks ?? this.api.hooks)
-    const entries = [...this.entries.values()].filter((e) => e.enabled)
+    const workspaceId = descriptor.workspaceId
+    const entries = [...this.entries.values()].filter(
+      (entry) => entry.enabled && (!entry.projectId || entry.projectId === workspaceId),
+    )
     const order = dependencyOrder(entries.map((e) => e.plugin.manifest))
     const local = order.map((key) => this.entries.get(key)!).filter((e) => e.plugin.manifest.scope === kind)
     let owned!: Context
@@ -353,7 +448,8 @@ export class PluginManager {
     }
   }
   private async mountAll() {
-    const active = [...this.entries.values()].filter((entry) => entry.enabled)
+    const active = [...this.entries.values()].filter((entry) => entry.enabled && !entry.projectId)
+    packageDependencyOrder(active.map((entry) => entry.plugin.manifest))
     const order = dependencyOrder(active.map((entry) => entry.plugin.manifest))
     try {
       for (const id of order) {
@@ -410,32 +506,185 @@ export class PluginManager {
       throw new HbarError('REQUIRED_PLUGIN', 'This capability is required by the active profile')
     if (entry.plugin.manifest.restartRequired)
       throw new HbarError('RESTART_REQUIRED', 'Change this provider through the startup profile and restart the host')
-    const old = { enabled: entry.enabled, config: entry.config }
-    entry.enabled = enabled
+    const old = new Map([...this.entries].map(([key, value]) => [key, { enabled: value.enabled, config: value.config }]))
+    if (enabled) {
+      const byPackage = new Map([...this.entries.values()].map((value) => [packageId(value.plugin.manifest), value]))
+      const enable = (value: Installed, chain: string[]) => {
+        const name = packageId(value.plugin.manifest)
+        if (chain.includes(name)) throw new HbarError('PLUGIN_CYCLE', [...chain, name].join(' -> '))
+        for (const [dependency, range] of Object.entries({
+          ...value.plugin.manifest.peerDependencies,
+          ...value.plugin.manifest.dependencies,
+        })) {
+          const upstream = byPackage.get(dependency)
+          if (!upstream)
+            throw new HbarError('PLUGIN_DEPENDENCY', `${name} requires missing ${dependency}@${range}`)
+          if (!satisfies(upstream.plugin.manifest.version, range))
+            throw new HbarError(
+              'PLUGIN_VERSION',
+              `${name} requires ${dependency}@${range}, found ${upstream.plugin.manifest.version}`,
+            )
+          enable(upstream, [...chain, name])
+        }
+        value.enabled = true
+      }
+      enable(entry, [])
+    } else {
+      const name = packageId(entry.plugin.manifest)
+      const dependent = [...this.entries.values()].find(
+        (value) =>
+          value.enabled &&
+          value !== entry &&
+          Boolean(value.plugin.manifest.dependencies?.[name] ?? value.plugin.manifest.peerDependencies?.[name]),
+      )
+      if (dependent)
+        throw new HbarError('PLUGIN_DEPENDENCY', `${packageId(dependent.plugin.manifest)} depends on ${name}; disable it first`)
+      entry.enabled = false
+    }
     entry.config = config ?? entry.config
     try {
+      packageDependencyOrder([...this.entries.values()].filter((e) => e.enabled).map((e) => e.plugin.manifest))
       dependencyOrder([...this.entries.values()].filter((e) => e.enabled).map((e) => e.plugin.manifest))
       entry.plugin.configSchema?.parse(entry.config)
       await this.unmountAll()
       await this.mountAll()
-      await this.storage.call('setPlugin', id, enabled, entry.config, entry.path)
+      await this.storage.call(
+        'setPlugins',
+        [...this.entries].map(([key, value]) => ({ id: key, enabled: value.enabled, config: value.config, path: value.path })),
+      )
+      await this.writeLock()
     } catch (error) {
-      entry.enabled = old.enabled
-      entry.config = old.config
+      for (const [key, state] of old) {
+        const value = this.entries.get(key)
+        if (value) Object.assign(value, state)
+      }
+      await this.storage.call(
+        'setPlugins',
+        [...old].map(([key, state]) => ({
+          id: key,
+          enabled: state.enabled,
+          config: state.config,
+          path: this.entries.get(key)?.path,
+        })),
+      )
       if (!this.mounted.length) await this.mountAll()
       throw error
     }
     return this.list()
   }
-  async install(path: string) {
-    const id = await this.loadLocal(path)
-    const entry = this.entries.get(id)!
-    entry.enabled = false
+  async install(path: string, projectId?: string) {
+    if (!this.options.pluginRoot || !this.options.pluginExtract)
+      throw new HbarError('PLUGIN_STORAGE', 'Managed plugin directories are not configured')
+    const staged = await stagePlugin(path, this.options.pluginExtract)
+    let destination = ''
+    let id = ''
+    let installedTree = false
     try {
+      const pkg = await readPluginPackage(staged.root)
+      if (this.entries.has(pkg.name)) throw new HbarError('PLUGIN_CONFLICT', `Already installed: ${pkg.name}`)
+      if (pkg.hbar.scope === 'project' && !projectId)
+        throw new HbarError('PLUGIN_SCOPE', 'Project plugin installation requires a project id')
+      destination = pluginDirectory(
+        pkg.hbar.scope === 'global'
+          ? join(this.options.pluginRoot, 'global')
+          : join(this.options.pluginRoot, 'projects', projectId!),
+        pkg.name,
+      )
+      await installPluginTree(staged.root, destination)
+      installedTree = true
+      id = await this.loadLocal(destination, projectId)
+      const entry = this.entries.get(id)!
+      entry.enabled = false
       return await this.set(id, true)
     } catch (error) {
-      this.entries.delete(id)
+      if (id) this.entries.delete(id)
+      if (installedTree) await rm(destination, { recursive: true, force: true })
       throw error
+    } finally {
+      await staged.cleanup()
+    }
+  }
+  async remove(id: string) {
+    const entry = this.entries.get(id)
+    if (!entry) throw new HbarError('NOT_FOUND', 'Plugin not found')
+    if (entry.plugin.manifest.required) throw new HbarError('REQUIRED_PLUGIN', 'Required plugins cannot be removed')
+    if (entry.enabled) throw new HbarError('PLUGIN_ACTIVE', 'Disable the plugin before removing it')
+    this.entries.delete(id)
+    try {
+      await this.storage.call('removePlugin', id)
+      await this.writeLock()
+      if (entry.path && this.options.pluginRoot) {
+        const rel = relative(this.options.pluginRoot, entry.path)
+        if (rel.startsWith('..') || isAbsolute(rel)) throw new HbarError('PLUGIN_STORAGE', 'Refusing to remove an unmanaged path')
+        await rm(entry.path, { recursive: true, force: true })
+      }
+    } catch (error) {
+      this.entries.set(id, entry)
+      await this.storage.call('setPlugin', id, entry.enabled, entry.config, entry.path)
+      throw error
+    }
+    return this.list()
+  }
+  graph() {
+    const nodes = [...this.entries.values()].map((entry) => ({
+      id: packageId(entry.plugin.manifest),
+      version: entry.plugin.manifest.version,
+      enabled: entry.enabled,
+    }))
+    const edges = [...this.entries.values()].flatMap((entry) => {
+      const from = packageId(entry.plugin.manifest)
+      return [
+        ...Object.entries(entry.plugin.manifest.dependencies ?? {}).map(([to, range]) => ({ from, to, range, kind: 'dependency' })),
+        ...Object.entries(entry.plugin.manifest.peerDependencies ?? {}).map(([to, range]) => ({ from, to, range, kind: 'peerDependency' })),
+        ...Object.entries(entry.plugin.manifest.optionalDependencies ?? {}).map(([to, range]) => ({ from, to, range, kind: 'optionalDependency' })),
+      ]
+    })
+    return { nodes, edges }
+  }
+  resolve(id?: string) {
+    const entries = [...this.entries.values()].filter((entry) => entry.enabled || entry.info.id === id)
+    const order = packageDependencyOrder(entries.map((entry) => entry.plugin.manifest))
+    dependencyOrder(entries.map((entry) => entry.plugin.manifest))
+    return { order, enabled: entries.map((entry) => entry.info.id) }
+  }
+  doctor() {
+    try {
+      return { ok: true, errors: [], order: this.resolve().order }
+    } catch (error) {
+      return { ok: false, errors: [error instanceof Error ? error.message : String(error)] }
+    }
+  }
+  async lock() {
+    return this.lockData()
+  }
+  private async lockData() {
+    const plugins: Record<string, unknown> = {}
+    for (const entry of this.entries.values()) {
+      if (!entry.path) continue
+      const manifest = entry.plugin.manifest
+      plugins[packageId(manifest)] = {
+        version: manifest.version,
+        scope: manifest.installScope ?? 'global',
+        source: 'local',
+        path: this.options.pluginRoot ? relative(this.options.pluginRoot, entry.path).replaceAll('\\', '/') : entry.path,
+        integrity: await treeIntegrity(entry.path),
+        enabled: entry.enabled,
+        dependencies: manifest.dependencies ?? {},
+        peerDependencies: manifest.peerDependencies ?? {},
+        optionalDependencies: manifest.optionalDependencies ?? {},
+      }
+    }
+    return { version: 1 as const, plugins }
+  }
+  private async writeLock() {
+    if (!this.options.pluginLock) return
+    const temporary = `${this.options.pluginLock}.${process.pid}.tmp`
+    await mkdir(resolve(this.options.pluginLock, '..'), { recursive: true })
+    await writeFile(temporary, `${JSON.stringify(await this.lockData(), null, 2)}\n`, { mode: 0o600 })
+    try {
+      await rename(temporary, this.options.pluginLock)
+    } finally {
+      await rm(temporary, { force: true })
     }
   }
   list(): PluginInfo[] {

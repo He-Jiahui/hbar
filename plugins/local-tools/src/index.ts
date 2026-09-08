@@ -5,6 +5,26 @@ import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { ExecutionProvider, ToolResult } from '@hbar/plugin-sdk'
 import { HbarError } from '@hbar/contracts'
 
+const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+
+function imageMime(bytes: Uint8Array): string | undefined {
+  const header = Buffer.from(bytes.buffer, bytes.byteOffset, Math.min(bytes.byteLength, 12))
+  if (header.subarray(0, 8).equals(PNG_SIGNATURE)) return 'image/png'
+  if (header[0] === 255 && header[1] === 216 && header[2] === 255) return 'image/jpeg'
+  if (header.subarray(0, 3).toString('ascii') === 'GIF') return 'image/gif'
+  if (header.subarray(0, 4).toString('ascii') === 'RIFF' && header.subarray(8, 12).toString('ascii') === 'WEBP')
+    return 'image/webp'
+  return undefined
+}
+
+function decodeUtf8(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    throw new HbarError('UNSUPPORTED_TYPE', 'File is neither valid UTF-8 text nor a supported image')
+  }
+}
+
 export async function workspacePath(
   workspace: string,
   requested: string,
@@ -57,11 +77,14 @@ export class LocalExecution implements ExecutionProvider {
       .sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name))
   }
   async read(workspace: string, requested: string) {
+    return decodeUtf8(await this.readBytes(workspace, requested))
+  }
+  async readBytes(workspace: string, requested: string) {
     const path = await workspacePath(workspace, requested, false, this.blocked)
     const info = await stat(path)
     if (!info.isFile() || info.size > 2 * 1024 * 1024)
       throw new HbarError('FILE_LIMIT', 'Read requires a file no larger than 2 MiB')
-    return readFile(path, 'utf8')
+    return readFile(path)
   }
   async write(workspace: string, requested: string, text: string) {
     if (Buffer.byteLength(text) > 2 * 1024 * 1024) throw new HbarError('FILE_LIMIT', 'Write exceeds 2 MiB')
@@ -82,8 +105,8 @@ export class LocalExecution implements ExecutionProvider {
     } finally {
       await Bun.file(temporary)
         .delete()
-        .catch((error) => {
-          if (error.code !== 'ENOENT') throw error
+        .catch((error: unknown) => {
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
         })
     }
     return { before, after: text, path: requested }
@@ -202,10 +225,23 @@ export default definePlugin({
     const register = ctx.hbar.api.tools.register
     register({
       name: 'read_file',
-      description: 'Read a UTF-8 file inside the workspace.',
+      description: 'Read a UTF-8 text file or supported image (PNG, JPEG, WebP, or GIF) inside the workspace.',
       inputSchema: z.object({ path: z.string().min(1) }),
       effect: 'read',
-      execute: async (args, c) => ({ text: await execution.read(c.workspace.path, args.path as string) }),
+      execute: async (args, c) => {
+        const path = args.path as string
+        const bytes = await execution.readBytes(c.workspace.path, path)
+        const mimeType = imageMime(bytes)
+        if (mimeType)
+          return {
+            text: `Read image file ${path} [${mimeType}]`,
+            content: [
+              { type: 'text', text: `Read image file ${path} [${mimeType}]` },
+              { type: 'image', data: Buffer.from(bytes).toString('base64'), mimeType },
+            ],
+          }
+        return { text: decodeUtf8(bytes) }
+      },
     })
     register({
       name: 'write_file',

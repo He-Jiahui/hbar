@@ -1,16 +1,20 @@
 import * as React from 'react'
 import { create } from 'zustand'
 import type { PluginInfo } from '@hbar/contracts'
-import type { ClientPanel, ClientPlugin } from '../../../packages/ui-sdk/src/index'
+import type { ClientPanel, ComposerAction, ClientPlugin } from '@hbar/ui-sdk'
 import { client, report, useConnection } from './stores'
 
 interface RegisteredPanel extends ClientPanel {
   owner: string
 }
+interface RegisteredComposerAction extends ComposerAction {
+  owner: string
+}
 export const useUIPlugins = create<{
   panels: RegisteredPanel[]
+  composerActions: RegisteredComposerAction[]
   renderers: Record<string, React.ComponentType<{ source: string }>>
-}>(() => ({ panels: [], renderers: {} }))
+}>(() => ({ panels: [], composerActions: [], renderers: {} }))
 const loaded = new Map<string, { key: string; dispose(): void }>()
 let update = Promise.resolve()
 export function syncUIPlugins(plugins: PluginInfo[]) {
@@ -59,6 +63,19 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               if (useUIPlugins.getState().panels.some((p) => p.id === id)) throw new Error(`Duplicate panel ${id}`)
               useUIPlugins.setState((state) => ({ panels: [...state.panels, { ...panel, id, owner: plugin.id }] }))
               return own(() => useUIPlugins.setState((state) => ({ panels: state.panels.filter((p) => p.id !== id) })))
+            },
+            registerComposerAction(action) {
+              const id = `${plugin.id}:${action.id}`
+              if (useUIPlugins.getState().composerActions.some((item) => item.id === id))
+                throw new Error(`Duplicate composer action ${id}`)
+              useUIPlugins.setState((state) => ({
+                composerActions: [...state.composerActions, { ...action, id, owner: plugin.id }],
+              }))
+              return own(() =>
+                useUIPlugins.setState((state) => ({
+                  composerActions: state.composerActions.filter((item) => item.id !== id),
+                })),
+              )
             },
             registerRenderer(language, component) {
               if (

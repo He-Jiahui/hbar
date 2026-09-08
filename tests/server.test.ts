@@ -73,3 +73,10 @@ test('revoking a paired device closes its authority', async () => {
   await expect(host.auth.authenticate(second.token)).rejects.toThrow('revoked')
   external.disconnect()
 })
+test('permission mode is exposed through the paired host and persists for future runs', async () => {
+  const { client, kernel } = await fixture()
+  expect((await client.call('permission.get', {})).mode).toBe('ask')
+  expect((await client.call('permission.set', { mode: 'allow' })).mode).toBe('allow')
+  expect((await client.call('permission.get', {})).mode).toBe('allow')
+  expect(kernel.permissionMode()).toBe('allow')
+})

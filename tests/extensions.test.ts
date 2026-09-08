@@ -29,9 +29,11 @@ async function fixture() {
 test('local plugin registers a tool, configuration, host/client panels and releases effects on disable', async () => {
   const { kernel, workspace } = await fixture()
   await kernel.installPlugin(resolve('examples/observer'))
-  await kernel.changePlugin('example.observer', true, { greeting: 'Configured greeting' })
-  expect(kernel.plugins.list().find((p) => p.id === 'example.observer')?.config.greeting).toBe('Configured greeting')
-  expect(kernel.plugins.clientCode('example.observer')).toContain('Increment counter')
+  await kernel.changePlugin('hbar-example-observer', true, { greeting: 'Configured greeting' })
+  expect(kernel.plugins.list().find((p) => p.id === 'hbar-example-observer')?.config.greeting).toBe(
+    'Configured greeting',
+  )
+  expect(kernel.plugins.clientCode('hbar-example-observer')).toContain('Increment counter')
   const session = await kernel.createSession(workspace.id)
   await kernel.submit(session.id, 'extension', { text: '/tool workspace_status {}', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
@@ -41,10 +43,10 @@ test('local plugin registers a tool, configuration, host/client panels and relea
     ),
   ).toBeTrue()
   expect((await kernel.storage.call('events', session.id, 0)).some((e) => e.type === 'example.observed')).toBeTrue()
-  await kernel.changePlugin('example.observer', false)
+  await kernel.changePlugin('hbar-example-observer', false)
   expect(kernel.tools.get('workspace_status')).toBeUndefined()
-  expect([...kernel.plugins.panels.values()].filter((p) => p.owner === 'example.observer')).toHaveLength(0)
-  expect(() => kernel.plugins.clientCode('example.observer')).toThrow('not found')
+  expect([...kernel.plugins.panels.values()].filter((p) => p.owner === 'hbar-example-observer')).toHaveLength(0)
+  expect(() => kernel.plugins.clientCode('hbar-example-observer')).toThrow('not found')
   await kernel.submit(session.id, 'after-disable', { text: 'hello', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
   expect(

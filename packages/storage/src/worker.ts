@@ -1,6 +1,9 @@
 import { Database } from 'bun:sqlite'
 import { workerData, parentPort } from 'node:worker_threads'
-import { HbarError, contentBlockSchema, emptyUsage, providerSchema } from '@hbar/contracts'
+import { dirname, join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { HbarError, contentBlockSchema, emptyUsage, inputSchema, providerSchema, sessionEventSchema } from '@hbar/contracts'
+import { z } from 'zod'
 import type {
   Approval,
   ArtifactRef,
@@ -13,11 +16,17 @@ import type {
   Workspace,
 } from '@hbar/contracts'
 import type { StorageCall, StorageMethods, StorageReply } from './types.ts'
+import { SessionLogWriter } from './session-log-writer.ts'
+import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 
-const db = new Database((workerData as { path: string }).path, { create: true, strict: true })
+const options = workerData as { path: string; sessions?: string; diagnostics?: string }
+const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
+const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
+const logWriter = new SessionLogWriter(sessionsRoot)
+const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 1) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 2) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -35,11 +44,29 @@ if (schemaVersion === 0)
     CREATE TABLE devices(id TEXT PRIMARY KEY, name TEXT NOT NULL, tokenHash TEXT NOT NULL UNIQUE, createdAt INTEGER NOT NULL, lastSeenAt INTEGER NOT NULL);
     CREATE TABLE plugins(id TEXT PRIMARY KEY, enabled INTEGER NOT NULL, config TEXT NOT NULL, path TEXT);
     CREATE TABLE compactions(sessionId TEXT NOT NULL, throughSeq INTEGER NOT NULL, summary TEXT NOT NULL, eventSeq INTEGER NOT NULL, PRIMARY KEY(sessionId,eventSeq));
-    PRAGMA user_version=1;
+    CREATE TABLE projects(id TEXT PRIMARY KEY, path TEXT NOT NULL UNIQUE, name TEXT NOT NULL, createdAt INTEGER NOT NULL);
+    CREATE TABLE session_log_files(path TEXT PRIMARY KEY, projectId TEXT NOT NULL, sessionId TEXT NOT NULL, firstSeq INTEGER NOT NULL, lastSeq INTEGER NOT NULL, size INTEGER NOT NULL, updatedAt INTEGER NOT NULL);
+    CREATE TABLE session_event_index(eventId TEXT PRIMARY KEY, sessionId TEXT NOT NULL, seq INTEGER NOT NULL, logPath TEXT NOT NULL REFERENCES session_log_files(path), byteOffset INTEGER NOT NULL, byteLength INTEGER NOT NULL, contentHash TEXT NOT NULL, UNIQUE(sessionId,seq));
+    CREATE INDEX session_event_index_session_seq ON session_event_index(sessionId,seq);
+    CREATE TABLE path_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    PRAGMA user_version=2;
   `)
+  })()
+if (schemaVersion === 1)
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE projects(id TEXT PRIMARY KEY, path TEXT NOT NULL UNIQUE, name TEXT NOT NULL, createdAt INTEGER NOT NULL);
+      INSERT OR IGNORE INTO projects SELECT id,path,name,createdAt FROM workspaces;
+      CREATE TABLE session_log_files(path TEXT PRIMARY KEY, projectId TEXT NOT NULL, sessionId TEXT NOT NULL, firstSeq INTEGER NOT NULL, lastSeq INTEGER NOT NULL, size INTEGER NOT NULL, updatedAt INTEGER NOT NULL);
+      CREATE TABLE session_event_index(eventId TEXT PRIMARY KEY, sessionId TEXT NOT NULL, seq INTEGER NOT NULL, logPath TEXT NOT NULL REFERENCES session_log_files(path), byteOffset INTEGER NOT NULL, byteLength INTEGER NOT NULL, contentHash TEXT NOT NULL, UNIQUE(sessionId,seq));
+      CREATE INDEX session_event_index_session_seq ON session_event_index(sessionId,seq);
+      CREATE TABLE path_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      PRAGMA user_version=2;
+    `)
   })()
 
 type Row = Record<string, unknown>
+const parseJson = (value: string): unknown => JSON.parse(value) as unknown
 function required<T>(row: T | null, kind: string): T {
   if (!row) throw new HbarError('NOT_FOUND', `${kind} not found`)
   return row
@@ -50,25 +77,58 @@ function sessionRow(row: Row | null): Session {
 }
 function runRow(row: Row | null): Run {
   const value = required(row, 'Run')
-  return { ...value, input: JSON.parse(value.input as string) } as unknown as Run
+  return { ...value, input: inputSchema.parse(parseJson(value.input as string)) } as unknown as Run
 }
 function messageRow(row: Row): Message {
   return {
     ...row,
-    content: JSON.parse(row.content as string),
-    providerData: row.providerData ? JSON.parse(row.providerData as string) : undefined,
+    content: z.array(contentBlockSchema).parse(parseJson(row.content as string)),
+    providerData: row.providerData ? parseJson(row.providerData as string) : undefined,
   } as unknown as Message
 }
 function eventRow(row: Row): SessionEvent {
-  return { ...row, data: JSON.parse(row.data as string) } as unknown as SessionEvent
+  return sessionEventSchema.parse({ ...row, data: parseJson(row.data as string) })
 }
 function approvalRow(row: Row | null): Approval {
   const value = required(row, 'Approval')
-  return { ...value, args: JSON.parse(value.args as string) } as unknown as Approval
+  return {
+    ...value,
+    args: z.record(z.string(), z.unknown()).parse(parseJson(value.args as string)),
+  } as unknown as Approval
 }
-// All event writes and their projections share a transaction and sequence allocation.
+function indexEvent(projectId: string, event: SessionEvent, location: ReturnType<SessionLogWriter['append']>) {
+  db.query(`
+    INSERT INTO session_log_files VALUES(?,?,?,?,?,?,?)
+    ON CONFLICT(path) DO UPDATE SET
+      firstSeq=MIN(firstSeq,excluded.firstSeq),lastSeq=MAX(lastSeq,excluded.lastSeq),
+      size=MAX(size,excluded.size),updatedAt=excluded.updatedAt
+  `).run(
+    location.relativePath,
+    projectId,
+    event.sessionId,
+    event.seq,
+    event.seq,
+    location.offset + location.length,
+    event.time,
+  )
+  db.query('INSERT INTO session_event_index VALUES(?,?,?,?,?,?,?)').run(
+    event.eventId,
+    event.sessionId,
+    event.seq,
+    location.relativePath,
+    location.offset,
+    location.length,
+    location.hash,
+  )
+}
+
+// JSONL is committed first. SQLite is a query projection and can be rebuilt from it.
 function appendEvent(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent {
-  const s = sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(sessionId) as Row | null)
+  const row = required(
+    db.query('SELECT sessions.*,workspaces.id AS projectId FROM sessions JOIN workspaces ON workspaces.id=sessions.workspaceId WHERE sessions.id=?').get(sessionId) as Row | null,
+    'Session',
+  )
+  const s = sessionRow(row)
   const event: SessionEvent = {
     eventId: crypto.randomUUID(),
     sessionId,
@@ -80,6 +140,8 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
     time: Date.now(),
     version: 1,
   }
+  const location = logWriter.append(row.projectId as string, event)
+  indexEvent(row.projectId as string, event, location)
   db.query('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?)').run(
     event.eventId,
     sessionId,
@@ -95,52 +157,65 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 1 }),
+  ready: () => ({ version: 2 }),
   createWorkspace(path, name) {
     const existing = db.query('SELECT * FROM workspaces WHERE path=?').get(path)
     if (existing) return existing as Workspace
     const workspace: Workspace = { id: crypto.randomUUID(), path, name, createdAt: Date.now() }
     db.query('INSERT INTO workspaces VALUES(?,?,?,?)').run(workspace.id, path, name, workspace.createdAt)
+    db.query('INSERT INTO projects VALUES(?,?,?,?)').run(workspace.id, path, name, workspace.createdAt)
     return workspace
   },
   workspaces: () => db.query('SELECT * FROM workspaces ORDER BY createdAt').all() as Workspace[],
   workspace: (id) => required(db.query('SELECT * FROM workspaces WHERE id=?').get(id), 'Workspace') as Workspace,
   createSession(workspaceId, title = 'New session', parentId) {
-    methods.workspace(workspaceId)
-    const session: Session = {
-      id: crypto.randomUUID(),
-      workspaceId,
-      title,
-      archived: false,
-      parentId: parentId ?? null,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      seq: 0,
-    }
-    db.query('INSERT INTO sessions VALUES(?,?,?,?,?,?,?,?)').run(
-      session.id,
-      workspaceId,
-      title,
-      0,
-      session.parentId,
-      session.createdAt,
-      session.updatedAt,
-      0,
-    )
-    return session
+    return db.transaction(() => {
+      const workspace = methods.workspace(workspaceId)
+      const session: Session = {
+        id: crypto.randomUUID(),
+        workspaceId,
+        title,
+        archived: false,
+        parentId: parentId ?? null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        seq: 0,
+      }
+      db.query('INSERT INTO sessions VALUES(?,?,?,?,?,?,?,?)').run(
+        session.id,
+        workspaceId,
+        title,
+        0,
+        session.parentId,
+        session.createdAt,
+        session.updatedAt,
+        0,
+      )
+      appendEvent(session.id, 'session.created', { session, workspace })
+      return methods.session(session.id)
+    })()
   },
   sessions: () =>
     (db.query('SELECT * FROM sessions ORDER BY updatedAt DESC LIMIT 2000').all() as Row[]).map(sessionRow),
   session: (id) => sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null),
   updateSession(id, update) {
-    const session = methods.session(id)
-    db.query('UPDATE sessions SET title=?,archived=?,updatedAt=? WHERE id=?').run(
-      update.title ?? session.title,
-      Number(update.archived ?? session.archived),
-      Date.now(),
-      id,
-    )
-    return methods.session(id)
+    return db.transaction(() => {
+      const prior = methods.session(id)
+      const updated: Session = {
+        ...prior,
+        title: update.title ?? prior.title,
+        archived: update.archived ?? prior.archived,
+        updatedAt: Date.now(),
+      }
+      const event = appendEvent(id, 'session.updated', { session: updated })
+      db.query('UPDATE sessions SET title=?,archived=?,updatedAt=? WHERE id=?').run(
+        updated.title,
+        Number(updated.archived),
+        updated.updatedAt,
+        id,
+      )
+      return { session: methods.session(id), event }
+    })()
   },
   append: (...args) => db.transaction(() => appendEvent(...args))(),
   events(sessionId, after, limit = 2000) {
@@ -463,6 +538,14 @@ const methods: StorageMethods = {
       'INSERT INTO plugins VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,config=excluded.config,path=COALESCE(excluded.path,plugins.path)',
     ).run(id, Number(enabled), JSON.stringify(config), path ?? null)
   },
+  setPlugins(plugins) {
+    db.transaction(() => {
+      for (const plugin of plugins) methods.setPlugin(plugin.id, plugin.enabled, plugin.config, plugin.path)
+    })()
+  },
+  removePlugin(id) {
+    db.query('DELETE FROM plugins WHERE id=?').run(id)
+  },
   plugins: () =>
     (
       db.query('SELECT * FROM plugins').all() as { id: string; enabled: number; config: string; path: string | null }[]
@@ -477,10 +560,201 @@ const methods: StorageMethods = {
       result[table] = (db.query(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count
     return result
   },
+  getSetting(key) {
+    const row = db.query('SELECT value FROM path_metadata WHERE key=?').get(key) as { value: string } | null
+    return row?.value ?? null
+  },
+  setSetting(key, value) {
+    db.query('INSERT INTO path_metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(
+      key,
+      value,
+    )
+  },
   close() {
     db.close()
   },
 }
+
+function restoreProjection(event: SessionEvent) {
+  const data = event.data as Record<string, unknown>
+  if (event.type === 'session.created') {
+    const workspace = data.workspace as Workspace
+    const session = data.session as Session
+    if (workspace)
+      db.query('INSERT OR IGNORE INTO workspaces VALUES(?,?,?,?)').run(
+        workspace.id,
+        workspace.path,
+        workspace.name,
+        workspace.createdAt,
+      )
+    if (workspace)
+      db.query('INSERT OR IGNORE INTO projects VALUES(?,?,?,?)').run(
+        workspace.id,
+        workspace.path,
+        workspace.name,
+        workspace.createdAt,
+      )
+    if (session)
+      db.query('INSERT OR IGNORE INTO sessions VALUES(?,?,?,?,?,?,?,?)').run(
+        session.id,
+        session.workspaceId,
+        session.title,
+        Number(session.archived),
+        session.parentId,
+        session.createdAt,
+        session.updatedAt,
+        0,
+      )
+  }
+  const session = db.query('SELECT id FROM sessions WHERE id=?').get(event.sessionId)
+  if (!session) throw new Error(`SESSION_LOG_CORRUPTED event ${event.eventId} has no session.created record`)
+  db.query('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?)').run(
+    event.eventId,
+    event.sessionId,
+    event.seq,
+    event.runId,
+    event.stepId,
+    event.type,
+    JSON.stringify(event.data),
+    event.time,
+    event.version,
+  )
+  db.query('UPDATE sessions SET seq=MAX(seq,?),updatedAt=MAX(updatedAt,?) WHERE id=?').run(
+    event.seq,
+    event.time,
+    event.sessionId,
+  )
+  if (event.type === 'session.updated') {
+    const value = data.session as Session
+    db.query('UPDATE sessions SET title=?,archived=?,updatedAt=? WHERE id=?').run(
+      value.title,
+      Number(value.archived),
+      value.updatedAt,
+      value.id,
+    )
+  } else if (event.type === 'message.committed') {
+    db.query('INSERT OR IGNORE INTO messages VALUES(?,?,?,?,?,?,?,?)').run(
+      String(data.id),
+      event.sessionId,
+      event.runId ?? '',
+      String(data.role),
+      JSON.stringify(data.content),
+      event.seq,
+      event.time,
+      data.providerData === undefined ? null : JSON.stringify(data.providerData),
+    )
+  } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type)) {
+    const run = data.run as Run
+    db.query(`
+      INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET status=excluded.status,startedAt=excluded.startedAt,endedAt=excluded.endedAt,error=excluded.error
+    `).run(
+      run.id,
+      run.sessionId,
+      run.requestId,
+      JSON.stringify(run.input),
+      run.modelId,
+      run.status,
+      run.createdAt,
+      run.startedAt,
+      run.endedAt,
+      run.error,
+    )
+  } else if (event.type === 'approval.requested') {
+    const approval = event.data as Approval
+    db.query('INSERT OR IGNORE INTO approvals VALUES(?,?,?,?,?,?,?,?)').run(
+      approval.id,
+      approval.sessionId,
+      approval.runId,
+      approval.callId,
+      approval.tool,
+      JSON.stringify(approval.args),
+      approval.status,
+      approval.createdAt,
+    )
+  } else if (event.type === 'approval.resolved') {
+    const approval = event.data as Approval
+    db.query('UPDATE approvals SET status=? WHERE id=?').run(approval.status, approval.id)
+  } else if (event.type === 'context.compacted') {
+    db.query('INSERT OR IGNORE INTO compactions VALUES(?,?,?,?)').run(
+      event.sessionId,
+      Number(data.throughSeq),
+      String(data.summary),
+      event.seq,
+    )
+  } else if (event.type === 'tool.started') {
+    db.query('INSERT OR IGNORE INTO tool_intents VALUES(?,?,?,?,?,?)').run(
+      `${event.runId}:${String(data.callId)}`,
+      event.sessionId,
+      event.runId,
+      String(data.callId),
+      String(data.name),
+      'started',
+    )
+  }
+}
+
+function reconcileSessionLogs() {
+  const scan = scanSessionLogs(sessionsRoot)
+  if (scan.truncated.length) recordRecoveryDiagnostic(diagnosticsRoot, { truncated: scan.truncated })
+  const scanned = new Map(scan.events.map((item) => [item.event.eventId, item]))
+  for (const indexed of db
+    .query('SELECT eventId,logPath,byteOffset,byteLength,contentHash FROM session_event_index')
+    .all() as {
+    eventId: string
+    logPath: string
+    byteOffset: number
+    byteLength: number
+    contentHash: string
+  }[]) {
+    if (!existsSync(join(sessionsRoot, indexed.logPath)))
+      throw new Error(`SESSION_LOG_CORRUPTED indexed log is missing: ${indexed.logPath}`)
+    const item = scanned.get(indexed.eventId)
+    if (
+      !item ||
+      item.relativePath !== indexed.logPath ||
+      item.offset !== indexed.byteOffset ||
+      item.length !== indexed.byteLength ||
+      item.hash !== indexed.contentHash
+    )
+      throw new Error(`SESSION_LOG_CORRUPTED indexed event does not match JSONL: ${indexed.eventId}`)
+  }
+  let restored = 0
+  for (const item of scan.events) {
+    if (db.query('SELECT eventId FROM session_event_index WHERE eventId=?').get(item.event.eventId)) continue
+    db.transaction(() => {
+      const projectId = item.relativePath.split('/')[0]!
+      db.query(`
+        INSERT INTO session_log_files VALUES(?,?,?,?,?,?,?)
+        ON CONFLICT(path) DO UPDATE SET
+          firstSeq=MIN(firstSeq,excluded.firstSeq),lastSeq=MAX(lastSeq,excluded.lastSeq),
+          size=MAX(size,excluded.size),updatedAt=excluded.updatedAt
+      `).run(
+        item.relativePath,
+        projectId,
+        item.event.sessionId,
+        item.event.seq,
+        item.event.seq,
+        item.offset + item.length,
+        item.event.time,
+      )
+      restoreProjection(item.event)
+      db.query('INSERT INTO session_event_index VALUES(?,?,?,?,?,?,?)').run(
+        item.event.eventId,
+        item.event.sessionId,
+        item.event.seq,
+        item.relativePath,
+        item.offset,
+        item.length,
+        item.hash,
+      )
+    })()
+    restored++
+  }
+  if (restored) recordRecoveryDiagnostic(diagnosticsRoot, { restored })
+}
+
+reconcileSessionLogs()
 
 parentPort!.on('message', ({ id, method, args }: StorageCall) => {
   let reply: StorageReply

@@ -30,9 +30,17 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
   }),
 ])
 export type ContentBlock = z.infer<typeof contentBlockSchema>
+export const thinkingLevelSchema = z.enum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>
+export const approvalModeSchema = z.enum(['deny', 'allow', 'ask'])
+export type ApprovalMode = z.infer<typeof approvalModeSchema>
+export const permissionModeSchema = approvalModeSchema
+export type PermissionMode = ApprovalMode
 export const inputSchema = z.object({
   text: z.string().max(200_000),
   images: z.array(artifactSchema).max(12).default([]),
+  thinking: thinkingLevelSchema.optional(),
+  approval: approvalModeSchema.optional(),
 })
 export type UserInput = z.infer<typeof inputSchema>
 export const usageSchema = z.object({
@@ -88,17 +96,18 @@ export interface Message {
   createdAt: number
   providerData?: unknown
 }
-export interface SessionEvent {
-  eventId: string
-  sessionId: string
-  seq: number
-  runId: string | null
-  stepId: string | null
-  type: string
-  data: unknown
-  time: number
-  version: 1
-}
+export const sessionEventSchema = z.object({
+  eventId: idSchema,
+  sessionId: idSchema,
+  seq: z.number().int().positive(),
+  runId: idSchema.nullable(),
+  stepId: idSchema.nullable(),
+  type: z.string().min(1).max(160),
+  data: z.unknown(),
+  time: z.number().int().nonnegative(),
+  version: z.literal(1),
+})
+export type SessionEvent = z.infer<typeof sessionEventSchema>
 export interface Approval {
   id: string
   sessionId: string
@@ -153,6 +162,7 @@ export interface Device {
 export type PluginStatus = 'active' | 'disabled' | 'failed'
 export interface PluginInfo {
   id: string
+  packageName?: string | undefined
   name: string
   version: string
   required: boolean
@@ -161,8 +171,15 @@ export interface PluginInfo {
   requires: string[]
   description: string
   config: Record<string, unknown>
-  error?: string
-  clientEntry?: string
+  installScope?: 'global' | 'project' | undefined
+  runtimeScope?: 'host' | 'workspace' | 'session' | 'run' | 'client' | undefined
+  dependencies?: Record<string, string> | undefined
+  peerDependencies?: Record<string, string> | undefined
+  optionalDependencies?: Record<string, string> | undefined
+  path?: string | undefined
+  projectId?: string | undefined
+  error?: string | undefined
+  clientEntry?: string | undefined
 }
 export interface UIContribution {
   id: string
@@ -199,6 +216,12 @@ export const rpcSchemas = {
   'system.hello': z.object({ protocol: z.literal(PROTOCOL_VERSION), token: z.string().max(512).optional() }),
   'system.bootstrap': z.object({}),
   'system.diagnose': z.object({}),
+  'system.paths.get': z.object({}),
+  'system.paths.validate': z.object({ dataRoot: z.string().min(1).max(4000), cacheRoot: z.string().min(1).max(4000) }),
+  'system.paths.set': z.object({ dataRoot: z.string().min(1).max(4000), cacheRoot: z.string().min(1).max(4000) }),
+  'system.restart': z.object({}),
+  'permission.get': z.object({}),
+  'permission.set': z.object({ mode: permissionModeSchema }),
   'workspace.create': z.object({ path: z.string().min(1).max(4000) }),
   'session.create': z.object({ workspaceId: idSchema, title: z.string().max(160).optional() }),
   'session.snapshot': z.object({
@@ -219,7 +242,15 @@ export const rpcSchemas = {
   'provider.save': z.object({ provider: providerSchema, apiKey: z.string().max(8192).optional() }),
   'provider.delete': z.object({ id: idSchema }),
   'plugin.set': z.object({ id: idSchema, enabled: z.boolean(), config: z.record(z.string(), z.unknown()).optional() }),
-  'plugin.install': z.object({ path: z.string().min(1).max(4000) }),
+  'plugin.install': z.object({ path: z.string().min(1).max(4000), projectId: idSchema.optional() }),
+  'plugin.scan': z.object({}),
+  'plugin.remove': z.object({ id: idSchema }),
+  'plugin.enable': z.object({ id: idSchema }),
+  'plugin.disable': z.object({ id: idSchema }),
+  'plugin.resolve': z.object({ id: idSchema.optional() }),
+  'plugin.graph': z.object({}),
+  'plugin.lock': z.object({}),
+  'plugin.doctor': z.object({}),
   'device.list': z.object({}),
   'device.revoke': z.object({ id: idSchema }),
   'pairing.create': z.object({}),
@@ -232,6 +263,24 @@ export interface RpcResults {
   'system.hello': HostInfo
   'system.bootstrap': Bootstrap
   'system.diagnose': Record<string, unknown>
+  'system.paths.get': {
+    dataRoot: string
+    cacheRoot: string
+    database: string
+    sessions: string
+    skills: string
+    plugins: string
+    diagnostics: string
+    settings: string
+    artifacts: string
+    pointerFile: string
+    restartRequired: boolean
+  }
+  'system.paths.validate': { dataRoot: string; cacheRoot: string; valid: true }
+  'system.paths.set': RpcResults['system.paths.get']
+  'system.restart': { accepted: boolean; restartRequired: boolean }
+  'permission.get': { mode: PermissionMode }
+  'permission.set': { mode: PermissionMode }
   'workspace.create': Workspace
   'session.create': Session
   'session.snapshot': SessionSnapshot
@@ -249,6 +298,14 @@ export interface RpcResults {
   'provider.delete': null
   'plugin.set': PluginInfo[]
   'plugin.install': PluginInfo[]
+  'plugin.scan': PluginInfo[]
+  'plugin.remove': PluginInfo[]
+  'plugin.enable': PluginInfo[]
+  'plugin.disable': PluginInfo[]
+  'plugin.resolve': { order: string[]; enabled: string[] }
+  'plugin.graph': { nodes: { id: string; version: string; enabled: boolean }[]; edges: { from: string; to: string; kind: string; range: string }[] }
+  'plugin.lock': { version: 1; plugins: Record<string, unknown> }
+  'plugin.doctor': { ok: boolean; errors: string[]; order?: string[] }
   'device.list': Device[]
   'device.revoke': null
   'pairing.create': { code: string; expiresAt: number }
@@ -265,8 +322,9 @@ export class HbarError extends Error {
   constructor(
     public code: string,
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message)
+    super(message, options)
     this.name = 'HbarError'
   }
 }

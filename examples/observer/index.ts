@@ -3,7 +3,7 @@ import { definePlugin } from '@hbar/plugin-sdk'
 
 export default definePlugin({
   manifest: {
-    id: 'example.observer',
+    id: 'hbar-example-observer',
     name: 'Workspace observer',
     version: '1.0.0',
     apiVersion: '^1.0.0',

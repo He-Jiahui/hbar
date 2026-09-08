@@ -1,4 +1,5 @@
-import { resolve } from 'node:path'
+export {}
+
 const host = Bun.spawn(
   [
     process.execPath,

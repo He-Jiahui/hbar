@@ -2,6 +2,11 @@ import { HbarError } from '@hbar/contracts'
 import { Worker } from 'node:worker_threads'
 import type { StorageMethods, StorageReply } from './types.ts'
 export type { StorageMethods } from './types.ts'
+export * from './path-layout.ts'
+export * from './session-log-writer.ts'
+export * from './session-log-recovery.ts'
+export * from './project-registry.ts'
+import type { PathLayout } from './path-layout.ts'
 export interface StoragePort {
   call<K extends keyof StorageMethods>(
     method: K,
@@ -15,9 +20,13 @@ export class Storage {
   private nextId = 0
   private pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>()
   private stopped = false
-  constructor(path: string) {
+  constructor(path: string, layout?: PathLayout) {
     this.worker = new Worker(process.env.HBAR_STORAGE_WORKER ?? new URL('./worker.ts', import.meta.url), {
-      workerData: { path },
+      workerData: {
+        path,
+        sessions: layout?.sessions,
+        diagnostics: layout?.diagnostics,
+      },
     })
     this.worker.on('message', (reply: StorageReply) => {
       const handler = this.pending.get(reply.id)

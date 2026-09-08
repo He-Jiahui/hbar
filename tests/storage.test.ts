@@ -25,14 +25,14 @@ test('committed messages, events, and pagination share a monotonic cursor', asyn
   for (let i = 0; i < 75; i++)
     await store.call('commit', session.id, 'run', 'user', [{ type: 'text', text: `message ${i}` }])
   const snapshot = await store.call('snapshot', session.id, undefined, 60)
-  expect(snapshot.cursor).toBe(75)
+  expect(snapshot.cursor).toBe(76)
   expect(snapshot.messages).toHaveLength(60)
   expect(snapshot.hasOlder).toBe(true)
   const older = await store.call('snapshot', session.id, snapshot.messages[0]!.seq, 60)
   expect(older.messages).toHaveLength(15)
   expect(older.hasOlder).toBe(false)
   expect((await store.call('events', session.id, 0)).map((e) => e.seq)).toEqual(
-    Array.from({ length: 75 }, (_, i) => i + 1),
+    Array.from({ length: 76 }, (_, i) => i + 1),
   )
 })
 test('idempotent commands enqueue one durable run and claim only one at a time', async () => {

@@ -1,9 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronRight, Copy, KeyRound, Monitor, Network, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  KeyRound,
+  Monitor,
+  Network,
+  Plus,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { providerSchema } from '@hbar/contracts'
 import type { Device, ModelInfo, PluginInfo, ProviderConfig } from '@hbar/contracts'
-import { client, refreshCatalog, report, useCatalog, useConnection } from './stores'
+import { client, refreshCatalog, report, useCatalog, useConnection, useWorkbench } from './stores'
 import { copyText } from './browser-utils'
+import PermissionSelector from './PermissionSelector'
+import { permissionPreset } from './permissions'
+import { providerFromPreset, providerPresets } from './provider-presets'
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -42,22 +58,12 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
   )
 }
 function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): void }) {
+  const initialPreset = provider
+    ? providerPresets.find((preset) => preset.name === provider.name || preset.baseUrl === provider.baseUrl)?.id ?? 'custom'
+    : 'deepseek'
+  const [presetId, setPresetId] = useState(initialPreset)
   const [value, setValue] = useState<ProviderConfig>(() =>
-    provider
-      ? { ...provider }
-      : {
-          id: `provider-${Date.now().toString(36)}`,
-          name: 'DeepSeek',
-          protocol: 'openai-completions',
-          baseUrl: 'https://api.deepseek.com/v1',
-          model: 'deepseek-chat',
-          contextWindow: 128000,
-          maxOutput: 8192,
-          imageInput: false,
-          reasoning: false,
-          inputPrice: 0,
-          outputPrice: 0,
-        },
+    provider ? { ...provider } : providerFromPreset(providerPresets.find((preset) => preset.id === 'deepseek')!),
   )
   const [apiKey, setApiKey] = useState(''),
     [busy, setBusy] = useState(false),
@@ -81,6 +87,28 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
   return (
     <Modal title={provider ? '编辑模型' : '添加模型'} onClose={close}>
       <form onSubmit={(event) => void save(event)} className="settings-form">
+        {!provider && (
+          <fieldset className="provider-presets">
+            <legend>快速开始</legend>
+            <div className="provider-preset-grid">
+              {providerPresets.map((preset) => (
+                <button
+                  type="button"
+                  key={preset.id}
+                  className={`provider-preset ${preset.id === presetId ? 'selected' : ''}`}
+                  onClick={() => {
+                    setPresetId(preset.id)
+                    setValue((current) => ({ ...providerFromPreset(preset, current.id), id: current.id }))
+                  }}
+                >
+                  <strong>{preset.name}</strong>
+                  <small>{preset.description}</small>
+                </button>
+              ))}
+            </div>
+            <p>选择预设后只需填写 API Key；模型和地址都可以继续调整。</p>
+          </fieldset>
+        )}
         <label>
           名称
           <input autoFocus value={value.name} onChange={(event) => field('name', event.target.value)} required />
@@ -267,14 +295,16 @@ function PluginRow({ plugin }: { plugin: PluginInfo }) {
   )
 }
 export default function Settings() {
-  const [tab, setTab] = useState<'models' | 'plugins' | 'devices'>('models'),
+  const [tab, setTab] = useState<'models' | 'permissions' | 'plugins' | 'devices'>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
   const [devices, setDevices] = useState<Device[]>([]),
     [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null),
     [pluginPath, setPluginPath] = useState(''),
     [copied, setCopied] = useState(false)
   const data = useCatalog((state) => state.data),
-    host = useConnection((state) => state.host)
+    host = useConnection((state) => state.host),
+    approvalMode = useWorkbench((state) => state.approvalMode),
+    workspaceId = useWorkbench((state) => state.workspaceId)
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
@@ -290,6 +320,9 @@ export default function Settings() {
         <button className={tab === 'models' ? 'selected' : ''} onClick={() => setTab('models')}>
           模型
         </button>
+        <button className={tab === 'permissions' ? 'selected' : ''} onClick={() => setTab('permissions')}>
+          权限
+        </button>
         <button className={tab === 'plugins' ? 'selected' : ''} onClick={() => setTab('plugins')}>
           插件
         </button>
@@ -297,6 +330,33 @@ export default function Settings() {
           设备与连接
         </button>
       </nav>
+      {tab === 'permissions' && (
+        <section className="settings-section permissions-section">
+          <div className="section-toolbar">
+            <div>
+              <h2>工具权限</h2>
+              <p className="section-description">控制 hbar 是否需要在写入文件或运行命令前暂停。</p>
+            </div>
+            <PermissionSelector compact={false} />
+          </div>
+          <div className="permission-settings-list">
+            <div className="permission-setting-row">
+              <div className="permission-setting-icon permission-tone-balanced"><ShieldCheck size={16} /></div>
+              <div>
+                <strong>当前默认模式</strong>
+                <span>{permissionPreset(approvalMode).description}</span>
+              </div>
+              <span className={`state-label permission-state-${permissionPreset(approvalMode).tone}`}>
+                {permissionPreset(approvalMode).label}
+              </span>
+            </div>
+            <div className="permission-note">
+              <strong>只对之后发送的消息生效</strong>
+              <span>正在运行的任务不会被中途改变。你也可以在聊天输入框旁快速切换。</span>
+            </div>
+          </div>
+        </section>
+      )}
       {tab === 'models' && (
         <section className="settings-section">
           <div className="section-toolbar">
@@ -359,7 +419,7 @@ export default function Settings() {
               disabled={!pluginPath}
               onClick={() =>
                 void client()
-                  .call('plugin.install', { path: pluginPath })
+                  .call('plugin.install', { path: pluginPath, ...(workspaceId ? { projectId: workspaceId } : {}) })
                   .then(() => {
                     setPluginPath('')
                     return refreshCatalog()
@@ -441,7 +501,9 @@ export default function Settings() {
           ))}
         </section>
       )}
-      {editor && <ProviderEditor provider={editor === 'new' ? undefined : editor} close={() => setEditor(null)} />}
+      {editor && (
+        <ProviderEditor {...(editor === 'new' ? {} : { provider: editor })} close={() => setEditor(null)} />
+      )}
     </div>
   )
 }

@@ -7,7 +7,7 @@ export default {
       id: 'interactive',
       title: 'Observer counter',
       placement: 'right',
-      component() {
+      component: function ObserverCounter() {
         const [count, setCount] = useState(0)
         return h(
           'div',

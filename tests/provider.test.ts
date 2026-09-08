@@ -69,3 +69,80 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('read_file sends images to the model without persisting binary data in session events', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-provider-image-'))
+  const image = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==',
+    'base64',
+  )
+  await writeFile(join(root, 'pixel.png'), image)
+  let requests = 0
+  let receivedImage = false
+  const provider = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      const body = (await request.json()) as {
+        messages: { role: string; content: string | { type: string; image_url?: { url?: string } }[] }[]
+      }
+      const first = requests++ === 0
+      if (!first) {
+        const attachment = body.messages.find(
+          (message) =>
+            message.role === 'user' &&
+            Array.isArray(message.content) &&
+            message.content.some((block) => block.type === 'image_url'),
+        )
+        receivedImage =
+          Array.isArray(attachment?.content) &&
+          attachment.content.some(
+            (block) => block.type === 'image_url' && block.image_url?.url === `data:image/png;base64,${image.toString('base64')}`,
+          )
+      }
+      const chunk = (delta: unknown, finishReason: string | null = null) =>
+        `data: ${JSON.stringify({ id: 'fixture-image', object: 'chat.completion.chunk', created: 1, model: 'fixture-image', choices: [{ index: 0, delta, finish_reason: finishReason }] })}\n\n`
+      const text = first
+        ? chunk({
+            role: 'assistant',
+            tool_calls: [
+              {
+                index: 0,
+                id: 'call-image',
+                type: 'function',
+                function: { name: 'read_file', arguments: '{"path":"pixel.png"}' },
+              },
+            ],
+          }) + chunk({}, 'tool_calls')
+        : chunk({ role: 'assistant', content: 'Image received' }) + chunk({}, 'stop')
+      return new Response(`${text}data: [DONE]\n\n`, { headers: { 'Content-Type': 'text/event-stream' } })
+    },
+  })
+  const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
+  try {
+    await kernel.saveProvider(
+      providerSchema.parse({
+        id: 'image-test',
+        name: 'Image fixture',
+        protocol: 'openai-completions',
+        baseUrl: `http://127.0.0.1:${provider.port}/v1`,
+        model: 'fixture-image',
+        imageInput: true,
+      }),
+      'fixture-credential',
+    )
+    const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
+    await kernel.submit(session.id, 'image', { text: 'Read pixel.png', images: [] }, 'image-test')
+    await kernel.waitForIdle()
+    const snapshot = await kernel.snapshot(session.id)
+    const serializedEvents = JSON.stringify(await kernel.storage.call('events', session.id, 0))
+    expect(snapshot.runs[0]?.status).toBe('completed')
+    expect(receivedImage).toBeTrue()
+    expect(serializedEvents).not.toContain(image.toString('base64'))
+    expect(serializedEvents).toContain('Read image file pixel.png [image/png]')
+  } finally {
+    await kernel.close()
+    await provider.stop(true)
+    await rm(root, { recursive: true, force: true })
+  }
+})

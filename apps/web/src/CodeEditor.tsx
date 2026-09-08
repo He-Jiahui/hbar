@@ -21,8 +21,11 @@ export default function CodeEditor({
 }) {
   const root = useRef<HTMLDivElement>(null),
     view = useRef<EditorView | null>(null),
+    initialValue = useRef(value),
     onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
   useEffect(() => {
     if (!root.current) return
     const extension = /json/.test(language)
@@ -33,7 +36,7 @@ export default function CodeEditor({
     const editor = new EditorView({
       parent: root.current,
       state: EditorState.create({
-        doc: value,
+        doc: initialValue.current,
         extensions: [
           lineNumbers(),
           highlightActiveLineGutter(),

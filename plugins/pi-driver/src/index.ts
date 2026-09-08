@@ -16,8 +16,8 @@ import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/opena
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { DriverInput, HarnessDriver, ModelRequest } from '@hbar/plugin-sdk'
-import type { ContentBlock, Message, ProviderConfig, Usage } from '@hbar/contracts'
+import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
+import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -181,6 +181,7 @@ function streamProvider(
   context: PiContext,
   apiKey: string | null,
   signal: AbortSignal,
+  thinking: ThinkingLevel = 'off',
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const options: SimpleStreamOptions = {
@@ -188,6 +189,7 @@ function streamProvider(
     signal,
     maxTokens: config.maxOutput,
     maxRetries: 0,
+    ...(thinking !== 'off' ? { reasoning: thinking as Exclude<ThinkingLevel, 'off'> } : {}),
   }
   try {
     switch (config.protocol) {
@@ -209,6 +211,7 @@ async function toPiMessages(
   messages: Message[],
   model: ProviderConfig,
   readImage?: DriverInput['readImage'],
+  transientToolContent = new Map<string, ToolResultContent[]>(),
 ): Promise<PiMessage[]> {
   const output: PiMessage[] = []
   for (const message of messages) {
@@ -261,7 +264,7 @@ async function toPiMessages(
             role: 'toolResult',
             toolCallId: block.callId,
             toolName: block.name,
-            content: [{ type: 'text', text: block.text }],
+            content: transientToolContent.get(block.callId) ?? [{ type: 'text', text: block.text }],
             details: block.details,
             isError: block.isError,
             timestamp: message.createdAt,
@@ -287,6 +290,7 @@ export class PiDriver implements HarnessDriver {
       stepCount = 0,
       failure: string | undefined
     const completedTools = new Set<string>()
+    const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
       name: tool.name,
       label: tool.name,
@@ -297,7 +301,8 @@ export class PiDriver implements HarnessDriver {
         const result = await input.execute(tool.name, args as Record<string, unknown>, callId)
         completedTools.add(callId)
         if (result.isError) throw new Error(result.text)
-        return { content: [{ type: 'text', text: result.text }], details: result.details }
+        if (result.content) transientToolContent.set(callId, result.content)
+        return { content: result.content ?? [{ type: 'text', text: result.text }], details: result.details }
       },
     }))
     const emit = async (event: AgentEvent) => {
@@ -360,11 +365,12 @@ export class PiDriver implements HarnessDriver {
           request.model,
           {
             systemPrompt: request.system,
-            messages: await toPiMessages(request.messages, request.model, input.readImage),
+            messages: await toPiMessages(request.messages, request.model, input.readImage, transientToolContent),
             tools,
           },
           await input.resolveKey(request.model.id),
           input.signal,
+          input.run.input.thinking,
         )
       } catch (error) {
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
@@ -400,7 +406,8 @@ export class PiDriver implements HarnessDriver {
       apiKey,
       signal,
     )
-    for await (const _event of stream) {
+    for await (const event of stream) {
+      void event
       signal.throwIfAborted()
     }
     const message = await stream.result()

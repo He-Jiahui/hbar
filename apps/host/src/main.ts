@@ -1,16 +1,18 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { resolve, join } from 'node:path'
-import { homedir } from 'node:os'
+import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { pathToFileURL } from 'node:url'
 import type { KernelProfile } from '@hbar/kernel'
 import { Kernel } from '@hbar/kernel'
+import { resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
   options: {
     home: { type: 'string' },
+    'data-root': { type: 'string' },
+    'cache-root': { type: 'string' },
     host: { type: 'string' },
     port: { type: 'string' },
     workspace: { type: 'string' },
@@ -23,9 +25,15 @@ const { values } = parseArgs({
     profile: { type: 'string' },
   },
 })
-const home = resolve(values.home ?? process.env.HBAR_HOME ?? join(homedir(), '.hbar'))
+const layout = await resolvePathLayout({
+  home: values.home ?? process.env.HBAR_HOME,
+  dataRoot: values['data-root'] ?? process.env.HBAR_DATA_ROOT,
+  cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
+})
+const home = layout.dataRoot
 await mkdir(home, { recursive: true })
-const lock = join(home, 'host.lock')
+const lock = layout.hostLock
+await mkdir(resolve(lock, '..'), { recursive: true })
 try {
   await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
 } catch (error) {
@@ -38,7 +46,7 @@ try {
     if ((check as NodeJS.ErrnoException).code === 'ESRCH') alive = false
     else throw check
   }
-  if (alive) throw new Error(`A host already owns this data directory (PID ${previous.pid})`)
+  if (alive) throw new Error(`A host already owns this data directory (PID ${previous.pid})`, { cause: error })
   await rm(lock)
   await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
 }
@@ -48,19 +56,26 @@ try {
   const profile = values.profile
     ? ((await import(pathToFileURL(resolve(values.profile)).href)) as { default: KernelProfile }).default
     : undefined
-  kernel = await Kernel.create({ home, demo: values.demo, workspace: values.workspace, profile })
+  kernel = await Kernel.create({
+    layout,
+    ...(values.demo !== undefined ? { demo: values.demo } : {}),
+    ...(values.workspace ? { workspace: values.workspace } : {}),
+    ...(profile ? { profile } : {}),
+  })
   const host = await startServer(kernel, {
-    hostname: values.host,
-    port: values.port ? Number(values.port) : undefined,
-    origins: values.origin,
-    cert: values.cert,
-    key: values.key,
-    staticRoot: values['web-root'] ?? process.env.HBAR_WEB_ROOT,
+    ...(values.host ? { hostname: values.host } : {}),
+    ...(values.port ? { port: Number(values.port) } : {}),
+    ...(values.origin ? { origins: values.origin } : {}),
+    ...(values.cert ? { cert: values.cert } : {}),
+    ...(values.key ? { key: values.key } : {}),
+    ...((values['web-root'] ?? process.env.HBAR_WEB_ROOT)
+      ? { staticRoot: values['web-root'] ?? process.env.HBAR_WEB_ROOT! }
+      : {}),
   })
   if (values.desktop) {
     const device = await host.auth.createDevice('hbar desktop')
     await writeFile(
-      join(home, 'connection.json'),
+      layout.connectionFile,
       JSON.stringify({
         url: `${values.cert ? 'https' : 'http'}://127.0.0.1:${host.server.port}`,
         token: device.token,

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowDown,
@@ -9,7 +9,6 @@ import {
   Copy,
   FileCode2,
   GitBranch,
-  ImagePlus,
   LoaderCircle,
   ShieldCheck,
   Square,
@@ -17,9 +16,24 @@ import {
   X,
 } from 'lucide-react'
 import type { ArtifactRef, ContentBlock, Message, UserInput } from '@hbar/contracts'
-import { client, loadOlder, openSession, refreshCatalog, report, useCatalog, useSessions, useWorkbench } from './stores'
+import type { ComposerAction } from '@hbar/ui-sdk'
+import {
+  client,
+  loadOlder,
+  openSession,
+  refreshCatalog,
+  report,
+  setApprovalMode,
+  useCatalog,
+  useSessions,
+  useWorkbench,
+} from './stores'
 import Markdown from './Markdown'
 import { copyText, newRequestId } from './browser-utils'
+import PermissionSelector from './PermissionSelector'
+import ComposerMenu from './ComposerMenu'
+import { buildComposerActions, IMAGE_ACCEPT } from './composer-actions'
+import { useUIPlugins } from './ui-plugins'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
 function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_result' }> }) {
@@ -59,6 +73,11 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
       )}
     </div>
   )
+}
+function approvalSummary(tool: string, args: Record<string, unknown>): string {
+  if (typeof args.path === 'string') return `${tool} · ${args.path}`
+  if (typeof args.command === 'string') return `${tool} · ${args.command}`
+  return tool
 }
 function MessageView({ message }: { message: Message }) {
   const [copied, setCopied] = useState(false)
@@ -136,7 +155,9 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
   const draft = useWorkbench((state) => state.drafts[sessionId || 'new'] ?? '')
   const modelId = useWorkbench((state) => state.modelId),
+    approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId)
+  const contributedActions = useUIPlugins((state) => state.composerActions)
   const [images, setImages] = useState<ArtifactRef[]>([]),
     [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
@@ -159,6 +180,13 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
   const lastRun = snapshot?.runs[0]
   const totalSize = virtual.getTotalSize()
   const streamText = snapshot?.streams.map((stream) => stream.text.length + stream.thinking.length).join(',')
+  const composerActions = useMemo(
+    () => buildComposerActions(contributedActions, {
+      hasSession: Boolean(sessionId),
+      canAttachImages: Boolean(catalog?.models.find((model) => model.id === modelId)?.imageInput),
+    }),
+    [catalog?.models, contributedActions, modelId, sessionId],
+  )
   useEffect(() => {
     stick.current = true
     setAtBottom(true)
@@ -170,6 +198,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
       })
       return () => cancelAnimationFrame(id)
     }
+    return undefined
   }, [sessionId, totalSize, streamText, snapshot?.approvals.length])
   const setDraft = (text: string) =>
     useWorkbench.setState((state) => ({ drafts: { ...state.drafts, [sessionId || 'new']: text } }))
@@ -188,7 +217,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
         await refreshCatalog()
         await openSession(target)
       }
-      const input: UserInput = { text: draft, images }
+      const input: UserInput = { text: draft, images, approval: approvalMode }
       const key = JSON.stringify({ target, input, modelId })
       if (pendingRequest.current?.key !== key) pendingRequest.current = { key, requestId: newRequestId() }
       await client().call('run.start', {
@@ -221,6 +250,20 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
       setUploading(false)
       if (fileInput.current) fileInput.current.value = ''
     }
+  }
+  function selectComposerAction(action: ComposerAction) {
+    if (!action.execute) return
+    void Promise.resolve(action.execute({
+      ...(sessionId ? { sessionId } : {}),
+      ...(workspaceId ? { workspaceId } : {}),
+      openFilePicker: (options) => {
+        if (fileInput.current) {
+          fileInput.current.accept = options?.accept ?? IMAGE_ACCEPT
+          fileInput.current.multiple = options?.multiple ?? true
+          fileInput.current.click()
+        }
+      },
+    })).catch(report)
   }
   return (
     <div className="chat-panel">
@@ -348,7 +391,13 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
               <strong>批准工具调用</strong>
               <code>{approval.tool}</code>
             </div>
-            <pre>{JSON.stringify(approval.args, null, 2)}</pre>
+            <div className="approval-target">
+              <strong>{approvalSummary(approval.tool, approval.args)}</strong>
+              <details>
+                <summary>查看参数</summary>
+                <pre>{JSON.stringify(approval.args, null, 2)}</pre>
+              </details>
+            </div>
             <div className="approval-actions">
               <button
                 className="button"
@@ -367,6 +416,17 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
               >
                 <Check size={14} />
                 批准
+              </button>
+              <button
+                className="button approval-remember"
+                onClick={() => {
+                  void setApprovalMode('allow').then(() =>
+                    client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' }),
+                  ).catch(report)
+                }}
+              >
+                <ShieldCheck size={14} />
+                允许并记住
               </button>
             </div>
           </section>
@@ -431,69 +491,59 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
               }
             }}
           />
-          <div className="composer-toolbar">
-            <div className="composer-left">
-              <button
-                type="button"
-                title="添加图片"
-                aria-label="添加图片"
-                disabled={uploading}
-                onClick={() => fileInput.current?.click()}
-              >
-                {uploading ? <LoaderCircle size={16} className="spinning" /> : <ImagePlus size={17} />}
-              </button>
-              <input
-                className="visually-hidden"
-                ref={fileInput}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                multiple
-                onChange={(event) => void attach(event.target.files)}
-              />
-              <span className="policy-badge">
-                <ShieldCheck size={12} />
-                写入需批准
-              </span>
-            </div>
-            <div className="composer-right">
-              <select
-                aria-label="选择模型"
-                value={modelId}
-                onChange={(event) => useWorkbench.setState({ modelId: event.target.value })}
-              >
-                <option value="" disabled>
-                  选择模型
-                </option>
-                {catalog?.models.map((model) => (
-                  <option value={model.id} key={model.id}>
-                    {model.name}
-                  </option>
-                ))}
-              </select>
-              {activeRun && (
-                <button
-                  type="button"
-                  className="stop-button"
-                  title="停止运行"
-                  aria-label="停止运行"
-                  onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
+            <div className="composer-toolbar">
+              <div className="composer-left">
+                <ComposerMenu actions={composerActions} onSelect={selectComposerAction} />
+                <input
+                  className="visually-hidden"
+                  ref={fileInput}
+                  type="file"
+                  accept={IMAGE_ACCEPT}
+                  multiple
+                  onChange={(event) => void attach(event.target.files)}
+                />
+                {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
+                <PermissionSelector />
+              </div>
+              <div className="composer-right">
+                <select
+                  aria-label="选择模型"
+                  value={modelId}
+                  onChange={(event) => useWorkbench.setState({ modelId: event.target.value })}
                 >
-                  <Square size={14} fill="currentColor" />
+                  <option value="" disabled>
+                    选择模型
+                  </option>
+                  {catalog?.models.map((model) => (
+                    <option value={model.id} key={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+                </select>
+                {activeRun && (
+                  <button
+                    type="button"
+                    className="stop-button"
+                    title="停止运行"
+                    aria-label="停止运行"
+                    onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
+                  >
+                    <Square size={14} fill="currentColor" />
+                  </button>
+                )}
+                <button
+                  className="send-button"
+                  type="submit"
+                  title={activeRun ? '加入队列' : '发送'}
+                  aria-label="发送"
+                  disabled={
+                    busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length) || !workspaceId
+                  }
+                >
+                  {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
                 </button>
-              )}
-              <button
-                className="send-button"
-                type="submit"
-                title={activeRun ? '加入队列' : '发送'}
-                aria-label="发送"
-                disabled={
-                  busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length) || !workspaceId
-                }
-              >
-                {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
-              </button>
+              </div>
             </div>
-          </div>
         </form>
         <div className="composer-footer">
           <span>{modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'}</span>

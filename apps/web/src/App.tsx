@@ -4,7 +4,6 @@ import type { IJsonModel } from 'flexlayout-react'
 import {
   Activity,
   Archive,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -24,8 +23,6 @@ import {
   Settings2,
   ShieldCheck,
   Square,
-  Terminal,
-  Trash2,
   X,
 } from 'lucide-react'
 import type { FileEntry, Session, SessionEvent } from '@hbar/contracts'
@@ -46,6 +43,7 @@ import Chat from './Chat'
 import Settings, { Modal } from './Settings'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
+import { permissionPreset } from './permissions'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
@@ -236,7 +234,7 @@ function Files({ onOpen }: { onOpen(path: string): void }) {
         }
       })
       .catch((failure) => {
-        if (alive) setError(failure.message)
+        if (alive) setError(failure instanceof Error ? failure.message : String(failure))
       })
     return () => {
       alive = false
@@ -287,7 +285,7 @@ function FileViewer({ path, workspaceId }: { path: string; workspaceId: string }
         if (current) setText(result.text)
       })
       .catch((failure) => {
-        if (current) setError(failure.message)
+        if (current) setError(failure instanceof Error ? failure.message : String(failure))
       })
     return () => {
       current = false
@@ -304,7 +302,7 @@ function FileViewer({ path, workspaceId }: { path: string; workspaceId: string }
         <p className="inline-error">{error}</p>
       ) : (
         <Suspense fallback={<pre>{text}</pre>}>
-          <CodeEditor value={text} language={path.split('.').at(-1)} />
+          <CodeEditor value={text} {...(path.split('.').at(-1) ? { language: path.split('.').at(-1)! } : {})} />
         </Suspense>
       )}
     </div>
@@ -316,11 +314,12 @@ function ActivityPanel() {
   const [mode, setMode] = useState<'activity' | 'trace'>('activity'),
     [events, setEvents] = useState<SessionEvent[]>([]),
     [detail, setDetail] = useState<SessionEvent | null>(null)
+  const cursor = snapshot?.cursor
   useEffect(() => {
-    if (mode !== 'trace' || !snapshot) return
+    if (mode !== 'trace' || cursor === undefined) return
     let alive = true
     void client()
-      .call('session.follow', { sessionId, cursor: Math.max(0, snapshot.cursor - 80) })
+      .call('session.follow', { sessionId, cursor: Math.max(0, cursor - 80) })
       .then((result) => {
         if (alive) setEvents(result.events)
       })
@@ -328,7 +327,7 @@ function ActivityPanel() {
     return () => {
       alive = false
     }
-  }, [mode, sessionId, snapshot?.cursor])
+  }, [mode, sessionId, cursor])
   const usage = snapshot?.usage
   return (
     <div className="activity-panel">
@@ -471,9 +470,12 @@ export default function App() {
     host = useConnection((state) => state.host)
   const activeSession = useWorkbench((state) => state.activeSession),
     workspaceId = useWorkbench((state) => state.workspaceId),
-    panel = useWorkbench((state) => state.panel)
+    panel = useWorkbench((state) => state.panel),
+    approvalMode = useWorkbench((state) => state.approvalMode)
   const notice = useNotice((state) => state.error)
   const clientPanels = useUIPlugins((state) => state.panels)
+  const plugins = data?.plugins
+  const sessions = data?.sessions
   const initialSelection = useRef(true)
   const [small, setSmall] = useState(window.innerWidth < 900),
     [sidebar, setSidebar] = useState(true),
@@ -495,8 +497,8 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
   useEffect(() => {
-    if (data) void syncUIPlugins(data.plugins)
-  }, [data?.plugins])
+    if (plugins) void syncUIPlugins(plugins)
+  }, [plugins])
   useEffect(() => {
     let mounted = true
     void platform()
@@ -536,14 +538,14 @@ export default function App() {
         ),
       )
     if (!restoring || !exists) model.doAction(Actions.selectTab(id))
-  }, [activeSession, Boolean(data), model])
+  }, [activeSession, data, model])
   useEffect(() => {
-    for (const session of data?.sessions ?? []) {
+    for (const session of sessions ?? []) {
       const node = model.getNodeById(`session:${session.id}`)
       if (node instanceof TabNode && node.getName() !== session.title)
         model.doAction(Actions.updateNodeAttributes(node.getId(), { name: session.title }))
     }
-  }, [data?.sessions, model])
+  }, [sessions, model])
   function openPanel(
     id: string,
     title: string,
@@ -609,8 +611,10 @@ export default function App() {
   function factory(node: TabNode) {
     const config = node.getConfig() as { sessionId?: string; path?: string; workspaceId?: string; panelId?: string }
     switch (node.getComponent()) {
+      case undefined:
+        return <div className="empty-tool">面板不可用</div>
       case 'conversation':
-        return <Chat sessionId={config?.sessionId} onSettings={settings} />
+        return <Chat {...(config.sessionId ? { sessionId: config.sessionId } : {})} onSettings={settings} />
       case 'settings':
         return <Settings />
       case 'activity':
@@ -808,14 +812,17 @@ export default function App() {
                   }
                 }
                 if (action.type === Actions.SELECT_TAB) {
-                  const node = next.getNodeById(action.data.tabNode)
-                  if (node instanceof TabNode && node.getComponent() === 'conversation') {
-                    const id = (node.getConfig() as { sessionId?: string })?.sessionId
-                    if (id && id !== useWorkbench.getState().activeSession) void openSession(id).catch(report)
-                    else if (!id) {
-                      const previous = useWorkbench.getState().activeSession
-                      useWorkbench.setState({ activeSession: '' })
-                      if (previous) void client().unfollow(previous).catch(report)
+                  const tabNode = (action.data as { tabNode?: unknown }).tabNode
+                  if (typeof tabNode === 'string') {
+                    const node = next.getNodeById(tabNode)
+                    if (node instanceof TabNode && node.getComponent() === 'conversation') {
+                      const id = (node.getConfig() as { sessionId?: string })?.sessionId
+                      if (id && id !== useWorkbench.getState().activeSession) void openSession(id).catch(report)
+                      else if (!id) {
+                        const previous = useWorkbench.getState().activeSession
+                        useWorkbench.setState({ activeSession: '' })
+                        if (previous) void client().unfollow(previous).catch(report)
+                      }
                     }
                   }
                 }
@@ -861,7 +868,7 @@ export default function App() {
         </span>
         <span>
           <ShieldCheck size={12} />
-          需批准
+          {permissionPreset(approvalMode).shortLabel}
         </span>
         <span className="status-spacer" />
         <span>{host?.activeRuns ?? 0} active</span>

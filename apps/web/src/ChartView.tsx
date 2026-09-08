@@ -49,7 +49,7 @@ export default function ChartView({ source }: { source: string }) {
                 <Bar
                   key={series.key}
                   dataKey={series.key}
-                  fill={series.color ?? colors[index % colors.length]}
+                  fill={series.color ?? colors[index % colors.length] ?? '#62b594'}
                   radius={[3, 3, 0, 0]}
                   isAnimationActive={false}
                 />
@@ -57,15 +57,15 @@ export default function ChartView({ source }: { source: string }) {
                 <Line
                   key={series.key}
                   dataKey={series.key}
-                  stroke={series.color ?? colors[index % colors.length]}
+                  stroke={series.color ?? colors[index % colors.length] ?? '#62b594'}
                   isAnimationActive={false}
                 />
               ) : (
                 <Area
                   key={series.key}
                   dataKey={series.key}
-                  stroke={series.color ?? colors[index % colors.length]}
-                  fill={series.color ?? colors[index % colors.length]}
+                  stroke={series.color ?? colors[index % colors.length] ?? '#62b594'}
+                  fill={series.color ?? colors[index % colors.length] ?? '#62b594'}
                   fillOpacity={0.15}
                   isAnimationActive={false}
                 />

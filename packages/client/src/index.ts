@@ -1,4 +1,4 @@
-import { HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
+import { artifactSchema, HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 export interface ClientTransport {
@@ -17,7 +17,7 @@ export class HbarClient implements ClientTransport {
   private closed = false
   private retry = 0
   private retryTimer?: ReturnType<typeof setTimeout>
-  private connectPromise?: Promise<HostInfo>
+  private connectPromise?: Promise<HostInfo> | undefined
   private follows = new Map<string, number>()
   constructor(
     readonly baseUrl: string,
@@ -176,9 +176,14 @@ export class HbarClient implements ClientTransport {
       },
       body: file,
     })
-    const data = await response.json()
-    if (!response.ok) throw new Error((data as { error: string }).error)
-    return data as ArtifactRef
+    const data: unknown = await response.json()
+    if (!response.ok)
+      throw new Error(
+        typeof data === 'object' && data && 'error' in data && typeof data.error === 'string'
+          ? data.error
+          : 'Artifact upload failed',
+      )
+    return artifactSchema.parse(data)
   }
   artifactUrl(id: string) {
     return new URL(`/api/artifacts/${id}`, this.baseUrl).href

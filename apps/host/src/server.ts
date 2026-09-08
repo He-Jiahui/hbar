@@ -11,13 +11,13 @@ import { Auth, requestToken } from './auth.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 
 interface SocketData {
-  token?: string
-  deviceId?: string
+  token?: string | undefined
+  deviceId?: string | undefined
   initialized: boolean
   follows: Set<string>
   pending: number
-  timer?: ReturnType<typeof setTimeout>
-  scope?: RuntimeScope
+  timer?: ReturnType<typeof setTimeout> | undefined
+  scope?: RuntimeScope | undefined
 }
 export interface ServerOptions {
   hostname?: string
@@ -118,6 +118,24 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           tools: kernel.tools.list().map((tool) => tool.name),
           streams: kernel.streams.size,
         }
+      case 'system.paths.get':
+        return kernel.paths()
+      case 'system.paths.validate': {
+        const p = z.object({ dataRoot: z.string().min(1), cacheRoot: z.string().min(1) }).parse(raw)
+        return kernel.validatePaths(p.dataRoot, p.cacheRoot)
+      }
+      case 'system.paths.set': {
+        const p = z.object({ dataRoot: z.string().min(1), cacheRoot: z.string().min(1) }).parse(raw)
+        return kernel.setPaths(p.dataRoot, p.cacheRoot)
+      }
+      case 'system.restart':
+        return { accepted: false, restartRequired: true }
+      case 'permission.get':
+        return { mode: kernel.permissionMode() }
+      case 'permission.set': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.setPermissionMode(p.mode)
+      }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.createWorkspace(p.path)
@@ -151,16 +169,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'session.rename': {
         const p = rpcSchemas[method].parse(raw)
-        const session = await kernel.storage.call('updateSession', p.sessionId, { title: p.title })
-        kernel.changed('sessions')
-        return session
+        return kernel.updateSession(p.sessionId, { title: p.title })
       }
       case 'session.archive': {
         const p = rpcSchemas[method].parse(raw)
         if (kernel.active.has(p.sessionId)) throw new HbarError('BUSY', 'Stop the active run before archiving')
-        const session = await kernel.storage.call('updateSession', p.sessionId, { archived: p.archived })
-        kernel.changed('sessions')
-        return session
+        return kernel.updateSession(p.sessionId, { archived: p.archived })
       }
       case 'session.fork': {
         const p = rpcSchemas[method].parse(raw)
@@ -205,8 +219,35 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plugin.install': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.installPlugin(p.path)
+        return kernel.installPlugin(p.path, p.projectId)
       }
+      case 'plugin.scan':
+        return kernel.plugins.list()
+      case 'plugin.remove': {
+        const p = rpcSchemas[method].parse(raw)
+        kernel.assertIdle()
+        const result = await kernel.plugins.remove(p.id)
+        kernel.changed('plugins')
+        return result
+      }
+      case 'plugin.enable': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.changePlugin(p.id, true)
+      }
+      case 'plugin.disable': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.changePlugin(p.id, false)
+      }
+      case 'plugin.resolve': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.resolve(p.id)
+      }
+      case 'plugin.graph':
+        return kernel.plugins.graph()
+      case 'plugin.lock':
+        return kernel.plugins.lock()
+      case 'plugin.doctor':
+        return kernel.plugins.doctor()
       case 'device.list':
         return kernel.storage.call('devices')
       case 'device.revoke': {
@@ -235,12 +276,13 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return kernel.plugins.get<ExecutionProvider>('execution').list(workspace.path, p.path)
       }
     }
+    throw new HbarError('METHOD_NOT_FOUND', method)
   }
   server = Bun.serve<SocketData>({
     hostname,
     port: options.port ?? 4317,
     maxRequestBodySize: 12 * 1024 * 1024,
-    tls: secure ? { cert: await readFile(options.cert!), key: await readFile(options.key!) } : undefined,
+    ...(secure ? { tls: { cert: await readFile(options.cert!), key: await readFile(options.key!) } } : {}),
     async fetch(request, host) {
       const url = new URL(request.url)
       if (!validOrigin(request)) return json(request, { error: 'Origin or Host is not allowed' }, 403)
@@ -282,9 +324,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         }
         if (url.pathname.startsWith('/api/')) {
           await auth.authenticate(requestToken(request))
-          const clientPlugin = /^\/api\/plugins\/([a-z0-9.-]+)\/client\.js$/.exec(url.pathname)
+          const clientPlugin = /^\/api\/plugins\/([^/]+)\/client\.js$/.exec(url.pathname)
           if (clientPlugin && request.method === 'GET')
-            return response(request, kernel.plugins.clientCode(clientPlugin[1]!), 200, {
+            return response(request, kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
               'Content-Type': 'text/javascript; charset=utf-8',
             })
           if (url.pathname === '/api/artifacts' && request.method === 'POST') {
@@ -301,7 +343,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           const match = /^\/api\/artifacts\/([a-f0-9]{64})$/.exec(url.pathname)
           if (match && request.method === 'GET') {
             const artifact = await kernel.storage.call('artifact', match[1]!)
-            return response(request, Bun.file(join(kernel.options.home, 'attachments', artifact.id)), 200, {
+            return response(request, Bun.file(join(kernel.options.layout.artifacts, artifact.id)), 200, {
               'Content-Type': artifact.mime,
               'Content-Security-Policy': "default-src 'none'",
               'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(artifact.name)}`,

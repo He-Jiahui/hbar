@@ -22,7 +22,7 @@ export interface StorageMethods {
   createSession(workspaceId: string, title?: string, parentId?: string): Session
   sessions(): Session[]
   session(id: string): Session
-  updateSession(id: string, update: { title?: string; archived?: boolean }): Session
+  updateSession(id: string, update: { title?: string; archived?: boolean }): { session: Session; event: SessionEvent }
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
   commit(
@@ -58,8 +58,12 @@ export interface StorageMethods {
   devices(): Device[]
   revokeDevice(id: string): void
   setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string): void
+  setPlugins(plugins: { id: string; enabled: boolean; config: Record<string, unknown>; path?: string | undefined }[]): void
+  removePlugin(id: string): void
   plugins(): { id: string; enabled: boolean; config: Record<string, unknown>; path: string | null }[]
   stats(): Record<string, number>
+  getSetting(key: string): string | null
+  setSetting(key: string, value: string): void
   close(): void
 }
 export type StorageCall = {

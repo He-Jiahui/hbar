@@ -69,6 +69,32 @@ test('write approval runs through the tool gate; denial never writes', async () 
   expect(await readFile(join(root, 'result.txt'), 'utf8')).toBe('accepted')
   expect((await kernel.snapshot(session.id)).messages.filter((m) => m.role === 'tool')).toHaveLength(2)
 })
+test('permission presets can allow writes without a per-call approval and survive restart', async () => {
+  const { root, kernel, session } = await fixture()
+  await kernel.setPermissionMode('allow')
+  expect(kernel.permissionMode()).toBe('allow')
+  await kernel.submit(
+    session.id,
+    'auto-allow',
+    { text: '/tool write_file {"path":"automatic.txt","text":"no prompt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect(await readFile(join(root, 'automatic.txt'), 'utf8')).toBe('no prompt')
+  expect((await kernel.snapshot(session.id)).approvals).toHaveLength(0)
+
+  await kernel.close()
+  const index = resources.findIndex((entry) => entry.kernel === kernel)
+  if (index >= 0) resources.splice(index, 1)
+  const restarted = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  resources.push({ root, kernel: restarted })
+  expect(restarted.permissionMode()).toBe('allow')
+})
 test('cancel settles an active stream and plugin unload removes registrations', async () => {
   const { kernel, session } = await fixture()
   const run = await kernel.submit(session.id, 'cancel', { text: '/slow', images: [] }, 'local-fixture')

@@ -4,6 +4,7 @@ import { HbarClient } from '@hbar/client'
 import type { ConnectionStatus } from '@hbar/client'
 import type {
   Approval,
+  ApprovalMode,
   Bootstrap,
   ContentBlock,
   HostInfo,
@@ -14,6 +15,7 @@ import type {
   Usage,
   WireNotification,
 } from '@hbar/contracts'
+import { isApprovalMode } from './permissions'
 
 export const useConnection = create<{
   client: HbarClient | null
@@ -27,35 +29,70 @@ export const useSessions = create<{ snapshots: Record<string, SessionSnapshot>; 
   snapshots: {},
   loading: new Set(),
 }))
+interface WorkbenchState {
+  activeSession: string
+  workspaceId: string
+  modelId: string
+  approvalMode: ApprovalMode
+  drafts: Record<string, string>
+  showArchived: boolean
+  panel: 'sessions' | 'files'
+  toolPanel: string
+  theme: 'dark' | 'light'
+  layout: unknown
+}
+
+const defaultWorkbenchState: WorkbenchState = {
+  activeSession: '',
+  workspaceId: '',
+  modelId: '',
+  approvalMode: 'ask',
+  drafts: {},
+  showArchived: false,
+  panel: 'sessions',
+  toolPanel: 'activity',
+  theme: 'dark',
+  layout: null,
+}
+
 export const useWorkbench = create(
-  persist<{
-    activeSession: string
-    workspaceId: string
-    modelId: string
-    drafts: Record<string, string>
-    showArchived: boolean
-    panel: 'sessions' | 'files'
-    toolPanel: string
-    theme: 'dark' | 'light'
-    layout: unknown
-  }>(
-    (_set) => ({
-      activeSession: '',
-      workspaceId: '',
-      modelId: '',
-      drafts: {},
-      showArchived: false,
-      panel: 'sessions',
-      toolPanel: 'activity',
-      theme: 'dark',
-      layout: null,
-    }),
-    { name: 'hbar.workbench.v1', version: 1 },
+  persist<WorkbenchState>(
+    () => defaultWorkbenchState,
+    {
+      name: 'hbar.workbench.v1',
+      version: 2,
+      migrate: (persisted): WorkbenchState => {
+        const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
+        return {
+          ...defaultWorkbenchState,
+          ...value,
+          approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
+        }
+      },
+    },
   ),
 )
 export const useNotice = create<{ error: string; notice: string }>(() => ({ error: '', notice: '' }))
 export const report = (error: unknown) =>
   useNotice.setState({ error: error instanceof Error ? error.message : String(error) })
+export async function setApprovalMode(mode: ApprovalMode) {
+  const previous = useWorkbench.getState().approvalMode
+  useWorkbench.setState({ approvalMode: mode })
+  const connection = useConnection.getState().client
+  if (!connection) return
+  try {
+    await connection.call('permission.set', { mode })
+  } catch (error) {
+    useWorkbench.setState({ approvalMode: previous })
+    report(error)
+  }
+}
+export async function loadApprovalMode() {
+  const connection = client()
+  const result = await connection.call('permission.get', {})
+  if (client() !== connection || !isApprovalMode(result.mode)) return
+  useWorkbench.setState({ approvalMode: result.mode })
+}
 export function client(): HbarClient {
   const value = useConnection.getState().client
   if (!value) throw new Error('Host is not connected')
@@ -78,7 +115,8 @@ export async function connectHost(url: string, token?: string) {
     useConnection.setState({ status })
     if (status === 'connected')
       void refreshCatalog()
-        .then(() => {
+        .then(async () => {
+          await loadApprovalMode()
           const selected = useWorkbench.getState().activeSession
           if (selected) void openSession(selected).catch(report)
         })
