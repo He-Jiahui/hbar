@@ -88,6 +88,49 @@ test('goal accounting uses input minus cache plus output and plan-mode runs are 
   expect((await kernel.storage.call('run', planRun.id)).status).toBe('completed')
 })
 
+test('goal completion accounts the current run and stopped goals ignore later runs', async () => {
+  const { kernel, session } = await fixture()
+  const goals = kernel.plugins.get<GoalService>('goal')
+  await goals.create(session.id, 'finish and stop', 10_000)
+  const completingRun = await kernel.submit(
+    session.id,
+    'complete-in-flight',
+    { text: '/tool update_goal {"status":"complete"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const completed = await goals.get(session.id)
+  expect((await kernel.storage.call('run', completingRun.id)).status).toBe('completed')
+  expect(completed.goal?.status).toBe('complete')
+  expect(completed.goal?.tokensUsed).toBeGreaterThan(0)
+  const updateBlock = (await kernel.snapshot(session.id)).messages
+    .flatMap((message) => message.content)
+    .find((block) => block.type === 'tool_result' && block.name === 'update_goal')
+  expect(updateBlock?.type).toBe('tool_result')
+  if (updateBlock?.type === 'tool_result') {
+    const details = updateBlock.details as { goal?: { status?: string; tokensUsed?: number }; completionBudgetReport?: string }
+    expect(details.goal?.status).toBe('complete')
+    expect(details.goal?.tokensUsed).toBeGreaterThan(0)
+    expect(details.completionBudgetReport).toContain('Goal achieved')
+  }
+
+  const afterCompletionRun = await kernel.submit(session.id, 'after-complete', { text: 'later', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  const afterCompletion = await goals.get(session.id)
+  expect((await kernel.storage.call('run', afterCompletionRun.id)).status).toBe('completed')
+  expect(afterCompletion.goal?.tokensUsed).toBe(completed.goal?.tokensUsed)
+  expect(afterCompletion.goal?.timeUsedSeconds).toBe(completed.goal?.timeUsedSeconds)
+
+  await goals.set(session.id, { objective: 'pause before another run', status: 'paused' })
+  const pausedBefore = await goals.get(session.id)
+  const pausedRun = await kernel.submit(session.id, 'after-pause', { text: 'ignored', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  const pausedAfter = await goals.get(session.id)
+  expect((await kernel.storage.call('run', pausedRun.id)).status).toBe('completed')
+  expect(pausedAfter.goal?.tokensUsed).toBe(pausedBefore.goal?.tokensUsed)
+  expect(pausedAfter.goal?.timeUsedSeconds).toBe(pausedBefore.goal?.timeUsedSeconds)
+})
+
 test('goal and plan control tools use the current run session and persist state', async () => {
   const { kernel, session } = await fixture()
   const goals = kernel.plugins.get<GoalService>('goal')

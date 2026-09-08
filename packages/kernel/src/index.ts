@@ -579,6 +579,11 @@ export class Kernel {
         failure: string | undefined
       try {
         this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
+        await scope.hooks
+          .dispatch('run.start', { sessionId, runId: run.id, run: await this.storage.call('run', run.id) })
+          .catch((error) => {
+            console.error('Run start observer failed:', error)
+          })
         const session = await this.storage.call('session', sessionId)
         const workspace = await this.storage.call('workspace', session.workspaceId)
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)

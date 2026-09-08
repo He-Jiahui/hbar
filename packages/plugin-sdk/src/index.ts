@@ -150,7 +150,7 @@ export interface GoalToolResponse {
 }
 export interface GoalService {
   get(sessionId: string): Promise<GoalToolResponse>
-  create(sessionId: string, objective: string, tokenBudget?: number): Promise<GoalToolResponse>
+  create(sessionId: string, objective: string, tokenBudget?: number, runId?: string, startedAt?: number): Promise<GoalToolResponse>
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
   update(sessionId: string, status: 'complete' | 'blocked', runId?: string): Promise<GoalToolResponse>
   clear(sessionId: string): Promise<{ cleared: boolean }>
@@ -280,6 +280,7 @@ export interface HookEvents {
   'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
   'tool.after': { name: string; result: ToolResult; context: ToolContext }
   'step.end': { sessionId: string; runId: string; stepId: string }
+  'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
 }
 export interface HookRegistry {
