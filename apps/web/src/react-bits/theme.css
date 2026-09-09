@@ -26,6 +26,26 @@
   z-index: 1;
 }
 
+.tool-surface {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.tool-surface > .tool-surface-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.tool-surface > :not(.tool-surface-glass) {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-spotlight-card.session-item,
 .rb-spotlight-card.run-row {
   background-clip: padding-box;

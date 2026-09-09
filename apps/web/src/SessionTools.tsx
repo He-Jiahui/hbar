@@ -24,6 +24,7 @@ import {
 } from './stores'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import GlassSurface from './react-bits/GlassSurface'
 
 type PanelProps = { sessionId?: string }
 
@@ -153,6 +154,7 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
 
   return (
     <section className="tool-surface browser-panel">
+      <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
       <PanelHeader icon={Globe} title="浏览器" subtitle={page?.title || '会话浏览器'} onRefresh={() => void refresh()} />
       {!sessionId ? (
         <EmptyTool icon={Globe} title="尚未选择会话" body="打开一个会话后即可使用浏览器工具。" />
@@ -215,6 +217,7 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
   const toolCalls = snapshot?.messages.reduce((total, message) => total + message.content.filter((block) => block.type === 'tool_call').length, 0) ?? 0
   return (
     <section className="tool-surface">
+      <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
       <PanelHeader icon={FileSearch} title="会话检查" subtitle={session?.title || 'Session'} onRefresh={() => sessionId && void openSession(sessionId).catch(report)} />
       {!sessionId || !snapshot ? (
         <EmptyTool icon={FileSearch} title="尚未加载会话" body="选择一个会话后查看运行时信息。" />
@@ -252,6 +255,7 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
   const plan = state?.plan
   return (
     <section className="tool-surface">
+      <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
       <PanelHeader icon={ListChecks} title="计划" subtitle={goal?.objective || 'Agent plan'} />
       {!sessionId ? (
         <EmptyTool icon={ListChecks} title="尚未选择会话" body="选择会话后查看 Goal 和 Plan。" />
@@ -292,6 +296,7 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
   const max = stats[0]?.[1] ?? 1
   return (
     <section className="tool-surface">
+      <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
       <PanelHeader icon={Activity} title="会话洞察" subtitle="工具与 token 使用" />
       {!sessionId || !snapshot ? (
         <EmptyTool icon={Activity} title="暂无会话数据" body="运行一次会话后查看洞察。" />
