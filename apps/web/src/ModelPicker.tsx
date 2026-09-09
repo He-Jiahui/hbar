@@ -13,6 +13,7 @@ import type { ModelInfo, ThinkingLevel } from '@hbar/contracts'
 import { selectModel, selectThinkingLevel, useCatalog, useWorkbench } from './stores'
 import { groupModelsByProvider, modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 const EMPTY_MODELS: readonly ModelInfo[] = []
 
@@ -188,7 +189,11 @@ export default function ModelPicker({ onSettings }: { onSettings?: () => void })
                   const expanded = model.id === expandedModelId
                   const level = isSelected ? selectedThinking : model.defaultThinkingLevel
                   return (
-                    <div className={`model-picker-model ${isSelected ? 'selected' : ''}`} key={model.id}>
+                    <SpotlightCard
+                      className={`model-picker-model ${isSelected ? 'selected' : ''}`}
+                      key={model.id}
+                      spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                    >
                       <button
                         type="button"
                         role="menuitemradio"
@@ -214,7 +219,7 @@ export default function ModelPicker({ onSettings }: { onSettings?: () => void })
                           onSelect={(next) => chooseThinking(model, next)}
                         />
                       )}
-                    </div>
+                    </SpotlightCard>
                   )
                 })}
               </section>

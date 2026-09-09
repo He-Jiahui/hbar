@@ -115,6 +115,7 @@ test('model picker exposes provider, model and thinking level hierarchy', async 
     await search.fill('UI Model Catalog')
     const provider = menu.getByRole('group', { name: 'UI Model Catalog', exact: true })
     await expect(provider).toBeVisible()
+    await expect(provider.locator('.model-picker-model.rb-spotlight-card')).toHaveCount(2)
     await expect(provider.getByRole('menuitemradio', { name: 'UI Model Catalog / Fast model', exact: true })).toBeVisible()
     const deep = provider.getByRole('menuitemradio', { name: 'UI Model Catalog / Deep model', exact: true })
     await deep.click()

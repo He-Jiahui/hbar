@@ -322,6 +322,15 @@
   z-index: 1;
 }
 
+.model-picker-model.rb-spotlight-card {
+  border-radius: var(--radius-sm);
+}
+
+.model-picker-model.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-file-nav,
 .rb-file-viewer,
 .rb-activity-panel,
