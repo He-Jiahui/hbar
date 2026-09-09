@@ -69,6 +69,51 @@
   background-clip: padding-box;
 }
 
+.rb-composer-surface,
+.rb-decision-surface {
+  position: relative;
+  isolation: isolate;
+}
+
+.rb-composer-surface {
+  overflow: hidden;
+  background: transparent;
+}
+
+.rb-composer-surface > .composer-glass,
+.rb-decision-surface > .decision-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.rb-composer-surface > .composer-glass {
+  border-color: color-mix(in srgb, var(--hbar-bd) 86%, var(--rb-accent));
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--hbar-s0) 92%, transparent);
+}
+
+.rb-decision-surface {
+  background: transparent;
+}
+
+.rb-decision-surface.approval > .decision-glass {
+  border-color: color-mix(in srgb, var(--hbar-wn) 58%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--hbar-wn-soft) 80%, var(--hbar-s1));
+}
+
+.rb-decision-surface.user-input-prompt > .decision-glass {
+  border-color: color-mix(in srgb, var(--rb-accent) 56%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--hbar-ac-soft) 82%, var(--hbar-s1));
+}
+
+.rb-composer-surface > :not(.composer-glass),
+.rb-decision-surface > :not(.decision-glass) {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-spotlight-card.session-item,
 .rb-spotlight-card.run-row {
   background-clip: padding-box;

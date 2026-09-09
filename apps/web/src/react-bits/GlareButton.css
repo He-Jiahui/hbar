@@ -1,0 +1,46 @@
+.rb-glare-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.rb-glare-button::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    -45deg,
+    transparent 48%,
+    var(--rb-glare-color) 58%,
+    transparent 68%
+  );
+  background-position: -180% 0;
+  background-repeat: no-repeat;
+  background-size: 160% 160%;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    background-position var(--rb-glare-duration) var(--dsh-motion-easing),
+    opacity 180ms var(--dsh-motion-easing);
+}
+
+.rb-glare-button:hover:not(:disabled)::before,
+.rb-glare-button:focus-visible::before {
+  background-position: 180% 0;
+  opacity: 1;
+}
+
+.rb-glare-button-content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-glare-button::before {
+    transition: opacity 120ms var(--dsh-motion-easing);
+  }
+}

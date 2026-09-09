@@ -44,6 +44,8 @@ import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import GlassSurface from './react-bits/GlassSurface'
+import GlareButton from './react-bits/GlareButton'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -122,7 +124,8 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
     }
   }
   return (
-    <section className="user-input-prompt" aria-label="需要你的回答" aria-busy={saving}>
+    <section className="user-input-prompt rb-decision-surface" aria-label="需要你的回答" aria-busy={saving}>
+      <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="user-input-heading">
         <strong>需要你的回答</strong>
         <span>{request.questions.length} 个问题</span>
@@ -662,7 +665,8 @@ export default function Chat({
           <UserInputPrompt key={request.requestId} request={request} />
         ))}
         {snapshot?.approvals.map((approval) => (
-          <section className="approval" key={approval.id} aria-busy={resolvingApprovals.has(approval.id)}>
+          <section className="approval rb-decision-surface" key={approval.id} aria-busy={resolvingApprovals.has(approval.id)}>
+            <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="approval-heading">
               <ShieldCheck size={16} />
               <strong>批准工具调用</strong>
@@ -684,14 +688,15 @@ export default function Chat({
                 {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <X size={14} />}
                 拒绝
               </button>
-              <button
+              <GlareButton
                 className="button primary"
                 disabled={resolvingApprovals.has(approval.id)}
                 onClick={() => void resolveApproval(approval.id, 'allowed')}
+                glareColor="color-mix(in srgb, var(--hbar-ok) 62%, transparent)"
               >
                 {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
                 批准
-              </button>
+              </GlareButton>
               <button
                 className="button approval-remember"
                 disabled={resolvingApprovals.has(approval.id)}
@@ -719,12 +724,13 @@ export default function Chat({
           </div>
         )}
         <form
-          className="composer"
+          className="composer rb-composer-surface"
           onSubmit={(event) => {
             event.preventDefault()
             void send()
           }}
         >
+          <GlassSurface className="composer-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="composer-context-strip" aria-label="会话上下文">
             <span className="composer-context-location" title={workspace?.path ?? '未选择工作区'}>
               <FolderOpen size={14} />
@@ -818,7 +824,7 @@ export default function Chat({
                   <Square size={14} fill="currentColor" />
                 </button>
               )}
-              <button
+              <GlareButton
                 className="send-button"
                 type="submit"
                 title={activeRun ? '加入队列' : '发送'}
@@ -832,7 +838,7 @@ export default function Chat({
                 }
               >
                 {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
-              </button>
+              </GlareButton>
             </div>
           </div>
         </form>

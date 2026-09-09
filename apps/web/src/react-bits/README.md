@@ -11,6 +11,8 @@ Selected components:
   fallback, mapped to hbar's semantic surface and accent tokens.
 - `GlassIconButton`: the layered `GlassIcons` button treatment, constrained to
   the existing desktop tool-rail dimensions.
+- `GlareButton`: the `GlareHover` highlight adapted for native send and approve
+  buttons without changing their keyboard or disabled behavior.
 
 The source project is distributed under the MIT + Commons Clause license. This
 adapter is kept in the application rather than adding the reference site as a
