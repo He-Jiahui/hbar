@@ -2226,12 +2226,17 @@ body.resizing-sidebar .sidebar-resizer::after {
   width: 100%;
   min-height: 48px;
   align-items: center;
+  justify-content: flex-start;
   gap: 11px;
-  padding: 7px 10px;
+  padding: 8px 14px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--hbar-t2);
   text-align: left;
+}
+
+.command-palette-list > button > svg {
+  flex: 0 0 18px;
 }
 
 .command-palette-list > button:hover,
