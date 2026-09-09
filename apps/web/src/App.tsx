@@ -188,7 +188,15 @@ function Pairing() {
     </main>
   )
 }
-function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): void }) {
+function Sessions({
+  onSelect,
+  onNew,
+  creating = false,
+}: {
+  onSelect(id: string): void
+  onNew(): void
+  creating?: boolean
+}) {
   const [search, setSearch] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -340,9 +348,9 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
         )}
       </div>
-      <button className="new-session" onClick={onNew}>
-        <Plus size={15} />
-        新建会话
+      <button className="new-session" onClick={onNew} disabled={creating} aria-busy={creating}>
+        {creating ? <LoaderCircle size={15} className="spinning" /> : <Plus size={15} />}
+        {creating ? '创建中' : '新建会话'}
       </button>
     </div>
   )
@@ -586,11 +594,13 @@ export default function App() {
   const initialSelection = useRef(true)
   const switchingSession = useRef(false)
   const lastSessionSelection = useRef<string | undefined>(undefined)
+  const creatingSession = useRef(false)
   const [small, setSmall] = useState(window.innerWidth < 900),
     [sidebar, setSidebar] = useState(true),
     [mobileView, setMobileView] = useState('chat'),
     [workspaceModal, setWorkspaceModal] = useState(false),
     [workspacePath, setWorkspacePath] = useState('')
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
@@ -879,11 +889,14 @@ export default function App() {
     if (small) setMobileView('chat')
   }
   async function newSession() {
+    if (creatingSession.current) return
     const targetWorkspaceId = workspaceId || data?.workspaces[0]?.id || ''
     if (!targetWorkspaceId) {
       setWorkspaceModal(true)
       return
     }
+    creatingSession.current = true
+    setIsCreatingSession(true)
     try {
       if (!workspaceId) useWorkbench.setState({ workspaceId: targetWorkspaceId })
       const session = await client().call('session.create', { workspaceId: targetWorkspaceId })
@@ -891,6 +904,9 @@ export default function App() {
       openSessionTab(session)
     } catch (error) {
       report(error)
+    } finally {
+      creatingSession.current = false
+      setIsCreatingSession(false)
     }
   }
   function selectSession(id: string) {
@@ -1152,7 +1168,7 @@ export default function App() {
         </nav>
         <aside className="sidebar">
           {panel === 'sessions' ? (
-            <Sessions onSelect={selectSession} onNew={() => void newSession()} />
+            <Sessions onSelect={selectSession} onNew={() => void newSession()} creating={isCreatingSession} />
           ) : (
             <Files onOpen={openFile} />
           )}
@@ -1190,7 +1206,7 @@ export default function App() {
           {small ? (
             <>
               {mobileView === 'sessions' ? (
-                <Sessions onSelect={selectSession} onNew={() => void newSession()} />
+                <Sessions onSelect={selectSession} onNew={() => void newSession()} creating={isCreatingSession} />
               ) : mobileView === 'settings' ? (
                 <Settings />
               ) : mobileView === 'activity' ? (

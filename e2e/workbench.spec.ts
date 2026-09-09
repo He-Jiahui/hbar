@@ -226,6 +226,25 @@ test('session sidebar exposes explicit rename and one primary new-session action
   }
 })
 
+test('new-session action creates only one session when double-clicked', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const before = await fixture.api.call('system.bootstrap', {})
+    const workspaceId = before.workspaces[0]!.id
+    const countBefore = before.sessions.filter((session) => session.workspaceId === workspaceId).length
+    const action = page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })
+
+    await action.dblclick()
+    await expect.poll(async () => {
+      const current = await fixture.api.call('system.bootstrap', {})
+      return current.sessions.filter((session) => session.workspaceId === workspaceId).length
+    }).toBe(countBefore + 1)
+    await expect(page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })).toBeEnabled()
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('model picker and permission preset survive a refresh', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
