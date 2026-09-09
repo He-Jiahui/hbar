@@ -9,6 +9,8 @@ Selected components:
 - `SpotlightCard`: pointer-proximity radial highlight for dense interactive rows.
 - `GlassSurface`: SVG displacement glass with the source component's browser
   fallback, mapped to hbar's semantic surface and accent tokens.
+- `GlassIconButton`: the layered `GlassIcons` button treatment, constrained to
+  the existing desktop tool-rail dimensions.
 
 The source project is distributed under the MIT + Commons Clause license. This
 adapter is kept in the application rather than adding the reference site as a

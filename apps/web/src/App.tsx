@@ -54,6 +54,7 @@ import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import SpotlightCard from './react-bits/SpotlightCard'
+import GlassIconButton from './react-bits/GlassIconButton'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -1100,7 +1101,9 @@ export default function App() {
         style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
       >
         <nav className="tool-rail left-rail">
-          <button
+          <GlassIconButton
+            label="会话"
+            tone="accent"
             title="会话"
             aria-label="会话"
             className={panel === 'sessions' ? 'selected' : ''}
@@ -1110,8 +1113,10 @@ export default function App() {
             }}
           >
             <MessageSquare size={19} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="文件"
+            tone="accent"
             title="文件"
             aria-label="文件"
             className={panel === 'files' ? 'selected' : ''}
@@ -1121,9 +1126,11 @@ export default function App() {
             }}
           >
             <Folder size={19} />
-          </button>
+          </GlassIconButton>
           <span />
-          <button
+          <GlassIconButton
+            label="诊断"
+            tone="warning"
             title="诊断"
             aria-label="诊断"
             aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
@@ -1131,8 +1138,10 @@ export default function App() {
             onClick={() => openPanel(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
           >
             <CircleHelp size={18} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="恢复默认布局"
+            tone="neutral"
             title="恢复默认布局"
             aria-label="恢复默认布局"
             onClick={() => {
@@ -1141,7 +1150,7 @@ export default function App() {
             }}
           >
             <LayoutGrid size={18} />
-          </button>
+          </GlassIconButton>
         </nav>
         <aside className="sidebar">
           {panel === 'sessions' ? (
@@ -1309,7 +1318,9 @@ export default function App() {
           )}
         </main>
         <nav className="tool-rail right-rail">
-          <button
+          <GlassIconButton
+            label="浏览器"
+            tone="accent"
             title="浏览器"
             aria-label="浏览器"
             aria-pressed={toolPanel === 'browser'}
@@ -1317,8 +1328,10 @@ export default function App() {
             onClick={() => toggleGalleryTool('browser', '浏览器', 'browser', undefined, 'right')}
           >
             <Globe size={18} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="会话检查"
+            tone="accent"
             title="会话检查"
             aria-label="会话检查"
             aria-pressed={toolPanel === 'inspector'}
@@ -1326,8 +1339,10 @@ export default function App() {
             onClick={() => toggleGalleryTool('inspector', '会话检查', 'inspector', undefined, 'right')}
           >
             <FileSearch size={18} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="计划"
+            tone="accent"
             title="计划"
             aria-label="计划"
             aria-pressed={toolPanel === 'plan'}
@@ -1335,8 +1350,10 @@ export default function App() {
             onClick={() => toggleGalleryTool('plan', '计划', 'plan', undefined, 'right')}
           >
             <ListChecks size={18} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="会话洞察"
+            tone="status"
             title="会话洞察"
             aria-label="会话洞察"
             aria-pressed={toolPanel === 'insights'}
@@ -1344,8 +1361,10 @@ export default function App() {
             onClick={() => toggleGalleryTool('insights', '会话洞察', 'insights', undefined, 'right')}
           >
             <Activity size={18} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="终端"
+            tone="neutral"
             title="终端"
             aria-label="终端"
             aria-pressed={toolPanel === 'terminal'}
@@ -1353,8 +1372,10 @@ export default function App() {
             onClick={() => togglePanel('terminal', '终端', 'terminal', 'bottom')}
           >
             <TerminalSquare size={18} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="运行与事件"
+            tone="status"
             title="运行与事件"
             aria-label="运行与事件"
             aria-pressed={toolPanel === 'activity'}
@@ -1362,8 +1383,10 @@ export default function App() {
             onClick={() => toggleGalleryTool('activity', '运行', 'activity', undefined, 'right')}
           >
             <Activity size={18} />
-          </button>
-          <button
+          </GlassIconButton>
+          <GlassIconButton
+            label="设置"
+            tone="neutral"
             title="设置"
             aria-label="设置"
             aria-pressed={toolPanel === 'settings'}
@@ -1371,9 +1394,11 @@ export default function App() {
             onClick={toggleSettings}
           >
             <Settings2 size={18} />
-          </button>
+          </GlassIconButton>
           {[...(data?.panels ?? []), ...clientPanels].map((contribution) => (
-            <button
+            <GlassIconButton
+              label={contribution.title}
+              tone="accent"
               key={contribution.id}
               title={contribution.title}
               aria-label={contribution.title}
@@ -1390,10 +1415,12 @@ export default function App() {
               }
             >
               <LayoutGrid size={18} />
-            </button>
+            </GlassIconButton>
           ))}
           <span />
-          <button
+          <GlassIconButton
+            label="诊断"
+            tone="warning"
             title="诊断"
             aria-label="诊断"
             aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
@@ -1401,7 +1428,7 @@ export default function App() {
             onClick={() => toggleGalleryTool(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
           >
             <CircleHelp size={18} />
-          </button>
+          </GlassIconButton>
         </nav>
       </div>
       <footer className="statusbar">

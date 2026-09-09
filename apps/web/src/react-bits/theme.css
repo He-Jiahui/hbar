@@ -44,6 +44,10 @@
   border-color: color-mix(in srgb, var(--rb-status) 34%, transparent);
 }
 
+.tool-rail .rb-glass-icon-button[data-tone='accent'] .rb-glass-icon-back {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--rb-accent) 82%, transparent), transparent 76%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rb-spotlight-card::before,
   .rb-spotlight-card::after {
