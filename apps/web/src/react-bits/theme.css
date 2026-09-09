@@ -75,6 +75,31 @@
   background: color-mix(in srgb, var(--hbar-s0) 78%, transparent);
 }
 
+.composer-menu-card.rb-spotlight-card,
+.permission-option-card.rb-spotlight-card {
+  border-radius: var(--radius-sm);
+}
+
+.composer-menu-card.rb-spotlight-card.selected,
+.permission-option-card.rb-spotlight-card.selected {
+  background: var(--hbar-ac-soft);
+}
+
+.composer-menu-card.rb-spotlight-card > button,
+.permission-option-card.rb-spotlight-card > button {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.composer-menu-card.rb-spotlight-card > button:hover,
+.composer-menu-card.rb-spotlight-card > button.selected,
+.permission-option-card.rb-spotlight-card > button:hover,
+.permission-option-card.rb-spotlight-card > button.selected {
+  border-color: transparent;
+  background: transparent;
+}
+
 .rb-capability-tabs,
 .rb-capability-surface {
   position: relative;

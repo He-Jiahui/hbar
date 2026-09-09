@@ -4,6 +4,7 @@ import type { ApprovalMode } from '@hbar/contracts'
 import { permissionPreset, permissionPresets } from './permissions'
 import { report, setApprovalMode, useWorkbench } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 export interface PermissionSelectorProps {
   compact?: boolean
@@ -87,22 +88,28 @@ export default function PermissionSelector({ compact = true, className = '', pla
           <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="permission-menu-heading">工具权限</div>
           {permissionPresets.map((preset) => (
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={preset.id === selected.id}
-              className={`permission-option permission-tone-${preset.tone} ${preset.id === selected.id ? 'selected' : ''}`}
-              disabled={pending !== null}
+            <SpotlightCard
+              className={`permission-option-card permission-tone-${preset.tone} ${preset.id === selected.id ? 'selected' : ''}`}
               key={preset.id}
-              onClick={() => void choose(preset.id)}
+              role="presentation"
+              spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
             >
-              {pending === preset.id ? <LoaderCircle size={14} className="spinning" /> : <ModeIcon mode={preset.id} />}
-              <span className="permission-option-copy">
-                <strong>{preset.label}</strong>
-                <small>{preset.description}</small>
-              </span>
-              {preset.id === selected.id && <Check size={14} />}
-            </button>
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={preset.id === selected.id}
+                className={`permission-option permission-tone-${preset.tone} ${preset.id === selected.id ? 'selected' : ''}`}
+                disabled={pending !== null}
+                onClick={() => void choose(preset.id)}
+              >
+                {pending === preset.id ? <LoaderCircle size={14} className="spinning" /> : <ModeIcon mode={preset.id} />}
+                <span className="permission-option-copy">
+                  <strong>{preset.label}</strong>
+                  <small>{preset.description}</small>
+                </span>
+                {preset.id === selected.id && <Check size={14} />}
+              </button>
+            </SpotlightCard>
           ))}
           {failure && <div className="inline-error" role="alert">{failure}</div>}
           <div className="permission-menu-footer">可在设置中修改默认模式</div>

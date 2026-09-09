@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
 import GlassSurface from './react-bits/GlassSurface'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 const GROUP_ORDER: readonly ComposerActionGroup[] = ['session', 'context', 'tools', 'extensions']
 const GROUP_LABELS: Record<ComposerActionGroup, string> = {
@@ -166,28 +167,34 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
                   index += 1
                   const Icon = ICONS[action.icon]
                   return (
-                    <button
+                    <SpotlightCard
+                      className={`composer-menu-card ${itemIndex === selectedIndex ? 'selected' : ''}`}
                       key={action.id}
-                      ref={(element) => {
-                        itemRefs.current[itemIndex] = element
-                      }}
-                      type="button"
-                      role="menuitem"
-                      disabled={action.disabled}
-                      aria-label={action.label}
-                      title={action.disabled ? action.disabledReason : action.description}
-                      className={`composer-menu-item ${itemIndex === selectedIndex ? 'selected' : ''}`}
-                      onClick={() => select(action)}
+                      role="presentation"
+                      spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
                     >
-                      <span className="composer-menu-icon">
-                        <Icon size={15} />
-                      </span>
-                      <span className="composer-menu-copy">
-                        <strong>{action.label}</strong>
-                        {action.description && <small>{action.description}</small>}
-                      </span>
-                      {action.disabled && <span className="composer-menu-status">不可用</span>}
-                    </button>
+                      <button
+                        ref={(element) => {
+                          itemRefs.current[itemIndex] = element
+                        }}
+                        type="button"
+                        role="menuitem"
+                        disabled={action.disabled}
+                        aria-label={action.label}
+                        title={action.disabled ? action.disabledReason : action.description}
+                        className={`composer-menu-item ${itemIndex === selectedIndex ? 'selected' : ''}`}
+                        onClick={() => select(action)}
+                      >
+                        <span className="composer-menu-icon">
+                          <Icon size={15} />
+                        </span>
+                        <span className="composer-menu-copy">
+                          <strong>{action.label}</strong>
+                          {action.description && <small>{action.description}</small>}
+                        </span>
+                        {action.disabled && <span className="composer-menu-status">不可用</span>}
+                      </button>
+                    </SpotlightCard>
                   )
                 })}
               </section>
