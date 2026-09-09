@@ -322,6 +322,61 @@
   z-index: 1;
 }
 
+.rb-file-nav,
+.rb-file-viewer,
+.rb-activity-panel,
+.rb-diagnose-panel,
+.rb-plugin-panel {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-file-nav > .file-nav-glass,
+.rb-file-viewer > .file-viewer-glass,
+.rb-activity-panel > .activity-panel-glass,
+.rb-diagnose-panel > .diagnose-panel-glass,
+.rb-plugin-panel > .plugin-panel-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-file-nav > .file-nav-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 74%, transparent);
+}
+
+.rb-file-viewer > .file-viewer-glass {
+  background: color-mix(in srgb, var(--hbar-s2) 62%, transparent);
+}
+
+.rb-activity-panel > .activity-panel-glass,
+.rb-diagnose-panel > .diagnose-panel-glass,
+.rb-plugin-panel > .plugin-panel-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 70%, transparent);
+}
+
+.rb-file-nav > .file-nav-glass::before,
+.rb-file-viewer > .file-viewer-glass::before,
+.rb-activity-panel > .activity-panel-glass::before,
+.rb-diagnose-panel > .diagnose-panel-glass::before,
+.rb-plugin-panel > .plugin-panel-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 6%, transparent), transparent 48%);
+}
+
+.rb-file-nav > :not(.file-nav-glass),
+.rb-file-viewer > :not(.file-viewer-glass),
+.rb-activity-panel > :not(.activity-panel-glass),
+.rb-diagnose-panel > :not(.diagnose-panel-glass),
+.rb-plugin-panel > :not(.plugin-panel-glass) {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-thinking-surface,
 .rb-queue-surface,
 .rb-run-outcome-surface {

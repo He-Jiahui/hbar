@@ -420,7 +420,8 @@ function Files({ onOpen }: { onOpen(path: string): void }) {
     }
   }, [workspaceId, path])
   return (
-    <div className="file-nav">
+    <div className="file-nav rb-file-nav">
+      <GlassSurface className="file-nav-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="sidebar-heading">
         <strong>文件</strong>
         <button
@@ -471,7 +472,8 @@ function FileViewer({ path, workspaceId }: { path: string; workspaceId: string }
     }
   }, [workspaceId, path])
   return (
-    <div className="file-viewer">
+    <div className="file-viewer rb-file-viewer">
+      <GlassSurface className="file-viewer-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="file-viewer-header">
         <FileCode2 size={14} />
         <span>{path}</span>
@@ -509,7 +511,8 @@ function ActivityPanel() {
   }, [mode, sessionId, cursor])
   const usage = snapshot?.usage
   return (
-    <div className="activity-panel">
+    <div className="activity-panel rb-activity-panel">
+      <GlassSurface className="activity-panel-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="tool-panel-tabs">
         <button className={mode === 'activity' ? 'selected' : ''} onClick={() => setMode('activity')}>
           运行
@@ -601,7 +604,8 @@ function Diagnose() {
   }
   useEffect(refresh, [])
   return (
-    <div className="diagnose-panel">
+    <div className="diagnose-panel rb-diagnose-panel">
+      <GlassSurface className="diagnose-panel-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="page-heading">
         <h1>诊断</h1>
         <button title="刷新诊断" aria-label="刷新诊断" onClick={refresh}>
@@ -1071,13 +1075,15 @@ export default function App() {
     const ClientPanel = clientPanels.find((p) => p.id === panelId)?.component
     if (ClientPanel)
       return (
-        <div className="plugin-panel">
+        <div className="plugin-panel rb-plugin-panel">
+          <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
           <ClientPanel />
         </div>
       )
     const contribution = data?.panels.find((p) => p.id === panelId)
     return contribution ? (
-      <div className="plugin-panel">
+      <div className="plugin-panel rb-plugin-panel">
+        <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
         {contribution.kind === 'markdown' ? (
           <Markdown text={contribution.content} />
         ) : (
@@ -1279,7 +1285,8 @@ export default function App() {
               ) : mobileView === 'plugin' ? (
                 renderPlugin(mobilePanel)
               ) : mobileView === 'plugins' ? (
-                <div className="plugin-panel">
+                <div className="plugin-panel rb-plugin-panel">
+                  <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
                   <h2>工具与插件</h2>
                   <div className="mobile-tool-grid" aria-label="工具窗口">
                     {MOBILE_TOOLS.map(({ id, title, icon: Icon }) => (
