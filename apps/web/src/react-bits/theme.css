@@ -29,12 +29,18 @@
 /* Keep command choices anchored to the same left edge even when a component
  * library or global button reset changes the default flex alignment. */
 .command-palette-list > .command-palette-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
   justify-content: flex-start;
-  padding-inline: 16px;
+  margin-inline: 0;
+  padding: 10px 16px;
   text-align: left;
 }
 
 .command-palette-list > .command-palette-item > .command-palette-copy {
+  flex: 1 1 auto;
+  min-width: 0;
   align-items: flex-start;
   text-align: left;
 }
@@ -343,13 +349,36 @@
 }
 
 .terminal-command-entry {
+  width: 100%;
   margin-left: 0;
   margin-right: auto;
-  padding-inline: 12px;
+  padding-inline: 16px;
   text-align: left;
 }
 
 .terminal-command-entry > .markdown {
+  width: 100%;
+  text-align: left;
+}
+
+.terminal-completions button {
+  width: 100%;
+  justify-content: flex-start;
+  padding-inline: 16px;
+  text-align: left;
+}
+
+.tool-call {
+  width: 100%;
+  margin-inline: 0;
+  justify-content: flex-start;
+  padding-inline: 14px;
+  text-align: left;
+}
+
+.tool-call > code {
+  flex: 1 1 auto;
+  min-width: 0;
   text-align: left;
 }
 

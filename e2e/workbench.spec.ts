@@ -65,9 +65,19 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(palette).toHaveClass(/glass-surface/)
     const commandStyle = await palette.locator('.command-palette-list > .command-palette-item').first().evaluate((element) => {
       const style = getComputedStyle(element)
-      return { justifyContent: style.justifyContent, paddingLeft: style.paddingLeft, paddingRight: style.paddingRight }
+      return {
+        justifyContent: style.justifyContent,
+        paddingLeft: style.paddingLeft,
+        paddingRight: style.paddingRight,
+        textAlign: style.textAlign,
+      }
     })
-    expect(commandStyle).toEqual({ justifyContent: 'flex-start', paddingLeft: '16px', paddingRight: '16px' })
+    expect(commandStyle).toEqual({
+      justifyContent: 'flex-start',
+      paddingLeft: '16px',
+      paddingRight: '16px',
+      textAlign: 'left',
+    })
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-command-palette.png` })
     await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('命令控制台')
     await palette.getByRole('option', { name: /打开命令控制台/ }).press('Enter')
@@ -566,8 +576,8 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
       })
     expect(commandEntryStyle).toEqual({
       marginLeft: '0px',
-      paddingLeft: '12px',
-      paddingRight: '12px',
+      paddingLeft: '16px',
+      paddingRight: '16px',
       textAlign: 'left',
     })
 
