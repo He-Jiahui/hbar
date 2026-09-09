@@ -69,6 +69,49 @@
   background-clip: padding-box;
 }
 
+.topbar,
+.sidebar,
+.statusbar,
+.mobile-nav {
+  position: relative;
+  isolation: isolate;
+}
+
+.topbar > .chrome-glass,
+.sidebar > .chrome-glass,
+.statusbar > .chrome-glass,
+.mobile-nav > .chrome-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.topbar > :not(.chrome-glass),
+.sidebar > :not(.chrome-glass),
+.statusbar > :not(.chrome-glass),
+.mobile-nav > :not(.chrome-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar > .sidebar-resizer {
+  position: absolute;
+  z-index: 5;
+}
+
+.topbar > .chrome-glass,
+.statusbar > .chrome-glass,
+.mobile-nav > .chrome-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 84%, transparent);
+}
+
+.sidebar > .chrome-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 76%, transparent);
+}
+
 .rb-composer-surface,
 .rb-decision-surface {
   position: relative;
