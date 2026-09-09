@@ -225,6 +225,54 @@ function MessageView({ message }: { message: Message }) {
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
     .join('\n')
+  const messageContent = message.content.map((block, index) => {
+    if (block.type === 'text') return <Markdown key={index} text={block.text} />
+    if (block.type === 'thinking')
+      return (
+        <details className="thinking rb-thinking-surface" key={index}>
+          <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
+          <summary>思考过程</summary>
+          <Markdown text={block.text} />
+        </details>
+      )
+    if (block.type === 'image')
+      return (
+        <a key={index} href={client().artifactUrl(block.artifact.id)} target="_blank" rel="noreferrer">
+          <img
+            className="attachment-image"
+            src={client().artifactUrl(block.artifact.id)}
+            alt={block.artifact.name}
+            loading="lazy"
+          />
+        </a>
+      )
+    if (block.type === 'file')
+      return (
+        <a
+          className="attachment-file"
+          key={index}
+          href={client().artifactUrl(block.artifact.id)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <FileCode2 size={15} />
+          <span>{block.artifact.name}</span>
+        </a>
+      )
+    if (block.type === 'tool_call')
+      return (
+        <SpotlightCard
+          className="tool-call"
+          key={index}
+          spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"
+        >
+          <Wrench size={13} />
+          <span>{block.name}</span>
+          <code>{String(block.args.path ?? block.args.command ?? '').slice(0, 160)}</code>
+        </SpotlightCard>
+      )
+    return <ToolResult key={index} block={block} />
+  })
   return (
     <article className={`message message-${message.role}`} data-message-id={message.id}>
       {message.role !== 'tool' && (
@@ -236,56 +284,16 @@ function MessageView({ message }: { message: Message }) {
           <time>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
         </div>
       )}
-      <div className="message-body">
-        {message.content.map((block, index) => {
-          if (block.type === 'text') return <Markdown key={index} text={block.text} />
-          if (block.type === 'thinking')
-            return (
-              <details className="thinking rb-thinking-surface" key={index}>
-                <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
-                <summary>思考过程</summary>
-                <Markdown text={block.text} />
-              </details>
-            )
-          if (block.type === 'image')
-            return (
-              <a key={index} href={client().artifactUrl(block.artifact.id)} target="_blank" rel="noreferrer">
-                <img
-                  className="attachment-image"
-                  src={client().artifactUrl(block.artifact.id)}
-                  alt={block.artifact.name}
-                  loading="lazy"
-                />
-              </a>
-            )
-          if (block.type === 'file')
-            return (
-              <a
-                className="attachment-file"
-                key={index}
-                href={client().artifactUrl(block.artifact.id)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <FileCode2 size={15} />
-                <span>{block.artifact.name}</span>
-              </a>
-            )
-          if (block.type === 'tool_call')
-            return (
-              <SpotlightCard
-                className="tool-call"
-                key={index}
-                spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"
-              >
-                <Wrench size={13} />
-                <span>{block.name}</span>
-                <code>{String(block.args.path ?? block.args.command ?? '').slice(0, 160)}</code>
-              </SpotlightCard>
-            )
-          return <ToolResult key={index} block={block} />
-        })}
-      </div>
+      {message.role === 'user' ? (
+        <SpotlightCard
+          className="message-body rb-message-user-surface"
+          spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)"
+        >
+          {messageContent}
+        </SpotlightCard>
+      ) : (
+        <div className="message-body">{messageContent}</div>
+      )}
       {text && message.role !== 'tool' && (
         <div className="message-actions">
           <button
@@ -521,7 +529,8 @@ export default function Chat({
   }
   return (
     <div className="chat-panel">
-      <header className="session-header" data-testid="session-header">
+      <header className="session-header rb-session-header" data-testid="session-header">
+        <GlassSurface className="session-header-glass" width="100%" height="100%" aria-hidden="true" />
         <div className="session-header-title">
           <span className="session-header-mark" aria-hidden="true">
             h
@@ -554,7 +563,8 @@ export default function Chat({
           <RefreshCw size={15} />
         </button>
       </header>
-      <div className="chat-context">
+      <div className="chat-context rb-chat-context">
+        <GlassSurface className="chat-context-glass" width="100%" height="100%" aria-hidden="true" />
         <div>
           <GitBranch size={13} />
           <span>

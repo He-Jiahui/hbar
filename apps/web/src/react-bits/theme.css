@@ -276,6 +276,52 @@
   z-index: 1;
 }
 
+.rb-session-header,
+.rb-chat-context {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-session-header > .session-header-glass,
+.rb-chat-context > .chat-context-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-session-header > .session-header-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 78%, transparent);
+}
+
+.rb-chat-context > .chat-context-glass {
+  background: color-mix(in srgb, var(--hbar-s1) 62%, transparent);
+}
+
+.rb-session-header > .session-header-glass::before,
+.rb-chat-context > .chat-context-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 7%, transparent), transparent 48%);
+}
+
+.rb-session-header > :not(.session-header-glass),
+.rb-chat-context > :not(.chat-context-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-message-user-surface {
+  background-clip: padding-box;
+}
+
+.rb-message-user-surface > * {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-thinking-surface,
 .rb-queue-surface,
 .rb-run-outcome-surface {

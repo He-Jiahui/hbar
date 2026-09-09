@@ -37,6 +37,8 @@ test('workbench keeps tools on demand and exposes the global command palette', a
   const fixture = await login(context, page)
   try {
     await expect(page.locator('.session-list .rb-spotlight-card').first()).toBeVisible()
+    await expect(page.locator('.session-header-glass')).toHaveClass(/glass-surface/)
+    await expect(page.locator('.chat-context-glass')).toHaveClass(/glass-surface/)
     const bootstrap = await fixture.api.call('system.bootstrap', {})
     const browserSession = bootstrap.sessions.find((session) => !session.archived)
     if (!browserSession) throw new Error('E2E fixture did not expose an active session')
@@ -507,6 +509,7 @@ test('rich content, image attachments and hostile Markdown render within their c
     await expect(page.locator('.attachment-chip')).toBeVisible()
     await send(page, '<img src=x onerror="window.compromised=true"> [link](javascript:alert(1))')
     await expect(page.locator('.message-user .attachment-image')).toBeAttached()
+    await expect(page.locator('.message-user .rb-message-user-surface').last()).toHaveClass(/rb-spotlight-card/)
     expect(await page.evaluate(() => (window as unknown as { compromised?: boolean }).compromised)).toBeUndefined()
     expect(
       await page
