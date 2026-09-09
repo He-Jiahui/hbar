@@ -222,6 +222,56 @@
   background: linear-gradient(145deg, color-mix(in srgb, var(--rb-accent) 82%, transparent), transparent 76%);
 }
 
+.terminal-toolbar,
+.terminal-composer,
+.rb-terminal-decision {
+  position: relative;
+  isolation: isolate;
+}
+
+.terminal-toolbar,
+.terminal-composer {
+  background: color-mix(in srgb, var(--hbar-s0) 72%, transparent);
+}
+
+.rb-terminal-decision {
+  border-color: color-mix(in srgb, var(--hbar-wn) 58%, var(--hbar-bd));
+  background: transparent;
+}
+
+.terminal-toolbar > .terminal-toolbar-glass,
+.terminal-composer > .terminal-composer-glass,
+.rb-terminal-decision > .terminal-approval-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.terminal-toolbar > .terminal-toolbar-glass,
+.terminal-composer > .terminal-composer-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 84%, transparent);
+}
+
+.rb-terminal-decision > .terminal-approval-glass {
+  border-color: color-mix(in srgb, var(--hbar-wn) 58%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--hbar-wn-soft) 80%, var(--hbar-s1));
+}
+
+.terminal-toolbar > :not(.terminal-toolbar-glass),
+.rb-terminal-decision > :not(.terminal-approval-glass),
+.terminal-composer > textarea,
+.terminal-composer > .terminal-send {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal-composer > .terminal-completions {
+  z-index: 30;
+}
+
 .terminal-command-entry {
   margin-left: 0;
   margin-right: auto;

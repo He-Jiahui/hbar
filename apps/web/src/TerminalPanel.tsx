@@ -23,6 +23,8 @@ import {
 import { useUIPlugins } from './ui-plugins'
 import Markdown from './Markdown'
 import { modelThinkingLabel, modelThinkingLevels } from './model-catalog'
+import GlassSurface from './react-bits/GlassSurface'
+import GlareButton from './react-bits/GlareButton'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -300,6 +302,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
   return (
     <section className="terminal-panel">
       <header className="terminal-toolbar">
+        <GlassSurface className="terminal-toolbar-glass" width="100%" height="100%" aria-hidden="true" />
         <TerminalSquare size={15} />
         <select
           aria-label="终端 Session"
@@ -363,10 +366,11 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
         ))}
         {snapshot?.approvals.map((approval) => (
           <div
-            className="terminal-entry terminal-approval"
+            className="terminal-entry terminal-approval rb-terminal-decision"
             key={approval.id}
             aria-busy={resolvingApprovals.has(approval.id)}
           >
+            <GlassSurface className="terminal-approval-glass" width="100%" height="100%" aria-hidden="true" />
             <Markdown text={approvalMarkdown(approval)} />
             <div>
               <button
@@ -377,14 +381,15 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
                 {resolvingApprovals.has(approval.id) ? <LoaderCircle size={13} className="spinning" /> : <X size={13} />}
                 拒绝
               </button>
-              <button
+              <GlareButton
                 className="button primary"
                 disabled={resolvingApprovals.has(approval.id)}
                 onClick={() => void resolveApproval('allowed', approval.id).catch(report)}
+                glareColor="color-mix(in srgb, var(--hbar-ok) 62%, transparent)"
               >
                 {resolvingApprovals.has(approval.id) ? <LoaderCircle size={13} className="spinning" /> : <Check size={13} />}
                 批准
-              </button>
+              </GlareButton>
             </div>
           </div>
         ))}
@@ -395,6 +400,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
         ))}
       </div>
       <div className="terminal-composer">
+        <GlassSurface className="terminal-composer-glass" width="100%" height="100%" aria-hidden="true" />
         {candidates.length > 0 && (
           <div className="terminal-completions" role="listbox" aria-label="命令补全">
             {candidates.map((candidate, index) => (
@@ -454,7 +460,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
             }
           }}
         />
-        <button
+        <GlareButton
           className="terminal-send"
           title="执行"
           aria-label="执行"
@@ -462,7 +468,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
           onClick={() => void submit()}
         >
           <Send size={15} />
-        </button>
+        </GlareButton>
       </div>
     </section>
   )
