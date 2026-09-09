@@ -3,14 +3,17 @@ import { Actions, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
   Archive,
+  FileSearch,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
   FileCode2,
   Folder,
   FolderOpen,
+  Globe,
   GitBranch,
   LayoutGrid,
+  ListChecks,
   LoaderCircle,
   MessageSquare,
   Network,
@@ -46,6 +49,7 @@ import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
 import { defaultLayout, restoreLayout } from './workbench/layout'
 import TerminalPanel from './TerminalPanel'
+import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 
@@ -558,6 +562,14 @@ export default function App() {
               ? 'diagnose'
               : component === 'terminal'
                 ? 'terminal'
+                : component === 'browser'
+                  ? 'browser'
+                  : component === 'inspector'
+                    ? 'inspector'
+                    : component === 'plan'
+                      ? 'plan'
+                      : component === 'insights'
+                        ? 'insights'
                 : component === 'file'
                   ? 'file'
                   : component === 'plugin'
@@ -621,6 +633,14 @@ export default function App() {
         return <Settings />
       case 'activity':
         return <ActivityPanel />
+      case 'browser':
+        return <BrowserPanel sessionId={activeSession} />
+      case 'inspector':
+        return <SessionInspectorPanel sessionId={activeSession} />
+      case 'plan':
+        return <PlanPanel sessionId={activeSession} />
+      case 'insights':
+        return <InsightsPanel sessionId={activeSession} />
       case 'file':
         return <FileViewer path={config.path!} workspaceId={config.workspaceId!} />
       case 'diagnose':
@@ -804,6 +824,14 @@ export default function App() {
                 <Diagnose />
               ) : mobileView === 'terminal' ? (
                 <TerminalPanel onSettings={() => setMobileView('settings')} onClose={() => setMobileView('chat')} />
+              ) : mobileView === 'browser' ? (
+                <BrowserPanel sessionId={activeSession} />
+              ) : mobileView === 'inspector' ? (
+                <SessionInspectorPanel sessionId={activeSession} />
+              ) : mobileView === 'plan' ? (
+                <PlanPanel sessionId={activeSession} />
+              ) : mobileView === 'insights' ? (
+                <InsightsPanel sessionId={activeSession} />
               ) : mobileView === 'plugin' ? (
                 renderPlugin(mobilePanel)
               ) : mobileView === 'plugins' ? (
@@ -874,6 +902,42 @@ export default function App() {
           )}
         </main>
         <nav className="tool-rail right-rail">
+          <button
+            title="浏览器"
+            aria-label="浏览器"
+            aria-pressed={toolPanel === 'browser'}
+            className={toolPanel === 'browser' ? 'selected' : ''}
+            onClick={() => openPanel('browser', '浏览器', 'browser', undefined, 'right')}
+          >
+            <Globe size={18} />
+          </button>
+          <button
+            title="会话检查"
+            aria-label="会话检查"
+            aria-pressed={toolPanel === 'inspector'}
+            className={toolPanel === 'inspector' ? 'selected' : ''}
+            onClick={() => openPanel('inspector', '会话检查', 'inspector', undefined, 'right')}
+          >
+            <FileSearch size={18} />
+          </button>
+          <button
+            title="计划"
+            aria-label="计划"
+            aria-pressed={toolPanel === 'plan'}
+            className={toolPanel === 'plan' ? 'selected' : ''}
+            onClick={() => openPanel('plan', '计划', 'plan', undefined, 'right')}
+          >
+            <ListChecks size={18} />
+          </button>
+          <button
+            title="会话洞察"
+            aria-label="会话洞察"
+            aria-pressed={toolPanel === 'insights'}
+            className={toolPanel === 'insights' ? 'selected' : ''}
+            onClick={() => openPanel('insights', '会话洞察', 'insights', undefined, 'right')}
+          >
+            <Activity size={18} />
+          </button>
           <button
             title="终端"
             aria-label="终端"
