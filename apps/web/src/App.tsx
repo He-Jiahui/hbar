@@ -55,6 +55,7 @@ import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from '.
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import SpotlightCard from './react-bits/SpotlightCard'
 import GlassIconButton from './react-bits/GlassIconButton'
+import GlassSurface from './react-bits/GlassSurface'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -1091,6 +1092,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
+        <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
         <button
           className="sidebar-toggle"
           title="会话侧栏"
@@ -1204,6 +1206,7 @@ export default function App() {
           </GlassIconButton>
         </nav>
         <aside className="sidebar">
+          <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
           {panel === 'sessions' ? (
             <Sessions onSelect={selectSession} onNew={() => void newSession()} creating={isCreatingSession} />
           ) : (
@@ -1492,6 +1495,7 @@ export default function App() {
         </nav>
       </div>
       <footer className="statusbar">
+        <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
         <span className="status-item status-workspace" data-status-item="workspace" title="当前工作区">
           <Folder size={12} />
           {data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? 'Workspace'}
@@ -1530,6 +1534,7 @@ export default function App() {
         </span>
       </footer>
       <nav className="mobile-nav">
+        <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
         {[
           { id: 'sessions', label: '会话', icon: MessageSquare },
           { id: 'chat', label: '对话', icon: Plus },
