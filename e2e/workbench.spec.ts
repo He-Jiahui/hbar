@@ -63,6 +63,49 @@ test('composer plus menu exposes mode and attachment capabilities', async ({ pag
   }
 })
 
+test('composer drafts stay with their Session while switching and refreshing', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const first = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: 'Draft one',
+    })
+    await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: 'Draft two',
+    })
+    await page.reload()
+
+    const firstSession = page.locator('.session-select').filter({ hasText: first.title, visible: true })
+    await firstSession.click()
+    const firstInput = page.getByRole('textbox', { name: '消息', exact: true }).filter({ visible: true })
+    await firstInput.fill('draft belongs to the first Session')
+    const plus = page.getByRole('button', { name: '添加能力', exact: true }).filter({ visible: true })
+    await plus.click()
+    const fileChooserPromise = page.waitForEvent('filechooser')
+    await page.getByRole('menuitem', { name: '添加文件', exact: true }).click()
+    const fileChooser = await fileChooserPromise
+    await fileChooser.setFiles({ name: 'draft-context.txt', mimeType: 'text/plain', buffer: Buffer.from('context') })
+    await expect(page.getByRole('button', { name: '移除文件 draft-context.txt', exact: true })).toBeVisible()
+
+    await page.locator('.session-select').filter({ hasText: 'Draft two', visible: true }).click()
+    const secondInput = page.getByRole('textbox', { name: '消息', exact: true }).filter({ visible: true })
+    await secondInput.fill('draft belongs to the second Session')
+    await firstSession.click()
+    await expect(firstInput).toHaveValue('draft belongs to the first Session')
+    await expect(page.getByRole('button', { name: '移除文件 draft-context.txt', exact: true })).toBeVisible()
+    await page.reload()
+    await expect(page.locator('.session-select').filter({ hasText: first.title, visible: true })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: '消息', exact: true }).filter({ visible: true })).toHaveValue(
+      'draft belongs to the first Session',
+    )
+    await expect(page.getByRole('button', { name: '移除文件 draft-context.txt', exact: true })).toBeVisible()
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('model picker and permission preset survive a refresh', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {

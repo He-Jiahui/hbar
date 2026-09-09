@@ -21,7 +21,10 @@ import {
 import type { ArtifactRef, ContentBlock, GitInfo, Message, UserInput, UserInputRequest } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
+  acknowledgeComposerDraft,
   client,
+  moveComposerDraft,
+  updateComposerDraft,
   loadOlder,
   openSession,
   refreshCatalog,
@@ -42,6 +45,7 @@ import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 const CodeEditor = lazy(() => import('./CodeEditor'))
+const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
 function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_result' }> }) {
   const [open, setOpen] = useState(false),
@@ -299,7 +303,10 @@ export default function Chat({
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
-  const draft = useWorkbench((state) => state.drafts[sessionId || 'new'] ?? '')
+  const composerDraft = useWorkbench((state) => state.drafts[sessionId || 'new'])
+  const draft = composerDraft?.text ?? ''
+  const images = composerDraft?.images ?? EMPTY_ARTIFACTS
+  const files = composerDraft?.files ?? EMPTY_ARTIFACTS
   const modelId = useWorkbench((state) => state.modelId),
     thinkingLevel = useWorkbench((state) => state.thinkingLevel),
     approvalMode = useWorkbench((state) => state.approvalMode),
@@ -308,9 +315,7 @@ export default function Chat({
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
   const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
-  const [images, setImages] = useState<ArtifactRef[]>([]),
-    [files, setFiles] = useState<ArtifactRef[]>([]),
-    [busy, setBusy] = useState(false),
+  const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
   const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
@@ -389,24 +394,25 @@ export default function Chat({
     }
     return undefined
   }, [sessionId, totalSize, streamText, snapshot?.approvals.length, snapshot?.userInputs.length])
-  const setDraft = (text: string) =>
-    useWorkbench.setState((state) => ({ drafts: { ...state.drafts, [sessionId || 'new']: text } }))
+  const setDraft = (text: string) => updateComposerDraft(sessionId, { text })
   async function send() {
     if (busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length && !files.length)) return
     if (!modelId) {
       onSettings()
       return
     }
+    const sentDraft = { text: draft, images: [...images], files: [...files] }
     setBusy(true)
     try {
       let target = sessionId
       if (!target) {
         const created = await client().call('session.create', { workspaceId })
         target = created.id
+        moveComposerDraft(undefined, target)
         await refreshCatalog()
         await openSession(target)
       }
-      const input: UserInput = { text: draft, images, files, thinking: thinkingLevel, approval: approvalMode }
+      const input: UserInput = { text: sentDraft.text, images: sentDraft.images, files: sentDraft.files, thinking: thinkingLevel, approval: approvalMode }
       const key = JSON.stringify({ target, input, modelId, thinkingLevel })
       if (pendingRequest.current?.key !== key) pendingRequest.current = { key, requestId: newRequestId() }
       await client().call('run.start', {
@@ -416,9 +422,7 @@ export default function Chat({
         modelId,
       })
       pendingRequest.current = null
-      setDraft('')
-      setImages([])
-      setFiles([])
+      acknowledgeComposerDraft(target, sentDraft)
       stick.current = true
       if (!snapshot) await openSession(target)
     } catch (error) {
@@ -448,8 +452,8 @@ export default function Chat({
     } catch (error) {
       report(error)
     } finally {
-      if (uploadedImages.length) setImages((current) => [...current, ...uploadedImages])
-      if (uploadedFiles.length) setFiles((current) => [...current, ...uploadedFiles])
+      if (uploadedImages.length) updateComposerDraft(sessionId, (current) => ({ images: [...current.images, ...uploadedImages] }))
+      if (uploadedFiles.length) updateComposerDraft(sessionId, (current) => ({ files: [...current.files, ...uploadedFiles] }))
       setUploading(false)
       if (fileInput.current) fileInput.current.value = ''
     }
@@ -607,8 +611,10 @@ export default function Chat({
               className="text-command"
               onClick={() => {
                 setDraft(lastRun.input.text)
-                setImages(lastRun.input.images)
-                setFiles(lastRun.input.files ?? [])
+                updateComposerDraft(sessionId, {
+                  images: lastRun.input.images,
+                  files: lastRun.input.files ?? [],
+                })
               }}
             >
               重新编辑
@@ -728,7 +734,7 @@ export default function Chat({
                     type="button"
                     title="移除图片"
                     aria-label="移除图片"
-                    onClick={() => setImages((list) => list.filter((item) => item.id !== image.id))}
+                    onClick={() => updateComposerDraft(sessionId, (current) => ({ images: current.images.filter((item) => item.id !== image.id) }))}
                   >
                     <X size={12} />
                   </button>
@@ -742,7 +748,7 @@ export default function Chat({
                     type="button"
                     title={`移除文件 ${file.name}`}
                     aria-label={`移除文件 ${file.name}`}
-                    onClick={() => setFiles((list) => list.filter((item) => item.id !== file.id))}
+                    onClick={() => updateComposerDraft(sessionId, (current) => ({ files: current.files.filter((item) => item.id !== file.id) }))}
                   >
                     <X size={12} />
                   </button>

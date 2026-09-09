@@ -19,6 +19,14 @@ import type {
 import { normalizeThinkingLevel } from '@hbar/contracts'
 import { isApprovalMode } from './permissions'
 import {
+  acknowledgeComposerDraftValue,
+  composerDraftKey,
+  EMPTY_COMPOSER_DRAFT,
+  normalizeComposerDraft,
+  normalizeComposerDrafts,
+  type ComposerDraft,
+} from './composer-draft'
+import {
   applySessionCapabilityEvent,
   loadSessionCapabilities,
   resetSessionCapabilities,
@@ -43,12 +51,13 @@ interface WorkbenchState {
   thinkingLevel: ThinkingLevel
   thinkingByModel: Record<string, ThinkingLevel>
   approvalMode: ApprovalMode
-  drafts: Record<string, string>
+  drafts: Record<string, ComposerDraft>
   showArchived: boolean
   panel: 'sessions' | 'files'
   toolPanel: string
   theme: 'dark' | 'light' | 'white'
   layout: unknown
+  sidebarWidth: number
 }
 
 function isTheme(value: unknown): value is WorkbenchState['theme'] {
@@ -68,6 +77,11 @@ const defaultWorkbenchState: WorkbenchState = {
   toolPanel: '',
   theme: 'dark',
   layout: null,
+  sidebarWidth: 272,
+}
+
+function normalizeSidebarWidth(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(360, Math.max(220, Math.round(value))) : 272
 }
 
 export const useWorkbench = create(
@@ -75,16 +89,18 @@ export const useWorkbench = create(
     () => defaultWorkbenchState,
     {
       name: 'hbar.workbench.v1',
-      version: 3,
+      version: 4,
       migrate: (persisted): WorkbenchState => {
         const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
         return {
           ...defaultWorkbenchState,
           ...value,
+          drafts: normalizeComposerDrafts(value.drafts),
           thinkingLevel: isThinkingLevel(value.thinkingLevel) ? value.thinkingLevel : 'off',
           thinkingByModel: normalizeThinkingMap(value.thinkingByModel),
           approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
           theme: isTheme(value.theme) ? value.theme : 'dark',
+          sidebarWidth: normalizeSidebarWidth(value.sidebarWidth),
         }
       },
     },
@@ -93,6 +109,69 @@ export const useWorkbench = create(
 export const useNotice = create<{ error: string; notice: string }>(() => ({ error: '', notice: '' }))
 export const report = (error: unknown) =>
   useNotice.setState({ error: error instanceof Error ? error.message : String(error) })
+
+export function getComposerDraft(sessionId?: string): ComposerDraft {
+  const draft = useWorkbench.getState().drafts[composerDraftKey(sessionId)]
+  return draft ? normalizeComposerDraft(draft) : { ...EMPTY_COMPOSER_DRAFT }
+}
+
+export function updateComposerDraft(
+  sessionId: string | undefined,
+  patch: Partial<ComposerDraft> | ((current: ComposerDraft) => Partial<ComposerDraft>),
+): ComposerDraft {
+  const key = composerDraftKey(sessionId)
+  let nextDraft: ComposerDraft = { ...EMPTY_COMPOSER_DRAFT }
+  useWorkbench.setState((state) => {
+    const current = getDraftFromState(state, key)
+    const changes = typeof patch === 'function' ? patch(current) : patch
+    nextDraft = normalizeComposerDraft({ ...current, ...changes })
+    return { drafts: { ...state.drafts, [key]: nextDraft } }
+  })
+  return nextDraft
+}
+
+export function clearComposerDraft(sessionId?: string): void {
+  const key = composerDraftKey(sessionId)
+  useWorkbench.setState((state) => {
+    if (!state.drafts[key]) return state
+    const drafts = { ...state.drafts }
+    delete drafts[key]
+    return { drafts }
+  })
+}
+
+export function acknowledgeComposerDraft(sessionId: string | undefined, sent: ComposerDraft): void {
+  const key = composerDraftKey(sessionId)
+  useWorkbench.setState((state) => {
+    const current = state.drafts[key]
+    if (!current) return state
+    const next = acknowledgeComposerDraftValue(current, sent)
+    if (!next) {
+      const drafts = { ...state.drafts }
+      delete drafts[key]
+      return { drafts }
+    }
+    return { drafts: { ...state.drafts, [key]: next } }
+  })
+}
+
+export function moveComposerDraft(fromSessionId: string | undefined, toSessionId: string): void {
+  const from = composerDraftKey(fromSessionId)
+  if (!toSessionId || from === toSessionId) return
+  useWorkbench.setState((state) => {
+    const source = state.drafts[from]
+    if (!source || state.drafts[toSessionId]) return state
+    const drafts = { ...state.drafts, [toSessionId]: normalizeComposerDraft(source) }
+    delete drafts[from]
+    return { drafts }
+  })
+}
+
+function getDraftFromState(state: WorkbenchState, key: string): ComposerDraft {
+  const draft = state.drafts[key]
+  return draft ? normalizeComposerDraft(draft) : { ...EMPTY_COMPOSER_DRAFT }
+}
+
 let approvalSequence = 0
 let approvalQueue: Promise<void> = Promise.resolve()
 export async function setApprovalMode(mode: ApprovalMode): Promise<boolean> {
