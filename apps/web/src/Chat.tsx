@@ -211,10 +211,10 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
         </p>
       )}
       <div className="user-input-actions">
-        <button type="button" className="button primary" disabled={saving} onClick={() => void submit()}>
+        <GlareButton type="button" className="button primary" disabled={saving} onClick={() => void submit()}>
           {saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
           提交回答
-        </button>
+        </GlareButton>
       </div>
     </section>
   )

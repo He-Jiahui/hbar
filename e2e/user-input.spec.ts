@@ -49,6 +49,7 @@ test('plan mode renders structured questions and resumes after an answer', async
     await expect(prompt).toContainText('Which scope should the plan cover?')
     await expect(prompt.locator('.user-input-option')).toHaveCount(2)
     await expect(prompt.locator('input[aria-label$="其他答案"]')).toHaveCount(0)
+    await expect(prompt.getByRole('button', { name: '提交回答', exact: true })).toHaveClass(/rb-glare-button/)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-user-input.png` })
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(prompt).toBeVisible()
