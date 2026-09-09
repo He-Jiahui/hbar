@@ -44,7 +44,7 @@ Host 显示可用的局域网/VPN IPv4 地址。手机访问对应地址并配�
 bun run dev --demo
 # Vite http://127.0.0.1:5173，Host http://127.0.0.1:4317
 
-bun run desktop:dev
+bun run desktop
 bun run desktop:build
 ```
 

@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": { "hbar": "apps/cli/src/main.ts" },
+  "bin": {
+    "hbar": "apps/cli/src/main.ts"
+  },
   "packageManager": "bun@1.4.0",
   "workspaces": [
     "apps/*",
@@ -24,6 +26,7 @@
     "test": "bun test tests --timeout 20000",
     "test:e2e": "playwright test",
     "bench": "bun scripts/benchmark.ts",
+    "desktop": "bun scripts/desktop.ts dev",
     "desktop:dev": "bun scripts/desktop.ts dev",
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
