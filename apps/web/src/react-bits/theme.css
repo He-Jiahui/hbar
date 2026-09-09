@@ -429,6 +429,17 @@
   text-align: left;
 }
 
+.tool-call.rb-spotlight-card,
+.tool-result.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
+.tool-call > *,
+.tool-result > * {
+  position: relative;
+  z-index: 1;
+}
+
 .tool-call > code {
   flex: 1 1 auto;
   min-width: 0;

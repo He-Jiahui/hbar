@@ -46,6 +46,7 @@ import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
+import SpotlightCard from './react-bits/SpotlightCard'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -54,7 +55,14 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
     [diff, setDiff] = useState<'after' | 'before'>('after')
   const details = block.details as { before?: string; after?: string; path?: string } | undefined
   return (
-    <div className={`tool-result ${block.isError ? 'tool-failed' : ''}`}>
+    <SpotlightCard
+      className={`tool-result ${block.isError ? 'tool-failed' : ''}`}
+      spotlightColor={
+        block.isError
+          ? 'color-mix(in srgb, var(--hbar-er) 24%, transparent)'
+          : 'color-mix(in srgb, var(--rb-accent) 22%, transparent)'
+      }
+    >
       <button className="tool-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <Wrench size={13} />
@@ -84,7 +92,7 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
           )}
         </div>
       )}
-    </div>
+    </SpotlightCard>
   )
 }
 function approvalSummary(tool: string, args: Record<string, unknown>): string {
@@ -264,11 +272,15 @@ function MessageView({ message }: { message: Message }) {
             )
           if (block.type === 'tool_call')
             return (
-              <div className="tool-call" key={index}>
+              <SpotlightCard
+                className="tool-call"
+                key={index}
+                spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"
+              >
                 <Wrench size={13} />
                 <span>{block.name}</span>
                 <code>{String(block.args.path ?? block.args.command ?? '').slice(0, 160)}</code>
-              </div>
+              </SpotlightCard>
             )
           return <ToolResult key={index} block={block} />
         })}
