@@ -204,6 +204,28 @@ test('session navigation reuses one conversation tab instead of accumulating tab
   }
 })
 
+test('session sidebar exposes explicit rename and one primary new-session action', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const title = `Rename me ${Date.now().toString(36)}`
+    const renamed = `Renamed ${Date.now().toString(36)}`
+    await fixture.api.call('session.create', { workspaceId: bootstrap.workspaces[0]!.id, title })
+    await page.reload()
+    await expect(page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })).toHaveCount(1)
+
+    await page.locator('.session-select').filter({ hasText: title, visible: true }).click()
+    await page.getByRole('button', { name: `重命名 ${title}`, exact: true }).click()
+    const input = page.getByRole('textbox', { name: `重命名 ${title}`, exact: true })
+    await input.fill(renamed)
+    await input.press('Enter')
+    await expect(page.getByRole('button', { name: `重命名 ${renamed}`, exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: renamed, exact: true })).toBeVisible()
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('model picker and permission preset survive a refresh', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {

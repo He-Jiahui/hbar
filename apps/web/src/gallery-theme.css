@@ -660,6 +660,19 @@ body.resizing-sidebar .sidebar-resizer::after {
   color: var(--hbar-t3);
 }
 
+.session-rename-input {
+  width: calc(100% - 12px);
+  min-width: 0;
+  margin: 6px;
+  padding: 7px 8px;
+  border: 1px solid var(--hbar-ac);
+  border-radius: var(--control-radius);
+  background: var(--hbar-bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--hbar-ac) 35%, transparent);
+  color: var(--hbar-t1);
+  font-size: 12px;
+}
+
 .session-row-actions {
   right: 4px;
   bottom: 4px;

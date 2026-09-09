@@ -20,6 +20,7 @@ import {
   Network,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -188,6 +189,9 @@ function Pairing() {
 }
 function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): void }) {
   const [search, setSearch] = useState('')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameBusy, setRenameBusy] = useState(false)
   const data = useCatalog((state) => state.data),
     workspaceId = useWorkbench((state) => state.workspaceId),
     selected = useWorkbench((state) => state.activeSession),
@@ -199,6 +203,39 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
         s.archived === archived &&
         s.title.toLowerCase().includes(search.toLowerCase()),
     ) ?? []
+  function startRename(event: React.MouseEvent, session: Session) {
+    event.preventDefault()
+    event.stopPropagation()
+    setRenamingId(session.id)
+    setRenameValue(session.title)
+  }
+  async function finishRename() {
+    const id = renamingId
+    const title = renameValue.trim()
+    if (!id || renameBusy) return
+    if (!title) {
+      setRenamingId(null)
+      setRenameValue('')
+      return
+    }
+    const session = data?.sessions.find((item) => item.id === id)
+    if (!session || title === session.title) {
+      setRenamingId(null)
+      setRenameValue('')
+      return
+    }
+    setRenameBusy(true)
+    try {
+      await client().call('session.rename', { sessionId: id, title })
+      await refreshCatalog()
+      setRenamingId(null)
+      setRenameValue('')
+    } catch (error) {
+      report(error)
+    } finally {
+      setRenameBusy(false)
+    }
+  }
   async function fork(session: Session) {
     try {
       const child = await client().call('session.fork', { sessionId: session.id })
@@ -221,9 +258,6 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
           >
             <Archive size={15} />
           </button>
-          <button title="新建会话" aria-label="新建会话" onClick={onNew}>
-            <Plus size={17} />
-          </button>
         </div>
       </div>
       <div className="search-field">
@@ -242,28 +276,47 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
             key={session.id}
             spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)"
           >
-            <button
-              className="session-select"
-              onClick={() => onSelect(session.id)}
-              onDoubleClick={() => {
-                const title = window.prompt('会话名称', session.title)
-                if (title?.trim())
-                  void client()
-                    .call('session.rename', { sessionId: session.id, title })
-                    .then(refreshCatalog)
-                    .catch(report)
-              }}
-            >
-              <MessageSquare size={14} />
-              <div>
-                <span>{session.title}</span>
-                <small>
-                  {new Date(session.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                  {session.parentId && ' · 分支'}
-                </small>
-              </div>
-            </button>
+            {renamingId === session.id ? (
+              <input
+                className="session-rename-input"
+                aria-label={`重命名 ${session.title}`}
+                value={renameValue}
+                autoFocus
+                disabled={renameBusy}
+                onChange={(event) => setRenameValue(event.target.value)}
+                onBlur={() => void finishRename()}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    void finishRename()
+                  } else if (event.key === 'Escape') {
+                    event.preventDefault()
+                    setRenamingId(null)
+                    setRenameValue('')
+                  }
+                }}
+              />
+            ) : (
+              <button className="session-select" onClick={() => onSelect(session.id)}>
+                <MessageSquare size={14} />
+                <div>
+                  <span>{session.title}</span>
+                  <small>
+                    {new Date(session.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                    {session.parentId && ' · 分支'}
+                  </small>
+                </div>
+              </button>
+            )}
             <div className="session-row-actions">
+              <button
+                title="重命名会话"
+                aria-label={`重命名 ${session.title}`}
+                disabled={renameBusy}
+                onClick={(event) => startRename(event, session)}
+              >
+                <Pencil size={12} />
+              </button>
               <button title="创建分支" aria-label={`创建分支 ${session.title}`} onClick={() => void fork(session)}>
                 <GitBranch size={12} />
               </button>
