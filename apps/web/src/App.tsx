@@ -689,20 +689,31 @@ export default function App() {
       const existing = model.getNodeById(id)
       if (!existing)
         model.doAction(
-          Actions.addNode({ type: 'tab', id, name: title, component, config }, borderId, DockLocation.CENTER, -1),
+          Actions.addNode(
+            { type: 'tab', id, name: title, component, enableClose: true, config },
+            borderId,
+            DockLocation.CENTER,
+            -1,
+          ),
         )
-      else if (existing.getParent()?.getId() !== borderId)
+      else if (existing instanceof TabNode && !existing.isEnableClose())
+        model.doAction(Actions.updateNodeAttributes(existing.getId(), { enableClose: true }))
+      if (existing && existing.getParent()?.getId() !== borderId)
         model.doAction(Actions.moveNode(id, borderId, DockLocation.CENTER, -1, false))
       model.doAction(Actions.updateNodeAttributes(borderId, { show: true }))
-    } else if (!model.getNodeById(id)) {
-      model.doAction(
-        Actions.addNode(
-          { type: 'tab', id, name: title, component, config },
-          model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
-          placement === 'bottom' ? DockLocation.BOTTOM : placement === 'left' ? DockLocation.LEFT : DockLocation.CENTER,
-          -1,
-        ),
-      )
+    } else {
+      const existing = model.getNodeById(id)
+      if (!existing)
+        model.doAction(
+          Actions.addNode(
+            { type: 'tab', id, name: title, component, enableClose: true, config },
+            model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
+            placement === 'bottom' ? DockLocation.BOTTOM : placement === 'left' ? DockLocation.LEFT : DockLocation.CENTER,
+            -1,
+          ),
+        )
+      else if (existing instanceof TabNode && !existing.isEnableClose())
+        model.doAction(Actions.updateNodeAttributes(existing.getId(), { enableClose: true }))
     }
     model.doAction(Actions.selectTab(id))
   }
@@ -738,6 +749,7 @@ export default function App() {
     openPanel(id, title, component, config, placement)
   }
   const settings = () => openPanel('settings', '设置', 'settings')
+  const toggleSettings = () => toggleGalleryTool('settings', '设置', 'settings', undefined, 'editor')
   function openSessionTab(session: Session) {
     initialSelection.current = false
     const tabs = conversationTabs(model)
@@ -1286,7 +1298,7 @@ export default function App() {
             aria-label="运行与事件"
             aria-pressed={toolPanel === 'activity'}
             className={toolPanel === 'activity' ? 'selected' : ''}
-            onClick={() => openPanel('activity', '运行', 'activity', undefined, 'right')}
+            onClick={() => toggleGalleryTool('activity', '运行', 'activity', undefined, 'right')}
           >
             <Activity size={18} />
           </button>
@@ -1295,7 +1307,7 @@ export default function App() {
             aria-label="设置"
             aria-pressed={toolPanel === 'settings'}
             className={toolPanel === 'settings' ? 'selected' : ''}
-            onClick={settings}
+            onClick={toggleSettings}
           >
             <Settings2 size={18} />
           </button>
@@ -1325,7 +1337,7 @@ export default function App() {
             aria-label="诊断"
             aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
             className={toolPanel === DIAGNOSE_PANEL_ID ? 'selected' : ''}
-            onClick={() => openPanel(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
+            onClick={() => toggleGalleryTool(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
           >
             <CircleHelp size={18} />
           </button>

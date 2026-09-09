@@ -57,11 +57,22 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await palette.getByRole('option', { name: /打开命令控制台/ }).press('Enter')
     await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
 
+    const activityRail = page.getByRole('button', { name: '运行与事件', exact: true }).filter({ visible: true })
+    const activityTab = page.getByRole('tab', { name: '运行', exact: true }).filter({ visible: true })
+    await activityRail.click()
+    await expect(activityTab).toBeVisible()
+    await activityRail.click()
+    await expect(activityTab).toHaveCount(0)
+
     await page.getByRole('button', { name: '设置', exact: true }).first().click()
+    const settingsTab = page.getByRole('tab', { name: '设置', exact: true }).filter({ visible: true })
+    await expect(settingsTab.locator('.flexlayout__tab_button_trailing')).toBeVisible()
     await page.getByRole('button', { name: '外观', exact: true }).click()
     await expect(page.getByRole('heading', { name: '界面主题', exact: true })).toBeVisible()
     await page.getByRole('button', { name: '浅色', exact: true }).click()
     await expect(page.getByRole('button', { name: '浅色', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await settingsTab.locator('.flexlayout__tab_button_trailing').click()
+    await expect(settingsTab).toHaveCount(0)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.keyboard.press('Control+Shift+P')
