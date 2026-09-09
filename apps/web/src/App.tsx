@@ -496,6 +496,7 @@ export default function App() {
   const rightToolsVisible = Boolean(toolPanel && toolPanel !== 'terminal')
   const initialSelection = useRef(true)
   const switchingSession = useRef(false)
+  const lastSessionSelection = useRef<string | undefined>(undefined)
   const [small, setSmall] = useState(window.innerWidth < 900),
     [sidebar, setSidebar] = useState(true),
     [mobileView, setMobileView] = useState('chat'),
@@ -557,11 +558,15 @@ export default function App() {
   }, [])
   useEffect(() => {
     if (!data) return
-    const restoring = initialSelection.current
+    const shouldSelectSession = initialSelection.current || lastSessionSelection.current !== activeSession
     initialSelection.current = false
-    if (!activeSession) return
+    if (!activeSession) {
+      lastSessionSelection.current = activeSession
+      return
+    }
     const session = data.sessions.find((s) => s.id === activeSession)
     if (!session) return
+    lastSessionSelection.current = activeSession
     const tabs = conversationTabs(model)
     const target = tabs.find((tab) => sessionIdFromTab(tab) === session.id) ?? tabs[0]
     if (target) {
@@ -577,7 +582,7 @@ export default function App() {
             }),
           )
         for (const extra of tabs) if (extra.getId() !== target.getId()) model.doAction(Actions.deleteTab(extra.getId()))
-        if (!restoring || !wasTarget) model.doAction(Actions.selectTab(target.getId()))
+        if (shouldSelectSession) model.doAction(Actions.selectTab(target.getId()))
       } finally {
         switchingSession.current = false
       }
@@ -626,7 +631,7 @@ export default function App() {
           -1,
         ),
       )
-    model.doAction(Actions.selectTab(id))
+    if (shouldSelectSession) model.doAction(Actions.selectTab(id))
   }
   function toggleGalleryTool(
     id: string,
