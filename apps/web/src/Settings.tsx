@@ -30,6 +30,7 @@ import PathSettings from './PathSettings'
 import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import GlareButton from './react-bits/GlareButton'
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -548,10 +549,10 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
           <button type="button" className="button" onClick={close}>
             取消
           </button>
-          <button className="button primary" disabled={busy}>
+          <GlareButton className="button primary" disabled={busy}>
             <Save size={14} />
             保存
-          </button>
+          </GlareButton>
         </footer>
       </form>
     </Modal>

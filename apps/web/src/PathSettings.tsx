@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Database, FolderCog, HardDrive, RefreshCw, RotateCcw, Save, ShieldCheck } from 'lucide-react'
 import { usePathSettings } from './path-settings'
+import GlareButton from './react-bits/GlareButton'
 
 export default function PathSettings() {
   const state = usePathSettings()
@@ -96,14 +97,14 @@ export default function PathSettings() {
           <RotateCcw size={14} />
           还原
         </button>
-        <button
+        <GlareButton
           className="button primary"
           disabled={busy || !changed || !state.dataRoot || !state.cacheRoot}
           onClick={() => void state.save()}
         >
           <Save size={14} />
           {state.status === 'saving' ? '应用中' : '应用并在重启后生效'}
-        </button>
+        </GlareButton>
       </div>
     </section>
   )

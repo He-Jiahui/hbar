@@ -28,6 +28,7 @@ import {
   type SessionCapabilityTab,
 } from './session-capabilities'
 import './SessionCapabilityDialog.css'
+import GlareButton from './react-bits/GlareButton'
 
 const TAB_LABELS: Record<SessionCapabilityTab, string> = {
   goal: 'Goal',
@@ -197,10 +198,10 @@ function GoalPane({ sessionId }: { sessionId: string }) {
             清除
           </button>
         )}
-        <button type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
+        <GlareButton type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Save size={14} />}
           {goal ? '保存 Goal' : '创建 Goal'}
-        </button>
+        </GlareButton>
       </footer>
     </section>
   )
@@ -334,10 +335,10 @@ function PlanPane({ sessionId }: { sessionId: string }) {
             清除计划
           </button>
         )}
-        <button type="button" className="button primary" onClick={() => void savePlan()} disabled={state?.saving ?? false}>
+        <GlareButton type="button" className="button primary" onClick={() => void savePlan()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
           保存计划
-        </button>
+        </GlareButton>
       </footer>
     </section>
   )
@@ -419,10 +420,10 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
             清除预算
           </button>
         )}
-        <button type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
+        <GlareButton type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Gauge size={14} />}
           {budget ? '增加上限' : '设置预算'}
-        </button>
+        </GlareButton>
       </footer>
     </section>
   )
