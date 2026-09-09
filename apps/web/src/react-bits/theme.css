@@ -46,6 +46,29 @@
   z-index: 1;
 }
 
+.settings-section {
+  position: relative;
+  isolation: isolate;
+}
+
+.settings-section > .settings-glass-section {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: var(--panel-radius);
+  pointer-events: none;
+}
+
+.settings-section > :not(.settings-glass-section) {
+  position: relative;
+  z-index: 1;
+}
+
+.settings-provider-group.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
 .rb-spotlight-card.session-item,
 .rb-spotlight-card.run-row {
   background-clip: padding-box;

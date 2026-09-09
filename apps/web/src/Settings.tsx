@@ -28,6 +28,8 @@ import { permissionPreset } from './permissions'
 import { providerFromPreset, providerPresets } from './provider-presets'
 import PathSettings from './PathSettings'
 import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
+import GlassSurface from './react-bits/GlassSurface'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -716,6 +718,7 @@ export default function Settings() {
       </nav>
       {tab === 'appearance' && (
         <section className="settings-section appearance-section">
+          <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
               <h2>界面主题</h2>
@@ -746,6 +749,7 @@ export default function Settings() {
       )}
       {tab === 'permissions' && (
         <section className="settings-section permissions-section">
+          <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
               <h2>工具权限</h2>
@@ -775,6 +779,7 @@ export default function Settings() {
       )}
       {tab === 'models' && (
         <section className="settings-section models-section">
+          <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div className="model-section-title">
               <h2>供应商与模型</h2>
@@ -827,7 +832,7 @@ export default function Settings() {
               const connected = first.protocol === 'mock' || group.models.every((model) => model.hasKey)
               const providerId = first.providerId || first.id.split('/')[0] || first.id
               return (
-                <section className="settings-provider-group" key={group.providerId} aria-label={group.providerName}>
+                <SpotlightCard className="settings-provider-group" key={group.providerId} spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)" aria-label={group.providerName}>
                   <header className="settings-provider-heading">
                     <div className="settings-provider-title">
                       <span className="model-icon">
@@ -881,7 +886,7 @@ export default function Settings() {
                       </div>
                     ))}
                   </div>
-                </section>
+                </SpotlightCard>
               )
             })
           ) : (
@@ -910,6 +915,7 @@ export default function Settings() {
       {tab === 'paths' && <PathSettings />}
       {tab === 'plugins' && (
         <section className="settings-section">
+          <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <h2>已安装插件</h2>
             <div className="plugin-tools">
@@ -999,6 +1005,7 @@ export default function Settings() {
       )}
       {tab === 'devices' && (
         <section className="settings-section">
+          <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <h2>宿主连接</h2>
             <span className="success">在线</span>
