@@ -71,6 +71,26 @@ const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
   plugin: 'plugin',
 }
 
+type SessionTabConfig = { sessionId?: string }
+
+function conversationTabs(model: Model): TabNode[] {
+  const tabs: TabNode[] = []
+  model.visitNodes((node) => {
+    if (node instanceof TabNode && node.getComponent() === 'conversation') tabs.push(node)
+  })
+  return tabs
+}
+
+function sessionIdFromTab(tab: TabNode): string | undefined {
+  const config = tab.getConfig() as SessionTabConfig | undefined
+  return typeof config?.sessionId === 'string' && config.sessionId.length > 0 ? config.sessionId : undefined
+}
+
+function sessionTabConfig(tab: TabNode): SessionTabConfig {
+  const config = tab.getConfig() as SessionTabConfig | undefined
+  return config ?? {}
+}
+
 function Pairing() {
   const [code, setCode] = useState(''),
     [name, setName] = useState('Browser'),
@@ -475,6 +495,7 @@ export default function App() {
   const activeSnapshot = useSessions((state) => (activeSession ? state.snapshots[activeSession] : undefined))
   const rightToolsVisible = Boolean(toolPanel && toolPanel !== 'terminal')
   const initialSelection = useRef(true)
+  const switchingSession = useRef(false)
   const [small, setSmall] = useState(window.innerWidth < 900),
     [sidebar, setSidebar] = useState(true),
     [mobileView, setMobileView] = useState('chat'),
@@ -541,6 +562,27 @@ export default function App() {
     if (!activeSession) return
     const session = data.sessions.find((s) => s.id === activeSession)
     if (!session) return
+    const tabs = conversationTabs(model)
+    const target = tabs.find((tab) => sessionIdFromTab(tab) === session.id) ?? tabs[0]
+    if (target) {
+      const wasTarget = sessionIdFromTab(target) === session.id
+      const currentConfig = sessionTabConfig(target)
+      switchingSession.current = true
+      try {
+        if (!wasTarget || target.getName() !== session.title)
+          model.doAction(
+            Actions.updateNodeAttributes(target.getId(), {
+              name: session.title,
+              config: { ...currentConfig, sessionId: session.id },
+            }),
+          )
+        for (const extra of tabs) if (extra.getId() !== target.getId()) model.doAction(Actions.deleteTab(extra.getId()))
+        if (!restoring || !wasTarget) model.doAction(Actions.selectTab(target.getId()))
+      } finally {
+        switchingSession.current = false
+      }
+      return
+    }
     const id = `session:${session.id}`
     const exists = Boolean(model.getNodeById(id))
     if (!exists)
@@ -556,8 +598,8 @@ export default function App() {
   }, [activeSession, data, model])
   useEffect(() => {
     for (const session of sessions ?? []) {
-      const node = model.getNodeById(`session:${session.id}`)
-      if (node instanceof TabNode && node.getName() !== session.title)
+      const node = conversationTabs(model).find((tab) => sessionIdFromTab(tab) === session.id)
+      if (node && node.getName() !== session.title)
         model.doAction(Actions.updateNodeAttributes(node.getId(), { name: session.title }))
     }
   }, [sessions, model])
@@ -601,24 +643,86 @@ export default function App() {
     openPanel(id, title, component, config, placement)
   }
   const settings = () => openPanel('settings', '设置', 'settings')
+  function openSessionTab(session: Session) {
+    const tabs = conversationTabs(model)
+    const target = tabs.find((tab) => sessionIdFromTab(tab) === session.id) ?? tabs[0]
+    switchingSession.current = true
+    try {
+      if (target) {
+        const currentConfig = sessionTabConfig(target)
+        model.doAction(
+          Actions.updateNodeAttributes(target.getId(), {
+            name: session.title,
+            config: { ...currentConfig, sessionId: session.id },
+          }),
+        )
+        for (const extra of tabs) if (extra.getId() !== target.getId()) model.doAction(Actions.deleteTab(extra.getId()))
+        model.doAction(Actions.selectTab(target.getId()))
+      } else {
+        const id = `session:${session.id}`
+        model.doAction(
+          Actions.addNode(
+            { type: 'tab', id, name: session.title, component: 'conversation', config: { sessionId: session.id } },
+            model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
+            DockLocation.CENTER,
+            -1,
+          ),
+        )
+        model.doAction(Actions.selectTab(id))
+      }
+    } finally {
+      switchingSession.current = false
+    }
+    void openSession(session.id).catch(report)
+    setMobileView('chat')
+  }
+  function clearSessionTab() {
+    const tabs = conversationTabs(model)
+    const target = tabs[0]
+    if (!target) return
+    switchingSession.current = true
+    try {
+      const config = sessionTabConfig(target)
+      const { sessionId: _sessionId, ...withoutSession } = config
+      model.doAction(
+        Actions.updateNodeAttributes(target.getId(), {
+          name: '新会话',
+          config: withoutSession,
+        }),
+      )
+      for (const extra of tabs.slice(1)) model.doAction(Actions.deleteTab(extra.getId()))
+      model.doAction(Actions.selectTab(target.getId()))
+    } finally {
+      switchingSession.current = false
+    }
+  }
+  function selectWorkspace(nextWorkspaceId: string) {
+    if (!nextWorkspaceId || nextWorkspaceId === workspaceId) return
+    const previousSession = useWorkbench.getState().activeSession
+    useWorkbench.setState({ workspaceId: nextWorkspaceId, activeSession: '' })
+    if (previousSession) void client().unfollow(previousSession).catch(report)
+    clearSessionTab()
+    if (small) setMobileView('chat')
+  }
   async function newSession() {
-    if (!workspaceId) {
+    const targetWorkspaceId = workspaceId || data?.workspaces[0]?.id || ''
+    if (!targetWorkspaceId) {
       setWorkspaceModal(true)
       return
     }
     try {
-      const session = await client().call('session.create', { workspaceId })
+      if (!workspaceId) useWorkbench.setState({ workspaceId: targetWorkspaceId })
+      const session = await client().call('session.create', { workspaceId: targetWorkspaceId })
       await refreshCatalog()
-      await openSession(session.id)
-      setMobileView('chat')
+      openSessionTab(session)
     } catch (error) {
       report(error)
     }
   }
   function selectSession(id: string) {
-    void openSession(id).catch(report)
-    if (model.getNodeById(`session:${id}`)) model.doAction(Actions.selectTab(`session:${id}`))
-    setMobileView('chat')
+    const session = data?.sessions.find((item) => item.id === id)
+    if (session) openSessionTab(session)
+    else void openSession(id).catch(report)
   }
   function openFile(path: string) {
     setMobileFile(path)
@@ -714,8 +818,7 @@ export default function App() {
           aria-label="选择工作区"
           value={workspaceId}
           onChange={(event) => {
-            useWorkbench.setState({ workspaceId: event.target.value, activeSession: '' })
-            if (!small) model.doAction(Actions.selectTab('welcome'))
+            selectWorkspace(event.target.value)
           }}
         >
           <option value="" disabled>
@@ -889,6 +992,7 @@ export default function App() {
                 if (selectedTool && !next.getNodeById(selectedTool)) useWorkbench.setState({ toolPanel: '' })
                 const previous = useWorkbench.getState().activeSession
                 if (
+                  !switchingSession.current &&
                   [Actions.DELETE_TAB, Actions.DELETE_TABSET].includes(action.type) &&
                   previous &&
                   !next.getNodeById(`session:${previous}`)
@@ -904,7 +1008,7 @@ export default function App() {
                     void client().unfollow(previous).catch(report)
                   }
                 }
-                if (action.type === Actions.SELECT_TAB) {
+                if (!switchingSession.current && action.type === Actions.SELECT_TAB) {
                   const tabNode = (action.data as { tabNode?: unknown }).tabNode
                   if (typeof tabNode === 'string') {
                     const node = next.getNodeById(tabNode)

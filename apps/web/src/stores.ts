@@ -303,8 +303,8 @@ export async function refreshCatalog() {
 export async function openSession(sessionId: string) {
   const connection = client()
   const current = useWorkbench.getState().activeSession
-  if (current && current !== sessionId) await connection.unfollow(current).catch(() => {})
   useWorkbench.setState({ activeSession: sessionId })
+  if (current && current !== sessionId) await connection.unfollow(current).catch(() => {})
   useSessions.setState((state) => ({ loading: new Set(state.loading).add(sessionId) }))
   try {
     const snapshot = await connection.call('session.snapshot', { sessionId })

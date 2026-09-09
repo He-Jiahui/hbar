@@ -106,6 +106,36 @@ test('composer drafts stay with their Session while switching and refreshing', a
   }
 })
 
+test('session navigation reuses one conversation tab instead of accumulating tabs', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const suffix = Date.now().toString(36)
+    const first = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: `Navigate first ${suffix}`,
+    })
+    const second = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: `Navigate second ${suffix}`,
+    })
+    await page.reload()
+
+    await page.locator('.session-select').filter({ hasText: first.title, visible: true }).click()
+    await expect(page.getByRole('tab', { name: first.title, exact: true, selected: true })).toBeVisible()
+
+    await page.locator('.session-select').filter({ hasText: second.title, visible: true }).click()
+    await expect(page.getByRole('tab', { name: second.title, exact: true, selected: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: first.title, exact: true })).toHaveCount(0)
+
+    await page.reload()
+    await expect(page.getByRole('tab', { name: second.title, exact: true, selected: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: first.title, exact: true })).toHaveCount(0)
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('model picker and permission preset survive a refresh', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
