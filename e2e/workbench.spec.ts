@@ -543,8 +543,10 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
     const cacheRoot = page.getByRole('textbox', { name: /缓存目录/ })
     await expect(dataRoot).not.toHaveValue('')
     await expect(cacheRoot).not.toHaveValue('')
+    await expect(page.locator('.path-roots-glass')).toHaveClass(/glass-surface/)
     await page.getByRole('button', { name: '验证目录', exact: true }).click()
     await expect(page.locator('.path-details')).toContainText('hbar.sqlite')
+    await expect(page.locator('.path-details-surface')).toHaveClass(/rb-spotlight-card/)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-storage-settings.png` })
 
     await page.getByRole('button', { name: '插件', exact: true }).filter({ visible: true }).click()

@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { Database, FolderCog, HardDrive, RefreshCw, RotateCcw, Save, ShieldCheck } from 'lucide-react'
 import { usePathSettings } from './path-settings'
 import GlareButton from './react-bits/GlareButton'
+import GlassSurface from './react-bits/GlassSurface'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 export default function PathSettings() {
   const state = usePathSettings()
@@ -15,6 +17,7 @@ export default function PathSettings() {
   )
   return (
     <section className="settings-section path-settings">
+      <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
       <div className="section-toolbar">
         <div>
           <h2>存储目录</h2>
@@ -29,7 +32,8 @@ export default function PathSettings() {
           <RefreshCw size={14} />
         </button>
       </div>
-      <div className="path-root-grid">
+      <div className="path-root-grid rb-path-roots">
+        <GlassSurface className="path-roots-glass" width="100%" height="100%" aria-hidden="true" />
         <label>
           <span>
             <Database size={15} />
@@ -56,19 +60,24 @@ export default function PathSettings() {
         </label>
       </div>
       {state.current && (
-        <dl className="path-details">
-          <dt>缓存占用</dt><dd>{formatBytes(state.current.cacheBytes)}</dd>
-          <dt>会话日志</dt>
-          <dd>{state.current.sessions}</dd>
-          <dt>SQLite</dt>
-          <dd>{state.current.database}</dd>
-          <dt>插件</dt>
-          <dd>{state.current.plugins}</dd>
-          <dt>技能</dt>
-          <dd>{state.current.skills}</dd>
-          <dt>系统指针</dt>
-          <dd>{state.current.pointerFile}</dd>
-        </dl>
+        <SpotlightCard
+          className="path-details-surface"
+          spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
+        >
+          <dl className="path-details">
+            <dt>缓存占用</dt><dd>{formatBytes(state.current.cacheBytes)}</dd>
+            <dt>会话日志</dt>
+            <dd>{state.current.sessions}</dd>
+            <dt>SQLite</dt>
+            <dd>{state.current.database}</dd>
+            <dt>插件</dt>
+            <dd>{state.current.plugins}</dd>
+            <dt>技能</dt>
+            <dd>{state.current.skills}</dd>
+            <dt>系统指针</dt>
+            <dd>{state.current.pointerFile}</dd>
+          </dl>
+        </SpotlightCard>
       )}
       {state.error && (
         <p className="inline-error" role="alert">
@@ -76,13 +85,17 @@ export default function PathSettings() {
         </p>
       )}
       {state.status === 'saved' && (
-        <div className="restart-notice" role="status">
+        <SpotlightCard
+          className="restart-notice"
+          role="status"
+          spotlightColor="color-mix(in srgb, var(--hbar-wn) 22%, transparent)"
+        >
           <FolderCog size={16} />
           <div>
             <strong>路径已更新</strong>
             <span>重启 Host 后，所有客户端会连接到新的数据和缓存目录。</span>
           </div>
-        </div>
+        </SpotlightCard>
       )}
       <div className="path-actions">
         <button

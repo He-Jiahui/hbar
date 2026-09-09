@@ -317,6 +317,56 @@
   z-index: 1;
 }
 
+.rb-path-roots {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.rb-path-roots > .path-roots-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--hbar-s1) 72%, transparent);
+  pointer-events: none;
+}
+
+.rb-path-roots > .path-roots-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 8%, transparent), transparent 48%);
+}
+
+.rb-path-roots > :not(.path-roots-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.path-details-surface.rb-spotlight-card {
+  margin: 21px 0;
+  background-clip: padding-box;
+}
+
+.path-details-surface.rb-spotlight-card > .path-details {
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+.restart-notice.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
+.restart-notice.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-settings-tabs,
 .rb-pairing-surface {
   position: relative;
