@@ -52,6 +52,7 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
+import SpotlightCard from './react-bits/SpotlightCard'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -236,7 +237,11 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
       </div>
       <div className="session-list">
         {sessions.map((session) => (
-          <div className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id}>
+          <SpotlightCard
+            className={`session-item ${selected === session.id ? 'selected' : ''}`}
+            key={session.id}
+            spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)"
+          >
             <button
               className="session-select"
               onClick={() => onSelect(session.id)}
@@ -275,7 +280,7 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
                 <Archive size={12} />
               </button>
             </div>
-          </div>
+          </SpotlightCard>
         ))}
         {!sessions.length && (
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
@@ -440,7 +445,7 @@ function ActivityPanel() {
           <div className="section-label">运行记录</div>
           <div className="run-list">
             {snapshot?.runs.map((run) => (
-              <div className="run-row" key={run.id}>
+              <SpotlightCard className="run-row" key={run.id} spotlightColor="color-mix(in srgb, var(--rb-status) 30%, transparent)">
                 <i className={`status-dot ${run.status}`} />
                 <div>
                   <strong>{run.input.text.slice(0, 65) || '图片消息'}</strong>
@@ -458,7 +463,7 @@ function ActivityPanel() {
                     <Square size={12} />
                   </button>
                 )}
-              </div>
+              </SpotlightCard>
             ))}
           </div>
           {!snapshot?.runs.length && (
@@ -1238,8 +1243,11 @@ export default function App() {
                         useWorkbench.setState({ activeSession: '' })
                         if (previous) void client().unfollow(previous).catch(report)
                       }
-                    } else if (node instanceof TabNode && node.getParent() instanceof BorderNode) {
-                      useWorkbench.setState({ toolPanel: node.getId() })
+                    } else if (node instanceof TabNode) {
+                      let owner = node.getParent()
+                      while (owner && !(owner instanceof BorderNode)) owner = owner.getParent()
+                      if (owner instanceof BorderNode || node.getComponent() !== 'conversation')
+                        useWorkbench.setState({ toolPanel: node.getId() })
                     }
                   }
                 }
