@@ -426,6 +426,9 @@ test('desktop pairs, sends Chinese input, approves a tool, recovers layout and c
   try {
     const pairing = await fixture.api.call('pairing.create', {})
     await page.goto(fixture.url)
+    await expect(page.locator('.pairing-page-glass')).toHaveClass(/glass-surface/)
+    await expect(page.locator('.pairing-card')).toHaveClass(/rb-spotlight-card/)
+    await expect(page.getByRole('button', { name: '配对并连接', exact: true })).toHaveClass(/rb-glare-button/)
     await page.getByRole('textbox', { name: '配对码' }).fill(pairing.code)
     await page.getByRole('button', { name: '配对并连接' }).click()
     await expect(page.locator('.app-shell')).toBeVisible()

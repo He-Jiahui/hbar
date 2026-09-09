@@ -56,6 +56,7 @@ import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import SpotlightCard from './react-bits/SpotlightCard'
 import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
+import GlareButton from './react-bits/GlareButton'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'

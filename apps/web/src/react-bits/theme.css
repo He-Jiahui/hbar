@@ -377,6 +377,56 @@
   z-index: 1;
 }
 
+.rb-pairing-page {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: transparent;
+}
+
+.rb-pairing-page > .pairing-page-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--hbar-s0) 82%, transparent);
+  pointer-events: none;
+}
+
+.rb-pairing-page > .pairing-page-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 10%, transparent), transparent 54%);
+}
+
+.rb-pairing-page > :not(.pairing-page-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.pairing-card.rb-spotlight-card {
+  width: min(380px, 100%);
+  border: 1px solid var(--hbar-bd2);
+  border-radius: var(--panel-radius);
+  background: color-mix(in srgb, var(--hbar-s1) 82%, transparent);
+  box-shadow: var(--dsh-shadow-prominent);
+}
+
+.pairing-card.rb-spotlight-card::after {
+  border-color: color-mix(in srgb, var(--rb-accent) 42%, transparent);
+}
+
+.pairing-card.rb-spotlight-card > .pairing-form {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 24px;
+}
+
+.pairing-card .pair-submit.rb-glare-button {
+  justify-content: center;
+}
+
 .rb-thinking-surface,
 .rb-queue-surface,
 .rb-run-outcome-surface {
