@@ -658,6 +658,111 @@ textarea:hover:not(:disabled) {
   background: var(--hbar-bg);
 }
 
+.session-header {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--hbar-bd);
+  background: var(--hbar-bg);
+}
+
+.session-header-title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-header-mark {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--hbar-ac-border);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-ac2);
+  font-family: var(--dsh-font-family-code);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.session-header h1 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--hbar-t1);
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-runtime {
+  padding: 3px 7px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-full);
+  color: var(--hbar-t2);
+  font-size: 11px;
+}
+
+.session-view-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: var(--hbar-s0);
+}
+
+.session-view-tabs button {
+  min-height: 30px;
+  padding: 4px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t3);
+  font-size: 12px;
+}
+
+.session-view-tabs button:hover:not(:disabled),
+.session-view-tabs button.selected {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+  box-shadow: inset 0 -2px 0 var(--hbar-ac);
+}
+
+.session-view-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.session-refresh {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--hbar-t2);
+}
+
+.session-refresh:hover:not(:disabled) {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.session-refresh:disabled {
+  opacity: 0.45;
+}
+
 .chat-context {
   height: 39px;
   padding: 0 18px;
@@ -859,6 +964,75 @@ textarea:hover:not(:disabled) {
   border-radius: var(--radius-2xl);
   background: var(--hbar-s0);
   box-shadow: var(--dsh-shadow-prominent);
+}
+
+.composer-context-strip {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  gap: 4px;
+  margin: -12px 4px 10px;
+  padding: 2px 7px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--hbar-bg);
+  color: var(--hbar-t2);
+  font-size: 12px;
+}
+
+.composer-context-location,
+.composer-context-branch {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 7px;
+}
+
+.composer-context-location {
+  flex: 1;
+}
+
+.composer-context-location > span,
+.composer-context-branch > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-context-location svg,
+.composer-context-branch svg {
+  flex: 0 0 auto;
+  color: var(--hbar-ac2);
+}
+
+.composer-context-separator {
+  width: 1px;
+  height: 16px;
+  flex: 0 0 auto;
+  background: var(--hbar-bd);
+}
+
+.composer-context-mode {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-full);
+  color: var(--hbar-t3);
+  font-size: 11px;
+}
+
+.composer-context-branch {
+  flex: 0 1 auto;
+}
+
+.composer-context-branch i {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--hbar-wn);
 }
 
 .composer:hover {
@@ -1333,6 +1507,26 @@ textarea:hover:not(:disabled) {
     padding: 0 13px;
   }
 
+  .session-header {
+    min-height: 52px;
+    gap: 8px;
+    padding: 0 13px;
+  }
+
+  .session-header h1 {
+    font-size: 14px;
+  }
+
+  .session-view-tabs button {
+    min-height: 28px;
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+
+  .session-runtime {
+    display: none;
+  }
+
   .message {
     width: 100%;
     padding: 12px 14px 4px;
@@ -1350,6 +1544,12 @@ textarea:hover:not(:disabled) {
   .composer {
     padding: 10px;
     border-radius: 18px;
+  }
+
+  .composer-context-strip {
+    margin-top: -10px;
+    margin-right: 2px;
+    margin-left: 2px;
   }
 
   .composer textarea {

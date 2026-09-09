@@ -9,14 +9,16 @@ import {
   Copy,
   FileCode2,
   FileText,
+  FolderOpen,
   GitBranch,
   LoaderCircle,
+  RefreshCw,
   ShieldCheck,
   Square,
   Wrench,
   X,
 } from 'lucide-react'
-import type { ArtifactRef, ContentBlock, Message, UserInput, UserInputRequest } from '@hbar/contracts'
+import type { ArtifactRef, ContentBlock, GitInfo, Message, UserInput, UserInputRequest } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
   client,
@@ -284,10 +286,19 @@ function MessageView({ message }: { message: Message }) {
     </article>
   )
 }
-export default function Chat({ sessionId = '', onSettings }: { sessionId?: string; onSettings(): void }) {
+export default function Chat({
+  sessionId = '',
+  onSettings,
+  onTerminal,
+}: {
+  sessionId?: string
+  onSettings(): void
+  onTerminal?: () => void
+}) {
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
+  const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const draft = useWorkbench((state) => state.drafts[sessionId || 'new'] ?? '')
   const modelId = useWorkbench((state) => state.modelId),
     approvalMode = useWorkbench((state) => state.approvalMode),
@@ -300,6 +311,7 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
     [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
   const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
+  const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
   const [atBottom, setAtBottom] = useState(true)
   const scroll = useRef<HTMLDivElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
@@ -308,6 +320,31 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
     stick = useRef(true)
   const pendingRequest = useRef<{ key: string; requestId: string } | null>(null)
   const messages = snapshot?.messages ?? []
+  useEffect(() => {
+    if (!workspace?.path) {
+      setGitInfo(null)
+      return
+    }
+    let connection: ReturnType<typeof client>
+    try {
+      connection = client()
+    } catch {
+      setGitInfo(null)
+      return
+    }
+    let alive = true
+    void connection
+      .call('git.info', { cwd: workspace.path })
+      .then((info) => {
+        if (alive) setGitInfo(info)
+      })
+      .catch(() => {
+        if (alive) setGitInfo(null)
+      })
+    return () => {
+      alive = false
+    }
+  }, [workspace?.path])
   const virtual = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scroll.current,
@@ -441,6 +478,39 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
   }
   return (
     <div className="chat-panel">
+      <header className="session-header" data-testid="session-header">
+        <div className="session-header-title">
+          <span className="session-header-mark" aria-hidden="true">
+            h
+          </span>
+          <h1>{sessionInfo?.title ?? 'Session'}</h1>
+          <span className="session-runtime">Pi</span>
+        </div>
+        <div className="session-view-tabs" role="tablist" aria-label="会话视图">
+          <button type="button" role="tab" aria-selected="true" className="selected">
+            Chat
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            onClick={() => onTerminal?.()}
+            disabled={!onTerminal}
+          >
+            Terminal
+          </button>
+        </div>
+        <button
+          type="button"
+          className="session-refresh"
+          title="刷新会话"
+          aria-label="刷新会话"
+          disabled={!sessionId}
+          onClick={() => void openSession(sessionId).catch(report)}
+        >
+          <RefreshCw size={15} />
+        </button>
+      </header>
       <div className="chat-context">
         <div>
           <GitBranch size={13} />
@@ -632,6 +702,20 @@ export default function Chat({ sessionId = '', onSettings }: { sessionId?: strin
             void send()
           }}
         >
+          <div className="composer-context-strip" aria-label="会话上下文">
+            <span className="composer-context-location" title={workspace?.path ?? '未选择工作区'}>
+              <FolderOpen size={14} />
+              <span>{workspace?.name ?? 'Workspace'}</span>
+            </span>
+            <span className="composer-context-separator" aria-hidden="true" />
+            <span className="composer-context-mode">Local</span>
+            {gitInfo?.branch && (
+              <span className="composer-context-branch" title="当前 Git 分支">
+                <GitBranch size={13} />
+                <span>{gitInfo.branch}</span>
+              </span>
+            )}
+          </div>
           {(images.length > 0 || files.length > 0) && (
             <div className="attachment-strip">
               {images.map((image) => (

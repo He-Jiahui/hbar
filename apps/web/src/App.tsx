@@ -605,7 +605,13 @@ export default function App() {
       case undefined:
         return <div className="empty-tool">面板不可用</div>
       case 'conversation':
-        return <Chat {...(config?.sessionId ? { sessionId: config.sessionId } : {})} onSettings={settings} />
+        return (
+          <Chat
+            {...(config?.sessionId ? { sessionId: config.sessionId } : {})}
+            onSettings={settings}
+            onTerminal={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
+          />
+        )
       case 'settings':
         return <Settings />
       case 'activity':
@@ -812,7 +818,11 @@ export default function App() {
                   ))}
                 </div>
               ) : (
-                <Chat sessionId={activeSession} onSettings={settings} />
+                <Chat
+                  sessionId={activeSession}
+                  onSettings={settings}
+                  onTerminal={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
+                />
               )}
             </>
           ) : (
