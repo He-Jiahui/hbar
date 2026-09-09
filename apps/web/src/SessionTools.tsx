@@ -32,7 +32,8 @@ type PanelProps = { sessionId?: string }
 
 function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof Activity; title: string; subtitle?: string; onRefresh?: () => void }) {
   return (
-    <header className="tool-surface-header">
+    <header className="tool-surface-header rb-tool-header">
+      <GlassSurface className="tool-header-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="tool-surface-title">
         <span className="tool-surface-icon"><Icon size={15} /></span>
         <div>
@@ -51,7 +52,8 @@ function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof 
 
 function EmptyTool({ icon: Icon, title, body }: { icon: typeof Activity; title: string; body: string }) {
   return (
-    <div className="tool-empty-state">
+    <div className="tool-empty-state rb-tool-empty">
+      <GlassSurface className="tool-empty-glass" width="100%" height="100%" aria-hidden="true" />
       <Icon size={24} />
       <strong>{title}</strong>
       <span>{body}</span>
@@ -162,7 +164,8 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
         <EmptyTool icon={Globe} title="尚未选择会话" body="打开一个会话后即可使用浏览器工具。" />
       ) : (
         <div className="tool-surface-body">
-          <form className="browser-address" onSubmit={(event) => void navigate(event)}>
+          <form className="browser-address rb-browser-address" onSubmit={(event) => void navigate(event)}>
+            <GlassSurface className="browser-address-glass" width="100%" height="100%" aria-hidden="true" />
             <Globe size={13} />
             <input aria-label="浏览器地址" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com" />
             <button type="submit" title="打开地址" aria-label="打开地址" disabled={busy || !url.trim()}>
@@ -189,7 +192,8 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
             <EmptyTool icon={Globe} title="没有打开的页面" body="在上方输入地址开始浏览。" />
           )}
           {snapshot && (
-            <section className="browser-snapshot">
+            <section className="browser-snapshot rb-tool-detail-surface">
+              <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
               <div className="tool-section-label"><span>页面文本</span>{page && <button type="button" onClick={() => void closePage()}><X size={13} />关闭页面</button>}</div>
               <pre>{snapshot.text || '页面没有可读文本。'}</pre>
             </section>
@@ -233,7 +237,8 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
             <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>事件游标</dt><dd>{snapshot.cursor.toLocaleString()}</dd></SpotlightCard>
             <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>权限</dt><dd><ShieldCheck size={13} />{snapshot.approvals.length ? `${snapshot.approvals.length} 待处理` : '无待处理'}</dd></SpotlightCard>
           </dl>
-          <section className="tool-detail-card">
+          <section className="tool-detail-card rb-tool-detail-surface">
+            <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <h3>最近运行</h3>
             <AnimatedList className="inspector-runs-list" viewportClassName="inspector-runs" showGradients={false}>
               {snapshot.runs.slice(0, 8).map((run) => (
@@ -265,7 +270,8 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
         <EmptyTool icon={ListChecks} title="尚未选择会话" body="选择会话后查看 Goal 和 Plan。" />
       ) : (
         <div className="tool-surface-body">
-          <section className="tool-detail-card goal-card">
+          <section className="tool-detail-card goal-card rb-tool-detail-surface">
+            <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="tool-section-label"><span><Target size={13} />Goal</span><button type="button" onClick={() => setDialog('goal')}><Target size={13} />编辑</button></div>
             {goal ? (
               <>
@@ -274,7 +280,8 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
               </>
             ) : <p className="tool-muted">当前会话没有活动 Goal。</p>}
           </section>
-          <section className="tool-detail-card plan-card">
+          <section className="tool-detail-card plan-card rb-tool-detail-surface">
+            <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="tool-section-label"><span><ListChecks size={13} />Plan</span><button type="button" onClick={() => setDialog('plan')}><ListChecks size={13} />编辑</button></div>
             {plan?.plan.length ? (
               <ol>
@@ -311,7 +318,8 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
             <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>输出</span><strong>{snapshot.usage.output.toLocaleString()}</strong></SpotlightCard>
             <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>运行</span><strong>{snapshot.runs.length.toLocaleString()}</strong></SpotlightCard>
           </div>
-          <section className="tool-detail-card insight-chart">
+          <section className="tool-detail-card insight-chart rb-tool-detail-surface">
+            <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <h3>工具调用</h3>
             <AnimatedList className="insight-list" viewportClassName="insight-rows" showGradients={false}>
               {stats.map(([name, count]) => <SpotlightCard className="insight-row" key={name} spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)"><span>{name}</span><i><b style={{ width: `${Math.max(8, (count / max) * 100)}%` }} /></i><strong>{count}</strong></SpotlightCard>)}

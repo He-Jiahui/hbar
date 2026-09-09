@@ -163,6 +163,59 @@
   z-index: 1;
 }
 
+.rb-tool-header,
+.rb-tool-empty,
+.rb-browser-address,
+.rb-tool-detail-surface {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-tool-header > .tool-header-glass,
+.rb-tool-empty > .tool-empty-glass,
+.rb-browser-address > .browser-address-glass,
+.rb-tool-detail-surface > .tool-detail-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-tool-header > .tool-header-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 86%, transparent);
+}
+
+.rb-tool-empty > .tool-empty-glass {
+  background: color-mix(in srgb, var(--hbar-s1) 68%, transparent);
+}
+
+.rb-browser-address > .browser-address-glass {
+  background: color-mix(in srgb, var(--hbar-s1) 78%, transparent);
+}
+
+.rb-tool-detail-surface > .tool-detail-glass {
+  background: color-mix(in srgb, var(--hbar-s2) 82%, transparent);
+}
+
+.rb-tool-header > .tool-header-glass::before,
+.rb-tool-empty > .tool-empty-glass::before,
+.rb-browser-address > .browser-address-glass::before,
+.rb-tool-detail-surface > .tool-detail-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 8%, transparent), transparent 48%);
+}
+
+.rb-tool-header > :not(.tool-header-glass),
+.rb-tool-empty > :not(.tool-empty-glass),
+.rb-browser-address > :not(.browser-address-glass),
+.rb-tool-detail-surface > :not(.tool-detail-glass) {
+  position: relative;
+  z-index: 1;
+}
+
 .settings-section {
   position: relative;
   isolation: isolate;
