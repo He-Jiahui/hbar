@@ -187,6 +187,7 @@ test('composer plus menu exposes mode and attachment capabilities', async ({ pag
     expect(fileChooser.isMultiple()).toBe(true)
     await fileChooser.setFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('attachment') })
     await expect(page.locator('.attachment-chip-file')).toBeVisible()
+    await expect(page.locator('.attachment-chip-file')).toHaveClass(/rb-spotlight-card/)
     await page.getByRole('button', { name: '移除文件 notes.txt', exact: true }).click()
 
     await plus.click()
@@ -438,6 +439,7 @@ test('desktop pairs, sends Chinese input, approves a tool, recovers layout and c
     await expect(page.getByRole('button', { name: '停止运行', exact: true }).filter({ visible: true })).toBeVisible()
     await page.getByRole('button', { name: '停止运行', exact: true }).filter({ visible: true }).click()
     await expect(page.locator('.run-outcome').filter({ visible: true })).toContainText('已停止')
+    await expect(page.locator('.run-outcome-glass')).toHaveClass(/glass-surface/)
     await mkdir('artifacts', { recursive: true })
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-workbench.png` })
     await page

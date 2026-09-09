@@ -241,7 +241,8 @@ function MessageView({ message }: { message: Message }) {
           if (block.type === 'text') return <Markdown key={index} text={block.text} />
           if (block.type === 'thinking')
             return (
-              <details className="thinking" key={index}>
+              <details className="thinking rb-thinking-surface" key={index}>
+                <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
                 <summary>思考过程</summary>
                 <Markdown text={block.text} />
               </details>
@@ -630,7 +631,8 @@ export default function Chat({
             </div>
             <div className="message-body">
               {stream.thinking && (
-                <details className="thinking">
+                <details className="thinking rb-thinking-surface">
+                  <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
                   <summary>思考过程</summary>
                   <Markdown text={stream.thinking} streaming />
                 </details>
@@ -640,9 +642,10 @@ export default function Chat({
           </article>
         ))}
         {lastRun && ['failed', 'interrupted', 'cancelled'].includes(lastRun.status) && (
-          <div className={`run-outcome ${lastRun.status === 'cancelled' ? '' : 'danger'}`}>
+          <div className={`run-outcome rb-run-outcome-surface ${lastRun.status === 'cancelled' ? '' : 'danger'}`}>
+            <GlassSurface className="run-outcome-glass" width="100%" height="100%" aria-hidden="true" />
             <Square size={12} />
-            {lastRun.status === 'cancelled' ? '已停止' : lastRun.error}
+            <span className="run-outcome-copy">{lastRun.status === 'cancelled' ? '已停止' : lastRun.error}</span>
             <button
               className="text-command"
               onClick={() => {
@@ -721,7 +724,8 @@ export default function Chat({
           </section>
         ))}
         {queued.length > 0 && (
-          <div className="queue-strip">
+          <div className="queue-strip rb-queue-surface">
+            <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
             <LoaderCircle size={12} />
             <span>{queued.length} 条消息排队中</span>
             <button
@@ -760,7 +764,11 @@ export default function Chat({
           {(images.length > 0 || files.length > 0) && (
             <div className="attachment-strip">
               {images.map((image) => (
-                <div className="attachment-chip" key={image.id}>
+                <SpotlightCard
+                  className="attachment-chip"
+                  key={image.id}
+                  spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                >
                   <img src={client().artifactUrl(image.id)} alt={image.name} />
                   <span>{image.name}</span>
                   <button
@@ -771,10 +779,14 @@ export default function Chat({
                   >
                     <X size={12} />
                   </button>
-                </div>
+                </SpotlightCard>
               ))}
               {files.map((file) => (
-                <div className="attachment-chip attachment-chip-file" key={`file:${file.id}`}>
+                <SpotlightCard
+                  className="attachment-chip attachment-chip-file"
+                  key={`file:${file.id}`}
+                  spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                >
                   <FileText size={18} className="attachment-chip-icon" aria-hidden="true" />
                   <span title={file.name}>{file.name}</span>
                   <button
@@ -785,7 +797,7 @@ export default function Chat({
                   >
                     <X size={12} />
                   </button>
-                </div>
+                </SpotlightCard>
               ))}
             </div>
           )}

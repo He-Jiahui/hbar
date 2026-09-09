@@ -242,6 +242,62 @@
   z-index: 1;
 }
 
+.rb-thinking-surface,
+.rb-queue-surface,
+.rb-run-outcome-surface {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-thinking-surface > .thinking-glass,
+.rb-queue-surface > .queue-glass,
+.rb-run-outcome-surface > .run-outcome-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-thinking-surface > .thinking-glass {
+  background: color-mix(in srgb, var(--hbar-s2) 76%, transparent);
+}
+
+.rb-queue-surface > .queue-glass {
+  background: color-mix(in srgb, var(--hbar-ac-soft) 72%, var(--hbar-s1));
+}
+
+.rb-run-outcome-surface > .run-outcome-glass {
+  background: color-mix(in srgb, var(--hbar-er-soft) 72%, var(--hbar-s1));
+}
+
+.rb-thinking-surface > .thinking-glass::before,
+.rb-queue-surface > .queue-glass::before,
+.rb-run-outcome-surface > .run-outcome-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 8%, transparent), transparent 48%);
+}
+
+.rb-thinking-surface > :not(.thinking-glass),
+.rb-queue-surface > :not(.queue-glass),
+.rb-run-outcome-surface > :not(.run-outcome-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.run-outcome-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.attachment-chip.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .settings-section {
   position: relative;
   isolation: isolate;
