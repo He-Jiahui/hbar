@@ -1406,6 +1406,38 @@ textarea:hover:not(:disabled) {
   border-radius: var(--radius-sm);
 }
 
+.statusbar .status-item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusbar .status-workspace {
+  max-width: 32%;
+}
+
+.statusbar .status-provider {
+  max-width: 150px;
+}
+
+.statusbar .status-agent {
+  gap: 5px;
+  color: var(--hbar-t2);
+}
+
+.statusbar .status-agent i {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--hbar-t3);
+}
+
+.statusbar .status-agent i.running {
+  background: var(--hbar-ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hbar-ok) 16%, transparent);
+}
+
 .toast {
   bottom: 44px;
   border-color: var(--hbar-er);
@@ -1572,6 +1604,10 @@ textarea:hover:not(:disabled) {
 
   .composer-footer {
     font-size: 9px;
+  }
+
+  .statusbar .status-workspace {
+    max-width: 45%;
   }
 
   .scroll-bottom {

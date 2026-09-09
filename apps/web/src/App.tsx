@@ -443,11 +443,14 @@ export default function App() {
     workspaceId = useWorkbench((state) => state.workspaceId),
     panel = useWorkbench((state) => state.panel),
     approvalMode = useWorkbench((state) => state.approvalMode),
-    theme = useWorkbench((state) => state.theme)
+    theme = useWorkbench((state) => state.theme),
+    modelId = useWorkbench((state) => state.modelId),
+    toolPanel = useWorkbench((state) => state.toolPanel)
   const notice = useNotice((state) => state.error)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
   const sessions = data?.sessions
+  const activeSnapshot = useSessions((state) => (activeSession ? state.snapshots[activeSession] : undefined))
   const initialSelection = useRef(true)
   const [small, setSmall] = useState(window.innerWidth < 900),
     [sidebar, setSidebar] = useState(true),
@@ -542,6 +545,7 @@ export default function App() {
     config?: Record<string, unknown>,
     placement = 'editor',
   ) {
+    if (component !== 'conversation') useWorkbench.setState({ toolPanel: id })
     if (component === 'plugin') setMobilePanel(String(config?.panelId ?? ''))
     if (small) {
       setMobileView(
@@ -853,6 +857,7 @@ export default function App() {
                   if (typeof tabNode === 'string') {
                     const node = next.getNodeById(tabNode)
                     if (node instanceof TabNode && node.getComponent() === 'conversation') {
+                      useWorkbench.setState({ toolPanel: '' })
                       const id = (node.getConfig() as { sessionId?: string })?.sessionId
                       if (id && id !== useWorkbench.getState().activeSession) void openSession(id).catch(report)
                       else if (!id) {
@@ -871,14 +876,28 @@ export default function App() {
           <button
             title="终端"
             aria-label="终端"
+            aria-pressed={toolPanel === 'terminal'}
+            className={toolPanel === 'terminal' ? 'selected' : ''}
             onClick={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
           >
             <TerminalSquare size={18} />
           </button>
-          <button title="运行与事件" aria-label="运行与事件" onClick={() => openPanel('activity', '运行', 'activity')}>
+          <button
+            title="运行与事件"
+            aria-label="运行与事件"
+            aria-pressed={toolPanel === 'activity'}
+            className={toolPanel === 'activity' ? 'selected' : ''}
+            onClick={() => openPanel('activity', '运行', 'activity')}
+          >
             <Activity size={18} />
           </button>
-          <button title="模型与插件" aria-label="模型与插件" onClick={settings}>
+          <button
+            title="模型与插件"
+            aria-label="模型与插件"
+            aria-pressed={toolPanel === 'settings'}
+            className={toolPanel === 'settings' ? 'selected' : ''}
+            onClick={settings}
+          >
             <Network size={18} />
           </button>
           {[...(data?.panels ?? []), ...clientPanels].map((contribution) => (
@@ -886,6 +905,8 @@ export default function App() {
               key={contribution.id}
               title={contribution.title}
               aria-label={contribution.title}
+              aria-pressed={toolPanel === `plugin:${contribution.id}`}
+              className={toolPanel === `plugin:${contribution.id}` ? 'selected' : ''}
               onClick={() =>
                 openPanel(
                   `plugin:${contribution.id}`,
@@ -900,24 +921,43 @@ export default function App() {
             </button>
           ))}
           <span />
-          <button title="诊断" aria-label="诊断" onClick={() => openPanel('diagnose', '诊断', 'diagnose')}>
+          <button
+            title="诊断"
+            aria-label="诊断"
+            aria-pressed={toolPanel === 'diagnose'}
+            className={toolPanel === 'diagnose' ? 'selected' : ''}
+            onClick={() => openPanel('diagnose', '诊断', 'diagnose')}
+          >
             <CircleHelp size={18} />
           </button>
         </nav>
       </div>
       <footer className="statusbar">
-        <span>
+        <span className="status-item status-workspace" data-status-item="workspace" title="当前工作区">
           <Folder size={12} />
           {data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? 'Workspace'}
         </span>
-        <span>
+        <span className="status-item status-provider" data-status-item="provider" title="当前模型">
+          <Network size={12} />
+          {data?.models.find((model) => model.id === modelId)?.name ?? 'Provider'}
+        </span>
+        <span className="status-item status-agent" data-status-item="agent-status" title="会话状态">
+          <i className={activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)) ? 'running' : ''} />
+          {activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)) ? 'Running' : 'Idle'}
+        </span>
+        <span className="status-item status-permission" data-status-item="permission" title="工具权限">
           <ShieldCheck size={12} />
           {permissionPreset(approvalMode).shortLabel}
         </span>
         <span className="status-spacer" />
-        <span>{host?.activeRuns ?? 0} active</span>
-        <span>UTF-8</span>
-        <span>0.1.0</span>
+        <span className="status-item" data-status-item="context" title="上下文使用量">
+          Context {activeSnapshot?.usage ? (activeSnapshot.usage.input + activeSnapshot.usage.output).toLocaleString() : 0}
+        </span>
+        <span className="status-item" data-status-item="turn-tokens" title="当前 token 使用量">
+          {host?.activeRuns ?? 0} active
+        </span>
+        <span className="status-item" data-status-item="encoding">UTF-8</span>
+        <span className="status-item" data-status-item="version">0.1.0</span>
       </footer>
       <nav className="mobile-nav">
         {[
