@@ -25,6 +25,7 @@ import Markdown from './Markdown'
 import { modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -38,8 +39,9 @@ function block(block: ContentBlock, key: number) {
   if (block.type === 'text') return <Markdown key={key} text={block.text} />
   if (block.type === 'thinking')
     return (
-      <details className="terminal-thinking" key={key}>
+      <details className="terminal-thinking rb-terminal-thinking-surface" key={key}>
         <summary>思考过程</summary>
+        <GlassSurface className="terminal-thinking-glass" width="100%" height="100%" aria-hidden="true" />
         <Markdown text={block.text} />
       </details>
     )
@@ -67,10 +69,14 @@ function block(block: ContentBlock, key: number) {
   if (block.type === 'tool_call')
     return <pre key={key}>{JSON.stringify({ tool: block.name, args: block.args }, null, 2)}</pre>
   return (
-    <details className={block.isError ? 'terminal-tool failed' : 'terminal-tool'} key={key}>
+    <details
+      className={`${block.isError ? 'terminal-tool failed' : 'terminal-tool'} rb-terminal-tool-surface`}
+      key={key}
+    >
       <summary>
         {block.name} · {block.isError ? '失败' : '完成'}
       </summary>
+      <GlassSurface className="terminal-tool-glass" width="100%" height="100%" aria-hidden="true" />
       <pre>{block.text}</pre>
     </details>
   )
@@ -356,8 +362,9 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
           <article className="terminal-message terminal-assistant terminal-stream" key={stream.id}>
             <header>hbar</header>
             {stream.thinking && (
-              <details className="terminal-thinking">
+              <details className="terminal-thinking rb-terminal-thinking-surface">
                 <summary>思考过程</summary>
+                <GlassSurface className="terminal-thinking-glass" width="100%" height="100%" aria-hidden="true" />
                 <Markdown text={stream.thinking} streaming />
               </details>
             )}
@@ -394,15 +401,20 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
           </div>
         ))}
         {entries.map((entry, index) => (
-          <div className="terminal-entry terminal-command-entry" key={`${index}:${entry.slice(0, 20)}`}>
+          <SpotlightCard
+            className="terminal-entry terminal-command-entry"
+            key={`${index}:${entry.slice(0, 20)}`}
+            spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
+          >
             <Markdown text={entry} />
-          </div>
+          </SpotlightCard>
         ))}
       </div>
       <div className="terminal-composer">
         <GlassSurface className="terminal-composer-glass" width="100%" height="100%" aria-hidden="true" />
         {candidates.length > 0 && (
-          <div className="terminal-completions" role="listbox" aria-label="命令补全">
+          <div className="terminal-completions rb-terminal-completions" role="listbox" aria-label="命令补全">
+            <GlassSurface className="terminal-completions-glass" width="100%" height="100%" aria-hidden="true" />
             {candidates.map((candidate, index) => (
               <button
                 className={index === completion ? 'selected' : ''}

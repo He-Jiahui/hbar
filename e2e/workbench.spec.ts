@@ -589,10 +589,12 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     const input = terminal.getByRole('textbox', { name: '终端输入', exact: true })
     await input.fill('/he')
     await expect(terminal.getByRole('listbox', { name: '命令补全' })).toBeVisible()
+    await expect(terminal.getByRole('listbox', { name: '命令补全' }).locator('.terminal-completions-glass')).toHaveClass(/glass-surface/)
     await input.press('Tab')
     await expect(input).toHaveValue('/help ')
     await input.press('Enter')
     await expect(terminal).toContainText('终端命令')
+    await expect(terminal.locator('.terminal-command-entry').last()).toHaveClass(/rb-spotlight-card/)
     const commandEntryStyle = await terminal
       .locator('.terminal-command-entry')
       .last()

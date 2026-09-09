@@ -823,6 +823,72 @@
   z-index: 1;
 }
 
+.rb-terminal-thinking-surface,
+.rb-terminal-tool-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 8px 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.rb-terminal-thinking-surface > .terminal-thinking-glass,
+.rb-terminal-tool-surface > .terminal-tool-glass,
+.rb-terminal-completions > .terminal-completions-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-terminal-thinking-surface > .terminal-thinking-glass {
+  background: color-mix(in srgb, var(--hbar-s2) 78%, transparent);
+}
+
+.rb-terminal-tool-surface > .terminal-tool-glass {
+  background: color-mix(in srgb, var(--hbar-s2) 82%, transparent);
+}
+
+.rb-terminal-tool-surface.failed > .terminal-tool-glass {
+  background: color-mix(in srgb, var(--hbar-er-soft) 78%, var(--hbar-s1));
+}
+
+.rb-terminal-completions {
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-terminal-completions > .terminal-completions-glass {
+  background: color-mix(in srgb, var(--hbar-s1) 88%, transparent);
+}
+
+.rb-terminal-thinking-surface > .terminal-thinking-glass::before,
+.rb-terminal-tool-surface > .terminal-tool-glass::before,
+.rb-terminal-completions > .terminal-completions-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 8%, transparent), transparent 48%);
+}
+
+.rb-terminal-thinking-surface > :not(.terminal-thinking-glass),
+.rb-terminal-tool-surface > :not(.terminal-tool-glass),
+.rb-terminal-completions > :not(.terminal-completions-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal-entry.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
+.terminal-entry.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .terminal-composer > .terminal-completions {
   z-index: 30;
 }
