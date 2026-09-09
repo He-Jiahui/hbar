@@ -12,6 +12,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
+import GlassSurface from './react-bits/GlassSurface'
 
 const GROUP_ORDER: readonly ComposerActionGroup[] = ['session', 'context', 'tools', 'extensions']
 const GROUP_LABELS: Record<ComposerActionGroup, string> = {
@@ -75,10 +76,10 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
         trigger.current?.focus()
       }
     }
-    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('click', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('click', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [open])
@@ -126,7 +127,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
       </button>
       {open && (
         <div
-          className="composer-menu"
+          className="composer-menu rb-menu-surface"
           role="menu"
           aria-label="会话能力"
           onKeyDown={(event) => {
@@ -145,6 +146,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
             }
           }}
         >
+          <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="composer-menu-search">
             <Search size={14} />
             <input

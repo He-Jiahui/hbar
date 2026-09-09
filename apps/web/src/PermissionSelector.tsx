@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ApprovalMode } from '@hbar/contracts'
 import { permissionPreset, permissionPresets } from './permissions'
 import { report, setApprovalMode, useWorkbench } from './stores'
+import GlassSurface from './react-bits/GlassSurface'
 
 export interface PermissionSelectorProps {
   compact?: boolean
@@ -49,10 +50,10 @@ export default function PermissionSelector({ compact = true, className = '', pla
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !pending) setOpen(false)
     }
-    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('click', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('click', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [open, pending])
@@ -82,7 +83,8 @@ export default function PermissionSelector({ compact = true, className = '', pla
         <ChevronDown size={13} className={open ? 'permission-chevron-open' : ''} />
       </button>
       {open && (
-        <div className="permission-menu" role="menu" aria-label="权限模式" aria-busy={pending !== null}>
+        <div className="permission-menu rb-menu-surface" role="menu" aria-label="权限模式" aria-busy={pending !== null}>
+          <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="permission-menu-heading">工具权限</div>
           {permissionPresets.map((preset) => (
             <button

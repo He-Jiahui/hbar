@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ModelInfo, ThinkingLevel } from '@hbar/contracts'
 import { selectModel, selectThinkingLevel, useCatalog, useWorkbench } from './stores'
 import { groupModelsByProvider, modelThinkingLabel, modelThinkingLevels } from './model-catalog'
+import GlassSurface from './react-bits/GlassSurface'
 
 const EMPTY_MODELS: readonly ModelInfo[] = []
 
@@ -109,10 +110,10 @@ export default function ModelPicker({ onSettings }: { onSettings?: () => void })
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
-    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('click', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('click', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [open])
@@ -163,7 +164,8 @@ export default function ModelPicker({ onSettings }: { onSettings?: () => void })
         <ChevronDown size={13} className={open ? 'model-picker-chevron-open' : ''} />
       </button>
       {open && (
-        <div className="model-picker-menu" role="menu" aria-label="选择模型">
+        <div className="model-picker-menu rb-menu-surface" role="menu" aria-label="选择模型">
+          <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="model-picker-search">
             <Search size={13} />
             <input

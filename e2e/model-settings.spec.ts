@@ -70,6 +70,7 @@ test('model picker exposes provider, model and thinking level hierarchy', async 
     const picker = page.getByRole('button', { name: /选择模型，当前/ }).filter({ visible: true })
     await picker.click()
     const menu = page.getByRole('menu', { name: '选择模型', exact: true })
+    await expect(menu.locator('.rb-menu-glass')).toHaveClass(/glass-surface/)
     const search = menu.getByRole('textbox', { name: '搜索模型', exact: true })
     await search.fill('UI Model Catalog')
     const provider = menu.getByRole('group', { name: 'UI Model Catalog', exact: true })

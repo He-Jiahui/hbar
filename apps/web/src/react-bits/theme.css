@@ -39,6 +39,36 @@
   text-align: left;
 }
 
+.rb-menu-surface {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-menu-surface > .rb-menu-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--hbar-s1) 86%, transparent);
+  pointer-events: none;
+}
+
+.rb-menu-surface > .rb-menu-glass::before {
+  background: linear-gradient(125deg, color-mix(in srgb, var(--rb-accent) 10%, transparent), transparent 46%);
+}
+
+.rb-menu-surface > :not(.rb-menu-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-menu-surface .composer-menu-search,
+.rb-menu-surface .model-picker-search {
+  background: color-mix(in srgb, var(--hbar-s0) 78%, transparent);
+}
+
 .rb-modal-surface {
   position: relative;
   isolation: isolate;
