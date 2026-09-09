@@ -1,5 +1,6 @@
 import {
   Children,
+  cloneElement,
   isValidElement,
   useCallback,
   useEffect,
@@ -72,13 +73,17 @@ export default function AnimatedList({
     <div className={`rb-animated-list${className ? ` ${className}` : ''}`} {...rest}>
       <div ref={viewportRef} className={`rb-animated-list__viewport${viewportClassName ? ` ${viewportClassName}` : ''}`}>
         {items.map((item, index) => (
-          <div
-            className="rb-animated-list__item"
-            key={isValidElement(item) && item.key != null ? String(item.key) : `item-${index}`}
-            style={{ '--rb-list-index': index } as CSSProperties}
-          >
-            {item}
-          </div>
+          isValidElement<{ className?: string; style?: CSSProperties }>(item)
+            ? cloneElement(item, {
+                className: `${item.props.className ?? ''} rb-animated-list__item`.trim(),
+                style: { ...item.props.style, '--rb-list-index': index } as CSSProperties,
+                key: item.key != null ? String(item.key) : `item-${index}`,
+              })
+            : (
+                <div className="rb-animated-list__item" key={`item-${index}`} style={{ '--rb-list-index': index } as CSSProperties}>
+                  {item}
+                </div>
+              )
         ))}
       </div>
       {showGradients && (
