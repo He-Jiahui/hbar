@@ -245,9 +245,13 @@ test('desktop pairs, sends Chinese input, approves a tool, recovers layout and c
       .locator('.flexlayout__tab_button_trailing')
       .click()
     await expect(page.getByRole('tab', { name: '请检查当前项目', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: '新会话', exact: true, selected: true })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: '消息', exact: true }).filter({ visible: true })).toBeEnabled()
     await page.reload()
     await expect(page.locator('.app-shell')).toBeVisible()
     await expect(page.getByRole('tab', { name: '请检查当前项目', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: '新会话', exact: true, selected: true })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: '消息', exact: true }).filter({ visible: true })).toBeEnabled()
     expect(errors).toEqual([])
   } finally {
     fixture.api.disconnect()

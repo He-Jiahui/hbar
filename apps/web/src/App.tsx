@@ -96,6 +96,24 @@ function sessionTabConfig(tab: TabNode): SessionTabConfig {
   return config ?? {}
 }
 
+function ensureWelcomeTab(model: Model): string | undefined {
+  const existing = conversationTabs(model).find((tab) => !sessionIdFromTab(tab))
+  if (existing) return existing.getId()
+
+  const id = model.getNodeById('welcome') ? 'welcome:fallback' : 'welcome'
+  const parentId = model.getNodeById('main') ? 'main' : model.getActiveTabset()?.getId()
+  if (!parentId) return undefined
+  model.doAction(
+    Actions.addNode(
+      { type: 'tab', id, name: '新会话', component: 'conversation', enableClose: false },
+      parentId,
+      DockLocation.CENTER,
+      -1,
+    ),
+  )
+  return id
+}
+
 function selectedLayoutTab(model: Model): TabNode | undefined {
   const active = model.getActiveTabset()?.getSelectedNode()
   if (active instanceof TabNode) return active
@@ -1184,6 +1202,13 @@ export default function App() {
                   if (id) void openSession(id).catch(report)
                   else {
                     useWorkbench.setState({ activeSession: '' })
+                    switchingSession.current = true
+                    try {
+                      const welcome = ensureWelcomeTab(next)
+                      if (welcome) next.doAction(Actions.selectTab(welcome))
+                    } finally {
+                      switchingSession.current = false
+                    }
                     void client().unfollow(previous).catch(report)
                   }
                 }
