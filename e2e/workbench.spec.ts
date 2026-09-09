@@ -110,6 +110,13 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(palette).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-command-palette.png` })
+    await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).press('Escape')
+    await page.setViewportSize({ width: 360, height: 800 })
+    await page.keyboard.press('Control+Shift+P')
+    await expect(palette).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+    await expect(palette.locator('.command-palette-list > button').first()).toHaveCSS('justify-content', 'flex-start')
+    await page.screenshot({ path: `artifacts/${Date.now()}-narrow-command-palette.png` })
   } finally {
     fixture.api.disconnect()
   }
