@@ -26,6 +26,34 @@
   z-index: 1;
 }
 
+.rb-modal-surface {
+  position: relative;
+  isolation: isolate;
+}
+
+.rb-modal-surface > .modal-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.rb-modal-surface > :not(.modal-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-modal-surface > header {
+  position: sticky;
+  z-index: 2;
+}
+
+.rb-modal-surface > .modal-glass::before {
+  background: linear-gradient(130deg, color-mix(in srgb, var(--rb-accent) 9%, transparent), transparent 44%);
+}
+
 .tool-surface {
   position: relative;
   isolation: isolate;

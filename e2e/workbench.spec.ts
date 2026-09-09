@@ -335,6 +335,7 @@ test('model picker and permission preset survive a refresh', async ({ page, cont
     await page.getByRole('button', { name: '添加模型', exact: true }).click()
     const editor = page.getByRole('dialog', { name: '添加模型', exact: true })
     await expect(editor).toBeVisible()
+    await expect(editor.locator('.modal-glass')).toHaveClass(/glass-surface/)
     await editor.getByRole('button', { name: /OpenAI 官方 OpenAI API/ }).click()
     await expect(editor.locator('.provider-connection-summary')).toContainText('https://api.openai.com/v1')
     await expect(editor.getByRole('combobox', { name: '模型 ID' })).toHaveValue('gpt-5.5')

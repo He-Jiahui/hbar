@@ -41,7 +41,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className="modal rb-modal-surface"
       aria-label={title}
       onCancel={onClose}
       onMouseDown={(event) => {
@@ -57,6 +57,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
         }
       }}
     >
+      <GlassSurface className="modal-glass" width="100%" height="100%" aria-hidden="true" />
       <header>
         <h2>{title}</h2>
         <button title="关闭" aria-label="关闭" onClick={onClose}>
