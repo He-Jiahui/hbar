@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import GlassSurface from './react-bits/GlassSurface'
 const schema = z.object({
   nodes: z
     .array(
@@ -19,7 +20,8 @@ export default function FlowView({ source }: { source: string }) {
   try {
     const spec = schema.parse(JSON.parse(source))
     return (
-      <div className="flow-view">
+      <div className="flow-view rb-render-surface">
+        <GlassSurface className="render-surface-glass" width="100%" height="100%" aria-hidden="true" />
         <ReactFlow
           key={source}
           defaultNodes={spec.nodes}

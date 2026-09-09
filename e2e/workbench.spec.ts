@@ -480,6 +480,9 @@ test('rich content, image attachments and hostile Markdown render within their c
     await expect(page.locator('.mermaid-view svg')).toBeAttached()
     await expect(page.locator('.recharts-surface[role="application"]')).toBeAttached()
     await expect(page.locator('.react-flow__node')).toHaveCount(2)
+    await expect(page.locator('.mermaid-view .render-surface-glass')).toHaveClass(/glass-surface/)
+    await expect(page.locator('.chart-view .render-surface-glass')).toHaveClass(/glass-surface/)
+    await expect(page.locator('.flow-view .render-surface-glass')).toHaveClass(/glass-surface/)
     await expect(page.locator('.code-block').first()).toHaveClass(/rb-code-surface/)
     await expect(page.locator('.code-block-glass').first()).toHaveClass(/glass-surface/)
     await page

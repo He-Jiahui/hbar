@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import GlassSurface from './react-bits/GlassSurface'
 const schema = z.object({
   type: z.enum(['bar', 'line', 'area']),
   xKey: z.string().max(100),
@@ -36,7 +37,8 @@ export default function ChartView({ source }: { source: string }) {
     const spec = schema.parse(JSON.parse(source))
     const Chart = spec.type === 'bar' ? BarChart : spec.type === 'line' ? LineChart : AreaChart
     return (
-      <div className="chart-view">
+      <div className="chart-view rb-render-surface">
+        <GlassSurface className="render-surface-glass" width="100%" height="100%" aria-hidden="true" />
         <ResponsiveContainer width="100%" height={240}>
           <Chart data={spec.data} margin={{ top: 16, right: 16, bottom: 8, left: -14 }}>
             <CartesianGrid stroke="var(--border)" vertical={false} />

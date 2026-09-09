@@ -242,6 +242,40 @@
   z-index: 1;
 }
 
+.rb-render-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+.rb-render-surface > .render-surface-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--hbar-s2) 86%, transparent);
+  pointer-events: none;
+}
+
+.rb-render-surface > .render-surface-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 8%, transparent), transparent 46%);
+}
+
+.rb-render-surface > :not(.render-surface-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-render-surface > .render-surface-content {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-thinking-surface,
 .rb-queue-surface,
 .rb-run-outcome-surface {
