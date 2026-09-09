@@ -2241,7 +2241,7 @@ body.resizing-sidebar .sidebar-resizer::after {
   align-items: center;
   justify-content: flex-start;
   gap: 11px;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--hbar-t2);
@@ -2288,6 +2288,28 @@ body.resizing-sidebar .sidebar-resizer::after {
   color: var(--hbar-t3);
   text-align: center;
   font-size: 12px;
+}
+
+/* Selection menus inherit the global button centering rule; keep their content
+ * anchored to a predictable left edge with enough touch-safe breathing room. */
+.composer-menu-item,
+.model-picker-option,
+.permission-option,
+.terminal-completions button {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.composer-menu-item {
+  padding-inline: 10px;
+}
+
+.model-picker-option {
+  padding-inline: 10px;
+}
+
+.terminal-completions button {
+  padding-inline: 12px;
 }
 
 .theme-options {
