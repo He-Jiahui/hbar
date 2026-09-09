@@ -546,7 +546,9 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
     await page.getByRole('button', { name: '插件', exact: true }).filter({ visible: true }).click()
     await page.getByRole('button', { name: '检查', exact: true }).click()
     await expect(page.locator('.plugin-report')).toContainText('"ok": true')
+    await expect(page.locator('.plugin-report')).toHaveClass(/rb-spotlight-card/)
     await page.locator('.plugin-expand').first().click()
+    await expect(page.locator('.plugin-row').first()).toHaveClass(/rb-spotlight-card/)
     await expect(page.locator('.plugin-detail').first()).toContainText('包依赖')
 
     await page.setViewportSize({ width: 390, height: 844 })

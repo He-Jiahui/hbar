@@ -575,7 +575,10 @@ function PluginRow({ plugin, className = '' }: { plugin: PluginInfo; className?:
     }
   }
   return (
-    <div className={`plugin-row${className ? ` ${className}` : ''}`}>
+    <SpotlightCard
+      className={`plugin-row${className ? ` ${className}` : ''}`}
+      spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+    >
       <div className="plugin-heading">
         <button className="plugin-expand" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
           <ChevronRight size={14} className={expanded ? 'rotate' : ''} />
@@ -656,7 +659,7 @@ function PluginRow({ plugin, className = '' }: { plugin: PluginInfo; className?:
           </button>
         </div>
       )}
-    </div>
+    </SpotlightCard>
   )
 }
 export default function Settings() {
@@ -699,7 +702,8 @@ export default function Settings() {
           <RefreshCw size={15} />
         </button>
       </div>
-      <nav className="settings-tabs">
+      <nav className="settings-tabs rb-settings-tabs" aria-label="设置分组">
+        <GlassSurface className="settings-tabs-glass" width="100%" height="100%" aria-hidden="true" />
         <button className={tab === 'appearance' ? 'selected' : ''} onClick={() => setTab('appearance')}>
           外观
         </button>
@@ -963,7 +967,11 @@ export default function Settings() {
               </button>
             </div>
           </div>
-          {pluginReport && <pre className="plugin-report">{pluginReport}</pre>}
+          {pluginReport && (
+            <SpotlightCard className="plugin-report" spotlightColor="color-mix(in srgb, var(--rb-status) 20%, transparent)">
+              <code>{pluginReport}</code>
+            </SpotlightCard>
+          )}
           {data?.plugins.length ? (
             <AnimatedList className="settings-plugin-list" viewportClassName="settings-plugin-viewport" showGradients={false}>
               {data.plugins.map((plugin) => <PluginRow key={plugin.id} plugin={plugin} />)}
@@ -1038,7 +1046,8 @@ export default function Settings() {
             </button>
           </div>
           {pairing && (
-            <div className="pairing-code">
+            <div className="pairing-code rb-pairing-surface">
+              <GlassSurface className="pairing-code-glass" width="100%" height="100%" aria-hidden="true" />
               <code>{pairing.code}</code>
               <span>有效期至 {new Date(pairing.expiresAt).toLocaleTimeString()}</span>
               <button
@@ -1057,7 +1066,11 @@ export default function Settings() {
           {devices.length ? (
             <AnimatedList className="settings-device-list" viewportClassName="settings-device-viewport" showGradients={false}>
               {devices.map((device) => (
-                <div className="device-row" key={device.id}>
+                <SpotlightCard
+                  className="device-row"
+                  key={device.id}
+                  spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                >
                   <Monitor size={17} />
                   <div>
                     <strong>{device.name}</strong>
@@ -1077,7 +1090,7 @@ export default function Settings() {
                   >
                     <Trash2 size={15} />
                   </button>
-                </div>
+                </SpotlightCard>
               ))}
             </AnimatedList>
           ) : null}

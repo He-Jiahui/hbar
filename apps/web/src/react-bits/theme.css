@@ -235,8 +235,70 @@
   z-index: 1;
 }
 
+.rb-settings-tabs,
+.rb-pairing-surface {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-settings-tabs > .settings-tabs-glass,
+.rb-pairing-surface > .pairing-code-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-settings-tabs > .settings-tabs-glass {
+  background: color-mix(in srgb, var(--hbar-s0) 86%, transparent);
+}
+
+.rb-pairing-surface > .pairing-code-glass {
+  background: color-mix(in srgb, var(--hbar-ac-soft) 78%, var(--hbar-s1));
+}
+
+.rb-settings-tabs > .settings-tabs-glass::before,
+.rb-pairing-surface > .pairing-code-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 9%, transparent), transparent 48%);
+}
+
+.rb-settings-tabs > :not(.settings-tabs-glass),
+.rb-pairing-surface > :not(.pairing-code-glass) {
+  position: relative;
+  z-index: 1;
+}
+
 .settings-provider-group.rb-spotlight-card {
   background-clip: padding-box;
+}
+
+.plugin-row.rb-spotlight-card,
+.device-row.rb-spotlight-card,
+.plugin-report.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
+.plugin-row.rb-spotlight-card > *,
+.device-row.rb-spotlight-card > *,
+.plugin-report.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plugin-report.rb-spotlight-card {
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.plugin-report.rb-spotlight-card > code {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: inherit;
 }
 
 .topbar,
