@@ -175,6 +175,37 @@ test('composer plus menu exposes mode and attachment capabilities', async ({ pag
   }
 })
 
+test('session capability dialog uses React Bits surfaces for summaries and plans', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const session = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: `React Bits capability ${Date.now().toString(36)}`,
+    })
+    await page.reload()
+    await page.locator('.session-select').filter({ hasText: session.title, visible: true }).click()
+    const plus = page.getByRole('button', { name: '添加能力', exact: true }).filter({ visible: true })
+    await plus.click()
+    await page.getByRole('menuitem', { name: 'Goal 模式', exact: true }).click()
+
+    const dialog = page.getByRole('dialog', { name: '会话能力', exact: true })
+    await expect(dialog.locator('.capability-tabs-glass')).toHaveClass(/glass-surface/)
+    await dialog.getByRole('textbox', { name: '目标', exact: true }).fill('完成 React Bits 能力面板验收')
+    await dialog.getByRole('button', { name: '创建 Goal', exact: true }).click()
+    await expect(dialog.locator('.capability-surface-glass')).toHaveCount(1)
+
+    await dialog.getByRole('button', { name: 'Plan', exact: true }).click()
+    await expect(dialog.locator('.rb-animated-list')).toBeVisible()
+    await expect(dialog.locator('.session-plan-viewport')).toBeVisible()
+    await dialog.getByRole('button', { name: '添加步骤', exact: true }).click()
+    await expect(dialog.locator('.session-plan-row.rb-spotlight-card')).toHaveCount(1)
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-capability-dialog.png` })
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('composer drafts stay with their Session while switching and refreshing', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {

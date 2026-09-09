@@ -28,7 +28,10 @@ import {
   type SessionCapabilityTab,
 } from './session-capabilities'
 import './SessionCapabilityDialog.css'
+import AnimatedList from './react-bits/AnimatedList'
+import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 const TAB_LABELS: Record<SessionCapabilityTab, string> = {
   goal: 'Goal',
@@ -145,7 +148,8 @@ function GoalPane({ sessionId }: { sessionId: string }) {
     <section className="session-capability-pane" aria-label="Goal 设置">
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
       {goal && (
-        <div className="session-capability-summary">
+        <div className="session-capability-summary rb-capability-surface">
+          <GlassSurface className="capability-surface-glass" width="100%" height="100%" aria-hidden="true" />
           <div>
             <span className="small-muted">状态</span>
             <strong>{STATUS_LABELS[goal.status]}</strong>
@@ -265,9 +269,18 @@ function PlanPane({ sessionId }: { sessionId: string }) {
         </button>
       </div>
       {plan?.explanation && <p className="session-capability-note">{plan.explanation}</p>}
-      <div className="session-plan-list">
+      <AnimatedList
+        className="session-plan-list"
+        viewportClassName="session-plan-viewport"
+        showGradients={false}
+        aria-label="计划步骤列表"
+      >
         {steps.map((step, index) => (
-          <div className="session-plan-row" key={`${index}-${step.step}`}>
+          <SpotlightCard
+            className="session-plan-row"
+            key={`${index}-${step.step}`}
+            spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
+          >
             <input
               aria-label={`计划步骤 ${index + 1}`}
               value={step.step}
@@ -304,10 +317,10 @@ function PlanPane({ sessionId }: { sessionId: string }) {
             >
               <X size={14} />
             </button>
-          </div>
+          </SpotlightCard>
         ))}
         {!steps.length && <p className="empty-list">暂无计划</p>}
-      </div>
+      </AnimatedList>
       <button
         type="button"
         className="text-command session-plan-add"
@@ -384,7 +397,8 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
     <section className="session-capability-pane" aria-label="Budget 设置">
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
       {budget ? (
-        <div className={`budget-meter budget-meter-${budget.phase}`} aria-label="预算使用情况">
+        <div className={`budget-meter rb-capability-surface budget-meter-${budget.phase}`} aria-label="预算使用情况">
+          <GlassSurface className="capability-surface-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="budget-meter-heading">
             <strong>{budget.phase === 'exhausted' ? '预算已耗尽' : '预算使用情况'}</strong>
             <span>{percentage}%</span>
@@ -443,7 +457,8 @@ export default function SessionCapabilityDialog({
   return (
     <Modal title="会话能力" onClose={onClose}>
       <div className="session-capability-dialog">
-        <nav className="session-capability-tabs" aria-label="会话能力类型">
+        <nav className="session-capability-tabs rb-capability-tabs" aria-label="会话能力类型">
+          <GlassSurface className="capability-tabs-glass" width="100%" height="100%" aria-hidden="true" />
           <button type="button" className={tab === 'goal' ? 'selected' : ''} onClick={() => setTab('goal')}>
             <Target size={14} /> {TAB_LABELS.goal}
           </button>

@@ -69,6 +69,46 @@
   background: color-mix(in srgb, var(--hbar-s0) 78%, transparent);
 }
 
+.rb-capability-tabs,
+.rb-capability-surface {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-capability-tabs > .capability-tabs-glass,
+.rb-capability-surface > .capability-surface-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--hbar-s1) 78%, transparent);
+  pointer-events: none;
+}
+
+.rb-capability-tabs > :not(.capability-tabs-glass),
+.rb-capability-surface > :not(.capability-surface-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.session-capability-summary.rb-capability-surface,
+.budget-meter.rb-capability-surface {
+  border-color: var(--hbar-bd);
+}
+
+.session-plan-row.rb-spotlight-card {
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 84%, transparent);
+}
+
+.session-plan-row.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-modal-surface {
   position: relative;
   isolation: isolate;

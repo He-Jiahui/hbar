@@ -14,6 +14,17 @@
   scrollbar-width: thin;
 }
 
+.session-plan-list.rb-animated-list {
+  display: block;
+}
+
+.session-plan-viewport {
+  display: flex;
+  min-height: 38px;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .session-capability-tabs button {
   display: inline-flex;
   min-height: 31px;
@@ -299,4 +310,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
