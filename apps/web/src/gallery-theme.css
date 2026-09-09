@@ -182,6 +182,7 @@
   --hbar-ac: #315fbf;
   --hbar-ac2: #244b9b;
   --hbar-ac-soft: #eef3fe;
+  --hbar-ac-soft-hover: #dee8fd;
   --hbar-ac-border: #b6c8f8;
   --hbar-ac-ink: #244b9b;
   --hbar-on-ac: #ffffff;
@@ -1234,6 +1235,7 @@ textarea:hover:not(:disabled) {
   border-color: var(--hbar-bd2);
   border-radius: var(--radius-md);
   background: var(--hbar-s1);
+  color: var(--hbar-t1);
   box-shadow: var(--dsh-shadow-prominent);
 }
 
@@ -1278,6 +1280,110 @@ textarea:hover:not(:disabled) {
   color: var(--hbar-t3);
 }
 
+/* Model catalog additions use the same semantic surfaces in every gallery theme. */
+.model-picker-provider + .model-picker-provider {
+  border-top-color: var(--hbar-bd);
+}
+
+.model-picker-provider-heading {
+  color: var(--hbar-t2);
+}
+
+.model-picker-provider-heading small,
+.model-picker-model-effort {
+  color: var(--hbar-t3);
+}
+
+.model-picker-model.selected > .model-picker-option,
+.model-picker-option:hover,
+.model-picker-option.selected {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+}
+
+.model-picker-option {
+  color: var(--hbar-t2);
+}
+
+.model-picker-copy strong {
+  color: var(--hbar-t1);
+}
+
+.model-picker-copy code {
+  color: var(--hbar-t3);
+}
+
+.model-picker-meta {
+  color: var(--hbar-t3);
+}
+
+.model-picker-key.ready {
+  color: var(--hbar-ok-ink);
+}
+
+.model-picker-key.missing {
+  color: var(--hbar-wn-ink);
+}
+
+.model-picker-option > svg:last-child {
+  color: var(--hbar-ac2);
+}
+
+.model-picker-thinking {
+  border-left-color: var(--hbar-ac);
+  background: var(--hbar-s2);
+  color: var(--hbar-t2);
+}
+
+.model-picker-thinking-heading {
+  color: var(--hbar-t2);
+}
+
+.model-picker-thinking-heading code {
+  color: var(--hbar-ac2);
+}
+
+.model-picker-thinking-option {
+  color: var(--hbar-t2);
+}
+
+.model-picker-thinking-option:hover,
+.model-picker-thinking-option.selected {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft-hover);
+  color: var(--hbar-t1);
+}
+
+.model-picker-thinking-option > code {
+  color: var(--hbar-t3);
+}
+
+.model-picker-thinking-option > svg {
+  color: var(--hbar-ac2);
+}
+
+.model-picker-thinking-dot {
+  border-color: var(--hbar-bd2);
+}
+
+.model-picker-thinking-option.selected .model-picker-thinking-dot {
+  border-color: var(--hbar-ac2);
+  background: var(--hbar-ac2);
+}
+
+.model-picker-empty {
+  color: var(--hbar-t3);
+}
+
+.model-picker-settings {
+  border-top-color: var(--hbar-bd);
+  color: var(--hbar-ac2);
+}
+
+.model-picker-settings:hover {
+  background: var(--hbar-s2);
+}
+
 /* Settings, diagnostics and terminal inherit the same workbench grounds. */
 .settings-panel,
 .diagnose-panel,
@@ -1287,6 +1393,25 @@ textarea:hover:not(:disabled) {
 .terminal-panel {
   background: var(--hbar-bg);
   color: var(--hbar-t1);
+}
+
+.mobile-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0 18px;
+}
+
+.mobile-tool-grid .new-session {
+  margin: 0;
+  justify-content: flex-start;
+}
+
+.mobile-tool-heading {
+  margin: 0;
+  color: var(--hbar-t2);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .tool-surface {
@@ -2172,6 +2297,32 @@ textarea:hover:not(:disabled) {
   .settings-panel,
   .diagnose-panel {
     padding: 22px 17px;
+  }
+
+  .tool-surface-header {
+    min-height: 46px;
+    padding-right: 13px;
+    padding-left: 13px;
+  }
+
+  .tool-surface-body {
+    padding: 12px;
+  }
+
+  .inspector-grid {
+    gap: 5px;
+  }
+
+  .inspector-grid > div {
+    padding: 8px;
+  }
+
+  .plugin-panel {
+    padding: 17px;
+  }
+
+  .mobile-tool-grid {
+    gap: 5px;
   }
 }
 

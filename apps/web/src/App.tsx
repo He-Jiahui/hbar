@@ -52,6 +52,24 @@ import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
+const MOBILE_TOOLS = [
+  { id: 'browser', title: '浏览器', icon: Globe },
+  { id: 'inspector', title: '会话检查', icon: FileSearch },
+  { id: 'plan', title: '计划', icon: ListChecks },
+  { id: 'insights', title: '会话洞察', icon: Activity },
+] as const
+const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
+  activity: 'activity',
+  settings: 'settings',
+  diagnose: 'diagnose',
+  terminal: 'terminal',
+  browser: 'browser',
+  inspector: 'inspector',
+  plan: 'plan',
+  insights: 'insights',
+  file: 'file',
+  plugin: 'plugin',
+}
 
 function Pairing() {
   const [code, setCode] = useState(''),
@@ -552,31 +570,7 @@ export default function App() {
   ) {
     if (component !== 'conversation') useWorkbench.setState({ toolPanel: id })
     if (component === 'plugin') setMobilePanel(String(config?.panelId ?? ''))
-    if (small) {
-      setMobileView(
-        component === 'activity'
-          ? 'activity'
-          : component === 'settings'
-            ? 'settings'
-            : component === 'diagnose'
-              ? 'diagnose'
-              : component === 'terminal'
-                ? 'terminal'
-                : component === 'browser'
-                  ? 'browser'
-                  : component === 'inspector'
-                    ? 'inspector'
-                    : component === 'plan'
-                      ? 'plan'
-                      : component === 'insights'
-                        ? 'insights'
-                : component === 'file'
-                  ? 'file'
-                  : component === 'plugin'
-                    ? 'plugin'
-                    : 'chat',
-      )
-    }
+    if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
     if (!model.getNodeById(id))
       model.doAction(
         Actions.addNode(
@@ -591,6 +585,20 @@ export default function App() {
         ),
       )
     model.doAction(Actions.selectTab(id))
+  }
+  function toggleGalleryTool(
+    id: string,
+    title: string,
+    component: string,
+    config?: Record<string, unknown>,
+    placement = 'right',
+  ) {
+    if (toolPanel === id) {
+      useWorkbench.setState({ toolPanel: '' })
+      if (small) setMobileView('chat')
+      return
+    }
+    openPanel(id, title, component, config, placement)
   }
   const settings = () => openPanel('settings', '设置', 'settings')
   async function newSession() {
@@ -836,7 +844,20 @@ export default function App() {
                 renderPlugin(mobilePanel)
               ) : mobileView === 'plugins' ? (
                 <div className="plugin-panel">
-                  <h2>插件面板</h2>
+                  <h2>工具与插件</h2>
+                  <div className="mobile-tool-grid" aria-label="工具窗口">
+                    {MOBILE_TOOLS.map(({ id, title, icon: Icon }) => (
+                      <button
+                        key={id}
+                        className="new-session"
+                        onClick={() => toggleGalleryTool(id, title, id, undefined, 'right')}
+                      >
+                        <Icon size={16} />
+                        {title}
+                      </button>
+                    ))}
+                  </div>
+                  <h3 className="mobile-tool-heading">插件面板</h3>
                   {[...(data?.panels ?? []), ...clientPanels].map((panel) => (
                     <button
                       key={panel.id}
@@ -864,6 +885,8 @@ export default function App() {
               factory={factory}
               onModelChange={(next, action) => {
                 useWorkbench.setState({ layout: next.toJson() })
+                const selectedTool = useWorkbench.getState().toolPanel
+                if (selectedTool && !next.getNodeById(selectedTool)) useWorkbench.setState({ toolPanel: '' })
                 const previous = useWorkbench.getState().activeSession
                 if (
                   [Actions.DELETE_TAB, Actions.DELETE_TABSET].includes(action.type) &&
@@ -894,6 +917,11 @@ export default function App() {
                         useWorkbench.setState({ activeSession: '' })
                         if (previous) void client().unfollow(previous).catch(report)
                       }
+                    } else if (
+                      node instanceof TabNode &&
+                      ['browser', 'inspector', 'plan', 'insights'].includes(node.getComponent() ?? '')
+                    ) {
+                      useWorkbench.setState({ toolPanel: node.getId() })
                     }
                   }
                 }
@@ -907,7 +935,7 @@ export default function App() {
             aria-label="浏览器"
             aria-pressed={toolPanel === 'browser'}
             className={toolPanel === 'browser' ? 'selected' : ''}
-            onClick={() => openPanel('browser', '浏览器', 'browser', undefined, 'right')}
+            onClick={() => toggleGalleryTool('browser', '浏览器', 'browser', undefined, 'right')}
           >
             <Globe size={18} />
           </button>
@@ -916,7 +944,7 @@ export default function App() {
             aria-label="会话检查"
             aria-pressed={toolPanel === 'inspector'}
             className={toolPanel === 'inspector' ? 'selected' : ''}
-            onClick={() => openPanel('inspector', '会话检查', 'inspector', undefined, 'right')}
+            onClick={() => toggleGalleryTool('inspector', '会话检查', 'inspector', undefined, 'right')}
           >
             <FileSearch size={18} />
           </button>
@@ -925,7 +953,7 @@ export default function App() {
             aria-label="计划"
             aria-pressed={toolPanel === 'plan'}
             className={toolPanel === 'plan' ? 'selected' : ''}
-            onClick={() => openPanel('plan', '计划', 'plan', undefined, 'right')}
+            onClick={() => toggleGalleryTool('plan', '计划', 'plan', undefined, 'right')}
           >
             <ListChecks size={18} />
           </button>
@@ -934,7 +962,7 @@ export default function App() {
             aria-label="会话洞察"
             aria-pressed={toolPanel === 'insights'}
             className={toolPanel === 'insights' ? 'selected' : ''}
-            onClick={() => openPanel('insights', '会话洞察', 'insights', undefined, 'right')}
+            onClick={() => toggleGalleryTool('insights', '会话洞察', 'insights', undefined, 'right')}
           >
             <Activity size={18} />
           </button>
