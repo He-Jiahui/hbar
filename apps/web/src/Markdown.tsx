@@ -7,6 +7,7 @@ import { Check, Code2, Copy, Eye } from 'lucide-react'
 import { useUIPlugins } from './ui-plugins'
 import { copyText } from './browser-utils'
 import { report } from './stores'
+import GlassSurface from './react-bits/GlassSurface'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const MermaidView = lazy(() => import('./MermaidView'))
 const ChartView = lazy(() => import('./ChartView'))
@@ -26,7 +27,8 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
   const CustomRenderer = useUIPlugins((state) => state.renderers[language])
   const rich = ['mermaid', 'chart', 'flow'].includes(language) || Boolean(CustomRenderer)
   return (
-    <div className="code-block">
+    <div className="code-block rb-code-surface">
+      <GlassSurface className="code-block-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="code-toolbar">
         <span>{language || 'text'}</span>
         <div>
