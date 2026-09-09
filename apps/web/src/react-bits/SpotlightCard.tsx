@@ -1,9 +1,11 @@
-import { useCallback, useRef, type PointerEvent, type PropsWithChildren, type CSSProperties } from 'react'
+import { useCallback, useRef, type CSSProperties, type HTMLAttributes, type PointerEvent, type ReactNode } from 'react'
 import './SpotlightCard.css'
 
-export interface SpotlightCardProps extends PropsWithChildren {
+export interface SpotlightCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'style' | 'onPointerMove' | 'onPointerLeave'> {
+  children?: ReactNode
   className?: string
   spotlightColor?: string
+  style?: CSSProperties
 }
 
 /**
@@ -15,6 +17,8 @@ export default function SpotlightCard({
   children,
   className = '',
   spotlightColor = 'color-mix(in srgb, var(--rb-accent) 28%, transparent)',
+  style,
+  ...rest
 }: SpotlightCardProps) {
   const card = useRef<HTMLDivElement>(null)
 
@@ -34,13 +38,14 @@ export default function SpotlightCard({
     element.style.removeProperty('--rb-spotlight-y')
   }, [])
 
-  const style = { '--rb-spotlight-color': spotlightColor } as CSSProperties
+  const cardStyle = { ...style, '--rb-spotlight-color': spotlightColor } as CSSProperties
 
   return (
     <div
       ref={card}
+      {...rest}
       className={`rb-spotlight-card${className ? ` ${className}` : ''}`}
-      style={style}
+      style={cardStyle}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
     >
