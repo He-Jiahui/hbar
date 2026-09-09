@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "global": {
     "tabSetEnableMaximize": true,
     "tabSetMinWidth": 230,
@@ -16,7 +16,7 @@
       "location": "bottom",
       "size": 200,
       "selected": -1,
-      "show": true,
+      "show": false,
       "children": [
         {
           "type": "tab",
@@ -41,6 +41,63 @@
           }
         }
       ]
+    },
+    {
+      "type": "border",
+      "location": "right",
+      "size": 320,
+      "selected": -1,
+      "show": false,
+      "children": [
+        {
+          "type": "tab",
+          "id": "browser",
+          "name": "浏览器",
+          "component": "browser",
+          "enableClose": true,
+          "config": { "region": "right", "module": "browser" }
+        },
+        {
+          "type": "tab",
+          "id": "inspector",
+          "name": "会话检查",
+          "component": "inspector",
+          "enableClose": true,
+          "config": { "region": "right", "module": "inspector" }
+        },
+        {
+          "type": "tab",
+          "id": "plan",
+          "name": "计划",
+          "component": "plan",
+          "enableClose": true,
+          "config": { "region": "right", "module": "plan" }
+        },
+        {
+          "type": "tab",
+          "id": "insights",
+          "name": "会话洞察",
+          "component": "insights",
+          "enableClose": true,
+          "config": { "region": "right", "module": "insights" }
+        },
+        {
+          "type": "tab",
+          "id": "activity",
+          "name": "运行",
+          "component": "activity",
+          "enableClose": true,
+          "config": { "region": "right", "module": "activity" }
+        },
+        {
+          "type": "tab",
+          "id": "diagnose-right",
+          "name": "诊断",
+          "component": "diagnose",
+          "enableClose": true,
+          "config": { "region": "right", "module": "diagnostics" }
+        }
+      ]
     }
   ],
   "layout": {
@@ -63,26 +120,6 @@
             "config": {
               "region": "editor",
               "module": "conversation"
-            }
-          }
-        ]
-      },
-      {
-        "type": "tabset",
-        "id": "tools",
-        "name": "工具窗口",
-        "weight": 26,
-        "enableMaximize": true,
-        "children": [
-          {
-            "type": "tab",
-            "id": "activity",
-            "name": "运行",
-            "component": "activity",
-            "enableClose": false,
-            "config": {
-              "region": "right",
-              "module": "activity"
             }
           }
         ]

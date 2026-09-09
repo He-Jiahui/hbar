@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { Actions, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
   Archive,
@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  Command as CommandIcon,
   FileCode2,
   Folder,
   FolderOpen,
@@ -47,11 +48,15 @@ import Settings, { Modal } from './Settings'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
-import { defaultLayout, restoreLayout } from './workbench/layout'
+import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layout'
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
+import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
+const DIAGNOSE_PANEL_ID = 'diagnose-right'
+const SIDEBAR_MIN_WIDTH = 220
+const SIDEBAR_MAX_WIDTH = 360
 const MOBILE_TOOLS = [
   { id: 'browser', title: '浏览器', icon: Globe },
   { id: 'inspector', title: '会话检查', icon: FileSearch },
@@ -494,13 +499,13 @@ export default function App() {
     approvalMode = useWorkbench((state) => state.approvalMode),
     theme = useWorkbench((state) => state.theme),
     modelId = useWorkbench((state) => state.modelId),
-    toolPanel = useWorkbench((state) => state.toolPanel)
+    toolPanel = useWorkbench((state) => state.toolPanel),
+    sidebarWidth = useWorkbench((state) => state.sidebarWidth)
   const notice = useNotice((state) => state.error)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
   const sessions = data?.sessions
   const activeSnapshot = useSessions((state) => (activeSession ? state.snapshots[activeSession] : undefined))
-  const rightToolsVisible = Boolean(toolPanel && toolPanel !== 'terminal')
   const initialSelection = useRef(true)
   const switchingSession = useRef(false)
   const lastSessionSelection = useRef<string | undefined>(undefined)
@@ -511,6 +516,9 @@ export default function App() {
     [workspacePath, setWorkspacePath] = useState('')
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const sidebarDrag = useRef<{ startX: number; startWidth: number } | null>(null)
+  const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), [])
   const [model, setModel] = useState(() => {
     return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
   })
@@ -523,6 +531,27 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
   useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      const drag = sidebarDrag.current
+      if (!drag) return
+      const width = Math.min(
+        SIDEBAR_MAX_WIDTH,
+        Math.max(SIDEBAR_MIN_WIDTH, drag.startWidth + event.clientX - drag.startX),
+      )
+      useWorkbench.setState({ sidebarWidth: Math.round(width) })
+    }
+    const onPointerUp = () => {
+      sidebarDrag.current = null
+      document.body.classList.remove('resizing-sidebar')
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+    }
+  }, [])
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === '`') {
         event.preventDefault()
@@ -531,10 +560,7 @@ export default function App() {
         else openPanel('terminal', '终端', 'terminal', undefined, 'bottom')
       } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
         event.preventDefault()
-        const button = document.querySelector<HTMLButtonElement>('button[aria-label="终端"]')
-        if (button) button.click()
-        else openPanel('terminal', '终端', 'terminal', undefined, 'bottom')
-        setTimeout(() => window.dispatchEvent(new Event('hbar:terminal-commands')), 300)
+        setCommandPaletteOpen(true)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -571,7 +597,8 @@ export default function App() {
     const selectedTab = restoring ? selectedLayoutTab(model) : undefined
     const shouldSelectSession = restoring
       ? !hasPersistedTool &&
-        (!selectedTab || (selectedTab.getComponent() === 'conversation' && sessionIdFromTab(selectedTab) !== activeSession))
+        (!selectedTab ||
+          (selectedTab.getComponent() === 'conversation' && sessionIdFromTab(selectedTab) !== activeSession))
       : lastSessionSelection.current !== activeSession
     if (!activeSession) {
       if (!restoring) lastSessionSelection.current = activeSession
@@ -588,10 +615,11 @@ export default function App() {
       const currentConfig = sessionTabConfig(target)
       switchingSession.current = true
       try {
-        if (!wasTarget || target.getName() !== session.title)
+        if (!wasTarget || target.getName() !== session.title || !target.isEnableClose())
           model.doAction(
             Actions.updateNodeAttributes(target.getId(), {
               name: session.title,
+              enableClose: true,
               config: { ...currentConfig, sessionId: session.id },
             }),
           )
@@ -603,17 +631,22 @@ export default function App() {
       return
     }
     const id = `session:${session.id}`
-    const exists = Boolean(model.getNodeById(id))
-    if (!exists)
-      model.doAction(
-        Actions.addNode(
-          { type: 'tab', id, name: session.title, component: 'conversation', config: { sessionId: session.id } },
-          model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'tools'),
-          DockLocation.CENTER,
-          -1,
-        ),
-      )
-    if (!restoring || !exists) model.doAction(Actions.selectTab(id))
+    model.doAction(
+      Actions.addNode(
+        {
+          type: 'tab',
+          id,
+          name: session.title,
+          component: 'conversation',
+          enableClose: true,
+          config: { sessionId: session.id },
+        },
+        model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
+        DockLocation.CENTER,
+        -1,
+      ),
+    )
+    if (shouldSelectSession) model.doAction(Actions.selectTab(id))
   }, [activeSession, data, model])
   useEffect(() => {
     for (const session of sessions ?? []) {
@@ -632,20 +665,45 @@ export default function App() {
     if (component !== 'conversation') useWorkbench.setState({ toolPanel: id })
     if (component === 'plugin') setMobilePanel(String(config?.panelId ?? ''))
     if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
-    if (!model.getNodeById(id))
+    const borderId = placement === 'right' ? 'border_right' : placement === 'bottom' ? 'border_bottom' : undefined
+    const border = borderId ? model.getNodeById(borderId) : undefined
+    if (borderId && border?.getType() === 'border') {
+      const existing = model.getNodeById(id)
+      if (!existing)
+        model.doAction(
+          Actions.addNode({ type: 'tab', id, name: title, component, config }, borderId, DockLocation.CENTER, -1),
+        )
+      else if (existing.getParent()?.getId() !== borderId)
+        model.doAction(Actions.moveNode(id, borderId, DockLocation.CENTER, -1, false))
+      model.doAction(Actions.updateNodeAttributes(borderId, { show: true }))
+    } else if (!model.getNodeById(id)) {
       model.doAction(
         Actions.addNode(
           { type: 'tab', id, name: title, component, config },
-          placement === 'right' && model.getNodeById('tools')
-            ? 'tools'
-            : model.getNodeById('main')
-              ? 'main'
-              : (model.getActiveTabset()?.getId() ?? 'tools'),
+          model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
           placement === 'bottom' ? DockLocation.BOTTOM : placement === 'left' ? DockLocation.LEFT : DockLocation.CENTER,
           -1,
         ),
       )
-    if (shouldSelectSession) model.doAction(Actions.selectTab(id))
+    }
+    model.doAction(Actions.selectTab(id))
+  }
+
+  function closePanel(id: string) {
+    const node = model.getNodeById(id)
+    let parent = node?.getParent()
+    while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
+    if (parent instanceof BorderNode) {
+      model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false }))
+      useWorkbench.setState({ toolPanel: '' })
+    } else if (node) {
+      model.doAction(Actions.deleteTab(id))
+      if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
+    }
+  }
+  function togglePanel(id: string, title: string, component: string, placement: 'right' | 'bottom') {
+    if (useWorkbench.getState().toolPanel === id) closePanel(id)
+    else openPanel(id, title, component, undefined, placement)
   }
   function toggleGalleryTool(
     id: string,
@@ -655,7 +713,7 @@ export default function App() {
     placement = 'right',
   ) {
     if (toolPanel === id) {
-      useWorkbench.setState({ toolPanel: '' })
+      closePanel(id)
       if (small) setMobileView('chat')
       return
     }
@@ -673,6 +731,7 @@ export default function App() {
         model.doAction(
           Actions.updateNodeAttributes(target.getId(), {
             name: session.title,
+            enableClose: true,
             config: { ...currentConfig, sessionId: session.id },
           }),
         )
@@ -682,7 +741,14 @@ export default function App() {
         const id = `session:${session.id}`
         model.doAction(
           Actions.addNode(
-            { type: 'tab', id, name: session.title, component: 'conversation', config: { sessionId: session.id } },
+            {
+              type: 'tab',
+              id,
+              name: session.title,
+              component: 'conversation',
+              enableClose: true,
+              config: { sessionId: session.id },
+            },
             model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
             DockLocation.CENTER,
             -1,
@@ -707,6 +773,7 @@ export default function App() {
       model.doAction(
         Actions.updateNodeAttributes(target.getId(), {
           name: '新会话',
+          enableClose: false,
           config: withoutSession,
         }),
       )
@@ -748,6 +815,73 @@ export default function App() {
     setMobileFile(path)
     openPanel(`file:${workspaceId}:${path}`, path.split('/').at(-1)!, 'file', { path, workspaceId })
   }
+  const paletteCommands: readonly PaletteCommand[] = [
+    {
+      id: 'new-session',
+      label: '新建会话',
+      description: '在当前项目创建一个会话',
+      keywords: ['session', 'create'],
+      icon: Plus,
+      execute: () => void newSession(),
+    },
+    {
+      id: 'toggle-sidebar',
+      label: sidebar ? '收起项目与会话栏' : '展开项目与会话栏',
+      keywords: ['sidebar', 'navigation'],
+      icon: sidebar ? PanelLeftClose : PanelLeftOpen,
+      execute: () => {
+        if (small) setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions')
+        else setSidebar((visible) => !visible)
+      },
+    },
+    {
+      id: 'open-files',
+      label: '打开文件',
+      description: '浏览当前项目文件',
+      keywords: ['file', 'files'],
+      icon: Folder,
+      execute: () => {
+        useWorkbench.setState({ panel: 'files' })
+        if (small) setMobileView('files')
+        else setSidebar(true)
+      },
+    },
+    {
+      id: 'open-terminal',
+      label: '打开命令控制台',
+      description: '在底部展开 AI 命令控制台',
+      keywords: ['terminal', 'console'],
+      icon: TerminalSquare,
+      execute: () => openPanel('terminal', '终端', 'terminal', undefined, 'bottom'),
+    },
+    {
+      id: 'open-settings',
+      label: '打开设置',
+      description: '模型、权限、外观与设备',
+      keywords: ['settings', 'preferences', 'theme'],
+      icon: Settings2,
+      execute: settings,
+    },
+    {
+      id: 'open-activity',
+      label: '打开运行与事件',
+      description: '查看当前会话运行状态',
+      keywords: ['activity', 'events', 'runs'],
+      icon: Activity,
+      execute: () => openPanel('activity', '运行', 'activity', undefined, 'right'),
+    },
+    {
+      id: 'restore-layout',
+      label: '恢复默认布局',
+      description: '重置工具区和标签位置',
+      keywords: ['layout', 'reset', 'restore'],
+      icon: LayoutGrid,
+      execute: () => {
+        useWorkbench.setState({ layout: null, toolPanel: '' })
+        setModel(Model.fromJson(defaultLayout()))
+      },
+    },
+  ]
   function factory(node: TabNode) {
     const config = node.getConfig() as { sessionId?: string; path?: string; workspaceId?: string; panelId?: string }
     switch (node.getComponent()) {
@@ -758,7 +892,7 @@ export default function App() {
           <Chat
             {...(config?.sessionId ? { sessionId: config.sessionId } : {})}
             onSettings={settings}
-            onTerminal={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
+            onTerminal={() => togglePanel('terminal', '终端', 'terminal', 'bottom')}
           />
         )
       case 'settings':
@@ -782,7 +916,7 @@ export default function App() {
           <TerminalPanel
             onSettings={settings}
             onClose={() => {
-              model.doAction(Actions.deleteTab(node.getId()))
+              closePanel(node.getId())
             }}
           />
         )
@@ -815,7 +949,7 @@ export default function App() {
   }
   if (status === 'pairing' || (!data && status !== 'connected')) return <Pairing />
   return (
-    <div className={`app-shell ${rightToolsVisible ? 'right-tools-open' : ''}`}>
+    <div className="app-shell">
       <header className="topbar">
         <button
           className="sidebar-toggle"
@@ -858,41 +992,25 @@ export default function App() {
         >
           <Plus size={14} />
         </button>
+        <span
+          className="top-context"
+          title={data?.sessions.find((session) => session.id === activeSession)?.title ?? '当前会话'}
+        >
+          {data?.sessions.find((session) => session.id === activeSession)?.title ?? '新会话'}
+        </span>
         <span className="top-spacer" />
-        <div className="theme-switcher" role="group" aria-label="界面主题">
-          {([
-            ['white', 'White'],
-            ['light', 'Light'],
-            ['dark', 'Dark'],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              className={theme === value ? 'selected' : ''}
-              aria-pressed={theme === value}
-              aria-label={label}
-              onClick={() => useWorkbench.setState({ theme: value })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <button title="命令面板（Ctrl+Shift+P）" aria-label="打开命令面板" onClick={() => setCommandPaletteOpen(true)}>
+          <CommandIcon size={17} />
+        </button>
         <span className={`host-status ${status === 'connected' ? 'success' : 'warning'}`}>
           <i />
           {status === 'connected' ? (host?.platform === 'win32' ? 'Windows Host' : 'Host') : '重新连接中'}
         </span>
-        <button title="设置" aria-label="设置" onClick={settings}>
-          <Settings2 size={17} />
-        </button>
-        <button
-          title="终端"
-          aria-label="终端"
-          onClick={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
-        >
-          <TerminalSquare size={17} />
-        </button>
       </header>
-      <div className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}>
+      <div
+        className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
+        style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
+      >
         <nav className="tool-rail left-rail">
           <button
             title="会话"
@@ -917,7 +1035,13 @@ export default function App() {
             <Folder size={19} />
           </button>
           <span />
-          <button title="诊断" aria-label="诊断" onClick={() => openPanel('diagnose', '诊断', 'diagnose')}>
+          <button
+            title="诊断"
+            aria-label="诊断"
+            aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
+            className={toolPanel === DIAGNOSE_PANEL_ID ? 'selected' : ''}
+            onClick={() => openPanel(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
+          >
             <CircleHelp size={18} />
           </button>
           <button
@@ -936,6 +1060,35 @@ export default function App() {
             <Sessions onSelect={selectSession} onNew={() => void newSession()} />
           ) : (
             <Files onOpen={openFile} />
+          )}
+          {!small && sidebar && (
+            <div
+              className="sidebar-resizer"
+              role="separator"
+              aria-label="调整侧栏宽度"
+              aria-orientation="vertical"
+              aria-valuemin={SIDEBAR_MIN_WIDTH}
+              aria-valuemax={SIDEBAR_MAX_WIDTH}
+              aria-valuenow={sidebarWidth}
+              tabIndex={0}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                sidebarDrag.current = { startX: event.clientX, startWidth: sidebarWidth }
+                document.body.classList.add('resizing-sidebar')
+                event.currentTarget.setPointerCapture?.(event.pointerId)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                  event.preventDefault()
+                  useWorkbench.setState({
+                    sidebarWidth: Math.min(
+                      SIDEBAR_MAX_WIDTH,
+                      Math.max(SIDEBAR_MIN_WIDTH, sidebarWidth + (event.key === 'ArrowRight' ? 8 : -8)),
+                    ),
+                  })
+                }
+              }}
+            />
           )}
         </aside>
         <main className="workbench">
@@ -998,7 +1151,7 @@ export default function App() {
                 <Chat
                   sessionId={activeSession}
                   onSettings={settings}
-                  onTerminal={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
+                  onTerminal={() => togglePanel('terminal', '终端', 'terminal', 'bottom')}
                 />
               )}
             </>
@@ -1007,9 +1160,15 @@ export default function App() {
               model={model}
               factory={factory}
               onModelChange={(next, action) => {
-                useWorkbench.setState({ layout: next.toJson() })
+                useWorkbench.setState({ layout: versionedLayout(next.toJson()) })
                 const selectedTool = useWorkbench.getState().toolPanel
-                if (selectedTool && !next.getNodeById(selectedTool)) useWorkbench.setState({ toolPanel: '' })
+                if (selectedTool) {
+                  const selectedNode = next.getNodeById(selectedTool)
+                  let owner = selectedNode?.getParent()
+                  while (owner && !(owner instanceof BorderNode)) owner = owner.getParent()
+                  if (!selectedNode || (owner instanceof BorderNode && !owner.isShowing()))
+                    useWorkbench.setState({ toolPanel: '' })
+                }
                 const previous = useWorkbench.getState().activeSession
                 if (
                   !switchingSession.current &&
@@ -1042,10 +1201,7 @@ export default function App() {
                         useWorkbench.setState({ activeSession: '' })
                         if (previous) void client().unfollow(previous).catch(report)
                       }
-                    } else if (
-                      node instanceof TabNode &&
-                      ['browser', 'inspector', 'plan', 'insights'].includes(node.getComponent() ?? '')
-                    ) {
+                    } else if (node instanceof TabNode && node.getParent() instanceof BorderNode) {
                       useWorkbench.setState({ toolPanel: node.getId() })
                     }
                   }
@@ -1096,7 +1252,7 @@ export default function App() {
             aria-label="终端"
             aria-pressed={toolPanel === 'terminal'}
             className={toolPanel === 'terminal' ? 'selected' : ''}
-            onClick={() => openPanel('terminal', '终端', 'terminal', undefined, 'bottom')}
+            onClick={() => togglePanel('terminal', '终端', 'terminal', 'bottom')}
           >
             <TerminalSquare size={18} />
           </button>
@@ -1105,18 +1261,18 @@ export default function App() {
             aria-label="运行与事件"
             aria-pressed={toolPanel === 'activity'}
             className={toolPanel === 'activity' ? 'selected' : ''}
-            onClick={() => openPanel('activity', '运行', 'activity')}
+            onClick={() => openPanel('activity', '运行', 'activity', undefined, 'right')}
           >
             <Activity size={18} />
           </button>
           <button
-            title="模型与插件"
-            aria-label="模型与插件"
+            title="设置"
+            aria-label="设置"
             aria-pressed={toolPanel === 'settings'}
             className={toolPanel === 'settings' ? 'selected' : ''}
             onClick={settings}
           >
-            <Network size={18} />
+            <Settings2 size={18} />
           </button>
           {[...(data?.panels ?? []), ...clientPanels].map((contribution) => (
             <button
@@ -1142,9 +1298,9 @@ export default function App() {
           <button
             title="诊断"
             aria-label="诊断"
-            aria-pressed={toolPanel === 'diagnose'}
-            className={toolPanel === 'diagnose' ? 'selected' : ''}
-            onClick={() => openPanel('diagnose', '诊断', 'diagnose')}
+            aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
+            className={toolPanel === DIAGNOSE_PANEL_ID ? 'selected' : ''}
+            onClick={() => openPanel(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
           >
             <CircleHelp size={18} />
           </button>
@@ -1160,8 +1316,14 @@ export default function App() {
           {data?.models.find((model) => model.id === modelId)?.name ?? 'Provider'}
         </span>
         <span className="status-item status-agent" data-status-item="agent-status" title="会话状态">
-          <i className={activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)) ? 'running' : ''} />
-          {activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)) ? 'Running' : 'Idle'}
+          <i
+            className={
+              activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)) ? 'running' : ''
+            }
+          />
+          {activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status))
+            ? 'Running'
+            : 'Idle'}
         </span>
         <span className="status-item status-permission" data-status-item="permission" title="工具权限">
           <ShieldCheck size={12} />
@@ -1169,13 +1331,18 @@ export default function App() {
         </span>
         <span className="status-spacer" />
         <span className="status-item" data-status-item="context" title="上下文使用量">
-          Context {activeSnapshot?.usage ? (activeSnapshot.usage.input + activeSnapshot.usage.output).toLocaleString() : 0}
+          Context{' '}
+          {activeSnapshot?.usage ? (activeSnapshot.usage.input + activeSnapshot.usage.output).toLocaleString() : 0}
         </span>
         <span className="status-item" data-status-item="turn-tokens" title="当前 token 使用量">
           {host?.activeRuns ?? 0} active
         </span>
-        <span className="status-item" data-status-item="encoding">UTF-8</span>
-        <span className="status-item" data-status-item="version">0.1.0</span>
+        <span className="status-item" data-status-item="encoding">
+          UTF-8
+        </span>
+        <span className="status-item" data-status-item="version">
+          0.1.0
+        </span>
       </footer>
       <nav className="mobile-nav">
         {[
@@ -1183,6 +1350,7 @@ export default function App() {
           { id: 'chat', label: '对话', icon: Plus },
           { id: 'files', label: '文件', icon: Folder },
           { id: 'activity', label: '运行', icon: Activity },
+          { id: 'terminal', label: '终端', icon: TerminalSquare },
           { id: 'plugins', label: '插件', icon: LayoutGrid },
           { id: 'settings', label: '设置', icon: Settings2 },
         ].map((item) => (
@@ -1205,6 +1373,7 @@ export default function App() {
           </button>
         </div>
       )}
+      <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
       {workspaceModal && (
         <Modal title="添加工作区" onClose={() => setWorkspaceModal(false)}>
           <form

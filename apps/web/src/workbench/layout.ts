@@ -2,7 +2,8 @@ import { Model } from 'flexlayout-react'
 import type { IJsonModel } from 'flexlayout-react'
 import rawDefaultLayout from './default-layout.json'
 
-const CURRENT_LAYOUT_VERSION = 1
+export const CURRENT_LAYOUT_VERSION = 2
+const LEGACY_LAYOUT_VERSION = 1
 type UnknownRecord = Record<string, unknown>
 
 // This is only an emergency escape hatch for a malformed bundled descriptor.
@@ -39,7 +40,10 @@ function collectNodeIds(value: unknown, ids: Set<string>): boolean {
     if (ids.has(value.id)) return false
     ids.add(value.id)
   }
-  if (value.weight !== undefined && (typeof value.weight !== 'number' || !Number.isFinite(value.weight) || value.weight <= 0))
+  if (
+    value.weight !== undefined &&
+    (typeof value.weight !== 'number' || !Number.isFinite(value.weight) || value.weight <= 0)
+  )
     return false
   if (value.size !== undefined && (typeof value.size !== 'number' || !Number.isFinite(value.size) || value.size <= 0))
     return false
@@ -69,10 +73,53 @@ function parseModel(value: unknown): IJsonModel | null {
 function parseCandidate(value: unknown): IJsonModel | null {
   if (!isRecord(value)) return null
   const version = value.schemaVersion
-  if (version !== undefined && version !== CURRENT_LAYOUT_VERSION) return null
+  if (version !== undefined && version !== CURRENT_LAYOUT_VERSION && version !== LEGACY_LAYOUT_VERSION) return null
   const candidate = { ...value }
   delete candidate.schemaVersion
+  if (version === LEGACY_LAYOUT_VERSION) migrateLegacyLayout(candidate)
   return parseModel(candidate)
+}
+
+function migrateLegacyLayout(candidate: UnknownRecord) {
+  // v1 bundled layouts exposed an always-visible activity tabset. Keep user tabs,
+  // but remove that generated tabset so tools become explicit layout actions.
+  if (!isRecord(candidate.layout)) return
+  const root = candidate.layout
+  if (!Array.isArray(root.children)) return
+  root.children = root.children.filter((child) => {
+    if (!isRecord(child) || child.id !== 'tools') return true
+    const children = child.children
+    return !(Array.isArray(children) && children.length === 1 && isRecord(children[0]) && children[0].id === 'activity')
+  })
+
+  const ids = new Set<string>()
+  collectNodeIds(candidate.layout, ids)
+  if (Array.isArray(candidate.borders)) for (const border of candidate.borders) collectNodeIds(border, ids)
+  const existingBorders: unknown[] = Array.isArray(candidate.borders) ? candidate.borders : []
+  const defaultBorders: UnknownRecord[] =
+    isRecord(rawDefaultLayout) && Array.isArray(rawDefaultLayout.borders)
+      ? (rawDefaultLayout.borders as unknown[]).filter(isRecord)
+      : []
+  const existingLocations = new Set(
+    existingBorders
+      .filter(isRecord)
+      .flatMap((border) => (typeof border.location === 'string' ? [border.location] : [])),
+  )
+  const migratedBorders: unknown[] = [...existingBorders]
+  for (const source of defaultBorders) {
+    if (typeof source.location !== 'string' || existingLocations.has(source.location)) continue
+    const children = Array.isArray(source.children)
+      ? source.children.filter((child) => {
+          if (!isRecord(child) || typeof child.id !== 'string') return false
+          if (ids.has(child.id)) return false
+          ids.add(child.id)
+          return true
+        })
+      : []
+    migratedBorders.push({ ...source, show: false, selected: -1, children })
+    existingLocations.add(source.location)
+  }
+  if (migratedBorders.length) candidate.borders = migratedBorders
 }
 
 export function defaultLayout(): IJsonModel {
@@ -81,4 +128,8 @@ export function defaultLayout(): IJsonModel {
 
 export function restoreLayout(value: unknown): IJsonModel {
   return parseCandidate(value) ?? defaultLayout()
+}
+
+export function versionedLayout(value: IJsonModel): IJsonModel & { schemaVersion: number } {
+  return { ...value, schemaVersion: CURRENT_LAYOUT_VERSION }
 }

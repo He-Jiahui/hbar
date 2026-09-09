@@ -1,16 +1,19 @@
 import { Model } from 'flexlayout-react'
 import { expect, test } from 'bun:test'
-import { defaultLayout, restoreLayout } from './layout'
+import { defaultLayout, restoreLayout, versionedLayout } from './layout'
 
 test('default layout is a valid, versioned workbench model', () => {
   const layout = defaultLayout()
   const model = Model.fromJson(layout)
 
   expect(model.getNodeById('main')).toBeDefined()
-  expect(model.getNodeById('tools')).toBeDefined()
   expect(model.getNodeById('welcome')).toBeDefined()
+  expect(model.getNodeById('border_right')).toBeDefined()
+  expect(model.getNodeById('border_bottom')).toBeDefined()
+  expect(model.getNodeById('browser')).toBeDefined()
   expect(model.getNodeById('activity')).toBeDefined()
   expect(model.getNodeById('diagnose')).toBeDefined()
+  expect(model.getNodeById('terminal')).toBeDefined()
 })
 
 test('malformed persisted layout falls back without creating an empty workbench', () => {
@@ -26,5 +29,42 @@ test('valid persisted layout remains restorable', () => {
   const restored = restoreLayout(persisted)
 
   expect(restored.layout.id).toBe('root')
-  expect(restored.layout.children?.map((child) => child.id)).toEqual(['main', 'tools'])
+  expect(restored.layout.children?.map((child) => child.id)).toEqual(['main'])
+})
+
+test('legacy generated tool dock migrates to the explicit on-demand tool border', () => {
+  const legacy = {
+    schemaVersion: 1,
+    global: { tabSetMinWidth: 230, tabSetMinHeight: 180 },
+    layout: {
+      type: 'row',
+      id: 'root',
+      children: [
+        {
+          type: 'tabset',
+          id: 'main',
+          children: [{ type: 'tab', id: 'welcome', name: '新会话', component: 'conversation' }],
+        },
+        {
+          type: 'tabset',
+          id: 'tools',
+          children: [{ type: 'tab', id: 'activity', name: '运行', component: 'activity' }],
+        },
+      ],
+    },
+  }
+
+  const restored = restoreLayout(legacy)
+
+  expect(restored.layout.children?.map((child) => child.id)).toEqual(['main'])
+  expect(restored.borders?.map((border) => border.location)).toEqual(['bottom', 'right'])
+  expect(restored.borders?.every((border) => border.show === false)).toBe(true)
+  expect(Model.fromJson(restored).getNodeById('welcome')).toBeDefined()
+})
+
+test('layout snapshots retain the current descriptor version when persisted', () => {
+  const snapshot = versionedLayout(defaultLayout())
+
+  expect(snapshot.schemaVersion).toBe(2)
+  expect(restoreLayout(snapshot).layout.id).toBe('root')
 })

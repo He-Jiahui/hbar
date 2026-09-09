@@ -33,6 +33,46 @@ async function send(page: Page, text: string) {
   await page.getByRole('button', { name: '发送', exact: true }).filter({ visible: true }).click()
 }
 
+test('workbench keeps tools on demand and exposes the global command palette', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const browserRail = page.getByRole('button', { name: '浏览器', exact: true }).filter({ visible: true })
+    const browserTab = page.getByRole('tab', { name: '浏览器', exact: true }).filter({ visible: true })
+    await expect(browserTab).toHaveCount(0)
+    await browserRail.click()
+    await expect(browserTab).toBeVisible()
+    await browserRail.click()
+    await expect(browserTab).toHaveCount(0)
+
+    const separator = page.getByRole('separator', { name: '调整侧栏宽度', exact: true }).filter({ visible: true })
+    const before = await separator.getAttribute('aria-valuenow')
+    await separator.press('ArrowRight')
+    await expect(separator).not.toHaveAttribute('aria-valuenow', before ?? '')
+
+    await page.keyboard.press('Control+Shift+P')
+    const palette = page.getByRole('dialog', { name: '命令面板', exact: true })
+    await expect(palette).toBeVisible()
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-command-palette.png` })
+    await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('命令控制台')
+    await palette.getByRole('option', { name: /打开命令控制台/ }).press('Enter')
+    await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
+
+    await page.getByRole('button', { name: '设置', exact: true }).first().click()
+    await page.getByRole('button', { name: '外观', exact: true }).click()
+    await expect(page.getByRole('heading', { name: '界面主题', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: '浅色', exact: true }).click()
+    await expect(page.getByRole('button', { name: '浅色', exact: true })).toHaveAttribute('aria-pressed', 'true')
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.keyboard.press('Control+Shift+P')
+    await expect(palette).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+    await page.screenshot({ path: `artifacts/${Date.now()}-mobile-command-palette.png` })
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('composer plus menu exposes mode and attachment capabilities', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
