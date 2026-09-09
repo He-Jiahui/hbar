@@ -6,7 +6,10 @@ import {
   HbarError,
   approvalModeSchema,
   inputSchema,
+  modelSelectionId,
+  normalizeThinkingLevel,
   providerSchema,
+  resolveProviderModel,
   userInputRequestSchema,
   userInputResponseSchema,
 } from '@hbar/contracts'
@@ -19,6 +22,7 @@ import type {
   LiveStream,
   ModelInfo,
   ProviderConfig,
+  ProviderInput,
   Run,
   SessionEvent,
   SessionSnapshot,
@@ -278,13 +282,21 @@ export class Kernel {
     const registry: ModelRegistry = {
       list: () => this.storage.call('providers'),
       get: async (id) => {
-        const provider = (await this.storage.call('providers')).find((p) => p.id === id)
+        const providers = await this.storage.call('providers')
+        const direct = providers.find((p) => p.id === id)
+        const provider = direct ?? providers.find((candidate) => id.startsWith(`${candidate.id}/`))
         if (!provider) throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
         if (provider.protocol === 'mock' && !this.options.demo)
           throw new HbarError('DEMO_DISABLED', 'Fixture models are disabled')
-        return provider
+        if (!direct && provider.models.length > 1 && !provider.models.some((model) => `${provider.id}/${model.id}` === id))
+          throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
+        return resolveProviderModel(provider, id)
       },
-      secret: (id) => this.secrets.get(id),
+      secret: async (id) => {
+        const providers = await this.storage.call('providers')
+        const provider = providers.find((candidate) => candidate.id === id || id.startsWith(`${candidate.id}/`))
+        return provider ? this.secrets.get(provider.id) : null
+      },
     }
     this.plugins.add(
       definePlugin({
@@ -426,14 +438,23 @@ export class Kernel {
   }
   async models(): Promise<ModelInfo[]> {
     const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
-    return Promise.all(
-      providers.map(async (provider) => ({
-        ...provider,
-        hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
-      })),
-    )
+    return (await Promise.all(
+      providers.map(async (provider) => {
+        const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
+        return provider.models.map((model) => ({
+          ...provider,
+          ...model,
+          id: modelSelectionId(provider.id, model.id, provider.models.length),
+          model: model.id,
+          providerId: provider.id,
+          providerName: provider.name,
+          modelId: model.id,
+          hasKey,
+        }))
+      }),
+    )).flat()
   }
-  async saveProvider(config: ProviderConfig, apiKey?: string) {
+  async saveProvider(config: ProviderInput, apiKey?: string) {
     this.assertIdle()
     this.maintenance = true
     try {
@@ -448,7 +469,17 @@ export class Kernel {
       }
       await this.storage.call('saveProvider', provider)
       this.changed('models')
-      return { ...provider, hasKey: Boolean(await this.secrets.get(provider.id)) }
+      const selected = provider.models.find((model) => model.id === provider.model) ?? provider.models[0]!
+      return {
+        ...provider,
+        ...selected,
+        id: modelSelectionId(provider.id, selected.id, provider.models.length),
+        model: selected.id,
+        providerId: provider.id,
+        providerName: provider.name,
+        modelId: selected.id,
+        hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
+      }
     } finally {
       this.maintenance = false
     }
@@ -502,7 +533,6 @@ export class Kernel {
     input = {
       ...input,
       mode,
-      ...(mode === 'plan' && input.thinking === undefined ? { thinking: 'medium' as const } : {}),
       ...(input.source === undefined ? { source: 'user' as const } : {}),
     }
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
@@ -511,6 +541,7 @@ export class Kernel {
       if (!input.text.trim() && !input.images.length && !files.length && input.source !== 'goal')
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
+      input = { ...input, thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan') }
       if (input.images.length && !model.imageInput)
         throw new HbarError('UNSUPPORTED_IMAGE', 'Selected model does not accept images')
       const imageArtifacts = await Promise.all(input.images.map((image) => this.storage.call('artifact', image.id)))

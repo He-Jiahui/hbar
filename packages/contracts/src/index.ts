@@ -33,6 +33,15 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
 export type ContentBlock = z.infer<typeof contentBlockSchema>
 export const thinkingLevelSchema = z.enum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
 export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>
+export const DEFAULT_THINKING_LEVELS: readonly ThinkingLevel[] = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+]
 export const approvalModeSchema = z.enum(['deny', 'allow', 'ask'])
 export type ApprovalMode = z.infer<typeof approvalModeSchema>
 export const permissionModeSchema = approvalModeSchema
@@ -401,22 +410,240 @@ export interface SessionSnapshot {
   hasOlder: boolean
   streams: LiveStream[]
 }
-export const providerSchema = z.object({
-  id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
-  name: z.string().min(1).max(100),
-  protocol: z.enum(['openai-completions', 'openai-responses', 'anthropic-messages', 'mock']),
-  baseUrl: z.string().url(),
-  model: z.string().min(1).max(160),
-  contextWindow: z.number().int().min(1024).max(10_000_000).default(128_000),
-  maxOutput: z.number().int().min(64).max(1_000_000).default(8192),
-  imageInput: z.boolean().default(false),
-  reasoning: z.boolean().default(false),
-  inputPrice: z.number().nonnegative().default(0),
-  outputPrice: z.number().nonnegative().default(0),
+const providerModelInputSchema = z.object({
+  id: z.string().min(1).max(160),
+  name: z.string().min(1).max(160).optional(),
+  contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
+  maxOutput: z.number().int().min(64).max(1_000_000).optional(),
+  imageInput: z.boolean().optional(),
+  reasoning: z.boolean().optional(),
+  inputPrice: z.number().nonnegative().optional(),
+  outputPrice: z.number().nonnegative().optional(),
+  thinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
+  supportedThinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
+  defaultThinkingLevel: thinkingLevelSchema.optional(),
+  defaultReasoningEffort: thinkingLevelSchema.optional(),
+  supportedReasoningEfforts: z.array(thinkingLevelSchema).min(1).max(7).optional(),
 })
-export type ProviderConfig = z.infer<typeof providerSchema>
+
+export interface ProviderModelConfig {
+  id: string
+  name: string
+  contextWindow: number
+  maxOutput: number
+  imageInput: boolean
+  reasoning: boolean
+  inputPrice: number
+  outputPrice: number
+  thinkingLevels: ThinkingLevel[]
+  supportedThinkingLevels: ThinkingLevel[]
+  defaultThinkingLevel: ThinkingLevel
+  defaultReasoningEffort: ThinkingLevel
+  supportedReasoningEfforts: ThinkingLevel[]
+}
+
+export interface ProviderConfig {
+  id: string
+  name: string
+  protocol: 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'mock'
+  baseUrl: string
+  /** The model used when a legacy model-only selection names this provider. */
+  model: string
+  models: ProviderModelConfig[]
+  contextWindow: number
+  maxOutput: number
+  imageInput: boolean
+  reasoning: boolean
+  inputPrice: number
+  outputPrice: number
+  thinkingLevels: ThinkingLevel[]
+  supportedThinkingLevels: ThinkingLevel[]
+  defaultThinkingLevel: ThinkingLevel
+  defaultReasoningEffort: ThinkingLevel
+  supportedReasoningEfforts: ThinkingLevel[]
+}
+
+const providerInputSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
+    name: z.string().min(1).max(100),
+    protocol: z.enum(['openai-completions', 'openai-responses', 'anthropic-messages', 'mock']),
+    baseUrl: z.string().url(),
+    model: z.string().min(1).max(160).optional(),
+    models: z.array(providerModelInputSchema).max(256).optional(),
+    contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
+    maxOutput: z.number().int().min(64).max(1_000_000).optional(),
+    imageInput: z.boolean().optional(),
+    reasoning: z.boolean().optional(),
+    inputPrice: z.number().nonnegative().optional(),
+    outputPrice: z.number().nonnegative().optional(),
+    thinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
+    supportedThinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
+    defaultThinkingLevel: thinkingLevelSchema.optional(),
+    defaultReasoningEffort: thinkingLevelSchema.optional(),
+    supportedReasoningEfforts: z.array(thinkingLevelSchema).min(1).max(7).optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.model && !value.models?.length)
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['models'], message: 'A provider needs at least one model' })
+    if (value.models) {
+      const seen = new Set<string>()
+      for (const [index, model] of value.models.entries()) {
+        if (seen.has(model.id))
+          context.addIssue({ code: z.ZodIssueCode.custom, path: ['models', index, 'id'], message: 'Model ids must be unique within a provider' })
+        seen.add(model.id)
+      }
+    }
+  })
+
+function uniqueThinkingLevels(levels: readonly ThinkingLevel[]): ThinkingLevel[] {
+  return [...new Set(levels)]
+}
+
+function normalizeProviderModel(
+  value: z.input<typeof providerModelInputSchema>,
+  fallback: {
+    contextWindow: number
+    maxOutput: number
+    imageInput: boolean
+    reasoning: boolean
+    inputPrice: number
+    outputPrice: number
+    thinkingLevels: readonly ThinkingLevel[]
+    defaultThinkingLevel: ThinkingLevel
+  },
+): ProviderModelConfig {
+  const levels = uniqueThinkingLevels(
+    value.thinkingLevels ?? value.supportedThinkingLevels ?? value.supportedReasoningEfforts ?? fallback.thinkingLevels,
+  )
+  const normalizedLevels: ThinkingLevel[] = levels.length > 0 ? levels : ['off']
+  const requestedDefault = value.defaultThinkingLevel ?? value.defaultReasoningEffort ?? fallback.defaultThinkingLevel
+  const defaultThinkingLevel = normalizedLevels.includes(requestedDefault) ? requestedDefault : normalizedLevels[0]!
+  const reasoning = value.reasoning ?? (normalizedLevels.some((level) => level !== 'off') || fallback.reasoning)
+  return {
+    id: value.id,
+    name: value.name ?? value.id,
+    contextWindow: value.contextWindow ?? fallback.contextWindow,
+    maxOutput: value.maxOutput ?? fallback.maxOutput,
+    imageInput: value.imageInput ?? fallback.imageInput,
+    reasoning,
+    inputPrice: value.inputPrice ?? fallback.inputPrice,
+    outputPrice: value.outputPrice ?? fallback.outputPrice,
+    thinkingLevels: normalizedLevels,
+    supportedThinkingLevels: normalizedLevels,
+    defaultThinkingLevel,
+    defaultReasoningEffort: defaultThinkingLevel,
+    supportedReasoningEfforts: normalizedLevels,
+  }
+}
+
+export const providerSchema = providerInputSchema.transform((value): ProviderConfig => {
+  const providerThinkingLevels = uniqueThinkingLevels(
+    value.thinkingLevels ?? value.supportedThinkingLevels ?? value.supportedReasoningEfforts ??
+      (value.reasoning ? DEFAULT_THINKING_LEVELS : ['off']),
+  )
+  const fallback = {
+    contextWindow: value.contextWindow ?? 128_000,
+    maxOutput: value.maxOutput ?? 8192,
+    imageInput: value.imageInput ?? false,
+    reasoning: value.reasoning ?? providerThinkingLevels.some((level) => level !== 'off'),
+    inputPrice: value.inputPrice ?? 0,
+    outputPrice: value.outputPrice ?? 0,
+    thinkingLevels: providerThinkingLevels,
+    defaultThinkingLevel: value.defaultThinkingLevel ?? value.defaultReasoningEffort ?? (providerThinkingLevels.includes('medium') ? 'medium' : providerThinkingLevels[0] ?? 'off'),
+  }
+  const rawModels = value.models?.length
+    ? value.models
+    : [{
+        id: value.model!,
+        contextWindow: value.contextWindow,
+        maxOutput: value.maxOutput,
+        imageInput: value.imageInput,
+        reasoning: value.reasoning,
+        inputPrice: value.inputPrice,
+        outputPrice: value.outputPrice,
+        thinkingLevels: value.thinkingLevels,
+        supportedThinkingLevels: value.supportedThinkingLevels,
+        defaultThinkingLevel: value.defaultThinkingLevel,
+        defaultReasoningEffort: value.defaultReasoningEffort,
+        supportedReasoningEfforts: value.supportedReasoningEfforts,
+      }]
+  const models = rawModels.map((model) => normalizeProviderModel(model, fallback))
+  const selected = models.find((model) => model.id === value.model) ?? models[0]!
+  return {
+    id: value.id,
+    name: value.name,
+    protocol: value.protocol,
+    baseUrl: value.baseUrl,
+    model: selected.id,
+    models,
+    contextWindow: selected.contextWindow,
+    maxOutput: selected.maxOutput,
+    imageInput: selected.imageInput,
+    reasoning: selected.reasoning,
+    inputPrice: selected.inputPrice,
+    outputPrice: selected.outputPrice,
+    thinkingLevels: [...selected.thinkingLevels],
+    supportedThinkingLevels: [...selected.supportedThinkingLevels],
+    defaultThinkingLevel: selected.defaultThinkingLevel,
+    defaultReasoningEffort: selected.defaultReasoningEffort,
+    supportedReasoningEfforts: [...selected.supportedReasoningEfforts],
+  }
+})
+
+export type ProviderInput = z.input<typeof providerSchema>
+
+/** Selection ids remain the provider id for one-model legacy providers. */
+export function modelSelectionId(providerId: string, modelId: string, modelCount: number): string {
+  return modelCount === 1 ? providerId : `${providerId}/${modelId}`
+}
+
+export function providerModelSelectionId(provider: ProviderConfig, modelId: string): string {
+  return modelSelectionId(provider.id, modelId, provider.models.length)
+}
+
+export function resolveProviderModel(provider: ProviderConfig, selectionId: string): ProviderConfig {
+  let modelId = provider.model
+  if (selectionId !== provider.id) {
+    const prefix = `${provider.id}/`
+    if (selectionId.startsWith(prefix)) modelId = selectionId.slice(prefix.length)
+    else if (provider.models.some((model) => model.id === selectionId)) modelId = selectionId
+  }
+  const selected = provider.models.find((model) => model.id === modelId) ?? provider.models[0]!
+  return {
+    ...provider,
+    model: selected.id,
+    contextWindow: selected.contextWindow,
+    maxOutput: selected.maxOutput,
+    imageInput: selected.imageInput,
+    reasoning: selected.reasoning,
+    inputPrice: selected.inputPrice,
+    outputPrice: selected.outputPrice,
+    thinkingLevels: [...selected.thinkingLevels],
+    supportedThinkingLevels: [...selected.supportedThinkingLevels],
+    defaultThinkingLevel: selected.defaultThinkingLevel,
+    defaultReasoningEffort: selected.defaultReasoningEffort,
+    supportedReasoningEfforts: [...selected.supportedReasoningEfforts],
+  }
+}
+
+export function normalizeThinkingLevel(
+  model: Pick<ProviderConfig, 'thinkingLevels' | 'defaultThinkingLevel'>,
+  requested: ThinkingLevel | undefined,
+  planMode = false,
+): ThinkingLevel {
+  const levels: ThinkingLevel[] = model.thinkingLevels.length > 0 ? model.thinkingLevels : ['off']
+  const wanted = requested ?? (planMode ? 'medium' : model.defaultThinkingLevel)
+  return levels.includes(wanted) ? wanted : model.defaultThinkingLevel && levels.includes(model.defaultThinkingLevel)
+    ? model.defaultThinkingLevel
+    : levels[0]!
+}
+
 export interface ModelInfo extends ProviderConfig {
   hasKey: boolean
+  providerId: string
+  providerName: string
+  modelId: string
 }
 export interface Device {
   id: string

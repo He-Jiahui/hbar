@@ -67,6 +67,17 @@ if (schemaVersion === 1)
 
 type Row = Record<string, unknown>
 const parseJson = (value: string): unknown => JSON.parse(value) as unknown
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(',')}]`
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value)
+}
 function required<T>(row: T | null, kind: string): T {
   if (!row) throw new HbarError('NOT_FOUND', `${kind} not found`)
   return row
@@ -328,7 +339,7 @@ const methods: StorageMethods = {
         .get(sessionId, requestId) as Row | null
       if (existing) {
         const prior = runRow(existing)
-        if (prior.modelId !== modelId || JSON.stringify(prior.input) !== JSON.stringify(input))
+        if (prior.modelId !== modelId || stableJson(prior.input) !== stableJson(input))
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id was already used with different input')
         return prior
       }
