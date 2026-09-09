@@ -298,11 +298,11 @@ export default function Chat({
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
-  const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const draft = useWorkbench((state) => state.drafts[sessionId || 'new'] ?? '')
   const modelId = useWorkbench((state) => state.modelId),
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId)
+  const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
   const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
