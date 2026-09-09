@@ -254,10 +254,11 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             <legend>快速开始</legend>
             <div className="provider-preset-grid">
               {providerPresets.map((preset) => (
-                <button
+                <GlareButton
                   type="button"
                   key={preset.id}
                   className={`provider-preset ${preset.id === presetId ? 'selected' : ''}`}
+                  glareColor="color-mix(in srgb, var(--rb-accent) 48%, transparent)"
                   onClick={() => {
                     setPresetId(preset.id)
                     setValue((current) => ({ ...providerFromPreset(preset, current.id), id: current.id }))
@@ -265,7 +266,7 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
                 >
                   <strong>{preset.name}</strong>
                   <small>{preset.description}</small>
-                </button>
+                </GlareButton>
               ))}
             </div>
             <p>选择预设后只需填写 API Key；模型和地址都可以继续调整。</p>
@@ -300,13 +301,16 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             </label>
           </>
         ) : (
-          <div className="provider-connection-summary">
+          <SpotlightCard
+            className="provider-connection-summary"
+            spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
+          >
             <div>
               <strong>{selectedPreset.name}</strong>
               <span>{selectedPreset.description}</span>
             </div>
             <code>{value.baseUrl}</code>
-          </div>
+          </SpotlightCard>
         )}
         <section className="provider-model-editor" aria-label="供应商模型">
           <header className="provider-model-editor-heading">
@@ -327,10 +331,11 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
           <div className="provider-model-cards">
             {value.models.map((model, index) => (
               <fieldset
-                className={`provider-model-card ${model.id === value.model ? 'selected' : ''}`}
+                className={`provider-model-card rb-provider-model-surface ${model.id === value.model ? 'selected' : ''}`}
                 key={`${model.id}:${index}`}
               >
                 <legend>{model.id === value.model ? '默认模型' : `模型 ${index + 1}`}</legend>
+                <GlassSurface className="provider-model-card-glass" width="100%" height="100%" aria-hidden="true" />
                 <div className="form-grid">
                   <label>
                     {index === 0 ? '模型 ID' : `模型标识 ${index + 1}`}
@@ -442,8 +447,9 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
           </div>
         </label>
         {selectedModel && (
-          <details className="advanced" open={customConnection}>
+          <details className="advanced rb-provider-advanced" open={customConnection}>
             <summary>当前模型高级设置</summary>
+            <GlassSurface className="provider-advanced-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="form-grid">
               <label>
                 上下文窗口

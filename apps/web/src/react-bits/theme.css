@@ -358,6 +358,107 @@
   background-clip: padding-box;
 }
 
+.provider-preset.rb-glare-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: block;
+  text-align: left;
+}
+
+.provider-preset.rb-glare-button::before {
+  z-index: 0;
+}
+
+.provider-preset.rb-glare-button > .rb-glare-button-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+  justify-items: start;
+  gap: 3px;
+  text-align: left;
+}
+
+.provider-preset.rb-glare-button > .rb-glare-button-content > strong,
+.provider-preset.rb-glare-button > .rb-glare-button-content > small {
+  width: 100%;
+  justify-self: start;
+  text-align: left;
+}
+
+.provider-connection-summary.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
+.provider-connection-summary.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-provider-model-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: transparent;
+}
+
+.rb-provider-model-surface > .provider-model-card-glass,
+.rb-provider-advanced > .provider-advanced-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-provider-model-surface > .provider-model-card-glass {
+  background: color-mix(in srgb, var(--hbar-s1) 82%, transparent);
+}
+
+.rb-provider-model-surface.selected > .provider-model-card-glass {
+  background: color-mix(in srgb, var(--hbar-ac-soft) 68%, var(--hbar-s1));
+}
+
+.rb-provider-model-surface > .provider-model-card-glass::before,
+.rb-provider-advanced > .provider-advanced-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 9%, transparent), transparent 48%);
+}
+
+.rb-provider-model-surface > :not(.provider-model-card-glass),
+.rb-provider-advanced > :not(.provider-advanced-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-provider-advanced {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.rb-provider-advanced > .provider-advanced-glass {
+  background: color-mix(in srgb, var(--hbar-s1) 78%, transparent);
+}
+
+.rb-provider-advanced > summary {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-provider-advanced > .form-grid {
+  padding-top: 11px;
+  padding-bottom: 8px;
+}
+
 .plugin-row.rb-spotlight-card,
 .device-row.rb-spotlight-card,
 .plugin-report.rb-spotlight-card {
