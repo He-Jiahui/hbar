@@ -9,9 +9,20 @@ import {
   type CommandInvocation,
   type TerminalCommand,
 } from '@hbar/terminal'
-import { client, openSession, refreshCatalog, report, useCatalog, useSessions, useWorkbench } from './stores'
+import {
+  client,
+  openSession,
+  refreshCatalog,
+  report,
+  selectModel,
+  selectThinkingLevel,
+  useCatalog,
+  useSessions,
+  useWorkbench,
+} from './stores'
 import { useUIPlugins } from './ui-plugins'
 import Markdown from './Markdown'
+import { modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -81,11 +92,11 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
   const workspaceId = useWorkbench((state) => state.workspaceId)
   const sessionId = useWorkbench((state) => state.activeSession)
   const modelId = useWorkbench((state) => state.modelId)
+  const thinkingLevel = useWorkbench((state) => state.thinkingLevel)
   const approvalMode = useWorkbench((state) => state.approvalMode)
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const pluginCommands = useUIPlugins((state) => state.terminalCommands)
   const [input, setInput] = useState('')
-  const [thinking, setThinking] = useState<ThinkingLevel>('off')
   const [entries, setEntries] = useState<string[]>([])
   const [completion, setCompletion] = useState(0)
   const [historyIndex, setHistoryIndex] = useState(-1)
@@ -165,19 +176,25 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     } else if (command === 'model') {
       if (!argument)
         write(
-          `### Models\n\n${catalog?.models.map((item) => `- \`${item.id}\` · ${item.name} · ${item.model}`).join('\n') ?? ''}`,
+          `### Models\n\n${catalog?.models.map((item) => `- \`${item.id}\` · ${item.providerName} / ${item.modelName} · ${item.model}`).join('\n') ?? ''}`,
         )
       else {
-        const target = catalog?.models.find(
-          (item) => item.id === argument || item.name === argument || item.model === argument,
+        const target = catalog?.models.find((item) =>
+          [item.id, item.name, item.modelName, item.model, `${item.providerName}/${item.model}`].some(
+            (candidate) => candidate === argument,
+          ),
         )
         if (!target) throw new Error(`找不到模型：${argument}`)
-        useWorkbench.setState({ modelId: target.id })
+        selectModel(target.id)
+        write(`已切换到模型 \`${target.providerName} / ${target.model}\``)
       }
     } else if (command === 'thinking') {
-      if (!['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(argument))
+      const target = catalog?.models.find((item) => item.id === modelId)
+      const levels = target ? modelThinkingLevels(target) : ['off' as const]
+      if (!levels.includes(argument as ThinkingLevel))
         throw new Error('无效的 thinking 级别')
-      setThinking(argument as ThinkingLevel)
+      selectThinkingLevel(argument as ThinkingLevel)
+      write(`思考等级：${modelThinkingLabel(argument as ThinkingLevel)}`)
     } else if (command === 'compact') {
       const result = await client().call('context.compact', { sessionId, modelId })
       write(`### 上下文摘要\n\n${result.summary}`)
@@ -237,7 +254,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
       sessionId: targetSessionId,
       requestId: newRequestId(),
       modelId,
-      input: { text, images: [], thinking, approval: approvalMode },
+      input: { text, images: [], thinking: thinkingLevel, approval: approvalMode },
     })
   }
   const submit = async () => {
@@ -291,12 +308,15 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
         <span />
         <select
           aria-label="终端推理级别"
-          value={thinking}
-          onChange={(event) => setThinking(event.target.value as ThinkingLevel)}
+          value={thinkingLevel}
+          onChange={(event) => selectThinkingLevel(event.target.value as ThinkingLevel)}
         >
-          {['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].map((level) => (
+          {(catalog?.models.find((item) => item.id === modelId)
+            ? modelThinkingLevels(catalog.models.find((item) => item.id === modelId)!)
+            : ['off' as const]
+          ).map((level) => (
             <option value={level} key={level}>
-              {level}
+              {modelThinkingLabel(level)}
             </option>
           ))}
         </select>

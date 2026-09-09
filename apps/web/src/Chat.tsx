@@ -37,6 +37,7 @@ import PermissionSelector from './PermissionSelector'
 import ModelPicker from './ModelPicker'
 import ComposerMenu from './ComposerMenu'
 import { buildComposerActions, IMAGE_ACCEPT } from './composer-actions'
+import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
@@ -300,6 +301,7 @@ export default function Chat({
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
   const draft = useWorkbench((state) => state.drafts[sessionId || 'new'] ?? '')
   const modelId = useWorkbench((state) => state.modelId),
+    thinkingLevel = useWorkbench((state) => state.thinkingLevel),
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId)
   const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
@@ -404,8 +406,8 @@ export default function Chat({
         await refreshCatalog()
         await openSession(target)
       }
-      const input: UserInput = { text: draft, images, files, approval: approvalMode }
-      const key = JSON.stringify({ target, input, modelId })
+      const input: UserInput = { text: draft, images, files, thinking: thinkingLevel, approval: approvalMode }
+      const key = JSON.stringify({ target, input, modelId, thinkingLevel })
       if (pendingRequest.current?.key !== key) pendingRequest.current = { key, requestId: newRequestId() }
       await client().call('run.start', {
         sessionId: target,
@@ -822,7 +824,10 @@ export default function Chat({
                 {capabilityState.budget.limit.toLocaleString()}
               </em>
             )}
-            <small>{modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'}</small>
+            <small>
+              {modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'} ·{' '}
+              {modelThinkingLabel(thinkingLevel)}
+            </small>
           </span>
           <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString() : 0} tokens</span>
         </div>

@@ -17,14 +17,15 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { providerSchema } from '@hbar/contracts'
-import type { Device, ModelInfo, PluginInfo, ProviderConfig } from '@hbar/contracts'
+import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
+import type { Device, ModelInfo, PluginInfo, ProviderConfig, ProviderModelConfig, ThinkingLevel } from '@hbar/contracts'
 import { client, refreshCatalog, report, useCatalog, useConnection, useWorkbench } from './stores'
 import { copyText } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
 import { permissionPreset } from './permissions'
 import { providerFromPreset, providerPresets } from './provider-presets'
 import PathSettings from './PathSettings'
+import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -62,22 +63,160 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
     </dialog>
   )
 }
+const ALL_THINKING_LEVELS: readonly ThinkingLevel[] = [...DEFAULT_THINKING_LEVELS]
+
+function cloneProviderModel(model: ProviderModelConfig): ProviderModelConfig {
+  return {
+    ...model,
+    thinkingLevels: [...model.thinkingLevels],
+    supportedThinkingLevels: [...model.supportedThinkingLevels],
+    supportedReasoningEfforts: [...model.supportedReasoningEfforts],
+  }
+}
+
+function providerEditorValue(provider: ModelInfo): ProviderConfig {
+  const fallbackLevels: ThinkingLevel[] = provider.thinkingLevels?.length ? [...provider.thinkingLevels] : ['off']
+  const sourceModels = provider.models?.length
+    ? provider.models.map(cloneProviderModel)
+    : [
+        {
+          id: provider.modelId || provider.model,
+          name: provider.modelName || provider.model,
+          contextWindow: provider.contextWindow,
+          maxOutput: provider.maxOutput,
+          imageInput: provider.imageInput,
+          reasoning: provider.reasoning,
+          inputPrice: provider.inputPrice,
+          outputPrice: provider.outputPrice,
+          thinkingLevels: fallbackLevels,
+          supportedThinkingLevels: [...fallbackLevels],
+          defaultThinkingLevel: provider.defaultThinkingLevel,
+          defaultReasoningEffort: provider.defaultReasoningEffort,
+          supportedReasoningEfforts: [...fallbackLevels],
+        },
+      ]
+  const selected = sourceModels.find((model) => model.id === provider.modelId || model.id === provider.model) ?? sourceModels[0]!
+  return {
+    id: provider.providerId || provider.id.split('/')[0] || provider.id,
+    name: provider.providerName || provider.name,
+    protocol: provider.protocol,
+    baseUrl: provider.baseUrl,
+    model: selected.id,
+    models: sourceModels,
+    contextWindow: selected.contextWindow,
+    maxOutput: selected.maxOutput,
+    imageInput: selected.imageInput,
+    reasoning: selected.reasoning,
+    inputPrice: selected.inputPrice,
+    outputPrice: selected.outputPrice,
+    thinkingLevels: [...selected.thinkingLevels],
+    supportedThinkingLevels: [...selected.supportedThinkingLevels],
+    defaultThinkingLevel: selected.defaultThinkingLevel,
+    defaultReasoningEffort: selected.defaultReasoningEffort,
+    supportedReasoningEfforts: [...selected.supportedReasoningEfforts],
+  }
+}
+
+function mirrorSelectedModel(value: ProviderConfig, models: ProviderModelConfig[], modelId = value.model): ProviderConfig {
+  const selected = models.find((model) => model.id === modelId) ?? models[0]
+  if (!selected) return { ...value, models }
+  return {
+    ...value,
+    model: selected.id,
+    models,
+    contextWindow: selected.contextWindow,
+    maxOutput: selected.maxOutput,
+    imageInput: selected.imageInput,
+    reasoning: selected.reasoning,
+    inputPrice: selected.inputPrice,
+    outputPrice: selected.outputPrice,
+    thinkingLevels: [...selected.thinkingLevels],
+    supportedThinkingLevels: [...selected.supportedThinkingLevels],
+    defaultThinkingLevel: selected.defaultThinkingLevel,
+    defaultReasoningEffort: selected.defaultReasoningEffort,
+    supportedReasoningEfforts: [...selected.supportedReasoningEfforts],
+  }
+}
+
 function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): void }) {
   const initialPreset = provider
-    ? (providerPresets.find((preset) => preset.name === provider.name || preset.baseUrl === provider.baseUrl)?.id ??
-      'custom')
+    ? (providerPresets.find(
+        (preset) => preset.name === (provider.providerName || provider.name) || preset.baseUrl === provider.baseUrl,
+      )?.id ?? 'custom')
     : 'deepseek'
   const [presetId, setPresetId] = useState(initialPreset)
   const selectedPreset = providerPresets.find((preset) => preset.id === presetId) ?? providerPresets.at(-1)!
   const customConnection = presetId === 'custom'
   const [value, setValue] = useState<ProviderConfig>(() =>
-    provider ? { ...provider } : providerFromPreset(providerPresets.find((preset) => preset.id === 'deepseek')!),
+    provider ? providerEditorValue(provider) : providerFromPreset(providerPresets.find((preset) => preset.id === 'deepseek')!),
   )
   const [apiKey, setApiKey] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('')
-  const field = <K extends keyof ProviderConfig>(key: K, next: ProviderConfig[K]) =>
+  const selectedModel = value.models.find((model) => model.id === value.model) ?? value.models[0]
+  const field = <K extends 'id' | 'name' | 'protocol' | 'baseUrl'>(key: K, next: ProviderConfig[K]) =>
     setValue((current) => ({ ...current, [key]: next }))
+  function updateModel(index: number, patch: Partial<ProviderModelConfig>) {
+    setValue((current) => {
+      const previous = current.models[index]
+      const models = current.models.map((model, modelIndex) =>
+        modelIndex === index ? { ...model, ...patch } : model,
+      )
+      const nextId = current.model === previous?.id ? patch.id ?? current.model : current.model
+      return mirrorSelectedModel(current, models, nextId)
+    })
+  }
+  function selectDefaultModel(modelId: string) {
+    setValue((current) => mirrorSelectedModel(current, current.models, modelId))
+  }
+  function addModel() {
+    setValue((current) => {
+      const used = new Set(current.models.map((model) => model.id))
+      let id = 'new-model'
+      let suffix = 2
+      while (used.has(id)) id = `new-model-${suffix++}`
+      const base = current.models[0]!
+      const levels = [...base.thinkingLevels]
+      const next: ProviderModelConfig = {
+        ...base,
+        id,
+        name: id,
+        thinkingLevels: levels,
+        supportedThinkingLevels: [...levels],
+        supportedReasoningEfforts: [...levels],
+      }
+      return mirrorSelectedModel(current, [...current.models, next], current.model)
+    })
+  }
+  function removeModel(index: number) {
+    setValue((current) => {
+      if (current.models.length <= 1) return current
+      const removed = current.models[index]
+      const models = current.models.filter((_, modelIndex) => modelIndex !== index)
+      const nextId = removed?.id === current.model ? models[Math.max(0, index - 1)]?.id ?? models[0]!.id : current.model
+      return mirrorSelectedModel(current, models, nextId)
+    })
+  }
+  function toggleThinking(level: ThinkingLevel, enabled: boolean) {
+    if (!selectedModel) return
+    const next = enabled
+      ? [...new Set([...selectedModel.thinkingLevels, level])]
+      : selectedModel.thinkingLevels.filter((item) => item !== level)
+    if (!next.length) return
+    const defaultLevel = next.includes(selectedModel.defaultThinkingLevel) ? selectedModel.defaultThinkingLevel : next[0]!
+    updateModel(value.models.indexOf(selectedModel), {
+      thinkingLevels: next,
+      supportedThinkingLevels: [...next],
+      supportedReasoningEfforts: [...next],
+      defaultThinkingLevel: defaultLevel,
+      defaultReasoningEffort: defaultLevel,
+      reasoning: next.some((item) => item !== 'off'),
+    })
+  }
+  function setDefaultThinking(level: ThinkingLevel) {
+    if (!selectedModel || !selectedModel.thinkingLevels.includes(level)) return
+    updateModel(value.models.indexOf(selectedModel), { defaultThinkingLevel: level, defaultReasoningEffort: level })
+  }
   async function save(event: React.FormEvent) {
     event.preventDefault()
     setBusy(true)
@@ -154,21 +293,111 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             <code>{value.baseUrl}</code>
           </div>
         )}
-        <label>
-          模型 ID
-          <input
-            list={`provider-models-${presetId}`}
-            autoFocus={!customConnection}
-            value={value.model}
-            onChange={(event) => field('model', event.target.value)}
-            required
-          />
+        <section className="provider-model-editor" aria-label="供应商模型">
+          <header className="provider-model-editor-heading">
+            <div>
+              <strong>模型</strong>
+              <span>{value.models.length} 个模型；每个模型可独立设置思考等级</span>
+            </div>
+            <button type="button" className="button icon-button" title="添加模型" aria-label="添加模型" onClick={addModel}>
+              <Plus size={14} />
+            </button>
+          </header>
+          <div className="provider-model-cards">
+            {value.models.map((model, index) => (
+              <fieldset className={`provider-model-card ${model.id === value.model ? 'selected' : ''}`} key={`${model.id}:${index}`}>
+                <legend>{model.id === value.model ? '默认模型' : `模型 ${index + 1}`}</legend>
+                <div className="form-grid">
+                  <label>
+                    {index === 0 ? '模型 ID' : `模型标识 ${index + 1}`}
+                    <input
+                      list={`provider-models-${presetId}`}
+                      aria-label={index === 0 ? '模型 ID' : `模型标识 ${index + 1}`}
+                      autoFocus={!customConnection && index === 0}
+                      value={model.id}
+                      onChange={(event) => updateModel(index, { id: event.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    显示名称
+                    <input value={model.name} onChange={(event) => updateModel(index, { name: event.target.value })} required />
+                  </label>
+                </div>
+                <label className="checkbox provider-default-model">
+                  <input
+                    type="radio"
+                    name="provider-default-model"
+                    checked={model.id === value.model}
+                    onChange={() => selectDefaultModel(model.id)}
+                  />
+                  默认模型
+                </label>
+                <div className="provider-thinking-editor">
+                  <span>支持的思考等级</span>
+                  <div className="provider-thinking-options">
+                    {ALL_THINKING_LEVELS.map((level) => (
+                      <label className="checkbox" key={level}>
+                        <input
+                          type="checkbox"
+                          checked={model.thinkingLevels.includes(level)}
+                          onChange={(event) => {
+                            if (model.id === selectedModel?.id) toggleThinking(level, event.target.checked)
+                            else {
+                              const next = event.target.checked
+                                ? [...new Set([...model.thinkingLevels, level])]
+                                : model.thinkingLevels.filter((item) => item !== level)
+                              if (next.length) {
+                                const defaultLevel = next.includes(model.defaultThinkingLevel) ? model.defaultThinkingLevel : next[0]!
+                                updateModel(index, {
+                                  thinkingLevels: next,
+                                  supportedThinkingLevels: [...next],
+                                  supportedReasoningEfforts: [...next],
+                                  defaultThinkingLevel: defaultLevel,
+                                  defaultReasoningEffort: defaultLevel,
+                                  reasoning: next.some((item) => item !== 'off'),
+                                })
+                              }
+                            }
+                          }}
+                        />
+                        {modelThinkingLabel(level)}
+                      </label>
+                    ))}
+                  </div>
+                  <label>
+                    默认思考等级
+                    <select
+                      value={model.defaultThinkingLevel}
+                      onChange={(event) => {
+                        const level = event.target.value as ThinkingLevel
+                        if (model.id === selectedModel?.id) setDefaultThinking(level)
+                        else updateModel(index, { defaultThinkingLevel: level, defaultReasoningEffort: level })
+                      }}
+                    >
+                      {model.thinkingLevels.map((level) => (
+                        <option value={level} key={level}>
+                          {modelThinkingLabel(level)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {value.models.length > 1 && (
+                  <button type="button" className="provider-remove-model" onClick={() => removeModel(index)}>
+                    <Trash2 size={13} />
+                    移除模型
+                  </button>
+                )}
+              </fieldset>
+            ))}
+          </div>
           <datalist id={`provider-models-${presetId}`}>
             {selectedPreset.modelOptions.map((model) => (
               <option value={model} key={model} />
             ))}
           </datalist>
-        </label>
+        </section>
         <label>
           API Key
           <div className="input-icon">
@@ -182,65 +411,93 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             />
           </div>
         </label>
-        <details className="advanced" open={customConnection}>
-          <summary>高级设置</summary>
-          <div className="form-grid">
-            <label>
-              上下文窗口
+        {selectedModel && (
+          <details className="advanced" open={customConnection}>
+            <summary>当前模型高级设置</summary>
+            <div className="form-grid">
+              <label>
+                上下文窗口
+                <input
+                  type="number"
+                  min={1024}
+                  value={selectedModel.contextWindow}
+                  onChange={(event) => updateModel(value.models.indexOf(selectedModel), { contextWindow: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                最大输出
+                <input
+                  type="number"
+                  min={64}
+                  value={selectedModel.maxOutput}
+                  onChange={(event) => updateModel(value.models.indexOf(selectedModel), { maxOutput: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                输入 / 百万 tokens
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={selectedModel.inputPrice}
+                  onChange={(event) => updateModel(value.models.indexOf(selectedModel), { inputPrice: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                输出 / 百万 tokens
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={selectedModel.outputPrice}
+                  onChange={(event) => updateModel(value.models.indexOf(selectedModel), { outputPrice: Number(event.target.value) })}
+                />
+              </label>
+            </div>
+            <label className="checkbox">
               <input
-                type="number"
-                min={1024}
-                value={value.contextWindow}
-                onChange={(event) => field('contextWindow', Number(event.target.value))}
+                type="checkbox"
+                checked={selectedModel.imageInput}
+                onChange={(event) => updateModel(value.models.indexOf(selectedModel), { imageInput: event.target.checked })}
               />
+              图片输入
             </label>
-            <label>
-              最大输出
+            <label className="checkbox">
               <input
-                type="number"
-                min={64}
-                value={value.maxOutput}
-                onChange={(event) => field('maxOutput', Number(event.target.value))}
+                type="checkbox"
+                checked={selectedModel.reasoning}
+                onChange={(event) => {
+                  const index = value.models.indexOf(selectedModel)
+                  if (event.target.checked) {
+                    const levels = selectedModel.thinkingLevels.length > 1 ? selectedModel.thinkingLevels : [...DEFAULT_THINKING_LEVELS]
+                    updateModel(index, {
+                      reasoning: true,
+                      thinkingLevels: levels,
+                      supportedThinkingLevels: [...levels],
+                      supportedReasoningEfforts: [...levels],
+                      defaultThinkingLevel: levels.includes(selectedModel.defaultThinkingLevel)
+                        ? selectedModel.defaultThinkingLevel
+                        : 'medium',
+                      defaultReasoningEffort: levels.includes(selectedModel.defaultThinkingLevel)
+                        ? selectedModel.defaultThinkingLevel
+                        : 'medium',
+                    })
+                  } else {
+                    updateModel(index, {
+                      reasoning: false,
+                      thinkingLevels: ['off'],
+                      supportedThinkingLevels: ['off'],
+                      supportedReasoningEfforts: ['off'],
+                      defaultThinkingLevel: 'off',
+                      defaultReasoningEffort: 'off',
+                    })
+                  }
+                }}
               />
+              推理模型
             </label>
-            <label>
-              输入 / 百万 tokens
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={value.inputPrice}
-                onChange={(event) => field('inputPrice', Number(event.target.value))}
-              />
-            </label>
-            <label>
-              输出 / 百万 tokens
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={value.outputPrice}
-                onChange={(event) => field('outputPrice', Number(event.target.value))}
-              />
-            </label>
-          </div>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={value.imageInput}
-              onChange={(event) => field('imageInput', event.target.checked)}
-            />
-            图片输入
-          </label>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={value.reasoning}
-              onChange={(event) => field('reasoning', event.target.checked)}
-            />
-            推理模型
-          </label>
-        </details>
+          </details>
+        )}
         {error && (
           <p className="inline-error" role="alert">
             {error}
@@ -379,11 +636,14 @@ export default function Settings() {
     const query = modelQuery.trim().toLocaleLowerCase()
     const matchesQuery =
       !query ||
-      [model.name, model.model, model.protocol, model.baseUrl].some((part) => part.toLocaleLowerCase().includes(query))
+      [model.providerName, model.providerId, model.name, model.modelName, model.model, model.protocol, model.baseUrl]
+        .filter((part): part is string => Boolean(part))
+        .some((part) => part.toLocaleLowerCase().includes(query))
     const connected = model.protocol === 'mock' || model.hasKey
     const matchesFilter = modelFilter === 'all' || (modelFilter === 'connected' ? connected : !connected)
     return matchesQuery && matchesFilter
   })
+  const modelGroups = groupModelsByProvider(filteredModels)
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
@@ -446,7 +706,7 @@ export default function Settings() {
           <div className="section-toolbar">
             <div className="model-section-title">
               <h2>供应商与模型</h2>
-              <span>{models.length} 个连接</span>
+              <span>{modelGroups.length} 个供应商 · {models.length} 个模型</span>
             </div>
             <button className="button" onClick={() => setEditor('new')}>
               <Plus size={14} />
@@ -487,42 +747,61 @@ export default function Settings() {
               </button>
             </div>
           </div>
-          {filteredModels.length ? (
-            filteredModels.map((model) => {
-              const connected = model.protocol === 'mock' || model.hasKey
+          {modelGroups.length ? (
+            modelGroups.map((group) => {
+              const first = group.models[0]!
+              const connected = first.protocol === 'mock' || group.models.every((model) => model.hasKey)
+              const providerId = first.providerId || first.id.split('/')[0] || first.id
               return (
-                <div className="model-row" key={model.id}>
-                  <div className="model-icon">
-                    <Network size={18} />
+                <section className="settings-provider-group" key={group.providerId} aria-label={group.providerName}>
+                  <header className="settings-provider-heading">
+                    <div className="settings-provider-title">
+                      <span className="model-icon"><Network size={17} /></span>
+                      <div>
+                        <strong>{group.providerName}</strong>
+                        <small>{group.models.length} 个模型 · {first.protocol === 'mock' ? 'Local fixture' : first.baseUrl}</small>
+                      </div>
+                    </div>
+                    <div className="settings-provider-actions">
+                      <span className={`model-connection ${connected ? 'connected' : 'needs-key'}`}>
+                        <KeyRound size={12} />
+                        {first.protocol === 'mock' ? '本地' : connected ? '已连接' : '待配置 Key'}
+                      </span>
+                      <button
+                        title={`删除供应商 ${group.providerName}`}
+                        aria-label={`删除供应商 ${group.providerName}`}
+                        onClick={() => {
+                          if (window.confirm(`删除供应商 ${group.providerName} 及其全部模型？`))
+                            void client().call('provider.delete', { id: providerId }).then(refreshCatalog).catch(report)
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </header>
+                  <div className="settings-provider-models">
+                    {group.models.map((model) => (
+                      <div className="model-row" key={model.id}>
+                        <button className="model-details" onClick={() => setEditor(model)}>
+                          <strong>{model.modelName}</strong>
+                          <span>{model.model}</span>
+                          <small>
+                            {model.defaultThinkingLevel === 'off' ? '思考关闭' : `默认思考：${modelThinkingLabel(model.defaultThinkingLevel)}`}
+                          </small>
+                        </button>
+                        <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
+                        <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
+                        <span className="model-thinking-count">{model.thinkingLevels.length} 级</span>
+                        {!(model.protocol === 'mock' || model.hasKey) && (
+                          <button className="model-key-action button" onClick={() => setEditor(model)}>
+                            <KeyRound size={13} />
+                            配置 Key
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <button className="model-details" onClick={() => setEditor(model)}>
-                    <strong>{model.name}</strong>
-                    <span>{model.model}</span>
-                    <small>{model.protocol === 'mock' ? 'Local fixture' : model.baseUrl}</small>
-                  </button>
-                  <span className={`model-connection ${connected ? 'connected' : 'needs-key'}`}>
-                    <KeyRound size={12} />
-                    {model.protocol === 'mock' ? '本地' : connected ? '已连接' : '待配置 Key'}
-                  </span>
-                  <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
-                  <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
-                  {!connected && (
-                    <button className="model-key-action button" onClick={() => setEditor(model)}>
-                      <KeyRound size={13} />
-                      配置 Key
-                    </button>
-                  )}
-                  <button
-                    title={`删除 ${model.name}`}
-                    aria-label={`删除 ${model.name}`}
-                    onClick={() => {
-                      if (window.confirm(`删除模型 ${model.name}？`))
-                        void client().call('provider.delete', { id: model.id }).then(refreshCatalog).catch(report)
-                    }}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
+                </section>
               )
             })
           ) : (

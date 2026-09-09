@@ -40,3 +40,48 @@ test('model settings can search and filter configured connections', async ({ pag
     fixture.api.disconnect()
   }
 })
+
+test('model picker exposes provider, model and thinking level hierarchy', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  const providerId = 'ui-model-catalog'
+  try {
+    await fixture.api.call('provider.save', {
+      provider: {
+        id: providerId,
+        name: 'UI Model Catalog',
+        protocol: 'mock',
+        baseUrl: 'http://127.0.0.1',
+        model: 'fast-model',
+        models: [
+          { id: 'fast-model', name: 'Fast model', thinkingLevels: ['off'] },
+          {
+            id: 'deep-model',
+            name: 'Deep model',
+            reasoning: true,
+            thinkingLevels: ['off', 'medium', 'high'],
+            defaultThinkingLevel: 'medium',
+          },
+        ],
+      },
+    })
+    await page.reload()
+    const picker = page.getByRole('button', { name: /选择模型，当前/ }).filter({ visible: true })
+    await picker.click()
+    const menu = page.getByRole('menu', { name: '选择模型', exact: true })
+    const search = menu.getByRole('textbox', { name: '搜索模型', exact: true })
+    await search.fill('UI Model Catalog')
+    const provider = menu.getByRole('group', { name: 'UI Model Catalog', exact: true })
+    await expect(provider).toBeVisible()
+    await expect(provider.getByRole('menuitemradio', { name: 'UI Model Catalog / Fast model', exact: true })).toBeVisible()
+    const deep = provider.getByRole('menuitemradio', { name: 'UI Model Catalog / Deep model', exact: true })
+    await deep.click()
+    await expect(provider.getByRole('group', { name: 'Deep model 思考等级', exact: true })).toBeVisible()
+    await expect(provider.getByRole('menuitemradio', { name: /高 high/ })).toBeVisible()
+    await provider.getByRole('menuitemradio', { name: /高 high/ }).click()
+    await expect(picker).toContainText('Deep model')
+    await expect(picker).toContainText('高')
+  } finally {
+    await fixture.api.call('provider.delete', { id: providerId }).catch(() => {})
+    fixture.api.disconnect()
+  }
+})

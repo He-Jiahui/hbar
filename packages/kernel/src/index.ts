@@ -269,6 +269,7 @@ export class Kernel {
             baseUrl: 'http://127.0.0.1',
             model: 'fixture',
             imageInput: true,
+            reasoning: true,
           }),
         )
       for (const sessionId of await kernel.storage.call('queuedSessions')) kernel.kick(sessionId)
@@ -445,10 +446,12 @@ export class Kernel {
           ...provider,
           ...model,
           id: modelSelectionId(provider.id, model.id, provider.models.length),
+          name: provider.name,
           model: model.id,
           providerId: provider.id,
           providerName: provider.name,
           modelId: model.id,
+          modelName: model.name,
           hasKey,
         }))
       }),
@@ -474,10 +477,12 @@ export class Kernel {
         ...provider,
         ...selected,
         id: modelSelectionId(provider.id, selected.id, provider.models.length),
+        name: provider.name,
         model: selected.id,
         providerId: provider.id,
         providerName: provider.name,
         modelId: selected.id,
+        modelName: selected.name,
         hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
       }
     } finally {

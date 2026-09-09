@@ -1,4 +1,5 @@
-import type { ProviderConfig } from '@hbar/contracts'
+import { DEFAULT_THINKING_LEVELS } from '@hbar/contracts'
+import type { ProviderConfig, ProviderModelConfig, ThinkingLevel } from '@hbar/contracts'
 
 export interface ProviderPreset {
   id: string
@@ -140,17 +141,45 @@ export const providerPresets: readonly ProviderPreset[] = [
 ] as const
 
 export function providerFromPreset(preset: ProviderPreset, id = `provider-${Date.now().toString(36)}`): ProviderConfig {
+  const modelIds = [...new Set([preset.model, ...preset.modelOptions])]
+  const models: ProviderModelConfig[] = modelIds.map((modelId) => {
+    const reasoning = preset.reasoning || /(?:reason|think|r1|o[1-9])/i.test(modelId)
+    const thinkingLevels = reasoning ? [...DEFAULT_THINKING_LEVELS] : (['off'] as const)
+    const defaultThinkingLevel: ThinkingLevel = reasoning ? 'medium' : 'off'
+    return {
+      id: modelId,
+      name: modelId,
+      contextWindow: preset.contextWindow,
+      maxOutput: preset.maxOutput,
+      imageInput: preset.imageInput,
+      reasoning,
+      inputPrice: preset.inputPrice,
+      outputPrice: preset.outputPrice,
+      thinkingLevels: [...thinkingLevels],
+      supportedThinkingLevels: [...thinkingLevels],
+      defaultThinkingLevel,
+      defaultReasoningEffort: defaultThinkingLevel,
+      supportedReasoningEfforts: [...thinkingLevels],
+    }
+  })
+  const selected = models.find((model) => model.id === preset.model) ?? models[0]!
   return {
     id,
     name: preset.name,
     protocol: preset.protocol,
     baseUrl: preset.baseUrl,
-    model: preset.model,
-    contextWindow: preset.contextWindow,
-    maxOutput: preset.maxOutput,
-    imageInput: preset.imageInput,
-    reasoning: preset.reasoning,
-    inputPrice: preset.inputPrice,
-    outputPrice: preset.outputPrice,
+    model: selected.id,
+    contextWindow: selected.contextWindow,
+    maxOutput: selected.maxOutput,
+    imageInput: selected.imageInput,
+    reasoning: selected.reasoning,
+    inputPrice: selected.inputPrice,
+    outputPrice: selected.outputPrice,
+    models,
+    thinkingLevels: [...selected.thinkingLevels],
+    supportedThinkingLevels: [...selected.supportedThinkingLevels],
+    defaultThinkingLevel: selected.defaultThinkingLevel,
+    defaultReasoningEffort: selected.defaultReasoningEffort,
+    supportedReasoningEfforts: [...selected.supportedReasoningEfforts],
   }
 }

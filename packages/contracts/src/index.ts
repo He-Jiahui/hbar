@@ -513,13 +513,12 @@ function normalizeProviderModel(
     defaultThinkingLevel: ThinkingLevel
   },
 ): ProviderModelConfig {
-  const levels = uniqueThinkingLevels(
-    value.thinkingLevels ?? value.supportedThinkingLevels ?? value.supportedReasoningEfforts ?? fallback.thinkingLevels,
-  )
+  const declaredLevels = value.thinkingLevels ?? value.supportedThinkingLevels ?? value.supportedReasoningEfforts
+  const levels = uniqueThinkingLevels(declaredLevels ?? fallback.thinkingLevels)
   const normalizedLevels: ThinkingLevel[] = levels.length > 0 ? levels : ['off']
   const requestedDefault = value.defaultThinkingLevel ?? value.defaultReasoningEffort ?? fallback.defaultThinkingLevel
   const defaultThinkingLevel = normalizedLevels.includes(requestedDefault) ? requestedDefault : normalizedLevels[0]!
-  const reasoning = value.reasoning ?? (normalizedLevels.some((level) => level !== 'off') || fallback.reasoning)
+  const reasoning = value.reasoning ?? (declaredLevels ? normalizedLevels.some((level) => level !== 'off') : fallback.reasoning)
   return {
     id: value.id,
     name: value.name ?? value.id,
@@ -644,6 +643,7 @@ export interface ModelInfo extends ProviderConfig {
   providerId: string
   providerName: string
   modelId: string
+  modelName: string
 }
 export interface Device {
   id: string

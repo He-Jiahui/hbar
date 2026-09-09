@@ -35,6 +35,7 @@ test('provider schema expands legacy single-model configs and preserves model ca
     protocol: 'openai-completions',
     baseUrl: 'https://example.test/v1',
     model: 'reasoning',
+    reasoning: true,
     models: [
       { id: 'fast', thinkingLevels: ['off', 'low'], defaultThinkingLevel: 'low' },
       {
@@ -42,11 +43,13 @@ test('provider schema expands legacy single-model configs and preserves model ca
         thinkingLevels: DEFAULT_THINKING_LEVELS,
         defaultThinkingLevel: 'high',
       },
+      { id: 'plain', thinkingLevels: ['off'] },
     ],
   })
-  expect(multi.models.map((model) => model.id)).toEqual(['fast', 'reasoning'])
+  expect(multi.models.map((model) => model.id)).toEqual(['fast', 'reasoning', 'plain'])
   expect(multi.models[0]?.defaultThinkingLevel).toBe('low')
   expect(multi.models[1]?.defaultThinkingLevel).toBe('high')
+  expect(multi.models[2]?.reasoning).toBeFalse()
   expect(multi.thinkingLevels).toEqual([...DEFAULT_THINKING_LEVELS])
 })
 
@@ -70,6 +73,7 @@ test('kernel exposes provider groups with independent model and thinking metadat
   const grouped = catalog.filter((model) => model.providerId === 'multi')
   expect(grouped.map((model) => model.id)).toEqual(['multi/fast', 'multi/deep'])
   expect(grouped.map((model) => model.providerName)).toEqual(['Multi', 'Multi'])
+  expect(grouped.map((model) => model.modelName)).toEqual(['fast', 'deep'])
   expect(grouped[0]?.thinkingLevels).toEqual(['off', 'low'])
   expect(grouped[1]?.thinkingLevels).toEqual(['off', 'medium', 'high'])
   expect(modelSelectionId('multi', 'deep', 2)).toBe('multi/deep')
