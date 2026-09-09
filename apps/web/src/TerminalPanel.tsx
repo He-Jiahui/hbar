@@ -1,6 +1,6 @@
 import { newRequestId } from './browser-utils'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, CircleStop, Plus, Send, TerminalSquare, X } from 'lucide-react'
+import { Check, CircleStop, LoaderCircle, Plus, Send, TerminalSquare, X } from 'lucide-react'
 import type { Approval, ContentBlock, Message, ThinkingLevel } from '@hbar/contracts'
 import {
   BUILTIN_TERMINAL_COMMANDS,
@@ -100,9 +100,11 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
   const [entries, setEntries] = useState<string[]>([])
   const [completion, setCompletion] = useState(0)
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
   const history = useRef<string[]>([])
   const lastMessage = useRef('')
   const scroll = useRef<HTMLDivElement>(null)
+  const resolvingApprovalIds = useRef(new Set<string>())
   const activeRun = snapshot?.runs.find((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const sessions = catalog?.sessions.filter((session) => session.workspaceId === workspaceId && !session.archived) ?? []
   const commands = useMemo<TerminalCommand[]>(
@@ -137,7 +139,20 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
       ? snapshot?.approvals.find((item) => item.id === id)
       : snapshot?.approvals.find((item) => item.status === 'pending')
     if (!approval) throw new Error('没有待处理的审批')
-    await client().call('approval.resolve', { approvalId: approval.id, decision })
+    if (resolvingApprovalIds.current.has(approval.id)) return
+    resolvingApprovalIds.current.add(approval.id)
+    setResolvingApprovals((current) => new Set(current).add(approval.id))
+    try {
+      await client().call('approval.resolve', { approvalId: approval.id, decision })
+    } finally {
+      resolvingApprovalIds.current.delete(approval.id)
+      setResolvingApprovals((current) => {
+        if (!current.has(approval.id)) return current
+        const next = new Set(current)
+        next.delete(approval.id)
+        return next
+      })
+    }
   }
   const dispatch = async ({ command, args }: CommandInvocation) => {
     const argument = args.join(' ')
@@ -347,18 +362,27 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
           </article>
         ))}
         {snapshot?.approvals.map((approval) => (
-          <div className="terminal-entry terminal-approval" key={approval.id}>
+          <div
+            className="terminal-entry terminal-approval"
+            key={approval.id}
+            aria-busy={resolvingApprovals.has(approval.id)}
+          >
             <Markdown text={approvalMarkdown(approval)} />
             <div>
-              <button className="button" onClick={() => void resolveApproval('denied', approval.id).catch(report)}>
-                <X size={13} />
+              <button
+                className="button"
+                disabled={resolvingApprovals.has(approval.id)}
+                onClick={() => void resolveApproval('denied', approval.id).catch(report)}
+              >
+                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={13} className="spinning" /> : <X size={13} />}
                 拒绝
               </button>
               <button
                 className="button primary"
+                disabled={resolvingApprovals.has(approval.id)}
                 onClick={() => void resolveApproval('allowed', approval.id).catch(report)}
               >
-                <Check size={13} />
+                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={13} className="spinning" /> : <Check size={13} />}
                 批准
               </button>
             </div>
