@@ -442,7 +442,8 @@ export default function App() {
   const activeSession = useWorkbench((state) => state.activeSession),
     workspaceId = useWorkbench((state) => state.workspaceId),
     panel = useWorkbench((state) => state.panel),
-    approvalMode = useWorkbench((state) => state.approvalMode)
+    approvalMode = useWorkbench((state) => state.approvalMode),
+    theme = useWorkbench((state) => state.theme)
   const notice = useNotice((state) => state.error)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
@@ -458,6 +459,9 @@ export default function App() {
   const [model, setModel] = useState(() => {
     return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
   })
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme === 'white' ? 'white' : theme === 'light' ? 'dsh-light' : 'dsh-dark'
+  }, [theme])
   useEffect(() => {
     const onResize = () => setSmall(window.innerWidth < 900)
     window.addEventListener('resize', onResize)
@@ -693,6 +697,24 @@ export default function App() {
           <Plus size={14} />
         </button>
         <span className="top-spacer" />
+        <div className="theme-switcher" role="group" aria-label="界面主题">
+          {([
+            ['white', 'White'],
+            ['light', 'Light'],
+            ['dark', 'Dark'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={theme === value ? 'selected' : ''}
+              aria-pressed={theme === value}
+              aria-label={label}
+              onClick={() => useWorkbench.setState({ theme: value })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <span className={`host-status ${status === 'connected' ? 'success' : 'warning'}`}>
           <i />
           {status === 'connected' ? (host?.platform === 'win32' ? 'Windows Host' : 'Host') : '重新连接中'}

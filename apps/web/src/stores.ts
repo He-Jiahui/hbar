@@ -43,8 +43,12 @@ interface WorkbenchState {
   showArchived: boolean
   panel: 'sessions' | 'files'
   toolPanel: string
-  theme: 'dark' | 'light'
+  theme: 'dark' | 'light' | 'white'
   layout: unknown
+}
+
+function isTheme(value: unknown): value is WorkbenchState['theme'] {
+  return value === 'dark' || value === 'light' || value === 'white'
 }
 
 const defaultWorkbenchState: WorkbenchState = {
@@ -72,6 +76,7 @@ export const useWorkbench = create(
           ...defaultWorkbenchState,
           ...value,
           approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
+          theme: isTheme(value.theme) ? value.theme : 'dark',
         }
       },
     },
