@@ -738,7 +738,8 @@ export default function Settings() {
               <p className="section-description">选择此设备使用的工作台配色。</p>
             </div>
           </div>
-          <div className="theme-options" role="group" aria-label="界面主题">
+          <div className="theme-options rb-theme-options" role="group" aria-label="界面主题">
+            <GlassSurface className="theme-options-glass" width="100%" height="100%" aria-hidden="true" />
             {(
               [
                 ['dark', '深色', Moon],
@@ -771,7 +772,10 @@ export default function Settings() {
             <PermissionSelector compact={false} placement="below" />
           </div>
           <div className="permission-settings-list">
-            <div className="permission-setting-row">
+            <SpotlightCard
+              className="permission-setting-row"
+              spotlightColor="color-mix(in srgb, var(--hbar-ok) 18%, transparent)"
+            >
               <div className="permission-setting-icon permission-tone-balanced">
                 <ShieldCheck size={16} />
               </div>
@@ -782,11 +786,14 @@ export default function Settings() {
               <span className={`state-label permission-state-${permissionPreset(approvalMode).tone}`}>
                 {permissionPreset(approvalMode).label}
               </span>
-            </div>
-            <div className="permission-note">
+            </SpotlightCard>
+            <SpotlightCard
+              className="permission-note"
+              spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)"
+            >
               <strong>只对之后发送的消息生效</strong>
               <span>正在运行的任务不会被中途改变。你也可以在聊天输入框旁快速切换。</span>
-            </div>
+            </SpotlightCard>
           </div>
         </section>
       )}

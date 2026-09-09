@@ -404,6 +404,137 @@
   z-index: 1;
 }
 
+.rb-theme-options {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.rb-theme-options > .theme-options-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--hbar-s1) 68%, transparent);
+  pointer-events: none;
+}
+
+.rb-theme-options > .theme-options-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 8%, transparent), transparent 48%);
+}
+
+.rb-theme-options > :not(.theme-options-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.permission-setting-row.rb-spotlight-card,
+.permission-note.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
+.permissions-section .section-toolbar {
+  border-color: var(--hbar-bd);
+  background: color-mix(in srgb, var(--hbar-s1) 78%, transparent);
+}
+
+.permission-setting-row.rb-spotlight-card {
+  border-color: var(--hbar-bd);
+  background: color-mix(in srgb, var(--hbar-s1) 82%, transparent);
+}
+
+.permission-note.rb-spotlight-card {
+  border-color: color-mix(in srgb, var(--hbar-bd) 86%, var(--hbar-wn));
+  background: color-mix(in srgb, var(--hbar-s2) 76%, transparent);
+}
+
+.permission-setting-row strong,
+.permission-note strong {
+  color: var(--hbar-t1);
+}
+
+.permission-setting-row span,
+.permission-note span {
+  color: var(--hbar-t2);
+}
+
+.permission-state-safe {
+  color: var(--hbar-ok-ink);
+  background: var(--hbar-ok-soft);
+}
+
+.permission-state-balanced {
+  color: var(--hbar-wn-ink);
+  background: var(--hbar-wn-soft);
+}
+
+.permission-state-open {
+  color: var(--hbar-ac-ink);
+  background: var(--hbar-ac-soft);
+}
+
+.permission-trigger {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t2);
+}
+
+.permission-trigger:hover,
+.permission-trigger[aria-expanded='true'] {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft-hover);
+  color: var(--hbar-t1);
+}
+
+.permission-trigger.permission-tone-safe {
+  border-color: color-mix(in srgb, var(--hbar-ok) 58%, var(--hbar-bd));
+  background: var(--hbar-ok-soft);
+  color: var(--hbar-ok-ink);
+}
+
+.permission-trigger.permission-tone-balanced {
+  border-color: color-mix(in srgb, var(--hbar-wn) 58%, var(--hbar-bd));
+  background: var(--hbar-wn-soft);
+  color: var(--hbar-wn-ink);
+}
+
+.permission-trigger.permission-tone-open {
+  border-color: color-mix(in srgb, var(--hbar-ac) 58%, var(--hbar-bd));
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-ac-ink);
+}
+
+.permission-menu {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.permission-option {
+  color: var(--hbar-t2);
+}
+
+.permission-menu-heading,
+.permission-menu-footer {
+  color: var(--hbar-t3);
+}
+
+.permission-setting-icon {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.permission-setting-row.rb-spotlight-card > *,
+.permission-note.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .settings-provider-group.rb-spotlight-card {
   background-clip: padding-box;
 }
