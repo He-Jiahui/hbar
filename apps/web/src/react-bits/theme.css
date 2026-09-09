@@ -331,6 +331,45 @@
   z-index: 1;
 }
 
+.browser-page-card.rb-spotlight-card {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.browser-page-card.rb-spotlight-card.selected {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+}
+
+.browser-page-card.rb-spotlight-card > button {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  border-color: transparent;
+  background: transparent;
+}
+
+.browser-page-card.rb-spotlight-card > button:hover,
+.browser-page-card.rb-spotlight-card > button.selected {
+  border-color: transparent;
+  background: transparent;
+}
+
+.browser-screenshot-card.rb-spotlight-card {
+  margin-top: 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: var(--hbar-code);
+}
+
+.browser-screenshot-card.rb-spotlight-card > .browser-screenshot {
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+}
+
 .rb-file-nav,
 .rb-file-viewer,
 .rb-activity-panel,

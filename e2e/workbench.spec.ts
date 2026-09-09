@@ -53,6 +53,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(browserPanel.locator('.tool-header-glass')).toHaveClass(/glass-surface/)
     await expect(browserPanel.locator('.browser-address-glass')).toHaveClass(/glass-surface/)
     await expect(browserPanel.locator('.rb-animated-list')).toBeVisible()
+    await expect(browserPanel.locator('.browser-page-card.rb-spotlight-card')).toHaveCount(1)
     await expect(browserPanel.locator('.rb-animated-list__viewport button')).toContainText(fixture.url)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-browser-animated-list.png` })
     await browserRail.click()

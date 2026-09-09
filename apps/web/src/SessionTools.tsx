@@ -177,15 +177,20 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
           {status?.contexts.length ? (
             <AnimatedList viewportClassName="browser-pages" aria-label="打开的页面">
               {status.contexts.map((item) => (
-                <button
-                  type="button"
+                <SpotlightCard
+                  className={`browser-page-card ${page?.pageId === item.pageId ? 'selected' : ''}`}
                   key={`${item.contextId}:${item.pageId}`}
-                  className={page?.pageId === item.pageId ? 'selected' : ''}
-                  onClick={() => void inspect(item)}
+                  spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
                 >
-                  <span>{item.title || item.url}</span>
-                  <small>{item.url}</small>
-                </button>
+                  <button
+                    type="button"
+                    className={page?.pageId === item.pageId ? 'selected' : ''}
+                    onClick={() => void inspect(item)}
+                  >
+                    <span>{item.title || item.url}</span>
+                    <small>{item.url}</small>
+                  </button>
+                </SpotlightCard>
               ))}
             </AnimatedList>
           ) : (
@@ -199,7 +204,9 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
             </section>
           )}
           {screenshot?.data && (
-            <img className="browser-screenshot" src={`data:${screenshot.mime};base64,${screenshot.data}`} alt={page?.title || '浏览器页面'} />
+            <SpotlightCard className="browser-screenshot-card" spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)">
+              <img className="browser-screenshot" src={`data:${screenshot.mime};base64,${screenshot.data}`} alt={page?.title || '浏览器页面'} />
+            </SpotlightCard>
           )}
           {status?.history.length ? (
             <details className="browser-history">
