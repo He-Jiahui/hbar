@@ -451,6 +451,7 @@ export default function App() {
   const plugins = data?.plugins
   const sessions = data?.sessions
   const activeSnapshot = useSessions((state) => (activeSession ? state.snapshots[activeSession] : undefined))
+  const rightToolsVisible = Boolean(toolPanel && toolPanel !== 'terminal')
   const initialSelection = useRef(true)
   const [small, setSmall] = useState(window.innerWidth < 900),
     [sidebar, setSidebar] = useState(true),
@@ -662,7 +663,7 @@ export default function App() {
   }
   if (status === 'pairing' || (!data && status !== 'connected')) return <Pairing />
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${rightToolsVisible ? 'right-tools-open' : ''}`}>
       <header className="topbar">
         <button
           className="sidebar-toggle"

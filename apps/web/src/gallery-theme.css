@@ -557,6 +557,14 @@ textarea:hover:not(:disabled) {
   box-shadow: var(--dsh-shadow-prominent);
 }
 
+/* The gallery opens tool windows on demand; keep the rail visible while the
+   secondary tabset yields its width until a tool is explicitly selected. */
+.app-shell:not(.right-tools-open) .flexlayout__tabset_container:has(
+    [role='tablist'][aria-label='工具窗口']
+  ) {
+  display: none;
+}
+
 .sidebar-heading {
   height: 43px;
   padding: 0 12px 0 14px;

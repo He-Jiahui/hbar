@@ -12,9 +12,11 @@ import type {
   Run,
   SessionEvent,
   SessionSnapshot,
+  ThinkingLevel,
   Usage,
   WireNotification,
 } from '@hbar/contracts'
+import { normalizeThinkingLevel } from '@hbar/contracts'
 import { isApprovalMode } from './permissions'
 import {
   applySessionCapabilityEvent,
@@ -38,6 +40,8 @@ interface WorkbenchState {
   activeSession: string
   workspaceId: string
   modelId: string
+  thinkingLevel: ThinkingLevel
+  thinkingByModel: Record<string, ThinkingLevel>
   approvalMode: ApprovalMode
   drafts: Record<string, string>
   showArchived: boolean
@@ -55,11 +59,13 @@ const defaultWorkbenchState: WorkbenchState = {
   activeSession: '',
   workspaceId: '',
   modelId: '',
+  thinkingLevel: 'off',
+  thinkingByModel: {},
   approvalMode: 'ask',
   drafts: {},
   showArchived: false,
   panel: 'sessions',
-  toolPanel: 'activity',
+  toolPanel: '',
   theme: 'dark',
   layout: null,
 }
@@ -69,12 +75,14 @@ export const useWorkbench = create(
     () => defaultWorkbenchState,
     {
       name: 'hbar.workbench.v1',
-      version: 2,
+      version: 3,
       migrate: (persisted): WorkbenchState => {
         const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
         return {
           ...defaultWorkbenchState,
           ...value,
+          thinkingLevel: isThinkingLevel(value.thinkingLevel) ? value.thinkingLevel : 'off',
+          thinkingByModel: normalizeThinkingMap(value.thinkingByModel),
           approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
           theme: isTheme(value.theme) ? value.theme : 'dark',
         }
@@ -118,8 +126,38 @@ export async function loadApprovalMode() {
   if (useConnection.getState().client !== connection || !isApprovalMode(result.mode)) return
   useWorkbench.setState({ approvalMode: result.mode })
 }
-export function selectModel(modelId: string) {
-  useWorkbench.setState({ modelId })
+function isThinkingLevel(value: unknown): value is ThinkingLevel {
+  return typeof value === 'string' && ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value)
+}
+
+function normalizeThinkingMap(value: unknown): Record<string, ThinkingLevel> {
+  if (!value || typeof value !== 'object') return {}
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([modelId, level]) => (isThinkingLevel(level) ? [[modelId, level]] : [])),
+  )
+}
+
+export function selectModel(modelId: string, requestedThinking?: ThinkingLevel) {
+  const model = useCatalog.getState().data?.models.find((entry) => entry.id === modelId)
+  const state = useWorkbench.getState()
+  const thinkingLevel = model
+    ? normalizeThinkingLevel(model, requestedThinking ?? state.thinkingByModel[modelId])
+    : requestedThinking ?? state.thinkingByModel[modelId] ?? 'off'
+  useWorkbench.setState({
+    modelId,
+    thinkingLevel,
+    thinkingByModel: { ...state.thinkingByModel, [modelId]: thinkingLevel },
+  })
+}
+
+export function selectThinkingLevel(level: ThinkingLevel) {
+  const state = useWorkbench.getState()
+  const model = useCatalog.getState().data?.models.find((entry) => entry.id === state.modelId)
+  const thinkingLevel = model ? normalizeThinkingLevel(model, level) : level
+  useWorkbench.setState({
+    thinkingLevel,
+    ...(state.modelId ? { thinkingByModel: { ...state.thinkingByModel, [state.modelId]: thinkingLevel } } : {}),
+  })
 }
 export function client(): HbarClient {
   const value = useConnection.getState().client
@@ -171,7 +209,15 @@ export async function refreshCatalog() {
   const state = useWorkbench.getState()
   const changes: Partial<typeof state> = {}
   if (!data.workspaces.some((w) => w.id === state.workspaceId)) changes.workspaceId = data.workspaces[0]?.id ?? ''
-  if (!data.models.some((m) => m.id === state.modelId)) changes.modelId = data.models[0]?.id ?? ''
+  const nextModelId = data.models.some((m) => m.id === state.modelId) ? state.modelId : data.models[0]?.id ?? ''
+  if (nextModelId !== state.modelId) changes.modelId = nextModelId
+  const nextModel = data.models.find((model) => model.id === nextModelId)
+  if (nextModel) {
+    const nextThinking = normalizeThinkingLevel(nextModel, state.thinkingByModel[nextModel.id] ?? state.thinkingLevel)
+    if (nextThinking !== state.thinkingLevel) changes.thinkingLevel = nextThinking
+    if (state.thinkingByModel[nextModel.id] !== nextThinking)
+      changes.thinkingByModel = { ...state.thinkingByModel, [nextModel.id]: nextThinking }
+  }
   if (state.activeSession && !data.sessions.some((s) => s.id === state.activeSession)) changes.activeSession = ''
   useWorkbench.setState(changes)
 }
