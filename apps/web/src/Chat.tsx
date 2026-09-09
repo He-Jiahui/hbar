@@ -317,6 +317,7 @@ export default function Chat({
   const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
+  const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
   const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -326,6 +327,7 @@ export default function Chat({
     composing = useRef(false),
     stick = useRef(true)
   const pendingRequest = useRef<{ key: string; requestId: string } | null>(null)
+  const resolvingApprovalIds = useRef(new Set<string>())
   const messages = snapshot?.messages ?? []
   useEffect(() => {
     if (!workspace?.path) {
@@ -395,6 +397,25 @@ export default function Chat({
     return undefined
   }, [sessionId, totalSize, streamText, snapshot?.approvals.length, snapshot?.userInputs.length])
   const setDraft = (text: string) => updateComposerDraft(sessionId, { text })
+  async function resolveApproval(approvalId: string, decision: 'allowed' | 'denied', remember = false) {
+    if (resolvingApprovalIds.current.has(approvalId)) return
+    resolvingApprovalIds.current.add(approvalId)
+    setResolvingApprovals((current) => new Set(current).add(approvalId))
+    try {
+      if (remember && !(await setApprovalMode('allow'))) return
+      await client().call('approval.resolve', { approvalId, decision })
+    } catch (error) {
+      report(error)
+    } finally {
+      resolvingApprovalIds.current.delete(approvalId)
+      setResolvingApprovals((current) => {
+        if (!current.has(approvalId)) return current
+        const next = new Set(current)
+        next.delete(approvalId)
+        return next
+      })
+    }
+  }
   async function send() {
     if (busy || uploading || sessionInfo?.archived || (!draft.trim() && !images.length && !files.length)) return
     if (!modelId) {
@@ -641,7 +662,7 @@ export default function Chat({
           <UserInputPrompt key={request.requestId} request={request} />
         ))}
         {snapshot?.approvals.map((approval) => (
-          <section className="approval" key={approval.id}>
+          <section className="approval" key={approval.id} aria-busy={resolvingApprovals.has(approval.id)}>
             <div className="approval-heading">
               <ShieldCheck size={16} />
               <strong>批准工具调用</strong>
@@ -657,32 +678,26 @@ export default function Chat({
             <div className="approval-actions">
               <button
                 className="button"
-                onClick={() =>
-                  void client().call('approval.resolve', { approvalId: approval.id, decision: 'denied' }).catch(report)
-                }
+                disabled={resolvingApprovals.has(approval.id)}
+                onClick={() => void resolveApproval(approval.id, 'denied')}
               >
-                <X size={14} />
+                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <X size={14} />}
                 拒绝
               </button>
               <button
                 className="button primary"
-                onClick={() =>
-                  void client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' }).catch(report)
-                }
+                disabled={resolvingApprovals.has(approval.id)}
+                onClick={() => void resolveApproval(approval.id, 'allowed')}
               >
-                <Check size={14} />
+                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
                 批准
               </button>
               <button
                 className="button approval-remember"
-                onClick={() => {
-                  void (async () => {
-                    if (!(await setApprovalMode('allow'))) return
-                    await client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' })
-                  })().catch(report)
-                }}
+                disabled={resolvingApprovals.has(approval.id)}
+                onClick={() => void resolveApproval(approval.id, 'allowed', true)}
               >
-                <ShieldCheck size={14} />
+                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <ShieldCheck size={14} />}
                 允许并记住
               </button>
             </div>
