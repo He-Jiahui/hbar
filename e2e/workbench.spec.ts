@@ -125,6 +125,11 @@ test('composer plus menu exposes mode and attachment capabilities', async ({ pag
       await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Goal 模式', exact: true })).toBeDisabled()
     await expect(page.getByRole('menuitem', { name: '添加文件', exact: true })).toBeEnabled()
+    const capabilityStyle = await page.getByRole('menuitem', { name: 'Goal 模式', exact: true }).evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { justifyContent: style.justifyContent, paddingLeft: style.paddingLeft, paddingRight: style.paddingRight }
+    })
+    expect(capabilityStyle).toEqual({ justifyContent: 'flex-start', paddingLeft: '10px', paddingRight: '10px' })
 
     const fileChooserPromise = page.waitForEvent('filechooser')
     await page.getByRole('menuitem', { name: '添加文件', exact: true }).click()
