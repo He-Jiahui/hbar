@@ -21,6 +21,7 @@ test('model settings can search and filter configured connections', async ({ pag
     await expect(page.locator('.settings-tabs-glass')).toHaveClass(/glass-surface/)
     await expect(page.locator('.settings-provider-group').first()).toHaveAttribute('aria-label', 'Local fixture')
     await expect(page.locator('.settings-provider-list')).toHaveCount(1)
+    await expect(page.locator('.model-row.rb-spotlight-card')).toHaveCount(1)
 
     const search = page.getByRole('textbox', { name: '搜索供应商或模型', exact: true })
     await search.fill('fixture')

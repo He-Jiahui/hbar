@@ -885,7 +885,11 @@ export default function Settings() {
                     </header>
                     <div className="settings-provider-models">
                       {group.models.map((model) => (
-                        <div className="model-row" key={model.id}>
+                        <SpotlightCard
+                          className="model-row"
+                          key={model.id}
+                          spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
+                        >
                           <button className="model-details" onClick={() => setEditor(model)}>
                             <strong>{model.modelName}</strong>
                             <span>{model.model}</span>
@@ -904,7 +908,7 @@ export default function Settings() {
                               配置 Key
                             </button>
                           )}
-                        </div>
+                        </SpotlightCard>
                       ))}
                     </div>
                   </SpotlightCard>

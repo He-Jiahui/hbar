@@ -899,12 +899,14 @@
 }
 
 .plugin-row.rb-spotlight-card,
+.model-row.rb-spotlight-card,
 .device-row.rb-spotlight-card,
 .plugin-report.rb-spotlight-card {
   background-clip: padding-box;
 }
 
 .plugin-row.rb-spotlight-card > *,
+.model-row.rb-spotlight-card > *,
 .device-row.rb-spotlight-card > *,
 .plugin-report.rb-spotlight-card > * {
   position: relative;
