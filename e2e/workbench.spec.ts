@@ -80,6 +80,22 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await activityRail.click()
     await expect(activityTab).toHaveCount(0)
 
+    const inspectorRail = page.getByRole('button', { name: '会话检查', exact: true }).filter({ visible: true })
+    await inspectorRail.click()
+    const inspectorTab = page.getByRole('tab', { name: '会话检查', exact: true }).filter({ visible: true })
+    await expect(inspectorTab).toBeVisible()
+    const inspectorPanel = page.locator('.tool-surface').filter({ hasText: '会话检查', visible: true }).last()
+    await expect(inspectorPanel.locator('.inspector-grid .inspector-metric')).toHaveCount(6)
+    await expect(inspectorPanel.locator('.inspector-runs-list')).toHaveCount(1)
+
+    const insightsRail = page.getByRole('button', { name: '会话洞察', exact: true }).filter({ visible: true })
+    await insightsRail.click()
+    const insightsTab = page.getByRole('tab', { name: '会话洞察', exact: true }).filter({ visible: true })
+    await expect(insightsTab).toBeVisible()
+    const insightsPanel = page.locator('.tool-surface').filter({ hasText: '会话洞察', visible: true }).last()
+    await expect(insightsPanel.locator('.insight-kpis .insight-kpi')).toHaveCount(3)
+    await expect(insightsPanel.locator('.insight-list')).toHaveCount(1)
+
     const browserRailAgain = page.getByRole('button', { name: '浏览器', exact: true }).filter({ visible: true })
     const browserTabAgain = page.getByRole('tab', { name: '浏览器', exact: true }).filter({ visible: true })
     await browserRailAgain.click()

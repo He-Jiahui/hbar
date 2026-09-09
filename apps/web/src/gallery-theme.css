@@ -1779,6 +1779,11 @@ body.resizing-sidebar .sidebar-resizer::after {
   background: var(--hbar-s0);
 }
 
+.inspector-grid > .inspector-metric > * {
+  position: relative;
+  z-index: 1;
+}
+
 .inspector-grid dt {
   margin-bottom: 5px;
   color: var(--hbar-t3);
@@ -1842,6 +1847,25 @@ body.resizing-sidebar .sidebar-resizer::after {
   gap: 7px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--hbar-bd);
+}
+
+.inspector-runs-list,
+.inspector-runs,
+.insight-list,
+.insight-rows {
+  min-width: 0;
+}
+
+.inspector-runs,
+.insight-rows {
+  display: grid;
+  gap: 0;
+}
+
+.inspector-run > *,
+.insight-row > * {
+  position: relative;
+  z-index: 1;
 }
 
 .inspector-run:last-child {
@@ -1954,6 +1978,11 @@ body.resizing-sidebar .sidebar-resizer::after {
   border: 1px solid var(--hbar-bd);
   border-radius: var(--radius-md);
   background: var(--hbar-s0);
+}
+
+.insight-kpis > .insight-kpi > * {
+  position: relative;
+  z-index: 1;
 }
 
 .insight-kpis span {

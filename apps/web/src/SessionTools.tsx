@@ -26,6 +26,7 @@ import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
 import AnimatedList from './react-bits/AnimatedList'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 type PanelProps = { sessionId?: string }
 
@@ -225,22 +226,24 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
       ) : (
         <div className="tool-surface-body">
           <dl className="inspector-grid">
-            <div><dt>状态</dt><dd><span className={`inspector-dot ${activeRuns ? 'active' : ''}`} />{activeRuns ? '运行中' : '空闲'}</dd></div>
-            <div><dt>模型</dt><dd>{model?.name ?? (modelId || '未配置')}</dd></div>
-            <div><dt>消息</dt><dd>{snapshot.messages.length.toLocaleString()}</dd></div>
-            <div><dt>工具调用</dt><dd>{toolCalls.toLocaleString()}</dd></div>
-            <div><dt>事件游标</dt><dd>{snapshot.cursor.toLocaleString()}</dd></div>
-            <div><dt>权限</dt><dd><ShieldCheck size={13} />{snapshot.approvals.length ? `${snapshot.approvals.length} 待处理` : '无待处理'}</dd></div>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>状态</dt><dd><span className={`inspector-dot ${activeRuns ? 'active' : ''}`} />{activeRuns ? '运行中' : '空闲'}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>模型</dt><dd>{model?.name ?? (modelId || '未配置')}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>消息</dt><dd>{snapshot.messages.length.toLocaleString()}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>工具调用</dt><dd>{toolCalls.toLocaleString()}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>事件游标</dt><dd>{snapshot.cursor.toLocaleString()}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>权限</dt><dd><ShieldCheck size={13} />{snapshot.approvals.length ? `${snapshot.approvals.length} 待处理` : '无待处理'}</dd></SpotlightCard>
           </dl>
           <section className="tool-detail-card">
             <h3>最近运行</h3>
-            {snapshot.runs.slice(0, 8).map((run) => (
-              <div className="inspector-run" key={run.id}>
-                <span className={`inspector-dot ${run.status}`} />
-                <span>{run.input.text || '图片消息'}</span>
-                <small>{run.status}</small>
-              </div>
-            ))}
+            <AnimatedList className="inspector-runs-list" viewportClassName="inspector-runs" showGradients={false}>
+              {snapshot.runs.slice(0, 8).map((run) => (
+                <SpotlightCard className="inspector-run" key={run.id} spotlightColor="color-mix(in srgb, var(--rb-status) 24%, transparent)">
+                  <span className={`inspector-dot ${run.status}`} />
+                  <span>{run.input.text || '图片消息'}</span>
+                  <small>{run.status}</small>
+                </SpotlightCard>
+              ))}
+            </AnimatedList>
             {!snapshot.runs.length && <p className="tool-muted">暂无运行记录。</p>}
           </section>
         </div>
@@ -304,13 +307,15 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
       ) : (
         <div className="tool-surface-body">
           <div className="insight-kpis">
-            <div><span>输入</span><strong>{snapshot.usage.input.toLocaleString()}</strong></div>
-            <div><span>输出</span><strong>{snapshot.usage.output.toLocaleString()}</strong></div>
-            <div><span>运行</span><strong>{snapshot.runs.length.toLocaleString()}</strong></div>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>输入</span><strong>{snapshot.usage.input.toLocaleString()}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>输出</span><strong>{snapshot.usage.output.toLocaleString()}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>运行</span><strong>{snapshot.runs.length.toLocaleString()}</strong></SpotlightCard>
           </div>
           <section className="tool-detail-card insight-chart">
             <h3>工具调用</h3>
-            {stats.map(([name, count]) => <div className="insight-row" key={name}><span>{name}</span><i><b style={{ width: `${Math.max(8, (count / max) * 100)}%` }} /></i><strong>{count}</strong></div>)}
+            <AnimatedList className="insight-list" viewportClassName="insight-rows" showGradients={false}>
+              {stats.map(([name, count]) => <SpotlightCard className="insight-row" key={name} spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)"><span>{name}</span><i><b style={{ width: `${Math.max(8, (count / max) * 100)}%` }} /></i><strong>{count}</strong></SpotlightCard>)}
+            </AnimatedList>
             {!stats.length && <p className="tool-muted">暂无工具调用。</p>}
           </section>
         </div>
