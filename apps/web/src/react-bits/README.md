@@ -13,6 +13,8 @@ Selected components:
   the existing desktop tool-rail dimensions.
 - `GlareButton`: the `GlareHover` highlight adapted for native send and approve
   buttons without changing their keyboard or disabled behavior.
+- `AnimatedList`: the `AnimatedList` entry reveal and scroll-edge gradients,
+  adapted around existing browser-page list markup without adding `motion`.
 
 The source project is distributed under the MIT + Commons Clause license. This
 adapter is kept in the application rather than adding the reference site as a

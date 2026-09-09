@@ -25,6 +25,7 @@ import {
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
+import AnimatedList from './react-bits/AnimatedList'
 
 type PanelProps = { sessionId?: string }
 
@@ -170,7 +171,7 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
           {error && <p className="tool-error" role="alert"><CircleAlert size={14} />{error}</p>}
           {status && !status.available && <p className="tool-muted">浏览器运行时不可用，请检查浏览器插件配置。</p>}
           {status?.contexts.length ? (
-            <div className="browser-pages" aria-label="打开的页面">
+            <AnimatedList viewportClassName="browser-pages" aria-label="打开的页面">
               {status.contexts.map((item) => (
                 <button
                   type="button"
@@ -182,7 +183,7 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
                   <small>{item.url}</small>
                 </button>
               ))}
-            </div>
+            </AnimatedList>
           ) : (
             <EmptyTool icon={Globe} title="没有打开的页面" body="在上方输入地址开始浏览。" />
           )}
