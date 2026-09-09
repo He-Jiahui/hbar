@@ -31,6 +31,7 @@ import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import GlareButton from './react-bits/GlareButton'
+import AnimatedList from './react-bits/AnimatedList'
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -558,7 +559,7 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
     </Modal>
   )
 }
-function PluginRow({ plugin }: { plugin: PluginInfo }) {
+function PluginRow({ plugin, className = '' }: { plugin: PluginInfo; className?: string }) {
   const [expanded, setExpanded] = useState(false),
     [config, setConfig] = useState(JSON.stringify(plugin.config, null, 2)),
     [error, setError] = useState(plugin.error ?? '')
@@ -574,7 +575,7 @@ function PluginRow({ plugin }: { plugin: PluginInfo }) {
     }
   }
   return (
-    <div className="plugin-row">
+    <div className={`plugin-row${className ? ` ${className}` : ''}`}>
       <div className="plugin-heading">
         <button className="plugin-expand" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
           <ChevronRight size={14} className={expanded ? 'rotate' : ''} />
@@ -829,68 +830,70 @@ export default function Settings() {
             </div>
           </div>
           {modelGroups.length ? (
-            modelGroups.map((group) => {
-              const first = group.models[0]!
-              const connected = first.protocol === 'mock' || group.models.every((model) => model.hasKey)
-              const providerId = first.providerId || first.id.split('/')[0] || first.id
-              return (
-                <SpotlightCard className="settings-provider-group" key={group.providerId} spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)" aria-label={group.providerName}>
-                  <header className="settings-provider-heading">
-                    <div className="settings-provider-title">
-                      <span className="model-icon">
-                        <Network size={17} />
-                      </span>
-                      <div>
-                        <strong>{group.providerName}</strong>
-                        <small>
-                          {group.models.length} 个模型 · {first.protocol === 'mock' ? 'Local fixture' : first.baseUrl}
-                        </small>
-                      </div>
-                    </div>
-                    <div className="settings-provider-actions">
-                      <span className={`model-connection ${connected ? 'connected' : 'needs-key'}`}>
-                        <KeyRound size={12} />
-                        {first.protocol === 'mock' ? '本地' : connected ? '已连接' : '待配置 Key'}
-                      </span>
-                      <button
-                        title={`删除供应商 ${group.providerName}`}
-                        aria-label={`删除供应商 ${group.providerName}`}
-                        onClick={() => {
-                          if (window.confirm(`删除供应商 ${group.providerName} 及其全部模型？`))
-                            void client().call('provider.delete', { id: providerId }).then(refreshCatalog).catch(report)
-                        }}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </header>
-                  <div className="settings-provider-models">
-                    {group.models.map((model) => (
-                      <div className="model-row" key={model.id}>
-                        <button className="model-details" onClick={() => setEditor(model)}>
-                          <strong>{model.modelName}</strong>
-                          <span>{model.model}</span>
+            <AnimatedList className="settings-provider-list" viewportClassName="settings-provider-viewport" showGradients={false}>
+              {modelGroups.map((group) => {
+                const first = group.models[0]!
+                const connected = first.protocol === 'mock' || group.models.every((model) => model.hasKey)
+                const providerId = first.providerId || first.id.split('/')[0] || first.id
+                return (
+                  <SpotlightCard className="settings-provider-group" key={group.providerId} spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)" aria-label={group.providerName}>
+                    <header className="settings-provider-heading">
+                      <div className="settings-provider-title">
+                        <span className="model-icon">
+                          <Network size={17} />
+                        </span>
+                        <div>
+                          <strong>{group.providerName}</strong>
                           <small>
-                            {model.defaultThinkingLevel === 'off'
-                              ? '思考关闭'
-                              : `默认思考：${modelThinkingLabel(model.defaultThinkingLevel)}`}
+                            {group.models.length} 个模型 · {first.protocol === 'mock' ? 'Local fixture' : first.baseUrl}
                           </small>
-                        </button>
-                        <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
-                        <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
-                        <span className="model-thinking-count">{model.thinkingLevels.length} 级</span>
-                        {!(model.protocol === 'mock' || model.hasKey) && (
-                          <button className="model-key-action button" onClick={() => setEditor(model)}>
-                            <KeyRound size={13} />
-                            配置 Key
-                          </button>
-                        )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </SpotlightCard>
-              )
-            })
+                      <div className="settings-provider-actions">
+                        <span className={`model-connection ${connected ? 'connected' : 'needs-key'}`}>
+                          <KeyRound size={12} />
+                          {first.protocol === 'mock' ? '本地' : connected ? '已连接' : '待配置 Key'}
+                        </span>
+                        <button
+                          title={`删除供应商 ${group.providerName}`}
+                          aria-label={`删除供应商 ${group.providerName}`}
+                          onClick={() => {
+                            if (window.confirm(`删除供应商 ${group.providerName} 及其全部模型？`))
+                              void client().call('provider.delete', { id: providerId }).then(refreshCatalog).catch(report)
+                          }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </header>
+                    <div className="settings-provider-models">
+                      {group.models.map((model) => (
+                        <div className="model-row" key={model.id}>
+                          <button className="model-details" onClick={() => setEditor(model)}>
+                            <strong>{model.modelName}</strong>
+                            <span>{model.model}</span>
+                            <small>
+                              {model.defaultThinkingLevel === 'off'
+                                ? '思考关闭'
+                                : `默认思考：${modelThinkingLabel(model.defaultThinkingLevel)}`}
+                            </small>
+                          </button>
+                          <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
+                          <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
+                          <span className="model-thinking-count">{model.thinkingLevels.length} 级</span>
+                          {!(model.protocol === 'mock' || model.hasKey) && (
+                            <button className="model-key-action button" onClick={() => setEditor(model)}>
+                              <KeyRound size={13} />
+                              配置 Key
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </SpotlightCard>
+                )
+              })}
+            </AnimatedList>
           ) : (
             <div className="empty-list model-empty-state">
               {models.length ? (
@@ -961,9 +964,11 @@ export default function Settings() {
             </div>
           </div>
           {pluginReport && <pre className="plugin-report">{pluginReport}</pre>}
-          {data?.plugins.map((plugin) => (
-            <PluginRow key={plugin.id} plugin={plugin} />
-          ))}
+          {data?.plugins.length ? (
+            <AnimatedList className="settings-plugin-list" viewportClassName="settings-plugin-viewport" showGradients={false}>
+              {data.plugins.map((plugin) => <PluginRow key={plugin.id} plugin={plugin} />)}
+            </AnimatedList>
+          ) : null}
           <div className="install-plugin">
             <label>
               本地插件目录或归档
@@ -1049,29 +1054,33 @@ export default function Settings() {
               </button>
             </div>
           )}
-          {devices.map((device) => (
-            <div className="device-row" key={device.id}>
-              <Monitor size={17} />
-              <div>
-                <strong>{device.name}</strong>
-                <span>{new Date(device.createdAt).toLocaleString()}</span>
-              </div>
-              <button
-                title={`撤销 ${device.name}`}
-                aria-label={`撤销 ${device.name}`}
-                onClick={() => {
-                  if (window.confirm(`撤销 ${device.name} 的访问权限？`))
-                    void client()
-                      .call('device.revoke', { id: device.id })
-                      .then(() => client().call('device.list', {}))
-                      .then(setDevices)
-                      .catch(report)
-                }}
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
+          {devices.length ? (
+            <AnimatedList className="settings-device-list" viewportClassName="settings-device-viewport" showGradients={false}>
+              {devices.map((device) => (
+                <div className="device-row" key={device.id}>
+                  <Monitor size={17} />
+                  <div>
+                    <strong>{device.name}</strong>
+                    <span>{new Date(device.createdAt).toLocaleString()}</span>
+                  </div>
+                  <button
+                    title={`撤销 ${device.name}`}
+                    aria-label={`撤销 ${device.name}`}
+                    onClick={() => {
+                      if (window.confirm(`撤销 ${device.name} 的访问权限？`))
+                        void client()
+                          .call('device.revoke', { id: device.id })
+                          .then(() => client().call('device.list', {}))
+                          .then(setDevices)
+                          .catch(report)
+                    }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </AnimatedList>
+          ) : null}
         </section>
       )}
       {editor && <ProviderEditor {...(editor === 'new' ? {} : { provider: editor })} close={() => setEditor(null)} />}

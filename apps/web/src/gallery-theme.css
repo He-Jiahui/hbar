@@ -2087,6 +2087,21 @@ body.resizing-sidebar .sidebar-resizer::after {
   background: var(--hbar-s0);
 }
 
+.settings-provider-list,
+.settings-provider-viewport,
+.settings-plugin-list,
+.settings-plugin-viewport,
+.settings-device-list,
+.settings-device-viewport {
+  min-width: 0;
+}
+
+.settings-provider-viewport,
+.settings-plugin-viewport,
+.settings-device-viewport {
+  display: grid;
+}
+
 .metrics div {
   border-color: var(--hbar-bd);
   border-radius: var(--radius-md);
