@@ -91,6 +91,13 @@ function sessionTabConfig(tab: TabNode): SessionTabConfig {
   return config ?? {}
 }
 
+function selectedLayoutTab(model: Model): TabNode | undefined {
+  const active = model.getActiveTabset()?.getSelectedNode()
+  if (active instanceof TabNode) return active
+  const first = model.getFirstTabSet()?.getSelectedNode()
+  return first instanceof TabNode ? first : undefined
+}
+
 function Pairing() {
   const [code, setCode] = useState(''),
     [name, setName] = useState('Browser'),
@@ -558,14 +565,21 @@ export default function App() {
   }, [])
   useEffect(() => {
     if (!data) return
-    const shouldSelectSession = initialSelection.current || lastSessionSelection.current !== activeSession
-    initialSelection.current = false
+    const restoring = initialSelection.current
+    const persistedTool = restoring ? useWorkbench.getState().toolPanel : ''
+    const hasPersistedTool = Boolean(persistedTool && model.getNodeById(persistedTool))
+    const selectedTab = restoring ? selectedLayoutTab(model) : undefined
+    const shouldSelectSession = restoring
+      ? !hasPersistedTool &&
+        (!selectedTab || (selectedTab.getComponent() === 'conversation' && sessionIdFromTab(selectedTab) !== activeSession))
+      : lastSessionSelection.current !== activeSession
     if (!activeSession) {
-      lastSessionSelection.current = activeSession
+      if (!restoring) lastSessionSelection.current = activeSession
       return
     }
     const session = data.sessions.find((s) => s.id === activeSession)
     if (!session) return
+    initialSelection.current = false
     lastSessionSelection.current = activeSession
     const tabs = conversationTabs(model)
     const target = tabs.find((tab) => sessionIdFromTab(tab) === session.id) ?? tabs[0]
@@ -649,6 +663,7 @@ export default function App() {
   }
   const settings = () => openPanel('settings', '设置', 'settings')
   function openSessionTab(session: Session) {
+    initialSelection.current = false
     const tabs = conversationTabs(model)
     const target = tabs.find((tab) => sessionIdFromTab(tab) === session.id) ?? tabs[0]
     switchingSession.current = true
@@ -1018,6 +1033,7 @@ export default function App() {
                   if (typeof tabNode === 'string') {
                     const node = next.getNodeById(tabNode)
                     if (node instanceof TabNode && node.getComponent() === 'conversation') {
+                      initialSelection.current = false
                       useWorkbench.setState({ toolPanel: '' })
                       const id = (node.getConfig() as { sessionId?: string })?.sessionId
                       if (id && id !== useWorkbench.getState().activeSession) void openSession(id).catch(report)
