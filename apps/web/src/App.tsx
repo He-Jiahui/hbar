@@ -80,6 +80,7 @@ const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
 }
 
 type SessionTabConfig = { sessionId?: string }
+type SessionActionKind = 'fork' | 'archive'
 
 function conversationTabs(model: Model): TabNode[] {
   const tabs: TabNode[] = []
@@ -201,6 +202,9 @@ function Sessions({
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
+  const [sessionActions, setSessionActions] = useState<Record<string, SessionActionKind>>({})
+  const sessionActionIds = useRef(new Set<string>())
+  const renameBusyRef = useRef(false)
   const data = useCatalog((state) => state.data),
     workspaceId = useWorkbench((state) => state.workspaceId),
     selected = useWorkbench((state) => state.activeSession),
@@ -215,13 +219,14 @@ function Sessions({
   function startRename(event: React.MouseEvent, session: Session) {
     event.preventDefault()
     event.stopPropagation()
+    if (sessionActionIds.current.has(session.id)) return
     setRenamingId(session.id)
     setRenameValue(session.title)
   }
   async function finishRename() {
     const id = renamingId
     const title = renameValue.trim()
-    if (!id || renameBusy) return
+    if (!id || renameBusy || renameBusyRef.current) return
     if (!title) {
       setRenamingId(null)
       setRenameValue('')
@@ -233,6 +238,7 @@ function Sessions({
       setRenameValue('')
       return
     }
+    renameBusyRef.current = true
     setRenameBusy(true)
     try {
       await client().call('session.rename', { sessionId: id, title })
@@ -242,16 +248,46 @@ function Sessions({
     } catch (error) {
       report(error)
     } finally {
+      renameBusyRef.current = false
       setRenameBusy(false)
     }
   }
+  function beginSessionAction(id: string, kind: SessionActionKind): boolean {
+    if (sessionActionIds.current.has(id)) return false
+    sessionActionIds.current.add(id)
+    setSessionActions((current) => ({ ...current, [id]: kind }))
+    return true
+  }
+  function endSessionAction(id: string) {
+    sessionActionIds.current.delete(id)
+    setSessionActions((current) => {
+      if (!current[id]) return current
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+  }
   async function fork(session: Session) {
+    if (!beginSessionAction(session.id, 'fork')) return
     try {
       const child = await client().call('session.fork', { sessionId: session.id })
       await refreshCatalog()
       onSelect(child.id)
     } catch (error) {
       report(error)
+    } finally {
+      endSessionAction(session.id)
+    }
+  }
+  async function toggleArchive(session: Session) {
+    if (!beginSessionAction(session.id, 'archive')) return
+    try {
+      await client().call('session.archive', { sessionId: session.id, archived: !archived })
+      await refreshCatalog()
+    } catch (error) {
+      report(error)
+    } finally {
+      endSessionAction(session.id)
     }
   }
   return (
@@ -321,25 +357,26 @@ function Sessions({
               <button
                 title="重命名会话"
                 aria-label={`重命名 ${session.title}`}
-                disabled={renameBusy}
+                disabled={renameBusy || Boolean(sessionActions[session.id])}
                 onClick={(event) => startRename(event, session)}
               >
                 <Pencil size={12} />
               </button>
-              <button title="创建分支" aria-label={`创建分支 ${session.title}`} onClick={() => void fork(session)}>
-                <GitBranch size={12} />
+              <button
+                title="创建分支"
+                aria-label={`创建分支 ${session.title}`}
+                disabled={Boolean(sessionActions[session.id])}
+                onClick={() => void fork(session)}
+              >
+                {sessionActions[session.id] === 'fork' ? <LoaderCircle size={12} className="spinning" /> : <GitBranch size={12} />}
               </button>
               <button
                 title={archived ? '恢复会话' : '归档会话'}
                 aria-label={`${archived ? '恢复' : '归档'} ${session.title}`}
-                onClick={() =>
-                  void client()
-                    .call('session.archive', { sessionId: session.id, archived: !archived })
-                    .then(refreshCatalog)
-                    .catch(report)
-                }
+                disabled={Boolean(sessionActions[session.id])}
+                onClick={() => void toggleArchive(session)}
               >
-                <Archive size={12} />
+                {sessionActions[session.id] === 'archive' ? <LoaderCircle size={12} className="spinning" /> : <Archive size={12} />}
               </button>
             </div>
           </SpotlightCard>

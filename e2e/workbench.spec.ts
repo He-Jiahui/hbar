@@ -245,6 +245,29 @@ test('new-session action creates only one session when double-clicked', async ({
   }
 })
 
+test('branch action creates only one child when double-clicked', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const before = await fixture.api.call('system.bootstrap', {})
+    const workspaceId = before.workspaces[0]!.id
+    const title = `Branch source ${Date.now().toString(36)}`
+    const source = await fixture.api.call('session.create', { workspaceId, title })
+    await page.reload()
+    await page.locator('.session-select').filter({ hasText: title, visible: true }).click()
+    const branch = page.getByRole('button', { name: `创建分支 ${title}`, exact: true })
+    const countBefore = (await fixture.api.call('system.bootstrap', {})).sessions.filter((session) => session.parentId === source.id).length
+
+    await branch.dblclick()
+    await expect.poll(async () => {
+      const current = await fixture.api.call('system.bootstrap', {})
+      return current.sessions.filter((session) => session.parentId === source.id).length
+    }).toBe(countBefore + 1)
+    await expect(page.getByRole('button', { name: `创建分支 ${title}`, exact: true })).toBeEnabled()
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('model picker and permission preset survive a refresh', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
