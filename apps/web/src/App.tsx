@@ -387,7 +387,7 @@ function Sessions({
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
         )}
       </div>
-      <button className="new-session" onClick={onNew} disabled={creating} aria-busy={creating}>
+      <button className="new-session" aria-label="新建会话" onClick={onNew} disabled={creating} aria-busy={creating}>
         {creating ? <LoaderCircle size={15} className="spinning" /> : <Plus size={15} />}
         {creating ? '创建中' : '新建会话'}
       </button>
