@@ -119,7 +119,9 @@
 }
 
 .rb-composer-surface {
-  overflow: hidden;
+  /* Keep composer menus outside the form hit-test surface; the glass layer
+     remains clipped by GlassSurface.css and preserves the rounded chrome. */
+  overflow: visible;
   background: transparent;
 }
 
