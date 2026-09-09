@@ -389,7 +389,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
           </div>
         ))}
         {entries.map((entry, index) => (
-          <div className="terminal-entry" key={`${index}:${entry.slice(0, 20)}`}>
+          <div className="terminal-entry terminal-command-entry" key={`${index}:${entry.slice(0, 20)}`}>
             <Markdown text={entry} />
           </div>
         ))}

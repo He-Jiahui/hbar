@@ -118,7 +118,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
                   type="button"
                   role="option"
                   aria-selected={index === selected}
-                  className={index === selected ? 'selected' : ''}
+                  className={`command-palette-item ${index === selected ? 'selected' : ''}`}
                   onMouseEnter={() => setSelected(index)}
                   onClick={() => {
                     onClose()

@@ -63,7 +63,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     const palette = page.getByRole('dialog', { name: '命令面板', exact: true })
     await expect(palette).toBeVisible()
     await expect(palette).toHaveClass(/glass-surface/)
-    const commandStyle = await palette.locator('.command-palette-list > button').first().evaluate((element) => {
+    const commandStyle = await palette.locator('.command-palette-list > .command-palette-item').first().evaluate((element) => {
       const style = getComputedStyle(element)
       return { justifyContent: style.justifyContent, paddingLeft: style.paddingLeft, paddingRight: style.paddingRight }
     })
@@ -512,6 +512,24 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     await expect(input).toHaveValue('/help ')
     await input.press('Enter')
     await expect(terminal).toContainText('终端命令')
+    const commandEntryStyle = await terminal
+      .locator('.terminal-command-entry')
+      .last()
+      .evaluate((element) => {
+        const style = getComputedStyle(element)
+        return {
+          marginLeft: style.marginLeft,
+          paddingLeft: style.paddingLeft,
+          paddingRight: style.paddingRight,
+          textAlign: style.textAlign,
+        }
+      })
+    expect(commandEntryStyle).toEqual({
+      marginLeft: '0px',
+      paddingLeft: '12px',
+      paddingRight: '12px',
+      textAlign: 'left',
+    })
 
     await input.fill('//slow')
     await input.press('Enter')
