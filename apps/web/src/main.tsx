@@ -4,6 +4,7 @@ import App from './App'
 import './styles.css'
 import './settings-models.css'
 import './gallery-theme.css'
+import './react-bits/theme.css'
 
 function initialTheme(): 'dsh-dark' | 'dsh-light' | 'white' {
   try {

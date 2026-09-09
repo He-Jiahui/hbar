@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Command as CommandIcon, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import GlassSurface from './react-bits/GlassSurface'
 
 export interface PaletteCommand {
   id: string
@@ -73,7 +74,13 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <section className="command-palette" role="dialog" aria-modal="true" aria-label="命令面板">
+      <GlassSurface
+        className="command-palette"
+        width="min(620px, 100%)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="命令面板"
+      >
         <div className="command-palette-search">
           <Search size={16} aria-hidden="true" />
           <input
@@ -130,7 +137,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
             <p className="command-palette-empty">没有匹配命令</p>
           )}
         </div>
-      </section>
+      </GlassSurface>
     </div>
   )
 }

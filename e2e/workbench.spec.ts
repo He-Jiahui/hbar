@@ -36,6 +36,7 @@ async function send(page: Page, text: string) {
 test('workbench keeps tools on demand and exposes the global command palette', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
+    await expect(page.locator('.session-list .rb-spotlight-card').first()).toBeVisible()
     const browserRail = page.getByRole('button', { name: '浏览器', exact: true }).filter({ visible: true })
     const browserTab = page.getByRole('tab', { name: '浏览器', exact: true }).filter({ visible: true })
     await expect(browserTab).toHaveCount(0)
@@ -52,6 +53,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await page.keyboard.press('Control+Shift+P')
     const palette = page.getByRole('dialog', { name: '命令面板', exact: true })
     await expect(palette).toBeVisible()
+    await expect(palette).toHaveClass(/glass-surface/)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-command-palette.png` })
     await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('命令控制台')
     await palette.getByRole('option', { name: /打开命令控制台/ }).press('Enter')

@@ -1,0 +1,50 @@
+.rb-spotlight-card {
+  --rb-spotlight-x: 50%;
+  --rb-spotlight-y: 50%;
+  --rb-spotlight-color: color-mix(in srgb, var(--rb-accent) 28%, transparent);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.rb-spotlight-card::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    180px circle at var(--rb-spotlight-x) var(--rb-spotlight-y),
+    var(--rb-spotlight-color),
+    transparent 72%
+  );
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms var(--dsh-motion-easing);
+}
+
+.rb-spotlight-card::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid color-mix(in srgb, var(--rb-accent) 34%, transparent);
+  border-radius: inherit;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms var(--dsh-motion-easing);
+}
+
+.rb-spotlight-card:hover::before,
+.rb-spotlight-card:focus-within::before,
+.rb-spotlight-card:hover::after,
+.rb-spotlight-card:focus-within::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-spotlight-card::before,
+  .rb-spotlight-card::after {
+    transition: none;
+  }
+}
