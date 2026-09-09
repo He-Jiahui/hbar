@@ -454,6 +454,13 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: '终端', exact: true }).filter({ visible: true }).first().click()
     await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
+    const mobileTerminal = page.locator('.terminal-panel').filter({ visible: true })
+    const mobileInput = mobileTerminal.getByRole('textbox', { name: '终端输入', exact: true })
+    await mobileInput.fill('/quit')
+    await mobileInput.press('Enter')
+    await expect(page.locator('.terminal-panel').filter({ visible: true })).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Terminal', exact: true }).filter({ visible: true }).click()
+    await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-terminal.png` })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   } finally {

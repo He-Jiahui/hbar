@@ -783,11 +783,9 @@ export default function App() {
     while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
     if (parent instanceof BorderNode) {
       model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false }))
-      useWorkbench.setState({ toolPanel: '' })
-    } else if (node) {
-      model.doAction(Actions.deleteTab(id))
-      if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
     }
+    else if (node) model.doAction(Actions.deleteTab(id))
+    if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
   }
   function togglePanel(id: string, title: string, component: string, placement: 'right' | 'bottom') {
     if (useWorkbench.getState().toolPanel === id) closePanel(id)
@@ -1204,7 +1202,16 @@ export default function App() {
               ) : mobileView === 'diagnose' ? (
                 <Diagnose />
               ) : mobileView === 'terminal' ? (
-                <TerminalPanel onSettings={() => setMobileView('settings')} onClose={() => setMobileView('chat')} />
+                <TerminalPanel
+                  onSettings={() => {
+                    closePanel('terminal')
+                    setMobileView('settings')
+                  }}
+                  onClose={() => {
+                    closePanel('terminal')
+                    setMobileView('chat')
+                  }}
+                />
               ) : mobileView === 'browser' ? (
                 <BrowserPanel sessionId={activeSession} />
               ) : mobileView === 'inspector' ? (
