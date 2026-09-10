@@ -406,13 +406,60 @@
   background: transparent;
 }
 
-.file-list > .file-entry.rb-spotlight-card {
+.session-list.rb-animated-list,
+.file-list.rb-animated-list {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.session-list > .session-list-viewport,
+.file-list > .file-list-viewport {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.session-list > .session-list-viewport {
+  padding: 0 8px;
+}
+
+.file-list > .file-list-viewport {
+  padding: 0 6px 10px;
+}
+
+.session-list > .rb-animated-list__gradient,
+.file-list > .rb-animated-list__gradient {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--hbar-s0) 94%, transparent), transparent);
+}
+
+.session-list > .rb-animated-list__gradient--bottom,
+.file-list > .rb-animated-list__gradient--bottom {
+  background: linear-gradient(to top, color-mix(in srgb, var(--hbar-s0) 94%, transparent), transparent);
+}
+
+.session-list > .rb-animated-list__gradient {
+  right: 8px;
+  left: 8px;
+}
+
+.file-list > .rb-animated-list__gradient {
+  right: 6px;
+  left: 6px;
+}
+
+.file-list .file-entry.rb-spotlight-card {
   display: flex;
   width: 100%;
   min-width: 0;
   align-items: center;
   justify-content: flex-start;
   gap: 7px;
+  padding: 6px 7px;
   text-align: left;
 }
 
@@ -433,6 +480,31 @@
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 899px) {
+  .session-list > .session-list-viewport {
+    padding: 0 9px;
+  }
+
+  .file-list > .file-list-viewport {
+    padding: 0 10px 10px;
+  }
+
+  .session-list > .rb-animated-list__gradient {
+    right: 9px;
+    left: 9px;
+  }
+
+  .file-list > .rb-animated-list__gradient {
+    right: 10px;
+    left: 10px;
+  }
+
+  .file-list .file-entry.rb-spotlight-card {
+    padding: 10px;
+    font-size: 13px;
+  }
 }
 
 .rb-file-nav,

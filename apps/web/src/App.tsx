@@ -57,6 +57,7 @@ import SpotlightCard from './react-bits/SpotlightCard'
 import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
+import AnimatedList from './react-bits/AnimatedList'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -319,7 +320,11 @@ function Sessions({
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
-      <div className="session-list">
+      <AnimatedList
+        className="session-list"
+        viewportClassName="session-list-viewport"
+        aria-label={archived ? '已归档会话列表' : '会话列表'}
+      >
         {sessions.map((session) => (
           <SpotlightCard
             className={`session-item ${selected === session.id ? 'selected' : ''}`}
@@ -389,7 +394,7 @@ function Sessions({
         {!sessions.length && (
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
         )}
-      </div>
+      </AnimatedList>
       <button className="new-session" aria-label="新建会话" onClick={onNew} disabled={creating} aria-busy={creating}>
         {creating ? <LoaderCircle size={15} className="spinning" /> : <Plus size={15} />}
         {creating ? '创建中' : '新建会话'}
@@ -441,7 +446,7 @@ function Files({ onOpen }: { onOpen(path: string): void }) {
       {error ? (
         <div className="inline-error">{error}</div>
       ) : (
-        <div className="file-list">
+        <AnimatedList className="file-list" viewportClassName="file-list-viewport" aria-label={`文件列表 ${path}`}>
           {entries.map((entry) => (
             <SpotlightCard
               as="button"
@@ -458,7 +463,7 @@ function Files({ onOpen }: { onOpen(path: string): void }) {
               {entry.directory && <ChevronRight size={12} />}
             </SpotlightCard>
           ))}
-        </div>
+        </AnimatedList>
       )}
     </div>
   )
