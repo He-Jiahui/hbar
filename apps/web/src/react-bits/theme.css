@@ -362,27 +362,33 @@
 }
 
 .browser-page-card.rb-spotlight-card {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+  justify-items: start;
+  gap: 3px;
+  padding: 8px 9px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
+  text-align: left;
 }
 
-.browser-page-card.rb-spotlight-card.selected {
+.browser-page-card.rb-spotlight-card:hover,
+.browser-page-card.rb-spotlight-card.selected,
+.browser-page-card.rb-spotlight-card[aria-pressed='true'] {
   border-color: var(--hbar-ac-border);
   background: var(--hbar-ac-soft);
 }
 
-.browser-page-card.rb-spotlight-card > button {
+.browser-page-card.rb-spotlight-card > span,
+.browser-page-card.rb-spotlight-card > small {
   position: relative;
   z-index: 1;
   width: 100%;
-  border-color: transparent;
-  background: transparent;
-}
-
-.browser-page-card.rb-spotlight-card > button:hover,
-.browser-page-card.rb-spotlight-card > button.selected {
-  border-color: transparent;
-  background: transparent;
+  justify-self: start;
+  text-align: left;
 }
 
 .browser-screenshot-card.rb-spotlight-card {

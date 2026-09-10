@@ -178,18 +178,16 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
             <AnimatedList viewportClassName="browser-pages" aria-label="打开的页面">
               {status.contexts.map((item) => (
                 <SpotlightCard
+                  as="button"
+                  type="button"
                   className={`browser-page-card ${page?.pageId === item.pageId ? 'selected' : ''}`}
                   key={`${item.contextId}:${item.pageId}`}
+                  aria-pressed={page?.pageId === item.pageId}
                   spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                  onClick={() => void inspect(item)}
                 >
-                  <button
-                    type="button"
-                    className={page?.pageId === item.pageId ? 'selected' : ''}
-                    onClick={() => void inspect(item)}
-                  >
-                    <span>{item.title || item.url}</span>
-                    <small>{item.url}</small>
-                  </button>
+                  <span>{item.title || item.url}</span>
+                  <small>{item.url}</small>
                 </SpotlightCard>
               ))}
             </AnimatedList>
