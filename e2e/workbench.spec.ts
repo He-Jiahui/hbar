@@ -610,6 +610,7 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     await input.fill('/he')
     await expect(terminal.getByRole('listbox', { name: '命令补全' })).toBeVisible()
     await expect(terminal.getByRole('listbox', { name: '命令补全' }).locator('.terminal-completions-glass')).toHaveClass(/glass-surface/)
+    await expect(terminal.getByRole('listbox', { name: '命令补全' }).getByRole('option').first()).toHaveClass(/rb-spotlight-card/)
     await input.press('Tab')
     await expect(input).toHaveValue('/help ')
     await input.press('Enter')

@@ -1165,6 +1165,11 @@
   z-index: 1;
 }
 
+.rb-terminal-completions > .rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .terminal-entry.rb-spotlight-card {
   background-clip: padding-box;
 }

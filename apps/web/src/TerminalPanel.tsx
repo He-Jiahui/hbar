@@ -416,11 +416,13 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
           <div className="terminal-completions rb-terminal-completions" role="listbox" aria-label="命令补全">
             <GlassSurface className="terminal-completions-glass" width="100%" height="100%" aria-hidden="true" />
             {candidates.map((candidate, index) => (
-              <button
+              <SpotlightCard
+                as="button"
                 className={index === completion ? 'selected' : ''}
                 role="option"
                 aria-selected={index === completion}
                 key={candidate.id}
+                spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
                 onMouseDown={(event) => {
                   event.preventDefault()
                   setInput(`/${candidate.id} `)
@@ -428,7 +430,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
               >
                 <code>/{candidate.id}</code>
                 <span>{candidate.description}</span>
-              </button>
+              </SpotlightCard>
             ))}
           </div>
         )}
