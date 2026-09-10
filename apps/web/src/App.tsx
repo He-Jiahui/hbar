@@ -443,15 +443,20 @@ function Files({ onOpen }: { onOpen(path: string): void }) {
       ) : (
         <div className="file-list">
           {entries.map((entry) => (
-            <button
+            <SpotlightCard
+              as="button"
+              type="button"
+              className="file-entry"
               key={entry.path}
               onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
               title={entry.path}
+              aria-label={entry.directory ? `打开目录 ${entry.name}` : `打开文件 ${entry.name}`}
+              spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
             >
               {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
               <span>{entry.name}</span>
               {entry.directory && <ChevronRight size={12} />}
-            </button>
+            </SpotlightCard>
           ))}
         </div>
       )}
