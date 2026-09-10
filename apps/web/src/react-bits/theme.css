@@ -921,6 +921,140 @@
   padding-bottom: 8px;
 }
 
+/* The provider editor is a full settings detail page, so its long form can
+ * scroll independently from the surrounding workbench panel. */
+.settings-panel.settings-editor-panel {
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.rb-settings-detail-page {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: auto;
+  background: transparent;
+  color: var(--hbar-t1);
+}
+
+.rb-settings-detail-page > .settings-detail-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.rb-settings-detail-page > :not(.settings-detail-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.settings-detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 17px 28px 15px;
+  border-bottom: 1px solid var(--hbar-bd);
+  background: color-mix(in srgb, var(--hbar-s0) 90%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.settings-detail-back {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-s1);
+  color: var(--hbar-t2);
+}
+
+.settings-detail-back:hover,
+.settings-detail-back:focus-visible {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-t1);
+}
+
+.settings-detail-heading {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.settings-detail-eyebrow {
+  color: var(--hbar-t3);
+  font: 10px var(--dsh-font-family-code);
+}
+
+.settings-detail-heading h1 {
+  margin: 0;
+  color: var(--hbar-t1);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.settings-detail-heading p {
+  overflow: hidden;
+  margin: 0;
+  color: var(--hbar-t3);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-detail-form {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  padding: 22px 28px 34px;
+  gap: 18px;
+}
+
+.settings-detail-form .provider-model-cards {
+  gap: 12px;
+}
+
+.settings-detail-form .provider-model-card {
+  padding: 14px 16px 12px;
+}
+
+.settings-detail-footer {
+  padding: 16px 0 0;
+}
+
+@media (max-width: 899px) {
+  .settings-detail-header {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 10px;
+    padding: 13px 16px 12px;
+  }
+
+  .settings-detail-form {
+    width: 100%;
+    padding: 16px 16px 28px;
+  }
+
+  .settings-detail-form .provider-model-card {
+    padding: 12px 12px 10px;
+  }
+}
+
 .plugin-row.rb-spotlight-card,
 .model-row.rb-spotlight-card,
 .device-row.rb-spotlight-card,

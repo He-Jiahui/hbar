@@ -45,40 +45,51 @@ test('model settings can search and filter configured connections', async ({ pag
   }
 })
 
-test('provider editor uses layered React Bits surfaces', async ({ page, context }) => {
+test('provider editor opens as a secondary settings page', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
     await page.getByRole('button', { name: '设置', exact: true }).first().click()
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
     await page.getByRole('button', { name: '添加模型', exact: true }).click()
 
-    const dialog = page.getByRole('dialog', { name: '添加模型', exact: true })
-    await expect(dialog).toBeVisible()
-    await expect(dialog.locator('.provider-preset.rb-glare-button')).not.toHaveCount(0)
-    await expect(dialog.locator('.provider-preset').first()).toHaveCSS('text-align', 'left')
-    await expect(dialog.locator('.provider-preset').first().locator('.rb-glare-button-content')).toHaveCSS('text-align', 'left')
-    const presetAlignment = await dialog.locator('.provider-preset').first().evaluate((element) => {
+    const editorPage = page.locator('.settings-detail-page[aria-label="添加模型"]')
+    await expect(editorPage).toBeVisible()
+    await expect(page.getByRole('dialog', { name: '添加模型', exact: true })).toHaveCount(0)
+    await expect(editorPage.locator('.settings-detail-glass')).toHaveClass(/glass-surface/)
+    const editorMetrics = await editorPage.evaluate((element) => ({
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      scrollTop: element.scrollTop,
+    }))
+    expect(editorMetrics.scrollHeight).toBeGreaterThan(editorMetrics.clientHeight)
+    expect(editorMetrics.scrollTop).toBe(0)
+    await expect(editorPage.locator('.provider-preset.rb-glare-button')).not.toHaveCount(0)
+    await expect(editorPage.locator('.provider-preset').first()).toHaveCSS('text-align', 'left')
+    await expect(editorPage.locator('.provider-preset').first().locator('.rb-glare-button-content')).toHaveCSS('text-align', 'left')
+    const presetAlignment = await editorPage.locator('.provider-preset').first().evaluate((element) => {
       const title = element.querySelector('strong')
       const buttonRect = element.getBoundingClientRect()
       const titleRect = title?.getBoundingClientRect()
       return titleRect ? titleRect.left - buttonRect.left : Number.POSITIVE_INFINITY
     })
     expect(presetAlignment).toBeLessThan(24)
-    await expect(dialog.locator('.provider-connection-summary.rb-spotlight-card')).toHaveCount(1)
-    await expect(dialog.locator('.provider-model-card-glass')).not.toHaveCount(0)
-    await expect(dialog.locator('.provider-advanced-glass')).toHaveCount(1)
-    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-provider-editor.png` })
-    await dialog.getByRole('button', { name: '关闭', exact: true }).click()
-    await expect(dialog).toBeHidden()
+    await expect(editorPage.locator('.provider-connection-summary.rb-spotlight-card')).toHaveCount(1)
+    await expect(editorPage.locator('.provider-model-card-glass')).not.toHaveCount(0)
+    await expect(editorPage.locator('.provider-advanced-glass')).toHaveCount(1)
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-provider-editor-page.png` })
+    await editorPage.getByRole('button', { name: '返回供应商与模型', exact: true }).click()
+    await expect(editorPage).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.locator('.mobile-nav').getByRole('button', { name: '设置', exact: true }).click()
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
     await page.getByRole('button', { name: '添加模型', exact: true }).click()
-    await expect(dialog).toBeVisible()
-    await expect(dialog.locator('.provider-preset-grid')).toBeVisible()
+    await expect(editorPage).toBeVisible()
+    await expect(editorPage.locator('.provider-preset-grid')).toBeVisible()
+    expect(await editorPage.evaluate((element) => element.scrollTop)).toBe(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
-    await page.screenshot({ path: `artifacts/${Date.now()}-mobile-provider-editor.png` })
+    await page.screenshot({ path: `artifacts/${Date.now()}-mobile-provider-editor-page.png` })
   } finally {
     fixture.api.disconnect()
   }

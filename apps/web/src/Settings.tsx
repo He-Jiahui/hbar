@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
+  ArrowLeft,
   Check,
   ChevronRight,
   Copy,
@@ -150,7 +151,8 @@ function mirrorSelectedModel(
   }
 }
 
-function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): void }) {
+function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close(): void }) {
+  const detailPageRef = useRef<HTMLElement>(null)
   const initialPreset = provider
     ? (providerPresets.find(
         (preset) => preset.name === (provider.providerName || provider.name) || preset.baseUrl === provider.baseUrl,
@@ -167,6 +169,9 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
   const [apiKey, setApiKey] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('')
+  useLayoutEffect(() => {
+    detailPageRef.current?.scrollTo({ top: 0, left: 0 })
+  }, [])
   const selectedModel = value.models.find((model) => model.id === value.model) ?? value.models[0]
   const field = <K extends 'id' | 'name' | 'protocol' | 'baseUrl'>(key: K, next: ProviderConfig[K]) =>
     setValue((current) => ({ ...current, [key]: next }))
@@ -246,9 +251,32 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
       setBusy(false)
     }
   }
+  const title = provider ? '编辑模型' : '添加模型'
   return (
-    <Modal title={provider ? '编辑模型' : '添加模型'} onClose={close}>
-      <form onSubmit={(event) => void save(event)} className="settings-form">
+    <section ref={detailPageRef} className="settings-detail-page rb-settings-detail-page" aria-label={title}>
+      <GlassSurface className="settings-detail-glass" width="100%" height="100%" aria-hidden="true" />
+      <header className="settings-detail-header">
+        <button
+          type="button"
+          className="settings-detail-back"
+          title="返回供应商与模型"
+          aria-label="返回供应商与模型"
+          onClick={close}
+        >
+          <ArrowLeft size={15} />
+          <span>供应商与模型</span>
+        </button>
+        <div className="settings-detail-heading">
+          <span className="settings-detail-eyebrow">设置 / 模型</span>
+          <h1>{title}</h1>
+          <p>
+            {provider
+              ? `${provider.providerName || provider.name} · ${value.models.length} 个模型`
+              : '配置供应商连接与模型能力'}
+          </p>
+        </div>
+      </header>
+      <form onSubmit={(event) => void save(event)} className="settings-form settings-detail-form">
         {!provider && (
           <fieldset className="provider-presets">
             <legend>快速开始</legend>
@@ -552,7 +580,7 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
             {error}
           </p>
         )}
-        <footer className="modal-footer">
+        <footer className="modal-footer settings-detail-footer">
           <button type="button" className="button" onClick={close}>
             取消
           </button>
@@ -562,7 +590,7 @@ function ProviderEditor({ provider, close }: { provider?: ModelInfo; close(): vo
           </GlareButton>
         </footer>
       </form>
-    </Modal>
+    </section>
   )
 }
 function PluginRow({ plugin, className = '' }: { plugin: PluginInfo; className?: string }) {
@@ -700,6 +728,13 @@ export default function Settings() {
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
+  if (editor) {
+    return (
+      <div className="settings-panel settings-editor-panel">
+        <ProviderEditorPage {...(editor === 'new' ? {} : { provider: editor })} close={() => setEditor(null)} />
+      </div>
+    )
+  }
   return (
     <div className="settings-panel">
       <div className="page-heading">
@@ -1118,7 +1153,6 @@ export default function Settings() {
           ) : null}
         </section>
       )}
-      {editor && <ProviderEditor {...(editor === 'new' ? {} : { provider: editor })} close={() => setEditor(null)} />}
     </div>
   )
 }
