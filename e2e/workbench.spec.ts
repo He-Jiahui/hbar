@@ -559,6 +559,9 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
   const fixture = await login(context, page)
   try {
     await page.getByRole('button', { name: '设置', exact: true }).first().click()
+    await page.getByRole('button', { name: '设备与连接', exact: true }).filter({ visible: true }).click()
+    await expect(page.getByRole('heading', { name: '宿主连接', exact: true })).toBeVisible()
+    await expect(page.locator('.host-address-row.rb-spotlight-card').first()).toBeVisible()
     await page.getByRole('button', { name: '存储', exact: true }).filter({ visible: true }).click()
     await expect(page.getByRole('heading', { name: '存储目录', exact: true })).toBeVisible()
     const dataRoot = page.getByRole('textbox', { name: /数据目录/ })

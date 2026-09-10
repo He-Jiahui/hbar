@@ -1045,12 +1045,16 @@ export default function Settings() {
           </div>
           <div className="host-addresses">
             {host?.addresses.map((address) => (
-              <div key={address}>
+              <SpotlightCard
+                className="host-address-row"
+                key={address}
+                spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
+              >
                 <code>{address}</code>
                 <button title="复制地址" aria-label="复制地址" onClick={() => void copyText(address).catch(report)}>
                   <Copy size={14} />
                 </button>
-              </div>
+              </SpotlightCard>
             ))}
           </div>
           <div className="section-toolbar">
