@@ -4,9 +4,7 @@ import {
   Check,
   ChevronRight,
   Copy,
-  GitBranch,
   KeyRound,
-  LockKeyhole,
   Moon,
   Monitor,
   Network,
@@ -15,7 +13,6 @@ import {
   Search,
   Save,
   ShieldCheck,
-  Stethoscope,
   Sun,
   Trash2,
   X,
@@ -28,6 +25,7 @@ import PermissionSelector from './PermissionSelector'
 import { permissionPreset } from './permissions'
 import { providerFromPreset, providerPresets } from './provider-presets'
 import PathSettings from './PathSettings'
+import PluginDiagnostics from './PluginDiagnostics'
 import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -703,7 +701,6 @@ export default function Settings() {
     [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null),
     [pluginPath, setPluginPath] = useState(''),
     [pluginScope, setPluginScope] = useState<'global' | 'project'>('global'),
-    [pluginReport, setPluginReport] = useState(''),
     [copied, setCopied] = useState(false),
     [modelQuery, setModelQuery] = useState(''),
     [modelFilter, setModelFilter] = useState<'all' | 'connected' | 'needs-key'>('all')
@@ -980,51 +977,8 @@ export default function Settings() {
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <h2>已安装插件</h2>
-            <div className="plugin-tools">
-              <button
-                className="button"
-                onClick={() =>
-                  void client()
-                    .call('plugin.doctor', {})
-                    .then((value) => setPluginReport(JSON.stringify(value, null, 2)))
-                    .catch(report)
-                }
-              >
-                <Stethoscope size={14} />
-                检查
-              </button>
-              <button
-                className="button"
-                onClick={() =>
-                  void client()
-                    .call('plugin.graph', {})
-                    .then((value) => setPluginReport(JSON.stringify(value, null, 2)))
-                    .catch(report)
-                }
-              >
-                <GitBranch size={14} />
-                依赖图
-              </button>
-              <button
-                className="button icon-button"
-                title="查看插件锁"
-                aria-label="查看插件锁"
-                onClick={() =>
-                  void client()
-                    .call('plugin.lock', {})
-                    .then((value) => setPluginReport(JSON.stringify(value, null, 2)))
-                    .catch(report)
-                }
-              >
-                <LockKeyhole size={14} />
-              </button>
-            </div>
           </div>
-          {pluginReport && (
-            <SpotlightCard className="plugin-report" spotlightColor="color-mix(in srgb, var(--rb-status) 20%, transparent)">
-              <code>{pluginReport}</code>
-            </SpotlightCard>
-          )}
+          <PluginDiagnostics />
           {data?.plugins.length ? (
             <AnimatedList className="settings-plugin-list" viewportClassName="settings-plugin-viewport" showGradients={false}>
               {data.plugins.map((plugin) => <PluginRow key={plugin.id} plugin={plugin} />)}

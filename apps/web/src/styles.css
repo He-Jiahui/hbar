@@ -1582,16 +1582,6 @@ p {
   align-items: center;
   gap: 7px;
 }
-.plugin-report {
-  max-height: 220px;
-  margin: 8px 0 14px;
-  padding: 10px;
-  overflow: auto;
-  border: 1px solid var(--border);
-  background: var(--editor);
-  font: 10px/1.6 var(--mono);
-  color: #aeb7c7;
-}
 .path-root-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

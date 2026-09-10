@@ -12,7 +12,9 @@
 .command-palette.glass-surface {
   background: color-mix(in srgb, var(--hbar-s1) 84%, transparent);
   border-color: color-mix(in srgb, var(--hbar-ac) 38%, var(--hbar-bd2));
-  box-shadow: var(--dsh-shadow-prominent), 0 0 0 1px rgb(255 255 255 / 3%) inset;
+  box-shadow:
+    var(--dsh-shadow-prominent),
+    0 0 0 1px rgb(255 255 255 / 3%) inset;
 }
 
 .command-palette.glass-surface::before {
@@ -1165,30 +1167,533 @@
 .plugin-row.rb-spotlight-card,
 .model-row.rb-spotlight-card,
 .device-row.rb-spotlight-card,
-.host-address-row.rb-spotlight-card,
-.plugin-report.rb-spotlight-card {
+.host-address-row.rb-spotlight-card {
   background-clip: padding-box;
 }
 
 .plugin-row.rb-spotlight-card > *,
 .model-row.rb-spotlight-card > *,
 .device-row.rb-spotlight-card > *,
-.host-address-row.rb-spotlight-card > *,
-.plugin-report.rb-spotlight-card > * {
+.host-address-row.rb-spotlight-card > * {
   position: relative;
   z-index: 1;
 }
 
-.plugin-report.rb-spotlight-card {
-  overflow: auto;
-  white-space: pre-wrap;
+/* Plugin diagnostics exposes three typed host reports. Keep their controls and
+ * dense lists anchored to the left so they remain scannable in a settings pane
+ * instead of presenting a centered block of raw JSON. */
+.plugin-diagnostics {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  margin: 0 0 14px;
 }
 
-.plugin-report.rb-spotlight-card > code {
-  display: block;
+.plugin-diagnostic-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 76%, transparent);
+}
+
+.plugin-diagnostic-action.rb-glare-button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s1) 78%, transparent);
+  color: var(--hbar-t2);
+  text-align: left;
+}
+
+.plugin-diagnostic-action.rb-glare-button .rb-glare-button-content {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 7px 12px;
+  text-align: left;
+}
+
+.plugin-diagnostic-action.rb-glare-button:hover:not(:disabled),
+.plugin-diagnostic-action.rb-glare-button:focus-visible,
+.plugin-diagnostic-action.rb-glare-button.selected {
+  border-color: var(--hbar-ac-border);
+  background: color-mix(in srgb, var(--hbar-ac-soft) 80%, var(--hbar-s1));
+  color: var(--hbar-t1);
+}
+
+.plugin-diagnostic-action.rb-glare-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.plugin-diagnostic-result {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s1) 78%, transparent);
+  isolation: isolate;
+}
+
+.plugin-diagnostic-result > .plugin-diagnostic-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--hbar-s1) 74%, transparent);
+  pointer-events: none;
+}
+
+.plugin-diagnostic-result > :not(.plugin-diagnostic-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.plugin-diagnostic-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+}
+
+.plugin-diagnostic-heading-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding-top: 1px;
+  color: var(--hbar-ac2);
+}
+
+.plugin-diagnostic-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.plugin-diagnostic-heading h3,
+.plugin-report-list-section h4 {
+  margin: 0;
+  color: var(--hbar-t1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plugin-diagnostic-heading p {
+  overflow: hidden;
+  margin: 0;
+  color: var(--hbar-t3);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-diagnostic-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 68%, transparent);
+  color: var(--hbar-t3);
+  font-size: 11px;
+  text-align: left;
+}
+
+.plugin-doctor-status,
+.plugin-node-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.plugin-doctor-status.is-healthy,
+.plugin-node-status.is-enabled {
+  border-color: color-mix(in srgb, var(--hbar-ok) 46%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--hbar-ok) 10%, transparent);
+  color: var(--hbar-ok);
+}
+
+.plugin-doctor-status.has-errors {
+  border-color: color-mix(in srgb, var(--hbar-er) 48%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--hbar-er) 10%, transparent);
+  color: var(--hbar-er);
+}
+
+.plugin-node-status.is-disabled {
+  color: var(--hbar-t3);
+}
+
+.plugin-report-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.plugin-report-stat-grid > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 68%, transparent);
+}
+
+.plugin-report-stat-grid dt {
+  color: var(--hbar-t3);
+  font-size: 10px;
+}
+
+.plugin-report-stat-grid dd {
+  margin: 0;
+  color: var(--hbar-t1);
+  font: 18px var(--dsh-font-family-code);
+}
+
+.plugin-report-list-section {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.plugin-report-list-section h4 {
+  color: var(--hbar-t2);
+  font-size: 11px;
+}
+
+.plugin-report-error-viewport,
+.plugin-report-order-viewport,
+.plugin-report-node-viewport,
+.plugin-report-edge-viewport,
+.plugin-report-lock-viewport {
+  display: grid;
+  min-width: 0;
+  max-height: 204px;
+  gap: 6px;
+  padding-right: 2px;
+  overflow: auto;
+}
+
+.plugin-report-error-row.rb-spotlight-card,
+.plugin-report-order-row.rb-spotlight-card,
+.plugin-report-node-row.rb-spotlight-card,
+.plugin-report-edge-row.rb-spotlight-card,
+.plugin-report-lock-row.rb-spotlight-card {
+  min-width: 0;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 72%, transparent);
+  text-align: left;
+}
+
+.plugin-report-error-row.rb-spotlight-card > *,
+.plugin-report-order-row.rb-spotlight-card > *,
+.plugin-report-node-row.rb-spotlight-card > *,
+.plugin-report-edge-row.rb-spotlight-card > *,
+.plugin-report-lock-row.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plugin-report-error-row.rb-spotlight-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  border-color: color-mix(in srgb, var(--hbar-er) 40%, var(--hbar-bd));
+  color: var(--hbar-er);
+  font-size: 11px;
+}
+
+.plugin-report-error-row > span {
   min-width: 0;
   overflow-wrap: anywhere;
-  font: inherit;
+}
+
+.plugin-report-order-row.rb-spotlight-card {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.plugin-report-order-row > span {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hbar-ac) 13%, transparent);
+  color: var(--hbar-ac2);
+  font: 10px var(--dsh-font-family-code);
+}
+
+.plugin-report-order-row code,
+.plugin-report-edge-path code,
+.plugin-report-lock-row code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-t2);
+  font: 10px var(--dsh-font-family-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-report-node-row.rb-spotlight-card,
+.plugin-report-lock-row.rb-spotlight-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px 10px;
+  padding: 9px 10px;
+}
+
+.plugin-report-node-row > div,
+.plugin-report-lock-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.plugin-report-node-row strong,
+.plugin-report-lock-row strong {
+  overflow: hidden;
+  color: var(--hbar-t1);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-report-node-row span:not(.plugin-node-status),
+.plugin-report-lock-row > div > span {
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-report-lock-row > div > code {
+  display: block;
+  max-width: 100%;
+}
+
+.plugin-report-lock-row > small {
+  grid-column: 1 / -1;
+  color: var(--hbar-t3);
+  font-size: 10px;
+}
+
+.plugin-report-edge-row.rb-spotlight-card {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 9px 10px;
+}
+
+.plugin-report-edge-path {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.plugin-report-edge-path code {
+  flex: 1 1 0;
+}
+
+.plugin-report-edge-path svg {
+  flex: 0 0 auto;
+  color: var(--hbar-ac2);
+}
+
+.plugin-report-edge-row > span {
+  color: var(--hbar-t3);
+  font-size: 10px;
+}
+
+.plugin-report-empty,
+.plugin-diagnostic-loading {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 64%, transparent);
+  color: var(--hbar-t3);
+  font-size: 11px;
+  text-align: left;
+}
+
+.plugin-diagnostic-error.rb-spotlight-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--hbar-er) 44%, var(--hbar-bd));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-er) 8%, var(--hbar-s1));
+}
+
+.plugin-diagnostic-error.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plugin-diagnostic-error > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.plugin-diagnostic-error strong {
+  color: var(--hbar-t1);
+  font-size: 11px;
+}
+
+.plugin-diagnostic-error span {
+  overflow: hidden;
+  color: var(--hbar-er);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-report-raw {
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 64%, transparent);
+}
+
+.plugin-report-raw > summary {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--hbar-t2);
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+  text-align: left;
+}
+
+.plugin-report-raw > summary::-webkit-details-marker {
+  display: none;
+}
+
+.plugin-report-raw-chevron {
+  flex: 0 0 auto;
+  transition: transform 180ms var(--dsh-motion-easing);
+}
+
+.plugin-report-raw[open] .plugin-report-raw-chevron {
+  transform: rotate(90deg);
+}
+
+.plugin-report-raw pre {
+  max-height: 280px;
+  margin: 0;
+  padding: 0 10px 10px;
+  overflow: auto;
+  color: var(--hbar-t2);
+  font: 10px/1.55 var(--dsh-font-family-code);
+}
+
+.plugin-diagnostic-spin {
+  animation: rb-plugin-diagnostic-spin 800ms linear infinite;
+}
+
+@keyframes rb-plugin-diagnostic-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 899px) {
+  .plugin-diagnostic-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .plugin-diagnostic-action.rb-glare-button {
+    width: 100%;
+    min-height: 38px;
+  }
+
+  .plugin-diagnostic-action.rb-glare-button .rb-glare-button-content {
+    gap: 5px;
+    padding: 7px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .plugin-diagnostic-result {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .plugin-diagnostic-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .plugin-report-error-viewport,
+  .plugin-report-order-viewport,
+  .plugin-report-node-viewport,
+  .plugin-report-edge-viewport,
+  .plugin-report-lock-viewport {
+    max-height: 186px;
+  }
+
+  .plugin-diagnostic-error.rb-spotlight-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plugin-diagnostic-spin,
+  .plugin-report-raw-chevron {
+    animation: none;
+    transition: none;
+  }
 }
 
 .event-entry.rb-spotlight-card {
