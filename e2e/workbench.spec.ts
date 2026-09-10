@@ -142,6 +142,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await page.getByRole('button', { name: '外观', exact: true }).click()
     await expect(page.getByRole('heading', { name: '界面主题', exact: true })).toBeVisible()
     await expect(page.locator('.theme-options-glass')).toHaveClass(/glass-surface/)
+    await expect(page.locator('.theme-options .rb-glare-button')).toHaveCount(3)
     await page.getByRole('button', { name: '浅色', exact: true }).click()
     await expect(page.getByRole('button', { name: '浅色', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await page.getByRole('button', { name: '权限', exact: true }).click()

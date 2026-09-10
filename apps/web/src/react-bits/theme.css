@@ -692,6 +692,24 @@
   z-index: 1;
 }
 
+.rb-theme-options > .rb-glare-button {
+  min-height: 64px;
+  border-color: var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: var(--hbar-s0);
+}
+
+.rb-theme-options > .rb-glare-button:hover,
+.rb-theme-options > .rb-glare-button.selected {
+  border-color: var(--hbar-ac);
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-t1);
+}
+
+.rb-theme-options > .rb-glare-button > .rb-glare-button-content {
+  justify-content: center;
+}
+
 .permission-setting-row.rb-spotlight-card,
 .permission-note.rb-spotlight-card {
   background-clip: padding-box;

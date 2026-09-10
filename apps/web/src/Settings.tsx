@@ -747,16 +747,17 @@ export default function Settings() {
                 ['white', '纯白', Monitor],
               ] as const
             ).map(([value, label, Icon]) => (
-              <button
+              <GlareButton
                 type="button"
                 key={value}
                 className={theme === value ? 'selected' : ''}
                 aria-pressed={theme === value}
+                glareColor="color-mix(in srgb, var(--rb-accent) 42%, transparent)"
                 onClick={() => useWorkbench.setState({ theme: value })}
               >
                 <Icon size={17} />
                 <span>{label}</span>
-              </button>
+              </GlareButton>
             ))}
           </div>
         </section>
