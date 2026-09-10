@@ -589,11 +589,19 @@ function ActivityPanel() {
         <>
           <div className="event-list">
             {events.map((event) => (
-              <button key={event.eventId} onClick={() => setDetail(event)}>
+              <SpotlightCard
+                as="button"
+                type="button"
+                className="event-entry"
+                key={event.eventId}
+                aria-label={`查看事件 ${event.type}`}
+                spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                onClick={() => setDetail(event)}
+              >
                 <span className="event-seq">{event.seq}</span>
                 <code>{event.type}</code>
                 <time>{new Date(event.time).toLocaleTimeString()}</time>
-              </button>
+              </SpotlightCard>
             ))}
           </div>
           {detail && (

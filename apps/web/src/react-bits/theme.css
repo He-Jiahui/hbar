@@ -1119,6 +1119,23 @@
   font: inherit;
 }
 
+.event-entry.rb-spotlight-card {
+  justify-content: flex-start;
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.event-entry.rb-spotlight-card:hover,
+.event-entry.rb-spotlight-card:focus-visible {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+}
+
+.event-entry.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .topbar,
 .sidebar,
 .statusbar,
