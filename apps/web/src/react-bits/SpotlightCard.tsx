@@ -1,12 +1,32 @@
-import { useCallback, useRef, type CSSProperties, type HTMLAttributes, type PointerEvent, type ReactNode } from 'react'
+import {
+  useCallback,
+  useRef,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type HTMLAttributes,
+  type PointerEvent,
+  type ReactNode,
+} from 'react'
 import './SpotlightCard.css'
 
-export interface SpotlightCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'style' | 'onPointerMove' | 'onPointerLeave'> {
+type SpotlightCardBaseProps = {
   children?: ReactNode
   className?: string
   spotlightColor?: string
   style?: CSSProperties
 }
+
+type SpotlightDivProps = SpotlightCardBaseProps &
+  Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'style' | 'onPointerMove' | 'onPointerLeave'> & {
+    as?: 'div'
+  }
+
+type SpotlightButtonProps = SpotlightCardBaseProps &
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'style' | 'onPointerMove' | 'onPointerLeave'> & {
+    as: 'button'
+  }
+
+export type SpotlightCardProps = SpotlightDivProps | SpotlightButtonProps
 
 /**
  * React Bits SpotlightCard adapted for hbar's dense workbench surfaces.
@@ -18,11 +38,18 @@ export default function SpotlightCard({
   className = '',
   spotlightColor = 'color-mix(in srgb, var(--rb-accent) 28%, transparent)',
   style,
+  as = 'div',
   ...rest
 }: SpotlightCardProps) {
-  const card = useRef<HTMLDivElement>(null)
+  const card = useRef<HTMLDivElement | HTMLButtonElement>(null)
+  const setDivCard = useCallback((element: HTMLDivElement | null) => {
+    card.current = element
+  }, [])
+  const setButtonCard = useCallback((element: HTMLButtonElement | null) => {
+    card.current = element
+  }, [])
 
-  const handlePointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = useCallback((event: PointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
     const element = card.current
     if (!element) return
@@ -39,15 +66,28 @@ export default function SpotlightCard({
   }, [])
 
   const cardStyle = { ...style, '--rb-spotlight-color': spotlightColor } as CSSProperties
+  const interactiveProps = {
+    className: `rb-spotlight-card${className ? ` ${className}` : ''}`,
+    style: cardStyle,
+    onPointerMove: handlePointerMove,
+    onPointerLeave: handlePointerLeave,
+  }
 
+  if (as === 'button')
+    return (
+      <button
+        ref={setButtonCard}
+        {...(rest as Omit<SpotlightButtonProps, keyof SpotlightCardBaseProps | 'as'>)}
+        {...interactiveProps}
+      >
+        {children}
+      </button>
+    )
   return (
     <div
-      ref={card}
-      {...rest}
-      className={`rb-spotlight-card${className ? ` ${className}` : ''}`}
-      style={cardStyle}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
+      ref={setDivCard}
+      {...(rest as Omit<SpotlightDivProps, keyof SpotlightCardBaseProps | 'as'>)}
+      {...interactiveProps}
     >
       {children}
     </div>

@@ -45,6 +45,11 @@
   text-align: left;
 }
 
+.command-palette-item.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .rb-menu-surface {
   position: relative;
   isolation: isolate;

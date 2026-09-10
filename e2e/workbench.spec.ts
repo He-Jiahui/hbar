@@ -83,6 +83,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
       paddingRight: '16px',
       textAlign: 'left',
     })
+    await expect(palette.locator('.command-palette-list > .command-palette-item.rb-spotlight-card')).not.toHaveCount(0)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-command-palette.png` })
     await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('命令控制台')
     await palette.getByRole('option', { name: /打开命令控制台/ }).press('Enter')

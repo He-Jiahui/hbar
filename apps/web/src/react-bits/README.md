@@ -6,7 +6,8 @@ variants in `D:\Git\cc-haha\.references\react-bits` at source commit
 
 Selected components:
 
-- `SpotlightCard`: pointer-proximity radial highlight for dense interactive rows.
+- `SpotlightCard`: pointer-proximity radial highlight for dense interactive rows;
+  pass `as="button"` when the highlighted surface itself must remain a native button.
 - `GlassSurface`: SVG displacement glass with the source component's browser
   fallback, mapped to hbar's semantic surface and accent tokens.
 - `GlassIconButton`: the layered `GlassIcons` button treatment, constrained to

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Command as CommandIcon, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import GlassSurface from './react-bits/GlassSurface'
+import SpotlightCard from './react-bits/SpotlightCard'
 
 export interface PaletteCommand {
   id: string
@@ -113,12 +114,14 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
             filtered.map((command, index) => {
               const Icon = command.icon ?? CommandIcon
               return (
-                <button
+                <SpotlightCard
+                  as="button"
                   key={command.id}
                   type="button"
                   role="option"
                   aria-selected={index === selected}
                   className={`command-palette-item ${index === selected ? 'selected' : ''}`}
+                  spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
                   onMouseEnter={() => setSelected(index)}
                   onClick={() => {
                     onClose()
@@ -130,7 +133,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
                     <strong>{command.label}</strong>
                     {command.description && <small>{command.description}</small>}
                   </span>
-                </button>
+                </SpotlightCard>
               )
             })
           ) : (
