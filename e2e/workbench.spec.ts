@@ -201,6 +201,44 @@ test('workbench keeps tools on demand and exposes the global command palette', a
   }
 })
 
+test('diagnose panel surfaces structured host status on desktop and mobile', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const diagnoseRail = page.getByRole('button', { name: '诊断', exact: true }).filter({ visible: true }).last()
+    const diagnoseTab = page.getByRole('tab', { name: '诊断', exact: true }).filter({ visible: true })
+    await diagnoseRail.click()
+    await expect(diagnoseTab).toBeVisible()
+    const panel = page.locator('.rb-diagnose-panel').filter({ visible: true })
+    await expect(panel).toHaveAttribute('aria-busy', 'false')
+    await expect(panel.locator('.diagnose-panel-glass')).toHaveClass(/glass-surface/)
+    await expect(panel.locator('.diagnose-summary-card.rb-spotlight-card')).toHaveCount(3)
+    await expect(panel.getByRole('heading', { name: '存储', exact: true })).toBeVisible()
+    await expect(panel.locator('.diagnose-storage-grid')).toBeVisible()
+    await expect(panel.locator('.diagnose-plugin-list')).toHaveClass(/rb-animated-list/)
+    await expect(panel.locator('.diagnose-details')).toHaveCount(2)
+    await panel.locator('.diagnose-details').first().locator('summary').click()
+    await expect(panel.locator('.diagnose-tool-chips')).toBeVisible()
+    await panel.locator('.diagnose-raw-details summary').click()
+    await expect(panel.locator('.diagnose-raw-details pre')).toContainText('"host"')
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-diagnose-panel.png` })
+
+    await diagnoseRail.click()
+    await expect(diagnoseTab).toHaveCount(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.locator('.mobile-nav').getByRole('button', { name: '插件', exact: true }).click()
+    const mobileTools = page.locator('.mobile-tool-grid')
+    await expect(mobileTools.getByRole('button', { name: '诊断', exact: true })).toBeVisible()
+    await mobileTools.getByRole('button', { name: '诊断', exact: true }).click()
+    const mobilePanel = page.locator('.rb-diagnose-panel').filter({ visible: true })
+    await expect(mobilePanel).toBeVisible()
+    await expect(mobilePanel.locator('.diagnose-summary-card.rb-spotlight-card')).toHaveCount(3)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+    await page.screenshot({ path: `artifacts/${Date.now()}-mobile-diagnose-panel.png` })
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('composer plus menu exposes mode and attachment capabilities', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {

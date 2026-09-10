@@ -22,7 +22,6 @@ import {
   PanelLeftOpen,
   Pencil,
   Plus,
-  RefreshCw,
   Search,
   Settings2,
   ShieldCheck,
@@ -53,6 +52,7 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
+import Diagnose from './DiagnosePanel'
 import SpotlightCard from './react-bits/SpotlightCard'
 import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
@@ -68,6 +68,7 @@ const MOBILE_TOOLS = [
   { id: 'inspector', title: '会话检查', icon: FileSearch },
   { id: 'plan', title: '计划', icon: ListChecks },
   { id: 'insights', title: '会话洞察', icon: Activity },
+  { id: 'diagnose', title: '诊断', icon: CircleHelp },
 ] as const
 const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
   activity: 'activity',
@@ -616,25 +617,6 @@ function ActivityPanel() {
           )}
         </>
       )}
-    </div>
-  )
-}
-function Diagnose() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null)
-  const refresh = () => {
-    void client().call('system.diagnose', {}).then(setData).catch(report)
-  }
-  useEffect(refresh, [])
-  return (
-    <div className="diagnose-panel rb-diagnose-panel">
-      <GlassSurface className="diagnose-panel-glass" width="100%" height="100%" aria-hidden="true" />
-      <div className="page-heading">
-        <h1>诊断</h1>
-        <button title="刷新诊断" aria-label="刷新诊断" onClick={refresh}>
-          <RefreshCw size={15} />
-        </button>
-      </div>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   )
 }
