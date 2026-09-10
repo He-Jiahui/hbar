@@ -1208,6 +1208,19 @@
   z-index: 1;
 }
 
+.activity-metric.rb-spotlight-card {
+  background-clip: padding-box;
+}
+
+.activity-metric.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.run-list.rb-animated-list > .run-list-viewport {
+  display: grid;
+}
+
 .topbar,
 .sidebar,
 .statusbar,

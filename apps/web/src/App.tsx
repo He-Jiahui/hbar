@@ -542,25 +542,25 @@ function ActivityPanel() {
             <span className="small-muted">{snapshot?.runs.length ?? 0} runs</span>
           </div>
           <dl className="metrics">
-            <div>
+            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)">
               <dt>输入 tokens</dt>
               <dd>{(usage?.input ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
+            </SpotlightCard>
+            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)">
               <dt>输出 tokens</dt>
               <dd>{(usage?.output ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
+            </SpotlightCard>
+            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--rb-status) 18%, transparent)">
               <dt>缓存读取</dt>
               <dd>{(usage?.cacheRead ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
+            </SpotlightCard>
+            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)">
               <dt>费用</dt>
               <dd>${(usage?.cost ?? 0).toFixed(4)}</dd>
-            </div>
+            </SpotlightCard>
           </dl>
           <div className="section-label">运行记录</div>
-          <div className="run-list">
+          <AnimatedList className="run-list" viewportClassName="run-list-viewport" showGradients={false}>
             {snapshot?.runs.map((run) => (
               <SpotlightCard className="run-row" key={run.id} spotlightColor="color-mix(in srgb, var(--rb-status) 30%, transparent)">
                 <i className={`status-dot ${run.status}`} />
@@ -582,7 +582,7 @@ function ActivityPanel() {
                 )}
               </SpotlightCard>
             ))}
-          </div>
+          </AnimatedList>
           {!snapshot?.runs.length && (
             <div className="empty-tool">
               <Activity size={25} />
