@@ -136,57 +136,60 @@ function Pairing() {
     url = useConnection((state) => state.url),
     connectionError = useConnection((state) => state.error)
   return (
-    <main className="pairing-page">
+    <main className="pairing-page rb-pairing-page">
+      <GlassSurface className="pairing-page-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="pairing-brand">
         hbar
         <span />
       </div>
-      <form
-        className="pairing-form"
-        onSubmit={(event) => {
-          event.preventDefault()
-          setBusy(true)
-          setError('')
-          void client()
-            .pair(code, name)
-            .then((host) => {
-              useConnection.setState({ host })
-              return refreshCatalog()
-            })
-            .catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)))
-            .finally(() => setBusy(false))
-        }}
-      >
-        <h1>{status === 'connecting' ? '连接宿主' : '设备配对'}</h1>
-        <div className="host-chip">
-          <Network size={14} />
-          <code>{url}</code>
-        </div>
-        <label>
-          配对码
-          <input
-            autoFocus
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={8}
-            value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-            aria-label="配对码"
-          />
-        </label>
-        <label>
-          设备名称
-          <input value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        {(error || connectionError) && (
-          <p className="inline-error" role="alert">
-            {error || connectionError}
-          </p>
-        )}
-        <button className="button primary pair-submit" disabled={busy || code.length !== 8 || !name}>
-          {busy ? <LoaderCircle size={16} className="spinning" /> : <ShieldCheck size={16} />}配对并连接
-        </button>
-      </form>
+      <SpotlightCard className="pairing-card" spotlightColor="color-mix(in srgb, var(--rb-accent) 26%, transparent)">
+        <form
+          className="pairing-form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            setBusy(true)
+            setError('')
+            void client()
+              .pair(code, name)
+              .then((host) => {
+                useConnection.setState({ host })
+                return refreshCatalog()
+              })
+              .catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)))
+              .finally(() => setBusy(false))
+          }}
+        >
+          <h1>{status === 'connecting' ? '连接宿主' : '设备配对'}</h1>
+          <div className="host-chip">
+            <Network size={14} />
+            <code>{url}</code>
+          </div>
+          <label>
+            配对码
+            <input
+              autoFocus
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={8}
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
+              aria-label="配对码"
+            />
+          </label>
+          <label>
+            设备名称
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          {(error || connectionError) && (
+            <p className="inline-error" role="alert">
+              {error || connectionError}
+            </p>
+          )}
+          <GlareButton className="button primary pair-submit" disabled={busy || code.length !== 8 || !name}>
+            {busy ? <LoaderCircle size={16} className="spinning" /> : <ShieldCheck size={16} />}配对并连接
+          </GlareButton>
+        </form>
+      </SpotlightCard>
       <span className="pairing-footer">hbar / 0.1.0</span>
     </main>
   )
