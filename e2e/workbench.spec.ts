@@ -996,6 +996,11 @@ test('command console supports keyboard commands, concurrent sessions, approval 
     await expect(terminal.locator('.terminal-command-entry').last()).toContainText('version')
     await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
 
+    await input.fill('/skills')
+    await input.press('Enter')
+    await expect(terminal.locator('.terminal-command-entry').last()).toContainText('Global skills')
+    await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
+
     await input.fill('/thinking')
     const thinkingOptions = page.getByRole('listbox', { name: '命令补全' }).filter({ visible: true })
     await expect(thinkingOptions).toBeVisible()

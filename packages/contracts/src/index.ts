@@ -813,6 +813,7 @@ export const rpcSchemas = {
   'system.hello': z.object({ protocol: z.literal(PROTOCOL_VERSION), token: z.string().max(512).optional() }),
   'system.bootstrap': z.object({}),
   'system.diagnose': z.object({}),
+  'system.skills.list': z.object({}),
   'system.paths.get': z.object({}),
   'system.paths.validate': z.object({ dataRoot: z.string().min(1).max(4000), cacheRoot: z.string().min(1).max(4000) }),
   'system.paths.set': z.object({ dataRoot: z.string().min(1).max(4000), cacheRoot: z.string().min(1).max(4000) }),
@@ -1034,6 +1035,7 @@ export interface RpcResults {
   'system.hello': HostInfo
   'system.bootstrap': Bootstrap
   'system.diagnose': Record<string, unknown>
+  'system.skills.list': Array<{ id: string; path: string }>
   'system.paths.get': {
     dataRoot: string
     cacheRoot: string

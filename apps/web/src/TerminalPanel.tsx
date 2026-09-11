@@ -370,8 +370,10 @@ export default function TerminalPanel({
         )
       await refreshCatalog()
     } else if (command === 'skills') {
-      const paths = await client().call('system.paths.get', {})
-      write(`全局技能目录：\`${paths.skills}\\global\``)
+      const skills = await client().call('system.skills.list', {})
+      write(
+        `### Global skills\n\n${skills.map((skill) => `- \`${skill.id}\``).join('\n') || 'No skills installed.'}`,
+      )
     } else if (command === 'settings') {
       if (!args.length) {
         const model = catalog?.models.find((item) => item.id === modelId)

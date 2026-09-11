@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarError } from '@hbar/contracts'
@@ -83,6 +83,16 @@ test('setting paths reports that the Host must be restarted', async () => {
   expect(result.restartMessage).toBe('Please exit and restart the Host to apply the new paths')
   expect(result.dataRoot).toBe(nextDataRoot)
   expect(result.cacheRoot).toBe(nextCacheRoot)
+})
+test('skills listing exposes global skill directories through the paired Host', async () => {
+  const { client, kernel } = await fixture()
+  const paths = await kernel.paths()
+  await mkdir(join(paths.skills, 'global', 'demo-skill'))
+  await mkdir(join(paths.skills, 'global', 'another-skill'))
+  expect(await client.call('system.skills.list', {})).toEqual([
+    { id: 'another-skill', path: join(paths.skills, 'global', 'another-skill') },
+    { id: 'demo-skill', path: join(paths.skills, 'global', 'demo-skill') },
+  ])
 })
 test('unsupported restart reports an explicit error', async () => {
   const { client } = await fixture()

@@ -1105,6 +1105,14 @@ export class Kernel {
       restartRequired: false,
     }
   }
+  async skills() {
+    const root = join(this.options.layout.skills, 'global')
+    const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
+    return entries
+      .filter((entry) => entry.isDirectory())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((entry) => ({ id: entry.name, path: join(root, entry.name) }))
+  }
   async validatePaths(dataRoot: string, cacheRoot: string) {
     const layout = await validatePathRoots(dataRoot, cacheRoot, this.options.layout.pointerFile)
     return { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, valid: true as const }

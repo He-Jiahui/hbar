@@ -143,6 +143,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           tools: kernel.tools.list().map((tool) => tool.name),
           streams: kernel.streams.size,
         }
+      case 'system.skills.list':
+        return kernel.skills()
       case 'system.paths.get':
         return kernel.paths()
       case 'system.paths.validate': {
