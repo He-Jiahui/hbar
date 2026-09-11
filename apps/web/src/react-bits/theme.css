@@ -1157,6 +1157,12 @@
   background: var(--hbar-ac-soft);
 }
 
+.settings-provider-group .model-use-action[aria-pressed='true'] {
+  border-color: var(--hbar-ok);
+  background: var(--hbar-ok-soft);
+  color: var(--hbar-ok-ink);
+}
+
 .settings-provider-group .settings-provider-models .model-row .model-details {
   text-align: left;
 }

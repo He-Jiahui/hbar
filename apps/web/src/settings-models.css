@@ -108,6 +108,21 @@
   white-space: nowrap;
 }
 
+.model-use-action {
+  min-height: 27px;
+  padding: 4px 8px;
+  border-color: #4a5c7d;
+  color: #b9ccef;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.model-use-action[aria-pressed='true'] {
+  border-color: #6b9a7d;
+  background: #26372e;
+  color: #b9d9c4;
+}
+
 .model-empty-state {
   display: flex;
   align-items: center;
@@ -372,6 +387,10 @@
   .model-key-action {
     padding: 4px 6px;
   }
+
+  .model-use-action {
+    padding: 4px 6px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -393,6 +412,10 @@
   }
 
   .model-key-action {
+    margin-left: auto;
+  }
+
+  .model-use-action {
     margin-left: auto;
   }
 }

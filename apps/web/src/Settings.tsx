@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
 import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, ThinkingLevel } from '@hbar/contracts'
-import { client, refreshCatalog, report, useCatalog, useConnection, useWorkbench } from './stores'
+import { client, refreshCatalog, report, selectModel, useCatalog, useConnection, useWorkbench } from './stores'
 import { copyText } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
 import { permissionPreset } from './permissions'
@@ -628,7 +628,8 @@ export default function Settings() {
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId),
-    theme = useWorkbench((state) => state.theme)
+    theme = useWorkbench((state) => state.theme),
+    selectedModelId = useWorkbench((state) => state.modelId)
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
     const query = modelQuery.trim().toLocaleLowerCase()
@@ -824,11 +825,11 @@ export default function Settings() {
                     <div className="settings-provider-models">
                       {group.models.map((model) => (
                         <SpotlightCard
-                          className="model-row"
+                          className={`model-row ${model.id === selectedModelId ? 'selected' : ''}`}
                           key={model.id}
                           spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
                         >
-                          <button className="model-details" onClick={() => setEditor(model)}>
+                          <button type="button" className="model-details" onClick={() => setEditor(model)}>
                             <strong>{model.modelName}</strong>
                             <span>{model.model}</span>
                             <small>
@@ -840,8 +841,16 @@ export default function Settings() {
                           <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
                           <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
                           <span className="model-thinking-count">{model.thinkingLevels.length} 级</span>
+                          <button
+                            type="button"
+                            className="model-use-action button"
+                            aria-pressed={model.id === selectedModelId}
+                            onClick={() => selectModel(model.id)}
+                          >
+                            {model.id === selectedModelId ? '当前使用' : '使用'}
+                          </button>
                           {!(model.protocol === 'mock' || model.hasKey) && (
-                            <button className="model-key-action button" onClick={() => setEditor(model)}>
+                            <button type="button" className="model-key-action button" onClick={() => setEditor(model)}>
                               <KeyRound size={13} />
                               配置 Key
                             </button>
