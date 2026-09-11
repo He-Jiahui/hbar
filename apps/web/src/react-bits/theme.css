@@ -868,6 +868,9 @@
 .settings-section {
   position: relative;
   isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--panel-radius);
+  background: color-mix(in srgb, var(--hbar-s1) 88%, transparent);
 }
 
 .settings-section > .settings-glass-section {
