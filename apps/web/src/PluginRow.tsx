@@ -4,9 +4,86 @@ import type { PluginInfo } from '@hbar/contracts'
 import { client, refreshCatalog, report } from './stores'
 import SpotlightCard from './react-bits/SpotlightCard'
 
+type ConfigSchema = {
+  type?: string
+  title?: string
+  description?: string
+  properties?: Record<string, ConfigSchema>
+  required?: string[]
+  enum?: unknown[]
+  default?: unknown
+}
+
+function configSchema(value: Record<string, unknown> | undefined): ConfigSchema | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as ConfigSchema
+}
+
+function ConfigFields({
+  schema,
+  value,
+  onChange,
+}: {
+  schema: ConfigSchema
+  value: Record<string, unknown>
+  onChange(next: Record<string, unknown>): void
+}) {
+  const properties = Object.entries(schema.properties ?? {})
+  if (!properties.length) return <p className="plugin-config-empty">此插件没有可视化配置项。</p>
+  return (
+    <div className="plugin-config-fields">
+      {properties.map(([key, field]) => {
+        const current = value[key] ?? field.default ?? ''
+        const label = field.title || key
+        const required = schema.required?.includes(key)
+        if (field.enum?.length) {
+          return (
+            <label key={key}>
+              {label}{required ? ' *' : ''}
+              <select value={String(current)} onChange={(event) => onChange({ ...value, [key]: event.target.value })}>
+                {field.enum.map((option) => <option value={String(option)} key={String(option)}>{String(option)}</option>)}
+              </select>
+              {field.description && <small>{field.description}</small>}
+            </label>
+          )
+        }
+        if (field.type === 'boolean') {
+          return (
+            <label className="checkbox" key={key}>
+              <input
+                type="checkbox"
+                checked={current === true}
+                onChange={(event) => onChange({ ...value, [key]: event.target.checked })}
+              />
+              {label}{field.description ? ` · ${field.description}` : ''}
+            </label>
+          )
+        }
+        return (
+          <label key={key}>
+            {label}{required ? ' *' : ''}
+            <input
+              type={field.type === 'number' || field.type === 'integer' ? 'number' : 'text'}
+              value={String(current)}
+              onChange={(event) => {
+                const raw = event.target.value
+                const next = field.type === 'number' || field.type === 'integer' ? Number(raw) : raw
+                onChange({ ...value, [key]: next })
+              }}
+            />
+            {field.description && <small>{field.description}</small>}
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function PluginRow({ plugin, className = '' }: { plugin: PluginInfo; className?: string }) {
   const [expanded, setExpanded] = useState(false)
-  const [config, setConfig] = useState(JSON.stringify(plugin.config, null, 2))
+  const schema = configSchema(plugin.configSchema)
+  const [config, setConfig] = useState<Record<string, unknown>>(plugin.config)
+  const [rawConfig, setRawConfig] = useState(JSON.stringify(plugin.config, null, 2))
   const [error, setError] = useState(plugin.error ?? '')
 
   async function apply(enabled: boolean, configuration?: Record<string, unknown>) {
@@ -81,21 +158,31 @@ export default function PluginRow({ plugin, className = '' }: { plugin: PluginIn
               {error}
             </p>
           )}
-          <label>
-            配置
-            <textarea
-              aria-label={`${plugin.name} 配置`}
-              className="config-editor"
-              rows={5}
-              value={config}
-              onChange={(event) => setConfig(event.target.value)}
-            />
-          </label>
+          {schema ? (
+            <section className="plugin-config-editor" aria-label={`${plugin.name} 可视化配置`}>
+              <div className="plugin-config-heading">
+                <strong>详细配置</strong>
+                <span>由插件 Schema 生成</span>
+              </div>
+              <ConfigFields schema={schema} value={config} onChange={setConfig} />
+            </section>
+          ) : (
+            <label>
+              配置
+              <textarea
+                aria-label={`${plugin.name} 配置`}
+                className="config-editor"
+                rows={5}
+                value={rawConfig}
+                onChange={(event) => setRawConfig(event.target.value)}
+              />
+            </label>
+          )}
           <button
             className="button"
             onClick={() => {
               try {
-                void apply(true, JSON.parse(config) as Record<string, unknown>)
+                void apply(true, schema ? config : (JSON.parse(rawConfig) as Record<string, unknown>))
               } catch (failure) {
                 report(failure)
               }

@@ -663,6 +663,8 @@ export interface PluginInfo {
   requires: string[]
   description: string
   config: Record<string, unknown>
+  /** JSON Schema generated from the plugin's typed config schema for the settings UI. */
+  configSchema?: Record<string, unknown> | undefined
   installScope?: 'global' | 'project' | undefined
   runtimeScope?: 'host' | 'workspace' | 'session' | 'run' | 'client' | undefined
   dependencies?: Record<string, string> | undefined

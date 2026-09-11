@@ -279,6 +279,7 @@ export class PluginManager {
         provides: Object.keys(manifest.provides ?? {}),
         requires: Object.keys(manifest.requires ?? {}),
         config: {},
+        configSchema: plugin.configSchema ? (z.toJSONSchema(plugin.configSchema) as Record<string, unknown>) : undefined,
         installScope: manifest.installScope,
         runtimeScope: manifest.scope,
         dependencies: manifest.dependencies,

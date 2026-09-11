@@ -1575,6 +1575,123 @@ p {
   font-size: 21px;
   font-weight: 500;
 }
+.settings-page-heading {
+  display: grid;
+  gap: 10px;
+  align-items: stretch;
+}
+.settings-heading-row,
+.settings-global-search,
+.settings-scope-switcher {
+  display: flex;
+  align-items: center;
+}
+.settings-heading-row {
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings-scope-caption {
+  margin: 3px 0 0;
+  color: #8e95a3;
+  font-size: 11px;
+}
+.settings-global-search {
+  min-height: 34px;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid #3a3d45;
+  border-radius: 7px;
+  background: #15161a;
+  color: #8e95a3;
+}
+.settings-global-search:focus-within {
+  border-color: #8b6cff;
+  box-shadow: 0 0 0 2px #8b6cff33;
+}
+.settings-global-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #e5e7ef;
+  font-size: 12px;
+}
+.settings-global-search > button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #8e95a3;
+}
+.settings-scope-switcher {
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 30px;
+}
+.settings-scope-switcher > button {
+  min-height: 26px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #9ca3b2;
+  font-size: 11px;
+}
+.settings-scope-switcher > button:hover:not(:disabled),
+.settings-scope-switcher > button.selected {
+  border-color: #6d54c4;
+  background: #352765;
+  color: #f0edff;
+}
+.settings-scope-switcher > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.settings-scope-target {
+  margin-left: 5px;
+  color: #737b8d;
+  font-size: 10px;
+}
+.settings-search-results {
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #3a3d45;
+  border-radius: 7px;
+  background: #1b1c20;
+  box-shadow: 0 10px 24px #0008;
+}
+.settings-search-results > button {
+  display: grid;
+  grid-template-columns: 92px minmax(100px, 180px) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 10px;
+  text-align: left;
+}
+.settings-search-results > button:hover,
+.settings-search-results > button:focus-visible {
+  background: #2b253f;
+}
+.settings-search-results > button > span {
+  color: #a891ff;
+  font-size: 10px;
+}
+.settings-search-results > button > strong {
+  color: #e5e7ef;
+  font-size: 11px;
+}
+.settings-search-results > button > small,
+.settings-search-empty {
+  overflow: hidden;
+  color: #8e95a3;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-search-empty {
+  padding: 10px;
+}
 .settings-tabs {
   margin-bottom: 23px;
   gap: 22px;
@@ -1974,6 +2091,47 @@ p {
   font: 11px/1.6 var(--mono);
   resize: vertical;
   width: 100%;
+}
+.plugin-config-editor {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--hbar-s0) 70%, transparent);
+}
+.plugin-config-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.plugin-config-heading span,
+.plugin-config-fields small,
+.plugin-config-empty {
+  color: #8590a3;
+  font-size: 10px;
+}
+.plugin-config-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.plugin-config-fields label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 11px;
+}
+.plugin-config-fields label.checkbox {
+  display: flex;
+  align-items: center;
+  align-self: center;
+}
+.plugin-config-fields input,
+.plugin-config-fields select {
+  min-width: 0;
 }
 .plugin-detail .button {
   margin-top: 10px;

@@ -36,6 +36,32 @@ import SpotlightCard from './react-bits/SpotlightCard'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 
+type SettingsScope = 'global' | 'project' | 'session'
+
+type SettingSearchEntry = {
+  tab: SettingsTab
+  tabLabel: string
+  section: string
+  title: string
+  description: string
+  keywords: readonly string[]
+}
+
+const SETTINGS_SEARCH_INDEX: readonly SettingSearchEntry[] = [
+  { tab: 'appearance', tabLabel: '外观', section: '界面主题', title: '主题', description: '深色、浅色和纯白主题', keywords: ['theme', '颜色', '显示'] },
+  { tab: 'models', tabLabel: '模型', section: '供应商与模型', title: '模型和供应商', description: '连接地址、API Key、模型与思考等级', keywords: ['model', 'provider', 'api', 'key'] },
+  { tab: 'permissions', tabLabel: '权限', section: '工具权限', title: '默认权限模式', description: '控制写入文件和运行命令前是否需要确认', keywords: ['permission', 'approval', '工具'] },
+  { tab: 'paths', tabLabel: '存储', section: '数据目录', title: '数据与缓存目录', description: '配置工作区数据、缓存和归档位置', keywords: ['path', 'storage', '目录'] },
+  { tab: 'skills', tabLabel: '技能', section: '全局技能', title: '技能目录', description: '查看 Host 可用的技能', keywords: ['skill', 'extension'] },
+  { tab: 'plugins', tabLabel: '插件', section: '插件管理', title: '插件依赖图与配置', description: '管理插件启用状态、依赖关系和配置', keywords: ['plugin', 'dependency', 'lock', '插件'] },
+  { tab: 'devices', tabLabel: '设备与连接', section: '宿主连接', title: '设备配对', description: '管理已配对设备和 Host 地址', keywords: ['device', 'connection', 'pairing'] },
+]
+
+function settingMatches(entry: SettingSearchEntry, query: string) {
+  const haystack = [entry.tabLabel, entry.section, entry.title, entry.description, ...entry.keywords].join(' ').toLocaleLowerCase()
+  return haystack.includes(query.trim().toLocaleLowerCase())
+}
+
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
@@ -680,17 +706,20 @@ function SkillsSettings() {
 export default function Settings() {
   const [tab, setTab] = useState<SettingsTab>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
+  const [settingsScope, setSettingsScope] = useState<SettingsScope>('global')
   const [devices, setDevices] = useState<Device[]>([]),
     [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null),
     [pluginPath, setPluginPath] = useState(''),
     [pluginScope, setPluginScope] = useState<'global' | 'project'>('global'),
     [copied, setCopied] = useState(false),
     [modelQuery, setModelQuery] = useState(''),
+    [settingsQuery, setSettingsQuery] = useState(''),
     [modelFilter, setModelFilter] = useState<'all' | 'connected' | 'needs-key'>('all')
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId),
+    activeSessionId = useWorkbench((state) => state.activeSession),
     theme = useWorkbench((state) => state.theme),
     selectedModelId = useWorkbench((state) => state.modelId),
     selectedThinkingLevel = useWorkbench((state) => state.thinkingLevel)
@@ -707,6 +736,9 @@ export default function Settings() {
     return matchesQuery && matchesFilter
   })
   const modelGroups = groupModelsByProvider(filteredModels)
+  const settingSearchResults = settingsQuery.trim()
+    ? SETTINGS_SEARCH_INDEX.filter((entry) => settingMatches(entry, settingsQuery)).slice(0, 8)
+    : []
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
@@ -719,11 +751,80 @@ export default function Settings() {
   }
   return (
     <div className="settings-panel">
-      <div className="page-heading">
-        <h1>设置</h1>
-        <button title="刷新设置" aria-label="刷新设置" onClick={() => void refreshCatalog().catch(report)}>
-          <RefreshCw size={15} />
-        </button>
+      <div className="page-heading settings-page-heading">
+        <div className="settings-heading-row">
+          <div>
+            <h1>设置</h1>
+            <p className="settings-scope-caption">
+              {settingsScope === 'global' ? '全局设置对所有项目生效。' : settingsScope === 'project' ? '项目设置覆盖全局设置。' : '会话设置只影响当前会话。'}
+            </p>
+          </div>
+          <button title="刷新设置" aria-label="刷新设置" onClick={() => void refreshCatalog().catch(report)}>
+            <RefreshCw size={15} />
+          </button>
+        </div>
+        <label className="settings-global-search">
+          <Search size={15} aria-hidden="true" />
+          <input
+            aria-label="搜索所有设置"
+            placeholder="搜索所有设置"
+            value={settingsQuery}
+            onChange={(event) => setSettingsQuery(event.target.value)}
+          />
+          {settingsQuery && (
+            <button type="button" aria-label="清除设置搜索" title="清除搜索" onClick={() => setSettingsQuery('')}>
+              <X size={14} />
+            </button>
+          )}
+        </label>
+        <div className="settings-scope-switcher" role="tablist" aria-label="设置作用域">
+          {(
+            [
+              ['global', '全局'],
+              ['project', '项目'],
+              ['session', '会话'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              role="tab"
+              aria-selected={settingsScope === value}
+              disabled={value === 'project' ? !workspaceId : value === 'session' ? !activeSessionId : false}
+              className={settingsScope === value ? 'selected' : ''}
+              onClick={() => setSettingsScope(value)}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="settings-scope-target">
+            {settingsScope === 'global' ? '所有项目' : settingsScope === 'project' ? `当前项目 · ${workspaceId ?? '未选择'}` : `当前会话 · ${activeSessionId ?? '未选择'}`}
+          </span>
+        </div>
+        {settingsQuery.trim() && (
+          <div className="settings-search-results" role="listbox" aria-label="设置搜索结果">
+            {settingSearchResults.length ? (
+              settingSearchResults.map((entry) => (
+                <button
+                  type="button"
+                  role="option"
+                  aria-label={`${entry.tabLabel} / ${entry.section} / ${entry.title}`}
+                  key={`${entry.tab}:${entry.title}`}
+                  onClick={() => {
+                    setTab(entry.tab)
+                    setSettingsQuery('')
+                  }}
+                >
+                  <span>{entry.tabLabel}</span>
+                  <strong>{entry.section}</strong>
+                  <small>{entry.title} · {entry.description}</small>
+                </button>
+              ))
+            ) : (
+              <div className="settings-search-empty">没有匹配的设置</div>
+            )}
+          </div>
+        )}
       </div>
       <SettingsNavigation tab={tab} onSelect={setTab} />
       {tab === 'appearance' && (
