@@ -110,7 +110,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
 
     const activityRail = page.getByRole('button', { name: '运行与事件', exact: true }).filter({ visible: true })
-    const activityTab = page.getByRole('tab', { name: '运行', exact: true }).filter({ visible: true })
+    const activityTab = page.locator('.flexlayout__border_button[aria-label="运行"]').filter({ visible: true })
     await activityRail.click()
     await expect(activityTab).toBeVisible()
     const activityPanel = page.locator('.rb-activity-panel').filter({ visible: true })
@@ -119,7 +119,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(activityPanel.locator('.run-list')).toHaveClass(/rb-animated-list/)
     await expect(activityPanel.locator('.run-list-viewport')).toHaveCount(1)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-activity-panel.png` })
-    await activityPanel.getByRole('button', { name: '事件', exact: true }).click()
+    await activityPanel.getByRole('tab', { name: '事件', exact: true }).click()
     const eventEntry = activityPanel.locator('.event-entry.rb-spotlight-card').first()
     await expect(eventEntry).toBeVisible()
     await expect(eventEntry).toHaveAttribute('aria-label', /查看事件/)
