@@ -23,10 +23,10 @@ export interface WorkbenchNavigationProps {
     id: string,
     title: string,
     component: string,
-    placement: 'right' | 'bottom' | 'editor',
+    placement: 'left' | 'right' | 'bottom' | 'editor',
     config?: Record<string, unknown>,
   ): void
-  onToggleTool(id: string, title: string, component: string, placement: 'right' | 'bottom' | 'editor'): void
+  onToggleTool(id: string, title: string, component: string, placement: 'left' | 'right' | 'bottom' | 'editor'): void
   onRestoreLayout(): void
   onSetMobileView(view: string): void
 }
@@ -48,6 +48,10 @@ const MOBILE_ITEMS = [
   { id: 'plugins', label: '插件', icon: LayoutGrid },
   { id: 'settings', label: '设置', icon: Settings2 },
 ] as const
+
+function contributionPlacement(placement: NavigationContribution['placement']): 'left' | 'right' | 'bottom' | 'editor' {
+  return placement ?? 'right'
+}
 
 function ToolRailButton({
   label,
@@ -187,7 +191,7 @@ export function WorkbenchToolRails({
                 `plugin:${contribution.id}`,
                 contribution.title,
                 'plugin',
-                contribution.placement === 'bottom' ? 'bottom' : contribution.placement === 'editor' ? 'editor' : 'right',
+                contributionPlacement(contribution.placement),
                 { panelId: contribution.id },
               )
             }
@@ -266,7 +270,7 @@ export function MobileToolMenu({
               `plugin:${contribution.id}`,
               contribution.title,
               'plugin',
-              contribution.placement === 'bottom' ? 'bottom' : contribution.placement === 'editor' ? 'editor' : 'right',
+              contributionPlacement(contribution.placement),
               { panelId: contribution.id },
             )
           }
