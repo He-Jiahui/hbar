@@ -1,0 +1,116 @@
+.rb-prompt-composer {
+  --composer-content-width: min(100%, 820px);
+  position: relative;
+  isolation: isolate;
+  width: var(--composer-content-width);
+  margin-inline: auto;
+  padding: 0;
+  overflow: visible;
+}
+
+.rb-prompt-composer > .composer-glass {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--hbar-s1) 92%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  pointer-events: none;
+}
+
+.rb-prompt-composer > .composer-glass::before {
+  background: linear-gradient(125deg, color-mix(in srgb, var(--rb-accent) 8%, transparent), transparent 42%);
+}
+
+.rb-prompt-composer > :not(.composer-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-prompt-composer .composer-context-strip {
+  min-height: 32px;
+  padding: 5px 12px 4px;
+}
+
+.rb-prompt-composer .composer-context-session {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font: 10px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-prompt-composer textarea {
+  min-height: 78px;
+  padding: 13px 14px 10px;
+  resize: vertical;
+}
+
+.rb-prompt-composer .composer-toolbar {
+  min-height: 44px;
+  padding: 5px 8px 7px 10px;
+}
+
+.rb-prompt-composer .composer-left,
+.rb-prompt-composer .composer-right {
+  min-width: 0;
+}
+
+.rb-prompt-composer .composer-right {
+  gap: 7px;
+}
+
+.rb-prompt-composer .send-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.rb-prompt-composer .stop-button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--hbar-er) 42%, var(--hbar-bd2));
+  border-radius: var(--control-radius);
+  color: var(--hbar-er-ink);
+}
+
+.rb-prompt-composer .stop-button:hover,
+.rb-prompt-composer .stop-button:focus-visible {
+  background: var(--hbar-er-soft);
+}
+
+.rb-prompt-composer .attachment-strip {
+  padding: 6px 10px 2px;
+}
+
+@media (max-width: 899px) {
+  .rb-prompt-composer {
+    width: 100%;
+  }
+
+  .rb-prompt-composer .composer-context-strip {
+    padding-inline: 10px;
+  }
+
+  .rb-prompt-composer .composer-context-session {
+    display: none;
+  }
+
+  .rb-prompt-composer textarea {
+    min-height: 72px;
+  }
+
+  .rb-prompt-composer .composer-toolbar {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-prompt-composer .stop-button,
+  .rb-prompt-composer .send-button {
+    transition: none;
+  }
+}

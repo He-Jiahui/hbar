@@ -2,14 +2,11 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowDown,
-  ArrowUp,
   Check,
   ChevronDown,
   ChevronRight,
   Copy,
   FileCode2,
-  FileText,
-  FolderOpen,
   GitBranch,
   LoaderCircle,
   RefreshCw,
@@ -36,10 +33,7 @@ import {
 } from './stores'
 import Markdown from './Markdown'
 import { copyText, newRequestId } from './browser-utils'
-import PermissionSelector from './PermissionSelector'
-import ModelPicker from './ModelPicker'
-import ComposerMenu from './ComposerMenu'
-import { buildComposerActions, IMAGE_ACCEPT } from './composer-actions'
+import { buildComposerActions } from './composer-actions'
 import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
@@ -47,6 +41,7 @@ import { useSessionCapabilities, type SessionCapabilityTab } from './session-cap
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import PromptComposer, { type AttachmentKind, type OpenFilePicker } from './PromptComposer'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -342,13 +337,9 @@ export default function Chat({
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
   const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
-  const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
   const [atBottom, setAtBottom] = useState(true)
   const scroll = useRef<HTMLDivElement>(null),
-    fileInput = useRef<HTMLInputElement>(null),
-    pendingAttachmentKind = useRef<'image' | 'file'>('image'),
-    composing = useRef(false),
     stick = useRef(true)
   const pendingRequest = useRef<{ key: string; requestId: string } | null>(null)
   const resolvingApprovalIds = useRef(new Set<string>())
@@ -476,12 +467,11 @@ export default function Chat({
       setBusy(false)
     }
   }
-  async function attach(selected: FileList | null) {
+  async function attach(selected: FileList | null, kind: AttachmentKind) {
     if (!selected) return
     const capacity = 12 - images.length - files.length
     if (capacity <= 0) {
       report(new Error('一条消息最多附加 12 个文件'))
-      if (fileInput.current) fileInput.current.value = ''
       return
     }
     setUploading(true)
@@ -490,7 +480,7 @@ export default function Chat({
     try {
       for (const file of [...selected].slice(0, capacity)) {
         const artifact = await client().upload(file)
-        if (pendingAttachmentKind.current === 'image' && artifact.mime.startsWith('image/'))
+        if (kind === 'image' && artifact.mime.startsWith('image/'))
           uploadedImages.push(artifact)
         else uploadedFiles.push(artifact)
       }
@@ -500,30 +490,19 @@ export default function Chat({
       if (uploadedImages.length) updateComposerDraft(sessionId, (current) => ({ images: [...current.images, ...uploadedImages] }))
       if (uploadedFiles.length) updateComposerDraft(sessionId, (current) => ({ files: [...current.files, ...uploadedFiles] }))
       setUploading(false)
-      if (fileInput.current) fileInput.current.value = ''
     }
   }
-  function selectComposerAction(action: ComposerAction) {
+  function selectComposerAction(action: ComposerAction, openFilePicker: OpenFilePicker) {
     if (action.id === 'goal' || action.id === 'plan' || action.id === 'budget') {
       setCapabilityDialog(action.id)
       return
     }
     if (!action.execute) return
-    if (action.id === 'add-image') pendingAttachmentKind.current = 'image'
-    else if (action.id === 'add-file') pendingAttachmentKind.current = 'file'
     void Promise.resolve(
       action.execute({
         ...(sessionId ? { sessionId } : {}),
         ...(workspaceId ? { workspaceId } : {}),
-        openFilePicker: (options) => {
-          if (fileInput.current) {
-            const accept = options?.accept ?? (pendingAttachmentKind.current === 'file' ? '*/*' : IMAGE_ACCEPT)
-            setPickerAccept(accept)
-            fileInput.current.accept = accept
-            fileInput.current.multiple = options?.multiple ?? true
-            fileInput.current.click()
-          }
-        },
+        openFilePicker,
       }),
     ).catch(report)
   }
@@ -749,133 +728,39 @@ export default function Chat({
             </button>
           </div>
         )}
-        <form
-          className="composer rb-composer-surface"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void send()
+        <PromptComposer
+          sessionId={sessionId}
+          sessionInfo={sessionInfo}
+          workspace={workspace}
+          gitInfo={gitInfo}
+          draft={draft}
+          images={images}
+          files={files}
+          artifactUrl={(id) => client().artifactUrl(id)}
+          composerActions={composerActions}
+          activeRun={activeRun}
+          busy={busy}
+          uploading={uploading}
+          onDraftChange={setDraft}
+          onSend={send}
+          onAttach={attach}
+          onSelectAction={selectComposerAction}
+          onRemoveImage={(id) =>
+            updateComposerDraft(sessionId, (current) => ({ images: current.images.filter((item) => item.id !== id) }))
+          }
+          onRemoveFile={(id) =>
+            updateComposerDraft(sessionId, (current) => ({ files: current.files.filter((item) => item.id !== id) }))
+          }
+          onStopRun={async () => {
+            if (!activeRun) return
+            try {
+              await client().call('run.cancel', { runId: activeRun.id })
+            } catch (error) {
+              report(error)
+            }
           }}
-        >
-          <GlassSurface className="composer-glass" width="100%" height="100%" aria-hidden="true" />
-          <div className="composer-context-strip" aria-label="会话上下文">
-            <span className="composer-context-location" title={workspace?.path ?? '未选择工作区'}>
-              <FolderOpen size={14} />
-              <span>{workspace?.name ?? 'Workspace'}</span>
-            </span>
-            <span className="composer-context-separator" aria-hidden="true" />
-            <span className="composer-context-mode">Local</span>
-            {gitInfo?.branch && (
-              <span className="composer-context-branch" title="当前 Git 分支">
-                <GitBranch size={13} />
-                <span>{gitInfo.branch}</span>
-              </span>
-            )}
-          </div>
-          {(images.length > 0 || files.length > 0) && (
-            <div className="attachment-strip">
-              {images.map((image) => (
-                <SpotlightCard
-                  className="attachment-chip"
-                  key={image.id}
-                  spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
-                >
-                  <img src={client().artifactUrl(image.id)} alt={image.name} />
-                  <span>{image.name}</span>
-                  <button
-                    type="button"
-                    title="移除图片"
-                    aria-label="移除图片"
-                    onClick={() => updateComposerDraft(sessionId, (current) => ({ images: current.images.filter((item) => item.id !== image.id) }))}
-                  >
-                    <X size={12} />
-                  </button>
-                </SpotlightCard>
-              ))}
-              {files.map((file) => (
-                <SpotlightCard
-                  className="attachment-chip attachment-chip-file"
-                  key={`file:${file.id}`}
-                  spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
-                >
-                  <FileText size={18} className="attachment-chip-icon" aria-hidden="true" />
-                  <span title={file.name}>{file.name}</span>
-                  <button
-                    type="button"
-                    title={`移除文件 ${file.name}`}
-                    aria-label={`移除文件 ${file.name}`}
-                    onClick={() => updateComposerDraft(sessionId, (current) => ({ files: current.files.filter((item) => item.id !== file.id) }))}
-                  >
-                    <X size={12} />
-                  </button>
-                </SpotlightCard>
-              ))}
-            </div>
-          )}
-          <textarea
-            aria-label="消息"
-            placeholder={sessionInfo?.archived ? '会话已归档' : '发送消息…'}
-            disabled={sessionInfo?.archived}
-            rows={3}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onCompositionStart={() => {
-              composing.current = true
-            }}
-            onCompositionEnd={() => {
-              composing.current = false
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current) {
-                event.preventDefault()
-                void send()
-              }
-            }}
-          />
-          <div className="composer-toolbar">
-            <div className="composer-left">
-              <ComposerMenu actions={composerActions} onSelect={selectComposerAction} />
-              <input
-                className="visually-hidden"
-                ref={fileInput}
-                type="file"
-                accept={pickerAccept}
-                multiple
-                onChange={(event) => void attach(event.target.files)}
-              />
-              {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
-              <PermissionSelector />
-            </div>
-            <div className="composer-right">
-              <ModelPicker onSettings={onSettings} />
-              {activeRun && (
-                <button
-                  type="button"
-                  className="stop-button"
-                  title="停止运行"
-                  aria-label="停止运行"
-                  onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
-                >
-                  <Square size={14} fill="currentColor" />
-                </button>
-              )}
-              <GlareButton
-                className="send-button"
-                type="submit"
-                title={activeRun ? '加入队列' : '发送'}
-                aria-label="发送"
-                disabled={
-                  busy ||
-                  uploading ||
-                  sessionInfo?.archived ||
-                  (!draft.trim() && !images.length && !files.length) ||
-                  !workspaceId
-                }
-              >
-                {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
-              </GlareButton>
-            </div>
-          </div>
-        </form>
+          onSettings={onSettings}
+        />
         <div className="composer-footer">
           <span className="composer-footer-model">
             {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}
