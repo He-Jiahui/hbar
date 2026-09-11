@@ -8,7 +8,16 @@
   overflow: hidden;
 }
 
-.rb-git-panel > .git-panel-glass,
+.rb-git-panel > .git-panel-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  pointer-events: none;
+}
+
 .rb-git-panel > :not(.git-panel-glass) {
   position: relative;
   z-index: 1;

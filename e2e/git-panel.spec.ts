@@ -51,6 +51,25 @@ test('Git tool window previews, stages, commits and reopens on mobile', async ({
     await page.locator('.right-rail').getByRole('button', { name: 'Git', exact: true }).click()
     const panel = page.locator('.git-panel').filter({ visible: true })
     await expect(panel).toBeVisible()
+    const panelGeometry = await panel.evaluate((element) => {
+      const panel = element.getBoundingClientRect()
+      const glass = element.querySelector('.git-panel-glass')
+      const header = element.querySelector('.git-panel-header')
+      if (!glass || !header) return null
+      const glassStyle = getComputedStyle(glass)
+      const headerRect = header.getBoundingClientRect()
+      return {
+        glassPosition: glassStyle.position,
+        glassHeight: glass.getBoundingClientRect().height,
+        panelHeight: panel.height,
+        headerTop: headerRect.top,
+        panelTop: panel.top,
+      }
+    })
+    expect(panelGeometry).not.toBeNull()
+    expect(panelGeometry?.glassPosition).toBe('absolute')
+    expect(panelGeometry?.glassHeight).toBeCloseTo(panelGeometry?.panelHeight ?? 0, 0)
+    expect(panelGeometry?.headerTop).toBeCloseTo(panelGeometry?.panelTop ?? 0, 0)
     await expect(panel.locator('.git-change-row')).toHaveCount(2)
 
     const readme = panel.locator('.git-change-row').filter({ hasText: 'README.md' })
