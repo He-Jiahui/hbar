@@ -26,8 +26,6 @@ import Markdown from './Markdown'
 import { modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
-import SpotlightCard from './react-bits/SpotlightCard'
-import FloatingLayer from './FloatingLayer'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -131,6 +129,7 @@ export default function TerminalPanel({
   const history = useRef<string[]>([])
   const lastMessage = useRef('')
   const scroll = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const resolvingApprovalIds = useRef(new Set<string>())
   const activeRun = snapshot?.runs.find((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
@@ -208,6 +207,15 @@ export default function TerminalPanel({
     }
     window.addEventListener('hbar:terminal-commands', openCommands)
     return () => window.removeEventListener('hbar:terminal-commands', openCommands)
+  }, [])
+
+  useEffect(() => {
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Node && !composerRef.current?.contains(target)) setCompletionsOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
   }, [])
 
   const write = (markdown: string) => {
@@ -361,8 +369,14 @@ export default function TerminalPanel({
     } else if (command === 'settings') {
       if (!args.length) {
         const model = catalog?.models.find((item) => item.id === modelId)
+        let persistedApproval = approvalMode
+        try {
+          persistedApproval = (await client().call('permission.get', {})).mode
+        } catch {
+          // The local store remains the useful value while a reconnect is in progress.
+        }
         write(
-          `### Settings\n\n- approval: \`${approvalMode}\`\n- thinking: \`${thinkingLevel}\`\n- model: \`${model?.name ?? modelId ?? '未配置'}\`\n\n使用 \`/settings approval allow|ask|deny\` 修改权限策略。`,
+          `settings\napproval: ${persistedApproval}\nthinking: ${thinkingLevel}\nmodel: ${model?.name ?? modelId ?? '未配置'}\n\n可用设置命令:\n  /settings approval allow\n  /settings approval ask\n  /settings approval deny`,
         )
       } else if (args[0] === 'approval' && ['allow', 'ask', 'deny'].includes(args[1] ?? '')) {
         const mode = args[1] as ApprovalMode
@@ -494,46 +508,34 @@ export default function TerminalPanel({
           </div>
         ))}
         {entries.map((entry, index) => (
-          <SpotlightCard
-            className="terminal-entry terminal-command-entry"
-            key={`${index}:${entry.slice(0, 20)}`}
-            spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
-          >
+          <div className="terminal-entry terminal-command-entry" key={`${index}:${entry.slice(0, 20)}`}>
             <Markdown text={entry} />
-          </SpotlightCard>
+          </div>
         ))}
       </div>
-      <div className="terminal-composer">
+      <div className="terminal-composer" ref={composerRef}>
         <GlassSurface className="terminal-composer-glass" width="100%" height="100%" aria-hidden="true" />
-        <FloatingLayer
-          anchorRef={inputRef}
-          open={completionsOpen && candidates.length > 0}
-          onClose={() => setCompletionsOpen(false)}
-          placement="above"
-          matchAnchorWidth
-          className="terminal-completions rb-terminal-completions"
-          role="listbox"
-          aria-label="命令补全"
-        >
-          <GlassSurface className="terminal-completions-glass" width="100%" height="100%" aria-hidden="true" />
-          {candidates.map((candidate, index) => (
-            <SpotlightCard
-              as="button"
-              className={index === completion ? 'selected' : ''}
-              role="option"
-              aria-selected={index === completion}
-              key={candidate.key}
-              spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
-              onMouseDown={(event) => {
-                event.preventDefault()
-                setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
-              }}
-            >
-              <code>{candidate.label}</code>
-              <span>{candidate.description}</span>
-            </SpotlightCard>
-          ))}
-        </FloatingLayer>
+        {completionsOpen && candidates.length > 0 && (
+          <div className="terminal-completions terminal-completions-inline" role="listbox" aria-label="命令补全">
+            <div className="terminal-completions-prompt">候选参数 · ↑↓ 选择 · Enter 执行 · Tab 补全</div>
+            {candidates.map((candidate, index) => (
+              <button
+                type="button"
+                className={index === completion ? 'selected' : ''}
+                role="option"
+                aria-selected={index === completion}
+                key={candidate.key}
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
+                }}
+              >
+                <code>{index === completion ? '›' : ' '} {candidate.label}</code>
+                <span>{candidate.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
           ref={inputRef}
           aria-label="控制台输入"

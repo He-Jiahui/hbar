@@ -1,5 +1,5 @@
-import { GitBranch, RefreshCw } from 'lucide-react'
-import type { Run, Session, Workspace } from '@hbar/contracts'
+import { FolderOpen, GitBranch, RefreshCw } from 'lucide-react'
+import type { GitInfo, Run, Session, Workspace } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
 import './ChatSessionChrome.css'
 
@@ -7,6 +7,7 @@ export interface ChatSessionChromeProps {
   sessionId: string
   session: Session | undefined
   workspace: Workspace | undefined
+  gitInfo?: GitInfo | null
   activeRun: Run | undefined
   view: 'chat' | 'console'
   onViewChange(view: 'chat' | 'console'): void
@@ -18,6 +19,7 @@ export default function ChatSessionChrome({
   sessionId,
   session,
   workspace,
+  gitInfo,
   activeRun,
   view,
   onViewChange,
@@ -73,8 +75,19 @@ export default function ChatSessionChrome({
         <div className="chat-context rb-chat-context rb-chat-context-bar" aria-label="会话上下文">
           <GlassSurface className="chat-context-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="chat-context-copy">
-            <GitBranch size={13} aria-hidden="true" />
+            <FolderOpen size={13} aria-hidden="true" />
             <span>{workspace?.name ?? 'Workspace'}</span>
+            {gitInfo?.branch && (
+              <>
+                <span className="context-divider context-branch-divider" aria-hidden="true">
+                  /
+                </span>
+                <GitBranch size={13} aria-hidden="true" />
+                <span className="chat-context-branch" title="当前 Git 分支">
+                  {gitInfo.branch}
+                </span>
+              </>
+            )}
             <span className="context-divider" aria-hidden="true">
               /
             </span>

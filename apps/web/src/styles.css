@@ -1789,16 +1789,19 @@ p {
   color: #fff;
 }
 .terminal-completions {
-  position: absolute;
-  z-index: 30;
-  left: 8px;
-  right: 47px;
-  bottom: calc(100% - 2px);
+  grid-column: 1 / -1;
+  min-width: 0;
   max-height: 240px;
   overflow: auto;
   border: 1px solid #454952;
   background: #292b30;
   box-shadow: 0 7px 18px #0008;
+}
+.terminal-completions-prompt {
+  padding: 6px 9px 4px;
+  border-bottom: 1px solid #3c4048;
+  color: #7f899a;
+  font: 9px/1.4 var(--mono);
 }
 .terminal-completions button {
   display: grid;
@@ -1810,6 +1813,10 @@ p {
 }
 .terminal-completions button.selected {
   background: #34405a;
+}
+.terminal-completions button:hover,
+.terminal-completions button:focus-visible {
+  background: #303b54;
 }
 .terminal-completions code {
   color: #a8badb;

@@ -33,6 +33,11 @@
   min-width: 0;
   align-items: center;
   gap: 3px;
+  margin: 0 8px;
+  padding: 4px 5px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s1) 60%, transparent);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -78,7 +83,7 @@
   min-width: 0;
   align-items: center;
   gap: 6px;
-  margin: 7px 8px 4px;
+  margin: 7px 8px 3px;
   padding: 0 7px;
   border: 1px solid var(--hbar-bd);
   border-radius: var(--radius-sm);

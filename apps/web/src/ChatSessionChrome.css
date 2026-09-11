@@ -48,12 +48,29 @@
   white-space: nowrap;
 }
 
+.rb-chat-context-bar .chat-context-branch {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font-family: var(--dsh-font-family-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The active session is already identified by the editor tab and the session
    header above. Keep the full breadcrumb in the DOM for screen readers and
    narrow layouts, but avoid painting the same title a third time on desktop. */
 .rb-chat-context-bar .context-divider,
 .rb-chat-context-bar .chat-context-session {
   display: none;
+}
+
+.rb-chat-context-bar .context-branch-divider {
+  display: inline;
+}
+
+.rb-chat-context-bar .chat-context-branch {
+  display: inline;
 }
 
 .rb-chat-context-bar .session-state {
@@ -71,6 +88,10 @@
 
   .rb-chat-context-bar .context-divider,
   .rb-chat-context-bar .chat-context-session {
+    display: inline;
+  }
+
+  .rb-chat-context-bar .chat-context-branch {
     display: inline;
   }
 }

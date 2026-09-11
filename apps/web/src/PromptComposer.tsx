@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { ArrowUp, FileText, FolderOpen, GitBranch, LoaderCircle, Square, X } from 'lucide-react'
-import type { ArtifactRef, GitInfo, Run, Session, Workspace } from '@hbar/contracts'
+import { ArrowUp, FileText, LoaderCircle, Square, X } from 'lucide-react'
+import type { ArtifactRef, Run, Session, Workspace } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import ComposerMenu, { filterComposerActions } from './ComposerMenu'
 import ModelPicker from './ModelPicker'
@@ -16,10 +16,8 @@ export type AttachmentKind = 'image' | 'file'
 export type OpenFilePicker = (options?: { accept?: string; multiple?: boolean }) => void
 
 export interface PromptComposerProps {
-  sessionId: string
   sessionInfo: Session | undefined
   workspace: Workspace | undefined
-  gitInfo: GitInfo | null
   draft: string
   images: readonly ArtifactRef[]
   files: readonly ArtifactRef[]
@@ -94,10 +92,8 @@ function AttachmentStrip({
 }
 
 export default function PromptComposer({
-  sessionId,
   sessionInfo,
   workspace,
-  gitInfo,
   draft,
   images,
   files,
@@ -170,21 +166,6 @@ export default function PromptComposer({
   return (
     <form className="composer rb-composer-surface rb-prompt-composer" aria-label="消息输入器" onSubmit={handleSubmit}>
       <GlassSurface className="composer-glass" width="100%" height="100%" aria-hidden="true" />
-      <div className="composer-context-strip" aria-label="会话上下文">
-        <span className="composer-context-location" title={workspace?.path ?? '未选择工作区'}>
-          <FolderOpen size={14} />
-          <span>{workspace?.name ?? 'Workspace'}</span>
-        </span>
-        <span className="composer-context-separator" aria-hidden="true" />
-        <span className="composer-context-mode">Local</span>
-        {gitInfo?.branch && (
-          <span className="composer-context-branch" title="当前 Git 分支">
-            <GitBranch size={13} />
-            <span>{gitInfo.branch}</span>
-          </span>
-        )}
-        {sessionId && <span className="composer-context-session">#{sessionId.slice(0, 8)}</span>}
-      </div>
       {(images.length > 0 || files.length > 0) && (
         <AttachmentStrip
           images={images}

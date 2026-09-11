@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Search,
   Save,
+  Settings2,
   ShieldCheck,
   Sun,
   Trash2,
@@ -820,7 +821,12 @@ export default function Settings() {
                           key={model.id}
                           spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
                         >
-                          <button type="button" className="model-details" onClick={() => setEditor(model)}>
+                          <button
+                            type="button"
+                            className="model-details"
+                            aria-label={`选择模型 ${model.modelName}`}
+                            onClick={() => selectModel(model.id)}
+                          >
                             <strong>{model.modelName}</strong>
                             <span>{model.model}</span>
                             <small>
@@ -848,18 +854,14 @@ export default function Settings() {
                           </label>
                           <button
                             type="button"
-                            className="model-use-action button"
-                            aria-pressed={model.id === selectedModelId}
-                            onClick={() => selectModel(model.id)}
+                            className="model-config-action button"
+                            aria-label={`配置模型 ${model.modelName}`}
+                            title={`配置模型 ${model.modelName}`}
+                            onClick={() => setEditor(model)}
                           >
-                            {model.id === selectedModelId ? '当前使用' : '使用'}
+                            <Settings2 size={13} />
+                            {model.protocol === 'mock' || model.hasKey ? '配置' : '配置 Key'}
                           </button>
-                          {!(model.protocol === 'mock' || model.hasKey) && (
-                            <button type="button" className="model-key-action button" onClick={() => setEditor(model)}>
-                              <KeyRound size={13} />
-                              配置 Key
-                            </button>
-                          )}
                         </SpotlightCard>
                       ))}
                     </div>

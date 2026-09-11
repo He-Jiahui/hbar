@@ -248,6 +248,30 @@
   }
 }
 
+@media (max-width: 1180px) and (min-width: 900px) {
+  .rb-shell-header .shell-scope {
+    flex-basis: min(230px, 24vw);
+  }
+
+  .rb-shell-header .workspace-select {
+    width: min(180px, 20vw);
+  }
+
+  .rb-shell-header .top-command kbd {
+    display: none;
+  }
+
+  .rb-shell-header .top-command {
+    gap: 5px;
+    padding-inline: 6px;
+  }
+
+  .rb-shell-header .host-status {
+    gap: 5px;
+    padding-inline: 6px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workspace-switcher,
   .rb-shell-header .top-command,

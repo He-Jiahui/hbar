@@ -552,6 +552,7 @@ export default function Chat({
         sessionId={sessionId}
         session={sessionInfo}
         workspace={workspace}
+        gitInfo={gitInfo}
         activeRun={activeRun}
         view={view}
         showContext={view === 'chat'}
@@ -763,10 +764,8 @@ export default function Chat({
               </div>
             )}
             <PromptComposer
-              sessionId={sessionId}
               sessionInfo={sessionInfo}
               workspace={workspace}
-              gitInfo={gitInfo}
               draft={draft}
               images={images}
               files={files}

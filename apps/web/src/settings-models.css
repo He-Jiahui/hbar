@@ -108,6 +108,14 @@
   white-space: nowrap;
 }
 
+.model-config-action {
+  min-height: 27px;
+  padding: 4px 8px;
+  color: #b9ccef;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .model-use-action {
   min-height: 27px;
   padding: 4px 8px;
@@ -402,6 +410,10 @@
     padding: 4px 6px;
   }
 
+  .model-config-action {
+    padding: 4px 6px;
+  }
+
   .model-use-action {
     padding: 4px 6px;
   }
@@ -429,11 +441,7 @@
     margin-left: 44px;
   }
 
-  .model-key-action {
-    margin-left: auto;
-  }
-
-  .model-use-action {
+  .model-config-action {
     margin-left: auto;
   }
 
