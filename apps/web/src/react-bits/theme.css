@@ -926,7 +926,77 @@
 }
 
 .settings-provider-group.rb-spotlight-card {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hbar-s1) 82%, transparent);
   background-clip: padding-box;
+}
+
+.settings-provider-group.rb-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.settings-provider-group .settings-provider-heading {
+  min-height: 58px;
+  margin: 0;
+  padding: 11px 13px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--hbar-bd) 84%, transparent);
+  background: color-mix(in srgb, var(--hbar-s0) 64%, transparent);
+}
+
+.settings-provider-group .settings-provider-models {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 5px;
+  background: color-mix(in srgb, var(--hbar-bg) 42%, transparent);
+}
+
+.settings-provider-group .settings-provider-models .model-row.rb-spotlight-card {
+  min-height: 58px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 74%, transparent);
+}
+
+.settings-provider-group .settings-provider-models .model-row.rb-spotlight-card:hover,
+.settings-provider-group .settings-provider-models .model-row.rb-spotlight-card:focus-within {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+}
+
+.settings-provider-group .settings-provider-models .model-row .model-details {
+  text-align: left;
+}
+
+.settings-provider-group .settings-provider-models .model-row .model-details strong {
+  color: var(--hbar-t1);
+}
+
+.settings-provider-group .settings-provider-models .model-row .model-details > span,
+.settings-provider-group .settings-provider-models .model-row .model-details small {
+  color: var(--hbar-t2);
+}
+
+.settings-provider-group .model-window,
+.settings-provider-group .model-thinking-count,
+.settings-provider-group .model-capability {
+  color: var(--hbar-t3);
+}
+
+@media (max-width: 560px) {
+  .settings-provider-group .settings-provider-heading {
+    min-height: 0;
+    padding: 10px;
+  }
+
+  .settings-provider-group .settings-provider-models {
+    padding: 4px;
+  }
 }
 
 .provider-preset.rb-glare-button {
