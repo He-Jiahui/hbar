@@ -1,7 +1,7 @@
 import { newRequestId } from './browser-utils'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, LoaderCircle, Send, TerminalSquare, X } from 'lucide-react'
-import type { Approval, ApprovalMode, ContentBlock, Message, ThinkingLevel } from '@hbar/contracts'
+import { DEFAULT_THINKING_LEVELS, type Approval, type ApprovalMode, type ContentBlock, type Message, type ThinkingLevel } from '@hbar/contracts'
 import {
   BUILTIN_TERMINAL_COMMANDS,
   CommandRegistry,
@@ -23,7 +23,7 @@ import {
 } from './stores'
 import { useUIPlugins } from './ui-plugins'
 import Markdown from './Markdown'
-import { modelThinkingLabel, modelThinkingLevels } from './model-catalog'
+import { modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 
@@ -142,9 +142,7 @@ export default function TerminalPanel({
     const thinkingMatch = input.match(/^\/thinking(?:\s+(.*))?$/i)
     if (thinkingMatch && (input.includes(' ') || input.toLowerCase() === '/thinking')) {
       const prefix = (thinkingMatch[1] ?? '').toLowerCase()
-      const model = catalog?.models.find((item) => item.id === modelId)
-      const levels = model ? modelThinkingLevels(model) : (['off'] as const)
-      return levels
+      return DEFAULT_THINKING_LEVELS
         .filter((level) => level.startsWith(prefix))
         .map((level) => ({
           key: `thinking:${level}`,
@@ -197,7 +195,7 @@ export default function TerminalPanel({
         description: command.description,
         kind: 'command',
       }))
-  }, [catalog?.models, commands, input, modelId])
+  }, [catalog?.models, commands, input])
 
   useEffect(() => {
     const openCommands = () => {
@@ -317,9 +315,7 @@ export default function TerminalPanel({
         write(`已切换到模型 \`${target.providerName} / ${target.model}\``)
       }
     } else if (command === 'thinking') {
-      const target = catalog?.models.find((item) => item.id === modelId)
-      const levels = target ? modelThinkingLevels(target) : ['off' as const]
-      if (!levels.includes(argument as ThinkingLevel)) throw new Error('无效的 thinking 级别')
+      if (!DEFAULT_THINKING_LEVELS.includes(argument as ThinkingLevel)) throw new Error('无效的 thinking 级别')
       selectThinkingLevel(argument as ThinkingLevel)
       write(`思考等级：${modelThinkingLabel(argument as ThinkingLevel)}`)
     } else if (command === 'compact') {

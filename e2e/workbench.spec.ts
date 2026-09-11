@@ -890,6 +890,8 @@ test('command console supports keyboard commands, concurrent sessions, approval 
     await input.fill('/thinking')
     const thinkingOptions = page.getByRole('listbox', { name: '命令补全' }).filter({ visible: true })
     await expect(thinkingOptions).toBeVisible()
+    for (const level of ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+      await expect(thinkingOptions.getByRole('option', { name: new RegExp(`\\b${level}\\b`, 'i') })).toBeVisible()
     await expect(thinkingOptions.getByRole('option').first()).toBeVisible()
     await input.press('ArrowDown')
     await input.press('Enter')
