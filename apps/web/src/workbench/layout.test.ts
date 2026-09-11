@@ -9,7 +9,7 @@ test('default layout is a valid, versioned workbench model', () => {
   expect(model.getNodeById('main')).toBeDefined()
   expect(model.getNodeById('welcome')).toBeDefined()
   expect(model.getNodeById('border_right')).toBeDefined()
-  expect(model.getNodeById('border_bottom')).toBeUndefined()
+  expect(model.getNodeById('border_bottom')).toBeDefined()
   expect(model.getNodeById('browser')).toBeDefined()
   expect(model.getNodeById('activity')).toBeDefined()
   expect(model.getNodeById('diagnose-right')).toBeDefined()
@@ -81,7 +81,7 @@ test('legacy generated tool dock migrates to the explicit on-demand tool border'
   const restored = restoreLayout(legacy)
 
   expect(restored.layout.children?.map((child) => child.id)).toEqual(['main'])
-  expect(restored.borders?.map((border) => border.location)).toEqual(['right'])
+  expect(restored.borders?.map((border) => border.location)).toEqual(['right', 'bottom'])
   expect(restored.borders?.every((border) => border.show === false)).toBe(true)
   expect(Model.fromJson(restored).getNodeById('welcome')).toBeDefined()
 })

@@ -85,6 +85,7 @@ function parseCandidate(value: unknown): IJsonModel | null {
   delete candidate.schemaVersion
   if (version === LEGACY_LAYOUT_VERSION) migrateLegacyLayout(candidate)
   if (version === LEGACY_LAYOUT_VERSION || version === PREVIOUS_LAYOUT_VERSION) migrateCommandConsole(candidate)
+  ensureDefaultToolBorders(candidate)
   migrateToolLabels(candidate)
   return parseModel(candidate)
 }
@@ -112,18 +113,8 @@ function migrateToolLabels(candidate: UnknownRecord) {
   if (Array.isArray(candidate.borders)) for (const border of candidate.borders) visit(border)
 }
 
-function migrateLegacyLayout(candidate: UnknownRecord) {
-  // v1 bundled layouts exposed an always-visible activity tabset. Keep user tabs,
-  // but remove that generated tabset so tools become explicit layout actions.
+function ensureDefaultToolBorders(candidate: UnknownRecord) {
   if (!isRecord(candidate.layout)) return
-  const root = candidate.layout
-  if (!Array.isArray(root.children)) return
-  root.children = root.children.filter((child) => {
-    if (!isRecord(child) || child.id !== 'tools') return true
-    const children = child.children
-    return !(Array.isArray(children) && children.length === 1 && isRecord(children[0]) && children[0].id === 'activity')
-  })
-
   const ids = new Set<string>()
   collectNodeIds(candidate.layout, ids)
   if (Array.isArray(candidate.borders)) for (const border of candidate.borders) collectNodeIds(border, ids)
@@ -137,7 +128,7 @@ function migrateLegacyLayout(candidate: UnknownRecord) {
       .filter(isRecord)
       .flatMap((border) => (typeof border.location === 'string' ? [border.location] : [])),
   )
-  const migratedBorders: unknown[] = [...existingBorders]
+  const nextBorders: unknown[] = [...existingBorders]
   for (const source of defaultBorders) {
     if (typeof source.location !== 'string' || existingLocations.has(source.location)) continue
     const children = Array.isArray(source.children)
@@ -148,10 +139,24 @@ function migrateLegacyLayout(candidate: UnknownRecord) {
           return true
         })
       : []
-    migratedBorders.push({ ...source, show: false, selected: -1, children })
+    nextBorders.push({ ...source, show: false, selected: -1, children })
     existingLocations.add(source.location)
   }
-  if (migratedBorders.length) candidate.borders = migratedBorders
+  if (nextBorders.length) candidate.borders = nextBorders
+}
+
+function migrateLegacyLayout(candidate: UnknownRecord) {
+  // v1 bundled layouts exposed an always-visible activity tabset. Keep user tabs,
+  // but remove that generated tabset so tools become explicit layout actions.
+  if (!isRecord(candidate.layout)) return
+  const root = candidate.layout
+  if (!Array.isArray(root.children)) return
+  root.children = root.children.filter((child) => {
+    if (!isRecord(child) || child.id !== 'tools') return true
+    const children = child.children
+    return !(Array.isArray(children) && children.length === 1 && isRecord(children[0]) && children[0].id === 'activity')
+  })
+
 }
 
 export function defaultLayout(): IJsonModel {

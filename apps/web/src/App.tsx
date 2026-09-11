@@ -544,6 +544,8 @@ export default function App() {
     placement = 'editor',
   ) {
     if (component === 'system-terminal' && id === 'system-terminal') {
+      const placeholder = model.getNodeById('system-terminal-placeholder')
+      if (placeholder) model.doAction(Actions.deleteTab(placeholder.getId()))
       id = `system-terminal:${crypto.randomUUID()}`
       title = `系统终端 ${systemTerminalCount(model) + 1}`
     }
@@ -592,7 +594,17 @@ export default function App() {
       else if (existing instanceof TabNode && !existing.isEnableClose())
         model.doAction(Actions.updateNodeAttributes(existing.getId(), { enableClose: true }))
     }
-    if (!skipBorderSelection) model.doAction(Actions.selectTab(id))
+    if (!skipBorderSelection) {
+      const selectedNode = model.getNodeById(id)
+      if (border instanceof BorderNode && selectedNode instanceof TabNode)
+        model.doAction(
+          Actions.updateNodeAttributes(border.getId(), {
+            show: true,
+            selected: border.getTabNodes().indexOf(selectedNode),
+          }),
+        )
+      else model.doAction(Actions.selectTab(id))
+    }
   }
 
   function systemTerminalCount(current: Model) {
@@ -608,7 +620,16 @@ export default function App() {
     let parent = node?.getParent()
     while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
     if (parent instanceof BorderNode) {
-      model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false }))
+      const tabs = parent.getTabNodes()
+      if (node instanceof TabNode && node.getComponent() === 'system-terminal') {
+        model.doAction(Actions.deleteTab(id))
+        const remaining = parent.getTabNodes()
+        if (remaining.length) model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: 0 }))
+        else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
+      } else if (tabs.length > 1) {
+        model.doAction(Actions.deleteTab(id))
+        model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: 0 }))
+      } else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false }))
     } else if (node) model.doAction(Actions.deleteTab(id))
     if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
   }
@@ -856,6 +877,8 @@ export default function App() {
         return <Settings />
       case 'system-terminal':
         return <SystemTerminalPanel workspaceId={workspaceId} onClose={() => closePanel(node.getId())} />
+      case 'system-terminal-placeholder':
+        return null
       case 'activity':
         return <ActivityPanel />
       case 'git':
