@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileCode2, Folder } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileCode2, Folder, LoaderCircle } from 'lucide-react'
 import type { FileEntry } from '@hbar/contracts'
 import { client } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
@@ -21,6 +21,7 @@ interface FileNavigationProps {
 export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
   const [path, setPath] = useState('.'),
     [entries, setEntries] = useState<FileEntry[]>([]),
+    [loading, setLoading] = useState(false),
     [error, setError] = useState('')
   useEffect(() => {
     setPath('.')
@@ -28,9 +29,11 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
   useEffect(() => {
     if (!workspaceId) {
       setEntries([])
+      setLoading(false)
       return
     }
     let alive = true
+    setLoading(true)
     void client()
       .call('file.list', { workspaceId, path })
       .then((files) => {
@@ -41,6 +44,9 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
       })
       .catch((failure) => {
         if (alive) setError(failure instanceof Error ? failure.message : String(failure))
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
       })
     return () => {
       alive = false
@@ -64,11 +70,23 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
       <div className="file-breadcrumb" title={path}>
         {path}
       </div>
-      {error ? (
+      {!workspaceId ? (
+        <div className="file-empty-state" role="status">
+          <Folder size={18} />
+          <strong>尚未选择工作区</strong>
+          <span>选择一个工作区后浏览文件。</span>
+        </div>
+      ) : error ? (
         <div className="inline-error" role="alert">
           {error}
         </div>
-      ) : (
+      ) : loading ? (
+        <div className="file-empty-state" role="status">
+          <LoaderCircle size={18} className="spinning" />
+          <strong>正在读取目录</strong>
+          <span>稍等片刻，文件列表马上就绪。</span>
+        </div>
+      ) : entries.length ? (
         <AnimatedList className="file-list" viewportClassName="file-list-viewport" aria-label={`文件列表 ${path}`}>
           {entries.map((entry) => (
             <SpotlightCard
@@ -87,6 +105,12 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
             </SpotlightCard>
           ))}
         </AnimatedList>
+      ) : (
+        <div className="file-empty-state" role="status">
+          <Folder size={18} />
+          <strong>目录为空</strong>
+          <span>当前目录没有可浏览的文件。</span>
+        </div>
       )}
     </div>
   )
@@ -99,6 +123,7 @@ interface FileViewerProps {
 
 export function FileViewer({ path, workspaceId }: FileViewerProps) {
   const [text, setText] = useState(''),
+    [loading, setLoading] = useState(true),
     [error, setError] = useState('')
   useEffect(() => {
     let current = true
@@ -112,6 +137,9 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
       })
       .catch((failure) => {
         if (current) setError(failure instanceof Error ? failure.message : String(failure))
+      })
+      .finally(() => {
+        if (current) setLoading(false)
       })
     return () => {
       current = false
@@ -129,6 +157,11 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
         <p className="inline-error" role="alert">
           {error}
         </p>
+      ) : loading ? (
+        <div className="file-viewer-empty" role="status">
+          <LoaderCircle size={18} className="spinning" />
+          <span>正在读取文件…</span>
+        </div>
       ) : (
         <Suspense fallback={<pre>{text}</pre>}>
           <CodeEditor value={text} {...(path.split('.').at(-1) ? { language: path.split('.').at(-1)! } : {})} />

@@ -28,3 +28,32 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.file-empty-state,
+.file-viewer-empty {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 6px;
+  min-height: 180px;
+  padding: 20px 14px;
+  color: var(--hbar-t3);
+  text-align: left;
+}
+
+.file-empty-state > svg,
+.file-viewer-empty > svg {
+  color: var(--hbar-ac2);
+}
+
+.file-empty-state strong {
+  color: var(--hbar-t1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.file-empty-state span,
+.file-viewer-empty span {
+  font-size: 11px;
+  line-height: 1.5;
+}
