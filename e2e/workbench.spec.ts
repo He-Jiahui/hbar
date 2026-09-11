@@ -538,7 +538,7 @@ test('session sidebar exposes explicit rename and one primary new-session action
     const renamed = `Renamed ${Date.now().toString(36)}`
     await fixture.api.call('session.create', { workspaceId: bootstrap.workspaces[0]!.id, title })
     await page.reload()
-    await expect(page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: /在 .* 中新建会话/ }).filter({ visible: true })).toHaveCount(1)
 
     await page.locator('.session-select').filter({ hasText: title, visible: true }).click()
     await page.getByRole('button', { name: `重命名 ${title}`, exact: true }).click()
@@ -558,7 +558,7 @@ test('new-session action creates only one session when double-clicked', async ({
     const before = await fixture.api.call('system.bootstrap', {})
     const workspaceId = before.workspaces[0]!.id
     const countBefore = before.sessions.filter((session) => session.workspaceId === workspaceId).length
-    const action = page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })
+    const action = page.getByRole('button', { name: /在 .* 中新建会话/ }).filter({ visible: true })
 
     await action.dblclick()
     await expect
@@ -567,7 +567,7 @@ test('new-session action creates only one session when double-clicked', async ({
         return current.sessions.filter((session) => session.workspaceId === workspaceId).length
       })
       .toBe(countBefore + 1)
-    await expect(page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: /在 .* 中新建会话/ }).filter({ visible: true })).toBeEnabled()
   } finally {
     fixture.api.disconnect()
   }
