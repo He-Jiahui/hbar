@@ -952,7 +952,12 @@ test('a client plugin adds an interactive panel and unloads it without a core ed
     const terminal = page.locator('.terminal-panel').filter({ visible: true })
     const terminalInput = terminal.getByRole('textbox', { name: '控制台输入', exact: true })
     await terminalInput.fill('/observer')
-    await expect(terminal.getByRole('option', { name: /observer\.ping/ })).toBeVisible()
+    await expect(
+      page
+        .getByRole('listbox', { name: '命令补全', exact: true })
+        .filter({ visible: true })
+        .getByRole('option', { name: /observer\.ping/ }),
+    ).toBeVisible()
     await terminalInput.press('Tab')
     await terminalInput.press('Enter')
     await expect(terminal).toContainText('Observer Client plugin is active.')
