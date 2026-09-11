@@ -220,7 +220,7 @@ export default function PromptComposer({
             !event.nativeEvent.isComposing &&
             !composing.current
           ) {
-            const action = slashActions[slashIndex]
+            const action = slashActions[Math.min(slashIndex, Math.max(0, slashActions.length - 1))]
             if (action) {
               event.preventDefault()
               selectSlashAction(action)
@@ -240,8 +240,8 @@ export default function PromptComposer({
             <button
               type="button"
               role="option"
-              aria-selected={index === slashIndex}
-              className={index === slashIndex ? 'selected' : ''}
+              aria-selected={index === Math.min(slashIndex, Math.max(0, slashActions.length - 1))}
+              className={index === Math.min(slashIndex, Math.max(0, slashActions.length - 1)) ? 'selected' : ''}
               key={action.id}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => selectSlashAction(action)}

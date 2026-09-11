@@ -1893,6 +1893,74 @@ body.resizing-sidebar .sidebar-resizer::after {
   overflow: hidden;
 }
 
+.plan-progress-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 5px;
+}
+
+.plan-progress-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.plan-progress-heading strong {
+  color: var(--hbar-t1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-progress-heading span {
+  color: var(--hbar-t3);
+  font: 9px var(--dsh-font-family-code);
+}
+
+.plan-progress-heading button {
+  display: inline-flex;
+  min-height: 25px;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--hbar-er) 46%, var(--hbar-bd2));
+  border-radius: var(--radius-sm);
+  color: var(--hbar-er-ink);
+  font-size: 9px;
+}
+
+.plan-progress-heading button:hover,
+.plan-progress-heading button:focus-visible {
+  background: var(--hbar-er-soft);
+}
+
+.plan-progress-track {
+  height: 4px;
+  margin: 0 10px 8px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--hbar-bd);
+}
+
+.plan-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--hbar-ac);
+  transition: width 180ms var(--dsh-motion-easing);
+}
+
+.plan-current-step {
+  margin: 0 10px 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--hbar-ac-border);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-t2);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .goal-card > p {
   margin: 0;
   padding: 10px;

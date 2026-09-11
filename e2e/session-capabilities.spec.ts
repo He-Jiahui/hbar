@@ -89,3 +89,32 @@ test('prompt composer exposes keyboard-navigable slash commands', async ({ page,
     fixture.api.disconnect()
   }
 })
+
+test('plan tool surface exposes progress and current step state', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const session = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: 'Plan progress UI',
+    })
+    await fixture.api.call('plan.update', {
+      sessionId: session.id,
+      plan: [
+        { step: 'Inspect the workspace', status: 'completed' },
+        { step: 'Apply the layout changes', status: 'in_progress' },
+        { step: 'Verify the result', status: 'pending' },
+      ],
+      explanation: 'Keep the current step visible while the run is active.',
+    })
+    await page.reload()
+    await page.locator('.session-select').filter({ hasText: 'Plan progress UI' }).click()
+    await page.getByRole('button', { name: '计划', exact: true }).filter({ visible: true }).click()
+    const plan = page.locator('.tool-surface').filter({ hasText: 'Plan progress UI' }).last()
+    await expect(plan.locator('.plan-progress-heading')).toContainText('1 of 3 done')
+    await expect(plan.locator('.plan-progress-track')).toHaveAttribute('aria-label', '计划进度 1 / 3')
+    await expect(plan.locator('.plan-current-step')).toContainText('Apply the layout changes')
+  } finally {
+    fixture.api.disconnect()
+  }
+})
