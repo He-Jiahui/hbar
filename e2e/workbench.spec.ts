@@ -829,7 +829,7 @@ test('phone supports send, denial, files and model settings without horizontal o
     await openMobileSettings(page)
     await expect(page.getByRole('heading', { name: '供应商与模型' })).toBeVisible()
     const mobileSettingsNav = page.locator('.settings-tabs.settings-nav').filter({ visible: true })
-    await expect(mobileSettingsNav.locator('.settings-nav-items > button')).toHaveCount(6)
+    await expect(mobileSettingsNav.locator('.settings-nav-items > button')).toHaveCount(7)
     const mobileSettingsNavLayout = await mobileSettingsNav.locator('.settings-nav-items').evaluate((element) => ({
       display: getComputedStyle(element).display,
       scrollWidth: element.scrollWidth,
@@ -848,6 +848,24 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
   const fixture = await login(context, page)
   try {
     await page.getByRole('button', { name: '设置', exact: true }).first().click()
+    await page.getByRole('button', { name: '技能', exact: true }).filter({ visible: true }).click()
+    await expect(page.getByRole('heading', { name: '全局技能', exact: true })).toBeVisible()
+    const skillSearch = page.getByRole('textbox', { name: '搜索技能', exact: true })
+    await expect(skillSearch).toBeVisible()
+    const skillSearchLayout = await skillSearch.evaluate((element) => {
+      const field = element.closest('label')
+      if (!field) return null
+      const style = getComputedStyle(field)
+      return { height: field.getBoundingClientRect().height, flexGrow: style.flexGrow }
+    })
+    expect(skillSearchLayout).not.toBeNull()
+    expect(skillSearchLayout?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(48)
+    expect(skillSearchLayout?.flexGrow).toBe('0')
+    await expect(page.getByText('尚未安装全局技能', { exact: true })).toBeVisible()
+    await skillSearch.fill('missing-skill')
+    await expect(page.getByText('没有匹配的技能', { exact: true })).toBeVisible()
+    await skillSearch.fill('')
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-skills-settings.png` })
     await page.getByRole('button', { name: '设备与连接', exact: true }).filter({ visible: true }).click()
     await expect(page.getByRole('heading', { name: '宿主连接', exact: true })).toBeVisible()
     await expect(page.locator('.host-address-row.rb-spotlight-card').first()).toBeVisible()

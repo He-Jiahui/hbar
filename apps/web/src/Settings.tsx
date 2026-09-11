@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
+  BookOpen,
   Check,
   Copy,
   KeyRound,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
-import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, ThinkingLevel } from '@hbar/contracts'
+import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, RpcResults, ThinkingLevel } from '@hbar/contracts'
 import { client, refreshCatalog, report, selectModel, useCatalog, useConnection, useWorkbench } from './stores'
 import { copyText } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
@@ -597,6 +598,85 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
     </section>
   )
 }
+
+function SkillsSettings() {
+  const [skills, setSkills] = useState<RpcResults['system.skills.list']>([])
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      setSkills(await client().call('system.skills.list', {}))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+  useEffect(() => {
+    void load()
+  }, [load])
+  const filtered = skills.filter((skill) => skill.id.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+  return (
+    <section className="settings-section skills-section">
+      <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
+      <div className="section-toolbar">
+        <div>
+          <h2>全局技能</h2>
+          <p className="section-description">查看此 Host 可用的技能目录；会话中可通过命令控制台引用。</p>
+        </div>
+        <button
+          type="button"
+          className="settings-refresh"
+          title="刷新技能"
+          aria-label="刷新技能"
+          onClick={() => void load()}
+          disabled={loading}
+        >
+          <RefreshCw size={15} className={loading ? 'spinning' : undefined} />
+        </button>
+      </div>
+      <label className="settings-search skills-search">
+        <Search size={14} aria-hidden="true" />
+        <input
+          aria-label="搜索技能"
+          placeholder="搜索全局技能"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      {error && <p className="inline-error" role="alert">{error}</p>}
+      {filtered.length ? (
+        <AnimatedList className="skills-list" viewportClassName="skills-viewport" showGradients={false}>
+          {filtered.map((skill) => (
+            <SpotlightCard
+              className="skill-row"
+              key={skill.id}
+              spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+            >
+              <span className="skill-icon" aria-hidden="true"><BookOpen size={16} /></span>
+              <div className="skill-copy">
+                <strong>{skill.id}</strong>
+                <small>全局技能</small>
+                <code title={skill.path}>{skill.path}</code>
+              </div>
+              <span className="skill-scope">全局</span>
+            </SpotlightCard>
+          ))}
+        </AnimatedList>
+      ) : (
+        <div className="empty-list skills-empty-state" role="status">
+          <BookOpen size={20} aria-hidden="true" />
+          <strong>{query ? '没有匹配的技能' : '尚未安装全局技能'}</strong>
+          <span>{query ? '尝试其他关键词。' : '将技能目录放入 Host 的 global skills 目录后即可在这里查看。'}</span>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function Settings() {
   const [tab, setTab] = useState<SettingsTab>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
@@ -893,6 +973,7 @@ export default function Settings() {
         </section>
       )}
       {tab === 'paths' && <PathSettings />}
+      {tab === 'skills' && <SkillsSettings />}
       {tab === 'plugins' && (
         <section className="settings-section">
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />

@@ -884,6 +884,156 @@
   z-index: 1;
 }
 
+.skills-section {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skills-section > .section-toolbar {
+  margin-bottom: 0;
+}
+
+.skills-section .settings-refresh {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t3);
+}
+
+.skills-section .settings-refresh:hover:not(:disabled),
+.skills-section .settings-refresh:focus-visible {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.skills-section .settings-refresh:disabled {
+  opacity: 0.5;
+}
+
+.skills-section .section-description {
+  max-width: 680px;
+}
+
+.skills-search {
+  width: min(100%, 560px);
+  flex: 0 0 auto;
+  min-height: 32px;
+  margin: 0;
+}
+
+.skills-list,
+.skills-viewport {
+  min-width: 0;
+}
+
+.skills-viewport {
+  display: grid;
+  gap: 5px;
+}
+
+.skill-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hbar-s1) 80%, transparent);
+  text-align: left;
+}
+
+.skill-row:hover,
+.skill-row:focus-within {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+}
+
+.skill-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--hbar-bd2);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-s2);
+  color: var(--hbar-ac2);
+}
+
+.skill-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 2px;
+}
+
+.skill-copy strong {
+  overflow: hidden;
+  color: var(--hbar-t1);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-copy small,
+.skill-copy code {
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-copy code {
+  font-family: var(--dsh-font-family-code);
+}
+
+.skill-scope {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--hbar-ok) 45%, var(--hbar-bd2));
+  border-radius: var(--radius-full);
+  color: var(--hbar-ok-ink);
+  font-size: 10px;
+}
+
+.skills-empty-state {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 150px;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  padding: 24px;
+  border: 1px dashed var(--hbar-bd2);
+  border-radius: var(--radius-md);
+  color: var(--hbar-t3);
+  text-align: center;
+}
+
+.skills-empty-state > svg {
+  color: var(--hbar-ac2);
+}
+
+.skills-empty-state strong {
+  color: var(--hbar-t1);
+  font-size: 12px;
+}
+
+.skills-empty-state span {
+  max-width: 440px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .rb-path-roots {
   position: relative;
   isolation: isolate;
@@ -3167,7 +3317,7 @@
 }
 
 @media (max-width: 560px) {
-  /* Six settings destinations fit in a two-row touch grid at phone widths;
+  /* Settings destinations fit in a compact touch grid at phone widths;
    * horizontal scrolling otherwise leaves the last destinations half-clipped
    * and makes the page feel like a broken carousel. */
   .settings-tabs.settings-nav {
