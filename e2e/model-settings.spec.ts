@@ -30,7 +30,10 @@ test('model settings can search and filter configured connections', async ({ pag
     await expect(settingsPanel.locator('.settings-nav')).toHaveCSS('grid-column', '1')
     await expect(settingsPanel.locator('.models-section')).toHaveCSS('grid-column', '2')
     await expect(page.locator('.settings-tabs-glass')).toHaveClass(/glass-surface/)
-    await expect(page.locator('.settings-tabs').getByRole('button', { name: '模型', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.settings-tabs').getByRole('button', { name: '模型', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     await expect(page.locator('.settings-provider-group').first()).toHaveAttribute('aria-label', 'Local fixture')
     await expect(page.locator('.settings-provider-group').first()).toHaveCSS('opacity', '1')
     await expect(page.locator('.settings-provider-list')).toHaveCount(1)
@@ -54,10 +57,12 @@ test('model settings can search and filter configured connections', async ({ pag
     await expect(page.locator('.model-row')).toBeVisible()
     const mobileNavItems = page.locator('.mobile-nav button')
     await expect(mobileNavItems).toHaveCount(5)
-    const mobileNavFitsViewport = await mobileNavItems.evaluateAll((items) => items.every((item) => {
-      const bounds = item.getBoundingClientRect()
-      return bounds.left >= 0 && bounds.right <= innerWidth
-    }))
+    const mobileNavFitsViewport = await mobileNavItems.evaluateAll((items) =>
+      items.every((item) => {
+        const bounds = item.getBoundingClientRect()
+        return bounds.left >= 0 && bounds.right <= innerWidth
+      }),
+    )
     expect(mobileNavFitsViewport).toBeTruthy()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   } finally {
@@ -85,13 +90,19 @@ test('provider editor opens as a secondary settings page', async ({ page, contex
     expect(editorMetrics.scrollTop).toBe(0)
     await expect(editorPage.locator('.provider-preset.rb-glare-button')).not.toHaveCount(0)
     await expect(editorPage.locator('.provider-preset').first()).toHaveCSS('text-align', 'left')
-    await expect(editorPage.locator('.provider-preset').first().locator('.rb-glare-button-content')).toHaveCSS('text-align', 'left')
-    const presetAlignment = await editorPage.locator('.provider-preset').first().evaluate((element) => {
-      const title = element.querySelector('strong')
-      const buttonRect = element.getBoundingClientRect()
-      const titleRect = title?.getBoundingClientRect()
-      return titleRect ? titleRect.left - buttonRect.left : Number.POSITIVE_INFINITY
-    })
+    await expect(editorPage.locator('.provider-preset').first().locator('.rb-glare-button-content')).toHaveCSS(
+      'text-align',
+      'left',
+    )
+    const presetAlignment = await editorPage
+      .locator('.provider-preset')
+      .first()
+      .evaluate((element) => {
+        const title = element.querySelector('strong')
+        const buttonRect = element.getBoundingClientRect()
+        const titleRect = title?.getBoundingClientRect()
+        return titleRect ? titleRect.left - buttonRect.left : Number.POSITIVE_INFINITY
+      })
     expect(presetAlignment).toBeLessThan(24)
     await expect(editorPage.locator('.provider-connection-summary.rb-spotlight-card')).toHaveCount(1)
     await expect(editorPage.locator('.provider-model-card-glass')).not.toHaveCount(0)
@@ -99,9 +110,10 @@ test('provider editor opens as a secondary settings page', async ({ page, contex
     await expect(editorPage.locator('.settings-unsaved-bar')).toHaveCount(0)
     const modelId = editorPage.locator('input[aria-label="模型 ID"]')
     await modelId.fill('deepseek-chat-preview')
-    await expect(editorPage.locator('.settings-unsaved-bar')).toContainText('有未保存的更改')
-    await editorPage.locator('.settings-unsaved-bar').getByRole('button', { name: '还原', exact: true }).click()
     await expect(editorPage.locator('.settings-unsaved-bar')).toHaveCount(0)
+    await expect(editorPage.getByRole('button', { name: '保存', exact: true })).toBeEnabled()
+    await editorPage.getByRole('button', { name: '取消', exact: true }).click()
+    await expect(editorPage).toHaveCount(0)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-provider-editor-page.png` })
     await editorPage.getByRole('button', { name: '返回供应商与模型', exact: true }).click()
     await expect(editorPage).toHaveCount(0)
@@ -121,7 +133,7 @@ test('provider editor opens as a secondary settings page', async ({ page, contex
   }
 })
 
-test('model picker opens the secondary provider and model page', async ({ page, context }) => {
+test('model picker changes the active model without leaving the conversation', async ({ page, context }) => {
   const fixture = await login(context, page)
   const providerId = 'ui-model-catalog'
   try {
@@ -147,27 +159,23 @@ test('model picker opens the secondary provider and model page', async ({ page, 
     await page.reload()
     const picker = page.getByRole('button', { name: /选择模型，当前/ }).filter({ visible: true })
     await picker.click()
-    const settingsPanel = page.locator('.settings-panel:not(.settings-editor-panel)').filter({ visible: true })
-    await expect(settingsPanel.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
-    const search = settingsPanel.getByRole('textbox', { name: '搜索供应商或模型', exact: true })
+    const pickerMenu = page.getByRole('menu', { name: '选择模型', exact: true }).filter({ visible: true })
+    await expect(pickerMenu).toBeVisible()
+    await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
+    const search = pickerMenu.getByRole('textbox', { name: '搜索模型', exact: true })
     await search.fill('UI Model Catalog')
-    const provider = settingsPanel.locator('.settings-provider-group[aria-label="UI Model Catalog"]')
+    const provider = pickerMenu.locator('.model-picker-provider[aria-label="UI Model Catalog"]')
     await expect(provider).toBeVisible()
-    await expect(provider.locator('.model-row.rb-spotlight-card')).toHaveCount(2)
-    const deep = provider.locator('.model-row').filter({ hasText: 'Deep model' })
-    await expect(deep.getByRole('button', { name: '使用', exact: true })).toBeVisible()
-    await deep.getByRole('button', { name: '使用', exact: true }).click()
-    await expect(deep.getByRole('button', { name: '当前使用', exact: true })).toHaveAttribute('aria-pressed', 'true')
-    const deepThinking = deep.getByRole('combobox', { name: 'Deep model 思考等级', exact: true })
-    await deepThinking.selectOption('high')
-    await expect(deepThinking).toHaveValue('high')
-    await deep.getByRole('button', { name: /Deep model/ }).click()
-    const editorPage = page.locator('.settings-detail-page[aria-label="编辑模型"]')
-    await expect(editorPage).toBeVisible()
-    await expect(editorPage).toContainText('上下文窗口')
-    await expect(editorPage).toContainText('最大输出')
-    await expect(editorPage.locator('.provider-thinking-editor')).toHaveCount(2)
-    await editorPage.getByRole('button', { name: '返回供应商与模型', exact: true }).click()
+    const deep = provider.locator('.model-picker-model').filter({ hasText: 'Deep model' })
+    await deep.getByRole('menuitemradio', { name: /UI Model Catalog \/ Deep model/ }).click()
+    await expect(deep.getByRole('menuitemradio', { name: /UI Model Catalog \/ Deep model/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
+    const high = pickerMenu.getByRole('radio', { name: '高', exact: true })
+    if (await high.count()) await high.click()
+    await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await openMobileSettings(page)

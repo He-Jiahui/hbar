@@ -41,7 +41,7 @@
 - **File Manager**：4 个变体覆盖 drive explorer、资产网格、详情 pane、上传队列；上传行显示 progress、pause/retry/cancel，完成项可清理。
 - **Monitoring**：10 个变体覆盖平台健康、live stream、incident、alert inbox、日志 tail、uptime、fleet、latency、run queue、SLO burn-down。
 - **Empty State**：5 个变体覆盖首屏、无搜索结果、all caught up、失败重试、dropzone；每个都有明确下一步而不是只显示空白。
-- **Settings Form**：6 个变体覆盖设置分组、profile、preferences、成员、API keys 和危险区；设置主体是可滚动详情页，未保存时显示 sticky action bar。
+- **Settings Form**：6 个变体覆盖设置分组、profile、preferences、成员、API keys 和危险区；设置主体是可滚动详情页，hbar 使用详情页底部的单一正常文档流操作区，避免保存条浮在内容上方。
 - **Forms**：12 个变体覆盖 checkout、环境创建、调查、规则 builder、申请、属性内联编辑、预置开通和多步报价；字段说明与控件分列，校验就地出现。
 - **App Dialog**：7 个变体覆盖标准 dialog、输入确认、表单校验、多步 dialog、drawer、detail sheet 和 menu/submenu；详情多时用二级页面/sheet，避免把完整表单塞进小弹窗。
 - **Notifications**：6 个变体覆盖通知中心、toast stack、delivery matrix、activity inbox、banner 和 bell popover；toast 悬停暂停自动消失，Escape 关闭 popover。
@@ -67,5 +67,7 @@
 2. Prompt Composer 增加输入框上方的斜杠命令列表、过滤、上下键、Enter 执行和能力对话框衔接；附件、权限、模型仍保留在同一输入轴。
 3. Activity Panel 增加当前 run 的实时事件时间线、状态点、耗时和停止操作，并保持 trace 视图可查看原始事件。
 4. 供应商/模型编辑器继续作为设置二级详情页，而非小弹窗；长表单独立滚动，返回时不丢失目录筛选。
+5. 会话顶部的 Chat/控制台切换保持在同一会话区域；控制台复用 CLI 的字符串命令解析，`/thinking`、`/model` 和 `/settings` 通过文本输出或键盘候选完成，不打开第二个底部工具窗口。
+6. 工具 rail 使用明确的一次一功能入口；图标 tooltip 从 rail 水平展开避免遮挡，并支持跨左右 rail 拖放和顺序持久化。
 
 尚未纳入 hbar 产品范围的类别（例如完整账单、营销 mega menu、认证流程）保留审计结论，但不会为了“看起来像”而引入没有对应契约的假业务。后续迁移以 hbar 已有 Host/SDK/插件契约为边界，优先补齐工具调用、审批、计划、文件/Git/终端/浏览器和设置的状态与恢复行为。

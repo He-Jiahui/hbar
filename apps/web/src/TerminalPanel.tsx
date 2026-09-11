@@ -253,7 +253,10 @@ export default function TerminalPanel({
       write(
         `### Sessions\n\n| ID | Title | State |\n| --- | --- | --- |\n${
           projectSessions
-            .map((item) => `| ${item.id} | ${item.title.replaceAll('|', '\\|')} | ${item.archived ? 'archived' : 'active'} |`)
+            .map(
+              (item) =>
+                `| ${item.id} | ${item.title.replaceAll('|', '\\|')} | ${item.archived ? 'archived' : 'active'} |`,
+            )
             .join('\n') || '| — | 没有 Session | — |'
         }`,
       )
@@ -286,9 +289,14 @@ export default function TerminalPanel({
       else {
         const normalized = argument.toLocaleLowerCase()
         const target = catalog?.models.find((item) =>
-          [item.id, item.name, item.modelName, item.model, `${item.id}/${item.model}`, `${item.providerName}/${item.model}`].some(
-            (candidate) => candidate === argument || candidate.toLocaleLowerCase() === normalized,
-          ),
+          [
+            item.id,
+            item.name,
+            item.modelName,
+            item.model,
+            `${item.id}/${item.model}`,
+            `${item.providerName}/${item.model}`,
+          ].some((candidate) => candidate === argument || candidate.toLocaleLowerCase() === normalized),
         )
         if (!target) throw new Error(`找不到模型：${argument}`)
         selectModel(target.id)
@@ -348,11 +356,7 @@ export default function TerminalPanel({
       if (!args.length) {
         const model = catalog?.models.find((item) => item.id === modelId)
         write(
-          `### Settings\n\n\`\`\`json\n${JSON.stringify(
-            { approval: approvalMode, model: model?.name ?? modelId ?? null, thinking: thinkingLevel },
-            null,
-            2,
-          )}\n\`\`\`\n\n使用 \`/settings approval allow|ask|deny\` 修改权限策略。`,
+          `### Settings\n\n- approval: \`${approvalMode}\`\n- thinking: \`${thinkingLevel}\`\n- model: \`${model?.name ?? modelId ?? '未配置'}\`\n\n使用 \`/settings approval allow|ask|deny\` 修改权限策略。`,
         )
       } else if (args[0] === 'approval' && ['allow', 'ask', 'deny'].includes(args[1] ?? '')) {
         const mode = args[1] as ApprovalMode
