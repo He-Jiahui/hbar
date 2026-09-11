@@ -1,5 +1,6 @@
 import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'node:fs/promises'
 import { resolve, relative, dirname, isAbsolute, join, basename } from 'node:path'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { ExecutionProvider, ToolResult } from '@hbar/plugin-sdk'
@@ -23,6 +24,10 @@ function decodeUtf8(bytes: Uint8Array): string {
   } catch {
     throw new HbarError('UNSUPPORTED_TYPE', 'File is neither valid UTF-8 text nor a supported image')
   }
+}
+
+function revision(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex')
 }
 
 export async function workspacePath(
@@ -86,7 +91,7 @@ export class LocalExecution implements ExecutionProvider {
       throw new HbarError('FILE_LIMIT', 'Read requires a file no larger than 2 MiB')
     return readFile(path)
   }
-  async write(workspace: string, requested: string, text: string) {
+  async write(workspace: string, requested: string, text: string, options?: { expectedRevision?: string }) {
     if (Buffer.byteLength(text) > 2 * 1024 * 1024) throw new HbarError('FILE_LIMIT', 'Write exceeds 2 MiB')
     const path = await workspacePath(workspace, requested, true, this.blocked)
     let before = ''
@@ -95,6 +100,8 @@ export class LocalExecution implements ExecutionProvider {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
+    if (options?.expectedRevision && revision(before) !== options.expectedRevision)
+      throw new HbarError('FILE_CONFLICT', 'File changed on disk; reload it before saving')
     await mkdir(dirname(path), { recursive: true })
     await workspacePath(workspace, requested, true, this.blocked)
     const temporary = join(dirname(path), `.${basename(path)}.hbar-${crypto.randomUUID()}`)
@@ -109,7 +116,7 @@ export class LocalExecution implements ExecutionProvider {
           if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
         })
     }
-    return { before, after: text, path: requested }
+    return { before, after: text, path: requested, revision: revision(text) }
   }
   async exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult> {
     signal.throwIfAborted()

@@ -1,4 +1,5 @@
 import { networkInterfaces } from 'node:os'
+import { createHash } from 'node:crypto'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
@@ -465,9 +466,23 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'file.read': {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
+        const text = await kernel.plugins.get<ExecutionProvider>('execution').read(workspace.path, p.path)
         return {
-          text: await kernel.plugins.get<ExecutionProvider>('execution').read(workspace.path, p.path),
+          text,
           path: p.path,
+          revision: createHash('sha256').update(text, 'utf8').digest('hex'),
+        }
+      }
+      case 'file.write': {
+        const p = rpcSchemas[method].parse(raw)
+        const workspace = await kernel.storage.call('workspace', p.workspaceId)
+        const details = await kernel.plugins.get<ExecutionProvider>('execution').write(workspace.path, p.path, p.text, {
+          ...(p.expectedRevision ? { expectedRevision: p.expectedRevision } : {}),
+        })
+        return {
+          text: details.after,
+          path: details.path,
+          revision: details.revision,
         }
       }
       case 'file.list': {

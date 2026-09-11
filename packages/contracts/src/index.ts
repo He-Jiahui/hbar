@@ -981,6 +981,12 @@ export const rpcSchemas = {
   'device.revoke': z.object({ id: idSchema }),
   'pairing.create': z.object({}),
   'file.read': z.object({ workspaceId: idSchema, path: z.string().min(1).max(4000) }),
+  'file.write': z.object({
+    workspaceId: idSchema,
+    path: z.string().min(1).max(4000),
+    text: z.string().max(2 * 1024 * 1024),
+    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  }),
   'file.list': z.object({ workspaceId: idSchema, path: z.string().max(4000).default('.') }),
 } satisfies Record<string, z.ZodType>
 export type RpcMethod = keyof typeof rpcSchemas
@@ -1083,7 +1089,8 @@ export interface RpcResults {
   'device.list': Device[]
   'device.revoke': null
   'pairing.create': { code: string; expiresAt: number }
-  'file.read': { text: string; path: string }
+  'file.read': { text: string; path: string; revision: string }
+  'file.write': { text: string; path: string; revision: string }
   'file.list': FileEntry[]
 }
 export const rpcRequestSchema = z.object({

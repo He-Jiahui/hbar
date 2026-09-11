@@ -1,5 +1,17 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileCode2, Folder, LoaderCircle, RefreshCw, Search, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  FileCode2,
+  Folder,
+  LoaderCircle,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Search,
+  X,
+} from 'lucide-react'
 import type { FileEntry } from '@hbar/contracts'
 import { client } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
@@ -188,15 +200,31 @@ interface FileViewerProps {
 
 export function FileViewer({ path, workspaceId }: FileViewerProps) {
   const [text, setText] = useState(''),
+    [savedText, setSavedText] = useState(''),
+    [revision, setRevision] = useState(''),
     [loading, setLoading] = useState(true),
+    [saving, setSaving] = useState(false),
+    [reloadToken, setReloadToken] = useState(0),
+    [conflict, setConflict] = useState(false),
+    [notice, setNotice] = useState(''),
     [error, setError] = useState('')
+  const dirty = !loading && text !== savedText
   useEffect(() => {
     let current = true
+    setLoading(true)
+    setError('')
+    setNotice('')
+    setConflict(false)
+    setText('')
+    setSavedText('')
+    setRevision('')
     void client()
       .call('file.read', { workspaceId, path })
       .then((result) => {
         if (current) {
           setText(result.text)
+          setSavedText(result.text)
+          setRevision(result.revision)
           setError('')
         }
       })
@@ -206,22 +234,91 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
       .finally(() => {
         if (current) setLoading(false)
       })
-    return () => {
+      return () => {
       current = false
     }
-  }, [workspaceId, path])
+  }, [workspaceId, path, reloadToken])
+  function failureMessage(failure: unknown) {
+    return failure instanceof Error ? failure.message : String(failure)
+  }
+  function failureCode(failure: unknown) {
+    return typeof failure === 'object' && failure !== null && 'code' in failure ? String(failure.code) : ''
+  }
+  async function save(force = false) {
+    if (!dirty || saving) return
+    setSaving(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await client().call('file.write', {
+        workspaceId,
+        path,
+        text,
+        ...(force || !revision ? {} : { expectedRevision: revision }),
+      })
+      setText(result.text)
+      setSavedText(result.text)
+      setRevision(result.revision)
+      setConflict(false)
+      setNotice('已保存')
+    } catch (failure) {
+      if (failureCode(failure) === 'FILE_CONFLICT') setConflict(true)
+      setError(failureMessage(failure))
+    } finally {
+      setSaving(false)
+    }
+  }
+  function reload() {
+    setReloadToken((current) => current + 1)
+  }
+  function discardChanges() {
+    reload()
+  }
   return (
     <div className="file-viewer rb-file-viewer">
       <GlassSurface className="file-viewer-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="file-viewer-header">
         <FileCode2 size={14} />
         <span title={path}>{path}</span>
-        <span>只读</span>
+        <span className={dirty ? 'file-viewer-state dirty' : 'file-viewer-state'}>
+          {saving ? '保存中…' : dirty ? '未保存' : notice || '已保存'}
+        </span>
+        <div className="file-viewer-actions">
+          <button
+            type="button"
+            title="重新加载文件"
+            aria-label="重新加载文件"
+            disabled={saving || !workspaceId || dirty}
+            onClick={reload}
+          >
+            <RefreshCw size={13} />
+          </button>
+          <button
+            type="button"
+            className="file-viewer-save"
+            title="保存文件"
+            aria-label="保存文件"
+            disabled={!dirty || saving || !workspaceId}
+            onClick={() => void save()}
+          >
+            {saving ? <LoaderCircle size={13} className="spinning" /> : <Save size={13} />}
+          </button>
+        </div>
       </div>
       {error ? (
-        <p className="inline-error" role="alert">
-          {error}
-        </p>
+        <div className="file-viewer-feedback" role="alert">
+          <p className="inline-error">{error}</p>
+          {conflict && (
+            <div className="file-viewer-conflict-actions">
+              <button type="button" className="button" onClick={() => setReloadToken((current) => current + 1)}>
+                <RotateCcw size={12} /> 重新加载
+              </button>
+              <button type="button" className="button primary" onClick={() => void save(true)} disabled={saving}>
+                <AlertTriangle size={12} /> 覆盖保存
+              </button>
+            </div>
+          )}
+        </div>
       ) : loading ? (
         <div className="file-viewer-empty" role="status">
           <LoaderCircle size={18} className="spinning" />
@@ -229,8 +326,24 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
         </div>
       ) : (
         <Suspense fallback={<pre>{text}</pre>}>
-          <CodeEditor value={text} {...(path.split('.').at(-1) ? { language: path.split('.').at(-1)! } : {})} />
+          <CodeEditor
+            value={text}
+            readOnly={false}
+            onChange={setText}
+            {...(path.split('.').at(-1) ? { language: path.split('.').at(-1)! } : {})}
+          />
         </Suspense>
+      )}
+      {dirty && !error && (
+        <div className="file-viewer-unsaved" role="status">
+          <span>有未保存的更改</span>
+          <button type="button" className="button primary" onClick={() => void save()} disabled={saving}>
+            {saving ? '保存中…' : '保存'}
+          </button>
+          <button type="button" className="button" onClick={discardChanges} disabled={saving}>
+            放弃更改
+          </button>
+        </div>
       )}
     </div>
   )

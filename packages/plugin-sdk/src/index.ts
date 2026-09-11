@@ -82,7 +82,12 @@ export interface ExecutionProvider {
   list(workspace: string, path: string): Promise<FileEntry[]>
   read(workspace: string, path: string): Promise<string>
   readBytes(workspace: string, path: string): Promise<Uint8Array>
-  write(workspace: string, path: string, text: string): Promise<{ before: string; after: string; path: string }>
+  write(
+    workspace: string,
+    path: string,
+    text: string,
+    options?: { expectedRevision?: string },
+  ): Promise<{ before: string; after: string; path: string; revision: string }>
   exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult>
 }
 export interface PolicyProvider {
