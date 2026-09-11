@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ChevronLeft,
@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import type { FileEntry } from '@hbar/contracts'
-import { client } from './stores'
+import { useConnection } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -31,12 +31,14 @@ interface FileNavigationProps {
 /** File tree view for the active workspace. Network ownership stays local to
  * this document feature; the parent only supplies scope and open intent. */
 export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
+  const connection = useConnection((state) => state.client)
   const [path, setPath] = useState('.'),
     [entries, setEntries] = useState<FileEntry[]>([]),
     [loading, setLoading] = useState(false),
     [reloadToken, setReloadToken] = useState(0),
     [query, setQuery] = useState(''),
     [error, setError] = useState('')
+  const requestSerial = useRef(0)
   useEffect(() => {
     setPath('.')
     setQuery('')
@@ -48,25 +50,37 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
       return
     }
     let alive = true
+    const serial = ++requestSerial.current
+    const requestConnection = connection
+    const isCurrent = () =>
+      alive && serial === requestSerial.current && useConnection.getState().client === requestConnection
+    if (!requestConnection) {
+      setEntries([])
+      setLoading(false)
+      setError('Host is not connected')
+      return () => {
+        alive = false
+      }
+    }
     setLoading(true)
-    void client()
+    void requestConnection
       .call('file.list', { workspaceId, path })
       .then((files) => {
-        if (alive) {
+        if (isCurrent()) {
           setEntries(files)
           setError('')
         }
       })
       .catch((failure) => {
-        if (alive) setError(failure instanceof Error ? failure.message : String(failure))
+        if (isCurrent()) setError(failure instanceof Error ? failure.message : String(failure))
       })
       .finally(() => {
-        if (alive) setLoading(false)
+        if (isCurrent()) setLoading(false)
       })
     return () => {
       alive = false
     }
-  }, [workspaceId, path, reloadToken])
+  }, [connection, workspaceId, path, reloadToken])
   const segments = path === '.' ? [] : path.split('/').filter(Boolean)
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const visibleEntries = normalizedQuery
@@ -109,7 +123,11 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
         {segments.map((segment, index) => (
           <span className="file-breadcrumb-segment" key={`${segment}-${index}`}>
             <span aria-hidden="true">/</span>
-            <button type="button" className={index === segments.length - 1 ? 'selected' : ''} onClick={() => navigateTo(index)}>
+            <button
+              type="button"
+              className={index === segments.length - 1 ? 'selected' : ''}
+              onClick={() => navigateTo(index)}
+            >
               {segment}
             </button>
           </span>
@@ -180,7 +198,9 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           <Search size={18} />
           <strong>没有匹配的文件</strong>
           <span>尝试更换关键词，或清除当前筛选。</span>
-          <button type="button" className="text-command" onClick={() => setQuery('')}>清除筛选</button>
+          <button type="button" className="text-command" onClick={() => setQuery('')}>
+            清除筛选
+          </button>
         </div>
       ) : (
         <div className="file-empty-state" role="status">
@@ -199,6 +219,8 @@ interface FileViewerProps {
 }
 
 export function FileViewer({ path, workspaceId }: FileViewerProps) {
+  const connection = useConnection((state) => state.client)
+  const viewGeneration = useRef(0)
   const [text, setText] = useState(''),
     [savedText, setSavedText] = useState(''),
     [revision, setRevision] = useState(''),
@@ -211,6 +233,10 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
   const dirty = !loading && text !== savedText
   useEffect(() => {
     let current = true
+    const generation = ++viewGeneration.current
+    const requestConnection = connection
+    const isCurrent = () =>
+      current && generation === viewGeneration.current && useConnection.getState().client === requestConnection
     setLoading(true)
     setError('')
     setNotice('')
@@ -218,10 +244,18 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
     setText('')
     setSavedText('')
     setRevision('')
-    void client()
+    setSaving(false)
+    if (!requestConnection) {
+      setLoading(false)
+      setError('Host is not connected')
+      return () => {
+        current = false
+      }
+    }
+    void requestConnection
       .call('file.read', { workspaceId, path })
       .then((result) => {
-        if (current) {
+        if (isCurrent()) {
           setText(result.text)
           setSavedText(result.text)
           setRevision(result.revision)
@@ -229,15 +263,15 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
         }
       })
       .catch((failure) => {
-        if (current) setError(failure instanceof Error ? failure.message : String(failure))
+        if (isCurrent()) setError(failure instanceof Error ? failure.message : String(failure))
       })
       .finally(() => {
-        if (current) setLoading(false)
+        if (isCurrent()) setLoading(false)
       })
-      return () => {
+    return () => {
       current = false
     }
-  }, [workspaceId, path, reloadToken])
+  }, [connection, workspaceId, path, reloadToken])
   function failureMessage(failure: unknown) {
     return failure instanceof Error ? failure.message : String(failure)
   }
@@ -246,26 +280,38 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
   }
   async function save(force = false) {
     if (!dirty || saving) return
+    const generation = viewGeneration.current
+    const requestConnection = connection
+    if (!requestConnection) {
+      setError('Host is not connected')
+      return
+    }
+    const isCurrent = () =>
+      generation === viewGeneration.current && useConnection.getState().client === requestConnection
     setSaving(true)
     setError('')
     setNotice('')
     try {
-      const result = await client().call('file.write', {
+      const result = await requestConnection.call('file.write', {
         workspaceId,
         path,
         text,
         ...(force || !revision ? {} : { expectedRevision: revision }),
       })
-      setText(result.text)
-      setSavedText(result.text)
-      setRevision(result.revision)
-      setConflict(false)
-      setNotice('已保存')
+      if (isCurrent()) {
+        setText(result.text)
+        setSavedText(result.text)
+        setRevision(result.revision)
+        setConflict(false)
+        setNotice('已保存')
+      }
     } catch (failure) {
-      if (failureCode(failure) === 'FILE_CONFLICT') setConflict(true)
-      setError(failureMessage(failure))
+      if (isCurrent()) {
+        if (failureCode(failure) === 'FILE_CONFLICT') setConflict(true)
+        setError(failureMessage(failure))
+      }
     } finally {
-      setSaving(false)
+      if (isCurrent()) setSaving(false)
     }
   }
   function reload() {
