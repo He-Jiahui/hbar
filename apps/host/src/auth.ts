@@ -37,7 +37,10 @@ export class Auth {
     await this.storage.call('putDevice', device, this.hash(token))
     return { token, device }
   }
-  createInternalDevice(name: string) {
+  async createInternalDevice(name: string) {
+    for (const device of await this.storage.call('devices')) {
+      if (device.name === name) await this.storage.call('revokeDevice', device.id)
+    }
     const token = randomBytes(32).toString('base64url')
     const device = { id: crypto.randomUUID(), name: name.slice(0, 100), createdAt: Date.now(), lastSeenAt: Date.now() }
     this.internalDevices.set(this.hash(token), device)
