@@ -706,7 +706,10 @@ function SkillsSettings() {
 export default function Settings() {
   const [tab, setTab] = useState<SettingsTab>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
-  const [settingsScope, setSettingsScope] = useState<SettingsScope>('global')
+  const [settingsScope, setSettingsScope] = useState<SettingsScope>(() => {
+    const stored = window.localStorage.getItem('hbar.settings.scope')
+    return stored === 'project' || stored === 'session' ? stored : 'global'
+  })
   const [devices, setDevices] = useState<Device[]>([]),
     [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null),
     [pluginPath, setPluginPath] = useState(''),
@@ -739,6 +742,9 @@ export default function Settings() {
   const settingSearchResults = settingsQuery.trim()
     ? SETTINGS_SEARCH_INDEX.filter((entry) => settingMatches(entry, settingsQuery)).slice(0, 8)
     : []
+  useEffect(() => {
+    window.localStorage.setItem('hbar.settings.scope', settingsScope)
+  }, [settingsScope])
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
