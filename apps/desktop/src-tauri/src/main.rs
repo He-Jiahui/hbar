@@ -12,7 +12,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewUrl, WebviewWindowBuilder,
+    Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
 };
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -150,11 +150,14 @@ fn pick_directory() -> Option<String> {
     None
 }
 
-fn existing(data_root: &Path) -> Option<Connection> {
+fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
     let connection: Connection =
         serde_json::from_slice(&fs::read(data_root.join("settings").join("connection.json")).ok()?)
             .ok()?;
     let url = tauri::Url::parse(&connection.url).ok()?;
+    if expected_pid.is_some() && connection.pid != expected_pid {
+        return None;
+    }
     if url.scheme() != "http" || url.host_str() != Some("127.0.0.1") {
         return None;
     }
@@ -208,9 +211,6 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
     let (data_root, cache_root) = path_roots(app)?;
     fs::create_dir_all(data_root.join("settings"))?;
     fs::create_dir_all(&cache_root)?;
-    if let Some(connection) = existing(&data_root) {
-        return Ok(connection);
-    }
     let resources = if cfg!(debug_assertions) {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../dist/desktop-resources")
     } else {
@@ -256,9 +256,10 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
         command.creation_flags(0x08000000);
     }
     let mut child = command.spawn()?;
+    let child_pid = child.id();
     let started = Instant::now();
     loop {
-        if let Some(connection) = existing(&data_root) {
+        if let Some(connection) = existing(&data_root, Some(child_pid)) {
             return Ok(connection);
         }
         if let Some(status) = child.try_wait()? {
@@ -364,6 +365,14 @@ fn main() {
                 .build(app)?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("Unable to start hbar desktop");
+        .build(tauri::generate_context!())
+        .expect("Unable to start hbar desktop")
+        .run(|app, event| {
+            if matches!(event, RunEvent::Exit) {
+                let pid = app
+                    .try_state::<Connection>()
+                    .and_then(|connection| connection.pid);
+                stop_host(pid);
+            }
+        });
 }
