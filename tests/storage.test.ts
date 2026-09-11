@@ -47,6 +47,15 @@ test('idempotent commands enqueue one durable run and claim only one at a time',
   await store.call('setRun', a.id, 'completed')
   expect((await store.call('claim', session.id))?.id).not.toBe(a.id)
 })
+test('queued runs can be reordered and claim follows the visible queue order', async () => {
+  const { store, session } = await fixture()
+  const input = { text: 'queued', images: [] }
+  const first = await store.call('enqueue', session.id, 'request-1', input, 'test')
+  const second = await store.call('enqueue', session.id, 'request-2', input, 'test')
+  const third = await store.call('enqueue', session.id, 'request-3', input, 'test')
+  await store.call('reorderQueued', session.id, [third.id, first.id, second.id])
+  expect((await store.call('claim', session.id))?.id).toBe(third.id)
+})
 test('recovery preserves an unknown tool outcome without replaying it', async () => {
   const { store, session } = await fixture()
   const run = await store.call('enqueue', session.id, 'request', { text: 'write', images: [] }, 'test')
