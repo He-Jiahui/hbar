@@ -21,6 +21,58 @@
   margin: 0 0 14px;
 }
 
+.mobile-more-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 12px 10px calc(58px + env(safe-area-inset-bottom));
+  background: rgb(4 6 10 / 58%);
+}
+
+.mobile-more-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -2px -2px 16px;
+}
+
+.mobile-more-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mobile-more-header h2 {
+  margin: 0;
+  color: var(--hbar-t1);
+  font-size: 18px;
+}
+
+.mobile-more-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  color: var(--hbar-t2);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.mobile-more-close:hover,
+.mobile-more-close:focus-visible {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-t1);
+}
+
 .mobile-more-action {
   display: grid;
   min-width: 0;
@@ -55,6 +107,22 @@
 }
 
 @media (max-width: 899px) {
+  .mobile-more-backdrop {
+    display: flex;
+  }
+
+  .mobile-more-backdrop > .plugin-panel {
+    width: 100%;
+    max-height: min(76dvh, 620px);
+    height: auto;
+    margin: 0;
+    overflow: auto;
+    border: 1px solid var(--hbar-bd2);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    background: var(--hbar-s0);
+    box-shadow: var(--dsh-shadow-prominent);
+  }
+
   .mobile-nav {
     width: 100vw;
     min-width: 0;
@@ -75,6 +143,10 @@
 }
 
 @media (min-width: 900px) {
+  .mobile-more-backdrop {
+    display: none;
+  }
+
   .mobile-nav {
     display: none;
   }

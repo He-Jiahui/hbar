@@ -952,6 +952,7 @@ export default function App() {
               ) : mobileView === 'plugins' ? (
                   <MobileToolMenu
                     contributions={[...(data?.panels ?? []), ...clientPanels]}
+                    onClose={() => setMobileView('chat')}
                     onOpenTool={(id, title, component, placement, config) =>
                       openPanel(id, title, component, config, placement)
                     }

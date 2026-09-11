@@ -11,6 +11,7 @@ import {
   Settings2,
   TerminalSquare,
 } from 'lucide-react'
+import { useEffect } from 'react'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
 import './WorkbenchNavigation.css'
@@ -269,62 +270,90 @@ export function MobileNavigation({ mobileView, onSetMobileView }: Pick<Workbench
 export function MobileToolMenu({
   contributions,
   onOpenTool,
-}: Pick<WorkbenchNavigationProps, 'contributions' | 'onOpenTool'>) {
+  onClose,
+}: Pick<WorkbenchNavigationProps, 'contributions' | 'onOpenTool'> & { onClose(): void }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
   return (
-    <div className="plugin-panel rb-plugin-panel" aria-label="工具与插件">
-      <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
-      <h2>更多</h2>
-      <h3 className="mobile-tool-heading">工作台</h3>
-      <div className="mobile-more-grid" aria-label="更多工作台功能">
-        {MOBILE_MORE_ITEMS.map(({ id, title, description, icon: Icon, component, placement }) => (
-          <button
-            type="button"
-            key={id}
-            className="new-session mobile-more-action"
-            aria-label={title}
-            title={description}
-            onClick={() => onOpenTool(id, title, component, placement)}
-          >
-            <Icon size={16} />
-            <span>{title}</span>
-            <small>{description}</small>
+    <div
+      className="mobile-more-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <section className="plugin-panel rb-plugin-panel" role="dialog" aria-modal="true" aria-label="工具与插件">
+        <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
+        <header className="mobile-more-header">
+          <div>
+            <span className="mobile-more-eyebrow">工作台</span>
+            <h2>更多</h2>
+          </div>
+          <button type="button" className="mobile-more-close" aria-label="关闭更多" title="关闭更多" onClick={onClose}>
+            <span aria-hidden="true">×</span>
           </button>
-        ))}
-      </div>
-      <h3 className="mobile-tool-heading">会话工具</h3>
-      <div className="mobile-tool-grid" aria-label="工具窗口">
-        {MOBILE_TOOLS.map(({ id, title, icon: Icon }) => (
+        </header>
+        <h3 className="mobile-tool-heading">工作台</h3>
+        <div className="mobile-more-grid" aria-label="更多工作台功能">
+          {MOBILE_MORE_ITEMS.map(({ id, title, description, icon: Icon, component, placement }) => (
+            <button
+              type="button"
+              key={id}
+              className="new-session mobile-more-action"
+              aria-label={title}
+              title={description}
+              onClick={() => onOpenTool(id, title, component, placement)}
+            >
+              <Icon size={16} />
+              <span>{title}</span>
+              <small>{description}</small>
+            </button>
+          ))}
+        </div>
+        <h3 className="mobile-tool-heading">会话工具</h3>
+        <div className="mobile-tool-grid" aria-label="工具窗口">
+          {MOBILE_TOOLS.map(({ id, title, icon: Icon }) => (
+            <button
+              type="button"
+              key={id}
+              className="new-session"
+              onClick={() => onOpenTool(id, title, id, 'right')}
+            >
+              <Icon size={16} />
+              {title}
+            </button>
+          ))}
+        </div>
+        <h3 className="mobile-tool-heading">插件面板</h3>
+        {contributions.map((contribution) => (
           <button
             type="button"
-            key={id}
+            key={contribution.id}
             className="new-session"
-            onClick={() => onOpenTool(id, title, id, 'right')}
+            onClick={() =>
+              onOpenTool(
+                `plugin:${contribution.id}`,
+                contribution.title,
+                'plugin',
+                contributionPlacement(contribution.placement),
+                { panelId: contribution.id },
+              )
+            }
           >
-            <Icon size={16} />
-            {title}
+            <LayoutGrid size={16} />
+            {contribution.title}
           </button>
         ))}
-      </div>
-      <h3 className="mobile-tool-heading">插件面板</h3>
-      {contributions.map((contribution) => (
-        <button
-          type="button"
-          key={contribution.id}
-          className="new-session"
-          onClick={() =>
-            onOpenTool(
-              `plugin:${contribution.id}`,
-              contribution.title,
-              'plugin',
-              contributionPlacement(contribution.placement),
-              { panelId: contribution.id },
-            )
-          }
-        >
-          <LayoutGrid size={16} />
-          {contribution.title}
-        </button>
-      ))}
+      </section>
     </div>
   )
 }
