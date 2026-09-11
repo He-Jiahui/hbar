@@ -225,7 +225,13 @@ fn main() {
             let connection = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
             let url = tauri::Url::parse(&connection.url)?;
-            let web_url = development_web_url().unwrap_or_else(|| url.clone());
+            let mut web_url = development_web_url().unwrap_or_else(|| url.clone());
+            if development_web_url().is_some() {
+                web_url
+                    .query_pairs_mut()
+                    .append_pair("hbarHost", &connection.url)
+                    .append_pair("hbarToken", &connection.token);
+            }
             app.manage(connection);
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
                 .title("hbar")
