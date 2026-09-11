@@ -3,17 +3,13 @@ import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexl
 import {
   Activity,
   Archive,
-  FileSearch,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
   FileCode2,
   Folder,
   FolderOpen,
-  Globe,
   GitBranch,
   LayoutGrid,
-  ListChecks,
   LoaderCircle,
   MessageSquare,
   Network,
@@ -53,23 +49,16 @@ import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from '.
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import Diagnose from './DiagnosePanel'
 import SpotlightCard from './react-bits/SpotlightCard'
-import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 import WorkbenchHeader from './workbench/WorkbenchHeader'
+import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbench/WorkbenchNavigation'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
 const SIDEBAR_MIN_WIDTH = 220
 const SIDEBAR_MAX_WIDTH = 360
-const MOBILE_TOOLS = [
-  { id: 'browser', title: '浏览器', icon: Globe },
-  { id: 'inspector', title: '会话检查', icon: FileSearch },
-  { id: 'plan', title: '计划', icon: ListChecks },
-  { id: 'insights', title: '会话洞察', icon: Activity },
-  { id: 'diagnose', title: '诊断', icon: CircleHelp },
-] as const
 const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
   activity: 'activity',
   settings: 'settings',
@@ -1121,58 +1110,33 @@ export default function App() {
         className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
         style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
       >
-        <nav className="tool-rail left-rail">
-          <GlassIconButton
-            label="会话"
-            tone="accent"
-            title="会话"
-            aria-label="会话"
-            className={panel === 'sessions' ? 'selected' : ''}
-            onClick={() => {
-              useWorkbench.setState({ panel: 'sessions' })
-              setSidebar(true)
-            }}
-          >
-            <MessageSquare size={19} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="文件"
-            tone="accent"
-            title="文件"
-            aria-label="文件"
-            className={panel === 'files' ? 'selected' : ''}
-            onClick={() => {
-              useWorkbench.setState({ panel: 'files' })
-              setSidebar(true)
-            }}
-          >
-            <Folder size={19} />
-          </GlassIconButton>
-          <span />
-          <GlassIconButton
-            label="诊断"
-            tone="warning"
-            title="诊断"
-            aria-label="诊断"
-            aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
-            className={toolPanel === DIAGNOSE_PANEL_ID ? 'selected' : ''}
-            onClick={() => openPanel(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
-          >
-            <CircleHelp size={18} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="恢复默认布局"
-            tone="neutral"
-            title="恢复默认布局"
-            aria-label="恢复默认布局"
-            onClick={() => {
-              useWorkbench.setState({ layout: null })
-              setModel(Model.fromJson(defaultLayout()))
-            }}
-          >
-            <LayoutGrid size={18} />
-          </GlassIconButton>
-        </nav>
+        <WorkbenchToolRails
+          side="left"
+          panel={panel}
+          toolPanel={toolPanel}
+          diagnosePanelId={DIAGNOSE_PANEL_ID}
+          contributions={[...(data?.panels ?? []), ...clientPanels]}
+          onSelectPrimary={(nextPanel) => {
+            useWorkbench.setState({ panel: nextPanel })
+            setSidebar(true)
+          }}
+          onOpenTool={(id, title, component, placement, config) => openPanel(id, title, component, config, placement)}
+          onToggleTool={(id, title, component, placement) => {
+            if (id === 'settings') {
+              toggleSettings()
+              return
+            }
+            if (id === 'terminal') {
+              togglePanel(id, title, component, placement === 'bottom' ? 'bottom' : 'right')
+              return
+            }
+            toggleGalleryTool(id, title, component, undefined, placement)
+          }}
+          onRestoreLayout={() => {
+            useWorkbench.setState({ layout: null })
+            setModel(Model.fromJson(defaultLayout()))
+          }}
+        />
         <aside className="sidebar">
           <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
           {panel === 'sessions' ? (
@@ -1247,35 +1211,23 @@ export default function App() {
               ) : mobileView === 'plugin' ? (
                 renderPlugin(mobilePanel)
               ) : mobileView === 'plugins' ? (
-                <div className="plugin-panel rb-plugin-panel">
-                  <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
-                  <h2>工具与插件</h2>
-                  <div className="mobile-tool-grid" aria-label="工具窗口">
-                    {MOBILE_TOOLS.map(({ id, title, icon: Icon }) => (
-                      <button
-                        key={id}
-                        className="new-session"
-                        onClick={() => toggleGalleryTool(id, title, id, undefined, 'right')}
-                      >
-                        <Icon size={16} />
-                        {title}
-                      </button>
-                    ))}
-                  </div>
-                  <h3 className="mobile-tool-heading">插件面板</h3>
-                  {[...(data?.panels ?? []), ...clientPanels].map((panel) => (
-                    <button
-                      key={panel.id}
-                      className="new-session"
-                      onClick={() =>
-                        openPanel(`plugin:${panel.id}`, panel.title, 'plugin', { panelId: panel.id }, panel.placement)
+                  <MobileToolMenu
+                    contributions={[...(data?.panels ?? []), ...clientPanels]}
+                    onOpenTool={(id, title, component, placement, config) =>
+                      openPanel(id, title, component, config, placement)
+                    }
+                    onToggleTool={(id, title, component, placement) => {
+                      if (id === 'settings') {
+                        toggleSettings()
+                        return
                       }
-                    >
-                      <LayoutGrid size={16} />
-                      {panel.title}
-                    </button>
-                  ))}
-                </div>
+                      if (id === 'terminal') {
+                        togglePanel(id, title, component, placement === 'bottom' ? 'bottom' : 'right')
+                        return
+                      }
+                      toggleGalleryTool(id, title, component, undefined, placement)
+                    }}
+                  />
               ) : (
                 <Chat
                   sessionId={activeSession}
@@ -1349,119 +1301,33 @@ export default function App() {
             />
           )}
         </main>
-        <nav className="tool-rail right-rail">
-          <GlassIconButton
-            label="浏览器"
-            tone="accent"
-            title="浏览器"
-            aria-label="浏览器"
-            aria-pressed={toolPanel === 'browser'}
-            className={toolPanel === 'browser' ? 'selected' : ''}
-            onClick={() => toggleGalleryTool('browser', '浏览器', 'browser', undefined, 'right')}
-          >
-            <Globe size={18} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="会话检查"
-            tone="accent"
-            title="会话检查"
-            aria-label="会话检查"
-            aria-pressed={toolPanel === 'inspector'}
-            className={toolPanel === 'inspector' ? 'selected' : ''}
-            onClick={() => toggleGalleryTool('inspector', '会话检查', 'inspector', undefined, 'right')}
-          >
-            <FileSearch size={18} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="计划"
-            tone="accent"
-            title="计划"
-            aria-label="计划"
-            aria-pressed={toolPanel === 'plan'}
-            className={toolPanel === 'plan' ? 'selected' : ''}
-            onClick={() => toggleGalleryTool('plan', '计划', 'plan', undefined, 'right')}
-          >
-            <ListChecks size={18} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="会话洞察"
-            tone="status"
-            title="会话洞察"
-            aria-label="会话洞察"
-            aria-pressed={toolPanel === 'insights'}
-            className={toolPanel === 'insights' ? 'selected' : ''}
-            onClick={() => toggleGalleryTool('insights', '会话洞察', 'insights', undefined, 'right')}
-          >
-            <Activity size={18} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="终端"
-            tone="neutral"
-            title="终端"
-            aria-label="终端"
-            aria-pressed={toolPanel === 'terminal'}
-            className={toolPanel === 'terminal' ? 'selected' : ''}
-            onClick={() => togglePanel('terminal', '终端', 'terminal', 'bottom')}
-          >
-            <TerminalSquare size={18} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="运行与事件"
-            tone="status"
-            title="运行与事件"
-            aria-label="运行与事件"
-            aria-pressed={toolPanel === 'activity'}
-            className={toolPanel === 'activity' ? 'selected' : ''}
-            onClick={() => toggleGalleryTool('activity', '运行', 'activity', undefined, 'right')}
-          >
-            <Activity size={18} />
-          </GlassIconButton>
-          <GlassIconButton
-            label="设置"
-            tone="neutral"
-            title="设置"
-            aria-label="设置"
-            aria-pressed={toolPanel === 'settings'}
-            className={toolPanel === 'settings' ? 'selected' : ''}
-            onClick={toggleSettings}
-          >
-            <Settings2 size={18} />
-          </GlassIconButton>
-          {[...(data?.panels ?? []), ...clientPanels].map((contribution) => (
-            <GlassIconButton
-              label={contribution.title}
-              tone="accent"
-              key={contribution.id}
-              title={contribution.title}
-              aria-label={contribution.title}
-              aria-pressed={toolPanel === `plugin:${contribution.id}`}
-              className={toolPanel === `plugin:${contribution.id}` ? 'selected' : ''}
-              onClick={() =>
-                openPanel(
-                  `plugin:${contribution.id}`,
-                  contribution.title,
-                  'plugin',
-                  { panelId: contribution.id },
-                  contribution.placement,
-                )
-              }
-            >
-              <LayoutGrid size={18} />
-            </GlassIconButton>
-          ))}
-          <span />
-          <GlassIconButton
-            label="诊断"
-            tone="warning"
-            title="诊断"
-            aria-label="诊断"
-            aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
-            className={toolPanel === DIAGNOSE_PANEL_ID ? 'selected' : ''}
-            onClick={() => toggleGalleryTool(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
-          >
-            <CircleHelp size={18} />
-          </GlassIconButton>
-        </nav>
+        <WorkbenchToolRails
+          side="right"
+          panel={panel}
+          toolPanel={toolPanel}
+          diagnosePanelId={DIAGNOSE_PANEL_ID}
+          contributions={[...(data?.panels ?? []), ...clientPanels]}
+          onSelectPrimary={(nextPanel) => {
+            useWorkbench.setState({ panel: nextPanel })
+            setSidebar(true)
+          }}
+          onOpenTool={(id, title, component, placement, config) => openPanel(id, title, component, config, placement)}
+          onToggleTool={(id, title, component, placement) => {
+            if (id === 'settings') {
+              toggleSettings()
+              return
+            }
+            if (id === 'terminal') {
+              togglePanel(id, title, component, placement === 'bottom' ? 'bottom' : 'right')
+              return
+            }
+            toggleGalleryTool(id, title, component, undefined, placement)
+          }}
+          onRestoreLayout={() => {
+            useWorkbench.setState({ layout: null })
+            setModel(Model.fromJson(defaultLayout()))
+          }}
+        />
       </div>
       <footer className="statusbar">
         <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
@@ -1502,28 +1368,7 @@ export default function App() {
           0.1.0
         </span>
       </footer>
-      <nav className="mobile-nav">
-        <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
-        {[
-          { id: 'sessions', label: '会话', icon: MessageSquare },
-          { id: 'chat', label: '对话', icon: Plus },
-          { id: 'files', label: '文件', icon: Folder },
-          { id: 'activity', label: '运行', icon: Activity },
-          { id: 'terminal', label: '终端', icon: TerminalSquare },
-          { id: 'plugins', label: '插件', icon: LayoutGrid },
-          { id: 'settings', label: '设置', icon: Settings2 },
-        ].map((item) => (
-          <button
-            key={item.id}
-            className={mobileView === item.id ? 'selected' : ''}
-            onClick={() => setMobileView(item.id)}
-            aria-label={item.label}
-          >
-            <item.icon size={18} />
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <MobileNavigation mobileView={mobileView} onSetMobileView={setMobileView} />
       {notice && (
         <div className="toast" role="alert">
           <span>{notice}</span>
