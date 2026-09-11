@@ -7,36 +7,40 @@
  */
 
 :root {
-  --hbar-bg: #151517;
-  --hbar-s0: #1c1d20;
-  --hbar-s1: #2c2e33;
-  --hbar-s2: #232428;
-  --hbar-bd: #36383e;
-  --hbar-bd2: #4c5058;
-  --hbar-bd-strong: #7a808a;
-  --hbar-t1: #f3f5f7;
-  --hbar-t2: #b3b8c0;
-  --hbar-t3: #9aa0a8;
-  --hbar-ac: #7ea3ff;
-  --hbar-ac2: #9ab7ff;
-  --hbar-ac-soft: #27344d;
-  --hbar-ac-soft-hover: #30405f;
-  --hbar-ac-border: #40547b;
-  --hbar-ac-ink: #b8ccff;
-  --hbar-on-ac: #101216;
-  --hbar-ok: #6fb58c;
-  --hbar-ok-soft: #213026;
-  --hbar-ok-ink: #75bd93;
-  --hbar-wn: #d3a34c;
-  --hbar-wn-soft: #2f2917;
-  --hbar-wn-ink: #e4b75f;
-  --hbar-er: #e0685e;
-  --hbar-er-soft: #37211d;
-  --hbar-er-ink: #f07c71;
+  /* React Bits Pro's dark application UI uses a quiet three-surface scale:
+     #0a0a0a for the shell, #111 for cards, and #1a1a1a for controls. Keep
+     these values semantic so every workbench surface follows the same depth
+     instead of inventing a separate blue-grey panel palette. */
+  --hbar-bg: #0a0a0a;
+  --hbar-s0: #111111;
+  --hbar-s1: #1a1a1a;
+  --hbar-s2: #151515;
+  --hbar-bd: #1f1f1f;
+  --hbar-bd2: #2a2a2a;
+  --hbar-bd-strong: #525252;
+  --hbar-t1: #ffffff;
+  --hbar-t2: #d6d6d6;
+  --hbar-t3: #a3a3a3;
+  --hbar-ac: #8b7dff;
+  --hbar-ac2: #b19eef;
+  --hbar-ac-soft: #28213f;
+  --hbar-ac-soft-hover: #352b54;
+  --hbar-ac-border: #544583;
+  --hbar-ac-ink: #d7ceff;
+  --hbar-on-ac: #0a0a0a;
+  --hbar-ok: #69d391;
+  --hbar-ok-soft: #173525;
+  --hbar-ok-ink: #91e5af;
+  --hbar-wn: #f3b562;
+  --hbar-wn-soft: #3a2a18;
+  --hbar-wn-ink: #ffd18e;
+  --hbar-er: #f27777;
+  --hbar-er-soft: #3b1f25;
+  --hbar-er-ink: #ffaaaa;
   --hbar-info: #8fa8e8;
   --hbar-teal: #7dd3c7;
-  --hbar-teal-soft: #263338;
-  --hbar-code: #1b1c1f;
+  --hbar-teal-soft: #1c3535;
+  --hbar-code: #111111;
   --dsh-font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
     'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -62,8 +66,8 @@
   --dsh-success: var(--hbar-ok);
   --dsh-warning: var(--hbar-wn);
   --dsh-error: var(--hbar-er);
-  --dsh-shadow-panel: 0 1px 3px rgb(0 0 0 / 34%), 0 8px 24px rgb(0 0 0 / 28%);
-  --dsh-shadow-prominent: 0 1px 3px rgb(0 0 0 / 42%), 0 14px 42px rgb(0 0 0 / 44%);
+  --dsh-shadow-panel: 0 1px 2px rgb(0 0 0 / 42%), 0 8px 24px rgb(0 0 0 / 18%);
+  --dsh-shadow-prominent: 0 1px 2px rgb(0 0 0 / 52%), 0 14px 42px rgb(0 0 0 / 28%);
   --color-background: var(--hbar-bg);
   --color-surface: var(--hbar-bg);
   --color-surface-container-lowest: var(--hbar-bg);
@@ -96,10 +100,10 @@
   --color-btn-primary-bg: var(--hbar-t1);
   --color-btn-primary-fg: var(--hbar-bg);
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 13px;
-  --radius-xl: 17px;
-  --radius-2xl: 20px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
   --radius-full: 9999px;
   --panel-radius: 10px;
   --control-radius: 6px;
