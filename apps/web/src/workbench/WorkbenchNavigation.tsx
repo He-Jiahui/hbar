@@ -1,5 +1,6 @@
 import {
   Activity,
+  BarChart3,
   CircleHelp,
   FileSearch,
   Folder,
@@ -95,6 +96,7 @@ function ToolRailButton({
   children,
   draggable = false,
   onDragStart,
+  onDragEnd,
   onDrop,
 }: {
   label: string
@@ -103,6 +105,7 @@ function ToolRailButton({
   onClick(): void
   draggable?: boolean
   onDragStart?(event: React.DragEvent<HTMLButtonElement>): void
+  onDragEnd?(event: React.DragEvent<HTMLButtonElement>): void
   onDrop?(event: React.DragEvent<HTMLButtonElement>): void
   children: React.ReactNode
 }) {
@@ -120,6 +123,7 @@ function ToolRailButton({
         event.dataTransfer.effectAllowed = 'move'
         onDragStart?.(event)
       }}
+      onDragEnd={onDragEnd}
       onDragOver={(event) => {
         if (!draggable) return
         event.preventDefault()
@@ -183,7 +187,7 @@ export function WorkbenchToolRails({
     insights: {
       title: '会话洞察',
       component: 'insights',
-      icon: Activity,
+      icon: BarChart3,
       tone: 'status' as const,
       placement: 'right' as const,
     },

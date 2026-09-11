@@ -376,6 +376,21 @@ export default function App() {
   const toolRailSides = Object.fromEntries(
     DEFAULT_TOOL_RAIL_ORDER.map((id) => [id, persistedToolRailLayout[id]?.side ?? 'right']),
   ) as Record<string, 'left' | 'right'>
+  function updateToolRailLayout(
+    mutator: (
+      current: typeof persistedToolRailLayout,
+    ) => typeof persistedToolRailLayout,
+  ) {
+    useWorkbench.setState((state) => ({ toolRailLayout: mutator(state.toolRailLayout) }))
+  }
+  const toolRailOrder = [...DEFAULT_TOOL_RAIL_ORDER].sort(
+    (a, b) =>
+      (persistedToolRailLayout[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
+      (persistedToolRailLayout[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
+  )
+  const toolRailSides = Object.fromEntries(
+    DEFAULT_TOOL_RAIL_ORDER.map((id) => [id, persistedToolRailLayout[id]?.side ?? 'right']),
+  ) as Record<string, 'left' | 'right'>
   function updateToolRailLayout(mutator: (current: typeof persistedToolRailLayout) => typeof persistedToolRailLayout) {
     useWorkbench.setState((state) => ({ toolRailLayout: mutator(state.toolRailLayout) }))
   }
@@ -932,12 +947,20 @@ export default function App() {
           }
           onReorderTool={(source, target) =>
             updateToolRailLayout((current) => {
-              const next: string[] = [...toolRailOrder]
-              const sourceIndex = next.indexOf(source)
-              const targetIndex = next.indexOf(target)
+              const next = [...DEFAULT_TOOL_RAIL_ORDER].sort(
+                (a, b) =>
+                  (current[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
+                  (current[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
+              )
+              const sourceIndex = next.indexOf(source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
+              const targetIndex = next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
               if (sourceIndex < 0 || targetIndex < 0) return current
               next.splice(sourceIndex, 1)
-              next.splice(next.indexOf(target), 0, source)
+              next.splice(
+                next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
+                0,
+                source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number],
+              )
               return Object.fromEntries(next.map((id, order) => [id, { side: current[id]?.side ?? 'right', order }]))
             })
           }
@@ -1129,12 +1152,20 @@ export default function App() {
           }
           onReorderTool={(source, target) =>
             updateToolRailLayout((current) => {
-              const next: string[] = [...toolRailOrder]
-              const sourceIndex = next.indexOf(source)
-              const targetIndex = next.indexOf(target)
+              const next = [...DEFAULT_TOOL_RAIL_ORDER].sort(
+                (a, b) =>
+                  (current[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
+                  (current[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
+              )
+              const sourceIndex = next.indexOf(source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
+              const targetIndex = next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
               if (sourceIndex < 0 || targetIndex < 0) return current
               next.splice(sourceIndex, 1)
-              next.splice(next.indexOf(target), 0, source)
+              next.splice(
+                next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
+                0,
+                source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number],
+              )
               return Object.fromEntries(next.map((id, order) => [id, { side: current[id]?.side ?? 'right', order }]))
             })
           }
