@@ -88,7 +88,9 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     const palette = page.getByRole('dialog', { name: '命令面板', exact: true })
     await expect(palette).toBeVisible()
     await expect(palette).toHaveClass(/glass-surface/)
-    const commandStyle = await palette.locator('.command-palette-list > .command-palette-item').first().evaluate((element) => {
+    await expect(palette.locator('.command-palette-group[aria-label="导航"]')).toBeVisible()
+    await expect(palette.locator('.command-palette-group[aria-label="操作"]')).toBeVisible()
+    const commandStyle = await palette.locator('.command-palette-group .command-palette-item').first().evaluate((element) => {
       const style = getComputedStyle(element)
       return {
         justifyContent: style.justifyContent,
@@ -103,7 +105,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
       paddingRight: '16px',
       textAlign: 'left',
     })
-    await expect(palette.locator('.command-palette-list > .command-palette-item.rb-spotlight-card')).not.toHaveCount(0)
+    await expect(palette.locator('.command-palette-group .command-palette-item.rb-spotlight-card')).not.toHaveCount(0)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-command-palette.png` })
     await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('命令控制台')
     await palette.getByRole('option', { name: /打开命令控制台/ }).press('Enter')
@@ -197,6 +199,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await page.setViewportSize({ width: 390, height: 844 })
     await page.keyboard.press('Control+Shift+P')
     await expect(palette).toBeVisible()
+    await expect(palette.locator('.command-palette-group[aria-label="最近使用"]')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-command-palette.png` })
     await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).press('Escape')
@@ -204,7 +207,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await page.keyboard.press('Control+Shift+P')
     await expect(palette).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
-    await expect(palette.locator('.command-palette-list > button').first()).toHaveCSS('justify-content', 'flex-start')
+    await expect(palette.locator('.command-palette-group .command-palette-item').first()).toHaveCSS('justify-content', 'flex-start')
     await page.screenshot({ path: `artifacts/${Date.now()}-narrow-command-palette.png` })
   } finally {
     fixture.api.disconnect()

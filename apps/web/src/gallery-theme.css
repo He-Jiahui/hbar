@@ -2367,6 +2367,26 @@ body.resizing-sidebar .sidebar-resizer::after {
   padding: 6px;
 }
 
+.command-palette-group {
+  display: grid;
+  gap: 2px;
+  padding: 4px 0 8px;
+}
+
+.command-palette-group + .command-palette-group {
+  border-top: 1px solid var(--hbar-bd);
+}
+
+.command-palette-group h3 {
+  margin: 4px 10px 3px;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
 .command-palette-list > button {
   display: flex;
   width: 100%;

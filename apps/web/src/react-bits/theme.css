@@ -30,7 +30,7 @@
 
 /* Keep command choices anchored to the same left edge even when a component
  * library or global button reset changes the default flex alignment. */
-.command-palette-list > .command-palette-item {
+.command-palette-list .command-palette-item {
   display: flex;
   width: 100%;
   align-items: flex-start;
@@ -40,7 +40,7 @@
   text-align: left;
 }
 
-.command-palette-list > .command-palette-item > .command-palette-copy {
+.command-palette-list .command-palette-item > .command-palette-copy {
   flex: 1 1 auto;
   min-width: 0;
   align-items: flex-start;
