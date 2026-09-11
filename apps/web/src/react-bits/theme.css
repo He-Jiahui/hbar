@@ -2853,6 +2853,70 @@
   text-align: left;
 }
 
+.tool-call {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.tool-call-summary {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  color: var(--hbar-t2);
+  text-align: left;
+}
+
+.tool-call-summary:hover,
+.tool-call-summary:focus-visible {
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.tool-call-summary > span {
+  flex: 0 0 auto;
+  color: var(--hbar-t1);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.tool-call-summary > code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font: 9px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-call-content {
+  display: grid;
+  gap: 5px;
+  padding: 8px 11px 10px;
+  border-top: 1px solid var(--hbar-bd);
+  background: color-mix(in srgb, var(--hbar-bg) 84%, transparent);
+}
+
+.tool-call-content > span {
+  color: var(--hbar-t3);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.tool-call-content pre {
+  max-height: 180px;
+  margin: 0;
+  overflow: auto;
+  color: var(--hbar-t2);
+  font: 10px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* Settings uses the same application-shell treatment as the workbench: a
  * concise destination icon and clear hierarchy, rather than an anonymous
  * strip of equally weighted text buttons. */

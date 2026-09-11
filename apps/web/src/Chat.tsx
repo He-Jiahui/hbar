@@ -89,6 +89,33 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
     </SpotlightCard>
   )
 }
+
+function ToolCallView({ block }: { block: Extract<ContentBlock, { type: 'tool_call' }> }) {
+  const [open, setOpen] = useState(false)
+  const argumentSummary = String(block.args.path ?? block.args.command ?? '').slice(0, 160)
+  return (
+    <SpotlightCard className="tool-call" spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)">
+      <button
+        type="button"
+        className="tool-call-summary"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <Wrench size={13} />
+        <span>{block.name}</span>
+        <code>{argumentSummary || '调用参数'}</code>
+      </button>
+      {open && (
+        <div className="tool-call-content">
+          <span>参数</span>
+          <pre>{JSON.stringify(block.args, null, 2)}</pre>
+        </div>
+      )}
+    </SpotlightCard>
+  )
+}
+
 function approvalSummary(tool: string, args: Record<string, unknown>): string {
   if (typeof args.path === 'string') return `${tool} · ${args.path}`
   if (typeof args.command === 'string') return `${tool} · ${args.command}`
@@ -253,18 +280,7 @@ function MessageView({ message }: { message: Message }) {
           <span>{block.artifact.name}</span>
         </a>
       )
-    if (block.type === 'tool_call')
-      return (
-        <SpotlightCard
-          className="tool-call"
-          key={index}
-          spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"
-        >
-          <Wrench size={13} />
-          <span>{block.name}</span>
-          <code>{String(block.args.path ?? block.args.command ?? '').slice(0, 160)}</code>
-        </SpotlightCard>
-      )
+    if (block.type === 'tool_call') return <ToolCallView key={index} block={block} />
     return <ToolResult key={index} block={block} />
   })
   return (
