@@ -917,6 +917,10 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
 
     await page.setViewportSize({ width: 390, height: 844 })
     await openMobileSettings(page)
+    await page.getByRole('button', { name: '技能', exact: true }).filter({ visible: true }).click()
+    await expect(page.getByRole('heading', { name: '全局技能', exact: true })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: '搜索技能', exact: true })).toBeVisible()
+    await page.screenshot({ path: `artifacts/${Date.now()}-mobile-skills-settings.png` })
     await page.getByRole('button', { name: '存储', exact: true }).filter({ visible: true }).click()
     await expect(page.getByRole('heading', { name: '存储目录', exact: true })).toBeVisible()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-storage-settings.png` })
