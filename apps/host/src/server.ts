@@ -28,6 +28,10 @@ interface SocketData {
   follows: Set<string>
   pending: number
   terminals: Set<string>
+  terminalCallbacks?: {
+    onOutput(terminalId: string, data: string): void
+    onExit(terminalId: string, code: number | null, signal: string | null): void
+  }
   timer?: ReturnType<typeof setTimeout> | undefined
   scope?: RuntimeScope | undefined
 }
@@ -117,6 +121,14 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         socket.data.token = token
         socket.data.deviceId = device.id
         socket.data.initialized = true
+        const terminalCallbacks = {
+          onOutput: (terminalId: string, data: string) =>
+            send(socket, { jsonrpc: '2.0', method: 'terminal.output', params: { terminalId, data } }),
+          onExit: (terminalId: string, code: number | null, signal: string | null) =>
+            send(socket, { jsonrpc: '2.0', method: 'terminal.exit', params: { terminalId, code, signal } }),
+        }
+        socket.data.terminalCallbacks = terminalCallbacks
+        for (const terminal of systemTerminals.attach(device.id, terminalCallbacks)) socket.data.terminals.add(terminal.id)
         clearTimeout(socket.data.timer)
         return hostInfo()
       }
@@ -315,44 +327,30 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         if (socket.data.terminals.size >= 8) throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
-        let terminalId = ''
-        const pendingOutput: string[] = []
-        const info = systemTerminals.open(workspace.id, workspace.path, p.cols, p.rows, {
-          onOutput: (data) => {
-            if (!terminalId) pendingOutput.push(data)
-            else send(socket, { jsonrpc: '2.0', method: 'terminal.output', params: { terminalId, data } })
-          },
-          onExit: (code, signal) => {
-            send(socket, { jsonrpc: '2.0', method: 'terminal.exit', params: { terminalId, code, signal } })
-          },
-        })
-        terminalId = info.id
+        const callbacks = socket.data.terminalCallbacks
+        if (!callbacks) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+        const info = systemTerminals.open(socket.data.deviceId!, workspace.id, workspace.path, p.cols, p.rows, callbacks)
         socket.data.terminals.add(info.id)
-        for (const data of pendingOutput)
-          send(socket, { jsonrpc: '2.0', method: 'terminal.output', params: { terminalId, data } })
         return info
       }
       case 'terminal.input': {
         const p = rpcSchemas[method].parse(raw)
-        if (!socket.data.terminals.has(p.terminalId)) throw new HbarError('PATH_DENIED', 'Terminal is not owned by this connection')
-        systemTerminals.write(p.terminalId, p.data)
+        systemTerminals.write(socket.data.deviceId!, p.terminalId, p.data)
         return null
       }
       case 'terminal.resize': {
         const p = rpcSchemas[method].parse(raw)
-        if (!socket.data.terminals.has(p.terminalId)) throw new HbarError('PATH_DENIED', 'Terminal is not owned by this connection')
-        systemTerminals.resize(p.terminalId, p.cols, p.rows)
+        systemTerminals.resize(socket.data.deviceId!, p.terminalId, p.cols, p.rows)
         return null
       }
       case 'terminal.close': {
         const p = rpcSchemas[method].parse(raw)
-        if (!socket.data.terminals.has(p.terminalId)) throw new HbarError('PATH_DENIED', 'Terminal is not owned by this connection')
         socket.data.terminals.delete(p.terminalId)
-        systemTerminals.close(p.terminalId)
+        systemTerminals.close(socket.data.deviceId!, p.terminalId)
         return null
       }
       case 'terminal.list':
-        return systemTerminals.list(socket.data.terminals)
+        return systemTerminals.list(socket.data.deviceId!)
       case 'approval.resolve': {
         const p = rpcSchemas[method].parse(raw)
         await kernel.resolveApproval(p.approvalId, p.decision)
@@ -684,7 +682,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       },
       close(socket) {
         clearTimeout(socket.data.timer)
-        systemTerminals.closeAll(socket.data.terminals)
+        if (socket.data.deviceId && socket.data.terminalCallbacks)
+          systemTerminals.detach(socket.data.deviceId, socket.data.terminalCallbacks)
         socket.data.terminals.clear()
         sockets.delete(socket)
         void socket.data.scope?.dispose().catch(console.error)

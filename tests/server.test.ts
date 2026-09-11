@@ -121,6 +121,10 @@ test('system terminal opens a scoped PTY and streams shell output', async () => 
     expect(output.includes(marker)).toBe(true)
     await client.call('terminal.resize', { terminalId: terminal.id, cols: 120, rows: 30 })
     expect((await client.call('terminal.list', {}))[0]?.cols).toBe(120)
+    client.disconnect()
+    await Bun.sleep(20)
+    await client.connect()
+    expect((await client.call('terminal.list', {})).some((item) => item.id === terminal.id)).toBe(true)
     await client.call('terminal.close', { terminalId: terminal.id })
     expect(await client.call('terminal.list', {})).toEqual([])
   } finally {
