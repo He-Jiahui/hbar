@@ -12,7 +12,7 @@ import {
 } from 'react'
 import './FloatingLayer.css'
 
-type FloatingPlacement = 'above' | 'below'
+export type FloatingPlacement = 'above' | 'below' | 'left' | 'right'
 
 export interface FloatingLayerProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className' | 'style'> {
   anchorRef: RefObject<HTMLElement | null>
@@ -67,9 +67,20 @@ export default function FloatingLayer({
     const viewportHeight = window.innerHeight
     const maxWidth = Math.max(0, viewportWidth - VIEWPORT_GAP * 2)
     const width = Math.min(matchAnchorWidth ? anchorBounds.width : layerBounds.width, maxWidth)
-    const left = clamp(anchorBounds.left, VIEWPORT_GAP, viewportWidth - width - VIEWPORT_GAP)
+    const isHorizontal = placement === 'left' || placement === 'right'
+    const desiredLeft =
+      placement === 'left'
+        ? anchorBounds.left - layerBounds.width - VIEWPORT_GAP
+        : placement === 'right'
+          ? anchorBounds.right + VIEWPORT_GAP
+          : anchorBounds.left
+    const left = clamp(desiredLeft, VIEWPORT_GAP, viewportWidth - width - VIEWPORT_GAP)
     const desiredTop =
-      placement === 'above' ? anchorBounds.top - layerBounds.height - VIEWPORT_GAP : anchorBounds.bottom + VIEWPORT_GAP
+      placement === 'above'
+        ? anchorBounds.top - layerBounds.height - VIEWPORT_GAP
+        : placement === 'below'
+          ? anchorBounds.bottom + VIEWPORT_GAP
+          : anchorBounds.top + (anchorBounds.height - layerBounds.height) / 2
     const top = clamp(desiredTop, VIEWPORT_GAP, viewportHeight - layerBounds.height - VIEWPORT_GAP)
 
     setStyle({
@@ -80,7 +91,7 @@ export default function FloatingLayer({
       bottom: 'auto',
       zIndex: LAYER_Z_INDEX,
       maxWidth: `calc(100vw - ${VIEWPORT_GAP * 2}px)`,
-      ...(matchAnchorWidth ? { width } : {}),
+      ...(matchAnchorWidth && !isHorizontal ? { width } : {}),
       visibility: 'visible',
     })
   }, [anchorRef, matchAnchorWidth, placement])

@@ -24,6 +24,28 @@
   text-align: left;
 }
 
+/* Tool-rail labels are deliberately rendered by the same body portal as
+ * menus.  Keeping the label opaque and pointer-transparent prevents the
+ * neighbouring rail button or a panel stacking context from painting over
+ * the text while still allowing the pointer to remain on the anchor. */
+.floating-layer.floating-tooltip {
+  width: max-content;
+  max-width: min(220px, calc(100vw - 16px));
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid var(--hbar-bd2);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-s1) !important;
+  box-shadow: var(--dsh-shadow-panel);
+  color: var(--hbar-t1);
+  font-size: 10px;
+  line-height: 1.25;
+  pointer-events: none;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Capability menus must sit above every workbench panel. Keep their glass
  * backing opaque and isolated so the displacement filter cannot blend
  * through the composer or duplicate the text underneath. */

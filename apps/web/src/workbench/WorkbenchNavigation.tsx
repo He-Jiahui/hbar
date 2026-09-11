@@ -99,6 +99,7 @@ function contributionPlacement(placement: NavigationContribution['placement']): 
 
 function ToolRailButton({
   label,
+  tooltipPlacement,
   selected,
   tone = 'accent',
   onClick,
@@ -110,6 +111,7 @@ function ToolRailButton({
   onKeyboardMove,
 }: {
   label: string
+  tooltipPlacement: 'left' | 'right'
   selected?: boolean
   tone?: 'accent' | 'status' | 'warning' | 'neutral'
   onClick(): void
@@ -124,6 +126,8 @@ function ToolRailButton({
   return (
     <GlassIconButton
       label={label}
+      portalTooltip
+      tooltipPlacement={tooltipPlacement}
       tone={tone}
       title={label}
       aria-label={label}
@@ -281,10 +285,20 @@ export function WorkbenchToolRails({
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => dropOnRail(event, 'left')}
         >
-          <ToolRailButton label="会话" selected={panel === 'sessions'} onClick={() => onSelectPrimary('sessions')}>
+          <ToolRailButton
+            label="会话"
+            tooltipPlacement="right"
+            selected={panel === 'sessions'}
+            onClick={() => onSelectPrimary('sessions')}
+          >
             <MessageSquare size={19} />
           </ToolRailButton>
-          <ToolRailButton label="文件" selected={panel === 'files'} onClick={() => onSelectPrimary('files')}>
+          <ToolRailButton
+            label="文件"
+            tooltipPlacement="right"
+            selected={panel === 'files'}
+            onClick={() => onSelectPrimary('files')}
+          >
             <Folder size={19} />
           </ToolRailButton>
           {toolOrder
@@ -298,6 +312,7 @@ export function WorkbenchToolRails({
                 <ToolRailButton
                   key={id}
                   label={tool.title}
+                  tooltipPlacement="right"
                   tone={tool.tone}
                   selected={toolPanel === panelId}
                   draggable
@@ -342,6 +357,7 @@ export function WorkbenchToolRails({
                 <ToolRailButton
                   key={id}
                   label={tool.title}
+                  tooltipPlacement="left"
                   tone={tool.tone}
                   selected={toolPanel === panelId}
                   draggable
@@ -371,6 +387,7 @@ export function WorkbenchToolRails({
             <ToolRailButton
               key={contribution.id}
               label={contribution.title}
+              tooltipPlacement="left"
               selected={toolPanel === `plugin:${contribution.id}`}
               onClick={() =>
                 onOpenTool(

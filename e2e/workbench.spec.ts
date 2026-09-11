@@ -126,11 +126,62 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await browserPanel.getByRole('button', { name: '关闭页面', exact: true }).click()
     await expect(browserPanel.locator('.browser-page-card')).toHaveCount(1)
     await browserRail.hover()
-    await expect(browserRail.locator('.rb-glass-icon-label')).toHaveCSS('opacity', '1')
-    await expect(browserRail.locator('.rb-glass-icon-label')).toHaveCSS('z-index', '100')
+    const browserTooltip = page.locator('.floating-tooltip[role="tooltip"]').filter({ hasText: '浏览器' })
+    await expect(browserTooltip).toBeVisible()
+    const rightTooltipGeometry = await browserTooltip.evaluate((element) => {
+      const tooltip = element.getBoundingClientRect()
+      const anchor = document.querySelector('.right-rail [aria-label="浏览器"]')?.getBoundingClientRect()
+      const centerX = tooltip.left + tooltip.width / 2
+      const centerY = tooltip.top + tooltip.height / 2
+      const previousPointerEvents = element.style.pointerEvents
+      element.style.pointerEvents = 'auto'
+      const hit = document.elementFromPoint(centerX, centerY)
+      element.style.pointerEvents = previousPointerEvents
+      const style = getComputedStyle(element)
+      return {
+        tooltip: { left: tooltip.left, right: tooltip.right, top: tooltip.top, bottom: tooltip.bottom },
+        anchor: anchor ? { left: anchor.left, right: anchor.right } : null,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        position: style.position,
+        zIndex: style.zIndex,
+        textAlign: style.textAlign,
+        hitSelf: hit === element || element.contains(hit),
+      }
+    })
+    expect(rightTooltipGeometry.position).toBe('fixed')
+    expect(Number(rightTooltipGeometry.zIndex)).toBeGreaterThanOrEqual(2100)
+    expect(rightTooltipGeometry.textAlign).toBe('left')
+    expect(rightTooltipGeometry.anchor).not.toBeNull()
+    expect(rightTooltipGeometry.tooltip.right).toBeLessThanOrEqual(rightTooltipGeometry.anchor?.left ?? 0)
+    expect(rightTooltipGeometry.tooltip.left).toBeGreaterThanOrEqual(0)
+    expect(rightTooltipGeometry.tooltip.right).toBeLessThanOrEqual(rightTooltipGeometry.viewport.width)
+    expect(rightTooltipGeometry.tooltip.top).toBeGreaterThanOrEqual(0)
+    expect(rightTooltipGeometry.tooltip.bottom).toBeLessThanOrEqual(rightTooltipGeometry.viewport.height)
+    expect(rightTooltipGeometry.hitSelf).toBe(true)
+    await page.mouse.click(700, 180)
+    await expect(browserTooltip).toHaveCount(0)
     await browserRail.dragTo(page.locator('.left-rail'))
     await expect(page.locator('.left-rail').getByRole('button', { name: '浏览器', exact: true })).toBeVisible()
     const movedBrowserRail = page.locator('.left-rail').getByRole('button', { name: '浏览器', exact: true })
+    await movedBrowserRail.hover()
+    const leftTooltip = page.locator('.floating-tooltip[role="tooltip"]').filter({ hasText: '浏览器' })
+    await expect(leftTooltip).toBeVisible()
+    const leftTooltipGeometry = await leftTooltip.evaluate((element) => {
+      const tooltip = element.getBoundingClientRect()
+      const anchor = document.querySelector('.left-rail [aria-label="浏览器"]')?.getBoundingClientRect()
+      return {
+        tooltip: { left: tooltip.left, right: tooltip.right, top: tooltip.top, bottom: tooltip.bottom },
+        anchor: anchor ? { left: anchor.left, right: anchor.right } : null,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+      }
+    })
+    expect(leftTooltipGeometry.anchor).not.toBeNull()
+    expect(leftTooltipGeometry.tooltip.left).toBeGreaterThanOrEqual(leftTooltipGeometry.anchor?.right ?? 0)
+    expect(leftTooltipGeometry.tooltip.right).toBeLessThanOrEqual(leftTooltipGeometry.viewport.width)
+    expect(leftTooltipGeometry.tooltip.top).toBeGreaterThanOrEqual(0)
+    expect(leftTooltipGeometry.tooltip.bottom).toBeLessThanOrEqual(leftTooltipGeometry.viewport.height)
+    await page.keyboard.press('Escape')
+    await expect(leftTooltip).toHaveCount(0)
     await movedBrowserRail.dragTo(page.locator('.right-rail'))
     await expect(page.locator('.right-rail').getByRole('button', { name: '浏览器', exact: true })).toBeVisible()
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-browser-animated-list.png` })
