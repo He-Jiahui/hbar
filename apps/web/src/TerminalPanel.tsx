@@ -1,7 +1,7 @@
 import { newRequestId } from './browser-utils'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, CircleStop, LoaderCircle, Plus, Send, TerminalSquare, X } from 'lucide-react'
-import type { Approval, ContentBlock, Message, ThinkingLevel } from '@hbar/contracts'
+import { Check, LoaderCircle, Send, TerminalSquare, X } from 'lucide-react'
+import type { Approval, ApprovalMode, ContentBlock, Message, ThinkingLevel } from '@hbar/contracts'
 import {
   BUILTIN_TERMINAL_COMMANDS,
   CommandRegistry,
@@ -16,6 +16,7 @@ import {
   report,
   selectModel,
   selectThinkingLevel,
+  setApprovalMode,
   useCatalog,
   useSessions,
   useWorkbench,
@@ -95,7 +96,23 @@ function approvalMarkdown(approval: Approval) {
   return `### 等待审批\n\n工具：\`${approval.tool}\`\n\n\`/approve ${approval.id}\` 或 \`/deny ${approval.id}\``
 }
 
-export default function TerminalPanel({ onSettings, onClose }: { onSettings(): void; onClose(): void }) {
+interface ConsoleCandidate {
+  key: string
+  value: string
+  label: string
+  description: string
+  kind: 'command' | 'argument'
+}
+
+export default function TerminalPanel({
+  embedded = false,
+  onSelectSession,
+  onClose,
+}: {
+  embedded?: boolean
+  onSelectSession?(sessionId: string): void
+  onClose(): void
+}) {
   const catalog = useCatalog((state) => state.data)
   const workspaceId = useWorkbench((state) => state.workspaceId)
   const sessionId = useWorkbench((state) => state.activeSession)
@@ -119,11 +136,66 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     () => [...builtins.list(), ...pluginCommands].sort((a, b) => a.id.localeCompare(b.id)),
     [pluginCommands],
   )
-  const candidates = useMemo(() => {
+  const candidates = useMemo<ConsoleCandidate[]>(() => {
+    const thinkingMatch = input.match(/^\/thinking(?:\s+(.*))?$/i)
+    if (thinkingMatch && (input.includes(' ') || input.toLowerCase() === '/thinking')) {
+      const prefix = (thinkingMatch[1] ?? '').toLowerCase()
+      const model = catalog?.models.find((item) => item.id === modelId)
+      const levels = model ? modelThinkingLevels(model) : (['off'] as const)
+      return levels
+        .filter((level) => level.startsWith(prefix))
+        .map((level) => ({
+          key: `thinking:${level}`,
+          value: `/thinking ${level}`,
+          label: level,
+          description: modelThinkingLabel(level),
+          kind: 'argument',
+        }))
+    }
+    const modelMatch = input.match(/^\/model\s+(.*)$/i)
+    if (modelMatch) {
+      const prefix = (modelMatch[1] ?? '').toLowerCase()
+      return (catalog?.models ?? [])
+        .filter((model) =>
+          [model.id, model.name, model.modelName, model.model, model.providerName].some((value) =>
+            value.toLowerCase().includes(prefix),
+          ),
+        )
+        .slice(0, 10)
+        .map((model) => ({
+          key: `model:${model.id}`,
+          value: `/model ${model.id}`,
+          label: model.modelName,
+          description: model.providerName,
+          kind: 'argument',
+        }))
+    }
+    const settingsMatch = input.match(/^\/settings\s+approval(?:\s+(.*))?$/i)
+    if (settingsMatch) {
+      const prefix = (settingsMatch[1] ?? '').toLowerCase()
+      return (['allow', 'ask', 'deny'] as const)
+        .filter((mode) => mode.startsWith(prefix))
+        .map((mode) => ({
+          key: `approval:${mode}`,
+          value: `/settings approval ${mode}`,
+          label: mode,
+          description: mode === 'allow' ? '自动允许' : mode === 'deny' ? '自动拒绝' : '每次询问',
+          kind: 'argument',
+        }))
+    }
     if (!input.startsWith('/') || input.includes(' ')) return []
     const prefix = input.slice(1).toLowerCase()
-    return commands.filter((command) => command.id.toLowerCase().includes(prefix)).slice(0, 10)
-  }, [commands, input])
+    return commands
+      .filter((command) => command.id.toLowerCase().includes(prefix))
+      .slice(0, 10)
+      .map((command) => ({
+        key: `command:${command.id}`,
+        value: `/${command.id}`,
+        label: `/${command.id}`,
+        description: command.description,
+        kind: 'command',
+      }))
+  }, [catalog?.models, commands, input, modelId])
 
   useEffect(() => {
     const openCommands = () => {
@@ -139,6 +211,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     queueMicrotask(() => scroll.current?.scrollTo({ top: scroll.current.scrollHeight }))
   }
   const chooseSession = async (id: string) => {
+    onSelectSession?.(id)
     await openSession(id)
     write(`已切换到 Session \`${id}\``)
   }
@@ -187,7 +260,11 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
       await chooseSession(target.id)
       return
     }
-    if (!sessionId) throw new Error('请先创建或选择 Session')
+    if (
+      !sessionId &&
+      !['model', 'thinking', 'plugins', 'skills', 'settings', 'paths', 'diagnose', 'clear', 'quit'].includes(command)
+    )
+      throw new Error('请先创建或选择 Session')
     if (command === 'fork') {
       const created = await client().call('session.fork', { sessionId })
       await refreshCatalog()
@@ -214,8 +291,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     } else if (command === 'thinking') {
       const target = catalog?.models.find((item) => item.id === modelId)
       const levels = target ? modelThinkingLevels(target) : ['off' as const]
-      if (!levels.includes(argument as ThinkingLevel))
-        throw new Error('无效的 thinking 级别')
+      if (!levels.includes(argument as ThinkingLevel)) throw new Error('无效的 thinking 级别')
       selectThinkingLevel(argument as ThinkingLevel)
       write(`思考等级：${modelThinkingLabel(argument as ThinkingLevel)}`)
     } else if (command === 'compact') {
@@ -224,8 +300,11 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     } else if (command === 'approve') await resolveApproval('allowed', args[0])
     else if (command === 'deny') await resolveApproval('denied', args[0])
     else if (command === 'stop') {
-      if (!activeRun) throw new Error('当前 Session 没有运行')
-      await client().call('run.cancel', { runId: activeRun.id })
+      const currentRun = useSessions
+        .getState()
+        .snapshots[sessionId]?.runs.find((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
+      if (!currentRun) throw new Error('当前 Session 没有运行')
+      await client().call('run.cancel', { runId: currentRun.id })
     } else if (command === 'retry') {
       if (!lastMessage.current) throw new Error('没有可重试的消息')
       await sendMessage(lastMessage.current)
@@ -254,8 +333,18 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     } else if (command === 'skills') {
       const paths = await client().call('system.paths.get', {})
       write(`全局技能目录：\`${paths.skills}\\global\``)
-    } else if (command === 'settings') onSettings()
-    else if (command === 'paths')
+    } else if (command === 'settings') {
+      if (!args.length) {
+        const model = catalog?.models.find((item) => item.id === modelId)
+        write(
+          `### Settings\n\n- approval: \`${approvalMode}\`\n- thinking: \`${thinkingLevel}\`\n- model: \`${model?.name ?? modelId ?? '未配置'}\`\n\n使用 \`/settings approval allow|ask|deny\` 修改权限策略。`,
+        )
+      } else if (args[0] === 'approval' && ['allow', 'ask', 'deny'].includes(args[1] ?? '')) {
+        const mode = args[1] as ApprovalMode
+        if (!(await setApprovalMode(mode))) throw new Error('权限策略保存失败')
+        write(`approval: \`${mode}\``)
+      } else throw new Error('使用 /settings approval allow|ask|deny')
+    } else if (command === 'paths')
       write(`\`\`\`json\n${JSON.stringify(await client().call('system.paths.get', {}), null, 2)}\n\`\`\``)
     else if (command === 'diagnose')
       write(`\`\`\`json\n${JSON.stringify(await client().call('system.diagnose', {}), null, 2)}\n\`\`\``)
@@ -263,7 +352,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     else if (command === 'quit') onClose()
   }
   const sendMessage = async (text: string) => {
-    let targetSessionId = sessionId
+    let targetSessionId = useWorkbench.getState().activeSession
     if (!targetSessionId) {
       if (!workspaceId) throw new Error('请先选择项目')
       const created = await client().call('session.create', { workspaceId })
@@ -271,7 +360,10 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
       await refreshCatalog()
       await openSession(created.id)
     }
-    if (activeRun) throw new Error('当前 Session 正在运行，可先切换 Session 或 /stop')
+    const currentRun = useSessions
+      .getState()
+      .snapshots[targetSessionId]?.runs.find((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
+    if (currentRun) throw new Error('当前 Session 正在运行，可先切换 Session 或 /stop')
     lastMessage.current = text
     await client().call('run.start', {
       sessionId: targetSessionId,
@@ -280,8 +372,8 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
       input: { text, images: [], thinking: thinkingLevel, approval: approvalMode },
     })
   }
-  const submit = async () => {
-    const value = input.trim()
+  const submit = async (source = input) => {
+    const value = source.trim()
     if (!value) return
     setInput('')
     setCompletion(0)
@@ -306,55 +398,20 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
     }
   }
   return (
-    <section className="terminal-panel">
-      <header className="terminal-toolbar">
-        <GlassSurface className="terminal-toolbar-glass" width="100%" height="100%" aria-hidden="true" />
-        <TerminalSquare size={15} />
-        <strong className="command-console-title">命令控制台</strong>
-        <select
-          aria-label="控制台 Session"
-          value={sessionId}
-          onChange={(event) => void chooseSession(event.target.value).catch(report)}
-        >
-          <option value="">选择 Session</option>
-          {sessions.map((item) => (
-            <option value={item.id} key={item.id}>
-              {item.title}
-            </option>
-          ))}
-        </select>
-        <button
-          title="新建 Session"
-          aria-label="新建 Session"
-          onClick={() => void dispatch({ command: 'new', args: [], source: '/new' }).catch(report)}
-        >
-          <Plus size={14} />
-        </button>
-        <span />
-        <select
-          aria-label="控制台推理级别"
-          value={thinkingLevel}
-          onChange={(event) => selectThinkingLevel(event.target.value as ThinkingLevel)}
-        >
-          {(catalog?.models.find((item) => item.id === modelId)
-            ? modelThinkingLevels(catalog.models.find((item) => item.id === modelId)!)
-            : ['off' as const]
-          ).map((level) => (
-            <option value={level} key={level}>
-              {modelThinkingLabel(level)}
-            </option>
-          ))}
-        </select>
-        {activeRun && (
-          <button
-            title="停止运行"
-            aria-label="停止运行"
-            onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
-          >
-            <CircleStop size={14} />
+    <section className={`terminal-panel ${embedded ? 'terminal-embedded' : ''}`}>
+      {!embedded && (
+        <header className="terminal-toolbar">
+          <GlassSurface className="terminal-toolbar-glass" width="100%" height="100%" aria-hidden="true" />
+          <TerminalSquare size={15} />
+          <strong className="command-console-title">命令控制台</strong>
+          <span className="terminal-toolbar-context">
+            {sessions.find((item) => item.id === sessionId)?.title ?? '未选择 Session'} · {thinkingLevel}
+          </span>
+          <button title="关闭命令控制台" aria-label="关闭命令控制台" onClick={onClose}>
+            <X size={14} />
           </button>
-        )}
-      </header>
+        </header>
+      )}
       <div className="terminal-transcript" ref={scroll}>
         {snapshot?.messages.map((message) => (
           <TranscriptMessage message={message} key={message.id} />
@@ -386,7 +443,11 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
                 disabled={resolvingApprovals.has(approval.id)}
                 onClick={() => void resolveApproval('denied', approval.id).catch(report)}
               >
-                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={13} className="spinning" /> : <X size={13} />}
+                {resolvingApprovals.has(approval.id) ? (
+                  <LoaderCircle size={13} className="spinning" />
+                ) : (
+                  <X size={13} />
+                )}
                 拒绝
               </button>
               <GlareButton
@@ -395,7 +456,11 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
                 onClick={() => void resolveApproval('allowed', approval.id).catch(report)}
                 glareColor="color-mix(in srgb, var(--hbar-ok) 62%, transparent)"
               >
-                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={13} className="spinning" /> : <Check size={13} />}
+                {resolvingApprovals.has(approval.id) ? (
+                  <LoaderCircle size={13} className="spinning" />
+                ) : (
+                  <Check size={13} />
+                )}
                 批准
               </GlareButton>
             </div>
@@ -422,14 +487,14 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
                 className={index === completion ? 'selected' : ''}
                 role="option"
                 aria-selected={index === completion}
-                key={candidate.id}
+                key={candidate.key}
                 spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
                 onMouseDown={(event) => {
                   event.preventDefault()
-                  setInput(`/${candidate.id} `)
+                  setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
                 }}
               >
-                <code>/{candidate.id}</code>
+                <code>{candidate.label}</code>
                 <span>{candidate.description}</span>
               </SpotlightCard>
             ))}
@@ -444,12 +509,16 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
             setCompletion(0)
           }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (event.key === 'Enter' && !event.shiftKey && candidates[completion]?.kind === 'argument') {
+              event.preventDefault()
+              void submit(candidates[completion]!.value)
+            } else if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               void submit()
             } else if (event.key === 'Tab' && candidates[completion]) {
               event.preventDefault()
-              setInput(`/${candidates[completion]!.id} `)
+              const candidate = candidates[completion]!
+              setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
             } else if (event.key === 'ArrowDown' && candidates.length) {
               event.preventDefault()
               setCompletion((completion + 1) % candidates.length)

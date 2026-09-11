@@ -12,38 +12,6 @@
   "borders": [
     {
       "type": "border",
-      "id": "bottom-tools",
-      "location": "bottom",
-      "size": 200,
-      "selected": -1,
-      "show": false,
-      "children": [
-        {
-          "type": "tab",
-          "id": "terminal",
-          "name": "命令控制台",
-          "component": "terminal",
-          "enableClose": true,
-          "config": {
-            "region": "bottom",
-            "module": "terminal"
-          }
-        },
-        {
-          "type": "tab",
-          "id": "diagnose",
-          "name": "诊断",
-          "component": "diagnose",
-          "enableClose": false,
-          "config": {
-            "region": "bottom",
-            "module": "diagnostics"
-          }
-        }
-      ]
-    },
-    {
-      "type": "border",
       "location": "right",
       "size": 320,
       "selected": -1,

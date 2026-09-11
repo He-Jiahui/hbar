@@ -2,6 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { HbarError } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { HbarClient } from '@hbar/client'
 import { startServer } from '../apps/host/src/server.ts'
@@ -72,6 +73,26 @@ test('revoking a paired device closes its authority', async () => {
   await expect(external.call('system.bootstrap', {})).rejects.toThrow()
   await expect(host.auth.authenticate(second.token)).rejects.toThrow('revoked')
   external.disconnect()
+})
+test('setting paths reports that the Host must be restarted', async () => {
+  const { client, root } = await fixture()
+  const nextDataRoot = join(root, 'next-data')
+  const nextCacheRoot = join(root, 'next-cache')
+  const result = await client.call('system.paths.set', { dataRoot: nextDataRoot, cacheRoot: nextCacheRoot })
+  expect(result.restartRequired).toBe(true)
+  expect(result.restartMessage).toBe('Please exit and restart the Host to apply the new paths')
+  expect(result.dataRoot).toBe(nextDataRoot)
+  expect(result.cacheRoot).toBe(nextCacheRoot)
+})
+test('unsupported restart reports an explicit error', async () => {
+  const { client } = await fixture()
+  try {
+    await client.call('system.restart', {})
+    throw new Error('system.restart unexpectedly succeeded')
+  } catch (error) {
+    expect(error).toBeInstanceOf(HbarError)
+    expect((error as HbarError).code).toBe('RESTART_UNSUPPORTED')
+  }
 })
 test('permission mode is exposed through the paired host and persists for future runs', async () => {
   const { client, kernel } = await fixture()

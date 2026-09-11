@@ -8,7 +8,8 @@ export interface ChatSessionChromeProps {
   session: Session | undefined
   workspace: Workspace | undefined
   activeRun: Run | undefined
-  onOpenTerminal: (() => void) | undefined
+  view: 'chat' | 'console'
+  onViewChange(view: 'chat' | 'console'): void
   onRefresh(): void | Promise<void>
 }
 
@@ -17,7 +18,8 @@ export default function ChatSessionChrome({
   session,
   workspace,
   activeRun,
-  onOpenTerminal,
+  view,
+  onViewChange,
   onRefresh,
 }: ChatSessionChromeProps) {
   const sessionTitle = session?.title ?? 'Session'
@@ -35,15 +37,21 @@ export default function ChatSessionChrome({
           <span className="session-runtime">Pi</span>
         </div>
         <div className="session-view-tabs" role="tablist" aria-label="会话视图">
-          <button type="button" role="tab" aria-selected="true" className="selected">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'chat'}
+            className={view === 'chat' ? 'selected' : ''}
+            onClick={() => onViewChange('chat')}
+          >
             Chat
           </button>
           <button
             type="button"
             role="tab"
-            aria-selected="false"
-            onClick={() => onOpenTerminal?.()}
-            disabled={!onOpenTerminal}
+            aria-selected={view === 'console'}
+            className={view === 'console' ? 'selected' : ''}
+            onClick={() => onViewChange('console')}
           >
             控制台
           </button>

@@ -1655,6 +1655,12 @@ p {
   min-width: 0;
   background: #1d1f23;
 }
+.terminal-panel.terminal-embedded {
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: auto;
+  min-height: 0;
+}
 .terminal-toolbar {
   display: flex;
   align-items: center;
@@ -1666,6 +1672,15 @@ p {
 }
 .terminal-toolbar > span {
   flex: 1;
+}
+.terminal-toolbar-context {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font: 10px var(--mono);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .command-console-title {
   flex: 0 0 auto;

@@ -136,10 +136,14 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'system.paths.set': {
         const p = z.object({ dataRoot: z.string().min(1), cacheRoot: z.string().min(1) }).parse(raw)
-        return kernel.setPaths(p.dataRoot, p.cacheRoot)
+        return {
+          ...(await kernel.setPaths(p.dataRoot, p.cacheRoot)),
+          restartRequired: true,
+          restartMessage: 'Please exit and restart the Host to apply the new paths',
+        }
       }
       case 'system.restart':
-        return { accepted: false, restartRequired: true }
+        throw new HbarError('RESTART_UNSUPPORTED', 'The Host cannot restart itself; restart the Host process manually')
       case 'permission.get':
         return { mode: kernel.permissionMode() }
       case 'permission.set': {

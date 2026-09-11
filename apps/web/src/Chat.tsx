@@ -41,6 +41,7 @@ import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
 import PromptComposer, { type AttachmentKind, type OpenFilePicker } from './PromptComposer'
 import ChatSessionChrome from './ChatSessionChrome'
+import TerminalPanel from './TerminalPanel'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -192,31 +193,35 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
                   </span>
                 </label>
               ))}
-              {question.options?.length ? question.isOther !== false && (
-                <label className="user-input-option">
-                  <input
-                    type="radio"
-                    name={`${request.requestId}:${question.id}`}
-                    value="__other__"
-                    checked={selected[question.id] === '__other__'}
-                    disabled={saving}
-                    onChange={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
-                  />
-                  <span>
-                    <strong>其他</strong>
-                    {selected[question.id] === '__other__' && (
-                      <input
-                        autoFocus
-                        aria-label={`${question.header} 其他答案`}
-                        type={question.isSecret ? 'password' : 'text'}
-                        value={other[question.id] ?? ''}
-                        disabled={saving}
-                        placeholder="填写其他答案"
-                        onChange={(event) => setOther((current) => ({ ...current, [question.id]: event.target.value }))}
-                      />
-                    )}
-                  </span>
-                </label>
+              {question.options?.length ? (
+                question.isOther !== false && (
+                  <label className="user-input-option">
+                    <input
+                      type="radio"
+                      name={`${request.requestId}:${question.id}`}
+                      value="__other__"
+                      checked={selected[question.id] === '__other__'}
+                      disabled={saving}
+                      onChange={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
+                    />
+                    <span>
+                      <strong>其他</strong>
+                      {selected[question.id] === '__other__' && (
+                        <input
+                          autoFocus
+                          aria-label={`${question.header} 其他答案`}
+                          type={question.isSecret ? 'password' : 'text'}
+                          value={other[question.id] ?? ''}
+                          disabled={saving}
+                          placeholder="填写其他答案"
+                          onChange={(event) =>
+                            setOther((current) => ({ ...current, [question.id]: event.target.value }))
+                          }
+                        />
+                      )}
+                    </span>
+                  </label>
+                )
               ) : (
                 <label className="user-input-option user-input-freeform">
                   <span>
@@ -337,11 +342,15 @@ function MessageView({ message }: { message: Message }) {
 export default function Chat({
   sessionId = '',
   onSettings,
-  onTerminal,
+  view = 'chat',
+  onViewChange,
+  onSelectSession,
 }: {
   sessionId?: string
   onSettings(): void
-  onTerminal?: () => void
+  view?: 'chat' | 'console'
+  onViewChange(view: 'chat' | 'console'): void
+  onSelectSession(sessionId: string): void
 }) {
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
@@ -472,7 +481,13 @@ export default function Chat({
         await refreshCatalog()
         await openSession(target)
       }
-      const input: UserInput = { text: sentDraft.text, images: sentDraft.images, files: sentDraft.files, thinking: thinkingLevel, approval: approvalMode }
+      const input: UserInput = {
+        text: sentDraft.text,
+        images: sentDraft.images,
+        files: sentDraft.files,
+        thinking: thinkingLevel,
+        approval: approvalMode,
+      }
       const key = JSON.stringify({ target, input, modelId, thinkingLevel })
       if (pendingRequest.current?.key !== key) pendingRequest.current = { key, requestId: newRequestId() }
       await client().call('run.start', {
@@ -504,15 +519,16 @@ export default function Chat({
     try {
       for (const file of [...selected].slice(0, capacity)) {
         const artifact = await client().upload(file)
-        if (kind === 'image' && artifact.mime.startsWith('image/'))
-          uploadedImages.push(artifact)
+        if (kind === 'image' && artifact.mime.startsWith('image/')) uploadedImages.push(artifact)
         else uploadedFiles.push(artifact)
       }
     } catch (error) {
       report(error)
     } finally {
-      if (uploadedImages.length) updateComposerDraft(sessionId, (current) => ({ images: [...current.images, ...uploadedImages] }))
-      if (uploadedFiles.length) updateComposerDraft(sessionId, (current) => ({ files: [...current.files, ...uploadedFiles] }))
+      if (uploadedImages.length)
+        updateComposerDraft(sessionId, (current) => ({ images: [...current.images, ...uploadedImages] }))
+      if (uploadedFiles.length)
+        updateComposerDraft(sessionId, (current) => ({ files: [...current.files, ...uploadedFiles] }))
       setUploading(false)
     }
   }
@@ -537,7 +553,8 @@ export default function Chat({
         session={sessionInfo}
         workspace={workspace}
         activeRun={activeRun}
-        onOpenTerminal={onTerminal}
+        view={view}
+        onViewChange={onViewChange}
         onRefresh={async () => {
           try {
             await openSession(sessionId)
@@ -546,227 +563,257 @@ export default function Chat({
           }
         }}
       />
-      {snapshot?.hasOlder && (
-        <button
-          className="older-messages"
-          onClick={() => {
-            stick.current = false
-            void loadOlder(sessionId).catch(report)
-          }}
-        >
-          加载更早的消息
-        </button>
+      {view === 'console' && (
+        <TerminalPanel embedded onSelectSession={onSelectSession} onClose={() => onViewChange('chat')} />
       )}
-      <div
-        className="chat-scroll"
-        ref={scroll}
-        onScroll={() => {
-          const element = scroll.current
-          if (element) {
-            const near = element.scrollHeight - element.scrollTop - element.clientHeight < 120
-            stick.current = near
-            setAtBottom(near)
-          }
-        }}
-      >
-        {!messages.length && !activeRun && (
-          <div className="empty-conversation">
-            <div className="empty-symbol">
-              hbar
-              <span className="empty-dot" />
-            </div>
-            <h1>新会话</h1>
-            <div className="empty-context">
-              <FileCode2 size={15} />
-              {catalog?.workspaces.find((w) => w.id === workspaceId)?.path ?? '未选择工作区'}
-            </div>
-            {!catalog?.models.length && (
-              <button className="text-command" onClick={onSettings}>
-                配置模型
-              </button>
-            )}
-          </div>
-        )}
-        <div className="message-list" style={{ height: totalSize, position: 'relative' }}>
-          {virtual.getVirtualItems().map((item) => (
-            <div
-              key={item.key}
-              data-index={item.index}
-              ref={virtual.measureElement}
-              style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${item.start}px)` }}
-            >
-              <MessageView message={messages[item.index]!} />
-            </div>
-          ))}
-        </div>
-        {snapshot?.streams.map((stream) => (
-          <article className="message message-assistant" key={stream.id}>
-            <div className="message-heading">
-              <span className="avatar">h</span>
-              <span>hbar</span>
-              <LoaderCircle size={13} className="spinning" />
-            </div>
-            <div className="message-body">
-              {stream.thinking && (
-                <details className="thinking rb-thinking-surface">
-                  <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
-                  <summary>思考过程</summary>
-                  <Markdown text={stream.thinking} streaming />
-                </details>
-              )}
-              <Markdown text={stream.text} streaming />
-            </div>
-          </article>
-        ))}
-        {lastRun && ['failed', 'interrupted', 'cancelled'].includes(lastRun.status) && (
-          <div className={`run-outcome rb-run-outcome-surface ${lastRun.status === 'cancelled' ? '' : 'danger'}`}>
-            <GlassSurface className="run-outcome-glass" width="100%" height="100%" aria-hidden="true" />
-            <Square size={12} />
-            <span className="run-outcome-copy">{lastRun.status === 'cancelled' ? '已停止' : lastRun.error}</span>
+      {view === 'console' ? null : (
+        <>
+          {snapshot?.hasOlder && (
             <button
-              className="text-command"
+              className="older-messages"
               onClick={() => {
-                setDraft(lastRun.input.text)
-                updateComposerDraft(sessionId, {
-                  images: lastRun.input.images,
-                  files: lastRun.input.files ?? [],
-                })
+                stick.current = false
+                void loadOlder(sessionId).catch(report)
               }}
             >
-              重新编辑
+              加载更早的消息
             </button>
+          )}
+          <div
+            className="chat-scroll"
+            ref={scroll}
+            onScroll={() => {
+              const element = scroll.current
+              if (element) {
+                const near = element.scrollHeight - element.scrollTop - element.clientHeight < 120
+                stick.current = near
+                setAtBottom(near)
+              }
+            }}
+          >
+            {!messages.length && !activeRun && (
+              <div className="empty-conversation">
+                <div className="empty-symbol">
+                  hbar
+                  <span className="empty-dot" />
+                </div>
+                <h1>新会话</h1>
+                <div className="empty-context">
+                  <FileCode2 size={15} />
+                  {catalog?.workspaces.find((w) => w.id === workspaceId)?.path ?? '未选择工作区'}
+                </div>
+                {!catalog?.models.length && (
+                  <button className="text-command" onClick={onSettings}>
+                    配置模型
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="message-list" style={{ height: totalSize, position: 'relative' }}>
+              {virtual.getVirtualItems().map((item) => (
+                <div
+                  key={item.key}
+                  data-index={item.index}
+                  ref={virtual.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${item.start}px)`,
+                  }}
+                >
+                  <MessageView message={messages[item.index]!} />
+                </div>
+              ))}
+            </div>
+            {snapshot?.streams.map((stream) => (
+              <article className="message message-assistant" key={stream.id}>
+                <div className="message-heading">
+                  <span className="avatar">h</span>
+                  <span>hbar</span>
+                  <LoaderCircle size={13} className="spinning" />
+                </div>
+                <div className="message-body">
+                  {stream.thinking && (
+                    <details className="thinking rb-thinking-surface">
+                      <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
+                      <summary>思考过程</summary>
+                      <Markdown text={stream.thinking} streaming />
+                    </details>
+                  )}
+                  <Markdown text={stream.text} streaming />
+                </div>
+              </article>
+            ))}
+            {lastRun && ['failed', 'interrupted', 'cancelled'].includes(lastRun.status) && (
+              <div className={`run-outcome rb-run-outcome-surface ${lastRun.status === 'cancelled' ? '' : 'danger'}`}>
+                <GlassSurface className="run-outcome-glass" width="100%" height="100%" aria-hidden="true" />
+                <Square size={12} />
+                <span className="run-outcome-copy">{lastRun.status === 'cancelled' ? '已停止' : lastRun.error}</span>
+                <button
+                  className="text-command"
+                  onClick={() => {
+                    setDraft(lastRun.input.text)
+                    updateComposerDraft(sessionId, {
+                      images: lastRun.input.images,
+                      files: lastRun.input.files ?? [],
+                    })
+                  }}
+                >
+                  重新编辑
+                </button>
+              </div>
+            )}
+            <div className="conversation-tail" />
           </div>
-        )}
-        <div className="conversation-tail" />
-      </div>
-      {!atBottom && (
-        <button
-          className="scroll-bottom"
-          title="回到底部"
-          aria-label="回到底部"
-          onClick={() => {
-            stick.current = true
-            if (scroll.current) scroll.current.scrollTo({ top: scroll.current.scrollHeight, behavior: 'smooth' })
-          }}
-        >
-          <ArrowDown size={17} />
-        </button>
-      )}
-      <div className="composer-area">
-        {(snapshot?.userInputs ?? []).map((request) => (
-          <UserInputPrompt key={request.requestId} request={request} />
-        ))}
-        {snapshot?.approvals.map((approval) => (
-          <section className="approval rb-decision-surface" key={approval.id} aria-busy={resolvingApprovals.has(approval.id)}>
-            <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
-            <div className="approval-heading">
-              <ShieldCheck size={16} />
-              <strong>批准工具调用</strong>
-              <code>{approval.tool}</code>
-            </div>
-            <div className="approval-target">
-              <p className="approval-impact">{approvalImpact(approval.tool)}</p>
-              <strong>{approvalSummary(approval.tool, approval.args)}</strong>
-              <details>
-                <summary>查看请求</summary>
-                <pre>{JSON.stringify(approval.args, null, 2)}</pre>
-              </details>
-            </div>
-            <div className="approval-actions">
-              <button
-                className="button"
-                disabled={resolvingApprovals.has(approval.id)}
-                onClick={() => void resolveApproval(approval.id, 'denied')}
-              >
-                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <X size={14} />}
-                拒绝
-              </button>
-              <GlareButton
-                className="button primary"
-                disabled={resolvingApprovals.has(approval.id)}
-                onClick={() => void resolveApproval(approval.id, 'allowed')}
-                glareColor="color-mix(in srgb, var(--hbar-ok) 62%, transparent)"
-              >
-                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
-                批准
-              </GlareButton>
-              <button
-                className="button approval-remember"
-                disabled={resolvingApprovals.has(approval.id)}
-                onClick={() => void resolveApproval(approval.id, 'allowed', true)}
-              >
-                {resolvingApprovals.has(approval.id) ? <LoaderCircle size={14} className="spinning" /> : <ShieldCheck size={14} />}
-                允许并记住
-              </button>
-            </div>
-          </section>
-        ))}
-        {queued.length > 0 && (
-          <div className="queue-strip rb-queue-surface">
-            <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
-            <LoaderCircle size={12} />
-            <span>{queued.length} 条消息排队中</span>
+          {!atBottom && (
             <button
-              title="取消排队"
-              aria-label="取消排队"
+              className="scroll-bottom"
+              title="回到底部"
+              aria-label="回到底部"
               onClick={() => {
-                for (const run of queued) void client().call('run.cancel', { runId: run.id }).catch(report)
+                stick.current = true
+                if (scroll.current) scroll.current.scrollTo({ top: scroll.current.scrollHeight, behavior: 'smooth' })
               }}
             >
-              <X size={12} />
+              <ArrowDown size={17} />
             </button>
-          </div>
-        )}
-        <PromptComposer
-          sessionId={sessionId}
-          sessionInfo={sessionInfo}
-          workspace={workspace}
-          gitInfo={gitInfo}
-          draft={draft}
-          images={images}
-          files={files}
-          artifactUrl={(id) => client().artifactUrl(id)}
-          composerActions={composerActions}
-          activeRun={activeRun}
-          busy={busy}
-          uploading={uploading}
-          onDraftChange={setDraft}
-          onSend={send}
-          onAttach={attach}
-          onSelectAction={selectComposerAction}
-          onRemoveImage={(id) =>
-            updateComposerDraft(sessionId, (current) => ({ images: current.images.filter((item) => item.id !== id) }))
-          }
-          onRemoveFile={(id) =>
-            updateComposerDraft(sessionId, (current) => ({ files: current.files.filter((item) => item.id !== id) }))
-          }
-          onStopRun={async () => {
-            if (!activeRun) return
-            try {
-              await client().call('run.cancel', { runId: activeRun.id })
-            } catch (error) {
-              report(error)
-            }
-          }}
-          onSettings={onSettings}
-        />
-        <div className="composer-footer">
-          <span className="composer-footer-model">
-            {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}
-            {capabilityState?.budget && (
-              <em title="当前会话 token 预算">
-                预算 {capabilityState.budget.remainingTokens.toLocaleString()} /{' '}
-                {capabilityState.budget.limit.toLocaleString()}
-              </em>
+          )}
+          <div className="composer-area">
+            {(snapshot?.userInputs ?? []).map((request) => (
+              <UserInputPrompt key={request.requestId} request={request} />
+            ))}
+            {snapshot?.approvals.map((approval) => (
+              <section
+                className="approval rb-decision-surface"
+                key={approval.id}
+                aria-busy={resolvingApprovals.has(approval.id)}
+              >
+                <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
+                <div className="approval-heading">
+                  <ShieldCheck size={16} />
+                  <strong>批准工具调用</strong>
+                  <code>{approval.tool}</code>
+                </div>
+                <div className="approval-target">
+                  <p className="approval-impact">{approvalImpact(approval.tool)}</p>
+                  <strong>{approvalSummary(approval.tool, approval.args)}</strong>
+                  <details>
+                    <summary>查看请求</summary>
+                    <pre>{JSON.stringify(approval.args, null, 2)}</pre>
+                  </details>
+                </div>
+                <div className="approval-actions">
+                  <button
+                    className="button"
+                    disabled={resolvingApprovals.has(approval.id)}
+                    onClick={() => void resolveApproval(approval.id, 'denied')}
+                  >
+                    {resolvingApprovals.has(approval.id) ? (
+                      <LoaderCircle size={14} className="spinning" />
+                    ) : (
+                      <X size={14} />
+                    )}
+                    拒绝
+                  </button>
+                  <GlareButton
+                    className="button primary"
+                    disabled={resolvingApprovals.has(approval.id)}
+                    onClick={() => void resolveApproval(approval.id, 'allowed')}
+                    glareColor="color-mix(in srgb, var(--hbar-ok) 62%, transparent)"
+                  >
+                    {resolvingApprovals.has(approval.id) ? (
+                      <LoaderCircle size={14} className="spinning" />
+                    ) : (
+                      <Check size={14} />
+                    )}
+                    批准
+                  </GlareButton>
+                  <button
+                    className="button approval-remember"
+                    disabled={resolvingApprovals.has(approval.id)}
+                    onClick={() => void resolveApproval(approval.id, 'allowed', true)}
+                  >
+                    {resolvingApprovals.has(approval.id) ? (
+                      <LoaderCircle size={14} className="spinning" />
+                    ) : (
+                      <ShieldCheck size={14} />
+                    )}
+                    允许并记住
+                  </button>
+                </div>
+              </section>
+            ))}
+            {queued.length > 0 && (
+              <div className="queue-strip rb-queue-surface">
+                <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
+                <LoaderCircle size={12} />
+                <span>{queued.length} 条消息排队中</span>
+                <button
+                  title="取消排队"
+                  aria-label="取消排队"
+                  onClick={() => {
+                    for (const run of queued) void client().call('run.cancel', { runId: run.id }).catch(report)
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
             )}
-            <small>
-              {modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'} ·{' '}
-              {modelThinkingLabel(thinkingLevel)}
-            </small>
-          </span>
-          <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString() : 0} tokens</span>
-        </div>
-      </div>
+            <PromptComposer
+              sessionId={sessionId}
+              sessionInfo={sessionInfo}
+              workspace={workspace}
+              gitInfo={gitInfo}
+              draft={draft}
+              images={images}
+              files={files}
+              artifactUrl={(id) => client().artifactUrl(id)}
+              composerActions={composerActions}
+              activeRun={activeRun}
+              busy={busy}
+              uploading={uploading}
+              onDraftChange={setDraft}
+              onSend={send}
+              onAttach={attach}
+              onSelectAction={selectComposerAction}
+              onRemoveImage={(id) =>
+                updateComposerDraft(sessionId, (current) => ({
+                  images: current.images.filter((item) => item.id !== id),
+                }))
+              }
+              onRemoveFile={(id) =>
+                updateComposerDraft(sessionId, (current) => ({ files: current.files.filter((item) => item.id !== id) }))
+              }
+              onStopRun={async () => {
+                if (!activeRun) return
+                try {
+                  await client().call('run.cancel', { runId: activeRun.id })
+                } catch (error) {
+                  report(error)
+                }
+              }}
+            />
+            <div className="composer-footer">
+              <span className="composer-footer-model">
+                {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}
+                {capabilityState?.budget && (
+                  <em title="当前会话 token 预算">
+                    预算 {capabilityState.budget.remainingTokens.toLocaleString()} /{' '}
+                    {capabilityState.budget.limit.toLocaleString()}
+                  </em>
+                )}
+                <small>
+                  {modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'} ·{' '}
+                  {modelThinkingLabel(thinkingLevel)}
+                </small>
+              </span>
+              <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString() : 0} tokens</span>
+            </div>
+          </div>
+        </>
+      )}
       {capabilityDialog && sessionId && (
         <SessionCapabilityDialog
           sessionId={sessionId}

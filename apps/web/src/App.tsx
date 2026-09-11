@@ -38,7 +38,6 @@ import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
 import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layout'
-import TerminalPanel from './TerminalPanel'
 import PairingPage from './PairingPage'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
@@ -61,7 +60,6 @@ const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
   git: 'git',
   settings: 'settings',
   diagnose: 'diagnose',
-  terminal: 'terminal',
   browser: 'browser',
   inspector: 'inspector',
   plan: 'plan',
@@ -71,7 +69,6 @@ const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
 }
 
 type SessionTabConfig = { sessionId?: string }
-type SessionActionKind = 'fork' | 'archive'
 
 function conversationTabs(model: Model): TabNode[] {
   const tabs: TabNode[] = []
@@ -125,13 +122,13 @@ function Sessions({
   onNew(): void
   creating?: boolean
 }) {
+  type SessionActionKind = 'fork' | 'archive'
   const [search, setSearch] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
   const [sessionActions, setSessionActions] = useState<Record<string, SessionActionKind>>({})
   const sessionActionIds = useRef(new Set<string>())
-  const renameBusyRef = useRef(false)
   const data = useCatalog((state) => state.data),
     workspaceId = useWorkbench((state) => state.workspaceId),
     selected = useWorkbench((state) => state.activeSession),
@@ -146,14 +143,13 @@ function Sessions({
   function startRename(event: React.MouseEvent, session: Session) {
     event.preventDefault()
     event.stopPropagation()
-    if (sessionActionIds.current.has(session.id)) return
     setRenamingId(session.id)
     setRenameValue(session.title)
   }
   async function finishRename() {
     const id = renamingId
     const title = renameValue.trim()
-    if (!id || renameBusy || renameBusyRef.current) return
+    if (!id || renameBusy) return
     if (!title) {
       setRenamingId(null)
       setRenameValue('')
@@ -165,7 +161,6 @@ function Sessions({
       setRenameValue('')
       return
     }
-    renameBusyRef.current = true
     setRenameBusy(true)
     try {
       await client().call('session.rename', { sessionId: id, title })
@@ -175,27 +170,13 @@ function Sessions({
     } catch (error) {
       report(error)
     } finally {
-      renameBusyRef.current = false
       setRenameBusy(false)
     }
   }
-  function beginSessionAction(id: string, kind: SessionActionKind): boolean {
-    if (sessionActionIds.current.has(id)) return false
-    sessionActionIds.current.add(id)
-    setSessionActions((current) => ({ ...current, [id]: kind }))
-    return true
-  }
-  function endSessionAction(id: string) {
-    sessionActionIds.current.delete(id)
-    setSessionActions((current) => {
-      if (!current[id]) return current
-      const next = { ...current }
-      delete next[id]
-      return next
-    })
-  }
   async function fork(session: Session) {
-    if (!beginSessionAction(session.id, 'fork')) return
+    if (sessionActionIds.current.has(session.id)) return
+    sessionActionIds.current.add(session.id)
+    setSessionActions((current) => ({ ...current, [session.id]: 'fork' }))
     try {
       const child = await client().call('session.fork', { sessionId: session.id })
       await refreshCatalog()
@@ -203,18 +184,32 @@ function Sessions({
     } catch (error) {
       report(error)
     } finally {
-      endSessionAction(session.id)
+      sessionActionIds.current.delete(session.id)
+      setSessionActions((current) => {
+        if (!current[session.id]) return current
+        const next = { ...current }
+        delete next[session.id]
+        return next
+      })
     }
   }
   async function toggleArchive(session: Session) {
-    if (!beginSessionAction(session.id, 'archive')) return
+    if (sessionActionIds.current.has(session.id)) return
+    sessionActionIds.current.add(session.id)
+    setSessionActions((current) => ({ ...current, [session.id]: 'archive' }))
     try {
       await client().call('session.archive', { sessionId: session.id, archived: !archived })
       await refreshCatalog()
     } catch (error) {
       report(error)
     } finally {
-      endSessionAction(session.id)
+      sessionActionIds.current.delete(session.id)
+      setSessionActions((current) => {
+        if (!current[session.id]) return current
+        const next = { ...current }
+        delete next[session.id]
+        return next
+      })
     }
   }
   return (
@@ -299,7 +294,11 @@ function Sessions({
                 disabled={Boolean(sessionActions[session.id])}
                 onClick={() => void fork(session)}
               >
-                {sessionActions[session.id] === 'fork' ? <LoaderCircle size={12} className="spinning" /> : <GitBranch size={12} />}
+                {sessionActions[session.id] === 'fork' ? (
+                  <LoaderCircle size={12} className="spinning" />
+                ) : (
+                  <GitBranch size={12} />
+                )}
               </button>
               <button
                 title={archived ? '恢复会话' : '归档会话'}
@@ -307,7 +306,11 @@ function Sessions({
                 disabled={Boolean(sessionActions[session.id])}
                 onClick={() => void toggleArchive(session)}
               >
-                {sessionActions[session.id] === 'archive' ? <LoaderCircle size={12} className="spinning" /> : <Archive size={12} />}
+                {sessionActions[session.id] === 'archive' ? (
+                  <LoaderCircle size={12} className="spinning" />
+                ) : (
+                  <Archive size={12} />
+                )}
               </button>
             </div>
           </SpotlightCard>
@@ -353,6 +356,7 @@ export default function App() {
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [conversationViews, setConversationViews] = useState<Record<string, 'chat' | 'console'>>({})
   const [toastPaused, setToastPaused] = useState(false)
   const sidebarDrag = useRef<{ startX: number; startWidth: number } | null>(null)
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), [])
@@ -411,9 +415,7 @@ export default function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === '`') {
         event.preventDefault()
-        const button = document.querySelector<HTMLButtonElement>('button[aria-label="命令控制台"]')
-        if (button) button.click()
-        else openPanel('terminal', '命令控制台', 'terminal', undefined, 'bottom')
+        activateConversationView('console')
       } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
         event.preventDefault()
         setCommandPaletteOpen(true)
@@ -518,6 +520,10 @@ export default function App() {
     config?: Record<string, unknown>,
     placement = 'editor',
   ) {
+    if (component === 'terminal') {
+      activateConversationView('console')
+      return
+    }
     if (component !== 'conversation') useWorkbench.setState({ toolPanel: id })
     if (component === 'plugin') setMobilePanel(String(config?.panelId ?? ''))
     if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
@@ -546,7 +552,11 @@ export default function App() {
           Actions.addNode(
             { type: 'tab', id, name: title, component, enableClose: true, config },
             model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
-            placement === 'bottom' ? DockLocation.BOTTOM : placement === 'left' ? DockLocation.LEFT : DockLocation.CENTER,
+            placement === 'bottom'
+              ? DockLocation.BOTTOM
+              : placement === 'left'
+                ? DockLocation.LEFT
+                : DockLocation.CENTER,
             -1,
           ),
         )
@@ -562,13 +572,19 @@ export default function App() {
     while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
     if (parent instanceof BorderNode) {
       model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false }))
-    }
-    else if (node) model.doAction(Actions.deleteTab(id))
+    } else if (node) model.doAction(Actions.deleteTab(id))
     if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
   }
-  function togglePanel(id: string, title: string, component: string, placement: 'right' | 'bottom') {
-    if (useWorkbench.getState().toolPanel === id) closePanel(id)
-    else openPanel(id, title, component, undefined, placement)
+  function activateConversationView(view: 'chat' | 'console') {
+    const key = activeSession || 'new'
+    setConversationViews((current) => ({ ...current, [key]: view }))
+    const target =
+      conversationTabs(model).find((tab) => sessionIdFromTab(tab) === activeSession) ?? conversationTabs(model)[0]
+    if (target) model.doAction(Actions.selectTab(target.getId()))
+    const legacyTerminal = model.getNodeById('terminal')
+    if (legacyTerminal) closePanel('terminal')
+    useWorkbench.setState({ toolPanel: '' })
+    if (small) setMobileView('chat')
   }
   function toggleGalleryTool(
     id: string,
@@ -724,11 +740,11 @@ export default function App() {
     {
       id: 'open-terminal',
       label: '打开命令控制台',
-      description: '在底部展开 AI 命令控制台',
+      description: '切换当前会话到 CLI 命令控制台',
       keywords: ['terminal', 'console'],
       icon: TerminalSquare,
       group: 'navigation',
-      execute: () => openPanel('terminal', '命令控制台', 'terminal', undefined, 'bottom'),
+      execute: () => activateConversationView('console'),
     },
     {
       id: 'open-settings',
@@ -775,20 +791,29 @@ export default function App() {
     switch (node.getComponent()) {
       case undefined:
         return <div className="empty-tool">面板不可用</div>
-      case 'conversation':
+      case 'conversation': {
+        const viewKey = config?.sessionId ?? 'new'
         return (
           <Chat
             {...(config?.sessionId ? { sessionId: config.sessionId } : {})}
             onSettings={settings}
-            onTerminal={() => togglePanel('terminal', '命令控制台', 'terminal', 'bottom')}
+            view={conversationViews[viewKey] ?? 'chat'}
+            onViewChange={(view) => setConversationViews((current) => ({ ...current, [viewKey]: view }))}
+            onSelectSession={(id) => {
+              setConversationViews((current) => ({ ...current, [id]: 'console' }))
+              selectSession(id)
+            }}
           />
         )
+      }
       case 'settings':
         return <Settings />
       case 'activity':
         return <ActivityPanel />
       case 'git':
-        return <GitPanel workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''} />
+        return (
+          <GitPanel workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''} />
+        )
       case 'browser':
         return <BrowserPanel sessionId={activeSession} />
       case 'inspector':
@@ -801,15 +826,6 @@ export default function App() {
         return <FileViewer path={config.path!} workspaceId={config.workspaceId!} />
       case 'diagnose':
         return <Diagnose />
-      case 'terminal':
-        return (
-          <TerminalPanel
-            onSettings={settings}
-            onClose={() => {
-              closePanel(node.getId())
-            }}
-          />
-        )
       case 'plugin':
         return renderPlugin(config.panelId ?? '')
       default:
@@ -878,15 +894,7 @@ export default function App() {
               toggleSettings()
               return
             }
-            if (id === 'terminal') {
-              togglePanel(id, title, component, placement === 'bottom' ? 'bottom' : 'right')
-              return
-            }
             toggleGalleryTool(id, title, component, undefined, placement)
-          }}
-          onRestoreLayout={() => {
-            useWorkbench.setState({ layout: null })
-            setModel(Model.fromJson(defaultLayout()))
           }}
         />
         <aside className="sidebar">
@@ -936,24 +944,15 @@ export default function App() {
               ) : mobileView === 'activity' ? (
                 <ActivityPanel />
               ) : mobileView === 'git' ? (
-                <GitPanel workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''} />
+                <GitPanel
+                  workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''}
+                />
               ) : mobileView === 'files' ? (
                 <FileNavigation workspaceId={workspaceId} onOpen={openFile} />
               ) : mobileView === 'file' ? (
                 <FileViewer path={mobileFile} workspaceId={workspaceId} />
               ) : mobileView === 'diagnose' ? (
                 <Diagnose />
-              ) : mobileView === 'terminal' ? (
-                <TerminalPanel
-                  onSettings={() => {
-                    closePanel('terminal')
-                    setMobileView('settings')
-                  }}
-                  onClose={() => {
-                    closePanel('terminal')
-                    setMobileView('chat')
-                  }}
-                />
               ) : mobileView === 'browser' ? (
                 <BrowserPanel sessionId={activeSession} />
               ) : mobileView === 'inspector' ? (
@@ -965,18 +964,26 @@ export default function App() {
               ) : mobileView === 'plugin' ? (
                 renderPlugin(mobilePanel)
               ) : mobileView === 'plugins' ? (
-                  <MobileToolMenu
-                    contributions={[...(data?.panels ?? []), ...clientPanels]}
-                    onClose={() => setMobileView('chat')}
-                    onOpenTool={(id, title, component, placement, config) =>
-                      openPanel(id, title, component, config, placement)
-                    }
-                  />
+                <MobileToolMenu
+                  contributions={[...(data?.panels ?? []), ...clientPanels]}
+                  onClose={() => setMobileView('chat')}
+                  onOpenTool={(id, title, component, placement, config) => {
+                    if (component === 'terminal') activateConversationView('console')
+                    else openPanel(id, title, component, config, placement)
+                  }}
+                />
               ) : (
                 <Chat
                   sessionId={activeSession}
                   onSettings={settings}
-                  onTerminal={() => togglePanel('terminal', '命令控制台', 'terminal', 'bottom')}
+                  view={conversationViews[activeSession || 'new'] ?? 'chat'}
+                  onViewChange={(view) =>
+                    setConversationViews((current) => ({ ...current, [activeSession || 'new']: view }))
+                  }
+                  onSelectSession={(id) => {
+                    setConversationViews((current) => ({ ...current, [id]: 'console' }))
+                    selectSession(id)
+                  }}
                 />
               )}
             </>
@@ -1061,15 +1068,7 @@ export default function App() {
               toggleSettings()
               return
             }
-            if (id === 'terminal') {
-              togglePanel(id, title, component, placement === 'bottom' ? 'bottom' : 'right')
-              return
-            }
             toggleGalleryTool(id, title, component, undefined, placement)
-          }}
-          onRestoreLayout={() => {
-            useWorkbench.setState({ layout: null })
-            setModel(Model.fromJson(defaultLayout()))
           }}
         />
       </div>
@@ -1138,5 +1137,3 @@ export default function App() {
     </div>
   )
 }
-
-

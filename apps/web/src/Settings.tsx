@@ -253,11 +253,6 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
       setBusy(false)
     }
   }
-  function reset() {
-    setValue(initialValue)
-    setApiKey('')
-    setError('')
-  }
   const title = provider ? '编辑模型' : '添加模型'
   return (
     <section ref={detailPageRef} className="settings-detail-page rb-settings-detail-page" aria-label={title}>
@@ -367,7 +362,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
             {value.models.map((model, index) => (
               <fieldset
                 className={`provider-model-card rb-provider-model-surface ${model.id === value.model ? 'selected' : ''}`}
-                key={`${model.id}:${index}`}
+                key={`model-editor-${index}`}
               >
                 <legend>{model.id === value.model ? '默认模型' : `模型 ${index + 1}`}</legend>
                 <GlassSurface className="provider-model-card-glass" width="100%" height="100%" aria-hidden="true" />
@@ -377,7 +372,6 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                     <input
                       list={`provider-models-${presetId}`}
                       aria-label={index === 0 ? '模型 ID' : `模型标识 ${index + 1}`}
-                      autoFocus={!customConnection && index === 0}
                       value={model.id}
                       onChange={(event) => updateModel(index, { id: event.target.value })}
                       required
@@ -587,25 +581,11 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
             {error}
           </p>
         )}
-        {dirty && (
-          <div className="settings-unsaved-bar" role="status">
-            <span>有未保存的更改</span>
-            <div>
-              <button type="button" className="button" onClick={reset} disabled={busy}>
-                还原
-              </button>
-              <GlareButton className="button primary" disabled={busy}>
-                <Save size={14} />
-                保存更改
-              </GlareButton>
-            </div>
-          </div>
-        )}
         <footer className="modal-footer settings-detail-footer">
           <button type="button" className="button" onClick={close}>
             取消
           </button>
-          <GlareButton className="button primary" disabled={busy}>
+          <GlareButton className="button primary" disabled={busy || !dirty}>
             <Save size={14} />
             保存
           </GlareButton>
@@ -793,7 +773,12 @@ export default function Settings() {
                 const connected = first.protocol === 'mock' || group.models.every((model) => model.hasKey)
                 const providerId = first.providerId || first.id.split('/')[0] || first.id
                 return (
-                  <SpotlightCard className="settings-provider-group" key={group.providerId} spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)" aria-label={group.providerName}>
+                  <SpotlightCard
+                    className="settings-provider-group"
+                    key={group.providerId}
+                    spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)"
+                    aria-label={group.providerName}
+                  >
                     <header className="settings-provider-heading">
                       <div className="settings-provider-title">
                         <span className="model-icon">
@@ -816,7 +801,10 @@ export default function Settings() {
                           aria-label={`删除供应商 ${group.providerName}`}
                           onClick={() => {
                             if (window.confirm(`删除供应商 ${group.providerName} 及其全部模型？`))
-                              void client().call('provider.delete', { id: providerId }).then(refreshCatalog).catch(report)
+                              void client()
+                                .call('provider.delete', { id: providerId })
+                                .then(refreshCatalog)
+                                .catch(report)
                           }}
                         >
                           <Trash2 size={15} />
@@ -909,8 +897,14 @@ export default function Settings() {
           </div>
           <PluginDiagnostics />
           {data?.plugins.length ? (
-            <AnimatedList className="settings-plugin-list" viewportClassName="settings-plugin-viewport" showGradients={false}>
-              {data.plugins.map((plugin) => <PluginRow key={plugin.id} plugin={plugin} />)}
+            <AnimatedList
+              className="settings-plugin-list"
+              viewportClassName="settings-plugin-viewport"
+              showGradients={false}
+            >
+              {data.plugins.map((plugin) => (
+                <PluginRow key={plugin.id} plugin={plugin} />
+              ))}
             </AnimatedList>
           ) : null}
           <div className="install-plugin">
@@ -1004,7 +998,11 @@ export default function Settings() {
             </div>
           )}
           {devices.length ? (
-            <AnimatedList className="settings-device-list" viewportClassName="settings-device-viewport" showGradients={false}>
+            <AnimatedList
+              className="settings-device-list"
+              viewportClassName="settings-device-viewport"
+              showGradients={false}
+            >
               {devices.map((device) => (
                 <SpotlightCard
                   className="device-row"

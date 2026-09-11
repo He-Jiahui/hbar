@@ -34,7 +34,6 @@ export interface PromptComposerProps {
   onRemoveImage(id: string): void
   onRemoveFile(id: string): void
   onStopRun(): void | Promise<void>
-  onSettings(): void
 }
 
 function isImageAccept(accept: string): boolean {
@@ -113,7 +112,6 @@ export default function PromptComposer({
   onRemoveImage,
   onRemoveFile,
   onStopRun,
-  onSettings,
 }: PromptComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const pendingAttachmentKind = useRef<AttachmentKind>('image')
@@ -273,7 +271,7 @@ export default function PromptComposer({
           <PermissionSelector />
         </div>
         <div className="composer-right">
-          <ModelPicker onSettings={onSettings} />
+          <ModelPicker />
           {activeRun && (
             <button
               type="button"

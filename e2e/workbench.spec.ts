@@ -62,7 +62,10 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     const bootstrap = await fixture.api.call('system.bootstrap', {})
     const browserSession = bootstrap.sessions.find((session) => !session.archived)
     if (!browserSession) throw new Error('E2E fixture did not expose an active session')
-    const firstBrowserPage = await fixture.api.call('browser.navigate', { sessionId: browserSession.id, url: fixture.url })
+    const firstBrowserPage = await fixture.api.call('browser.navigate', {
+      sessionId: browserSession.id,
+      url: fixture.url,
+    })
     const healthUrl = new URL('/healthz', fixture.url).href
     await fixture.api.call('browser.navigate', {
       sessionId: browserSession.id,
@@ -129,15 +132,18 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(palette).toHaveClass(/glass-surface/)
     await expect(palette.locator('.command-palette-group[aria-label="导航"]')).toBeVisible()
     await expect(palette.locator('.command-palette-group[aria-label="操作"]')).toBeVisible()
-    const commandStyle = await palette.locator('.command-palette-group .command-palette-item').first().evaluate((element) => {
-      const style = getComputedStyle(element)
-      return {
-        justifyContent: style.justifyContent,
-        paddingLeft: style.paddingLeft,
-        paddingRight: style.paddingRight,
-        textAlign: style.textAlign,
-      }
-    })
+    const commandStyle = await palette
+      .locator('.command-palette-group .command-palette-item')
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element)
+        return {
+          justifyContent: style.justifyContent,
+          paddingLeft: style.paddingLeft,
+          paddingRight: style.paddingRight,
+          textAlign: style.textAlign,
+        }
+      })
     expect(commandStyle).toEqual({
       justifyContent: 'flex-start',
       paddingLeft: '16px',
@@ -256,7 +262,10 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await page.keyboard.press('Control+Shift+P')
     await expect(palette).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
-    await expect(palette.locator('.command-palette-group .command-palette-item').first()).toHaveCSS('justify-content', 'flex-start')
+    await expect(palette.locator('.command-palette-group .command-palette-item').first()).toHaveCSS(
+      'justify-content',
+      'flex-start',
+    )
     await page.screenshot({ path: `artifacts/${Date.now()}-narrow-command-palette.png` })
   } finally {
     fixture.api.disconnect()
@@ -475,10 +484,12 @@ test('new-session action creates only one session when double-clicked', async ({
     const action = page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })
 
     await action.dblclick()
-    await expect.poll(async () => {
-      const current = await fixture.api.call('system.bootstrap', {})
-      return current.sessions.filter((session) => session.workspaceId === workspaceId).length
-    }).toBe(countBefore + 1)
+    await expect
+      .poll(async () => {
+        const current = await fixture.api.call('system.bootstrap', {})
+        return current.sessions.filter((session) => session.workspaceId === workspaceId).length
+      })
+      .toBe(countBefore + 1)
     await expect(page.getByRole('button', { name: '新建会话', exact: true }).filter({ visible: true })).toBeEnabled()
   } finally {
     fixture.api.disconnect()
@@ -495,13 +506,17 @@ test('branch action creates only one child when double-clicked', async ({ page, 
     await page.reload()
     await page.locator('.session-select').filter({ hasText: title, visible: true }).click()
     const branch = page.getByRole('button', { name: `创建分支 ${title}`, exact: true })
-    const countBefore = (await fixture.api.call('system.bootstrap', {})).sessions.filter((session) => session.parentId === source.id).length
+    const countBefore = (await fixture.api.call('system.bootstrap', {})).sessions.filter(
+      (session) => session.parentId === source.id,
+    ).length
 
     await branch.dblclick()
-    await expect.poll(async () => {
-      const current = await fixture.api.call('system.bootstrap', {})
-      return current.sessions.filter((session) => session.parentId === source.id).length
-    }).toBe(countBefore + 1)
+    await expect
+      .poll(async () => {
+        const current = await fixture.api.call('system.bootstrap', {})
+        return current.sessions.filter((session) => session.parentId === source.id).length
+      })
+      .toBe(countBefore + 1)
     await expect(page.getByRole('button', { name: `创建分支 ${title}`, exact: true })).toBeEnabled()
   } finally {
     fixture.api.disconnect()
@@ -737,7 +752,11 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
     await expect(page.locator('.path-details-surface')).toHaveClass(/rb-spotlight-card/)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-storage-settings.png` })
 
-    await page.locator('.settings-tabs').filter({ visible: true }).getByRole('button', { name: '插件', exact: true }).click()
+    await page
+      .locator('.settings-tabs')
+      .filter({ visible: true })
+      .getByRole('button', { name: '插件', exact: true })
+      .click()
     const pluginDiagnostics = page.locator('.plugin-diagnostics').filter({ visible: true })
     await expect(pluginDiagnostics).toBeVisible()
     await page.getByRole('button', { name: '检查', exact: true }).click()
@@ -770,12 +789,19 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
     await page.getByRole('button', { name: '存储', exact: true }).filter({ visible: true }).click()
     await expect(page.getByRole('heading', { name: '存储目录', exact: true })).toBeVisible()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-storage-settings.png` })
-    await page.locator('.settings-tabs').filter({ visible: true }).getByRole('button', { name: '插件', exact: true }).click()
+    await page
+      .locator('.settings-tabs')
+      .filter({ visible: true })
+      .getByRole('button', { name: '插件', exact: true })
+      .click()
     const mobilePluginDiagnostics = page.locator('.plugin-diagnostics').filter({ visible: true })
     await expect(mobilePluginDiagnostics).toBeVisible()
     await mobilePluginDiagnostics.getByRole('button', { name: '检查', exact: true }).click()
     await expect(mobilePluginDiagnostics.locator('.plugin-diagnostic-result-doctor')).toBeVisible()
-    await expect(mobilePluginDiagnostics.locator('.plugin-diagnostic-actions')).toHaveCSS('justify-content', 'flex-start')
+    await expect(mobilePluginDiagnostics.locator('.plugin-diagnostic-actions')).toHaveCSS(
+      'justify-content',
+      'flex-start',
+    )
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-plugin-diagnostics.png` })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   } finally {
@@ -789,18 +815,28 @@ test('command console supports keyboard commands, concurrent sessions, approval 
 }) => {
   const fixture = await login(context, page)
   try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const firstSession = bootstrap.sessions.find((session) => !session.archived)
+    if (!firstSession) throw new Error('E2E fixture did not expose an active session')
     await page.keyboard.press('Control+Backquote')
     const terminal = page.locator('.terminal-panel').filter({ visible: true })
     await expect(terminal).toBeVisible()
-    await expect(terminal.locator('.terminal-toolbar-glass')).toHaveClass(/glass-surface/)
+    await expect(page.getByRole('tab', { name: '控制台', exact: true }).filter({ visible: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await expect(terminal.locator('.terminal-toolbar')).toHaveCount(0)
     await expect(terminal.locator('.terminal-composer-glass')).toHaveClass(/glass-surface/)
     await expect(terminal.getByRole('button', { name: '执行', exact: true })).toHaveClass(/rb-glare-button/)
-    await expect(terminal.getByText('命令控制台', { exact: true })).toBeVisible()
     const input = terminal.getByRole('textbox', { name: '控制台输入', exact: true })
     await input.fill('/he')
     await expect(terminal.getByRole('listbox', { name: '命令补全' })).toBeVisible()
-    await expect(terminal.getByRole('listbox', { name: '命令补全' }).locator('.terminal-completions-glass')).toHaveClass(/glass-surface/)
-    await expect(terminal.getByRole('listbox', { name: '命令补全' }).getByRole('option').first()).toHaveClass(/rb-spotlight-card/)
+    await expect(
+      terminal.getByRole('listbox', { name: '命令补全' }).locator('.terminal-completions-glass'),
+    ).toHaveClass(/glass-surface/)
+    await expect(terminal.getByRole('listbox', { name: '命令补全' }).getByRole('option').first()).toHaveClass(
+      /rb-spotlight-card/,
+    )
     await input.press('Tab')
     await expect(input).toHaveValue('/help ')
     await input.press('Enter')
@@ -825,21 +861,38 @@ test('command console supports keyboard commands, concurrent sessions, approval 
       textAlign: 'left',
     })
 
+    await input.fill('/settings')
+    await input.press('Enter')
+    await expect(terminal).toContainText('approval:')
+    await expect(terminal).toContainText('thinking:')
+    await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
+
+    await input.fill('/thinking')
+    const thinkingOptions = terminal.getByRole('listbox', { name: '命令补全' })
+    await expect(thinkingOptions).toBeVisible()
+    await expect(thinkingOptions.getByRole('option').first()).toBeVisible()
+    await input.press('ArrowDown')
+    await input.press('Enter')
+    await expect(terminal).toContainText('思考等级：')
+
+    await input.fill(`/switch ${firstSession.id}`)
+    await input.press('Enter')
     await input.fill('//slow')
     await input.press('Enter')
-    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toBeVisible()
-    const firstSession = await terminal.getByRole('combobox', { name: '控制台 Session' }).inputValue()
+    await expect.poll(async () => (await fixture.api.call('system.bootstrap', {})).host.activeRuns).toBe(1)
+    const sessionCount = (await fixture.api.call('system.bootstrap', {})).sessions.length
     await input.fill('/new')
     await input.press('Enter')
-    await expect(terminal.getByRole('combobox', { name: '控制台 Session' })).not.toHaveValue(firstSession)
+    await expect.poll(async () => (await fixture.api.call('system.bootstrap', {})).sessions.length).toBeGreaterThan(sessionCount)
+    await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
     await input.fill('来自第二个 Session')
     await input.press('Enter')
-    await expect(terminal.locator('.terminal-assistant')).toContainText('来自第二个 Session')
+    await expect(terminal).toContainText('来自第二个 Session')
 
-    await terminal.getByRole('combobox', { name: '控制台 Session' }).selectOption(firstSession)
-    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toBeVisible()
-    await terminal.getByRole('button', { name: '停止运行', exact: true }).click()
-    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toHaveCount(0)
+    await input.fill(`/switch ${firstSession.id}`)
+    await input.press('Enter')
+    await input.fill('/stop')
+    await input.press('Enter')
 
     await input.fill('//tool write_file {"path":"terminal-approved.txt","text":"ok"}')
     await input.press('Enter')
@@ -848,7 +901,6 @@ test('command console supports keyboard commands, concurrent sessions, approval 
     await expect(terminal.getByRole('button', { name: '批准', exact: true })).toHaveClass(/rb-glare-button/)
     await terminal.getByRole('button', { name: '批准', exact: true }).click()
     await expect.poll(() => readFile(`${fixture.root}/terminal-approved.txt`, 'utf8').catch(() => '')).toBe('ok')
-    await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toHaveCount(0)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-terminal.png` })
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -875,7 +927,7 @@ test('a client plugin adds an interactive panel and unloads it without a core ed
     await expect.poll(async () => (await fixture.api.call('system.bootstrap', {})).host.activeRuns).toBe(0)
     await fixture.api.call('plugin.install', { path: resolve('examples/observer') })
     await expect(page.getByRole('button', { name: 'Observer counter', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: '命令控制台', exact: true }).filter({ visible: true }).first().click()
+    await page.getByRole('tab', { name: '控制台', exact: true }).filter({ visible: true }).click()
     const terminal = page.locator('.terminal-panel').filter({ visible: true })
     const terminalInput = terminal.getByRole('textbox', { name: '控制台输入', exact: true })
     await terminalInput.fill('/observer')
@@ -884,14 +936,17 @@ test('a client plugin adds an interactive panel and unloads it without a core ed
     await terminalInput.press('Enter')
     await expect(terminal).toContainText('Observer Client plugin is active.')
     await page.getByRole('button', { name: 'Observer counter', exact: true }).click()
-    await expect(page.locator('.rb-plugin-panel').filter({ visible: true }).locator('.plugin-panel-glass')).toHaveClass(/glass-surface/)
+    await expect(page.locator('.rb-plugin-panel').filter({ visible: true }).locator('.plugin-panel-glass')).toHaveClass(
+      /glass-surface/,
+    )
     await page.getByRole('button', { name: 'Increment counter' }).click()
     await expect(page.locator('.plugin-panel output')).toHaveText('1')
     await fixture.api.call('plugin.set', { id: 'hbar-example-observer', enabled: false })
     await expect(page.getByRole('button', { name: 'Observer counter', exact: true })).toHaveCount(0)
     await expect(page.locator('.plugin-panel output')).toHaveCount(0)
     const activeTerminal = page.locator('.terminal-panel').filter({ visible: true })
-    if (!(await activeTerminal.isVisible())) await page.getByRole('tab', { name: '命令控制台', exact: true }).click()
+    if (!(await activeTerminal.isVisible()))
+      await page.getByRole('tab', { name: '控制台', exact: true }).filter({ visible: true }).click()
     await page
       .locator('.terminal-panel')
       .filter({ visible: true })

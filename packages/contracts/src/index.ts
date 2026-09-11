@@ -1016,7 +1016,10 @@ export interface RpcResults {
     restartRequired: boolean
   }
   'system.paths.validate': { dataRoot: string; cacheRoot: string; valid: true }
-  'system.paths.set': RpcResults['system.paths.get']
+  'system.paths.set': RpcResults['system.paths.get'] & {
+    restartRequired: true
+    restartMessage: string
+  }
   'system.restart': { accepted: boolean; restartRequired: boolean }
   'permission.get': { mode: PermissionMode }
   'permission.set': { mode: PermissionMode }

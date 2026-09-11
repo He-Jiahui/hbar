@@ -13,6 +13,28 @@
   isolation: isolate;
 }
 
+.tool-rail .rb-glass-icon-button:hover,
+.tool-rail .rb-glass-icon-button:focus-visible {
+  z-index: 20;
+}
+
+.tool-rail .rb-glass-icon-label {
+  top: 50%;
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%);
+}
+
+.tool-rail.left-rail .rb-glass-icon-label {
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
+}
+
+.tool-rail.right-rail .rb-glass-icon-label {
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+}
+
 .rb-glass-icon-back,
 .rb-glass-icon-front {
   position: absolute;
@@ -68,7 +90,9 @@
   text-align: center;
   text-overflow: ellipsis;
   transform: translate(-50%, -2px);
-  transition: opacity 160ms var(--dsh-motion-easing), transform 160ms var(--dsh-motion-easing);
+  transition:
+    opacity 160ms var(--dsh-motion-easing),
+    transform 160ms var(--dsh-motion-easing);
   white-space: nowrap;
 }
 
@@ -87,7 +111,14 @@
 .rb-glass-icon-button:hover:not(:disabled) .rb-glass-icon-label,
 .rb-glass-icon-button:focus-visible .rb-glass-icon-label {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
+}
+
+.tool-rail.left-rail .rb-glass-icon-button:hover:not(:disabled) .rb-glass-icon-label,
+.tool-rail.left-rail .rb-glass-icon-button:focus-visible .rb-glass-icon-label,
+.tool-rail.right-rail .rb-glass-icon-button:hover:not(:disabled) .rb-glass-icon-label,
+.tool-rail.right-rail .rb-glass-icon-button:focus-visible .rb-glass-icon-label {
+  transform: translateY(-50%);
 }
 
 .rb-glass-icon-button.selected .rb-glass-icon-back {

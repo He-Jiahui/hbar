@@ -1413,7 +1413,9 @@
 }
 
 .settings-detail-footer {
+  position: static;
   padding: 16px 0 0;
+  box-shadow: none;
 }
 
 .settings-unsaved-bar {

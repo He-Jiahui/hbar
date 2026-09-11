@@ -1,4 +1,4 @@
-import { Model, TabNode } from 'flexlayout-react'
+import { Model } from 'flexlayout-react'
 import { expect, test } from 'bun:test'
 import { defaultLayout, restoreLayout, versionedLayout } from './layout'
 
@@ -9,13 +9,11 @@ test('default layout is a valid, versioned workbench model', () => {
   expect(model.getNodeById('main')).toBeDefined()
   expect(model.getNodeById('welcome')).toBeDefined()
   expect(model.getNodeById('border_right')).toBeDefined()
-  expect(model.getNodeById('border_bottom')).toBeDefined()
+  expect(model.getNodeById('border_bottom')).toBeUndefined()
   expect(model.getNodeById('browser')).toBeDefined()
   expect(model.getNodeById('activity')).toBeDefined()
-  expect(model.getNodeById('diagnose')).toBeDefined()
-  const terminal = model.getNodeById('terminal')
-  expect(terminal).toBeInstanceOf(TabNode)
-  expect((terminal as TabNode).getName()).toBe('命令控制台')
+  expect(model.getNodeById('diagnose-right')).toBeDefined()
+  expect(model.getNodeById('terminal')).toBeUndefined()
 })
 
 test('malformed persisted layout falls back without creating an empty workbench', () => {
@@ -34,15 +32,28 @@ test('valid persisted layout remains restorable', () => {
   expect(restored.layout.children?.map((child) => child.id)).toEqual(['main'])
 })
 
-test('persisted command panel labels migrate without resetting the layout', () => {
-  const persisted = versionedLayout(defaultLayout())
-  const terminal = persisted.borders?.flatMap((border) => border.children ?? []).find((node) => node.id === 'terminal')
-  if (!terminal) throw new Error('default layout does not contain the command panel')
-  terminal.name = '终端'
+test('version 2 command dock migrates into the conversation view', () => {
+  const persisted = {
+    ...versionedLayout(defaultLayout()),
+    schemaVersion: 2,
+    borders: [
+      ...(defaultLayout().borders ?? []),
+      {
+        type: 'border' as const,
+        location: 'bottom' as const,
+        children: [
+          { type: 'tab' as const, id: 'terminal', name: '终端', component: 'terminal' },
+          { type: 'tab' as const, id: 'diagnose', name: '诊断', component: 'diagnose' },
+        ],
+      },
+    ],
+  }
 
   const restored = Model.fromJson(restoreLayout(persisted))
 
-  expect((restored.getNodeById('terminal') as TabNode).getName()).toBe('命令控制台')
+  expect(restored.getNodeById('terminal')).toBeUndefined()
+  expect(restored.getNodeById('diagnose')).toBeUndefined()
+  expect(restored.getNodeById('diagnose-right')).toBeDefined()
 })
 
 test('legacy generated tool dock migrates to the explicit on-demand tool border', () => {
@@ -70,7 +81,7 @@ test('legacy generated tool dock migrates to the explicit on-demand tool border'
   const restored = restoreLayout(legacy)
 
   expect(restored.layout.children?.map((child) => child.id)).toEqual(['main'])
-  expect(restored.borders?.map((border) => border.location)).toEqual(['bottom', 'right'])
+  expect(restored.borders?.map((border) => border.location)).toEqual(['right'])
   expect(restored.borders?.every((border) => border.show === false)).toBe(true)
   expect(Model.fromJson(restored).getNodeById('welcome')).toBeDefined()
 })
@@ -78,6 +89,6 @@ test('legacy generated tool dock migrates to the explicit on-demand tool border'
 test('layout snapshots retain the current descriptor version when persisted', () => {
   const snapshot = versionedLayout(defaultLayout())
 
-  expect(snapshot.schemaVersion).toBe(2)
+  expect(snapshot.schemaVersion).toBe(3)
   expect(restoreLayout(snapshot).layout.id).toBe('root')
 })

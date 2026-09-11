@@ -68,8 +68,14 @@
 }
 
 .shell-scope {
+  flex: 0 1 min(280px, 28vw);
   min-width: 0;
   gap: 4px;
+}
+
+.workspace-switcher,
+.workspace-switcher-copy {
+  max-width: 100%;
 }
 
 .shell-scope > .folder-icon {
@@ -146,6 +152,7 @@
 }
 
 .rb-shell-header .top-context {
+  flex: 0 1 min(360px, 32vw);
   min-width: 0;
   max-width: min(360px, 32vw);
   gap: 7px;
@@ -182,6 +189,7 @@
 
 .rb-shell-header .top-spacer {
   flex: 1 1 auto;
+  min-width: 12px;
 }
 
 .rb-shell-header .top-command {
@@ -259,6 +267,7 @@
   }
 
   .rb-shell-header .top-context {
+    flex: 1 1 auto;
     max-width: 32vw;
     padding-left: 6px;
   }
