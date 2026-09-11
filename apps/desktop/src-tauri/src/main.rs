@@ -31,6 +31,23 @@ struct PathPointer {
     cache_root: PathBuf,
 }
 
+fn development_web_url() -> Option<tauri::Url> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    let raw = std::env::var("HBAR_WEB_DEV_URL").ok()?;
+    let url = tauri::Url::parse(&raw).ok()?;
+    (url.scheme() == "http"
+        && matches!(url.host_str(), Some("127.0.0.1" | "localhost"))
+        && url.path() == "/")
+        .then_some(url)
+}
+
+fn is_allowed_web_origin(candidate: &tauri::Url, host_url: &tauri::Url) -> bool {
+    candidate.origin() == host_url.origin()
+        || development_web_url().is_some_and(|dev_url| candidate.origin() == dev_url.origin())
+}
+
 #[tauri::command]
 fn connection_info(
     window: tauri::WebviewWindow,
@@ -38,7 +55,7 @@ fn connection_info(
 ) -> Result<Connection, String> {
     let expected = tauri::Url::parse(&state.url).map_err(|e| e.to_string())?;
     if window.label() != "main"
-        || window.url().map_err(|e| e.to_string())?.origin() != expected.origin()
+        || !is_allowed_web_origin(&window.url().map_err(|e| e.to_string())?, &expected)
     {
         return Err("Connection credentials are restricted to the local workbench".into());
     }
@@ -132,6 +149,13 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
         .stdin(Stdio::null())
         .stdout(log.try_clone()?)
         .stderr(log);
+    if development_web_url().is_some() {
+        command
+            .arg("--origin")
+            .arg("http://127.0.0.1:5173")
+            .arg("--origin")
+            .arg("http://localhost:5173");
+    }
     if let Some(workspace) = std::env::var_os("HBAR_WORKSPACE") {
         command.arg("--workspace").arg(workspace);
     }
@@ -174,12 +198,17 @@ fn main() {
             let connection = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
             let url = tauri::Url::parse(&connection.url)?;
+            let web_url = development_web_url().unwrap_or_else(|| url.clone());
             app.manage(connection);
-            let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+            let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
                 .title("hbar")
                 .inner_size(1440.0, 960.0)
                 .min_inner_size(900.0, 600.0)
-                .on_navigation(move |next| next.origin() == origin)
+                .on_navigation(move |next| {
+                    next.origin() == origin
+                        || development_web_url()
+                            .is_some_and(|dev_url| next.origin() == dev_url.origin())
+                })
                 .build()?;
             let handle = window.clone();
             window.on_window_event(move |event| {
