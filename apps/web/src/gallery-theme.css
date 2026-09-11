@@ -522,7 +522,17 @@ textarea:hover:not(:disabled) {
 
 .tool-rail .rb-glass-icon-label {
   z-index: 100;
+  width: max-content;
+  max-width: min(180px, calc(100vw - 64px));
   box-shadow: var(--dsh-shadow-panel);
+}
+
+.tool-rail.left-rail .rb-glass-icon-label {
+  right: auto;
+}
+
+.tool-rail.right-rail .rb-glass-icon-label {
+  left: auto;
 }
 
 .tool-rail button:hover:not(:disabled) {
