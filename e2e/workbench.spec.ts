@@ -1010,6 +1010,11 @@ test('command console supports keyboard commands, concurrent sessions, approval 
 
     const inspectablePlugin = bootstrap.plugins.find((plugin) => plugin.id.length > 0)
     if (inspectablePlugin) {
+      await input.fill('/plugins ')
+      const pluginActions = page.getByRole('listbox', { name: '命令补全' }).filter({ visible: true })
+      await expect(pluginActions.getByRole('option', { name: /^inspect\b/ })).toBeVisible()
+      await input.fill(`/plugins inspect ${inspectablePlugin.id.slice(0, 4)}`)
+      await expect(pluginActions.getByRole('option', { name: new RegExp(inspectablePlugin.id) })).toBeVisible()
       await input.fill(`/plugins inspect ${inspectablePlugin.id}`)
       await input.press('Enter')
       await expect(terminal.locator('.terminal-command-entry').last()).toContainText(inspectablePlugin.id)

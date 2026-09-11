@@ -183,6 +183,43 @@ export default function TerminalPanel({
           kind: 'argument',
         }))
     }
+    if (
+      (/^\/plugins\s*$/i.test(input) || /^\/plugins\s+[^\s]+$/i.test(input)) &&
+      !/^\/plugins\s+(enable|disable|remove|inspect)\s+/i.test(input)
+    ) {
+      const prefix = (input.match(/^\/plugins\s*([^\s]*)$/i)?.[1] ?? '').toLowerCase()
+      return ['list', 'install', 'enable', 'disable', 'remove', 'inspect', 'doctor', 'lock']
+        .filter((action) => action.startsWith(prefix))
+        .map((action) => ({
+          key: `plugins:${action}`,
+          value: `/plugins ${action}`,
+          label: action,
+          description:
+            action === 'inspect'
+              ? '查看插件清单'
+              : action === 'lock'
+                ? '查看插件锁定文件'
+                : action === 'doctor'
+                  ? '运行插件检查'
+                  : '插件管理操作',
+          kind: 'argument' as const,
+        }))
+    }
+    const pluginTargetMatch = input.match(/^\/plugins\s+(enable|disable|remove|inspect)\s+([^\s]*)$/i)
+    if (pluginTargetMatch) {
+      const action = pluginTargetMatch[1]!.toLowerCase()
+      const prefix = pluginTargetMatch[2]!.toLowerCase()
+      return (catalog?.plugins ?? [])
+        .filter((plugin) => plugin.id.toLowerCase().includes(prefix))
+        .slice(0, 10)
+        .map((plugin) => ({
+          key: `plugin:${action}:${plugin.id}`,
+          value: `/plugins ${action} ${plugin.id}`,
+          label: plugin.id,
+          description: `${plugin.version} · ${plugin.status}`,
+          kind: 'argument' as const,
+        }))
+    }
     if (!input.startsWith('/') || input.includes(' ')) return []
     const prefix = input.slice(1).toLowerCase()
     return commands
@@ -195,7 +232,7 @@ export default function TerminalPanel({
         description: command.description,
         kind: 'command',
       }))
-  }, [catalog?.models, commands, input])
+  }, [catalog?.models, catalog?.plugins, commands, input])
 
   useEffect(() => {
     const openCommands = () => {
