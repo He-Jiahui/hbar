@@ -54,6 +54,7 @@ import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 import WorkbenchHeader from './workbench/WorkbenchHeader'
 import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbench/WorkbenchNavigation'
+import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -1329,45 +1330,14 @@ export default function App() {
           }}
         />
       </div>
-      <footer className="statusbar">
-        <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
-        <span className="status-item status-workspace" data-status-item="workspace" title="当前工作区">
-          <Folder size={12} />
-          {data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? 'Workspace'}
-        </span>
-        <span className="status-item status-provider" data-status-item="provider" title="当前模型">
-          <Network size={12} />
-          {data?.models.find((model) => model.id === modelId)?.name ?? 'Provider'}
-        </span>
-        <span className="status-item status-agent" data-status-item="agent-status" title="会话状态">
-          <i
-            className={
-              activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)) ? 'running' : ''
-            }
-          />
-          {activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status))
-            ? 'Running'
-            : 'Idle'}
-        </span>
-        <span className="status-item status-permission" data-status-item="permission" title="工具权限">
-          <ShieldCheck size={12} />
-          {permissionPreset(approvalMode).shortLabel}
-        </span>
-        <span className="status-spacer" />
-        <span className="status-item" data-status-item="context" title="上下文使用量">
-          Context{' '}
-          {activeSnapshot?.usage ? (activeSnapshot.usage.input + activeSnapshot.usage.output).toLocaleString() : 0}
-        </span>
-        <span className="status-item" data-status-item="turn-tokens" title="当前 token 使用量">
-          {host?.activeRuns ?? 0} active
-        </span>
-        <span className="status-item" data-status-item="encoding">
-          UTF-8
-        </span>
-        <span className="status-item" data-status-item="version">
-          0.1.0
-        </span>
-      </footer>
+      <WorkbenchStatusBar
+        workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? 'Workspace'}
+        modelLabel={data?.models.find((model) => model.id === modelId)?.name ?? 'Provider'}
+        permissionLabel={permissionPreset(approvalMode).shortLabel}
+        running={Boolean(activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)))}
+        contextTokens={activeSnapshot ? activeSnapshot.usage.input + activeSnapshot.usage.output : 0}
+        activeRuns={host?.activeRuns ?? 0}
+      />
       <MobileNavigation mobileView={mobileView} onSetMobileView={setMobileView} />
       {notice && (
         <div className="toast" role="alert">

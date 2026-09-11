@@ -1,0 +1,121 @@
+.rb-statusbar {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 0 9px;
+  background: var(--hbar-s1);
+}
+
+.rb-statusbar > .chrome-glass {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--hbar-s1) 92%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--hbar-bd) 70%, transparent);
+  pointer-events: none;
+}
+
+.rb-statusbar > .chrome-glass::before {
+  background: linear-gradient(105deg, color-mix(in srgb, var(--hbar-ac) 7%, transparent), transparent 42%);
+}
+
+.rb-statusbar > :not(.chrome-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.statusbar-primary,
+.statusbar-secondary,
+.rb-statusbar .status-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.statusbar-primary,
+.statusbar-secondary {
+  gap: 3px;
+}
+
+.rb-statusbar .status-item {
+  max-width: min(30vw, 320px);
+  gap: 5px;
+  min-height: 21px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t2);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.rb-statusbar .status-item:hover {
+  background: color-mix(in srgb, var(--hbar-s2) 76%, transparent);
+}
+
+.rb-statusbar .status-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-statusbar .status-workspace {
+  color: var(--hbar-t1);
+}
+
+.rb-statusbar .status-workspace > svg {
+  flex: 0 0 auto;
+  color: var(--hbar-ac2);
+}
+
+.rb-statusbar .status-provider > svg {
+  flex: 0 0 auto;
+  color: var(--hbar-teal);
+}
+
+.rb-statusbar .status-permission > svg {
+  flex: 0 0 auto;
+  color: var(--hbar-wn-ink);
+}
+
+.rb-statusbar .status-agent > i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--hbar-t3);
+}
+
+.rb-statusbar .status-agent > i.running {
+  background: var(--hbar-ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hbar-ok) 15%, transparent);
+}
+
+.rb-statusbar .status-spacer {
+  flex: 1 1 auto;
+}
+
+.rb-statusbar .status-key {
+  color: var(--hbar-t3);
+}
+
+@media (max-width: 899px) {
+  .rb-statusbar {
+    display: none;
+  }
+}
+
+@media (max-width: 1200px) and (min-width: 900px) {
+  .rb-statusbar .status-item {
+    max-width: 22vw;
+  }
+
+  .rb-statusbar .status-low-priority {
+    display: none;
+  }
+}
