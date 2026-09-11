@@ -6,7 +6,7 @@ hbar 使用轻量的 GitHub Flow：`master` 始终代表可集成的主线；每
 
 1. 从最新 `master` 创建一个单一目的分支，例如 `feat/session-export`、`fix/pairing-timeout` 或 `docs/wiki-onboarding`。自动化代理创建的分支可使用 `codex/<topic>` 前缀。
 2. 以完整可验证的子功能为粒度提交。不要夹带无关格式化、生成物、密钥或其他人的未提交改动。
-3. 按改动范围运行检查；基础门禁是 `bun run check`、`bun run build`，文档还要运行 `bun run check:docs`。
+3. 按改动范围运行检查；基础门禁是 `bun run check`、`bun run build`，文档还要运行 `bun run check:docs`，修改 `.github/` 时运行 `bun run check:github-flow`。
 4. 尽早打开 Draft PR，说明影响面和尚未完成的验证；准备合并时再标记为 ready for review。
 5. 由作者和审阅者共同核对行为、测试证据、失败/恢复路径及回滚方式。CI 绿灯不替代审阅，审阅也不替代可重复的检查。
 6. 通过审阅和受保护分支要求后合并到 `master`，删除已合并的短生命周期分支。是否使用 squash merge 由仓库设置决定；无论采用何种合并方式，都要保留清楚、可追溯的提交意图。

@@ -9,9 +9,11 @@ bun install --frozen-lockfile
 bun run check
 bun run build
 bun run check:docs
+bun run check:github-flow
 ```
 
 `bun run check` 会依次执行 ESLint、TypeScript 类型检查和 `tests/` 下的 Bun 测试。`bun run build` 验证 Web 产物；`bun run check:docs` 检查 README、贡献指南、`docs/` 和 Wiki 源码中的本地 Markdown 链接。
+`bun run check:github-flow` 则只运行工作流、模板、CODEOWNERS 和 Wiki 发布器的契约回归测试，适合修改 `.github/` 时快速反馈。
 
 ## 按改动范围验收
 

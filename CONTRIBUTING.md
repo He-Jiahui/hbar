@@ -24,7 +24,7 @@ bun run check
 bun run build
 ```
 
-提交涉及界面、网络或桌面行为时，请按改动范围补充运行 `bun run test:e2e`、桌面 smoke test 或手动验收。文档或 `docs/wiki/` 改动还要运行 `bun run check:docs`，确认本地 Markdown 链接没有失效。测试和基准生成的文件应留在被忽略的 `artifacts/`、`test-results/` 或 `playwright-report/` 中。
+提交涉及界面、网络或桌面行为时，请按改动范围补充运行 `bun run test:e2e`、桌面 smoke test 或手动验收。文档或 `docs/wiki/` 改动还要运行 `bun run check:docs`，确认本地 Markdown 链接没有失效；修改 `.github/` 或 GitHub Flow 时再运行 `bun run check:github-flow`。测试和基准生成的文件应留在被忽略的 `artifacts/`、`test-results/` 或 `playwright-report/` 中。
 
 ## 代码约定
 
