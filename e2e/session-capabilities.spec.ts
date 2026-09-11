@@ -110,7 +110,7 @@ test('plan tool surface exposes progress and current step state', async ({ page,
     await page.reload()
     await page.locator('.session-select').filter({ hasText: 'Plan progress UI' }).click()
     await page.getByRole('button', { name: '计划', exact: true }).filter({ visible: true }).click()
-    const plan = page.locator('.tool-surface').filter({ hasText: 'Plan progress UI' }).last()
+    const plan = page.locator('.plan-card').filter({ visible: true })
     await expect(plan.locator('.plan-progress-heading')).toContainText('1 of 3 done')
     await expect(plan.locator('.plan-progress-track')).toHaveAttribute('aria-label', '计划进度 1 / 3')
     await expect(plan.locator('.plan-current-step')).toContainText('Apply the layout changes')
