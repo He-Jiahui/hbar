@@ -46,6 +46,9 @@ test('model settings can search and filter configured connections', async ({ pag
     await expect(page.getByText('没有匹配的模型', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: '清除筛选', exact: true }).click()
     await expect(page.locator('.model-row')).toHaveCount(1)
+    await page.locator('.model-row .model-details').click()
+    await expect(page.locator('.settings-detail-page').filter({ visible: true })).toHaveCount(0)
+    await expect(page.locator('.model-row.selected')).toHaveCount(1)
 
     await page.getByRole('button', { name: '待配置', exact: true }).click()
     await expect(page.getByText('没有匹配的模型', { exact: true })).toBeVisible()
