@@ -34,7 +34,7 @@ import { copyText, newRequestId } from './browser-utils'
 import { buildComposerActions } from './composer-actions'
 import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
-import { useSessionCapabilities } from './session-capabilities'
+import { clearBudget, clearGoal, setBudget, setMode, useSessionCapabilities } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -441,7 +441,6 @@ export default function Chat({
   const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
-  const [sessionModeNotice, setSessionModeNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
   const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
@@ -628,19 +627,10 @@ export default function Chat({
     if (action.id === 'goal' || action.id === 'plan' || action.id === 'budget') {
       if (!sessionId) return
       const mode = action.id === 'plan' ? 'plan' : 'default'
-      void client()
-        .call('mode.set', { sessionId, mode })
-        .then(async () => {
-          if (action.id === 'goal') {
-            setSessionModeNotice('Goal 模式：发送的内容会作为当前目标持续推进。')
-          } else if (action.id === 'plan') {
-            setSessionModeNotice('Plan 模式：只读探索并生成可审核计划。')
-          } else {
-            await client().call('budget.set', { sessionId, limit: 10_000 })
-            setSessionModeNotice('Budget 模式：将持续推进，接近默认 10,000 token 预算时自动停止。')
-          }
-        })
-        .catch(report)
+      void (async () => {
+        await setMode(client(), sessionId, mode)
+        if (action.id === 'budget') await setBudget(client(), sessionId, 10_000)
+      })().catch(report)
       return
     }
     if (!action.execute) return
@@ -652,6 +642,49 @@ export default function Chat({
       }),
     ).catch(report)
   }
+  const modeTags = sessionId && (capabilityState?.mode === 'plan' || capabilityState?.goal || capabilityState?.budget) ? (
+    <div className="composer-mode-tags" aria-label="当前会话模式">
+      {capabilityState?.mode === 'plan' && (
+        <span className="composer-mode-tag" title="Plan 模式：只读探索并生成可审核计划">
+          <span>计划</span>
+          <button
+            type="button"
+            title="关闭 Plan 模式"
+            aria-label="关闭 Plan 模式"
+            onClick={() => void setMode(client(), sessionId, 'default').catch(report)}
+          >
+            <X size={12} />
+          </button>
+        </span>
+      )}
+      {capabilityState?.goal && (
+        <span className="composer-mode-tag" title={`Goal：${capabilityState.goal.objective}`}>
+          <span>目标</span>
+          <button
+            type="button"
+            title="关闭 Goal 模式"
+            aria-label="关闭 Goal 模式"
+            onClick={() => void clearGoal(client(), sessionId).catch(report)}
+          >
+            <X size={12} />
+          </button>
+        </span>
+      )}
+      {capabilityState?.budget && (
+        <span className="composer-mode-tag" title={`Budget：剩余 ${capabilityState.budget.remainingTokens.toLocaleString()} tokens`}>
+          <span>预算</span>
+          <button
+            type="button"
+            title="关闭 Budget 模式"
+            aria-label="关闭 Budget 模式"
+            onClick={() => void clearBudget(client(), sessionId).catch(report)}
+          >
+            <X size={12} />
+          </button>
+        </span>
+      )}
+    </div>
+  ) : undefined
   return (
     <div className="chat-panel">
       <ChatSessionChrome
@@ -673,7 +706,6 @@ export default function Chat({
           }
         }}
       />
-      {sessionModeNotice && <div className="session-mode-notice" role="status">{sessionModeNotice}</div>}
       {view === 'console' && (
         <TerminalPanel embedded onSelectSession={onSelectSession} onClose={() => onViewChange('chat')} />
       )}
@@ -874,6 +906,7 @@ export default function Chat({
               files={files}
               artifactUrl={(id) => client().artifactUrl(id)}
               composerActions={composerActions}
+              modeTags={modeTags}
               activeRun={activeRun}
               busy={busy}
               uploading={uploading}

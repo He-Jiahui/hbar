@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { ArrowUp, FileText, LoaderCircle, Square, X } from 'lucide-react'
 import type { ArtifactRef, Run, Session, Workspace } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
@@ -23,6 +23,7 @@ export interface PromptComposerProps {
   files: readonly ArtifactRef[]
   artifactUrl(id: string): string
   composerActions: readonly ComposerAction[]
+  modeTags?: ReactNode
   activeRun: Run | undefined
   busy: boolean
   uploading: boolean
@@ -99,6 +100,7 @@ export default function PromptComposer({
   files,
   artifactUrl,
   composerActions,
+  modeTags,
   activeRun,
   busy,
   uploading,
@@ -269,6 +271,7 @@ export default function PromptComposer({
           />
           {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
           <PermissionSelector />
+          {modeTags}
         </div>
         <div className="composer-right">
           <ModelPicker />
