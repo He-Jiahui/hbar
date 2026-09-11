@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileCode2, Folder, LoaderCircle, RefreshCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileCode2, Folder, LoaderCircle, RefreshCw, Search, X } from 'lucide-react'
 import type { FileEntry } from '@hbar/contracts'
 import { client } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
@@ -23,9 +23,11 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     [entries, setEntries] = useState<FileEntry[]>([]),
     [loading, setLoading] = useState(false),
     [reloadToken, setReloadToken] = useState(0),
+    [query, setQuery] = useState(''),
     [error, setError] = useState('')
   useEffect(() => {
     setPath('.')
+    setQuery('')
   }, [workspaceId])
   useEffect(() => {
     if (!workspaceId) {
@@ -54,8 +56,13 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     }
   }, [workspaceId, path, reloadToken])
   const segments = path === '.' ? [] : path.split('/').filter(Boolean)
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const visibleEntries = normalizedQuery
+    ? entries.filter((entry) => entry.name.toLocaleLowerCase().includes(normalizedQuery))
+    : entries
   function navigateTo(index: number) {
     setPath(index < 0 ? '.' : segments.slice(0, index + 1).join('/'))
+    setQuery('')
   }
   return (
     <div className="file-nav rb-file-nav">
@@ -96,6 +103,26 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           </span>
         ))}
       </nav>
+      <label className="file-filter">
+        <Search size={13} aria-hidden="true" />
+        <input
+          type="search"
+          aria-label="筛选当前目录"
+          placeholder="筛选当前目录"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {query && (
+          <button type="button" title="清除文件筛选" aria-label="清除文件筛选" onClick={() => setQuery('')}>
+            <X size={12} />
+          </button>
+        )}
+      </label>
+      {normalizedQuery && !loading && !error && (
+        <div className="file-filter-count" role="status">
+          {visibleEntries.length} 个匹配项
+        </div>
+      )}
       {!workspaceId ? (
         <div className="file-empty-state" role="status">
           <Folder size={18} />
@@ -112,15 +139,20 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           <strong>正在读取目录</strong>
           <span>稍等片刻，文件列表马上就绪。</span>
         </div>
-      ) : entries.length ? (
+      ) : visibleEntries.length ? (
         <AnimatedList className="file-list" viewportClassName="file-list-viewport" aria-label={`文件列表 ${path}`}>
-          {entries.map((entry) => (
+          {visibleEntries.map((entry) => (
             <SpotlightCard
               as="button"
               type="button"
               className="file-entry"
               key={entry.path}
-              onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
+              onClick={() => {
+                if (entry.directory) {
+                  setPath(entry.path)
+                  setQuery('')
+                } else onOpen(entry.path)
+              }}
               title={entry.path}
               aria-label={entry.directory ? `打开目录 ${entry.name}` : `打开文件 ${entry.name}`}
               spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
@@ -131,6 +163,13 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
             </SpotlightCard>
           ))}
         </AnimatedList>
+      ) : entries.length ? (
+        <div className="file-empty-state" role="status">
+          <Search size={18} />
+          <strong>没有匹配的文件</strong>
+          <span>尝试更换关键词，或清除当前筛选。</span>
+          <button type="button" className="text-command" onClick={() => setQuery('')}>清除筛选</button>
+        </div>
       ) : (
         <div className="file-empty-state" role="status">
           <Folder size={18} />
