@@ -183,13 +183,13 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
           {grouped.flat.length ? (
             <>
               {grouped.recent.length > 0 && (
-                <section className="command-palette-group" aria-label="最近使用">
+                <section className="command-palette-group" role="group" aria-label="最近使用">
                   <h3>最近使用</h3>
                   {grouped.recent.map((command) => renderCommand(command, grouped.flat.indexOf(command)))}
                 </section>
               )}
               {grouped.groups.map(({ group, commands: groupCommands }) => (
-                <section className="command-palette-group" key={group} aria-label={GROUP_LABELS[group]}>
+                <section className="command-palette-group" role="group" key={group} aria-label={GROUP_LABELS[group]}>
                   <h3>{GROUP_LABELS[group]}</h3>
                   {groupCommands.map((command) => renderCommand(command, grouped.flat.indexOf(command)))}
                 </section>
