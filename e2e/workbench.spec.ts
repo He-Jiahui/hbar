@@ -839,6 +839,7 @@ test('command console supports keyboard commands, concurrent sessions, approval 
       'aria-selected',
       'true',
     )
+    await expect(page.locator('.session-console-context').filter({ visible: true })).toContainText('thinking:')
     await expect(terminal.locator('.terminal-toolbar')).toHaveCount(0)
     await expect(terminal.locator('.terminal-composer-glass')).toHaveClass(/glass-surface/)
     await expect(terminal.getByRole('button', { name: '执行', exact: true })).toHaveClass(/rb-glare-button/)
