@@ -620,7 +620,6 @@ export default function App() {
     let parent = node?.getParent()
     while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
     if (parent instanceof BorderNode) {
-      const tabs = parent.getTabNodes()
       if (node instanceof TabNode && node.getComponent() === 'system-terminal') {
         model.doAction(Actions.deleteTab(id))
         const remaining = parent.getTabNodes()
