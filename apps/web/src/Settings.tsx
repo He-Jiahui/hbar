@@ -880,7 +880,12 @@ export default function Settings() {
             </div>
           </div>
           {modelGroups.length ? (
-            <AnimatedList className="settings-provider-list" viewportClassName="settings-provider-viewport" showGradients={false}>
+            <AnimatedList
+              className="settings-provider-list"
+              viewportClassName="settings-provider-viewport"
+              showGradients={false}
+              animateItems={false}
+            >
               {modelGroups.map((group) => {
                 const first = group.models[0]!
                 const connected = first.protocol === 'mock' || group.models.every((model) => model.hasKey)

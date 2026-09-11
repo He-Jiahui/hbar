@@ -13,6 +13,10 @@
   animation-delay: calc(min(var(--rb-list-index, 0), 8) * 24ms);
 }
 
+.rb-animated-list--static .rb-animated-list__item {
+  animation: none;
+}
+
 .rb-animated-list__gradient {
   position: absolute;
   right: 0;

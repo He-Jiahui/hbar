@@ -16,6 +16,7 @@ export interface AnimatedListProps extends Omit<HTMLAttributes<HTMLDivElement>, 
   children?: ReactNode
   viewportClassName?: string
   showGradients?: boolean
+  animateItems?: boolean
 }
 
 type EdgeOpacity = {
@@ -33,11 +34,17 @@ export default function AnimatedList({
   className = '',
   viewportClassName = '',
   showGradients = true,
+  animateItems = true,
   ...rest
 }: AnimatedListProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [edgeOpacity, setEdgeOpacity] = useState<EdgeOpacity>({ top: 0, bottom: 0 })
   const items = Children.toArray(children)
+  const listClassName = [
+    'rb-animated-list',
+    !animateItems && 'rb-animated-list--static',
+    className,
+  ].filter(Boolean).join(' ')
 
   const syncEdges = useCallback(() => {
     const viewport = viewportRef.current
@@ -70,7 +77,7 @@ export default function AnimatedList({
   }, [syncEdges])
 
   return (
-    <div className={`rb-animated-list${className ? ` ${className}` : ''}`} {...rest}>
+    <div className={listClassName} {...rest}>
       <div ref={viewportRef} className={`rb-animated-list__viewport${viewportClassName ? ` ${viewportClassName}` : ''}`}>
         {items.map((item, index) => (
           isValidElement<{ className?: string; style?: CSSProperties }>(item)
