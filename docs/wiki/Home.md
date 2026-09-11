@@ -12,13 +12,18 @@ hbar 是本地优先的 Agent 工作台：Bun Host 负责会话、模型与工�
 ## 从这里开始
 
 - [快速开始](Quickstart.md)：安装依赖、启动安全的 Demo Host，并完成第一次配对。
+- [跑通第一条会话](First-session.md)：选择工作区、审批工具、取消运行并检查结果。
+- [模型与设置](Models-and-settings.md)：从 Demo fixture 切换到真实 provider，理解密钥与能力声明。
 - [工作区与会话](Workspaces-and-sessions.md)：理解数据目录、Session、队列、取消和跨设备恢复。
 - [模型、权限与数据安全](Security-and-data.md)：在接入真实模型或局域网访问前先了解边界。
 - [插件与扩展](Plugins.md)：加载本地插件、理解可信代码与生命周期责任。
+- [排查问题](Troubleshooting.md)：按 Host、配对、模型、桌面和插件症状定位问题。
 
 ## 读源码或参与开发
 
 - [架构概览](Architecture.md)：从进程、依赖方向和持久化模型开始读。
+- [CLI 与无头模式](CLI.md)：终端会话、结构化输出和脚本退出码。
+- [测试与验收](Testing.md)：按改动范围运行确定性检查，并理解手工验收边界。
 - [开发与验证](Development.md)：按改动范围选择检查，并定位测试证据。
 
 ## 维护这套 Wiki
