@@ -351,8 +351,28 @@ export default function App() {
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [toastPaused, setToastPaused] = useState(false)
   const sidebarDrag = useRef<{ startX: number; startWidth: number } | null>(null)
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), [])
+  useEffect(() => {
+    setToastPaused(false)
+  }, [notice])
+  useEffect(() => {
+    if (!notice || toastPaused) return
+    const timer = window.setTimeout(() => {
+      if (useNotice.getState().error === notice) useNotice.setState({ error: '' })
+    }, 6000)
+    return () => window.clearTimeout(timer)
+  }, [notice, toastPaused])
+
+  useEffect(() => {
+    if (!notice) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') useNotice.setState({ error: '' })
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [notice])
   const [model, setModel] = useState(() => {
     return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
   })
@@ -1047,7 +1067,15 @@ export default function App() {
       />
       <MobileNavigation mobileView={mobileView} onSetMobileView={setMobileView} />
       {notice && (
-        <div className="toast" role="alert">
+        <div
+          className="toast"
+          role="alert"
+          tabIndex={0}
+          onMouseEnter={() => setToastPaused(true)}
+          onMouseLeave={() => setToastPaused(false)}
+          onFocus={() => setToastPaused(true)}
+          onBlur={() => setToastPaused(false)}
+        >
           <span>{notice}</span>
           <button title="关闭通知" aria-label="关闭通知" onClick={() => useNotice.setState({ error: '' })}>
             <X size={15} />
@@ -1094,4 +1122,5 @@ export default function App() {
     </div>
   )
 }
+
 
