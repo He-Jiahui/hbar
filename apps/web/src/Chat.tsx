@@ -485,7 +485,9 @@ export default function Chat({
     overscan: 5,
   })
   const activeRun = snapshot?.runs.find((run) => ['running', 'waiting_approval'].includes(run.status))
-  const queued = snapshot?.runs.filter((run) => run.status === 'queued') ?? []
+  // Snapshots are newest-first for the activity view, while the queue contract
+  // is oldest-first: the first row is the next run the Host will claim.
+  const queued = snapshot?.runs.filter((run) => run.status === 'queued').sort((left, right) => left.createdAt - right.createdAt) ?? []
   const lastRun = snapshot?.runs[0]
   const totalSize = virtual.getTotalSize()
   const streamText = snapshot?.streams.map((stream) => stream.text.length + stream.thinking.length).join(',')
