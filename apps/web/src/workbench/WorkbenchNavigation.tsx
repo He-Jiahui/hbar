@@ -11,7 +11,7 @@ import {
   Settings2,
   TerminalSquare,
 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
 import './WorkbenchNavigation.css'
@@ -272,6 +272,13 @@ export function MobileToolMenu({
   onOpenTool,
   onClose,
 }: Pick<WorkbenchNavigationProps, 'contributions' | 'onOpenTool'> & { onClose(): void }) {
+  const closeButton = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => closeButton.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -291,14 +298,26 @@ export function MobileToolMenu({
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <section className="plugin-panel rb-plugin-panel" role="dialog" aria-modal="true" aria-label="工具与插件">
+      <section
+        className="plugin-panel rb-plugin-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mobile-more-title"
+      >
         <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
         <header className="mobile-more-header">
           <div>
             <span className="mobile-more-eyebrow">工作台</span>
-            <h2>更多</h2>
+            <h2 id="mobile-more-title">更多</h2>
           </div>
-          <button type="button" className="mobile-more-close" aria-label="关闭更多" title="关闭更多" onClick={onClose}>
+          <button
+            ref={closeButton}
+            type="button"
+            className="mobile-more-close"
+            aria-label="关闭更多"
+            title="关闭更多"
+            onClick={onClose}
+          >
             <span aria-hidden="true">×</span>
           </button>
         </header>

@@ -37,7 +37,10 @@ async function openMobileMore(page: Page) {
   await page.locator('.mobile-nav').getByRole('button', { name: '更多', exact: true }).click()
   await expect(page.locator('.mobile-more-grid')).toBeVisible()
   await expect(page.locator('.mobile-more-backdrop')).toBeVisible()
-  await expect(page.locator('.mobile-more-backdrop [role="dialog"]')).toBeVisible()
+  const sheet = page.locator('.mobile-more-backdrop [role="dialog"]')
+  await expect(sheet).toBeVisible()
+  await expect(sheet).toHaveAttribute('aria-labelledby', 'mobile-more-title')
+  await expect(page.locator('.mobile-more-close')).toBeFocused()
 }
 
 async function openMobileSettings(page: Page) {
