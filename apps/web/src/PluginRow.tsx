@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Save } from 'lucide-react'
+import { ChevronRight, Puzzle, Save, Trash2 } from 'lucide-react'
 import type { PluginInfo } from '@hbar/contracts'
 import { client, refreshCatalog, report } from './stores'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -98,6 +98,18 @@ export default function PluginRow({ plugin, className = '' }: { plugin: PluginIn
     }
   }
 
+  async function remove() {
+    if (plugin.required || !window.confirm(`卸载插件 ${plugin.name}？`)) return
+    setError('')
+    try {
+      await client().call('plugin.remove', { id: plugin.id })
+      await refreshCatalog()
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure))
+      report(failure)
+    }
+  }
+
   return (
     <SpotlightCard
       className={`plugin-row${className ? ` ${className}` : ''}`}
@@ -106,6 +118,7 @@ export default function PluginRow({ plugin, className = '' }: { plugin: PluginIn
       <div className="plugin-heading">
         <button className="plugin-expand" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
           <ChevronRight size={14} className={expanded ? 'rotate' : ''} />
+          <span className="plugin-icon" aria-hidden="true"><Puzzle size={16} /></span>
           <div>
             <strong>{plugin.name}</strong>
             <span>
@@ -124,9 +137,20 @@ export default function PluginRow({ plugin, className = '' }: { plugin: PluginIn
           disabled={plugin.required}
           onChange={(event) => void apply(event.target.checked)}
         />
+        <button
+          type="button"
+          className="plugin-remove-action"
+          title={plugin.required ? '必需插件不可卸载' : `卸载 ${plugin.name}`}
+          aria-label={plugin.required ? '必需插件不可卸载' : `卸载 ${plugin.name}`}
+          disabled={plugin.required}
+          onClick={() => void remove()}
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
       {expanded && (
         <div className="plugin-detail">
+          <p className="plugin-description">{plugin.description || '该插件没有提供描述。'}</p>
           <dl>
             <dt>安装范围</dt>
             <dd>{plugin.installScope === 'project' ? `项目 · ${plugin.projectId ?? '未知'}` : '全局'}</dd>

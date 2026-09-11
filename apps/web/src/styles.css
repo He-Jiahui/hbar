@@ -1792,6 +1792,17 @@ p {
   color: #7b869b;
   transition: transform 0.15s;
 }
+.plugin-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid #4a3f72;
+  border-radius: 5px;
+  background: #2a2243;
+  color: #b7a5ff;
+}
 .plugin-expand > div {
   min-width: 0;
 }
@@ -1817,6 +1828,28 @@ p {
 }
 .plugin-detail {
   padding: 10px 0 2px 21px;
+}
+.plugin-description {
+  margin: 0 0 10px;
+  color: #b1b7c5;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.plugin-remove-action {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: #9ca3b2;
+}
+.plugin-remove-action:hover:not(:disabled),
+.plugin-remove-action:focus-visible {
+  color: #ff8d9d;
+}
+.plugin-remove-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 .plugin-detail dl {
   display: grid;
