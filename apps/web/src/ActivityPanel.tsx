@@ -10,6 +10,26 @@ import './ActivityPanel.css'
 
 type ActivityMode = 'activity' | 'trace'
 
+function activityEventLabel(event: SessionEvent): string {
+  const data = event.data as { name?: unknown; tool?: unknown; run?: { status?: unknown } } | null
+  if (event.type === 'tool.started' && typeof data?.name === 'string') return `正在执行 ${data.name}`
+  if (event.type === 'run.queued') return '已加入队列'
+  if (event.type === 'run.status' && typeof data?.run?.status === 'string') return `运行状态：${data.run.status}`
+  if (event.type === 'run.settled' && typeof data?.run?.status === 'string') return `运行结束：${data.run.status}`
+  if (event.type === 'approval.requested') return '等待审批'
+  if (event.type === 'approval.resolved') return '审批已处理'
+  return event.type.replaceAll('.', ' · ')
+}
+
+function activityEventState(event: SessionEvent): 'done' | 'active' | 'waiting' {
+  if (event.type === 'tool.started' || event.type === 'approval.requested') return 'active'
+  if (event.type === 'run.status') {
+    const status = (event.data as { run?: { status?: unknown } } | null)?.run?.status
+    if (status === 'running' || status === 'waiting_approval') return 'active'
+  }
+  return 'done'
+}
+
 /**
  * Agent Activity view for the right tool region. It owns only local display
  * state; session snapshots remain the single source of truth in the store.
@@ -22,10 +42,11 @@ export default function ActivityPanel() {
   const [detail, setDetail] = useState<SessionEvent | null>(null)
   const [eventsLoading, setEventsLoading] = useState(false)
   const [eventsError, setEventsError] = useState('')
+  const [clock, setClock] = useState(() => Date.now())
   const cursor = snapshot?.cursor
 
   useEffect(() => {
-    if (mode !== 'trace' || cursor === undefined) return
+    if (cursor === undefined) return
     let alive = true
     setEventsLoading(true)
     setEventsError('')
@@ -49,7 +70,16 @@ export default function ActivityPanel() {
   }, [mode, sessionId, cursor])
 
   const usage = snapshot?.usage
-  const runningCount = snapshot?.runs.filter((run) => ['running', 'queued', 'waiting_approval'].includes(run.status)).length ?? 0
+  const runningCount =
+    snapshot?.runs.filter((run) => ['running', 'queued', 'waiting_approval'].includes(run.status)).length ?? 0
+  useEffect(() => {
+    if (!runningCount) return
+    const timer = window.setInterval(() => setClock(Date.now()), 1_000)
+    return () => window.clearInterval(timer)
+  }, [runningCount])
+  const timelineRun =
+    snapshot?.runs.find((run) => ['running', 'queued', 'waiting_approval'].includes(run.status)) ?? snapshot?.runs[0]
+  const timelineEvents = timelineRun ? events.filter((event) => event.runId === timelineRun.id).slice(-12) : []
 
   return (
     <div className="activity-panel rb-activity-panel" aria-label="运行与事件">
@@ -83,20 +113,72 @@ export default function ActivityPanel() {
             </div>
             {runningCount > 0 && <span className="activity-live-indicator">{runningCount} active</span>}
           </div>
+          {timelineRun && (
+            <section className="activity-timeline" aria-label="运行时间线">
+              <div className="activity-timeline-heading">
+                <div>
+                  <strong>{timelineRun.input.text.slice(0, 80) || '图片消息'}</strong>
+                  <span>
+                    {timelineRun.status} ·{' '}
+                    {timelineRun.startedAt
+                      ? `${Math.max(0, Math.round(((timelineRun.endedAt ?? clock) - timelineRun.startedAt) / 1000))}s`
+                      : '未开始'}
+                  </span>
+                </div>
+                {['running', 'queued', 'waiting_approval'].includes(timelineRun.status) && (
+                  <button
+                    type="button"
+                    aria-label="停止此运行"
+                    title="停止此运行"
+                    onClick={() =>
+                      void client()
+                        .call('run.cancel', { runId: timelineRun.id })
+                        .catch((failure) => report(failure))
+                    }
+                  >
+                    <Square size={12} />
+                  </button>
+                )}
+              </div>
+              {timelineEvents.length > 0 && (
+                <ol className="activity-timeline-list">
+                  {timelineEvents.map((event) => (
+                    <li className={`activity-timeline-entry ${activityEventState(event)}`} key={event.eventId}>
+                      <i aria-hidden="true" />
+                      <span>{activityEventLabel(event)}</span>
+                      <time>{new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          )}
           <dl className="metrics">
-            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)">
+            <SpotlightCard
+              className="activity-metric"
+              spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
+            >
               <dt>输入 tokens</dt>
               <dd>{(usage?.input ?? 0).toLocaleString()}</dd>
             </SpotlightCard>
-            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)">
+            <SpotlightCard
+              className="activity-metric"
+              spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
+            >
               <dt>输出 tokens</dt>
               <dd>{(usage?.output ?? 0).toLocaleString()}</dd>
             </SpotlightCard>
-            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--rb-status) 18%, transparent)">
+            <SpotlightCard
+              className="activity-metric"
+              spotlightColor="color-mix(in srgb, var(--rb-status) 18%, transparent)"
+            >
               <dt>缓存读取</dt>
               <dd>{(usage?.cacheRead ?? 0).toLocaleString()}</dd>
             </SpotlightCard>
-            <SpotlightCard className="activity-metric" spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)">
+            <SpotlightCard
+              className="activity-metric"
+              spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)"
+            >
               <dt>费用</dt>
               <dd>${(usage?.cost ?? 0).toFixed(4)}</dd>
             </SpotlightCard>
@@ -104,12 +186,17 @@ export default function ActivityPanel() {
           <div className="section-label">运行记录</div>
           <AnimatedList className="run-list" viewportClassName="run-list-viewport" showGradients={false}>
             {snapshot?.runs.map((run) => (
-              <SpotlightCard className="run-row" key={run.id} spotlightColor="color-mix(in srgb, var(--rb-status) 30%, transparent)">
+              <SpotlightCard
+                className="run-row"
+                key={run.id}
+                spotlightColor="color-mix(in srgb, var(--rb-status) 30%, transparent)"
+              >
                 <i className={`status-dot ${run.status}`} aria-hidden="true" />
                 <div>
                   <strong>{run.input.text.slice(0, 65) || '图片消息'}</strong>
                   <span>
-                    {run.status} · {new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {run.status} ·{' '}
+                    {new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
                 {['running', 'queued', 'waiting_approval'].includes(run.status) && (
