@@ -17,11 +17,10 @@ import {
   Search,
   Settings2,
   ShieldCheck,
-  Square,
   TerminalSquare,
   X,
 } from 'lucide-react'
-import type { Session, SessionEvent } from '@hbar/contracts'
+import type { Session } from '@hbar/contracts'
 import {
   client,
   connectHost,
@@ -49,6 +48,7 @@ import SpotlightCard from './react-bits/SpotlightCard'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
+import ActivityPanel from './ActivityPanel'
 import WorkbenchHeader from './workbench/WorkbenchHeader'
 import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbench/WorkbenchNavigation'
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'

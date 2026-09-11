@@ -1,0 +1,44 @@
+.rb-activity-panel {
+  position: relative;
+  isolation: isolate;
+}
+
+.rb-activity-panel > .activity-panel-glass {
+  pointer-events: none;
+}
+
+.rb-activity-panel > :not(.activity-panel-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-activity-panel .activity-heading > div {
+  min-width: 0;
+}
+
+.activity-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--hbar-ok) 46%, var(--hbar-bd2));
+  border-radius: var(--radius-full);
+  color: var(--hbar-ok-ink);
+  font: 10px var(--mono);
+}
+
+.activity-loading {
+  margin: 12px 14px 0;
+  color: var(--hbar-t3);
+  font-size: 11px;
+}
+
+.activity-error {
+  margin: 12px 14px 0;
+}
+
+@media (max-width: 899px) {
+  .rb-activity-panel .activity-live-indicator {
+    font-size: 10px;
+  }
+}
