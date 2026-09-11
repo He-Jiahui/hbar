@@ -272,6 +272,24 @@
   }
 }
 
+@media (max-width: 1040px) and (min-width: 900px) {
+  .rb-shell-header .top-command span {
+    display: none;
+  }
+
+  .rb-shell-header .top-command {
+    width: 30px;
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .rb-shell-header .host-status-text {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workspace-switcher,
   .rb-shell-header .top-command,
