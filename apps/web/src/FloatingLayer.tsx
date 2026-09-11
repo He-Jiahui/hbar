@@ -5,24 +5,40 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useId,
   type CSSProperties,
   type HTMLAttributes,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
 } from 'react'
 import './FloatingLayer.css'
 
 export type FloatingPlacement = 'above' | 'below' | 'left' | 'right'
+export type FloatingSurfaceMode = 'anchored' | 'modal'
 
-export interface FloatingLayerProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className' | 'style'> {
-  anchorRef: RefObject<HTMLElement | null>
+interface FloatingLayerBaseProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className' | 'style'> {
   open: boolean
   onClose(): void
-  placement?: FloatingPlacement
-  matchAnchorWidth?: boolean
   className?: string
   children: ReactNode
 }
+
+export type AnchoredFloatingLayerProps = FloatingLayerBaseProps & {
+  mode?: 'anchored'
+  anchorRef: RefObject<HTMLElement | null>
+  placement?: FloatingPlacement
+  matchAnchorWidth?: boolean
+}
+
+export type ModalFloatingLayerProps = FloatingLayerBaseProps & {
+  mode: 'modal'
+  anchorRef?: never
+  placement?: never
+  matchAnchorWidth?: never
+}
+
+export type FloatingLayerProps = AnchoredFloatingLayerProps | ModalFloatingLayerProps
 
 const VIEWPORT_GAP = 8
 // Keep every transient option surface above workbench panels and modal chrome.
@@ -30,26 +46,73 @@ const VIEWPORT_GAP = 8
 // lower a menu into an ancestor stacking context.
 const LAYER_Z_INDEX = 2100
 
+type ActiveLayer = { id: string; close(): void }
+let activeLayer: ActiveLayer | null = null
+
+function claimLayer(layer: ActiveLayer): () => void {
+  if (activeLayer && activeLayer.id !== layer.id) activeLayer.close()
+  activeLayer = layer
+  return () => {
+    if (activeLayer?.id === layer.id) activeLayer = null
+  }
+}
+
+export interface FloatingTriggerProps {
+  open: boolean
+  onOpen(): void
+  onClose(): void
+}
+
+/**
+ * Use on an option-surface trigger. When the surface is open, prevent the
+ * browser click that follows pointerdown so the outside-click close cannot be
+ * immediately undone by a toggle handler.
+ */
+export function useFloatingTrigger({ open, onOpen, onClose }: FloatingTriggerProps) {
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!open) return
+      event.preventDefault()
+      onClose()
+    },
+    [onClose, open],
+  )
+  const handleClick = useCallback(() => {
+    if (open) onClose()
+    else onOpen()
+  }, [onClose, onOpen, open])
+  return { onPointerDown: handlePointerDown, onClick: handleClick }
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), Math.max(min, max))
 }
 
 /**
- * Renders transient menus outside the workbench layout. A fixed-position
- * portal is immune to ancestor transforms, clipping and stacking contexts,
- * while the anchor is still used to keep the layer visually attached.
+ * Renders transient surfaces outside the workbench layout. A fixed-position
+ * portal is immune to ancestor transforms, clipping and stacking contexts.
+ * Anchored surfaces use an anchor only for geometry; the anchor itself is
+ * intentionally outside the surface for outside-click purposes.
  */
-export default function FloatingLayer({
-  anchorRef,
-  open,
-  onClose,
-  placement = 'above',
-  matchAnchorWidth = false,
-  className = '',
-  children,
-  ...attributes
-}: FloatingLayerProps) {
+export function FloatingLayer(props: FloatingLayerProps) {
+  const {
+    open,
+    onClose,
+    className = '',
+    children,
+    mode = 'anchored',
+    anchorRef: anchorProp,
+    placement: placementProp,
+    matchAnchorWidth: matchAnchorWidthProp,
+    ...attributes
+  } = props
+  const anchorRef = mode === 'anchored' ? anchorProp : undefined
+  const placement = mode === 'anchored' ? placementProp ?? 'above' : undefined
+  const matchAnchorWidth = mode === 'anchored' ? matchAnchorWidthProp ?? false : false
+  const layerId = useId()
   const layerRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const [style, setStyle] = useState<CSSProperties>({
     position: 'fixed',
     visibility: 'hidden',
@@ -57,6 +120,7 @@ export default function FloatingLayer({
   })
 
   const updatePosition = useCallback(() => {
+    if (mode !== 'anchored' || !anchorRef) return
     const anchor = anchorRef.current
     const layer = layerRef.current
     if (!anchor || !layer) return
@@ -94,27 +158,40 @@ export default function FloatingLayer({
       ...(matchAnchorWidth && !isHorizontal ? { width } : {}),
       visibility: 'visible',
     })
-  }, [anchorRef, matchAnchorWidth, placement])
+  }, [anchorRef, matchAnchorWidth, mode, placement])
 
   useLayoutEffect(() => {
     if (!open) return
+    if (mode === 'modal') {
+      setStyle({
+        position: 'fixed',
+        inset: '50% auto auto 50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: LAYER_Z_INDEX,
+        maxWidth: `calc(100vw - ${VIEWPORT_GAP * 2}px)`,
+        maxHeight: `calc(100dvh - ${VIEWPORT_GAP * 2}px)`,
+        visibility: 'visible',
+      })
+      return
+    }
     const frame = requestAnimationFrame(updatePosition)
     return () => cancelAnimationFrame(frame)
-  }, [open, updatePosition])
+  }, [mode, open, updatePosition])
 
   useEffect(() => {
     if (!open) return
 
+    const release = claimLayer({ id: layerId, close: () => onCloseRef.current() })
+
     const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (anchorRef.current?.contains(target) || layerRef.current?.contains(target)) return
-      onClose()
+      const path = event.composedPath()
+      if (layerRef.current && path.includes(layerRef.current)) return
+      onCloseRef.current()
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
       }
     }
     const handleViewportChange = () => updatePosition()
@@ -128,21 +205,40 @@ export default function FloatingLayer({
       document.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('scroll', handleViewportChange, true)
       window.removeEventListener('resize', handleViewportChange)
+      release()
     }
-  }, [anchorRef, onClose, open, updatePosition])
+  }, [layerId, open, updatePosition])
 
   if (!open) return null
 
   return createPortal(
-    <div
-      {...attributes}
-      ref={layerRef}
-      className={`floating-layer ${className}`.trim()}
-      data-floating-layer="true"
-      style={style}
-    >
-      {children}
-    </div>,
+    mode === 'modal' ? (
+      <div className="floating-layer-backdrop" data-floating-layer-backdrop="true">
+        <div
+          {...attributes}
+          ref={layerRef}
+          className={`floating-layer floating-layer-modal ${className}`.trim()}
+          data-floating-layer="true"
+          style={style}
+        >
+          {children}
+        </div>
+      </div>
+    ) : (
+      <div
+        {...attributes}
+        ref={layerRef}
+        className={`floating-layer ${className}`.trim()}
+        data-floating-layer="true"
+        style={style}
+      >
+        {children}
+      </div>
+    ),
     document.body,
   )
 }
+
+export const FloatingSurface = FloatingLayer
+
+export default FloatingLayer
