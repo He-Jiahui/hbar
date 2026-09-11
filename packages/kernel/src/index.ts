@@ -998,6 +998,11 @@ export class Kernel {
     if (run.status === 'queued') this.publishEvent(await this.storage.call('setRun', runId, 'cancelled'))
     else if (!['running', 'waiting_approval'].includes(run.status)) this.cancelled.delete(runId)
   }
+  async reorderQueued(sessionId: string, runIds: string[]) {
+    const events = await this.storage.call('reorderQueued', sessionId, runIds)
+    for (const event of events) this.publishEvent(event)
+    if (events.length) this.changed('sessions')
+  }
   async compact(sessionId: string, modelId: string) {
     this.assertIdle()
     this.maintenance = true

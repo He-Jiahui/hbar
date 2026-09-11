@@ -13,7 +13,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
-import type { ArtifactRef, ContentBlock, GitInfo, Message, UserInput, UserInputRequest } from '@hbar/contracts'
+import type { ArtifactRef, ContentBlock, GitInfo, Message, Run, UserInput, UserInputRequest } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
   acknowledgeComposerDraft,
@@ -43,6 +43,82 @@ import ChatSessionChrome from './ChatSessionChrome'
 import TerminalPanel from './TerminalPanel'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
+
+function QueuedRunList({
+  runs,
+  activeRun,
+  onStopActive,
+  onEdit,
+  onRemove,
+  onReorder,
+}: {
+  runs: readonly Run[]
+  activeRun?: Run | undefined
+  onStopActive(): void
+  onEdit(run: Run): void
+  onRemove(run: Run): void
+  onReorder(runIds: string[]): void
+}) {
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  if (!runs.length) return null
+  return (
+    <section className="queue-panel rb-queue-surface" aria-label="排队消息">
+      <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
+      <header className="queue-panel-heading">
+        <div>
+          <strong>{runs.length} 条消息排队中</strong>
+          <small>当前运行结束后，将自动发送最上方的消息。</small>
+        </div>
+        {activeRun && (
+          <button type="button" className="queue-continue" onClick={onStopActive}>
+            中断当前并继续
+          </button>
+        )}
+      </header>
+      <ol className="queue-list">
+        {runs.map((run, index) => (
+          <li
+            key={run.id}
+            draggable
+            className={`queue-item ${dragOverId === run.id ? 'drag-over' : ''}`}
+            onDragStart={() => setDraggedId(run.id)}
+            onDragOver={(event) => {
+              event.preventDefault()
+              setDragOverId(run.id)
+            }}
+            onDragEnd={() => {
+              setDraggedId(null)
+              setDragOverId(null)
+            }}
+            onDrop={(event) => {
+              event.preventDefault()
+              if (!draggedId || draggedId === run.id) return
+              const ids = runs.map((item) => item.id).filter((id) => id !== draggedId)
+              const targetIndex = ids.indexOf(run.id)
+              ids.splice(Math.max(0, targetIndex), 0, draggedId)
+              onReorder(ids)
+              setDraggedId(null)
+              setDragOverId(null)
+            }}
+          >
+            <span className="queue-item-index">{index + 1}</span>
+            <span className="queue-item-grip" aria-hidden="true">⋮⋮</span>
+            <span className="queue-item-text">{run.input.text || '附件消息'}</span>
+            <div className="queue-item-actions">
+              <button type="button" title="重新编辑" aria-label="重新编辑排队消息" onClick={() => onEdit(run)}>
+                编辑
+              </button>
+              <button type="button" title="删除排队消息" aria-label="删除排队消息" onClick={() => onRemove(run)}>
+                删除
+              </button>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
 
 function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_result' }> }) {
   const [open, setOpen] = useState(false),
@@ -505,6 +581,21 @@ export default function Chat({
       setBusy(false)
     }
   }
+  function editQueuedRun(run: Run) {
+    updateComposerDraft(sessionId, {
+      text: run.input.text,
+      images: run.input.images,
+      files: run.input.files ?? [],
+    })
+    void client().call('run.cancel', { runId: run.id }).catch(report)
+  }
+  function removeQueuedRun(run: Run) {
+    void client().call('run.cancel', { runId: run.id }).catch(report)
+  }
+  function reorderQueuedRuns(runIds: string[]) {
+    if (!sessionId) return
+    void client().call('run.reorder', { sessionId, runIds }).catch(report)
+  }
   async function attach(selected: FileList | null, kind: AttachmentKind) {
     if (!selected) return
     const capacity = 12 - images.length - files.length
@@ -763,22 +854,16 @@ export default function Chat({
                 </div>
               </section>
             ))}
-            {queued.length > 0 && (
-              <div className="queue-strip rb-queue-surface">
-                <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
-                <LoaderCircle size={12} />
-                <span>{queued.length} 条消息排队中</span>
-                <button
-                  title="取消排队"
-                  aria-label="取消排队"
-                  onClick={() => {
-                    for (const run of queued) void client().call('run.cancel', { runId: run.id }).catch(report)
-                  }}
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            )}
+            <QueuedRunList
+              runs={queued}
+              activeRun={activeRun}
+              onStopActive={() => {
+                if (activeRun) void client().call('run.cancel', { runId: activeRun.id }).catch(report)
+              }}
+              onEdit={editQueuedRun}
+              onRemove={removeQueuedRun}
+              onReorder={reorderQueuedRuns}
+            />
             <PromptComposer
               sessionInfo={sessionInfo}
               workspace={workspace}

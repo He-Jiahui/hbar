@@ -330,6 +330,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         await kernel.cancel(p.runId)
         return null
       }
+      case 'run.reorder': {
+        const p = rpcSchemas[method].parse(raw)
+        await kernel.reorderQueued(p.sessionId, p.runIds)
+        return null
+      }
       case 'terminal.open': {
         const p = rpcSchemas[method].parse(raw)
         if (socket.data.terminals.size >= 8) throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')

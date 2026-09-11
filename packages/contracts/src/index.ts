@@ -996,6 +996,7 @@ export const rpcSchemas = {
   'session.export': z.object({ sessionId: idSchema }),
   'run.start': z.object({ sessionId: idSchema, requestId: idSchema, input: inputSchema, modelId: idSchema }),
   'run.cancel': z.object({ runId: idSchema }),
+  'run.reorder': z.object({ sessionId: idSchema, runIds: z.array(idSchema).max(40) }),
   'terminal.open': terminalOpenSchema,
   'terminal.input': terminalInputSchema,
   'terminal.resize': terminalResizeSchema,
@@ -1115,6 +1116,7 @@ export interface RpcResults {
   'session.export': SessionEvent[]
   'run.start': Run
   'run.cancel': null
+  'run.reorder': null
   'terminal.open': TerminalInfo
   'terminal.input': null
   'terminal.resize': null

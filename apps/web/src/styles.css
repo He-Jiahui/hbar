@@ -1391,6 +1391,109 @@ p {
   margin-left: auto;
   padding: 3px;
 }
+.queue-panel {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  margin: 0 0 7px;
+  padding: 10px 12px;
+  border: 1px solid #3d424b;
+  border-radius: 8px;
+  background: #202226;
+  box-shadow: 0 0 18px #d7dbe70d;
+}
+.queue-panel > .queue-glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.queue-panel > :not(.queue-glass) {
+  position: relative;
+  z-index: 1;
+}
+.queue-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.queue-panel-heading > div {
+  display: grid;
+  gap: 3px;
+}
+.queue-panel-heading strong {
+  color: #d9dde6;
+  font-size: 11px;
+}
+.queue-panel-heading small {
+  color: #8e95a3;
+  font-size: 10px;
+}
+.queue-continue,
+.queue-item-actions button {
+  padding: 4px 7px;
+  border: 1px solid #505762;
+  border-radius: 4px;
+  background: #2a2d33;
+  color: #c8cdd7;
+  font-size: 10px;
+}
+.queue-continue:hover,
+.queue-continue:focus-visible,
+.queue-item-actions button:hover,
+.queue-item-actions button:focus-visible {
+  border-color: #aeb4c0;
+  background: #343840;
+  color: #f1f3f7;
+}
+.queue-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.queue-item {
+  display: grid;
+  grid-template-columns: 18px 18px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: #292c32;
+  cursor: grab;
+}
+.queue-item:active {
+  cursor: grabbing;
+}
+.queue-item.drag-over {
+  border-color: #aeb4c0;
+  box-shadow: 0 0 12px #d7dbe71a;
+}
+.queue-item-index {
+  color: #aeb4c0;
+  font: 10px var(--mono);
+  text-align: center;
+}
+.queue-item-grip {
+  color: #737b88;
+  font-size: 12px;
+  letter-spacing: -2px;
+}
+.queue-item-text {
+  min-width: 0;
+  overflow: hidden;
+  color: #c8cdd7;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-item-actions {
+  display: flex;
+  gap: 4px;
+}
 .run-outcome {
   display: flex;
   align-items: flex-start;

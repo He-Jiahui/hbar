@@ -395,6 +395,23 @@ const methods: StorageMethods = {
       )
       return appendEvent(run.sessionId, settled ? 'run.settled' : 'run.status', { run: methods.run(id) }, id)
     })(),
+  reorderQueued: (sessionId, runIds) =>
+    db.transaction(() => {
+      const rows = db
+        .query("SELECT id,createdAt FROM runs WHERE sessionId=? AND status='queued' ORDER BY createdAt,rowid")
+        .all(sessionId) as { id: string; createdAt: number }[]
+      const known = new Set(rows.map((row) => row.id))
+      if (runIds.length !== rows.length || runIds.some((id) => !known.has(id)))
+        throw new HbarError('INVALID_INPUT', 'Only all queued runs in this session can be reordered')
+      const base = rows.length ? Math.min(...rows.map((row) => row.createdAt)) : Date.now()
+      const events: SessionEvent[] = []
+      for (const [index, id] of runIds.entries()) {
+        db.query('UPDATE runs SET createdAt=? WHERE id=?').run(base + index, id)
+        const run = methods.run(id)
+        events.push(appendEvent(sessionId, 'run.status', { run }, id))
+      }
+      return events
+    })(),
   queuedSessions: () =>
     (db.query("SELECT DISTINCT sessionId FROM runs WHERE status='queued'").all() as { sessionId: string }[]).map(
       (row) => row.sessionId,

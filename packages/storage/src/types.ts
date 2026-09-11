@@ -46,6 +46,7 @@ export interface StorageMethods {
   claim(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string): SessionEvent
+  reorderQueued(sessionId: string, runIds: string[]): SessionEvent[]
   queuedSessions(): string[]
   createApproval(approval: Approval): SessionEvent
   resolveApproval(id: string, status: Approval['status']): { approval: Approval; event: SessionEvent } | null
