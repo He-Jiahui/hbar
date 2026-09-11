@@ -33,6 +33,16 @@ async function send(page: Page, text: string) {
   await page.getByRole('button', { name: '发送', exact: true }).filter({ visible: true }).click()
 }
 
+async function openMobileMore(page: Page) {
+  await page.locator('.mobile-nav').getByRole('button', { name: '更多', exact: true }).click()
+  await expect(page.locator('.mobile-more-grid')).toBeVisible()
+}
+
+async function openMobileSettings(page: Page) {
+  await openMobileMore(page)
+  await page.locator('.mobile-more-grid').getByRole('button', { name: '设置', exact: true }).click()
+}
+
 test('workbench keeps tools on demand and exposes the global command palette', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
@@ -225,7 +235,7 @@ test('diagnose panel surfaces structured host status on desktop and mobile', asy
     await diagnoseRail.click()
     await expect(diagnoseTab).toHaveCount(0)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.locator('.mobile-nav').getByRole('button', { name: '插件', exact: true }).click()
+    await openMobileMore(page)
     const mobileTools = page.locator('.mobile-tool-grid')
     await expect(mobileTools.getByRole('button', { name: '诊断', exact: true })).toBeVisible()
     await mobileTools.getByRole('button', { name: '诊断', exact: true }).click()
@@ -622,7 +632,7 @@ test('phone supports send, denial, files and model settings without horizontal o
     await sampleFile.click()
     await expect(page.locator('.cm-content')).toContainText('answer = 42')
     await expect(page.locator('.rb-file-viewer').filter({ visible: true }).locator('.file-viewer-glass')).toHaveClass(/glass-surface/)
-    await page.locator('.mobile-nav').getByRole('button', { name: '设置', exact: true }).click()
+    await openMobileSettings(page)
     await expect(page.getByRole('heading', { name: '供应商与模型' })).toBeVisible()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-settings.png` })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
@@ -679,7 +689,7 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
     await expect(page.locator('.plugin-detail').first()).toContainText('包依赖')
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.locator('.mobile-nav').getByRole('button', { name: '设置', exact: true }).click()
+    await openMobileSettings(page)
     await page.getByRole('button', { name: '存储', exact: true }).filter({ visible: true }).click()
     await expect(page.getByRole('heading', { name: '存储目录', exact: true })).toBeVisible()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-storage-settings.png` })
@@ -764,7 +774,8 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-terminal.png` })
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: '终端', exact: true }).filter({ visible: true }).first().click()
+    await openMobileMore(page)
+    await page.locator('.mobile-more-grid').getByRole('button', { name: '终端', exact: true }).click()
     await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
     const mobileTerminal = page.locator('.terminal-panel').filter({ visible: true })
     const mobileInput = mobileTerminal.getByRole('textbox', { name: '终端输入', exact: true })

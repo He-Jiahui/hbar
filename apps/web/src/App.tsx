@@ -1113,17 +1113,6 @@ export default function App() {
                     onOpenTool={(id, title, component, placement, config) =>
                       openPanel(id, title, component, config, placement)
                     }
-                    onToggleTool={(id, title, component, placement) => {
-                      if (id === 'settings') {
-                        toggleSettings()
-                        return
-                      }
-                      if (id === 'terminal') {
-                        togglePanel(id, title, component, placement === 'bottom' ? 'bottom' : 'right')
-                        return
-                      }
-                      toggleGalleryTool(id, title, component, undefined, placement)
-                    }}
                   />
               ) : (
                 <Chat

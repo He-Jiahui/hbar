@@ -1,4 +1,16 @@
-import { Activity, CircleHelp, FileSearch, Folder, Globe, LayoutGrid, ListChecks, MessageSquare, Settings2, TerminalSquare } from 'lucide-react'
+import {
+  Activity,
+  CircleHelp,
+  FileSearch,
+  Folder,
+  Globe,
+  LayoutGrid,
+  ListChecks,
+  MessageSquare,
+  MoreHorizontal,
+  Settings2,
+  TerminalSquare,
+} from 'lucide-react'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
 import './WorkbenchNavigation.css'
@@ -39,14 +51,16 @@ const MOBILE_TOOLS = [
   { id: 'diagnose', title: '诊断', icon: CircleHelp },
 ] as const
 
-const MOBILE_ITEMS = [
+const MOBILE_PRIMARY_ITEMS = [
   { id: 'sessions', label: '会话', icon: MessageSquare },
   { id: 'chat', label: '对话', icon: MessageSquare },
   { id: 'files', label: '文件', icon: Folder },
   { id: 'activity', label: '运行', icon: Activity },
-  { id: 'terminal', label: '终端', icon: TerminalSquare },
-  { id: 'plugins', label: '插件', icon: LayoutGrid },
-  { id: 'settings', label: '设置', icon: Settings2 },
+] as const
+
+const MOBILE_MORE_ITEMS = [
+  { id: 'terminal', title: '终端', description: '执行会话命令与查看输出', icon: TerminalSquare, component: 'terminal', placement: 'bottom' },
+  { id: 'settings', title: '设置', description: '模型、权限、存储与设备', icon: Settings2, component: 'settings', placement: 'editor' },
 ] as const
 
 function contributionPlacement(placement: NavigationContribution['placement']): 'left' | 'right' | 'bottom' | 'editor' {
@@ -215,23 +229,38 @@ export function WorkbenchToolRails({
 }
 
 export function MobileNavigation({ mobileView, onSetMobileView }: Pick<WorkbenchNavigationProps, 'mobileView' | 'onSetMobileView'>) {
+  const activePrimary = mobileView === 'file'
+    ? 'files'
+    : MOBILE_PRIMARY_ITEMS.some((item) => item.id === mobileView)
+      ? mobileView
+      : 'plugins'
   return (
     <nav className="mobile-nav" aria-label="移动导航">
       <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="mobile-nav-items">
-        {MOBILE_ITEMS.map(({ id, label, icon: Icon }) => (
+        {MOBILE_PRIMARY_ITEMS.map(({ id, label, icon: Icon }) => (
           <button
             type="button"
             key={id}
-            className={mobileView === id ? 'selected' : ''}
+            className={activePrimary === id ? 'selected' : ''}
             aria-label={label}
-            aria-current={mobileView === id ? 'page' : undefined}
+            aria-current={activePrimary === id ? 'page' : undefined}
             onClick={() => onSetMobileView(id)}
           >
             <Icon size={18} />
             <span>{label}</span>
           </button>
         ))}
+        <button
+          type="button"
+          className={activePrimary === 'plugins' ? 'selected' : ''}
+          aria-label="更多"
+          aria-current={activePrimary === 'plugins' ? 'page' : undefined}
+          onClick={() => onSetMobileView('plugins')}
+        >
+          <MoreHorizontal size={20} />
+          <span>更多</span>
+        </button>
       </div>
     </nav>
   )
@@ -240,19 +269,36 @@ export function MobileNavigation({ mobileView, onSetMobileView }: Pick<Workbench
 export function MobileToolMenu({
   contributions,
   onOpenTool,
-  onToggleTool,
-}: Pick<WorkbenchNavigationProps, 'contributions' | 'onOpenTool' | 'onToggleTool'>) {
+}: Pick<WorkbenchNavigationProps, 'contributions' | 'onOpenTool'>) {
   return (
     <div className="plugin-panel rb-plugin-panel" aria-label="工具与插件">
       <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
-      <h2>工具与插件</h2>
+      <h2>更多</h2>
+      <h3 className="mobile-tool-heading">工作台</h3>
+      <div className="mobile-more-grid" aria-label="更多工作台功能">
+        {MOBILE_MORE_ITEMS.map(({ id, title, description, icon: Icon, component, placement }) => (
+          <button
+            type="button"
+            key={id}
+            className="new-session mobile-more-action"
+            aria-label={title}
+            title={description}
+            onClick={() => onOpenTool(id, title, component, placement)}
+          >
+            <Icon size={16} />
+            <span>{title}</span>
+            <small>{description}</small>
+          </button>
+        ))}
+      </div>
+      <h3 className="mobile-tool-heading">会话工具</h3>
       <div className="mobile-tool-grid" aria-label="工具窗口">
         {MOBILE_TOOLS.map(({ id, title, icon: Icon }) => (
           <button
             type="button"
             key={id}
             className="new-session"
-            onClick={() => onToggleTool(id, title, id, 'right')}
+            onClick={() => onOpenTool(id, title, id, 'right')}
           >
             <Icon size={16} />
             {title}

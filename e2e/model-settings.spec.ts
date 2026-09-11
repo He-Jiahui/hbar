@@ -13,6 +13,13 @@ async function login(context: BrowserContext, page: Page) {
   return { ...fixture, api }
 }
 
+async function openMobileSettings(page: Page) {
+  await page.locator('.mobile-nav').getByRole('button', { name: '更多', exact: true }).click()
+  const more = page.locator('.mobile-more-grid')
+  await expect(more).toBeVisible()
+  await more.getByRole('button', { name: '设置', exact: true }).click()
+}
+
 test('model settings can search and filter configured connections', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
@@ -36,7 +43,7 @@ test('model settings can search and filter configured connections', async ({ pag
     await page.getByRole('button', { name: '全部', exact: true }).click()
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.locator('.mobile-nav').getByRole('button', { name: '设置', exact: true }).click()
+    await openMobileSettings(page)
     await expect(page.getByRole('textbox', { name: '搜索供应商或模型', exact: true })).toBeVisible()
     await expect(page.locator('.model-row')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
@@ -82,7 +89,7 @@ test('provider editor opens as a secondary settings page', async ({ page, contex
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.locator('.mobile-nav').getByRole('button', { name: '设置', exact: true }).click()
+    await openMobileSettings(page)
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
     await page.getByRole('button', { name: '添加模型', exact: true }).click()
     await expect(editorPage).toBeVisible()
