@@ -108,6 +108,17 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
     return result
   }
 
+  async go(contextId: string, pageId: string, action: 'back' | 'forward' | 'reload', signal: AbortSignal) {
+    const page = await this.page(contextId, pageId)
+    await this.guarded(page, signal, async () => {
+      const options = { waitUntil: 'domcontentloaded' as const, timeout: this.options.timeoutMs }
+      if (action === 'back') await page.goBack(options)
+      else if (action === 'forward') await page.goForward(options)
+      else await page.reload(options)
+    })
+    return this.metadata(page)
+  }
+
   async snapshot(contextId: string, pageId: string, signal: AbortSignal) {
     const page = await this.page(contextId, pageId)
     const text = await this.guarded(page, signal, async () => {
@@ -226,6 +237,10 @@ export class AutoBrowserBackend implements BrowserBackend {
       this.remember(contextId, pageId, this.fallback)
       return result
     }
+  }
+
+  go(contextId: string, pageId: string, action: 'back' | 'forward' | 'reload', signal: AbortSignal) {
+    return this.delegate(contextId, pageId).go(contextId, pageId, action, signal)
   }
 
   private delegate(contextId: string, pageId: string) {

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   ExternalLink,
   FileSearch,
@@ -9,6 +11,7 @@ import {
   ListChecks,
   LoaderCircle,
   RefreshCw,
+  RotateCw,
   ShieldCheck,
   Target,
   X,
@@ -81,8 +84,11 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
       const next = await client().call('browser.status', { sessionId })
       setStatus(next)
       setError('')
-      const current = next.contexts[0]
-      if (current) setPage(current)
+      setPage((current) =>
+        next.contexts.find((item) => item.contextId === current?.contextId && item.pageId === current.pageId) ??
+        next.contexts[0] ??
+        null,
+      )
     } catch (cause) {
       setStatus(null)
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -100,7 +106,7 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
     setBusy(true)
     setError('')
     try {
-      const [nextSnapshot, nextScreenshot] = await Promise.all([
+      const [snapshotResult, screenshotResult] = await Promise.allSettled([
         client().call('browser.snapshot', { sessionId, contextId: nextPage.contextId, pageId: nextPage.pageId }),
         client().call('browser.screenshot', {
           sessionId,
@@ -109,9 +115,31 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
           fullPage: false,
         }),
       ])
+      if (snapshotResult.status === 'rejected') throw snapshotResult.reason
       setPage(nextPage)
-      setSnapshot(nextSnapshot)
-      setScreenshot(nextScreenshot)
+      setUrl(nextPage.url)
+      setSnapshot(snapshotResult.value)
+      setScreenshot(screenshotResult.status === 'fulfilled' ? screenshotResult.value : null)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function navigateHistory(action: 'back' | 'forward' | 'reload') {
+    if (!sessionId || !page || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const next = await client().call('browser.go', {
+        sessionId,
+        action,
+        contextId: page.contextId,
+        pageId: page.pageId,
+      })
+      await inspect(next)
+      await refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -164,14 +192,27 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
         <EmptyTool icon={Globe} title="尚未选择会话" body="打开一个会话后即可使用浏览器工具。" />
       ) : (
         <div className="tool-surface-body">
-          <form className="browser-address rb-browser-address" onSubmit={(event) => void navigate(event)}>
-            <GlassSurface className="browser-address-glass" width="100%" height="100%" aria-hidden="true" />
-            <Globe size={13} />
-            <input aria-label="浏览器地址" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com" />
-            <button type="submit" title="打开地址" aria-label="打开地址" disabled={busy || !url.trim()}>
-              {busy ? <LoaderCircle size={14} className="spinning" /> : <ExternalLink size={14} />}
-            </button>
-          </form>
+          <div className="browser-navigation-row">
+            <div className="browser-navigation-actions" aria-label="页面导航">
+              <button type="button" title="后退" aria-label="后退" disabled={!page || busy} onClick={() => void navigateHistory('back')}>
+                <ChevronLeft size={14} />
+              </button>
+              <button type="button" title="前进" aria-label="前进" disabled={!page || busy} onClick={() => void navigateHistory('forward')}>
+                <ChevronRight size={14} />
+              </button>
+              <button type="button" title="刷新页面" aria-label="刷新页面" disabled={!page || busy} onClick={() => void navigateHistory('reload')}>
+                <RotateCw size={13} />
+              </button>
+            </div>
+            <form className="browser-address rb-browser-address" onSubmit={(event) => void navigate(event)}>
+              <GlassSurface className="browser-address-glass" width="100%" height="100%" aria-hidden="true" />
+              <Globe size={13} />
+              <input aria-label="浏览器地址" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com" />
+              <button type="submit" title="打开地址" aria-label="打开地址" disabled={busy || !url.trim()}>
+                {busy ? <LoaderCircle size={14} className="spinning" /> : <ExternalLink size={14} />}
+              </button>
+            </form>
+          </div>
           {error && <p className="tool-error" role="alert"><CircleAlert size={14} />{error}</p>}
           {status && !status.available && <p className="tool-muted">浏览器运行时不可用，请检查浏览器插件配置。</p>}
           {status?.contexts.length ? (

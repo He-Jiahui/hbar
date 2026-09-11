@@ -223,6 +223,13 @@ export interface BrowserUseService {
     pageId?: string,
     signal?: AbortSignal,
   ): Promise<BrowserPage>
+  go(
+    sessionId: string,
+    action: 'back' | 'forward' | 'reload',
+    contextId?: string,
+    pageId?: string,
+    signal?: AbortSignal,
+  ): Promise<BrowserPage>
   snapshot(sessionId: string, contextId?: string, pageId?: string, signal?: AbortSignal): Promise<BrowserSnapshot>
   click(
     sessionId: string,

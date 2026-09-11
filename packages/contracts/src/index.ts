@@ -867,6 +867,12 @@ export const rpcSchemas = {
     contextId: idSchema.optional(),
     pageId: idSchema.optional(),
   }),
+  'browser.go': z.object({
+    sessionId: idSchema,
+    action: z.enum(['back', 'forward', 'reload']),
+    contextId: idSchema.optional(),
+    pageId: idSchema.optional(),
+  }),
   'browser.snapshot': z.object({ sessionId: idSchema, contextId: idSchema.optional(), pageId: idSchema.optional() }),
   'browser.click': z.object({
     sessionId: idSchema,
@@ -1039,6 +1045,7 @@ export interface RpcResults {
   'git.diff_to_remote': { sha: string; diff: string; truncated: boolean } | null
   'browser.status': { available: boolean; contexts: BrowserPage[]; history: string[] }
   'browser.navigate': BrowserPage
+  'browser.go': BrowserPage
   'browser.snapshot': BrowserSnapshot
   'browser.click': BrowserPage
   'browser.type': BrowserPage

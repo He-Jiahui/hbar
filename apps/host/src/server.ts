@@ -369,6 +369,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<BrowserUseService>('browser').navigate(p.sessionId, p.url, p.contextId, p.pageId)
       }
+      case 'browser.go': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<BrowserUseService>('browser').go(p.sessionId, p.action, p.contextId, p.pageId)
+      }
       case 'browser.snapshot': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<BrowserUseService>('browser').snapshot(p.sessionId, p.contextId, p.pageId)

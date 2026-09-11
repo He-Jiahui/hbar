@@ -62,7 +62,14 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     const bootstrap = await fixture.api.call('system.bootstrap', {})
     const browserSession = bootstrap.sessions.find((session) => !session.archived)
     if (!browserSession) throw new Error('E2E fixture did not expose an active session')
-    await fixture.api.call('browser.navigate', { sessionId: browserSession.id, url: fixture.url })
+    const firstBrowserPage = await fixture.api.call('browser.navigate', { sessionId: browserSession.id, url: fixture.url })
+    const healthUrl = new URL('/healthz', fixture.url).href
+    await fixture.api.call('browser.navigate', {
+      sessionId: browserSession.id,
+      url: healthUrl,
+      contextId: firstBrowserPage.contextId,
+      pageId: firstBrowserPage.pageId,
+    })
     await page.locator('.session-select').filter({ hasText: browserSession.title }).first().click()
     const browserRail = page.getByRole('button', { name: '浏览器', exact: true }).filter({ visible: true })
     const browserTab = page.getByRole('tab', { name: '浏览器', exact: true }).filter({ visible: true })
@@ -80,6 +87,15 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(browserPageCard.locator(':scope > button')).toHaveCount(0)
     await expect(browserPageCard).toHaveCSS('text-align', 'left')
     await expect(browserPageCard).toHaveCSS('opacity', '1')
+    const browserAddress = browserPanel.getByRole('textbox', { name: '浏览器地址', exact: true })
+    await expect(browserPanel.getByRole('button', { name: '后退', exact: true })).toBeEnabled()
+    await browserPanel.getByRole('button', { name: '后退', exact: true }).click()
+    await expect(browserAddress).toHaveValue(new URL('/', fixture.url).href)
+    await expect(browserPanel.locator('.browser-snapshot')).toBeVisible()
+    await browserPanel.getByRole('button', { name: '前进', exact: true }).click()
+    await expect(browserAddress).toHaveValue(healthUrl)
+    await browserPanel.getByRole('button', { name: '刷新页面', exact: true }).click()
+    await expect(browserAddress).toHaveValue(healthUrl)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-browser-animated-list.png` })
     await browserRail.click()
     await expect(browserTab).toHaveCount(0)

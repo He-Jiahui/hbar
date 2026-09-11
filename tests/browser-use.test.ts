@@ -1,5 +1,10 @@
 import { expect, test } from 'bun:test'
-import { BrowserRuntime, PlaywrightBrowserBackend, browserConfigSchema } from '../plugins/browser-use/src/index.ts'
+import {
+  BrowserRuntime,
+  FetchBrowserBackend,
+  PlaywrightBrowserBackend,
+  browserConfigSchema,
+} from '../plugins/browser-use/src/index.ts'
 import type { BrowserBackend, BrowserBackendPage } from '../plugins/browser-use/src/index.ts'
 import type { HbarAPI } from '@hbar/plugin-sdk'
 
@@ -21,6 +26,10 @@ class FakeBrowser implements BrowserBackend {
     const page = { url, title: 'Example' }
     this.pages.set(`${contextId}:${pageId}`, page)
     return page
+  }
+  async go(contextId: string, pageId: string, action: 'back' | 'forward' | 'reload') {
+    this.actions.push(action)
+    return this.pages.get(`${contextId}:${pageId}`)!
   }
   async snapshot(contextId: string, pageId: string) {
     if (!this.pages.has(`${contextId}:${pageId}`)) throw new Error('missing')
@@ -52,6 +61,8 @@ test('browser runtime enforces origin and CDP policy while keeping bounded state
   await runtime.click('session-1', '#submit')
   await runtime.type('session-1', '#name', 'hbar')
   await runtime.press('session-1', 'Enter')
+  await runtime.go('session-1', 'reload')
+  expect(backend.actions).toContain('reload')
   expect(await runtime.evaluate('session-1', '1 + 1')).toEqual({ value: { ok: true } })
   expect((await runtime.history('session-1'))).toContain('https://allowed.example/')
   expect(notifications.length).toBeGreaterThan(0)
@@ -79,6 +90,34 @@ test('browser runtime refuses history and full CDP by default', async () => {
     throw new Error('expected CDP denial')
   } catch (error) {
     expect(error instanceof Error ? error.message : String(error)).toContain('denied')
+  }
+})
+
+test('fetch browser preserves per-page back, forward, and reload navigation', async () => {
+  const server = Bun.serve({
+    port: 0,
+    fetch(request) {
+      const path = new URL(request.url).pathname
+      return new Response(`<title>${path}</title><main>Page ${path}</main>`, {
+        headers: { 'Content-Type': 'text/html' },
+      })
+    },
+  })
+  try {
+    const { api } = fakeApi()
+    const runtime = new BrowserRuntime(
+      api,
+      browserConfigSchema.parse({ allow_history_access: true, default_origin_policy: { access: 'allow' } }),
+      new FetchBrowserBackend(),
+    )
+    const first = await runtime.navigate('session-1', `http://127.0.0.1:${server.port}/one`)
+    await runtime.navigate('session-1', `http://127.0.0.1:${server.port}/two`, first.contextId, first.pageId)
+    expect((await runtime.go('session-1', 'back')).url).toEndWith('/one')
+    expect((await runtime.snapshot('session-1')).text).toContain('Page /one')
+    expect((await runtime.go('session-1', 'forward')).url).toEndWith('/two')
+    expect((await runtime.go('session-1', 'reload')).url).toEndWith('/two')
+  } finally {
+    await server.stop(true)
   }
 })
 

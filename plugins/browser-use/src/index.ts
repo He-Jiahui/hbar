@@ -38,6 +38,12 @@ export interface BrowserBackendPage {
 export interface BrowserBackend {
   available(): boolean | Promise<boolean>
   navigate(contextId: string, pageId: string, url: string, signal: AbortSignal): Promise<BrowserBackendPage>
+  go(
+    contextId: string,
+    pageId: string,
+    action: 'back' | 'forward' | 'reload',
+    signal: AbortSignal,
+  ): Promise<BrowserBackendPage>
   snapshot(contextId: string, pageId: string, signal: AbortSignal): Promise<{ text: string }>
   click(contextId: string, pageId: string, selector: string, signal: AbortSignal): Promise<BrowserBackendPage>
   type(
@@ -149,11 +155,11 @@ function boundedSignal(parent: AbortSignal, timeoutMs: number) {
 /** A useful no-dependency backend for navigation and text snapshots. */
 export class FetchBrowserBackend implements BrowserBackend {
   private pages = new Map<string, { url: string; title: string; text: string }>()
-  private histories = new Map<string, string[]>()
+  private histories = new Map<string, { entries: string[]; index: number }>()
   available() {
     return true
   }
-  async navigate(contextId: string, pageId: string, url: string, signal: AbortSignal) {
+  private async load(contextId: string, pageId: string, url: string, signal: AbortSignal) {
     signal.throwIfAborted()
     const response = await fetch(url, { signal, redirect: 'follow' })
     const body = await responseText(response, MAX_SNAPSHOT)
@@ -166,9 +172,26 @@ export class FetchBrowserBackend implements BrowserBackend {
         .trim() ?? ''
     const page = { url: response.url || url, title, text: textFromHtml(html) }
     this.pages.set(`${contextId}:${pageId}`, page)
-    const history = this.histories.get(contextId) ?? []
-    this.histories.set(contextId, [...history.filter((entry) => entry !== page.url), page.url].slice(-100))
     return { url: page.url, title: page.title }
+  }
+  async navigate(contextId: string, pageId: string, url: string, signal: AbortSignal) {
+    const page = await this.load(contextId, pageId, url, signal)
+    const pageKey = `${contextId}:${pageId}`
+    const current = this.histories.get(pageKey) ?? { entries: [], index: -1 }
+    const entries = [...current.entries.slice(0, current.index + 1), page.url].slice(-100)
+    this.histories.set(pageKey, { entries, index: entries.length - 1 })
+    return page
+  }
+  async go(contextId: string, pageId: string, action: 'back' | 'forward' | 'reload', signal: AbortSignal) {
+    const pageKey = `${contextId}:${pageId}`
+    const current = this.histories.get(pageKey)
+    if (!current) throw new HbarError('BROWSER_PAGE_NOT_FOUND', 'Navigate a page before using browser history')
+    const nextIndex = action === 'back' ? current.index - 1 : action === 'forward' ? current.index + 1 : current.index
+    const url = current.entries[nextIndex]
+    if (!url) throw new HbarError('BROWSER_HISTORY_BOUNDARY', `Cannot navigate ${action} from this page`)
+    const page = await this.load(contextId, pageId, url, signal)
+    this.histories.set(pageKey, { entries: current.entries, index: nextIndex })
+    return page
   }
   async snapshot(contextId: string, pageId: string, signal: AbortSignal) {
     signal.throwIfAborted()
@@ -193,12 +216,22 @@ export class FetchBrowserBackend implements BrowserBackend {
   }
   async close(contextId: string, pageId?: string, signal?: AbortSignal) {
     signal?.throwIfAborted()
-    if (pageId) this.pages.delete(`${contextId}:${pageId}`)
-    else for (const key of this.pages.keys()) if (key.startsWith(`${contextId}:`)) this.pages.delete(key)
-    if (!pageId) this.histories.delete(contextId)
+    if (pageId) {
+      this.pages.delete(`${contextId}:${pageId}`)
+      this.histories.delete(`${contextId}:${pageId}`)
+    } else {
+      for (const key of this.pages.keys()) if (key.startsWith(`${contextId}:`)) this.pages.delete(key)
+      for (const key of this.histories.keys()) if (key.startsWith(`${contextId}:`)) this.histories.delete(key)
+    }
   }
   async history(contextId: string) {
-    return [...(this.histories.get(contextId) ?? [])]
+    return [
+      ...new Set(
+        [...this.histories.entries()]
+          .filter(([pageKey]) => pageKey.startsWith(`${contextId}:`))
+          .flatMap(([, history]) => history.entries),
+      ),
+    ]
   }
 }
 
@@ -374,6 +407,21 @@ export class BrowserRuntime implements BrowserUseService {
     this.api.notify({ method: 'browser.changed', params: { sessionId, contextId } })
     this.api.changed('browser')
     return page
+  }
+
+  async go(
+    sessionId: string,
+    action: 'back' | 'forward' | 'reload',
+    contextId?: string,
+    pageId?: string,
+    signal = new AbortController().signal,
+  ) {
+    const located = this.page(sessionId, contextId, pageId)
+    const result = await this.bounded(signal, (boundedSignal) =>
+      this.backend.go(located.contextId, located.state.pageId, action, boundedSignal),
+    )
+    this.authorizeOrigin(result.url)
+    return this.updatePage(located, result)
   }
 
   async snapshot(
@@ -553,6 +601,16 @@ export function browserTools(runtime: BrowserRuntime): ToolDefinition[] {
       execute: async (args, c) => {
         const p = z.object({ url: z.string(), ...contextArgs.shape }).parse(args)
         return result(await runtime.navigate(c.session.id, p.url, p.context_id, p.page_id, c.signal))
+      },
+    },
+    {
+      name: 'browser_go',
+      description: 'Navigate the current page backward, forward, or reload it.',
+      inputSchema: z.object({ action: z.enum(['back', 'forward', 'reload']), ...contextArgs.shape }),
+      effect: 'network',
+      execute: async (args, c) => {
+        const p = z.object({ action: z.enum(['back', 'forward', 'reload']), ...contextArgs.shape }).parse(args)
+        return result(await runtime.go(c.session.id, p.action, p.context_id, p.page_id, c.signal))
       },
     },
     {
