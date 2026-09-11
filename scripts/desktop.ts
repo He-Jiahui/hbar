@@ -54,9 +54,22 @@ const child = Bun.spawn(
     },
   },
 )
+function terminateProcessTree(subprocess: Bun.Subprocess | undefined): void {
+  if (!subprocess) return
+  if (process.platform === 'win32') {
+    const killer = Bun.spawn(['taskkill', '/PID', String(subprocess.pid), '/T', '/F'], {
+      stdio: ['ignore', 'ignore', 'ignore'],
+      windowsHide: true,
+    })
+    void killer.exited
+    return
+  }
+  subprocess.kill()
+}
+
 const stop = () => {
   child.kill()
-  web?.kill()
+  terminateProcessTree(web)
 }
 process.on('SIGINT', stop)
 process.on('SIGTERM', stop)
