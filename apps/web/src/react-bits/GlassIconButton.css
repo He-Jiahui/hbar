@@ -15,10 +15,14 @@
 
 .tool-rail .rb-glass-icon-button:hover,
 .tool-rail .rb-glass-icon-button:focus-visible {
-  z-index: 20;
+  z-index: 100;
 }
 
 .tool-rail .rb-glass-icon-label {
+  display: block;
+  width: max-content;
+  min-width: max-content;
+  writing-mode: horizontal-tb;
   top: 50%;
   bottom: auto;
   left: auto;
@@ -33,6 +37,12 @@
 .tool-rail.right-rail .rb-glass-icon-label {
   right: calc(100% + 8px);
   transform: translateY(-50%);
+}
+
+.tool-rail {
+  position: relative;
+  z-index: 4;
+  overflow: visible;
 }
 
 .rb-glass-icon-back,
