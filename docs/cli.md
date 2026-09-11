@@ -1,5 +1,7 @@
 # CLI 与终端
 
+想先按任务使用 CLI，请从 [Wiki 的 CLI 与无头模式](wiki/CLI.md) 开始；本页记录完整的命令与协议边界。
+
 `hbar` 是 Host 的键盘客户端。它不会复制 Session、模型、插件或审批逻辑；所有操作通过同一个 HTTP/JSON-RPC + WebSocket Client SDK 发送到 Bun Host。
 
 ```text
