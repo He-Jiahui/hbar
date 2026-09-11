@@ -55,3 +55,20 @@ test('the repository Wiki navigation exposes every page', async () => {
   const problems = await checkDocumentationLinks(join(import.meta.dir, '..'))
   expect(problems.filter((problem) => problem.message.includes('Wiki page is not linked'))).toEqual([])
 })
+
+test('Wiki navigation reports an orphaned page', async () => {
+  const root = await fixture()
+  const wiki = join(root, 'docs', 'wiki')
+  await mkdir(wiki, { recursive: true })
+  await writeFile(join(wiki, 'Home.md'), '# Home\n\n[Home](Home.md)\n')
+  await writeFile(join(wiki, '_Sidebar.md'), '- [Home](Home.md)\n')
+  await writeFile(join(wiki, 'Orphan.md'), '# Orphan\n')
+
+  expect(await checkDocumentationLinks(root)).toEqual([
+    {
+      sourcePath: 'docs/wiki/_Sidebar.md',
+      target: 'Orphan.md',
+      message: 'Wiki page is not linked from Home.md or _Sidebar.md',
+    },
+  ])
+})
