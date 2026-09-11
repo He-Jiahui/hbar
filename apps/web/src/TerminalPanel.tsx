@@ -376,7 +376,7 @@ export default function TerminalPanel({
           // The local store remains the useful value while a reconnect is in progress.
         }
         write(
-          `settings\napproval: ${persistedApproval}\nthinking: ${thinkingLevel}\nmodel: ${model?.name ?? modelId ?? '未配置'}\n\n可用设置命令:\n  /settings approval allow\n  /settings approval ask\n  /settings approval deny`,
+          `\`\`\`text\nsettings\napproval: ${persistedApproval}\nthinking: ${thinkingLevel}\nmodel: ${model?.name ?? modelId ?? '未配置'}\n\n可用设置命令:\n  /settings approval allow\n  /settings approval ask\n  /settings approval deny\n\`\`\``,
         )
       } else if (args[0] === 'approval' && ['allow', 'ask', 'deny'].includes(args[1] ?? '')) {
         const mode = args[1] as ApprovalMode
