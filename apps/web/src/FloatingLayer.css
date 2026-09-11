@@ -10,6 +10,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   isolation: isolate;
+  background: rgba(26, 26, 26, 0.96) !important;
   background: color-mix(in srgb, var(--hbar-s1) 94%, transparent) !important;
   backdrop-filter: blur(16px) saturate(1.12);
   -webkit-backdrop-filter: blur(16px) saturate(1.12);
