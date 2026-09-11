@@ -20,6 +20,7 @@ test('verify workflow is a deterministic, least-privilege required gate', async 
   expect(workflow).toContain('bun install --frozen-lockfile')
   expect(workflow).toContain('run: bun run check')
   expect(workflow).toContain('run: bun run check:docs')
+  expect(workflow).toContain('run: bun run check:github-flow')
   expect(workflow).toContain('run: bun run build')
   expect(workflow).not.toContain('secrets.')
   expect(workflow).not.toContain('pull_request_target')

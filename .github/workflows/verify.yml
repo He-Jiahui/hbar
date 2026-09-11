@@ -40,5 +40,8 @@ jobs:
       - name: Validate documentation links
         run: bun run check:docs
 
+      - name: Validate GitHub Flow configuration
+        run: bun run check:github-flow
+
       - name: Build web workbench
         run: bun run build
