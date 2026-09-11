@@ -984,6 +984,18 @@ test('command console supports keyboard commands, concurrent sessions, approval 
     await expect(terminal).toContainText('thinking:')
     await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
 
+    const inspectablePlugin = bootstrap.plugins.find((plugin) => plugin.id.length > 0)
+    if (inspectablePlugin) {
+      await input.fill(`/plugins inspect ${inspectablePlugin.id}`)
+      await input.press('Enter')
+      await expect(terminal.locator('.terminal-command-entry').last()).toContainText(inspectablePlugin.id)
+      await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
+    }
+    await input.fill('/plugins lock')
+    await input.press('Enter')
+    await expect(terminal.locator('.terminal-command-entry').last()).toContainText('version')
+    await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
+
     await input.fill('/thinking')
     const thinkingOptions = page.getByRole('listbox', { name: '命令补全' }).filter({ visible: true })
     await expect(thinkingOptions).toBeVisible()

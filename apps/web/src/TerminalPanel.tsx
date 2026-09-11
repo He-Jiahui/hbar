@@ -351,9 +351,19 @@ export default function TerminalPanel({
       else if (action === 'enable' && id) await client().call('plugin.enable', { id })
       else if (action === 'disable' && id) await client().call('plugin.disable', { id })
       else if (action === 'remove' && id) await client().call('plugin.remove', { id })
+      else if (action === 'inspect' && id) {
+        const plugin = catalog?.plugins.find((item) => item.id === id)
+        if (!plugin) throw new Error(`找不到插件：${id}`)
+        write(`\`\`\`json\n${JSON.stringify(plugin, null, 2)}\n\`\`\``)
+        return
+      } else if (action === 'lock') {
+        write(`\`\`\`json\n${JSON.stringify(await client().call('plugin.lock', {}), null, 2)}\n\`\`\``)
+        return
+      }
       else if (action === 'doctor')
         write(`\`\`\`json\n${JSON.stringify(await client().call('plugin.doctor', {}), null, 2)}\n\`\`\``)
-      else if (action !== 'list') throw new Error('使用 /plugins list|install|enable|disable|remove|doctor')
+      else if (action !== 'list')
+        throw new Error('使用 /plugins list|install|enable|disable|remove|inspect|doctor|lock')
       if (action === 'list')
         write(
           `### Plugins\n\n${catalog?.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n') ?? ''}`,
