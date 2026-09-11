@@ -418,11 +418,11 @@ export class Kernel {
   private publishEvent(event: SessionEvent) {
     this.publish({ method: 'session.event', params: event })
   }
-  async createWorkspace(path: string) {
+  async createWorkspace(path: string, name?: string) {
     const resolved = await realpath(path)
     if (!(await stat(resolved)).isDirectory())
       throw new HbarError('INVALID_WORKSPACE', 'Workspace must be an existing directory')
-    const workspace = await this.storage.call('createWorkspace', resolved, basename(resolved) || resolved)
+    const workspace = await this.storage.call('createWorkspace', resolved, name?.trim() || basename(resolved) || resolved)
     this.changed('workspaces')
     return workspace
   }

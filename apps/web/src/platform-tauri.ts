@@ -5,4 +5,5 @@ export const desktop: PlatformAdapter = {
   kind: 'desktop',
   connection: () => invoke<{ url: string; token: string }>('connection_info'),
   copy: copyText,
+  pickDirectory: () => invoke<string | null>('pick_directory'),
 }

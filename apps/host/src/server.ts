@@ -268,7 +268,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.createWorkspace(p.path)
+        return kernel.createWorkspace(p.path, p.name)
       }
       case 'session.create': {
         const p = rpcSchemas[method].parse(raw)

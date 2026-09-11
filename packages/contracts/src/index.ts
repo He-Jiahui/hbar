@@ -979,7 +979,7 @@ export const rpcSchemas = {
     appId: z.string().max(1_000).optional(),
   }),
   'computer.launch': z.object({ sessionId: idSchema, appId: z.string().min(1).max(1_000) }),
-  'workspace.create': z.object({ path: z.string().min(1).max(4000) }),
+  'workspace.create': z.object({ path: z.string().min(1).max(4000), name: z.string().trim().min(1).max(160).optional() }),
   'session.create': z.object({ workspaceId: idSchema, title: z.string().max(160).optional() }),
   'session.snapshot': z.object({
     sessionId: idSchema,

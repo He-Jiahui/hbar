@@ -363,7 +363,8 @@ export default function App() {
     [sidebar, setSidebar] = useState(true),
     [mobileView, setMobileView] = useState('chat'),
     [workspaceModal, setWorkspaceModal] = useState(false),
-    [workspacePath, setWorkspacePath] = useState('')
+    [workspacePaths, setWorkspacePaths] = useState<string[]>([]),
+    [workspaceAlias, setWorkspaceAlias] = useState('')
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
@@ -656,6 +657,36 @@ export default function App() {
   }
   const settings = () => openPanel('settings', '设置', 'settings')
   const toggleSettings = () => toggleGalleryTool('settings', '设置', 'settings', undefined, 'editor')
+  function closeWorkspaceModal() {
+    setWorkspaceModal(false)
+    setWorkspacePaths([])
+    setWorkspaceAlias('')
+  }
+  async function chooseWorkspaceDirectory() {
+    try {
+      const selected = await (await platform()).pickDirectory()
+      if (selected) setWorkspacePaths((current) => (current.includes(selected) ? current : [...current, selected]))
+    } catch (error) {
+      report(error)
+    }
+  }
+  async function createWorkspaces() {
+    const paths = [...workspacePaths]
+    if (!paths.length) return
+    try {
+      const alias = workspaceAlias.trim()
+      const created = []
+      for (const path of paths) {
+        const name = alias && paths.length === 1 ? alias : undefined
+        created.push(await client().call('workspace.create', { path, ...(name ? { name } : {}) }))
+      }
+      await refreshCatalog()
+      useWorkbench.setState({ workspaceId: created.at(-1)?.id ?? '' })
+      closeWorkspaceModal()
+    } catch (error) {
+      report(error)
+    }
+  }
   function openSessionTab(session: Session) {
     initialSelection.current = false
     const tabs = conversationTabs(model)
@@ -1230,34 +1261,55 @@ export default function App() {
       )}
       <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
       {workspaceModal && (
-        <Modal title="添加工作区" onClose={() => setWorkspaceModal(false)}>
+        <Modal title="添加工作区" onClose={closeWorkspaceModal}>
           <form
             className="settings-form"
             onSubmit={(event) => {
               event.preventDefault()
-              void client()
-                .call('workspace.create', { path: workspacePath })
-                .then(async (workspace) => {
-                  await refreshCatalog()
-                  useWorkbench.setState({ workspaceId: workspace.id })
-                  setWorkspaceModal(false)
-                  setWorkspacePath('')
-                })
-                .catch(report)
+              void createWorkspaces()
             }}
           >
             <label>
-              目录路径
+              项目别名（可选）
               <input
                 autoFocus
-                value={workspacePath}
-                onChange={(event) => setWorkspacePath(event.target.value)}
-                placeholder="D:\Projects\my-project"
-                required
+                value={workspaceAlias}
+                onChange={(event) => setWorkspaceAlias(event.target.value)}
+                placeholder="默认使用目录名"
+                maxLength={160}
               />
             </label>
+            <div className="workspace-picker">
+              <div className="workspace-picker-heading">
+                <span>工作区目录</span>
+                <button type="button" className="button" onClick={() => void chooseWorkspaceDirectory()}>
+                  <FolderOpen size={14} />
+                  浏览文件夹
+                </button>
+              </div>
+              {workspacePaths.length ? (
+                <ul className="workspace-picker-list">
+                  {workspacePaths.map((path) => (
+                    <li key={path}>
+                      <span title={path}>{path}</span>
+                      <button
+                        type="button"
+                        title={`移除 ${path}`}
+                        aria-label={`移除 ${path}`}
+                        onClick={() => setWorkspacePaths((current) => current.filter((item) => item !== path))}
+                      >
+                        <X size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="workspace-picker-empty">请选择一个或多个文件夹。</p>
+              )}
+              {workspacePaths.length > 1 && <p className="workspace-picker-hint">多个目录将分别加入工作区，并使用各自的目录名。</p>}
+            </div>
             <footer className="modal-footer">
-              <button className="button primary">
+              <button className="button primary" disabled={!workspacePaths.length}>
                 <FolderOpen size={14} />
                 打开工作区
               </button>

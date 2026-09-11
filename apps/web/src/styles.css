@@ -1944,6 +1944,71 @@ p {
 .settings-form select {
   width: 100%;
 }
+.workspace-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.workspace-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #b9c1d1;
+  font-size: 12px;
+}
+.workspace-picker-heading .button {
+  flex: 0 0 auto;
+}
+.workspace-picker-list {
+  display: flex;
+  max-height: 150px;
+  flex-direction: column;
+  gap: 5px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.workspace-picker-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #3b3e47;
+  border-radius: 4px;
+  background: #202125;
+  color: #d1d7e2;
+  font-size: 11px;
+}
+.workspace-picker-list li span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-picker-list li button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 2px;
+  color: #8c96aa;
+}
+.workspace-picker-list li button:hover,
+.workspace-picker-list li button:focus-visible {
+  color: #e4e9f4;
+}
+.workspace-picker-empty,
+.workspace-picker-hint {
+  margin: 0;
+  color: #7e8798;
+  font-size: 11px;
+}
+.workspace-picker-hint {
+  color: #9ca6b9;
+}
 .input-icon {
   display: flex;
   align-items: center;
