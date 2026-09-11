@@ -53,6 +53,36 @@ export async function checkDocumentationLinks(root: string): Promise<Documentati
     }
   }
 
+  problems.push(...(await checkWikiNavigation(absoluteRoot)))
+
+  return problems
+}
+
+async function checkWikiNavigation(root: string): Promise<DocumentationLinkProblem[]> {
+  const wikiRoot = join(root, 'docs', 'wiki')
+  if (!(await isFile(join(wikiRoot, 'Home.md')))) return []
+
+  const [home, sidebar] = await Promise.all([
+    readFile(join(wikiRoot, 'Home.md'), 'utf8'),
+    readFile(join(wikiRoot, '_Sidebar.md'), 'utf8').catch(() => ''),
+  ])
+  const navigation = `${home}\n${sidebar}`
+  const pages = (await collectMarkdownFiles(wikiRoot)).filter((path) => !path.endsWith(`${sep}_Sidebar.md`))
+  const problems: DocumentationLinkProblem[] = []
+
+  for (const page of pages) {
+    const filename = page.slice(wikiRoot.length + 1)
+    const stem = filename.replace(/\.md$/i, '')
+    const linked = navigation.includes(`(${filename})`) || navigation.includes(`(${stem})`)
+    if (!linked) {
+      problems.push({
+        sourcePath: displayPath(root, join(wikiRoot, '_Sidebar.md')),
+        target: filename,
+        message: 'Wiki page is not linked from Home.md or _Sidebar.md',
+      })
+    }
+  }
+
   return problems
 }
 

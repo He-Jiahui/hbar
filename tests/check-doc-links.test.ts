@@ -50,3 +50,8 @@ test('documentation link checks include security and GitHub Markdown sources', a
 
   expect(await checkDocumentationLinks(root)).toEqual([])
 })
+
+test('the repository Wiki navigation exposes every page', async () => {
+  const problems = await checkDocumentationLinks(join(import.meta.dir, '..'))
+  expect(problems.filter((problem) => problem.message.includes('Wiki page is not linked'))).toEqual([])
+})
