@@ -9,14 +9,12 @@ import {
   LayoutGrid,
   LoaderCircle,
   MessageSquare,
-  Network,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
   Plus,
   Search,
   Settings2,
-  ShieldCheck,
   TerminalSquare,
   X,
 } from 'lucide-react'
@@ -41,12 +39,12 @@ import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
 import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layout'
 import TerminalPanel from './TerminalPanel'
+import PairingPage from './PairingPage'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import Diagnose from './DiagnosePanel'
 import SpotlightCard from './react-bits/SpotlightCard'
 import GlassSurface from './react-bits/GlassSurface'
-import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 import ActivityPanel from './ActivityPanel'
 import WorkbenchHeader from './workbench/WorkbenchHeader'
@@ -116,73 +114,6 @@ function selectedLayoutTab(model: Model): TabNode | undefined {
   return first instanceof TabNode ? first : undefined
 }
 
-function Pairing() {
-  const [code, setCode] = useState(''),
-    [name, setName] = useState('Browser'),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState('')
-  const status = useConnection((state) => state.status),
-    url = useConnection((state) => state.url),
-    connectionError = useConnection((state) => state.error)
-  return (
-    <main className="pairing-page rb-pairing-page">
-      <GlassSurface className="pairing-page-glass" width="100%" height="100%" aria-hidden="true" />
-      <div className="pairing-brand">
-        hbar
-        <span />
-      </div>
-      <SpotlightCard className="pairing-card" spotlightColor="color-mix(in srgb, var(--rb-accent) 26%, transparent)">
-        <form
-          className="pairing-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            setBusy(true)
-            setError('')
-            void client()
-              .pair(code, name)
-              .then((host) => {
-                useConnection.setState({ host })
-                return refreshCatalog()
-              })
-              .catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)))
-              .finally(() => setBusy(false))
-          }}
-        >
-          <h1>{status === 'connecting' ? '连接宿主' : '设备配对'}</h1>
-          <div className="host-chip">
-            <Network size={14} />
-            <code>{url}</code>
-          </div>
-          <label>
-            配对码
-            <input
-              autoFocus
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={8}
-              value={code}
-              onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-              aria-label="配对码"
-            />
-          </label>
-          <label>
-            设备名称
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          {(error || connectionError) && (
-            <p className="inline-error" role="alert">
-              {error || connectionError}
-            </p>
-          )}
-          <GlareButton className="button primary pair-submit" disabled={busy || code.length !== 8 || !name}>
-            {busy ? <LoaderCircle size={16} className="spinning" /> : <ShieldCheck size={16} />}配对并连接
-          </GlareButton>
-        </form>
-      </SpotlightCard>
-      <span className="pairing-footer">hbar / 0.1.0</span>
-    </main>
-  )
-}
 function Sessions({
   onSelect,
   onNew,
@@ -868,7 +799,7 @@ export default function App() {
       <div className="empty-tool">插件已停用</div>
     )
   }
-  if (status === 'pairing' || (!data && status !== 'connected')) return <Pairing />
+  if (status === 'pairing' || (!data && status !== 'connected')) return <PairingPage />
   return (
     <div className="app-shell">
       <WorkbenchHeader
