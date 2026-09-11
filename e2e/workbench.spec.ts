@@ -810,6 +810,15 @@ test('phone supports send, denial, files and model settings without horizontal o
     await expect(readFile(`${fixture.root}/sample.ts`, 'utf8')).resolves.toContain('answer = 43')
     await openMobileSettings(page)
     await expect(page.getByRole('heading', { name: '供应商与模型' })).toBeVisible()
+    const mobileSettingsNav = page.locator('.settings-tabs.settings-nav').filter({ visible: true })
+    await expect(mobileSettingsNav.locator('.settings-nav-items > button')).toHaveCount(6)
+    const mobileSettingsNavLayout = await mobileSettingsNav.locator('.settings-nav-items').evaluate((element) => ({
+      display: getComputedStyle(element).display,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(mobileSettingsNavLayout.display).toBe('grid')
+    expect(mobileSettingsNavLayout.scrollWidth).toBeLessThanOrEqual(mobileSettingsNavLayout.clientWidth)
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-settings.png` })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   } finally {

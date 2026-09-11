@@ -3166,6 +3166,34 @@
   }
 }
 
+@media (max-width: 560px) {
+  /* Six settings destinations fit in a two-row touch grid at phone widths;
+   * horizontal scrolling otherwise leaves the last destinations half-clipped
+   * and makes the page feel like a broken carousel. */
+  .settings-tabs.settings-nav {
+    overflow: visible;
+  }
+
+  .settings-nav .settings-nav-items {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+    gap: 4px;
+  }
+
+  .settings-nav .settings-nav-items > button {
+    min-width: 0;
+    min-height: 46px;
+    justify-content: flex-start;
+    padding: 7px 6px;
+  }
+
+  .settings-nav-icon {
+    width: 25px;
+    height: 25px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rb-spotlight-card::before,
   .rb-spotlight-card::after {
