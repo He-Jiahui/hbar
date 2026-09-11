@@ -1404,6 +1404,51 @@
   padding: 16px 0 0;
 }
 
+.settings-unsaved-bar {
+  position: sticky;
+  bottom: 58px;
+  z-index: 5;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--hbar-ac-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hbar-ac-soft) 92%, var(--hbar-s1));
+  box-shadow: var(--dsh-shadow-panel);
+  color: var(--hbar-t1);
+  font-size: 11px;
+}
+
+.settings-unsaved-bar > div {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.settings-unsaved-bar .button {
+  min-height: 28px;
+  padding: 4px 9px;
+}
+
+@media (max-width: 560px) {
+  .settings-unsaved-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-unsaved-bar > div {
+    width: 100%;
+  }
+
+  .settings-unsaved-bar .button {
+    flex: 1 1 0;
+  }
+}
+
 @media (max-width: 899px) {
   .settings-detail-header {
     grid-template-columns: 1fr;

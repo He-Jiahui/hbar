@@ -160,11 +160,13 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
   const [presetId, setPresetId] = useState(initialPreset)
   const selectedPreset = providerPresets.find((preset) => preset.id === presetId) ?? providerPresets.at(-1)!
   const customConnection = presetId === 'custom'
-  const [value, setValue] = useState<ProviderConfig>(() =>
+  const initialValue = useRef<ProviderConfig>(
     provider
       ? providerEditorValue(provider)
       : providerFromPreset(providerPresets.find((preset) => preset.id === 'deepseek')!),
-  )
+  ).current
+  const initialSnapshot = useRef(JSON.stringify({ value: initialValue, apiKey: '' })).current
+  const [value, setValue] = useState<ProviderConfig>(initialValue)
   const [apiKey, setApiKey] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('')
@@ -172,6 +174,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
     detailPageRef.current?.scrollTo({ top: 0, left: 0 })
   }, [])
   const selectedModel = value.models.find((model) => model.id === value.model) ?? value.models[0]
+  const dirty = JSON.stringify({ value, apiKey }) !== initialSnapshot
   const field = <K extends 'id' | 'name' | 'protocol' | 'baseUrl'>(key: K, next: ProviderConfig[K]) =>
     setValue((current) => ({ ...current, [key]: next }))
   function updateModel(index: number, patch: Partial<ProviderModelConfig>) {
@@ -249,6 +252,11 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
     } finally {
       setBusy(false)
     }
+  }
+  function reset() {
+    setValue(initialValue)
+    setApiKey('')
+    setError('')
   }
   const title = provider ? '编辑模型' : '添加模型'
   return (
@@ -578,6 +586,20 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
           <p className="inline-error" role="alert">
             {error}
           </p>
+        )}
+        {dirty && (
+          <div className="settings-unsaved-bar" role="status">
+            <span>有未保存的更改</span>
+            <div>
+              <button type="button" className="button" onClick={reset} disabled={busy}>
+                还原
+              </button>
+              <GlareButton className="button primary" disabled={busy}>
+                <Save size={14} />
+                保存更改
+              </GlareButton>
+            </div>
+          </div>
         )}
         <footer className="modal-footer settings-detail-footer">
           <button type="button" className="button" onClick={close}>
