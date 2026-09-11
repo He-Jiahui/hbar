@@ -551,8 +551,10 @@ export default function App() {
     if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
     const borderId = placement === 'right' ? 'border_right' : placement === 'bottom' ? 'border_bottom' : undefined
     const border = borderId ? model.getNodeById(borderId) : undefined
-    if (borderId && border?.getType() === 'border') {
+    let skipBorderSelection = false
+    if (borderId && border instanceof BorderNode) {
       const existing = model.getNodeById(id)
+      skipBorderSelection = existing instanceof TabNode && border.getSelectedNode()?.getId() === existing.getId()
       if (!existing)
         model.doAction(
           Actions.addNode(
@@ -585,7 +587,7 @@ export default function App() {
       else if (existing instanceof TabNode && !existing.isEnableClose())
         model.doAction(Actions.updateNodeAttributes(existing.getId(), { enableClose: true }))
     }
-    model.doAction(Actions.selectTab(id))
+    if (!skipBorderSelection) model.doAction(Actions.selectTab(id))
   }
 
   function closePanel(id: string) {

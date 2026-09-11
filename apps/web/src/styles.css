@@ -2737,6 +2737,18 @@ textarea:hover {
 .flexlayout__layout {
   background: #1b1c1f !important;
 }
+
+/* The workbench owns tool navigation through the draggable icon rails. Keep
+   FlexLayout border content for its panel host, but remove the second
+   vertical tab strip that otherwise duplicates every rail action. */
+.flexlayout__border_left,
+.flexlayout__border_right {
+  /* Keep FlexLayout's measured rail width so opening a second tool does not
+     collapse the border content; only the duplicate controls are hidden. */
+  opacity: 0;
+  border: 0 !important;
+  pointer-events: none;
+}
 .flexlayout__tabset {
   overflow: hidden;
   border: 1px solid #383a40;
