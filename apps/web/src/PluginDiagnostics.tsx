@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -12,7 +12,19 @@ import {
   XCircle,
 } from 'lucide-react'
 import type { RpcResults } from '@hbar/contracts'
-import { client } from './stores'
+import {
+  Background,
+  Controls,
+  Handle,
+  MiniMap,
+  Position,
+  ReactFlow,
+  type Edge as FlowEdge,
+  type Node as FlowNode,
+  type NodeProps,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+import { client, refreshCatalog } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
@@ -32,6 +44,16 @@ type PluginReportState = {
   loading: boolean
   error: string | null
 }
+
+type PluginGraphNodeData = {
+  label: string
+  version: string
+  enabled: boolean
+  busy: boolean
+  onToggle(): void
+  onDisableTree(): void
+}
+type PluginGraphNode = FlowNode<PluginGraphNodeData, 'plugin'>
 
 type LockEntry = {
   id: string
@@ -93,6 +115,49 @@ function RawReport({ data }: { data: unknown }) {
       </summary>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </details>
+  )
+}
+
+function PluginGraphNodeView({ data }: NodeProps<PluginGraphNode>) {
+  return (
+    <div className={`plugin-graph-node ${data.enabled ? 'is-enabled' : 'is-disabled'}`}>
+      <Handle type="target" position={Position.Left} aria-label={`${data.label} 依赖输入`} />
+      <div className="plugin-graph-node-heading">
+        <div>
+          <strong>{data.label}</strong>
+          <small>v{data.version}</small>
+        </div>
+        <span className="plugin-graph-node-state">{data.enabled ? '已启用' : '已停用'}</span>
+      </div>
+      <div className="plugin-graph-node-actions">
+        <button
+          type="button"
+          className="plugin-graph-node-toggle"
+          disabled={data.busy}
+          onClick={(event) => {
+            event.stopPropagation()
+            data.onToggle()
+          }}
+        >
+          {data.busy ? '处理中…' : data.enabled ? '关闭' : '启用'}
+        </button>
+        {data.enabled && (
+          <button
+            type="button"
+            className="plugin-graph-node-tree"
+            disabled={data.busy}
+            title="关闭此插件以及依赖它的插件"
+            onClick={(event) => {
+              event.stopPropagation()
+              data.onDisableTree()
+            }}
+          >
+            关闭链条
+          </button>
+        )}
+      </div>
+      <Handle type="source" position={Position.Right} aria-label={`${data.label} 依赖输出`} />
+    </div>
   )
 }
 
@@ -189,7 +254,103 @@ function DoctorReportView({ data }: { data: DoctorReport }) {
   )
 }
 
-function GraphReportView({ data }: { data: GraphReport }) {
+function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): void }) {
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const nodeTypes = useMemo(() => ({ plugin: PluginGraphNodeView }), [])
+  const graphNodes: PluginGraphNode[] = (() => {
+    const incoming = new Map(data.nodes.map((node) => [node.id, 0]))
+    for (const edge of data.edges) {
+      if (incoming.has(edge.from) && incoming.has(edge.to)) incoming.set(edge.from, (incoming.get(edge.from) ?? 0) + 1)
+    }
+    const layers = new Map<string, number>()
+    const pending = data.nodes.filter((node) => (incoming.get(node.id) ?? 0) === 0).map((node) => node.id)
+    const visited = new Set<string>()
+    while (pending.length) {
+      const id = pending.shift()!
+      if (visited.has(id)) continue
+      visited.add(id)
+      const layer = layers.get(id) ?? 0
+      for (const edge of data.edges.filter((item) => item.to === id)) {
+        const nextLayer = Math.max(layers.get(edge.from) ?? 0, layer + 1)
+        layers.set(edge.from, nextLayer)
+        pending.push(edge.from)
+      }
+      layers.set(id, layer)
+    }
+    return data.nodes.map((node, index) => {
+      const layer = layers.get(node.id) ?? 0
+      const row = data.nodes.slice(0, index).filter((item) => (layers.get(item.id) ?? 0) === layer).length
+      return {
+        id: node.id,
+        type: 'plugin',
+        position: { x: layer * 270, y: row * 135 },
+        data: {
+          label: node.id,
+          version: node.version,
+          enabled: node.enabled,
+          busy: busyId === node.id,
+          onToggle: () => void togglePlugin(node.id, !node.enabled),
+          onDisableTree: () => void disableTree(node.id),
+        },
+      }
+    })
+  })()
+  const graphEdges = useMemo<FlowEdge[]>(
+    () =>
+      data.edges.map((edge, index) => ({
+        id: `${edge.from}:${edge.kind}:${edge.to}:${index}`,
+        source: edge.from,
+        target: edge.to,
+        label: edge.kind,
+        type: 'smoothstep',
+        animated: edge.kind === 'dependency',
+        className: `plugin-graph-edge-${edge.kind}`,
+      })),
+    [data.edges],
+  )
+
+  async function togglePlugin(id: string, enabled: boolean) {
+    setBusyId(id)
+    setActionError(null)
+    try {
+      await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id })
+      await refreshCatalog()
+      onRefresh()
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function disableTree(rootId: string) {
+    const ids = new Set([rootId])
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const edge of data.edges) {
+        if (ids.has(edge.to) && !ids.has(edge.from)) {
+          ids.add(edge.from)
+          changed = true
+        }
+      }
+    }
+    const enabled = new Set(data.nodes.filter((node) => node.enabled).map((node) => node.id))
+    const ordered = data.nodes.map((node) => node.id).filter((id) => ids.has(id) && enabled.has(id)).reverse()
+    setBusyId(rootId)
+    setActionError(null)
+    try {
+      for (const id of ordered) await client().call('plugin.disable', { id })
+      await refreshCatalog()
+      onRefresh()
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <ReportSurface
       kind="graph"
@@ -207,6 +368,33 @@ function GraphReportView({ data }: { data: GraphReport }) {
           <dd>{data.edges.length}</dd>
         </div>
       </dl>
+      <div className="plugin-graph-toolbar">
+        <span>点击节点按钮可热切换插件；“关闭链条”会停用依赖此插件的整棵下游树。</span>
+        {actionError && <span className="inline-error" role="alert">{actionError}</span>}
+      </div>
+      <section className="plugin-graph-canvas" aria-label="可操作的插件依赖图">
+        {data.nodes.length ? (
+          <ReactFlow
+            nodes={graphNodes}
+            edges={graphEdges}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            nodesConnectable={false}
+            nodesDraggable
+            elementsSelectable
+            panOnScroll
+            zoomOnScroll
+            aria-label="插件依赖图"
+          >
+            <Background gap={24} size={1} color="var(--rb-border)" />
+            <MiniMap pannable zoomable nodeColor={(node) => (node.data?.enabled ? 'var(--rb-ok)' : 'var(--rb-muted)')} />
+            <Controls showInteractive={false} />
+          </ReactFlow>
+        ) : (
+          <div className="plugin-report-empty">没有可用的插件节点</div>
+        )}
+      </section>
       <section className="plugin-report-list-section" aria-labelledby="plugin-graph-nodes-heading">
         <h4 id="plugin-graph-nodes-heading">已注册插件</h4>
         {data.nodes.length ? (
@@ -312,9 +500,9 @@ function LockReportView({ data }: { data: LockReport }) {
   )
 }
 
-function PluginReportView({ report }: { report: PluginReport }) {
+function PluginReportView({ report, onRefresh }: { report: PluginReport; onRefresh(): void }) {
   if (report.kind === 'doctor') return <DoctorReportView data={report.data} />
-  if (report.kind === 'graph') return <GraphReportView data={report.data} />
+  if (report.kind === 'graph') return <GraphReportView data={report.data} onRefresh={onRefresh} />
   return <LockReportView data={report.data} />
 }
 
@@ -421,7 +609,7 @@ export default function PluginDiagnostics() {
         </SpotlightCard>
       )}
 
-      {state.report && <PluginReportView report={state.report} />}
+      {state.report && <PluginReportView report={state.report} onRefresh={() => void run(active ?? 'graph')} />}
     </div>
   )
 }

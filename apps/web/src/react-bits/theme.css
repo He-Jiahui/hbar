@@ -1854,6 +1854,148 @@
   font: 18px var(--dsh-font-family-code);
 }
 
+.plugin-graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  text-align: left;
+}
+
+.plugin-graph-toolbar .inline-error {
+  margin: 0;
+}
+
+.plugin-graph-canvas {
+  min-height: 440px;
+  overflow: hidden;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-s0);
+}
+
+.plugin-graph-canvas .react-flow {
+  min-height: 440px;
+  background: var(--hbar-s0);
+}
+
+.plugin-graph-canvas .react-flow__attribution {
+  display: none;
+}
+
+.plugin-graph-canvas .react-flow__controls,
+.plugin-graph-canvas .react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s1) 96%, transparent);
+}
+
+.plugin-graph-canvas .react-flow__controls-button {
+  border-color: var(--hbar-bd);
+  background: transparent;
+  fill: var(--hbar-t2);
+  color: var(--hbar-t2);
+}
+
+.plugin-graph-canvas .react-flow__edge-text {
+  fill: var(--hbar-t3);
+  font-size: 9px;
+}
+
+.plugin-graph-canvas .react-flow__edge-path {
+  stroke: var(--hbar-accent);
+  stroke-width: 1.5;
+}
+
+.plugin-graph-node {
+  display: grid;
+  min-width: 205px;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s1) 96%, transparent);
+  box-shadow: 0 8px 22px #0006;
+  color: var(--hbar-t1);
+  text-align: left;
+}
+
+.plugin-graph-node.is-enabled {
+  border-color: color-mix(in srgb, var(--hbar-ok) 45%, var(--hbar-bd));
+}
+
+.plugin-graph-node.is-disabled {
+  opacity: 0.78;
+}
+
+.plugin-graph-node-heading,
+.plugin-graph-node-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plugin-graph-node-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.plugin-graph-node-heading strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.plugin-graph-node-heading small {
+  color: var(--hbar-t3);
+  font: 10px var(--dsh-font-family-code);
+}
+
+.plugin-graph-node-state {
+  flex: 0 0 auto;
+  color: var(--hbar-ok);
+  font-size: 10px;
+}
+
+.plugin-graph-node.is-disabled .plugin-graph-node-state {
+  color: var(--hbar-t3);
+}
+
+.plugin-graph-node-actions button {
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-xs);
+  background: var(--hbar-s0);
+  color: var(--hbar-t2);
+  font-size: 10px;
+}
+
+.plugin-graph-node-actions button:hover:not(:disabled),
+.plugin-graph-node-actions button:focus-visible {
+  border-color: var(--hbar-accent);
+  color: var(--hbar-t1);
+}
+
+.plugin-graph-node-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.plugin-graph-node .react-flow__handle {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--hbar-accent);
+  background: var(--hbar-s1);
+}
+
 .plugin-report-list-section {
   display: grid;
   min-width: 0;
