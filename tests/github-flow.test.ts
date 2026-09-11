@@ -12,6 +12,7 @@ test('verify workflow is a deterministic, least-privilege required gate', async 
   const workflow = await source('.github/workflows/verify.yml')
 
   expect(workflow).toContain('pull_request:')
+  expect(workflow).toContain('types: [opened, synchronize, reopened, ready_for_review]')
   expect(workflow).toContain('push:')
   expect(workflow).toContain('branches: [master]')
   expect(workflow).toContain('contents: read')

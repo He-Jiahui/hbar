@@ -4,7 +4,7 @@
 
 首版是可以运行的会话闭环：模型流式响应、工作区文件工具、Shell 审批、持久队列、取消、历史、分支、归档、图片与混合文件附件、摘要压缩、模型配置和本地插件管理。Goal、Plan、Budget 模式已作为内置插件接入；调度、后台任务和团队等后续边界见 [架构说明](docs/architecture.md)。
 
-面向使用者和贡献者的导航页在 [Wiki 源码](docs/wiki/Home.md) 中维护。它包含快速开始、会话与安全边界、插件、架构和 GitHub Flow；原生 GitHub Wiki 启用后会由受信任主线的工作流同步。
+面向使用者和贡献者的导航页在 [GitHub Wiki](https://github.com/He-Jiahui/hbar/wiki) 和仓库内的 [Wiki 源码](docs/wiki/Home.md) 中维护。它包含快速开始、会话与安全边界、插件、架构和 GitHub Flow；原生 GitHub Wiki 启用后会由受信任主线的工作流同步。
 
 ## 运行
 
