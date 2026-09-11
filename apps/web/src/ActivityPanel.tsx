@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Activity, Square } from 'lucide-react'
+import { Activity, Search, Square } from 'lucide-react'
 import type { SessionEvent } from '@hbar/contracts'
 import { client, report, useSessions, useWorkbench } from './stores'
 import { Modal } from './Settings'
@@ -42,6 +42,7 @@ export default function ActivityPanel() {
   const [detail, setDetail] = useState<SessionEvent | null>(null)
   const [eventsLoading, setEventsLoading] = useState(false)
   const [eventsError, setEventsError] = useState('')
+  const [eventFilter, setEventFilter] = useState('')
   const [clock, setClock] = useState(() => Date.now())
   const cursor = snapshot?.cursor
 
@@ -80,6 +81,12 @@ export default function ActivityPanel() {
   const timelineRun =
     snapshot?.runs.find((run) => ['running', 'queued', 'waiting_approval'].includes(run.status)) ?? snapshot?.runs[0]
   const timelineEvents = timelineRun ? events.filter((event) => event.runId === timelineRun.id).slice(-12) : []
+  const visibleEvents = events.filter((event) => {
+    const query = eventFilter.trim().toLocaleLowerCase()
+    if (!query) return true
+    const data = JSON.stringify(event.data ?? '').toLocaleLowerCase()
+    return event.type.toLocaleLowerCase().includes(query) || data.includes(query)
+  })
 
   return (
     <div className="activity-panel rb-activity-panel" aria-label="运行与事件">
@@ -231,8 +238,18 @@ export default function ActivityPanel() {
               {eventsError}
             </p>
           )}
+          <label className="event-filter">
+            <Search size={13} aria-hidden="true" />
+            <input
+              aria-label="筛选事件"
+              placeholder="筛选事件、工具或状态"
+              value={eventFilter}
+              onChange={(event) => setEventFilter(event.target.value)}
+            />
+            {eventFilter && <span>{visibleEvents.length}</span>}
+          </label>
           <div className="event-list">
-            {events.map((event) => (
+            {visibleEvents.map((event) => (
               <SpotlightCard
                 as="button"
                 type="button"
@@ -249,6 +266,9 @@ export default function ActivityPanel() {
             ))}
           </div>
           {!eventsLoading && !eventsError && !events.length && <div className="empty-tool">尚无事件</div>}
+          {!eventsLoading && !eventsError && events.length > 0 && !visibleEvents.length && (
+            <div className="empty-tool">没有匹配的事件</div>
+          )}
           {detail && (
             <Modal title={detail.type} onClose={() => setDetail(null)}>
               <pre className="event-detail">{JSON.stringify(detail, null, 2)}</pre>

@@ -166,6 +166,42 @@
   margin: 12px 14px 0;
 }
 
+.event-filter {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 14px 8px;
+  padding: 0 9px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-s0);
+  color: var(--hbar-t3);
+}
+
+.event-filter:focus-within {
+  border-color: var(--hbar-ac);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--hbar-ac) 28%, transparent);
+}
+
+.event-filter input {
+  min-width: 0;
+  flex: 1;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--hbar-t1);
+  font-size: 11px;
+}
+
+.event-filter > span {
+  flex: 0 0 auto;
+  color: var(--hbar-t3);
+  font: 10px var(--mono);
+}
+
 @media (max-width: 899px) {
   .rb-activity-panel .activity-live-indicator {
     font-size: 10px;
