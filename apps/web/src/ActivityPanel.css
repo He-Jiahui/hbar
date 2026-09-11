@@ -202,6 +202,99 @@
   font: 10px var(--mono);
 }
 
+/* Event details stay inside the activity tool region.  React Bits' activity
+ * blocks use a master/detail transition; keeping the detail here preserves
+ * the rail, filter state and focus context instead of opening a global modal. */
+.event-detail-panel {
+  display: grid;
+  gap: 10px;
+  margin: 12px 14px 0;
+  padding: 10px;
+  border: 1px solid var(--hbar-bd2);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hbar-s1) 78%, transparent);
+}
+
+.event-detail-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hbar-bd);
+}
+
+.event-detail-header code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-ac-ink);
+  font: 10px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-detail-back {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t2);
+  font-size: 10px;
+}
+
+.event-detail-back:hover,
+.event-detail-back:focus-visible {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s2);
+  color: var(--hbar-t1);
+}
+
+.event-detail-meta {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.event-detail-meta > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.event-detail-meta dt {
+  color: var(--hbar-t3);
+  font-size: 9px;
+}
+
+.event-detail-meta dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--hbar-t2);
+  font: 9px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-detail-panel .event-detail {
+  max-height: 280px;
+  margin: 0;
+  overflow: auto;
+  padding: 9px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-bg);
+  color: var(--hbar-t2);
+  font: 10px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 899px) {
   .rb-activity-panel .activity-live-indicator {
     font-size: 10px;

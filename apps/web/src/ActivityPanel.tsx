@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Activity, Search, Square } from 'lucide-react'
+import { Activity, ArrowLeft, Search, Square } from 'lucide-react'
 import type { SessionEvent } from '@hbar/contracts'
 import { client, report, useSessions, useWorkbench } from './stores'
-import { Modal } from './Settings'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -270,9 +269,38 @@ export default function ActivityPanel() {
             <div className="empty-tool">没有匹配的事件</div>
           )}
           {detail && (
-            <Modal title={detail.type} onClose={() => setDetail(null)}>
-              <pre className="event-detail">{JSON.stringify(detail, null, 2)}</pre>
-            </Modal>
+            <section className="event-detail-panel" aria-label={`${detail.type} 事件详情`}>
+              <header className="event-detail-header">
+                <button
+                  type="button"
+                  className="event-detail-back"
+                  aria-label="返回事件列表"
+                  title="返回事件列表"
+                  onClick={() => setDetail(null)}
+                >
+                  <ArrowLeft size={13} />
+                  返回事件
+                </button>
+                <code>{detail.type}</code>
+              </header>
+              <dl className="event-detail-meta">
+                <div>
+                  <dt>序号</dt>
+                  <dd>{detail.seq}</dd>
+                </div>
+                <div>
+                  <dt>时间</dt>
+                  <dd>{new Date(detail.time).toLocaleString()}</dd>
+                </div>
+                {detail.runId && (
+                  <div>
+                    <dt>运行</dt>
+                    <dd>{detail.runId}</dd>
+                  </div>
+                )}
+              </dl>
+              <pre className="event-detail">{JSON.stringify(detail.data ?? null, null, 2)}</pre>
+            </section>
           )}
         </>
       )}
