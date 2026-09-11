@@ -249,8 +249,13 @@ export default function TerminalPanel({
       return
     }
     if (command === 'sessions') {
+      const projectSessions = catalog?.sessions.filter((item) => item.workspaceId === workspaceId) ?? []
       write(
-        `### Sessions\n\n${sessions.map((item) => `- \`${item.id}\` · ${item.title}`).join('\n') || '没有 Session'}`,
+        `### Sessions\n\n| ID | Title | State |\n| --- | --- | --- |\n${
+          projectSessions
+            .map((item) => `| ${item.id} | ${item.title.replaceAll('|', '\\|')} | ${item.archived ? 'archived' : 'active'} |`)
+            .join('\n') || '| — | 没有 Session | — |'
+        }`,
       )
       return
     }
@@ -279,9 +284,10 @@ export default function TerminalPanel({
           `### Models\n\n${catalog?.models.map((item) => `- \`${item.id}\` · ${item.providerName} / ${item.modelName} · ${item.model}`).join('\n') ?? ''}`,
         )
       else {
+        const normalized = argument.toLocaleLowerCase()
         const target = catalog?.models.find((item) =>
-          [item.id, item.name, item.modelName, item.model, `${item.providerName}/${item.model}`].some(
-            (candidate) => candidate === argument,
+          [item.id, item.name, item.modelName, item.model, `${item.id}/${item.model}`, `${item.providerName}/${item.model}`].some(
+            (candidate) => candidate === argument || candidate.toLocaleLowerCase() === normalized,
           ),
         )
         if (!target) throw new Error(`找不到模型：${argument}`)
@@ -319,12 +325,17 @@ export default function TerminalPanel({
       URL.revokeObjectURL(link.href)
     } else if (command === 'plugins') {
       const [action = 'list', id] = args
-      if (action === 'enable' && id) await client().call('plugin.enable', { id })
+      if (action === 'install' && id)
+        await client().call('plugin.install', {
+          path: id,
+          ...(workspaceId ? { projectId: workspaceId } : {}),
+        })
+      else if (action === 'enable' && id) await client().call('plugin.enable', { id })
       else if (action === 'disable' && id) await client().call('plugin.disable', { id })
       else if (action === 'remove' && id) await client().call('plugin.remove', { id })
       else if (action === 'doctor')
         write(`\`\`\`json\n${JSON.stringify(await client().call('plugin.doctor', {}), null, 2)}\n\`\`\``)
-      else if (action !== 'list') throw new Error('使用 /plugins list|enable|disable|remove|doctor')
+      else if (action !== 'list') throw new Error('使用 /plugins list|install|enable|disable|remove|doctor')
       if (action === 'list')
         write(
           `### Plugins\n\n${catalog?.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n') ?? ''}`,
@@ -337,7 +348,11 @@ export default function TerminalPanel({
       if (!args.length) {
         const model = catalog?.models.find((item) => item.id === modelId)
         write(
-          `### Settings\n\n- approval: \`${approvalMode}\`\n- thinking: \`${thinkingLevel}\`\n- model: \`${model?.name ?? modelId ?? '未配置'}\`\n\n使用 \`/settings approval allow|ask|deny\` 修改权限策略。`,
+          `### Settings\n\n\`\`\`json\n${JSON.stringify(
+            { approval: approvalMode, model: model?.name ?? modelId ?? null, thinking: thinkingLevel },
+            null,
+            2,
+          )}\n\`\`\`\n\n使用 \`/settings approval allow|ask|deny\` 修改权限策略。`,
         )
       } else if (args[0] === 'approval' && ['allow', 'ask', 'deny'].includes(args[1] ?? '')) {
         const mode = args[1] as ApprovalMode
@@ -381,6 +396,7 @@ export default function TerminalPanel({
     setHistoryIndex(-1)
     try {
       const parsed = parseTerminalInput(value)
+      if (parsed.kind === 'command') write(`\`$ ${value}\``)
       if (parsed.kind === 'message') await sendMessage(parsed.text)
       else {
         const handled = await builtins.execute(parsed.invocation, { dispatch })

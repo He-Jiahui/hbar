@@ -11,6 +11,7 @@ export interface ChatSessionChromeProps {
   view: 'chat' | 'console'
   onViewChange(view: 'chat' | 'console'): void
   onRefresh(): void | Promise<void>
+  showContext?: boolean
 }
 
 export default function ChatSessionChrome({
@@ -21,6 +22,7 @@ export default function ChatSessionChrome({
   view,
   onViewChange,
   onRefresh,
+  showContext = true,
 }: ChatSessionChromeProps) {
   const sessionTitle = session?.title ?? 'Session'
   const stateLabel = activeRun ? (activeRun.status === 'waiting_approval' ? '等待批准' : '运行中') : '就绪'
@@ -67,23 +69,25 @@ export default function ChatSessionChrome({
           <RefreshCw size={15} />
         </button>
       </header>
-      <div className="chat-context rb-chat-context rb-chat-context-bar" aria-label="会话上下文">
-        <GlassSurface className="chat-context-glass" width="100%" height="100%" aria-hidden="true" />
-        <div className="chat-context-copy">
-          <GitBranch size={13} aria-hidden="true" />
-          <span>{workspace?.name ?? 'Workspace'}</span>
-          <span className="context-divider" aria-hidden="true">
-            /
-          </span>
-          <span className="chat-context-session" title={sessionTitle}>
-            {sessionTitle}
+      {showContext && (
+        <div className="chat-context rb-chat-context rb-chat-context-bar" aria-label="会话上下文">
+          <GlassSurface className="chat-context-glass" width="100%" height="100%" aria-hidden="true" />
+          <div className="chat-context-copy">
+            <GitBranch size={13} aria-hidden="true" />
+            <span>{workspace?.name ?? 'Workspace'}</span>
+            <span className="context-divider" aria-hidden="true">
+              /
+            </span>
+            <span className="chat-context-session" title={sessionTitle}>
+              {sessionTitle}
+            </span>
+          </div>
+          <span className="session-state" data-session-state={activeRun?.status ?? 'idle'}>
+            <i className={activeRun ? 'running' : ''} aria-hidden="true" />
+            {stateLabel}
           </span>
         </div>
-        <span className="session-state" data-session-state={activeRun?.status ?? 'idle'}>
-          <i className={activeRun ? 'running' : ''} aria-hidden="true" />
-          {stateLabel}
-        </span>
-      </div>
+      )}
     </>
   )
 }

@@ -26,11 +26,7 @@ import {
   normalizeComposerDrafts,
   type ComposerDraft,
 } from './composer-draft'
-import {
-  applySessionCapabilityEvent,
-  loadSessionCapabilities,
-  resetSessionCapabilities,
-} from './session-capabilities'
+import { applySessionCapabilityEvent, loadSessionCapabilities, resetSessionCapabilities } from './session-capabilities'
 
 export const useConnection = create<{
   client: HbarClient | null
@@ -93,33 +89,31 @@ function normalizeToolRailLayout(value: unknown): Record<string, { side: 'left' 
       if (!entry || typeof entry !== 'object') return []
       const candidate = entry as { side?: unknown; order?: unknown }
       if ((candidate.side !== 'left' && candidate.side !== 'right') || typeof candidate.order !== 'number') return []
-      return [[id, { side: candidate.side, order: Math.max(0, Math.round(candidate.order)) }]]
+      const side = candidate.side
+      return [[id, { side, order: Math.max(0, Math.round(candidate.order)) }]]
     }),
   )
 }
 
 export const useWorkbench = create(
-  persist<WorkbenchState>(
-    () => defaultWorkbenchState,
-    {
-      name: 'hbar.workbench.v1',
-      version: 5,
-      migrate: (persisted): WorkbenchState => {
-        const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
-        return {
-          ...defaultWorkbenchState,
-          ...value,
-          drafts: normalizeComposerDrafts(value.drafts),
-          thinkingLevel: isThinkingLevel(value.thinkingLevel) ? value.thinkingLevel : 'off',
-          thinkingByModel: normalizeThinkingMap(value.thinkingByModel),
-          approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
-          theme: isTheme(value.theme) ? value.theme : 'dark',
-          sidebarWidth: normalizeSidebarWidth(value.sidebarWidth),
-          toolRailLayout: normalizeToolRailLayout(value.toolRailLayout),
-        }
-      },
+  persist<WorkbenchState>(() => defaultWorkbenchState, {
+    name: 'hbar.workbench.v1',
+    version: 5,
+    migrate: (persisted): WorkbenchState => {
+      const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
+      return {
+        ...defaultWorkbenchState,
+        ...value,
+        drafts: normalizeComposerDrafts(value.drafts),
+        thinkingLevel: isThinkingLevel(value.thinkingLevel) ? value.thinkingLevel : 'off',
+        thinkingByModel: normalizeThinkingMap(value.thinkingByModel),
+        approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
+        theme: isTheme(value.theme) ? value.theme : 'dark',
+        sidebarWidth: normalizeSidebarWidth(value.sidebarWidth),
+        toolRailLayout: normalizeToolRailLayout(value.toolRailLayout),
+      }
     },
-  ),
+  }),
 )
 export const useNotice = create<{ error: string; notice: string }>(() => ({ error: '', notice: '' }))
 export const report = (error: unknown) =>
@@ -195,23 +189,28 @@ export async function setApprovalMode(mode: ApprovalMode): Promise<boolean> {
   if (previous === mode) return true
   useWorkbench.setState({ approvalMode: mode })
   const connection = useConnection.getState().client
-  const request = approvalQueue.catch(() => {}).then(async () => {
-    if (!connection) {
-      if (sequence === approvalSequence) useWorkbench.setState({ approvalMode: previous })
-      return false
-    }
-    try {
-      await connection.call('permission.set', { mode })
-      return true
-    } catch (error) {
-      if (sequence === approvalSequence) {
-        useWorkbench.setState({ approvalMode: previous })
-        report(error)
+  const request = approvalQueue
+    .catch(() => {})
+    .then(async () => {
+      if (!connection) {
+        if (sequence === approvalSequence) useWorkbench.setState({ approvalMode: previous })
+        return false
       }
-      return false
-    }
-  })
-  approvalQueue = request.then(() => undefined, () => undefined)
+      try {
+        await connection.call('permission.set', { mode })
+        return true
+      } catch (error) {
+        if (sequence === approvalSequence) {
+          useWorkbench.setState({ approvalMode: previous })
+          report(error)
+        }
+        return false
+      }
+    })
+  approvalQueue = request.then(
+    () => undefined,
+    () => undefined,
+  )
   return request
 }
 export async function loadApprovalMode() {
@@ -236,7 +235,7 @@ export function selectModel(modelId: string, requestedThinking?: ThinkingLevel) 
   const state = useWorkbench.getState()
   const thinkingLevel = model
     ? normalizeThinkingLevel(model, requestedThinking ?? state.thinkingByModel[modelId])
-    : requestedThinking ?? state.thinkingByModel[modelId] ?? 'off'
+    : (requestedThinking ?? state.thinkingByModel[modelId] ?? 'off')
   useWorkbench.setState({
     modelId,
     thinkingLevel,
@@ -303,7 +302,7 @@ export async function refreshCatalog() {
   const state = useWorkbench.getState()
   const changes: Partial<typeof state> = {}
   if (!data.workspaces.some((w) => w.id === state.workspaceId)) changes.workspaceId = data.workspaces[0]?.id ?? ''
-  const nextModelId = data.models.some((m) => m.id === state.modelId) ? state.modelId : data.models[0]?.id ?? ''
+  const nextModelId = data.models.some((m) => m.id === state.modelId) ? state.modelId : (data.models[0]?.id ?? '')
   if (nextModelId !== state.modelId) changes.modelId = nextModelId
   const nextModel = data.models.find((model) => model.id === nextModelId)
   if (nextModel) {
@@ -387,7 +386,8 @@ function onEvent(event: WireNotification) {
         gap = true
         return state
       }
-      const text = event.params.operation === 'reset' ? event.params.text : `${previous?.text ?? ''}${event.params.text}`
+      const text =
+        event.params.operation === 'reset' ? event.params.text : `${previous?.text ?? ''}${event.params.text}`
       const thinking =
         event.params.operation === 'reset'
           ? event.params.thinking

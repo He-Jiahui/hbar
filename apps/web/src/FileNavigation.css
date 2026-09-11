@@ -4,6 +4,10 @@
   isolation: isolate;
 }
 
+.rb-file-nav {
+  overflow: hidden;
+}
+
 .rb-file-nav > .file-nav-glass,
 .rb-file-viewer > .file-viewer-glass {
   pointer-events: none;
@@ -25,6 +29,7 @@
 
 .rb-file-nav .file-breadcrumb {
   display: flex;
+  flex: 0 0 auto;
   min-width: 0;
   align-items: center;
   gap: 3px;
@@ -69,6 +74,7 @@
 
 .file-filter {
   display: flex;
+  flex: 0 0 auto;
   min-width: 0;
   align-items: center;
   gap: 6px;
@@ -121,11 +127,20 @@
 }
 
 .file-filter-count {
+  flex: 0 0 auto;
   min-height: 19px;
-  padding: 2px 10px 3px;
+  margin: 0 10px 4px;
+  padding: 2px 0 3px;
+  border-bottom: 1px solid color-mix(in srgb, var(--hbar-bd) 70%, transparent);
   color: var(--hbar-t3);
   font: 9px var(--dsh-font-family-code);
   text-align: left;
+}
+
+.rb-file-nav .file-list,
+.rb-file-nav .file-empty-state {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .rb-file-viewer .file-viewer-header span:first-of-type {

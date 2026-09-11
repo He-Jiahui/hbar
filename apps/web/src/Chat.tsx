@@ -554,6 +554,7 @@ export default function Chat({
         workspace={workspace}
         activeRun={activeRun}
         view={view}
+        showContext={view === 'chat'}
         onViewChange={onViewChange}
         onRefresh={async () => {
           try {
