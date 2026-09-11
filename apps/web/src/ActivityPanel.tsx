@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Activity, ArrowLeft, Search, Square } from 'lucide-react'
 import type { SessionEvent } from '@hbar/contracts'
-import { client, report, useSessions, useWorkbench } from './stores'
+import { client, report, useConnection, useSessions, useWorkbench } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -36,6 +36,7 @@ function activityEventState(event: SessionEvent): 'done' | 'active' | 'waiting' 
 export default function ActivityPanel() {
   const sessionId = useWorkbench((state) => state.activeSession)
   const snapshot = useSessions((state) => state.snapshots[sessionId])
+  const connection = useConnection((state) => state.client)
   const [mode, setMode] = useState<ActivityMode>('activity')
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [detail, setDetail] = useState<SessionEvent | null>(null)
@@ -43,31 +44,52 @@ export default function ActivityPanel() {
   const [eventsError, setEventsError] = useState('')
   const [eventFilter, setEventFilter] = useState('')
   const [clock, setClock] = useState(() => Date.now())
+  const requestSerial = useRef(0)
   const cursor = snapshot?.cursor
 
   useEffect(() => {
-    if (cursor === undefined) return
+    setEvents([])
+    setDetail(null)
+    setEventsError('')
+  }, [sessionId])
+
+  useEffect(() => {
+    const requestId = ++requestSerial.current
     let alive = true
+    if (cursor === undefined || !sessionId) {
+      setEventsLoading(false)
+      return () => {
+        alive = false
+      }
+    }
+    if (!connection) {
+      setEventsLoading(false)
+      setEventsError('Host 尚未连接，无法加载事件。')
+      return () => {
+        alive = false
+      }
+    }
     setEventsLoading(true)
     setEventsError('')
-    void client()
+    void connection
       .call('session.follow', { sessionId, cursor: Math.max(0, cursor - 80) })
       .then((result) => {
-        if (alive) setEvents(result.events)
+        if (alive && requestId === requestSerial.current && useConnection.getState().client === connection)
+          setEvents(result.events)
       })
       .catch((failure) => {
-        if (alive) {
+        if (alive && requestId === requestSerial.current && useConnection.getState().client === connection) {
           setEventsError(failure instanceof Error ? failure.message : String(failure))
-          report(failure)
         }
       })
       .finally(() => {
-        if (alive) setEventsLoading(false)
+        if (alive && requestId === requestSerial.current && useConnection.getState().client === connection)
+          setEventsLoading(false)
       })
     return () => {
       alive = false
     }
-  }, [mode, sessionId, cursor])
+  }, [connection, sessionId, cursor])
 
   const usage = snapshot?.usage
   const runningCount =
@@ -88,7 +110,7 @@ export default function ActivityPanel() {
   })
 
   return (
-    <div className="activity-panel rb-activity-panel" aria-label="运行与事件">
+    <div className="activity-panel rb-activity-panel" aria-label="运行与事件" aria-busy={eventsLoading}>
       <GlassSurface className="activity-panel-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="tool-panel-tabs" role="tablist" aria-label="运行与事件视图">
         <button
@@ -229,6 +251,39 @@ export default function ActivityPanel() {
             </div>
           )}
         </>
+      ) : detail ? (
+        <section className="event-detail-panel" aria-label={`${detail.type} 事件详情`}>
+          <header className="event-detail-header">
+            <button
+              type="button"
+              className="event-detail-back"
+              aria-label="返回事件列表"
+              title="返回事件列表"
+              onClick={() => setDetail(null)}
+            >
+              <ArrowLeft size={13} />
+              返回事件
+            </button>
+            <code>{detail.type}</code>
+          </header>
+          <dl className="event-detail-meta">
+            <div>
+              <dt>序号</dt>
+              <dd>{detail.seq}</dd>
+            </div>
+            <div>
+              <dt>时间</dt>
+              <dd>{new Date(detail.time).toLocaleString()}</dd>
+            </div>
+            {detail.runId && (
+              <div>
+                <dt>运行</dt>
+                <dd>{detail.runId}</dd>
+              </div>
+            )}
+          </dl>
+          <pre className="event-detail">{JSON.stringify(detail.data ?? null, null, 2)}</pre>
+        </section>
       ) : (
         <>
           {eventsLoading && <p className="activity-loading">正在加载事件…</p>}
@@ -267,40 +322,6 @@ export default function ActivityPanel() {
           {!eventsLoading && !eventsError && !events.length && <div className="empty-tool">尚无事件</div>}
           {!eventsLoading && !eventsError && events.length > 0 && !visibleEvents.length && (
             <div className="empty-tool">没有匹配的事件</div>
-          )}
-          {detail && (
-            <section className="event-detail-panel" aria-label={`${detail.type} 事件详情`}>
-              <header className="event-detail-header">
-                <button
-                  type="button"
-                  className="event-detail-back"
-                  aria-label="返回事件列表"
-                  title="返回事件列表"
-                  onClick={() => setDetail(null)}
-                >
-                  <ArrowLeft size={13} />
-                  返回事件
-                </button>
-                <code>{detail.type}</code>
-              </header>
-              <dl className="event-detail-meta">
-                <div>
-                  <dt>序号</dt>
-                  <dd>{detail.seq}</dd>
-                </div>
-                <div>
-                  <dt>时间</dt>
-                  <dd>{new Date(detail.time).toLocaleString()}</dd>
-                </div>
-                {detail.runId && (
-                  <div>
-                    <dt>运行</dt>
-                    <dd>{detail.runId}</dd>
-                  </div>
-                )}
-              </dl>
-              <pre className="event-detail">{JSON.stringify(detail.data ?? null, null, 2)}</pre>
-            </section>
           )}
         </>
       )}

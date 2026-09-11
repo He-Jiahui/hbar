@@ -213,6 +213,8 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     const eventDetail = activityPanel.locator('.event-detail-panel')
     await expect(eventDetail).toBeVisible()
     await expect(eventDetail.locator('.event-detail')).toBeVisible()
+    await expect(activityPanel.locator('.event-filter')).toHaveCount(0)
+    await expect(activityPanel.locator('.event-list')).toHaveCount(0)
     await eventDetail.getByRole('button', { name: '返回事件列表', exact: true }).click()
     await expect(eventDetail).toHaveCount(0)
     await activityRail.click()
