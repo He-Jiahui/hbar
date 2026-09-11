@@ -26,6 +26,7 @@ test('model settings can search and filter configured connections', async ({ pag
     await page.getByRole('button', { name: '设置', exact: true }).first().click()
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
     await expect(page.locator('.settings-tabs-glass')).toHaveClass(/glass-surface/)
+    await expect(page.locator('.settings-tabs').getByRole('button', { name: '模型', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.locator('.settings-provider-group').first()).toHaveAttribute('aria-label', 'Local fixture')
     await expect(page.locator('.settings-provider-group').first()).toHaveCSS('opacity', '1')
     await expect(page.locator('.settings-provider-list')).toHaveCount(1)
@@ -47,6 +48,13 @@ test('model settings can search and filter configured connections', async ({ pag
     await openMobileSettings(page)
     await expect(page.getByRole('textbox', { name: '搜索供应商或模型', exact: true })).toBeVisible()
     await expect(page.locator('.model-row')).toBeVisible()
+    const mobileNavItems = page.locator('.mobile-nav button')
+    await expect(mobileNavItems).toHaveCount(5)
+    const mobileNavFitsViewport = await mobileNavItems.evaluateAll((items) => items.every((item) => {
+      const bounds = item.getBoundingClientRect()
+      return bounds.left >= 0 && bounds.right <= innerWidth
+    }))
+    expect(mobileNavFitsViewport).toBeTruthy()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   } finally {
     fixture.api.disconnect()

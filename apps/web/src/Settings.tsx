@@ -27,6 +27,7 @@ import { providerFromPreset, providerPresets } from './provider-presets'
 import PathSettings from './PathSettings'
 import PluginDiagnostics from './PluginDiagnostics'
 import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
+import SettingsNavigation, { type SettingsTab } from './SettingsNavigation'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import GlareButton from './react-bits/GlareButton'
@@ -695,7 +696,7 @@ function PluginRow({ plugin, className = '' }: { plugin: PluginInfo; className?:
   )
 }
 export default function Settings() {
-  const [tab, setTab] = useState<'appearance' | 'models' | 'permissions' | 'paths' | 'plugins' | 'devices'>('models'),
+  const [tab, setTab] = useState<SettingsTab>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
   const [devices, setDevices] = useState<Device[]>([]),
     [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null),
@@ -740,27 +741,7 @@ export default function Settings() {
           <RefreshCw size={15} />
         </button>
       </div>
-      <nav className="settings-tabs rb-settings-tabs" aria-label="设置分组">
-        <GlassSurface className="settings-tabs-glass" width="100%" height="100%" aria-hidden="true" />
-        <button className={tab === 'appearance' ? 'selected' : ''} onClick={() => setTab('appearance')}>
-          外观
-        </button>
-        <button className={tab === 'models' ? 'selected' : ''} onClick={() => setTab('models')}>
-          模型
-        </button>
-        <button className={tab === 'permissions' ? 'selected' : ''} onClick={() => setTab('permissions')}>
-          权限
-        </button>
-        <button className={tab === 'paths' ? 'selected' : ''} onClick={() => setTab('paths')}>
-          存储
-        </button>
-        <button className={tab === 'plugins' ? 'selected' : ''} onClick={() => setTab('plugins')}>
-          插件
-        </button>
-        <button className={tab === 'devices' ? 'selected' : ''} onClick={() => setTab('devices')}>
-          设备与连接
-        </button>
-      </nav>
+      <SettingsNavigation tab={tab} onSelect={setTab} />
       {tab === 'appearance' && (
         <section className="settings-section appearance-section">
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />

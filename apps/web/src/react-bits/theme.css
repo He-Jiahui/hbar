@@ -2495,6 +2495,137 @@
   text-align: left;
 }
 
+/* Settings uses the same application-shell treatment as the workbench: a
+ * concise destination icon and clear hierarchy, rather than an anonymous
+ * strip of equally weighted text buttons. */
+.settings-tabs.settings-nav {
+  display: block;
+  margin-bottom: 20px;
+  padding: 7px;
+  border-color: var(--hbar-bd);
+  background: transparent;
+}
+
+.settings-nav .settings-nav-items {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.settings-nav .settings-nav-items > button {
+  display: flex;
+  min-width: 0;
+  min-height: 52px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t2);
+  text-align: left;
+}
+
+.settings-nav .settings-nav-items > button:hover,
+.settings-nav .settings-nav-items > button:focus-visible {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.settings-nav .settings-nav-items > button.selected {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+  box-shadow: inset 0 -2px 0 var(--hbar-ac);
+  color: var(--hbar-t1);
+}
+
+.settings-nav-icon {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: var(--hbar-s0);
+  color: var(--hbar-ac2);
+}
+
+.settings-nav .selected .settings-nav-icon {
+  border-color: color-mix(in srgb, var(--hbar-ac) 56%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--hbar-ac) 14%, var(--hbar-s0));
+}
+
+.settings-nav-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.settings-nav-copy strong,
+.settings-nav-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-nav-copy strong {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.settings-nav-copy small {
+  color: var(--hbar-t3);
+  font-size: 9px;
+}
+
+@media (max-width: 1150px) and (min-width: 900px) {
+  .settings-nav .settings-nav-items {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 899px) {
+  .settings-panel,
+  .settings-tabs.settings-nav,
+  .settings-nav .settings-nav-items {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .settings-tabs.settings-nav {
+    overflow: hidden;
+    padding: 5px;
+  }
+
+  .settings-nav .settings-nav-items {
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+  }
+
+  .settings-nav .settings-nav-items::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav .settings-nav-items > button {
+    min-width: 78px;
+    flex: 0 0 auto;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 8px;
+  }
+
+  .settings-nav-copy small {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rb-spotlight-card::before,
   .rb-spotlight-card::after {
