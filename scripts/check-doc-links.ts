@@ -57,8 +57,11 @@ export async function checkDocumentationLinks(root: string): Promise<Documentati
 }
 
 async function collectMarkdownSources(root: string): Promise<string[]> {
-  const sources = await collectMarkdownFiles(join(root, 'docs'))
-  for (const name of ['README.md', 'CONTRIBUTING.md']) {
+  const sources = [
+    ...(await collectMarkdownFiles(join(root, 'docs'))),
+    ...(await collectMarkdownFiles(join(root, '.github'))),
+  ]
+  for (const name of ['README.md', 'CONTRIBUTING.md', 'SECURITY.md']) {
     const sourcePath = join(root, name)
     if (await isFile(sourcePath)) sources.push(sourcePath)
   }

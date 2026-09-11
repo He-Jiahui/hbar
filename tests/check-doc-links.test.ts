@@ -39,3 +39,14 @@ test('documentation link checks identify missing, escaped, and malformed local t
     { sourcePath: 'docs/guide.md', target: 'bad%ZZ.md', message: 'link contains invalid percent encoding' },
   ])
 })
+
+test('documentation link checks include security and GitHub Markdown sources', async () => {
+  const root = await fixture()
+  await mkdir(join(root, '.github'), { recursive: true })
+  await writeFile(join(root, 'SECURITY.md'), '[security guide](docs/security.md)\n')
+  await writeFile(join(root, '.github', 'pull_request_template.md'), '[contributing](../CONTRIBUTING.md)\n')
+  await writeFile(join(root, 'CONTRIBUTING.md'), '# Contributing\n')
+  await writeFile(join(root, 'docs', 'security.md'), '# Security\n')
+
+  expect(await checkDocumentationLinks(root)).toEqual([])
+})
