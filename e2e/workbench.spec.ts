@@ -61,10 +61,12 @@ test('workbench keeps tools on demand and exposes the global command palette', a
       const header = element.getBoundingClientRect()
       const scope = element.querySelector('.shell-scope')?.getBoundingClientRect()
       const chevron = element.querySelector('.workspace-switcher-chevron')?.getBoundingClientRect()
+      const select = element.querySelector('.workspace-select')
       return {
         header: { top: header.top, bottom: header.bottom, height: header.height },
         scope: scope ? { top: scope.top, bottom: scope.bottom, height: scope.height } : null,
         chevron: chevron ? { top: chevron.top, bottom: chevron.bottom } : null,
+        selectAppearance: select ? getComputedStyle(select).appearance : null,
       }
     })
     expect(shellHeaderLayout.scope?.height ?? 0).toBeLessThanOrEqual(shellHeaderLayout.header.height)
@@ -72,6 +74,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     expect(shellHeaderLayout.chevron?.bottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
       shellHeaderLayout.header.bottom,
     )
+    expect(shellHeaderLayout.selectAppearance).toBe('none')
     await expect(page.locator('.session-header-glass')).toHaveClass(/glass-surface/)
     await expect(page.locator('.chat-context-glass')).toHaveClass(/glass-surface/)
     const bootstrap = await fixture.api.call('system.bootstrap', {})
