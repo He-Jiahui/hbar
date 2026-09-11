@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileCode2, Folder, LoaderCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileCode2, Folder, LoaderCircle, RefreshCw } from 'lucide-react'
 import type { FileEntry } from '@hbar/contracts'
 import { client } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
@@ -22,6 +22,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
   const [path, setPath] = useState('.'),
     [entries, setEntries] = useState<FileEntry[]>([]),
     [loading, setLoading] = useState(false),
+    [reloadToken, setReloadToken] = useState(0),
     [error, setError] = useState('')
   useEffect(() => {
     setPath('.')
@@ -51,25 +52,50 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     return () => {
       alive = false
     }
-  }, [workspaceId, path])
+  }, [workspaceId, path, reloadToken])
+  const segments = path === '.' ? [] : path.split('/').filter(Boolean)
+  function navigateTo(index: number) {
+    setPath(index < 0 ? '.' : segments.slice(0, index + 1).join('/'))
+  }
   return (
     <div className="file-nav rb-file-nav">
       <GlassSurface className="file-nav-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="sidebar-heading">
         <strong>文件</strong>
-        <button
-          type="button"
-          title="上级目录"
-          aria-label="上级目录"
-          disabled={path === '.'}
-          onClick={() => setPath(path.includes('/') ? path.split('/').slice(0, -1).join('/') : '.')}
-        >
-          <ChevronLeft size={15} />
+        <div>
+          <button
+            type="button"
+            title="上级目录"
+            aria-label="上级目录"
+            disabled={path === '.'}
+            onClick={() => setPath(path.includes('/') ? path.split('/').slice(0, -1).join('/') : '.')}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <button
+            type="button"
+            title="刷新目录"
+            aria-label="刷新目录"
+            disabled={loading || !workspaceId}
+            onClick={() => setReloadToken((current) => current + 1)}
+          >
+            {loading ? <LoaderCircle size={15} className="spinning" /> : <RefreshCw size={15} />}
+          </button>
+        </div>
+      </div>
+      <nav className="file-breadcrumb" aria-label="文件路径" title={path}>
+        <button type="button" className={path === '.' ? 'selected' : ''} onClick={() => navigateTo(-1)}>
+          工作区
         </button>
-      </div>
-      <div className="file-breadcrumb" title={path}>
-        {path}
-      </div>
+        {segments.map((segment, index) => (
+          <span className="file-breadcrumb-segment" key={`${segment}-${index}`}>
+            <span aria-hidden="true">/</span>
+            <button type="button" className={index === segments.length - 1 ? 'selected' : ''} onClick={() => navigateTo(index)}>
+              {segment}
+            </button>
+          </span>
+        ))}
+      </nav>
       {!workspaceId ? (
         <div className="file-empty-state" role="status">
           <Folder size={18} />

@@ -23,6 +23,50 @@
   white-space: nowrap;
 }
 
+.rb-file-nav .file-breadcrumb {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.rb-file-nav .file-breadcrumb::-webkit-scrollbar {
+  display: none;
+}
+
+.file-breadcrumb-segment {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+}
+
+.file-breadcrumb button {
+  min-width: 0;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t3);
+  font: 10px var(--dsh-font-family-code);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.file-breadcrumb button:hover,
+.file-breadcrumb button:focus-visible,
+.file-breadcrumb button.selected {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-t1);
+}
+
+.file-breadcrumb-segment > span {
+  color: var(--hbar-t3);
+  font: 10px var(--dsh-font-family-code);
+}
+
 .rb-file-viewer .file-viewer-header span:first-of-type {
   min-width: 0;
   overflow: hidden;
