@@ -626,9 +626,6 @@ export default function App() {
         const remaining = parent.getTabNodes()
         if (remaining.length) model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: 0 }))
         else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
-      } else if (tabs.length > 1) {
-        model.doAction(Actions.deleteTab(id))
-        model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: 0 }))
       } else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false }))
     } else if (node) model.doAction(Actions.deleteTab(id))
     if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
