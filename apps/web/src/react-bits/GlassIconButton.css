@@ -18,6 +18,18 @@
   z-index: 100;
 }
 
+.tool-rail .rb-glass-icon-button.dragging {
+  opacity: 0.58;
+  transform: scale(0.94);
+}
+
+.tool-rail .rb-glass-icon-button[aria-grabbed='true'] .rb-glass-icon-front {
+  border-color: var(--hbar-ac);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--hbar-ac) 28%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 7%);
+}
+
 .tool-rail .rb-glass-icon-label {
   display: block;
   width: max-content;

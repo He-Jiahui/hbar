@@ -13,7 +13,7 @@ import {
   Settings2,
   TerminalSquare,
 } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
@@ -99,6 +99,7 @@ function ToolRailButton({
   onDragStart,
   onDragEnd,
   onDrop,
+  onKeyboardMove,
 }: {
   label: string
   selected?: boolean
@@ -108,8 +109,10 @@ function ToolRailButton({
   onDragStart?(event: React.DragEvent<HTMLButtonElement>): void
   onDragEnd?(event: React.DragEvent<HTMLButtonElement>): void
   onDrop?(event: React.DragEvent<HTMLButtonElement>): void
+  onKeyboardMove?(direction: 'up' | 'down' | 'left' | 'right'): void
   children: React.ReactNode
 }) {
+  const [dragging, setDragging] = useState(false)
   return (
     <GlassIconButton
       label={label}
@@ -117,14 +120,20 @@ function ToolRailButton({
       title={label}
       aria-label={label}
       aria-pressed={selected}
-      className={selected ? 'selected' : ''}
+      aria-grabbed={dragging}
+      aria-roledescription={draggable ? '可拖动工具' : undefined}
+      className={`${selected ? 'selected ' : ''}${dragging ? 'dragging' : ''}`}
       onClick={onClick}
       draggable={draggable}
       onDragStart={(event) => {
+        setDragging(true)
         event.dataTransfer.effectAllowed = 'move'
         onDragStart?.(event)
       }}
-      onDragEnd={onDragEnd}
+      onDragEnd={(event) => {
+        setDragging(false)
+        onDragEnd?.(event)
+      }}
       onDragOver={(event) => {
         if (!draggable) return
         event.preventDefault()
@@ -133,6 +142,22 @@ function ToolRailButton({
       onDrop={(event) => {
         event.preventDefault()
         onDrop?.(event)
+      }}
+      onKeyDown={(event) => {
+        if (!draggable || !onKeyboardMove || !event.altKey) return
+        const direction =
+          event.key === 'ArrowUp'
+            ? 'up'
+            : event.key === 'ArrowDown'
+              ? 'down'
+              : event.key === 'ArrowLeft'
+                ? 'left'
+                : event.key === 'ArrowRight'
+                  ? 'right'
+                  : undefined
+        if (!direction) return
+        event.preventDefault()
+        onKeyboardMove(direction)
       }}
     >
       {children}
@@ -226,6 +251,19 @@ export function WorkbenchToolRails({
     draggingTool.current = null
     if (source) onMoveTool(source, rail)
   }
+  function moveToolByKeyboard(source: string, direction: 'up' | 'down' | 'left' | 'right') {
+    const currentSide = toolSides[source] ?? 'right'
+    if (direction === 'left' || direction === 'right') {
+      const targetSide = direction === 'left' ? 'left' : 'right'
+      if (targetSide !== currentSide) onMoveTool(source, targetSide)
+      return
+    }
+    const siblings = toolOrder.filter((id) => toolSides[id] === currentSide)
+    const index = siblings.indexOf(source)
+    if (index < 0) return
+    const target = siblings[index + (direction === 'up' ? -1 : 1)]
+    if (target) onReorderTool(source, target)
+  }
   return (
     <>
       {side !== 'right' && (
@@ -263,6 +301,7 @@ export function WorkbenchToolRails({
                     draggingTool.current = null
                   }}
                   onDrop={(event) => reorderTool(id, event)}
+                  onKeyboardMove={(direction) => moveToolByKeyboard(id, direction)}
                   onClick={() =>
                     onToggleTool(
                       panelId,
@@ -306,6 +345,7 @@ export function WorkbenchToolRails({
                     draggingTool.current = null
                   }}
                   onDrop={(event) => reorderTool(id, event)}
+                  onKeyboardMove={(direction) => moveToolByKeyboard(id, direction)}
                   onClick={() =>
                     onToggleTool(
                       panelId,
