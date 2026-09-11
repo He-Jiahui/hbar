@@ -1,0 +1,29 @@
+/* Every transient menu is rendered into document.body by FloatingLayer. These
+ * rules deliberately outrank the legacy inline-menu rules so an ancestor's
+ * overflow, transform or stacking context can never reshape the popup. */
+.floating-layer {
+  position: fixed !important;
+  z-index: 1200 !important;
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+}
+
+.command-palette-backdrop,
+.mobile-more-backdrop {
+  position: fixed !important;
+  z-index: 1100 !important;
+}
+
+.floating-layer.model-picker-menu,
+.floating-layer.permission-menu,
+.floating-layer.composer-menu,
+.floating-layer.composer-slash-menu,
+.floating-layer.terminal-completions {
+  right: auto !important;
+  bottom: auto !important;
+}
+
+.floating-layer.terminal-completions {
+  max-height: min(240px, calc(100vh - 16px));
+  overflow: auto;
+}

@@ -14,6 +14,7 @@ import {
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import FloatingLayer from './FloatingLayer'
 
 const GROUP_ORDER: readonly ComposerActionGroup[] = ['session', 'context', 'tools', 'extensions']
 const GROUP_LABELS: Record<ComposerActionGroup, string> = {
@@ -54,36 +55,17 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const filtered = useMemo(() => filterComposerActions(actions, query), [actions, query])
   const grouped = useMemo(
-    () => GROUP_ORDER.map((group) => ({ group, actions: filtered.filter((action) => action.group === group) }))
-      .filter((entry) => entry.actions.length > 0),
+    () =>
+      GROUP_ORDER.map((group) => ({ group, actions: filtered.filter((action) => action.group === group) })).filter(
+        (entry) => entry.actions.length > 0,
+      ),
     [filtered],
   )
   const displayed = useMemo(() => grouped.flatMap((entry) => entry.actions), [grouped])
-
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setOpen(false)
-        trigger.current?.focus()
-      }
-    }
-    document.addEventListener('click', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('click', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
 
   useEffect(() => {
     setSelectedIndex((current) => Math.min(current, Math.max(0, displayed.length - 1)))
@@ -113,7 +95,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
 
   let index = 0
   return (
-    <div className="composer-plus" ref={root}>
+    <div className="composer-plus">
       <button
         ref={trigger}
         type="button"
@@ -126,83 +108,88 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
       >
         <Plus size={17} />
       </button>
-      {open && (
-        <div
-          className="composer-menu rb-menu-surface"
-          role="menu"
-          aria-label="会话能力"
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
+      <FloatingLayer
+        anchorRef={trigger}
+        open={open}
+        onClose={() => {
+          setOpen(false)
+          setQuery('')
+        }}
+        placement="above"
+        className="composer-menu rb-menu-surface"
+        role="menu"
+        aria-label="会话能力"
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            move(1)
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            move(-1)
+          } else if (event.key === 'Enter' && document.activeElement?.getAttribute('role') !== 'menuitem') {
+            const action = displayed[selectedIndex]
+            if (action) {
               event.preventDefault()
-              move(1)
-            } else if (event.key === 'ArrowUp') {
-              event.preventDefault()
-              move(-1)
-            } else if (event.key === 'Enter' && document.activeElement?.getAttribute('role') !== 'menuitem') {
-              const action = displayed[selectedIndex]
-              if (action) {
-                event.preventDefault()
-                select(action)
-              }
+              select(action)
             }
-          }}
-        >
-          <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
-          <div className="composer-menu-search">
-            <Search size={14} />
-            <input
-              autoFocus
-              aria-label="搜索能力"
-              placeholder="搜索能力"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-          <div className="composer-menu-list">
-            {grouped.map(({ group, actions: groupActions }) => (
-              <section key={group} className="composer-menu-group" aria-label={GROUP_LABELS[group]}>
-                <div className="composer-menu-heading">{GROUP_LABELS[group]}</div>
-                {groupActions.map((action) => {
-                  const itemIndex = index
-                  index += 1
-                  const Icon = ICONS[action.icon]
-                  return (
-                    <SpotlightCard
-                      className={`composer-menu-card ${itemIndex === selectedIndex ? 'selected' : ''}`}
-                      key={action.id}
-                      role="presentation"
-                      spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
-                    >
-                      <button
-                        ref={(element) => {
-                          itemRefs.current[itemIndex] = element
-                        }}
-                        type="button"
-                        role="menuitem"
-                        disabled={action.disabled}
-                        aria-label={action.label}
-                        title={action.disabled ? action.disabledReason : action.description}
-                        className={`composer-menu-item ${itemIndex === selectedIndex ? 'selected' : ''}`}
-                        onClick={() => select(action)}
-                      >
-                        <span className="composer-menu-icon">
-                          <Icon size={15} />
-                        </span>
-                        <span className="composer-menu-copy">
-                          <strong>{action.label}</strong>
-                          {action.description && <small>{action.description}</small>}
-                        </span>
-                        {action.disabled && <span className="composer-menu-status">不可用</span>}
-                      </button>
-                    </SpotlightCard>
-                  )
-                })}
-              </section>
-            ))}
-            {!grouped.length && <div className="composer-menu-empty">没有匹配的能力</div>}
-          </div>
+          }
+        }}
+      >
+        <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
+        <div className="composer-menu-search">
+          <Search size={14} />
+          <input
+            autoFocus
+            aria-label="搜索能力"
+            placeholder="搜索能力"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </div>
-      )}
+        <div className="composer-menu-list">
+          {grouped.map(({ group, actions: groupActions }) => (
+            <section key={group} className="composer-menu-group" aria-label={GROUP_LABELS[group]}>
+              <div className="composer-menu-heading">{GROUP_LABELS[group]}</div>
+              {groupActions.map((action) => {
+                const itemIndex = index
+                index += 1
+                const Icon = ICONS[action.icon]
+                return (
+                  <SpotlightCard
+                    className={`composer-menu-card ${itemIndex === selectedIndex ? 'selected' : ''}`}
+                    key={action.id}
+                    role="presentation"
+                    spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                  >
+                    <button
+                      ref={(element) => {
+                        itemRefs.current[itemIndex] = element
+                      }}
+                      type="button"
+                      role="menuitem"
+                      disabled={action.disabled}
+                      aria-label={action.label}
+                      title={action.disabled ? action.disabledReason : action.description}
+                      className={`composer-menu-item ${itemIndex === selectedIndex ? 'selected' : ''}`}
+                      onClick={() => select(action)}
+                    >
+                      <span className="composer-menu-icon">
+                        <Icon size={15} />
+                      </span>
+                      <span className="composer-menu-copy">
+                        <strong>{action.label}</strong>
+                        {action.description && <small>{action.description}</small>}
+                      </span>
+                      {action.disabled && <span className="composer-menu-status">不可用</span>}
+                    </button>
+                  </SpotlightCard>
+                )
+              })}
+            </section>
+          ))}
+          {!grouped.length && <div className="composer-menu-empty">没有匹配的能力</div>}
+        </div>
+      </FloatingLayer>
     </div>
   )
 }

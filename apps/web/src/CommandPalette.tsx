@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Command as CommandIcon, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import GlassSurface from './react-bits/GlassSurface'
@@ -137,7 +138,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
     )
   }
 
-  return (
+  return createPortal(
     <div
       className="command-palette-backdrop"
       role="presentation"
@@ -200,6 +201,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
           )}
         </div>
       </GlassSurface>
-    </div>
+    </div>,
+    document.body,
   )
 }

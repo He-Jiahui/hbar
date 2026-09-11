@@ -9,6 +9,7 @@ import { IMAGE_ACCEPT } from './composer-actions'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import FloatingLayer from './FloatingLayer'
 import './PromptComposer.css'
 
 export type AttachmentKind = 'image' | 'file'
@@ -114,10 +115,12 @@ export default function PromptComposer({
   onStopRun,
 }: PromptComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null)
+  const slashAnchor = useRef<HTMLTextAreaElement>(null)
   const pendingAttachmentKind = useRef<AttachmentKind>('image')
   const composing = useRef(false)
   const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
   const [slashIndex, setSlashIndex] = useState(0)
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false)
 
   function openFilePicker(options?: { accept?: string; multiple?: boolean }) {
     const accept = options?.accept ?? (pendingAttachmentKind.current === 'file' ? '*/*' : IMAGE_ACCEPT)
@@ -143,9 +146,11 @@ export default function PromptComposer({
 
   useEffect(() => {
     setSlashIndex(0)
-  }, [slashQuery])
+    setSlashMenuOpen(draft.startsWith('/') && !draft.includes(' '))
+  }, [draft, slashQuery])
 
   function selectSlashAction(action: ComposerAction) {
+    setSlashMenuOpen(false)
     onDraftChange('')
     selectAction(action)
   }
@@ -190,12 +195,20 @@ export default function PromptComposer({
         />
       )}
       <textarea
+        ref={slashAnchor}
         aria-label="消息"
         placeholder={sessionInfo?.archived ? '会话已归档' : '发送消息…'}
         disabled={sessionInfo?.archived}
         rows={3}
         value={draft}
-        onChange={(event) => onDraftChange(event.target.value)}
+        onFocus={() => {
+          if (draft.startsWith('/') && !draft.includes(' ')) setSlashMenuOpen(true)
+        }}
+        onChange={(event) => {
+          const next = event.target.value
+          setSlashMenuOpen(next.startsWith('/') && !next.includes(' '))
+          onDraftChange(next)
+        }}
         onCompositionStart={() => {
           composing.current = true
         }}
@@ -231,31 +244,37 @@ export default function PromptComposer({
           }
         }}
       />
-      {slashOpen && (
-        <div className="composer-slash-menu rb-menu-surface" role="listbox" aria-label="斜杠命令">
-          <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
-          {slashActions.map((action, index) => (
-            <button
-              type="button"
-              role="option"
-              aria-selected={index === Math.min(slashIndex, Math.max(0, slashActions.length - 1))}
-              className={index === Math.min(slashIndex, Math.max(0, slashActions.length - 1)) ? 'selected' : ''}
-              key={action.id}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => selectSlashAction(action)}
-            >
-              <span className="composer-slash-icon" aria-hidden="true">
-                ⌁
-              </span>
-              <span className="composer-slash-copy">
-                <strong>{action.label}</strong>
-                {action.description && <small>{action.description}</small>}
-              </span>
-              <code>/{action.keywords?.[0] ?? action.id}</code>
-            </button>
-          ))}
-        </div>
-      )}
+      <FloatingLayer
+        anchorRef={slashAnchor}
+        open={slashMenuOpen && slashOpen}
+        onClose={() => setSlashMenuOpen(false)}
+        placement="above"
+        className="composer-slash-menu rb-menu-surface"
+        role="listbox"
+        aria-label="斜杠命令"
+      >
+        <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
+        {slashActions.map((action, index) => (
+          <button
+            type="button"
+            role="option"
+            aria-selected={index === Math.min(slashIndex, Math.max(0, slashActions.length - 1))}
+            className={index === Math.min(slashIndex, Math.max(0, slashActions.length - 1)) ? 'selected' : ''}
+            key={action.id}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => selectSlashAction(action)}
+          >
+            <span className="composer-slash-icon" aria-hidden="true">
+              ⌁
+            </span>
+            <span className="composer-slash-copy">
+              <strong>{action.label}</strong>
+              {action.description && <small>{action.description}</small>}
+            </span>
+            <code>/{action.keywords?.[0] ?? action.id}</code>
+          </button>
+        ))}
+      </FloatingLayer>
       <div className="composer-toolbar">
         <div className="composer-left">
           <ComposerMenu actions={composerActions} onSelect={selectAction} />

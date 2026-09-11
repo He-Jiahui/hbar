@@ -5,6 +5,7 @@ import { selectModel, selectThinkingLevel, useCatalog, useWorkbench } from './st
 import { groupModelsByProvider, modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import FloatingLayer from './FloatingLayer'
 
 const EMPTY_MODELS: readonly ModelInfo[] = []
 
@@ -130,27 +131,11 @@ export default function ModelPicker() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [expandedModelId, setExpandedModelId] = useState(selectedId)
-  const root = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (selectedId) setExpandedModelId(selectedId)
   }, [selectedId])
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
   const groups = groupModelsByProvider(models.filter((model) => matches(model, model.providerName, query)))
   const selectedLevel = selected ? selectedThinking : 'off'
   const detailModel = models.find((model) => model.id === expandedModelId) ?? selected ?? groups[0]?.models[0]
@@ -166,8 +151,9 @@ export default function ModelPicker() {
   }
 
   return (
-    <div className="model-picker" ref={root}>
+    <div className="model-picker">
       <button
+        ref={trigger}
         type="button"
         className={`model-picker-trigger ${open ? 'open' : ''}`}
         aria-haspopup="menu"
@@ -194,76 +180,82 @@ export default function ModelPicker() {
         </span>
         <ChevronDown size={13} className={open ? 'model-picker-chevron-open' : ''} />
       </button>
-      {open && (
-        <div className="model-picker-menu rb-menu-surface" role="menu" aria-label="选择模型">
-          <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
-          <div className="model-picker-search">
-            <Search size={13} />
-            <input
-              autoFocus
-              aria-label="搜索模型"
-              placeholder="搜索模型或供应商"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-          <div className="model-picker-body">
-            <div className="model-picker-list">
-              {groups.map((group) => (
-                <section
-                  className="model-picker-provider"
-                  key={group.providerId}
-                  role="group"
-                  aria-label={group.providerName}
-                >
-                  <header className="model-picker-provider-heading">
-                    <span>{group.providerName}</span>
-                    <small>{group.models.length} 个模型</small>
-                  </header>
-                  {group.models.map((model) => {
-                    const isSelected = model.id === selectedId
-                    const level = isSelected ? selectedThinking : model.defaultThinkingLevel
-                    return (
-                      <SpotlightCard
-                        className={`model-picker-model ${model.id === expandedModelId ? 'expanded' : ''} ${isSelected ? 'selected' : ''}`}
-                        key={model.id}
-                        spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
-                      >
-                        <button
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={isSelected}
-                          aria-label={`${model.providerName} / ${model.modelName}`}
-                          className="model-picker-option"
-                          onClick={() => chooseModel(model)}
-                        >
-                          <span className="model-picker-avatar">{model.modelName.slice(0, 1).toUpperCase()}</span>
-                          <span className="model-picker-copy">
-                            <strong>{model.modelName}</strong>
-                            <code>{model.model}</code>
-                            <ModelCapabilities model={model} />
-                          </span>
-                          <span className="model-picker-model-effort">{modelThinkingLabel(level)}</span>
-                          {model.id === expandedModelId ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          {isSelected && <Check size={14} />}
-                        </button>
-                      </SpotlightCard>
-                    )
-                  })}
-                </section>
-              ))}
-              {!groups.length && <div className="model-picker-empty">没有匹配的模型</div>}
-            </div>
-            {detailModel && (
-              <ModelDetail
-                model={detailModel}
-                selectedLevel={detailModel.id === selectedId ? selectedThinking : detailModel.defaultThinkingLevel}
-                onSelect={(next) => chooseThinking(detailModel, next)}
-              />
-            )}
-          </div>
+      <FloatingLayer
+        anchorRef={trigger}
+        open={open}
+        onClose={() => setOpen(false)}
+        placement="below"
+        className="model-picker-menu rb-menu-surface"
+        role="menu"
+        aria-label="选择模型"
+      >
+        <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
+        <div className="model-picker-search">
+          <Search size={13} />
+          <input
+            autoFocus
+            aria-label="搜索模型"
+            placeholder="搜索模型或供应商"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </div>
-      )}
+        <div className="model-picker-body">
+          <div className="model-picker-list">
+            {groups.map((group) => (
+              <section
+                className="model-picker-provider"
+                key={group.providerId}
+                role="group"
+                aria-label={group.providerName}
+              >
+                <header className="model-picker-provider-heading">
+                  <span>{group.providerName}</span>
+                  <small>{group.models.length} 个模型</small>
+                </header>
+                {group.models.map((model) => {
+                  const isSelected = model.id === selectedId
+                  const level = isSelected ? selectedThinking : model.defaultThinkingLevel
+                  return (
+                    <SpotlightCard
+                      className={`model-picker-model ${model.id === expandedModelId ? 'expanded' : ''} ${isSelected ? 'selected' : ''}`}
+                      key={model.id}
+                      spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+                    >
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={isSelected}
+                        aria-label={`${model.providerName} / ${model.modelName}`}
+                        className="model-picker-option"
+                        onClick={() => chooseModel(model)}
+                      >
+                        <span className="model-picker-avatar">{model.modelName.slice(0, 1).toUpperCase()}</span>
+                        <span className="model-picker-copy">
+                          <strong>{model.modelName}</strong>
+                          <code>{model.model}</code>
+                          <ModelCapabilities model={model} />
+                        </span>
+                        <span className="model-picker-model-effort">{modelThinkingLabel(level)}</span>
+                        {model.id === expandedModelId ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        {isSelected && <Check size={14} />}
+                      </button>
+                    </SpotlightCard>
+                  )
+                })}
+              </section>
+            ))}
+            {!groups.length && <div className="model-picker-empty">没有匹配的模型</div>}
+          </div>
+          {detailModel && (
+            <ModelDetail
+              model={detailModel}
+              selectedLevel={detailModel.id === selectedId ? selectedThinking : detailModel.defaultThinkingLevel}
+              onSelect={(next) => chooseThinking(detailModel, next)}
+            />
+          )}
+        </div>
+      </FloatingLayer>
     </div>
   )
 }

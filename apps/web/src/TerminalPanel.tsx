@@ -27,6 +27,7 @@ import { modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import FloatingLayer from './FloatingLayer'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -124,11 +125,13 @@ export default function TerminalPanel({
   const [input, setInput] = useState('')
   const [entries, setEntries] = useState<string[]>([])
   const [completion, setCompletion] = useState(0)
+  const [completionsOpen, setCompletionsOpen] = useState(false)
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
   const history = useRef<string[]>([])
   const lastMessage = useRef('')
   const scroll = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const resolvingApprovalIds = useRef(new Set<string>())
   const activeRun = snapshot?.runs.find((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const sessions = catalog?.sessions.filter((session) => session.workspaceId === workspaceId && !session.archived) ?? []
@@ -201,6 +204,7 @@ export default function TerminalPanel({
     const openCommands = () => {
       setInput('/')
       setCompletion(0)
+      setCompletionsOpen(true)
     }
     window.addEventListener('hbar:terminal-commands', openCommands)
     return () => window.removeEventListener('hbar:terminal-commands', openCommands)
@@ -398,6 +402,7 @@ export default function TerminalPanel({
     if (!value) return
     setInput('')
     setCompletion(0)
+    setCompletionsOpen(false)
     history.current.push(value)
     setHistoryIndex(-1)
     try {
@@ -500,35 +505,47 @@ export default function TerminalPanel({
       </div>
       <div className="terminal-composer">
         <GlassSurface className="terminal-composer-glass" width="100%" height="100%" aria-hidden="true" />
-        {candidates.length > 0 && (
-          <div className="terminal-completions rb-terminal-completions" role="listbox" aria-label="命令补全">
-            <GlassSurface className="terminal-completions-glass" width="100%" height="100%" aria-hidden="true" />
-            {candidates.map((candidate, index) => (
-              <SpotlightCard
-                as="button"
-                className={index === completion ? 'selected' : ''}
-                role="option"
-                aria-selected={index === completion}
-                key={candidate.key}
-                spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
-                }}
-              >
-                <code>{candidate.label}</code>
-                <span>{candidate.description}</span>
-              </SpotlightCard>
-            ))}
-          </div>
-        )}
+        <FloatingLayer
+          anchorRef={inputRef}
+          open={completionsOpen && candidates.length > 0}
+          onClose={() => setCompletionsOpen(false)}
+          placement="above"
+          matchAnchorWidth
+          className="terminal-completions rb-terminal-completions"
+          role="listbox"
+          aria-label="命令补全"
+        >
+          <GlassSurface className="terminal-completions-glass" width="100%" height="100%" aria-hidden="true" />
+          {candidates.map((candidate, index) => (
+            <SpotlightCard
+              as="button"
+              className={index === completion ? 'selected' : ''}
+              role="option"
+              aria-selected={index === completion}
+              key={candidate.key}
+              spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
+              }}
+            >
+              <code>{candidate.label}</code>
+              <span>{candidate.description}</span>
+            </SpotlightCard>
+          ))}
+        </FloatingLayer>
         <textarea
+          ref={inputRef}
           aria-label="控制台输入"
           value={input}
           placeholder="输入消息或 /命令"
+          onFocus={() => {
+            if (candidates.length > 0) setCompletionsOpen(true)
+          }}
           onChange={(event) => {
             setInput(event.target.value)
             setCompletion(0)
+            setCompletionsOpen(true)
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && candidates[completion]?.kind === 'argument') {
@@ -563,6 +580,7 @@ export default function TerminalPanel({
               const next = Math.min(history.current.length - 1, historyIndex + 1)
               setHistoryIndex(next)
               setInput(history.current.at(-1 - next) ?? '')
+              setCompletionsOpen(true)
             }
           }}
         />

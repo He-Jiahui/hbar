@@ -844,13 +844,18 @@ test('command console supports keyboard commands, concurrent sessions, approval 
     await expect(terminal.getByRole('button', { name: '执行', exact: true })).toHaveClass(/rb-glare-button/)
     const input = terminal.getByRole('textbox', { name: '控制台输入', exact: true })
     await input.fill('/he')
-    await expect(terminal.getByRole('listbox', { name: '命令补全' })).toBeVisible()
-    await expect(
-      terminal.getByRole('listbox', { name: '命令补全' }).locator('.terminal-completions-glass'),
-    ).toHaveClass(/glass-surface/)
-    await expect(terminal.getByRole('listbox', { name: '命令补全' }).getByRole('option').first()).toHaveClass(
-      /rb-spotlight-card/,
-    )
+    const completions = page.getByRole('listbox', { name: '命令补全' }).filter({ visible: true })
+    await expect(completions).toBeVisible()
+    await expect(completions).toHaveCSS('position', 'fixed')
+    expect(await completions.evaluate((element) => element.parentElement === document.body)).toBeTruthy()
+    await page.mouse.click(5, 5)
+    await expect(completions).toHaveCount(0)
+    await input.press('End')
+    await input.type('l')
+    await input.press('Backspace')
+    await expect(completions).toBeVisible()
+    await expect(completions.locator('.terminal-completions-glass')).toHaveClass(/glass-surface/)
+    await expect(completions.getByRole('option').first()).toHaveClass(/rb-spotlight-card/)
     await input.press('Tab')
     await expect(input).toHaveValue('/help ')
     await input.press('Enter')
@@ -882,7 +887,7 @@ test('command console supports keyboard commands, concurrent sessions, approval 
     await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
 
     await input.fill('/thinking')
-    const thinkingOptions = terminal.getByRole('listbox', { name: '命令补全' })
+    const thinkingOptions = page.getByRole('listbox', { name: '命令补全' }).filter({ visible: true })
     await expect(thinkingOptions).toBeVisible()
     await expect(thinkingOptions.getByRole('option').first()).toBeVisible()
     await input.press('ArrowDown')

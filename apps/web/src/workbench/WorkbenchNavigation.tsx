@@ -14,6 +14,7 @@ import {
   TerminalSquare,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
 import './WorkbenchNavigation.css'
@@ -407,7 +408,7 @@ export function MobileToolMenu({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
       className="mobile-more-backdrop"
       role="presentation"
@@ -485,6 +486,7 @@ export function MobileToolMenu({
           </button>
         ))}
       </section>
-    </div>
+    </div>,
+    document.body,
   )
 }

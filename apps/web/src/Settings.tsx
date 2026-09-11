@@ -16,6 +16,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
 import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, ThinkingLevel } from '@hbar/contracts'
 import { client, refreshCatalog, report, selectModel, useCatalog, useConnection, useWorkbench } from './stores'
@@ -40,7 +41,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
     dialog?.showModal()
     return () => dialog?.close()
   }, [])
-  return (
+  return createPortal(
     <dialog
       ref={ref}
       className="modal rb-modal-surface"
@@ -67,7 +68,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
         </button>
       </header>
       {children}
-    </dialog>
+    </dialog>,
+    document.body,
   )
 }
 const ALL_THINKING_LEVELS: readonly ThinkingLevel[] = [...DEFAULT_THINKING_LEVELS]
