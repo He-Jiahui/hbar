@@ -661,7 +661,7 @@ export default function Chat({
             <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="approval-heading">
               <ShieldCheck size={16} />
-              <strong>需要批准</strong>
+              <strong>批准工具调用</strong>
               <code>{approval.tool}</code>
             </div>
             <div className="approval-target">
