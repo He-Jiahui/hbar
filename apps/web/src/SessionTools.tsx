@@ -10,6 +10,7 @@ import {
   Globe,
   ListChecks,
   LoaderCircle,
+  Plus,
   RefreshCw,
   RotateCw,
   ShieldCheck,
@@ -72,6 +73,7 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
   const [snapshot, setSnapshot] = useState<BrowserSnapshot | null>(null)
   const [screenshot, setScreenshot] = useState<BrowserScreenshot | null>(null)
   const [url, setUrl] = useState('https://')
+  const [newPageContextId, setNewPageContextId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -99,6 +101,7 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
     void refresh()
     setSnapshot(null)
     setScreenshot(null)
+    setNewPageContextId('')
   }, [refresh])
 
   async function inspect(nextPage: BrowserPage | null = page) {
@@ -156,8 +159,13 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
       const next = await client().call('browser.navigate', {
         sessionId,
         url: url.trim(),
-        ...(page ? { contextId: page.contextId, pageId: page.pageId } : {}),
+        ...(page
+          ? { contextId: page.contextId, pageId: page.pageId }
+          : newPageContextId
+            ? { contextId: newPageContextId }
+            : {}),
       })
+      setNewPageContextId('')
       setPage(next)
       setUrl(next.url)
       await inspect(next)
@@ -166,6 +174,15 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
       setError(cause instanceof Error ? cause.message : String(cause))
       setBusy(false)
     }
+  }
+
+  function startNewPage() {
+    setNewPageContextId(page?.contextId ?? status?.contexts.at(-1)?.contextId ?? '')
+    setPage(null)
+    setSnapshot(null)
+    setScreenshot(null)
+    setError('')
+    setUrl('https://')
   }
 
   async function closePage() {
@@ -202,6 +219,9 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
               </button>
               <button type="button" title="刷新页面" aria-label="刷新页面" disabled={!page || busy} onClick={() => void navigateHistory('reload')}>
                 <RotateCw size={13} />
+              </button>
+              <button type="button" title="新建页面" aria-label="新建页面" disabled={busy} onClick={startNewPage}>
+                <Plus size={14} />
               </button>
             </div>
             <form className="browser-address rb-browser-address" onSubmit={(event) => void navigate(event)}>
