@@ -121,6 +121,15 @@ function approvalSummary(tool: string, args: Record<string, unknown>): string {
   if (typeof args.command === 'string') return `${tool} · ${args.command}`
   return tool
 }
+
+function approvalImpact(tool: string): string {
+  const normalized = tool.toLocaleLowerCase()
+  if (/(write|edit|delete|move|rename|mkdir)/.test(normalized)) return '此操作将修改工作区中的文件或目录。'
+  if (/(terminal|shell|command|exec)/.test(normalized)) return '此操作将在本机执行命令，可能改变项目状态。'
+  if (/(browser|navigate|page)/.test(normalized)) return '此操作将访问或操作浏览器页面。'
+  return '此工具请求需要你的确认后才能继续。'
+}
+
 function UserInputPrompt({ request }: { request: UserInputRequest }) {
   const [selected, setSelected] = useState<Record<string, string>>({})
   const [other, setOther] = useState<Record<string, string>>({})
@@ -652,13 +661,14 @@ export default function Chat({
             <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="approval-heading">
               <ShieldCheck size={16} />
-              <strong>批准工具调用</strong>
+              <strong>需要批准</strong>
               <code>{approval.tool}</code>
             </div>
             <div className="approval-target">
+              <p className="approval-impact">{approvalImpact(approval.tool)}</p>
               <strong>{approvalSummary(approval.tool, approval.args)}</strong>
               <details>
-                <summary>查看参数</summary>
+                <summary>查看请求</summary>
                 <pre>{JSON.stringify(approval.args, null, 2)}</pre>
               </details>
             </div>

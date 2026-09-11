@@ -1243,6 +1243,27 @@ body.resizing-sidebar .sidebar-resizer::after {
   background: var(--hbar-wn-soft);
 }
 
+.approval-impact {
+  margin: 0;
+  color: var(--hbar-t2);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.approval-target details summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.approval-target details summary:hover {
+  background: color-mix(in srgb, var(--hbar-s1) 74%, transparent);
+  color: var(--hbar-t1);
+}
+
 .user-input-prompt {
   border-color: var(--hbar-ac-border);
   background: var(--hbar-ac-soft);
