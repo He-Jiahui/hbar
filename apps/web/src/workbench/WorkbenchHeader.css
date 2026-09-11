@@ -83,6 +83,9 @@
 
 .workspace-switcher {
   position: relative;
+  /* This element is a label for the native select, so reset the global
+   * form-label column direction before laying out its copy and chevron. */
+  flex-direction: row;
   min-width: 0;
   min-height: 32px;
   gap: 5px;

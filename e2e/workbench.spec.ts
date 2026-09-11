@@ -57,6 +57,21 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     const firstSessionCard = sessionList.locator('.rb-spotlight-card').first()
     await expect(firstSessionCard).toBeVisible()
     await expect(firstSessionCard).toHaveCSS('opacity', '1')
+    const shellHeaderLayout = await page.locator('.rb-shell-header').evaluate((element) => {
+      const header = element.getBoundingClientRect()
+      const scope = element.querySelector('.shell-scope')?.getBoundingClientRect()
+      const chevron = element.querySelector('.workspace-switcher-chevron')?.getBoundingClientRect()
+      return {
+        header: { top: header.top, bottom: header.bottom, height: header.height },
+        scope: scope ? { top: scope.top, bottom: scope.bottom, height: scope.height } : null,
+        chevron: chevron ? { top: chevron.top, bottom: chevron.bottom } : null,
+      }
+    })
+    expect(shellHeaderLayout.scope?.height ?? 0).toBeLessThanOrEqual(shellHeaderLayout.header.height)
+    expect(shellHeaderLayout.chevron?.top ?? -1).toBeGreaterThanOrEqual(shellHeaderLayout.header.top)
+    expect(shellHeaderLayout.chevron?.bottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+      shellHeaderLayout.header.bottom,
+    )
     await expect(page.locator('.session-header-glass')).toHaveClass(/glass-surface/)
     await expect(page.locator('.chat-context-glass')).toHaveClass(/glass-surface/)
     const bootstrap = await fixture.api.call('system.bootstrap', {})
