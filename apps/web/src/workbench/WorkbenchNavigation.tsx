@@ -258,6 +258,9 @@ export function WorkbenchToolRails({
                     draggingTool.current = id
                     event.dataTransfer.setData('application/x-hbar-tool', id)
                   }}
+                  onDragEnd={() => {
+                    draggingTool.current = null
+                  }}
                   onDrop={(event) => reorderTool(id, event)}
                   onClick={() =>
                     onToggleTool(
@@ -298,6 +301,9 @@ export function WorkbenchToolRails({
                     draggingTool.current = id
                     event.dataTransfer.setData('application/x-hbar-tool', id)
                   }}
+                  onDragEnd={() => {
+                    draggingTool.current = null
+                  }}
                   onDrop={(event) => reorderTool(id, event)}
                   onClick={() =>
                     onToggleTool(
@@ -330,7 +336,6 @@ export function WorkbenchToolRails({
               <LayoutGrid size={18} />
             </ToolRailButton>
           ))}
-          <span />
         </nav>
       )}
     </>

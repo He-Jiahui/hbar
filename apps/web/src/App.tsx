@@ -376,21 +376,6 @@ export default function App() {
   const toolRailSides = Object.fromEntries(
     DEFAULT_TOOL_RAIL_ORDER.map((id) => [id, persistedToolRailLayout[id]?.side ?? 'right']),
   ) as Record<string, 'left' | 'right'>
-  function updateToolRailLayout(
-    mutator: (
-      current: typeof persistedToolRailLayout,
-    ) => typeof persistedToolRailLayout,
-  ) {
-    useWorkbench.setState((state) => ({ toolRailLayout: mutator(state.toolRailLayout) }))
-  }
-  const toolRailOrder = [...DEFAULT_TOOL_RAIL_ORDER].sort(
-    (a, b) =>
-      (persistedToolRailLayout[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
-      (persistedToolRailLayout[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
-  )
-  const toolRailSides = Object.fromEntries(
-    DEFAULT_TOOL_RAIL_ORDER.map((id) => [id, persistedToolRailLayout[id]?.side ?? 'right']),
-  ) as Record<string, 'left' | 'right'>
   function updateToolRailLayout(mutator: (current: typeof persistedToolRailLayout) => typeof persistedToolRailLayout) {
     useWorkbench.setState((state) => ({ toolRailLayout: mutator(state.toolRailLayout) }))
   }
