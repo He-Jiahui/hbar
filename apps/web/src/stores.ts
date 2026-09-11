@@ -49,6 +49,8 @@ interface WorkbenchState {
   approvalMode: ApprovalMode
   drafts: Record<string, ComposerDraft>
   showArchived: boolean
+  pinnedSessionIds: string[]
+  pinnedWorkspaceIds: string[]
   panel: 'sessions' | 'files'
   toolPanel: string
   theme: 'dark' | 'light' | 'white'
@@ -70,6 +72,8 @@ const defaultWorkbenchState: WorkbenchState = {
   approvalMode: 'ask',
   drafts: {},
   showArchived: false,
+  pinnedSessionIds: [],
+  pinnedWorkspaceIds: [],
   panel: 'sessions',
   toolPanel: '',
   theme: 'dark',
@@ -108,6 +112,8 @@ export const useWorkbench = create(
         thinkingLevel: isThinkingLevel(value.thinkingLevel) ? value.thinkingLevel : 'off',
         thinkingByModel: normalizeThinkingMap(value.thinkingByModel),
         approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
+        pinnedSessionIds: Array.isArray(value.pinnedSessionIds) ? value.pinnedSessionIds.filter((id): id is string => typeof id === 'string') : [],
+        pinnedWorkspaceIds: Array.isArray(value.pinnedWorkspaceIds) ? value.pinnedWorkspaceIds.filter((id): id is string => typeof id === 'string') : [],
         theme: isTheme(value.theme) ? value.theme : 'dark',
         sidebarWidth: normalizeSidebarWidth(value.sidebarWidth),
         toolRailLayout: normalizeToolRailLayout(value.toolRailLayout),

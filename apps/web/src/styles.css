@@ -437,6 +437,97 @@ p {
   overflow: auto;
   padding: 0 6px;
 }
+.session-pinned-section {
+  flex: 0 0 auto;
+  margin: 0 6px 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid #363a44;
+}
+.session-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 6px;
+  color: #9ba8c2;
+  font-size: 10px;
+}
+.workspace-group {
+  margin-bottom: 5px;
+}
+.workspace-heading {
+  display: flex;
+  align-items: center;
+  min-height: 31px;
+  border-radius: 4px;
+}
+.workspace-heading:hover,
+.workspace-group.pinned .workspace-heading {
+  background: #2d3038;
+}
+.workspace-toggle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  color: #c8cedb;
+  text-align: left;
+}
+.workspace-toggle strong {
+  overflow: hidden;
+  flex: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+}
+.workspace-toggle span {
+  color: #7f899d;
+  font-size: 10px;
+}
+.workspace-actions {
+  display: flex;
+  gap: 2px;
+  margin-right: 4px;
+  opacity: 0;
+}
+.workspace-heading:hover .workspace-actions,
+.workspace-heading:focus-within .workspace-actions {
+  opacity: 1;
+}
+.workspace-actions button,
+.session-row-actions button {
+  color: #a7b1c6;
+}
+.session-item-pinned {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 6px 9px;
+  color: #b7c0d1;
+  text-align: left;
+  font-size: 11px;
+}
+.session-item-pinned span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-item-pinned small {
+  overflow: hidden;
+  color: #7e899d;
+  text-overflow: ellipsis;
+}
+.session-item-pinned:hover,
+.session-item-pinned.selected {
+  border-radius: 4px;
+  background: #303540;
+}
 .session-item {
   position: relative;
   border-radius: 4px;
@@ -497,6 +588,32 @@ p {
   width: 23px;
   height: 22px;
   padding: 2px;
+}
+.session-context-menu {
+  position: fixed;
+  z-index: 1300;
+  display: flex;
+  min-width: 175px;
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid #3f4552;
+  border-radius: 6px;
+  background: #202226;
+  box-shadow: 0 12px 35px #0009;
+}
+.session-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  color: #d5dbea;
+  text-align: left;
+  font-size: 11px;
+}
+.session-context-menu button:hover,
+.session-context-menu button:focus-visible {
+  background: #343943;
 }
 .empty-nav {
   color: var(--muted);

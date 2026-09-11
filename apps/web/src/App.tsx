@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
@@ -11,6 +12,8 @@ import {
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
+  Pin,
+  PinOff,
   Pencil,
   Plus,
   Search,
@@ -18,7 +21,7 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react'
-import type { Session } from '@hbar/contracts'
+import type { Session, Workspace } from '@hbar/contracts'
 import {
   client,
   connectHost,
@@ -141,16 +144,27 @@ function Sessions({
   const [sessionActions, setSessionActions] = useState<Record<string, SessionActionKind>>({})
   const sessionActionIds = useRef(new Set<string>())
   const data = useCatalog((state) => state.data),
-    workspaceId = useWorkbench((state) => state.workspaceId),
     selected = useWorkbench((state) => state.activeSession),
-    archived = useWorkbench((state) => state.showArchived)
-  const sessions =
-    data?.sessions.filter(
-      (s) =>
-        s.workspaceId === workspaceId &&
-        s.archived === archived &&
-        s.title.toLowerCase().includes(search.toLowerCase()),
-    ) ?? []
+    archived = useWorkbench((state) => state.showArchived),
+    pinnedSessionIds = useWorkbench((state) => state.pinnedSessionIds),
+    pinnedWorkspaceIds = useWorkbench((state) => state.pinnedWorkspaceIds)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'workspace' | 'session'; id: string } | null>(null)
+  const sessions = data?.sessions ?? []
+  const workspaces = data?.workspaces ?? []
+  const visibleSessions = sessions.filter((s) => s.archived === archived && s.title.toLowerCase().includes(search.toLowerCase()))
+  const pinnedSessions = visibleSessions.filter((s) => pinnedSessionIds.includes(s.id))
+  const pinnedWorkspaces = workspaces.filter((workspace) => pinnedWorkspaceIds.includes(workspace.id))
+  const openMenu = (event: React.MouseEvent, type: 'workspace' | 'session', id: string) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setContextMenu({ x: event.clientX, y: event.clientY, type, id })
+  }
+  const togglePinned = (type: 'workspace' | 'session', id: string) => {
+    const key = type === 'workspace' ? 'pinnedWorkspaceIds' : 'pinnedSessionIds'
+    useWorkbench.setState((state) => ({ [key]: state[key].includes(id) ? state[key].filter((item) => item !== id) : [...state[key], id] }))
+    setContextMenu(null)
+  }
   function startRename(event: React.MouseEvent, session: Session) {
     event.preventDefault()
     event.stopPropagation()
@@ -224,7 +238,7 @@ function Sessions({
     }
   }
   return (
-    <div className="session-nav">
+    <div className="session-nav" onClick={() => contextMenu && setContextMenu(null)}>
       <div className="sidebar-heading">
         <strong>{archived ? '已归档' : '会话'}</strong>
         <div>
@@ -247,18 +261,44 @@ function Sessions({
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
+      {(pinnedWorkspaces.length > 0 || pinnedSessions.length > 0) && (
+        <section className="session-pinned-section" aria-label="置顶区">
+          <div className="session-group-heading"><Pin size={12} />置顶</div>
+          {pinnedWorkspaces.map((workspace) => (
+            <button key={workspace.id} className="workspace-item pinned" onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)} onClick={() => useWorkbench.setState({ workspaceId: workspace.id })}>
+              <Folder size={14} /><span>{workspace.name}</span><Pin size={11} />
+            </button>
+          ))}
+          {pinnedSessions.map((session) => (
+            <button key={session.id} className={`session-item-pinned${selected === session.id ? ' selected' : ''}`} onContextMenu={(event) => openMenu(event, 'session', session.id)} onClick={() => onSelect(session.id)}>
+              <MessageSquare size={13} /><span><small>{workspaces.find((workspace) => workspace.id === session.workspaceId)?.name}</small>{session.title}</span>
+            </button>
+          ))}
+        </section>
+      )}
       <AnimatedList
         className="session-list"
         viewportClassName="session-list-viewport"
         aria-label={archived ? '已归档会话列表' : '会话列表'}
       >
-        {sessions.map((session) => (
-          <SpotlightCard
-            className={`session-item ${selected === session.id ? 'selected' : ''}`}
-            key={session.id}
-            spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)"
-          >
-            {renamingId === session.id ? (
+        {workspaces.map((workspace) => {
+          const workspaceSessions = visibleSessions.filter((session) => session.workspaceId === workspace.id)
+          if (!workspaceSessions.length && search) return null
+          const isExpanded = expanded[workspace.id] ?? true
+          return (
+            <section className={`workspace-group${pinnedWorkspaceIds.includes(workspace.id) ? ' pinned' : ''}`} key={workspace.id}>
+              <div className="workspace-heading" onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)}>
+                <button className="workspace-toggle" onClick={() => setExpanded((current) => ({ ...current, [workspace.id]: !isExpanded }))}>
+                  <Folder size={14} /><strong>{workspace.name}</strong><span>{workspaceSessions.length}</span>
+                </button>
+                <div className="workspace-actions">
+                  <button title="置顶工作区" aria-label={`置顶工作区 ${workspace.name}`} onClick={() => togglePinned('workspace', workspace.id)}>{pinnedWorkspaceIds.includes(workspace.id) ? <PinOff size={12} /> : <Pin size={12} />}</button>
+                  <button title="新建会话" aria-label={`在 ${workspace.name} 中新建会话`} disabled={creating} onClick={() => { useWorkbench.setState({ workspaceId: workspace.id }); onNew() }}><Plus size={13} /></button>
+                </div>
+              </div>
+              {isExpanded && workspaceSessions.map((session) => (
+                <SpotlightCard className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id} spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)" onContextMenu={(event) => openMenu(event, 'session', session.id)}>
+                  {renamingId === session.id ? (
               <input
                 className="session-rename-input"
                 aria-label={`重命名 ${session.title}`}
@@ -278,7 +318,7 @@ function Sessions({
                   }
                 }}
               />
-            ) : (
+                  ) : (
               <button className="session-select" onClick={() => onSelect(session.id)}>
                 <MessageSquare size={14} />
                 <div>
@@ -289,8 +329,15 @@ function Sessions({
                   </small>
                 </div>
               </button>
-            )}
+                  )}
             <div className="session-row-actions">
+              <button
+                title={pinnedSessionIds.includes(session.id) ? '取消置顶会话' : '置顶会话'}
+                aria-label={`${pinnedSessionIds.includes(session.id) ? '取消置顶' : '置顶'} ${session.title}`}
+                onClick={() => togglePinned('session', session.id)}
+              >
+                {pinnedSessionIds.includes(session.id) ? <PinOff size={12} /> : <Pin size={12} />}
+              </button>
               <button
                 title="重命名会话"
                 aria-label={`重命名 ${session.title}`}
@@ -324,18 +371,28 @@ function Sessions({
                 )}
               </button>
             </div>
-          </SpotlightCard>
-        ))}
-        {!sessions.length && (
+              </SpotlightCard>
+              ))}
+            </section>
+          )
+        })}
+        {!visibleSessions.length && (
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
         )}
       </AnimatedList>
-      <button className="new-session" aria-label="新建会话" onClick={onNew} disabled={creating} aria-busy={creating}>
-        {creating ? <LoaderCircle size={15} className="spinning" /> : <Plus size={15} />}
-        {creating ? '创建中' : '新建会话'}
-      </button>
+      {contextMenu && <SessionContextMenu menu={contextMenu} workspaces={workspaces} sessions={sessions} onClose={() => setContextMenu(null)} onTogglePinned={togglePinned} onRename={(id) => { const session = sessions.find((item) => item.id === id); if (session) { setRenamingId(id); setRenameValue(session.title) }; setContextMenu(null) }} onArchive={(id) => { const session = sessions.find((item) => item.id === id); if (session) void toggleArchive(session); setContextMenu(null) }} />}
     </div>
   )
+}
+
+function SessionContextMenu({ menu, workspaces, sessions, onClose, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; workspaces: readonly Workspace[]; sessions: readonly Session[]; onClose(): void; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
+  const session = sessions.find((item) => item.id === menu.id)
+  const workspace = workspaces.find((item) => item.id === menu.id)
+  return createPortal(<div className="session-context-menu" style={{ left: menu.x, top: menu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
+    <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? '置顶会话' : '置顶工作区'}</button>
+    {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />重命名</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? '恢复会话' : '归档会话'}</button></>}
+    {menu.type === 'workspace' && workspace && <button role="menuitem" onClick={onClose}><Folder size={14} />{workspace.name}</button>}
+  </div>, document.body)
 }
 export default function App() {
   const status = useConnection((state) => state.status),
