@@ -1,0 +1,30 @@
+.rb-file-nav,
+.rb-file-viewer {
+  position: relative;
+  isolation: isolate;
+}
+
+.rb-file-nav > .file-nav-glass,
+.rb-file-viewer > .file-viewer-glass {
+  pointer-events: none;
+}
+
+.rb-file-nav > :not(.file-nav-glass),
+.rb-file-viewer > :not(.file-viewer-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-file-nav .file-breadcrumb,
+.rb-file-viewer .file-viewer-header {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-file-viewer .file-viewer-header span:first-of-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,11 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
   Archive,
-  ChevronLeft,
-  ChevronRight,
-  FileCode2,
   Folder,
   FolderOpen,
   GitBranch,
@@ -24,7 +21,7 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react'
-import type { FileEntry, Session, SessionEvent } from '@hbar/contracts'
+import type { Session, SessionEvent } from '@hbar/contracts'
 import {
   client,
   connectHost,
@@ -55,8 +52,8 @@ import AnimatedList from './react-bits/AnimatedList'
 import WorkbenchHeader from './workbench/WorkbenchHeader'
 import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbench/WorkbenchNavigation'
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
+import { FileNavigation, FileViewer } from './FileNavigation'
 import 'flexlayout-react/style/dark.css'
-const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
 const SIDEBAR_MIN_WIDTH = 220
 const SIDEBAR_MAX_WIDTH = 360
@@ -390,107 +387,6 @@ function Sessions({
         {creating ? <LoaderCircle size={15} className="spinning" /> : <Plus size={15} />}
         {creating ? '创建中' : '新建会话'}
       </button>
-    </div>
-  )
-}
-function Files({ onOpen }: { onOpen(path: string): void }) {
-  const workspaceId = useWorkbench((state) => state.workspaceId)
-  const [path, setPath] = useState('.'),
-    [entries, setEntries] = useState<FileEntry[]>([]),
-    [error, setError] = useState('')
-  useEffect(() => {
-    setPath('.')
-  }, [workspaceId])
-  useEffect(() => {
-    if (!workspaceId) return
-    let alive = true
-    void client()
-      .call('file.list', { workspaceId, path })
-      .then((files) => {
-        if (alive) {
-          setEntries(files)
-          setError('')
-        }
-      })
-      .catch((failure) => {
-        if (alive) setError(failure instanceof Error ? failure.message : String(failure))
-      })
-    return () => {
-      alive = false
-    }
-  }, [workspaceId, path])
-  return (
-    <div className="file-nav rb-file-nav">
-      <GlassSurface className="file-nav-glass" width="100%" height="100%" aria-hidden="true" />
-      <div className="sidebar-heading">
-        <strong>文件</strong>
-        <button
-          title="上级目录"
-          aria-label="上级目录"
-          disabled={path === '.'}
-          onClick={() => setPath(path.includes('/') ? path.split('/').slice(0, -1).join('/') : '.')}
-        >
-          <ChevronLeft size={15} />
-        </button>
-      </div>
-      <div className="file-breadcrumb">{path}</div>
-      {error ? (
-        <div className="inline-error">{error}</div>
-      ) : (
-        <AnimatedList className="file-list" viewportClassName="file-list-viewport" aria-label={`文件列表 ${path}`}>
-          {entries.map((entry) => (
-            <SpotlightCard
-              as="button"
-              type="button"
-              className="file-entry"
-              key={entry.path}
-              onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
-              title={entry.path}
-              aria-label={entry.directory ? `打开目录 ${entry.name}` : `打开文件 ${entry.name}`}
-              spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
-            >
-              {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
-              <span>{entry.name}</span>
-              {entry.directory && <ChevronRight size={12} />}
-            </SpotlightCard>
-          ))}
-        </AnimatedList>
-      )}
-    </div>
-  )
-}
-function FileViewer({ path, workspaceId }: { path: string; workspaceId: string }) {
-  const [text, setText] = useState(''),
-    [error, setError] = useState('')
-  useEffect(() => {
-    let current = true
-    void client()
-      .call('file.read', { workspaceId, path })
-      .then((result) => {
-        if (current) setText(result.text)
-      })
-      .catch((failure) => {
-        if (current) setError(failure instanceof Error ? failure.message : String(failure))
-      })
-    return () => {
-      current = false
-    }
-  }, [workspaceId, path])
-  return (
-    <div className="file-viewer rb-file-viewer">
-      <GlassSurface className="file-viewer-glass" width="100%" height="100%" aria-hidden="true" />
-      <div className="file-viewer-header">
-        <FileCode2 size={14} />
-        <span>{path}</span>
-        <span>只读</span>
-      </div>
-      {error ? (
-        <p className="inline-error">{error}</p>
-      ) : (
-        <Suspense fallback={<pre>{text}</pre>}>
-          <CodeEditor value={text} {...(path.split('.').at(-1) ? { language: path.split('.').at(-1)! } : {})} />
-        </Suspense>
-      )}
     </div>
   )
 }
@@ -1143,7 +1039,7 @@ export default function App() {
           {panel === 'sessions' ? (
             <Sessions onSelect={selectSession} onNew={() => void newSession()} creating={isCreatingSession} />
           ) : (
-            <Files onOpen={openFile} />
+            <FileNavigation workspaceId={workspaceId} onOpen={openFile} />
           )}
           {!small && sidebar && (
             <div
@@ -1185,7 +1081,7 @@ export default function App() {
               ) : mobileView === 'activity' ? (
                 <ActivityPanel />
               ) : mobileView === 'files' ? (
-                <Files onOpen={openFile} />
+                <FileNavigation workspaceId={workspaceId} onOpen={openFile} />
               ) : mobileView === 'file' ? (
                 <FileViewer path={mobileFile} workspaceId={workspaceId} />
               ) : mobileView === 'diagnose' ? (
