@@ -65,6 +65,7 @@ try {
   const host = await startServer(kernel, {
     ...(values.host ? { hostname: values.host } : {}),
     ...(values.port ? { port: Number(values.port) } : {}),
+    ...(values.desktop ? { desktop: true } : {}),
     ...(values.origin ? { origins: values.origin } : {}),
     ...(values.cert ? { cert: values.cert } : {}),
     ...(values.key ? { key: values.key } : {}),

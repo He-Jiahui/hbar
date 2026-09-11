@@ -11,7 +11,7 @@ const cleanups: (() => Promise<void>)[] = []
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
 })
-async function fixture() {
+async function fixture(desktop = false) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-server-'))
   const kernel = await Kernel.create({
     home: join(root, 'data'),
@@ -19,7 +19,7 @@ async function fixture() {
     workspace: root,
     secrets: new MemorySecrets(),
   })
-  const host = await startServer(kernel, { port: 0 })
+  const host = await startServer(kernel, { port: 0, ...(desktop ? { desktop: true } : {}) })
   const url = `http://127.0.0.1:${host.server.port}`
   const client = new HbarClient(url)
   cleanups.push(async () => {
@@ -31,6 +31,19 @@ async function fixture() {
   await client.pair(host.pairing.code, 'test browser')
   return { root, kernel, host, client, url }
 }
+test('desktop Host permits the Vite development origin for credential exchange', async () => {
+  const { url } = await fixture(true)
+  const response = await fetch(`${url}/auth/token`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'http://127.0.0.1:5173',
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'content-type',
+    },
+  })
+  expect(response.status).toBe(204)
+  expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://127.0.0.1:5173')
+})
 test('paired SDK performs session flow and resumes event following without Tauri', async () => {
   const { client, kernel } = await fixture()
   const bootstrap = await client.call('system.bootstrap', {})

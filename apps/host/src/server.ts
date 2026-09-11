@@ -39,6 +39,7 @@ export interface ServerOptions {
   hostname?: string
   port?: number
   origins?: string[]
+  desktop?: boolean
   staticRoot?: string
   cert?: string
   key?: string
@@ -64,6 +65,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     ...(hostname === '0.0.0.0' ? [] : [hostname]),
   ])
   const origins = new Set(options.origins ?? [])
+  if (options.desktop) {
+    origins.add('http://127.0.0.1:5173')
+    origins.add('http://localhost:5173')
+  }
   for (const origin of origins) allowedHosts.add(new URL(origin).hostname)
   const root = resolve(options.staticRoot ?? join(import.meta.dir, '../../../dist/web'))
   const secure = Boolean(options.cert && options.key)
