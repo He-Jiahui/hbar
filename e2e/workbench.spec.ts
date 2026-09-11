@@ -717,6 +717,22 @@ test('phone supports send, denial, files and model settings without horizontal o
     await expect(fileList).toHaveClass(/rb-animated-list/)
     await expect(fileList.locator('.file-list-viewport')).toHaveCSS('overflow-y', 'auto')
     const fileFilter = fileNav.getByRole('searchbox', { name: '筛选当前目录', exact: true })
+    const fileFilterLayout = await fileFilter.evaluate((input) => {
+      const container = input.closest('.file-filter')
+      const icon = container?.querySelector('svg')
+      if (!container || !icon) return null
+      const containerStyle = getComputedStyle(container)
+      const inputBounds = input.getBoundingClientRect()
+      const iconBounds = icon.getBoundingClientRect()
+      return {
+        direction: containerStyle.flexDirection,
+        height: container.getBoundingClientRect().height,
+        centerDelta: Math.abs(inputBounds.top + inputBounds.height / 2 - (iconBounds.top + iconBounds.height / 2)),
+      }
+    })
+    expect(fileFilterLayout?.direction).toBe('row')
+    expect(fileFilterLayout?.height).toBeLessThanOrEqual(36)
+    expect(fileFilterLayout?.centerDelta).toBeLessThanOrEqual(1)
     await fileFilter.fill('does-not-exist')
     await expect(fileNav.getByText('没有匹配的文件', { exact: true })).toBeVisible()
     await expect(fileNav.getByText('0 个匹配项', { exact: true })).toBeVisible()
