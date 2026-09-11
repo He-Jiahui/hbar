@@ -175,7 +175,7 @@ export const BUILTIN_TERMINAL_COMMANDS = [
     id: 'plugins',
     title: 'Plugins',
     description: 'Inspect and manage plugins',
-    usage: '/plugins [action]',
+    usage: '/plugins [action] [id|path]',
     group: 'extensions',
   },
   { id: 'skills', title: 'Skills', description: 'List global skills', usage: '/skills', group: 'extensions' },

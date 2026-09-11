@@ -263,7 +263,9 @@ export default function TerminalPanel({
       return
     }
     if (command === 'switch') {
-      const target = sessions.find((item) => item.id === argument || item.title === argument)
+      const target = catalog?.sessions.find(
+        (item) => item.workspaceId === workspaceId && (item.id === argument || item.title === argument),
+      )
       if (!target) throw new Error(`找不到 Session：${argument}`)
       await chooseSession(target.id)
       return
