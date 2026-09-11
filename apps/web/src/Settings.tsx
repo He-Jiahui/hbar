@@ -629,7 +629,8 @@ export default function Settings() {
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId),
     theme = useWorkbench((state) => state.theme),
-    selectedModelId = useWorkbench((state) => state.modelId)
+    selectedModelId = useWorkbench((state) => state.modelId),
+    selectedThinkingLevel = useWorkbench((state) => state.thinkingLevel)
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
     const query = modelQuery.trim().toLocaleLowerCase()
@@ -841,6 +842,20 @@ export default function Settings() {
                           <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
                           <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
                           <span className="model-thinking-count">{model.thinkingLevels.length} 级</span>
+                          <label className="model-thinking-select">
+                            <span className="visually-hidden">{model.modelName} 思考等级</span>
+                            <select
+                              aria-label={`${model.modelName} 思考等级`}
+                              value={model.id === selectedModelId ? selectedThinkingLevel : model.defaultThinkingLevel}
+                              onChange={(event) => selectModel(model.id, event.target.value as ThinkingLevel)}
+                            >
+                              {model.thinkingLevels.map((level) => (
+                                <option value={level} key={level}>
+                                  {modelThinkingLabel(level)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           <button
                             type="button"
                             className="model-use-action button"

@@ -208,6 +208,20 @@
   white-space: nowrap;
 }
 
+.model-thinking-select select {
+  min-height: 27px;
+  max-width: 84px;
+  padding: 3px 22px 3px 7px;
+  border-color: #3f4858;
+  color: #b8c6db;
+  background: #252932;
+  font-size: 10px;
+}
+
+.model-thinking-select select:focus {
+  border-color: #6f9ee8;
+}
+
 .provider-model-editor {
   display: grid;
   gap: 10px;
@@ -391,6 +405,10 @@
   .model-use-action {
     padding: 4px 6px;
   }
+
+  .model-thinking-select select {
+    max-width: 78px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -417,5 +435,9 @@
 
   .model-use-action {
     margin-left: auto;
+  }
+
+  .model-thinking-select {
+    margin-left: 44px;
   }
 }
