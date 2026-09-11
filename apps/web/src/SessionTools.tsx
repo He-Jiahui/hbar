@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   Check,
@@ -18,14 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import type { BrowserPage, BrowserScreenshot, BrowserSnapshot } from '@hbar/contracts'
-import {
-  client,
-  openSession,
-  report,
-  useCatalog,
-  useSessions,
-  useWorkbench,
-} from './stores'
+import { client, openSession, report, useCatalog, useConnection, useSessions, useWorkbench } from './stores'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
@@ -53,7 +46,6 @@ function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof 
     </header>
   )
 }
-
 function EmptyTool({ icon: Icon, title, body }: { icon: typeof Activity; title: string; body: string }) {
   return (
     <div className="tool-empty-state rb-tool-empty">
@@ -66,8 +58,16 @@ function EmptyTool({ icon: Icon, title, body }: { icon: typeof Activity; title: 
 }
 
 type BrowserStatus = { available: boolean; contexts: BrowserPage[]; history: string[] }
+type BrowserConnection = ReturnType<typeof client>
+type BrowserRequest = {
+  sessionId: string
+  generation: number
+  serial: number
+  connection: BrowserConnection | null
+}
 
 export function BrowserPanel({ sessionId = '' }: PanelProps) {
+  const connection = useConnection((state) => state.client)
   const [status, setStatus] = useState<BrowserStatus | null>(null)
   const [page, setPage] = useState<BrowserPage | null>(null)
   const [snapshot, setSnapshot] = useState<BrowserSnapshot | null>(null)
@@ -76,107 +76,176 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
   const [newPageContextId, setNewPageContextId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const sessionRef = useRef(sessionId)
+  const sessionGeneration = useRef(0)
+  const requestSerial = useRef(0)
 
-  const refresh = useCallback(async () => {
-    if (!sessionId) {
-      setStatus(null)
-      return
-    }
-    try {
-      const next = await client().call('browser.status', { sessionId })
-      setStatus(next)
-      setError('')
-      setPage((current) =>
-        next.contexts.find((item) => item.contextId === current?.contextId && item.pageId === current.pageId) ??
-        next.contexts[0] ??
-        null,
-      )
-    } catch (cause) {
-      setStatus(null)
-      setError(cause instanceof Error ? cause.message : String(cause))
-    }
-  }, [sessionId])
+  const beginRequest = useCallback(
+    (targetSessionId: string): BrowserRequest => ({
+      sessionId: targetSessionId,
+      generation: sessionGeneration.current,
+      serial: ++requestSerial.current,
+      connection,
+    }),
+    [connection],
+  )
+
+  const isCurrent = useCallback((request: BrowserRequest) => {
+    return (
+      request.sessionId === sessionRef.current &&
+      request.generation === sessionGeneration.current &&
+      request.serial === requestSerial.current &&
+      request.connection === useConnection.getState().client
+    )
+  }, [])
+
+  const invalidateRequests = useCallback(() => {
+    requestSerial.current += 1
+  }, [])
+
+  const refresh = useCallback(
+    async (request?: BrowserRequest) => {
+      const scope = request ?? beginRequest(sessionId)
+      if (!request) setBusy(false)
+      if (!scope.sessionId) {
+        if (isCurrent(scope)) {
+          setStatus(null)
+          setPage(null)
+        }
+        return
+      }
+      try {
+        if (!scope.connection) throw new Error('Host is not connected')
+        const next = await scope.connection.call('browser.status', { sessionId: scope.sessionId })
+        if (!isCurrent(scope)) return
+        setStatus(next)
+        setError('')
+        setPage(
+          (current) =>
+            next.contexts.find((item) => item.contextId === current?.contextId && item.pageId === current.pageId) ??
+            next.contexts[0] ??
+            null,
+        )
+      } catch (cause) {
+        if (!isCurrent(scope)) return
+        setStatus(null)
+        setError(cause instanceof Error ? cause.message : String(cause))
+      }
+    },
+    [beginRequest, isCurrent, sessionId],
+  )
 
   useEffect(() => {
+    sessionRef.current = sessionId
+    sessionGeneration.current += 1
+    invalidateRequests()
+    setStatus(null)
+    setPage(null)
+    setBusy(false)
+    setError('')
     void refresh()
     setSnapshot(null)
     setScreenshot(null)
     setNewPageContextId('')
-  }, [refresh])
+    setUrl('https://')
+    return () => invalidateRequests()
+  }, [invalidateRequests, refresh, sessionId])
 
-  async function inspect(nextPage: BrowserPage | null = page) {
+  async function inspect(nextPage: BrowserPage | null = page, request?: BrowserRequest) {
     if (!sessionId || !nextPage) return
-    setBusy(true)
+    const scope = request ?? beginRequest(sessionId)
+    if (!isCurrent(scope)) return
+    const ownsBusyState = !request
+    if (ownsBusyState) setBusy(true)
     setError('')
     try {
+      if (!scope.connection) throw new Error('Host is not connected')
       const [snapshotResult, screenshotResult] = await Promise.allSettled([
-        client().call('browser.snapshot', { sessionId, contextId: nextPage.contextId, pageId: nextPage.pageId }),
-        client().call('browser.screenshot', {
-          sessionId,
+        scope.connection.call('browser.snapshot', {
+          sessionId: scope.sessionId,
+          contextId: nextPage.contextId,
+          pageId: nextPage.pageId,
+        }),
+        scope.connection.call('browser.screenshot', {
+          sessionId: scope.sessionId,
           contextId: nextPage.contextId,
           pageId: nextPage.pageId,
           fullPage: false,
         }),
       ])
       if (snapshotResult.status === 'rejected') throw snapshotResult.reason
+      if (!isCurrent(scope)) return
       setPage(nextPage)
       setUrl(nextPage.url)
       setSnapshot(snapshotResult.value)
       setScreenshot(screenshotResult.status === 'fulfilled' ? screenshotResult.value : null)
     } catch (cause) {
+      if (!isCurrent(scope)) return
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setBusy(false)
+      if (ownsBusyState && isCurrent(scope)) setBusy(false)
     }
   }
 
   async function navigateHistory(action: 'back' | 'forward' | 'reload') {
     if (!sessionId || !page || busy) return
+    const scope = beginRequest(sessionId)
+    const currentPage = page
     setBusy(true)
     setError('')
     try {
-      const next = await client().call('browser.go', {
-        sessionId,
+      if (!scope.connection) throw new Error('Host is not connected')
+      const next = await scope.connection.call('browser.go', {
+        sessionId: scope.sessionId,
         action,
-        contextId: page.contextId,
-        pageId: page.pageId,
+        contextId: currentPage.contextId,
+        pageId: currentPage.pageId,
       })
-      await inspect(next)
-      await refresh()
+      await inspect(next, scope)
+      await refresh(scope)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      if (isCurrent(scope)) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setBusy(false)
+      if (isCurrent(scope)) setBusy(false)
     }
   }
 
   async function navigate(event: React.FormEvent) {
     event.preventDefault()
     if (!sessionId || !url.trim() || busy) return
+    const scope = beginRequest(sessionId)
+    const currentUrl = url.trim()
+    const currentPage = page
+    const pendingContextId = newPageContextId
     setBusy(true)
     setError('')
     try {
-      const next = await client().call('browser.navigate', {
-        sessionId,
-        url: url.trim(),
-        ...(page
-          ? { contextId: page.contextId, pageId: page.pageId }
-          : newPageContextId
-            ? { contextId: newPageContextId }
+      if (!scope.connection) throw new Error('Host is not connected')
+      const next = await scope.connection.call('browser.navigate', {
+        sessionId: scope.sessionId,
+        url: currentUrl,
+        ...(currentPage
+          ? { contextId: currentPage.contextId, pageId: currentPage.pageId }
+          : pendingContextId
+            ? { contextId: pendingContextId }
             : {}),
       })
+      if (!isCurrent(scope)) return
       setNewPageContextId('')
       setPage(next)
       setUrl(next.url)
-      await inspect(next)
-      await refresh()
+      await inspect(next, scope)
+      await refresh(scope)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-      setBusy(false)
+      if (isCurrent(scope)) setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      if (isCurrent(scope)) setBusy(false)
     }
   }
 
   function startNewPage() {
+    invalidateRequests()
+    setBusy(false)
     setNewPageContextId(page?.contextId ?? status?.contexts.at(-1)?.contextId ?? '')
     setPage(null)
     setSnapshot(null)
@@ -187,17 +256,26 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
 
   async function closePage() {
     if (!sessionId || !page || busy) return
+    const scope = beginRequest(sessionId)
+    const currentPage = page
     setBusy(true)
+    setError('')
     try {
-      await client().call('browser.close', { sessionId, contextId: page.contextId, pageId: page.pageId })
+      if (!scope.connection) throw new Error('Host is not connected')
+      await scope.connection.call('browser.close', {
+        sessionId: scope.sessionId,
+        contextId: currentPage.contextId,
+        pageId: currentPage.pageId,
+      })
+      if (!isCurrent(scope)) return
       setPage(null)
       setSnapshot(null)
       setScreenshot(null)
-      await refresh()
+      await refresh(scope)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      if (isCurrent(scope)) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setBusy(false)
+      if (isCurrent(scope)) setBusy(false)
     }
   }
 
