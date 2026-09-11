@@ -3,12 +3,24 @@
  * overflow, transform or stacking context can never reshape the popup. */
 .floating-layer {
   position: fixed !important;
-  z-index: 2000 !important;
+  z-index: 2100 !important;
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
   max-height: calc(100dvh - 16px);
   overflow: auto;
   overscroll-behavior: contain;
+  isolation: isolate;
+  background: color-mix(in srgb, var(--hbar-s1) 94%, transparent) !important;
+  backdrop-filter: blur(16px) saturate(1.12);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+}
+
+.floating-layer button,
+.floating-layer [role='menuitem'],
+.floating-layer [role='option'],
+.floating-layer [role='menuitemradio'] {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 /* Capability menus must sit above every workbench panel. Keep their glass
@@ -16,7 +28,7 @@
  * through the composer or duplicate the text underneath. */
 .floating-layer.composer-menu {
   isolation: isolate;
-  z-index: 2100 !important;
+  z-index: 2200 !important;
 }
 
 .floating-layer.composer-menu > .rb-menu-glass {

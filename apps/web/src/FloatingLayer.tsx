@@ -25,7 +25,10 @@ export interface FloatingLayerProps extends Omit<HTMLAttributes<HTMLDivElement>,
 }
 
 const VIEWPORT_GAP = 8
-const LAYER_Z_INDEX = 1200
+// Keep every transient option surface above workbench panels and modal chrome.
+// The CSS contract mirrors this value so inline positioning cannot accidentally
+// lower a menu into an ancestor stacking context.
+const LAYER_Z_INDEX = 2100
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), Math.max(min, max))

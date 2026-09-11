@@ -387,7 +387,7 @@ function Sessions({
 
 function SessionContextMenu({ menu, sessions, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; sessions: readonly Session[]; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
   const session = sessions.find((item) => item.id === menu.id)
-  return createPortal(<div className="session-context-menu" style={{ left: menu.x, top: menu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
+  return createPortal(<div className="floating-layer session-context-menu" style={{ left: menu.x, top: menu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
     <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? '置顶会话' : '置顶工作区'}</button>
     {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />重命名</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? '恢复会话' : '归档会话'}</button></>}
   </div>, document.body)

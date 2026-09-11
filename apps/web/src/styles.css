@@ -380,9 +380,21 @@ p {
   background: #6c8cd73b;
 }
 .flexlayout__popup_menu {
-  background: #292b31;
+  z-index: 2100;
+  isolation: isolate;
+  background: rgba(41, 43, 49, 0.96);
+  background: color-mix(in srgb, var(--hbar-s1) 94%, transparent);
   border: 1px solid #4c4f59;
   box-shadow: 0 6px 20px #0008;
+  backdrop-filter: blur(16px) saturate(1.12);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+}
+.flexlayout__popup_menu button,
+.flexlayout__popup_menu [role='menuitem'],
+.session-context-menu button,
+.session-context-menu [role='menuitem'] {
+  justify-content: flex-start;
+  text-align: left;
 }
 .session-nav,
 .file-nav {
@@ -591,15 +603,19 @@ p {
 }
 .session-context-menu {
   position: fixed;
-  z-index: 1300;
+  z-index: 2100;
   display: flex;
   min-width: 175px;
   flex-direction: column;
   padding: 5px;
   border: 1px solid #3f4552;
   border-radius: 6px;
-  background: #202226;
+  isolation: isolate;
+  background: rgba(32, 34, 38, 0.96);
+  background: color-mix(in srgb, var(--hbar-s1) 94%, transparent);
   box-shadow: 0 12px 35px #0009;
+  backdrop-filter: blur(16px) saturate(1.12);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
 }
 .session-context-menu button {
   display: flex;
