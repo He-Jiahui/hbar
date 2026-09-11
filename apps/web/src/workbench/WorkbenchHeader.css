@@ -32,7 +32,6 @@
 .shell-header-leading,
 .shell-scope,
 .workspace-switcher,
-.top-context,
 .top-command,
 .host-status {
   display: flex;
@@ -151,42 +150,6 @@
   background: color-mix(in srgb, var(--hbar-s2) 84%, transparent);
 }
 
-.rb-shell-header .top-context {
-  flex: 0 1 min(360px, 32vw);
-  min-width: 0;
-  max-width: min(360px, 32vw);
-  gap: 7px;
-  padding-left: 8px;
-  border-left: 1px solid color-mix(in srgb, var(--hbar-bd) 72%, transparent);
-}
-
-.top-context-label {
-  flex: 0 0 auto;
-  color: var(--hbar-t3);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.rb-shell-header .top-context strong {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--hbar-t1);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.top-context-workspace {
-  max-width: 120px;
-  overflow: hidden;
-  color: var(--hbar-t3);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .rb-shell-header .top-spacer {
   flex: 1 1 auto;
   min-width: 12px;
@@ -248,8 +211,6 @@
 
   .rb-shell-header .top-divider,
   .rb-shell-header .workspace-switcher-eyebrow,
-  .rb-shell-header .top-context-label,
-  .rb-shell-header .top-context-workspace,
   .rb-shell-header .top-command span,
   .rb-shell-header .top-command kbd {
     display: none;
@@ -264,12 +225,6 @@
   .workspace-switcher {
     min-height: 30px;
     padding-left: 5px;
-  }
-
-  .rb-shell-header .top-context {
-    flex: 1 1 auto;
-    max-width: 32vw;
-    padding-left: 6px;
   }
 
   .rb-shell-header .top-command {

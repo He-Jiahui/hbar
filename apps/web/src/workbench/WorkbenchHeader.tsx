@@ -1,5 +1,5 @@
 import type { ConnectionStatus } from '@hbar/client'
-import type { HostInfo, Session, Workspace } from '@hbar/contracts'
+import type { HostInfo, Workspace } from '@hbar/contracts'
 import { ChevronDown, Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
 import GlassSurface from '../react-bits/GlassSurface'
 import './WorkbenchHeader.css'
@@ -9,7 +9,6 @@ export interface WorkbenchHeaderProps {
   host: HostInfo | null
   workspaces: readonly Workspace[]
   workspaceId: string
-  activeSession: Session | undefined
   sidebarOpen: boolean
   compact: boolean
   onToggleSidebar(): void
@@ -34,7 +33,6 @@ export default function WorkbenchHeader({
   host,
   workspaces,
   workspaceId,
-  activeSession,
   sidebarOpen,
   compact,
   onToggleSidebar,
@@ -42,8 +40,6 @@ export default function WorkbenchHeader({
   onAddWorkspace,
   onOpenCommandPalette,
 }: WorkbenchHeaderProps) {
-  const sessionTitle = activeSession?.title ?? '新会话'
-  const currentWorkspace = workspaces.find((workspace) => workspace.id === workspaceId)
   const connectionReady = status === 'connected'
 
   return (
@@ -98,11 +94,6 @@ export default function WorkbenchHeader({
         >
           <Plus size={14} />
         </button>
-      </div>
-      <div className="top-context" title={sessionTitle} aria-label={`当前会话：${sessionTitle}`}>
-        <span className="top-context-label">会话</span>
-        <strong>{sessionTitle}</strong>
-        {currentWorkspace && <span className="top-context-workspace">{currentWorkspace.name}</span>}
       </div>
       <span className="top-spacer" />
       <button

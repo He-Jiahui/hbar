@@ -885,7 +885,6 @@ export default function App() {
         host={host}
         workspaces={data?.workspaces ?? []}
         workspaceId={workspaceId}
-        activeSession={data?.sessions.find((session) => session.id === activeSession)}
         sidebarOpen={sidebar}
         compact={small}
         onToggleSidebar={() => {
