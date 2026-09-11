@@ -21,7 +21,7 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react'
-import type { Session, Workspace } from '@hbar/contracts'
+import type { Session } from '@hbar/contracts'
 import {
   client,
   connectHost,
@@ -380,18 +380,16 @@ function Sessions({
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
         )}
       </AnimatedList>
-      {contextMenu && <SessionContextMenu menu={contextMenu} workspaces={workspaces} sessions={sessions} onClose={() => setContextMenu(null)} onTogglePinned={togglePinned} onRename={(id) => { const session = sessions.find((item) => item.id === id); if (session) { setRenamingId(id); setRenameValue(session.title) }; setContextMenu(null) }} onArchive={(id) => { const session = sessions.find((item) => item.id === id); if (session) void toggleArchive(session); setContextMenu(null) }} />}
+      {contextMenu && <SessionContextMenu menu={contextMenu} sessions={sessions} onTogglePinned={togglePinned} onRename={(id) => { const session = sessions.find((item) => item.id === id); if (session) { setRenamingId(id); setRenameValue(session.title) }; setContextMenu(null) }} onArchive={(id) => { const session = sessions.find((item) => item.id === id); if (session) void toggleArchive(session); setContextMenu(null) }} />}
     </div>
   )
 }
 
-function SessionContextMenu({ menu, workspaces, sessions, onClose, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; workspaces: readonly Workspace[]; sessions: readonly Session[]; onClose(): void; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
+function SessionContextMenu({ menu, sessions, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; sessions: readonly Session[]; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
   const session = sessions.find((item) => item.id === menu.id)
-  const workspace = workspaces.find((item) => item.id === menu.id)
   return createPortal(<div className="session-context-menu" style={{ left: menu.x, top: menu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
     <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? '置顶会话' : '置顶工作区'}</button>
     {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />重命名</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? '恢复会话' : '归档会话'}</button></>}
-    {menu.type === 'workspace' && workspace && <button role="menuitem" onClick={onClose}><Folder size={14} />{workspace.name}</button>}
   </div>, document.body)
 }
 export default function App() {
