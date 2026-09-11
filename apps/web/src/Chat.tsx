@@ -7,9 +7,7 @@ import {
   ChevronRight,
   Copy,
   FileCode2,
-  GitBranch,
   LoaderCircle,
-  RefreshCw,
   ShieldCheck,
   Square,
   Wrench,
@@ -42,6 +40,7 @@ import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
 import PromptComposer, { type AttachmentKind, type OpenFilePicker } from './PromptComposer'
+import ChatSessionChrome from './ChatSessionChrome'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -508,56 +507,20 @@ export default function Chat({
   }
   return (
     <div className="chat-panel">
-      <header className="session-header rb-session-header" data-testid="session-header">
-        <GlassSurface className="session-header-glass" width="100%" height="100%" aria-hidden="true" />
-        <div className="session-header-title">
-          <span className="session-header-mark" aria-hidden="true">
-            h
-          </span>
-          <h1>{sessionInfo?.title ?? 'Session'}</h1>
-          <span className="session-runtime">Pi</span>
-        </div>
-        <div className="session-view-tabs" role="tablist" aria-label="会话视图">
-          <button type="button" role="tab" aria-selected="true" className="selected">
-            Chat
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected="false"
-            onClick={() => onTerminal?.()}
-            disabled={!onTerminal}
-          >
-            Terminal
-          </button>
-        </div>
-        <button
-          type="button"
-          className="session-refresh"
-          title="刷新会话"
-          aria-label="刷新会话"
-          disabled={!sessionId}
-          onClick={() => void openSession(sessionId).catch(report)}
-        >
-          <RefreshCw size={15} />
-        </button>
-      </header>
-      <div className="chat-context rb-chat-context">
-        <GlassSurface className="chat-context-glass" width="100%" height="100%" aria-hidden="true" />
-        <div>
-          <GitBranch size={13} />
-          <span>
-            {catalog?.workspaces.find((w) => w.id === (snapshot?.session.workspaceId ?? workspaceId))?.name ??
-              'Workspace'}
-          </span>
-          <span className="context-divider">/</span>
-          <span>{sessionInfo?.title ?? '新会话'}</span>
-        </div>
-        <span className="session-state">
-          <i className={activeRun ? 'running' : ''} />
-          {activeRun ? (activeRun.status === 'waiting_approval' ? '等待批准' : '运行中') : '就绪'}
-        </span>
-      </div>
+      <ChatSessionChrome
+        sessionId={sessionId}
+        session={sessionInfo}
+        workspace={workspace}
+        activeRun={activeRun}
+        onOpenTerminal={onTerminal}
+        onRefresh={async () => {
+          try {
+            await openSession(sessionId)
+          } catch (error) {
+            report(error)
+          }
+        }}
+      />
       {snapshot?.hasOlder && (
         <button
           className="older-messages"
