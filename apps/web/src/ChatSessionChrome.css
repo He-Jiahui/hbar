@@ -23,6 +23,16 @@
   margin-left: auto;
 }
 
+.rb-chat-session-chrome .session-console-context {
+  min-width: 0;
+  max-width: min(32vw, 320px);
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font: 10px var(--dsh-font-family-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rb-chat-context-bar {
   position: relative;
   isolation: isolate;
@@ -80,6 +90,10 @@
 @media (max-width: 899px) {
   .rb-chat-session-chrome .session-header-title h1 {
     max-width: 34vw;
+  }
+
+  .rb-chat-session-chrome .session-console-context {
+    display: none;
   }
 
   .rb-chat-context-bar .chat-context-copy {

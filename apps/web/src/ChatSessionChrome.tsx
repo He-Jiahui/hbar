@@ -8,6 +8,8 @@ export interface ChatSessionChromeProps {
   session: Session | undefined
   workspace: Workspace | undefined
   gitInfo?: GitInfo | null
+  modelContext?: string
+  thinkingContext?: string
   activeRun: Run | undefined
   view: 'chat' | 'console'
   onViewChange(view: 'chat' | 'console'): void
@@ -20,6 +22,8 @@ export default function ChatSessionChrome({
   session,
   workspace,
   gitInfo,
+  modelContext,
+  thinkingContext,
   activeRun,
   view,
   onViewChange,
@@ -39,6 +43,11 @@ export default function ChatSessionChrome({
           </span>
           <h1 title={sessionTitle}>{sessionTitle}</h1>
           <span className="session-runtime">Pi</span>
+          {view === 'console' && modelContext && (
+            <span className="session-console-context" title="当前模型与思考等级">
+              {modelContext} · thinking:{thinkingContext ?? 'off'}
+            </span>
+          )}
         </div>
         <div className="session-view-tabs" role="tablist" aria-label="会话视图">
           <button

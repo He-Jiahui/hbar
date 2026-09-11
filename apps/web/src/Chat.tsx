@@ -553,6 +553,8 @@ export default function Chat({
         session={sessionInfo}
         workspace={workspace}
         gitInfo={gitInfo}
+        modelContext={catalog?.models.find((model) => model.id === modelId)?.modelName ?? modelId}
+        thinkingContext={thinkingLevel}
         activeRun={activeRun}
         view={view}
         showContext={view === 'chat'}
