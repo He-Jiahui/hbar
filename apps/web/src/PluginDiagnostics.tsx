@@ -337,7 +337,19 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
       }
     }
     const enabled = new Set(data.nodes.filter((node) => node.enabled).map((node) => node.id))
-    const ordered = data.nodes.map((node) => node.id).filter((id) => ids.has(id) && enabled.has(id)).reverse()
+    const depth = new Map<string, number>([[rootId, 0]])
+    const queue = [rootId]
+    while (queue.length) {
+      const id = queue.shift()!
+      const currentDepth = depth.get(id) ?? 0
+      for (const edge of data.edges) {
+        if (edge.to === id && ids.has(edge.from) && !depth.has(edge.from)) {
+          depth.set(edge.from, currentDepth + 1)
+          queue.push(edge.from)
+        }
+      }
+    }
+    const ordered = [...ids].filter((id) => enabled.has(id)).sort((left, right) => (depth.get(right) ?? 0) - (depth.get(left) ?? 0))
     setBusyId(rootId)
     setActionError(null)
     try {
