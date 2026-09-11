@@ -156,6 +156,12 @@ test('workbench keeps tools on demand and exposes the global command palette', a
       paddingRight: '16px',
       textAlign: 'left',
     })
+    const paletteSurface = await palette.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { backgroundColor: style.backgroundColor, backdropFilter: style.backdropFilter }
+    })
+    expect(paletteSurface.backgroundColor).toMatch(/^rgb\(/)
+    expect(paletteSurface.backdropFilter).toBe('none')
     await expect(palette.locator('.command-palette-group .command-palette-item.rb-spotlight-card')).not.toHaveCount(0)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-command-palette.png` })
     await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('命令控制台')
