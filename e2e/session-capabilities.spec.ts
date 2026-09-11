@@ -22,7 +22,7 @@ async function login(context: BrowserContext, page: Page) {
 }
 
 async function visible(locator: Locator) {
-  for (let index = 0; index < await locator.count(); index += 1) {
+  for (let index = 0; index < (await locator.count()); index += 1) {
     const candidate = locator.nth(index)
     if (await candidate.isVisible()) return candidate
   }
@@ -58,6 +58,33 @@ test('session capability actions open the Goal, Plan, and Budget panel', async (
     await dialog.getByRole('spinbutton', { name: 'Token 上限', exact: true }).fill('1000')
     await dialog.getByRole('button', { name: '设置预算', exact: true }).click()
     await expect(dialog).toContainText('预算使用情况')
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
+test('prompt composer exposes keyboard-navigable slash commands', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const newSession = await visible(page.locator('button[aria-label="新建会话"]'))
+    await newSession.click()
+    const chat = page.getByRole('tabpanel', { name: 'New session', exact: true })
+    const input = chat.getByRole('textbox', { name: '消息', exact: true })
+    await input.fill('/')
+
+    const slashMenu = chat.getByRole('listbox', { name: '斜杠命令', exact: true })
+    await expect(slashMenu).toBeVisible()
+    const options = slashMenu.getByRole('option')
+    await expect(options).not.toHaveCount(0)
+    await expect(options.first()).toHaveAttribute('aria-selected', 'true')
+    await input.press('ArrowDown')
+    await expect(options.first()).toHaveAttribute('aria-selected', 'false')
+    await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true')
+
+    await input.fill('/goal')
+    await expect(options).toHaveCount(1)
+    await input.press('Enter')
+    await expect(page.getByRole('dialog', { name: '会话能力', exact: true })).toBeVisible()
   } finally {
     fixture.api.disconnect()
   }

@@ -1,8 +1,8 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { ArrowUp, FileText, FolderOpen, GitBranch, LoaderCircle, Square, X } from 'lucide-react'
 import type { ArtifactRef, GitInfo, Run, Session, Workspace } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
-import ComposerMenu from './ComposerMenu'
+import ComposerMenu, { filterComposerActions } from './ComposerMenu'
 import ModelPicker from './ModelPicker'
 import PermissionSelector from './PermissionSelector'
 import { IMAGE_ACCEPT } from './composer-actions'
@@ -119,6 +119,7 @@ export default function PromptComposer({
   const pendingAttachmentKind = useRef<AttachmentKind>('image')
   const composing = useRef(false)
   const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
+  const [slashIndex, setSlashIndex] = useState(0)
 
   function openFilePicker(options?: { accept?: string; multiple?: boolean }) {
     const accept = options?.accept ?? (pendingAttachmentKind.current === 'file' ? '*/*' : IMAGE_ACCEPT)
@@ -137,6 +138,20 @@ export default function PromptComposer({
     onSelectAction(action, openFilePicker)
   }
 
+  const slashQuery = draft.startsWith('/') ? (draft.slice(1).split(/\s/)[0] ?? '') : ''
+  const slashActions =
+    draft.startsWith('/') && !draft.includes(' ') ? filterComposerActions(composerActions, slashQuery) : []
+  const slashOpen = slashActions.length > 0
+
+  useEffect(() => {
+    setSlashIndex(0)
+  }, [slashQuery])
+
+  function selectSlashAction(action: ComposerAction) {
+    onDraftChange('')
+    selectAction(action)
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     void onSend()
@@ -150,11 +165,7 @@ export default function PromptComposer({
   }
 
   return (
-    <form
-      className="composer rb-composer-surface rb-prompt-composer"
-      aria-label="消息输入器"
-      onSubmit={handleSubmit}
-    >
+    <form className="composer rb-composer-surface rb-prompt-composer" aria-label="消息输入器" onSubmit={handleSubmit}>
       <GlassSurface className="composer-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="composer-context-strip" aria-label="会话上下文">
         <span className="composer-context-location" title={workspace?.path ?? '未选择工作区'}>
@@ -194,12 +205,59 @@ export default function PromptComposer({
           composing.current = false
         }}
         onKeyDown={(event) => {
+          if (slashOpen && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            event.preventDefault()
+            setSlashIndex((current) => {
+              const delta = event.key === 'ArrowDown' ? 1 : -1
+              return (current + delta + slashActions.length) % slashActions.length
+            })
+            return
+          }
+          if (
+            slashOpen &&
+            event.key === 'Enter' &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing &&
+            !composing.current
+          ) {
+            const action = slashActions[slashIndex]
+            if (action) {
+              event.preventDefault()
+              selectSlashAction(action)
+              return
+            }
+          }
           if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current) {
             event.preventDefault()
             void onSend()
           }
         }}
       />
+      {slashOpen && (
+        <div className="composer-slash-menu rb-menu-surface" role="listbox" aria-label="斜杠命令">
+          <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
+          {slashActions.map((action, index) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={index === slashIndex}
+              className={index === slashIndex ? 'selected' : ''}
+              key={action.id}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectSlashAction(action)}
+            >
+              <span className="composer-slash-icon" aria-hidden="true">
+                ⌁
+              </span>
+              <span className="composer-slash-copy">
+                <strong>{action.label}</strong>
+                {action.description && <small>{action.description}</small>}
+              </span>
+              <code>/{action.keywords?.[0] ?? action.id}</code>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="composer-toolbar">
         <div className="composer-left">
           <ComposerMenu actions={composerActions} onSelect={selectAction} />
