@@ -58,6 +58,7 @@ interface WorkbenchState {
   theme: 'dark' | 'light' | 'white'
   layout: unknown
   sidebarWidth: number
+  toolRailLayout: Record<string, { side: 'left' | 'right'; order: number }>
 }
 
 function isTheme(value: unknown): value is WorkbenchState['theme'] {
@@ -78,10 +79,23 @@ const defaultWorkbenchState: WorkbenchState = {
   theme: 'dark',
   layout: null,
   sidebarWidth: 272,
+  toolRailLayout: {},
 }
 
 function normalizeSidebarWidth(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.min(360, Math.max(220, Math.round(value))) : 272
+}
+
+function normalizeToolRailLayout(value: unknown): Record<string, { side: 'left' | 'right'; order: number }> {
+  if (!value || typeof value !== 'object') return {}
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([id, entry]) => {
+      if (!entry || typeof entry !== 'object') return []
+      const candidate = entry as { side?: unknown; order?: unknown }
+      if ((candidate.side !== 'left' && candidate.side !== 'right') || typeof candidate.order !== 'number') return []
+      return [[id, { side: candidate.side, order: Math.max(0, Math.round(candidate.order)) }]]
+    }),
+  )
 }
 
 export const useWorkbench = create(
@@ -89,7 +103,7 @@ export const useWorkbench = create(
     () => defaultWorkbenchState,
     {
       name: 'hbar.workbench.v1',
-      version: 4,
+      version: 5,
       migrate: (persisted): WorkbenchState => {
         const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
         return {
@@ -101,6 +115,7 @@ export const useWorkbench = create(
           approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
           theme: isTheme(value.theme) ? value.theme : 'dark',
           sidebarWidth: normalizeSidebarWidth(value.sidebarWidth),
+          toolRailLayout: normalizeToolRailLayout(value.toolRailLayout),
         }
       },
     },

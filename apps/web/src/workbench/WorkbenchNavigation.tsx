@@ -12,7 +12,7 @@ import {
   Settings2,
   TerminalSquare,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
 import './WorkbenchNavigation.css'
@@ -42,6 +42,10 @@ export interface WorkbenchNavigationProps {
   ): void
   onToggleTool(id: string, title: string, component: string, placement: 'left' | 'right' | 'bottom' | 'editor'): void
   onSetMobileView(view: string): void
+  toolOrder: readonly string[]
+  toolSides: Readonly<Record<string, 'left' | 'right'>>
+  onMoveTool(id: string, side: 'left' | 'right'): void
+  onReorderTool(source: string, target: string): void
 }
 
 const MOBILE_TOOLS = [
@@ -98,8 +102,8 @@ function ToolRailButton({
   tone?: 'accent' | 'status' | 'warning' | 'neutral'
   onClick(): void
   draggable?: boolean
-  onDragStart?(): void
-  onDrop?(): void
+  onDragStart?(event: React.DragEvent<HTMLButtonElement>): void
+  onDrop?(event: React.DragEvent<HTMLButtonElement>): void
   children: React.ReactNode
 }) {
   return (
@@ -114,7 +118,7 @@ function ToolRailButton({
       draggable={draggable}
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = 'move'
-        onDragStart?.()
+        onDragStart?.(event)
       }}
       onDragOver={(event) => {
         if (!draggable) return
@@ -123,7 +127,7 @@ function ToolRailButton({
       }}
       onDrop={(event) => {
         event.preventDefault()
-        onDrop?.()
+        onDrop?.(event)
       }}
     >
       {children}
@@ -139,21 +143,25 @@ export function WorkbenchToolRails({
   onSelectPrimary,
   onOpenTool,
   onToggleTool,
+  toolOrder,
+  toolSides,
+  onMoveTool,
+  onReorderTool,
   side = 'both',
 }: Pick<
   WorkbenchNavigationProps,
-  'panel' | 'toolPanel' | 'diagnosePanelId' | 'contributions' | 'onSelectPrimary' | 'onOpenTool' | 'onToggleTool'
+  | 'panel'
+  | 'toolPanel'
+  | 'diagnosePanelId'
+  | 'contributions'
+  | 'onSelectPrimary'
+  | 'onOpenTool'
+  | 'onToggleTool'
+  | 'toolOrder'
+  | 'toolSides'
+  | 'onMoveTool'
+  | 'onReorderTool'
 > & { side?: 'left' | 'right' | 'both' }) {
-  const [rightOrder, setRightOrder] = useState([
-    'browser',
-    'git',
-    'inspector',
-    'plan',
-    'insights',
-    'activity',
-    'settings',
-    'diagnose',
-  ])
   const draggingTool = useRef<string | null>(null)
   const rightTools = {
     browser: {
@@ -201,58 +209,105 @@ export function WorkbenchToolRails({
       placement: 'right' as const,
     },
   } as const
-  function reorderTool(target: string) {
-    const source = draggingTool.current
+  function reorderTool(target: string, event?: React.DragEvent<HTMLButtonElement>) {
+    const source = event?.dataTransfer.getData('application/x-hbar-tool') || draggingTool.current
     draggingTool.current = null
     if (!source || source === target) return
-    setRightOrder((current) => {
-      const next = current.filter((id) => id !== source)
-      next.splice(Math.max(0, next.indexOf(target)), 0, source)
-      return next
-    })
+    onReorderTool(source, target)
+  }
+  function dropOnRail(event: React.DragEvent<HTMLElement>, rail: 'left' | 'right') {
+    event.preventDefault()
+    const source = event.dataTransfer.getData('application/x-hbar-tool') || draggingTool.current
+    draggingTool.current = null
+    if (source) onMoveTool(source, rail)
   }
   return (
     <>
       {side !== 'right' && (
-        <nav className="tool-rail left-rail" aria-label="主导航">
+        <nav
+          className="tool-rail left-rail"
+          aria-label="主导航"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => dropOnRail(event, 'left')}
+        >
           <ToolRailButton label="会话" selected={panel === 'sessions'} onClick={() => onSelectPrimary('sessions')}>
             <MessageSquare size={19} />
           </ToolRailButton>
           <ToolRailButton label="文件" selected={panel === 'files'} onClick={() => onSelectPrimary('files')}>
             <Folder size={19} />
           </ToolRailButton>
+          {toolOrder
+            .filter((id) => toolSides[id] === 'left')
+            .map((id) => {
+              const tool = rightTools[id as keyof typeof rightTools]
+              if (!tool) return null
+              const Icon = tool.icon
+              const panelId = id === 'diagnose' ? diagnosePanelId : id
+              return (
+                <ToolRailButton
+                  key={id}
+                  label={tool.title}
+                  tone={tool.tone}
+                  selected={toolPanel === panelId}
+                  draggable
+                  onDragStart={(event) => {
+                    draggingTool.current = id
+                    event.dataTransfer.setData('application/x-hbar-tool', id)
+                  }}
+                  onDrop={(event) => reorderTool(id, event)}
+                  onClick={() =>
+                    onToggleTool(
+                      panelId,
+                      tool.title === '运行与事件' ? '运行' : tool.title,
+                      tool.component,
+                      tool.placement,
+                    )
+                  }
+                >
+                  <Icon size={18} />
+                </ToolRailButton>
+              )
+            })}
         </nav>
       )}
       {side !== 'left' && (
-        <nav className="tool-rail right-rail" aria-label="工具窗口">
-          {rightOrder.map((id) => {
-            const tool = rightTools[id as keyof typeof rightTools]
-            const Icon = tool.icon
-            const panelId = id === 'diagnose' ? diagnosePanelId : id
-            return (
-              <ToolRailButton
-                key={id}
-                label={tool.title}
-                tone={tool.tone}
-                selected={toolPanel === panelId}
-                draggable
-                onDragStart={() => {
-                  draggingTool.current = id
-                }}
-                onDrop={() => reorderTool(id)}
-                onClick={() =>
-                  onToggleTool(
-                    panelId,
-                    tool.title === '运行与事件' ? '运行' : tool.title,
-                    tool.component,
-                    tool.placement,
-                  )
-                }
-              >
-                <Icon size={18} />
-              </ToolRailButton>
-            )
-          })}
+        <nav
+          className="tool-rail right-rail"
+          aria-label="工具窗口"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => dropOnRail(event, 'right')}
+        >
+          {toolOrder
+            .filter((id) => toolSides[id] === 'right')
+            .map((id) => {
+              const tool = rightTools[id as keyof typeof rightTools]
+              const Icon = tool.icon
+              const panelId = id === 'diagnose' ? diagnosePanelId : id
+              return (
+                <ToolRailButton
+                  key={id}
+                  label={tool.title}
+                  tone={tool.tone}
+                  selected={toolPanel === panelId}
+                  draggable
+                  onDragStart={(event) => {
+                    draggingTool.current = id
+                    event.dataTransfer.setData('application/x-hbar-tool', id)
+                  }}
+                  onDrop={(event) => reorderTool(id, event)}
+                  onClick={() =>
+                    onToggleTool(
+                      panelId,
+                      tool.title === '运行与事件' ? '运行' : tool.title,
+                      tool.component,
+                      tool.placement,
+                    )
+                  }
+                >
+                  <Icon size={18} />
+                </ToolRailButton>
+              )
+            })}
           {contributions.map((contribution) => (
             <ToolRailButton
               key={contribution.id}
@@ -272,14 +327,6 @@ export function WorkbenchToolRails({
             </ToolRailButton>
           ))}
           <span />
-          <ToolRailButton
-            label="诊断"
-            tone="warning"
-            selected={toolPanel === diagnosePanelId}
-            onClick={() => onToggleTool(diagnosePanelId, '诊断', 'diagnose', 'right')}
-          >
-            <CircleHelp size={18} />
-          </ToolRailButton>
         </nav>
       )}
     </>

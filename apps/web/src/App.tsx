@@ -53,6 +53,16 @@ import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
 import { FileNavigation, FileViewer } from './FileNavigation'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
+const DEFAULT_TOOL_RAIL_ORDER = [
+  'browser',
+  'git',
+  'inspector',
+  'plan',
+  'insights',
+  'activity',
+  'settings',
+  'diagnose',
+] as const
 const SIDEBAR_MIN_WIDTH = 220
 const SIDEBAR_MAX_WIDTH = 360
 const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
@@ -337,7 +347,8 @@ export default function App() {
     theme = useWorkbench((state) => state.theme),
     modelId = useWorkbench((state) => state.modelId),
     toolPanel = useWorkbench((state) => state.toolPanel),
-    sidebarWidth = useWorkbench((state) => state.sidebarWidth)
+    sidebarWidth = useWorkbench((state) => state.sidebarWidth),
+    persistedToolRailLayout = useWorkbench((state) => state.toolRailLayout)
   const notice = useNotice((state) => state.error)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
@@ -357,6 +368,17 @@ export default function App() {
   const [mobilePanel, setMobilePanel] = useState('')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [conversationViews, setConversationViews] = useState<Record<string, 'chat' | 'console'>>({})
+  const toolRailOrder = [...DEFAULT_TOOL_RAIL_ORDER].sort(
+    (a, b) =>
+      (persistedToolRailLayout[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
+      (persistedToolRailLayout[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
+  )
+  const toolRailSides = Object.fromEntries(
+    DEFAULT_TOOL_RAIL_ORDER.map((id) => [id, persistedToolRailLayout[id]?.side ?? 'right']),
+  ) as Record<string, 'left' | 'right'>
+  function updateToolRailLayout(mutator: (current: typeof persistedToolRailLayout) => typeof persistedToolRailLayout) {
+    useWorkbench.setState((state) => ({ toolRailLayout: mutator(state.toolRailLayout) }))
+  }
   const [toastPaused, setToastPaused] = useState(false)
   const sidebarDrag = useRef<{ startX: number; startWidth: number } | null>(null)
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), [])
@@ -896,6 +918,29 @@ export default function App() {
             }
             toggleGalleryTool(id, title, component, undefined, placement)
           }}
+          toolOrder={toolRailOrder}
+          toolSides={toolRailSides}
+          onMoveTool={(id, side) =>
+            updateToolRailLayout((current) => ({
+              ...current,
+              [id]: {
+                side,
+                order:
+                  current[id]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(id as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
+              },
+            }))
+          }
+          onReorderTool={(source, target) =>
+            updateToolRailLayout((current) => {
+              const next: string[] = [...toolRailOrder]
+              const sourceIndex = next.indexOf(source)
+              const targetIndex = next.indexOf(target)
+              if (sourceIndex < 0 || targetIndex < 0) return current
+              next.splice(sourceIndex, 1)
+              next.splice(next.indexOf(target), 0, source)
+              return Object.fromEntries(next.map((id, order) => [id, { side: current[id]?.side ?? 'right', order }]))
+            })
+          }
         />
         <aside className="sidebar">
           <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
@@ -1070,6 +1115,29 @@ export default function App() {
             }
             toggleGalleryTool(id, title, component, undefined, placement)
           }}
+          toolOrder={toolRailOrder}
+          toolSides={toolRailSides}
+          onMoveTool={(id, side) =>
+            updateToolRailLayout((current) => ({
+              ...current,
+              [id]: {
+                side,
+                order:
+                  current[id]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(id as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
+              },
+            }))
+          }
+          onReorderTool={(source, target) =>
+            updateToolRailLayout((current) => {
+              const next: string[] = [...toolRailOrder]
+              const sourceIndex = next.indexOf(source)
+              const targetIndex = next.indexOf(target)
+              if (sourceIndex < 0 || targetIndex < 0) return current
+              next.splice(sourceIndex, 1)
+              next.splice(next.indexOf(target), 0, source)
+              return Object.fromEntries(next.map((id, order) => [id, { side: current[id]?.side ?? 'right', order }]))
+            })
+          }
         />
       </div>
       <WorkbenchStatusBar
