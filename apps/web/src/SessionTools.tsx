@@ -372,6 +372,8 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
   }, [snapshot?.messages])
   const max = stats[0]?.[1] ?? 1
+  const usage = snapshot?.usage
+  const cacheRate = usage?.input ? Math.round((usage.cacheRead / usage.input) * 100) : 0
   return (
     <section className="tool-surface">
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
@@ -384,6 +386,8 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
             <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>输入</span><strong>{snapshot.usage.input.toLocaleString()}</strong></SpotlightCard>
             <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>输出</span><strong>{snapshot.usage.output.toLocaleString()}</strong></SpotlightCard>
             <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>运行</span><strong>{snapshot.runs.length.toLocaleString()}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--hbar-wn) 22%, transparent)"><span>费用</span><strong>${snapshot.usage.cost.toFixed(4)}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"><span>缓存命中</span><strong>{cacheRate}%</strong></SpotlightCard>
           </div>
           <section className="tool-detail-card insight-chart rb-tool-detail-surface">
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
@@ -398,4 +402,3 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
     </section>
   )
 }
-

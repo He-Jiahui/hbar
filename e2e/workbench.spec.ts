@@ -174,7 +174,9 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     const insightsPanel = page.locator('.tool-surface').filter({ hasText: '会话洞察', visible: true }).last()
     await expect(insightsPanel.locator('.tool-header-glass')).toHaveClass(/glass-surface/)
     await expect(insightsPanel.locator('.insight-chart .tool-detail-glass')).toHaveCount(1)
-    await expect(insightsPanel.locator('.insight-kpis .insight-kpi')).toHaveCount(3)
+    await expect(insightsPanel.locator('.insight-kpis .insight-kpi')).toHaveCount(5)
+    await expect(insightsPanel.locator('.insight-kpi').filter({ hasText: '费用' })).toContainText('$')
+    await expect(insightsPanel.locator('.insight-kpi').filter({ hasText: '缓存命中' })).toContainText('%')
     await expect(insightsPanel.locator('.insight-list')).toHaveCount(1)
 
     const browserRailAgain = page.getByRole('button', { name: '浏览器', exact: true }).filter({ visible: true })
