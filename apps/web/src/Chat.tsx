@@ -646,7 +646,7 @@ export default function Chat({
     <div className="composer-mode-tags" aria-label="当前会话模式">
       {capabilityState?.mode === 'plan' && (
         <span className="composer-mode-tag" title="Plan 模式：只读探索并生成可审核计划">
-          <span>计划</span>
+          <span>Plan</span>
           <button
             type="button"
             title="关闭 Plan 模式"
@@ -659,7 +659,7 @@ export default function Chat({
       )}
       {capabilityState?.goal && (
         <span className="composer-mode-tag" title={`Goal：${capabilityState.goal.objective}`}>
-          <span>目标</span>
+          <span>Goal</span>
           <button
             type="button"
             title="关闭 Goal 模式"
@@ -672,7 +672,7 @@ export default function Chat({
       )}
       {capabilityState?.budget && (
         <span className="composer-mode-tag" title={`Budget：剩余 ${capabilityState.budget.remainingTokens.toLocaleString()} tokens`}>
-          <span>预算</span>
+          <span>Budget</span>
           <button
             type="button"
             title="关闭 Budget 模式"
