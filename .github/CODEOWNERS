@@ -2,6 +2,7 @@
 /.github/ @He-Jiahui
 /AGENTS.md @He-Jiahui
 /CONTRIBUTING.md @He-Jiahui
+/SECURITY.md @He-Jiahui
 /docs/wiki/ @He-Jiahui
 
 # 跨进程协议、持久化和插件边界需要明确的维护者复核。

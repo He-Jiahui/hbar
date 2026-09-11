@@ -58,6 +58,7 @@ test('repository intake documents ownership and evidence expectations', async ()
   const issueConfig = await source('.github/ISSUE_TEMPLATE/config.yml')
 
   expect(owners).toContain('/.github/ @He-Jiahui')
+  expect(owners).toContain('/SECURITY.md @He-Jiahui')
   expect(owners).toContain('/docs/wiki/ @He-Jiahui')
   expect(pullRequest).toContain('## Scope')
   expect(pullRequest).toContain('## Verification')

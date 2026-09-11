@@ -39,7 +39,7 @@ jobs:
   publish:
     name: publish-wiki
     needs: configuration
-    if: needs.configuration.outputs.enabled == 'true'
+    if: github.ref == 'refs/heads/master' && needs.configuration.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

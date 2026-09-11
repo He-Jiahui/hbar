@@ -34,3 +34,5 @@ bun run host --home .dev/lan-host --workspace <你的项目目录> --host 0.0.0.
 - 真实模型验证只在你明确授权、可承担成本并拥有可信凭据的环境中运行。
 
 更多协议与恢复约束见 [架构概览](Architecture.md) 和主仓库的 [架构说明](https://github.com/He-Jiahui/hbar/blob/master/docs/architecture.md)。
+
+发现可能的安全漏洞时，请按照仓库的 [安全策略](https://github.com/He-Jiahui/hbar/blob/master/SECURITY.md) 私下报告，不要把凭据或利用细节贴到公开 Issue。
