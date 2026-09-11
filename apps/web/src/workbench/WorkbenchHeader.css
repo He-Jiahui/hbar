@@ -1,0 +1,294 @@
+.rb-shell-header {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 0 11px 0 9px;
+  background: var(--hbar-s1);
+}
+
+.rb-shell-header > .chrome-glass {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--hbar-s1) 92%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--hbar-bd) 74%, transparent);
+  pointer-events: none;
+}
+
+.rb-shell-header > .chrome-glass::before {
+  background: linear-gradient(105deg, color-mix(in srgb, var(--hbar-ac) 10%, transparent), transparent 38%);
+}
+
+.rb-shell-header > :not(.chrome-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.shell-header-leading,
+.shell-scope,
+.workspace-switcher,
+.top-context,
+.top-command,
+.host-status {
+  display: flex;
+  align-items: center;
+}
+
+.shell-header-leading {
+  min-width: max-content;
+  gap: 7px;
+}
+
+.shell-header-leading .sidebar-toggle {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+}
+
+.shell-header-leading .sidebar-toggle:hover,
+.shell-header-leading .sidebar-toggle:focus-visible {
+  border-color: var(--hbar-bd2);
+  background: color-mix(in srgb, var(--hbar-s2) 84%, transparent);
+}
+
+.rb-shell-header .brand {
+  padding: 0 3px;
+}
+
+.rb-shell-header .top-divider {
+  flex: 0 0 1px;
+  margin: 0 2px;
+  background: var(--hbar-bd2);
+}
+
+.shell-scope {
+  min-width: 0;
+  gap: 4px;
+}
+
+.shell-scope > .folder-icon {
+  flex: 0 0 auto;
+}
+
+.workspace-switcher {
+  position: relative;
+  min-width: 0;
+  min-height: 32px;
+  gap: 5px;
+  padding: 2px 6px 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--control-radius);
+  cursor: pointer;
+}
+
+.workspace-switcher:hover,
+.workspace-switcher:focus-within {
+  border-color: var(--hbar-bd2);
+  background: color-mix(in srgb, var(--hbar-s2) 84%, transparent);
+}
+
+.workspace-switcher-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.workspace-switcher-eyebrow {
+  color: var(--hbar-t3);
+  font-size: 10px;
+  line-height: 1.05;
+  pointer-events: none;
+}
+
+.rb-shell-header .workspace-select {
+  max-width: min(240px, 24vw);
+  min-height: 21px;
+  padding: 1px 17px 1px 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.rb-shell-header .workspace-select:hover,
+.rb-shell-header .workspace-select:focus {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace-switcher-chevron {
+  flex: 0 0 auto;
+  color: var(--hbar-t3);
+  pointer-events: none;
+}
+
+.rb-shell-header .add-workspace {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+}
+
+.rb-shell-header .add-workspace:hover,
+.rb-shell-header .add-workspace:focus-visible {
+  border-color: var(--hbar-bd2);
+  background: color-mix(in srgb, var(--hbar-s2) 84%, transparent);
+}
+
+.rb-shell-header .top-context {
+  min-width: 0;
+  max-width: min(360px, 32vw);
+  gap: 7px;
+  padding-left: 8px;
+  border-left: 1px solid color-mix(in srgb, var(--hbar-bd) 72%, transparent);
+}
+
+.top-context-label {
+  flex: 0 0 auto;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rb-shell-header .top-context strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-t1);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-context-workspace {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-shell-header .top-spacer {
+  flex: 1 1 auto;
+}
+
+.rb-shell-header .top-command {
+  min-height: 30px;
+  gap: 7px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--control-radius);
+  color: var(--hbar-t2);
+  white-space: nowrap;
+}
+
+.rb-shell-header .top-command:hover,
+.rb-shell-header .top-command:focus-visible {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-ac2);
+}
+
+.rb-shell-header .top-command kbd {
+  padding: 2px 4px;
+  border: 1px solid color-mix(in srgb, var(--hbar-bd2) 80%, transparent);
+  border-radius: 4px;
+  color: var(--hbar-t3);
+  font: 10px var(--mono);
+}
+
+.rb-shell-header .host-status {
+  min-height: 27px;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--hbar-bd2) 86%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--hbar-s0) 82%, transparent);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.rb-shell-header .host-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
+}
+
+@media (max-width: 899px) {
+  .rb-shell-header {
+    gap: 6px;
+    padding-right: 7px;
+  }
+
+  .rb-shell-header .brand {
+    font-size: 18px;
+  }
+
+  .rb-shell-header .top-divider,
+  .rb-shell-header .workspace-switcher-eyebrow,
+  .rb-shell-header .top-context-label,
+  .rb-shell-header .top-context-workspace,
+  .rb-shell-header .top-command span,
+  .rb-shell-header .top-command kbd {
+    display: none;
+  }
+
+  .rb-shell-header .workspace-select {
+    max-width: 34vw;
+    min-height: 27px;
+    padding-right: 15px;
+  }
+
+  .workspace-switcher {
+    min-height: 30px;
+    padding-left: 5px;
+  }
+
+  .rb-shell-header .top-context {
+    max-width: 32vw;
+    padding-left: 6px;
+  }
+
+  .rb-shell-header .top-command {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .rb-shell-header .host-status {
+    width: 10px;
+    min-height: 27px;
+    padding: 0;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+  }
+
+  .rb-shell-header .host-status-text {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-switcher,
+  .rb-shell-header .top-command,
+  .rb-shell-header .add-workspace,
+  .shell-header-leading .sidebar-toggle {
+    transition: none;
+  }
+}

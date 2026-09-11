@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
-  Command as CommandIcon,
   FileCode2,
   Folder,
   FolderOpen,
@@ -58,6 +57,7 @@ import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
+import WorkbenchHeader from './workbench/WorkbenchHeader'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -1101,64 +1101,22 @@ export default function App() {
   if (status === 'pairing' || (!data && status !== 'connected')) return <Pairing />
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
-        <button
-          className="sidebar-toggle"
-          title="会话侧栏"
-          aria-label="会话侧栏"
-          onClick={() =>
-            small ? setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions') : setSidebar(!sidebar)
-          }
-        >
-          {sidebar ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
-        </button>
-        <div className="brand">
-          hbar
-          <span />
-        </div>
-        <div className="top-divider" />
-        <FolderOpen size={16} className="folder-icon" />
-        <select
-          className="workspace-select"
-          aria-label="选择工作区"
-          value={workspaceId}
-          onChange={(event) => {
-            selectWorkspace(event.target.value)
-          }}
-        >
-          <option value="" disabled>
-            选择工作区
-          </option>
-          {data?.workspaces.map((workspace) => (
-            <option value={workspace.id} key={workspace.id}>
-              {workspace.name}
-            </option>
-          ))}
-        </select>
-        <button
-          className="add-workspace"
-          title="添加工作区"
-          aria-label="添加工作区"
-          onClick={() => setWorkspaceModal(true)}
-        >
-          <Plus size={14} />
-        </button>
-        <span
-          className="top-context"
-          title={data?.sessions.find((session) => session.id === activeSession)?.title ?? '当前会话'}
-        >
-          {data?.sessions.find((session) => session.id === activeSession)?.title ?? '新会话'}
-        </span>
-        <span className="top-spacer" />
-        <button title="命令面板（Ctrl+Shift+P）" aria-label="打开命令面板" onClick={() => setCommandPaletteOpen(true)}>
-          <CommandIcon size={17} />
-        </button>
-        <span className={`host-status ${status === 'connected' ? 'success' : 'warning'}`}>
-          <i />
-          {status === 'connected' ? (host?.platform === 'win32' ? 'Windows Host' : 'Host') : '重新连接中'}
-        </span>
-      </header>
+      <WorkbenchHeader
+        status={status}
+        host={host}
+        workspaces={data?.workspaces ?? []}
+        workspaceId={workspaceId}
+        activeSession={data?.sessions.find((session) => session.id === activeSession)}
+        sidebarOpen={sidebar}
+        compact={small}
+        onToggleSidebar={() => {
+          if (small) setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions')
+          else setSidebar((visible) => !visible)
+        }}
+        onSelectWorkspace={selectWorkspace}
+        onAddWorkspace={() => setWorkspaceModal(true)}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+      />
       <div
         className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
         style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
