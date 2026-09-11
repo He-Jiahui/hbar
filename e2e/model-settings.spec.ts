@@ -115,8 +115,6 @@ test('provider editor opens as a secondary settings page', async ({ page, contex
     await editorPage.getByRole('button', { name: '取消', exact: true }).click()
     await expect(editorPage).toHaveCount(0)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-provider-editor-page.png` })
-    await editorPage.getByRole('button', { name: '返回供应商与模型', exact: true }).click()
-    await expect(editorPage).toHaveCount(0)
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
