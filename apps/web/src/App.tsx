@@ -411,9 +411,9 @@ export default function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === '`') {
         event.preventDefault()
-        const button = document.querySelector<HTMLButtonElement>('button[aria-label="终端"]')
+        const button = document.querySelector<HTMLButtonElement>('button[aria-label="命令控制台"]')
         if (button) button.click()
-        else openPanel('terminal', '终端', 'terminal', undefined, 'bottom')
+        else openPanel('terminal', '命令控制台', 'terminal', undefined, 'bottom')
       } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
         event.preventDefault()
         setCommandPaletteOpen(true)
@@ -728,7 +728,7 @@ export default function App() {
       keywords: ['terminal', 'console'],
       icon: TerminalSquare,
       group: 'navigation',
-      execute: () => openPanel('terminal', '终端', 'terminal', undefined, 'bottom'),
+      execute: () => openPanel('terminal', '命令控制台', 'terminal', undefined, 'bottom'),
     },
     {
       id: 'open-settings',
@@ -780,7 +780,7 @@ export default function App() {
           <Chat
             {...(config?.sessionId ? { sessionId: config.sessionId } : {})}
             onSettings={settings}
-            onTerminal={() => togglePanel('terminal', '终端', 'terminal', 'bottom')}
+            onTerminal={() => togglePanel('terminal', '命令控制台', 'terminal', 'bottom')}
           />
         )
       case 'settings':
@@ -976,7 +976,7 @@ export default function App() {
                 <Chat
                   sessionId={activeSession}
                   onSettings={settings}
-                  onTerminal={() => togglePanel('terminal', '终端', 'terminal', 'bottom')}
+                  onTerminal={() => togglePanel('terminal', '命令控制台', 'terminal', 'bottom')}
                 />
               )}
             </>

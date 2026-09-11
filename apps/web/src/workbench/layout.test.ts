@@ -1,4 +1,4 @@
-import { Model } from 'flexlayout-react'
+import { Model, TabNode } from 'flexlayout-react'
 import { expect, test } from 'bun:test'
 import { defaultLayout, restoreLayout, versionedLayout } from './layout'
 
@@ -13,7 +13,9 @@ test('default layout is a valid, versioned workbench model', () => {
   expect(model.getNodeById('browser')).toBeDefined()
   expect(model.getNodeById('activity')).toBeDefined()
   expect(model.getNodeById('diagnose')).toBeDefined()
-  expect(model.getNodeById('terminal')).toBeDefined()
+  const terminal = model.getNodeById('terminal')
+  expect(terminal).toBeInstanceOf(TabNode)
+  expect((terminal as TabNode).getName()).toBe('命令控制台')
 })
 
 test('malformed persisted layout falls back without creating an empty workbench', () => {
@@ -30,6 +32,17 @@ test('valid persisted layout remains restorable', () => {
 
   expect(restored.layout.id).toBe('root')
   expect(restored.layout.children?.map((child) => child.id)).toEqual(['main'])
+})
+
+test('persisted command panel labels migrate without resetting the layout', () => {
+  const persisted = versionedLayout(defaultLayout())
+  const terminal = persisted.borders?.flatMap((border) => border.children ?? []).find((node) => node.id === 'terminal')
+  if (!terminal) throw new Error('default layout does not contain the command panel')
+  terminal.name = '终端'
+
+  const restored = Model.fromJson(restoreLayout(persisted))
+
+  expect((restored.getNodeById('terminal') as TabNode).getName()).toBe('命令控制台')
 })
 
 test('legacy generated tool dock migrates to the explicit on-demand tool border', () => {

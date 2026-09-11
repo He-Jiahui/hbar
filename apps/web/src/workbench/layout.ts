@@ -77,7 +77,18 @@ function parseCandidate(value: unknown): IJsonModel | null {
   const candidate = { ...value }
   delete candidate.schemaVersion
   if (version === LEGACY_LAYOUT_VERSION) migrateLegacyLayout(candidate)
+  migrateToolLabels(candidate)
   return parseModel(candidate)
+}
+
+function migrateToolLabels(candidate: UnknownRecord) {
+  const visit = (value: unknown) => {
+    if (!isRecord(value)) return
+    if (value.component === 'terminal' && value.id === 'terminal') value.name = '命令控制台'
+    if (Array.isArray(value.children)) for (const child of value.children) visit(child)
+  }
+  visit(candidate.layout)
+  if (Array.isArray(candidate.borders)) for (const border of candidate.borders) visit(border)
 }
 
 function migrateLegacyLayout(candidate: UnknownRecord) {

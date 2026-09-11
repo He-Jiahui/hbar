@@ -21,7 +21,7 @@
         {
           "type": "tab",
           "id": "terminal",
-          "name": "终端",
+          "name": "命令控制台",
           "component": "terminal",
           "enableClose": true,
           "config": {

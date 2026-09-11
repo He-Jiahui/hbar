@@ -165,7 +165,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
   const dispatch = async ({ command, args }: CommandInvocation) => {
     const argument = args.join(' ')
     if (command === 'help') {
-      write(`### 终端命令\n\n${commands.map((item) => `- \`${item.usage}\`：${item.description}`).join('\n')}`)
+      write(`### 控制台命令\n\n${commands.map((item) => `- \`${item.usage}\`：${item.description}`).join('\n')}`)
       return
     }
     if (command === 'new') {
@@ -310,8 +310,9 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
       <header className="terminal-toolbar">
         <GlassSurface className="terminal-toolbar-glass" width="100%" height="100%" aria-hidden="true" />
         <TerminalSquare size={15} />
+        <strong className="command-console-title">命令控制台</strong>
         <select
-          aria-label="终端 Session"
+          aria-label="控制台 Session"
           value={sessionId}
           onChange={(event) => void chooseSession(event.target.value).catch(report)}
         >
@@ -331,7 +332,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
         </button>
         <span />
         <select
-          aria-label="终端推理级别"
+          aria-label="控制台推理级别"
           value={thinkingLevel}
           onChange={(event) => selectThinkingLevel(event.target.value as ThinkingLevel)}
         >
@@ -435,7 +436,7 @@ export default function TerminalPanel({ onSettings, onClose }: { onSettings(): v
           </div>
         )}
         <textarea
-          aria-label="终端输入"
+          aria-label="控制台输入"
           value={input}
           placeholder="输入消息或 /命令"
           onChange={(event) => {

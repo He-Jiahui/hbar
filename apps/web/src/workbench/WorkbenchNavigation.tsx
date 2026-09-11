@@ -62,7 +62,7 @@ const MOBILE_PRIMARY_ITEMS = [
 ] as const
 
 const MOBILE_MORE_ITEMS = [
-  { id: 'terminal', title: '终端', description: '执行会话命令与查看输出', icon: TerminalSquare, component: 'terminal', placement: 'bottom' },
+  { id: 'terminal', title: '命令控制台', description: '发送会话消息与执行斜杠命令', icon: TerminalSquare, component: 'terminal', placement: 'bottom' },
   { id: 'settings', title: '设置', description: '模型、权限、存储与设备', icon: Settings2, component: 'settings', placement: 'editor' },
 ] as const
 
@@ -183,10 +183,10 @@ export function WorkbenchToolRails({
           <Activity size={18} />
         </ToolRailButton>
         <ToolRailButton
-          label="终端"
+          label="命令控制台"
           tone="neutral"
           selected={toolPanel === 'terminal'}
-          onClick={() => onToggleTool('terminal', '终端', 'terminal', 'bottom')}
+          onClick={() => onToggleTool('terminal', '命令控制台', 'terminal', 'bottom')}
         >
           <TerminalSquare size={18} />
         </ToolRailButton>

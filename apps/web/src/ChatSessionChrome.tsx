@@ -45,7 +45,7 @@ export default function ChatSessionChrome({
             onClick={() => onOpenTerminal?.()}
             disabled={!onOpenTerminal}
           >
-            Terminal
+            控制台
           </button>
         </div>
         <button

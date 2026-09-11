@@ -783,7 +783,7 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
   }
 })
 
-test('terminal panel supports keyboard commands, concurrent sessions, approval and mobile layout', async ({
+test('command console supports keyboard commands, concurrent sessions, approval and mobile layout', async ({
   page,
   context,
 }) => {
@@ -795,7 +795,8 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     await expect(terminal.locator('.terminal-toolbar-glass')).toHaveClass(/glass-surface/)
     await expect(terminal.locator('.terminal-composer-glass')).toHaveClass(/glass-surface/)
     await expect(terminal.getByRole('button', { name: '执行', exact: true })).toHaveClass(/rb-glare-button/)
-    const input = terminal.getByRole('textbox', { name: '终端输入', exact: true })
+    await expect(terminal.getByText('命令控制台', { exact: true })).toBeVisible()
+    const input = terminal.getByRole('textbox', { name: '控制台输入', exact: true })
     await input.fill('/he')
     await expect(terminal.getByRole('listbox', { name: '命令补全' })).toBeVisible()
     await expect(terminal.getByRole('listbox', { name: '命令补全' }).locator('.terminal-completions-glass')).toHaveClass(/glass-surface/)
@@ -803,7 +804,7 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     await input.press('Tab')
     await expect(input).toHaveValue('/help ')
     await input.press('Enter')
-    await expect(terminal).toContainText('终端命令')
+    await expect(terminal).toContainText('控制台命令')
     await expect(terminal.locator('.terminal-command-entry').last()).toHaveClass(/rb-spotlight-card/)
     const commandEntryStyle = await terminal
       .locator('.terminal-command-entry')
@@ -827,15 +828,15 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
     await input.fill('//slow')
     await input.press('Enter')
     await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toBeVisible()
-    const firstSession = await terminal.getByRole('combobox', { name: '终端 Session' }).inputValue()
+    const firstSession = await terminal.getByRole('combobox', { name: '控制台 Session' }).inputValue()
     await input.fill('/new')
     await input.press('Enter')
-    await expect(terminal.getByRole('combobox', { name: '终端 Session' })).not.toHaveValue(firstSession)
+    await expect(terminal.getByRole('combobox', { name: '控制台 Session' })).not.toHaveValue(firstSession)
     await input.fill('来自第二个 Session')
     await input.press('Enter')
     await expect(terminal.locator('.terminal-assistant')).toContainText('来自第二个 Session')
 
-    await terminal.getByRole('combobox', { name: '终端 Session' }).selectOption(firstSession)
+    await terminal.getByRole('combobox', { name: '控制台 Session' }).selectOption(firstSession)
     await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toBeVisible()
     await terminal.getByRole('button', { name: '停止运行', exact: true }).click()
     await expect(terminal.getByRole('button', { name: '停止运行', exact: true })).toHaveCount(0)
@@ -852,14 +853,14 @@ test('terminal panel supports keyboard commands, concurrent sessions, approval a
 
     await page.setViewportSize({ width: 390, height: 844 })
     await openMobileMore(page)
-    await page.locator('.mobile-more-grid').getByRole('button', { name: '终端', exact: true }).click()
+    await page.locator('.mobile-more-grid').getByRole('button', { name: '命令控制台', exact: true }).click()
     await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
     const mobileTerminal = page.locator('.terminal-panel').filter({ visible: true })
-    const mobileInput = mobileTerminal.getByRole('textbox', { name: '终端输入', exact: true })
+    const mobileInput = mobileTerminal.getByRole('textbox', { name: '控制台输入', exact: true })
     await mobileInput.fill('/quit')
     await mobileInput.press('Enter')
     await expect(page.locator('.terminal-panel').filter({ visible: true })).toHaveCount(0)
-    await page.getByRole('tab', { name: 'Terminal', exact: true }).filter({ visible: true }).click()
+    await page.getByRole('tab', { name: '控制台', exact: true }).filter({ visible: true }).click()
     await expect(page.locator('.terminal-panel').filter({ visible: true })).toBeVisible()
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-terminal.png` })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
@@ -874,9 +875,9 @@ test('a client plugin adds an interactive panel and unloads it without a core ed
     await expect.poll(async () => (await fixture.api.call('system.bootstrap', {})).host.activeRuns).toBe(0)
     await fixture.api.call('plugin.install', { path: resolve('examples/observer') })
     await expect(page.getByRole('button', { name: 'Observer counter', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: '终端', exact: true }).filter({ visible: true }).first().click()
+    await page.getByRole('button', { name: '命令控制台', exact: true }).filter({ visible: true }).first().click()
     const terminal = page.locator('.terminal-panel').filter({ visible: true })
-    const terminalInput = terminal.getByRole('textbox', { name: '终端输入', exact: true })
+    const terminalInput = terminal.getByRole('textbox', { name: '控制台输入', exact: true })
     await terminalInput.fill('/observer')
     await expect(terminal.getByRole('option', { name: /observer\.ping/ })).toBeVisible()
     await terminalInput.press('Tab')
@@ -890,11 +891,11 @@ test('a client plugin adds an interactive panel and unloads it without a core ed
     await expect(page.getByRole('button', { name: 'Observer counter', exact: true })).toHaveCount(0)
     await expect(page.locator('.plugin-panel output')).toHaveCount(0)
     const activeTerminal = page.locator('.terminal-panel').filter({ visible: true })
-    if (!(await activeTerminal.isVisible())) await page.getByRole('tab', { name: '终端', exact: true }).click()
+    if (!(await activeTerminal.isVisible())) await page.getByRole('tab', { name: '命令控制台', exact: true }).click()
     await page
       .locator('.terminal-panel')
       .filter({ visible: true })
-      .getByRole('textbox', { name: '终端输入' })
+      .getByRole('textbox', { name: '控制台输入' })
       .fill('/observer')
     await expect(page.getByRole('option', { name: /observer\.ping/ })).toHaveCount(0)
   } finally {
