@@ -34,8 +34,7 @@ import { copyText, newRequestId } from './browser-utils'
 import { buildComposerActions } from './composer-actions'
 import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
-import SessionCapabilityDialog from './SessionCapabilityDialog'
-import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import { useSessionCapabilities } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -366,7 +365,7 @@ export default function Chat({
   const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
-  const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
+  const [sessionModeNotice, setSessionModeNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
   const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
@@ -534,7 +533,21 @@ export default function Chat({
   }
   function selectComposerAction(action: ComposerAction, openFilePicker: OpenFilePicker) {
     if (action.id === 'goal' || action.id === 'plan' || action.id === 'budget') {
-      setCapabilityDialog(action.id)
+      if (!sessionId) return
+      const mode = action.id === 'plan' ? 'plan' : 'default'
+      void client()
+        .call('mode.set', { sessionId, mode })
+        .then(async () => {
+          if (action.id === 'goal') {
+            setSessionModeNotice('Goal 模式：发送的内容会作为当前目标持续推进。')
+          } else if (action.id === 'plan') {
+            setSessionModeNotice('Plan 模式：只读探索并生成可审核计划。')
+          } else {
+            await client().call('budget.set', { sessionId, limit: 10_000 })
+            setSessionModeNotice('Budget 模式：将持续推进，接近默认 10,000 token 预算时自动停止。')
+          }
+        })
+        .catch(report)
       return
     }
     if (!action.execute) return
@@ -567,6 +580,7 @@ export default function Chat({
           }
         }}
       />
+      {sessionModeNotice && <div className="session-mode-notice" role="status">{sessionModeNotice}</div>}
       {view === 'console' && (
         <TerminalPanel embedded onSelectSession={onSelectSession} onClose={() => onViewChange('chat')} />
       )}
@@ -815,13 +829,6 @@ export default function Chat({
             </div>
           </div>
         </>
-      )}
-      {capabilityDialog && sessionId && (
-        <SessionCapabilityDialog
-          sessionId={sessionId}
-          initialTab={capabilityDialog}
-          onClose={() => setCapabilityDialog(null)}
-        />
       )}
     </div>
   )

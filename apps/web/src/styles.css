@@ -676,6 +676,14 @@ p {
   font-size: 11px;
   color: #9399a7;
 }
+.session-mode-notice {
+  flex: 0 0 auto;
+  padding: 6px 16px;
+  border-bottom: 1px solid #3b3f49;
+  background: #252936;
+  color: #b8c7e7;
+  font-size: 11px;
+}
 .chat-context > div {
   display: flex;
   align-items: center;

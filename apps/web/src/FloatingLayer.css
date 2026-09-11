@@ -3,12 +3,32 @@
  * overflow, transform or stacking context can never reshape the popup. */
 .floating-layer {
   position: fixed !important;
-  z-index: 1200 !important;
+  z-index: 2000 !important;
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
   max-height: calc(100dvh - 16px);
   overflow: auto;
   overscroll-behavior: contain;
+}
+
+/* Capability menus must sit above every workbench panel. Keep their glass
+ * backing opaque and isolated so the displacement filter cannot blend
+ * through the composer or duplicate the text underneath. */
+.floating-layer.composer-menu {
+  isolation: isolate;
+  z-index: 2100 !important;
+}
+
+.floating-layer.composer-menu > .rb-menu-glass {
+  background: var(--hbar-s1);
+  mix-blend-mode: normal;
+  opacity: 1;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.floating-layer.composer-menu > .rb-menu-glass::before {
+  display: none;
 }
 
 .command-palette-backdrop,
