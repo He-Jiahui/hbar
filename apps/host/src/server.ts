@@ -19,6 +19,7 @@ import type {
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
 import type { RuntimeScope } from '@hbar/kernel'
+import { SystemTerminalManager } from './system-terminal'
 
 interface SocketData {
   token?: string | undefined
@@ -26,6 +27,7 @@ interface SocketData {
   initialized: boolean
   follows: Set<string>
   pending: number
+  terminals: Set<string>
   timer?: ReturnType<typeof setTimeout> | undefined
   scope?: RuntimeScope | undefined
 }
@@ -42,6 +44,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
+  const systemTerminals = new SystemTerminalManager()
   const addresses = [
     ...new Set(
       Object.values(networkInterfaces()).flatMap((list) =>
@@ -308,6 +311,48 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         await kernel.cancel(p.runId)
         return null
       }
+      case 'terminal.open': {
+        const p = rpcSchemas[method].parse(raw)
+        if (socket.data.terminals.size >= 8) throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')
+        const workspace = await kernel.storage.call('workspace', p.workspaceId)
+        let terminalId = ''
+        const pendingOutput: string[] = []
+        const info = systemTerminals.open(workspace.id, workspace.path, p.cols, p.rows, {
+          onOutput: (data) => {
+            if (!terminalId) pendingOutput.push(data)
+            else send(socket, { jsonrpc: '2.0', method: 'terminal.output', params: { terminalId, data } })
+          },
+          onExit: (code, signal) => {
+            send(socket, { jsonrpc: '2.0', method: 'terminal.exit', params: { terminalId, code, signal } })
+          },
+        })
+        terminalId = info.id
+        socket.data.terminals.add(info.id)
+        for (const data of pendingOutput)
+          send(socket, { jsonrpc: '2.0', method: 'terminal.output', params: { terminalId, data } })
+        return info
+      }
+      case 'terminal.input': {
+        const p = rpcSchemas[method].parse(raw)
+        if (!socket.data.terminals.has(p.terminalId)) throw new HbarError('PATH_DENIED', 'Terminal is not owned by this connection')
+        systemTerminals.write(p.terminalId, p.data)
+        return null
+      }
+      case 'terminal.resize': {
+        const p = rpcSchemas[method].parse(raw)
+        if (!socket.data.terminals.has(p.terminalId)) throw new HbarError('PATH_DENIED', 'Terminal is not owned by this connection')
+        systemTerminals.resize(p.terminalId, p.cols, p.rows)
+        return null
+      }
+      case 'terminal.close': {
+        const p = rpcSchemas[method].parse(raw)
+        if (!socket.data.terminals.has(p.terminalId)) throw new HbarError('PATH_DENIED', 'Terminal is not owned by this connection')
+        socket.data.terminals.delete(p.terminalId)
+        systemTerminals.close(p.terminalId)
+        return null
+      }
+      case 'terminal.list':
+        return systemTerminals.list(socket.data.terminals)
       case 'approval.resolve': {
         const p = rpcSchemas[method].parse(raw)
         await kernel.resolveApproval(p.approvalId, p.decision)
@@ -539,7 +584,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         if (url.pathname === '/rpc') {
           if (
             host.upgrade(request, {
-              data: { token: requestToken(request), initialized: false, follows: new Set(), pending: 0 },
+              data: { token: requestToken(request), initialized: false, follows: new Set(), terminals: new Set(), pending: 0 },
             })
           )
             return undefined
@@ -639,6 +684,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       },
       close(socket) {
         clearTimeout(socket.data.timer)
+        systemTerminals.closeAll(socket.data.terminals)
+        socket.data.terminals.clear()
         sockets.delete(socket)
         void socket.data.scope?.dispose().catch(console.error)
       },
@@ -662,6 +709,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     info: hostInfo,
     async close() {
       unsubscribe()
+      systemTerminals.closeAll()
       for (const socket of sockets) socket.close()
       await server.stop(true)
     },

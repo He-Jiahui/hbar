@@ -76,6 +76,14 @@ const MOBILE_MORE_ITEMS = [
     placement: 'bottom',
   },
   {
+    id: 'system-terminal',
+    title: '系统终端',
+    description: '在当前工作区运行交互式 Shell',
+    icon: TerminalSquare,
+    component: 'system-terminal',
+    placement: 'bottom',
+  },
+  {
     id: 'settings',
     title: '设置',
     description: '模型、权限、存储与设备',

@@ -101,3 +101,29 @@ test('permission mode is exposed through the paired host and persists for future
   expect((await client.call('permission.get', {})).mode).toBe('allow')
   expect(kernel.permissionMode()).toBe('allow')
 })
+test('system terminal opens a scoped PTY and streams shell output', async () => {
+  const { client } = await fixture()
+  const bootstrap = await client.call('system.bootstrap', {})
+  const workspaceId = bootstrap.workspaces[0]!.id
+  const marker = `hbar-pty-${Date.now()}`
+  let output = ''
+  const unsubscribe = client.onEvent((event) => {
+    if (event.method === 'terminal.output') output += event.params.data
+  })
+  try {
+    const terminal = await client.call('terminal.open', { workspaceId, cols: 100, rows: 24 })
+    expect(terminal.workspaceId).toBe(workspaceId)
+    await client.call('terminal.input', {
+      terminalId: terminal.id,
+      data: process.platform === 'win32' ? `Write-Output ${marker}\r` : `printf '${marker}\\n'\n`,
+    })
+    for (let attempts = 0; attempts < 50 && !output.includes(marker); attempts++) await Bun.sleep(100)
+    expect(output.includes(marker)).toBe(true)
+    await client.call('terminal.resize', { terminalId: terminal.id, cols: 120, rows: 30 })
+    expect((await client.call('terminal.list', {}))[0]?.cols).toBe(120)
+    await client.call('terminal.close', { terminalId: terminal.id })
+    expect(await client.call('terminal.list', {})).toEqual([])
+  } finally {
+    unsubscribe()
+  }
+})

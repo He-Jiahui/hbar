@@ -7,6 +7,8 @@
     "@hbar/client": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/terminal": "workspace:*",
-    "@hbar/ui-sdk": "workspace:*"
+    "@hbar/ui-sdk": "workspace:*",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0"
   }
 }

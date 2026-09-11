@@ -51,6 +51,7 @@ import WorkbenchHeader from './workbench/WorkbenchHeader'
 import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbench/WorkbenchNavigation'
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
 import { FileNavigation, FileViewer } from './FileNavigation'
+import SystemTerminalPanel from './SystemTerminalPanel'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
 const DEFAULT_TOOL_RAIL_ORDER = [
@@ -542,6 +543,10 @@ export default function App() {
     config?: Record<string, unknown>,
     placement = 'editor',
   ) {
+    if (component === 'system-terminal' && id === 'system-terminal') {
+      id = `system-terminal:${crypto.randomUUID()}`
+      title = `系统终端 ${systemTerminalCount(model) + 1}`
+    }
     if (component === 'terminal') {
       activateConversationView('console')
       return
@@ -588,6 +593,14 @@ export default function App() {
         model.doAction(Actions.updateNodeAttributes(existing.getId(), { enableClose: true }))
     }
     if (!skipBorderSelection) model.doAction(Actions.selectTab(id))
+  }
+
+  function systemTerminalCount(current: Model) {
+    let count = 0
+    current.visitNodes((node) => {
+      if (node instanceof TabNode && node.getComponent() === 'system-terminal') count++
+    })
+    return count
   }
 
   function closePanel(id: string) {
@@ -771,6 +784,15 @@ export default function App() {
       execute: () => activateConversationView('console'),
     },
     {
+      id: 'open-system-terminal',
+      label: '打开系统终端',
+      description: '在当前工作区打开交互式 Shell',
+      keywords: ['terminal', 'shell', 'pty'],
+      icon: TerminalSquare,
+      group: 'navigation',
+      execute: () => openPanel('system-terminal', '系统终端', 'system-terminal', undefined, 'bottom'),
+    },
+    {
       id: 'open-settings',
       label: '打开设置',
       description: '模型、权限、外观与设备',
@@ -832,6 +854,8 @@ export default function App() {
       }
       case 'settings':
         return <Settings />
+      case 'system-terminal':
+        return <SystemTerminalPanel workspaceId={workspaceId} onClose={() => closePanel(node.getId())} />
       case 'activity':
         return <ActivityPanel />
       case 'git':
@@ -1015,6 +1039,8 @@ export default function App() {
                 <PlanPanel sessionId={activeSession} />
               ) : mobileView === 'insights' ? (
                 <InsightsPanel sessionId={activeSession} />
+              ) : mobileView === 'system-terminal' ? (
+                <SystemTerminalPanel workspaceId={workspaceId} onClose={() => setMobileView('chat')} />
               ) : mobileView === 'plugin' ? (
                 renderPlugin(mobilePanel)
               ) : mobileView === 'plugins' ? (
@@ -1023,6 +1049,7 @@ export default function App() {
                   onClose={() => setMobileView('chat')}
                   onOpenTool={(id, title, component, placement, config) => {
                     if (component === 'terminal') activateConversationView('console')
+                    else if (component === 'system-terminal') setMobileView('system-terminal')
                     else openPanel(id, title, component, config, placement)
                   }}
                 />

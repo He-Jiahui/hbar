@@ -277,6 +277,44 @@ test('workbench keeps tools on demand and exposes the global command palette', a
   }
 })
 
+test('system terminal opens as an xterm workbench surface', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    await page.keyboard.press('Control+Shift+P')
+    const palette = page.getByRole('dialog', { name: '命令面板', exact: true })
+    await expect(palette).toBeVisible()
+    await palette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('系统终端')
+    await palette.getByRole('option', { name: /打开系统终端/ }).press('Enter')
+    const terminal = page.locator('.system-terminal-panel').filter({ visible: true })
+    await expect(terminal).toBeVisible()
+    await expect(terminal.getByRole('heading')).toHaveCount(0)
+    await expect(terminal.getByText('系统终端', { exact: true })).toBeVisible()
+    await expect(terminal.locator('.xterm')).toBeVisible()
+    await expect(terminal.locator('.xterm-helper-textarea')).toBeAttached()
+    expect(await terminal.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThan(140)
+    await page.keyboard.press('Control+Shift+P')
+    const secondPalette = page.getByRole('dialog', { name: '命令面板', exact: true })
+    await secondPalette.getByRole('searchbox', { name: '搜索命令', exact: true }).fill('系统终端')
+    await secondPalette.getByRole('option', { name: /打开系统终端/ }).press('Enter')
+    await expect(page.locator('.system-terminal-panel').filter({ visible: true })).toHaveCount(2)
+    await page.screenshot({ path: `artifacts/${Date.now()}-desktop-system-terminal.png` })
+    const terminalPanels = page.locator('.system-terminal-panel').filter({ visible: true })
+    await terminalPanels.nth(1).getByRole('button', { name: '关闭系统终端', exact: true }).click()
+    await terminalPanels.nth(0).getByRole('button', { name: '关闭系统终端', exact: true }).click()
+    await expect(terminalPanels).toHaveCount(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openMobileMore(page)
+    await page.locator('.mobile-more-grid').getByRole('button', { name: '系统终端', exact: true }).click()
+    const mobileTerminal = page.locator('.system-terminal-panel').filter({ visible: true })
+    await expect(mobileTerminal).toBeVisible()
+    await expect(mobileTerminal.locator('.xterm')).toBeVisible()
+    await mobileTerminal.getByRole('button', { name: '关闭系统终端', exact: true }).click()
+    await expect(mobileTerminal).toHaveCount(0)
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('diagnose panel surfaces structured host status on desktop and mobile', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {

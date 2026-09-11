@@ -746,6 +746,32 @@ export const terminalSnapshotSchema = z.object({
   notifications: z.array(terminalEventSchema),
 })
 export type TerminalSnapshot = z.infer<typeof terminalSnapshotSchema>
+export const terminalOpenSchema = z.object({
+  workspaceId: idSchema,
+  cols: z.number().int().min(20).max(400).default(120),
+  rows: z.number().int().min(4).max(200).default(32),
+})
+export const terminalInputSchema = z.object({ terminalId: idSchema, data: z.string().max(64_000) })
+export const terminalResizeSchema = z.object({
+  terminalId: idSchema,
+  cols: z.number().int().min(20).max(400),
+  rows: z.number().int().min(4).max(200),
+})
+export const terminalCloseSchema = z.object({ terminalId: idSchema })
+export const terminalListSchema = z.object({})
+export type TerminalOpen = z.input<typeof terminalOpenSchema>
+export type TerminalInput = z.input<typeof terminalInputSchema>
+export type TerminalResize = z.input<typeof terminalResizeSchema>
+export type TerminalClose = z.input<typeof terminalCloseSchema>
+export interface TerminalInfo {
+  id: string
+  workspaceId: string
+  cwd: string
+  shell: string
+  cols: number
+  rows: number
+  startedAt: string
+}
 export interface HostInfo {
   version: string
   protocol: number
@@ -780,6 +806,8 @@ export type WireNotification =
   | { method: 'user_input.requested'; params: UserInputRequest }
   | { method: 'user_input.resolved'; params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse } }
   | { method: 'auth.revoked'; params: { reason: string } }
+  | { method: 'terminal.output'; params: { terminalId: string; data: string } }
+  | { method: 'terminal.exit'; params: { terminalId: string; code: number | null; signal: string | null } }
 
 export const rpcSchemas = {
   'system.hello': z.object({ protocol: z.literal(PROTOCOL_VERSION), token: z.string().max(512).optional() }),
@@ -965,6 +993,11 @@ export const rpcSchemas = {
   'session.export': z.object({ sessionId: idSchema }),
   'run.start': z.object({ sessionId: idSchema, requestId: idSchema, input: inputSchema, modelId: idSchema }),
   'run.cancel': z.object({ runId: idSchema }),
+  'terminal.open': terminalOpenSchema,
+  'terminal.input': terminalInputSchema,
+  'terminal.resize': terminalResizeSchema,
+  'terminal.close': terminalCloseSchema,
+  'terminal.list': terminalListSchema,
   'approval.resolve': z.object({ approvalId: idSchema, decision: z.enum(['allowed', 'denied']) }),
   'user_input.resolve': z.object({
     requestId: idSchema,
@@ -1078,6 +1111,11 @@ export interface RpcResults {
   'session.export': SessionEvent[]
   'run.start': Run
   'run.cancel': null
+  'terminal.open': TerminalInfo
+  'terminal.input': null
+  'terminal.resize': null
+  'terminal.close': null
+  'terminal.list': TerminalInfo[]
   'approval.resolve': null
   'user_input.resolve': { accepted: boolean }
   'context.compact': { summary: string }
