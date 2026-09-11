@@ -121,6 +121,22 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     }
   }
 
+  async function updateIndex(path: string, staged: boolean) {
+    if (!workspacePath || mutating) return
+    setMutating(true)
+    setError('')
+    try {
+      await client().call(staged ? 'git.stage' : 'git.unstage', { cwd: workspacePath, paths: [path] })
+      setDiff(null)
+      setSelectedPath('')
+      await refresh()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setMutating(false)
+    }
+  }
+
   async function commit() {
     const message = commitMessage.trim()
     if (!workspacePath || !message || !status?.entries.length || mutating) return
@@ -182,15 +198,25 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
             <div className="git-change-list" aria-label="文件更改">
               {status.entries.slice(0, 100).map((entry) => (
                 <SpotlightCard
-                  as="button"
-                  type="button"
                   className={`git-change-row ${entry.path === selectedPath ? 'selected' : ''}`}
                   key={`${entry.index}${entry.worktree}:${entry.path}`}
                   onClick={() => void openDiff(entry.path)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      void openDiff(entry.path)
+                    }
+                  }}
                   spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
                 >
                   <code className={`git-change-code git-change-${statusTone(entry)}`}>{statusCode(entry)}</code>
                   <span title={entry.path}>{entry.path}</span>
+                  <span className="git-change-actions">
+                    {entry.index !== ' ' && <button type="button" title="取消暂存" aria-label={`取消暂存 ${entry.path}`} onClick={(event) => { event.stopPropagation(); void updateIndex(entry.path, false) }} disabled={mutating}>−</button>}
+                    {entry.index === ' ' && <button type="button" title="暂存" aria-label={`暂存 ${entry.path}`} onClick={(event) => { event.stopPropagation(); void updateIndex(entry.path, true) }} disabled={mutating}>＋</button>}
+                  </span>
                 </SpotlightCard>
               ))}
               {status.entries.length > 100 && <p className="git-panel-muted">仅显示前 100 个文件。</p>}

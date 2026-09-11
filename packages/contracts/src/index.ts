@@ -837,6 +837,14 @@ export const rpcSchemas = {
     paths: z.array(z.string().min(1).max(4_000)).max(100).default([]),
     stage: z.boolean().default(false),
   }),
+  'git.stage': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    paths: z.array(z.string().min(1).max(4_000)).min(1).max(100),
+  }),
+  'git.unstage': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    paths: z.array(z.string().min(1).max(4_000)).min(1).max(100),
+  }),
   'git.branch': z.object({
     cwd: z.string().min(1).max(4_000).optional(),
     operation: z.enum(['list', 'create', 'switch', 'delete']).default('list'),
@@ -1018,6 +1026,8 @@ export interface RpcResults {
   'git.diff': GitDiff
   'git.log': GitCommitInfo[]
   'git.commit': GitCommitInfo
+  'git.stage': { paths: string[] }
+  'git.unstage': { paths: string[] }
   'git.branch': GitBranchInfo[] | GitBranchInfo
   'git.worktree': GitWorktreeInfo[] | GitWorktreeInfo
   'git.diff_to_remote': { sha: string; diff: string; truncated: boolean } | null

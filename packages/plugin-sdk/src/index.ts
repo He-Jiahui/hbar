@@ -179,6 +179,9 @@ export interface GitCommitOptions {
   paths?: string[] | undefined
   stage?: boolean | undefined
 }
+export interface GitPathOptions {
+  paths: string[]
+}
 export type GitBranchOperation =
   | { operation?: 'list' | undefined }
   | { operation: 'create' | 'switch' | 'delete'; name: string; force?: boolean | undefined }
@@ -192,6 +195,8 @@ export interface GitService {
   diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>
   log(cwd?: string, limit?: number, signal?: AbortSignal): Promise<GitCommitInfo[]>
   commit(cwd: string | undefined, options: GitCommitOptions, signal?: AbortSignal): Promise<GitCommitInfo>
+  stage(cwd: string | undefined, paths: string[], signal?: AbortSignal): Promise<GitPathOptions>
+  unstage(cwd: string | undefined, paths: string[], signal?: AbortSignal): Promise<GitPathOptions>
   branch(
     cwd: string | undefined,
     operation?: GitBranchOperation,

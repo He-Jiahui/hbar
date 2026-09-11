@@ -214,6 +214,36 @@
   white-space: nowrap;
 }
 
+.git-change-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.git-change-actions button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t3);
+  font: 14px/1 var(--dsh-font-family-code);
+}
+
+.git-change-actions button:hover:not(:disabled),
+.git-change-actions button:focus-visible {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.git-change-actions button:disabled {
+  opacity: 0.45;
+}
+
 .git-change-code {
   min-width: 31px;
   flex: 0 0 auto;

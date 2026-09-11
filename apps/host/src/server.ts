@@ -217,6 +217,14 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<GitService>('git').commit(p.cwd, p)
       }
+      case 'git.stage': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').stage(p.cwd, p.paths)
+      }
+      case 'git.unstage': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.get<GitService>('git').unstage(p.cwd, p.paths)
+      }
       case 'git.branch': {
         const p = rpcSchemas[method].parse(raw)
         const operation = p.operation === 'list' ? {} : { operation: p.operation, name: p.name!, force: p.force }

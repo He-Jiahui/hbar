@@ -88,6 +88,22 @@ test('Git commit, branch, and worktree operations use validated paths', async ()
   }
 })
 
+test('Git stage and unstage update the index for selected paths', async () => {
+  const { root, runtime } = await fixture()
+  await writeFile(join(root, 'staged.txt'), 'staged\n')
+  await writeFile(join(root, 'README.md'), 'updated\n')
+  const staged = await runtime.stage(root, ['staged.txt', 'README.md'])
+  expect(staged.paths).toEqual(['staged.txt', 'README.md'])
+  const stagedStatus = await runtime.status()
+  expect(stagedStatus.entries.find((entry) => entry.path === 'staged.txt')?.index).toBe('A')
+  expect(stagedStatus.entries.find((entry) => entry.path === 'README.md')?.index).toBe('M')
+  const unstaged = await runtime.unstage(root, ['README.md'])
+  expect(unstaged.paths).toEqual(['README.md'])
+  const finalStatus = await runtime.status()
+  expect(finalStatus.entries.find((entry) => entry.path === 'README.md')?.index).toBe(' ')
+  expect(finalStatus.entries.find((entry) => entry.path === 'README.md')?.worktree).toBe('M')
+})
+
 test('Git command runner never turns a path into shell syntax', async () => {
   const calls: string[][] = []
   const root = await mkdtemp(join(tmpdir(), 'hbar-git-runner-'))
