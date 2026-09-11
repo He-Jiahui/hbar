@@ -1,0 +1,69 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - docs/wiki/**
+      - .github/workflows/publish-wiki.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: false
+
+jobs:
+  configuration:
+    name: wiki-publishing-configuration
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.token.outputs.enabled }}
+    steps:
+      - name: Determine whether publishing is configured
+        id: token
+        shell: bash
+        env:
+          WIKI_PUSH_TOKEN: ${{ secrets.HBAR_WIKI_PUSH_TOKEN }}
+        run: |
+          if [ -z "$WIKI_PUSH_TOKEN" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Wiki publishing is skipped: configure HBAR_WIKI_PUSH_TOKEN after enabling the repository Wiki." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: publish-wiki
+    needs: configuration
+    if: needs.configuration.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Wiki source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Clone the repository Wiki
+        shell: bash
+        env:
+          WIKI_PUSH_TOKEN: ${{ secrets.HBAR_WIKI_PUSH_TOKEN }}
+        run: git clone --depth 1 "https://x-access-token:${WIKI_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+
+      - name: Replace Wiki content with the versioned source
+        shell: bash
+        run: |
+          git -C wiki rm -r --ignore-unmatch .
+          cp -a docs/wiki/. wiki/
+          git -C wiki add --all
+          if git -C wiki diff --cached --quiet; then
+            echo "Wiki is already up to date."
+            exit 0
+          fi
+          git -C wiki config user.name "github-actions[bot]"
+          git -C wiki config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C wiki commit -m "docs: sync wiki from ${GITHUB_SHA}"
+          git -C wiki push origin HEAD

@@ -4,6 +4,8 @@
 
 首版是可以运行的会话闭环：模型流式响应、工作区文件工具、Shell 审批、持久队列、取消、历史、分支、归档、图片与混合文件附件、摘要压缩、模型配置和本地插件管理。Goal、Plan、Budget 模式已作为内置插件接入；调度、后台任务和团队等后续边界见 [架构说明](docs/architecture.md)。
 
+面向使用者和贡献者的导航页在 [Wiki 源码](docs/wiki/Home.md) 中维护。它包含快速开始、会话与安全边界、插件、架构和 GitHub Flow；原生 GitHub Wiki 启用后会由受信任主线的工作流同步。
+
 ## 运行
 
 需要 Bun 1.4.0。Windows 桌面构建还需要 Visual Studio C++ 工具链、Windows SDK、WebView2，以及 `rust-toolchain.toml` 固定的 Rust 工具链。浏览器和独立 Host 不依赖 Rust。
@@ -100,4 +102,4 @@ bun scripts/desktop-smoke.ts
 
 ## 许可证与贡献
 
-本项目以 [MIT License](LICENSE) 发布。提交代码前请阅读 [贡献指南](CONTRIBUTING.md)；其中包含开发环境、验证命令和提交要求。
+本项目以 [MIT License](LICENSE) 发布。提交代码前请阅读 [贡献指南](CONTRIBUTING.md) 和 [GitHub Flow](docs/wiki/GitHub-Flow.md)；其中包含开发环境、验证命令、PR 和合并要求。

@@ -29,7 +29,7 @@ hbar 使用轻量的 GitHub Flow：`master` 始终代表可集成的主线；每
 - 要求 PR 才能合并；
 - 要求至少一位批准审阅者；
 - 要求当前分支已更新到合并基线；
-- 将 CI 的 `verify` 状态设为 required，禁止绕过失败检查；
+- 将 [Verify / verify](https://github.com/He-Jiahui/hbar/blob/master/.github/workflows/verify.yml) 状态设为 required，禁止绕过失败检查；
 - 限制 force push 与直接删除受保护分支。
 
 这些是仓库设置，不会由代码提交自动修改。启用原生 GitHub Wiki 后，也应设置仅由受信任的 `master` 推送发布 Wiki，避免 PR 代码接触发布凭据。
@@ -37,5 +37,11 @@ hbar 使用轻量的 GitHub Flow：`master` 始终代表可集成的主线；每
 ## Wiki 发布约定
 
 `docs/wiki/` 是 GitHub Wiki 页面唯一规范源。不要只在 GitHub Wiki 网页编辑：否则下一次发布会覆盖未回写到主仓库的内容。更新页面时同时检查 `Home.md`、`_Sidebar.md`、相对链接和发布工作流；发布配置会使用只在受信任主线可用的 token，不在 Pull Request 中暴露任何密钥。
+
+首次启用发布时，由仓库管理员完成以下一次性设置：
+
+1. 在 GitHub 仓库 Settings → General → Features 中启用 Wiki。
+2. 创建能 clone 并 push `<owner>/<repo>.wiki.git` 的仓库 scoped token，并以 Actions secret `HBAR_WIKI_PUSH_TOKEN` 保存。
+3. 从 `master` 修改 `docs/wiki/`，或手动运行 [Publish Wiki](https://github.com/He-Jiahui/hbar/blob/master/.github/workflows/publish-wiki.yml)。没有该 secret 时工作流会明确跳过发布，不会把 token 用在 PR 中。
 
 回到 [Wiki 首页](Home.md) 或 [开发与验证](Development.md)。
