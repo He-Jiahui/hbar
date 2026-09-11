@@ -29,6 +29,21 @@ test('model settings can search and filter configured connections', async ({ pag
     await expect(settingsPanel).toHaveCSS('grid-template-columns', /\S+ \S+/)
     await expect(settingsPanel.locator('.settings-nav')).toHaveCSS('grid-column', '1')
     await expect(settingsPanel.locator('.models-section')).toHaveCSS('grid-column', '2')
+    await expect(settingsPanel.locator('.models-section')).toHaveCSS('padding-left', '16px')
+    await expect(settingsPanel.locator('.models-section')).toHaveCSS('padding-right', '16px')
+    const modelGroupBounds = await settingsPanel.locator('.settings-provider-group').first().evaluate((element) => {
+      const section = element.closest('.models-section')
+      if (!section) return null
+      const group = element.getBoundingClientRect()
+      const sectionBounds = section.getBoundingClientRect()
+      return {
+        leftInset: group.left - sectionBounds.left,
+        rightInset: sectionBounds.right - group.right,
+      }
+    })
+    expect(modelGroupBounds).not.toBeNull()
+    expect(modelGroupBounds?.leftInset).toBeGreaterThanOrEqual(16)
+    expect(modelGroupBounds?.rightInset).toBeGreaterThanOrEqual(16)
     await expect(page.locator('.settings-tabs-glass')).toHaveClass(/glass-surface/)
     await expect(page.locator('.settings-tabs').getByRole('button', { name: '模型', exact: true })).toHaveAttribute(
       'aria-current',

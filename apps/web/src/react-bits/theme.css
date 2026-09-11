@@ -3263,7 +3263,8 @@
     min-height: 0;
     max-width: none;
     overflow: auto;
-    padding: 0 4px 24px 0;
+    /* Keep detail content from touching either edge of the scroll column. */
+    padding: 0 16px 24px;
   }
 
   .settings-panel:not(.settings-editor-panel) > .settings-tabs.settings-nav .settings-nav-items > button {
