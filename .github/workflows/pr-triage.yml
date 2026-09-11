@@ -1,0 +1,129 @@
+name: PR Triage
+
+# This workflow uses pull_request_target only for trusted GitHub API metadata.
+# It never checks out or executes the contributor's head branch.
+on:
+  pull_request_target:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr-triage-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    name: label-and-summarize
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Label changed areas and update the PR summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const issue_number = context.payload.pull_request.number
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: issue_number,
+              per_page: 100,
+            })
+            const filenames = files.map((file) => file.filename)
+            const areaLabels = {
+              'area:web': '1d76db',
+              'area:host': '0e8a16',
+              'area:contracts': '5319e7',
+              'area:desktop': '7057ff',
+              'area:plugins': 'a2eeef',
+              'area:docs': '0075ca',
+              'area:ci': 'fbca04',
+            }
+            const areas = new Set()
+            for (const filename of filenames) {
+              if (filename.startsWith('apps/web/') || filename.startsWith('e2e/')) areas.add('area:web')
+              if (filename.startsWith('apps/host/') || filename.startsWith('packages/kernel/') || filename.startsWith('packages/storage/')) areas.add('area:host')
+              if (filename.startsWith('packages/contracts/') || filename.startsWith('packages/client/')) areas.add('area:contracts')
+              if (filename.startsWith('apps/desktop/')) areas.add('area:desktop')
+              if (filename.startsWith('packages/plugin-sdk/') || filename.startsWith('packages/ui-sdk/') || filename.startsWith('plugins/')) areas.add('area:plugins')
+              if (filename.startsWith('docs/') || filename === 'README.md' || filename === 'CONTRIBUTING.md') areas.add('area:docs')
+              if (filename.startsWith('.github/') || filename.startsWith('scripts/')) areas.add('area:ci')
+            }
+
+            const currentLabels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            })
+            const currentNames = new Set(currentLabels.map((label) => label.name))
+            for (const [name, color] of Object.entries(areaLabels)) {
+              try {
+                await github.rest.issues.createLabel({ owner, repo, name, color })
+              } catch (error) {
+                if (error?.status !== 422) throw error
+              }
+            }
+
+            const desired = [...areas]
+            if (desired.length > 0) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: desired })
+            }
+            for (const name of Object.keys(areaLabels)) {
+              if (areas.has(name) || !currentNames.has(name)) continue
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name })
+              } catch (error) {
+                if (error?.status !== 404) throw error
+              }
+            }
+
+            const productionFiles = filenames.filter((filename) =>
+              /\.(?:ts|tsx)$/.test(filename) &&
+              !/\.test\.[cm]?[jt]sx?$/.test(filename) &&
+              !filename.includes('/__tests__/') &&
+              !filename.includes('/fixtures/'))
+            const testFiles = filenames.filter((filename) =>
+              /\.test\.[cm]?[jt]sx?$/.test(filename) || filename.includes('/__tests__/'))
+            const testReminder = productionFiles.length > 0 && testFiles.length === 0
+              ? 'Production TypeScript changed without an obvious same-PR test file; explain the exception or add coverage.'
+              : 'A same-area test file is present, or this PR is documentation/configuration-only.'
+            const marker = '<!-- hbar-pr-triage -->'
+            const areaText = desired.sort().join(', ') || 'none detected'
+            const fileText = filenames
+              .slice(0, 30)
+              .map((filename) => `- \`${filename.replaceAll('`', '\\`').replaceAll('\n', ' ')}\``)
+              .join('\n') || '- none'
+            const body = [
+              marker,
+              '## hbar PR triage',
+              '',
+              `**Changed areas:** ${areaText}`,
+              '',
+              '**Deterministic gate:** `Verify / verify` runs lint, typecheck, tests, docs links, and the Web build.',
+              '',
+              `**Test reminder:** ${testReminder}`,
+              '',
+              '**Changed files (first 30):**',
+              fileText,
+              '',
+              'This summary is advisory; merge requirements come from branch protection and required checks.',
+            ].join('\n')
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            })
+            const existing = comments.find((comment) => comment.body?.includes(marker))
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body })
+            }

@@ -41,6 +41,7 @@ jobs:
     needs: configuration
     if: needs.configuration.outputs.enabled == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout Wiki source
         uses: actions/checkout@v4
@@ -51,10 +52,16 @@ jobs:
         shell: bash
         env:
           WIKI_PUSH_TOKEN: ${{ secrets.HBAR_WIKI_PUSH_TOKEN }}
-        run: git clone --depth 1 "https://x-access-token:${WIKI_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+        run: |
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=http.extraheader \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer ${WIKI_PUSH_TOKEN}" \
+          git clone --depth 1 "https://github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
 
       - name: Replace Wiki content with the versioned source
         shell: bash
+        env:
+          WIKI_PUSH_TOKEN: ${{ secrets.HBAR_WIKI_PUSH_TOKEN }}
         run: |
           git -C wiki rm -r --ignore-unmatch .
           cp -a docs/wiki/. wiki/
@@ -66,4 +73,8 @@ jobs:
           git -C wiki config user.name "github-actions[bot]"
           git -C wiki config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C wiki commit -m "docs: sync wiki from ${GITHUB_SHA}"
-          git -C wiki push origin HEAD
+          branch="$(git -C wiki symbolic-ref --short HEAD)"
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=http.extraheader \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer ${WIKI_PUSH_TOKEN}" \
+          git -C wiki push origin "HEAD:${branch}"

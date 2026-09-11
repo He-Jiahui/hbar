@@ -1,10 +1,12 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
+import type { Device } from '@hbar/contracts'
 import type { StoragePort } from '@hbar/storage'
 
 export class Auth {
   private pairing = { code: '', expiresAt: 0 }
   private attempts = new Map<string, { count: number; resetAt: number }>()
+  private internalDevices = new Map<string, Device>()
   constructor(private storage: StoragePort) {}
   createPairing() {
     this.pairing = { code: String(randomInt(10_000_000, 100_000_000)), expiresAt: Date.now() + 5 * 60_000 }
@@ -35,11 +37,19 @@ export class Auth {
     await this.storage.call('putDevice', device, this.hash(token))
     return { token, device }
   }
+  createInternalDevice(name: string) {
+    const token = randomBytes(32).toString('base64url')
+    const device = { id: crypto.randomUUID(), name: name.slice(0, 100), createdAt: Date.now(), lastSeenAt: Date.now() }
+    this.internalDevices.set(this.hash(token), device)
+    return { token, device }
+  }
   hash(token: string) {
     return createHash('sha256').update(token).digest('hex')
   }
   async authenticate(token?: string) {
     if (!token || token.length > 512) throw new HbarError('UNAUTHORIZED', 'Device pairing required')
+    const internal = this.internalDevices.get(this.hash(token))
+    if (internal) return internal
     const device = await this.storage.call('deviceByHash', this.hash(token))
     if (!device) throw new HbarError('UNAUTHORIZED', 'Device credential is invalid or revoked')
     return device

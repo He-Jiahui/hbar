@@ -22,6 +22,12 @@ hbar 使用轻量的 GitHub Flow：`master` 始终代表可集成的主线；每
 
 生产行为变化应有同领域测试。涉及跨端、流式、并发、取消、重连、恢复或权限时，不要只验证函数被调用；应验证用户能观察到的最终状态和失败路径。
 
+## PR 分流与代码所有者
+
+`PR Triage` 会按变更路径添加 `area:web`、`area:host`、`area:contracts`、`area:desktop`、`area:plugins`、`area:docs` 或 `area:ci` 标签，并更新一条带 marker 的摘要评论。它运行在 `pull_request_target` 上，但只读取 GitHub API 返回的文件列表和标签，不 checkout、不安装、不执行贡献者分支代码；摘要是审阅辅助，不会把 advisory 提示当作通过信号。
+
+`.github/CODEOWNERS` 为工作流、Wiki、公共 contracts、Host、storage、插件 SDK 和 Tauri 边界指定维护者。代码所有者请求是审阅入口，最终合并仍以分支保护和 `Verify / verify` required check 为准。
+
 ## 建议的仓库设置
 
 工作流文件可以提供检查，但不能自行开启 GitHub 的分支保护。管理员应在仓库 Settings 中为 `master` 配置至少以下规则：

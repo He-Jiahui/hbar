@@ -74,7 +74,7 @@ try {
       : {}),
   })
   if (values.desktop) {
-    const device = await host.auth.createDevice('hbar desktop')
+    const device = host.auth.createInternalDevice('hbar desktop')
     await writeFile(
       layout.connectionFile,
       JSON.stringify({

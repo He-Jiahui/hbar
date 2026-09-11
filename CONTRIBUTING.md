@@ -43,6 +43,8 @@ bun run build
 
 打开 Draft PR 后尽早说明影响面、设计取舍和计划中的验证。准备合并前，补齐 PR 模板中的实际测试结果、兼容性/迁移说明、已知风险和回滚路径。GitHub Actions 的 `Verify / verify` 会在 PR 与 `master` 推送上执行无密钥的 lint、类型检查、测试、文档链接检查和 Web 构建；它不会执行真实模型请求。
 
+`PR Triage` 会根据变更路径添加 `area:*` 标签并更新一条可追溯的摘要；它只读取 PR 元数据，不执行贡献者代码。`.github/CODEOWNERS` 为 CI、Wiki、公共契约、Host、存储和桌面原生边界指定维护者复核人。
+
 仓库管理员仍需要在 GitHub Settings 中启用原生 Wiki，并为 `master` 配置 PR、审阅和 `verify` required check 等保护规则。工作流文件不会自行改变这些仓库设置。
 
 ## 提交与合并请求
