@@ -8,6 +8,7 @@
 - [验证说明](docs/testing.md)：自动化测试、性能基线和手动验收
 - [Wiki](docs/wiki/Home.md)：快速开始、会话与安全边界、架构和协作入口
 - [GitHub Flow](docs/wiki/GitHub-Flow.md)：分支、PR、CI 和 Wiki 发布约定
+- [安全策略](SECURITY.md)：私下报告漏洞和脱敏诊断信息的要求
 - [项目工程规范](.agents/skills/hbar-engineering/SKILL.md)：模块边界、MVVM/MVC、工作台设计、增量同步、严格检查和逐功能提交要求
 
 ## 开发环境

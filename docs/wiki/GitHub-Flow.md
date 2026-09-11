@@ -40,6 +40,8 @@ hbar 使用轻量的 GitHub Flow：`master` 始终代表可集成的主线；每
 
 这些是仓库设置，不会由代码提交自动修改。启用原生 GitHub Wiki 后，也应设置仅由受信任的 `master` 推送发布 Wiki，避免 PR 代码接触发布凭据。
 
+hbar 当前采用一个完整的确定性 `Verify / verify` 门，而不是复制参考项目的多套路径选择器：本仓库的检查规模仍适合每个 PR 全量运行，单一 required check 可以减少路由漂移和“未选中 job 被误判为通过”的风险。若未来拆分 lane，应先以实际耗时和覆盖盲区为依据，并保留一个维护者可手动触发的全量检查。
+
 ## Wiki 发布约定
 
 `docs/wiki/` 是 GitHub Wiki 页面唯一规范源。不要只在 GitHub Wiki 网页编辑：否则下一次发布会覆盖未回写到主仓库的内容。更新页面时同时检查 `Home.md`、`_Sidebar.md`、相对链接和发布工作流；发布配置会使用只在受信任主线可用的 token，不在 Pull Request 中暴露任何密钥。

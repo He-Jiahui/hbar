@@ -102,4 +102,4 @@ bun scripts/desktop-smoke.ts
 
 ## 许可证与贡献
 
-本项目以 [MIT License](LICENSE) 发布。提交代码前请阅读 [贡献指南](CONTRIBUTING.md) 和 [GitHub Flow](docs/wiki/GitHub-Flow.md)；其中包含开发环境、验证命令、PR 和合并要求。
+本项目以 [MIT License](LICENSE) 发布。提交代码前请阅读 [贡献指南](CONTRIBUTING.md) 和 [GitHub Flow](docs/wiki/GitHub-Flow.md)；其中包含开发环境、验证命令、PR 和合并要求。安全问题请按 [安全策略](SECURITY.md) 私下报告。
