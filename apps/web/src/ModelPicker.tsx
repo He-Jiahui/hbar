@@ -131,23 +131,42 @@ export default function ModelPicker() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [expandedModelId, setExpandedModelId] = useState(selectedId)
+  const [highlightedModelIndex, setHighlightedModelIndex] = useState(0)
   const trigger = useRef<HTMLButtonElement>(null)
+  const highlightedModelIndexRef = useRef(0)
 
   useEffect(() => {
     if (selectedId) setExpandedModelId(selectedId)
   }, [selectedId])
   const groups = groupModelsByProvider(models.filter((model) => matches(model, model.providerName, query)))
+  const modelOptions = groups.flatMap((group) => group.models)
   const selectedLevel = selected ? selectedThinking : 'off'
   const detailModel = models.find((model) => model.id === expandedModelId) ?? selected ?? groups[0]?.models[0]
+  function closePicker() {
+    setOpen(false)
+    setQuery('')
+    requestAnimationFrame(() => trigger.current?.focus())
+  }
+  function moveExpanded(delta: -1 | 1) {
+    if (!modelOptions.length) return
+    const nextIndex = (highlightedModelIndexRef.current + delta + modelOptions.length) % modelOptions.length
+    highlightedModelIndexRef.current = nextIndex
+    setHighlightedModelIndex(nextIndex)
+    setExpandedModelId(modelOptions[nextIndex]!.id)
+  }
   function chooseModel(model: ModelInfo) {
     selectModel(model.id)
     setExpandedModelId(model.id)
+    const modelIndex = modelOptions.findIndex((item) => item.id === model.id)
+    if (modelIndex >= 0) {
+      highlightedModelIndexRef.current = modelIndex
+      setHighlightedModelIndex(modelIndex)
+    }
   }
   function chooseThinking(model: ModelInfo, level: ThinkingLevel) {
     if (model.id === selectedId) selectThinkingLevel(level)
     else selectModel(model.id, level)
-    setOpen(false)
-    setQuery('')
+    closePicker()
   }
 
   return (
@@ -169,8 +188,14 @@ export default function ModelPicker() {
             : '选择模型'
         }
         onClick={() => {
-          if (!open) setExpandedModelId(selectedId || models[0]?.id || '')
-          setOpen((value) => !value)
+          if (open) {
+            closePicker()
+            return
+          }
+          setExpandedModelId(selectedId || models[0]?.id || '')
+          highlightedModelIndexRef.current = 0
+          setHighlightedModelIndex(0)
+          setOpen(true)
         }}
       >
         <Sparkles size={13} aria-hidden="true" />
@@ -183,7 +208,7 @@ export default function ModelPicker() {
       <FloatingLayer
         anchorRef={trigger}
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={closePicker}
         placement="below"
         className="model-picker-menu rb-menu-surface"
         role="menu"
@@ -197,7 +222,22 @@ export default function ModelPicker() {
             aria-label="搜索模型"
             placeholder="搜索模型或供应商"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              highlightedModelIndexRef.current = 0
+              setHighlightedModelIndex(0)
+              setExpandedModelId('')
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault()
+                moveExpanded(event.key === 'ArrowDown' ? 1 : -1)
+              } else if (event.key === 'Enter') {
+                event.preventDefault()
+                const highlighted = modelOptions[highlightedModelIndexRef.current]
+                if (highlighted) chooseModel(highlighted)
+              }
+            }}
           />
         </div>
         <div className="model-picker-body">
@@ -215,10 +255,11 @@ export default function ModelPicker() {
                 </header>
                 {group.models.map((model) => {
                   const isSelected = model.id === selectedId
+                  const isHighlighted = model.id === modelOptions[highlightedModelIndex]?.id
                   const level = isSelected ? selectedThinking : model.defaultThinkingLevel
                   return (
                     <SpotlightCard
-                      className={`model-picker-model ${model.id === expandedModelId ? 'expanded' : ''} ${isSelected ? 'selected' : ''}`}
+                      className={`model-picker-model ${model.id === expandedModelId ? 'expanded' : ''} ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}`}
                       key={model.id}
                       spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
                     >
@@ -226,8 +267,16 @@ export default function ModelPicker() {
                         type="button"
                         role="menuitemradio"
                         aria-checked={isSelected}
+                        aria-current={model.id === expandedModelId ? 'true' : undefined}
                         aria-label={`${model.providerName} / ${model.modelName}`}
                         className="model-picker-option"
+                        onMouseEnter={() => {
+                          const modelIndex = modelOptions.findIndex((item) => item.id === model.id)
+                          if (modelIndex >= 0) {
+                            highlightedModelIndexRef.current = modelIndex
+                            setHighlightedModelIndex(modelIndex)
+                          }
+                        }}
                         onClick={() => chooseModel(model)}
                       >
                         <span className="model-picker-avatar">{model.modelName.slice(0, 1).toUpperCase()}</span>

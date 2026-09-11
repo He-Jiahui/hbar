@@ -2045,6 +2045,11 @@
   margin-bottom: 2px;
 }
 
+.model-picker-body .model-picker-model.highlighted > .model-picker-option {
+  border-color: color-mix(in srgb, var(--rb-accent) 54%, var(--hbar-bd2));
+  background: color-mix(in srgb, var(--rb-accent) 10%, var(--hbar-s1));
+}
+
 .model-picker-body .model-picker-option {
   min-height: 56px;
   padding: 8px 7px;

@@ -174,7 +174,9 @@ test('model picker changes the active model without leaving the conversation', a
     const provider = pickerMenu.locator('.model-picker-provider[aria-label="UI Model Catalog"]')
     await expect(provider).toBeVisible()
     const deep = provider.locator('.model-picker-model').filter({ hasText: 'Deep model' })
-    await deep.getByRole('menuitemradio', { name: /UI Model Catalog \/ Deep model/ }).click()
+    await search.press('ArrowDown')
+    await expect(deep).toHaveClass(/highlighted/)
+    await search.press('Enter')
     await expect(deep.getByRole('menuitemradio', { name: /UI Model Catalog \/ Deep model/ })).toHaveAttribute(
       'aria-checked',
       'true',
@@ -183,6 +185,7 @@ test('model picker changes the active model without leaving the conversation', a
     const high = pickerMenu.getByRole('radio', { name: '高', exact: true })
     if (await high.count()) await high.click()
     await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
+    await expect(picker).toBeFocused()
 
     await page.setViewportSize({ width: 390, height: 844 })
     await openMobileSettings(page)
