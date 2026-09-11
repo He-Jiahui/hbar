@@ -27,6 +27,10 @@ function statusTone(entry: GitStatus['entries'][number]) {
   return 'changed'
 }
 
+function isStaged(entry: GitStatus['entries'][number]) {
+  return entry.index !== ' ' && entry.index !== '?'
+}
+
 function shortBranch(value: string | null) {
   return value && value.length > 34 ? `${value.slice(0, 31)}…` : value ?? '未检出分支'
 }
@@ -144,7 +148,12 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     setMutating(true)
     setError('')
     try {
-      await client().call('git.commit', { cwd: workspacePath, message, stage: true })
+      await client().call('git.commit', {
+        cwd: workspacePath,
+        message,
+        paths: status.entries.map((entry) => entry.path).slice(0, 100),
+        stage: true,
+      })
       setCommitMessage('')
       setDiff(null)
       setSelectedPath('')
@@ -214,8 +223,18 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
                   <code className={`git-change-code git-change-${statusTone(entry)}`}>{statusCode(entry)}</code>
                   <span title={entry.path}>{entry.path}</span>
                   <span className="git-change-actions">
-                    {entry.index !== ' ' && <button type="button" title="取消暂存" aria-label={`取消暂存 ${entry.path}`} onClick={(event) => { event.stopPropagation(); void updateIndex(entry.path, false) }} disabled={mutating}>−</button>}
-                    {entry.index === ' ' && <button type="button" title="暂存" aria-label={`暂存 ${entry.path}`} onClick={(event) => { event.stopPropagation(); void updateIndex(entry.path, true) }} disabled={mutating}>＋</button>}
+                    <button
+                      type="button"
+                      title={isStaged(entry) ? '取消暂存' : '暂存'}
+                      aria-label={`${isStaged(entry) ? '取消暂存' : '暂存'} ${entry.path}`}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void updateIndex(entry.path, !isStaged(entry))
+                      }}
+                      disabled={mutating}
+                    >
+                      {isStaged(entry) ? '−' : '＋'}
+                    </button>
                   </span>
                 </SpotlightCard>
               ))}

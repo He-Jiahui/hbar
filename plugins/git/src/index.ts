@@ -245,8 +245,18 @@ function parseLog(output: string): GitCommitInfo[] {
   const commits: GitCommitInfo[] = []
   for (let index = 0; index + 4 < fields.length; index += 5) {
     const [sha, shortSha, author, authoredAt, subject] = fields.slice(index, index + 5)
-    if (!sha || !shortSha) continue
-    commits.push(gitCommitInfoSchema.parse({ sha, shortSha, author: author ?? '', authoredAt: authoredAt ?? '', subject: subject ?? '' }))
+    const cleanSha = sha?.trim()
+    const cleanShortSha = shortSha?.trim()
+    if (!cleanSha || !cleanShortSha) continue
+    commits.push(
+      gitCommitInfoSchema.parse({
+        sha: cleanSha,
+        shortSha: cleanShortSha,
+        author: author ?? '',
+        authoredAt: authoredAt?.trim() ?? '',
+        subject: subject ?? '',
+      }),
+    )
   }
   return commits
 }
