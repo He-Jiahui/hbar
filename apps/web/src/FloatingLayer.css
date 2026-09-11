@@ -6,6 +6,9 @@
   z-index: 1200 !important;
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .command-palette-backdrop,

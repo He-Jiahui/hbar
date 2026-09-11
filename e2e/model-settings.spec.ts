@@ -188,6 +188,16 @@ test('model picker changes the active model without leaving the conversation', a
     await expect(picker).toBeFocused()
 
     await page.setViewportSize({ width: 390, height: 844 })
+    await picker.click()
+    await expect(pickerMenu).toBeVisible()
+    const mobilePickerBounds = await pickerMenu.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return { top: bounds.top, bottom: bounds.bottom, viewport: innerHeight }
+    })
+    expect(mobilePickerBounds.top).toBeGreaterThanOrEqual(8)
+    expect(mobilePickerBounds.bottom).toBeLessThanOrEqual(mobilePickerBounds.viewport - 8)
+    await picker.press('Escape')
+    await expect(pickerMenu).toHaveCount(0)
     await openMobileSettings(page)
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
     await expect(page.getByRole('textbox', { name: '搜索供应商或模型', exact: true })).toBeVisible()
