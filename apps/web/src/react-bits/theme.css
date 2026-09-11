@@ -3004,6 +3004,53 @@
   font-size: 9px;
 }
 
+/* Long settings forms get the reference app's master/detail composition on
+ * desktop: the destination list remains visible while only the detail pane
+ * scrolls. The compact horizontal rail is retained for touch widths below. */
+@media (min-width: 900px) {
+  .settings-panel:not(.settings-editor-panel) {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    grid-template-columns: minmax(156px, 190px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0 22px;
+    overflow: hidden;
+  }
+
+  .settings-panel:not(.settings-editor-panel) > .page-heading {
+    grid-column: 1 / -1;
+  }
+
+  .settings-panel:not(.settings-editor-panel) > .settings-tabs.settings-nav {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    width: auto;
+    max-width: none;
+    margin: 0;
+  }
+
+  .settings-panel:not(.settings-editor-panel) > .settings-tabs.settings-nav .settings-nav-items {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-panel:not(.settings-editor-panel) > .settings-section {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    overflow: auto;
+    padding: 0 4px 24px 0;
+  }
+
+  .settings-panel:not(.settings-editor-panel) > .settings-tabs.settings-nav .settings-nav-items > button {
+    min-height: 44px;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 1150px) and (min-width: 900px) {
   .settings-nav .settings-nav-items {
     grid-template-columns: repeat(3, minmax(0, 1fr));

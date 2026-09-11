@@ -672,6 +672,7 @@ export default function App() {
       description: '在当前项目创建一个会话',
       keywords: ['session', 'create'],
       icon: Plus,
+      group: 'actions',
       execute: () => void newSession(),
     },
     {
@@ -679,6 +680,7 @@ export default function App() {
       label: sidebar ? '收起项目与会话栏' : '展开项目与会话栏',
       keywords: ['sidebar', 'navigation'],
       icon: sidebar ? PanelLeftClose : PanelLeftOpen,
+      group: 'navigation',
       execute: () => {
         if (small) setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions')
         else setSidebar((visible) => !visible)
@@ -690,6 +692,7 @@ export default function App() {
       description: '浏览当前项目文件',
       keywords: ['file', 'files'],
       icon: Folder,
+      group: 'navigation',
       execute: () => {
         useWorkbench.setState({ panel: 'files' })
         if (small) setMobileView('files')
@@ -702,6 +705,7 @@ export default function App() {
       description: '在底部展开 AI 命令控制台',
       keywords: ['terminal', 'console'],
       icon: TerminalSquare,
+      group: 'navigation',
       execute: () => openPanel('terminal', '终端', 'terminal', undefined, 'bottom'),
     },
     {
@@ -710,6 +714,7 @@ export default function App() {
       description: '模型、权限、外观与设备',
       keywords: ['settings', 'preferences', 'theme'],
       icon: Settings2,
+      group: 'navigation',
       execute: settings,
     },
     {
@@ -718,6 +723,7 @@ export default function App() {
       description: '查看当前会话运行状态',
       keywords: ['activity', 'events', 'runs'],
       icon: Activity,
+      group: 'navigation',
       execute: () => openPanel('activity', '运行', 'activity', undefined, 'right'),
     },
     {
@@ -726,6 +732,7 @@ export default function App() {
       description: '重置工具区和标签位置',
       keywords: ['layout', 'reset', 'restore'],
       icon: LayoutGrid,
+      group: 'actions',
       execute: () => {
         useWorkbench.setState({ layout: null, toolPanel: '' })
         setModel(Model.fromJson(defaultLayout()))
@@ -1087,3 +1094,4 @@ export default function App() {
     </div>
   )
 }
+

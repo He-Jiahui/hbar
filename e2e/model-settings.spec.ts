@@ -25,6 +25,10 @@ test('model settings can search and filter configured connections', async ({ pag
   try {
     await page.getByRole('button', { name: '设置', exact: true }).first().click()
     await expect(page.getByRole('heading', { name: '供应商与模型', exact: true })).toBeVisible()
+    const settingsPanel = page.locator('.settings-panel:not(.settings-editor-panel)').filter({ visible: true })
+    await expect(settingsPanel).toHaveCSS('grid-template-columns', /\S+ \S+/)
+    await expect(settingsPanel.locator('.settings-nav')).toHaveCSS('grid-column', '1')
+    await expect(settingsPanel.locator('.models-section')).toHaveCSS('grid-column', '2')
     await expect(page.locator('.settings-tabs-glass')).toHaveClass(/glass-surface/)
     await expect(page.locator('.settings-tabs').getByRole('button', { name: '模型', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.locator('.settings-provider-group').first()).toHaveAttribute('aria-label', 'Local fixture')
