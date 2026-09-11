@@ -62,6 +62,33 @@ fn connection_info(
     Ok(state.inner().clone())
 }
 
+#[tauri::command]
+#[cfg(target_os = "windows")]
+fn pick_directory() -> Option<String> {
+    use std::os::windows::process::CommandExt;
+
+    let script = r#"
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = '选择工作区目录'
+$dialog.ShowNewFolderButton = $false
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dialog.SelectedPath }
+"#;
+    let output = Command::new("powershell.exe")
+        .args(["-NoProfile", "-STA", "-NonInteractive", "-Command", script])
+        .creation_flags(0x08000000)
+        .output()
+        .ok()?;
+    output.status.success().then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
+        .filter(|path| !path.is_empty())
+}
+
+#[tauri::command]
+#[cfg(not(target_os = "windows"))]
+fn pick_directory() -> Option<String> {
+    None
+}
+
 fn existing(data_root: &Path) -> Option<Connection> {
     let connection: Connection =
         serde_json::from_slice(&fs::read(data_root.join("settings").join("connection.json")).ok()?)
@@ -193,7 +220,7 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![connection_info])
+        .invoke_handler(tauri::generate_handler![connection_info, pick_directory])
         .setup(|app| {
             let connection = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
