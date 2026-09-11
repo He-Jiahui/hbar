@@ -834,9 +834,11 @@ test('phone supports send, denial, files and model settings without horizontal o
       display: getComputedStyle(element).display,
       scrollWidth: element.scrollWidth,
       clientWidth: element.clientWidth,
+      lastColumn: getComputedStyle(element.lastElementChild as HTMLElement).gridColumnStart,
     }))
     expect(mobileSettingsNavLayout.display).toBe('grid')
     expect(mobileSettingsNavLayout.scrollWidth).toBeLessThanOrEqual(mobileSettingsNavLayout.clientWidth)
+    expect(mobileSettingsNavLayout.lastColumn).toBe('2')
     await page.screenshot({ path: `artifacts/${Date.now()}-mobile-settings.png` })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
   } finally {

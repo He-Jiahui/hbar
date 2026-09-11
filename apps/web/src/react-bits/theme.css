@@ -3338,6 +3338,12 @@
     padding: 7px 6px;
   }
 
+  /* Seven destinations leave a single final item; center that orphan rather
+   * than making the navigation look like a clipped, unfinished row. */
+  .settings-nav .settings-nav-items > button:last-child {
+    grid-column: 2;
+  }
+
   .settings-nav-icon {
     width: 25px;
     height: 25px;
