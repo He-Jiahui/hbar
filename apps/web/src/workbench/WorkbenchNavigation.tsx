@@ -3,6 +3,7 @@ import {
   CircleHelp,
   FileSearch,
   Folder,
+  GitBranch,
   Globe,
   LayoutGrid,
   ListChecks,
@@ -45,6 +46,7 @@ export interface WorkbenchNavigationProps {
 }
 
 const MOBILE_TOOLS = [
+  { id: 'git', title: 'Git', icon: GitBranch },
   { id: 'browser', title: '浏览器', icon: Globe },
   { id: 'inspector', title: '会话检查', icon: FileSearch },
   { id: 'plan', title: '计划', icon: ListChecks },
@@ -149,6 +151,14 @@ export function WorkbenchToolRails({
           onClick={() => onToggleTool('browser', '浏览器', 'browser', 'right')}
         >
           <Globe size={18} />
+        </ToolRailButton>
+        <ToolRailButton
+          label="Git"
+          tone="neutral"
+          selected={toolPanel === 'git'}
+          onClick={() => onToggleTool('git', 'Git', 'git', 'right')}
+        >
+          <GitBranch size={18} />
         </ToolRailButton>
         <ToolRailButton
           label="会话检查"

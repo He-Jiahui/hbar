@@ -59,6 +59,14 @@
         },
         {
           "type": "tab",
+          "id": "git",
+          "name": "Git",
+          "component": "git",
+          "enableClose": true,
+          "config": { "region": "right", "module": "git" }
+        },
+        {
+          "type": "tab",
           "id": "inspector",
           "name": "会话检查",
           "component": "inspector",

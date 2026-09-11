@@ -47,6 +47,7 @@ import SpotlightCard from './react-bits/SpotlightCard'
 import GlassSurface from './react-bits/GlassSurface'
 import AnimatedList from './react-bits/AnimatedList'
 import ActivityPanel from './ActivityPanel'
+import GitPanel from './GitPanel'
 import WorkbenchHeader from './workbench/WorkbenchHeader'
 import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbench/WorkbenchNavigation'
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
@@ -57,6 +58,7 @@ const SIDEBAR_MIN_WIDTH = 220
 const SIDEBAR_MAX_WIDTH = 360
 const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
   activity: 'activity',
+  git: 'git',
   settings: 'settings',
   diagnose: 'diagnose',
   terminal: 'terminal',
@@ -747,6 +749,15 @@ export default function App() {
       execute: () => openPanel('activity', '运行', 'activity', undefined, 'right'),
     },
     {
+      id: 'open-git',
+      label: '打开 Git',
+      description: '查看项目更改、差异、历史和分支',
+      keywords: ['git', 'changes', 'diff', 'branch', 'commit'],
+      icon: GitBranch,
+      group: 'navigation',
+      execute: () => openPanel('git', 'Git', 'git', undefined, 'right'),
+    },
+    {
       id: 'restore-layout',
       label: '恢复默认布局',
       description: '重置工具区和标签位置',
@@ -776,6 +787,8 @@ export default function App() {
         return <Settings />
       case 'activity':
         return <ActivityPanel />
+      case 'git':
+        return <GitPanel workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''} />
       case 'browser':
         return <BrowserPanel sessionId={activeSession} />
       case 'inspector':
@@ -922,6 +935,8 @@ export default function App() {
                 <Settings />
               ) : mobileView === 'activity' ? (
                 <ActivityPanel />
+              ) : mobileView === 'git' ? (
+                <GitPanel workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''} />
               ) : mobileView === 'files' ? (
                 <FileNavigation workspaceId={workspaceId} onOpen={openFile} />
               ) : mobileView === 'file' ? (

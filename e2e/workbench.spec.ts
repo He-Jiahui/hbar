@@ -84,6 +84,15 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await browserRail.click()
     await expect(browserTab).toHaveCount(0)
 
+    const gitRail = page.getByRole('button', { name: 'Git', exact: true }).filter({ visible: true })
+    const gitTab = page.locator('.flexlayout__border_button[aria-label="Git"]').filter({ visible: true })
+    await expect(gitTab).toHaveCount(0)
+    await gitRail.click()
+    await expect(gitTab).toBeVisible()
+    const gitPanel = page.locator('.git-panel').filter({ visible: true })
+    await expect(gitPanel).toContainText('当前目录不是 Git 仓库')
+    await expect(gitPanel.getByRole('button', { name: '刷新 Git 状态', exact: true })).toBeEnabled()
+
     const separator = page.getByRole('separator', { name: '调整侧栏宽度', exact: true }).filter({ visible: true })
     const before = await separator.getAttribute('aria-valuenow')
     await separator.press('ArrowRight')
