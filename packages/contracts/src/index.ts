@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import type { SettingsContribution } from './settings.ts'
+
+export * from './settings.ts'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
@@ -676,6 +679,7 @@ export interface PluginInfo {
         commands: TerminalContribution[]
         panels: Record<string, unknown>[]
         renderers: Record<string, unknown>[]
+        settings?: SettingsContribution | undefined
       }
     | undefined
   terminalCommands?: TerminalContribution[] | undefined

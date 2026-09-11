@@ -16,7 +16,7 @@ import type {
   ToolRegistry,
 } from '@hbar/plugin-sdk'
 import type { PluginInfo, UIContribution } from '@hbar/contracts'
-import { HbarError, terminalCommandSchema } from '@hbar/contracts'
+import { HbarError, settingsContributionSchema, terminalCommandSchema } from '@hbar/contracts'
 import { satisfies, valid } from 'semver'
 import { z } from 'zod'
 import type { StoragePort } from '@hbar/storage'
@@ -97,6 +97,7 @@ const manifestSchema = z.object({
       commands: z.array(terminalCommandSchema),
       panels: z.array(z.record(z.string(), z.unknown())),
       renderers: z.array(z.record(z.string(), z.unknown())),
+      settings: settingsContributionSchema.optional(),
     })
     .optional(),
   permissions: z.array(z.string()),
