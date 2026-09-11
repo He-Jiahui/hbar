@@ -21,6 +21,8 @@ struct Connection {
     url: String,
     token: String,
     instance_id: String,
+    #[serde(default)]
+    pid: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -46,6 +48,65 @@ fn development_web_url() -> Option<tauri::Url> {
 fn is_allowed_web_origin(candidate: &tauri::Url, host_url: &tauri::Url) -> bool {
     candidate.origin() == host_url.origin()
         || development_web_url().is_some_and(|dev_url| candidate.origin() == dev_url.origin())
+}
+
+#[cfg(windows)]
+fn should_exit_service() -> bool {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+
+    const MB_YESNO: u32 = 0x0000_0004;
+    const MB_ICONQUESTION: u32 = 0x0000_0020;
+    const IDYES: i32 = 6;
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn MessageBoxW(
+            hwnd: *mut std::ffi::c_void,
+            text: *const u16,
+            caption: *const u16,
+            ty: u32,
+        ) -> i32;
+    }
+    let text: Vec<u16> =
+        OsStr::new("退出服务？\n选择“是”退出 hbar 和本地 Host 服务；选择“否”隐藏到托盘。\0")
+            .encode_wide()
+            .collect();
+    let caption: Vec<u16> = OsStr::new("hbar").encode_wide().chain(Some(0)).collect();
+    unsafe {
+        MessageBoxW(
+            std::ptr::null_mut(),
+            text.as_ptr(),
+            caption.as_ptr(),
+            MB_YESNO | MB_ICONQUESTION,
+        ) == IDYES
+    }
+}
+
+#[cfg(not(windows))]
+fn should_exit_service() -> bool {
+    false
+}
+
+fn stop_host(pid: Option<u32>) {
+    let Some(pid) = pid else { return };
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = Command::new("kill").arg(pid.to_string()).status();
+    }
+}
+
+fn exit_service(app: &tauri::AppHandle) {
+    let pid = app
+        .try_state::<Connection>()
+        .and_then(|connection| connection.pid);
+    stop_host(pid);
+    app.exit(0);
 }
 
 #[tauri::command]
@@ -232,6 +293,7 @@ fn main() {
                     .append_pair("hbarHost", &connection.url)
                     .append_pair("hbarToken", &connection.token);
             }
+            let host_pid = connection.pid;
             app.manage(connection);
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
                 .title("hbar")
@@ -244,10 +306,16 @@ fn main() {
                 })
                 .build()?;
             let handle = window.clone();
+            let app_handle = app.handle().clone();
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
-                    let _ = handle.hide();
+                    if should_exit_service() {
+                        stop_host(host_pid);
+                        app_handle.exit(0);
+                    } else {
+                        let _ = handle.hide();
+                    }
                 }
             });
             let open = MenuItem::with_id(app, "open", "Open hbar", true, None::<&str>)?;
@@ -277,7 +345,7 @@ fn main() {
                             let _ = window.set_focus();
                         }
                     }
-                    "exit" => app.exit(0),
+                    "exit" => exit_service(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
