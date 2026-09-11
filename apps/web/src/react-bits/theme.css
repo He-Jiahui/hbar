@@ -1163,8 +1163,9 @@
 
 .rb-theme-options > .rb-glare-button:hover,
 .rb-theme-options > .rb-glare-button.selected {
-  border-color: var(--hbar-ac);
-  background: var(--hbar-ac-soft);
+  border-color: color-mix(in srgb, var(--hbar-t2) 42%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--hbar-t2) 8%, var(--hbar-s0));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--hbar-t2) 10%, transparent);
   color: var(--hbar-t1);
 }
 
@@ -3006,9 +3007,14 @@
 }
 
 .rb-composer-surface > .composer-glass {
-  border-color: color-mix(in srgb, var(--hbar-bd) 86%, var(--rb-accent));
+  border-color: color-mix(in srgb, var(--hbar-bd) 88%, var(--hbar-t2));
   border-radius: inherit;
   background: color-mix(in srgb, var(--hbar-s0) 92%, transparent);
+}
+
+.rb-composer-surface:focus-within > .composer-glass {
+  border-color: color-mix(in srgb, var(--hbar-t2) 48%, var(--hbar-bd));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--hbar-t2) 11%, transparent);
 }
 
 .rb-decision-surface {
@@ -3042,7 +3048,22 @@
 }
 
 .rb-spotlight-card.session-item.selected::after {
-  border-color: color-mix(in srgb, var(--rb-accent) 58%, var(--hbar-ac-border));
+  border-color: color-mix(in srgb, var(--hbar-t2) 34%, var(--hbar-bd));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--hbar-t2) 12%, transparent);
+}
+
+/* Selected controls use a quiet neutral glow so selection is readable without
+ * turning every active control into a saturated purple outline. */
+.composer-menu-item.selected,
+.permission-option.selected,
+.model-picker-option.selected,
+.model-picker-thinking-option.selected,
+.provider-preset.selected,
+.settings-nav .settings-nav-items > button.selected,
+.model-row.selected {
+  border-color: color-mix(in srgb, var(--hbar-t2) 38%, var(--hbar-bd)) !important;
+  background: color-mix(in srgb, var(--hbar-t2) 9%, var(--hbar-s0)) !important;
+  box-shadow: 0 0 15px color-mix(in srgb, var(--hbar-t2) 10%, transparent);
 }
 
 .rb-spotlight-card.run-row::after {
