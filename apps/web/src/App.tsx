@@ -955,7 +955,7 @@ export default function App() {
       const placeholder = model.getNodeById('system-terminal-placeholder')
       if (placeholder) model.doAction(Actions.deleteTab(placeholder.getId()))
       id = `system-terminal:${crypto.randomUUID()}`
-      title = `系统终端 ${systemTerminalCount(model) + 1}`
+      title = `${t('systemTerminalTitle')} ${systemTerminalCount(model) + 1}`
     }
     if (component === 'terminal') {
       activateConversationView('console')
@@ -1252,7 +1252,7 @@ export default function App() {
     }
     openPanel(id, title, component, config, model.getNodeById(id) ? toolDock(id) : placement)
   }
-  const settings = () => openPanel('settings', '设置', 'settings')
+  const settings = () => openPanel('settings', t('settingsTitle'), 'settings')
   const toggleSettings = () => {
     const existing = model.getNodeById('settings')
     if (existing instanceof TabNode && useWorkbench.getState().toolPanel === 'settings') {
@@ -1268,7 +1268,7 @@ export default function App() {
       useWorkbench.setState({ toolPanel: 'settings' })
       return
     }
-    openPanel('settings', '设置', 'settings', undefined, 'editor')
+    openPanel('settings', t('settingsTitle'), 'settings', undefined, 'editor')
   }
   function closeWorkspaceModal() {
     setWorkspaceModal(false)
@@ -1319,7 +1319,7 @@ export default function App() {
           await refreshCatalog()
           useWorkbench.setState({ workspaceId: created.at(-1)?.id ?? '' })
         } catch (error) {
-          failures.push({ path: '刷新工作区目录', message: error instanceof Error ? error.message : String(error), retryable: false })
+          failures.push({ path: t('workspaceRefreshFailed'), message: error instanceof Error ? error.message : String(error), retryable: false })
         }
       }
       if (failures.length) {
@@ -1328,7 +1328,7 @@ export default function App() {
       }
       closeWorkspaceModal()
     } catch (error) {
-      setWorkspaceCreateErrors([{ path: '工作区创建', message: error instanceof Error ? error.message : String(error), retryable: false }])
+      setWorkspaceCreateErrors([{ path: t('workspaceCreateFailed'), message: error instanceof Error ? error.message : String(error), retryable: false }])
     } finally {
       setWorkspaceCreateBusy(false)
     }
@@ -1342,13 +1342,13 @@ export default function App() {
     const existing = currentData?.workspaces.find((workspace) => workspacePathKey(workspace.path) === workspacePathKey(normalizedPath))
     const target = existing ?? await connection.call('workspace.create', { path: normalizedPath })
     if (useConnection.getState().client !== connection || useWorkbench.getState().workspaceId !== startingWorkspaceId || useWorkbench.getState().activeSession !== startingSessionId)
-      throw new Error('工作区或会话已切换，请重新选择 Worktree')
+      throw new Error(t('worktreeContextChanged'))
     const currentSession = currentData?.sessions.find((session) => session.id === startingSessionId)
     if (startingSessionId && currentSession && currentSession.workspaceId !== target.id)
       await connection.call('session.move', { sessionId: startingSessionId, workspaceId: target.id })
-    if (useConnection.getState().client !== connection) throw new Error('连接已切换，请重新选择 Worktree')
+    if (useConnection.getState().client !== connection) throw new Error(t('connectionChanged'))
     await refreshCatalog()
-    if (useConnection.getState().client !== connection) throw new Error('连接已切换，请重新选择 Worktree')
+    if (useConnection.getState().client !== connection) throw new Error(t('connectionChanged'))
     clearWorkspaceSurface()
     useWorkbench.setState({ workspaceId: target.id })
     if (startingSessionId) await openSession(startingSessionId)
@@ -1405,7 +1405,7 @@ export default function App() {
       const { sessionId: _sessionId, ...withoutSession } = config
       model.doAction(
         Actions.updateNodeAttributes(target.getId(), {
-          name: '新会话',
+          name: t('newSession'),
           enableClose: false,
           config: withoutSession,
         }),
@@ -1458,8 +1458,8 @@ export default function App() {
   const paletteCommands: readonly PaletteCommand[] = [
     {
       id: 'new-session',
-      label: '新建会话',
-      description: '在当前项目创建一个会话',
+      label: t('newSession'),
+      description: t('newSessionDescription'),
       keywords: ['session', 'create'],
       icon: Plus,
       group: 'actions',
@@ -1467,7 +1467,7 @@ export default function App() {
     },
     {
       id: 'toggle-sidebar',
-      label: sidebar ? '收起项目与会话栏' : '展开项目与会话栏',
+      label: sidebar ? t('collapseSidebar') : t('expandSidebar'),
       keywords: ['sidebar', 'navigation'],
       icon: sidebar ? PanelLeftClose : PanelLeftOpen,
       group: 'navigation',
@@ -1478,8 +1478,8 @@ export default function App() {
     },
     {
       id: 'open-files',
-      label: '打开文件',
-      description: '浏览当前项目文件',
+      label: t('openFile'),
+      description: t('browseProjectFiles'),
       keywords: ['file', 'files'],
       icon: Folder,
       group: 'navigation',
@@ -1491,8 +1491,8 @@ export default function App() {
     },
     {
       id: 'open-terminal',
-      label: '打开命令控制台',
-      description: '切换当前会话到 CLI 命令控制台',
+      label: t('openCommandConsole'),
+      description: t('commandConsoleDescription'),
       keywords: ['terminal', 'console'],
       icon: TerminalSquare,
       group: 'navigation',
@@ -1500,17 +1500,17 @@ export default function App() {
     },
     {
       id: 'open-system-terminal',
-      label: '打开系统终端',
-      description: '在当前工作区打开交互式 Shell',
+      label: t('openSystemTerminal'),
+      description: t('systemTerminalDescription'),
       keywords: ['terminal', 'shell', 'pty'],
       icon: TerminalSquare,
       group: 'navigation',
-      execute: () => openPanel('system-terminal', '系统终端', 'system-terminal', undefined, 'bottom'),
+      execute: () => openPanel('system-terminal', t('systemTerminalTitle'), 'system-terminal', undefined, 'bottom'),
     },
     {
       id: 'open-settings',
-      label: '打开设置',
-      description: '模型、权限、外观与设备',
+      label: t('openSettings'),
+      description: t('settingsDescription'),
       keywords: ['settings', 'preferences', 'theme'],
       icon: Settings2,
       group: 'navigation',
@@ -1518,8 +1518,8 @@ export default function App() {
     },
     {
       id: 'open-reactbits-reference-gallery',
-      label: '打开 ReactBits 参考画廊',
-      description: '浏览 38 类、300 个 UI 复刻 fixture',
+      label: t('openReferenceGallery'),
+      description: t('referenceGalleryDescription'),
       keywords: ['reactbits', 'reference', 'gallery', 'ui', 'variants'],
       icon: LayoutGrid,
       group: 'navigation',
@@ -1527,17 +1527,17 @@ export default function App() {
     },
     {
       id: 'open-activity',
-      label: '打开运行与事件',
-      description: '查看当前会话运行状态',
+      label: t('openActivity'),
+      description: t('activityDescription'),
       keywords: ['activity', 'events', 'runs'],
       icon: Activity,
       group: 'navigation',
-      execute: () => openPanel('activity', '运行', 'activity', undefined, 'right'),
+      execute: () => openPanel('activity', t('runs'), 'activity', undefined, 'right'),
     },
     {
       id: 'open-git',
-      label: '打开 Git',
-      description: '查看项目更改、差异、历史和分支',
+      label: t('openGit'),
+      description: t('gitDescription'),
       keywords: ['git', 'changes', 'diff', 'branch', 'commit'],
       icon: GitBranch,
       group: 'navigation',
@@ -1545,8 +1545,8 @@ export default function App() {
     },
     {
       id: 'restore-layout',
-      label: '恢复默认布局',
-      description: '重置工具区和标签位置',
+      label: t('restoreLayout'),
+      description: t('restoreLayoutDescription'),
       keywords: ['layout', 'reset', 'restore'],
       icon: LayoutGrid,
       group: 'actions',
@@ -1560,7 +1560,7 @@ export default function App() {
     const config = node.getConfig() as { sessionId?: string; path?: string; workspaceId?: string; panelId?: string }
     switch (node.getComponent()) {
       case undefined:
-        return <div className="empty-tool">面板不可用</div>
+        return <div className="empty-tool">{t('panelUnavailable')}</div>
       case 'conversation': {
         const viewKey = config?.sessionId ?? 'new'
         return (
@@ -1604,7 +1604,7 @@ export default function App() {
       case 'plugin':
         return renderPlugin(config.panelId ?? '', toolDock(node.getId()), node)
       default:
-        return <div className="empty-tool">面板不可用</div>
+        return <div className="empty-tool">{t('panelUnavailable')}</div>
     }
   }
   function renderPlugin(
@@ -1644,7 +1644,7 @@ export default function App() {
         )}
       </div>
     ) : (
-      <div className="empty-tool">插件已停用</div>
+      <div className="empty-tool">{t('pluginDisabled')}</div>
     )
   }
   if (status === 'pairing' || (!data && status !== 'connected')) return <><ThemeRuntimeSync /><PairingPage /></>
@@ -1687,7 +1687,7 @@ export default function App() {
             <div
               className="sidebar-resizer"
               role="separator"
-              aria-label="调整侧栏宽度"
+              aria-label={t('resizeSidebar')}
               aria-orientation="vertical"
               aria-valuemin={SIDEBAR_MIN_WIDTH}
               aria-valuemax={SIDEBAR_MAX_WIDTH}
@@ -1913,8 +1913,8 @@ export default function App() {
       <button
         type="button"
         className="global-settings-action"
-        title="设置"
-        aria-label="设置"
+        title={t('settingsTitle')}
+        aria-label={t('settingsTitle')}
         onClick={toggleSettings}
       >
         <Settings2 size={17} aria-hidden="true" />
@@ -1939,7 +1939,7 @@ export default function App() {
           onBlur={() => setToastPaused(false)}
         >
           <span>{notice}</span>
-          <button title="关闭通知" aria-label="关闭通知" onClick={() => useNotice.setState({ error: '' })}>
+          <button title={t('closeNotification')} aria-label={t('closeNotification')} onClick={() => useNotice.setState({ error: '' })}>
             <X size={15} />
           </button>
         </div>
@@ -1947,7 +1947,7 @@ export default function App() {
       {taskNotice && !notice && (
         <div className="toast task-toast" role="status" tabIndex={0}>
           <span>{taskNotice}</span>
-          <button title="关闭通知" aria-label="关闭通知" onClick={() => useNotice.setState({ notice: '' })}>
+          <button title={t('closeNotification')} aria-label={t('closeNotification')} onClick={() => useNotice.setState({ notice: '' })}>
             <X size={15} />
           </button>
         </div>
@@ -1955,7 +1955,7 @@ export default function App() {
       <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
       <ReferenceGallery open={referenceGalleryOpen} onClose={() => setReferenceGalleryOpen(false)} />
       {workspaceModal && (
-        <Modal title="添加工作区" onClose={closeWorkspaceModal}>
+        <Modal title={t('addWorkspace')} onClose={closeWorkspaceModal}>
           <form
             className="settings-form"
             onSubmit={(event) => {
@@ -1964,21 +1964,21 @@ export default function App() {
             }}
           >
             <label>
-              项目别名（可选）
+              {t('projectAliasOptional')}
               <input
                 autoFocus
                 value={workspaceAlias}
                 onChange={(event) => setWorkspaceAlias(event.target.value)}
-                placeholder="默认使用目录名"
+                placeholder={t('defaultDirectoryName')}
                 maxLength={160}
               />
             </label>
             <div className="workspace-picker">
               <div className="workspace-picker-heading">
-                <span>工作区目录</span>
+                <span>{t('workspaceDirectory')}</span>
                 <button type="button" className="button" onClick={() => void chooseWorkspaceDirectory()}>
                   <FolderOpen size={14} />
-                  浏览文件夹
+                  {t('browseFolders')}
                 </button>
               </div>
               {workspacePaths.length ? (
@@ -1988,8 +1988,8 @@ export default function App() {
                       <span title={path}>{path}</span>
                       <button
                         type="button"
-                        title={`移除 ${path}`}
-                        aria-label={`移除 ${path}`}
+                        title={`${t('remove')} ${path}`}
+                        aria-label={`${t('remove')} ${path}`}
                         onClick={() => setWorkspacePaths((current) => current.filter((item) => item !== path))}
                       >
                         <X size={14} />
@@ -1998,11 +1998,11 @@ export default function App() {
                   ))}
                 </ul>
               ) : (
-                <p className="workspace-picker-empty">请选择一个或多个文件夹。</p>
+                <p className="workspace-picker-empty">{t('chooseFolders')}</p>
               )}
               {discoveredWorktrees.length > 0 && (
-                <div className="workspace-worktree-discovery" aria-label="检测到的外部 Worktree">
-                  <strong>检测到其他 Worktree（默认全部加入）</strong>
+                <div className="workspace-worktree-discovery" aria-label={t('externalWorktreesDetected')}>
+                  <strong>{t('otherWorktreesDetected')}</strong>
                   {discoveredWorktrees.map((item) => {
                     const checked = selectedWorktreePaths.includes(item.path)
                     return (
@@ -2012,7 +2012,7 @@ export default function App() {
                           checked={checked}
                           onChange={() => setSelectedWorktreePaths((current) => checked ? current.filter((path) => path !== item.path) : [...current, item.path])}
                         />
-                        <span><b>{item.branch ?? '分离 HEAD'}</b><small title={item.path}>{item.path}</small></span>
+                        <span><b>{item.branch ?? t('detachedHead')}</b><small title={item.path}>{item.path}</small></span>
                       </label>
                     )
                   })}
@@ -2020,7 +2020,7 @@ export default function App() {
               )}
               {workspaceCreateErrors.length > 0 && (
                 <div className="workspace-create-errors" role="alert">
-                  <strong>部分工作区未能加入</strong>
+                  <strong>{t('partialWorkspaceFailure')}</strong>
                   <ul>
                     {workspaceCreateErrors.map((failure) => (
                       <li key={`${failure.path}:${failure.message}`}>
@@ -2036,17 +2036,17 @@ export default function App() {
                       disabled={workspaceCreateBusy}
                       onClick={() => void createWorkspaces(workspaceCreateErrors.filter((failure) => failure.retryable).map((failure) => failure.path))}
                     >
-                      重试失败项
+                      {t('retryFailedItems')}
                     </button>
                   )}
                 </div>
               )}
-              {workspacePaths.length > 1 && <p className="workspace-picker-hint">多个目录将分别加入工作区，并使用各自的目录名。</p>}
+              {workspacePaths.length > 1 && <p className="workspace-picker-hint">{t('multipleDirectoryHint')}</p>}
             </div>
             <footer className="modal-footer">
               <button className="button primary" disabled={!workspacePaths.length || workspaceCreateBusy}>
                 <FolderOpen size={14} />
-                {workspaceCreateBusy ? '正在加入…' : '打开工作区'}
+                {workspaceCreateBusy ? t('joining') : t('openWorkspace')}
               </button>
             </footer>
           </form>
