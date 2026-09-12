@@ -446,6 +446,7 @@ export function WorkbenchToolRails({
             .filter((id) => toolSides[id] === 'right')
             .map((id) => {
               const tool = rightTools[id as keyof typeof rightTools]
+              if (!tool) return null
               const Icon = tool.icon
               const panelId = id === 'diagnose' ? diagnosePanelId : id
               return (
