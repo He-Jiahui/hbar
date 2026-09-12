@@ -226,7 +226,8 @@ export class PluginManager {
   private mounted: string[] = []
   private scopes = new Map<string, Promise<RuntimeScope>>()
   private findEntry(id: string, projectId?: string): Installed | undefined {
-    if (projectId !== undefined) return this.entries.get(installationKey(id, projectId))
+    if (projectId !== undefined)
+      return this.entries.get(installationKey(id, projectId)) ?? this.entries.get(installationKey(id))
     return this.entries.get(installationKey(id)) ?? [...this.entries.values()].find((entry) => packageId(entry.plugin.manifest) === id)
   }
   private scopedEntries(projectId?: string): Installed[] {
@@ -649,6 +650,7 @@ export class PluginManager {
         const dependencies = new Set([
           ...Object.keys(manifest.dependencies ?? {}),
           ...Object.keys(manifest.peerDependencies ?? {}),
+          ...Object.keys(manifest.optionalDependencies ?? {}),
         ])
         if (entry.enabled && [...dependencies].some((dependency) => affected.has(dependency)) && !affected.has(packageId(manifest))) {
           affected.add(packageId(manifest))

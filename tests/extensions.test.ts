@@ -74,7 +74,17 @@ test('disables an entire downstream plugin tree atomically', async () => {
       apply() {},
     }),
   )
+  kernel.plugins.add(
+    definePlugin({
+      manifest: {
+        id: 'tree.optional', name: 'Tree optional', version: '1.0.0', apiVersion: '^1.0.0',
+        scope: 'host', description: '', permissions: [], optionalDependencies: { 'tree.base': '^1.0.0' },
+      },
+      apply() {},
+    }),
+  )
   await kernel.changePlugin('tree.child', true)
+  await kernel.changePlugin('tree.optional', true)
   expect(kernel.plugins.list().filter((plugin) => plugin.id.startsWith('tree.')).every((plugin) => plugin.status === 'active')).toBeTrue()
   await kernel.changePluginTree('tree.base')
   expect(kernel.plugins.list().filter((plugin) => plugin.id.startsWith('tree.')).every((plugin) => plugin.status !== 'active')).toBeTrue()
@@ -136,6 +146,17 @@ test('keeps same plugin id isolated across global and project installations', as
   expect(kernel.plugins.graph(workspace.id).nodes.filter((node) => node.id === 'shared.plugin')).toEqual([
     { id: 'shared.plugin', version: '1.0.0', enabled: false },
   ])
+  kernel.plugins.add(
+    definePlugin({
+      manifest: {
+        id: 'global.fallback', name: 'Global fallback', version: '1.0.0', apiVersion: '^1.0.0',
+        scope: 'host', description: '', permissions: [],
+      },
+      apply() {},
+    }),
+  )
+  await kernel.changePlugin('global.fallback', false, undefined, workspace.id)
+  expect(kernel.plugins.list().find((entry) => entry.id === 'global.fallback')?.status).toBe('disabled')
 })
 
 test('concurrent run plugins see their own scopes and dispose at settlement', async () => {
