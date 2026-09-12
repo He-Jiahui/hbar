@@ -197,6 +197,80 @@ export const USAGE_PREVIEWS: Record<string, UsagePreviewConfig> = {
   'ai-usage-8': { heading: 'Plan usage', summary: 'Northwind · Team plan', metrics: [['Assistant messages', '1,842 / 2,000', '92% used'], ['Agent runs', '96 / 250', '38% used'], ['Indexed documents', '4,310 / 10,000', '43% used']], rows: ['Member seats · 12 / 20', 'Unlimited messages on Scale'], tabs: ['Details', 'Limits'] },
 }
 
+export type CardPreviewKind = 'members' | 'integrations' | 'onboarding' | 'agenda' | 'plans' | 'metrics' | 'changelog' | 'files' | 'profile' | 'balance' | 'invoice'
+export type CardPreviewConfig = {
+  readonly heading: string
+  readonly description: string
+  readonly kind: CardPreviewKind
+  readonly eyebrow?: string
+  readonly names?: readonly string[]
+  readonly statLabels?: readonly [string, string][]
+  readonly actionLabel?: string
+}
+
+/**
+ * Public Card observations.  The copy is intentionally short and typed: it
+ * records the information hierarchy visible in the public iframe without
+ * importing the paid Code tab or its implementation.
+ */
+export const CARD_PREVIEWS: Record<string, CardPreviewConfig> = {
+  'card-1': { heading: 'Members', description: 'Connect with the people in your workspace.', kind: 'members', names: ['Sam Rivera', 'Imani Hale', 'Dana Okafor', 'Rowan Moss', 'Nina Silva', 'Tomas Abara'], statLabels: [['Members', '6'], ['Online now', '2'], ['Shared spaces', '14']] },
+  'card-2': { heading: 'Integrations', description: 'Connect the tools your team already uses.', kind: 'integrations', names: ['Halcyon Pay', 'LumenDesk', 'Northwind CRM', 'Orbit Storage'], actionLabel: 'Connect' },
+  'card-3': { heading: 'Get started', description: 'Complete the setup in three small steps.', kind: 'onboarding', statLabels: [['Completed', '1 of 3']] },
+  'card-4': { heading: 'Upcoming', description: 'Keep the next conversations in view.', kind: 'agenda', names: ['Product review', 'Design critique', 'Customer interview'], actionLabel: 'RSVP' },
+  'card-5': { heading: 'Plans', description: 'Choose the workspace plan that fits the team.', kind: 'plans', names: ['Starter', 'Growth', 'Scale'], actionLabel: 'Choose plan' },
+  'card-6': { heading: 'Account overview', description: 'A compact view of the selected period.', kind: 'metrics', statLabels: [['Revenue', '$84,320'], ['Customers', '1,284'], ['Retention', '96.2%']] },
+  'card-7': { heading: 'Changelog', description: 'Small releases, clearly summarised.', kind: 'changelog', names: ['v2.4.0', 'v2.3.2', 'v2.3.0'] },
+  'card-8': { heading: 'Files', description: 'Select an asset to inspect or share it.', kind: 'files', names: ['brand-guidelines.pdf', 'hero-option-a.png', 'q3-metrics.csv', 'roadmap.fig'] },
+  'card-9': { heading: 'Sam Rivera', description: 'Product Lead · Lisbon', kind: 'profile', names: ['Product', 'Payments', 'Roadmaps'], statLabels: [['Projects', '18'], ['Followers', '248'], ['Response', '94%']], actionLabel: 'Follow' },
+  'card-10': { heading: 'Balance', description: 'A focused balance card with recent activity.', kind: 'balance', statLabels: [['Available', '$12,480.20'], ['Pending', '$1,840.00'], ['This month', '+$4,210.18']], actionLabel: 'Send money' },
+  'card-11': { heading: 'Invoice #4021', description: 'Line items, total, status and a download action.', kind: 'invoice', names: ['Workspace seats', 'Usage overage', 'Support plan'], statLabels: [['Total', '$1,284.00'], ['Status', 'Paid']], actionLabel: 'Download PDF' },
+}
+
+export type DataTableRow = {
+  readonly account: string
+  readonly owner: string
+  readonly plan: 'Enterprise' | 'Scale' | 'Growth'
+  readonly status: 'Active' | 'Paused' | 'Needs review'
+  readonly region: string
+  readonly mrr: string
+  readonly renewal: string
+}
+export type DataTablePreviewConfig = {
+  readonly heading: string
+  readonly description: string
+  readonly rows: readonly DataTableRow[]
+  readonly filters: readonly string[]
+}
+
+/** Publicly observed account table used by the responsive table family. */
+export const DATA_TABLE_PREVIEWS: Record<string, DataTablePreviewConfig> = {
+  'data-table-1': {
+    heading: 'Accounts',
+    description: 'Customer accounts',
+    filters: ['All plans', 'Enterprise', 'Scale', 'Growth'],
+    rows: [
+      { account: 'Vantage Grid Systems', owner: 'Priya Rao', plan: 'Enterprise', status: 'Active', region: 'North America', mrr: '$26,740', renewal: 'Nov 4' },
+      { account: 'Longleaf Clinical Research Network International', owner: 'Ari Chen', plan: 'Enterprise', status: 'Active', region: 'APAC', mrr: '$22,190', renewal: 'Sep 19' },
+      { account: 'Redwood Payments', owner: 'Jun Park', plan: 'Enterprise', status: 'Needs review', region: 'North America', mrr: '$19,870', renewal: 'Nov 29' },
+      { account: 'Sable Ridge Energy', owner: 'Mina Kapoor', plan: 'Enterprise', status: 'Needs review', region: 'EMEA', mrr: '$18,420', renewal: 'Aug 12' },
+      { account: 'Harbor & Vale Freight', owner: 'Marcus Lund', plan: 'Scale', status: 'Active', region: 'EMEA', mrr: '$11,230', renewal: 'Nov 11' },
+      { account: 'North Pier Robotics', owner: 'Tomasz Nowak', plan: 'Scale', status: 'Active', region: 'North America', mrr: '$9,860', renewal: 'Sep 3' },
+      { account: 'Kite Harbor Logistics', owner: 'Devon Okafor', plan: 'Scale', status: 'Active', region: 'LATAM', mrr: '$7,540', renewal: 'Oct 8' },
+      { account: 'Tidewater Instruments', owner: 'Sofia Martins', plan: 'Growth', status: 'Active', region: 'APAC', mrr: '$5,620', renewal: 'Nov 18' },
+      { account: 'Cobalt Field Labs', owner: 'Rhea Flores', plan: 'Growth', status: 'Paused', region: 'North America', mrr: '$4,210', renewal: 'Oct 1' },
+      { account: 'Mossbank Archive Trust', owner: 'Lena Ortiz', plan: 'Growth', status: 'Needs review', region: 'EMEA', mrr: '$3,980', renewal: 'Oct 22' },
+    ],
+  },
+  'data-table-2': { heading: 'Accounts', description: 'Selectable customer accounts', filters: ['All plans', 'Enterprise', 'Scale', 'Growth'], rows: [] },
+  'data-table-3': { heading: 'Accounts', description: 'Inline editing with optimistic saves', filters: ['All plans', 'Enterprise', 'Scale', 'Growth'], rows: [] },
+  'data-table-4': { heading: 'Accounts', description: 'Expandable row details', filters: ['All plans', 'Enterprise', 'Scale', 'Growth'], rows: [] },
+  'data-table-5': { heading: 'Accounts', description: 'Grouped rows with a sticky header', filters: ['All plans', 'Enterprise', 'Scale', 'Growth'], rows: [] },
+  'data-table-6': { heading: 'Accounts', description: 'Master-detail account table', filters: ['All plans', 'Enterprise', 'Scale', 'Growth'], rows: [] },
+  'data-table-7': { heading: 'Accounts', description: 'Loading, empty and error states', filters: ['All plans', 'Enterprise', 'Scale', 'Growth'], rows: [] },
+  'data-table-8': { heading: 'Accounts', description: 'Wide table with a sticky first column', filters: ['All plans', 'Enterprise', 'Scale', 'Growth'], rows: [] },
+}
+
 export function previewDescription(category: ReferenceCategory, variant: number): string | undefined {
   const key = `${category}-${variant}`
   return CHAT_PREVIEWS[key]?.heading || PROMPT_PREVIEWS[key]?.heading || ACTIVITY_PREVIEWS[key]?.heading || TOOL_CALL_PREVIEWS[key]?.heading || APPROVAL_PREVIEWS[key]?.heading || PLAN_PREVIEWS[key]?.heading || USAGE_PREVIEWS[key]?.heading

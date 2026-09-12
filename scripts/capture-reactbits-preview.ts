@@ -46,7 +46,19 @@ async function publicFrame(page: Page): Promise<Frame | undefined> {
   const iframe = page.locator('iframe').first()
   await iframe.waitFor({ state: 'attached', timeout: timeoutMs })
   await page.waitForTimeout(settleMs)
-  return page.frames().find((frame) => frame !== page.mainFrame() && frame.url() === 'about:blank') ?? page.frames().find((frame) => frame !== page.mainFrame())
+  const frame = page.frames().find((candidate) => candidate !== page.mainFrame() && candidate.url() === 'about:blank') ?? page.frames().find((candidate) => candidate !== page.mainFrame())
+  if (frame) await waitForFrameContent(page, frame)
+  return frame
+}
+
+/** Public examples can hydrate their srcdoc iframe after the shell is ready. */
+async function waitForFrameContent(page: Page, frame: Frame): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const ready = await frame.evaluate(() => Boolean(document.body?.innerText.trim() || document.body?.querySelector('style,link'))).catch(() => false)
+    if (ready) return
+    await page.waitForTimeout(Math.min(250, Math.max(50, settleMs / 4)))
+  }
 }
 
 async function geometry(page: Page, frame: Frame): Promise<PreviewRecord['geometry']> {
@@ -106,6 +118,7 @@ async function captureVariant(page: Page, variant: (typeof variants)[number]) {
     const control = page.getByRole('button', { name: `${viewportLabels[viewport]} preview width`, exact: true })
     if (await control.count()) await control.click({ timeout: timeoutMs }).catch(() => undefined)
     await page.waitForTimeout(settleMs)
+    await waitForFrameContent(page, frame)
     records.push(await recordViewport(page, frame, viewport))
     if (screenshots) await page.screenshot({ path: join('artifacts', 'reactbits-reference', variant.variantSlug, `preview-${viewport}.png`) })
   }
