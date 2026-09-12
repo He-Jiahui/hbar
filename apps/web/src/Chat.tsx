@@ -451,7 +451,7 @@ export default function Chat({
   onSelectSession(sessionId: string): void
   onUseWorktree(path: string): void | Promise<void>
 }) {
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
@@ -1072,7 +1072,7 @@ export default function Chat({
                 )}
                 <small>
                   {modelId ? catalog?.models.find((model) => model.id === modelId)?.model : t('chatUnconfiguredModel')} ·{' '}
-                  {modelThinkingLabel(thinkingLevel)}
+                  {modelThinkingLabel(thinkingLevel, locale)}
                 </small>
               </span>
               <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString() : 0} tokens</span>

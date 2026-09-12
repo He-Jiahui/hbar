@@ -115,7 +115,7 @@ export default function TerminalPanel({
   onSelectSession?(sessionId: string): void
   onClose(): void
 }) {
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const catalog = useCatalog((state) => state.data)
   const workspaceId = useWorkbench((state) => state.workspaceId)
   const sessionId = useWorkbench((state) => state.activeSession)
@@ -152,7 +152,7 @@ export default function TerminalPanel({
           key: `thinking:${level}`,
           value: `/thinking ${level}`,
           label: level,
-          description: modelThinkingLabel(level),
+          description: modelThinkingLabel(level, locale),
           kind: 'argument',
         }))
     }
@@ -236,7 +236,7 @@ export default function TerminalPanel({
         description: command.description,
         kind: 'command',
       }))
-  }, [catalog?.models, catalog?.plugins, commands, input, t])
+  }, [catalog?.models, catalog?.plugins, commands, input, locale, t])
 
   useEffect(() => {
     const openCommands = () => {
@@ -349,7 +349,7 @@ export default function TerminalPanel({
     } else if (command === 'thinking') {
       if (!DEFAULT_THINKING_LEVELS.includes(argument as ThinkingLevel)) throw new Error(t('invalidThinkingLevel'))
       selectThinkingLevel(argument as ThinkingLevel)
-      write(`${t('thinkingLevelNotice')}${modelThinkingLabel(argument as ThinkingLevel)}`)
+      write(`${t('thinkingLevelNotice')}${modelThinkingLabel(argument as ThinkingLevel, locale)}`)
     } else if (command === 'compact') {
       const result = await client().call('context.compact', { sessionId, modelId })
       write(`### ${t('contextSummary')}\n\n${result.summary}`)

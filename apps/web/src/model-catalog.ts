@@ -1,4 +1,5 @@
 import type { ModelInfo, ThinkingLevel } from '@hbar/contracts'
+import { translate, type LocaleMessageKey } from './locale'
 
 export interface ModelProviderGroup {
   providerId: string
@@ -33,14 +34,10 @@ export function modelThinkingLevels(model: ModelInfo): ThinkingLevel[] {
   return [...levels]
 }
 
-export function modelThinkingLabel(level: ThinkingLevel): string {
-  return {
-    off: '关闭',
-    minimal: '极低',
-    low: '低',
-    medium: '中',
-    high: '高',
-    xhigh: '极高',
-    max: '最大',
-  }[level]
+export function modelThinkingLabel(level: ThinkingLevel, locale = 'zh-CN'): string {
+  const keys: Record<ThinkingLevel, LocaleMessageKey> = {
+    off: 'thinkingLevelOff', minimal: 'thinkingLevelMinimal', low: 'thinkingLevelLow', medium: 'thinkingLevelMedium',
+    high: 'thinkingLevelHigh', xhigh: 'thinkingLevelXhigh', max: 'thinkingLevelMax',
+  }
+  return translate(locale, keys[level])
 }

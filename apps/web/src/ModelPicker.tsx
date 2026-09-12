@@ -66,11 +66,13 @@ function ModelDetail({
   selectedLevel,
   onSelect,
   t,
+  locale,
 }: {
   model: ModelInfo
   selectedLevel: ThinkingLevel
   onSelect(level: ThinkingLevel): void
   t: (key: LocaleMessageKey) => string
+  locale: string
 }) {
   const levels = modelThinkingLevels(model)
   return (
@@ -101,7 +103,7 @@ function ModelDetail({
         <div className="model-picker-reasoning" role="group" aria-label={`${model.modelName} ${t('thinkingLevel')}`}>
           <div className="model-picker-detail-label">
             <span>{t('thinkingLevel')}</span>
-            <code>{modelThinkingLabel(selectedLevel)}</code>
+            <code>{modelThinkingLabel(selectedLevel, locale)}</code>
           </div>
           <div className="model-picker-reasoning-options">
             {levels
@@ -115,7 +117,7 @@ function ModelDetail({
                   key={level}
                   onClick={() => onSelect(level)}
                 >
-                  {modelThinkingLabel(level)}
+                  {modelThinkingLabel(level, locale)}
                 </button>
               ))}
           </div>
@@ -127,7 +129,7 @@ function ModelDetail({
 }
 
 export default function ModelPicker() {
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const models = useCatalog((state) => state.data?.models ?? EMPTY_MODELS)
   const selectedId = useWorkbench((state) => state.modelId)
   const selectedThinking = useWorkbench((state) => state.thinkingLevel)
@@ -193,12 +195,12 @@ export default function ModelPicker() {
         aria-expanded={open}
         aria-label={
           selected
-            ? `${t('selectModel')}，当前 ${selected.providerName} / ${selected.modelName}，${t('thinkingLevel')} ${modelThinkingLabel(selectedLevel)}`
+            ? `${t('selectModel')}，当前 ${selected.providerName} / ${selected.modelName}，${t('thinkingLevel')} ${modelThinkingLabel(selectedLevel, locale)}`
             : t('selectModel')
         }
         title={
           selected
-            ? `${selected.providerName} · ${selected.modelName} · ${modelThinkingLabel(selectedLevel)}`
+            ? `${selected.providerName} · ${selected.modelName} · ${modelThinkingLabel(selectedLevel, locale)}`
             : t('selectModel')
         }
         {...triggerProps}
@@ -206,7 +208,7 @@ export default function ModelPicker() {
         <Sparkles size={13} aria-hidden="true" />
         <span className="model-picker-selected">
           <strong>{selected?.providerName ?? t('selectModel')}</strong>
-          <code>{selected ? `${selected.modelName} · ${modelThinkingLabel(selectedLevel)}` : t('unconfiguredModel')}</code>
+          <code>{selected ? `${selected.modelName} · ${modelThinkingLabel(selectedLevel, locale)}` : t('unconfiguredModel')}</code>
         </span>
         <ChevronDown size={13} className={open ? 'model-picker-chevron-open' : ''} />
       </button>
@@ -290,7 +292,7 @@ export default function ModelPicker() {
                           <code>{model.model}</code>
                           <ModelCapabilities model={model} t={t} />
                         </span>
-                        <span className="model-picker-model-effort">{modelThinkingLabel(level)}</span>
+                        <span className="model-picker-model-effort">{modelThinkingLabel(level, locale)}</span>
                         {model.id === expandedModelId ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         {isSelected && <Check size={14} />}
                       </button>
@@ -307,6 +309,7 @@ export default function ModelPicker() {
               selectedLevel={detailModel.id === selectedId ? selectedThinking : detailModel.defaultThinkingLevel}
               onSelect={(next) => chooseThinking(detailModel, next)}
               t={t}
+              locale={locale}
             />
           )}
         </div>

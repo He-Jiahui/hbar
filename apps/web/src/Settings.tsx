@@ -199,7 +199,7 @@ function mirrorSelectedModel(
 }
 
 function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close(): void }) {
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const detailPageRef = useRef<HTMLElement>(null)
   const initialPreset = provider
     ? (providerPresets.find(
@@ -474,7 +474,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                             }
                           }}
                         />
-                        {modelThinkingLabel(level)}
+                        {modelThinkingLabel(level, locale)}
                       </label>
                     ))}
                   </div>
@@ -490,7 +490,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                     >
                       {model.thinkingLevels.map((level) => (
                         <option value={level} key={level}>
-                          {modelThinkingLabel(level)}
+                          {modelThinkingLabel(level, locale)}
                         </option>
                       ))}
                     </select>
@@ -1363,7 +1363,7 @@ export default function Settings() {
                             <small>
                               {model.defaultThinkingLevel === 'off'
                                 ? t('thinkingOff')
-                                : `${t('defaultThinking')}：${modelThinkingLabel(model.defaultThinkingLevel)}`}
+                                : `${t('defaultThinking')}：${modelThinkingLabel(model.defaultThinkingLevel, locale)}`}
                             </small>
                           </button>
                           <span className="model-capability">{model.imageInput ? t('imageAndText') : t('plainText')}</span>
@@ -1378,7 +1378,7 @@ export default function Settings() {
                             >
                               {model.thinkingLevels.map((level) => (
                                 <option value={level} key={level}>
-                                  {modelThinkingLabel(level)}
+                                  {modelThinkingLabel(level, locale)}
                                 </option>
                               ))}
                             </select>

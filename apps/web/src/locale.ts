@@ -850,6 +850,13 @@ const messages = {
     pluginSchemaGenerated: '由插件 Schema 生成',
     pluginNoVisualSchema: '此插件没有提供可视化 Schema，详细配置只能由插件声明后使用。',
     pluginSaveConfig: '保存配置',
+    thinkingLevelOff: '关闭',
+    thinkingLevelMinimal: '极低',
+    thinkingLevelLow: '低',
+    thinkingLevelMedium: '中',
+    thinkingLevelHigh: '高',
+    thinkingLevelXhigh: '极高',
+    thinkingLevelMax: '最大',
   },
   'en-US': {
     preview: 'Preview',
@@ -1697,6 +1704,13 @@ const messages = {
     pluginSchemaGenerated: 'Generated from the plugin schema',
     pluginNoVisualSchema: 'This plugin has no visual schema; detailed configuration is available only after the plugin declares one.',
     pluginSaveConfig: 'Save configuration',
+    thinkingLevelOff: 'Off',
+    thinkingLevelMinimal: 'Minimal',
+    thinkingLevelLow: 'Low',
+    thinkingLevelMedium: 'Medium',
+    thinkingLevelHigh: 'High',
+    thinkingLevelXhigh: 'Very high',
+    thinkingLevelMax: 'Maximum',
   },
 } as const
 
