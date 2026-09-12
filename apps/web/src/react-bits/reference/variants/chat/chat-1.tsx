@@ -1,7 +1,14 @@
-import { ChatReferenceFixture as Fixture } from '../../reference-variant'
+import { Hash, Paperclip, Pin, Plus, Search, Send, Users } from 'lucide-react'
+import { useState } from 'react'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { reportFixtureClick } from '../../reference-interactions'
+import './chat-1.css'
+
+const messages = [['Amelia Whitfield', 'AW', '09:12', 'Pushed the checkout revision to staging. The prorated line item now renders before tax.'], ['Marcus Bell', 'MB', '09:18', 'Confirmed on my side. One thing: the empty state still says “no invoices yet” after a filter clears everything. It should read as a filter result, not an onboarding state.'], ['Sofia Alvarez', 'SA', '09:24', 'Taking that one. I will split the copy so the filtered case has its own message and a reset action.'], ['Amelia Whitfield', 'AW', '09:31', 'Perfect. I will hold the release note until that lands so we ship one changelog entry instead of two.']] as const
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/chat/chat-1. */
-export default function Chat1(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+export default function Chat1({ onInteraction }: ReferenceFixtureProps) {
+  const [channel, setChannel] = useState('launch-room')
+  const [draft, setDraft] = useState('')
+  return <section className="rb-public-chat-1" onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><div className="rb-chat-frame"><aside className="rb-chat-sidebar"><label><Search size={14} /><input aria-label="Search channels" placeholder="Search" /></label><p>CHANNELS</p><nav>{[['general',''],['launch-room','4'],['design-review',''],['support-escalations','2'],['random','']].map(([name, count]) => { const channelName = name ?? ''; return <button type="button" className={channel === channelName ? 'selected' : ''} key={channelName} onClick={() => setChannel(channelName)}><Hash size={13} /><span>{channelName}</span>{count && <b>{count}</b>}</button> })}</nav><button type="button" className="add-channel"><Plus size={14} /> Add channel</button></aside><main className="rb-chat-main"><header><div><h2><Hash size={17} />{channel}</h2><p>Release coordination for the June billing update</p></div><div><button type="button"><Pin size={15} /></button><button type="button"><Users size={15} /> 18</button></div></header><div className="rb-chat-messages"><p className="today">Today</p>{messages.map(([author, initials, time, text]) => <article key={time}><span className="rb-chat-avatar">{initials}</span><div><p><strong>{author}</strong><time>{time}</time></p><p>{text}</p></div></article>)}<p className="typing"><i /> Sofia Alvarez is typing</p></div><form className="rb-chat-composer" onSubmit={(event) => { event.preventDefault(); setDraft('') }}><input aria-label={`Message #${channel}`} placeholder={`Message #${channel}`} value={draft} onChange={(event) => setDraft(event.target.value)} /><button type="button" aria-label="Attach file"><Paperclip size={15} /></button><button type="submit" aria-label="Send message" disabled={!draft.trim()}><Send size={15} /></button></form></main></div><button type="button" className="rb-chat-theme">◉&nbsp; Theme</button></section>
 }
