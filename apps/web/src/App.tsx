@@ -155,7 +155,7 @@ function sessionTabConfig(tab: TabNode): SessionTabConfig {
   return config ?? {}
 }
 
-function ensureWelcomeTab(model: Model): string | undefined {
+function ensureWelcomeTab(model: Model, label: string): string | undefined {
   const existing = conversationTabs(model).find((tab) => !sessionIdFromTab(tab))
   if (existing) return existing.getId()
 
@@ -164,7 +164,7 @@ function ensureWelcomeTab(model: Model): string | undefined {
   if (!parentId) return undefined
   model.doAction(
     Actions.addNode(
-      { type: 'tab', id, name: '新会话', component: 'conversation', enableClose: false },
+      { type: 'tab', id, name: label, component: 'conversation', enableClose: false },
       parentId,
       DockLocation.CENTER,
       -1,
@@ -192,6 +192,7 @@ function Sessions({
   creating?: boolean
 }) {
   type SessionActionKind = 'fork' | 'archive'
+  const { t } = useLocale()
   const [search, setSearch] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -245,7 +246,7 @@ function Sessions({
         if (!workspace) return
         try {
           const info = await connection.call('git.status', { cwd: workspace.path })
-          entries.push([workspace.id, info.root ? info.branch ?? '分离 HEAD' : null])
+          entries.push([workspace.id, info.root ? info.branch ?? t('detachedHead') : null])
         } catch {
           entries.push([workspace.id, null])
         }
@@ -264,7 +265,7 @@ function Sessions({
     return () => {
       cancelled = true
     }
-  }, [changedGitCwds, gitRevision, workspaces, workspaceBranches])
+  }, [changedGitCwds, gitRevision, t, workspaces, workspaceBranches])
   const visibleSessions = sessions.filter((s) => s.archived === archived && s.title.toLowerCase().includes(search.toLowerCase()))
   const pinnedSessions = visibleSessions.filter((s) => pinnedSessionIds.includes(s.id))
   const pinnedWorkspaces = workspaces.filter((workspace) => pinnedWorkspaceIds.includes(workspace.id))
@@ -274,31 +275,31 @@ function Sessions({
     const summary = summaries[session.id]
     const activity = summary?.activity ?? (run?.status === 'waiting_approval' ? 'waiting_approval' : run?.status === 'queued' ? 'queued' : run ? 'thinking' : 'idle')
     const labels: Record<string, string> = {
-      idle: '无状态', queued: '排队中', thinking: '正在思考', tool: '正在调用工具', reading: '正在读取文件',
-      output: '正在输出内容', goal: '正在执行目标', plan: '正在编写计划', waiting_approval: '等待批准',
-      completed: '已完成', failed: '失败', cancelled: '已取消',
+      idle: t('idleStatus'), queued: t('queuedStatus'), thinking: t('thinkingStatus'), tool: t('toolStatus'), reading: t('readingStatus'),
+      output: t('outputStatus'), goal: t('goalStatus'), plan: t('planStatus'), waiting_approval: t('waitingApprovalStatus'),
+      completed: t('completed'), failed: t('failed'), cancelled: t('cancelledStatus'),
     }
     const icons: Record<string, typeof Activity> = {
       idle: Clock3, queued: Clock3, thinking: Brain, tool: Wrench, reading: FileSearch, output: MessageSquare,
       goal: Target, plan: ListChecks, waiting_approval: Clock3, completed: CheckCircle2, failed: CircleX,
       cancelled: CircleX,
     }
-    return { snapshot, summary, activity, status: labels[activity] ?? '就绪', StatusIcon: icons[activity] ?? Activity, branch: workspaceBranches[session.workspaceId] }
+    return { snapshot, summary, activity, status: labels[activity] ?? t('ready'), StatusIcon: icons[activity] ?? Activity, branch: workspaceBranches[session.workspaceId] }
   }
   function renderSessionDetails(session: Session) {
     const meta = sessionMeta(session)
     const StatusIcon = meta.StatusIcon
     const workspace = workspaces.find((item) => item.id === session.workspaceId)
     const responseAt = meta.summary?.lastResponseAt ?? null
-    const responseLabel = responseAt ? new Date(responseAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '暂无响应'
+    const responseLabel = responseAt ? new Date(responseAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : t('noResponse')
     return <>
       <span className="session-leading-icon" aria-hidden="true">{pinnedSessionIds.includes(session.id) ? <Pin size={14} /> : <MessageSquare size={14} />}</span>
       <div>
         <span>{session.title}</span>
-        <small title={meta.branch ? `${workspace?.path ?? workspace?.name ?? '未知工作区'} · ${meta.branch}` : '无 Git 分支'}>{workspace?.name ?? '未知工作区'} · {meta.branch ? `分支 · ${meta.branch}` : '无 Git 分支'}</small>
+        <small title={meta.branch ? `${workspace?.path ?? workspace?.name ?? t('unknownWorkspace')} · ${meta.branch}` : t('noGitBranch')}>{workspace?.name ?? t('unknownWorkspace')} · {meta.branch ? `${t('branchLabel')} · ${meta.branch}` : t('noGitBranch')}</small>
       </div>
       <span className={`session-status-indicator session-status-${meta.activity}`} title={meta.status} aria-label={meta.status}><StatusIcon size={13} /></span>
-      <small className="session-last-response" title={responseAt ? new Date(responseAt).toLocaleString() : undefined}>最后响应 {responseLabel}</small>
+      <small className="session-last-response" title={responseAt ? new Date(responseAt).toLocaleString() : undefined}>{t('lastResponse')} {responseLabel}</small>
     </>
   }
   const openMenu = (event: React.MouseEvent, type: 'workspace' | 'session', id: string) => {
@@ -386,12 +387,12 @@ function Sessions({
   return (
     <div className="session-nav" onClick={() => contextMenu && setContextMenu(null)}>
       <div className="sidebar-heading">
-        <strong>{archived ? '已归档' : '会话'}</strong>
+        <strong>{archived ? t('archived') : t('sessions')}</strong>
         <div>
-          {!archived && <button title="新建工作区" aria-label="新建工作区" onClick={onAddWorkspace}><Plus size={15} /></button>}
+          {!archived && <button title={t('newWorkspace')} aria-label={t('newWorkspace')} onClick={onAddWorkspace}><Plus size={15} /></button>}
           <button
-            title={archived ? '活动会话' : '已归档会话'}
-            aria-label={archived ? '活动会话' : '已归档会话'}
+            title={archived ? t('activeSessions') : t('archivedSessions')}
+            aria-label={archived ? t('activeSessions') : t('archivedSessions')}
             className={archived ? 'selected' : ''}
             onClick={() => useWorkbench.setState({ showArchived: !archived })}
           >
@@ -402,16 +403,16 @@ function Sessions({
       <div className="search-field">
         <Search size={13} />
         <input
-          placeholder="搜索会话"
-          aria-label="搜索会话"
+          placeholder={t('searchSessions')}
+          aria-label={t('searchSessions')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
       <LineSidebar className="session-line-sidebar" activeId={selected} itemSelector="[data-session-line-item]">
         {(pinnedWorkspaces.length > 0 || pinnedSessions.length > 0) && (
-          <section className="session-pinned-section" aria-label="置顶区">
-            <div className="session-group-heading"><Pin size={12} />置顶</div>
+          <section className="session-pinned-section" aria-label={t('pinnedArea')}>
+            <div className="session-group-heading"><Pin size={12} />{t('pinned')}</div>
             {pinnedWorkspaces.map((workspace) => (
               <button key={workspace.id} className="workspace-item pinned" onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)} onClick={() => useWorkbench.setState({ workspaceId: workspace.id })}>
                 <Folder size={14} /><span>{workspace.name}</span><Pin size={11} />
@@ -428,7 +429,7 @@ function Sessions({
         <AnimatedList
           className="session-list"
           viewportClassName="session-list-viewport"
-          aria-label={archived ? '已归档会话列表' : '会话列表'}
+          aria-label={archived ? t('archivedSessions') : t('sessions')}
         >
         {workspaces.map((workspace) => {
           const workspaceSessions = visibleSessions.filter((session) => session.workspaceId === workspace.id)
@@ -441,8 +442,8 @@ function Sessions({
                   <Folder size={14} /><strong>{workspace.name}</strong><span>{workspaceSessions.length}</span>
                 </button>
                 <div className="workspace-actions">
-                  <button title="置顶工作区" aria-label={`置顶工作区 ${workspace.name}`} onClick={() => togglePinned('workspace', workspace.id)}>{pinnedWorkspaceIds.includes(workspace.id) ? <PinOff size={12} /> : <Pin size={12} />}</button>
-                  <button title="新建会话" aria-label={`在 ${workspace.name} 中新建会话`} disabled={creating} onClick={() => { useWorkbench.setState({ workspaceId: workspace.id }); onNew() }}><Plus size={13} /></button>
+                  <button title={t('pinnedWorkspace')} aria-label={`${t('pinnedWorkspace')} ${workspace.name}`} onClick={() => togglePinned('workspace', workspace.id)}>{pinnedWorkspaceIds.includes(workspace.id) ? <PinOff size={12} /> : <Pin size={12} />}</button>
+                  <button title={t('newSession')} aria-label={`${t('newSession')} · ${workspace.name}`} disabled={creating} onClick={() => { useWorkbench.setState({ workspaceId: workspace.id }); onNew() }}><Plus size={13} /></button>
                 </div>
               </div>
               {isExpanded && workspaceSessions.map((session) => (
@@ -451,7 +452,7 @@ function Sessions({
                   {renamingId === session.id ? (
               <input
                 className="session-rename-input"
-                aria-label={`重命名 ${session.title}`}
+                aria-label={`${t('renameSession')} ${session.title}`}
                 value={renameValue}
                 autoFocus
                 disabled={renameBusy}
@@ -475,23 +476,23 @@ function Sessions({
                   )}
             <div className="session-row-actions">
               <button
-                title={pinnedSessionIds.includes(session.id) ? '取消置顶会话' : '置顶会话'}
-                aria-label={`${pinnedSessionIds.includes(session.id) ? '取消置顶' : '置顶'} ${session.title}`}
+                title={pinnedSessionIds.includes(session.id) ? `${t('unpinSession')} ` : t('pinSession')}
+                aria-label={`${pinnedSessionIds.includes(session.id) ? t('unpinSession') : t('pinSession')} ${session.title}`}
                 onClick={() => togglePinned('session', session.id)}
               >
                 {pinnedSessionIds.includes(session.id) ? <PinOff size={12} /> : <Pin size={12} />}
               </button>
               <button
-                title="重命名会话"
-                aria-label={`重命名 ${session.title}`}
+                title={t('renameSession')}
+                aria-label={`${t('renameSession')} ${session.title}`}
                 disabled={renameBusy || Boolean(sessionActions[session.id])}
                 onClick={(event) => startRename(event, session)}
               >
                 <Pencil size={12} />
               </button>
               <button
-                title="创建分支"
-                aria-label={`创建分支 ${session.title}`}
+                title={t('createBranch')}
+                aria-label={`${t('createBranch')} ${session.title}`}
                 disabled={Boolean(sessionActions[session.id])}
                 onClick={() => void fork(session)}
               >
@@ -502,8 +503,8 @@ function Sessions({
                 )}
               </button>
               <button
-                title={archived ? '恢复会话' : '归档会话'}
-                aria-label={`${archived ? '恢复' : '归档'} ${session.title}`}
+                title={archived ? `${t('restore')} ${t('sessions')}` : `${t('archive')} ${t('sessions')}`}
+                aria-label={`${archived ? t('restore') : t('archive')} ${session.title}`}
                 disabled={Boolean(sessionActions[session.id])}
                 onClick={() => void toggleArchive(session)}
               >
@@ -520,7 +521,7 @@ function Sessions({
           )
         })}
           {!visibleSessions.length && (
-            <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
+            <div className="empty-nav">{search ? t('noMatchingSessions') : archived ? t('noArchivedSessions') : t('noSessions')}</div>
           )}
         </AnimatedList>
       </LineSidebar>
@@ -549,13 +550,14 @@ function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename,
 }
 
 function DockTargetOverlay({ allowedDocks, onDrop }: { allowedDocks: readonly ToolWindowDock[]; onDrop(dock: ToolWindowDock): void }) {
+  const { t } = useLocale()
   const targets: Array<{ dock: ToolWindowDock; label: string; className: string }> = [
-    { dock: 'top', label: '停靠到上方', className: 'dock-target-top' },
-    { dock: 'left', label: '停靠到左侧', className: 'dock-target-left' },
-    { dock: 'editor', label: '放入编辑区', className: 'dock-target-editor' },
-    { dock: 'right', label: '停靠到右侧', className: 'dock-target-right' },
-    { dock: 'bottom', label: '停靠到下方', className: 'dock-target-bottom' },
-    { dock: 'window', label: '打开独立窗口', className: 'dock-target-window' },
+    { dock: 'top', label: t('dockTop'), className: 'dock-target-top' },
+    { dock: 'left', label: t('dockLeft'), className: 'dock-target-left' },
+    { dock: 'editor', label: t('dockEditor'), className: 'dock-target-editor' },
+    { dock: 'right', label: t('dockRight'), className: 'dock-target-right' },
+    { dock: 'bottom', label: t('dockBottom'), className: 'dock-target-bottom' },
+    { dock: 'window', label: t('dockWindow'), className: 'dock-target-window' },
   ]
   return (
     <div className="dock-target-overlay" role="presentation">
@@ -581,6 +583,7 @@ function DockTargetOverlay({ allowedDocks, onDrop }: { allowedDocks: readonly To
   )
 }
 export default function App() {
+  const { t } = useLocale()
   const status = useConnection((state) => state.status),
     data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host)
@@ -1816,7 +1819,7 @@ export default function App() {
                     useWorkbench.setState({ activeSession: '' })
                     switchingSession.current = true
                     try {
-                      const welcome = ensureWelcomeTab(next)
+                      const welcome = ensureWelcomeTab(next, t('newSession'))
                       if (welcome) next.doAction(Actions.selectTab(welcome))
                     } finally {
                       switchingSession.current = false
