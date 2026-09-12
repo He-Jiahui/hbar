@@ -332,7 +332,7 @@ function GraphReportView({ data, onRefresh, projectId }: { data: GraphReport; on
     setBusyId(id)
     setActionError(null)
     try {
-      await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id })
+      await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id, ...(projectId ? { projectId } : {}) })
       await refreshCatalog()
       onRefresh()
     } catch (error) {
