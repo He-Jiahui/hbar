@@ -1,0 +1,35 @@
+.line-sidebar {
+  --line-effect: 0;
+  position: relative;
+  min-width: 0;
+  padding-left: calc(var(--line-marker-length) + var(--line-marker-gap));
+}
+
+.line-sidebar__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--line-item-gap);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.line-sidebar [data-line-item] {
+  position: relative;
+  transform: translateX(calc(var(--line-effect, 0) * var(--line-max-shift)));
+  transition: transform 100ms var(--dsh-motion-easing);
+}
+
+.line-sidebar [data-line-item]::before {
+  position: absolute;
+  inset: -5px -10px;
+  content: '';
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line-sidebar [data-line-item] {
+    transition: none;
+  }
+}
