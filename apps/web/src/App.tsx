@@ -3,14 +3,17 @@ import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexl
 import {
   Activity,
   Archive,
+  BarChart3,
   Brain,
   CheckCircle2,
+  CircleHelp,
   CircleX,
   Clock3,
   FileSearch,
   Folder,
   FolderOpen,
   GitBranch,
+  Globe,
   LayoutGrid,
   LoaderCircle,
   MessageSquare,
@@ -28,7 +31,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
-import type { GitWorktreeInfo, Session, ToolWindowDock } from '@hbar/contracts'
+import type { GitWorktreeInfo, Session, ToolWindowDock, ToolWindowIcon } from '@hbar/contracts'
 import {
   client,
   connectHost,
@@ -78,9 +81,22 @@ const DEFAULT_TOOL_RAIL_ORDER = [
   'plan',
   'insights',
   'activity',
-  'settings',
   'diagnose',
 ] as const
+const TOOL_WINDOW_TAB_ICONS: Partial<Record<ToolWindowIcon, typeof LayoutGrid>> = {
+  activity: Activity,
+  'bar-chart-3': BarChart3,
+  'circle-help': CircleHelp,
+  'file-search': FileSearch,
+  folder: Folder,
+  'git-branch': GitBranch,
+  globe: Globe,
+  'layout-grid': LayoutGrid,
+  'list-checks': ListChecks,
+  'message-square': MessageSquare,
+  'terminal-square': TerminalSquare,
+  wrench: Wrench,
+}
 const SIDEBAR_MIN_WIDTH = 220
 const SIDEBAR_MAX_WIDTH = 360
 const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
@@ -407,10 +423,8 @@ function Sessions({
                 </div>
               </div>
               {isExpanded && workspaceSessions.map((session) => (
-                <SpotlightCard className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id} spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)" onContextMenu={(event) => openMenu(event, 'session', session.id)}>
-                  {(() => {
-                    const meta = sessionMeta(session)
-                    return <>
+                <SpotlightCard data-session-line-item data-line-id={session.id} className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id} spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)" onContextMenu={(event) => openMenu(event, 'session', session.id)}>
+                  <span className="session-line-marker" aria-hidden="true" />
                   {renamingId === session.id ? (
               <input
                 className="session-rename-input"
@@ -509,6 +523,39 @@ function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename,
     {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />重命名</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? '恢复会话' : '归档会话'}</button></>}
   </FloatingSurface>
 }
+
+function DockTargetOverlay({ allowedDocks, onDrop }: { allowedDocks: readonly ToolWindowDock[]; onDrop(dock: ToolWindowDock): void }) {
+  const targets: Array<{ dock: ToolWindowDock; label: string; className: string }> = [
+    { dock: 'top', label: '停靠到上方', className: 'dock-target-top' },
+    { dock: 'left', label: '停靠到左侧', className: 'dock-target-left' },
+    { dock: 'editor', label: '放入编辑区', className: 'dock-target-editor' },
+    { dock: 'right', label: '停靠到右侧', className: 'dock-target-right' },
+    { dock: 'bottom', label: '停靠到下方', className: 'dock-target-bottom' },
+    { dock: 'window', label: '打开独立窗口', className: 'dock-target-window' },
+  ]
+  return (
+    <div className="dock-target-overlay" role="presentation">
+      {targets.filter((target) => allowedDocks.includes(target.dock)).map((target) => (
+        <button
+          type="button"
+          key={target.dock}
+          className={`dock-target ${target.className}`}
+          aria-label={target.label}
+          onDragOver={(event) => {
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'move'
+          }}
+          onDrop={(event) => {
+            event.preventDefault()
+            onDrop(target.dock)
+          }}
+        >
+          {target.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 export default function App() {
   const status = useConnection((state) => state.status),
     data = useCatalog((state) => state.data),
@@ -519,8 +566,7 @@ export default function App() {
     approvalMode = useWorkbench((state) => state.approvalMode),
     modelId = useWorkbench((state) => state.modelId),
     toolPanel = useWorkbench((state) => state.toolPanel),
-    sidebarWidth = useWorkbench((state) => state.sidebarWidth),
-    persistedToolRailLayout = useWorkbench((state) => state.toolRailLayout)
+    sidebarWidth = useWorkbench((state) => state.sidebarWidth)
   const notice = useNotice((state) => state.error)
   const themeProfile = useThemeSettings((state) => state.profile)
   const themeContributions = useUIPlugins((state) => state.themes)
@@ -529,8 +575,11 @@ export default function App() {
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
   const sessions = data?.sessions
+  const detachedPanelId = new URLSearchParams(window.location.search).get('hbarPanel')
   const activeSnapshot = useSessions((state) => (activeSession ? state.snapshots[activeSession] : undefined))
   const initialSelection = useRef(true)
+  const openToolIdsRef = useRef(new Set<string>())
+  const nativeToolWindows = useRef(new Map<string, { dock: ToolWindowDock; focus(): Promise<void>; close(): Promise<void> }>())
   const switchingSession = useRef(false)
   const lastSessionSelection = useRef<string | undefined>(undefined)
   const creatingSession = useRef(false)
@@ -550,9 +599,6 @@ export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [referenceGalleryOpen, setReferenceGalleryOpen] = useState(false)
   const [conversationViews, setConversationViews] = useState<Record<string, 'chat' | 'console'>>({})
-  const toolRailOrder = [...DEFAULT_TOOL_RAIL_ORDER].sort(
-    (a, b) =>
-      (persistedToolRailLayout[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
   useEffect(() => {
     let cancelled = false
     if (!workspacePaths.length) {
@@ -601,13 +647,90 @@ export default function App() {
       cancelled = true
     }
   }, [workspacePaths])
-      (persistedToolRailLayout[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
-  )
-  const toolRailSides = Object.fromEntries(
-    DEFAULT_TOOL_RAIL_ORDER.map((id) => [id, persistedToolRailLayout[id]?.side ?? 'right']),
-  ) as Record<string, 'left' | 'right'>
-  function updateToolRailLayout(mutator: (current: typeof persistedToolRailLayout) => typeof persistedToolRailLayout) {
-    useWorkbench.setState((state) => ({ toolRailLayout: mutator(state.toolRailLayout) }))
+  const [model, setModel] = useState(() => {
+    return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
+  })
+  const [draggingTool, setDraggingTool] = useState<string | null>(null)
+  const draggingToolRef = useRef<string | null>(null)
+  const setToolDragState = (id: string | null) => {
+    if (id) draggingToolRef.current = id
+    setDraggingTool(id)
+  }
+  const contributionToolIds = [...(data?.panels ?? []), ...clientPanels].map((panel) => panel.id)
+  const allToolIds = [...new Set([...DEFAULT_TOOL_RAIL_ORDER, ...contributionToolIds])]
+  const nodeIdForTool = (id: string) => (id === 'diagnose' ? DIAGNOSE_PANEL_ID : id.startsWith('plugin:') ? id : id)
+  const toolRailSides = Object.fromEntries(allToolIds.map((id) => [id, 'right'])) as Record<string, 'left' | 'right'>
+  const toolRailOrder: string[] = []
+  const orderedDockIds = (dock: 'left' | 'right') => {
+    const border = model.getNodeById(`border_${dock}`)
+    if (border instanceof BorderNode)
+      return border.getTabNodes().map((node) => {
+        if (node.getId() === DIAGNOSE_PANEL_ID) return 'diagnose'
+        return node.getId().startsWith('plugin:') ? node.getId().slice('plugin:'.length) : node.getId()
+      })
+    return []
+  }
+  for (const dock of ['left', 'right'] as const) {
+    for (const id of orderedDockIds(dock)) {
+      if (allToolIds.includes(id) && !toolRailOrder.includes(id)) {
+        toolRailOrder.push(id)
+        toolRailSides[id] = dock
+      }
+    }
+  }
+  for (const id of allToolIds) if (!toolRailOrder.includes(id)) toolRailOrder.push(id)
+  function findToolNode(id: string): TabNode | undefined {
+    const node = model.getNodeById(nodeIdForTool(id)) ?? model.getNodeById(`plugin:${id}`)
+    return node instanceof TabNode ? node : undefined
+  }
+  function moveToolRail(id: string, side: 'left' | 'right') {
+    const contribution = [...(data?.panels ?? []), ...clientPanels].find((panel) => panel.id === id)
+    if (contribution?.allowedDocks && !contribution.allowedDocks.includes(side)) return
+    let node = findToolNode(id)
+    if (!node) {
+      if (contribution) {
+        const target = model.getNodeById(`border_${side}`)
+        if (target instanceof BorderNode) {
+          model.doAction(
+            Actions.addNode(
+            {
+              type: 'tab',
+              id: `plugin:${id}`,
+              name: contribution.title,
+              component: 'plugin',
+              enableClose: contribution.closable !== false,
+              config: { panelId: id },
+              ...(contribution.canPopout === false
+                ? { enablePopout: false, enablePopoutIcon: false, enablePopoutFloatIcon: false }
+                : {}),
+            },
+            target.getId(),
+            DockLocation.CENTER,
+            -1,
+            ),
+          )
+        }
+        node = findToolNode(id)
+     }
+    }
+    const border = model.getNodeById(`border_${side}`)
+    if (!(node instanceof TabNode) || !(border instanceof BorderNode)) return
+    let source = node.getParent()
+    while (source && !(source instanceof BorderNode)) source = source.getParent()
+    const wasSelected = source instanceof BorderNode && source.getSelectedNode()?.getId() === node.getId()
+    model.doAction(Actions.updateNodeAttributes(border.getId(), { show: true }))
+    if (node.getParent()?.getId() !== border.getId())
+      model.doAction(Actions.moveNode(node.getId(), border.getId(), DockLocation.CENTER, -1, false))
+    if (source instanceof BorderNode && source.getId() !== border.getId() && wasSelected)
+      model.doAction(Actions.updateNodeAttributes(source.getId(), { show: false, selected: -1 }))
+  }
+  function reorderToolRail(source: string, target: string) {
+    const sourceNode = model.getNodeById(nodeIdForTool(source)) ?? model.getNodeById(`plugin:${source}`)
+    const targetNode = model.getNodeById(nodeIdForTool(target)) ?? model.getNodeById(`plugin:${target}`)
+    const parent = targetNode?.getParent()
+    if (!(sourceNode instanceof TabNode) || !(targetNode instanceof TabNode) || !parent) return
+    const index = parent.getChildren().indexOf(targetNode)
+    model.doAction(Actions.moveNode(sourceNode.getId(), parent.getId(), DockLocation.CENTER, index, false))
   }
   const [toastPaused, setToastPaused] = useState(false)
   const sidebarDrag = useRef<{ startX: number; startWidth: number } | null>(null)
@@ -615,6 +738,37 @@ export default function App() {
   useEffect(() => {
     setToastPaused(false)
   }, [notice])
+  useEffect(() => {
+    const clearDragState = () => {
+      delete document.body.dataset.hbarDraggingTool
+      draggingToolRef.current = null
+      setDraggingTool(null)
+    }
+    const onDragEnd = () => window.setTimeout(clearDragState, 0)
+    window.addEventListener('dragend', onDragEnd)
+    window.addEventListener('drop', clearDragState)
+    return () => {
+      window.removeEventListener('dragend', onDragEnd)
+      window.removeEventListener('drop', clearDragState)
+    }
+  }, [])
+  useEffect(() => {
+    let dispose: (() => void) | undefined
+    void platform().then((adapter) => {
+      dispose = adapter.onToolWindowEvent((event) => {
+        if (event.type !== 'closed') return
+        const panelId = event.windowId
+        const previous = nativeToolWindows.current.get(panelId)
+        nativeToolWindows.current.delete(panelId)
+        const contribution = [...(useCatalog.getState().data?.panels ?? []), ...useUIPlugins.getState().panels].find((panel) => panel.id === panelId)
+        if (contribution) openPanel(`plugin:${panelId}`, contribution.title, 'plugin', { panelId }, previous?.dock ?? contribution.defaultDock)
+      })
+    })
+    return () => dispose?.()
+  // The adapter subscription is process-wide; the callback reads current stores
+  // and is intentionally installed once for this App instance.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => {
     if (!taskNotice) return
     const timer = window.setTimeout(() => {
@@ -638,9 +792,6 @@ export default function App() {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [notice])
-  const [model, setModel] = useState(() => {
-    return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
-  })
   useEffect(() => {
     const effectiveTheme = mergeThemeContributions(themeProfile, themeContributions)
     applyThemeProfile(effectiveTheme)
@@ -824,9 +975,25 @@ export default function App() {
       return
     }
     if (component !== 'conversation') useWorkbench.setState({ toolPanel: id })
+    if (component !== 'conversation') openToolIdsRef.current.add(id)
     if (component === 'plugin') setMobilePanel(String(config?.panelId ?? ''))
     if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
-    const borderId = placement === 'right' ? 'border_right' : placement === 'bottom' ? 'border_bottom' : undefined
+    const registeredPanels = [...(useCatalog.getState().data?.panels ?? []), ...useUIPlugins.getState().panels]
+    const panelContribution = component === 'plugin'
+      ? registeredPanels.find((panel) => panel.id === String(config?.panelId ?? ''))
+      : undefined
+    const popoutAttributes = panelContribution?.canPopout === false
+      ? { enablePopout: false, enablePopoutIcon: false, enablePopoutFloatIcon: false }
+      : {}
+    const borderId = placement === 'right'
+      ? 'border_right'
+      : placement === 'bottom'
+        ? 'border_bottom'
+        : placement === 'top'
+          ? 'border_top'
+          : placement === 'left'
+            ? 'border_left'
+            : undefined
     const border = borderId ? model.getNodeById(borderId) : undefined
     let skipBorderSelection = false
     if (borderId && border instanceof BorderNode) {
@@ -835,7 +1002,7 @@ export default function App() {
       if (!existing)
         model.doAction(
           Actions.addNode(
-            { type: 'tab', id, name: title, component, enableClose: true, config },
+            { type: 'tab', id, name: title, component, enableClose: true, config, ...popoutAttributes },
             borderId,
             DockLocation.CENTER,
             -1,
@@ -851,10 +1018,12 @@ export default function App() {
       if (!existing)
         model.doAction(
           Actions.addNode(
-            { type: 'tab', id, name: title, component, enableClose: true, config },
+            { type: 'tab', id, name: title, component, enableClose: true, config, ...popoutAttributes },
             model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
             placement === 'bottom'
               ? DockLocation.BOTTOM
+              : placement === 'top'
+                ? DockLocation.TOP
               : placement === 'left'
                 ? DockLocation.LEFT
                 : DockLocation.CENTER,
@@ -877,6 +1046,99 @@ export default function App() {
     }
   }
 
+  function moveToolToDock(id: string, dock: ToolWindowDock) {
+    const contribution = [...(data?.panels ?? []), ...clientPanels].find((panel) => panel.id === id)
+    if (contribution?.allowedDocks && !contribution.allowedDocks.includes(dock)) return
+    if (dock === 'window' && contribution?.canPopout === false) return
+    const resolvedId = id === 'diagnose' ? DIAGNOSE_PANEL_ID : id
+    let node = model.getNodeById(resolvedId) ?? model.getNodeById(`plugin:${id}`)
+    if (!node && contribution) {
+      openPanel(
+        `plugin:${id}`,
+        contribution.title,
+        'plugin',
+        { panelId: id },
+        contribution.defaultDock ?? 'right',
+      )
+      node = model.getNodeById(`plugin:${id}`)
+    }
+    if (dock === 'window') {
+      if (node instanceof TabNode && contribution) {
+        void platform().then(async (adapter) => {
+          if (adapter.kind !== 'desktop') {
+            model.doAction(Actions.popoutTab(node!.getId(), 'window'))
+            return
+          }
+          const url = new URL(window.location.href)
+          url.searchParams.set('hbarPanel', id)
+          const handle = await adapter.openToolWindow({ windowId: id, title: contribution.title, url: url.href })
+          if (!handle) return
+          nativeToolWindows.current.set(id, {
+            dock: toolDock(id),
+            focus: () => adapter.focusToolWindow(handle.windowId),
+            close: () => adapter.closeToolWindow(handle.windowId),
+          })
+          closePanel(node!.getId())
+        }).catch(report)
+      } else if (node instanceof TabNode) model.doAction(Actions.popoutTab(node.getId(), 'window'))
+      return
+    }
+    const target = dock === 'editor' ? model.getNodeById('main') : model.getNodeById(`border_${dock}`)
+    if (!target) return
+    if (node instanceof TabNode) {
+      model.doAction(Actions.moveNode(node.getId(), target.getId(), DockLocation.CENTER, -1, true))
+      if (dock !== 'editor') model.doAction(Actions.updateNodeAttributes(target.getId(), { show: true }))
+      if (dock === 'left' || dock === 'right') {
+        moveToolRail(id, dock)
+      }
+    }
+  }
+
+  function toolDock(id: string): 'left' | 'right' | 'top' | 'bottom' | 'editor' {
+    const resolvedId = id === 'diagnose' ? DIAGNOSE_PANEL_ID : id
+    const node = model.getNodeById(resolvedId) ?? model.getNodeById(`plugin:${id}`)
+    if (!(node instanceof TabNode)) return 'right'
+    let parent = node.getParent()
+    while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
+    if (parent instanceof BorderNode) {
+      const location = parent.getLocation().getName()
+      if (location === 'left' || location === 'right' || location === 'top' || location === 'bottom') return location
+    }
+    return 'editor'
+  }
+
+  const draggedContribution = draggingTool
+    ? [...(data?.panels ?? []), ...clientPanels].find((contribution) => contribution.id === draggingTool)
+    : undefined
+  const dragAllowedDocks: readonly ToolWindowDock[] = draggedContribution?.allowedDocks
+    ? draggedContribution.allowedDocks.filter((dock) => draggedContribution.canPopout !== false || dock !== 'window')
+    : draggedContribution?.canPopout === false
+      ? ['left', 'right', 'top', 'bottom', 'editor']
+      : ['left', 'right', 'top', 'bottom', 'editor', 'window']
+
+  function handleToolRailDragOver(event: React.DragEvent<HTMLDivElement>) {
+    const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('.tool-rail') : null
+    if (!target) return
+    const source =
+      event.dataTransfer.getData('application/x-hbar-tool') ||
+      document.body.dataset.hbarDraggingTool ||
+      draggingToolRef.current ||
+      draggingTool
+    if (!source) return
+    event.preventDefault()
+    moveToolRail(source, target.classList.contains('left-rail') ? 'left' : 'right')
+  }
+  function handleToolRailDrop(event: React.DragEvent<HTMLDivElement>) {
+    const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('.tool-rail') : null
+    if (!target) return
+    const source = event.dataTransfer.getData('application/x-hbar-tool') || document.body.dataset.hbarDraggingTool || draggingToolRef.current
+    if (!source) return
+    event.preventDefault()
+    event.stopPropagation()
+    moveToolRail(source, target.classList.contains('left-rail') ? 'left' : 'right')
+    setToolDragState(null)
+  }
+
   function systemTerminalCount(current: Model) {
     let count = 0
     current.visitNodes((node) => {
@@ -886,6 +1148,7 @@ export default function App() {
   }
 
   function closePanel(id: string) {
+    openToolIdsRef.current.delete(id)
     const node = model.getNodeById(id)
     let parent = node?.getParent()
     while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
@@ -895,7 +1158,7 @@ export default function App() {
         const remaining = parent.getTabNodes()
         if (remaining.length) model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: 0 }))
         else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
-      } else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false }))
+      } else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
     } else if (node) model.doAction(Actions.deleteTab(id))
     if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
   }
@@ -917,21 +1180,73 @@ export default function App() {
     config?: Record<string, unknown>,
     placement = 'right',
   ) {
-    if (toolPanel === id) {
-      closePanel(id)
+    const panelId = id.startsWith('plugin:') ? id.slice('plugin:'.length) : id
+    const nativeWindow = nativeToolWindows.current.get(panelId)
+    if (nativeWindow) {
+      void nativeWindow.focus().catch(report)
+      return
+    }
+    const existing = model.getNodeById(id) ?? (id.startsWith('plugin:') ? undefined : model.getNodeById(`plugin:${id}`))
+    if (openToolIdsRef.current.has(id) && existing) {
+      let parent = existing.getParent()
+      while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
+      const selected =
+        useWorkbench.getState().toolPanel === id ||
+        (parent instanceof BorderNode
+          ? parent.isShowing() && parent.getSelectedNode()?.getId() === id
+          : existing instanceof TabNode && existing.isSelected())
+      if (selected) {
+        closePanel(id)
+        if (small) setMobileView('chat')
+        return
+      }
+      if (parent instanceof BorderNode) {
+        const index = parent.getTabNodes().findIndex((tab) => tab.getId() === id)
+        model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, ...(index >= 0 ? { selected: index } : {}) }))
+      } else if (existing instanceof TabNode) {
+        model.doAction(Actions.selectTab(id))
+      }
+      useWorkbench.setState({ toolPanel: id })
+      if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
+      return
+    }
+    let existingParent = existing?.getParent()
+    while (existingParent && !(existingParent instanceof BorderNode)) existingParent = existingParent.getParent()
+    const selectedInBorder = existing instanceof TabNode && existingParent instanceof BorderNode &&
+      existingParent.isShowing() && existingParent.getSelectedNode()?.getId() === existing.getId()
+    if (toolPanel === id || selectedInBorder || (existing instanceof TabNode && !(existingParent instanceof BorderNode) && existing.isSelected())) {
+      let parent = existing?.getParent()
+      while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
+      if (parent instanceof BorderNode)
+        {
+          model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
+          const fallback = conversationTabs(model)[0]
+          if (fallback) model.doAction(Actions.selectTab(fallback.getId()))
+        }
+      else closePanel(id)
+      useWorkbench.setState({ toolPanel: '' })
       if (small) setMobileView('chat')
       return
     }
-    openPanel(id, title, component, config, placement)
+    openPanel(id, title, component, config, model.getNodeById(id) ? toolDock(id) : placement)
   }
   const settings = () => openPanel('settings', '设置', 'settings')
-  const toggleSettings = () => toggleGalleryTool('settings', '设置', 'settings', undefined, 'editor')
+  const toggleSettings = () => {
+    const existing = model.getNodeById('settings')
+    if (existing instanceof TabNode && useWorkbench.getState().toolPanel === 'settings') {
+      closePanel('settings')
+      return
+    }
+    openPanel('settings', '设置', 'settings', undefined, 'editor')
+  }
   function closeWorkspaceModal() {
     setWorkspaceModal(false)
     setWorkspacePaths([])
     setWorkspaceAlias('')
     setDiscoveredWorktrees([])
     setSelectedWorktreePaths([])
+    setWorkspaceCreateErrors([])
+    setWorkspaceCreateBusy(false)
   }
   async function chooseWorkspaceDirectory() {
     try {
@@ -1246,18 +1561,35 @@ export default function App() {
       case 'diagnose':
         return <Diagnose />
       case 'plugin':
-        return renderPlugin(config.panelId ?? '')
+        return renderPlugin(config.panelId ?? '', toolDock(node.getId()), node)
       default:
         return <div className="empty-tool">面板不可用</div>
     }
   }
-  function renderPlugin(panelId: string) {
-    const ClientPanel = clientPanels.find((p) => p.id === panelId)?.component
+  function renderPlugin(
+    panelId: string,
+    dock: ToolWindowProps['dock'] = 'right',
+    node?: TabNode,
+    hostWindow?: Window,
+    hostDocument?: Document,
+  ) {
+    const panel = clientPanels.find((p) => p.id === panelId)
+    const ClientPanel = panel?.component
+    const panelWindow = hostWindow ?? node?.getWindow()
+    const panelDocument = hostDocument ?? node?.getDocument()
     if (ClientPanel)
       return (
         <div className="plugin-panel rb-plugin-panel">
           <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
-          <ClientPanel />
+          <ClientPanel
+            panelId={panelId}
+            owner={panel.owner}
+            dock={dock}
+            {...(panelWindow ? { window: panelWindow } : {})}
+            {...(panelDocument ? { document: panelDocument } : {})}
+            {...(workspaceId ? { workspaceId } : {})}
+            {...(activeSession ? { sessionId: activeSession } : {})}
+          />
         </div>
       )
     const contribution = data?.panels.find((p) => p.id === panelId)
@@ -1275,8 +1607,13 @@ export default function App() {
     )
   }
   if (status === 'pairing' || (!data && status !== 'connected')) return <PairingPage />
+  if (detachedPanelId && data) {
+    const detachedContribution = [...(data.panels ?? []), ...clientPanels].find((panel) => panel.id === detachedPanelId)
+    if (detachedContribution)
+      return <div className="detached-tool-window">{renderPlugin(detachedPanelId, 'window', undefined, window, document)}</div>
+  }
   return (
-    <div className="app-shell">
+    <div className="app-shell" onDragOver={handleToolRailDragOver} onDropCapture={handleToolRailDrop}>
       <WorkbenchHeader
         status={status}
         host={host}
@@ -1296,56 +1633,6 @@ export default function App() {
         className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
         style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
       >
-        <WorkbenchToolRails
-          side="left"
-          panel={panel}
-          toolPanel={toolPanel}
-          diagnosePanelId={DIAGNOSE_PANEL_ID}
-          contributions={[...(data?.panels ?? []), ...clientPanels]}
-          onSelectPrimary={(nextPanel) => {
-            useWorkbench.setState({ panel: nextPanel })
-            setSidebar(true)
-          }}
-          onOpenTool={(id, title, component, placement, config) => openPanel(id, title, component, config, placement)}
-          onToggleTool={(id, title, component, placement) => {
-            if (id === 'settings') {
-              toggleSettings()
-              return
-            }
-            toggleGalleryTool(id, title, component, undefined, placement)
-          }}
-          toolOrder={toolRailOrder}
-          toolSides={toolRailSides}
-          onMoveTool={(id, side) =>
-            updateToolRailLayout((current) => ({
-              ...current,
-              [id]: {
-                side,
-                order:
-                  current[id]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(id as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
-              },
-            }))
-          }
-          onReorderTool={(source, target) =>
-            updateToolRailLayout((current) => {
-              const next = [...DEFAULT_TOOL_RAIL_ORDER].sort(
-                (a, b) =>
-                  (current[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
-                  (current[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
-              )
-              const sourceIndex = next.indexOf(source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
-              const targetIndex = next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
-              if (sourceIndex < 0 || targetIndex < 0) return current
-              next.splice(sourceIndex, 1)
-              next.splice(
-                next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
-                0,
-                source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number],
-              )
-              return Object.fromEntries(next.map((id, order) => [id, { side: current[id]?.side ?? 'right', order }]))
-            })
-          }
-        />
         <aside className="sidebar">
           <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
           {panel === 'sessions' ? (
@@ -1383,6 +1670,24 @@ export default function App() {
             />
           )}
         </aside>
+        <WorkbenchToolRails
+          side="left"
+          showPrimary={false}
+          panel={panel}
+          toolPanel={toolPanel}
+          diagnosePanelId={DIAGNOSE_PANEL_ID}
+          contributions={[...(data?.panels ?? []), ...clientPanels]}
+          onSelectPrimary={(nextPanel) => {
+            useWorkbench.setState({ panel: nextPanel })
+            setSidebar(true)
+          }}
+          onToggleTool={(id, title, component, placement, config) => toggleGalleryTool(id, title, component, config, placement)}
+          onDragState={setToolDragState}
+          toolOrder={toolRailOrder}
+          toolSides={toolRailSides}
+          onMoveTool={moveToolRail}
+          onReorderTool={reorderToolRail}
+        />
         <main className="workbench">
           {small ? (
             <>
@@ -1502,6 +1807,36 @@ export default function App() {
                   }
                 }
               }}
+              supportsPopout={!small}
+              popoutURL="/popout.html"
+              popoutWindowName="hbar Tool Window"
+              onRenderTab={(node, renderValues) => {
+                if (!node) {
+                  renderValues.leading = <LayoutGrid size={13} aria-hidden="true" />
+                  return
+                }
+                const config = (node.getConfig() ?? {}) as { panelId?: string }
+                const panelId = config.panelId
+                const contribution = panelId
+                  ? [...(data?.panels ?? []), ...clientPanels].find((panel) => panel.id === panelId)
+                  : undefined
+                const componentIcons: Record<string, typeof LayoutGrid> = {
+                  activity: Activity,
+                  browser: Globe,
+                  diagnose: CircleHelp,
+                  git: GitBranch,
+                  inspector: FileSearch,
+                  insights: BarChart3,
+                  plan: ListChecks,
+                  settings: Settings2,
+                  'system-terminal': TerminalSquare,
+                }
+                const component = node.getComponent()
+                const Icon = contribution?.icon
+                  ? TOOL_WINDOW_TAB_ICONS[contribution.icon] ?? LayoutGrid
+                  : (component ? componentIcons[component] : undefined) ?? LayoutGrid
+                renderValues.leading = <Icon size={13} aria-hidden="true" />
+              }}
             />
           )}
         </main>
@@ -1515,47 +1850,32 @@ export default function App() {
             useWorkbench.setState({ panel: nextPanel })
             setSidebar(true)
           }}
-          onOpenTool={(id, title, component, placement, config) => openPanel(id, title, component, config, placement)}
-          onToggleTool={(id, title, component, placement) => {
-            if (id === 'settings') {
-              toggleSettings()
-              return
-            }
-            toggleGalleryTool(id, title, component, undefined, placement)
-          }}
+           onToggleTool={(id, title, component, placement, config) => toggleGalleryTool(id, title, component, config, placement)}
+          onDragState={setToolDragState}
           toolOrder={toolRailOrder}
           toolSides={toolRailSides}
-          onMoveTool={(id, side) =>
-            updateToolRailLayout((current) => ({
-              ...current,
-              [id]: {
-                side,
-                order:
-                  current[id]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(id as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
-              },
-            }))
-          }
-          onReorderTool={(source, target) =>
-            updateToolRailLayout((current) => {
-              const next = [...DEFAULT_TOOL_RAIL_ORDER].sort(
-                (a, b) =>
-                  (current[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
-                  (current[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
-              )
-              const sourceIndex = next.indexOf(source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
-              const targetIndex = next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number])
-              if (sourceIndex < 0 || targetIndex < 0) return current
-              next.splice(sourceIndex, 1)
-              next.splice(
-                next.indexOf(target as (typeof DEFAULT_TOOL_RAIL_ORDER)[number]),
-                0,
-                source as (typeof DEFAULT_TOOL_RAIL_ORDER)[number],
-              )
-              return Object.fromEntries(next.map((id, order) => [id, { side: current[id]?.side ?? 'right', order }]))
-            })
-          }
+          onMoveTool={moveToolRail}
+          onReorderTool={reorderToolRail}
         />
       </div>
+      {draggingTool && (
+        <DockTargetOverlay
+          allowedDocks={dragAllowedDocks}
+          onDrop={(dock) => {
+            moveToolToDock(draggingTool, dock)
+            setDraggingTool(null)
+          }}
+        />
+      )}
+      <button
+        type="button"
+        className="global-settings-action"
+        title="设置"
+        aria-label="设置"
+        onClick={toggleSettings}
+      >
+        <Settings2 size={17} aria-hidden="true" />
+      </button>
       <WorkbenchStatusBar
         workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? 'Workspace'}
         modelLabel={data?.models.find((model) => model.id === modelId)?.name ?? 'Provider'}
