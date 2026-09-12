@@ -1080,35 +1080,6 @@ export default function Settings() {
               onSet={(id, value) => void saveSetting(id, value)}
               onReset={(id) => void resetSetting(id)}
             />
-            <label className="settings-inline-field">
-              默认会话预算（tokens）
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={String(settingsSnapshot?.values['session.defaultBudgetTokens']?.effectiveValue ?? 10_000)}
-                disabled={settingsSaving || !settingsSnapshot}
-                onChange={(event) => {
-                  const value = Number(event.target.value)
-                  if (Number.isSafeInteger(value) && value > 0) void saveSetting('session.defaultBudgetTokens', value)
-                }}
-              />
-            </label>
-            {(['taskCompleted', 'userInteraction', 'retryFailed'] as const).map((key) => {
-              const id = `notifications.${key}`
-              const labels = { taskCompleted: '任务完成时通知', userInteraction: '需要用户交互时通知', retryFailed: '错误重试失败时通知' }
-              return (
-                <label className="checkbox" key={id}>
-                  <input
-                    type="checkbox"
-                    checked={settingsSnapshot?.values[id]?.effectiveValue !== false}
-                    disabled={settingsSaving || !settingsSnapshot}
-                    onChange={(event) => void saveSetting(id, event.target.checked)}
-                  />
-                  {labels[key]}
-                </label>
-              )
-            })}
             {settingsError && <p className="inline-error" role="alert">{settingsError}</p>}
           </div>
         </section>
