@@ -5,6 +5,7 @@ import { client, report, useConnection, useSessions, useWorkbench } from './stor
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { EmptyState, SegmentedControl, Timeline, type TimelineItem, type TimelineStatus } from './react-bits'
 import './ActivityPanel.css'
 
 type ActivityMode = 'activity' | 'trace'
@@ -108,30 +109,27 @@ export default function ActivityPanel() {
     const data = JSON.stringify(event.data ?? '').toLocaleLowerCase()
     return event.type.toLocaleLowerCase().includes(query) || data.includes(query)
   })
+  const timelineItems: TimelineItem[] = timelineEvents.map((event) => {
+    const state = activityEventState(event)
+    const status: TimelineStatus = state === 'active' ? 'running' : state === 'waiting' ? 'waiting' : 'success'
+    return {
+      id: event.eventId,
+      title: activityEventLabel(event),
+      meta: new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status,
+    }
+  })
 
   return (
     <div className="activity-panel rb-activity-panel" aria-label="运行与事件" aria-busy={eventsLoading}>
       <GlassSurface className="activity-panel-glass" width="100%" height="100%" aria-hidden="true" />
-      <div className="tool-panel-tabs" role="tablist" aria-label="运行与事件视图">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'activity'}
-          className={mode === 'activity' ? 'selected' : ''}
-          onClick={() => setMode('activity')}
-        >
-          运行
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'trace'}
-          className={mode === 'trace' ? 'selected' : ''}
-          onClick={() => setMode('trace')}
-        >
-          事件
-        </button>
-      </div>
+      <SegmentedControl
+        className="tool-panel-tabs"
+        ariaLabel="运行与事件视图"
+        value={mode}
+        options={[{ value: 'activity', label: '运行' }, { value: 'trace', label: '事件' }]}
+        onChange={setMode}
+      />
       {mode === 'activity' ? (
         <>
           <div className="activity-heading">
@@ -168,17 +166,7 @@ export default function ActivityPanel() {
                   </button>
                 )}
               </div>
-              {timelineEvents.length > 0 && (
-                <ol className="activity-timeline-list">
-                  {timelineEvents.map((event) => (
-                    <li className={`activity-timeline-entry ${activityEventState(event)}`} key={event.eventId}>
-                      <i aria-hidden="true" />
-                      <span>{activityEventLabel(event)}</span>
-                      <time>{new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-                    </li>
-                  ))}
-                </ol>
-              )}
+              {timelineEvents.length > 0 && <Timeline className="activity-timeline-list" items={timelineItems} />}
             </section>
           )}
           <dl className="metrics">
@@ -245,10 +233,7 @@ export default function ActivityPanel() {
             ))}
           </AnimatedList>
           {!snapshot?.runs.length && (
-            <div className="empty-tool">
-              <Activity size={25} />
-              <span>尚无运行记录</span>
-            </div>
+            <EmptyState className="empty-tool" icon={<Activity size={25} />} title="尚无运行记录" description="发送一条消息后，运行状态会显示在这里。" />
           )}
         </>
       ) : detail ? (
@@ -319,10 +304,8 @@ export default function ActivityPanel() {
               </SpotlightCard>
             ))}
           </div>
-          {!eventsLoading && !eventsError && !events.length && <div className="empty-tool">尚无事件</div>}
-          {!eventsLoading && !eventsError && events.length > 0 && !visibleEvents.length && (
-            <div className="empty-tool">没有匹配的事件</div>
-          )}
+          {!eventsLoading && !eventsError && !events.length && <EmptyState className="empty-tool" title="尚无事件" description="会话运行后，事件追踪会显示在这里。" />}
+          {!eventsLoading && !eventsError && events.length > 0 && !visibleEvents.length && <EmptyState className="empty-tool" title="没有匹配的事件" description="调整筛选条件后重试。" />}
         </>
       )}
     </div>

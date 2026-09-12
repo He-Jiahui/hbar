@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
-  Check,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -24,6 +23,7 @@ import { useSessionCapabilities, type SessionCapabilityTab } from './session-cap
 import GlassSurface from './react-bits/GlassSurface'
 import AnimatedList from './react-bits/AnimatedList'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { EmptyState, ProgressRail, type ProgressStep } from './react-bits'
 
 type PanelProps = { sessionId?: string }
 
@@ -411,6 +411,11 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
   const completedSteps = plan?.plan.filter((step) => step.status === 'completed').length ?? 0
   const currentStep = plan?.plan.find((step) => step.status === 'in_progress')
   const totalSteps = plan?.plan.length ?? 0
+  const progressSteps: ProgressStep[] = (plan?.plan ?? []).map((step, index) => ({
+    id: `${index}-${step.step}`,
+    title: step.step,
+    status: step.status === 'in_progress' ? 'in_progress' : step.status === 'completed' ? 'completed' : 'pending',
+  }))
   return (
     <section className="tool-surface">
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
@@ -480,18 +485,8 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
                 编辑
               </button>
             </div>
-            {plan?.plan.length ? (
-              <ol>
-                {plan.plan.map((step, index) => (
-                  <li key={`${index}-${step.step}`} className={step.status}>
-                    <span>{step.status === 'completed' ? <Check size={13} /> : index + 1}</span>
-                    <p>{step.step}</p>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="tool-muted">当前会话没有计划步骤。</p>
-            )}
+            {!progressSteps.length && <EmptyState title="当前会话没有计划步骤" description="创建 Plan 后，步骤进度会显示在这里。" />}
+            {progressSteps.length > 0 && <ProgressRail className="plan-progress-rail" steps={progressSteps} aria-label="计划步骤进度" />}
           </section>
         </div>
       )}
