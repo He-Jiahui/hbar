@@ -27,6 +27,7 @@ export class Storage {
         path,
         sessions: layout?.sessions,
         diagnostics: layout?.diagnostics,
+        settings: layout?.settings,
       },
     })
     this.exited = new Promise((resolve) => {

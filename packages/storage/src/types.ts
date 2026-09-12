@@ -12,7 +12,14 @@ import type {
   SessionSnapshot,
   UserInput,
   Workspace,
+  SettingScope,
 } from '@hbar/contracts'
+
+export interface StoredSettings {
+  version: 1
+  revision: string
+  values: Record<string, unknown>
+}
 
 export interface StorageMethods {
   ready(): { version: number }
@@ -70,6 +77,14 @@ export interface StorageMethods {
   stats(): Record<string, number>
   getSetting(key: string): string | null
   setSetting(key: string, value: string): void
+  getSettings(scope: SettingScope, targetId?: string): StoredSettings
+  setSettings(
+    scope: SettingScope,
+    targetId: string | undefined,
+    values: Record<string, unknown>,
+    expectedRevision?: string,
+  ): StoredSettings
+  deleteSetting(scope: SettingScope, targetId: string | undefined, key: string, expectedRevision?: string): StoredSettings
   close(): void
 }
 export type StorageCall = {

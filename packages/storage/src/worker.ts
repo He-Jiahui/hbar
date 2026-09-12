@@ -1,8 +1,17 @@
 import { Database } from 'bun:sqlite'
 import { workerData, parentPort } from 'node:worker_threads'
+import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
-import { existsSync } from 'node:fs'
-import { HbarError, contentBlockSchema, emptyUsage, inputSchema, providerSchema, sessionEventSchema } from '@hbar/contracts'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  HbarError,
+  contentBlockSchema,
+  emptyUsage,
+  inputSchema,
+  providerSchema,
+  sessionEventSchema,
+  settingScopeSchema,
+} from '@hbar/contracts'
 import { z } from 'zod'
 import type {
   Approval,
@@ -19,9 +28,10 @@ import type { StorageCall, StorageMethods, StorageReply } from './types.ts'
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 
-const options = workerData as { path: string; sessions?: string; diagnostics?: string }
+const options = workerData as { path: string; sessions?: string; diagnostics?: string; settings?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
 const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
+const settingsRoot = options.settings ?? join(dirname(options.path), 'settings')
 const logWriter = new SessionLogWriter(sessionsRoot)
 const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
@@ -77,6 +87,63 @@ function stableJson(value: unknown): string {
       .join(',')}}`
   }
   return JSON.stringify(value)
+}
+
+type StoredSettings = import('./types.ts').StoredSettings
+
+function settingsPath(scope: import('@hbar/contracts').SettingScope, targetId?: string): string {
+  settingScopeSchema.parse(scope)
+  if (scope === 'global') return join(settingsRoot, 'settings.json')
+  if (!targetId || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(targetId))
+    throw new HbarError('INVALID_INPUT', `${scope} settings require a safe target id`)
+  return join(settingsRoot, scope === 'project' ? 'projects' : 'sessions', `${targetId}.json`)
+}
+
+function settingsRevision(values: Record<string, unknown>): string {
+  return createHash('sha256').update(stableJson(values)).digest('hex')
+}
+
+function readSettings(scope: import('@hbar/contracts').SettingScope, targetId?: string): StoredSettings {
+  const path = settingsPath(scope, targetId)
+  if (!existsSync(path)) return { version: 1, revision: settingsRevision({}), values: {} }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown
+  } catch (error) {
+    throw new HbarError('SETTINGS_CORRUPTED', `Cannot read settings file: ${path}`, { cause: error })
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw new HbarError('SETTINGS_CORRUPTED', `Invalid settings file: ${path}`)
+  const candidate = parsed as { version?: unknown; values?: unknown; revision?: unknown }
+  if (candidate.version !== 1)
+    throw new HbarError('SETTINGS_CORRUPTED', `Invalid settings file: ${path}`)
+  // Version-1 installations created before layered settings existed contain
+  // only `{ version: 1 }`; treat that shape as an empty global file.
+  if (candidate.values === undefined) return { version: 1, revision: settingsRevision({}), values: {} }
+  if (typeof candidate.values !== 'object' || candidate.values === null || Array.isArray(candidate.values))
+    throw new HbarError('SETTINGS_CORRUPTED', `Invalid settings file: ${path}`)
+  const values = candidate.values as Record<string, unknown>
+  const revision = settingsRevision(values)
+  if (candidate.revision !== undefined && candidate.revision !== revision)
+    throw new HbarError('SETTINGS_CORRUPTED', `Settings revision does not match content: ${path}`)
+  return { version: 1, revision, values }
+}
+
+function writeSettings(scope: import('@hbar/contracts').SettingScope, targetId: string | undefined, values: Record<string, unknown>, expectedRevision?: string): StoredSettings {
+  const current = readSettings(scope, targetId)
+  if (expectedRevision !== undefined && expectedRevision !== current.revision)
+    throw new HbarError('SETTINGS_CONFLICT', 'Settings changed since they were read')
+  const next: StoredSettings = { version: 1, revision: settingsRevision(values), values }
+  const path = settingsPath(scope, targetId)
+  mkdirSync(dirname(path), { recursive: true })
+  const temporary = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`
+  try {
+    writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
+    renameSync(temporary, path)
+  } finally {
+    if (existsSync(temporary)) rmSync(temporary, { force: true })
+  }
+  return next
 }
 function required<T>(row: T | null, kind: string): T {
   if (!row) throw new HbarError('NOT_FOUND', `${kind} not found`)
@@ -599,6 +666,18 @@ const methods: StorageMethods = {
       key,
       value,
     )
+  },
+  getSettings(scope, targetId) {
+    return readSettings(scope, targetId)
+  },
+  setSettings(scope, targetId, values, expectedRevision) {
+    return writeSettings(scope, targetId, values, expectedRevision)
+  },
+  deleteSetting(scope, targetId, key, expectedRevision) {
+    const current = readSettings(scope, targetId)
+    const values = { ...current.values }
+    delete values[key]
+    return writeSettings(scope, targetId, values, expectedRevision)
   },
   close() {
     db.close()
