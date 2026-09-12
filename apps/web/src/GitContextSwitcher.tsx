@@ -67,10 +67,14 @@ export default function GitContextSwitcher({
   }, [open, workspacePath])
   async function applyBranchSwitch(name: string) {
     if (!name || name === branch || busy) return
+    const connection = client()
+    const operationWorkspacePath = workspacePath
     setBusy(true)
     setError('')
     try {
-      await client().call('git.branch', { cwd: workspacePath, operation: 'switch', name })
+      await connection.call('git.branch', { cwd: operationWorkspacePath, operation: 'switch', name })
+      if (client() !== connection || workspacePath !== operationWorkspacePath)
+        throw new Error('工作区已切换，请重新选择分支')
       await load()
       setBranchDecision(null)
       setWorktreeTarget(null)
@@ -104,17 +108,23 @@ export default function GitContextSwitcher({
   }
   async function createWorktree() {
     if (!worktreeTarget || !worktreePath.trim() || busy) return
+    const connection = client()
+    const operationWorkspacePath = workspacePath
+    const operationBranch = worktreeTarget
+    const operationTarget = worktreePath.trim()
     setBusy(true)
     setError('')
     try {
-      const result = await client().call('git.worktree', {
-        cwd: workspacePath,
+      const result = await connection.call('git.worktree', {
+        cwd: operationWorkspacePath,
         operation: 'add',
-        path: worktreePath.trim(),
-        branch: worktreeTarget,
+        path: operationTarget,
+        branch: operationBranch,
         createBranch: false,
       })
-      const created = Array.isArray(result) ? result.find((item) => item.path === worktreePath.trim()) : result
+      if (client() !== connection || workspacePath !== operationWorkspacePath)
+        throw new Error('工作区已切换，请重新选择 Worktree')
+      const created = Array.isArray(result) ? result.find((item) => item.path === operationTarget) : result
       if (!created) throw new Error('Worktree 创建失败')
       await onUseWorktree(created.path)
       setOpen(false)
