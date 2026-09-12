@@ -646,7 +646,7 @@ export default function App() {
           const entries = Array.isArray(result) ? result : [result]
           const currentRoot = status.root ?? sourcePath
           groups.push(entries
-            .filter((item) => item.path.toLocaleLowerCase() !== currentRoot.toLocaleLowerCase())
+            .filter((item) => workspacePathKey(item.path) !== workspacePathKey(currentRoot))
             .map((item) => ({ ...item, sourcePath })))
         } catch {
           groups.push([])
@@ -1185,8 +1185,19 @@ export default function App() {
     if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
   }
   function clearWorkspaceSurface() {
-    const activeTool = useWorkbench.getState().toolPanel
-    if (activeTool) closePanel(activeTool)
+    const staleIds: string[] = []
+    model.visitNodes((node) => {
+      if (!(node instanceof TabNode)) return
+      if (node.getComponent() === 'file' || node.getComponent() === 'git' || node.getComponent() === 'browser' ||
+        node.getComponent() === 'inspector' || node.getComponent() === 'plan' || node.getComponent() === 'insights' ||
+        node.getComponent() === 'activity' || node.getComponent() === 'diagnose' || node.getComponent() === 'settings' ||
+        node.getComponent() === 'plugin') staleIds.push(node.getId())
+    })
+    for (const id of staleIds) closePanel(id)
+    openToolIdsRef.current.clear()
+    useWorkbench.setState({ toolPanel: '' })
+    setMobileFile('')
+    setMobilePanel('')
     if (small) setMobileView('chat')
   }
   function activateConversationView(view: 'chat' | 'console') {

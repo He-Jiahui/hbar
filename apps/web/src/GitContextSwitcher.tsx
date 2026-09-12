@@ -60,6 +60,7 @@ export default function GitContextSwitcher({
       setIsGit(Boolean(nextStatus.root))
     } catch (cause) {
       if (generation !== loadGeneration.current || client() !== connection || workspacePath !== operationWorkspacePath) return
+      setIsGit(false)
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
       if (generation === loadGeneration.current) setBusy(false)
