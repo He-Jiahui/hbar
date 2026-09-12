@@ -4,6 +4,9 @@ import type { SettingDescriptor, SettingScope, SettingsCatalog, SettingsContribu
 
 export * from './settings.ts'
 export * from './theme.ts'
+export * from './tool-windows.ts'
+import type { ToolWindowContribution } from './tool-windows.ts'
+import type { ThemeContribution } from './theme.ts'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
@@ -726,9 +729,10 @@ export interface PluginInfo {
   contributes?:
     | {
         commands: TerminalContribution[]
-        panels: Record<string, unknown>[]
+        panels: ToolWindowContribution[]
         renderers: Record<string, unknown>[]
         settings?: SettingsContribution | undefined
+        theme?: ThemeContribution | undefined
       }
     | undefined
   terminalCommands?: TerminalContribution[] | undefined
@@ -737,14 +741,7 @@ export interface PluginInfo {
   error?: string | undefined
   clientEntry?: string | undefined
 }
-export interface UIContribution {
-  id: string
-  title: string
-  placement: 'left' | 'right' | 'bottom' | 'editor'
-  kind: 'json' | 'markdown'
-  content: string
-  owner: string
-}
+export type UIContribution = ToolWindowContribution & { owner: string }
 export const terminalCommandGroupSchema = z.enum(['session', 'run', 'model', 'extensions', 'system'])
 export type TerminalCommandGroup = z.infer<typeof terminalCommandGroupSchema>
 export const terminalCommandSchema = z.object({

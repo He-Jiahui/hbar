@@ -204,6 +204,8 @@ export class Kernel {
   >()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private summaryTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private summaryPending = new Map<string, { activity?: SessionSummary['activity']; activeRunId?: string | null }>()
   private maintenance = false
   private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
   private admissions = 0
@@ -440,12 +442,32 @@ export class Kernel {
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const event = await this.storage.call('append', sessionId, type, data, runId, stepId)
     this.publish({ method: 'session.event', params: event })
-    void this.publishSessionSummary(sessionId)
+    this.scheduleSessionSummary(sessionId)
     return event
   }
   private publishEvent(event: SessionEvent) {
     this.publish({ method: 'session.event', params: event })
-    void this.publishSessionSummary(event.sessionId)
+    this.scheduleSessionSummary(event.sessionId)
+  }
+  private scheduleSessionSummary(
+    sessionId: string,
+    activity?: SessionSummary['activity'],
+    activeRunId?: string | null,
+  ) {
+    const pending = this.summaryPending.get(sessionId) ?? {}
+    this.summaryPending.set(sessionId, {
+      ...pending,
+      ...(activity ? { activity } : {}),
+      ...(activeRunId === undefined ? {} : { activeRunId }),
+    })
+    if (this.summaryTimers.has(sessionId)) return
+    const timer = setTimeout(() => {
+      this.summaryTimers.delete(sessionId)
+      const override = this.summaryPending.get(sessionId)
+      this.summaryPending.delete(sessionId)
+      void this.publishSessionSummary(sessionId, override?.activity, override?.activeRunId)
+    }, 80)
+    this.summaryTimers.set(sessionId, timer)
   }
   private async publishSessionSummary(sessionId: string, activity?: SessionSummary['activity'], activeRunId?: string | null) {
     try {
@@ -966,7 +988,7 @@ export class Kernel {
       offset: stream.text.length + stream.thinking.length,
       version: published?.version ?? 0,
     })
-    void this.publishSessionSummary(stream.sessionId, stream.thinking ? 'thinking' : stream.text ? 'output' : 'thinking', stream.runId)
+    this.scheduleSessionSummary(stream.sessionId, stream.thinking ? 'thinking' : stream.text ? 'output' : 'thinking', stream.runId)
     if (this.streamTimers.has(stream.id)) return
     this.streamTimers.set(
       stream.id,
@@ -1382,6 +1404,9 @@ export class Kernel {
   }
   async close() {
     this.closing = true
+    for (const timer of this.summaryTimers.values()) clearTimeout(timer)
+    this.summaryTimers.clear()
+    this.summaryPending.clear()
     for (const active of this.active.values()) active.controller.abort(new Error('Host shutting down'))
     await this.waitForIdle()
     for (const pending of this.userInputs.values())

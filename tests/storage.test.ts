@@ -75,11 +75,22 @@ test('session move preserves history and rejects active runs', async () => {
   const { root, store, session } = await fixture()
   const target = await store.call('createWorkspace', join(root, 'target'), 'target')
   await store.call('commit', session.id, 'run', 'assistant', [{ type: 'text', text: 'history' }])
+  const beforeMoveSummary = await store.call('sessionSummary', session.id)
+  expect(beforeMoveSummary.workspaceId).toBe(session.workspaceId)
+  expect(beforeMoveSummary.lastResponseAt).not.toBeNull()
+  expect((await store.call('sessionSummaries', [session.id])).map((item) => item.sessionId)).toEqual([session.id])
   const moved = await store.call('moveSession', session.id, target.id)
   expect(moved.session.workspaceId).toBe(target.id)
+  expect((await store.call('sessionSummary', session.id)).workspaceId).toBe(target.id)
   expect((await store.call('snapshot', session.id)).messages[0]?.content[0]).toEqual({ type: 'text', text: 'history' })
   expect((await store.call('events', session.id, 0)).at(-1)?.type).toBe('session.moved')
   const run = await store.call('enqueue', session.id, 'move-busy', { text: 'busy', images: [] }, 'test')
-  await expect(store.call('moveSession', session.id, (await store.call('createWorkspace', join(root, 'third'), 'third')).id)).rejects.toThrow('Stop the session')
+  const third = await store.call('createWorkspace', join(root, 'third'), 'third')
+  try {
+    await store.call('moveSession', session.id, third.id)
+    throw new Error('expected move to reject')
+  } catch (error) {
+    expect(error instanceof Error ? error.message : String(error)).toContain('Stop the session')
+  }
   await store.call('setRun', run.id, 'cancelled')
 })

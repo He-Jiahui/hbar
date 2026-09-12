@@ -12,6 +12,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
+import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 
@@ -142,6 +143,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
           }
         }}
       >
+        <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
         <div className="composer-menu-search">
           <Search size={14} />
           <input

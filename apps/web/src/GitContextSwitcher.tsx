@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitBranch, LoaderCircle, Plus, RefreshCw } from 'lucide-react'
 import type { GitBranchInfo, GitStatus, GitWorktreeInfo } from '@hbar/contracts'
 import { client } from './stores'
+import { platform } from './platform'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 import './GitContextSwitcher.css'
 
@@ -20,6 +21,8 @@ export default function GitContextSwitcher({
   const [status, setStatus] = useState<GitStatus | null>(null)
   const [worktreeTarget, setWorktreeTarget] = useState<string | null>(null)
   const [worktreePath, setWorktreePath] = useState('')
+  const [branchDecision, setBranchDecision] = useState<string | null>(null)
+  const [isGit, setIsGit] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
@@ -41,6 +44,7 @@ export default function GitContextSwitcher({
       setStatus(nextStatus)
       setBranches(Array.isArray(nextBranches) ? nextBranches : [])
       setWorktrees(Array.isArray(nextWorktrees) ? nextWorktrees : [])
+      setIsGit(Boolean(nextStatus.root))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -50,30 +54,47 @@ export default function GitContextSwitcher({
   useEffect(() => {
     if (open) void load()
   }, [load, open])
-  async function switchBranch(name: string) {
+  useEffect(() => {
+    setBranchDecision(null)
+    setWorktreeTarget(null)
+    setWorktreePath('')
+    setError('')
+  }, [workspacePath])
+  async function applyBranchSwitch(name: string) {
     if (!name || name === branch || busy) return
-    const existingWorktree = worktrees.find((item) => item.branch === name || item.branch === `refs/heads/${name}`)
-    if (existingWorktree && existingWorktree.path.toLowerCase() !== workspacePath.toLowerCase()) {
-      await selectWorktree(existingWorktree)
-      return
-    }
-    if (status?.dirty) {
-      setWorktreeTarget(name)
-      setWorktreePath(`${workspacePath}-${name.replace(/[^\w.-]+/g, '-')}`)
-      setError('当前目录有未提交改动，无法直接切换；可为该分支创建 Worktree。')
-      return
-    }
     setBusy(true)
     setError('')
     try {
       await client().call('git.branch', { cwd: workspacePath, operation: 'switch', name })
       await load()
+      setBranchDecision(null)
+      setWorktreeTarget(null)
+      setWorktreePath('')
+      setOpen(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
-      setWorktreeTarget(name)
-      setWorktreePath(`${workspacePath}-${name.replace(/[^\w.-]+/g, '-')}`)
     } finally {
       setBusy(false)
+    }
+  }
+  async function chooseBranch(name: string) {
+    if (!name || name === branch || busy) return
+    const existingWorktree = worktrees.find((item) => item.branch === name || item.branch === `refs/heads/${name}`)
+    if (existingWorktree && existingWorktree.path.toLocaleLowerCase() !== workspacePath.toLocaleLowerCase()) {
+      await selectWorktree(existingWorktree)
+      return
+    }
+    setBranchDecision(name)
+    setError(status?.dirty ? '当前目录有未提交改动，不能在当前目录切换分支。' : '')
+  }
+  async function createWorktreeForBranch() {
+    if (!branchDecision || busy) return
+    try {
+      const selected = await (await platform()).pickDirectory()
+      setWorktreePath(selected ?? '')
+      setWorktreeTarget(branchDecision)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
     }
   }
   async function createWorktree() {
@@ -93,6 +114,7 @@ export default function GitContextSwitcher({
       await onUseWorktree(created.path)
       setOpen(false)
       setWorktreeTarget(null)
+      setBranchDecision(null)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -143,15 +165,31 @@ export default function GitContextSwitcher({
           </button>
         </header>
         {error && <p className="git-context-error" role="alert">{error}</p>}
+        {!isGit ? <p className="git-context-empty">当前目录不是 Git 项目。</p> : null}
+        {isGit && status?.root && <p className="git-context-root" title={status.root}>当前目录：{status.root}</p>}
+        {branchDecision && (
+          <section className="git-context-decision" aria-label={`切换到分支 ${branchDecision}`}>
+            <h3>切换到 {branchDecision}</h3>
+            <button type="button" onClick={() => void applyBranchSwitch(branchDecision)} disabled={busy || Boolean(status?.dirty)}>
+              <GitBranch size={13} />
+              <span>在当前目录切换</span>
+            </button>
+            <button type="button" onClick={() => void createWorktreeForBranch()} disabled={busy}>
+              <Plus size={13} />
+              <span>新建 Worktree 并切换</span>
+            </button>
+            <button type="button" onClick={() => { setBranchDecision(null); setWorktreeTarget(null) }} disabled={busy}>返回分支列表</button>
+          </section>
+        )}
         {worktreeTarget && <form className="git-context-worktree-form" onSubmit={(event) => { event.preventDefault(); void createWorktree() }}>
           <label htmlFor="git-worktree-path">为 {worktreeTarget} 创建 Worktree</label>
           <input id="git-worktree-path" value={worktreePath} onChange={(event) => setWorktreePath(event.target.value)} placeholder="Worktree 路径" autoFocus />
-          <div><button type="submit" disabled={busy || !worktreePath.trim()}>创建并切换</button><button type="button" onClick={() => setWorktreeTarget(null)}>取消</button></div>
+          <div><button type="button" onClick={() => void createWorktreeForBranch()} disabled={busy}>浏览文件夹</button><button type="submit" disabled={busy || !worktreePath.trim()}>创建并切换</button><button type="button" onClick={() => { setWorktreeTarget(null); setBranchDecision(null) }}>取消</button></div>
         </form>}
         <section>
           <h3>切换分支</h3>
           {branches.length ? branches.map((item) => (
-            <button type="button" role="menuitem" className={item.current ? 'current' : ''} key={item.name} onClick={() => void switchBranch(item.name)} disabled={busy}>
+              <button type="button" role="menuitem" className={item.current ? 'current' : ''} key={item.name} onClick={() => void chooseBranch(item.name)} disabled={busy}>
               <GitBranch size={13} />
               <span>{item.name}</span>
               {item.current && <small>当前</small>}
