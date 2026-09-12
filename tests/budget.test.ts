@@ -85,3 +85,16 @@ test('budget RPC exposes set, get, and clear through the authenticated client', 
   expect(await client.call('budget.clear', { sessionId: session.id })).toEqual({ cleared: true })
   expect(await client.call('budget.get', { sessionId: session.id })).toBeNull()
 })
+
+test('active budgets continue completed user runs until the budget is exhausted or bounded', async () => {
+  const { kernel, session } = await fixture()
+  await kernel.changePlugin('budget.codex', true, { maxLimit: 1_000_000, autoContinue: true, maxContinuations: 1 })
+  const budget = kernel.plugins.get<BudgetService>('budget')
+  await budget.set(session.id, 1_000_000)
+  const first = await kernel.submit(session.id, 'budget-continuation', { text: 'keep working', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  const runs = (await kernel.snapshot(session.id)).runs
+  expect((await kernel.storage.call('run', first.id)).status).toBe('completed')
+  expect(runs.filter((run) => run.input.source === 'system')).toHaveLength(1)
+  expect((await budget.get(session.id))?.phase).toBe('active')
+})
