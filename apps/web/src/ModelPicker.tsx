@@ -193,7 +193,7 @@ export default function ModelPicker() {
         aria-expanded={open}
         aria-label={
           selected
-            ? `${t('selectModel')} — ${selected.providerName} / ${selected.modelName}, ${t('thinkingLevel')} ${modelThinkingLabel(selectedLevel)}`
+            ? `${t('selectModel')}，当前 ${selected.providerName} / ${selected.modelName}，${t('thinkingLevel')} ${modelThinkingLabel(selectedLevel)}`
             : t('selectModel')
         }
         title={

@@ -879,7 +879,7 @@ test('phone supports send, denial, files and model settings without horizontal o
     await openMobileSettings(page)
     await expect(page.getByRole('heading', { name: '供应商与模型' })).toBeVisible()
     const mobileSettingsNav = page.locator('.settings-tabs.settings-nav').filter({ visible: true })
-    await expect(mobileSettingsNav.locator('.settings-nav-items > button')).toHaveCount(7)
+    await expect(mobileSettingsNav.locator('.settings-nav-items > button')).toHaveCount(8)
     const mobileSettingsNavLayout = await mobileSettingsNav.locator('.settings-nav-items').evaluate((element) => ({
       display: getComputedStyle(element).display,
       scrollWidth: element.scrollWidth,
@@ -1018,8 +1018,8 @@ test('command console supports keyboard commands, concurrent sessions, approval 
     await input.fill('/he')
     const completions = page.getByRole('listbox', { name: '命令补全' }).filter({ visible: true })
     await expect(completions).toBeVisible()
-    await expect(completions).toHaveCSS('position', 'static')
-    expect(await completions.evaluate((element) => element.closest('.terminal-composer') !== null)).toBeTruthy()
+    await expect(completions).toHaveCSS('position', 'fixed')
+    expect(await completions.evaluate((element) => element.dataset.floatingLayer === 'true')).toBeTruthy()
     await page.mouse.click(5, 5)
     await expect(completions).toHaveCount(0)
     await input.press('End')

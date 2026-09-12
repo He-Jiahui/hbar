@@ -88,3 +88,53 @@ test('Git composer context moves a session to an external worktree and keeps car
     fixture.api.disconnect()
   }
 })
+
+test('Git composer context disables dirty branch switches and creates a selected external worktree', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  const suffix = Date.now().toString(36)
+  const repo = join(fixture.root, `git-dirty-${suffix}`)
+  const external = join(fixture.root, `git-created-worktree-${suffix}`)
+  try {
+    await mkdir(repo, { recursive: true })
+    await git(repo, 'init', '-q')
+    await git(repo, 'config', 'user.name', 'hbar e2e')
+    await git(repo, 'config', 'user.email', 'hbar@example.invalid')
+    await writeFile(join(repo, 'README.md'), 'dirty context\n')
+    await git(repo, 'add', 'README.md')
+    await git(repo, 'commit', '-q', '-m', 'initial')
+    await git(repo, 'branch', 'feature/create')
+    await writeFile(join(repo, 'untracked.txt'), 'untracked\n')
+    const workspace = await fixture.api.call('workspace.create', { path: repo })
+    const session = await fixture.api.call('session.create', { workspaceId: workspace.id, title: `Dirty Git ${suffix}` })
+    await page.getByRole('combobox', { name: '选择工作区', exact: true }).selectOption(workspace.id)
+    await page.locator('.session-select').filter({ hasText: session.title, visible: true }).click()
+    const trigger = page.locator('.git-context-trigger').filter({ visible: true })
+    await trigger.click()
+    const menu = page.getByRole('menu', { name: '切换分支 / Worktree', exact: true })
+    const branch = menu.getByRole('menuitem', { name: 'feature/create', exact: true })
+    await branch.click()
+    const decision = menu.getByRole('region', { name: '切换到分支 feature/create' })
+    await expect(page.getByRole('button', { name: '在当前目录切换', exact: true })).toBeDisabled()
+    await expect(menu).toContainText('当前目录有未提交改动')
+    await page.getByRole('button', { name: '新建 Worktree 并切换', exact: true }).click()
+    const pathInput = menu.getByRole('textbox', { name: '创建 Worktree feature/create', exact: true })
+    await pathInput.fill(external)
+    await menu.getByRole('button', { name: '创建并切换', exact: true }).click()
+    await expect
+      .poll(async () => {
+        const bootstrap = await fixture.api.call('system.bootstrap', {})
+        return bootstrap.workspaces.some((item) => item.path.replaceAll('\\', '/').toLowerCase() === external.replaceAll('\\', '/').toLowerCase())
+      })
+      .toBe(true)
+    const target = (await fixture.api.call('system.bootstrap', {})).workspaces.find(
+      (item) => item.path.replaceAll('\\', '/').toLowerCase() === external.replaceAll('\\', '/').toLowerCase(),
+    )!
+    await expect
+      .poll(async () => (await fixture.api.call('system.bootstrap', {})).sessions.find((item) => item.id === session.id)?.workspaceId)
+      .toBe(target.id)
+    await expect(page.getByRole('combobox', { name: '选择工作区', exact: true })).toHaveValue(target.id)
+    await expect(trigger).toContainText('feature/create')
+  } finally {
+    fixture.api.disconnect()
+  }
+})
