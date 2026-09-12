@@ -15,7 +15,7 @@ import {
 import './FloatingLayer.css'
 
 export type FloatingPlacement = 'above' | 'below' | 'left' | 'right'
-export type FloatingSurfaceMode = 'anchored' | 'modal'
+export type FloatingSurfaceMode = 'anchored' | 'point' | 'modal'
 
 interface FloatingLayerBaseProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className' | 'style'> {
   open: boolean
@@ -26,19 +26,21 @@ interface FloatingLayerBaseProps extends Omit<HTMLAttributes<HTMLDivElement>, 'c
 }
 
 export type AnchoredFloatingLayerProps = FloatingLayerBaseProps &
-  ({
+  {
     mode?: 'anchored'
     anchorRef: RefObject<HTMLElement | null>
     anchorPoint?: never
     placement?: FloatingPlacement
     matchAnchorWidth?: boolean
-  } | {
-    mode?: 'anchored'
-    anchorRef?: never
-    anchorPoint: { x: number; y: number }
-    placement?: FloatingPlacement
-    matchAnchorWidth?: never
-  })
+  }
+
+export type PointFloatingLayerProps = FloatingLayerBaseProps & {
+  mode: 'point'
+  anchorRef?: never
+  anchorPoint: { x: number; y: number }
+  placement?: FloatingPlacement
+  matchAnchorWidth?: never
+}
 
 export type ModalFloatingLayerProps = FloatingLayerBaseProps & {
   mode: 'modal'
@@ -48,7 +50,7 @@ export type ModalFloatingLayerProps = FloatingLayerBaseProps & {
   matchAnchorWidth?: never
 }
 
-export type FloatingLayerProps = AnchoredFloatingLayerProps | ModalFloatingLayerProps
+export type FloatingLayerProps = AnchoredFloatingLayerProps | PointFloatingLayerProps | ModalFloatingLayerProps
 
 const VIEWPORT_GAP = 8
 // Keep every transient option surface above workbench panels and modal chrome.
@@ -119,7 +121,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
     ...attributes
   } = props
   const anchorRef = mode === 'anchored' ? anchorProp : undefined
-  const placement = mode === 'anchored' ? placementProp ?? 'above' : undefined
+  const placement = mode !== 'modal' ? placementProp ?? 'above' : undefined
   const matchAnchorWidth = mode === 'anchored' ? matchAnchorWidthProp ?? false : false
   const layerId = useId()
   const layerRef = useRef<HTMLDivElement>(null)
@@ -133,9 +135,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
 
   const updatePosition = useCallback(() => {
     const layer = layerRef.current
-    if (!layer) return
-
-    if (mode !== 'anchored') return
+    if (!layer || mode === 'modal') return
     const anchorBounds = anchorPoint
       ? { left: anchorPoint.x, right: anchorPoint.x, top: anchorPoint.y, bottom: anchorPoint.y, width: 0, height: 0 }
       : anchorRef?.current?.getBoundingClientRect()

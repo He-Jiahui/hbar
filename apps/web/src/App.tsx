@@ -428,6 +428,7 @@ function Sessions({
 function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; sessions: readonly Session[]; onClose(): void; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
   const session = sessions.find((item) => item.id === menu.id)
   return <FloatingSurface
+    mode="point"
     anchorPoint={{ x: menu.x, y: menu.y }}
     open
     onClose={onClose}
