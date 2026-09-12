@@ -1,0 +1,54 @@
+.rb-public-plan-1 {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 560px;
+  min-height: 560px;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  padding: 24px;
+  background: oklch(0.145 0 0);
+  color: oklch(0.97 0 0);
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.rb-public-plan-1::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 1px; background: oklch(0.269 0 0); content: ''; }
+.rb-public-plan-1-header { display: flex; width: 100%; height: 32px; min-height: 32px; align-items: center; gap: 12px; }
+.rb-public-plan-1-header h2 { min-width: 0; overflow: hidden; flex: 1 1 auto; margin: 0; color: oklch(0.97 0 0); font-size: 16px; font-weight: 500; letter-spacing: -0.16px; line-height: 24px; white-space: nowrap; }
+.rb-public-plan-1-progress { display: flex; width: 161.296875px; height: 19.5px; flex: 0 0 161.296875px; align-items: center; gap: 10px; }
+.rb-public-plan-1-progress > span { display: block; width: 80px; height: 4px; overflow: hidden; border-radius: 99px; background: oklch(0.269 0 0); }
+.rb-public-plan-1-progress > span i { display: block; width: 23px; height: 100%; border-radius: inherit; background: oklch(0.97 0 0); }
+.rb-public-plan-1-progress small { color: oklch(0.708 0 0); font-size: 13px; line-height: 19.5px; white-space: nowrap; }
+.rb-public-plan-1-stop { display: inline-flex; width: 68.359375px; height: 32px; flex: 0 0 68.359375px; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 8px; padding: 0 10px; background: oklch(0.269 0 0); color: oklch(0.87 0 0); cursor: pointer; font: 500 13px/19.5px ui-sans-serif, system-ui, sans-serif; white-space: nowrap; }
+.rb-public-plan-1-stop:hover { background: oklch(0.31 0 0); }
+.rb-public-plan-1-frame { box-sizing: border-box; display: flex; width: 100%; height: 468px; min-height: 468px; flex: 0 0 468px; overflow: hidden; border: 1px solid oklch(0.269 0 0); border-radius: 14px; padding: 4px; background: oklch(0.205 0 0); }
+.rb-public-plan-1-inner { box-sizing: border-box; position: relative; width: 100%; height: 458px; min-height: 458px; overflow: hidden; border: 1px solid oklch(0.269 0 0); border-radius: 10px; background: oklch(0.145 0 0); }
+.rb-public-plan-1-inner ol { box-sizing: border-box; height: 456px; margin: 0; padding: 8px; list-style: none; }
+.rb-public-plan-1-inner li { box-sizing: border-box; width: 100%; min-height: 44px; margin-bottom: 4px; }
+.rb-public-plan-1-inner li:has(.rb-public-plan-1-detail) { margin-bottom: 0; }
+.rb-public-plan-1-inner li > button { box-sizing: border-box; display: flex; width: 100%; height: 44px; align-items: center; gap: 8px; border: 0; border-radius: 8px; padding: 8px; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+.rb-public-plan-1-inner li > button:hover { background: oklch(0.205 0 0); }
+.rb-public-plan-1-number { display: flex; width: 28px; height: 28px; flex: 0 0 28px; align-items: center; justify-content: center; border-radius: 6px; background: oklch(0.269 0 0); color: oklch(0.556 0 0); font-size: 12px; line-height: 16px; }
+.rb-public-plan-1-title { min-width: 0; overflow: hidden; flex: 1 1 auto; color: oklch(0.708 0 0); font-size: 13px; line-height: 19.5px; text-overflow: ellipsis; white-space: nowrap; }
+.rb-public-plan-1-status { display: flex; width: 80px; height: 19.5px; flex: 0 0 80px; align-items: center; gap: 6px; color: oklch(0.708 0 0); font-size: 13px; line-height: 19.5px; }
+.rb-public-plan-1-status i { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: oklch(0.439 0 0); }
+.rb-public-plan-1-inner li.state-running .rb-public-plan-1-title { color: oklch(0.97 0 0); font-weight: 500; }
+.rb-public-plan-1-inner li.state-running .rb-public-plan-1-status i { background: oklch(0.556 0 0); }
+.rb-public-plan-1-inner li.state-skipped .rb-public-plan-1-title { color: oklch(0.439 0 0); text-decoration: line-through; }
+.rb-public-plan-1-inner li.state-queued .rb-public-plan-1-title { color: oklch(0.556 0 0); }
+.rb-public-plan-1-detail { box-sizing: border-box; width: calc(100% - 16px); height: 73.125px; margin: 4px 8px 0; border: 1px solid oklch(0.269 0 0); border-radius: 8px; padding: 12px; background: oklch(0.205 0 0); }
+.rb-public-plan-1-detail p { height: 21.125px; margin: 0 0 10px; overflow: hidden; color: oklch(0.708 0 0); font-size: 13px; line-height: 21.125px; white-space: nowrap; }
+.rb-public-plan-1-detail dl { display: flex; gap: 32px; height: 16px; margin: 0; color: oklch(0.87 0 0); font-size: 12px; line-height: 16px; }
+.rb-public-plan-1-detail dl > div { display: flex; gap: 8px; }
+.rb-public-plan-1-detail dt { color: oklch(0.556 0 0); }
+.rb-public-plan-1-detail dd { margin: 0; color: oklch(0.87 0 0); }
+@media (max-width: 680px) {
+  .rb-public-plan-1 { min-height: 560px; padding: 16px; }
+  .rb-public-plan-1-frame { height: 484px; min-height: 484px; flex-basis: 484px; }
+  .rb-public-plan-1-inner { height: 474px; min-height: 474px; }
+  .rb-public-plan-1-inner ol { height: 472px; }
+}
