@@ -28,6 +28,166 @@ const interactions: readonly ReferenceInteraction[] = [
   { action: 'keyboard', target: 'Escape', expectedState: 'closes the active surface and restores focus' },
 ]
 
+/**
+ * Public iframe controls observed for the focused Application UI variants.
+ * These are interaction contracts, not copied implementation details: the
+ * fixture is free to use hbar primitives as long as the same visible state
+ * transition and keyboard affordance remain available.
+ */
+const interactionProfiles: Partial<Record<ReferenceCategory, readonly ReferenceInteraction[]>> = {
+  'ai-chat': [
+    { action: 'click', target: 'model picker', expectedState: 'opens a provider/model list with context, speed, cost and reasoning details' },
+    { action: 'click', target: 'message or composer action', expectedState: 'keeps the conversation content order and updates the local fixture state' },
+  ],
+  'prompt-input': [
+    { action: 'input', target: 'prompt textarea', expectedState: 'keeps the composer draft and updates the enabled send/run state' },
+    { action: 'click', target: 'mode, attachment or context control', expectedState: 'changes the visible composer affordance without losing the draft' },
+  ],
+  'agent-activity': [
+    { action: 'click', target: 'timeline, history or terminal tab', expectedState: 'switches the run detail view while keeping the same run identity' },
+    { action: 'click', target: 'pause, resume or cancel control', expectedState: 'shows the corresponding running, paused or cancelled state' },
+  ],
+  'tool-calls': [
+    { action: 'click', target: 'tool call disclosure', expectedState: 'expands arguments, result, diff, source cards or terminal output in place' },
+    { action: 'click', target: 'retry or permission control', expectedState: 'exposes the next safe action without fabricating a tool result' },
+  ],
+  'agent-approval': [
+    { action: 'click', target: 'approve or deny action', expectedState: 'resolves the pending decision and leaves an auditable outcome visible' },
+    { action: 'click', target: 'risk or scope disclosure', expectedState: 'reveals impact and requested permission details before the decision' },
+  ],
+  'agent-plan': [
+    { action: 'click', target: 'plan step', expectedState: 'selects the step and preserves its status in the progress rail' },
+    { action: 'click', target: 'add, reorder, skip or continue control', expectedState: 'updates the deterministic plan state in place' },
+  ],
+  'ai-usage': [
+    { action: 'click', target: '24h, 7d or 30d range control', expectedState: 'switches the usage period while preserving the meter hierarchy' },
+    { action: 'click', target: 'model or quota row', expectedState: 'reveals per-model attribution or the applicable quota state' },
+  ],
+  'app-shell': [
+    { action: 'click', target: 'sidebar navigation item', expectedState: 'changes the active product area while retaining the shell frame' },
+    { action: 'click', target: 'context panel or scope switcher', expectedState: 'opens or closes the secondary context without changing the main route' },
+  ],
+  'app-sidebar': [
+    { action: 'click', target: 'workspace switcher or scoped search', expectedState: 'filters or changes the sidebar scope with focus retained' },
+    { action: 'click', target: 'pinned item or inline row action', expectedState: 'updates the selected navigation row without reordering unrelated items' },
+  ],
+  'command-menu': [
+    { action: 'input', target: 'command search', expectedState: 'filters grouped commands and preserves keyboard navigation' },
+    { action: 'keyboard', target: 'ArrowDown / Enter / Escape', expectedState: 'moves, executes or closes the active command surface' },
+  ],
+  navbar: [
+    { action: 'click', target: 'breadcrumb, scope or segmented tab', expectedState: 'changes the active navigation scope and underline state' },
+    { action: 'click', target: 'account, search or overflow action', expectedState: 'opens the corresponding top-level surface' },
+  ],
+  mobile: [
+    { action: 'click', target: 'bottom navigation tab', expectedState: 'switches the single active mobile panel and indicator' },
+    { action: 'click', target: 'floating dock or bottom sheet', expectedState: 'opens the mobile action surface without horizontal overflow' },
+  ],
+  card: [
+    { action: 'click', target: 'card action or connect toggle', expectedState: 'updates the selected card state and preserves card density' },
+  ],
+  'data-table': [
+    { action: 'click', target: 'filter, column or row control', expectedState: 'updates the table view while keeping selection and detail context stable' },
+    { action: 'click', target: 'pagination or inline edit control', expectedState: 'shows the next deterministic table state with its save status' },
+  ],
+  dashboard: [
+    { action: 'click', target: 'metric or status board card', expectedState: 'opens the related detail without changing the metric grid layout' },
+  ],
+  analytics: [
+    { action: 'click', target: 'range or chart control', expectedState: 'updates the selected analytics period or hover detail' },
+  ],
+  list: [
+    { action: 'click', target: 'selectable list row', expectedState: 'selects the row and reveals its inline detail or action state' },
+  ],
+  filtering: [
+    { action: 'click', target: 'facet or refinement control', expectedState: 'applies the filter and updates the derived count summary' },
+  ],
+  'file-manager': [
+    { action: 'click', target: 'folder, breadcrumb or file row', expectedState: 'changes the current file scope and keeps preview metadata aligned' },
+    { action: 'click', target: 'upload or selection control', expectedState: 'shows the transfer or selection state for the chosen file' },
+  ],
+  monitoring: [
+    { action: 'click', target: 'follow, pause, severity or window control', expectedState: 'updates the live monitoring view without losing the current health scope' },
+    { action: 'click', target: 'incident or JSON disclosure', expectedState: 'reveals the selected event details in place' },
+  ],
+  'empty-state': [
+    { action: 'click', target: 'empty-state primary action', expectedState: 'moves from first-run, no-result or failure copy to its recovery affordance' },
+  ],
+  'settings-form': [
+    { action: 'input', target: 'settings field', expectedState: 'marks the form dirty and keeps the scoped section selected' },
+    { action: 'click', target: 'save or reset action', expectedState: 'shows saved, reset or validation feedback next to the action bar' },
+  ],
+  forms: [
+    { action: 'input', target: 'form field', expectedState: 'updates validation or completion feedback without losing entered values' },
+    { action: 'click', target: 'review or revert action', expectedState: 'moves to the next form state or restores the previous draft' },
+  ],
+  'app-dialog': [
+    { action: 'click', target: 'dialog, drawer or sheet trigger', expectedState: 'opens the highest-level surface with a scrollable body and sticky actions' },
+    { action: 'keyboard', target: 'Escape', expectedState: 'closes the surface and restores focus to its trigger' },
+  ],
+  notifications: [
+    { action: 'click', target: 'notification read or dismiss action', expectedState: 'updates delivery state and removes only the addressed notification' },
+  ],
+  onboarding: [
+    { action: 'click', target: 'stepper or continue action', expectedState: 'advances the setup state and updates completion feedback' },
+  ],
+  paywall: [
+    { action: 'click', target: 'feature gate or limit detail', expectedState: 'explains the current capability limit without starting a commercial flow' },
+  ],
+  authentication: [
+    { action: 'input', target: 'credential or pairing field', expectedState: 'updates validation state without exposing a token in the URL' },
+    { action: 'click', target: 'provider or reveal control', expectedState: 'changes the sign-in affordance while keeping the form scoped' },
+  ],
+  kanban: [
+    { action: 'click', target: 'status column or card', expectedState: 'selects the work item and keeps its status grouping visible' },
+    { action: 'keyboard', target: 'ArrowUp / ArrowDown / Space', expectedState: 'moves or toggles the selected card using a keyboard-safe action' },
+  ],
+  wizard: [
+    { action: 'click', target: 'wizard next or previous action', expectedState: 'changes the active step while preserving entered details' },
+  ],
+  comments: [
+    { action: 'click', target: 'thread, reaction or sort control', expectedState: 'updates the selected discussion state without collapsing replies' },
+    { action: 'input', target: 'comment composer', expectedState: 'keeps the draft and enables the appropriate submit affordance' },
+  ],
+  scheduling: [
+    { action: 'click', target: 'calendar date or agenda item', expectedState: 'changes the selected availability scope and agenda detail' },
+  ],
+  integrations: [
+    { action: 'click', target: 'category, search or connect toggle', expectedState: 'filters the marketplace or updates the selected connection state' },
+  ],
+  editor: [
+    { action: 'click', target: 'block type, mark or review control', expectedState: 'updates editor presentation while retaining the document content' },
+    { action: 'input', target: 'editor title or body', expectedState: 'updates autosave state and word-count feedback' },
+  ],
+  feedback: [
+    { action: 'click', target: 'feedback type or screenshot control', expectedState: 'changes the feedback form and attachment state' },
+    { action: 'click', target: 'send feedback action', expectedState: 'shows the sent confirmation without resubmitting the form' },
+  ],
+  support: [
+    { action: 'input', target: 'help search', expectedState: 'filters topic and article results without leaving the help surface' },
+    { action: 'click', target: 'contact or article row', expectedState: 'opens the selected support detail or contact affordance' },
+  ],
+  billing: [
+    { action: 'click', target: 'invoice or recovery action', expectedState: 'reveals statement detail and keeps payment data out of the fixture' },
+  ],
+  chat: [
+    { action: 'click', target: 'channel or thread row', expectedState: 'changes the active conversation scope and preserves the message composer' },
+    { action: 'input', target: 'message composer', expectedState: 'updates the draft and send affordance for the active channel' },
+  ],
+}
+
+function interactionsFor(category: ReferenceCategory, index: number): readonly ReferenceInteraction[] {
+  const profile = interactionProfiles[category] ?? []
+  const variantSpecific = category === 'ai-chat' && index === 9
+    ? [{ action: 'click', target: 'reasoning effort radio', expectedState: 'updates the selected reasoning level in the model detail card' }]
+    : category === 'ai-chat' && index === 2
+      ? [{ action: 'click', target: 'Preview / Code / Document artifact tab', expectedState: 'switches the artifact view without changing the chat transcript' }]
+      : category === 'prompt-input' && index === 5
+        ? [{ action: 'drag', target: 'attachment drop zone', expectedState: 'shows the per-file transfer state and a retry-safe result' }]
+        : []
+  return [...interactions, ...profile, ...variantSpecific]
+}
+
 function productionBindingFor(category: ReferenceCategory, index: number): ReferenceVariantDefinition['productionBinding'] {
   const adapterId =
     category === 'ai-chat' && [1, 2, 3, 4, 5, 9].includes(index) ? (index === 9 ? 'model-picker' : index === 2 ? 'artifact' : index === 5 ? 'approval' : 'session-chat') :
@@ -92,7 +252,7 @@ function createDefinition(category: ReferenceCategory, index: number): Reference
       jsResourceCount: jsResources.length,
       captureStatus: captured ? 'public-observed' : 'fixture-derived',
     },
-    interactions,
+    interactions: interactionsFor(category, index),
     productionBinding: productionBindingFor(category, index),
     fixture: getReferenceFixture(variantSlug),
   }
