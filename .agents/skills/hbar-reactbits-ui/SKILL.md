@@ -30,5 +30,6 @@ description: 在 hbar Web 工作台设计或修改布局、React 组件和交互
 ## 参考资料路由
 
 - 设计 URL、示例语义和 hbar 落点：阅读 [references/reactbits-application-ui.md](references/reactbits-application-ui.md)。
+- 组件级 URL → 独立 fixture → adapter 绑定：阅读生成的 [references/reactbits-registry.md](references/reactbits-registry.md)；它必须与 `ReferenceRegistry` 通过 `bun run check:reactbits-reference` 保持一一对应。
 - 只做浮层、菜单、下拉、dialog、sheet 或 popover：同时阅读 [ui-surface-rules](../ui-surface-rules/SKILL.md)。
 - 涉及 React/Zustand/布局或跨端同步：同时阅读 [hbar-engineering](../hbar-engineering/SKILL.md) 及其相关 references。

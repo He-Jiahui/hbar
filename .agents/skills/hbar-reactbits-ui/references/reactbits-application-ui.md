@@ -7,6 +7,7 @@
 - 每个布局改动至少绑定一个结构参考和一个交互参考。结构参考决定区域关系、内容轴和面板层级；交互参考决定展开/收起、选择、键盘、状态和反馈。
 - 变更记录使用 `参考：<URL> — <采用的逻辑/设计/风格>` 格式。若一个类别页包含多个 variants，优先选择下表中最接近 hbar 真实能力的 variant，并记录具体 variant URL。
 - ReactBits 的渐变、玻璃、spotlight、glare 和 motion 必须通过 hbar adapter 与主题 token 实现；禁止把网页中的硬编码颜色或假数据直接复制进业务组件。
+- 完整的 300 个 variant URL、独立 fixture、观测索引和 typed adapter 绑定见生成矩阵 [reactbits-registry.md](reactbits-registry.md)；修改 manifest 后必须重新生成并运行 `bun run check:reactbits-reference`。
 
 ## AI Chat 与输入
 
