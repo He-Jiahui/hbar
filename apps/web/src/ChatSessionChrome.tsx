@@ -2,6 +2,7 @@ import { FolderOpen, GitBranch, RefreshCw } from 'lucide-react'
 import type { GitInfo, Run, Session, Workspace } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
 import { SegmentedControl } from './react-bits'
+import { useLocale } from './locale'
 import './ChatSessionChrome.css'
 
 export interface ChatSessionChromeProps {
@@ -31,8 +32,9 @@ export default function ChatSessionChrome({
   onRefresh,
   showContext = true,
 }: ChatSessionChromeProps) {
-  const sessionTitle = session?.title ?? 'Session'
-  const stateLabel = activeRun ? (activeRun.status === 'waiting_approval' ? '等待批准' : '运行中') : '就绪'
+  const { t } = useLocale()
+  const sessionTitle = session?.title ?? t('session')
+  const stateLabel = activeRun ? (activeRun.status === 'waiting_approval' ? t('waitingApproval') : t('running')) : t('ready')
 
   return (
     <>
@@ -45,26 +47,26 @@ export default function ChatSessionChrome({
           <h1 title={sessionTitle}>{sessionTitle}</h1>
           <span className="session-runtime">Pi</span>
           {view === 'console' && modelContext && (
-            <span className="session-console-context" title="当前模型与思考等级">
+            <span className="session-console-context" title={t('currentModelThinking')}>
               {modelContext} · thinking:{thinkingContext ?? 'off'}
             </span>
           )}
         </div>
         <SegmentedControl
           className="session-view-tabs"
-          ariaLabel="会话视图"
+          ariaLabel={t('sessionView')}
           value={view}
           options={[
             { value: 'chat', label: 'Chat' },
-            { value: 'console', label: '控制台' },
+            { value: 'console', label: t('console') },
           ]}
           onChange={onViewChange}
         />
         <button
           type="button"
           className="session-refresh"
-          title="刷新会话"
-          aria-label="刷新会话"
+          title={t('refreshSession')}
+          aria-label={t('refreshSession')}
           disabled={!sessionId}
           onClick={() => void onRefresh()}
         >
@@ -72,18 +74,18 @@ export default function ChatSessionChrome({
         </button>
       </header>
       {showContext && (
-        <div className="chat-context rb-chat-context rb-chat-context-bar" aria-label="会话上下文">
+        <div className="chat-context rb-chat-context rb-chat-context-bar" aria-label={t('sessionContext')}>
           <GlassSurface className="chat-context-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="chat-context-copy">
             <FolderOpen size={13} aria-hidden="true" />
-            <span>{workspace?.name ?? 'Workspace'}</span>
+            <span>{workspace?.name ?? t('workspace')}</span>
             {gitInfo?.branch && (
               <>
                 <span className="context-divider context-branch-divider" aria-hidden="true">
                   /
                 </span>
                 <GitBranch size={13} aria-hidden="true" />
-                <span className="chat-context-branch" title="当前 Git 分支">
+                <span className="chat-context-branch" title={t('currentGitBranch')}>
                   {gitInfo.branch}
                 </span>
               </>
