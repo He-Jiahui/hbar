@@ -97,6 +97,18 @@ function SettingValueEditor({
     )
   }
   const raw = value ?? ''
+  if (schema.format === 'textarea') {
+    return (
+      <textarea
+        aria-label={path}
+        value={String(raw)}
+        minLength={schema.minLength}
+        maxLength={schema.maxLength}
+        rows={4}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    )
+  }
   return (
     <input
       aria-label={path}
