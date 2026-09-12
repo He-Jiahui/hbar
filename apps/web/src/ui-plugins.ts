@@ -30,6 +30,9 @@ export interface RegisteredRendererSlot {
   id: string
   priority: number
   languages: readonly string[]
+  supportsStreaming: boolean
+  editable: boolean
+  fallback?: RendererComponent
 }
 export interface RegisteredTheme extends ClientTheme {
   owner: string
@@ -231,6 +234,9 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
                 id,
                 priority: options.priority ?? 0,
                 languages: options.languages ? [...options.languages] : [],
+                supportsStreaming: options.supportsStreaming ?? false,
+                editable: options.editable ?? false,
+                ...(options.fallback ? { fallback: options.fallback } : {}),
               }
               pendingRendererSlots.push(registered)
               return own(() => {

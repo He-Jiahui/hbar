@@ -6,6 +6,7 @@ import PatchViewer from './PatchViewer'
 import { selectRendererSlot } from './ui-plugins'
 import { parseUnifiedDiff } from './git-diff-parser'
 import { useLocale } from './locale'
+import RendererBoundary from './RendererBoundary'
 
 const editorTheme = EditorView.theme({
   '&': {
@@ -45,7 +46,12 @@ export default function GitDiffViewer({ source, path = '' }: { source: string; p
 
   if (renderer) {
     const CustomRenderer = renderer.component
-    return <CustomRenderer source={source} language={path} />
+    const FallbackRenderer = renderer.fallback
+    return (
+      <RendererBoundary source={source} fallback={FallbackRenderer ? <FallbackRenderer source={source} language={path} /> : undefined}>
+        <CustomRenderer source={source} language={path} />
+      </RendererBoundary>
+    )
   }
   if (!compare) return <PatchViewer source={source} language={path || 'diff'} />
   return <div ref={root} className="git-compare-view" aria-label={t('gitComparison')} />

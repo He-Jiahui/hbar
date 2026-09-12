@@ -545,6 +545,27 @@
   gap: 8px;
 }
 
+.plugin-theme-item {
+  align-items: center;
+}
+
+.plugin-theme-item img,
+.plugin-theme-swatch {
+  width: 48px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid var(--hbar-bd2);
+  border-radius: var(--control-radius);
+  object-fit: cover;
+  background: linear-gradient(135deg, var(--hbar-s0), var(--hbar-ac-soft-hover));
+}
+
+.plugin-theme-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
 .theme-preview {
   display: grid;
   gap: 8px;

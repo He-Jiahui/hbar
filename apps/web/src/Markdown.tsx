@@ -10,6 +10,7 @@ import { report } from './stores'
 import { useLocale } from './locale'
 import GlassSurface from './react-bits/GlassSurface'
 import PatchViewer from './PatchViewer'
+import RendererBoundary from './RendererBoundary'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const MermaidView = lazy(() => import('./MermaidView'))
 const ChartView = lazy(() => import('./ChartView'))
@@ -27,7 +28,9 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
   const [raw, setRaw] = useState(false),
     [copied, setCopied] = useState(false)
   const CustomRenderer = useUIPlugins((state) => state.renderers[language])
-  const SlotRenderer = selectRendererSlot('code', language)?.component
+  const codeSlot = selectRendererSlot('code', language)
+  const SlotRenderer = codeSlot?.component
+  const SlotFallback = codeSlot?.fallback
   const { t } = useLocale()
   const rich = ['mermaid', 'chart', 'flow'].includes(language) || Boolean(CustomRenderer)
   return (
@@ -77,8 +80,10 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
             <FlowView source={source} />
           ) : !raw && (language === 'diff' || language === 'patch') ? (
             <PatchViewer source={source} language={language} />
-          ) : !raw && SlotRenderer ? (
-            <SlotRenderer source={source} language={language} />
+          ) : !raw && SlotRenderer && (!streaming || codeSlot?.supportsStreaming) ? (
+            <RendererBoundary source={source} fallback={SlotFallback ? <SlotFallback source={source} language={language} /> : undefined}>
+              <SlotRenderer source={source} language={language} />
+            </RendererBoundary>
           ) : (
             <CodeEditor value={source} language={language} />
           )}
@@ -88,8 +93,15 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
   )
 }
 export default function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
-  const CustomMarkdown = selectRendererSlot('markdown')?.component
-  if (CustomMarkdown && !streaming) return <CustomMarkdown source={text} language="markdown" />
+  const markdownSlot = selectRendererSlot('markdown')
+  const CustomMarkdown = markdownSlot?.component
+  const MarkdownFallback = markdownSlot?.fallback
+  if (CustomMarkdown && (!streaming || markdownSlot?.supportsStreaming))
+    return (
+      <RendererBoundary source={text} fallback={MarkdownFallback ? <MarkdownFallback source={text} language="markdown" /> : undefined}>
+        <CustomMarkdown source={text} language="markdown" />
+      </RendererBoundary>
+    )
   return (
     <div className="markdown">
       <ReactMarkdown

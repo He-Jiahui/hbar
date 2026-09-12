@@ -760,6 +760,7 @@ export default function Settings() {
   const themeConflict = useThemeSettings((state) => state.conflict)
   const themePlugins = useUIPlugins((state) => state.themes)
   const themeBackgroundAssets = useUIPlugins((state) => state.backgroundAssets)
+  const themeConnection = useConnection((state) => state.client)
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
     const query = modelQuery.trim().toLocaleLowerCase()
@@ -1060,6 +1061,7 @@ export default function Settings() {
                 ['dark', '深色', Moon],
                 ['light', '浅色', Sun],
                 ['white', '纯白', Monitor],
+                ['custom', '自定义', Settings2],
               ] as const
             ).map(([value, label, Icon]) => (
               <GlareButton
@@ -1403,7 +1405,15 @@ export default function Settings() {
           <div className="plugin-theme-summary" aria-label="主题插件">
             <h3>主题插件与渲染器</h3>
             <p>主题插件只能通过全局 token 覆盖颜色、字体、玻璃和动效；渲染器插槽用于 Markdown、代码、Patch 与 Git 差异。</p>
-            {themePlugins.length ? <ul>{themePlugins.map((theme) => <li key={theme.id}><strong>{theme.title}</strong><span>{theme.owner} · 优先级 {theme.priority ?? 0}</span></li>)}</ul> : <span className="settings-muted">暂无已注册主题插件，当前使用内置渲染器。</span>}
+            {themePlugins.length ? <ul>{themePlugins.map((theme) => {
+              const previewUrl = theme.preview && themeConnection
+                ? new URL(`/api/plugins/${encodeURIComponent(theme.owner)}/assets/${theme.preview.replace(/^assets\//, '')}`, themeConnection.baseUrl).href
+                : undefined
+              return <li key={theme.id} className="plugin-theme-item">
+                {previewUrl ? <img src={previewUrl} alt={`${theme.title} preview`} loading="lazy" /> : <span className="plugin-theme-swatch" aria-hidden="true" />}
+                <span className="plugin-theme-copy"><strong>{theme.title}</strong><span>{theme.owner} · 优先级 {theme.priority ?? 0}</span></span>
+              </li>
+            })}</ul> : <span className="settings-muted">暂无已注册主题插件，当前使用内置渲染器。</span>}
           </div>
           {data?.plugins.length ? (
             <AnimatedList

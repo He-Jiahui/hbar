@@ -59,6 +59,12 @@ export interface RendererSlotOptions {
   id: string
   priority?: number
   languages?: string[]
+  /** Whether the renderer can receive content while a response is streaming. */
+  supportsStreaming?: boolean
+  /** Renderers are read-only by default; editable renderers must opt in. */
+  editable?: boolean
+  /** Optional safe fallback when the plugin renderer throws. */
+  fallback?: RendererComponent
 }
 export type RendererComponent = React.ComponentType<{ source: string; language?: string }>
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] }

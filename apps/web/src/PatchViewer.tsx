@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { selectRendererSlot } from './ui-plugins'
 import { useLocale } from './locale'
+import RendererBoundary from './RendererBoundary'
 
 type PatchLineKind = 'added' | 'removed' | 'hunk' | 'header' | 'context'
 
@@ -18,7 +19,12 @@ export default function PatchViewer({ source, language = 'diff' }: { source: str
   const { t } = useLocale()
   if (renderer) {
     const CustomRenderer = renderer.component
-    return <CustomRenderer source={source} language={language} />
+    const FallbackRenderer = renderer.fallback
+    return (
+      <RendererBoundary source={source} fallback={FallbackRenderer ? <FallbackRenderer source={source} language={language} /> : undefined}>
+        <CustomRenderer source={source} language={language} />
+      </RendererBoundary>
+    )
   }
   return (
     <pre className="patch-viewer" aria-label={t('patchDiff')}>
