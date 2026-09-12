@@ -1,6 +1,7 @@
 import { Bell, Blocks, BookOpen, Bot, HardDrive, Monitor, Palette, ShieldCheck, type LucideIcon } from 'lucide-react'
 import type { SettingsCatalog } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
+import { useLocale } from './locale'
 
 type SettingsDestination = {
   id: 'appearance' | 'automation' | 'models' | 'permissions' | 'paths' | 'skills' | 'plugins' | 'devices'
@@ -33,47 +34,57 @@ export default function SettingsNavigation({
   catalog?: SettingsCatalog | null
   onSelectPlugin?(id: string): void
 }) {
+  const { t } = useLocale()
   const pluginGroups = catalog?.navigation.roots.find((root) => root.id === 'plugins')?.groups ?? []
-  const catalogRoots = new Map(catalog?.navigation.roots.map((root) => [root.id, root]) ?? [])
+  const localized = {
+    appearance: { label: t('appearance'), description: t('appearanceDescription') },
+    automation: { label: t('automation'), description: t('automationDescription') },
+    models: { label: t('models'), description: t('modelsDescription') },
+    permissions: { label: t('permissions'), description: t('permissionsDescription') },
+    paths: { label: t('paths'), description: t('pathsDescription') },
+    skills: { label: t('skills'), description: t('skillsDescription') },
+    plugins: { label: t('plugins'), description: t('pluginsDescription') },
+    devices: { label: t('devices'), description: t('devicesDescription') },
+  } satisfies Record<SettingsTab, { label: string; description: string }>
   return (
-    <nav className="settings-tabs settings-nav rb-settings-tabs" aria-label="设置分组">
+    <nav className="settings-tabs settings-nav rb-settings-tabs" aria-label={t('settingsGroup')}>
       <GlassSurface className="settings-tabs-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="settings-nav-items">
-        {SETTINGS_DESTINATIONS.map(({ id, label: fallbackLabel, description: fallbackDescription, icon: Icon }) => {
-          const root = catalogRoots.get(id)
+        {SETTINGS_DESTINATIONS.map(({ id, icon: Icon }) => {
+          const fallback = localized[id]
           return (
           <button
             type="button"
             key={id}
             className={tab === id ? 'selected' : ''}
-            aria-label={root?.title ?? fallbackLabel}
+            aria-label={fallback.label}
             aria-current={tab === id ? 'page' : undefined}
-            title={root?.description ?? fallbackDescription}
+            title={fallback.description}
             onClick={() => onSelect(id)}
           >
             <span className="settings-nav-icon" aria-hidden="true">
               <Icon size={16} />
             </span>
             <span className="settings-nav-copy">
-              <strong>{root?.title ?? fallbackLabel}</strong>
-              <small>{root?.description ?? fallbackDescription}</small>
+              <strong>{fallback.label}</strong>
+              <small>{fallback.description}</small>
             </span>
           </button>
           )
         })}
       </div>
       {tab === 'plugins' && pluginGroups.length > 0 && (
-        <div className="settings-subnav" role="list" aria-label="插件设置">
+        <div className="settings-subnav" role="list" aria-label={t('pluginSettings')}>
           {pluginGroups.map((group) => (
             <button
               type="button"
               key={group.id}
               role="listitem"
-              title={`${group.title} 插件设置`}
+              title={`${group.title} ${t('pluginSettings')}`}
               onClick={() => onSelectPlugin?.(group.owner ?? group.id.replace(/^plugin\./, ''))}
             >
               <span>{group.title}</span>
-              <small>{group.settingIds.length} 项设置</small>
+              <small>{group.settingIds.length} {t('settingsCount')}</small>
             </button>
           ))}
         </div>
