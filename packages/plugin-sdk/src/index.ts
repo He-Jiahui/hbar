@@ -318,6 +318,7 @@ export interface HbarAPI {
   userInput: UserInputService
   notify(event: import('@hbar/contracts').WireNotification): void
   changed(kind: string): void
+  automationSet?(sessionId: string, unattended?: boolean, goalEnabled?: boolean): Promise<import('@hbar/contracts').AutomationState>
   panels: { register(panel: Omit<UIContribution, 'owner'>): Disposer }
   service<T>(name: string): T
 }

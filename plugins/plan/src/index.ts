@@ -346,6 +346,7 @@ export const planPlugin = definePlugin({
       const existing = (await goals.get(sessionId)).goal
       if (existing) await goals.set(sessionId, { objective, expectedGoalId: existing.goalId })
       else await goals.create(sessionId, objective)
+      await ctx.hbar.api.automationSet?.(sessionId, automation.unattended, false)
       await runtime.setMode(sessionId, 'default')
       await ctx.hbar.api.sessions.submit(sessionId, `goal-${crypto.randomUUID()}`, { text: '', images: [], source: 'goal' }, run.modelId)
     })

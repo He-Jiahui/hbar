@@ -54,6 +54,8 @@ export type ReferenceInteraction = {
 
 export type ReferenceObservation = {
   readonly sourceUrl: string
+  readonly observationFile: string
+  readonly interactionsFile: string
   readonly publicSurface: readonly string[]
   readonly cssResources: readonly string[]
   readonly jsResources: readonly string[]
