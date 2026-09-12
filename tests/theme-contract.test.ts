@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileSchema } from '@hbar/contracts'
 import { mergeThemeContributions, themeCssVariables } from '../apps/web/src/theme-store'
+import { selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
   expect(themeProfileSchema.parse(DEFAULT_THEME_PROFILE)).toEqual(DEFAULT_THEME_PROFILE)
@@ -52,4 +53,21 @@ test('plugin presets apply to the untouched default while explicit user values w
   expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin]).colors.primary).toBe('#22aa88')
   const explicit = { ...DEFAULT_THEME_PROFILE, mode: 'custom' as const, colors: { ...DEFAULT_THEME_PROFILE.colors, primary: '#cc8844' } }
   expect(mergeThemeContributions(explicit, [plugin]).colors.primary).toBe('#cc8844')
+})
+
+test('renderer slots honour the selected theme renderer before priority fallback', () => {
+  const component = () => null
+  useUIPlugins.setState((state) => ({
+    ...state,
+    rendererSlots: {
+      ...state.rendererSlots,
+      code: [
+        { slot: 'code', component, owner: 'acme', id: 'acme:fast-code', priority: 20, languages: ['typescript'], supportsStreaming: false, editable: false },
+        { slot: 'code', component, owner: 'other', id: 'other:preferred-code', priority: 1, languages: ['typescript'], supportsStreaming: false, editable: false },
+      ],
+    },
+  }))
+  expect(selectRendererSlot('code', 'typescript', 'preferred-code')?.id).toBe('other:preferred-code')
+  expect(selectRendererSlot('code', 'typescript', 'missing-code')?.id).toBe('acme:fast-code')
+  useUIPlugins.setState((state) => ({ ...state, rendererSlots: { ...state.rendererSlots, code: [] } }))
 })

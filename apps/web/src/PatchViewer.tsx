@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { selectRendererSlot } from './ui-plugins'
 import { useLocale } from './locale'
 import RendererBoundary from './RendererBoundary'
+import { useThemeSettings } from './theme-store'
 
 type PatchLineKind = 'added' | 'removed' | 'hunk' | 'header' | 'context'
 
@@ -15,7 +16,8 @@ function lineKind(line: string): PatchLineKind {
 
 export default function PatchViewer({ source, language = 'diff' }: { source: string; language?: string }) {
   const lines = useMemo(() => source.split('\n'), [source])
-  const renderer = selectRendererSlot('patch', language)
+  const preferredRenderer = useThemeSettings((state) => state.profile.renderer.patch)
+  const renderer = selectRendererSlot('patch', language, preferredRenderer)
   const { t } = useLocale()
   if (renderer) {
     const CustomRenderer = renderer.component

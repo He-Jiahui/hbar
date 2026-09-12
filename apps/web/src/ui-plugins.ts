@@ -61,11 +61,14 @@ export const useUIPlugins = create<{
 const loaded = new Map<string, { key: string; dispose(): void }>()
 let update = Promise.resolve()
 
-export function selectRendererSlot(slot: RendererSlot, language?: string): RegisteredRendererSlot | undefined {
-  return useUIPlugins
-    .getState()
-    .rendererSlots[slot]
-    .find((renderer) => !renderer.languages.length || (language ? renderer.languages.includes(language) : false))
+export function selectRendererSlot(slot: RendererSlot, language?: string, preferredId?: string): RegisteredRendererSlot | undefined {
+  const candidates = useUIPlugins.getState().rendererSlots[slot]
+  const matchesLanguage = (renderer: RegisteredRendererSlot) => !renderer.languages.length || (language ? renderer.languages.includes(language) : false)
+  if (preferredId && preferredId !== 'builtin') {
+    const preferred = candidates.find((renderer) => (renderer.id === preferredId || renderer.id.endsWith(`:${preferredId}`)) && matchesLanguage(renderer))
+    if (preferred) return preferred
+  }
+  return candidates.find(matchesLanguage)
 }
 export function syncUIPlugins(plugins: PluginInfo[]) {
   update = update

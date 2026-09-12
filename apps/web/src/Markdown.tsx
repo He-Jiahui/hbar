@@ -11,6 +11,7 @@ import { useLocale } from './locale'
 import GlassSurface from './react-bits/GlassSurface'
 import PatchViewer from './PatchViewer'
 import RendererBoundary from './RendererBoundary'
+import { useThemeSettings } from './theme-store'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const MermaidView = lazy(() => import('./MermaidView'))
 const ChartView = lazy(() => import('./ChartView'))
@@ -28,7 +29,8 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
   const [raw, setRaw] = useState(false),
     [copied, setCopied] = useState(false)
   const CustomRenderer = useUIPlugins((state) => state.renderers[language])
-  const codeSlot = selectRendererSlot('code', language)
+  const preferredRenderer = useThemeSettings((state) => state.profile.renderer.code)
+  const codeSlot = selectRendererSlot('code', language, preferredRenderer)
   const SlotRenderer = codeSlot?.component
   const SlotFallback = codeSlot?.fallback
   const { t } = useLocale()
@@ -93,7 +95,8 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
   )
 }
 export default function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
-  const markdownSlot = selectRendererSlot('markdown')
+  const preferredRenderer = useThemeSettings((state) => state.profile.renderer.markdown)
+  const markdownSlot = selectRendererSlot('markdown', undefined, preferredRenderer)
   const CustomMarkdown = markdownSlot?.component
   const MarkdownFallback = markdownSlot?.fallback
   if (CustomMarkdown && (!streaming || markdownSlot?.supportsStreaming))

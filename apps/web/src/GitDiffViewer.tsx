@@ -7,6 +7,7 @@ import { selectRendererSlot } from './ui-plugins'
 import { parseUnifiedDiff } from './git-diff-parser'
 import { useLocale } from './locale'
 import RendererBoundary from './RendererBoundary'
+import { useThemeSettings } from './theme-store'
 
 const editorTheme = EditorView.theme({
   '&': {
@@ -23,7 +24,9 @@ const editorTheme = EditorView.theme({
 })
 
 export default function GitDiffViewer({ source, path = '' }: { source: string; path?: string }) {
-  const renderer = selectRendererSlot('git-diff', path)
+  const preferredRenderer = useThemeSettings((state) => state.profile.renderer['git-diff'])
+  const rendererLanguage = path.includes('.') ? path.slice(path.lastIndexOf('.') + 1) : undefined
+  const renderer = selectRendererSlot('git-diff', rendererLanguage, preferredRenderer)
   const compare = useMemo(() => parseUnifiedDiff(source), [source])
   const root = useRef<HTMLDivElement>(null)
   const { t } = useLocale()
