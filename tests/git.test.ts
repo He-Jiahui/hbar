@@ -150,6 +150,16 @@ test('Git rejects non-empty or symbolic-link worktree targets', async () => {
   await expect(runtime.worktree(root, { operation: 'add', path: '.', branch })).rejects.toThrow('inside the configured worktree root')
 })
 
+test('Git rejects overlong or NUL-containing worktree targets before filesystem access', async () => {
+  const { root, runtime } = await fixture()
+  const branch = 'feature/path-bounds'
+  await runGit(root, ['branch', branch])
+  const parent = await mkdtemp(join(tmpdir(), 'hbar-worktree-bounds-'))
+  roots.push(parent)
+  await expect(runtime.worktree(root, { operation: 'add', path: `${parent}-${'x'.repeat(4_001)}`, branch })).rejects.toThrow('characters')
+  await expect(runtime.worktree(root, { operation: 'add', path: `${parent}\u0000target`, branch })).rejects.toThrow('NUL')
+})
+
 test('Git command runner never turns a path into shell syntax', async () => {
   const calls: string[][] = []
   const root = await mkdtemp(join(tmpdir(), 'hbar-git-runner-'))

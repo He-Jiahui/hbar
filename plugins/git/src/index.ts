@@ -526,6 +526,8 @@ export class GitRuntime implements GitService {
     if (!('path' in operation)) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations')
     const configuredRoot = await this.worktreeRootPromise
     const requestedPath = operation.path
+    if (!requestedPath || requestedPath.length > MAX_PATH || requestedPath.includes('\u0000'))
+      throw new HbarError('GIT_WORKTREE_PATH', `Worktree path must be 1-${MAX_PATH} characters without NUL bytes`)
     const externalAbsolute = isAbsolute(requestedPath)
     const root = externalAbsolute ? resolve(dirname(requestedPath)) : configuredRoot
     if (!externalAbsolute) await mkdir(root, { recursive: true })
