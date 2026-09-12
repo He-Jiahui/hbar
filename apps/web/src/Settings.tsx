@@ -753,6 +753,7 @@ export default function Settings() {
   const themeError = useThemeSettings((state) => state.error)
   const themeConflict = useThemeSettings((state) => state.conflict)
   const themePlugins = useUIPlugins((state) => state.themes)
+  const themeBackgroundAssets = useUIPlugins((state) => state.backgroundAssets)
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
     const query = modelQuery.trim().toLocaleLowerCase()
@@ -1103,6 +1104,7 @@ export default function Settings() {
             <p>正文文本与中文 English 混排，<strong>粗体 Bold</strong>，<u>下划线 Underline</u>。</p>
             <code>const theme = 'global';</code>
           </div>
+          {themeBackgroundAssets.length > 0 && <div className="theme-plugin-assets" aria-label="主题插件背景资源"><span>插件背景</span>{themeBackgroundAssets.map((asset) => { const selected = themeProfile.surface.backgroundAsset === `plugin/${asset.owner}/${asset.path}`; return <button type="button" className={selected ? 'selected' : ''} key={asset.id} aria-pressed={selected} onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: `plugin/${asset.owner}/${asset.path}` } }))}>{asset.title ?? asset.path}</button> })}</div>}
           {windowEffectStatus && <p className="settings-muted" role="status">{windowEffectStatus}</p>}
           {themeError && <p className="inline-error" role="alert">{themeError}</p>}
         </section>
