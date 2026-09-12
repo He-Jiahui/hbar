@@ -1001,6 +1001,15 @@ export default function App() {
       execute: settings,
     },
     {
+      id: 'open-reactbits-reference-gallery',
+      label: '打开 ReactBits 参考画廊',
+      description: '浏览 38 类、300 个 UI 复刻 fixture',
+      keywords: ['reactbits', 'reference', 'gallery', 'ui', 'variants'],
+      icon: LayoutGrid,
+      group: 'navigation',
+      execute: () => setReferenceGalleryOpen(true),
+    },
+    {
       id: 'open-activity',
       label: '打开运行与事件',
       description: '查看当前会话运行状态',

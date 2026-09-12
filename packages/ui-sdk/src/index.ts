@@ -1,13 +1,22 @@
 import type * as React from 'react'
 import type { ClientTransport } from '@hbar/client'
-import type { WireNotification } from '@hbar/contracts'
+import type { ThemeProfile, WireNotification } from '@hbar/contracts'
+import type { ToolWindowDescriptor, ToolWindowDock } from '@hbar/contracts'
 import type { TerminalCommand } from '@hbar/terminal'
 
-export interface ClientPanel {
-  id: string
-  title: string
-  placement?: 'left' | 'right' | 'bottom' | 'editor'
-  component: React.ComponentType
+export interface ToolWindowProps {
+  panelId: string
+  owner: string
+  dock: ToolWindowDock
+  workspaceId?: string
+  sessionId?: string
+  windowId?: string
+  window?: Window
+  document?: Document
+}
+
+export interface ClientPanel extends ToolWindowDescriptor {
+  component: React.ComponentType<ToolWindowProps>
 }
 
 export type ComposerActionGroup = 'session' | 'context' | 'tools' | 'extensions'
@@ -45,6 +54,22 @@ export interface ComposerAction {
   execute?(context: ComposerActionContext): void | Promise<void>
 }
 
+export type RendererSlot = 'markdown' | 'code' | 'patch' | 'git-diff'
+export interface RendererSlotOptions {
+  id: string
+  priority?: number
+  languages?: string[]
+}
+export type RendererComponent = React.ComponentType<{ source: string; language?: string }>
+export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] }
+export interface ClientTheme {
+  id: string
+  title: string
+  description?: string
+  priority?: number
+  tokenOverrides: DeepPartial<ThemeProfile>
+}
+
 export interface ClientPluginAPI {
   react: typeof React
   client: ClientTransport
@@ -53,6 +78,8 @@ export interface ClientPluginAPI {
   registerComposerAction(action: ComposerAction): () => void
   registerTerminalCommand(command: ClientTerminalCommand): () => void
   registerRenderer(language: string, component: React.ComponentType<{ source: string }>): () => void
+  registerRendererSlot(slot: RendererSlot, component: RendererComponent, options: RendererSlotOptions): () => void
+  registerTheme(theme: ClientTheme): () => void
   onEvent(listener: (event: WireNotification) => void): () => void
   effect(setup: () => void | (() => void)): () => void
 }

@@ -322,6 +322,42 @@
   overflow-wrap: anywhere;
 }
 
+.patch-viewer {
+  max-height: 360px;
+  margin: 0;
+  padding: 8px 0;
+  overflow: auto;
+  color: var(--hbar-diff-context, var(--hbar-t2));
+  font: var(--hbar-font-size-code, 12px)/1.5 var(--dsh-font-family-code);
+  white-space: pre;
+}
+
+.patch-line {
+  display: block;
+  min-width: max-content;
+  padding: 1px 9px;
+}
+
+.patch-line-added {
+  background: color-mix(in srgb, var(--hbar-diff-added, var(--hbar-ok)) 18%, transparent);
+  color: var(--hbar-diff-added, var(--hbar-ok));
+}
+
+.patch-line-removed {
+  background: color-mix(in srgb, var(--hbar-diff-removed, var(--hbar-er)) 18%, transparent);
+  color: var(--hbar-diff-removed, var(--hbar-er));
+}
+
+.patch-line-hunk {
+  background: color-mix(in srgb, var(--hbar-ac) 12%, transparent);
+  color: var(--hbar-ac2);
+}
+
+.patch-line-header {
+  color: var(--hbar-t1);
+  font-weight: 600;
+}
+
 .git-diff-loading {
   display: flex;
   min-height: 75px;

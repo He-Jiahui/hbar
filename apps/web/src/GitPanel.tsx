@@ -5,6 +5,7 @@ import { useConnection } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import './GitPanel.css'
+import PatchViewer from './PatchViewer'
 
 type GitTab = 'changes' | 'history' | 'branches'
 
@@ -309,7 +310,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
           {selectedEntry && (
             <section className="git-diff-card" aria-label={`${selectedEntry.path} 差异`}>
               <header><code>{selectedEntry.path}</code><span>{diff?.truncated ? '内容已截断' : '未暂存差异'}</span></header>
-              {diffLoading ? <div className="git-diff-loading" role="status"><LoaderCircle size={15} className="spinning" />读取差异…</div> : <pre>{diff?.diff || '此文件没有可显示的文本差异。'}</pre>}
+              {diffLoading ? <div className="git-diff-loading" role="status"><LoaderCircle size={15} className="spinning" />读取差异…</div> : diff?.diff ? <PatchViewer source={diff.diff} /> : <pre>此文件没有可显示的文本差异。</pre>}
             </section>
           )}
           {status?.entries.length ? (
