@@ -63,12 +63,15 @@ function withPhase(budget: PersistedBudget): PersistedBudget {
 
 export class BudgetRuntime {
   private budgets = new Map<string, PersistedBudget>()
+  private continuations = new Map<string, number>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
 
   constructor(
     private api: HbarAPI,
     private maxLimit: number,
+    private autoContinue: boolean,
+    private maxContinuations: number,
   ) {}
 
   async restore() {
@@ -183,6 +186,29 @@ export class BudgetRuntime {
         accountedRuns: [...prior.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
       })
       await this.persist(event.sessionId, next, 'budget.accounted', event.runId)
+      if (
+        this.autoContinue &&
+        event.status === 'completed' &&
+        event.run.input.mode !== 'plan' &&
+        event.run.input.source !== 'goal' &&
+        next.phase === 'active' &&
+        (this.continuations.get(event.sessionId) ?? 0) < this.maxContinuations
+      ) {
+        const count = (this.continuations.get(event.sessionId) ?? 0) + 1
+        this.continuations.set(event.sessionId, count)
+        try {
+          await this.api.sessions.submit(
+            event.sessionId,
+            `budget-${crypto.randomUUID()}`,
+            { text: '', images: [], source: 'system' },
+            event.run.modelId,
+          )
+        } catch (error) {
+          await this.api.sessions.append(event.sessionId, 'budget.continuation_failed', {
+            error: error instanceof Error ? error.message : String(error),
+          }, event.runId)
+        }
+      }
     })
   }
 
@@ -197,7 +223,7 @@ export class BudgetRuntime {
       `Tokens used: ${budget.usedTokens}`,
       `Tokens remaining: ${budget.remainingTokens}`,
       `Token limit: ${budget.limit}`,
-      'Respect the remaining token budget and avoid unnecessary repetition.',
+      'Continue working on the current user task, verify meaningful progress, and avoid unnecessary repetition.',
       '</session_budget>',
     ].join('\n')
     return { ...request, system: `${request.system}\n\n${prompt}` }
@@ -239,6 +265,8 @@ function budgetTools(runtime: BudgetRuntime): ToolDefinition[] {
 
 export const budgetConfigSchema = z.object({
   maxLimit: z.number().int().positive().max(1_000_000_000).default(10_000_000),
+  autoContinue: z.boolean().default(true),
+  maxContinuations: z.number().int().min(0).max(100).default(16),
 })
 
 export const budgetPlugin = definePlugin({
@@ -257,7 +285,8 @@ export const budgetPlugin = definePlugin({
   },
   configSchema: budgetConfigSchema,
   async apply(ctx, rawConfig) {
-    const runtime = new BudgetRuntime(ctx.hbar.api, budgetConfigSchema.parse(rawConfig).maxLimit)
+    const config = budgetConfigSchema.parse(rawConfig)
+    const runtime = new BudgetRuntime(ctx.hbar.api, config.maxLimit, config.autoContinue, config.maxContinuations)
     await runtime.restore()
     provide<BudgetRuntime>(ctx, 'budget', runtime)
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))
