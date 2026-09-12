@@ -529,7 +529,7 @@ export default function TerminalPanel({
                 ) : (
                   <X size={13} />
                 )}
-                拒绝
+                {t('chatDeny')}
               </button>
               <GlareButton
                 className="button primary"
@@ -542,7 +542,7 @@ export default function TerminalPanel({
                 ) : (
                   <Check size={13} />
                 )}
-                批准
+                {t('chatApprove')}
               </GlareButton>
             </div>
           </div>

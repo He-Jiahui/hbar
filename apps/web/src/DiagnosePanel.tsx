@@ -35,12 +35,12 @@ type DiagnoseView = {
   tools: string[]
 }
 
-const STORAGE_LABELS: Record<string, string> = {
-  sessions: '会话',
-  messages: '消息',
-  events: '事件',
-  runs: '运行',
-  approvals: '审批',
+const STORAGE_LABELS: Record<string, LocaleMessageKey> = {
+  sessions: 'session',
+  messages: 'messages',
+  events: 'events',
+  runs: 'runs',
+  approvals: 'approvals',
 }
 
 const STORAGE_ORDER = Object.keys(STORAGE_LABELS)
@@ -84,7 +84,7 @@ function normalizeDiagnose(data: UnknownRecord, t: (key: LocaleMessageKey) => st
   const storage = Object.entries(database)
     .flatMap(([key, value]) => {
       const numericValue = count(value)
-      return numericValue === null ? [] : [{ key, label: STORAGE_LABELS[key] ? t(key as LocaleMessageKey) : key, value: numericValue }]
+      return numericValue === null ? [] : [{ key, label: STORAGE_LABELS[key] ? t(STORAGE_LABELS[key]) : key, value: numericValue }]
     })
     .sort((left, right) => {
       const leftIndex = STORAGE_ORDER.indexOf(left.key)
