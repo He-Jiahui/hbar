@@ -167,6 +167,7 @@ function Sessions({
   const snapshots = useSessions((state) => state.snapshots)
   const summaries = useSessionSummaries((state) => state.byId)
   const gitRevision = useGitState((state) => state.revision)
+  const changedGitCwds = useGitState((state) => state.changedCwds)
   const [workspaceBranches, setWorkspaceBranches] = useState<Record<string, string | null>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'workspace' | 'session'; id: string } | null>(null)
@@ -174,27 +175,57 @@ function Sessions({
   const workspaces = useMemo(() => data?.workspaces ?? [], [data?.workspaces])
   useEffect(() => {
     let cancelled = false
+    const connection = client()
+    const known = new Set(workspaces.map((workspace) => workspace.id))
+    const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/$/, '').toLocaleLowerCase()
+    const invalidated = new Set(changedGitCwds.map(normalizePath))
+    const targets = workspaces.filter(
+      (workspace) =>
+        !(workspace.id in workspaceBranches) ||
+        (gitRevision > 0 && invalidated.has(normalizePath(workspace.path))),
+    )
+    const retainKnown = (current: Record<string, string | null>) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => known.has(id)))
+    const sameBranches = (left: Record<string, string | null>, right: Record<string, string | null>) =>
+      Object.keys(left).length === Object.keys(right).length &&
+      Object.entries(left).every(([id, branch]) => right[id] === branch)
+    if (!targets.length) {
+      setWorkspaceBranches((current) => {
+        const next = retainKnown(current)
+        return sameBranches(current, next) ? current : next
+      })
+      return () => {
+        cancelled = true
+      }
+    }
     const entries: Array<readonly [string, string | null]> = []
     let cursor = 0
     async function worker() {
       while (!cancelled) {
-        const workspace = workspaces[cursor++]
+        const workspace = targets[cursor++]
         if (!workspace) return
         try {
-          const info = await client().call('git.info', { cwd: workspace.path })
-          entries.push([workspace.id, info.branch])
+          const info = await connection.call('git.status', { cwd: workspace.path })
+          entries.push([workspace.id, info.root ? info.branch ?? '分离 HEAD' : null])
         } catch {
           entries.push([workspace.id, null])
         }
       }
     }
-    void Promise.all(Array.from({ length: Math.min(8, workspaces.length) }, () => worker())).then(() => {
-      if (!cancelled) setWorkspaceBranches(Object.fromEntries(entries))
+    void Promise.all(Array.from({ length: Math.min(8, targets.length) }, () => worker())).then(() => {
+      if (cancelled || useConnection.getState().client !== connection) return
+      setWorkspaceBranches((current) => {
+        const next = {
+          ...retainKnown(current),
+        ...Object.fromEntries(entries),
+        }
+        return sameBranches(current, next) ? current : next
+      })
     })
     return () => {
       cancelled = true
     }
-  }, [gitRevision, workspaces])
+  }, [changedGitCwds, gitRevision, workspaces, workspaceBranches])
   const visibleSessions = sessions.filter((s) => s.archived === archived && s.title.toLowerCase().includes(search.toLowerCase()))
   const pinnedSessions = visibleSessions.filter((s) => pinnedSessionIds.includes(s.id))
   const pinnedWorkspaces = workspaces.filter((workspace) => pinnedWorkspaceIds.includes(workspace.id))
@@ -511,6 +542,8 @@ export default function App() {
     [workspaceAlias, setWorkspaceAlias] = useState('')
   const [discoveredWorktrees, setDiscoveredWorktrees] = useState<Array<GitWorktreeInfo & { sourcePath: string }>>([])
   const [selectedWorktreePaths, setSelectedWorktreePaths] = useState<string[]>([])
+  const [workspaceCreateErrors, setWorkspaceCreateErrors] = useState<Array<{ path: string; message: string; retryable: boolean }>>([])
+  const [workspaceCreateBusy, setWorkspaceCreateBusy] = useState(false)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
@@ -529,24 +562,31 @@ export default function App() {
         cancelled = true
       }
     }
-    void Promise.all(
-      workspacePaths.map(async (sourcePath) => {
+    const paths = [...workspacePaths]
+    const connection = client()
+    const groups: Array<Array<GitWorktreeInfo & { sourcePath: string }>> = []
+    let cursor = 0
+    async function worker() {
+      while (!cancelled) {
+        const sourcePath = paths[cursor++]
+        if (!sourcePath) return
         try {
           const [status, result] = await Promise.all([
-            client().call('git.status', { cwd: sourcePath }),
-            client().call('git.worktree', { cwd: sourcePath, operation: 'list' }),
+            connection.call('git.status', { cwd: sourcePath }),
+            connection.call('git.worktree', { cwd: sourcePath, operation: 'list' }),
           ])
           const entries = Array.isArray(result) ? result : [result]
           const currentRoot = status.root ?? sourcePath
-          return entries
+          groups.push(entries
             .filter((item) => item.path.toLocaleLowerCase() !== currentRoot.toLocaleLowerCase())
-            .map((item) => ({ ...item, sourcePath }))
+            .map((item) => ({ ...item, sourcePath })))
         } catch {
-          return []
+          groups.push([])
         }
-      }),
-    ).then((groups) => {
-      if (cancelled) return
+      }
+    }
+    void Promise.all(Array.from({ length: Math.min(8, paths.length) }, () => worker())).then(() => {
+      if (cancelled || useConnection.getState().client !== connection) return
       const seen = new Set<string>()
       const external = groups.flat().filter((item) => {
         const key = item.path.toLocaleLowerCase()
@@ -901,37 +941,62 @@ export default function App() {
       report(error)
     }
   }
-  async function createWorkspaces() {
-    const paths = [...workspacePaths]
+  async function createWorkspaces(retryPaths?: readonly string[]) {
+    const paths = [...(retryPaths ?? workspacePaths)]
     if (!paths.length) return
+    if (workspaceCreateBusy) return
+    setWorkspaceCreateBusy(true)
+    setWorkspaceCreateErrors([])
     try {
-      const discovered = new Set(paths)
-      selectedWorktreePaths.forEach((path) => discovered.add(path))
+      const discovered = retryPaths ? new Set(paths) : new Set([...paths, ...selectedWorktreePaths])
       const pathsToCreate = [...discovered]
-      const alias = workspaceAlias.trim()
-      const created = []
+      const alias = retryPaths ? '' : workspaceAlias.trim()
+      const created: Array<{ id: string }> = []
+      const failures: Array<{ path: string; message: string; retryable: boolean }> = []
       for (const path of pathsToCreate) {
         const name = alias && pathsToCreate.length === 1 ? alias : undefined
-        created.push(await client().call('workspace.create', { path, ...(name ? { name } : {}) }))
+        try {
+          created.push(await client().call('workspace.create', { path, ...(name ? { name } : {}) }))
+        } catch (error) {
+          failures.push({ path, message: error instanceof Error ? error.message : String(error), retryable: true })
+        }
       }
-      await refreshCatalog()
-      useWorkbench.setState({ workspaceId: created.at(-1)?.id ?? '' })
+      if (created.length) {
+        try {
+          await refreshCatalog()
+          useWorkbench.setState({ workspaceId: created.at(-1)?.id ?? '' })
+        } catch (error) {
+          failures.push({ path: '刷新工作区目录', message: error instanceof Error ? error.message : String(error), retryable: false })
+        }
+      }
+      if (failures.length) {
+        setWorkspaceCreateErrors(failures)
+        return
+      }
       closeWorkspaceModal()
     } catch (error) {
-      report(error)
+      setWorkspaceCreateErrors([{ path: '工作区创建', message: error instanceof Error ? error.message : String(error), retryable: false }])
+    } finally {
+      setWorkspaceCreateBusy(false)
     }
   }
   async function useWorktreePath(path: string) {
+    const connection = client()
+    const startingWorkspaceId = useWorkbench.getState().workspaceId
+    const startingSessionId = useWorkbench.getState().activeSession
     const currentData = useCatalog.getState().data
     const existing = currentData?.workspaces.find((workspace) => workspace.path.toLocaleLowerCase() === path.toLocaleLowerCase())
-    const target = existing ?? await client().call('workspace.create', { path })
-    const currentSessionId = useWorkbench.getState().activeSession
-    const currentSession = currentData?.sessions.find((session) => session.id === currentSessionId)
-    if (currentSessionId && currentSession && currentSession.workspaceId !== target.id)
-      await client().call('session.move', { sessionId: currentSessionId, workspaceId: target.id })
+    const target = existing ?? await connection.call('workspace.create', { path })
+    if (useConnection.getState().client !== connection || useWorkbench.getState().workspaceId !== startingWorkspaceId || useWorkbench.getState().activeSession !== startingSessionId)
+      throw new Error('工作区或会话已切换，请重新选择 Worktree')
+    const currentSession = currentData?.sessions.find((session) => session.id === startingSessionId)
+    if (startingSessionId && currentSession && currentSession.workspaceId !== target.id)
+      await connection.call('session.move', { sessionId: startingSessionId, workspaceId: target.id })
+    if (useConnection.getState().client !== connection) throw new Error('连接已切换，请重新选择 Worktree')
     await refreshCatalog()
+    if (useConnection.getState().client !== connection) throw new Error('连接已切换，请重新选择 Worktree')
     useWorkbench.setState({ workspaceId: target.id })
-    if (currentSessionId) await openSession(currentSessionId)
+    if (startingSessionId) await openSession(startingSessionId)
   }
   function openSessionTab(session: Session) {
     initialSelection.current = false
@@ -1590,12 +1655,35 @@ export default function App() {
                   })}
                 </div>
               )}
+              {workspaceCreateErrors.length > 0 && (
+                <div className="workspace-create-errors" role="alert">
+                  <strong>部分工作区未能加入</strong>
+                  <ul>
+                    {workspaceCreateErrors.map((failure) => (
+                      <li key={`${failure.path}:${failure.message}`}>
+                        <span title={failure.path}>{failure.path}</span>
+                        <small>{failure.message}</small>
+                      </li>
+                    ))}
+                  </ul>
+                  {workspaceCreateErrors.some((failure) => failure.retryable) && (
+                    <button
+                      type="button"
+                      className="button"
+                      disabled={workspaceCreateBusy}
+                      onClick={() => void createWorkspaces(workspaceCreateErrors.filter((failure) => failure.retryable).map((failure) => failure.path))}
+                    >
+                      重试失败项
+                    </button>
+                  )}
+                </div>
+              )}
               {workspacePaths.length > 1 && <p className="workspace-picker-hint">多个目录将分别加入工作区，并使用各自的目录名。</p>}
             </div>
             <footer className="modal-footer">
-              <button className="button primary" disabled={!workspacePaths.length}>
+              <button className="button primary" disabled={!workspacePaths.length || workspaceCreateBusy}>
                 <FolderOpen size={14} />
-                打开工作区
+                {workspaceCreateBusy ? '正在加入…' : '打开工作区'}
               </button>
             </footer>
           </form>
