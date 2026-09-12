@@ -749,6 +749,7 @@ export default function Settings() {
   const [themeUploading, setThemeUploading] = useState(false)
   const [fontFamilies, setFontFamilies] = useState<string[]>([])
   const [windowEffectStatus, setWindowEffectStatus] = useState('')
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const themeBackgroundInput = useRef<HTMLInputElement>(null)
   const themeImportInput = useRef<HTMLInputElement>(null)
   const data = useCatalog((state) => state.data),
@@ -815,15 +816,26 @@ export default function Settings() {
   }, [fontFamilies.length, tab])
   useEffect(() => {
     if (tab !== 'appearance') return
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const onChange = () => setPrefersReducedMotion(media.matches)
+    onChange()
+    media.addEventListener?.('change', onChange)
     let cancelled = false
     const effectiveTheme = mergeThemeContributions(themeProfile, themePlugins, themeProfileExplicit)
     void platform().then((adapter) => adapter.setWindowEffect(effectiveTheme)).then((result) => {
-      if (!cancelled) setWindowEffectStatus(result.native ? t('nativeEffectEnabled') : result.message === 'solid-surface' ? t('solidSurfaceEffectDisabled') : result.message === 'css-fallback' ? t('cssBlurFallback') : result.message ?? t('cssBlurFallback'))
+      if (!cancelled) {
+        const reduced = effectiveTheme.motion.intensity === 'off' || (effectiveTheme.motion.respectReducedMotion && media.matches)
+        const effectStatus = result.native ? t('nativeEffectEnabled') : result.message === 'solid-surface' ? t('solidSurfaceEffectDisabled') : result.message === 'css-fallback' ? t('cssBlurFallback') : result.message ?? t('cssBlurFallback')
+        setWindowEffectStatus(reduced ? `${effectStatus} · ${t('reducedMotionActive')}` : effectStatus)
+      }
     }).catch((error) => {
       if (!cancelled) setWindowEffectStatus(error instanceof Error ? `${t('nativeEffectUnavailable')}：${error.message}` : `${t('nativeEffectUnavailable')}，${t('cssBlurFallback')}`)
     })
-    return () => { cancelled = true }
-  }, [t, tab, themePlugins, themeProfile, themeProfileExplicit])
+    return () => {
+      cancelled = true
+      media.removeEventListener?.('change', onChange)
+    }
+  }, [prefersReducedMotion, t, tab, themePlugins, themeProfile, themeProfileExplicit])
   useEffect(() => {
     const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
     useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined, workspaceId || undefined)
