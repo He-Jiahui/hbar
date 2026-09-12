@@ -22,6 +22,8 @@ interface FloatingLayerBaseProps extends Omit<HTMLAttributes<HTMLDivElement>, 'c
   onClose(): void
   className?: string
   backdropClassName?: string
+  /** A child menu/popover rendered inside an already-open modal surface. */
+  nested?: boolean
   children: ReactNode
 }
 
@@ -70,6 +72,7 @@ const FOCUSABLE_SELECTOR = [
 
 type ActiveLayer = { id: string; close(): void }
 let activeLayer: ActiveLayer | null = null
+let activeNestedLayers = 0
 
 function claimLayer(layer: ActiveLayer): () => void {
   if (activeLayer && activeLayer.id !== layer.id) activeLayer.close()
@@ -122,6 +125,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
     onClose,
     className = '',
     backdropClassName = '',
+    nested = false,
     children,
     mode = 'anchored',
     anchorRef: anchorProp,
@@ -227,11 +231,17 @@ export function FloatingLayer(props: FloatingLayerProps) {
   useEffect(() => {
     if (!open) return
 
-    const release = claimLayer({ id: layerId, close: () => onCloseRef.current() })
+    const release = nested
+      ? () => {
+          activeNestedLayers = Math.max(0, activeNestedLayers - 1)
+        }
+      : claimLayer({ id: layerId, close: () => onCloseRef.current() })
+    if (nested) activeNestedLayers += 1
 
     const handlePointerDown = (event: PointerEvent) => {
       const path = event.composedPath()
       if (layerRef.current && path.includes(layerRef.current)) return
+      if (path.some((item) => item instanceof HTMLElement && item.dataset.floatingLayerNested === 'true')) return
       if (anchorRef?.current && path.includes(anchorRef.current)) {
         // The anchor is outside the portal, but a bubbling toggle handler must
         // not immediately reopen the surface after this close.
@@ -241,6 +251,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
       onCloseRef.current()
     }
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!nested && activeNestedLayers > 0) return
       if (event.key === 'Escape') {
         event.preventDefault()
         onCloseRef.current()
@@ -259,7 +270,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
       window.removeEventListener('resize', handleViewportChange)
       release()
     }
-  }, [anchorRef, layerId, open, updatePosition])
+  }, [anchorRef, layerId, nested, open, updatePosition])
 
   if (!open) return null
 
@@ -274,6 +285,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
           ref={layerRef}
           className={`floating-layer floating-layer-modal ${className}`.trim()}
           data-floating-layer="true"
+          data-floating-layer-nested={nested ? 'true' : undefined}
           tabIndex={attributes.tabIndex ?? -1}
           style={style}
         >
@@ -286,6 +298,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
         ref={layerRef}
         className={`floating-layer ${className}`.trim()}
         data-floating-layer="true"
+        data-floating-layer-nested={nested ? 'true' : undefined}
         style={style}
       >
         {children}
