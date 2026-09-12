@@ -273,5 +273,5 @@ export const DATA_TABLE_PREVIEWS: Record<string, DataTablePreviewConfig> = {
 
 export function previewDescription(category: ReferenceCategory, variant: number): string | undefined {
   const key = `${category}-${variant}`
-  return CHAT_PREVIEWS[key]?.heading || PROMPT_PREVIEWS[key]?.heading || ACTIVITY_PREVIEWS[key]?.heading || TOOL_CALL_PREVIEWS[key]?.heading || APPROVAL_PREVIEWS[key]?.heading || PLAN_PREVIEWS[key]?.heading || USAGE_PREVIEWS[key]?.heading
+  return CHAT_PREVIEWS[key]?.heading || PROMPT_PREVIEWS[key]?.heading || ACTIVITY_PREVIEWS[key]?.heading || TOOL_CALL_PREVIEWS[key]?.heading || APPROVAL_PREVIEWS[key]?.heading || PLAN_PREVIEWS[key]?.heading || USAGE_PREVIEWS[key]?.heading || CARD_PREVIEWS[key]?.heading || DATA_TABLE_PREVIEWS[key]?.heading
 }
