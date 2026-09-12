@@ -65,9 +65,9 @@ test('builds a catalog from built-in and plugin descriptors', async () => {
   const catalog = await kernel.settingsCatalog()
   expect(catalog.settings.map((setting) => setting.id)).toContain('plugin.test.settings.message')
   expect(catalog.navigation.roots.find((root) => root.id === 'plugins')?.groups[0]?.title).toBe('Settings fixture')
-  expect(catalog.navigation.roots.map((root) => root.id)).toEqual(
-    expect.arrayContaining(['appearance', 'automation', 'devices', 'models', 'paths', 'permissions', 'plugins', 'skills']),
-  )
+  const rootIds = catalog.navigation.roots.map((root) => root.id)
+  for (const rootId of ['appearance', 'automation', 'devices', 'models', 'paths', 'permissions', 'plugins', 'skills'])
+    expect(rootIds).toContain(rootId)
 })
 
 test('exposes the global budget default and task notification switches', async () => {
