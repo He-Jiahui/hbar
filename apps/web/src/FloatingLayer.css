@@ -88,6 +88,12 @@
   font-size: var(--hbar-font-size-body, 13px);
 }
 
+.session-context-menu {
+  min-width: 175px;
+  padding: 5px;
+  border-radius: var(--radius-sm);
+}
+
 /* Tool-rail labels are deliberately rendered by the same body portal as
  * menus.  Keeping the label opaque and pointer-transparent prevents the
  * neighbouring rail button or a panel stacking context from painting over
