@@ -23,11 +23,11 @@ const editorTheme = EditorView.theme({
   '&.cm-focused': { outline: 'none' },
 })
 
-export default function GitDiffViewer({ source, path = '' }: { source: string; path?: string }) {
+export default function GitDiffViewer({ source, path = '', truncated = false }: { source: string; path?: string; truncated?: boolean }) {
   const preferredRenderer = useThemeSettings((state) => state.profile.renderer['git-diff'])
   const rendererLanguage = path.includes('.') ? path.slice(path.lastIndexOf('.') + 1) : undefined
   const renderer = selectRendererSlot('git-diff', rendererLanguage, preferredRenderer)
-  const compare = useMemo(() => parseUnifiedDiff(source), [source])
+  const compare = useMemo(() => parseUnifiedDiff(source, { truncated }), [source, truncated])
   const root = useRef<HTMLDivElement>(null)
   const { t } = useLocale()
 
@@ -56,6 +56,17 @@ export default function GitDiffViewer({ source, path = '' }: { source: string; p
       </RendererBoundary>
     )
   }
+  if (compare?.kind === 'binary') {
+    return <div className="git-diff-notice" role="status">{t('binaryDiff')}</div>
+  }
+  const renameNotice = compare?.kind === 'rename' && !compare.before && !compare.after
+    ? `${t('renamedFile')}: ${compare.oldPath ?? path} → ${compare.newPath ?? path}`
+    : null
   if (!compare) return <PatchViewer source={source} language={path || 'diff'} />
-  return <div ref={root} className="git-compare-view" aria-label={t('gitComparison')} />
+  return (
+    <div className="git-diff-render">
+      {(renameNotice || compare.truncated) && <div className="git-diff-notice" role="status">{renameNotice ?? t('truncatedDiff')}</div>}
+      <div ref={root} className="git-compare-view" aria-label={t('gitComparison')} />
+    </div>
+  )
 }

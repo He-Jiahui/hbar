@@ -366,6 +366,18 @@
   background: var(--hbar-code);
 }
 
+.git-diff-render {
+  min-width: 0;
+}
+
+.git-diff-notice {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--hbar-bd);
+  background: color-mix(in srgb, var(--hbar-wn) 12%, var(--hbar-code));
+  color: var(--hbar-wn-ink);
+  font-size: var(--hbar-font-size-small);
+}
+
 .git-compare-view .cm-mergeView {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

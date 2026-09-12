@@ -312,7 +312,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
           {selectedEntry && (
             <section className="git-diff-card" aria-label={`${selectedEntry.path} diff`}>
               <header><code>{selectedEntry.path}</code><span>{diff?.truncated ? t('truncated') : t('unstagedDiff')}</span></header>
-              {diffLoading ? <div className="git-diff-loading" role="status"><LoaderCircle size={15} className="spinning" />{t('readingDiff')}</div> : diff?.diff ? <GitDiffViewer source={diff.diff} path={selectedEntry.path} /> : <pre>{t('noTextDiff')}</pre>}
+              {diffLoading ? <div className="git-diff-loading" role="status"><LoaderCircle size={15} className="spinning" />{t('readingDiff')}</div> : diff?.diff ? <GitDiffViewer source={diff.diff} path={selectedEntry.path} truncated={diff.truncated} /> : <pre>{t('noTextDiff')}</pre>}
             </section>
           )}
           {status?.entries.length ? (
