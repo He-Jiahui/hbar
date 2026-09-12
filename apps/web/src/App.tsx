@@ -69,7 +69,7 @@ import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbenc
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
 import { FileNavigation, FileViewer } from './FileNavigation'
 import SystemTerminalPanel from './SystemTerminalPanel'
-import { applyThemeProfile, handleThemeEvent, mergeThemeContributions, useThemeSettings } from './theme-store'
+import ThemeRuntimeSync from './ThemeRuntimeSync'
 import type { ToolWindowProps } from '@hbar/ui-sdk'
 import ReferenceGallery from './react-bits/reference/ReferenceGallery'
 import { useLocale } from './locale'
@@ -592,9 +592,6 @@ export default function App() {
     toolPanel = useWorkbench((state) => state.toolPanel),
     sidebarWidth = useWorkbench((state) => state.sidebarWidth)
   const notice = useNotice((state) => state.error)
-  const themeProfile = useThemeSettings((state) => state.profile)
-  const themeContributions = useUIPlugins((state) => state.themes)
-  const themeBackgroundAssets = useUIPlugins((state) => state.backgroundAssets)
   const taskNotice = useNotice((state) => state.notice)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
@@ -816,43 +813,6 @@ export default function App() {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [notice])
-  useEffect(() => {
-    const effectiveTheme = mergeThemeContributions(themeProfile, themeContributions)
-    applyThemeProfile(effectiveTheme)
-    const background = effectiveTheme.surface.backgroundAsset
-    const connection = useConnection.getState().client
-    const pluginBackground = typeof background === 'string' && background.startsWith('plugin/')
-      ? (() => {
-          const [, owner, ...parts] = background.split('/')
-          return owner && parts[0] === 'assets' && parts.length > 1 && (themeContributions.some((theme) => theme.owner === owner) || themeBackgroundAssets.some((asset) => asset.owner === owner))
-            ? new URL(`/api/plugins/${encodeURIComponent(owner)}/${parts.join('/')}`, connection?.baseUrl ?? window.location.origin).href
-            : null
-        })()
-      : null
-    document.documentElement.style.setProperty(
-      '--hbar-background-image',
-      background && connection
-        ? pluginBackground
-          ? `url("${pluginBackground}")`
-          : /^[a-f0-9]{64}$/i.test(background)
-            ? `url("${connection.artifactUrl(background)}")`
-            : 'none'
-        : 'none',
-    )
-    void platform()
-      .then((adapter) => adapter.setWindowEffect(effectiveTheme))
-      .catch(() => {})
-  }, [themeBackgroundAssets, themeContributions, themeProfile])
-  useEffect(() => {
-    if (status !== 'connected') return
-    const connection = useConnection.getState().client
-    if (!connection) return
-    const scope = activeSession ? 'session' : workspaceId ? 'project' : 'global'
-    const targetId = activeSession || workspaceId || undefined
-    useThemeSettings.getState().setScope(scope, targetId)
-    void useThemeSettings.getState().load(connection, scope, targetId)
-    return connection.onEvent((event) => handleThemeEvent(event, connection))
-  }, [activeSession, status, workspaceId])
   useEffect(() => {
     const onResize = () => setSmall(window.innerWidth < 900)
     window.addEventListener('resize', onResize)
@@ -1684,14 +1644,16 @@ export default function App() {
       <div className="empty-tool">插件已停用</div>
     )
   }
-  if (status === 'pairing' || (!data && status !== 'connected')) return <PairingPage />
+  if (status === 'pairing' || (!data && status !== 'connected')) return <><ThemeRuntimeSync /><PairingPage /></>
   if (detachedPanelId && data) {
     const detachedContribution = [...(data.panels ?? []), ...clientPanels].find((panel) => panel.id === detachedPanelId)
     if (detachedContribution)
-      return <div className="detached-tool-window">{renderPlugin(detachedPanelId, 'window', undefined, window, document)}</div>
+      return <><ThemeRuntimeSync /><div className="detached-tool-window">{renderPlugin(detachedPanelId, 'window', undefined, window, document)}</div></>
   }
   return (
-    <div className="app-shell" onDragOver={handleToolRailDragOver} onDropCapture={handleToolRailDrop}>
+    <>
+      <ThemeRuntimeSync />
+      <div className="app-shell" onDragOver={handleToolRailDragOver} onDropCapture={handleToolRailDrop}>
       <WorkbenchHeader
         status={status}
         host={host}
@@ -2087,6 +2049,7 @@ export default function App() {
           </form>
         </Modal>
       )}
-    </div>
+      </div>
+    </>
   )
 }
