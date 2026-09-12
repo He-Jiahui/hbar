@@ -737,6 +737,7 @@ export default function Settings() {
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null)
   const [themeUploading, setThemeUploading] = useState(false)
   const [fontFamilies, setFontFamilies] = useState<string[]>([])
+  const [windowEffectStatus, setWindowEffectStatus] = useState('')
   const themeBackgroundInput = useRef<HTMLInputElement>(null)
   const themeImportInput = useRef<HTMLInputElement>(null)
   const data = useCatalog((state) => state.data),
@@ -798,6 +799,16 @@ export default function Settings() {
     }).catch(report)
     return () => { cancelled = true }
   }, [fontFamilies.length, tab])
+  useEffect(() => {
+    if (tab !== 'appearance') return
+    let cancelled = false
+    void platform().then((adapter) => adapter.setWindowEffect(themeProfile)).then((result) => {
+      if (!cancelled) setWindowEffectStatus(result.native ? '已启用系统原生窗口效果。' : result.message ?? '当前使用 CSS 模糊回退。')
+    }).catch((error) => {
+      if (!cancelled) setWindowEffectStatus(error instanceof Error ? `原生窗口效果不可用：${error.message}` : '原生窗口效果不可用，已使用 CSS 回退。')
+    })
+    return () => { cancelled = true }
+  }, [tab, themeProfile])
   useEffect(() => {
     const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
     useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined)
@@ -1069,6 +1080,7 @@ export default function Settings() {
               ['codeBackground', '代码背景'],
               ['diffAdded', '新增高亮'],
               ['diffRemoved', '删除高亮'],
+              ['diffHeader', 'Diff 文件头'],
             ] as const).map(([key, label]) => (
               <label key={key} className="theme-color-field"><span>{label}</span><input type="color" value={themeProfile.colors[key].slice(0, 7)} onChange={(event) => updateThemeColor(key, event.target.value)} /></label>
             ))}
@@ -1091,6 +1103,7 @@ export default function Settings() {
             <p>正文文本与中文 English 混排，<strong>粗体 Bold</strong>，<u>下划线 Underline</u>。</p>
             <code>const theme = 'global';</code>
           </div>
+          {windowEffectStatus && <p className="settings-muted" role="status">{windowEffectStatus}</p>}
           {themeError && <p className="inline-error" role="alert">{themeError}</p>}
         </section>
       )}

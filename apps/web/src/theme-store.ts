@@ -160,6 +160,7 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-diff-added': profile.colors.diffAdded,
     '--hbar-diff-removed': profile.colors.diffRemoved,
     '--hbar-diff-context': profile.colors.diffContext,
+    '--hbar-diff-header': profile.colors.diffHeader,
     '--hbar-chart-1': profile.colors.primary,
     '--hbar-chart-2': profile.colors.secondary,
     '--hbar-chart-3': profile.colors.highlight,

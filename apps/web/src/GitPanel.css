@@ -332,6 +332,32 @@
   white-space: pre;
 }
 
+.patch-line {
+  display: block;
+  padding: 0 8px;
+}
+
+.patch-line-added {
+  background: color-mix(in srgb, var(--hbar-diff-added) 16%, transparent);
+  color: var(--hbar-diff-added);
+}
+
+.patch-line-removed {
+  background: color-mix(in srgb, var(--hbar-diff-removed) 16%, transparent);
+  color: var(--hbar-diff-removed);
+}
+
+.patch-line-hunk {
+  background: color-mix(in srgb, var(--hbar-ac) 12%, transparent);
+  color: var(--hbar-ac);
+}
+
+.patch-line-header {
+  background: color-mix(in srgb, var(--hbar-diff-header) 12%, transparent);
+  color: var(--hbar-diff-header);
+  font-weight: var(--hbar-font-weight-heading);
+}
+
 .git-compare-view {
   min-width: 0;
   overflow: hidden;

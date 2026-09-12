@@ -42,6 +42,7 @@ export const themeProfileSchema = z
         diffAdded: themeColorSchema,
         diffRemoved: themeColorSchema,
         diffContext: themeColorSchema,
+        diffHeader: themeColorSchema,
       })
       .strict(),
     typography: z
@@ -101,7 +102,7 @@ const themeAssetPathSchema = z.string().min(1).max(240).regex(/^(?!.*\.\.)(?:[a-
 
 const themeOverrideKeys: Record<string, readonly string[]> = {
   root: ['mode', 'colors', 'typography', 'surface', 'motion', 'renderer'],
-  colors: ['primary', 'secondary', 'highlight', 'background', 'surface', 'surfaceElevated', 'border', 'borderStrong', 'textPrimary', 'textSecondary', 'textTertiary', 'headingText', 'focus', 'success', 'warning', 'error', 'info', 'codeBackground', 'diffAdded', 'diffRemoved', 'diffContext'],
+  colors: ['primary', 'secondary', 'highlight', 'background', 'surface', 'surfaceElevated', 'border', 'borderStrong', 'textPrimary', 'textSecondary', 'textTertiary', 'headingText', 'focus', 'success', 'warning', 'error', 'info', 'codeBackground', 'diffAdded', 'diffRemoved', 'diffContext', 'diffHeader'],
   typography: ['locale', 'bodyFontFamily', 'headingFontFamily', 'codeFontFamily', 'bodySize', 'headingSize', 'codeSize', 'bodyLineHeight', 'headingWeight', 'bodyWeight', 'underlineLinks', 'bodyTextColor', 'headingTextColor', 'inlineCodeBackground', 'inlineCodeTextColor'],
   surface: ['mode', 'backgroundOpacity', 'blurAmount', 'saturation', 'displacementScale', 'aberrationIntensity', 'elasticity', 'cornerRadius', 'glowIntensity', 'backgroundAsset'],
   motion: ['intensity', 'respectReducedMotion'],
@@ -162,6 +163,7 @@ export const DEFAULT_THEME_PROFILE: ThemeProfile = {
     diffAdded: '#75c995',
     diffRemoved: '#e98585',
     diffContext: '#aab3bf',
+    diffHeader: '#d8dee7',
   },
   typography: {
     locale: 'zh-CN',

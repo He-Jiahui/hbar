@@ -6,6 +6,18 @@ import { keymap } from '@codemirror/view'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
+
+const themeSyntax = syntaxHighlighting(HighlightStyle.define([
+  { tag: tags.keyword, color: 'var(--hbar-ac)' },
+  { tag: [tags.name, tags.variableName], color: 'var(--hbar-t1)' },
+  { tag: [tags.string, tags.special(tags.string)], color: 'var(--hbar-ok)' },
+  { tag: tags.comment, color: 'var(--hbar-t3)' },
+  { tag: tags.number, color: 'var(--hbar-info)' },
+  { tag: tags.operator, color: 'var(--hbar-ac2)' },
+  { tag: tags.typeName, color: 'var(--hbar-highlight)' },
+]))
 
 export default function CodeEditor({
   value,
@@ -42,6 +54,7 @@ export default function CodeEditor({
           history(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
           extension,
+          themeSyntax,
           EditorState.readOnly.of(readOnly),
           EditorView.lineWrapping,
           EditorView.theme({
