@@ -164,7 +164,7 @@ test('goal and plan control tools use the current run session and persist state'
   expect((await plans.get(session.id))?.explanation).toBe('Keep the objective visible')
 })
 
-test('mode service supplies the persisted run mode and update_plan is rejected only in Plan mode', async () => {
+test('mode service supplies the persisted run mode and Plan rejects execution-stage state changes', async () => {
   const { root, kernel, session } = await fixture()
   await kernel.setPermissionMode('allow')
   const mode = kernel.plugins.get<{ get(id: string): Promise<{ mode: 'default' | 'plan' }>; set(id: string, value: 'default' | 'plan'): Promise<{ mode: 'default' | 'plan' }> }>('mode')
@@ -179,6 +179,16 @@ test('mode service supplies the persisted run mode and update_plan is rejected o
   await kernel.waitForIdle()
   expect((await kernel.storage.call('run', blocked.id)).input.mode).toBe('plan')
   expect((await kernel.snapshot(session.id)).messages.flatMap((message) => message.content).some((block) => block.type === 'tool_result' && block.isError && block.text.includes('Plan mode'))).toBeTrue()
+
+  const goalBlocked = await kernel.submit(
+    session.id,
+    'plan-goal-blocked',
+    { text: '/tool create_goal {"objective":"must not mutate in Plan"}', images: [], mode: 'plan' },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', goalBlocked.id)).status).toBe('completed')
+  expect((await kernel.plugins.get<GoalService>('goal').get(session.id)).goal).toBeNull()
 
   await mode.set(session.id, 'default')
   const accepted = await kernel.submit(

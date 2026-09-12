@@ -245,7 +245,8 @@ class PlanRuntime implements PlanService {
 
   enforceReadOnly(name: string, context: ToolContext, tool: ToolDefinition) {
     if (context.run.input.mode !== 'plan') return
-    if (name !== 'update_plan' && name !== 'save_plan' && tool.effect !== 'read')
+    const stateMutation = ['create_goal', 'update_goal', 'set_budget', 'update_plan'].includes(name)
+    if (stateMutation || (name !== 'save_plan' && tool.effect !== 'read'))
       throw new HbarError('PLAN_READ_ONLY', `Plan mode cannot execute ${name}; switch back to default mode to make changes`)
   }
 }
