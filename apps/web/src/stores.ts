@@ -282,7 +282,6 @@ export async function connectHost(url: string, token?: string) {
   useGitState.setState({ revision: 0, changedCwds: [] })
   sessionLoadGeneration.clear()
   olderMessageRequests.clear()
-  seenTaskNotificationKeys.clear()
   resetSessionCapabilities()
   bufferedEvents.clear()
   next.onStatus((status) => {
