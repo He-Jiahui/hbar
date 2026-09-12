@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Database, FolderCog, HardDrive, RefreshCw, RotateCcw, Save, ShieldCheck } from 'lucide-react'
 import { usePathSettings } from './path-settings'
+import { useConnection } from './stores'
 import GlareButton from './react-bits/GlareButton'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -8,9 +9,10 @@ import SpotlightCard from './react-bits/SpotlightCard'
 export default function PathSettings() {
   const state = usePathSettings()
   const load = state.load
+  const connection = useConnection((current) => current.client)
   useEffect(() => {
     void load()
-  }, [load])
+  }, [connection, load])
   const busy = state.status === 'loading' || state.status === 'validating' || state.status === 'saving'
   const changed = Boolean(
     state.current && (state.dataRoot !== state.current.dataRoot || state.cacheRoot !== state.current.cacheRoot),
@@ -65,7 +67,8 @@ export default function PathSettings() {
           spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
         >
           <dl className="path-details">
-            <dt>缓存占用</dt><dd>{formatBytes(state.current.cacheBytes)}</dd>
+            <dt>缓存占用</dt>
+            <dd>{formatBytes(state.current.cacheBytes)}</dd>
             <dt>会话日志</dt>
             <dd>{state.current.sessions}</dd>
             <dt>SQLite</dt>
