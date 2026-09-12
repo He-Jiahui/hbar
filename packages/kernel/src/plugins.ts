@@ -748,6 +748,7 @@ export class PluginManager {
       id: packageId(entry.plugin.manifest),
       version: entry.plugin.manifest.version,
       enabled: entry.enabled,
+      ...(entry.projectId ? { projectId: entry.projectId } : {}),
     }))
     const edges = scoped.flatMap((entry) => {
       const from = packageId(entry.plugin.manifest)

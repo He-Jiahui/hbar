@@ -272,7 +272,7 @@ function DoctorReportView({ data }: { data: DoctorReport }) {
   )
 }
 
-function GraphReportView({ data, onRefresh, projectId }: { data: GraphReport; onRefresh(): void; projectId?: string | undefined }) {
+function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): void }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const nodeTypes = useMemo(() => ({ plugin: PluginGraphNodeView }), [])
@@ -308,8 +308,8 @@ function GraphReportView({ data, onRefresh, projectId }: { data: GraphReport; on
           version: node.version,
           enabled: node.enabled,
           busy: busyId === node.id,
-          onToggle: () => void togglePlugin(node.id, !node.enabled),
-          onDisableTree: () => void disableTree(node.id),
+          onToggle: () => void togglePlugin(node.id, !node.enabled, node.projectId),
+          onDisableTree: () => void disableTree(node.id, node.projectId),
         },
       }
     })
@@ -328,11 +328,11 @@ function GraphReportView({ data, onRefresh, projectId }: { data: GraphReport; on
     [data.edges],
   )
 
-  async function togglePlugin(id: string, enabled: boolean) {
+  async function togglePlugin(id: string, enabled: boolean, targetProjectId?: string) {
     setBusyId(id)
     setActionError(null)
     try {
-      await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id, ...(projectId ? { projectId } : {}) })
+      await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id, ...(targetProjectId ? { projectId: targetProjectId } : {}) })
       await refreshCatalog()
       onRefresh()
     } catch (error) {
@@ -342,11 +342,11 @@ function GraphReportView({ data, onRefresh, projectId }: { data: GraphReport; on
     }
   }
 
-  async function disableTree(rootId: string) {
+  async function disableTree(rootId: string, targetProjectId?: string) {
     setBusyId(rootId)
     setActionError(null)
     try {
-      await client().call('plugin.disableTree', { id: rootId, ...(projectId ? { projectId } : {}) })
+      await client().call('plugin.disableTree', { id: rootId, ...(targetProjectId ? { projectId: targetProjectId } : {}) })
       await refreshCatalog()
       onRefresh()
     } catch (error) {
@@ -566,9 +566,9 @@ function LockReportView({ data }: { data: LockReport }) {
   )
 }
 
-function PluginReportView({ report, onRefresh, projectId }: { report: PluginReport; onRefresh(): void; projectId?: string | undefined }) {
+function PluginReportView({ report, onRefresh }: { report: PluginReport; onRefresh(): void }) {
   if (report.kind === 'doctor') return <DoctorReportView data={report.data} />
-  if (report.kind === 'graph') return <GraphReportView data={report.data} onRefresh={onRefresh} projectId={projectId} />
+  if (report.kind === 'graph') return <GraphReportView data={report.data} onRefresh={onRefresh} />
   return <LockReportView data={report.data} />
 }
 
@@ -676,7 +676,7 @@ export default function PluginDiagnostics() {
         </SpotlightCard>
       )}
 
-      {state.report && <PluginReportView report={state.report} onRefresh={() => void run(active ?? 'graph')} projectId={projectId} />}
+      {state.report && <PluginReportView report={state.report} onRefresh={() => void run(active ?? 'graph')} />}
     </div>
   )
 }

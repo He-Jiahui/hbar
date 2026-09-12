@@ -1223,7 +1223,7 @@ export interface RpcResults {
   'plugin.disableTree': PluginInfo[]
   'plugin.resolve': { order: string[]; enabled: string[] }
   'plugin.graph': {
-    nodes: { id: string; version: string; enabled: boolean }[]
+    nodes: { id: string; version: string; enabled: boolean; projectId?: string | undefined }[]
     edges: { from: string; to: string; kind: string; range: string }[]
   }
   'plugin.lock': { version: 1; plugins: Record<string, unknown> }

@@ -138,13 +138,13 @@ test('keeps same plugin id isolated across global and project installations', as
 
   expect(kernel.plugins.list().filter((entry) => entry.id === 'shared.plugin')).toHaveLength(2)
   expect(kernel.plugins.graph(workspace.id).nodes.filter((node) => node.id === 'shared.plugin')).toEqual([
-    { id: 'shared.plugin', version: '1.0.0', enabled: true },
+    { id: 'shared.plugin', version: '1.0.0', enabled: true, projectId: workspace.id },
   ])
   await kernel.changePlugin('shared.plugin', false, undefined, workspace.id)
   expect(kernel.plugins.list().find((entry) => entry.projectId === workspace.id)?.status).toBe('disabled')
   expect(kernel.plugins.list().find((entry) => !entry.projectId)?.status).toBe('active')
   expect(kernel.plugins.graph(workspace.id).nodes.filter((node) => node.id === 'shared.plugin')).toEqual([
-    { id: 'shared.plugin', version: '1.0.0', enabled: false },
+    { id: 'shared.plugin', version: '1.0.0', enabled: false, projectId: workspace.id },
   ])
   kernel.plugins.add(
     definePlugin({
