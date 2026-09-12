@@ -52,8 +52,9 @@ function AttachmentStrip({
   onRemoveImage,
   onRemoveFile,
 }: Pick<PromptComposerProps, 'images' | 'files' | 'artifactUrl' | 'onRemoveImage' | 'onRemoveFile'>) {
+  const { t } = useLocale()
   return (
-    <div className="attachment-strip" aria-label="待发送附件">
+    <div className="attachment-strip" aria-label={t('pendingAttachments')}>
       {images.map((image) => (
         <SpotlightCard
           className="attachment-chip"
@@ -64,8 +65,8 @@ function AttachmentStrip({
           <span title={image.name}>{image.name}</span>
           <button
             type="button"
-            title={`移除图片 ${image.name}`}
-            aria-label={`移除图片 ${image.name}`}
+            title={`${t('removeImage')} ${image.name}`}
+            aria-label={`${t('removeImage')} ${image.name}`}
             onClick={() => onRemoveImage(image.id)}
           >
             <X size={12} />
@@ -82,8 +83,8 @@ function AttachmentStrip({
           <span title={file.name}>{file.name}</span>
           <button
             type="button"
-            title={`移除文件 ${file.name}`}
-            aria-label={`移除文件 ${file.name}`}
+            title={`${t('removeFile')} ${file.name}`}
+            aria-label={`${t('removeFile')} ${file.name}`}
             onClick={() => onRemoveFile(file.id)}
           >
             <X size={12} />
@@ -204,14 +205,14 @@ export default function PromptComposer({
   return (
     <form
       className={`composer rb-composer-surface rb-prompt-composer${dragActive ? ' is-drag-active' : ''}`}
-      aria-label="消息输入器"
+      aria-label={t('messageComposer')}
       onSubmit={handleSubmit}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       <GlassSurface className="composer-glass" width="100%" height="100%" aria-hidden="true" />
-      {dragActive && <div className="composer-dropzone" role="status">释放以上传附件</div>}
+      {dragActive && <div className="composer-dropzone" role="status">{t('dropToUpload')}</div>}
       {(images.length > 0 || files.length > 0) && (
         <AttachmentStrip
           images={images}
@@ -223,8 +224,8 @@ export default function PromptComposer({
       )}
       <textarea
         ref={slashAnchor}
-        aria-label="消息"
-        placeholder={sessionInfo?.archived ? '会话已归档' : '发送消息…'}
+        aria-label={t('message')}
+        placeholder={sessionInfo?.archived ? t('archivedSession') : t('sendMessage')}
         disabled={sessionInfo?.archived}
         rows={3}
         value={draft}
@@ -323,8 +324,8 @@ export default function PromptComposer({
             <button
               type="button"
               className="stop-button"
-              title="停止运行"
-              aria-label="停止运行"
+              title={t('stopRunning')}
+              aria-label={t('stopRunning')}
               onClick={() => void onStopRun()}
             >
               <Square size={14} fill="currentColor" />
@@ -334,8 +335,8 @@ export default function PromptComposer({
             variant="primary"
             className="send-button"
             type="submit"
-            title={activeRun ? '加入队列' : '发送'}
-            aria-label="发送"
+            title={activeRun ? t('queueMessage') : t('send')}
+            aria-label={t('send')}
             disabled={
               busy ||
               uploading ||
