@@ -1,0 +1,231 @@
+.rb-public-activity-5 {
+  box-sizing: border-box;
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 640px;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  padding: 24px;
+  background: oklch(0.145 0 0);
+  color: oklch(0.97 0 0);
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rb-public-activity-5-header {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rb-public-activity-5-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rb-public-activity-5-header h2 {
+  margin: 0;
+  color: oklch(0.97 0 0);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.16px;
+  line-height: 24px;
+}
+
+.rb-public-activity-5-title-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.556 0 0);
+}
+
+.rb-public-activity-5-actions {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 12px;
+}
+
+.rb-public-activity-5-filters {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  border-radius: 8px;
+  gap: 4px;
+  box-sizing: border-box;
+  padding: 2px;
+  background: oklch(0.205 0 0);
+}
+
+.rb-public-activity-5-filters button {
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: transparent;
+  color: oklch(0.708 0 0);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+
+.rb-public-activity-5-filters button.selected {
+  background: oklch(0.269 0 0);
+  color: oklch(0.97 0 0);
+}
+
+.rb-public-activity-5-stop {
+  display: inline-flex;
+  width: 68.359375px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+
+.rb-public-activity-5-stop:disabled { cursor: default; opacity: 0.65; }
+
+.rb-public-activity-5-stop-slot {
+  display: flex;
+  width: 86px;
+  height: 32px;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 86px;
+}
+
+.rb-public-activity-5-frame {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 0;
+  flex: 0 0 544px;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(0.205 0 0);
+}
+
+.rb-public-activity-5-inner {
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  background: oklch(0.145 0 0);
+}
+
+.rb-public-activity-5-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 7px 12px;
+}
+
+.rb-public-activity-5-content ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rb-public-activity-5-content li {
+  box-sizing: border-box;
+  display: flex;
+  height: 23.5px;
+  align-items: center;
+  gap: 12px;
+  color: oklch(0.87 0 0);
+  font-size: 12px;
+  line-height: 19.5px;
+}
+
+.rb-public-activity-5-time {
+  width: 33.9375px;
+  flex: 0 0 33.9375px;
+  color: oklch(0.556 0 0);
+  font-variant-numeric: tabular-nums;
+  filter: grayscale(1);
+}
+
+.rb-public-activity-5-marker {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: oklch(0.439 0 0);
+}
+
+.rb-public-activity-5-message {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  filter: grayscale(1);
+}
+
+.rb-public-activity-5-content li.tone-muted .rb-public-activity-5-message { color: oklch(0.556 0 0); }
+.rb-public-activity-5-content li.tone-warning .rb-public-activity-5-marker { background: oklch(0.75 0.16 85); }
+.rb-public-activity-5-content li.tone-warning .rb-public-activity-5-message { color: oklch(0.87 0 0); }
+.rb-public-activity-5-content li.tone-error .rb-public-activity-5-marker { background: oklch(0.65 0.25 25); }
+.rb-public-activity-5-content li.tone-error .rb-public-activity-5-message { color: oklch(0.87 0 0); }
+
+.rb-public-activity-5-theme {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 999px;
+  padding: 0 13px;
+  background: oklch(0.145 0 0);
+  color: oklch(0.97 0 0);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+}
+
+@media (max-width: 680px) {
+  .rb-public-activity-5 {
+    min-height: 640px;
+    padding: 16px;
+  }
+
+  .rb-public-activity-5-actions { gap: 8px; }
+  .rb-public-activity-5-filters button { padding: 0 6px; }
+  .rb-public-activity-5-stop-slot { width: 78px; flex-basis: 78px; }
+  .rb-public-activity-5-stop { width: 68.359375px; }
+  .rb-public-activity-5-frame { flex: 1 1 auto; }
+  .rb-public-activity-5-theme { right: 16px; bottom: 16px; }
+}

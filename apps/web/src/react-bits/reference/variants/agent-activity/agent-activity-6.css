@@ -1,0 +1,66 @@
+.rb-public-activity-6 {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
+  background: linear-gradient(to bottom, oklch(.145 0 0) calc(100% - 1px), oklch(.269 0 0) calc(100% - 1px));
+  color: oklch(.97 0 0);
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rb-public-activity-6 *, .rb-public-activity-6 *::before, .rb-public-activity-6 *::after { box-sizing: border-box; }
+
+.rb-public-activity-6 > header {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rb-public-activity-6 h1 { margin: 0; font-size: 16px; font-weight: 500; letter-spacing: -.16px; line-height: 24px; }
+.rb-public-activity-6 > header p { display: flex; gap: 6px; margin: 0; color: oklch(.556 0 0); font-size: 13px; line-height: 19.5px; }
+.rb-public-activity-6 > header p strong { color: oklch(.87 0 0); font-size: 13px; font-weight: 500; }
+
+.rb-public-activity-6-frame {
+  min-height: 0;
+  flex: 1;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid oklch(.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(.205 0 0);
+  filter: grayscale(1);
+}
+
+.rb-public-activity-6-inner { width: 100%; height: 100%; overflow: hidden; border: 1px solid oklch(.269 0 0); border-radius: 10px; background: oklch(.145 0 0); }
+.rb-public-activity-6 ol { margin: 0; padding: 0 12px; list-style: none; }
+
+.rb-public-activity-6 li { min-height: 74px; padding-top: 12px; }
+.rb-public-activity-6-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) 94px; gap: 8px; min-height: 40px; align-items: start; }
+.rb-public-activity-6-row > i { width: 6px; height: 6px; margin-top: 6px; border-radius: 50%; background: oklch(.439 0 0); }
+.rb-public-activity-6 li.is-approval .rb-public-activity-6-row > i { background: oklch(.75 .18 80); }
+.rb-public-activity-6-row > div { display: grid; min-width: 0; gap: 2px; }
+.rb-public-activity-6-row strong { color: oklch(.97 0 0); font-size: 14px; font-weight: 500; line-height: 19.5px; }
+.rb-public-activity-6-row small { overflow: hidden; color: oklch(.556 0 0); font-size: 13px; line-height: 19.5px; text-overflow: ellipsis; white-space: nowrap; }
+.rb-public-activity-6-row aside { display: grid; grid-template-columns: auto auto; justify-content: end; column-gap: 2px; text-align: right; }
+.rb-public-activity-6-row aside b { color: oklch(.97 0 0); font-size: 14px; font-weight: 500; line-height: 19.5px; }
+.rb-public-activity-6-row aside em { color: oklch(.556 0 0); font-size: 13px; font-style: normal; line-height: 19.5px; }
+.rb-public-activity-6-row aside small { grid-column: 1 / -1; color: oklch(.556 0 0); }
+.rb-public-activity-6-row aside small { overflow: visible; white-space: nowrap; }
+.rb-public-activity-6-progress { display: block; width: calc(100% - 20px); height: 4px; margin: 0 0 0 20px; border-radius: 99px; background: oklch(.205 0 0); }
+.rb-public-activity-6-progress b { display: block; height: 100%; border-radius: inherit; background: oklch(.439 0 0); }
+.rb-public-activity-6-progress.empty { opacity: 0; }
+.rb-public-activity-6-approve { display: none; }
+
+@media (max-width: 680px) {
+  .rb-public-activity-6 { padding: 16px; }
+  .rb-public-activity-6-row { grid-template-columns: 12px minmax(0, 1fr) 70px; }
+  .rb-public-activity-6-row aside { font-size: 12px; }
+}

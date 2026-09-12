@@ -1,0 +1,200 @@
+.rb-public-activity-1 {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  padding: 24px;
+  background: linear-gradient(to bottom, oklch(0.145 0 0) 0 calc(100% - 1px), oklch(0.269 0 0) calc(100% - 1px) 100%);
+  color: oklch(0.97 0 0);
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rb-public-activity-1-header {
+  display: flex;
+  width: 100%;
+  min-height: 45.5px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rb-public-activity-1-header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.rb-public-activity-1-header h2 {
+  margin: 0;
+  color: oklch(0.97 0 0);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.16px;
+  line-height: 24px;
+}
+
+.rb-public-activity-1-header p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  color: oklch(0.708 0 0);
+  font-size: 13px;
+  line-height: 19.5px;
+}
+
+.rb-public-activity-1-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: oklch(0.556 0 0);
+}
+
+.rb-public-activity-1-stop {
+  display: inline-flex;
+  height: 32px;
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+
+.rb-public-activity-1-stop:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.rb-public-activity-1-frame {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 0 0 450.5px;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(0.205 0 0);
+  filter: grayscale(1);
+}
+
+.rb-public-activity-1-inner {
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  background: oklch(0.145 0 0);
+}
+
+.rb-public-activity-1-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.rb-public-activity-1-content ol {
+  box-sizing: border-box;
+  position: relative;
+  height: max-content;
+  margin: 0;
+  padding: 0 0 0 8px;
+  list-style: none;
+}
+
+.rb-public-activity-1-content ol::before {
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 5px;
+  width: 1px;
+  background: oklch(0.269 0 0);
+  content: '';
+}
+
+.rb-public-activity-1-content li {
+  box-sizing: border-box;
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 36px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 0 16px;
+  color: oklch(0.708 0 0);
+  font-size: 13px;
+  line-height: 19.5px;
+}
+
+.rb-public-activity-1-marker {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.439 0 0);
+  box-shadow: 0 0 0 2px oklch(0.145 0 0);
+}
+
+.rb-public-activity-1-label {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-public-activity-1-time {
+  width: 64px;
+  flex: 0 0 64px;
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: right;
+}
+
+.rb-public-activity-1-content li.state-current .rb-public-activity-1-label {
+  color: oklch(0.97 0 0);
+  font-weight: 500;
+}
+
+.rb-public-activity-1-content li.state-pending .rb-public-activity-1-label,
+.rb-public-activity-1-content li.state-pending .rb-public-activity-1-time {
+  color: oklch(0.556 0 0);
+}
+
+@media (max-width: 680px) {
+  .rb-public-activity-1 {
+    min-height: 560px;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .rb-public-activity-1-frame {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+}
