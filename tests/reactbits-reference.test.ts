@@ -3,6 +3,12 @@ import { getReferenceVariant, listReferenceVariants, REFERENCE_CATEGORY_COUNTS, 
 import { REFERENCE_FIXTURE_COUNT } from '../apps/web/src/react-bits/reference/reference-fixtures'
 import { getReferenceProductionAdapter, listReferenceProductionAdapters } from '../apps/web/src/react-bits/reference/adapters/reference-adapters'
 import observationIndex from '../apps/web/src/react-bits/reference/reference-observation-index.json'
+import previewObservationIndex from '../apps/web/src/react-bits/reference/reference-preview-observation-index.json'
+
+const previewEvidence = previewObservationIndex as unknown as {
+  coverage: { expectedVariants: number; expectedRecords: number; screenshotRecords: number; pageScreenshotRecords: number }
+  records: Array<{ referenceId: string; viewport: string; elementCount: number; pageScreenshotHash?: string }>
+}
 
 describe('ReactBits reference registry', () => {
   test('contains the complete public Application UI matrix', () => {
@@ -33,6 +39,18 @@ describe('ReactBits reference registry', () => {
       if (binding.mode === 'hbar-bound') expect(getReferenceProductionAdapter(binding.adapterId)).toBeDefined()
     }
     for (const variant of REFERENCE_VARIANTS) expect(variant.viewportModes).toEqual(['desktop', 'tablet', 'mobile'])
+    expect(observationIndex.resourceBundles.every((bundle) => bundle.cssObservation.some((observation) => Boolean(observation)))).toBe(true)
+  })
+
+  test('covers all fixed public preview viewports with screenshot evidence', () => {
+    expect(previewEvidence.coverage.expectedVariants).toBe(300)
+    expect(previewEvidence.coverage.expectedRecords).toBe(900)
+    expect(previewEvidence.records).toHaveLength(900)
+    expect(previewEvidence.coverage.screenshotRecords).toBe(900)
+    expect(previewEvidence.coverage.pageScreenshotRecords).toBe(900)
+    expect(previewEvidence.records.every((record) => record.elementCount > 0 && Boolean(record.pageScreenshotHash))).toBe(true)
+    const keys = new Set(previewEvidence.records.map((record) => `${record.referenceId}:${record.viewport}`))
+    expect(keys).toHaveLength(900)
   })
 
   test('records variant-specific public interaction contracts', () => {

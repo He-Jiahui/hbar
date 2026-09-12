@@ -4,6 +4,21 @@ import { REFERENCE_CATEGORY_COUNTS, REFERENCE_VARIANTS, validateReferenceRegistr
 import { getReferenceFixture, REFERENCE_FIXTURE_COUNT } from '../apps/web/src/react-bits/reference/reference-fixtures'
 import { getReferenceProductionAdapter } from '../apps/web/src/react-bits/reference/adapters/reference-adapters'
 import observationIndex from '../apps/web/src/react-bits/reference/reference-observation-index.json'
+import previewObservationIndex from '../apps/web/src/react-bits/reference/reference-preview-observation-index.json'
+
+type PreviewIndex = {
+  readonly exactViewportPixels: Readonly<Record<'desktop' | 'tablet' | 'mobile', { width: number; height: number }>>
+  readonly coverage: { expectedVariants: number; expectedRecords: number }
+  readonly records: ReadonlyArray<{
+    referenceId: string
+    viewport: 'desktop' | 'tablet' | 'mobile'
+    targetViewportPixels: { width: number; height: number }
+    elementCount: number
+    screenshotHash?: string
+    pageScreenshotHash?: string
+  }>
+}
+const previewIndex = previewObservationIndex as unknown as PreviewIndex
 
 const result = validateReferenceRegistry()
 if (!result.ok) {
@@ -63,6 +78,11 @@ if (observationIndex.records.length !== REFERENCE_VARIANTS.length) {
   console.error(`observation index expected ${REFERENCE_VARIANTS.length} records, got ${observationIndex.records.length}`)
   process.exit(1)
 }
+const cssEvidenceBundles = observationIndex.resourceBundles.filter((bundle) => bundle.cssObservation.some((observation) => Boolean(observation)))
+if (cssEvidenceBundles.length !== observationIndex.resourceBundles.length) {
+  console.error('observation index is missing extracted CSS selector/token evidence')
+  process.exit(1)
+}
 const observedUrls = new Set(observationIndex.records.map((record) => record.sourceUrl))
 if (observedUrls.size !== REFERENCE_VARIANTS.length || REFERENCE_VARIANTS.some((variant) => !observedUrls.has(variant.sourceUrl))) {
   console.error('observation index does not cover every source URL')
@@ -76,6 +96,49 @@ if (Bun.argv.includes('--require-capture')) {
   }
   if (missing.length > 0) {
     console.error(`missing public observation artifacts: ${missing.slice(0, 12).join(', ')}${missing.length > 12 ? '…' : ''}`)
+    process.exit(1)
+  }
+}
+
+const expectedPreviewRecords = REFERENCE_VARIANTS.length * 3
+if (previewIndex.coverage.expectedVariants !== REFERENCE_VARIANTS.length || previewIndex.coverage.expectedRecords !== expectedPreviewRecords || previewIndex.records.length !== expectedPreviewRecords) {
+  console.error(`preview observation index expected ${expectedPreviewRecords} records, got ${previewIndex.records.length}`)
+  process.exit(1)
+}
+const previewKeys = new Set<string>()
+for (const record of previewIndex.records) {
+  const viewport = record.viewport as 'desktop' | 'tablet' | 'mobile'
+  const key = `${record.referenceId}:${viewport}`
+  if (previewKeys.has(key)) {
+    console.error(`duplicate preview observation: ${key}`)
+    process.exit(1)
+  }
+  previewKeys.add(key)
+  const expectedPixels = previewIndex.exactViewportPixels[viewport]
+  if (record.targetViewportPixels.width !== expectedPixels.width || record.targetViewportPixels.height !== expectedPixels.height) {
+    console.error(`preview viewport mismatch: ${key}`)
+    process.exit(1)
+  }
+}
+if (previewKeys.size !== expectedPreviewRecords) {
+  console.error(`preview observation index is missing viewport records: ${previewKeys.size}/${expectedPreviewRecords}`)
+  process.exit(1)
+}
+if (Bun.argv.includes('--require-preview')) {
+  const missing: string[] = []
+  for (const variant of REFERENCE_VARIANTS) {
+    const directory = join(process.cwd(), 'artifacts', 'reactbits-reference', variant.variantSlug)
+    for (const viewport of ['desktop', 'tablet', 'mobile'] as const) {
+      if (!existsSync(join(directory, 'preview-observation.json')) || !existsSync(join(directory, `preview-${viewport}.png`))) missing.push(`${variant.variantSlug}/${viewport}`)
+    }
+  }
+  if (missing.length > 0) {
+    console.error(`missing public preview artifacts: ${missing.slice(0, 12).join(', ')}${missing.length > 12 ? '…' : ''}`)
+    process.exit(1)
+  }
+  const incomplete = previewIndex.records.filter((record) => record.elementCount <= 0 || !record.screenshotHash || !record.pageScreenshotHash)
+  if (incomplete.length > 0) {
+    console.error(`incomplete public preview records: ${incomplete.slice(0, 12).map((record) => `${record.referenceId}:${record.viewport}`).join(', ')}${incomplete.length > 12 ? '…' : ''}`)
     process.exit(1)
   }
 }
