@@ -194,6 +194,30 @@ export function buildSettingsCatalog(plugins: PluginInfo[]): SettingsCatalog {
       groups: [navigationGroup('permissions', '工具权限', 10, byRoot.get('permissions')?.map((item) => item.id) ?? [])],
     },
     {
+      id: 'models',
+      title: '模型',
+      description: '供应商与模型能力',
+      icon: 'bot',
+      order: 30,
+      groups: [navigationGroup('models', '供应商与模型', 10, byRoot.get('models')?.map((item) => item.id) ?? [])],
+    },
+    {
+      id: 'paths',
+      title: '存储',
+      description: '目录与数据位置',
+      icon: 'hard-drive',
+      order: 40,
+      groups: [navigationGroup('paths', '数据目录', 10, byRoot.get('paths')?.map((item) => item.id) ?? [])],
+    },
+    {
+      id: 'skills',
+      title: '技能',
+      description: '全局技能目录',
+      icon: 'book-open',
+      order: 50,
+      groups: [navigationGroup('skills', '全局技能', 10, byRoot.get('skills')?.map((item) => item.id) ?? [])],
+    },
+    {
       id: 'plugins',
       title: '插件',
       description: '扩展与诊断',
@@ -209,6 +233,14 @@ export function buildSettingsCatalog(plugins: PluginInfo[]): SettingsCatalog {
             settings.filter((setting) => setting.owner === plugin.id).map((setting) => setting.id),
           ),
         ),
+    },
+    {
+      id: 'devices',
+      title: '设备与连接',
+      description: '配对与宿主地址',
+      icon: 'monitor',
+      order: 70,
+      groups: [navigationGroup('devices', '宿主连接', 10, byRoot.get('devices')?.map((item) => item.id) ?? [])],
     },
   ]
   const catalog = settingsCatalogSchema.parse({

@@ -34,29 +34,33 @@ export default function SettingsNavigation({
   onSelectPlugin?(id: string): void
 }) {
   const pluginGroups = catalog?.navigation.roots.find((root) => root.id === 'plugins')?.groups ?? []
+  const catalogRoots = new Map(catalog?.navigation.roots.map((root) => [root.id, root]) ?? [])
   return (
     <nav className="settings-tabs settings-nav rb-settings-tabs" aria-label="设置分组">
       <GlassSurface className="settings-tabs-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="settings-nav-items">
-        {SETTINGS_DESTINATIONS.map(({ id, label, description, icon: Icon }) => (
+        {SETTINGS_DESTINATIONS.map(({ id, label: fallbackLabel, description: fallbackDescription, icon: Icon }) => {
+          const root = catalogRoots.get(id)
+          return (
           <button
             type="button"
             key={id}
             className={tab === id ? 'selected' : ''}
-            aria-label={label}
+            aria-label={root?.title ?? fallbackLabel}
             aria-current={tab === id ? 'page' : undefined}
-            title={description}
+            title={root?.description ?? fallbackDescription}
             onClick={() => onSelect(id)}
           >
             <span className="settings-nav-icon" aria-hidden="true">
               <Icon size={16} />
             </span>
             <span className="settings-nav-copy">
-              <strong>{label}</strong>
-              <small>{description}</small>
+              <strong>{root?.title ?? fallbackLabel}</strong>
+              <small>{root?.description ?? fallbackDescription}</small>
             </span>
           </button>
-        ))}
+          )
+        })}
       </div>
       {tab === 'plugins' && pluginGroups.length > 0 && (
         <div className="settings-subnav" role="list" aria-label="插件设置">
