@@ -145,13 +145,13 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
       onClose={onClose}
       backdropClassName="command-palette-backdrop"
       className="command-palette-shell"
-      role="dialog"
-      aria-modal="true"
-      aria-label="命令面板"
     >
       <GlassSurface
         className="command-palette"
         width="min(620px, 100%)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="命令面板"
       >
         <div className="command-palette-search">
           <Search size={16} aria-hidden="true" />
