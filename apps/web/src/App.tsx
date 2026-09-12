@@ -251,7 +251,7 @@ function Sessions({
     const summary = summaries[session.id]
     const activity = summary?.activity ?? (run?.status === 'waiting_approval' ? 'waiting_approval' : run?.status === 'queued' ? 'queued' : run ? 'thinking' : 'idle')
     const labels: Record<string, string> = {
-      idle: '就绪', queued: '排队中', thinking: '正在思考', tool: '正在调用工具', reading: '正在读取文件',
+      idle: '无状态', queued: '排队中', thinking: '正在思考', tool: '正在调用工具', reading: '正在读取文件',
       output: '正在输出内容', goal: '正在执行目标', plan: '正在编写计划', waiting_approval: '等待批准',
       completed: '已完成', failed: '失败', cancelled: '已取消',
     }
