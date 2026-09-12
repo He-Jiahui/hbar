@@ -662,6 +662,33 @@ test('glass surfaces disable displacement when reduced motion is requested', asy
   }
 })
 
+test('theme background picker uses the platform file chooser', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const settingsRail = page.locator('.global-settings-action').filter({ visible: true })
+    await settingsRail.click()
+    const settingsTab = page.getByRole('tab', { name: '设置', exact: true }).filter({ visible: true })
+    await expect(settingsTab).toBeVisible()
+    await page.getByRole('button', { name: '外观', exact: true }).click()
+    await expect(page.getByRole('heading', { name: '界面主题', exact: true })).toBeVisible()
+
+    const fileChooser = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: '选择图片', exact: true }).click()
+    const chooser = await fileChooser
+    await chooser.setFiles({
+      name: 'theme.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==',
+        'base64',
+      ),
+    })
+    await expect(page.getByRole('button', { name: '移除', exact: true })).toBeVisible()
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('new-session action creates only one session when double-clicked', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
