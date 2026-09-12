@@ -13,8 +13,8 @@
   background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
   border: 1px solid var(--hbar-bd2);
   box-shadow: var(--dsh-shadow-prominent), 0 0 18px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity, 0.16) * 100%), transparent);
-  backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
-  -webkit-backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
+  backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
 }
 
 .floating-layer-backdrop {
@@ -85,7 +85,7 @@
 .session-context-menu button {
   min-height: 34px;
   color: var(--hbar-t1);
-  font-size: var(--hbar-font-size-body, 13px);
+  font-size: var(--hbar-font-size-body);
 }
 
 .session-context-menu {
@@ -108,7 +108,7 @@
   background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
   box-shadow: var(--dsh-shadow-panel);
   color: var(--hbar-t1);
-  font-size: var(--hbar-font-size-code, 10px);
+  font-size: var(--hbar-font-size-code);
   line-height: 1.25;
   pointer-events: none;
   text-align: left;
@@ -129,8 +129,8 @@
   isolation: isolate;
   background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
   background-image: none !important;
-  backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
-  -webkit-backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
+  backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
 }
 
 .command-palette-backdrop,

@@ -393,8 +393,8 @@ p {
   background: color-mix(in srgb, var(--hbar-s1) 94%, transparent);
   border: 1px solid var(--hbar-bd2);
   box-shadow: var(--dsh-shadow-prominent);
-  backdrop-filter: blur(var(--hbar-glass-blur, 18px)) saturate(var(--hbar-glass-saturation, 112%));
-  -webkit-backdrop-filter: blur(var(--hbar-glass-blur, 18px)) saturate(var(--hbar-glass-saturation, 112%));
+  backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
 }
 .flexlayout__popup_menu button,
 .flexlayout__popup_menu [role='menuitem'],
@@ -910,7 +910,7 @@ p {
   padding: 3px;
 }
 .markdown {
-  font-size: var(--hbar-font-size-body, 13px);
+  font-size: var(--hbar-font-size-body);
   line-height: var(--hbar-line-height-body, 1.8);
   color: var(--hbar-t1);
   overflow-wrap: anywhere;
@@ -925,7 +925,7 @@ p {
   margin: 0 0 12px;
 }
 .markdown h1 {
-  font-size: var(--hbar-font-size-heading, 20px);
+  font-size: var(--hbar-font-size-heading);
   font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
   color: var(--hbar-heading-text, var(--hbar-t1));
   line-height: 1.5;
@@ -933,14 +933,14 @@ p {
   font-weight: var(--hbar-font-weight-heading, 600);
 }
 .markdown h2 {
-  font-size: var(--hbar-font-size-heading, 18px);
+  font-size: var(--hbar-font-size-heading);
   font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
   color: var(--hbar-heading-text, var(--hbar-t1));
   font-weight: var(--hbar-font-weight-heading, 600);
   margin: 18px 0 10px;
 }
 .markdown h3 {
-  font-size: var(--hbar-font-size-heading, 18px);
+  font-size: var(--hbar-font-size-heading);
   font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
   color: var(--hbar-heading-text, var(--hbar-t1));
   font-weight: var(--hbar-font-weight-heading, 600);
@@ -959,7 +959,7 @@ p {
   background: var(--hbar-inline-code-bg, color-mix(in srgb, var(--hbar-s1) 80%, transparent));
   border-radius: 3px;
   padding: 2px 4px;
-  font-size: var(--hbar-font-size-code, 11px);
+  font-size: var(--hbar-font-size-code);
 }
 .markdown blockquote {
   margin: 10px 0;
@@ -972,7 +972,7 @@ p {
   width: 100%;
   display: block;
   overflow: auto;
-  font-size: var(--hbar-font-size-code, 12px);
+  font-size: var(--hbar-font-size-code);
   margin: 12px 0;
 }
 .markdown th,
