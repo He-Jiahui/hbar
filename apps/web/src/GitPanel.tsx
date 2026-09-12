@@ -6,17 +6,18 @@ import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import './GitPanel.css'
 import GitDiffViewer from './GitDiffViewer'
+import { useLocale, type LocaleMessageKey } from './locale'
 
 type GitTab = 'changes' | 'history' | 'branches'
 
-function statusCode(entry: GitStatus['entries'][number]) {
+function statusCode(entry: GitStatus['entries'][number], t: (key: LocaleMessageKey) => string) {
   const value = `${entry.index}${entry.worktree}`
-  if (value === '??') return '未跟踪'
-  if (value.includes('U')) return '冲突'
-  if (value.includes('A')) return '新增'
-  if (value.includes('D')) return '删除'
-  if (value.includes('R')) return '重命名'
-  return '修改'
+  if (value === '??') return t('gitUntracked')
+  if (value.includes('U')) return t('gitConflict')
+  if (value.includes('A')) return t('gitAdded')
+  if (value.includes('D')) return t('gitDeleted')
+  if (value.includes('R')) return t('gitRenamed')
+  return t('gitModified')
 }
 
 function statusTone(entry: GitStatus['entries'][number]) {
@@ -32,8 +33,8 @@ function isStaged(entry: GitStatus['entries'][number]) {
   return entry.index !== ' ' && entry.index !== '?'
 }
 
-function shortBranch(value: string | null) {
-  return value && value.length > 34 ? `${value.slice(0, 31)}…` : value ?? '未检出分支'
+function shortBranch(value: string | null, t: (key: LocaleMessageKey) => string) {
+  return value && value.length > 34 ? `${value.slice(0, 31)}…` : value ?? t('noBranch')
 }
 
 function shortSha(value: string) {
@@ -41,6 +42,7 @@ function shortSha(value: string) {
 }
 
 export default function GitPanel({ workspacePath = '' }: { workspacePath?: string }) {
+  const { t } = useLocale()
   const connection = useConnection((state) => state.client)
   const [tab, setTab] = useState<GitTab>('changes')
   const [status, setStatus] = useState<GitStatus | null>(null)
@@ -72,7 +74,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
         setBranches([])
         setSelectedPath('')
         setDiff(null)
-        setError(workspacePath ? 'Host 未连接' : '')
+        setError(workspacePath ? t('hostDisconnected') : '')
       }
       return
     }
@@ -94,7 +96,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     } finally {
       if (isCurrentRequest()) setLoading(false)
     }
-  }, [connection, workspacePath])
+  }, [connection, t, workspacePath])
 
   useEffect(() => {
     requestId.current += 1
@@ -133,7 +135,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     if (!requestConnection) {
       if (isCurrentRequest()) {
         setDiffLoading(false)
-        setError('Host 未连接')
+        setError(t('hostDisconnected'))
       }
       return
     }
@@ -154,7 +156,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     const isCurrentMutation = () =>
       operation === mutationId.current && requestConnection === useConnection.getState().client
     if (!requestConnection) {
-      setError('Host 未连接')
+      setError(t('hostDisconnected'))
       return
     }
     setMutating(true)
@@ -176,7 +178,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     const isCurrentMutation = () =>
       operation === mutationId.current && requestConnection === useConnection.getState().client
     if (!requestConnection) {
-      setError('Host 未连接')
+      setError(t('hostDisconnected'))
       return
     }
     setMutating(true)
@@ -198,13 +200,13 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
   async function commit() {
     const message = commitMessage.trim()
     if (!workspacePath || !message || !status?.entries.length || mutating) return
-    if (!window.confirm(`提交 ${status.entries.length} 个更改？`)) return
+    if (!window.confirm(`${t('commitConfirm')} ${status.entries.length} ${t('changes')}?`)) return
     const requestConnection = connection
     const operation = ++mutationId.current
     const isCurrentMutation = () =>
       operation === mutationId.current && requestConnection === useConnection.getState().client
     if (!requestConnection) {
-      setError('Host 未连接')
+      setError(t('hostDisconnected'))
       return
     }
     setMutating(true)
@@ -237,38 +239,38 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
           <span className="git-panel-icon"><GitBranch size={15} /></span>
           <div>
             <h2>Git</h2>
-            <p>{status?.root ? shortBranch(status.branch) : '项目变更与历史'}</p>
+            <p>{status?.root ? shortBranch(status.branch, t) : t('projectChangesHistory')}</p>
           </div>
         </div>
-        <button type="button" className="git-panel-refresh" title="刷新 Git 状态" aria-label="刷新 Git 状态" onClick={() => void refresh()} disabled={loading || !workspacePath}>
+        <button type="button" className="git-panel-refresh" title={t('refreshGitStatus')} aria-label={t('refreshGitStatus')} onClick={() => void refresh()} disabled={loading || !workspacePath}>
           {loading ? <LoaderCircle size={14} className="spinning" /> : <RefreshCw size={14} />}
         </button>
       </header>
-      <nav className="git-panel-tabs" aria-label="Git 分组">
+      <nav className="git-panel-tabs" aria-label={t('gitGroup')}>
         <button type="button" className={tab === 'changes' ? 'selected' : ''} aria-current={tab === 'changes' ? 'page' : undefined} onClick={() => setTab('changes')}>
-          <GitCompareArrows size={13} /> 更改 {status?.entries.length ? <b>{status.entries.length}</b> : null}
+          <GitCompareArrows size={13} /> {t('changes')} {status?.entries.length ? <b>{status.entries.length}</b> : null}
         </button>
         <button type="button" className={tab === 'history' ? 'selected' : ''} aria-current={tab === 'history' ? 'page' : undefined} onClick={() => setTab('history')}>
-          <GitCommitHorizontal size={13} /> 历史
+          <GitCommitHorizontal size={13} /> {t('history')}
         </button>
         <button type="button" className={tab === 'branches' ? 'selected' : ''} aria-current={tab === 'branches' ? 'page' : undefined} onClick={() => setTab('branches')}>
-          <GitBranch size={13} /> 分支
+          <GitBranch size={13} /> {t('branches')}
         </button>
       </nav>
       {!workspacePath ? (
-        <div className="git-panel-empty" role="status"><GitBranch size={20} /><strong>尚未选择工作区</strong><span>选择工作区后查看 Git 状态。</span></div>
+        <div className="git-panel-empty" role="status"><GitBranch size={20} /><strong>{t('noWorkspaceSelected')}</strong><span>{t('selectWorkspaceHint')}</span></div>
       ) : error && !status ? (
-        <div className="git-panel-empty" role="alert"><GitBranch size={20} /><strong>无法读取 Git</strong><span>{error}</span><button type="button" className="button" onClick={() => void refresh()}>重试</button></div>
+        <div className="git-panel-empty" role="alert"><GitBranch size={20} /><strong>{t('cannotReadGit')}</strong><span>{error}</span><button type="button" className="button" onClick={() => void refresh()}>{t('retry')}</button></div>
       ) : status && !status.root ? (
-        <div className="git-panel-empty" role="status"><GitBranch size={20} /><strong>当前目录不是 Git 仓库</strong><span>在项目根目录初始化 Git 后，这里会显示更改和提交历史。</span></div>
+        <div className="git-panel-empty" role="status"><GitBranch size={20} /><strong>{t('notGitRepository')}</strong><span>{t('initGitHint')}</span></div>
       ) : tab === 'changes' ? (
         <div className="git-panel-content">
           <div className="git-branch-summary">
-            <div><span>当前分支</span><strong title={status?.branch ?? undefined}>{shortBranch(status?.branch ?? null)}</strong></div>
-            <span className="git-sync-state">{status?.ahead ? `领先 ${status.ahead}` : ''}{status?.ahead && status.behind ? ' · ' : ''}{status?.behind ? `落后 ${status.behind}` : !status?.ahead ? '已同步' : ''}</span>
+            <div><span>{t('currentBranch')}</span><strong title={status?.branch ?? undefined}>{shortBranch(status?.branch ?? null, t)}</strong></div>
+            <span className="git-sync-state">{status?.ahead ? `${t('ahead')} ${status.ahead}` : ''}{status?.ahead && status.behind ? ' · ' : ''}{status?.behind ? `${t('behind')} ${status.behind}` : !status?.ahead ? t('synced') : ''}</span>
           </div>
           {status?.entries.length ? (
-            <div className="git-change-list" aria-label="文件更改">
+            <div className="git-change-list" aria-label={t('fileChanges')}>
               {status.entries.slice(0, 100).map((entry) => (
                 <SpotlightCard
                   className={`git-change-row ${entry.path === selectedPath ? 'selected' : ''}`}
@@ -284,13 +286,13 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
                   }}
                   spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
                 >
-                  <code className={`git-change-code git-change-${statusTone(entry)}`}>{statusCode(entry)}</code>
+                  <code className={`git-change-code git-change-${statusTone(entry)}`}>{statusCode(entry, t)}</code>
                   <span title={entry.path}>{entry.path}</span>
                   <span className="git-change-actions">
                     <button
                       type="button"
-                      title={isStaged(entry) ? '取消暂存' : '暂存'}
-                      aria-label={`${isStaged(entry) ? '取消暂存' : '暂存'} ${entry.path}`}
+                      title={isStaged(entry) ? t('unstage') : t('stage')}
+                      aria-label={`${isStaged(entry) ? t('unstage') : t('stage')} ${entry.path}`}
                       onClick={(event) => {
                         event.stopPropagation()
                         void updateIndex(entry.path, !isStaged(entry))
@@ -302,31 +304,31 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
                   </span>
                 </SpotlightCard>
               ))}
-              {status.entries.length > 100 && <p className="git-panel-muted">仅显示前 100 个文件。</p>}
+              {status.entries.length > 100 && <p className="git-panel-muted">{t('onlyFirstFiles')}</p>}
             </div>
           ) : (
-            <div className="git-panel-empty compact" role="status"><GitCompareArrows size={18} /><strong>工作区干净</strong><span>没有待提交的文件更改。</span></div>
+            <div className="git-panel-empty compact" role="status"><GitCompareArrows size={18} /><strong>{t('cleanWorkspace')}</strong><span>{t('noPendingChanges')}</span></div>
           )}
           {selectedEntry && (
-            <section className="git-diff-card" aria-label={`${selectedEntry.path} 差异`}>
-              <header><code>{selectedEntry.path}</code><span>{diff?.truncated ? '内容已截断' : '未暂存差异'}</span></header>
-              {diffLoading ? <div className="git-diff-loading" role="status"><LoaderCircle size={15} className="spinning" />读取差异…</div> : diff?.diff ? <GitDiffViewer source={diff.diff} path={selectedEntry.path} /> : <pre>此文件没有可显示的文本差异。</pre>}
+            <section className="git-diff-card" aria-label={`${selectedEntry.path} diff`}>
+              <header><code>{selectedEntry.path}</code><span>{diff?.truncated ? t('truncated') : t('unstagedDiff')}</span></header>
+              {diffLoading ? <div className="git-diff-loading" role="status"><LoaderCircle size={15} className="spinning" />{t('readingDiff')}</div> : diff?.diff ? <GitDiffViewer source={diff.diff} path={selectedEntry.path} /> : <pre>{t('noTextDiff')}</pre>}
             </section>
           )}
           {status?.entries.length ? (
             <form className="git-commit-form" onSubmit={(event) => { event.preventDefault(); void commit() }}>
-              <label><span>提交说明</span><input value={commitMessage} onChange={(event) => setCommitMessage(event.target.value)} placeholder="输入一次提交说明" maxLength={4_000} /></label>
-              <button type="submit" className="button" disabled={mutating || !commitMessage.trim()}><Upload size={13} />{mutating ? '提交中…' : '暂存并提交'}</button>
+              <label><span>{t('commitMessage')}</span><input value={commitMessage} onChange={(event) => setCommitMessage(event.target.value)} placeholder={t('commitMessagePlaceholder')} maxLength={4_000} /></label>
+              <button type="submit" className="button" disabled={mutating || !commitMessage.trim()}><Upload size={13} />{mutating ? t('committing') : t('stageAndCommit')}</button>
             </form>
           ) : null}
         </div>
       ) : tab === 'history' ? (
-        <div className="git-panel-content git-history-list" aria-label="提交历史">
-          {commits.length ? commits.map((commit) => <SpotlightCard className="git-commit-row" key={commit.sha} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><code>{shortSha(commit.shortSha)}</code><div><strong>{commit.subject}</strong><small>{commit.author} · {commit.authoredAt}</small></div></SpotlightCard>) : <div className="git-panel-empty compact" role="status"><GitCommitHorizontal size={18} /><strong>暂无提交</strong><span>这个仓库还没有可显示的提交记录。</span></div>}
+        <div className="git-panel-content git-history-list" aria-label={t('commitHistory')}>
+          {commits.length ? commits.map((commit) => <SpotlightCard className="git-commit-row" key={commit.sha} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><code>{shortSha(commit.shortSha)}</code><div><strong>{commit.subject}</strong><small>{commit.author} · {commit.authoredAt}</small></div></SpotlightCard>) : <div className="git-panel-empty compact" role="status"><GitCommitHorizontal size={18} /><strong>{t('noCommits')}</strong><span>{t('noCommitRecords')}</span></div>}
         </div>
       ) : (
-        <div className="git-panel-content git-branch-list" aria-label="分支列表">
-          {branches.length ? branches.map((branch) => <SpotlightCard className={`git-branch-row ${branch.current ? 'selected' : ''}`} key={branch.name} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><div><strong>{branch.name}</strong><small>{branch.current ? '当前分支' : branch.remote ?? '本地分支'}</small></div>{branch.current ? <span className="git-branch-current">当前</span> : <button type="button" className="button" onClick={() => void switchBranch(branch.name)} disabled={mutating}>切换</button>}</SpotlightCard>) : <div className="git-panel-empty compact" role="status"><GitBranch size={18} /><strong>暂无分支</strong><span>当前仓库没有可显示的分支。</span></div>}
+        <div className="git-panel-content git-branch-list" aria-label={t('branchList')}>
+          {branches.length ? branches.map((branch) => <SpotlightCard className={`git-branch-row ${branch.current ? 'selected' : ''}`} key={branch.name} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><div><strong>{branch.name}</strong><small>{branch.current ? t('currentBranchLabel') : branch.remote ?? t('localBranch')}</small></div>{branch.current ? <span className="git-branch-current">{t('current')}</span> : <button type="button" className="button" onClick={() => void switchBranch(branch.name)} disabled={mutating}>{t('switch')}</button>}</SpotlightCard>) : <div className="git-panel-empty compact" role="status"><GitBranch size={18} /><strong>{t('noBranchesInRepository')}</strong><span>{t('noBranchesHint')}</span></div>}
         </div>
       )}
       {error && status && <p className="git-panel-error" role="alert">{error}</p>}
