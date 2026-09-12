@@ -75,16 +75,8 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
     setQuery('')
     setSelected(0)
     const frame = requestAnimationFrame(() => input.current?.focus())
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
     return () => {
       cancelAnimationFrame(frame)
-      document.removeEventListener('keydown', handleKeyDown)
       previous?.focus()
     }
   }, [onClose, open])
