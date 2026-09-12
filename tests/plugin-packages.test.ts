@@ -114,6 +114,8 @@ test('optional dependencies may be absent and project plugins install under thei
   const installed = kernel.plugins.list().find((plugin) => plugin.id === 'fixture-project')
   expect(installed?.projectId).toBe(projectId)
   expect(installed?.path).toContain(join('plugins', 'projects', projectId))
+  const lock = JSON.parse(await readFile(kernel.options.layout.pluginLock, 'utf8')) as { plugins: Record<string, unknown> }
+  expect(lock.plugins[`fixture-project@${projectId}`]).toBeDefined()
 })
 
 test('zip and tgz packages install without scripts, while archive traversal is rejected', async () => {
