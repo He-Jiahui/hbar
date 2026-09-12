@@ -1,7 +1,7 @@
-import { ChatReferenceFixture as Fixture } from '../../reference-variant'
+import { ObservedChat as Fixture } from './observed-chat'
 import type { ReferenceFixtureProps } from '../../reference-types'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-1. */
 export default function AiChat1(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+  return <Fixture {...props} variant="ai-chat-1" />
 }
