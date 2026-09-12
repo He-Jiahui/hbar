@@ -213,6 +213,12 @@ export default {
 
 通过 `api.react` 使用工作台同一个 React 实例，避免将第二个 React 打包进插件。`api.client` 是带类型的网络接口；`api.config` 是已经校验的配置。`registerPanel`、`registerRenderer`、`registerTerminalCommand`、`onEvent` 和 `effect` 都会在停用、配置变化时释放。内容渲染器接受 source 字符串，插件应自行校验它的 JSON 或领域格式。
 
+### Tool Window 行为约定
+
+`registerPanel` 的 `id` 在插件内必须稳定唯一；Host 会用插件 owner 命名空间化，并把同一个 ID 绑定到一个工具按钮、一组页签内容和一个可恢复的窗口实例。`defaultDock` 只决定首次打开位置，用户拖拽后的真实位置、同侧顺序和可见状态由 FlexLayout 布局描述保存。按钮可以拖到 `left`、`right`、`top`、`bottom`、`editor` 或 `window`；只有 `allowedDocks` 中的目标会高亮，Host 在 action 层再次拒绝非法目标。
+
+在浏览器中，`window` 使用受控 popup；popup 被浏览器拦截时保留当前停靠区。桌面端由 Tauri Host 创建受控窗口，插件只能通过 `ToolWindowProps.window`/`document` 获取所属上下文，不能自行创建第二套布局、portal、z-index 或 outside-click 关闭逻辑。窗口关闭后，面板按最近一次有效停靠区恢复；插件停用必须通过 disposer 释放按钮、面板、监听器和窗口引用。
+
 终端命令与内置命令使用相同的元数据，并可在 React TerminalPanel 中执行：
 
 ```typescript
