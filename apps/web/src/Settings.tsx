@@ -90,6 +90,10 @@ function catalogSearchEntry(setting: SettingDescriptor, catalog: SettingsCatalog
   }
 }
 
+function pluginInstanceKey(plugin: { id: string; projectId?: string }) {
+  return plugin.projectId ? `${plugin.id}@${plugin.projectId}` : plugin.id
+}
+
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   return (
     <FloatingSurface
@@ -1410,8 +1414,8 @@ export default function Settings() {
               {data.plugins.map((plugin) => {
                 const descriptors = settingsCatalog?.settings.filter((setting) => setting.owner === plugin.id) ?? []
                 return (
-                  <div className="plugin-setting-group" key={plugin.id}>
-                    <PluginRow plugin={plugin} id={`plugin-settings-${plugin.id}`} className={selectedPluginId === plugin.id ? 'selected' : ''} />
+                  <div className="plugin-setting-group" key={pluginInstanceKey(plugin)}>
+                    <PluginRow plugin={plugin} id={`plugin-settings-${pluginInstanceKey(plugin)}`} className={selectedPluginId === plugin.id ? 'selected' : ''} />
                     <DescriptorSettingsForm
                       descriptors={descriptors}
                       snapshot={settingsSnapshot}

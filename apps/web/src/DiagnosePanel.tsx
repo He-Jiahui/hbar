@@ -15,6 +15,7 @@ type DiagnosePlugin = {
   status: string
   required: boolean
   provides: string[]
+  projectId?: string
 }
 
 type DiagnoseView = {
@@ -75,6 +76,7 @@ function normalizeDiagnose(data: UnknownRecord): DiagnoseView {
           status: text(plugin.status) ?? 'unknown',
           required: plugin.required === true,
           provides: strings(plugin.provides),
+          ...(text(plugin.projectId) ? { projectId: text(plugin.projectId)! } : {}),
         }
       })
     : []
@@ -324,7 +326,7 @@ export default function DiagnosePanel() {
                 {diagnose.plugins.map((plugin) => (
                   <SpotlightCard
                     className="diagnose-plugin-row"
-                    key={plugin.id}
+                    key={`${plugin.id}@${text(plugin.projectId) ?? 'global'}`}
                     spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
                   >
                     <div className="diagnose-plugin-copy">
