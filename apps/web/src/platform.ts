@@ -1,5 +1,14 @@
 import { copyText } from './browser-utils'
 import type { ThemeProfile } from '@hbar/contracts'
+export type ToolWindowOpenOptions = {
+  windowId: string
+  title: string
+  url: string
+  width?: number
+  height?: number
+}
+export type ToolWindowEvent = { type: 'closed'; windowId: string }
+export type ToolWindowHandle = { windowId: string }
 export interface PlatformAdapter {
   kind: 'web' | 'desktop'
   connection(): Promise<{ url: string; token?: string }>
@@ -7,6 +16,10 @@ export interface PlatformAdapter {
   pickDirectory(): Promise<string | null>
   listFonts(): Promise<string[]>
   setWindowEffect(profile: ThemeProfile): Promise<{ native: boolean; message?: string }>
+  openToolWindow(options: ToolWindowOpenOptions): Promise<ToolWindowHandle | null>
+  focusToolWindow(windowId: string): Promise<void>
+  closeToolWindow(windowId: string): Promise<void>
+  onToolWindowEvent(listener: (event: ToolWindowEvent) => void): () => void
 }
 
 function developmentConnection(): { url: string; token: string } | undefined {
@@ -40,6 +53,17 @@ const web: PlatformAdapter = {
     return ['system-ui', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans', 'Arial', 'sans-serif']
   },
   setWindowEffect: async () => ({ native: false, message: '当前浏览器使用 CSS 模糊回退。' }),
+  openToolWindow: async (options) => {
+    const url = new URL(options.url, location.href)
+    url.searchParams.set('hbarWindow', '1')
+    url.searchParams.set('windowId', options.windowId)
+    const popup = window.open(url, `hbar-tool-window-${options.windowId}`, `popup,width=${options.width ?? 920},height=${options.height ?? 720}`)
+    if (!popup) return null
+    return { windowId: options.windowId }
+  },
+  focusToolWindow: async () => undefined,
+  closeToolWindow: async () => undefined,
+  onToolWindowEvent: () => () => undefined,
 }
 export async function platform(): Promise<PlatformAdapter> {
   if ('__TAURI_INTERNALS__' in window) return (await import('./platform-tauri.ts')).desktop

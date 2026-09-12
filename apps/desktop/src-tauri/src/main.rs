@@ -12,8 +12,28 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
+    Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
 };
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ToolWindowOpenOptions {
+    window_id: String,
+    title: String,
+    url: String,
+    width: Option<f64>,
+    height: Option<f64>,
+}
+
+fn valid_tool_window_label(label: &str) -> bool {
+    label.starts_with("tool-window-")
+        && ("tool-window-".len()..=128).contains(&label.len())
+        && label["tool-window-".len()..].chars().all(|character| {
+            character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || matches!(character, '-' | '_' | '.')
+        })
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -201,12 +221,77 @@ fn connection_info(
     state: tauri::State<'_, Connection>,
 ) -> Result<Connection, String> {
     let expected = tauri::Url::parse(&state.url).map_err(|e| e.to_string())?;
-    if window.label() != "main"
+    if window.label() != "main" && !valid_tool_window_label(window.label())
         || !is_allowed_web_origin(&window.url().map_err(|e| e.to_string())?, &expected)
     {
         return Err("Connection credentials are restricted to the local workbench".into());
     }
     Ok(state.inner().clone())
+}
+
+#[tauri::command]
+fn open_tool_window(
+    app: tauri::AppHandle,
+    source: tauri::WebviewWindow,
+    options: ToolWindowOpenOptions,
+) -> Result<String, String> {
+    let label = format!("tool-window-{}", options.window_id);
+    if !valid_tool_window_label(&label) {
+        return Err("Invalid Tool Window label".into());
+    }
+    let expected = source.url().map_err(|error| error.to_string())?;
+    let target = tauri::Url::parse(&options.url).map_err(|error| error.to_string())?;
+    if !is_allowed_web_origin(&target, &expected) {
+        return Err("Tool Window URL must use the workbench origin".into());
+    }
+    if let Some(existing) = app.get_webview_window(&label) {
+        existing.show().map_err(|error| error.to_string())?;
+        existing.set_focus().map_err(|error| error.to_string())?;
+        return Ok(options.window_id);
+    }
+    let width = options.width.unwrap_or(920.0).clamp(480.0, 2400.0);
+    let height = options.height.unwrap_or(720.0).clamp(360.0, 1800.0);
+    let event_window_id = options.window_id.clone();
+    let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(target))
+        .title(options.title)
+        .inner_size(width, height)
+        .min_inner_size(420.0, 280.0)
+        .on_navigation(move |next| is_allowed_web_origin(next, &expected))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let event_app = app.clone();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            let _ = event_app.emit("tool-window-event", serde_json::json!({
+                "type": "closed",
+                "windowId": event_window_id,
+            }));
+        }
+    });
+    Ok(options.window_id)
+}
+
+#[tauri::command]
+fn focus_tool_window(app: tauri::AppHandle, window_id: String) -> Result<(), String> {
+    let label = format!("tool-window-{window_id}");
+    if !valid_tool_window_label(&label) {
+        return Err("Invalid Tool Window label".into());
+    }
+    let window = app.get_webview_window(&label).ok_or_else(|| "Tool Window not found".to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn close_tool_window(app: tauri::AppHandle, window_id: String) -> Result<(), String> {
+    let label = format!("tool-window-{window_id}");
+    if !valid_tool_window_label(&label) {
+        return Err("Invalid Tool Window label".into());
+    }
+    if let Some(window) = app.get_webview_window(&label) {
+        window.close().map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -383,7 +468,7 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![connection_info, pick_directory, list_fonts, set_window_effect])
+        .invoke_handler(tauri::generate_handler![connection_info, open_tool_window, focus_tool_window, close_tool_window, pick_directory, list_fonts, set_window_effect])
         .setup(|app| {
             let connection = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
