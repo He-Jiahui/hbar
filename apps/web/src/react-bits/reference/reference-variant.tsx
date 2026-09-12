@@ -47,6 +47,15 @@ function ChatFixture({ definition }: ReferenceFixtureProps) {
   const [modelOpen, setModelOpen] = useState(false)
   const modelTrigger = useRef<HTMLButtonElement>(null)
   const [message, setMessage] = useState('')
+  const variant = definition.variantSlug
+  const isEmpty = variant === 'ai-chat-3' || variant === 'prompt-input-3'
+  const isApproval = variant === 'ai-chat-5'
+  const isArtifact = variant === 'ai-chat-2'
+  const isPinned = variant === 'ai-chat-7'
+  const isUsage = variant === 'ai-chat-4' || variant === 'prompt-input-2'
+  const isReasoning = variant === 'ai-chat-1'
+  const isAttachment = variant === 'ai-chat-1' || variant === 'prompt-input-1' || variant === 'prompt-input-5'
+  if (isEmpty) return <div className="rb-reference-chat rb-reference-chat-empty"><div className="rb-reference-empty-icon"><Sparkles size={20} /></div><strong>Start a new conversation</strong><p>Choose a suggested prompt or type a request to begin.</p><div className="rb-reference-chip-row"><button>Inspect workspace</button><button>Summarize changes</button><button>Draft a plan</button></div><footer className="rb-reference-composer"><textarea aria-label="Message" placeholder="Message" /></footer></div>
   return (
     <div className="rb-reference-chat">
       <header className="rb-reference-chat-header">
@@ -69,11 +78,16 @@ function ChatFixture({ definition }: ReferenceFixtureProps) {
           <button role="menuitem" onClick={() => setModelOpen(false)}><Gauge size={13} /> Atlas · Fast</button>
         </FloatingSurface>
       </header>
+      {variant === 'ai-chat-9' && <div className="rb-reference-model-details"><div className="rb-reference-provider-list"><strong>Providers</strong><button className="selected"><Sparkles size={13} /> Atlas <small>Balanced</small></button><button><Gauge size={13} /> Nova <small>Reasoning</small></button></div><div className="rb-reference-detail-grid"><div><small>Context</small><strong>128k</strong></div><div><small>Cost</small><strong>$0.42 / 1M</strong></div><div><small>Reasoning effort</small><strong>Balanced</strong></div></div></div>}
+      {isPinned && <div className="rb-reference-pinned-context"><span aria-hidden="true">◆</span> Pinned context <span>Workspace · 4 files</span></div>}
+      {isUsage && <div className="rb-reference-usage-strip"><span>Live context</span><strong>18.4k / 128k tokens</strong><i><b /></i></div>}
       <div className="rb-reference-chat-body">
         <div className="rb-reference-message rb-reference-message-user">Model depot capacity for the next release window.</div>
-        <div className="rb-reference-message rb-reference-message-assistant"><span className="rb-reference-avatar">A</span><div><strong>Atlas</strong><p>Capacity is projected to remain within the balanced operating range. I can break down the assumptions or inspect the attached context.</p><div className="rb-reference-tool-row"><Wrench size={13} /> Context analysis <span>complete</span></div></div></div>
+        {isArtifact && <aside className="rb-reference-artifact-panel"><header><strong>Capacity model</strong><button aria-label="Close artifact"><X size={13} /></button></header><nav><button className="selected">Preview</button><button>Code</button><button>Document</button></nav><pre>{'capacity = demand * safetyFactor\nreturn capacity.withinRange()'}</pre></aside>}
+        <div className="rb-reference-message rb-reference-message-assistant"><span className="rb-reference-avatar">A</span><div><strong>Atlas</strong>{isReasoning && <details open className="rb-reference-reasoning"><summary>Reasoning complete</summary><p>Checked demand, safety margin, and workspace assumptions.</p></details>}<p>Capacity is projected to remain within the balanced operating range. I can break down the assumptions or inspect the attached context.</p><div className="rb-reference-tool-row"><Wrench size={13} /> Context analysis <span>complete</span></div></div></div>
+        {isApproval && <div className="rb-reference-approval-card"><div><strong>Allow workspace write?</strong><p>This action will update the capacity model file in the selected workspace.</p></div><button className="danger">Deny</button><button className="primary">Approve</button></div>}
       </div>
-      <footer className="rb-reference-composer"><textarea aria-label="Message" placeholder="Message" value={message} onChange={(event) => setMessage(event.target.value)} /><div className="rb-reference-composer-actions"><button aria-label="Attach a file"><FileText size={14} /></button><span>⌘ Enter to send</span><button className="rb-reference-send" disabled={!message.trim()} aria-label="Send"><Send size={14} /></button></div></footer>
+      <footer className="rb-reference-composer">{isAttachment && <div className="rb-reference-attachment-tray"><FileText size={13} /> workspace/context.md <button aria-label="Remove attachment"><X size={12} /></button></div>}<textarea aria-label="Message" placeholder="Message" value={message} onChange={(event) => setMessage(event.target.value)} /><div className="rb-reference-composer-actions"><button aria-label="Attach a file"><FileText size={14} /></button><span>⌘ Enter to send</span><button className="rb-reference-send" disabled={!message.trim()} aria-label="Send"><Send size={14} /></button></div></footer>
     </div>
   )
 }
