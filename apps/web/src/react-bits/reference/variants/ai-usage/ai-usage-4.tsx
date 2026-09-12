@@ -1,6 +1,7 @@
-import ReferenceVariant from '../../reference-variant'
+import { UsageBlueprint as Fixture } from '../../ReferenceBlueprints'
 import type { ReferenceFixtureProps } from '../../reference-types'
 
+/** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/ai-usage/ai-usage-4. */
 export default function AiUsage4(props: ReferenceFixtureProps) {
-  return <ReferenceVariant {...props} />
+  return <Fixture {...props} />
 }

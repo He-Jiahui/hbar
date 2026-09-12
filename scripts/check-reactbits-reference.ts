@@ -80,5 +80,21 @@ if (Bun.argv.includes('--require-capture')) {
   }
 }
 
-for (const variant of REFERENCE_VARIANTS) getReferenceFixture(variant.variantSlug)
+for (const variant of REFERENCE_VARIANTS) {
+  getReferenceFixture(variant.variantSlug)
+  const fixturePath = join(process.cwd(), 'apps', 'web', 'src', 'react-bits', 'reference', 'variants', variant.category, `${variant.variantSlug}.tsx`)
+  if (!existsSync(fixturePath)) {
+    console.error(`missing independent fixture module: ${variant.variantSlug}`)
+    process.exit(1)
+  }
+  const fixtureSource = await Bun.file(fixturePath).text()
+  if (!fixtureSource.includes(variant.sourceUrl)) {
+    console.error(`fixture does not document its public source URL: ${variant.variantSlug}`)
+    process.exit(1)
+  }
+  if (fixtureSource.includes('import ReferenceVariant from')) {
+    console.error(`fixture must bind directly to its family renderer: ${variant.variantSlug}`)
+    process.exit(1)
+  }
+}
 console.log(`ReactBits reference registry: ${result.categoryCount} categories, ${result.variantCount} variants; skill matrix and observation index are complete`)
