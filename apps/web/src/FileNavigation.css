@@ -59,7 +59,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--hbar-t3);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
   text-align: left;
   white-space: nowrap;
 }
@@ -74,7 +74,7 @@
 
 .file-breadcrumb-segment > span {
   color: var(--hbar-t3);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 .file-filter {
@@ -108,7 +108,7 @@
   background: transparent;
   color: var(--hbar-t1);
   box-shadow: none;
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
 }
 
 .file-filter input:focus {
@@ -140,7 +140,7 @@
   padding: 2px 0 3px;
   border-bottom: 1px solid color-mix(in srgb, var(--hbar-bd) 70%, transparent);
   color: var(--hbar-t3);
-  font: 9px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-micro) var(--dsh-font-family-code);
   text-align: left;
 }
 
@@ -159,7 +159,7 @@
 .rb-file-viewer .file-viewer-header .file-viewer-state {
   margin-left: auto;
   color: var(--hbar-t3);
-  font: 9px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-micro) var(--dsh-font-family-code);
   white-space: nowrap;
 }
 
@@ -233,7 +233,7 @@
   gap: 5px;
   min-height: 27px;
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .file-viewer-unsaved {
@@ -241,7 +241,7 @@
   border-bottom: 0;
   background: var(--hbar-ac-soft);
   color: var(--hbar-t2);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .file-empty-state,
@@ -263,13 +263,13 @@
 
 .file-empty-state strong {
   color: var(--hbar-t1);
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
   font-weight: 600;
 }
 
 .file-empty-state span,
 .file-viewer-empty span {
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   line-height: 1.5;
 }
 
@@ -277,6 +277,6 @@
   justify-content: flex-start;
   padding: 3px 0;
   color: var(--hbar-ac2);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-align: left;
 }

@@ -1,29 +1,29 @@
 .git-context-switcher { min-width: 0; }
-.git-context-trigger { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 4px 7px; border: 1px solid var(--hbar-bd); border-radius: 5px; background: color-mix(in srgb, var(--hbar-s1) 86%, transparent); color: var(--hbar-t2); font-size: 10px; }
+.git-context-trigger { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 4px 7px; border: 1px solid var(--hbar-bd); border-radius: 5px; background: color-mix(in srgb, var(--hbar-s1) 86%, transparent); color: var(--hbar-t2); font-size: var(--hbar-font-size-small); }
 .git-context-trigger:hover:not(:disabled), .git-context-trigger:focus-visible { border-color: var(--hbar-t2); color: var(--hbar-t1); }
 .git-context-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-context-menu { display: grid; width: min(330px, calc(100vw - 16px)); gap: 9px; padding: 10px; }
-.git-context-menu > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--hbar-t1); font-size: 11px; }
+.git-context-menu > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--hbar-t1); font-size: var(--hbar-font-size-label); }
 .git-context-menu > header button { display: grid; place-items: center; width: 24px; height: 24px; color: var(--hbar-t3); }
 .git-context-menu section { display: grid; gap: 3px; }
-.git-context-menu h3 { margin: 0 0 2px; color: var(--hbar-t3); font-size: 10px; font-weight: 500; }
+.git-context-menu h3 { margin: 0 0 2px; color: var(--hbar-t3); font-size: var(--hbar-font-size-small); font-weight: 500; }
 .git-context-menu section > button { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 6px 7px; border: 1px solid transparent; border-radius: 4px; color: var(--hbar-t2); text-align: left; }
 .git-context-menu section > button:hover:not(:disabled), .git-context-menu section > button:focus-visible { background: color-mix(in srgb, var(--hbar-t2) 10%, var(--hbar-s0)); color: var(--hbar-t1); }
 .git-context-menu section > button.current { border-color: var(--hbar-bd); background: color-mix(in srgb, var(--hbar-t2) 7%, var(--hbar-s0)); }
 .git-context-menu section > button > span { display: grid; min-width: 0; flex: 1; gap: 2px; }
-.git-context-menu section > button span small { overflow: hidden; color: var(--hbar-t3); font: 9px var(--dsh-font-family-code); text-overflow: ellipsis; white-space: nowrap; }
-.git-context-menu section > button > small { flex: 0 0 auto; color: var(--hbar-t3); font-size: 9px; }
-.git-context-error { margin: 0; color: var(--hbar-er-ink); font-size: 10px; }
-.git-context-root { margin: 0; overflow: hidden; color: var(--hbar-t3); font: 9px var(--dsh-font-family-code); text-overflow: ellipsis; white-space: nowrap; }
+.git-context-menu section > button span small { overflow: hidden; color: var(--hbar-t3); font: var(--hbar-font-size-micro) var(--dsh-font-family-code); text-overflow: ellipsis; white-space: nowrap; }
+.git-context-menu section > button > small { flex: 0 0 auto; color: var(--hbar-t3); font-size: var(--hbar-font-size-micro); }
+.git-context-error { margin: 0; color: var(--hbar-er-ink); font-size: var(--hbar-font-size-small); }
+.git-context-root { margin: 0; overflow: hidden; color: var(--hbar-t3); font: var(--hbar-font-size-micro) var(--dsh-font-family-code); text-overflow: ellipsis; white-space: nowrap; }
 .git-context-worktree-form { display: grid; gap: 6px; padding: 7px; border: 1px solid var(--hbar-bd); border-radius: 5px; background: color-mix(in srgb, var(--hbar-s1) 72%, transparent); }
-.git-context-worktree-form label { color: var(--hbar-t2); font-size: 10px; }
-.git-context-worktree-form input { width: 100%; box-sizing: border-box; padding: 5px 6px; border: 1px solid var(--hbar-bd); border-radius: 4px; background: var(--hbar-s0); color: var(--hbar-t1); font: 10px var(--dsh-font-family-code); }
+.git-context-worktree-form label { color: var(--hbar-t2); font-size: var(--hbar-font-size-small); }
+.git-context-worktree-form input { width: 100%; box-sizing: border-box; padding: 5px 6px; border: 1px solid var(--hbar-bd); border-radius: 4px; background: var(--hbar-s0); color: var(--hbar-t1); font: var(--hbar-font-size-small) var(--dsh-font-family-code); }
 .git-context-worktree-form div { display: flex; justify-content: flex-start; gap: 6px; }
 .git-context-worktree-form button { padding: 4px 7px; border: 1px solid var(--hbar-bd); border-radius: 4px; color: var(--hbar-t2); text-align: left; }
 .git-context-worktree-form button[type='submit'] { background: color-mix(in srgb, var(--hbar-t2) 16%, var(--hbar-s0)); color: var(--hbar-t1); }
-.git-context-empty { margin: 0; color: var(--hbar-t3); font-size: 10px; }
+.git-context-empty { margin: 0; color: var(--hbar-t3); font-size: var(--hbar-font-size-small); }
 .git-context-decision { display: grid; gap: 4px; padding: 7px; border: 1px solid var(--hbar-ac-border); border-radius: 5px; background: var(--hbar-ac-soft); }
-.git-context-decision h3 { margin: 0 0 3px; color: var(--hbar-t1); font-size: 11px; }
+.git-context-decision h3 { margin: 0 0 3px; color: var(--hbar-t1); font-size: var(--hbar-font-size-label); }
 .git-context-decision button { display: flex; align-items: center; gap: 7px; min-height: 28px; padding: 5px 7px; border: 1px solid transparent; border-radius: 4px; color: var(--hbar-t2); text-align: left; }
 .git-context-decision button:hover:not(:disabled), .git-context-decision button:focus-visible { border-color: var(--hbar-bd2); background: var(--hbar-s1); color: var(--hbar-t1); }
 .git-context-decision button:disabled { cursor: not-allowed; opacity: .45; }
