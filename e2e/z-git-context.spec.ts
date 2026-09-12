@@ -113,7 +113,6 @@ test('Git composer context disables dirty branch switches and creates a selected
     const menu = page.getByRole('menu', { name: '切换分支 / Worktree', exact: true })
     const branch = menu.getByRole('menuitem', { name: 'feature/create', exact: true })
     await branch.click()
-    const decision = menu.getByRole('region', { name: '切换到分支 feature/create' })
     await expect(page.getByRole('button', { name: '在当前目录切换', exact: true })).toBeDisabled()
     await expect(menu).toContainText('当前目录有未提交改动')
     await page.getByRole('button', { name: '新建 Worktree 并切换', exact: true }).click()

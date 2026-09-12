@@ -586,9 +586,10 @@ test('session sidebar exposes explicit rename and one primary new-session action
     const bootstrap = await fixture.api.call('system.bootstrap', {})
     const title = `Rename me ${Date.now().toString(36)}`
     const renamed = `Renamed ${Date.now().toString(36)}`
-    await fixture.api.call('session.create', { workspaceId: bootstrap.workspaces[0]!.id, title })
+    const workspace = bootstrap.workspaces[0]!
+    await fixture.api.call('session.create', { workspaceId: workspace.id, title })
     await page.reload()
-    await expect(page.getByRole('button', { name: /在 .* 中新建会话/ }).filter({ visible: true })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: `在 ${workspace.name} 中新建会话`, exact: true })).toBeVisible()
 
     await page.locator('.session-select').filter({ hasText: title, visible: true }).click()
     await page.getByRole('button', { name: `重命名 ${title}`, exact: true }).click()
@@ -606,9 +607,10 @@ test('new-session action creates only one session when double-clicked', async ({
   const fixture = await login(context, page)
   try {
     const before = await fixture.api.call('system.bootstrap', {})
-    const workspaceId = before.workspaces[0]!.id
+    const workspace = before.workspaces[0]!
+    const workspaceId = workspace.id
     const countBefore = before.sessions.filter((session) => session.workspaceId === workspaceId).length
-    const action = page.getByRole('button', { name: /在 .* 中新建会话/ }).filter({ visible: true })
+    const action = page.getByRole('button', { name: `在 ${workspace.name} 中新建会话`, exact: true })
 
     await action.dblclick()
     await expect
@@ -617,7 +619,7 @@ test('new-session action creates only one session when double-clicked', async ({
         return current.sessions.filter((session) => session.workspaceId === workspaceId).length
       })
       .toBe(countBefore + 1)
-    await expect(page.getByRole('button', { name: /在 .* 中新建会话/ }).filter({ visible: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: `在 ${workspace.name} 中新建会话`, exact: true })).toBeEnabled()
   } finally {
     fixture.api.disconnect()
   }
@@ -775,7 +777,9 @@ test('rich content, image attachments and hostile Markdown render within their c
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   try {
-    await page.getByRole('button', { name: '新建会话', exact: true }).last().click()
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const workspace = bootstrap.workspaces[0]!
+    await page.getByRole('button', { name: `在 ${workspace.name} 中新建会话`, exact: true }).click()
     await expect(page.getByRole('tab', { name: 'New session', exact: true, selected: true })).toBeVisible()
     await send(page, '/demo')
     await expect(page.locator('.mermaid-view svg')).toBeAttached()
