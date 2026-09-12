@@ -57,6 +57,16 @@ const VIEWPORT_GAP = 8
 // The CSS contract mirrors this value so inline positioning cannot accidentally
 // lower a menu into an ancestor stacking context.
 const LAYER_Z_INDEX = 2100
+const FOCUSABLE_SELECTOR = [
+  '[autofocus]',
+  'button:not([disabled])',
+  '[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
 
 type ActiveLayer = { id: string; close(): void }
 let activeLayer: ActiveLayer | null = null
@@ -125,6 +135,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
   const matchAnchorWidth = mode === 'anchored' ? matchAnchorWidthProp ?? false : false
   const layerId = useId()
   const layerRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const [style, setStyle] = useState<CSSProperties>({
@@ -192,6 +203,27 @@ export function FloatingLayer(props: FloatingLayerProps) {
     return () => cancelAnimationFrame(frame)
   }, [mode, open, updatePosition])
 
+  useLayoutEffect(() => {
+    if (!open || mode !== 'modal') return
+
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const frame = requestAnimationFrame(() => {
+      const layer = layerRef.current
+      if (!layer) return
+      const target = layer.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? layer
+      target.focus({ preventScroll: true })
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      const previous = previousFocusRef.current
+      previousFocusRef.current = null
+      if (!previous?.isConnected) return
+      requestAnimationFrame(() => {
+        if (activeLayer === null) previous.focus({ preventScroll: true })
+      })
+    }
+  }, [mode, open])
+
   useEffect(() => {
     if (!open) return
 
@@ -236,6 +268,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
           ref={layerRef}
           className={`floating-layer floating-layer-modal ${className}`.trim()}
           data-floating-layer="true"
+          tabIndex={attributes.tabIndex ?? -1}
           style={style}
         >
           {children}
