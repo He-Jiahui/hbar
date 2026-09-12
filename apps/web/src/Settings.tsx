@@ -1429,7 +1429,11 @@ export default function Settings() {
                 : undefined
               return <li key={theme.id} className="plugin-theme-item">
                 {previewUrl ? <img src={previewUrl} alt={`${theme.title} preview`} loading="lazy" /> : <span className="plugin-theme-swatch" aria-hidden="true" />}
-                <span className="plugin-theme-copy"><strong>{theme.title}</strong><span>{theme.owner} · {t('priorityLabel')} {theme.priority ?? 0}</span></span>
+                <span className="plugin-theme-copy">
+                  <strong>{theme.title}</strong>
+                  <span>{theme.owner} · {t('priorityLabel')} {theme.priority ?? 0}</span>
+                  <small>{Object.keys(theme.tokenOverrides).length ? `${t('themeTokenOverrides')}: ${Object.keys(theme.tokenOverrides).join(', ')}` : t('noThemeTokenOverrides')}{theme.backgroundAssets?.length ? ` · ${t('themeBackgroundAssetCount')} ${theme.backgroundAssets.length}` : ''}</small>
+                </span>
               </li>
             })}</ul> : <span className="settings-muted">{t('noThemePlugins')}</span>}
             <div className="plugin-renderer-summary" aria-label={t('pluginThemeSummary')}>
@@ -1448,7 +1452,7 @@ export default function Settings() {
                   <div className="plugin-renderer-row" key={slot}>
                     <span>{t(label)}</span>
                     {active ? <strong>{active.id} · {t('pluginRendererActive')}</strong> : <strong>{t('builtinRenderer')}</strong>}
-                    {candidates.length > 1 && <small>{t('rendererConflict')} · {candidates.length}</small>}
+                    {candidates.length > 1 && <small>{t('rendererConflict')} · {candidates.map((candidate) => `${candidate.id} (${candidate.priority})`).join(' · ')}</small>}
                   </div>
                 )
               })}

@@ -359,6 +359,9 @@ const messages = {
     scopeLabelOpen: '设置（',
     scopeNotOverridden: '作用域未覆盖）',
     settingReadonly: '此选项不能在当前作用域修改。',
+    themeTokenOverrides: '覆盖分组',
+    noThemeTokenOverrides: '未覆盖 token',
+    themeBackgroundAssetCount: '背景资源',
   },
   'en-US': {
     preview: 'Preview',
@@ -715,6 +718,9 @@ const messages = {
     scopeLabelOpen: ' settings (',
     scopeNotOverridden: ' scope is not overridden).',
     settingReadonly: 'This setting cannot be edited in the current scope.',
+    themeTokenOverrides: 'Token groups',
+    noThemeTokenOverrides: 'No token overrides',
+    themeBackgroundAssetCount: 'background assets',
   },
 } as const
 
