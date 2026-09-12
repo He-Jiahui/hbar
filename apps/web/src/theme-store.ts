@@ -160,6 +160,7 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-t1': profile.colors.textPrimary,
     '--hbar-t2': profile.colors.textSecondary,
     '--hbar-t3': profile.colors.textTertiary,
+    '--hbar-text-primary': profile.colors.textPrimary,
     '--hbar-ac': profile.colors.primary,
     '--hbar-ac2': profile.colors.secondary,
     '--hbar-ac-soft': `color-mix(in srgb, ${profile.colors.primary} 18%, ${profile.colors.surface})`,
@@ -173,9 +174,11 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-ok-ink': `color-mix(in srgb, ${profile.colors.success} 76%, ${profile.colors.textPrimary})`,
     '--hbar-wn': profile.colors.warning,
     '--hbar-wn-ink': `color-mix(in srgb, ${profile.colors.warning} 76%, ${profile.colors.textPrimary})`,
+    '--hbar-wn-soft': `color-mix(in srgb, ${profile.colors.warning} 12%, ${profile.colors.surface})`,
     '--hbar-er': profile.colors.error,
     '--hbar-er-ink': `color-mix(in srgb, ${profile.colors.error} 76%, ${profile.colors.textPrimary})`,
     '--hbar-er-border': `color-mix(in srgb, ${profile.colors.error} 62%, ${profile.colors.borderStrong})`,
+    '--hbar-er-soft': `color-mix(in srgb, ${profile.colors.error} 12%, ${profile.colors.surface})`,
     '--hbar-bd-strong': profile.colors.borderStrong,
     '--hbar-on-ac': profile.colors.background,
     '--hbar-code': profile.colors.codeBackground,
@@ -219,6 +222,7 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-underline-links': profile.typography.underlineLinks ? 'underline' : 'none',
     '--hbar-radius': `${profile.surface.cornerRadius}px`,
     '--hbar-motion-duration': profile.motion.intensity === 'off' ? '0ms' : profile.motion.intensity === 'subtle' ? '160ms' : '220ms',
+    '--hbar-motion-easing': 'cubic-bezier(0.2, 0.8, 0.2, 1)',
   }
 }
 
