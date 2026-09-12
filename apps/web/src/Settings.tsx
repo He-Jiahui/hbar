@@ -51,6 +51,7 @@ import { FloatingSurface } from './FloatingLayer'
 import { useThemeSettings } from './theme-store'
 import { platform } from './platform'
 import { useUIPlugins } from './ui-plugins'
+import { useLocale } from './locale'
 
 type SettingsScope = 'global' | 'project' | 'session'
 
@@ -720,6 +721,7 @@ function SkillsSettings() {
 }
 
 export default function Settings() {
+  const { t } = useLocale()
   const [tab, setTab] = useState<SettingsTab>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
   const [settingsScope, setSettingsScope] = useState<SettingsScope>(() => {
@@ -1034,16 +1036,16 @@ export default function Settings() {
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
-              <h2>界面主题</h2>
-              <p className="section-description">选择工作台配色，并实时预览字体、透明度和玻璃效果。</p>
+              <h2>{t('appearanceTheme')}</h2>
+              <p className="section-description">{t('appearanceThemeDescription')}</p>
             </div>
             <div className="appearance-actions">
-              <button type="button" className="button" onClick={() => useThemeSettings.getState().discardDraft()} disabled={themeSaving}>取消</button>
-              <button type="button" className="button" onClick={() => useThemeSettings.getState().updateDraft(() => DEFAULT_THEME_PROFILE)} disabled={themeSaving}>恢复默认</button>
-              <button type="button" className="button" onClick={() => themeImportInput.current?.click()} disabled={themeSaving}>导入主题</button>
+              <button type="button" className="button" onClick={() => useThemeSettings.getState().discardDraft()} disabled={themeSaving}>{t('cancel')}</button>
+              <button type="button" className="button" onClick={() => useThemeSettings.getState().updateDraft(() => DEFAULT_THEME_PROFILE)} disabled={themeSaving}>{t('resetDefault')}</button>
+              <button type="button" className="button" onClick={() => themeImportInput.current?.click()} disabled={themeSaving}>{t('importTheme')}</button>
               <input ref={themeImportInput} hidden type="file" accept="application/json,.json" onChange={(event) => void importThemeProfile(event.target.files?.[0])} />
-              <button type="button" className="button" onClick={exportThemeProfile} disabled={themeSaving}>导出主题</button>
-              <button type="button" className="button" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().save(connection) }} disabled={themeSaving}>{themeSaving ? '保存中…' : '保存主题'}</button>
+              <button type="button" className="button" onClick={exportThemeProfile} disabled={themeSaving}>{t('exportTheme')}</button>
+              <button type="button" className="button" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().save(connection) }} disabled={themeSaving}>{themeSaving ? t('saving') : t('saveTheme')}</button>
             </div>
           </div>
           <DescriptorSettingsForm
@@ -1054,14 +1056,14 @@ export default function Settings() {
             onSet={(id, value) => void saveSetting(id, value)}
             onReset={(id) => void resetSetting(id)}
           />
-          <div className="theme-options rb-theme-options" role="group" aria-label="界面主题">
+          <div className="theme-options rb-theme-options" role="group" aria-label={t('appearanceTheme')}>
             <GlassSurface className="theme-options-glass" width="100%" height="100%" aria-hidden="true" />
             {(
               [
-                ['dark', '深色', Moon],
-                ['light', '浅色', Sun],
-                ['white', '纯白', Monitor],
-                ['custom', '自定义', Settings2],
+                ['dark', t('themeDark'), Moon],
+                ['light', t('themeLight'), Sun],
+                ['white', t('themeWhite'), Monitor],
+                ['custom', t('themeCustom'), Settings2],
               ] as const
             ).map(([value, label, Icon]) => (
               <GlareButton
@@ -1079,7 +1081,7 @@ export default function Settings() {
           </div>
           {settingsScope !== 'global' && themeSnapshot?.values['appearance.profile']?.source !== settingsScope && (
             <div className="settings-override-notice" role="status">
-              当前值继承自{themeSnapshot?.values['appearance.profile']?.source === 'project' ? '项目' : themeSnapshot?.values['appearance.profile']?.source === 'global' ? '全局' : '默认'}设置。
+              {t('inheritedFrom')} {themeSnapshot?.values['appearance.profile']?.source === 'project' ? t('projectSettings') : themeSnapshot?.values['appearance.profile']?.source === 'global' ? t('globalSettings') : t('defaultSettings')}。
               <button
                 type="button"
                 className="text-command"
@@ -1089,63 +1091,63 @@ export default function Settings() {
                   if (connection) void useThemeSettings.getState().reset(connection)
                 }}
               >
-                恢复继承
+                {t('restoreInheritance')}
               </button>
             </div>
           )}
-          {themeConflict && <div className="settings-override-notice" role="alert"><span>检测到其他窗口更新了主题，当前草稿仍然保留。</span><button type="button" className="text-command" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().refreshSnapshot(connection) }}>加载最新值并保留草稿</button><button type="button" className="text-command" onClick={() => useThemeSettings.getState().discardDraft()}>放弃草稿</button></div>}
+          {themeConflict && <div className="settings-override-notice" role="alert"><span>{t('themeConflictNotice')}</span><button type="button" className="text-command" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().refreshSnapshot(connection) }}>{t('loadLatestKeepDraft')}</button><button type="button" className="text-command" onClick={() => useThemeSettings.getState().discardDraft()}>{t('discardDraft')}</button></div>}
           <div className="theme-editor-grid">
             {([
-              ['primary', '主颜色'],
-              ['secondary', '次要颜色'],
-              ['highlight', '高亮色'],
-              ['background', '背景色'],
-              ['textPrimary', '正文颜色'],
-              ['headingText', '标题颜色'],
-              ['codeBackground', '代码背景'],
-              ['diffAdded', '新增高亮'],
-              ['diffRemoved', '删除高亮'],
-              ['diffContext', '上下文颜色'],
-              ['diffHeader', 'Diff 文件头'],
+              ['primary', 'colorPrimary'],
+              ['secondary', 'colorSecondary'],
+              ['highlight', 'colorHighlight'],
+              ['background', 'colorBackground'],
+              ['textPrimary', 'colorText'],
+              ['headingText', 'colorHeading'],
+              ['codeBackground', 'colorCodeBackground'],
+              ['diffAdded', 'colorDiffAdded'],
+              ['diffRemoved', 'colorDiffRemoved'],
+              ['diffContext', 'colorDiffContext'],
+              ['diffHeader', 'colorDiffHeader'],
             ] as const).map(([key, label]) => (
-              <label key={key} className="theme-color-field"><span>{label}</span><input type="color" value={themeProfile.colors[key].slice(0, 7)} onChange={(event) => updateThemeColor(key, event.target.value)} /></label>
+              <label key={key} className="theme-color-field"><span>{t(label)}</span><input type="color" value={themeProfile.colors[key].slice(0, 7)} onChange={(event) => updateThemeColor(key, event.target.value)} /></label>
             ))}
             {([
-              ['bodyTextColor', '正文文本'],
-              ['headingTextColor', '标题文本'],
-              ['inlineCodeBackground', '行内代码背景'],
-              ['inlineCodeTextColor', '行内代码文本'],
+              ['bodyTextColor', 'typographyBodyText'],
+              ['headingTextColor', 'typographyHeadingText'],
+              ['inlineCodeBackground', 'typographyInlineCodeBackground'],
+              ['inlineCodeTextColor', 'typographyInlineCodeText'],
             ] as const).map(([key, label]) => (
-              <label key={key} className="theme-color-field"><span>{label}</span><input type="color" value={themeProfile.typography[key].slice(0, 7)} onChange={(event) => updateThemeTypography(key, event.target.value)} /></label>
+              <label key={key} className="theme-color-field"><span>{t(label)}</span><input type="color" value={themeProfile.typography[key].slice(0, 7)} onChange={(event) => updateThemeTypography(key, event.target.value)} /></label>
             ))}
-            <label className="theme-range-field"><span>背景不透明度 <output>{Math.round(themeProfile.surface.backgroundOpacity * 100)}%</output></span><input type="range" min="12" max="100" value={Math.round(themeProfile.surface.backgroundOpacity * 100)} onChange={(event) => updateThemeSurface('backgroundOpacity', Number(event.target.value) / 100)} /></label>
-            <label className="theme-range-field"><span>模糊比例 <output>{themeProfile.surface.blurAmount}px</output></span><input type="range" min="0" max="64" value={themeProfile.surface.blurAmount} onChange={(event) => updateThemeSurface('blurAmount', Number(event.target.value))} /></label>
-            <label className="theme-range-field"><span>饱和度 <output>{themeProfile.surface.saturation}%</output></span><input type="range" min="0" max="220" value={themeProfile.surface.saturation} onChange={(event) => updateThemeSurface('saturation', Number(event.target.value))} /></label>
-            <label className="theme-range-field"><span>位移折射 <output>{themeProfile.surface.displacementScale}</output></span><input type="range" min="0" max="120" value={themeProfile.surface.displacementScale} onChange={(event) => updateThemeSurface('displacementScale', Number(event.target.value))} /></label>
-            <label className="theme-range-field"><span>色差强度 <output>{themeProfile.surface.aberrationIntensity.toFixed(1)}</output></span><input type="range" min="0" max="10" step="0.1" value={themeProfile.surface.aberrationIntensity} onChange={(event) => updateThemeSurface('aberrationIntensity', Number(event.target.value))} /></label>
-            <label className="theme-range-field"><span>液态弹性 <output>{themeProfile.surface.elasticity.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.05" value={themeProfile.surface.elasticity} onChange={(event) => updateThemeSurface('elasticity', Number(event.target.value))} /></label>
-            <label className="theme-range-field"><span>圆角 <output>{themeProfile.surface.cornerRadius}px</output></span><input type="range" min="0" max="32" value={themeProfile.surface.cornerRadius} onChange={(event) => updateThemeSurface('cornerRadius', Number(event.target.value))} /></label>
-            <label className="theme-range-field"><span>高亮光晕 <output>{Math.round(themeProfile.surface.glowIntensity * 100)}%</output></span><input type="range" min="0" max="100" value={Math.round(themeProfile.surface.glowIntensity * 100)} onChange={(event) => updateThemeSurface('glowIntensity', Number(event.target.value) / 100)} /></label>
-            <label className="theme-select-field"><span>背景效果</span><select value={themeProfile.surface.mode} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, mode: event.target.value as ThemeProfile['surface']['mode'] } }))}><option value="solid">纯色</option><option value="acrylic">亚克力</option><option value="liquid-glass">液态玻璃</option></select></label>
-            <label className="theme-select-field"><span>正文大小</span><input type="number" min="10" max="24" value={themeProfile.typography.bodySize} onChange={(event) => updateThemeTypography('bodySize', Number(event.target.value))} /></label>
-            <label className="theme-select-field"><span>标题大小</span><input type="number" min="12" max="40" value={themeProfile.typography.headingSize} onChange={(event) => updateThemeTypography('headingSize', Number(event.target.value))} /></label>
-            <label className="theme-select-field"><span>代码大小</span><input type="number" min="9" max="24" value={themeProfile.typography.codeSize} onChange={(event) => updateThemeTypography('codeSize', Number(event.target.value))} /></label>
-            <label className="theme-select-field"><span>正文行高</span><input type="number" min="1" max="2.4" step="0.1" value={themeProfile.typography.bodyLineHeight} onChange={(event) => updateThemeTypography('bodyLineHeight', Number(event.target.value))} /></label>
-            <label className="theme-select-field"><span>正文语言</span><select value={themeProfile.typography.locale} onChange={(event) => updateThemeTypography('locale', event.target.value)}><option value="zh-CN">中文（简体）</option><option value="zh-TW">中文（繁体）</option><option value="en-US">English</option><option value="ja-JP">日本語</option><option value="ko-KR">한국어</option></select></label>
-            <label className="theme-select-field"><span>正文字体</span><select value={themeProfile.typography.bodyFontFamily} onChange={(event) => updateThemeTypography('bodyFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.bodyFontFamily}>{themeProfile.typography.bodyFontFamily}</option></select></label>
-            <label className="theme-select-field"><span>标题字体</span><select value={themeProfile.typography.headingFontFamily} onChange={(event) => updateThemeTypography('headingFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.headingFontFamily}>{themeProfile.typography.headingFontFamily}</option></select></label>
-            <label className="theme-select-field"><span>代码字体</span><select value={themeProfile.typography.codeFontFamily} onChange={(event) => updateThemeTypography('codeFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.codeFontFamily}>{themeProfile.typography.codeFontFamily}</option></select></label>
-            <label className="theme-select-field"><span>正文粗细</span><input type="number" min="300" max="800" step="100" value={themeProfile.typography.bodyWeight} onChange={(event) => updateThemeTypography('bodyWeight', Number(event.target.value))} /></label>
-            <label className="theme-select-field"><span>标题粗细</span><input type="number" min="300" max="900" step="100" value={themeProfile.typography.headingWeight} onChange={(event) => updateThemeTypography('headingWeight', Number(event.target.value))} /></label>
-            <label className="checkbox theme-option-checkbox"><input type="checkbox" checked={themeProfile.typography.underlineLinks} onChange={(event) => updateThemeTypography('underlineLinks', event.target.checked)} />链接使用下划线</label>
-            <div className="theme-select-field theme-background-field"><span>背景贴图</span><div className="theme-background-actions"><button type="button" className="button" disabled={themeUploading} onClick={() => themeBackgroundInput.current?.click()}>{themeUploading ? '上传中…' : '选择图片'}</button><input ref={themeBackgroundInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => void uploadThemeBackground(event.target.files?.[0])} />{themeProfile.surface.backgroundAsset && <button type="button" className="text-command" onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: null } }))}>移除</button>}</div></div>
+            <label className="theme-range-field"><span>{t('backgroundOpacity')} <output>{Math.round(themeProfile.surface.backgroundOpacity * 100)}%</output></span><input type="range" min="12" max="100" value={Math.round(themeProfile.surface.backgroundOpacity * 100)} onChange={(event) => updateThemeSurface('backgroundOpacity', Number(event.target.value) / 100)} /></label>
+            <label className="theme-range-field"><span>{t('blurAmount')} <output>{themeProfile.surface.blurAmount}px</output></span><input type="range" min="0" max="64" value={themeProfile.surface.blurAmount} onChange={(event) => updateThemeSurface('blurAmount', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>{t('saturation')} <output>{themeProfile.surface.saturation}%</output></span><input type="range" min="0" max="220" value={themeProfile.surface.saturation} onChange={(event) => updateThemeSurface('saturation', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>{t('displacement')} <output>{themeProfile.surface.displacementScale}</output></span><input type="range" min="0" max="120" value={themeProfile.surface.displacementScale} onChange={(event) => updateThemeSurface('displacementScale', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>{t('aberration')} <output>{themeProfile.surface.aberrationIntensity.toFixed(1)}</output></span><input type="range" min="0" max="10" step="0.1" value={themeProfile.surface.aberrationIntensity} onChange={(event) => updateThemeSurface('aberrationIntensity', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>{t('elasticity')} <output>{themeProfile.surface.elasticity.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.05" value={themeProfile.surface.elasticity} onChange={(event) => updateThemeSurface('elasticity', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>{t('cornerRadius')} <output>{themeProfile.surface.cornerRadius}px</output></span><input type="range" min="0" max="32" value={themeProfile.surface.cornerRadius} onChange={(event) => updateThemeSurface('cornerRadius', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>{t('glowIntensity')} <output>{Math.round(themeProfile.surface.glowIntensity * 100)}%</output></span><input type="range" min="0" max="100" value={Math.round(themeProfile.surface.glowIntensity * 100)} onChange={(event) => updateThemeSurface('glowIntensity', Number(event.target.value) / 100)} /></label>
+            <label className="theme-select-field"><span>{t('surfaceEffect')}</span><select value={themeProfile.surface.mode} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, mode: event.target.value as ThemeProfile['surface']['mode'] } }))}><option value="solid">{t('surfaceSolid')}</option><option value="acrylic">{t('surfaceAcrylic')}</option><option value="liquid-glass">{t('surfaceLiquidGlass')}</option></select></label>
+            <label className="theme-select-field"><span>{t('bodySize')}</span><input type="number" min="10" max="24" value={themeProfile.typography.bodySize} onChange={(event) => updateThemeTypography('bodySize', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>{t('headingSize')}</span><input type="number" min="12" max="40" value={themeProfile.typography.headingSize} onChange={(event) => updateThemeTypography('headingSize', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>{t('codeSize')}</span><input type="number" min="9" max="24" value={themeProfile.typography.codeSize} onChange={(event) => updateThemeTypography('codeSize', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>{t('bodyLineHeight')}</span><input type="number" min="1" max="2.4" step="0.1" value={themeProfile.typography.bodyLineHeight} onChange={(event) => updateThemeTypography('bodyLineHeight', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>{t('bodyLanguage')}</span><select value={themeProfile.typography.locale} onChange={(event) => updateThemeTypography('locale', event.target.value)}><option value="zh-CN">中文（简体）</option><option value="zh-TW">中文（繁体）</option><option value="en-US">English</option><option value="ja-JP">日本語</option><option value="ko-KR">한국어</option></select></label>
+            <label className="theme-select-field"><span>{t('bodyFont')}</span><select value={themeProfile.typography.bodyFontFamily} onChange={(event) => updateThemeTypography('bodyFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.bodyFontFamily}>{themeProfile.typography.bodyFontFamily}</option></select></label>
+            <label className="theme-select-field"><span>{t('headingFont')}</span><select value={themeProfile.typography.headingFontFamily} onChange={(event) => updateThemeTypography('headingFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.headingFontFamily}>{themeProfile.typography.headingFontFamily}</option></select></label>
+            <label className="theme-select-field"><span>{t('codeFont')}</span><select value={themeProfile.typography.codeFontFamily} onChange={(event) => updateThemeTypography('codeFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.codeFontFamily}>{themeProfile.typography.codeFontFamily}</option></select></label>
+            <label className="theme-select-field"><span>{t('bodyWeight')}</span><input type="number" min="300" max="800" step="100" value={themeProfile.typography.bodyWeight} onChange={(event) => updateThemeTypography('bodyWeight', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>{t('headingWeight')}</span><input type="number" min="300" max="900" step="100" value={themeProfile.typography.headingWeight} onChange={(event) => updateThemeTypography('headingWeight', Number(event.target.value))} /></label>
+            <label className="checkbox theme-option-checkbox"><input type="checkbox" checked={themeProfile.typography.underlineLinks} onChange={(event) => updateThemeTypography('underlineLinks', event.target.checked)} />{t('underlineLinks')}</label>
+            <div className="theme-select-field theme-background-field"><span>{t('backgroundImage')}</span><div className="theme-background-actions"><button type="button" className="button" disabled={themeUploading} onClick={() => themeBackgroundInput.current?.click()}>{themeUploading ? t('uploading') : t('chooseImage')}</button><input ref={themeBackgroundInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => void uploadThemeBackground(event.target.files?.[0])} />{themeProfile.surface.backgroundAsset && <button type="button" className="text-command" onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: null } }))}>{t('remove')}</button>}</div></div>
           </div>
           <div className="theme-preview">
-            <h3>主题预览 Preview</h3>
+            <h3>{t('themePreview')}</h3>
             <p>正文文本与中文 English 混排，<strong>粗体 Bold</strong>，<u>下划线 Underline</u>。</p>
             <code>const theme = 'global';</code>
           </div>
-          {themeBackgroundAssets.length > 0 && <div className="theme-plugin-assets" aria-label="主题插件背景资源"><span>插件背景</span>{themeBackgroundAssets.map((asset) => { const selected = themeProfile.surface.backgroundAsset === `plugin/${asset.owner}/${asset.path}`; return <button type="button" className={selected ? 'selected' : ''} key={asset.id} aria-pressed={selected} onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: `plugin/${asset.owner}/${asset.path}` } }))}>{asset.title ?? asset.path}</button> })}</div>}
+          {themeBackgroundAssets.length > 0 && <div className="theme-plugin-assets" aria-label={t('pluginBackgrounds')}><span>{t('pluginBackgrounds')}</span>{themeBackgroundAssets.map((asset) => { const selected = themeProfile.surface.backgroundAsset === `plugin/${asset.owner}/${asset.path}`; return <button type="button" className={selected ? 'selected' : ''} key={asset.id} aria-pressed={selected} onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: `plugin/${asset.owner}/${asset.path}` } }))}>{asset.title ?? asset.path}</button> })}</div>}
           {windowEffectStatus && <p className="settings-muted" role="status">{windowEffectStatus}</p>}
           {themeError && <p className="inline-error" role="alert">{themeError}</p>}
         </section>
