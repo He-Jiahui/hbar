@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { selectRendererSlot } from './ui-plugins'
+import { useLocale } from './locale'
 
 type PatchLineKind = 'added' | 'removed' | 'hunk' | 'header' | 'context'
 
@@ -14,12 +15,13 @@ function lineKind(line: string): PatchLineKind {
 export default function PatchViewer({ source, language = 'diff' }: { source: string; language?: string }) {
   const lines = useMemo(() => source.split('\n'), [source])
   const renderer = selectRendererSlot('patch', language)
+  const { t } = useLocale()
   if (renderer) {
     const CustomRenderer = renderer.component
     return <CustomRenderer source={source} language={language} />
   }
   return (
-    <pre className="patch-viewer" aria-label="Patch 差异">
+    <pre className="patch-viewer" aria-label={t('patchDiff')}>
       {lines.map((line, index) => (
         <span className={`patch-line patch-line-${lineKind(line)}`} key={`${index}:${line}`}>
           {line || ' '}

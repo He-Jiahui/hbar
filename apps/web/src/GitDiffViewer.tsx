@@ -5,6 +5,7 @@ import { EditorView, lineNumbers } from '@codemirror/view'
 import PatchViewer from './PatchViewer'
 import { selectRendererSlot } from './ui-plugins'
 import { parseUnifiedDiff } from './git-diff-parser'
+import { useLocale } from './locale'
 
 const editorTheme = EditorView.theme({
   '&': {
@@ -24,6 +25,7 @@ export default function GitDiffViewer({ source, path = '' }: { source: string; p
   const renderer = selectRendererSlot('git-diff', path)
   const compare = useMemo(() => parseUnifiedDiff(source), [source])
   const root = useRef<HTMLDivElement>(null)
+  const { t } = useLocale()
 
   useEffect(() => {
     if (!root.current || !compare) return
@@ -46,5 +48,5 @@ export default function GitDiffViewer({ source, path = '' }: { source: string; p
     return <CustomRenderer source={source} language={path} />
   }
   if (!compare) return <PatchViewer source={source} language={path || 'diff'} />
-  return <div ref={root} className="git-compare-view" aria-label="Git before and after comparison" />
+  return <div ref={root} className="git-compare-view" aria-label={t('gitComparison')} />
 }

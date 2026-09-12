@@ -7,6 +7,7 @@ import { Check, Code2, Copy, Eye } from 'lucide-react'
 import { selectRendererSlot, useUIPlugins } from './ui-plugins'
 import { copyText } from './browser-utils'
 import { report } from './stores'
+import { useLocale } from './locale'
 import GlassSurface from './react-bits/GlassSurface'
 import PatchViewer from './PatchViewer'
 const CodeEditor = lazy(() => import('./CodeEditor'))
@@ -27,6 +28,7 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
     [copied, setCopied] = useState(false)
   const CustomRenderer = useUIPlugins((state) => state.renderers[language])
   const SlotRenderer = selectRendererSlot('code', language)?.component
+  const { t } = useLocale()
   const rich = ['mermaid', 'chart', 'flow'].includes(language) || Boolean(CustomRenderer)
   return (
     <div className="code-block rb-code-surface">
@@ -37,8 +39,8 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
           {rich && (
             <button
               type="button"
-              title={raw ? '预览' : '源码'}
-              aria-label={raw ? '预览' : '源码'}
+              title={raw ? t('preview') : t('source')}
+              aria-label={raw ? t('preview') : t('source')}
               onClick={() => setRaw(!raw)}
             >
               {raw ? <Eye size={14} /> : <Code2 size={14} />}
@@ -46,8 +48,8 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
           )}
           <button
             type="button"
-            title="复制代码"
-            aria-label="复制代码"
+            title={t('copyCode')}
+            aria-label={t('copyCode')}
             onClick={() => {
               void copyText(source)
                 .then(() => {

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileSchema } from '@hbar/contracts'
-import { themeCssVariables } from '../apps/web/src/theme-store'
+import { mergeThemeContributions, themeCssVariables } from '../apps/web/src/theme-store'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
   expect(themeProfileSchema.parse(DEFAULT_THEME_PROFILE)).toEqual(DEFAULT_THEME_PROFILE)
@@ -43,4 +43,11 @@ test('theme CSS projects a visible primary-colour hover state', () => {
   expect(variables['--hbar-ac-soft']).toContain('color-mix')
   expect(variables['--hbar-ac-soft-hover']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
   expect(variables['--hbar-ac-border']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
+})
+
+test('plugin presets apply to the untouched default while explicit user values win', () => {
+  const plugin = { id: 'silver-glass', title: 'Silver glass', tokenOverrides: { colors: { primary: '#22aa88' } } }
+  expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin]).colors.primary).toBe('#22aa88')
+  const explicit = { ...DEFAULT_THEME_PROFILE, mode: 'custom' as const, colors: { ...DEFAULT_THEME_PROFILE.colors, primary: '#cc8844' } }
+  expect(mergeThemeContributions(explicit, [plugin]).colors.primary).toBe('#cc8844')
 })

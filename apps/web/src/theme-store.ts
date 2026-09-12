@@ -134,6 +134,22 @@ export function handleThemeEvent(event: WireNotification, transport: ClientTrans
 
 export function themeCssVariables(profile: ThemeProfile): Record<string, string> {
   return {
+    '--hbar-color-primary': profile.colors.primary,
+    '--hbar-color-secondary': profile.colors.secondary,
+    '--hbar-color-highlight': profile.colors.highlight,
+    '--hbar-color-background': profile.colors.background,
+    '--hbar-color-surface': profile.colors.surface,
+    '--hbar-color-surface-elevated': profile.colors.surfaceElevated,
+    '--hbar-color-border': profile.colors.border,
+    '--hbar-color-border-strong': profile.colors.borderStrong,
+    '--hbar-color-text-primary': profile.colors.textPrimary,
+    '--hbar-color-text-secondary': profile.colors.textSecondary,
+    '--hbar-color-text-tertiary': profile.colors.textTertiary,
+    '--hbar-color-heading': profile.colors.headingText,
+    '--hbar-font-family-body': profile.typography.bodyFontFamily,
+    '--hbar-font-family-heading': profile.typography.headingFontFamily,
+    '--hbar-font-family-code': profile.typography.codeFontFamily,
+    '--hbar-code-background': profile.colors.codeBackground,
     '--hbar-bg': profile.colors.background,
     '--hbar-overlay': profile.colors.background,
     '--hbar-s0': profile.colors.surface,
@@ -178,6 +194,10 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-glass-opacity': String(profile.surface.backgroundOpacity),
     '--hbar-glass-blur': `${profile.surface.blurAmount}px`,
     '--hbar-glass-saturation': `${profile.surface.saturation}%`,
+    '--hbar-glass-displacement': String(profile.surface.displacementScale),
+    '--hbar-glass-aberration': String(profile.surface.aberrationIntensity),
+    '--hbar-glass-elasticity': String(profile.surface.elasticity),
+    '--hbar-glass-radius': `${profile.surface.cornerRadius}px`,
     '--hbar-glow-intensity': String(profile.surface.glowIntensity),
     '--hbar-inline-code-bg': profile.typography.inlineCodeBackground,
     '--hbar-inline-code-text': profile.typography.inlineCodeTextColor,
@@ -214,7 +234,12 @@ export function mergeThemeContributions(profile: ThemeProfile, themes: readonly 
       }
       return mergeThemeValue(current, overrides)
     }, DEFAULT_THEME_PROFILE)
-  return normalizeThemeProfile(mergeThemeValue(contributed, profile))
+  // A freshly loaded profile is materialised as a complete object from the
+  // settings default. Treat that exact default as "no user override" so a
+  // plugin preset can actually take effect. As soon as the user changes any
+  // value, the full persisted profile remains the final layer and wins.
+  const userOverride = JSON.stringify(profile) === JSON.stringify(DEFAULT_THEME_PROFILE) ? {} : profile
+  return normalizeThemeProfile(mergeThemeValue(contributed, userOverride))
 }
 
 export function applyThemeProfile(profile: ThemeProfile): void {
