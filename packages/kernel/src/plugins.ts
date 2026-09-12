@@ -790,12 +790,14 @@ export class PluginManager {
   }
   private async lockData(projectId?: string) {
     const plugins: Record<string, unknown> = {}
-    for (const entry of this.runtimeEntries(projectId)) {
+    for (const entry of projectId === undefined ? this.scopedEntries() : this.runtimeEntries(projectId)) {
       if (!entry.path) continue
       const manifest = entry.plugin.manifest
-      plugins[packageId(manifest)] = {
+      const lockId = entry.projectId ? `${packageId(manifest)}@${entry.projectId}` : packageId(manifest)
+      plugins[lockId] = {
         version: manifest.version,
         scope: manifest.installScope ?? 'global',
+        ...(entry.projectId ? { projectId: entry.projectId } : {}),
         source: 'local',
         path: this.options.pluginRoot
           ? relative(this.options.pluginRoot, entry.path).replaceAll('\\', '/')
