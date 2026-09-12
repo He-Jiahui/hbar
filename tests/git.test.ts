@@ -139,6 +139,15 @@ test('Git rejects non-empty or symbolic-link worktree targets', async () => {
     throw error
   }
   await expect(runtime.worktree(root, { operation: 'add', path: link, branch })).rejects.toThrow('symbolic link')
+  const linkedParent = join(parent, 'linked-parent')
+  try {
+    await symlink(parent, linkedParent, 'junction')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EPERM') return
+    throw error
+  }
+  await expect(runtime.worktree(root, { operation: 'add', path: join(linkedParent, 'feature-tree'), branch })).rejects.toThrow('parent')
+  await expect(runtime.worktree(root, { operation: 'add', path: '.', branch })).rejects.toThrow('inside the configured worktree root')
 })
 
 test('Git command runner never turns a path into shell syntax', async () => {

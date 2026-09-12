@@ -1,5 +1,5 @@
 import { lstat, mkdir, readdir, realpath } from 'node:fs/promises'
-import { dirname, isAbsolute, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import {
   HbarError,
@@ -33,6 +33,10 @@ const MAX_OUTPUT = 512_000
 const MAX_LOG = 100
 const MAX_WORKTREES = 100
 const MAX_UNTRACKED_FILES = 1_000
+
+function samePath(left: string, right: string) {
+  return resolve(left).replaceAll('\\', '/').toLocaleLowerCase() === resolve(right).replaceAll('\\', '/').toLocaleLowerCase()
+}
 
 export const gitConfigSchema = z.object({
   timeoutMs: z.number().int().positive().max(120_000).default(30_000),
@@ -525,13 +529,15 @@ export class GitRuntime implements GitService {
     const externalAbsolute = isAbsolute(requestedPath)
     const root = externalAbsolute ? resolve(dirname(requestedPath)) : configuredRoot
     if (!externalAbsolute) await mkdir(root, { recursive: true })
-    const target = externalAbsolute ? resolve(requestedPath) : resolve(root, requestedPath)
-    if ((!externalAbsolute && !inside(root, target)) || target === (await this.rootPromise))
+    let target = externalAbsolute ? resolve(requestedPath) : resolve(root, requestedPath)
+    if ((!externalAbsolute && !inside(root, target)) || samePath(target, await this.rootPromise) || (!externalAbsolute && samePath(target, root)))
       throw new HbarError('GIT_WORKTREE_PATH', externalAbsolute ? 'Worktree path is invalid' : 'Worktree path must be inside the configured worktree root')
     if (externalAbsolute) {
       try {
-        const parent = await realpath(dirname(target))
-        if (!inside(parent, dirname(target))) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree parent path is invalid')
+        const requestedParent = resolve(dirname(target))
+        const parent = await realpath(requestedParent)
+        if (!samePath(parent, requestedParent)) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree parent cannot be a symbolic link')
+        target = resolve(parent, basename(target))
       } catch (error) {
         if (error instanceof HbarError) throw error
         throw new HbarError('GIT_WORKTREE_PATH', 'Worktree parent directory must exist')
