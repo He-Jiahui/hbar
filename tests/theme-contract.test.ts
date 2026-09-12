@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileSchema } from '@hbar/contracts'
+import { themeCssVariables } from '../apps/web/src/theme-store'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
   expect(themeProfileSchema.parse(DEFAULT_THEME_PROFILE)).toEqual(DEFAULT_THEME_PROFILE)
@@ -35,4 +36,11 @@ test('theme typography rejects executable CSS font expressions', () => {
 test('theme background references accept artifacts or managed plugin assets only', () => {
   expect(themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, surface: { ...DEFAULT_THEME_PROFILE.surface, backgroundAsset: 'plugin/acme.theme/assets/backgrounds/glass.webp' } }).surface.backgroundAsset).toContain('plugin/')
   expect(() => themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, surface: { ...DEFAULT_THEME_PROFILE.surface, backgroundAsset: 'https://example.invalid/bg.png' } })).toThrow()
+})
+
+test('theme CSS projects a visible primary-colour hover state', () => {
+  const variables = themeCssVariables(DEFAULT_THEME_PROFILE)
+  expect(variables['--hbar-ac-soft']).toContain('color-mix')
+  expect(variables['--hbar-ac-soft-hover']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
+  expect(variables['--hbar-ac-border']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
 })

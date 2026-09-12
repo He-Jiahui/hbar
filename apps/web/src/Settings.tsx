@@ -733,6 +733,8 @@ export default function Settings() {
   const [settingsCatalog, setSettingsCatalog] = useState<SettingsCatalog | null>(null)
   const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null)
   const [settingsSaving, setSettingsSaving] = useState(false)
+  const settingsSavingRef = useRef(false)
+  const [notificationPermissionHint, setNotificationPermissionHint] = useState('')
   const [settingsError, setSettingsError] = useState('')
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null)
   const [themeUploading, setThemeUploading] = useState(false)
@@ -831,6 +833,12 @@ export default function Settings() {
       typography: { ...current.typography, [key]: value },
     }))
   }
+  function updateThemeSurface<K extends keyof ThemeProfile['surface']>(key: K, value: ThemeProfile['surface'][K]) {
+    useThemeSettings.getState().updateDraft((current) => ({
+      ...current,
+      surface: { ...current.surface, [key]: value },
+    }))
+  }
   async function uploadThemeBackground(file: File | undefined) {
     if (!file || !file.type.startsWith('image/')) return
     setThemeUploading(true)
@@ -871,9 +879,16 @@ export default function Settings() {
     }
   }
   async function saveSetting(id: string, value: unknown) {
-    if (!settingsSnapshot) return
-    if (id.startsWith('notifications.') && value === true && typeof Notification !== 'undefined' && Notification.permission === 'default')
-      await Notification.requestPermission()
+    if (!settingsSnapshot || settingsSavingRef.current) return
+    settingsSavingRef.current = true
+    if (id.startsWith('notifications.') && value === true && typeof Notification !== 'undefined') {
+      const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
+      setNotificationPermissionHint(
+        permission === 'denied'
+          ? '浏览器已阻止系统通知。请在浏览器的站点设置中允许通知；应用内通知仍会保留。'
+          : '',
+      )
+    } else if (id.startsWith('notifications.')) setNotificationPermissionHint('')
     setSettingsSaving(true)
     setSettingsError('')
     try {
@@ -888,11 +903,13 @@ export default function Settings() {
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : String(error))
     } finally {
+      settingsSavingRef.current = false
       setSettingsSaving(false)
     }
   }
   async function resetSetting(id: string) {
-    if (!settingsSnapshot) return
+    if (!settingsSnapshot || settingsSavingRef.current) return
+    settingsSavingRef.current = true
     setSettingsSaving(true)
     setSettingsError('')
     try {
@@ -906,6 +923,7 @@ export default function Settings() {
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : String(error))
     } finally {
+      settingsSavingRef.current = false
       setSettingsSaving(false)
     }
   }
@@ -1085,11 +1103,27 @@ export default function Settings() {
             ] as const).map(([key, label]) => (
               <label key={key} className="theme-color-field"><span>{label}</span><input type="color" value={themeProfile.colors[key].slice(0, 7)} onChange={(event) => updateThemeColor(key, event.target.value)} /></label>
             ))}
-            <label className="theme-range-field"><span>背景不透明度 <output>{Math.round(themeProfile.surface.backgroundOpacity * 100)}%</output></span><input type="range" min="12" max="100" value={Math.round(themeProfile.surface.backgroundOpacity * 100)} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundOpacity: Number(event.target.value) / 100 } }))} /></label>
-            <label className="theme-range-field"><span>模糊比例 <output>{themeProfile.surface.blurAmount}px</output></span><input type="range" min="0" max="64" value={themeProfile.surface.blurAmount} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, blurAmount: Number(event.target.value) } }))} /></label>
+            {([
+              ['bodyTextColor', '正文文本'],
+              ['headingTextColor', '标题文本'],
+              ['inlineCodeBackground', '行内代码背景'],
+              ['inlineCodeTextColor', '行内代码文本'],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="theme-color-field"><span>{label}</span><input type="color" value={themeProfile.typography[key].slice(0, 7)} onChange={(event) => updateThemeTypography(key, event.target.value)} /></label>
+            ))}
+            <label className="theme-range-field"><span>背景不透明度 <output>{Math.round(themeProfile.surface.backgroundOpacity * 100)}%</output></span><input type="range" min="12" max="100" value={Math.round(themeProfile.surface.backgroundOpacity * 100)} onChange={(event) => updateThemeSurface('backgroundOpacity', Number(event.target.value) / 100)} /></label>
+            <label className="theme-range-field"><span>模糊比例 <output>{themeProfile.surface.blurAmount}px</output></span><input type="range" min="0" max="64" value={themeProfile.surface.blurAmount} onChange={(event) => updateThemeSurface('blurAmount', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>饱和度 <output>{themeProfile.surface.saturation}%</output></span><input type="range" min="0" max="220" value={themeProfile.surface.saturation} onChange={(event) => updateThemeSurface('saturation', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>位移折射 <output>{themeProfile.surface.displacementScale}</output></span><input type="range" min="0" max="120" value={themeProfile.surface.displacementScale} onChange={(event) => updateThemeSurface('displacementScale', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>色差强度 <output>{themeProfile.surface.aberrationIntensity.toFixed(1)}</output></span><input type="range" min="0" max="10" step="0.1" value={themeProfile.surface.aberrationIntensity} onChange={(event) => updateThemeSurface('aberrationIntensity', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>液态弹性 <output>{themeProfile.surface.elasticity.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.05" value={themeProfile.surface.elasticity} onChange={(event) => updateThemeSurface('elasticity', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>圆角 <output>{themeProfile.surface.cornerRadius}px</output></span><input type="range" min="0" max="32" value={themeProfile.surface.cornerRadius} onChange={(event) => updateThemeSurface('cornerRadius', Number(event.target.value))} /></label>
+            <label className="theme-range-field"><span>高亮光晕 <output>{Math.round(themeProfile.surface.glowIntensity * 100)}%</output></span><input type="range" min="0" max="100" value={Math.round(themeProfile.surface.glowIntensity * 100)} onChange={(event) => updateThemeSurface('glowIntensity', Number(event.target.value) / 100)} /></label>
             <label className="theme-select-field"><span>背景效果</span><select value={themeProfile.surface.mode} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, mode: event.target.value as ThemeProfile['surface']['mode'] } }))}><option value="solid">纯色</option><option value="acrylic">亚克力</option><option value="liquid-glass">液态玻璃</option></select></label>
             <label className="theme-select-field"><span>正文大小</span><input type="number" min="10" max="24" value={themeProfile.typography.bodySize} onChange={(event) => updateThemeTypography('bodySize', Number(event.target.value))} /></label>
             <label className="theme-select-field"><span>标题大小</span><input type="number" min="12" max="40" value={themeProfile.typography.headingSize} onChange={(event) => updateThemeTypography('headingSize', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>代码大小</span><input type="number" min="9" max="24" value={themeProfile.typography.codeSize} onChange={(event) => updateThemeTypography('codeSize', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>正文行高</span><input type="number" min="1" max="2.4" step="0.1" value={themeProfile.typography.bodyLineHeight} onChange={(event) => updateThemeTypography('bodyLineHeight', Number(event.target.value))} /></label>
             <label className="theme-select-field"><span>正文语言</span><select value={themeProfile.typography.locale} onChange={(event) => updateThemeTypography('locale', event.target.value)}><option value="zh-CN">中文（简体）</option><option value="zh-TW">中文（繁体）</option><option value="en-US">English</option><option value="ja-JP">日本語</option><option value="ko-KR">한국어</option></select></label>
             <label className="theme-select-field"><span>正文字体</span><select value={themeProfile.typography.bodyFontFamily} onChange={(event) => updateThemeTypography('bodyFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.bodyFontFamily}>{themeProfile.typography.bodyFontFamily}</option></select></label>
             <label className="theme-select-field"><span>标题字体</span><select value={themeProfile.typography.headingFontFamily} onChange={(event) => updateThemeTypography('headingFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.headingFontFamily}>{themeProfile.typography.headingFontFamily}</option></select></label>
@@ -1127,6 +1161,7 @@ export default function Settings() {
               onSet={(id, value) => void saveSetting(id, value)}
               onReset={(id) => void resetSetting(id)}
             />
+            {notificationPermissionHint && <p className="settings-muted" role="status">{notificationPermissionHint}</p>}
             {settingsError && <p className="inline-error" role="alert">{settingsError}</p>}
           </div>
         </section>
