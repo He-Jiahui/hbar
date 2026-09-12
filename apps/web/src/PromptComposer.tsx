@@ -9,7 +9,7 @@ import { IMAGE_ACCEPT } from './composer-actions'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
-import FloatingLayer from './FloatingLayer'
+import { FloatingSurface } from './FloatingLayer'
 import './PromptComposer.css'
 
 export type AttachmentKind = 'image' | 'file'
@@ -229,7 +229,7 @@ export default function PromptComposer({
           }
         }}
       />
-      <FloatingLayer
+      <FloatingSurface
         anchorRef={slashAnchor}
         open={slashMenuOpen && slashOpen}
         onClose={() => setSlashMenuOpen(false)}
@@ -259,7 +259,7 @@ export default function PromptComposer({
             <code>/{action.keywords?.[0] ?? action.id}</code>
           </button>
         ))}
-      </FloatingLayer>
+      </FloatingSurface>
       <div className="composer-toolbar">
         <div className="composer-left">
           <ComposerMenu actions={composerActions} onSelect={selectAction} />

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitBranch, LoaderCircle, Plus, RefreshCw } from 'lucide-react'
 import type { GitBranchInfo, GitStatus, GitWorktreeInfo } from '@hbar/contracts'
 import { client } from './stores'
-import FloatingLayer, { useFloatingTrigger } from './FloatingLayer'
+import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 import './GitContextSwitcher.css'
 
 export default function GitContextSwitcher({
@@ -127,7 +127,7 @@ export default function GitContextSwitcher({
         <span>{branch ?? '未检出分支'}</span>
         {busy ? <LoaderCircle size={12} className="spinning" /> : <Plus size={12} />}
       </button>
-      <FloatingLayer
+      <FloatingSurface
         anchorRef={trigger}
         open={open}
         onClose={() => setOpen(false)}
@@ -168,7 +168,7 @@ export default function GitContextSwitcher({
             </button>
           )) : <p className="git-context-empty">没有检测到 Worktree</p>}
         </section>
-      </FloatingLayer>
+      </FloatingSurface>
     </div>
   )
 }
