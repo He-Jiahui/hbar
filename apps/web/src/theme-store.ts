@@ -255,5 +255,13 @@ export function applyThemeProfile(profile: ThemeProfile): void {
   root.dataset.themeSurface = profile.surface.mode
   root.dataset.motion = profile.motion.intensity
   for (const [name, value] of Object.entries(themeCssVariables(profile))) root.style.setProperty(name, value)
-  root.style.setProperty('color-scheme', profile.mode === 'dark' ? 'dark' : 'light')
+  root.style.setProperty('color-scheme', profile.mode === 'dark' || (profile.mode === 'custom' && isDarkThemeColor(profile.colors.background)) ? 'dark' : 'light')
+}
+
+function isDarkThemeColor(value: string): boolean {
+  const red = Number.parseInt(value.slice(1, 3), 16)
+  const green = Number.parseInt(value.slice(3, 5), 16)
+  const blue = Number.parseInt(value.slice(5, 7), 16)
+  if (![red, green, blue].every(Number.isFinite)) return true
+  return (red * 299 + green * 587 + blue * 114) / 255_000 < 0.56
 }
