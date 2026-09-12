@@ -112,6 +112,31 @@ test('scopes dependency graphs and tree shutdown to a project installation', asy
   expect(kernel.plugins.list().filter((plugin) => plugin.id.startsWith('project.')).every((plugin) => plugin.status !== 'active')).toBeTrue()
 })
 
+test('keeps same plugin id isolated across global and project installations', async () => {
+  const { kernel, workspace } = await fixture()
+  const plugin = (label: string) =>
+    definePlugin({
+      manifest: {
+        id: 'shared.plugin', name: label, version: '1.0.0', apiVersion: '^1.0.0',
+        scope: 'workspace', description: '', permissions: [],
+      },
+      apply() {},
+    })
+  kernel.plugins.add(plugin('Global shared'))
+  kernel.plugins.add(plugin('Project shared'), undefined, workspace.id)
+
+  expect(kernel.plugins.list().filter((entry) => entry.id === 'shared.plugin')).toHaveLength(2)
+  expect(kernel.plugins.graph(workspace.id).nodes.filter((node) => node.id === 'shared.plugin')).toEqual([
+    { id: 'shared.plugin', version: '1.0.0', enabled: true },
+  ])
+  await kernel.changePlugin('shared.plugin', false, undefined, workspace.id)
+  expect(kernel.plugins.list().find((entry) => entry.projectId === workspace.id)?.status).toBe('disabled')
+  expect(kernel.plugins.list().find((entry) => !entry.projectId)?.status).toBe('active')
+  expect(kernel.plugins.graph(workspace.id).nodes.filter((node) => node.id === 'shared.plugin')).toEqual([
+    { id: 'shared.plugin', version: '1.0.0', enabled: false },
+  ])
+})
+
 test('concurrent run plugins see their own scopes and dispose at settlement', async () => {
   const { kernel, workspace } = await fixture()
   const disposed: string[] = []
