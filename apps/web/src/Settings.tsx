@@ -77,11 +77,13 @@ function settingTab(root: string): SettingsTab {
   return 'devices'
 }
 
-function catalogSearchEntry(setting: SettingDescriptor): SettingSearchEntry {
+function catalogSearchEntry(setting: SettingDescriptor, catalog: SettingsCatalog): SettingSearchEntry {
+  const root = catalog.navigation.roots.find((candidate) => candidate.id === setting.root)
+  const group = root?.groups.find((candidate) => candidate.id === setting.group)
   return {
     tab: settingTab(setting.root),
-    tabLabel: setting.root === 'plugins' ? '插件' : setting.root,
-    section: [setting.group, setting.section].filter(Boolean).join(' / ') || setting.root,
+    tabLabel: root?.title ?? (setting.root === 'plugins' ? '插件' : setting.root),
+    section: [group?.title, setting.section].filter(Boolean).join(' / ') || root?.title || setting.root,
     title: setting.title,
     description: setting.description ?? '',
     keywords: setting.keywords,
@@ -762,7 +764,7 @@ export default function Settings() {
   })
   const modelGroups = groupModelsByProvider(filteredModels)
   const settingSearchResults = settingsQuery.trim()
-    ? (settingsCatalog?.settings ?? []).map(catalogSearchEntry).filter((entry) => settingMatches(entry, settingsQuery)).slice(0, 8)
+    ? (settingsCatalog?.settings ?? []).map((setting) => settingsCatalog ? catalogSearchEntry(setting, settingsCatalog) : null).filter((entry): entry is SettingSearchEntry => Boolean(entry)).filter((entry) => settingMatches(entry, settingsQuery)).slice(0, 8)
     : []
   useEffect(() => {
     window.localStorage.setItem('hbar.settings.scope', settingsScope)
@@ -980,6 +982,13 @@ export default function Settings() {
               <button type="button" className="button" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().save(connection) }} disabled={themeSaving}>{themeSaving ? '保存中…' : '保存主题'}</button>
             </div>
           </div>
+          <DescriptorSettingsForm
+            descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'appearance' && setting.id !== 'appearance.profile') ?? []}
+            snapshot={settingsSnapshot}
+            saving={settingsSaving}
+            onSet={(id, value) => void saveSetting(id, value)}
+            onReset={(id) => void resetSetting(id)}
+          />
           <div className="theme-options rb-theme-options" role="group" aria-label="界面主题">
             <GlassSurface className="theme-options-glass" width="100%" height="100%" aria-hidden="true" />
             {(
@@ -1064,6 +1073,13 @@ export default function Settings() {
             </div>
           </div>
           <div className="permission-settings-list">
+            <DescriptorSettingsForm
+              descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'automation') ?? []}
+              snapshot={settingsSnapshot}
+              saving={settingsSaving}
+              onSet={(id, value) => void saveSetting(id, value)}
+              onReset={(id) => void resetSetting(id)}
+            />
             <label className="settings-inline-field">
               默认会话预算（tokens）
               <input
@@ -1108,6 +1124,13 @@ export default function Settings() {
             <PermissionSelector compact={false} placement="below" />
           </div>
           <div className="permission-settings-list">
+            <DescriptorSettingsForm
+              descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'permissions') ?? []}
+              snapshot={settingsSnapshot}
+              saving={settingsSaving}
+              onSet={(id, value) => void saveSetting(id, value)}
+              onReset={(id) => void resetSetting(id)}
+            />
             <SpotlightCard
               className="permission-setting-row"
               spotlightColor="color-mix(in srgb, var(--hbar-ok) 18%, transparent)"
