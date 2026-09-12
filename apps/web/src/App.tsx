@@ -492,6 +492,8 @@ export default function App() {
     persistedToolRailLayout = useWorkbench((state) => state.toolRailLayout)
   const notice = useNotice((state) => state.error)
   const themeProfile = useThemeSettings((state) => state.profile)
+  const themeContributions = useUIPlugins((state) => state.themes)
+  const themeBackgroundAssets = useUIPlugins((state) => state.backgroundAssets)
   const taskNotice = useNotice((state) => state.notice)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
@@ -600,8 +602,32 @@ export default function App() {
     return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
   })
   useEffect(() => {
-    applyThemeProfile(themeProfile)
-  }, [themeProfile])
+    const effectiveTheme = mergeThemeContributions(themeProfile, themeContributions)
+    applyThemeProfile(effectiveTheme)
+    const background = effectiveTheme.surface.backgroundAsset
+    const connection = useConnection.getState().client
+    const pluginBackground = typeof background === 'string' && background.startsWith('plugin/')
+      ? (() => {
+          const [, owner, ...parts] = background.split('/')
+          return owner && parts.length && (themeContributions.some((theme) => theme.owner === owner) || themeBackgroundAssets.some((asset) => asset.owner === owner))
+            ? new URL(`/api/plugins/${encodeURIComponent(owner)}/assets/${parts.join('/')}`, connection?.baseUrl ?? window.location.origin).href
+            : null
+        })()
+      : null
+    document.documentElement.style.setProperty(
+      '--hbar-background-image',
+      background && connection
+        ? pluginBackground
+          ? `url("${pluginBackground}")`
+          : /^[a-f0-9]{64}$/i.test(background)
+            ? `url("${connection.artifactUrl(background)}")`
+            : 'none'
+        : 'none',
+    )
+    void platform()
+      .then((adapter) => adapter.setWindowEffect(effectiveTheme))
+      .catch(() => {})
+  }, [themeBackgroundAssets, themeContributions, themeProfile])
   useEffect(() => {
     if (status !== 'connected') return
     const connection = useConnection.getState().client

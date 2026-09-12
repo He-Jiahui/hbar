@@ -35,6 +35,29 @@ fn valid_tool_window_label(label: &str) -> bool {
         })
 }
 
+fn tool_window_label(window_id: &str) -> String {
+    let mut hash = 14_695_981_039_346_656_037u64;
+    for byte in window_id.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(1_099_511_628_211);
+    }
+    let readable: String = window_id
+        .chars()
+        .map(|character| {
+            if character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || matches!(character, '-' | '_' | '.')
+            {
+                character
+            } else {
+                '-'
+            }
+        })
+        .take(72)
+        .collect();
+    format!("tool-window-{readable}-{hash:016x}")
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct WindowThemeSurface {
@@ -235,7 +258,7 @@ fn open_tool_window(
     source: tauri::WebviewWindow,
     options: ToolWindowOpenOptions,
 ) -> Result<String, String> {
-    let label = format!("tool-window-{}", options.window_id);
+    let label = tool_window_label(&options.window_id);
     if !valid_tool_window_label(&label) {
         return Err("Invalid Tool Window label".into());
     }
@@ -273,7 +296,7 @@ fn open_tool_window(
 
 #[tauri::command]
 fn focus_tool_window(app: tauri::AppHandle, window_id: String) -> Result<(), String> {
-    let label = format!("tool-window-{window_id}");
+    let label = tool_window_label(&window_id);
     if !valid_tool_window_label(&label) {
         return Err("Invalid Tool Window label".into());
     }
@@ -284,7 +307,7 @@ fn focus_tool_window(app: tauri::AppHandle, window_id: String) -> Result<(), Str
 
 #[tauri::command]
 fn close_tool_window(app: tauri::AppHandle, window_id: String) -> Result<(), String> {
-    let label = format!("tool-window-{window_id}");
+    let label = tool_window_label(&window_id);
     if !valid_tool_window_label(&label) {
         return Err("Invalid Tool Window label".into());
     }
