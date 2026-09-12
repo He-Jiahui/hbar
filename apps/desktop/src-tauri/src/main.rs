@@ -481,7 +481,45 @@ foreach ($path in $paths) {
         .unwrap_or_default()
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "macos")]
+fn system_font_names() -> Vec<String> {
+    let output = Command::new("system_profiler")
+        .args(["SPFontsDataType", "-json"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success());
+    let Some(output) = output else {
+        return Vec::new();
+    };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&output.stdout) else {
+        return Vec::new();
+    };
+    let mut families = Vec::new();
+    collect_font_families(&value, &mut families);
+    families
+}
+
+#[cfg(target_os = "macos")]
+fn collect_font_families(value: &serde_json::Value, families: &mut Vec<String>) {
+    match value {
+        serde_json::Value::Object(entries) => {
+            if let Some(serde_json::Value::String(family)) = entries.get("family") {
+                families.push(family.clone());
+            }
+            for entry in entries.values() {
+                collect_font_families(entry, families);
+            }
+        }
+        serde_json::Value::Array(entries) => {
+            for entry in entries {
+                collect_font_families(entry, families);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn system_font_names() -> Vec<String> {
     Command::new("fc-list")
         .args([":", "family"])
