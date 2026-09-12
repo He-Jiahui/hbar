@@ -603,6 +603,26 @@ test('session sidebar exposes explicit rename and one primary new-session action
   }
 })
 
+test('session context menu closes when clicking outside the floating surface', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const workspace = bootstrap.workspaces[0]!
+    const title = `Outside menu ${Date.now().toString(36)}`
+    await fixture.api.call('session.create', { workspaceId: workspace.id, title })
+    await page.reload()
+    const sessionCard = page.locator('.session-item').filter({ hasText: title, visible: true }).first()
+    await expect(sessionCard).toBeVisible()
+    await sessionCard.click({ button: 'right' })
+    const menu = page.getByRole('menu', { name: '会话选项', exact: true })
+    await expect(menu).toBeVisible()
+    await page.locator('.rb-shell-header').click()
+    await expect(menu).toHaveCount(0)
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('new-session action creates only one session when double-clicked', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
