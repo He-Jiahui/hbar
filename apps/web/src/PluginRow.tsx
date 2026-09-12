@@ -12,6 +12,7 @@ type ConfigSchema = {
   required?: string[]
   enum?: unknown[]
   default?: unknown
+  items?: ConfigSchema
 }
 
 function configSchema(value: Record<string, unknown> | undefined): ConfigSchema | null {
@@ -36,6 +37,53 @@ function ConfigFields({
         const current = value[key] ?? field.default ?? ''
         const label = field.title || key
         const required = schema.required?.includes(key)
+        if (field.type === 'object' && field.properties) {
+          const nested = current && typeof current === 'object' && !Array.isArray(current) ? current : {}
+          return (
+            <fieldset key={key} className="plugin-config-nested">
+              <legend>{label}{required ? ' *' : ''}</legend>
+              {field.description && <small>{field.description}</small>}
+              <ConfigFields
+                schema={field}
+                value={nested as Record<string, unknown>}
+                onChange={(next) => onChange({ ...value, [key]: next })}
+              />
+            </fieldset>
+          )
+        }
+        if (field.type === 'array' && field.items) {
+          const items: unknown[] = Array.isArray(current) ? (current as unknown[]) : []
+          return (
+            <fieldset key={key} className="plugin-config-array">
+              <legend>{label}{required ? ' *' : ''}</legend>
+              {field.description && <small>{field.description}</small>}
+              {items.map((item, index) => (
+                <div className="plugin-config-array-row" key={`${key}-${index}`}>
+                  <input
+                    type={field.items?.type === 'number' || field.items?.type === 'integer' ? 'number' : 'text'}
+                    value={String(item ?? '')}
+                    onChange={(event) => {
+                      const raw = event.target.value
+                      const next = field.items?.type === 'number' || field.items?.type === 'integer' ? Number(raw) : raw
+                      onChange({ ...value, [key]: items.map((entry, itemIndex) => (itemIndex === index ? next : entry)) })
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="plugin-config-array-remove"
+                    aria-label={`删除 ${label} 第 ${index + 1} 项`}
+                    onClick={() => onChange({ ...value, [key]: items.filter((_, itemIndex) => itemIndex !== index) })}
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="button" onClick={() => onChange({ ...value, [key]: [...items, ''] })}>
+                添加一项
+              </button>
+            </fieldset>
+          )
+        }
         if (field.enum?.length) {
           return (
             <label key={key}>
@@ -79,11 +127,10 @@ function ConfigFields({
   )
 }
 
-export default function PluginRow({ plugin, className = '' }: { plugin: PluginInfo; className?: string }) {
+export default function PluginRow({ plugin, className = '', id }: { plugin: PluginInfo; className?: string; id?: string }) {
   const [expanded, setExpanded] = useState(false)
   const schema = configSchema(plugin.configSchema)
   const [config, setConfig] = useState<Record<string, unknown>>(plugin.config)
-  const [rawConfig, setRawConfig] = useState(JSON.stringify(plugin.config, null, 2))
   const [error, setError] = useState(plugin.error ?? '')
 
   async function apply(enabled: boolean, configuration?: Record<string, unknown>) {
@@ -112,6 +159,7 @@ export default function PluginRow({ plugin, className = '' }: { plugin: PluginIn
 
   return (
     <SpotlightCard
+      {...(id ? { id } : {})}
       className={`plugin-row${className ? ` ${className}` : ''}`}
       spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
     >
@@ -190,31 +238,8 @@ export default function PluginRow({ plugin, className = '' }: { plugin: PluginIn
               </div>
               <ConfigFields schema={schema} value={config} onChange={setConfig} />
             </section>
-          ) : (
-            <label>
-              配置
-              <textarea
-                aria-label={`${plugin.name} 配置`}
-                className="config-editor"
-                rows={5}
-                value={rawConfig}
-                onChange={(event) => setRawConfig(event.target.value)}
-              />
-            </label>
-          )}
-          <button
-            className="button"
-            onClick={() => {
-              try {
-                void apply(true, schema ? config : (JSON.parse(rawConfig) as Record<string, unknown>))
-              } catch (failure) {
-                report(failure)
-              }
-            }}
-          >
-            <Save size={13} />
-            保存配置
-          </button>
+          ) : <p className="plugin-config-empty">此插件没有提供可视化 Schema，详细配置只能由插件声明后使用。</p>}
+          {schema && <button className="button" onClick={() => void apply(true, config)}><Save size={13} />保存配置</button>}
         </div>
       )}
     </SpotlightCard>
