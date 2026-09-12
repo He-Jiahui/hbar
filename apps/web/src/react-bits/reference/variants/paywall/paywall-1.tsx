@@ -1,7 +1,11 @@
-import { FormBlueprint as Fixture } from '../../ReferenceBlueprints'
+import { Check, Lock } from 'lucide-react'
+import { useState } from 'react'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { reportFixtureClick } from '../../reference-interactions'
+import './paywall-1.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/paywall/paywall-1. */
-export default function Paywall1(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+export default function Paywall1({ onInteraction }: ReferenceFixtureProps) {
+  const [member, setMember] = useState(false)
+  return <section className="rb-public-paywall-1" onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><article className="rb-paywall-article"><p className="eyebrow">ISSUE 84 · INFRASTRUCTURE</p><h1>What a database migration actually costs</h1><p className="byline">Marcus Bell · 14 min read</p><p>Northwind moved 11 terabytes between two managed Postgres clusters last spring. The plan called for four hours of degraded writes on a Saturday night. What the team got instead was nine days of partial availability, an unplanned index rebuild, and a bill roughly three times the estimate.</p><p>None of that came from the migration itself. The copy finished more or less on schedule. The cost showed up in everything the copy touched: connection pools sized for the old topology, a backfill job competing with production reads, and a rollback path that quietly stopped working once the first schema change landed.</p><p className="fade">This teardown walks through the three decisions that turned a maintenance window into a quarter of partial availability.</p><section className={`rb-membership-card ${member ? 'member' : ''}`}><span className="rb-lock"><Lock size={16} /></span>{member ? <><h2>Welcome back</h2><p>You can continue reading this teardown and the rest of the archive.</p><button type="button" className="primary" onClick={() => setMember(false)}>Sign out</button></> : <><h2>Keep reading with a membership</h2><p>The rest of this teardown is for members. Cancel whenever, and keep everything you have downloaded.</p><ul><li><Check size={13} /> Every issue in the archive, going back to 2019</li><li><Check size={13} /> The weekly teardown, two days before it goes public</li><li><Check size={13} /> Source files and spreadsheets for each analysis</li></ul><div><button type="button" className="primary" onClick={() => setMember(true)}>Become a member: $9/mo</button><button type="button" onClick={() => setMember(true)}>I already have an account</button></div></>}</section></article><button type="button" className="rb-paywall-theme">◉&nbsp; Theme</button></section>
 }
