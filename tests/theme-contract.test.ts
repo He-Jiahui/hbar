@@ -58,6 +58,8 @@ test('plugin presets apply to the untouched default while explicit user values w
   const plugin = { id: 'silver-glass', title: 'Silver glass', tokenOverrides: { colors: { primary: '#22aa88' } } }
   expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin], false).colors.primary).toBe('#22aa88')
   expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin], true).colors.primary).toBe(DEFAULT_THEME_PROFILE.colors.primary)
+  expect(mergeThemeContributions({ ...DEFAULT_THEME_PROFILE, mode: 'light' }, [plugin], false).mode).toBe('light')
+  expect(mergeThemeContributions({ ...DEFAULT_THEME_PROFILE, mode: 'light' }, [plugin], false).colors.primary).toBe('#22aa88')
   const explicit = { ...DEFAULT_THEME_PROFILE, mode: 'custom' as const, colors: { ...DEFAULT_THEME_PROFILE.colors, primary: '#cc8844' } }
   expect(mergeThemeContributions(explicit, [plugin]).colors.primary).toBe('#cc8844')
 })

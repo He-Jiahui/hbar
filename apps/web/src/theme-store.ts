@@ -335,7 +335,11 @@ export function mergeThemeContributions(profile: ThemeProfile, themes: readonly 
   // An inherited profile is intentionally absent from the final layer so a
   // plugin preset can provide its defaults. Once the user edits or saves a
   // profile, even if it equals DEFAULT_THEME_PROFILE, it remains authoritative.
-  const userOverride = profileExplicit ? profile : {}
+  const userOverride = profileExplicit
+    ? profile
+    : profile.mode !== DEFAULT_THEME_PROFILE.mode
+      ? { mode: profile.mode }
+      : {}
   return normalizeThemeProfile(mergeThemeValue(contributed, userOverride))
 }
 
