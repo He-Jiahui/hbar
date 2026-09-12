@@ -304,7 +304,9 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-underline-links': profile.typography.underlineLinks ? 'underline' : 'none',
     '--hbar-radius': `${profile.surface.cornerRadius}px`,
     '--hbar-motion-duration': profile.motion.intensity === 'off' ? '0ms' : profile.motion.intensity === 'subtle' ? '160ms' : '220ms',
+    '--hbar-motion-spin-duration': profile.motion.intensity === 'off' ? '0ms' : profile.motion.intensity === 'subtle' ? '1s' : '0.8s',
     '--hbar-motion-easing': 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    '--hbar-shadow-color': profile.colors.background,
     '--dsh-motion-duration': profile.motion.intensity === 'off' ? '0ms' : profile.motion.intensity === 'subtle' ? '160ms' : '220ms',
     '--dsh-motion-easing': 'cubic-bezier(0.2, 0.8, 0.2, 1)',
   }
