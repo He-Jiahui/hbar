@@ -447,7 +447,12 @@ test('composer plus menu exposes mode and attachment capabilities', async ({ pag
     await plus.click()
     const capabilityMenu = page.getByRole('menu', { name: '会话能力', exact: true })
     await expect(capabilityMenu).toBeVisible()
-    await expect(capabilityMenu.locator('.rb-menu-glass')).toHaveClass(/glass-surface/)
+    await expect(capabilityMenu.locator('.rb-menu-glass')).toHaveCount(0)
+    const capabilitySurfaceStyle = await capabilityMenu.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { position: style.position, zIndex: style.zIndex, backgroundImage: style.backgroundImage }
+    })
+    expect(capabilitySurfaceStyle).toEqual({ position: 'fixed', zIndex: '10000', backgroundImage: 'none' })
     await expect(capabilityMenu.locator('.composer-menu-card.rb-spotlight-card').first()).toBeVisible()
     for (const label of ['Goal 模式', 'Plan 模式', 'Budget 模式', '添加图片', '添加文件'])
       await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible()
