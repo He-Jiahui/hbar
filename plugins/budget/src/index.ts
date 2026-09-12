@@ -162,6 +162,11 @@ export class BudgetRuntime {
         accountedRuns: prior?.accountedRuns ?? [],
       })
       await this.persist(sessionId, next, prior ? 'budget.updated' : 'budget.created')
+      if (next.phase === 'active' && prior?.phase === 'exhausted' && this.goals) {
+        const currentGoal = await this.goals.get(sessionId)
+        if (currentGoal.goal?.status === 'budget_limited')
+          await this.goals.set(sessionId, { status: 'active', expectedGoalId: currentGoal.goal.goalId })
+      }
       return publicBudget(next)
     })
   }
