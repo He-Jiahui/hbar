@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { ClientTransport } from '@hbar/client'
 import type { SettingScope, SettingsSnapshot, ThemeProfile, WireNotification } from '@hbar/contracts'
-import { DEFAULT_THEME_PROFILE, normalizeThemeProfile } from '@hbar/contracts'
+import { DEFAULT_THEME_PROFILE, HbarError, normalizeThemeProfile } from '@hbar/contracts'
 import type { ClientTheme, DeepPartial } from '@hbar/ui-sdk'
 
 export type ThemeSettingScope = SettingScope
@@ -15,10 +15,12 @@ interface ThemeSettingsState {
   loading: boolean
   saving: boolean
   error: string
+  conflict: boolean
   setScope(scope: ThemeSettingScope, targetId?: string): void
   updateDraft(update: (current: ThemeProfile) => ThemeProfile): void
   discardDraft(): void
   load(transport: ClientTransport, scope?: ThemeSettingScope, targetId?: string): Promise<void>
+  refreshSnapshot(transport: ClientTransport): Promise<void>
   save(transport: ClientTransport): Promise<void>
   reset(transport: ClientTransport): Promise<void>
   applySnapshot(snapshot: SettingsSnapshot): void
@@ -41,6 +43,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   loading: false,
   saving: false,
   error: '',
+  conflict: false,
   setScope(scope, targetId) {
     set({ scope, ...(hasTarget(scope, targetId) ? { targetId } : { targetId: undefined }) })
   },
@@ -52,7 +55,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   },
   async load(transport, scope = get().scope, targetId = get().targetId) {
     if (scope !== 'global' && !targetId) return
-    set({ loading: true, error: '', scope, ...(targetId ? { targetId } : { targetId: undefined }) })
+    set({ loading: true, error: '', conflict: false, scope, ...(targetId ? { targetId } : { targetId: undefined }) })
     try {
       const snapshot = await transport.call('settings.snapshot', {
         scope,
@@ -63,6 +66,17 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
       set({ error: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       set({ loading: false })
+    }
+  },
+  async refreshSnapshot(transport) {
+    const { scope, targetId, profile } = get()
+    if (scope !== 'global' && !targetId) return
+    try {
+      const snapshot = await transport.call('settings.snapshot', { scope, ...(targetId ? { targetId } : {}) })
+      const latest = profileFromSnapshot(snapshot)
+      set({ snapshot, savedProfile: latest, profile, conflict: true, error: '设置已在其他窗口修改。当前草稿已保留，请确认后重试保存。' })
+    } catch (cause) {
+      set({ error: cause instanceof Error ? cause.message : String(cause) })
     }
   },
   async save(transport) {
@@ -79,7 +93,9 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
       })
       get().applySnapshot(next)
     } catch (cause) {
-      set({ error: cause instanceof Error ? cause.message : String(cause) })
+      if (cause instanceof HbarError && cause.code === 'SETTINGS_CONFLICT') {
+        set({ conflict: true, error: '设置已在其他窗口修改。当前草稿已保留，请加载最新快照后重试保存。' })
+      } else set({ error: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       set({ saving: false })
     }
@@ -104,7 +120,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   },
   applySnapshot(snapshot) {
     const profile = profileFromSnapshot(snapshot)
-    set({ snapshot, profile, savedProfile: profile, scope: snapshot.scope, ...(snapshot.targetId ? { targetId: snapshot.targetId } : { targetId: undefined }), error: '' })
+    set({ snapshot, profile, savedProfile: profile, conflict: false, scope: snapshot.scope, ...(snapshot.targetId ? { targetId: snapshot.targetId } : { targetId: undefined }), error: '' })
   },
 }))
 
@@ -112,7 +128,8 @@ export function handleThemeEvent(event: WireNotification, transport: ClientTrans
   if (event.method !== 'settings.changed' || !event.params.ids.includes('appearance.profile')) return
   const state = useThemeSettings.getState()
   if (event.params.scope !== state.scope || event.params.targetId !== state.targetId) return
-  void state.load(transport, state.scope, state.targetId)
+  if (JSON.stringify(state.profile) !== JSON.stringify(state.savedProfile)) void state.refreshSnapshot(transport)
+  else void state.load(transport, state.scope, state.targetId)
 }
 
 export function themeCssVariables(profile: ThemeProfile): Record<string, string> {
