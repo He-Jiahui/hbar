@@ -20,7 +20,7 @@ test('theme plugin contributions are token-only and namespaced by contract', () 
     tokenOverrides: { surface: { blurAmount: 24 } },
     surfaceEffects: { elasticity: 0.2 },
     motion: { intensity: 'subtle' },
-    backgroundAssets: ['textures/neutral.png'],
+    backgroundAssets: ['assets/textures/neutral.png'],
   })
   expect(contribution.tokenOverrides).toEqual({ surface: { blurAmount: 24 } })
   expect(() => themeContributionSchema.parse({ id: 'Bad ID', title: 'Bad', tokenOverrides: {} })).toThrow()
@@ -30,4 +30,9 @@ test('theme plugin contributions are token-only and namespaced by contract', () 
 
 test('theme typography rejects executable CSS font expressions', () => {
   expect(() => themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, typography: { ...DEFAULT_THEME_PROFILE.typography, bodyFontFamily: 'url(https://example.invalid/font)' } })).toThrow()
+})
+
+test('theme background references accept artifacts or managed plugin assets only', () => {
+  expect(themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, surface: { ...DEFAULT_THEME_PROFILE.surface, backgroundAsset: 'plugin/acme.theme/assets/backgrounds/glass.webp' } }).surface.backgroundAsset).toContain('plugin/')
+  expect(() => themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, surface: { ...DEFAULT_THEME_PROFILE.surface, backgroundAsset: 'https://example.invalid/bg.png' } })).toThrow()
 })
