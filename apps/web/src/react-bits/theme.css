@@ -512,7 +512,7 @@
 
   .file-list .file-entry.rb-spotlight-card {
     padding: 10px;
-    font-size: 13px;
+    font-size: var(--hbar-font-size-body);
   }
 }
 
@@ -634,7 +634,7 @@
 
 .pairing-eyebrow {
   color: var(--hbar-ac2);
-  font: 600 10px var(--dsh-font-family-code);
+  font: 600 var(--hbar-font-size-small) var(--dsh-font-family-code);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -643,7 +643,7 @@
 .pairing-heading p {
   margin: 0;
   color: var(--hbar-t2);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   line-height: 1.65;
 }
 
@@ -672,7 +672,7 @@
   border-radius: var(--radius-full);
   background: var(--hbar-s0);
   color: var(--hbar-t3);
-  font-size: 9px;
+  font-size: var(--hbar-font-size-micro);
   white-space: nowrap;
 }
 
@@ -721,13 +721,13 @@
 
 .pairing-host-card small {
   color: var(--hbar-t3);
-  font-size: 9px;
+  font-size: var(--hbar-font-size-micro);
 }
 
 .pairing-host-card code {
   overflow: hidden;
   color: var(--hbar-t1);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -787,7 +787,7 @@
 
 .pairing-steps strong {
   color: var(--hbar-t2);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .pairing-steps li.complete strong {
@@ -796,7 +796,7 @@
 
 .pairing-steps small {
   color: inherit;
-  font-size: 9px;
+  font-size: var(--hbar-font-size-micro);
 }
 
 @media (max-width: 560px) {
@@ -981,7 +981,7 @@
 .skill-copy strong {
   overflow: hidden;
   color: var(--hbar-t1);
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -990,7 +990,7 @@
 .skill-copy code {
   overflow: hidden;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1005,7 +1005,7 @@
   border: 1px solid color-mix(in srgb, var(--hbar-ok) 45%, var(--hbar-bd2));
   border-radius: var(--radius-full);
   color: var(--hbar-ok-ink);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .skills-empty-state {
@@ -1028,12 +1028,12 @@
 
 .skills-empty-state strong {
   color: var(--hbar-t1);
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
 }
 
 .skills-empty-state span {
   max-width: 440px;
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   line-height: 1.5;
 }
 
@@ -1539,13 +1539,13 @@
 
 .settings-detail-eyebrow {
   color: var(--hbar-t3);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 .settings-detail-heading h1 {
   margin: 0;
   color: var(--hbar-t1);
-  font-size: 20px;
+  font-size: var(--hbar-font-size-display);
   font-weight: 600;
 }
 
@@ -1553,7 +1553,7 @@
   overflow: hidden;
   margin: 0;
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1595,7 +1595,7 @@
   background: color-mix(in srgb, var(--hbar-ac-soft) 92%, var(--hbar-s1));
   box-shadow: var(--dsh-shadow-panel);
   color: var(--hbar-t1);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .settings-unsaved-bar > div {
@@ -1768,7 +1768,7 @@
 .plugin-report-list-section h4 {
   margin: 0;
   color: var(--hbar-t1);
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
   font-weight: 600;
 }
 
@@ -1776,7 +1776,7 @@
   overflow: hidden;
   margin: 0;
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1792,7 +1792,7 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--hbar-s0) 68%, transparent);
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   text-align: left;
 }
 
@@ -1805,7 +1805,7 @@
   padding: 2px 6px;
   border: 1px solid var(--hbar-bd);
   border-radius: 999px;
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   line-height: 1.25;
   white-space: nowrap;
 }
@@ -1846,13 +1846,13 @@
 
 .plugin-report-stat-grid dt {
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .plugin-report-stat-grid dd {
   margin: 0;
   color: var(--hbar-t1);
-  font: 18px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-heading) var(--dsh-font-family-code);
 }
 
 .plugin-graph-toolbar {
@@ -1862,7 +1862,7 @@
   justify-content: space-between;
   gap: 8px;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-align: left;
 }
 
@@ -1904,7 +1904,7 @@
 
 .plugin-graph-canvas .react-flow__edge-text {
   fill: var(--hbar-t3);
-  font-size: 9px;
+  font-size: var(--hbar-font-size-micro);
 }
 
 .plugin-graph-canvas .react-flow__edge-path {
@@ -1920,7 +1920,7 @@
   border: 1px solid var(--hbar-bd);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--hbar-s1) 96%, transparent);
-  box-shadow: 0 8px 22px #0006;
+  box-shadow: var(--dsh-shadow-prominent);
   color: var(--hbar-t1);
   text-align: left;
 }
@@ -1951,18 +1951,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .plugin-graph-node-heading small {
   color: var(--hbar-t3);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 .plugin-graph-node-state {
   flex: 0 0 auto;
   color: var(--hbar-ok);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .plugin-graph-node.is-disabled .plugin-graph-node-state {
@@ -1976,7 +1976,7 @@
   border-radius: var(--radius-xs);
   background: var(--hbar-s0);
   color: var(--hbar-t2);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .plugin-graph-node-actions button:hover:not(:disabled),
@@ -2005,7 +2005,7 @@
 
 .plugin-report-list-section h4 {
   color: var(--hbar-t2);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .plugin-report-error-viewport,
@@ -2049,7 +2049,7 @@
   padding: 9px 10px;
   border-color: color-mix(in srgb, var(--hbar-er) 40%, var(--hbar-bd));
   color: var(--hbar-er);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .plugin-report-error-row > span {
@@ -2073,7 +2073,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--hbar-ac) 13%, transparent);
   color: var(--hbar-ac2);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 .plugin-report-order-row code,
@@ -2082,7 +2082,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--hbar-t2);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2107,7 +2107,7 @@
 .plugin-report-lock-row strong {
   overflow: hidden;
   color: var(--hbar-t1);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2116,7 +2116,7 @@
 .plugin-report-lock-row > div > span {
   overflow: hidden;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2129,7 +2129,7 @@
 .plugin-report-lock-row > small {
   grid-column: 1 / -1;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .plugin-report-edge-row.rb-spotlight-card {
@@ -2157,7 +2157,7 @@
 
 .plugin-report-edge-row > span {
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .plugin-report-empty,
@@ -2172,7 +2172,7 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--hbar-s0) 64%, transparent);
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   text-align: left;
 }
 
@@ -2201,13 +2201,13 @@
 
 .plugin-diagnostic-error strong {
   color: var(--hbar-t1);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .plugin-diagnostic-error span {
   overflow: hidden;
   color: var(--hbar-er);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2227,7 +2227,7 @@
   padding: 8px 10px;
   color: var(--hbar-t2);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   list-style: none;
   text-align: left;
 }
@@ -2251,7 +2251,7 @@
   padding: 0 10px 10px;
   overflow: auto;
   color: var(--hbar-t2);
-  font: 10px/1.55 var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small)/var(--hbar-line-height-body) var(--dsh-font-family-code);
 }
 
 .plugin-diagnostic-spin {
@@ -2280,7 +2280,7 @@
   .plugin-diagnostic-action.rb-glare-button .rb-glare-button-content {
     gap: 5px;
     padding: 7px 8px;
-    font-size: 11px;
+    font-size: var(--hbar-font-size-label);
     white-space: nowrap;
   }
 
@@ -2389,7 +2389,7 @@
   border-radius: var(--radius-sm);
   background: var(--hbar-ac-soft);
   color: var(--hbar-ac-ink);
-  font-size: 13px;
+  font-size: var(--hbar-font-size-body);
   font-weight: 700;
 }
 
@@ -2402,7 +2402,7 @@
 .model-picker-detail-heading strong {
   overflow: hidden;
   color: var(--hbar-t1);
-  font-size: 13px;
+  font-size: var(--hbar-font-size-body);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2411,7 +2411,7 @@
 .model-picker-detail > p,
 .model-picker-reasoning > small {
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   line-height: 1.45;
 }
 
@@ -2438,14 +2438,14 @@
 .model-picker-detail-stats dt,
 .model-picker-detail-label span {
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .model-picker-detail-stats dd,
 .model-picker-detail-label code {
   margin: 0;
   color: var(--hbar-t1);
-  font: 10px var(--mono);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
   text-align: right;
 }
 
@@ -2466,7 +2466,7 @@
   border: 1px solid var(--hbar-bd);
   border-radius: var(--radius-sm);
   color: var(--hbar-t2);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .model-picker-reasoning-options button:hover,
@@ -2544,21 +2544,21 @@
 
 .diagnose-eyebrow {
   color: var(--hbar-t3);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
   letter-spacing: 0;
 }
 
 .diagnose-heading-copy h1 {
   margin: 0;
   color: var(--hbar-t1);
-  font-size: 20px;
+  font-size: var(--hbar-font-size-display);
   font-weight: 600;
 }
 
 .diagnose-heading-copy p {
   margin: 0;
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .diagnose-refreshing {
@@ -2596,14 +2596,14 @@
 
 .diagnose-summary-card dt {
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .diagnose-summary-card dd {
   overflow: hidden;
   margin: 0;
   color: var(--hbar-t1);
-  font-size: 22px;
+  font-size: var(--hbar-font-size-display);
   font-weight: 600;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -2613,7 +2613,7 @@
 .diagnose-summary-card > span {
   overflow: hidden;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2649,13 +2649,13 @@
 .diagnose-section-heading h2 {
   margin: 0;
   color: var(--hbar-t1);
-  font-size: 13px;
+  font-size: var(--hbar-font-size-body);
   font-weight: 600;
 }
 
 .diagnose-section-heading span {
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .diagnose-storage-card.rb-spotlight-card {
@@ -2687,7 +2687,7 @@
 .diagnose-storage-grid dt {
   overflow: hidden;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2695,7 +2695,7 @@
 .diagnose-storage-grid dd {
   margin: 0;
   color: var(--hbar-t1);
-  font: 15px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-icon) var(--dsh-font-family-code);
 }
 
 .diagnose-plugin-list.rb-animated-list > .diagnose-plugin-list-viewport {
@@ -2735,13 +2735,13 @@
 
 .diagnose-plugin-copy strong {
   color: var(--hbar-t1);
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
 }
 
 .diagnose-plugin-copy span,
 .diagnose-plugin-provides {
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .diagnose-plugin-provides {
@@ -2754,7 +2754,7 @@
   border: 1px solid var(--hbar-bd);
   border-radius: 999px;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -2801,7 +2801,7 @@
 
 .diagnose-details-title > span {
   color: var(--hbar-t1);
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
   font-weight: 600;
 }
 
@@ -2810,7 +2810,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--hbar-ac) 12%, transparent);
   color: var(--hbar-ac2);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 .diagnose-details-chevron {
@@ -2836,7 +2836,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--hbar-s0) 72%, transparent);
   color: var(--hbar-t2);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
   overflow-wrap: anywhere;
 }
 
@@ -2846,7 +2846,7 @@
   padding: 0 12px 12px;
   overflow: auto;
   color: var(--hbar-t2);
-  font: 11px/1.5 var(--dsh-font-family-code);
+  font: var(--hbar-font-size-label)/var(--hbar-line-height-body) var(--dsh-font-family-code);
 }
 
 .diagnose-error.rb-spotlight-card {
@@ -2874,13 +2874,13 @@
 
 .diagnose-error strong {
   color: var(--hbar-t1);
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
 }
 
 .diagnose-error span {
   overflow: hidden;
   color: var(--hbar-er);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2896,7 +2896,7 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--hbar-s1) 68%, transparent);
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .diagnose-empty {
@@ -3268,7 +3268,7 @@
 .tool-call-summary > span {
   flex: 0 0 auto;
   color: var(--hbar-t1);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   font-weight: 600;
 }
 
@@ -3276,7 +3276,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--hbar-t3);
-  font: 9px var(--mono);
+  font: var(--hbar-font-size-micro) var(--dsh-font-family-code);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3291,7 +3291,7 @@
 
 .tool-call-content > span {
   color: var(--hbar-t3);
-  font-size: 9px;
+  font-size: var(--hbar-font-size-micro);
   text-transform: uppercase;
 }
 
@@ -3300,7 +3300,7 @@
   margin: 0;
   overflow: auto;
   color: var(--hbar-t2);
-  font: 10px/1.5 var(--mono);
+  font: var(--hbar-font-size-small)/var(--hbar-line-height-body) var(--dsh-font-family-code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -3383,13 +3383,13 @@
 
 .settings-nav-copy strong {
   color: inherit;
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   font-weight: 600;
 }
 
 .settings-nav-copy small {
   color: var(--hbar-t3);
-  font-size: 9px;
+  font-size: var(--hbar-font-size-micro);
 }
 
 /* Long settings forms get the reference app's master/detail composition on
