@@ -2800,6 +2800,18 @@ p {
   background: var(--hbar-ac-soft);
   color: var(--hbar-t1);
 }
+.detached-tool-window {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100dvh;
+  padding: 12px;
+  overflow: hidden;
+  background: var(--hbar-bg);
+  color: var(--hbar-t1);
+}
+.detached-tool-window .plugin-panel {
+  min-height: calc(100dvh - 24px);
+}
 .dock-target-overlay {
   position: fixed;
   inset: 48px 48px 27px 285px;
