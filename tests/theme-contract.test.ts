@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileSchema } from '@hbar/contracts'
-import { mergeThemeContributions, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
+import { isThemeEventRelevant, mergeThemeContributions, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
 import { selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
@@ -120,4 +120,13 @@ test('renderer slots honour the selected theme renderer before priority fallback
   expect(selectRendererSlot('code', 'typescript', 'preferred-code')?.id).toBe('other:preferred-code')
   expect(selectRendererSlot('code', 'typescript', 'missing-code')?.id).toBe('acme:fast-code')
   useUIPlugins.setState((state) => ({ ...state, rendererSlots: { ...state.rendererSlots, code: [] } }))
+})
+
+test('theme events respect global, project, and session ancestry', () => {
+  const session = { scope: 'session' as const, targetId: 'session-a', parentTargetId: 'project-a' }
+  const params = (scope: 'global' | 'project' | 'session', targetId?: string) => ({ scope, ...(targetId ? { targetId } : {}), revision: 'c'.repeat(64), ids: ['appearance.profile'] })
+  expect(isThemeEventRelevant(params('global'), session)).toBe(true)
+  expect(isThemeEventRelevant(params('project', 'project-a'), session)).toBe(true)
+  expect(isThemeEventRelevant(params('project', 'project-b'), session)).toBe(false)
+  expect(isThemeEventRelevant(params('session', 'session-b'), session)).toBe(false)
 })

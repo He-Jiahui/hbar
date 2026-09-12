@@ -145,13 +145,19 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
 export function handleThemeEvent(event: WireNotification, transport: ClientTransport): void {
   if (event.method !== 'settings.changed' || !event.params.ids.some((id) => id === 'appearance.profile' || id === 'appearance.theme')) return
   const state = useThemeSettings.getState()
-  const sameTarget = event.params.targetId === state.targetId
-  const relevant = event.params.scope === 'global'
-    || (event.params.scope === state.scope && sameTarget)
-    || (state.scope === 'session' && event.params.scope === 'project' && event.params.targetId === state.parentTargetId)
-  if (!relevant) return
+  if (!isThemeEventRelevant(event.params, state)) return
   if (JSON.stringify(state.profile) !== JSON.stringify(state.savedProfile)) void state.refreshSnapshot(transport)
   else void state.load(transport, state.scope, state.targetId)
+}
+
+export function isThemeEventRelevant(
+  params: Extract<WireNotification, { method: 'settings.changed' }>['params'],
+  state: Pick<ThemeSettingsState, 'scope' | 'targetId' | 'parentTargetId'>,
+): boolean {
+  const sameTarget = params.targetId === state.targetId
+  return params.scope === 'global'
+    || (params.scope === state.scope && sameTarget)
+    || (state.scope === 'session' && params.scope === 'project' && params.targetId === state.parentTargetId)
 }
 
 export function themeCssVariables(profile: ThemeProfile): Record<string, string> {
