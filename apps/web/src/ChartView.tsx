@@ -31,7 +31,7 @@ const schema = z.object({
     .max(8),
   data: z.array(z.record(z.string(), z.union([z.string().max(200), z.number().finite()]))).max(1000),
 })
-const colors = ['#62b594', '#7399ed', '#d8ab66', '#d7778e']
+const colors = ['var(--hbar-chart-1)', 'var(--hbar-chart-2)', 'var(--hbar-chart-3)', 'var(--hbar-chart-4)']
 export default function ChartView({ source }: { source: string }) {
   try {
     const spec = schema.parse(JSON.parse(source))
@@ -41,10 +41,10 @@ export default function ChartView({ source }: { source: string }) {
         <GlassSurface className="render-surface-glass" width="100%" height="100%" aria-hidden="true" />
         <ResponsiveContainer width="100%" height={240}>
           <Chart data={spec.data} margin={{ top: 16, right: 16, bottom: 8, left: -14 }}>
-            <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis dataKey={spec.xKey} tick={{ fontSize: 11, fill: '#989da8' }} />
-            <YAxis tick={{ fontSize: 11, fill: '#989da8' }} />
-            <Tooltip contentStyle={{ background: '#26282e', border: '1px solid #454852', color: '#ddd' }} />
+            <CartesianGrid stroke="var(--hbar-chart-grid)" vertical={false} />
+            <XAxis dataKey={spec.xKey} tick={{ fontSize: 'var(--hbar-font-size-code)', fill: 'var(--hbar-t3)' }} />
+            <YAxis tick={{ fontSize: 'var(--hbar-font-size-code)', fill: 'var(--hbar-t3)' }} />
+            <Tooltip contentStyle={{ background: 'var(--hbar-s1)', border: '1px solid var(--hbar-bd2)', color: 'var(--hbar-t1)', fontFamily: 'var(--dsh-font-family)', fontSize: 'var(--hbar-font-size-code)' }} />
             <Legend />
             {spec.series.map((series, index) =>
               spec.type === 'bar' ? (

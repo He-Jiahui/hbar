@@ -41,6 +41,11 @@
   --hbar-teal: #7dd3c7;
   --hbar-teal-soft: #1c3535;
   --hbar-code: #111111;
+  --hbar-chart-1: var(--hbar-ac);
+  --hbar-chart-2: var(--hbar-ac2);
+  --hbar-chart-3: var(--hbar-t1);
+  --hbar-chart-4: var(--hbar-info);
+  --hbar-chart-grid: var(--hbar-bd);
   /* Semantic ReactBits surface contract. Feature CSS should consume these
      aliases instead of re-declaring palette, spacing, or motion values. */
   --hbar-canvas: var(--hbar-bg);

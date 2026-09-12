@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import GlassSurface from './react-bits/GlassSurface'
+import { useThemeSettings } from './theme-store'
 const schema = z.object({
   nodes: z
     .array(
@@ -17,6 +18,7 @@ const schema = z.object({
     .max(200),
 })
 export default function FlowView({ source }: { source: string }) {
+  const themeMode = useThemeSettings((state) => state.profile.mode)
   try {
     const spec = schema.parse(JSON.parse(source))
     return (
@@ -27,12 +29,12 @@ export default function FlowView({ source }: { source: string }) {
           defaultNodes={spec.nodes}
           defaultEdges={spec.edges}
           fitView
-          colorMode="dark"
+          colorMode={themeMode === 'dark' ? 'dark' : 'light'}
           nodesDraggable
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={18} color="#3c3f48" />
+          <Background gap={18} color="var(--hbar-bd2)" />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>
