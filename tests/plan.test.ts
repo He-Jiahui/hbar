@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import { userInputQuestionSchema, userInputResponseSchema } from '@hbar/contracts'
+import { automationStateSchema, userInputQuestionSchema, userInputResponseSchema } from '@hbar/contracts'
 import type { GoalService, PlanService } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from '../plugins/plan/src/instructions.ts'
 
@@ -73,6 +73,14 @@ test('request user input contracts preserve free-text wire questions and answer-
   expect(question.isSecret).toBe(false)
   expect(userInputResponseSchema.parse({ answers: { details: { answers: ['offline'] } } })).toEqual({
     answers: { details: { answers: ['offline'] } },
+  })
+})
+
+test('legacy automation events default the combined goal flag to false', () => {
+  expect(automationStateSchema.parse({ sessionId: 'session-1', unattended: true })).toEqual({
+    sessionId: 'session-1',
+    unattended: true,
+    goalEnabled: false,
   })
 })
 
