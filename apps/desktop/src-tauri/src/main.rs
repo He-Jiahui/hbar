@@ -95,14 +95,44 @@ fn window_background_rgba(value: &str, opacity: u8) -> (u8, u8, u8, u8) {
     }
 }
 
+fn validate_window_theme(profile: &WindowThemeProfile) -> Result<(), String> {
+    if !matches!(profile.surface.mode.as_str(), "solid" | "acrylic" | "liquid-glass") {
+        return Err("Unsupported window surface mode".into());
+    }
+    if !profile.surface.background_opacity.is_finite()
+        || !(0.12..=1.0).contains(&profile.surface.background_opacity)
+    {
+        return Err("Window background opacity is outside the theme contract".into());
+    }
+    let value = profile.colors.background.strip_prefix('#').unwrap_or(&profile.colors.background);
+    if !matches!(value.len(), 6 | 8) || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("Window background must be a six or eight digit hex colour".into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod window_effect_tests {
-    use super::window_background_rgba;
+    use super::{validate_window_theme, window_background_rgba, WindowThemeColors, WindowThemeProfile, WindowThemeSurface};
 
     #[test]
     fn uses_theme_background_for_native_acrylic() {
         assert_eq!(window_background_rgba("#c7ced8", 210), (199, 206, 216, 210));
         assert_eq!(window_background_rgba("not-a-colour", 210), (11, 13, 16, 210));
+    }
+
+    #[test]
+    fn rejects_window_effect_values_outside_theme_contract() {
+        let profile = WindowThemeProfile {
+            surface: WindowThemeSurface { mode: "acrylic".into(), background_opacity: 0.8 },
+            colors: WindowThemeColors { background: "#0b0d10".into() },
+        };
+        assert!(validate_window_theme(&profile).is_ok());
+        let invalid = WindowThemeProfile {
+            surface: WindowThemeSurface { mode: "unknown".into(), background_opacity: 0.8 },
+            colors: WindowThemeColors { background: "rgb(1, 2, 3)".into() },
+        };
+        assert!(validate_window_theme(&invalid).is_err());
     }
 }
 
@@ -118,6 +148,7 @@ fn set_window_effect(
     window: tauri::WebviewWindow,
     profile: WindowThemeProfile,
 ) -> Result<WindowEffectResult, String> {
+    validate_window_theme(&profile)?;
     let opacity = (profile.surface.background_opacity.clamp(0.12, 1.0) * 255.0).round() as u8;
     match profile.surface.mode.as_str() {
         "acrylic" | "liquid-glass" => {
