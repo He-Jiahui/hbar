@@ -463,6 +463,7 @@ export default function Chat({
   const [budgetEditing, setBudgetEditing] = useState(false)
   const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
+  const [gitProject, setGitProject] = useState<boolean | null>(null)
   const [atBottom, setAtBottom] = useState(true)
   const scroll = useRef<HTMLDivElement>(null),
     stick = useRef(true)
@@ -472,6 +473,7 @@ export default function Chat({
   useEffect(() => {
     if (!workspace?.path) {
       setGitInfo(null)
+      setGitProject(null)
       return
     }
     let connection: ReturnType<typeof client>
@@ -479,6 +481,7 @@ export default function Chat({
       connection = client()
     } catch {
       setGitInfo(null)
+      setGitProject(null)
       return
     }
     let alive = true
@@ -491,9 +494,11 @@ export default function Chat({
             branch: status.root ? status.branch ?? '分离 HEAD' : null,
             originUrl: status.originUrl,
           })
+        if (alive) setGitProject(Boolean(status.root))
       })
       .catch(() => {
         if (alive) setGitInfo(null)
+        if (alive) setGitProject(null)
       })
     return () => {
       alive = false
@@ -1024,6 +1029,7 @@ export default function Chat({
                 <GitContextSwitcher
                   workspacePath={workspace?.path ?? ''}
                   branch={gitInfo?.branch ?? null}
+                  gitProject={gitProject}
                   onUseWorktree={onUseWorktree}
                 />
               }

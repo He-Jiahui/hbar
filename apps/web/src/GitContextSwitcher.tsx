@@ -9,10 +9,12 @@ import './GitContextSwitcher.css'
 export default function GitContextSwitcher({
   workspacePath,
   branch,
+  gitProject,
   onUseWorktree,
 }: {
   workspacePath: string
   branch: string | null
+  gitProject?: boolean | null
   onUseWorktree(path: string): void | Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -161,7 +163,7 @@ export default function GitContextSwitcher({
         {...triggerHandlers}
       >
         <GitBranch size={13} />
-        <span>{branch ?? '未检出分支'}</span>
+        <span>{gitProject === false ? '非 Git 项目' : branch ?? (gitProject === true ? '分离 HEAD' : '读取 Git 状态…')}</span>
         {busy ? <LoaderCircle size={12} className="spinning" /> : <Plus size={12} />}
       </button>
       <FloatingSurface

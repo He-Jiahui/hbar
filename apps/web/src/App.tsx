@@ -112,6 +112,27 @@ const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
   plugin: 'plugin',
 }
 
+function normalizeWorkspacePath(value: string): string {
+  const normalized = value.trim().replaceAll('\\', '/')
+  const driveRoot = /^[A-Za-z]:\//.test(normalized) ? normalized.slice(0, 3) : normalized.startsWith('/') ? '/' : ''
+  const body = driveRoot ? normalized.slice(driveRoot.length) : normalized
+  const segments: string[] = []
+  for (const segment of body.split('/')) {
+    if (!segment || segment === '.') continue
+    if (segment === '..') {
+      segments.pop()
+      continue
+    }
+    segments.push(segment)
+  }
+  const result = segments.length ? `${driveRoot}${segments.join('/')}`.replace(/\/$/, '') : driveRoot
+  return result || driveRoot || '.'
+}
+
+function workspacePathKey(value: string): string {
+  return normalizeWorkspacePath(value).toLocaleLowerCase()
+}
+
 type SessionTabConfig = { sessionId?: string }
 
 function conversationTabs(model: Model): TabNode[] {
@@ -635,7 +656,7 @@ export default function App() {
       if (cancelled || useConnection.getState().client !== connection) return
       const seen = new Set<string>()
       const external = groups.flat().filter((item) => {
-        const key = item.path.toLocaleLowerCase()
+        const key = workspacePathKey(item.path)
         if (seen.has(key)) return false
         seen.add(key)
         return true
@@ -1251,7 +1272,10 @@ export default function App() {
   async function chooseWorkspaceDirectory() {
     try {
       const selected = await (await platform()).pickDirectory()
-      if (selected) setWorkspacePaths((current) => (current.includes(selected) ? current : [...current, selected]))
+      if (selected) {
+        const normalized = normalizeWorkspacePath(selected)
+        setWorkspacePaths((current) => current.some((item) => workspacePathKey(item) === workspacePathKey(normalized)) ? current : [...current, normalized])
+      }
     } catch (error) {
       report(error)
     }
@@ -1263,8 +1287,12 @@ export default function App() {
     setWorkspaceCreateBusy(true)
     setWorkspaceCreateErrors([])
     try {
-      const discovered = retryPaths ? new Set(paths) : new Set([...paths, ...selectedWorktreePaths])
-      const pathsToCreate = [...discovered]
+      const discovered = new Map<string, string>()
+      for (const path of retryPaths ? paths : [...paths, ...selectedWorktreePaths]) {
+        const key = workspacePathKey(path)
+        if (!discovered.has(key)) discovered.set(key, path)
+      }
+      const pathsToCreate = [...discovered.values()]
       const alias = retryPaths ? '' : workspaceAlias.trim()
       const created: Array<{ id: string }> = []
       const failures: Array<{ path: string; message: string; retryable: boolean }> = []
@@ -1300,8 +1328,9 @@ export default function App() {
     const startingWorkspaceId = useWorkbench.getState().workspaceId
     const startingSessionId = useWorkbench.getState().activeSession
     const currentData = useCatalog.getState().data
-    const existing = currentData?.workspaces.find((workspace) => workspace.path.toLocaleLowerCase() === path.toLocaleLowerCase())
-    const target = existing ?? await connection.call('workspace.create', { path })
+    const normalizedPath = normalizeWorkspacePath(path)
+    const existing = currentData?.workspaces.find((workspace) => workspacePathKey(workspace.path) === workspacePathKey(normalizedPath))
+    const target = existing ?? await connection.call('workspace.create', { path: normalizedPath })
     if (useConnection.getState().client !== connection || useWorkbench.getState().workspaceId !== startingWorkspaceId || useWorkbench.getState().activeSession !== startingSessionId)
       throw new Error('工作区或会话已切换，请重新选择 Worktree')
     const currentSession = currentData?.sessions.find((session) => session.id === startingSessionId)
