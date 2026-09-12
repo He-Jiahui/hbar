@@ -1,0 +1,35 @@
+.rb-reference-surface { min-width: 0; border: 1px solid var(--hbar-border); border-radius: 10px; background: var(--hbar-surface); color: var(--hbar-text); }
+.rb-reference-surface-canvas { background: var(--hbar-canvas); }
+.rb-reference-surface-card { padding: 12px; background: var(--hbar-surface-strong); }
+.rb-reference-surface-code { overflow: auto; background: var(--hbar-canvas); font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.rb-reference-surface-decision { border-color: color-mix(in srgb, var(--hbar-danger) 45%, var(--hbar-border)); background: color-mix(in srgb, var(--hbar-danger) 8%, var(--hbar-surface)); }
+.rb-reference-badge { display: inline-flex; align-items: center; gap: 5px; width: max-content; border: 1px solid var(--hbar-border); border-radius: 999px; padding: 3px 7px; color: var(--hbar-muted); font-size: 10px; line-height: 1; }
+.rb-reference-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.rb-reference-badge-accent, .rb-reference-badge-running { color: var(--hbar-accent); }
+.rb-reference-badge-success { color: var(--hbar-success); }
+.rb-reference-badge-warning { color: var(--hbar-warning); }
+.rb-reference-badge-danger { color: var(--hbar-danger); }
+.rb-reference-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 28px; border: 1px solid var(--hbar-border); border-radius: 6px; padding: 0 9px; cursor: pointer; font: inherit; font-size: 10px; text-align: left; }
+.rb-reference-button-primary { border-color: var(--hbar-accent); background: var(--hbar-accent); color: var(--hbar-accent-contrast); }
+.rb-reference-button-secondary { background: var(--hbar-surface-strong); color: var(--hbar-text); }
+.rb-reference-button-ghost { border-color: transparent; background: transparent; color: var(--hbar-muted); }
+.rb-reference-button-danger { border-color: color-mix(in srgb, var(--hbar-danger) 45%, var(--hbar-border)); background: transparent; color: var(--hbar-danger); }
+.rb-reference-button:hover:not(:disabled), .rb-reference-list-row:hover { border-color: var(--hbar-border-strong); background: var(--hbar-surface-hover); }
+.rb-reference-button:focus-visible, .rb-reference-list-row:focus-visible, .rb-reference-tabs-primitive button:focus-visible { outline: 2px solid var(--hbar-accent); outline-offset: 2px; }
+.rb-reference-button:disabled { cursor: not-allowed; opacity: .45; }
+.rb-reference-tabs-primitive { display: flex; gap: 14px; border-bottom: 1px solid var(--hbar-border); }
+.rb-reference-tabs-primitive button { border: 0; border-bottom: 2px solid transparent; padding: 9px 2px 7px; background: transparent; color: var(--hbar-muted); cursor: pointer; font: inherit; font-size: 10px; }
+.rb-reference-tabs-primitive button.selected { border-bottom-color: var(--hbar-accent); color: var(--hbar-text); }
+.rb-reference-metric { display: grid; gap: 5px; min-width: 0; border: 1px solid var(--hbar-border); border-radius: 7px; padding: 10px; }
+.rb-reference-metric small, .rb-reference-metric span { color: var(--hbar-muted); font-size: 10px; }
+.rb-reference-metric strong { overflow-wrap: anywhere; font-size: 17px; font-variant-numeric: tabular-nums; }
+.rb-reference-metric-success span { color: var(--hbar-success); }.rb-reference-metric-warning span { color: var(--hbar-warning); }.rb-reference-metric-danger span { color: var(--hbar-danger); }
+.rb-reference-list { display: grid; gap: 6px; }
+.rb-reference-list-row { display: flex; width: 100%; align-items: center; gap: 8px; min-width: 0; border: 1px solid var(--hbar-border); border-radius: 7px; padding: 9px 10px; background: var(--hbar-surface-strong); color: var(--hbar-text); cursor: pointer; font: inherit; text-align: left; }
+.rb-reference-list-row.selected { border-color: var(--hbar-accent); background: var(--hbar-accent-soft); }
+.rb-reference-list-row-main { display: grid; min-width: 0; gap: 3px; }.rb-reference-list-row-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }.rb-reference-list-row-main small { overflow: hidden; color: var(--hbar-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.rb-reference-list-row > :last-child { margin-left: auto; }
+.rb-reference-timeline-primitive { display: grid; gap: 10px; margin: 0; padding: 14px 16px; list-style: none; }
+.rb-reference-timeline-primitive li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; color: var(--hbar-muted); font-size: 11px; }.rb-reference-timeline-primitive li > span:last-child { display: grid; gap: 3px; }.rb-reference-timeline-primitive strong { color: var(--hbar-text); }.rb-reference-timeline-primitive small { color: var(--hbar-muted); }.rb-reference-timeline-icon { display: grid; width: 17px; height: 17px; flex: 0 0 auto; place-items: center; border: 1px solid currentColor; border-radius: 50%; }.rb-reference-timeline-success { color: var(--hbar-success) !important; }.rb-reference-timeline-running { color: var(--hbar-accent) !important; }.rb-reference-timeline-running .rb-reference-timeline-icon svg { animation: rb-reference-spin 1.2s linear infinite; }.rb-reference-timeline-warning { color: var(--hbar-warning) !important; }.rb-reference-timeline-danger { color: var(--hbar-danger) !important; }
+.rb-reference-empty-state { display: grid; min-height: 260px; place-content: center; justify-items: center; padding: 24px; text-align: center; }.rb-reference-empty-state-icon { display: grid; width: 42px; height: 42px; margin-bottom: 10px; place-items: center; border-radius: 11px; background: var(--hbar-accent-soft); color: var(--hbar-accent); }.rb-reference-empty-state p { max-width: 320px; margin: 7px 0 14px; color: var(--hbar-muted); font-size: 11px; }
+@keyframes rb-reference-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rb-reference-timeline-running .rb-reference-timeline-icon svg { animation: none; } }

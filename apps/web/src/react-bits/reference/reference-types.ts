@@ -59,6 +59,16 @@ export type ReferenceObservation = {
   readonly publicSurface: readonly string[]
   readonly cssResources: readonly string[]
   readonly jsResources: readonly string[]
+  readonly title?: string
+  readonly description?: string
+  readonly canonicalUrl?: string
+  readonly iframeCount?: number
+  readonly previewTabs?: readonly string[]
+  readonly viewportControls?: readonly string[]
+  readonly actionControls?: readonly string[]
+  readonly ariaRoles?: Readonly<Record<string, number>>
+  readonly cssResourceCount?: number
+  readonly jsResourceCount?: number
   readonly captureStatus: 'public-observed' | 'fixture-derived'
 }
 
@@ -86,5 +96,6 @@ export type ReferenceVariantDefinition = {
 export type ReferenceFixtureProps = {
   readonly definition: ReferenceVariantDefinition
   readonly viewport: ReferenceViewport
-  readonly onInteraction?: (interaction: ReferenceInteraction) => void
+  readonly onInteraction?: ((interaction: ReferenceInteraction) => void) | undefined
+  readonly refreshKey?: number
 }
