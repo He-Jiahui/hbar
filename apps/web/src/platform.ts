@@ -52,7 +52,7 @@ const web: PlatformAdapter = {
     }
     return ['system-ui', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans', 'Arial', 'sans-serif']
   },
-  setWindowEffect: async () => ({ native: false, message: '当前浏览器使用 CSS 模糊回退。' }),
+  setWindowEffect: async () => ({ native: false, message: 'css-fallback' }),
   openToolWindow: async (options) => {
     const url = new URL(options.url, location.href)
     url.searchParams.set('hbarWindow', '1')

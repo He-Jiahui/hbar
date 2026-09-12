@@ -168,10 +168,11 @@ fn set_window_effect(
             #[cfg(not(any(target_os = "windows", target_os = "macos")))]
             {
                 let _ = window;
-                Ok(WindowEffectResult { native: false, message: Some("当前平台使用 CSS 模糊回退。".into()) })
+                Ok(WindowEffectResult { native: false, message: Some("css-fallback".into()) })
             }
         }
-        _ => Ok(WindowEffectResult { native: false, message: Some("纯色表面不启用原生模糊。".into()) }),
+        "solid" => Ok(WindowEffectResult { native: false, message: Some("solid-surface".into()) }),
+        _ => Ok(WindowEffectResult { native: false, message: Some("css-fallback".into()) }),
     }
 }
 

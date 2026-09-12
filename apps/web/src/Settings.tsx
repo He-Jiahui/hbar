@@ -819,7 +819,7 @@ export default function Settings() {
     let cancelled = false
     const effectiveTheme = mergeThemeContributions(themeProfile, themePlugins, themeProfileExplicit)
     void platform().then((adapter) => adapter.setWindowEffect(effectiveTheme)).then((result) => {
-      if (!cancelled) setWindowEffectStatus(result.native ? t('nativeEffectEnabled') : result.message ?? t('cssBlurFallback'))
+      if (!cancelled) setWindowEffectStatus(result.native ? t('nativeEffectEnabled') : result.message === 'solid-surface' ? t('solidSurfaceEffectDisabled') : result.message === 'css-fallback' ? t('cssBlurFallback') : result.message ?? t('cssBlurFallback'))
     }).catch((error) => {
       if (!cancelled) setWindowEffectStatus(error instanceof Error ? `${t('nativeEffectUnavailable')}：${error.message}` : `${t('nativeEffectUnavailable')}，${t('cssBlurFallback')}`)
     })
