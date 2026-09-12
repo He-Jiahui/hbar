@@ -75,6 +75,12 @@ test('budget RPC exposes set, get, and clear through the authenticated client', 
   await client.pair(host.pairing.code, 'budget test')
   const created = await client.call('budget.set', { sessionId: session.id, limit: 500 })
   expect(created.limit).toBe(500)
+  expect(await client.call('automation.set', { sessionId: session.id, unattended: true, goalEnabled: true })).toMatchObject({
+    sessionId: session.id,
+    unattended: true,
+    goalEnabled: true,
+  })
+  expect(await client.call('automation.get', { sessionId: session.id })).toMatchObject({ goalEnabled: true })
   expect((await client.call('budget.get', { sessionId: session.id }))?.budgetId).toBe(created.budgetId)
   expect(await client.call('budget.clear', { sessionId: session.id })).toEqual({ cleared: true })
   expect(await client.call('budget.get', { sessionId: session.id })).toBeNull()
