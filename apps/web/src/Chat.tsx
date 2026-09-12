@@ -8,6 +8,8 @@ import {
   Copy,
   FileCode2,
   LoaderCircle,
+  Pause,
+  Play,
   ShieldCheck,
   Square,
   Wrench,
@@ -34,7 +36,7 @@ import { copyText, newRequestId } from './browser-utils'
 import { buildComposerActions } from './composer-actions'
 import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
-import { clearBudget, clearGoal, createGoal, setBudget, setGoalArmed, setMode, setUnattended, useSessionCapabilities } from './session-capabilities'
+import { clearBudget, clearGoal, createGoal, setBudget, setGoal, setGoalArmed, setMode, setUnattended, useSessionCapabilities } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -700,6 +702,22 @@ export default function Chat({
       {capabilityState?.goal && (
         <span className="composer-mode-tag" title={`Goal：${capabilityState.goal.objective}`}>
           <span>Goal · {goalStatusLabel(capabilityState.goal.status)}</span>
+          {['active', 'paused'].includes(capabilityState.goal.status) && (
+            <button
+              type="button"
+              title={capabilityState.goal.status === 'active' ? '暂停 Goal' : '继续 Goal'}
+              aria-label={capabilityState.goal.status === 'active' ? '暂停 Goal' : '继续 Goal'}
+              onClick={() => {
+                const goalId = capabilityState.goal?.goalId
+                void setGoal(client(), sessionId, {
+                  status: capabilityState.goal?.status === 'active' ? 'paused' : 'active',
+                  ...(goalId ? { expectedGoalId: goalId } : {}),
+                }).catch(report)
+              }}
+            >
+              {capabilityState.goal.status === 'active' ? <Pause size={12} /> : <Play size={12} />}
+            </button>
+          )}
           <button
             type="button"
             title="关闭 Goal 模式"
