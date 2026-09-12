@@ -55,6 +55,7 @@ import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbenc
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
 import { FileNavigation, FileViewer } from './FileNavigation'
 import SystemTerminalPanel from './SystemTerminalPanel'
+import ReferenceGallery from './react-bits/reference/ReferenceGallery'
 import { applyThemeProfile, handleThemeEvent, useThemeSettings } from './theme-store'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -476,6 +477,7 @@ export default function App() {
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [referenceGalleryOpen, setReferenceGalleryOpen] = useState(false)
   const [conversationViews, setConversationViews] = useState<Record<string, 'chat' | 'console'>>({})
   const toolRailOrder = [...DEFAULT_TOOL_RAIL_ORDER].sort(
     (a, b) =>
@@ -1430,6 +1432,7 @@ export default function App() {
         </div>
       )}
       <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
+      <ReferenceGallery open={referenceGalleryOpen} onClose={() => setReferenceGalleryOpen(false)} />
       {workspaceModal && (
         <Modal title="添加工作区" onClose={closeWorkspaceModal}>
           <form

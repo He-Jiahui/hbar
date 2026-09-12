@@ -129,7 +129,10 @@ test('Goal+Plan promotes the saved plan into a goal before continuing', async ()
   const { kernel, session } = await fixture()
   await kernel.changePlugin('goal.codex', true, { autoContinue: false, maxContinuations: 0 })
   await kernel.automationSet(session.id, false, true)
-  const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }> }>('mode')
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>
+    get(id: string): Promise<{ mode: 'plan' | 'default' }>
+  }>('mode')
   await mode.set(session.id, 'plan')
   const planRun = await kernel.submit(
     session.id,
@@ -148,4 +151,28 @@ test('Goal+Plan promotes the saved plan into a goal before continuing', async ()
   expect(goal.goal?.status).toBe('active')
   expect((await mode.get(session.id)).mode).toBe('default')
   expect((await kernel.automationGet(session.id)).goalEnabled).toBe(false)
+})
+
+test('unattended mode selects the unique recommended option without pausing', async () => {
+  const { kernel, session } = await fixture()
+  await kernel.automationSet(session.id, true)
+  const run = await kernel.submit(
+    session.id,
+    'recommended-input',
+    {
+      text: '/tool request_user_input {"questions":[{"id":"scope","header":"Scope","question":"Which scope?","options":[{"label":"App","description":"Cover the app.","recommended":true},{"label":"API","description":"Cover the API."}]}]}',
+      images: [],
+    },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const snapshot = await kernel.snapshot(session.id)
+  expect(snapshot.userInputs).toHaveLength(0)
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  const result = snapshot.messages
+    .flatMap((message) => message.content)
+    .find((block) => block.type === 'tool_result' && block.name === 'request_user_input')
+  expect(result?.type === 'tool_result' ? JSON.parse(result.text) : null).toEqual({
+    answers: { scope: { answers: ['App'] } },
+  })
 })

@@ -213,8 +213,8 @@ class PlanRuntime implements PlanService {
 
   requestUserInputDescription() {
     return this.config.allowDefaultModeRequestUserInput
-      ? 'Request user input for one to three short questions and wait for the response. This tool is only available in Default or Plan mode.'
-      : 'Request user input for one to three short questions and wait for the response. This tool is only available in Plan mode.'
+      ? 'Request user input for one to three short questions and wait for the response. Mark exactly one preferred option as recommended when applicable. This tool is only available in Default or Plan mode.'
+      : 'Request user input for one to three short questions and wait for the response. Mark exactly one preferred option as recommended when applicable. This tool is only available in Plan mode.'
   }
 
   private async persistPlan(plan: PlanState, runId?: string) {

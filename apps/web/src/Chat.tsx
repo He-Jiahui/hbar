@@ -264,7 +264,7 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
                     onChange={() => setSelected((current) => ({ ...current, [question.id]: option.label }))}
                   />
                   <span>
-                    <strong>{option.label}</strong>
+                    <strong>{option.label}{option.recommended ? '（推荐）' : ''}</strong>
                     <small>{option.description}</small>
                   </span>
                 </label>
