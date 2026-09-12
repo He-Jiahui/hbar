@@ -41,6 +41,11 @@ function profileFromSnapshot(snapshot: SettingsSnapshot): ThemeProfile {
   return (!profileSetting || profileSetting.source === 'default') && legacy ? { ...profile, mode: legacy } : profile
 }
 
+function profileIsExplicit(snapshot: SettingsSnapshot | null): boolean {
+  const source = snapshot?.values['appearance.profile']?.source
+  return source !== undefined && source !== 'default'
+}
+
 function hasTarget(scope: ThemeSettingScope, targetId?: string): targetId is string {
   return scope !== 'global' && Boolean(targetId)
 }
@@ -64,7 +69,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
     set((state) => ({ profile: normalizeThemeProfile(update(state.profile)), profileExplicit: true, error: '' }))
   },
   discardDraft() {
-    set((state) => ({ profile: state.savedProfile, error: '' }))
+    set((state) => ({ profile: state.savedProfile, profileExplicit: profileIsExplicit(state.snapshot), error: '' }))
   },
   async load(transport, scope = get().scope, targetId = get().targetId) {
     if (scope !== 'global' && !targetId) return
@@ -133,8 +138,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   },
   applySnapshot(snapshot) {
     const profile = profileFromSnapshot(snapshot)
-    const profileSetting = snapshot.values['appearance.profile']
-    set({ snapshot, profile, profileExplicit: profileSetting?.source !== undefined && profileSetting.source !== 'default', savedProfile: profile, conflict: false, scope: snapshot.scope, ...(snapshot.targetId ? { targetId: snapshot.targetId } : { targetId: undefined }), error: '' })
+    set({ snapshot, profile, profileExplicit: profileIsExplicit(snapshot), savedProfile: profile, conflict: false, scope: snapshot.scope, ...(snapshot.targetId ? { targetId: snapshot.targetId } : { targetId: undefined }), error: '' })
   },
 }))
 

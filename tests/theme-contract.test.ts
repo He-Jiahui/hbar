@@ -85,6 +85,26 @@ test('legacy appearance theme is retained until a full profile is saved', () => 
   useThemeSettings.setState({ profile: DEFAULT_THEME_PROFILE, profileExplicit: false, savedProfile: DEFAULT_THEME_PROFILE, snapshot: null })
 })
 
+test('discarding a draft restores inherited preset eligibility', () => {
+  const snapshot = {
+    schemaVersion: 1 as const,
+    revision: 'b'.repeat(64),
+    scope: 'global' as const,
+    values: {
+      'appearance.profile': {
+        id: 'appearance.profile', effectiveValue: DEFAULT_THEME_PROFILE, source: 'default' as const,
+        overridden: false, editable: true, restartPolicy: 'live' as const,
+      },
+    },
+  }
+  const store = useThemeSettings.getState()
+  store.applySnapshot(snapshot)
+  store.updateDraft((current) => ({ ...current, mode: 'custom' }))
+  expect(useThemeSettings.getState().profileExplicit).toBe(true)
+  store.discardDraft()
+  expect(useThemeSettings.getState().profileExplicit).toBe(false)
+})
+
 test('renderer slots honour the selected theme renderer before priority fallback', () => {
   const component = () => null
   useUIPlugins.setState((state) => ({
