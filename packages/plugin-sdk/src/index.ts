@@ -175,6 +175,7 @@ export interface BudgetService {
   get(sessionId: string): Promise<SessionBudget | null>
   set(sessionId: string, limit: number): Promise<SessionBudget>
   clear(sessionId: string): Promise<{ cleared: boolean }>
+  assertCanStart(sessionId: string, source?: import('@hbar/contracts').RunSource): Promise<void>
 }
 export interface GitDiffOptions {
   cached?: boolean | undefined

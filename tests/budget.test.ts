@@ -42,10 +42,8 @@ test('budget accounts completed runs, blocks exhausted runs, and restores after 
   const exhausted = await budget.get(session.id)
   expect(exhausted?.usedTokens).toBeGreaterThan(0)
   expect(exhausted?.phase).toBe('exhausted')
-  const blockedRun = await kernel.submit(session.id, 'blocked-run', { text: 'second', images: [] }, 'local-fixture')
-  await kernel.waitForIdle()
+  await expect(kernel.submit(session.id, 'blocked-run', { text: 'second', images: [] }, 'local-fixture')).rejects.toThrow('exhausted')
   expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
-  expect((await kernel.storage.call('run', blockedRun.id)).status).toBe('failed')
 
   const increased = await budget.set(session.id, exhausted!.usedTokens + 100)
   expect(increased.phase).toBe('active')

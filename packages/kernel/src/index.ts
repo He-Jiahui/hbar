@@ -44,6 +44,7 @@ import type {
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
+  BudgetService,
   GoalService,
   DriverInput,
   HarnessDriver,
@@ -729,6 +730,7 @@ export class Kernel {
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
+    await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, input.source)
     input = { ...input, files }
     const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
     const goal = await this.plugins.get<GoalService>('goal').get(sessionId)

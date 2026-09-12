@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { HbarError, idSchema, usageSchema } from '@hbar/contracts'
-import type { SessionEvent, Usage } from '@hbar/contracts'
+import type { RunSource, SessionEvent, Usage } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
 
@@ -129,6 +129,13 @@ export class BudgetRuntime {
     await this.api.sessions.get(sessionId)
     const budget = this.budgets.get(sessionId)
     return budget ? publicBudget(budget) : null
+  }
+
+  async assertCanStart(sessionId: string, _source?: RunSource) {
+    await this.ready()
+    const budget = this.budgets.get(sessionId)
+    if (budget?.phase === 'exhausted')
+      throw new HbarError('BUDGET_EXHAUSTED', `Token budget exhausted (${budget.usedTokens}/${budget.limit})`)
   }
 
   async set(sessionId: string, requestedLimit: number): Promise<SessionBudget> {
