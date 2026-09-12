@@ -196,7 +196,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'automation.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.automationSet(p.sessionId, p.unattended)
+        return kernel.automationSet(p.sessionId, p.unattended, p.goalEnabled)
       }
       case 'goal.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -304,6 +304,14 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'session.create': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.createSession(p.workspaceId, p.title)
+      }
+      case 'session.move': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.moveSession(p.sessionId, p.workspaceId)
+      }
+      case 'session.summaries': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.sessionSummaries(p.sessionIds)
       }
       case 'session.snapshot': {
         const p = rpcSchemas[method].parse(raw)
@@ -435,6 +443,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'plugin.disable': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.changePlugin(p.id, false)
+      }
+      case 'plugin.disableTree': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.changePluginTree(p.id)
       }
       case 'plugin.resolve': {
         const p = rpcSchemas[method].parse(raw)
