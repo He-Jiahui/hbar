@@ -27,6 +27,7 @@ import { modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import { FloatingSurface } from './FloatingLayer'
+import { useLocale } from './locale'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -113,6 +114,7 @@ export default function TerminalPanel({
   onSelectSession?(sessionId: string): void
   onClose(): void
 }) {
+  const { t } = useLocale()
   const catalog = useCatalog((state) => state.data)
   const workspaceId = useWorkbench((state) => state.workspaceId)
   const sessionId = useWorkbench((state) => state.activeSession)
@@ -559,9 +561,9 @@ export default function TerminalPanel({
           placement="above"
           className="terminal-completions"
           role="listbox"
-          aria-label="命令补全"
+          aria-label={t('commandCompletion')}
         >
-            <div className="terminal-completions-prompt">候选参数 · ↑↓ 选择 · Enter 执行 · Tab 补全</div>
+            <div className="terminal-completions-prompt">{t('completionHint')}</div>
             {candidates.map((candidate, index) => (
               <button
                 type="button"
@@ -581,9 +583,9 @@ export default function TerminalPanel({
         </FloatingSurface>
         <textarea
           ref={inputRef}
-          aria-label="控制台输入"
+          aria-label={t('consoleInput')}
           value={input}
-          placeholder="输入消息或 /命令"
+          placeholder={t('inputMessageOrCommand')}
           onFocus={() => {
             if (candidates.length > 0) setCompletionsOpen(true)
           }}

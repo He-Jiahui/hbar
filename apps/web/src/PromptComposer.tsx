@@ -10,6 +10,7 @@ import GlassSurface from './react-bits/GlassSurface'
 import { ActionButton } from './react-bits'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface } from './FloatingLayer'
+import { useLocale } from './locale'
 import './PromptComposer.css'
 
 export type AttachmentKind = 'image' | 'file'
@@ -114,6 +115,7 @@ export default function PromptComposer({
   onRemoveFile,
   onStopRun,
 }: PromptComposerProps) {
+  const { t } = useLocale()
   const fileInput = useRef<HTMLInputElement>(null)
   const slashAnchor = useRef<HTMLTextAreaElement>(null)
   const pendingAttachmentKind = useRef<AttachmentKind>('image')
@@ -276,7 +278,7 @@ export default function PromptComposer({
         placement="above"
         className="composer-slash-menu rb-menu-surface"
         role="listbox"
-        aria-label="斜杠命令"
+        aria-label={t('slashCommands')}
       >
         <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
         {slashActions.map((action, index) => (
@@ -311,7 +313,7 @@ export default function PromptComposer({
             multiple
             onChange={handleAttachmentChange}
           />
-          {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
+          {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label={t('uploading')} />}
           <PermissionSelector />
           {gitContext}
         </div>

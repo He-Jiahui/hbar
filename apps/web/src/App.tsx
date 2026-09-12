@@ -72,6 +72,7 @@ import SystemTerminalPanel from './SystemTerminalPanel'
 import { applyThemeProfile, handleThemeEvent, mergeThemeContributions, useThemeSettings } from './theme-store'
 import type { ToolWindowProps } from '@hbar/ui-sdk'
 import ReferenceGallery from './react-bits/reference/ReferenceGallery'
+import { useLocale } from './locale'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
 const DEFAULT_TOOL_RAIL_ORDER = [
@@ -529,6 +530,7 @@ function Sessions({
 }
 
 function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; sessions: readonly Session[]; onClose(): void; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
+  const { t } = useLocale()
   const session = sessions.find((item) => item.id === menu.id)
   return <FloatingSurface
     mode="point"
@@ -538,11 +540,11 @@ function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename,
     placement="below"
     className="session-context-menu"
     role="menu"
-    aria-label="会话选项"
+    aria-label={t('sessionOptions')}
     onClick={(event) => event.stopPropagation()}
   >
-    <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? '置顶会话' : '置顶工作区'}</button>
-    {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />重命名</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? '恢复会话' : '归档会话'}</button></>}
+    <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? t('pinSession') : t('pinWorkspace')}</button>
+    {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />{t('rename')}</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? t('restoreSession') : t('archiveSession')}</button></>}
   </FloatingSurface>
 }
 
