@@ -24,6 +24,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "check:docs": "bun scripts/check-doc-links.ts",
+    "check:reactbits-reference": "bun scripts/check-reactbits-reference.ts",
     "check:github-flow": "bun test tests/github-flow.test.ts --timeout 20000",
     "test": "bun test tests --timeout 20000",
     "test:e2e": "playwright test",

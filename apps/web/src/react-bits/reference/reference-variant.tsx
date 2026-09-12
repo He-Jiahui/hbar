@@ -1,0 +1,92 @@
+import { useMemo, useState } from 'react'
+import { Check, ChevronDown, Code2, Copy, FileText, Gauge, Lock, Play, Search, Send, Sparkles, Terminal, Wrench, X } from 'lucide-react'
+import type { ReferenceFixtureProps } from './reference-types'
+
+const CATEGORY_LABELS: Record<string, string> = {
+  'ai-chat': 'AI Chat',
+  'prompt-input': 'Prompt Input',
+  'agent-activity': 'Agent Activity',
+  'tool-calls': 'Tool Calls',
+  'agent-approval': 'Agent Approval',
+  'agent-plan': 'Agent Plan',
+  'ai-usage': 'AI Usage',
+  'app-shell': 'App Shell',
+  'app-sidebar': 'App Sidebar',
+  'command-menu': 'Command Menu',
+  navbar: 'Navbar',
+  mobile: 'Mobile',
+  'data-table': 'Data Table',
+  dashboard: 'Dashboard',
+  analytics: 'Analytics',
+  list: 'List',
+  filtering: 'Filtering',
+  'file-manager': 'File Manager',
+  monitoring: 'Monitoring',
+  'empty-state': 'Empty State',
+  'settings-form': 'Settings Form',
+  forms: 'Forms',
+  'app-dialog': 'App Dialog',
+  notifications: 'Notifications',
+  onboarding: 'Onboarding',
+  paywall: 'Paywall',
+  authentication: 'Authentication',
+  kanban: 'Kanban',
+  wizard: 'Wizard',
+  comments: 'Comments',
+  scheduling: 'Scheduling',
+  integrations: 'Integrations',
+  editor: 'Editor',
+  feedback: 'Feedback',
+  support: 'Support',
+  billing: 'Billing',
+  chat: 'Chat',
+}
+
+function ChatFixture({ definition }: ReferenceFixtureProps) {
+  const [modelOpen, setModelOpen] = useState(false)
+  const [message, setMessage] = useState('')
+  return (
+    <div className="rb-reference-chat">
+      <header className="rb-reference-chat-header">
+        <div><strong>{definition.title}</strong><small>Depot capacity model</small></div>
+        <button className="rb-reference-model-trigger" onClick={() => setModelOpen((open) => !open)} aria-expanded={modelOpen}>
+          <Sparkles size={14} /> Atlas · Balanced <ChevronDown size={13} />
+        </button>
+        {modelOpen && <div className="rb-reference-model-menu" role="menu"><button role="menuitem"><Sparkles size={13} /> Atlas · Balanced <Check size={13} /></button><button role="menuitem"><Gauge size={13} /> Atlas · Fast</button></div>}
+      </header>
+      <div className="rb-reference-chat-body">
+        <div className="rb-reference-message rb-reference-message-user">Model depot capacity for the next release window.</div>
+        <div className="rb-reference-message rb-reference-message-assistant"><span className="rb-reference-avatar">A</span><div><strong>Atlas</strong><p>Capacity is projected to remain within the balanced operating range. I can break down the assumptions or inspect the attached context.</p><div className="rb-reference-tool-row"><Wrench size={13} /> Context analysis <span>complete</span></div></div></div>
+      </div>
+      <footer className="rb-reference-composer"><textarea aria-label="Message" placeholder="Message" value={message} onChange={(event) => setMessage(event.target.value)} /><div className="rb-reference-composer-actions"><button aria-label="Attach a file"><FileText size={14} /></button><span>⌘ Enter to send</span><button className="rb-reference-send" disabled={!message.trim()} aria-label="Send"><Send size={14} /></button></div></footer>
+    </div>
+  )
+}
+
+function ActivityFixture({ definition }: ReferenceFixtureProps) {
+  const [expanded, setExpanded] = useState(true)
+  return <div className="rb-reference-activity"><header><div><strong>{definition.title}</strong><small>Live run activity</small></div><button className="rb-reference-icon-button" aria-label="Pause"><Terminal size={14} /></button></header><div className="rb-reference-activity-summary"><span className="rb-reference-status-dot running" /> Running <span>00:18</span><button onClick={() => setExpanded((value) => !value)}>{expanded ? 'Collapse' : 'Expand'}</button></div>{expanded && <ol className="rb-reference-timeline"><li className="done"><Check size={13} /><div><strong>Parse request</strong><small>2.1s · completed</small></div></li><li className="running"><Play size={13} /><div><strong>Inspect workspace</strong><small>working · 3 tools</small></div></li><li><span className="rb-reference-timeline-empty" /><div><strong>Compose response</strong><small>queued</small></div></li></ol>}</div>
+}
+
+function DataFixture({ definition }: ReferenceFixtureProps) {
+  const rows = useMemo(() => ['Atlas / Balanced', 'Atlas / Fast', 'Nova / Reasoning'], [])
+  return <div className="rb-reference-data"><header><div><strong>{definition.title}</strong><small>Reference data surface</small></div><div className="rb-reference-inline-actions"><button><Search size={13} /> Filter</button><button><Copy size={13} /> Export</button></div></header><div className="rb-reference-metric-grid"><div><small>Requests</small><strong>12,482</strong><span>+8.4%</span></div><div><small>Tokens</small><strong>1.8M</strong><span>within quota</span></div><div><small>Latency</small><strong>1.24s</strong><span>−12ms</span></div></div><div className="rb-reference-table">{rows.map((row, index) => <div className="rb-reference-table-row" key={row}><span>{index + 1}</span><strong>{row}</strong><small>{index === 0 ? 'active' : 'available'}</small><button aria-label={`Open ${row}`}><ChevronDown size={13} /></button></div>)}</div></div>
+}
+
+function EmptyFixture({ definition }: ReferenceFixtureProps) {
+  return <div className="rb-reference-empty"><div className="rb-reference-empty-icon"><Sparkles size={20} /></div><strong>{definition.title}</strong><p>Start with a prompt or choose a suggested action to see results here.</p><div className="rb-reference-chip-row"><button>Inspect workspace</button><button>Summarize changes</button></div></div>
+}
+
+function GenericFixture({ definition }: ReferenceFixtureProps) {
+  const [selected, setSelected] = useState('Overview')
+  const tabs = ['Overview', 'Details', 'Activity']
+  return <div className="rb-reference-generic"><header><div><strong>{definition.title}</strong><small>{CATEGORY_LABELS[definition.category] ?? definition.category} · {definition.variantSlug}</small></div><button className="rb-reference-icon-button" aria-label="Close"><X size={14} /></button></header><nav className="rb-reference-tabs">{tabs.map((tab) => <button key={tab} className={selected === tab ? 'selected' : ''} onClick={() => setSelected(tab)}>{tab}</button>)}</nav><div className="rb-reference-generic-content"><div className="rb-reference-card"><div className="rb-reference-card-icon"><Code2 size={15} /></div><div><strong>{selected}</strong><p>Composable surface with deterministic loading, empty, success and error states.</p></div><button className="rb-reference-primary"><Send size={13} /> Run</button></div><div className="rb-reference-card secondary"><Lock size={14} /><span>Fixture-only preview · production adapter is explicitly tracked in the registry.</span></div></div></div>
+}
+
+export default function ReferenceVariant(props: ReferenceFixtureProps) {
+  if (props.definition.category === 'ai-chat' || props.definition.category === 'prompt-input' || props.definition.category === 'chat') return <ChatFixture {...props} />
+  if (props.definition.category === 'agent-activity' || props.definition.category === 'tool-calls' || props.definition.category === 'monitoring') return <ActivityFixture {...props} />
+  if (['card', 'data-table', 'dashboard', 'analytics', 'list', 'filtering', 'file-manager', 'ai-usage', 'billing'].includes(props.definition.category)) return <DataFixture {...props} />
+  if (['empty-state', 'onboarding', 'paywall'].includes(props.definition.category)) return <EmptyFixture {...props} />
+  return <GenericFixture {...props} />
+}
