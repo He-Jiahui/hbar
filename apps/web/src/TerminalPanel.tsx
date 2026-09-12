@@ -236,7 +236,7 @@ export default function TerminalPanel({
         description: command.description,
         kind: 'command',
       }))
-  }, [catalog?.models, catalog?.plugins, commands, input])
+  }, [catalog?.models, catalog?.plugins, commands, input, t])
 
   useEffect(() => {
     const openCommands = () => {
