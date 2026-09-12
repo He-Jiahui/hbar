@@ -35,6 +35,8 @@ function createDefinition(category: ReferenceCategory, index: number): Reference
     title: `${CATEGORY_TITLES[category]} ${index}`,
     description: `Public-surface recreation of ${CATEGORY_TITLES[category]} variant ${index}.`,
     skill: REFERENCE_SKILL,
+    observationFile: `artifacts/reactbits-reference/${variantSlug}/observation.json`,
+    interactionsFile: `artifacts/reactbits-reference/${variantSlug}/interactions.json`,
     viewportModes: REFERENCE_VIEWPORTS,
     observation: {
       sourceUrl,

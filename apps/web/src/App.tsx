@@ -46,6 +46,7 @@ import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from '.
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import Diagnose from './DiagnosePanel'
 import SpotlightCard from './react-bits/SpotlightCard'
+import LineSidebar from './react-bits/LineSidebar'
 import GlassSurface from './react-bits/GlassSurface'
 import AnimatedList from './react-bits/AnimatedList'
 import ActivityPanel from './ActivityPanel'

@@ -14,6 +14,8 @@ describe('ReactBits reference registry', () => {
     const variant = getReferenceVariant('reactbits.ai-chat-9')
     expect(variant?.sourceUrl).toBe('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9')
     expect(variant?.skill).toBe('$hbar-reactbits-ui')
+    expect(variant?.observationFile).toBe('artifacts/reactbits-reference/ai-chat-9/observation.json')
+    expect(variant?.interactionsFile).toBe('artifacts/reactbits-reference/ai-chat-9/interactions.json')
     expect(variant?.fixture).toBeDefined()
     expect(listReferenceVariants('ai-chat')).toHaveLength(9)
   })

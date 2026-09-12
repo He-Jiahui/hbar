@@ -74,6 +74,8 @@ export type ReferenceVariantDefinition = {
   readonly title: string
   readonly description: string
   readonly skill: typeof REFERENCE_SKILL
+  readonly observationFile: string
+  readonly interactionsFile: string
   readonly viewportModes: readonly ReferenceViewport[]
   readonly observation: ReferenceObservation
   readonly interactions: readonly ReferenceInteraction[]
