@@ -63,7 +63,7 @@ type LockEntry = {
   path: string | null
   enabled: boolean | null
   dependencyCount: number
-  dependencies: string[]
+  dependencies: { id: string; range: string | null }[]
 }
 
 function reportLabel(kind: PluginReportKind) {
@@ -95,7 +95,10 @@ function lockEntries(plugins: Record<string, unknown>): LockEntry[] {
         source: stringValue(entry.source),
         path: stringValue(entry.path),
         enabled: typeof entry.enabled === 'boolean' ? entry.enabled : null,
-        dependencies: Object.keys(record(entry.dependencies)),
+        dependencies: Object.entries(record(entry.dependencies)).map(([dependency, range]) => ({
+          id: dependency,
+          range: stringValue(range),
+        })),
         dependencyCount: Object.keys(record(entry.dependencies)).length,
       }
     })
@@ -459,21 +462,40 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
 
 function LockReportView({ data }: { data: LockReport }) {
   const entries = lockEntries(data.plugins)
+  const graphEntries = useMemo(() => {
+    const byId = new Map(entries.map((entry) => [entry.id, entry]))
+    for (const entry of entries) {
+      for (const dependency of entry.dependencies) {
+        if (byId.has(dependency.id)) continue
+        byId.set(dependency.id, {
+          id: dependency.id,
+          version: null,
+          scope: null,
+          source: null,
+          path: null,
+          enabled: null,
+          dependencies: [],
+          dependencyCount: 0,
+        })
+      }
+    }
+    return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id))
+  }, [entries])
   const nodeTypes = useMemo(() => ({ 'lock-plugin': LockGraphNodeView }), [])
   const lockNodes = useMemo<FlowNode<{ label: string; version: string | null; enabled: boolean | null }, 'lock-plugin'>[]>(
-    () => entries.map((entry, index) => ({
+    () => graphEntries.map((entry, index) => ({
       id: entry.id,
       type: 'lock-plugin',
       position: { x: (index % 3) * 290, y: Math.floor(index / 3) * 120 },
       data: { label: entry.id, version: entry.version, enabled: entry.enabled },
     })),
-    [entries],
+    [graphEntries],
   )
   const lockEdges = useMemo<FlowEdge[]>(
     () => entries.flatMap((entry) => entry.dependencies.map((dependency) => ({
       id: `${entry.id}:${dependency}`,
       source: entry.id,
-      target: dependency,
+      target: dependency.id,
       label: 'locked dependency',
       type: 'smoothstep',
       animated: true,
