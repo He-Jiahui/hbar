@@ -6,18 +6,19 @@ import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { EmptyState, SegmentedControl, Timeline, type TimelineItem, type TimelineStatus } from './react-bits'
+import { useLocale, type LocaleMessageKey } from './locale'
 import './ActivityPanel.css'
 
 type ActivityMode = 'activity' | 'trace'
 
-function activityEventLabel(event: SessionEvent): string {
+function activityEventLabel(event: SessionEvent, t: (key: LocaleMessageKey) => string): string {
   const data = event.data as { name?: unknown; tool?: unknown; run?: { status?: unknown } } | null
-  if (event.type === 'tool.started' && typeof data?.name === 'string') return `正在执行 ${data.name}`
-  if (event.type === 'run.queued') return '已加入队列'
-  if (event.type === 'run.status' && typeof data?.run?.status === 'string') return `运行状态：${data.run.status}`
-  if (event.type === 'run.settled' && typeof data?.run?.status === 'string') return `运行结束：${data.run.status}`
-  if (event.type === 'approval.requested') return '等待审批'
-  if (event.type === 'approval.resolved') return '审批已处理'
+  if (event.type === 'tool.started' && typeof data?.name === 'string') return `${t('executingTool')} ${data.name}`
+  if (event.type === 'run.queued') return t('queued')
+  if (event.type === 'run.status' && typeof data?.run?.status === 'string') return `${t('runStatus')}：${data.run.status}`
+  if (event.type === 'run.settled' && typeof data?.run?.status === 'string') return `${t('runFinished')}：${data.run.status}`
+  if (event.type === 'approval.requested') return t('approvalPending')
+  if (event.type === 'approval.resolved') return t('approvalProcessed')
   return event.type.replaceAll('.', ' · ')
 }
 
@@ -35,6 +36,7 @@ function activityEventState(event: SessionEvent): 'done' | 'active' | 'waiting' 
  * state; session snapshots remain the single source of truth in the store.
  */
 export default function ActivityPanel() {
+  const { t } = useLocale()
   const sessionId = useWorkbench((state) => state.activeSession)
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const connection = useConnection((state) => state.client)
@@ -70,7 +72,7 @@ export default function ActivityPanel() {
       setEvents([])
       setDetail(null)
       setEventsLoading(false)
-      setEventsError('Host 尚未连接，无法加载事件。')
+      setEventsError(t('hostCannotLoadEvents'))
       return () => {
         alive = false
       }
@@ -95,7 +97,7 @@ export default function ActivityPanel() {
     return () => {
       alive = false
     }
-  }, [connection, sessionId, cursor])
+  }, [connection, sessionId, cursor, t])
 
   const usage = snapshot?.usage
   const runningCount =
@@ -119,48 +121,48 @@ export default function ActivityPanel() {
     const status: TimelineStatus = state === 'active' ? 'running' : state === 'waiting' ? 'waiting' : 'success'
     return {
       id: event.eventId,
-      title: activityEventLabel(event),
+      title: activityEventLabel(event, t),
       meta: new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status,
     }
   })
 
   return (
-    <div className="activity-panel rb-activity-panel" aria-label="运行与事件" aria-busy={eventsLoading}>
+    <div className="activity-panel rb-activity-panel" aria-label={t('activityAndEvents')} aria-busy={eventsLoading}>
       <GlassSurface className="activity-panel-glass" width="100%" height="100%" aria-hidden="true" />
       <SegmentedControl
         className="tool-panel-tabs"
-        ariaLabel="运行与事件视图"
+        ariaLabel={t('activityView')}
         value={mode}
-        options={[{ value: 'activity', label: '运行' }, { value: 'trace', label: '事件' }]}
+        options={[{ value: 'activity', label: t('run') }, { value: 'trace', label: t('events') }]}
         onChange={setMode}
       />
       {mode === 'activity' ? (
         <>
           <div className="activity-heading">
             <div>
-              <h2>当前会话</h2>
-              <span className="small-muted">{snapshot?.runs.length ?? 0} runs</span>
+              <h2>{t('currentSession')}</h2>
+              <span className="small-muted">{snapshot?.runs.length ?? 0} {t('runCount')}</span>
             </div>
-            {runningCount > 0 && <span className="activity-live-indicator">{runningCount} active</span>}
+            {runningCount > 0 && <span className="activity-live-indicator">{runningCount} {t('activeCount')}</span>}
           </div>
           {timelineRun && (
-            <section className="activity-timeline" aria-label="运行时间线">
+            <section className="activity-timeline" aria-label={t('timeline')}>
               <div className="activity-timeline-heading">
                 <div>
-                  <strong>{timelineRun.input.text.slice(0, 80) || '图片消息'}</strong>
+                  <strong>{timelineRun.input.text.slice(0, 80) || t('imageMessage')}</strong>
                   <span>
                     {timelineRun.status} ·{' '}
                     {timelineRun.startedAt
                       ? `${Math.max(0, Math.round(((timelineRun.endedAt ?? clock) - timelineRun.startedAt) / 1000))}s`
-                      : '未开始'}
+                      : t('notStarted')}
                   </span>
                 </div>
                 {['running', 'queued', 'waiting_approval'].includes(timelineRun.status) && (
                   <button
                     type="button"
-                    aria-label="停止此运行"
-                    title="停止此运行"
+                    aria-label={t('stopRun')}
+                    title={t('stopRun')}
                     onClick={() =>
                       void client()
                         .call('run.cancel', { runId: timelineRun.id })
@@ -179,32 +181,32 @@ export default function ActivityPanel() {
               className="activity-metric"
               spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
             >
-              <dt>输入 tokens</dt>
+              <dt>{t('inputTokens')}</dt>
               <dd>{(usage?.input ?? 0).toLocaleString()}</dd>
             </SpotlightCard>
             <SpotlightCard
               className="activity-metric"
               spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
             >
-              <dt>输出 tokens</dt>
+              <dt>{t('outputTokens')}</dt>
               <dd>{(usage?.output ?? 0).toLocaleString()}</dd>
             </SpotlightCard>
             <SpotlightCard
               className="activity-metric"
               spotlightColor="color-mix(in srgb, var(--rb-status) 18%, transparent)"
             >
-              <dt>缓存读取</dt>
+              <dt>{t('cacheRead')}</dt>
               <dd>{(usage?.cacheRead ?? 0).toLocaleString()}</dd>
             </SpotlightCard>
             <SpotlightCard
               className="activity-metric"
               spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)"
             >
-              <dt>费用</dt>
+              <dt>{t('cost')}</dt>
               <dd>${(usage?.cost ?? 0).toFixed(4)}</dd>
             </SpotlightCard>
           </dl>
-          <div className="section-label">运行记录</div>
+          <div className="section-label">{t('runHistory')}</div>
           <AnimatedList className="run-list" viewportClassName="run-list-viewport" showGradients={false}>
             {snapshot?.runs.map((run) => (
               <SpotlightCard
@@ -214,7 +216,7 @@ export default function ActivityPanel() {
               >
                 <i className={`status-dot ${run.status}`} aria-hidden="true" />
                 <div>
-                  <strong>{run.input.text.slice(0, 65) || '图片消息'}</strong>
+                  <strong>{run.input.text.slice(0, 65) || t('imageMessage')}</strong>
                   <span>
                     {run.status} ·{' '}
                     {new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -223,8 +225,8 @@ export default function ActivityPanel() {
                 {['running', 'queued', 'waiting_approval'].includes(run.status) && (
                   <button
                     type="button"
-                    title="停止此运行"
-                    aria-label="停止此运行"
+                    title={t('stopRun')}
+                    aria-label={t('stopRun')}
                     onClick={() =>
                       void client()
                         .call('run.cancel', { runId: run.id })
@@ -238,36 +240,36 @@ export default function ActivityPanel() {
             ))}
           </AnimatedList>
           {!snapshot?.runs.length && (
-            <EmptyState className="empty-tool" icon={<Activity size={25} />} title="尚无运行记录" description="发送一条消息后，运行状态会显示在这里。" />
+            <EmptyState className="empty-tool" icon={<Activity size={25} />} title={t('noRunHistory')} description={t('runHistoryHint')} />
           )}
         </>
       ) : detail ? (
-        <section className="event-detail-panel" aria-label={`${detail.type} 事件详情`}>
+        <section className="event-detail-panel" aria-label={`${detail.type} ${t('eventDetails')}`}>
           <header className="event-detail-header">
             <button
               type="button"
               className="event-detail-back"
-              aria-label="返回事件列表"
-              title="返回事件列表"
+              aria-label={t('backToEvents')}
+              title={t('backToEvents')}
               onClick={() => setDetail(null)}
             >
               <ArrowLeft size={13} />
-              返回事件
+              {t('events')}
             </button>
             <code>{detail.type}</code>
           </header>
           <dl className="event-detail-meta">
             <div>
-              <dt>序号</dt>
+              <dt>{t('sequence')}</dt>
               <dd>{detail.seq}</dd>
             </div>
             <div>
-              <dt>时间</dt>
+              <dt>{t('time')}</dt>
               <dd>{new Date(detail.time).toLocaleString()}</dd>
             </div>
             {detail.runId && (
               <div>
-                <dt>运行</dt>
+                <dt>{t('eventRun')}</dt>
                 <dd>{detail.runId}</dd>
               </div>
             )}
@@ -276,7 +278,7 @@ export default function ActivityPanel() {
         </section>
       ) : (
         <>
-          {eventsLoading && <p className="activity-loading">正在加载事件…</p>}
+          {eventsLoading && <p className="activity-loading">{t('loadingEvents')}</p>}
           {eventsError && (
             <p className="inline-error activity-error" role="alert">
               {eventsError}
@@ -285,8 +287,8 @@ export default function ActivityPanel() {
           <label className="event-filter">
             <Search size={13} aria-hidden="true" />
             <input
-              aria-label="筛选事件"
-              placeholder="筛选事件、工具或状态"
+              aria-label={t('filterEvents')}
+              placeholder={t('filterEventsPlaceholder')}
               value={eventFilter}
               onChange={(event) => setEventFilter(event.target.value)}
             />
@@ -299,7 +301,7 @@ export default function ActivityPanel() {
                 type="button"
                 className="event-entry"
                 key={event.eventId}
-                aria-label={`查看事件 ${event.type}`}
+                aria-label={`${t('viewEvent')} ${event.type}`}
                 spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
                 onClick={() => setDetail(event)}
               >
@@ -309,8 +311,8 @@ export default function ActivityPanel() {
               </SpotlightCard>
             ))}
           </div>
-          {!eventsLoading && !eventsError && !events.length && <EmptyState className="empty-tool" title="尚无事件" description="会话运行后，事件追踪会显示在这里。" />}
-          {!eventsLoading && !eventsError && events.length > 0 && !visibleEvents.length && <EmptyState className="empty-tool" title="没有匹配的事件" description="调整筛选条件后重试。" />}
+          {!eventsLoading && !eventsError && !events.length && <EmptyState className="empty-tool" title={t('noEvents')} description={t('eventsHint')} />}
+          {!eventsLoading && !eventsError && events.length > 0 && !visibleEvents.length && <EmptyState className="empty-tool" title={t('noMatchingEvents')} description={t('adjustFilterHint')} />}
         </>
       )}
     </div>
