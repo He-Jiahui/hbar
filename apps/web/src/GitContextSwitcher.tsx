@@ -41,21 +41,23 @@ export default function GitContextSwitcher({
   const load = useCallback(async () => {
     if (!workspacePath) return
     const generation = ++loadGeneration.current
+    const operationWorkspacePath = workspacePath
+    const connection = client()
     setBusy(true)
     setError('')
     try {
       const [nextStatus, nextBranches, nextWorktrees] = await Promise.all([
-        client().call('git.status', { cwd: workspacePath }),
-        client().call('git.branch', { cwd: workspacePath, operation: 'list' }),
-        client().call('git.worktree', { cwd: workspacePath, operation: 'list' }),
+        connection.call('git.status', { cwd: operationWorkspacePath }),
+        connection.call('git.branch', { cwd: operationWorkspacePath, operation: 'list' }),
+        connection.call('git.worktree', { cwd: operationWorkspacePath, operation: 'list' }),
       ])
-      if (generation !== loadGeneration.current) return
+      if (generation !== loadGeneration.current || client() !== connection || workspacePath !== operationWorkspacePath) return
       setStatus(nextStatus)
       setBranches(Array.isArray(nextBranches) ? nextBranches : [])
       setWorktrees(Array.isArray(nextWorktrees) ? nextWorktrees : [])
       setIsGit(Boolean(nextStatus.root))
     } catch (cause) {
-      if (generation !== loadGeneration.current) return
+      if (generation !== loadGeneration.current || client() !== connection || workspacePath !== operationWorkspacePath) return
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
       if (generation === loadGeneration.current) setBusy(false)
@@ -82,6 +84,8 @@ export default function GitContextSwitcher({
       if (client() !== connection || workspacePath !== operationWorkspacePath)
         throw new Error('工作区已切换，请重新选择分支')
       await load()
+      if (client() !== connection || workspacePath !== operationWorkspacePath)
+        throw new Error('连接或工作区已切换，请重新选择分支')
       setBranchDecision(null)
       setWorktreeTarget(null)
       setWorktreePath('')
