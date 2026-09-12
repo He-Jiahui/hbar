@@ -117,6 +117,10 @@
   gap: 7px;
 }
 
+.rb-prompt-composer .composer-left > .git-context-switcher {
+  min-width: 0;
+}
+
 .rb-prompt-composer .send-button {
   width: 34px;
   height: 34px;

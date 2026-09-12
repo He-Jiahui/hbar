@@ -24,6 +24,7 @@ export interface PromptComposerProps {
   artifactUrl(id: string): string
   composerActions: readonly ComposerAction[]
   modeTags?: ReactNode
+  gitContext?: ReactNode
   activeRun: Run | undefined
   busy: boolean
   uploading: boolean
@@ -101,6 +102,7 @@ export default function PromptComposer({
   artifactUrl,
   composerActions,
   modeTags,
+  gitContext,
   activeRun,
   busy,
   uploading,
@@ -272,6 +274,7 @@ export default function PromptComposer({
           {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
           <PermissionSelector />
           {modeTags}
+          {gitContext}
         </div>
         <div className="composer-right">
           <ModelPicker />

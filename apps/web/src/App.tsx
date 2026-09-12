@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
@@ -39,6 +38,7 @@ import Chat from './Chat'
 import Settings, { Modal } from './Settings'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
+import { FloatingSurface } from './FloatingLayer'
 import { permissionPreset } from './permissions'
 import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layout'
 import PairingPage from './PairingPage'
@@ -130,10 +130,12 @@ function selectedLayoutTab(model: Model): TabNode | undefined {
 function Sessions({
   onSelect,
   onNew,
+  onAddWorkspace,
   creating = false,
 }: {
   onSelect(id: string): void
   onNew(): void
+  onAddWorkspace(): void
   creating?: boolean
 }) {
   type SessionActionKind = 'fork' | 'archive'
@@ -148,13 +150,39 @@ function Sessions({
     archived = useWorkbench((state) => state.showArchived),
     pinnedSessionIds = useWorkbench((state) => state.pinnedSessionIds),
     pinnedWorkspaceIds = useWorkbench((state) => state.pinnedWorkspaceIds)
+  const snapshots = useSessions((state) => state.snapshots)
+  const [workspaceBranches, setWorkspaceBranches] = useState<Record<string, string | null>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'workspace' | 'session'; id: string } | null>(null)
   const sessions = data?.sessions ?? []
-  const workspaces = data?.workspaces ?? []
+  const workspaces = useMemo(() => data?.workspaces ?? [], [data?.workspaces])
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all(
+      workspaces.slice(0, 24).map(async (workspace) => {
+        try {
+          const info = await client().call('git.info', { cwd: workspace.path })
+          return [workspace.id, info.branch] as const
+        } catch {
+          return [workspace.id, null] as const
+        }
+      }),
+    ).then((entries) => {
+      if (!cancelled) setWorkspaceBranches(Object.fromEntries(entries))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [workspaces])
   const visibleSessions = sessions.filter((s) => s.archived === archived && s.title.toLowerCase().includes(search.toLowerCase()))
   const pinnedSessions = visibleSessions.filter((s) => pinnedSessionIds.includes(s.id))
   const pinnedWorkspaces = workspaces.filter((workspace) => pinnedWorkspaceIds.includes(workspace.id))
+  function sessionMeta(session: Session) {
+    const snapshot = snapshots[session.id]
+    const run = snapshot?.runs.find((item) => ['running', 'waiting_approval', 'queued'].includes(item.status))
+    const status = run?.status === 'waiting_approval' ? '等待批准' : run?.status === 'queued' ? '排队中' : run ? '运行中' : '就绪'
+    return { snapshot, status, branch: workspaceBranches[session.workspaceId] }
+  }
   const openMenu = (event: React.MouseEvent, type: 'workspace' | 'session', id: string) => {
     event.preventDefault()
     event.stopPropagation()
@@ -242,6 +270,7 @@ function Sessions({
       <div className="sidebar-heading">
         <strong>{archived ? '已归档' : '会话'}</strong>
         <div>
+          {!archived && <button title="新建工作区" aria-label="新建工作区" onClick={onAddWorkspace}><Plus size={15} /></button>}
           <button
             title={archived ? '活动会话' : '已归档会话'}
             aria-label={archived ? '活动会话' : '已归档会话'}
@@ -271,7 +300,11 @@ function Sessions({
           ))}
           {pinnedSessions.map((session) => (
             <button key={session.id} className={`session-item-pinned${selected === session.id ? ' selected' : ''}`} onContextMenu={(event) => openMenu(event, 'session', session.id)} onClick={() => onSelect(session.id)}>
-              <MessageSquare size={13} /><span><small>{workspaces.find((workspace) => workspace.id === session.workspaceId)?.name}</small>{session.title}</span>
+              {(() => { const meta = sessionMeta(session); return <>
+                <Pin size={13} /><span><strong>{session.title}</strong><small>{workspaces.find((workspace) => workspace.id === session.workspaceId)?.name}</small><small>{meta.branch ? `分支 · ${meta.branch}` : '无 Git 分支'}</small></span>
+                <span className={`session-status-indicator session-status-${meta.snapshot?.runs.find((run) => ['running', 'waiting_approval', 'queued'].includes(run.status))?.status ?? 'idle'}`} title={meta.status} aria-label={meta.status} />
+                <small className="session-last-response">最后响应 {new Date(session.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+              </> })()}
             </button>
           ))}
         </section>
@@ -298,6 +331,9 @@ function Sessions({
               </div>
               {isExpanded && workspaceSessions.map((session) => (
                 <SpotlightCard className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id} spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)" onContextMenu={(event) => openMenu(event, 'session', session.id)}>
+                  {(() => {
+                    const meta = sessionMeta(session)
+                    return <>
                   {renamingId === session.id ? (
               <input
                 className="session-rename-input"
@@ -320,14 +356,16 @@ function Sessions({
               />
                   ) : (
               <button className="session-select" onClick={() => onSelect(session.id)}>
-                <MessageSquare size={14} />
+                <span className="session-leading-icon" aria-hidden="true">{pinnedSessionIds.includes(session.id) ? <Pin size={14} /> : <MessageSquare size={14} />}</span>
                 <div>
                   <span>{session.title}</span>
                   <small>
-                    {new Date(session.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                    {session.parentId && ' · 分支'}
+                    {meta.branch ? `分支 · ${meta.branch}` : new Date(session.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                    {session.parentId && ' · 会话分支'}
                   </small>
                 </div>
+                <span className={`session-status-indicator session-status-${meta.snapshot?.runs.find((run) => ['running', 'waiting_approval', 'queued'].includes(run.status))?.status ?? 'idle'}`} title={meta.status} aria-label={meta.status} />
+                <small className="session-last-response">最后响应 {new Date(session.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
               </button>
                   )}
             <div className="session-row-actions">
@@ -371,6 +409,8 @@ function Sessions({
                 )}
               </button>
             </div>
+                    </>
+                  })()}
               </SpotlightCard>
               ))}
             </section>
@@ -380,17 +420,26 @@ function Sessions({
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
         )}
       </AnimatedList>
-      {contextMenu && <SessionContextMenu menu={contextMenu} sessions={sessions} onTogglePinned={togglePinned} onRename={(id) => { const session = sessions.find((item) => item.id === id); if (session) { setRenamingId(id); setRenameValue(session.title) }; setContextMenu(null) }} onArchive={(id) => { const session = sessions.find((item) => item.id === id); if (session) void toggleArchive(session); setContextMenu(null) }} />}
+      {contextMenu && <SessionContextMenu menu={contextMenu} sessions={sessions} onClose={() => setContextMenu(null)} onTogglePinned={togglePinned} onRename={(id) => { const session = sessions.find((item) => item.id === id); if (session) { setRenamingId(id); setRenameValue(session.title) }; setContextMenu(null) }} onArchive={(id) => { const session = sessions.find((item) => item.id === id); if (session) void toggleArchive(session); setContextMenu(null) }} />}
     </div>
   )
 }
 
-function SessionContextMenu({ menu, sessions, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; sessions: readonly Session[]; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
+function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; sessions: readonly Session[]; onClose(): void; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
   const session = sessions.find((item) => item.id === menu.id)
-  return createPortal(<div className="floating-layer session-context-menu" style={{ left: menu.x, top: menu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
+  return <FloatingSurface
+    anchorPoint={{ x: menu.x, y: menu.y }}
+    open
+    onClose={onClose}
+    placement="below"
+    className="session-context-menu"
+    role="menu"
+    aria-label="会话选项"
+    onClick={(event) => event.stopPropagation()}
+  >
     <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? '置顶会话' : '置顶工作区'}</button>
     {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />重命名</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? '恢复会话' : '归档会话'}</button></>}
-  </div>, document.body)
+  </FloatingSurface>
 }
 export default function App() {
   const status = useConnection((state) => state.status),
@@ -729,10 +778,27 @@ export default function App() {
     const paths = [...workspacePaths]
     if (!paths.length) return
     try {
+      const selectedPaths = new Set(paths.map((path) => path.toLowerCase()))
+      const discovered = new Set(paths)
+      for (const path of paths) {
+        try {
+          const result = await client().call('git.worktree', { cwd: path, operation: 'list' })
+          const worktrees = Array.isArray(result) ? result : [result]
+          const external = worktrees
+            .map((item) => item.path)
+            .filter((item) => !selectedPaths.has(item.toLowerCase()))
+          if (external.length && window.confirm(`检测到 ${external.length} 个位于当前目录之外的 Git Worktree，是否一并加入工作区？`)) {
+            external.forEach((item) => discovered.add(item))
+          }
+        } catch {
+          // 非 Git 目录无需额外处理，仍可作为普通工作区加入。
+        }
+      }
+      const pathsToCreate = [...discovered]
       const alias = workspaceAlias.trim()
       const created = []
-      for (const path of paths) {
-        const name = alias && paths.length === 1 ? alias : undefined
+      for (const path of pathsToCreate) {
+        const name = alias && pathsToCreate.length === 1 ? alias : undefined
         created.push(await client().call('workspace.create', { path, ...(name ? { name } : {}) }))
       }
       await refreshCatalog()
@@ -741,6 +807,16 @@ export default function App() {
     } catch (error) {
       report(error)
     }
+  }
+  async function useWorktreePath(path: string) {
+    const existing = data?.workspaces.find((workspace) => workspace.path.toLocaleLowerCase() === path.toLocaleLowerCase())
+    if (existing) {
+      useWorkbench.setState({ workspaceId: existing.id })
+      return
+    }
+    const created = await client().call('workspace.create', { path })
+    await refreshCatalog()
+    useWorkbench.setState({ workspaceId: created.id })
   }
   function openSessionTab(session: Session) {
     initialSelection.current = false
@@ -952,6 +1028,7 @@ export default function App() {
               setConversationViews((current) => ({ ...current, [id]: 'console' }))
               selectSession(id)
             }}
+            onUseWorktree={useWorktreePath}
           />
         )
       }
@@ -1083,7 +1160,7 @@ export default function App() {
         <aside className="sidebar">
           <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
           {panel === 'sessions' ? (
-            <Sessions onSelect={selectSession} onNew={() => void newSession()} creating={isCreatingSession} />
+            <Sessions onSelect={selectSession} onNew={() => void newSession()} onAddWorkspace={() => setWorkspaceModal(true)} creating={isCreatingSession} />
           ) : (
             <FileNavigation workspaceId={workspaceId} onOpen={openFile} />
           )}
@@ -1121,7 +1198,7 @@ export default function App() {
           {small ? (
             <>
               {mobileView === 'sessions' ? (
-                <Sessions onSelect={selectSession} onNew={() => void newSession()} creating={isCreatingSession} />
+                <Sessions onSelect={selectSession} onNew={() => void newSession()} onAddWorkspace={() => setWorkspaceModal(true)} creating={isCreatingSession} />
               ) : mobileView === 'settings' ? (
                 <Settings />
               ) : mobileView === 'activity' ? (
@@ -1170,6 +1247,7 @@ export default function App() {
                     setConversationViews((current) => ({ ...current, [id]: 'console' }))
                     selectSession(id)
                   }}
+                  onUseWorktree={useWorktreePath}
                 />
               )}
             </>

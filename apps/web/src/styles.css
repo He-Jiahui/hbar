@@ -522,6 +522,26 @@ p {
   text-align: left;
   font-size: 11px;
 }
+.session-item-pinned,
+.session-item-pinned > span {
+  text-align: left;
+}
+.session-item-pinned > span:nth-of-type(1) {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+.session-item-pinned > span:nth-of-type(1) strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-item-pinned > span:nth-of-type(1) small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .session-item-pinned span {
   display: grid;
   min-width: 0;
@@ -555,19 +575,57 @@ p {
   background: #3b4963;
 }
 .session-select {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   width: 100%;
   gap: 9px;
   padding: 10px 9px;
   text-align: left;
   align-items: flex-start;
 }
+.session-leading-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+.session-status-indicator {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 1px solid var(--hbar-bd2);
+  border-radius: 50%;
+  background: var(--hbar-t3);
+}
+.session-status-running,
+.session-status-waiting_approval {
+  border-color: var(--hbar-wn);
+  background: var(--hbar-wn);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--hbar-wn) 55%, transparent);
+}
+.session-status-queued {
+  border-color: var(--hbar-ac2);
+  background: var(--hbar-ac2);
+}
+.session-status-completed {
+  border-color: var(--hbar-ok);
+  background: var(--hbar-ok);
+}
+.session-status-failed,
+.session-status-interrupted {
+  border-color: var(--hbar-er);
+  background: var(--hbar-er);
+}
+.session-last-response {
+  grid-column: 2 / -1;
+  color: var(--hbar-t3);
+  font: 9px var(--mono);
+  text-align: right;
+}
 .session-select > svg {
   margin-top: 3px;
   color: #8fa9d3;
 }
 .session-select > div {
-  flex: 1;
   min-width: 0;
 }
 .session-select > div > span {
@@ -1680,6 +1738,7 @@ p {
 }
 .settings-page-heading {
   display: grid;
+  width: 100%;
   gap: 10px;
   align-items: stretch;
 }
@@ -1699,6 +1758,8 @@ p {
   font-size: 11px;
 }
 .settings-global-search {
+  width: 100%;
+  box-sizing: border-box;
   min-height: 34px;
   gap: 8px;
   padding: 0 10px;

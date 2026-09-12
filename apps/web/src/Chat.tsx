@@ -40,6 +40,7 @@ import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
 import PromptComposer, { type AttachmentKind, type OpenFilePicker } from './PromptComposer'
 import ChatSessionChrome from './ChatSessionChrome'
+import GitContextSwitcher from './GitContextSwitcher'
 import TerminalPanel from './TerminalPanel'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
@@ -420,12 +421,14 @@ export default function Chat({
   view = 'chat',
   onViewChange,
   onSelectSession,
+  onUseWorktree,
 }: {
   sessionId?: string
   onSettings(): void
   view?: 'chat' | 'console'
   onViewChange(view: 'chat' | 'console'): void
   onSelectSession(sessionId: string): void
+  onUseWorktree(path: string): void | Promise<void>
 }) {
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
@@ -930,6 +933,13 @@ export default function Chat({
                   report(error)
                 }
               }}
+              gitContext={
+                <GitContextSwitcher
+                  workspacePath={workspace?.path ?? ''}
+                  branch={gitInfo?.branch ?? null}
+                  onUseWorktree={onUseWorktree}
+                />
+              }
             />
             <div className="composer-footer">
               <span className="composer-footer-model">
