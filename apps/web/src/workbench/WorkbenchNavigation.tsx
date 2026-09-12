@@ -431,7 +431,7 @@ export function WorkbenchToolRails({
                   onClick={() =>
                     onToggleTool(
                       panelId,
-                      tool.id === 'activity' ? t('running') : tool.title,
+                      id === 'activity' ? t('running') : tool.title,
                       tool.component,
                       tool.placement,
                     )
@@ -485,7 +485,7 @@ export function WorkbenchToolRails({
                   onClick={() =>
                     onToggleTool(
                       panelId,
-                      tool.id === 'activity' ? t('running') : tool.title,
+                      id === 'activity' ? t('running') : tool.title,
                       tool.component,
                       tool.placement,
                     )
