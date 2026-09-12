@@ -47,6 +47,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     if (!workspaceId) {
       setEntries([])
       setLoading(false)
+      setError('')
       return
     }
     let alive = true
@@ -62,6 +63,8 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
         alive = false
       }
     }
+    setEntries([])
+    setError('')
     setLoading(true)
     void requestConnection
       .call('file.list', { workspaceId, path })
@@ -231,9 +234,11 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
     [notice, setNotice] = useState(''),
     [error, setError] = useState('')
   const dirty = !loading && text !== savedText
+  const saveRequestSerial = useRef(0)
   useEffect(() => {
     let current = true
     const generation = ++viewGeneration.current
+    saveRequestSerial.current += 1
     const requestConnection = connection
     const isCurrent = () =>
       current && generation === viewGeneration.current && useConnection.getState().client === requestConnection
@@ -282,12 +287,16 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
     if (!dirty || saving) return
     const generation = viewGeneration.current
     const requestConnection = connection
+    const requestSerial = ++saveRequestSerial.current
+    const submittedText = text
     if (!requestConnection) {
       setError('Host is not connected')
       return
     }
     const isCurrent = () =>
-      generation === viewGeneration.current && useConnection.getState().client === requestConnection
+      generation === viewGeneration.current &&
+      requestSerial === saveRequestSerial.current &&
+      useConnection.getState().client === requestConnection
     setSaving(true)
     setError('')
     setNotice('')
@@ -295,11 +304,11 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
       const result = await requestConnection.call('file.write', {
         workspaceId,
         path,
-        text,
+        text: submittedText,
         ...(force || !revision ? {} : { expectedRevision: revision }),
       })
       if (isCurrent()) {
-        setText(result.text)
+        setText((current) => (current === submittedText ? result.text : current))
         setSavedText(result.text)
         setRevision(result.revision)
         setConflict(false)
