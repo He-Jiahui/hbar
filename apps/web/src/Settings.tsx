@@ -721,7 +721,7 @@ function SkillsSettings() {
 }
 
 export default function Settings() {
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const [tab, setTab] = useState<SettingsTab>('models'),
     [editor, setEditor] = useState<ModelInfo | 'new' | null>(null)
   const [settingsScope, setSettingsScope] = useState<SettingsScope>(() => {
@@ -1081,7 +1081,7 @@ export default function Settings() {
           </div>
           {settingsScope !== 'global' && themeSnapshot?.values['appearance.profile']?.source !== settingsScope && (
             <div className="settings-override-notice" role="status">
-              {t('inheritedFrom')} {themeSnapshot?.values['appearance.profile']?.source === 'project' ? t('projectSettings') : themeSnapshot?.values['appearance.profile']?.source === 'global' ? t('globalSettings') : t('defaultSettings')}。
+              {t('inheritedFrom')} {themeSnapshot?.values['appearance.profile']?.source === 'project' ? t('projectSettings') : themeSnapshot?.values['appearance.profile']?.source === 'global' ? t('globalSettings') : t('defaultSettings')}{locale === 'zh-CN' ? '。' : '.'}
               <button
                 type="button"
                 className="text-command"
