@@ -743,6 +743,11 @@ const messages = {
     chatStatusUsageLimited: '用量受限',
     chatStatusBudgetLimited: '预算受限',
     chatStatusComplete: '已完成',
+    previewTitle: '主题标题预览',
+    previewLink: 'Markdown 链接',
+    previewQuote: '这是一段引用，展示次要文本颜色。',
+    previewList: '列表项目',
+    previewInlineCode: '行内代码',
   },
   'en-US': {
     preview: 'Preview',
@@ -1483,6 +1488,11 @@ const messages = {
     chatStatusUsageLimited: 'Usage limited',
     chatStatusBudgetLimited: 'Budget limited',
     chatStatusComplete: 'Complete',
+    previewTitle: 'Theme heading preview',
+    previewLink: 'Markdown link',
+    previewQuote: 'A quote preview showing secondary text color.',
+    previewList: 'List item',
+    previewInlineCode: 'inline code',
   },
 } as const
 

@@ -617,7 +617,9 @@
 }
 
 .theme-preview h3,
-.theme-preview p {
+.theme-preview p,
+.theme-preview blockquote,
+.theme-preview ul {
   margin: 0;
 }
 
@@ -630,6 +632,21 @@
 
 .theme-preview strong {
   font-weight: var(--hbar-font-weight-heading);
+}
+
+.theme-preview a {
+  color: var(--hbar-link, var(--hbar-ac));
+  text-decoration: var(--hbar-underline-links);
+}
+
+.theme-preview blockquote {
+  border-inline-start: 3px solid var(--hbar-bd2);
+  color: var(--hbar-t2);
+  padding-inline-start: 12px;
+}
+
+.theme-preview ul {
+  padding-inline-start: 20px;
 }
 
 .theme-preview u {

@@ -1167,8 +1167,11 @@ export default function Settings() {
             <div className="theme-select-field theme-background-field"><span>{t('backgroundImage')}</span><div className="theme-background-actions"><button type="button" className="button" disabled={themeUploading} onClick={() => void platform().then((adapter) => adapter.pickBackgroundAsset()).then(uploadThemeBackground).catch((error) => setSettingsError(error instanceof Error ? error.message : String(error)))}>{themeUploading ? t('uploading') : t('chooseImage')}</button>{themeProfile.surface.backgroundAsset && <button type="button" className="text-command" onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: null } }))}>{t('remove')}</button>}</div></div>
           </div>
           <div className="theme-preview">
-            <h3>{t('themePreview')}</h3>
+            <h3>{t('previewTitle')}</h3>
             <p>{t('mixedTypographyPreview')}<strong>{t('boldPreview')}</strong>，<u>{t('underlinePreview')}</u>。</p>
+            <p><a href="#theme-preview" onClick={(event) => event.preventDefault()}>{t('previewLink')}</a> · <code>{t('previewInlineCode')}</code></p>
+            <blockquote>{t('previewQuote')}</blockquote>
+            <ul><li>{t('previewList')}</li><li>{t('previewList')}</li></ul>
             <code>const theme = 'global';</code>
           </div>
           {themeBackgroundAssets.length > 0 && <div className="theme-plugin-assets" aria-label={t('pluginBackgrounds')}><span>{t('pluginBackgrounds')}</span>{themeBackgroundAssets.map((asset) => { const selected = themeProfile.surface.backgroundAsset === `plugin/${asset.owner}/${asset.path}`; return <button type="button" className={selected ? 'selected' : ''} key={asset.id} aria-pressed={selected} onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: `plugin/${asset.owner}/${asset.path}` } }))}>{asset.title ?? asset.path}</button> })}</div>}
