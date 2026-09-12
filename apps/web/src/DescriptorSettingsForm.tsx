@@ -5,6 +5,7 @@ import './descriptor-settings.css'
 type DescriptorSettingsFormProps = {
   descriptors: readonly SettingDescriptor[]
   snapshot: SettingsSnapshot | null
+  context?: { hasWorkspace: boolean; hasSession: boolean; pluginEnabled?: boolean }
   saving?: boolean
   onSet(id: string, value: unknown): void
   onReset(id: string): void
@@ -123,8 +124,18 @@ function inheritedLabel(setting: ResolvedSetting | undefined, scope: SettingsSna
   return <span className="descriptor-setting-inherited">当前值继承自{source}设置（{localScope}作用域未覆盖）</span>
 }
 
-export default function DescriptorSettingsForm({ descriptors, snapshot, saving = false, onSet, onReset }: DescriptorSettingsFormProps) {
-  const ordered = useMemo(() => [...descriptors].sort((left, right) => left.order - right.order || left.id.localeCompare(right.id)), [descriptors])
+export default function DescriptorSettingsForm({ descriptors, snapshot, context = { hasWorkspace: false, hasSession: false }, saving = false, onSet, onReset }: DescriptorSettingsFormProps) {
+  const ordered = useMemo(() => descriptors
+    .filter((setting) => {
+      if (!setting.visibility) return true
+      const actual = setting.visibility.fact === 'hasWorkspace'
+        ? context.hasWorkspace
+        : setting.visibility.fact === 'hasSession'
+          ? context.hasSession
+          : context.pluginEnabled ?? false
+      return setting.visibility.equals === undefined ? actual : actual === setting.visibility.equals
+    })
+    .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id)), [context.hasSession, context.hasWorkspace, context.pluginEnabled, descriptors])
   if (!ordered.length) return null
   return (
     <section className="descriptor-settings-form" aria-label="描述驱动设置">
