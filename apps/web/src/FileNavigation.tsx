@@ -17,6 +17,7 @@ import { useConnection } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { useLocale } from './locale'
 import './FileNavigation.css'
 
 // Keep the editor out of the initial shell bundle; file navigation remains
@@ -31,6 +32,7 @@ interface FileNavigationProps {
 /** File tree view for the active workspace. Network ownership stays local to
  * this document feature; the parent only supplies scope and open intent. */
 export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
+  const { t } = useLocale()
   const connection = useConnection((state) => state.client)
   const [path, setPath] = useState('.'),
     [entries, setEntries] = useState<FileEntry[]>([]),
@@ -58,7 +60,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     if (!requestConnection) {
       setEntries([])
       setLoading(false)
-      setError('Host is not connected')
+      setError(t('hostDisconnected'))
       return () => {
         alive = false
       }
@@ -83,7 +85,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     return () => {
       alive = false
     }
-  }, [connection, workspaceId, path, reloadToken])
+  }, [connection, workspaceId, path, reloadToken, t])
   const segments = path === '.' ? [] : path.split('/').filter(Boolean)
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const visibleEntries = normalizedQuery
@@ -97,12 +99,12 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     <div className="file-nav rb-file-nav">
       <GlassSurface className="file-nav-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="sidebar-heading">
-        <strong>文件</strong>
+        <strong>{t('files')}</strong>
         <div>
           <button
             type="button"
-            title="上级目录"
-            aria-label="上级目录"
+            title={t('parentDirectory')}
+            aria-label={t('parentDirectory')}
             disabled={path === '.'}
             onClick={() => setPath(path.includes('/') ? path.split('/').slice(0, -1).join('/') : '.')}
           >
@@ -110,8 +112,8 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           </button>
           <button
             type="button"
-            title="刷新目录"
-            aria-label="刷新目录"
+            title={t('refreshDirectory')}
+            aria-label={t('refreshDirectory')}
             disabled={loading || !workspaceId}
             onClick={() => setReloadToken((current) => current + 1)}
           >
@@ -119,7 +121,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           </button>
         </div>
       </div>
-      <nav className="file-breadcrumb" aria-label="文件路径" title={path}>
+      <nav className="file-breadcrumb" aria-label={t('filePath')} title={path}>
         <button type="button" className={path === '.' ? 'selected' : ''} onClick={() => navigateTo(-1)}>
           工作区
         </button>
@@ -140,27 +142,27 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
         <Search size={13} aria-hidden="true" />
         <input
           type="search"
-          aria-label="筛选当前目录"
-          placeholder="筛选当前目录"
+          aria-label={t('filterDirectory')}
+          placeholder={t('filterDirectory')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
         {query && (
-          <button type="button" title="清除文件筛选" aria-label="清除文件筛选" onClick={() => setQuery('')}>
+          <button type="button" title={t('clearFileFilter')} aria-label={t('clearFileFilter')} onClick={() => setQuery('')}>
             <X size={12} />
           </button>
         )}
       </label>
       {normalizedQuery && !loading && !error && (
         <div className="file-filter-count" role="status">
-          {visibleEntries.length} 个匹配项
+          {visibleEntries.length} {t('matchingItems')}
         </div>
       )}
       {!workspaceId ? (
         <div className="file-empty-state" role="status">
           <Folder size={18} />
-          <strong>尚未选择工作区</strong>
-          <span>选择一个工作区后浏览文件。</span>
+          <strong>{t('noWorkspaceSelected')}</strong>
+          <span>{t('selectWorkspaceHint')}</span>
         </div>
       ) : error ? (
         <div className="inline-error" role="alert">
@@ -169,11 +171,11 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
       ) : loading ? (
         <div className="file-empty-state" role="status">
           <LoaderCircle size={18} className="spinning" />
-          <strong>正在读取目录</strong>
-          <span>稍等片刻，文件列表马上就绪。</span>
+          <strong>{t('readingDirectory')}</strong>
+          <span>{t('readingDirectoryHint')}</span>
         </div>
       ) : visibleEntries.length ? (
-        <AnimatedList className="file-list" viewportClassName="file-list-viewport" aria-label={`文件列表 ${path}`}>
+        <AnimatedList className="file-list" viewportClassName="file-list-viewport" aria-label={`${t('fileList')} ${path}`}>
           {visibleEntries.map((entry) => (
             <SpotlightCard
               as="button"
@@ -187,7 +189,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
                 } else onOpen(entry.path)
               }}
               title={entry.path}
-              aria-label={entry.directory ? `打开目录 ${entry.name}` : `打开文件 ${entry.name}`}
+              aria-label={entry.directory ? `${t('openDirectory')} ${entry.name}` : `${t('openFile')} ${entry.name}`}
               spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
             >
               {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
@@ -199,17 +201,17 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
       ) : entries.length ? (
         <div className="file-empty-state" role="status">
           <Search size={18} />
-          <strong>没有匹配的文件</strong>
-          <span>尝试更换关键词，或清除当前筛选。</span>
+          <strong>{t('noMatchingFiles')}</strong>
+          <span>{t('changeFilterHint')}</span>
           <button type="button" className="text-command" onClick={() => setQuery('')}>
-            清除筛选
+            {t('clearFilter')}
           </button>
         </div>
       ) : (
         <div className="file-empty-state" role="status">
           <Folder size={18} />
-          <strong>目录为空</strong>
-          <span>当前目录没有可浏览的文件。</span>
+          <strong>{t('emptyDirectory')}</strong>
+          <span>{t('emptyDirectoryHint')}</span>
         </div>
       )}
     </div>
@@ -222,6 +224,7 @@ interface FileViewerProps {
 }
 
 export function FileViewer({ path, workspaceId }: FileViewerProps) {
+  const { t } = useLocale()
   const connection = useConnection((state) => state.client)
   const viewGeneration = useRef(0)
   const [text, setText] = useState(''),
@@ -252,7 +255,7 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
     setSaving(false)
     if (!requestConnection) {
       setLoading(false)
-      setError('Host is not connected')
+      setError(t('hostDisconnected'))
       return () => {
         current = false
       }
@@ -276,7 +279,7 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
     return () => {
       current = false
     }
-  }, [connection, workspaceId, path, reloadToken])
+  }, [connection, workspaceId, path, reloadToken, t])
   function failureMessage(failure: unknown) {
     return failure instanceof Error ? failure.message : String(failure)
   }
@@ -290,7 +293,7 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
     const requestSerial = ++saveRequestSerial.current
     const submittedText = text
     if (!requestConnection) {
-      setError('Host is not connected')
+      setError(t('hostDisconnected'))
       return
     }
     const isCurrent = () =>
@@ -312,7 +315,7 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
         setSavedText(result.text)
         setRevision(result.revision)
         setConflict(false)
-        setNotice('已保存')
+        setNotice(t('saved'))
       }
     } catch (failure) {
       if (isCurrent()) {
@@ -336,13 +339,13 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
         <FileCode2 size={14} />
         <span title={path}>{path}</span>
         <span className={dirty ? 'file-viewer-state dirty' : 'file-viewer-state'}>
-          {saving ? '保存中…' : dirty ? '未保存' : notice || '已保存'}
+          {saving ? t('saving') : dirty ? t('notSaved') : notice || t('saved')}
         </span>
         <div className="file-viewer-actions">
           <button
             type="button"
-            title="重新加载文件"
-            aria-label="重新加载文件"
+            title={t('reloadFile')}
+            aria-label={t('reloadFile')}
             disabled={saving || !workspaceId || dirty}
             onClick={reload}
           >
@@ -351,8 +354,8 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
           <button
             type="button"
             className="file-viewer-save"
-            title="保存文件"
-            aria-label="保存文件"
+            title={t('saveFile')}
+            aria-label={t('saveFile')}
             disabled={!dirty || saving || !workspaceId}
             onClick={() => void save()}
           >
@@ -366,10 +369,10 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
           {conflict && (
             <div className="file-viewer-conflict-actions">
               <button type="button" className="button" onClick={() => setReloadToken((current) => current + 1)}>
-                <RotateCcw size={12} /> 重新加载
+                <RotateCcw size={12} /> {t('refresh')}
               </button>
               <button type="button" className="button primary" onClick={() => void save(true)} disabled={saving}>
-                <AlertTriangle size={12} /> 覆盖保存
+                <AlertTriangle size={12} /> {t('overwriteSave')}
               </button>
             </div>
           )}
@@ -377,7 +380,7 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
       ) : loading ? (
         <div className="file-viewer-empty" role="status">
           <LoaderCircle size={18} className="spinning" />
-          <span>正在读取文件…</span>
+          <span>{t('readingFile')}</span>
         </div>
       ) : (
         <Suspense fallback={<pre>{text}</pre>}>
@@ -391,12 +394,12 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
       )}
       {dirty && !error && (
         <div className="file-viewer-unsaved" role="status">
-          <span>有未保存的更改</span>
+          <span>{t('unsavedChanges')}</span>
           <button type="button" className="button primary" onClick={() => void save()} disabled={saving}>
-            {saving ? '保存中…' : '保存'}
+            {saving ? t('saving') : t('save')}
           </button>
           <button type="button" className="button" onClick={discardChanges} disabled={saving}>
-            放弃更改
+            {t('discardChanges')}
           </button>
         </div>
       )}
