@@ -9,6 +9,7 @@ export type ThemeSettingScope = SettingScope
 interface ThemeSettingsState {
   scope: ThemeSettingScope
   targetId: string | undefined
+  parentTargetId: string | undefined
   snapshot: SettingsSnapshot | null
   profile: ThemeProfile
   profileExplicit: boolean
@@ -17,7 +18,7 @@ interface ThemeSettingsState {
   saving: boolean
   error: string
   conflict: boolean
-  setScope(scope: ThemeSettingScope, targetId?: string): void
+  setScope(scope: ThemeSettingScope, targetId?: string, parentTargetId?: string): void
   updateDraft(update: (current: ThemeProfile) => ThemeProfile): void
   discardDraft(): void
   load(transport: ClientTransport, scope?: ThemeSettingScope, targetId?: string): Promise<void>
@@ -47,6 +48,7 @@ function hasTarget(scope: ThemeSettingScope, targetId?: string): targetId is str
 export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   scope: 'global',
   targetId: undefined,
+  parentTargetId: undefined,
   snapshot: null,
   profile: DEFAULT_THEME_PROFILE,
   profileExplicit: false,
@@ -55,8 +57,8 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   saving: false,
   error: '',
   conflict: false,
-  setScope(scope, targetId) {
-    set({ scope, ...(hasTarget(scope, targetId) ? { targetId } : { targetId: undefined }) })
+  setScope(scope, targetId, parentTargetId) {
+    set({ scope, ...(hasTarget(scope, targetId) ? { targetId } : { targetId: undefined }), ...(scope === 'session' && parentTargetId ? { parentTargetId } : { parentTargetId: undefined }) })
   },
   updateDraft(update) {
     set((state) => ({ profile: normalizeThemeProfile(update(state.profile)), profileExplicit: true, error: '' }))
@@ -142,7 +144,7 @@ export function handleThemeEvent(event: WireNotification, transport: ClientTrans
   const sameTarget = event.params.targetId === state.targetId
   const relevant = event.params.scope === 'global'
     || (event.params.scope === state.scope && sameTarget)
-    || (state.scope === 'session' && event.params.scope === 'project')
+    || (state.scope === 'session' && event.params.scope === 'project' && event.params.targetId === state.parentTargetId)
   if (!relevant) return
   if (JSON.stringify(state.profile) !== JSON.stringify(state.savedProfile)) void state.refreshSnapshot(transport)
   else void state.load(transport, state.scope, state.targetId)

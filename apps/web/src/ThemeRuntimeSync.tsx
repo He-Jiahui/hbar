@@ -49,7 +49,7 @@ export default function ThemeRuntimeSync() {
     if (status !== 'connected' || !connection) return
     const scope = activeSession ? 'session' : workspaceId ? 'project' : 'global'
     const targetId = activeSession || workspaceId || undefined
-    useThemeSettings.getState().setScope(scope, targetId)
+    useThemeSettings.getState().setScope(scope, targetId, workspaceId || undefined)
     void useThemeSettings.getState().load(connection, scope, targetId)
     return connection.onEvent((event) => handleThemeEvent(event, connection))
   }, [activeSession, connection, status, workspaceId])

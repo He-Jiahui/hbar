@@ -827,7 +827,7 @@ export default function Settings() {
   }, [t, tab, themePlugins, themeProfile, themeProfileExplicit])
   useEffect(() => {
     const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
-    useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined)
+    useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined, workspaceId || undefined)
     if (useConnection.getState().status !== 'connected') return
     const connection = useConnection.getState().client
     if (connection && (settingsScope === 'global' || targetId))
