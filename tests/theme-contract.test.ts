@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileSchema } from '@hbar/contracts'
-import { isThemeEventRelevant, mergeThemeContributions, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
+import { isThemeEventRelevant, mergeThemeContributions, themeContrastRatio, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
 import { selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
@@ -46,6 +46,12 @@ test('theme CSS projects a visible primary-colour hover state', () => {
   expect(variables['--hbar-ac-soft']).toContain('color-mix')
   expect(variables['--hbar-ac-soft-hover']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
   expect(variables['--hbar-ac-border']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
+})
+
+test('default theme maintains readable text and accent contrast', () => {
+  expect(themeContrastRatio(DEFAULT_THEME_PROFILE.colors.textPrimary, DEFAULT_THEME_PROFILE.colors.background)).toBeGreaterThanOrEqual(4.5)
+  expect(themeContrastRatio(DEFAULT_THEME_PROFILE.colors.headingText, DEFAULT_THEME_PROFILE.colors.background)).toBeGreaterThanOrEqual(4.5)
+  expect(themeContrastRatio(DEFAULT_THEME_PROFILE.colors.primary, DEFAULT_THEME_PROFILE.colors.background)).toBeGreaterThanOrEqual(4.5)
 })
 
 test('plugin presets apply to the untouched default while explicit user values win', () => {

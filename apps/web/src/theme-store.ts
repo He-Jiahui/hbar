@@ -355,3 +355,24 @@ export function isDarkThemeColor(value: string): boolean {
   if (![red, green, blue].every(Number.isFinite)) return true
   return (red * 299 + green * 587 + blue * 114) / 255_000 < 0.56
 }
+
+function channelLuminance(value: number): number {
+  const normalized = value / 255
+  return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+}
+
+/** WCAG relative contrast for the six/eight digit theme colour format. */
+export function themeContrastRatio(foreground: string, background: string): number {
+  const parse = (value: string) => {
+    const hex = value.slice(1)
+    if (!/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(value)) return null
+    return [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16))
+  }
+  const fg = parse(foreground)
+  const bg = parse(background)
+  if (!fg || !bg) return 1
+  const luminance = (rgb: number[]) => 0.2126 * channelLuminance(rgb[0]!) + 0.7152 * channelLuminance(rgb[1]!) + 0.0722 * channelLuminance(rgb[2]!)
+  const lighter = Math.max(luminance(fg), luminance(bg))
+  const darker = Math.min(luminance(fg), luminance(bg))
+  return (lighter + 0.05) / (darker + 0.05)
+}
