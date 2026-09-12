@@ -6,7 +6,7 @@ import { ReferenceBlueprint } from './ReferenceBlueprints'
 import { ReferenceButton } from './primitives/ReferencePrimitives'
 import { reportFixtureClick } from './reference-interactions'
 
-function ChatFixture({ definition, onInteraction }: ReferenceFixtureProps) {
+export function ChatReferenceFixture({ definition, onInteraction }: ReferenceFixtureProps) {
   const [modelOpen, setModelOpen] = useState(false)
   const modelTrigger = useRef<HTMLButtonElement>(null)
   const [message, setMessage] = useState('')
@@ -64,12 +64,12 @@ function ChatFixture({ definition, onInteraction }: ReferenceFixtureProps) {
 }
 
 export default function ReferenceVariant(props: ReferenceFixtureProps) {
-  if (props.definition.category === 'ai-chat' || props.definition.category === 'chat') return <ChatFixture {...props} />
-  if (props.definition.category === 'prompt-input') return <PromptFixture {...props} />
+  if (props.definition.category === 'ai-chat' || props.definition.category === 'chat') return <ChatReferenceFixture {...props} />
+  if (props.definition.category === 'prompt-input') return <PromptReferenceFixture {...props} />
   return <ReferenceBlueprint {...props} />
 }
 
-function PromptFixture({ definition, onInteraction }: ReferenceFixtureProps) {
+export function PromptReferenceFixture({ definition, onInteraction }: ReferenceFixtureProps) {
   const variant = Number(definition.variantSlug.match(/-(\d+)$/)?.[1] ?? 1)
   const [mode, setMode] = useState(variant === 7 ? 'Ask' : 'Compose')
   const [text, setText] = useState('')
