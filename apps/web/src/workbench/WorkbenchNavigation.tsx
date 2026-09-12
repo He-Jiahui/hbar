@@ -340,11 +340,6 @@ export function WorkbenchToolRails({
     if (source) onMoveTool(source, rail)
     onDragState?.(null)
   }
-  function previewRailDrop(event: React.DragEvent<HTMLElement>, rail: 'left' | 'right') {
-    event.preventDefault()
-    const source = event.dataTransfer.getData('application/x-hbar-tool') || document.body.dataset.hbarDraggingTool || activeToolDrag
-    if (source && (toolSides[source] ?? 'right') !== rail) onMoveTool(source, rail)
-  }
   function finishToolDrag(id: string, event: React.DragEvent<HTMLButtonElement>) {
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.tool-rail')
     if (target) onMoveTool(id, target.classList.contains('left-rail') ? 'left' : 'right')
@@ -372,9 +367,7 @@ export function WorkbenchToolRails({
         <nav
           className="tool-rail left-rail"
           aria-label="主导航"
-          onPointerEnter={() => { if (activeToolDrag) onMoveTool(activeToolDrag, 'left') }}
-          onDragOver={(event) => previewRailDrop(event, 'left')}
-          onDragEnter={(event) => previewRailDrop(event, 'left')}
+          onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => dropOnRail(event, 'left')}
         >
           {showPrimary && <>
@@ -446,9 +439,7 @@ export function WorkbenchToolRails({
         <nav
           className="tool-rail right-rail"
           aria-label="工具窗口"
-          onPointerEnter={() => { if (activeToolDrag) onMoveTool(activeToolDrag, 'right') }}
-          onDragOver={(event) => previewRailDrop(event, 'right')}
-          onDragEnter={(event) => previewRailDrop(event, 'right')}
+          onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => dropOnRail(event, 'right')}
         >
           {toolOrder
