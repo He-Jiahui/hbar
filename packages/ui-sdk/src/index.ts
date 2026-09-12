@@ -73,6 +73,12 @@ export interface ClientTheme {
   motion?: DeepPartial<ThemeProfile['motion']>
   backgroundAssets?: string[]
 }
+export interface BackgroundAsset {
+  id: string
+  path: string
+  title?: string
+  mime?: string
+}
 
 export interface ClientPluginAPI {
   react: typeof React

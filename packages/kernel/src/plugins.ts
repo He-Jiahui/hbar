@@ -1,4 +1,4 @@
-import { mkdir, realpath, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -798,6 +798,22 @@ export class PluginManager {
     if (entry?.info.status !== 'active' || !entry.clientCode)
       throw new HbarError('NOT_FOUND', 'Active client plugin not found')
     return entry.clientCode
+  }
+  async assetPath(id: string, assetPath: string): Promise<string> {
+    const entry = this.entries.get(id)
+    if (!entry?.path || entry.info.status !== 'active') throw new HbarError('NOT_FOUND', 'Active plugin asset not found')
+    const normalized = assetPath.replaceAll('\\', '/')
+    if (!normalized.startsWith('assets/') || normalized.includes('..') || isAbsolute(normalized))
+      throw new HbarError('PATH_DENIED', 'Plugin assets must be inside the managed assets directory')
+    const root = await realpath(entry.path)
+    const candidate = resolve(root, normalized)
+    const rel = relative(root, candidate)
+    if (rel.startsWith('..') || isAbsolute(rel)) throw new HbarError('PATH_DENIED', 'Plugin asset path escapes its package')
+    const resolved = await realpath(candidate)
+    const resolvedRel = relative(root, resolved)
+    if (resolvedRel.startsWith('..') || isAbsolute(resolvedRel)) throw new HbarError('PATH_DENIED', 'Plugin asset path escapes its package')
+    if (!(await stat(resolved)).isFile()) throw new HbarError('NOT_FOUND', 'Plugin asset is not a file')
+    return resolved
   }
   get<T>(name: string): T {
     return service<T>(this.ctx, name)

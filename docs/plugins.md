@@ -72,7 +72,16 @@ my-plugin/
           "completion": ["."]
         }
       ],
-      "panels": [{ "id": "observer.status", "title": "Observer status", "placement": "right" }],
+      "panels": [{
+        "id": "observer.status",
+        "title": "Observer status",
+        "icon": "activity",
+        "defaultDock": "right",
+        "allowedDocks": ["left", "right", "bottom", "editor", "window"],
+        "scope": "workspace",
+        "canPopout": true,
+        "closable": true
+      }],
       "renderers": [{ "language": "observer" }]
     }
   },
@@ -158,7 +167,7 @@ export default definePlugin({
 | `tools.register/list/get`   | 注册并查询当前作用域工具，注册自动绑定 disposer                    |
 | `hooks.on`                  | context.build、model.request、tool.before/after、step.end、run.end |
 | `sessions`                  | get、create、submit、cancel、snapshot、append                      |
-| `panels.register`           | 声明只读 Markdown/JSON 面板及停靠位置                              |
+| `panels.register`           | 声明只读 Markdown/JSON Tool Window 及其默认/允许停靠位置             |
 | `service<T>(name)`          | 读取当前作用域可见的服务                                           |
 | `provide(ctx, name, value)` | 提供声明的具名服务，生命周期随 Cordis scope                        |
 | `ctx.effect`                | 将监听器、计时器等资源纳入释放范围                                 |
@@ -180,10 +189,16 @@ export default {
     api.registerPanel({
       id: 'counter',
       title: 'Counter',
-      placement: 'right',
-      component() {
+      icon: 'activity',
+      defaultDock: 'right',
+      allowedDocks: ['left', 'right', 'bottom', 'editor', 'window'],
+      scope: 'workspace',
+      canPopout: true,
+      closable: true,
+      component({ document }) {
         const [count, setCount] = useState(0)
-        return h('button', { onClick: () => setCount(count + 1) }, count)
+        const target = document ?? globalThis.document
+        return h('button', { ownerDocument: target, onClick: () => setCount(count + 1) }, count)
       },
     })
   },
