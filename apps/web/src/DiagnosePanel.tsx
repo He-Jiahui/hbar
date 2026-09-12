@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, Database, LoaderCircle, PlugZap, RefreshCw, Server, Wrench } from 'lucide-react'
-import { client } from './stores'
+import { useConnection } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
@@ -148,6 +148,7 @@ function SummaryCard({
 }
 
 export default function DiagnosePanel() {
+  const connection = useConnection((state) => state.client)
   const [data, setData] = useState<UnknownRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -155,21 +156,36 @@ export default function DiagnosePanel() {
   const requestId = useRef(0)
   const refresh = useCallback(async () => {
     const currentRequest = ++requestId.current
+    const requestConnection = connection
+    const isCurrentRequest = () =>
+      currentRequest === requestId.current && requestConnection === useConnection.getState().client
     setLoading(true)
     setError(null)
+    if (!requestConnection) {
+      if (isCurrentRequest()) {
+        setData(null)
+        setRefreshedAt(null)
+        setError('Host 未连接，请检查连接后重试。')
+        setLoading(false)
+      }
+      return
+    }
     try {
-      const next = await client().call('system.diagnose', {})
-      if (requestId.current !== currentRequest) return
+      const next = await requestConnection.call('system.diagnose', {})
+      if (!isCurrentRequest()) return
       setData(next)
       setRefreshedAt(new Date())
     } catch (reason) {
-      if (requestId.current !== currentRequest) return
+      if (!isCurrentRequest()) return
       setError(refreshError(reason))
     } finally {
-      if (requestId.current === currentRequest) setLoading(false)
+      if (isCurrentRequest()) setLoading(false)
     }
-  }, [])
+  }, [connection])
   useEffect(() => {
+    setData(null)
+    setRefreshedAt(null)
+    setError(null)
     void refresh()
     return () => {
       requestId.current += 1
