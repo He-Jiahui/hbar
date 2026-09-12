@@ -29,6 +29,8 @@ import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { useLocale, type LocaleMessageKey } from './locale'
+type Translate = (key: LocaleMessageKey) => string
 
 type PluginReportKind = 'doctor' | 'graph' | 'lock'
 type DoctorReport = RpcResults['plugin.doctor']
@@ -66,14 +68,14 @@ type LockEntry = {
   dependencies: { id: string; range: string | null }[]
 }
 
-function reportLabel(kind: PluginReportKind) {
-  if (kind === 'doctor') return '插件检查'
-  if (kind === 'graph') return '插件依赖图'
-  return '插件锁定清单'
+function reportLabel(kind: PluginReportKind, t: Translate) {
+  if (kind === 'doctor') return t('pluginDoctor')
+  if (kind === 'graph') return t('pluginGraph')
+  return t('pluginLock')
 }
 
-function reportError(error: unknown) {
-  return error instanceof Error && error.message ? error.message : '无法读取插件诊断结果，请检查 Host 连接后重试。'
+function reportError(error: unknown, t: Translate) {
+  return error instanceof Error && error.message ? error.message : `${t('pluginCannotRead')}${t('pluginDiagnostics')}，${t('hostDisconnected')}。`
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -106,14 +108,15 @@ function lockEntries(plugins: Record<string, unknown>): LockEntry[] {
 }
 
 function LockGraphNodeView({ data }: NodeProps<FlowNode<{ label: string; version: string | null; enabled: boolean | null }, 'lock-plugin'>>) {
+  const { t } = useLocale()
   return (
     <div className={`plugin-graph-node ${data.enabled === true ? 'is-enabled' : 'is-disabled'}`}>
-      <Handle type="target" position={Position.Left} aria-label={`${data.label} 锁定依赖输入`} />
+      <Handle type="target" position={Position.Left} aria-label={`${data.label} ${t('pluginDependencyInput')}`} />
       <div className="plugin-graph-node-heading">
-        <div><strong>{data.label}</strong><small>{data.version ? `v${data.version}` : '版本未知'}</small></div>
-        <span className="plugin-graph-node-state">{data.enabled === true ? '已启用' : data.enabled === false ? '已停用' : '状态未知'}</span>
+        <div><strong>{data.label}</strong><small>{data.version ? `v${data.version}` : t('pluginVersionUnknown')}</small></div>
+        <span className="plugin-graph-node-state">{data.enabled === true ? t('pluginEnabled') : data.enabled === false ? t('pluginDisabled') : t('pluginStatusUnknown')}</span>
       </div>
-      <Handle type="source" position={Position.Right} aria-label={`${data.label} 锁定依赖输出`} />
+      <Handle type="source" position={Position.Right} aria-label={`${data.label} ${t('pluginDependencyOutput')}`} />
     </div>
   )
 }
@@ -125,10 +128,11 @@ async function requestReport(kind: PluginReportKind, projectId?: string): Promis
 }
 
 function RawReport({ data }: { data: unknown }) {
+  const { t } = useLocale()
   return (
     <details className="plugin-report-raw">
       <summary>
-        <span>原始结果</span>
+        <span>{t('pluginRawResult')}</span>
         <ChevronRight className="plugin-report-raw-chevron" size={15} aria-hidden="true" />
       </summary>
       <pre>{JSON.stringify(data, null, 2)}</pre>
@@ -137,15 +141,16 @@ function RawReport({ data }: { data: unknown }) {
 }
 
 function PluginGraphNodeView({ data }: NodeProps<PluginGraphNode>) {
+  const { t } = useLocale()
   return (
     <div className={`plugin-graph-node ${data.enabled ? 'is-enabled' : 'is-disabled'}`}>
-      <Handle type="target" position={Position.Left} aria-label={`${data.label} 依赖输入`} />
+      <Handle type="target" position={Position.Left} aria-label={`${data.label} ${t('pluginDependencyInput')}`} />
       <div className="plugin-graph-node-heading">
         <div>
           <strong>{data.label}</strong>
           <small>v{data.version}</small>
         </div>
-        <span className="plugin-graph-node-state">{data.enabled ? '已启用' : '已停用'}</span>
+          <span className="plugin-graph-node-state">{data.enabled ? t('pluginEnabled') : t('pluginDisabled')}</span>
       </div>
       <div className="plugin-graph-node-actions">
         <button
@@ -157,24 +162,24 @@ function PluginGraphNodeView({ data }: NodeProps<PluginGraphNode>) {
             data.onToggle()
           }}
         >
-          {data.busy ? '处理中…' : data.enabled ? '关闭' : '启用'}
+          {data.busy ? t('pluginProcessing') : data.enabled ? t('pluginClose') : t('pluginEnable')}
         </button>
         {data.enabled && (
           <button
             type="button"
             className="plugin-graph-node-tree"
             disabled={data.busy}
-            title="关闭此插件以及依赖它的插件"
+            title={t('pluginCloseChainTitle')}
             onClick={(event) => {
               event.stopPropagation()
               data.onDisableTree()
             }}
           >
-            关闭链条
+            {t('pluginCloseChain')}
           </button>
         )}
       </div>
-      <Handle type="source" position={Position.Right} aria-label={`${data.label} 依赖输出`} />
+      <Handle type="source" position={Position.Right} aria-label={`${data.label} ${t('pluginDependencyOutput')}`} />
     </div>
   )
 }
@@ -193,7 +198,7 @@ function ReportSurface({
   children: ReactNode
 }) {
   return (
-    <section className={`plugin-diagnostic-result plugin-diagnostic-result-${kind}`} aria-label={`${title}结果`}>
+    <section className={`plugin-diagnostic-result plugin-diagnostic-result-${kind}`} aria-label={title}>
       <GlassSurface className="plugin-diagnostic-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="plugin-diagnostic-heading">
         <span className="plugin-diagnostic-heading-icon" aria-hidden="true">
@@ -210,20 +215,21 @@ function ReportSurface({
 }
 
 function DoctorReportView({ data }: { data: DoctorReport }) {
+  const { t } = useLocale()
   const order = data.order ?? []
   return (
     <ReportSurface
       kind="doctor"
       icon={data.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-      title="插件检查"
-      subtitle={data.ok ? '依赖解析已通过' : '发现需要处理的依赖问题'}
+      title={t('pluginDoctor')}
+      subtitle={data.ok ? t('pluginDependencyResolved') : t('pluginDependencyIssues')}
     >
       <div className="plugin-diagnostic-summary">
         <span className={`plugin-doctor-status ${data.ok ? 'is-healthy' : 'has-errors'}`}>
           {data.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-          {data.ok ? '检查通过' : '需要处理'}
+          {data.ok ? t('pluginCheckPassed') : t('pluginNeedsAttention')}
         </span>
-        <span>{data.errors.length ? `${data.errors.length} 个问题` : `${order.length} 个已解析插件`}</span>
+        <span>{data.errors.length ? `${data.errors.length} ${t('pluginIssueCount')}` : `${order.length} ${t('pluginResolvedCount')}`}</span>
       </div>
 
       {data.errors.length > 0 && (
@@ -248,7 +254,7 @@ function DoctorReportView({ data }: { data: DoctorReport }) {
       )}
 
       <section className="plugin-report-list-section" aria-labelledby="plugin-doctor-order-heading">
-        <h4 id="plugin-doctor-order-heading">解析顺序</h4>
+        <h4 id="plugin-doctor-order-heading">{t('pluginResolutionOrder')}</h4>
         {order.length ? (
           <AnimatedList
             className="plugin-report-order-list"
@@ -264,7 +270,7 @@ function DoctorReportView({ data }: { data: DoctorReport }) {
             ))}
           </AnimatedList>
         ) : (
-          <div className="plugin-report-empty">没有需要排序的已启用插件</div>
+          <div className="plugin-report-empty">{t('pluginNoEnabledToSort')}</div>
         )}
       </section>
       <RawReport data={data} />
@@ -273,6 +279,7 @@ function DoctorReportView({ data }: { data: DoctorReport }) {
 }
 
 function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): void }) {
+  const { t } = useLocale()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const nodeTypes = useMemo(() => ({ plugin: PluginGraphNodeView }), [])
@@ -360,24 +367,24 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
     <ReportSurface
       kind="graph"
       icon={<GitBranch size={16} />}
-      title="插件依赖图"
-      subtitle={`${data.nodes.length} 个插件节点 · ${data.edges.length} 条依赖关系`}
+      title={t('pluginGraph')}
+      subtitle={`${data.nodes.length} ${t('pluginNodesCount')} · ${data.edges.length} ${t('pluginRelationsCount')}`}
     >
       <dl className="plugin-report-stat-grid">
         <div>
-          <dt>插件节点</dt>
+          <dt>{t('pluginNodes')}</dt>
           <dd>{data.nodes.length}</dd>
         </div>
         <div>
-          <dt>依赖关系</dt>
+          <dt>{t('pluginRelations')}</dt>
           <dd>{data.edges.length}</dd>
         </div>
       </dl>
       <div className="plugin-graph-toolbar">
-        <span>点击节点按钮可热切换插件；“关闭链条”会停用依赖此插件的整棵下游树。</span>
+        <span>{t('pluginGraphHint')}</span>
         {actionError && <span className="inline-error" role="alert">{actionError}</span>}
       </div>
-      <section className="plugin-graph-canvas" aria-label="可操作的插件依赖图">
+      <section className="plugin-graph-canvas" aria-label={t('pluginGraphAccessible')}>
         {data.nodes.length ? (
           <ReactFlow
             nodes={graphNodes}
@@ -390,18 +397,18 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
             elementsSelectable
             panOnScroll
             zoomOnScroll
-            aria-label="插件依赖图"
+            aria-label={t('pluginGraphAccessible')}
           >
             <Background gap={24} size={1} color="var(--rb-border)" />
             <MiniMap pannable zoomable nodeColor={(node) => (node.data?.enabled ? 'var(--rb-ok)' : 'var(--rb-muted)')} />
             <Controls showInteractive={false} />
           </ReactFlow>
         ) : (
-          <div className="plugin-report-empty">没有可用的插件节点</div>
+          <div className="plugin-report-empty">{t('pluginNoNodes')}</div>
         )}
       </section>
       <section className="plugin-report-list-section" aria-labelledby="plugin-graph-nodes-heading">
-        <h4 id="plugin-graph-nodes-heading">已注册插件</h4>
+        <h4 id="plugin-graph-nodes-heading">{t('pluginRegistered')}</h4>
         {data.nodes.length ? (
           <AnimatedList
             className="plugin-report-node-list"
@@ -416,17 +423,17 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
                   <span>v{node.version}</span>
                 </div>
                 <span className={`plugin-node-status ${node.enabled ? 'is-enabled' : 'is-disabled'}`}>
-                  {node.enabled ? '已启用' : '已停用'}
+                  {node.enabled ? t('pluginEnabled') : t('pluginDisabled')}
                 </span>
               </SpotlightCard>
             ))}
           </AnimatedList>
         ) : (
-          <div className="plugin-report-empty">没有可用的插件节点</div>
+          <div className="plugin-report-empty">{t('pluginNoNodes')}</div>
         )}
       </section>
       <section className="plugin-report-list-section" aria-labelledby="plugin-graph-edges-heading">
-        <h4 id="plugin-graph-edges-heading">依赖关系</h4>
+        <h4 id="plugin-graph-edges-heading">{t('pluginRelations')}</h4>
         {data.edges.length ? (
           <AnimatedList
             className="plugin-report-edge-list"
@@ -452,7 +459,7 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
             ))}
           </AnimatedList>
         ) : (
-          <div className="plugin-report-empty">当前插件之间没有声明依赖</div>
+          <div className="plugin-report-empty">{t('pluginNoRelations')}</div>
         )}
       </section>
       <RawReport data={data} />
@@ -461,6 +468,7 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
 }
 
 function LockReportView({ data }: { data: LockReport }) {
+  const { t } = useLocale()
   const entries = lockEntries(data.plugins)
   const graphEntries = useMemo(() => {
     const byId = new Map(entries.map((entry) => [entry.id, entry]))
@@ -507,10 +515,10 @@ function LockReportView({ data }: { data: LockReport }) {
     <ReportSurface
       kind="lock"
       icon={<FileKey2 size={16} />}
-      title="插件锁定清单"
-      subtitle={`${entries.length} 个已锁定插件 · 格式版本 ${data.version}`}
+      title={t('pluginLock')}
+      subtitle={`${entries.length} ${t('pluginLocked')} · ${t('pluginVersion')} ${data.version}`}
     >
-      <section className="plugin-graph-canvas plugin-lock-graph-canvas" aria-label="插件锁依赖图">
+      <section className="plugin-graph-canvas plugin-lock-graph-canvas" aria-label={t('pluginLockGraph')}>
         {entries.length ? (
           <ReactFlow
             nodes={lockNodes}
@@ -522,16 +530,16 @@ function LockReportView({ data }: { data: LockReport }) {
             nodesDraggable
             panOnScroll
             zoomOnScroll
-            aria-label="插件锁依赖图"
+            aria-label={t('pluginLockGraph')}
           >
             <Background gap={24} size={1} color="var(--rb-border)" />
             <MiniMap pannable zoomable nodeColor={(node) => node.data?.enabled === true ? 'var(--rb-ok)' : 'var(--rb-muted)'} />
             <Controls showInteractive={false} />
           </ReactFlow>
-        ) : <div className="plugin-report-empty">没有可用的锁定节点</div>}
+        ) : <div className="plugin-report-empty">{t('pluginNoLockNodes')}</div>}
       </section>
       <section className="plugin-report-list-section" aria-labelledby="plugin-lock-entries-heading">
-        <h4 id="plugin-lock-entries-heading">已锁定插件</h4>
+        <h4 id="plugin-lock-entries-heading">{t('pluginLocked')}</h4>
         {entries.length ? (
           <AnimatedList
             className="plugin-report-lock-list"
@@ -546,19 +554,19 @@ function LockReportView({ data }: { data: LockReport }) {
                   <span>
                     {[entry.version ? `v${entry.version}` : null, entry.scope, entry.source]
                       .filter(Boolean)
-                      .join(' · ') || '元数据不可用'}
+                      .join(' · ') || t('pluginMetadataUnavailable')}
                   </span>
                   {entry.path && <code title={entry.path}>{entry.path}</code>}
                 </div>
                 <span className={`plugin-node-status ${entry.enabled === true ? 'is-enabled' : 'is-disabled'}`}>
-                  {entry.enabled === true ? '已启用' : entry.enabled === false ? '已停用' : '状态未知'}
+                  {entry.enabled === true ? t('pluginEnabled') : entry.enabled === false ? t('pluginDisabled') : t('pluginStatusUnknown')}
                 </span>
-                <small>{entry.dependencyCount ? `${entry.dependencyCount} 个依赖` : '无直接依赖'}</small>
+                <small>{entry.dependencyCount ? `${entry.dependencyCount} ${t('pluginDependencyCount')}` : t('pluginNoDirectDependencies')}</small>
               </SpotlightCard>
             ))}
           </AnimatedList>
         ) : (
-          <div className="plugin-report-empty">当前没有写入锁定清单的托管插件</div>
+          <div className="plugin-report-empty">{t('pluginNoManagedLocks')}</div>
         )}
       </section>
       <RawReport data={data} />
@@ -573,6 +581,7 @@ function PluginReportView({ report, onRefresh }: { report: PluginReport; onRefre
 }
 
 export default function PluginDiagnostics() {
+  const { t } = useLocale()
   const [state, setState] = useState<PluginReportState>({ active: null, report: null, loading: false, error: null })
   const requestVersion = useRef(0)
   const projectId = useWorkbench((state) => state.workspaceId) ?? undefined
@@ -597,18 +606,18 @@ export default function PluginDiagnostics() {
       setState({ active: kind, report, loading: false, error: null })
     } catch (error) {
       if (requestVersion.current !== version) return
-      setState((current) => ({ ...current, loading: false, error: reportError(error) }))
+      setState((current) => ({ ...current, loading: false, error: reportError(error, t) }))
     }
-  }, [projectId])
+  }, [projectId, t])
 
   const active = state.active
   return (
     <div className="plugin-diagnostics">
-      <div className="plugin-diagnostic-actions" role="group" aria-label="插件诊断操作">
+      <div className="plugin-diagnostic-actions" role="group" aria-label={t('pluginDiagnosticActions')}>
         <GlareButton
           type="button"
           className={`button plugin-diagnostic-action ${active === 'doctor' ? 'selected' : ''}`}
-          aria-label="检查"
+          aria-label={t('pluginCheck')}
           aria-pressed={active === 'doctor'}
           disabled={state.loading}
           onClick={() => void run('doctor')}
@@ -618,12 +627,12 @@ export default function PluginDiagnostics() {
           ) : (
             <Stethoscope size={14} />
           )}
-          {state.loading && active === 'doctor' ? '检查中' : '检查'}
+          {state.loading && active === 'doctor' ? t('pluginProcessing') : t('pluginCheck')}
         </GlareButton>
         <GlareButton
           type="button"
           className={`button plugin-diagnostic-action ${active === 'graph' ? 'selected' : ''}`}
-          aria-label="依赖图"
+          aria-label={t('pluginGraph')}
           aria-pressed={active === 'graph'}
           disabled={state.loading}
           onClick={() => void run('graph')}
@@ -633,13 +642,13 @@ export default function PluginDiagnostics() {
           ) : (
             <GitBranch size={14} />
           )}
-          依赖图
+          {t('pluginGraph')}
         </GlareButton>
         <GlareButton
           type="button"
           className={`button plugin-diagnostic-action ${active === 'lock' ? 'selected' : ''}`}
-          aria-label="查看插件锁"
-          title="查看插件锁"
+          aria-label={t('pluginReadLock')}
+          title={t('pluginReadLock')}
           aria-pressed={active === 'lock'}
           disabled={state.loading}
           onClick={() => void run('lock')}
@@ -649,14 +658,14 @@ export default function PluginDiagnostics() {
           ) : (
             <LockKeyhole size={15} />
           )}
-          查看插件锁
+          {t('pluginReadLock')}
         </GlareButton>
       </div>
 
       {state.loading && !state.report && (
         <div className="plugin-diagnostic-loading" role="status">
           <LoaderCircle className="plugin-diagnostic-spin" size={16} />
-          <span>正在读取{active ? reportLabel(active) : '插件诊断'}…</span>
+          <span>{t('pluginReading')}{active ? reportLabel(active, t) : t('pluginDiagnostics')}…</span>
         </div>
       )}
 
@@ -667,11 +676,11 @@ export default function PluginDiagnostics() {
           spotlightColor="color-mix(in srgb, var(--hbar-er) 20%, transparent)"
         >
           <div>
-            <strong>无法读取{reportLabel(active)}</strong>
+            <strong>{t('pluginCannotRead')}{reportLabel(active, t)}</strong>
             <span>{state.error}</span>
           </div>
           <button type="button" className="button" onClick={() => void run(active)}>
-            重试
+            {t('retry')}
           </button>
         </SpotlightCard>
       )}
