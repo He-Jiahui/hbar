@@ -20,6 +20,16 @@ function ModeIcon({ mode }: { mode: ApprovalMode }) {
   return <ShieldCheck size={14} />
 }
 
+function localizedPreset(mode: ApprovalMode, t: ReturnType<typeof useLocale>['t']) {
+  const keys = {
+    ask: ['permissionAskLabel', 'permissionAskShort', 'permissionAskDescription'],
+    allow: ['permissionAllowLabel', 'permissionAllowShort', 'permissionAllowDescription'],
+    deny: ['permissionDenyLabel', 'permissionDenyShort', 'permissionDenyDescription'],
+  } as const
+  const [label, shortLabel, description] = keys[mode].map((key) => t(key))
+  return { label, shortLabel, description }
+}
+
 export default function PermissionSelector({
   compact = true,
   className = '',
@@ -32,6 +42,7 @@ export default function PermissionSelector({
   const [failure, setFailure] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
   const selected = permissionPreset(mode)
+  const selectedCopy = localizedPreset(selected.id, t)
   const triggerProps = useFloatingTrigger({
     open,
     onOpen: () => {
@@ -72,11 +83,11 @@ export default function PermissionSelector({
         aria-expanded={open}
         aria-busy={pending !== null}
         disabled={pending !== null}
-        title={selected.description}
+        title={selectedCopy.description}
         {...triggerProps}
       >
         {pending ? <LoaderCircle size={14} className="spinning" /> : <ModeIcon mode={selected.id} />}
-        <span>{compact ? selected.shortLabel : selected.label}</span>
+        <span>{compact ? selectedCopy.shortLabel : selectedCopy.label}</span>
         <ChevronDown size={13} className={open ? 'permission-chevron-open' : ''} />
       </button>
       <FloatingSurface
@@ -92,6 +103,9 @@ export default function PermissionSelector({
         <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
         <div className="permission-menu-heading">{t('toolPermissions')}</div>
         {permissionPresets.map((preset) => (
+          (() => {
+            const copy = localizedPreset(preset.id, t)
+            return (
           <SpotlightCard
             className={`permission-option-card permission-tone-${preset.tone} ${preset.id === selected.id ? 'selected' : ''}`}
             key={preset.id}
@@ -108,12 +122,14 @@ export default function PermissionSelector({
             >
               {pending === preset.id ? <LoaderCircle size={14} className="spinning" /> : <ModeIcon mode={preset.id} />}
               <span className="permission-option-copy">
-                <strong>{preset.label}</strong>
-                <small>{preset.description}</small>
+                <strong>{copy.label}</strong>
+                <small>{copy.description}</small>
               </span>
               {preset.id === selected.id && <Check size={14} />}
             </button>
           </SpotlightCard>
+            )
+          })()
         ))}
         {failure && (
           <div className="inline-error" role="alert">
