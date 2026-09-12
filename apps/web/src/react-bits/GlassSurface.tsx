@@ -66,6 +66,19 @@ type SurfaceStyle = CSSProperties & {
   '--filter-id': string
 }
 
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReduced(media.matches)
+    update()
+    media.addEventListener?.('change', update)
+    return () => media.removeEventListener?.('change', update)
+  }, [])
+  return reduced
+}
+
 function supportsSvgFilters(filterId: string) {
   if (typeof window === 'undefined' || typeof document === 'undefined') return false
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)
@@ -107,13 +120,15 @@ export default function GlassSurface({
   const themeProfile = useThemeSettings((state) => state.profile)
   const themeContributions = useUIPlugins((state) => state.themes)
   const effectiveTheme = useMemo(() => mergeThemeContributions(themeProfile, themeContributions), [themeContributions, themeProfile])
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const motionDisabled = effectiveTheme.motion.intensity === 'off' || (effectiveTheme.motion.respectReducedMotion && prefersReducedMotion)
   const resolvedBorderRadius = borderRadius ?? effectiveTheme.surface.cornerRadius
   const resolvedBlur = blur ?? effectiveTheme.surface.blurAmount
-  const resolvedDisplace = displace ?? effectiveTheme.surface.displacementScale
+  const resolvedDisplace = motionDisabled ? 0 : displace ?? effectiveTheme.surface.displacementScale
   const resolvedBackgroundOpacity = backgroundOpacity ?? effectiveTheme.surface.backgroundOpacity
   const resolvedSaturation = saturation ?? effectiveTheme.surface.saturation / 100
-  const resolvedAberration = effectiveTheme.surface.aberrationIntensity
-  const resolvedElasticity = effectiveTheme.surface.elasticity
+  const resolvedAberration = motionDisabled ? 0 : effectiveTheme.surface.aberrationIntensity
+  const resolvedElasticity = motionDisabled ? 0 : effectiveTheme.surface.elasticity
   const uniqueId = useId().replace(/:/g, '-')
   const filterId = `glass-filter-${uniqueId}`
   const redGradId = `red-grad-${uniqueId}`
@@ -177,7 +192,7 @@ export default function GlassSurface({
     '--glass-blur': `${resolvedBlur}px`,
     '--glass-elasticity': resolvedElasticity,
     '--glass-aberration': resolvedAberration,
-    '--glass-transition-duration': `${160 + Math.round(resolvedElasticity * 140)}ms`,
+    '--glass-transition-duration': motionDisabled ? '0ms' : `${160 + Math.round(resolvedElasticity * 140)}ms`,
     '--filter-id': `url(#${filterId})`,
   }
 
