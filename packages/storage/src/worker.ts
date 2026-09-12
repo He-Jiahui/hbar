@@ -37,7 +37,7 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 2) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 3) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -53,14 +53,14 @@ if (schemaVersion === 0)
     CREATE TABLE providers(id TEXT PRIMARY KEY, data TEXT NOT NULL);
     CREATE TABLE artifacts(id TEXT PRIMARY KEY, data TEXT NOT NULL);
     CREATE TABLE devices(id TEXT PRIMARY KEY, name TEXT NOT NULL, tokenHash TEXT NOT NULL UNIQUE, createdAt INTEGER NOT NULL, lastSeenAt INTEGER NOT NULL);
-    CREATE TABLE plugins(id TEXT PRIMARY KEY, enabled INTEGER NOT NULL, config TEXT NOT NULL, path TEXT);
+    CREATE TABLE plugins(id TEXT NOT NULL, projectId TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL, config TEXT NOT NULL, path TEXT, PRIMARY KEY(id,projectId));
     CREATE TABLE compactions(sessionId TEXT NOT NULL, throughSeq INTEGER NOT NULL, summary TEXT NOT NULL, eventSeq INTEGER NOT NULL, PRIMARY KEY(sessionId,eventSeq));
     CREATE TABLE projects(id TEXT PRIMARY KEY, path TEXT NOT NULL UNIQUE, name TEXT NOT NULL, createdAt INTEGER NOT NULL);
     CREATE TABLE session_log_files(path TEXT PRIMARY KEY, projectId TEXT NOT NULL, sessionId TEXT NOT NULL, firstSeq INTEGER NOT NULL, lastSeq INTEGER NOT NULL, size INTEGER NOT NULL, updatedAt INTEGER NOT NULL);
     CREATE TABLE session_event_index(eventId TEXT PRIMARY KEY, sessionId TEXT NOT NULL, seq INTEGER NOT NULL, logPath TEXT NOT NULL REFERENCES session_log_files(path), byteOffset INTEGER NOT NULL, byteLength INTEGER NOT NULL, contentHash TEXT NOT NULL, UNIQUE(sessionId,seq));
     CREATE INDEX session_event_index_session_seq ON session_event_index(sessionId,seq);
     CREATE TABLE path_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    PRAGMA user_version=2;
+    PRAGMA user_version=3;
   `)
   })()
 if (schemaVersion === 1)
@@ -73,6 +73,16 @@ if (schemaVersion === 1)
       CREATE INDEX session_event_index_session_seq ON session_event_index(sessionId,seq);
       CREATE TABLE path_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
       PRAGMA user_version=2;
+    `)
+  })()
+if (schemaVersion > 0 && schemaVersion < 3)
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE plugins_v3(id TEXT NOT NULL, projectId TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL, config TEXT NOT NULL, path TEXT, PRIMARY KEY(id,projectId));
+      INSERT OR IGNORE INTO plugins_v3(id,projectId,enabled,config,path) SELECT id,'',enabled,config,path FROM plugins;
+      DROP TABLE plugins;
+      ALTER TABLE plugins_v3 RENAME TO plugins;
+      PRAGMA user_version=3;
     `)
   })()
 
@@ -700,24 +710,26 @@ const methods: StorageMethods = {
   revokeDevice(id) {
     db.query('DELETE FROM devices WHERE id=?').run(id)
   },
-  setPlugin(id, enabled, config, path) {
+  setPlugin(id, enabled, config, path, projectId) {
     db.query(
-      'INSERT INTO plugins VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,config=excluded.config,path=COALESCE(excluded.path,plugins.path)',
-    ).run(id, Number(enabled), JSON.stringify(config), path ?? null)
+      'INSERT INTO plugins(id,projectId,enabled,config,path) VALUES(?,?,?,?,?) ON CONFLICT(id,projectId) DO UPDATE SET enabled=excluded.enabled,config=excluded.config,path=COALESCE(excluded.path,plugins.path)',
+    ).run(id, projectId ?? '', Number(enabled), JSON.stringify(config), path ?? null)
   },
   setPlugins(plugins) {
     db.transaction(() => {
-      for (const plugin of plugins) methods.setPlugin(plugin.id, plugin.enabled, plugin.config, plugin.path)
+      for (const plugin of plugins) methods.setPlugin(plugin.id, plugin.enabled, plugin.config, plugin.path, plugin.projectId)
     })()
   },
-  removePlugin(id) {
-    db.query('DELETE FROM plugins WHERE id=?').run(id)
+  removePlugin(id, projectId) {
+    if (projectId) db.query('DELETE FROM plugins WHERE id=? AND projectId=?').run(id, projectId)
+    else db.query('DELETE FROM plugins WHERE id=? AND projectId=?').run(id, '')
   },
   plugins: () =>
     (
-      db.query('SELECT * FROM plugins').all() as { id: string; enabled: number; config: string; path: string | null }[]
+      db.query('SELECT * FROM plugins').all() as { id: string; projectId: string; enabled: number; config: string; path: string | null }[]
     ).map((row) => ({
       ...row,
+      ...(row.projectId ? { projectId: row.projectId } : {}),
       enabled: Boolean(row.enabled),
       config: JSON.parse(row.config) as Record<string, unknown>,
     })),

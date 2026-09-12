@@ -381,7 +381,7 @@ export class PluginManager {
           const relativePath = this.options.pluginRoot
             ? relative(this.options.pluginRoot, stored.path).replaceAll('\\', '/')
             : ''
-          const projectId = relativePath.startsWith('projects/') ? relativePath.split('/')[1] : undefined
+          const projectId = stored.projectId ?? (relativePath.startsWith('projects/') ? relativePath.split('/')[1] : undefined)
           await this.loadLocal(stored.path, projectId)
         } catch (error) {
           console.error(`Plugin ${stored.id}:`, error)
@@ -579,6 +579,7 @@ export class PluginManager {
           enabled: value.enabled,
           config: value.config,
           path: value.path,
+          ...(value.projectId ? { projectId: value.projectId } : {}),
         })),
       )
       await this.writeLock()
@@ -594,6 +595,7 @@ export class PluginManager {
           enabled: state.enabled,
           config: state.config,
           path: this.entries.get(key)?.path,
+          ...(this.entries.get(key)?.projectId ? { projectId: this.entries.get(key)?.projectId } : {}),
         })),
       )
       if (!this.mounted.length) await this.mountAll()
@@ -634,7 +636,7 @@ export class PluginManager {
       await this.mountAll()
       await this.storage.call(
         'setPlugins',
-        [...this.entries].map(([key, value]) => ({ id: key, enabled: value.enabled, config: value.config, path: value.path })),
+        [...this.entries].map(([key, value]) => ({ id: key, enabled: value.enabled, config: value.config, path: value.path, ...(value.projectId ? { projectId: value.projectId } : {}) })),
       )
       await this.writeLock()
       return this.list()
@@ -645,7 +647,7 @@ export class PluginManager {
       }
       await this.storage.call(
         'setPlugins',
-        [...old].map(([key, state]) => ({ id: key, enabled: state.enabled, config: state.config, path: this.entries.get(key)?.path })),
+        [...old].map(([key, state]) => ({ id: key, enabled: state.enabled, config: state.config, path: this.entries.get(key)?.path, ...(this.entries.get(key)?.projectId ? { projectId: this.entries.get(key)?.projectId } : {}) })),
       )
       if (!this.mounted.length) await this.mountAll()
       throw error
@@ -690,7 +692,7 @@ export class PluginManager {
     if (entry.enabled) throw new HbarError('PLUGIN_ACTIVE', 'Disable the plugin before removing it')
     this.entries.delete(id)
     try {
-      await this.storage.call('removePlugin', id)
+      await this.storage.call('removePlugin', id, entry.projectId)
       await this.writeLock()
       if (entry.path && this.options.pluginRoot) {
         const rel = relative(this.options.pluginRoot, entry.path)
@@ -700,7 +702,7 @@ export class PluginManager {
       }
     } catch (error) {
       this.entries.set(id, entry)
-      await this.storage.call('setPlugin', id, entry.enabled, entry.config, entry.path)
+      await this.storage.call('setPlugin', id, entry.enabled, entry.config, entry.path, entry.projectId)
       throw error
     }
     return this.list()
