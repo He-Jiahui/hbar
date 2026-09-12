@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileSchema } from '@hbar/contracts'
-import { mergeThemeContributions, themeCssVariables } from '../apps/web/src/theme-store'
+import { mergeThemeContributions, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
 import { selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
@@ -53,6 +53,35 @@ test('plugin presets apply to the untouched default while explicit user values w
   expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin]).colors.primary).toBe('#22aa88')
   const explicit = { ...DEFAULT_THEME_PROFILE, mode: 'custom' as const, colors: { ...DEFAULT_THEME_PROFILE.colors, primary: '#cc8844' } }
   expect(mergeThemeContributions(explicit, [plugin]).colors.primary).toBe('#cc8844')
+})
+
+test('legacy appearance theme is retained until a full profile is saved', () => {
+  const snapshot = {
+    schemaVersion: 1 as const,
+    revision: 'a'.repeat(64),
+    scope: 'global' as const,
+    values: {
+      'appearance.profile': {
+        id: 'appearance.profile',
+        effectiveValue: DEFAULT_THEME_PROFILE,
+        source: 'default' as const,
+        overridden: false,
+        editable: true,
+        restartPolicy: 'live' as const,
+      },
+      'appearance.theme': {
+        id: 'appearance.theme',
+        effectiveValue: 'light',
+        source: 'global' as const,
+        overridden: true,
+        editable: true,
+        restartPolicy: 'live' as const,
+      },
+    },
+  }
+  useThemeSettings.getState().applySnapshot(snapshot)
+  expect(useThemeSettings.getState().profile.mode).toBe('light')
+  useThemeSettings.setState({ profile: DEFAULT_THEME_PROFILE, savedProfile: DEFAULT_THEME_PROFILE, snapshot: null })
 })
 
 test('renderer slots honour the selected theme renderer before priority fallback', () => {

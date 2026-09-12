@@ -1054,7 +1054,7 @@ export default function Settings() {
             </div>
           </div>
           <DescriptorSettingsForm
-            descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'appearance' && setting.id !== 'appearance.profile') ?? []}
+            descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'appearance' && setting.id !== 'appearance.profile' && setting.id !== 'appearance.theme') ?? []}
             snapshot={settingsSnapshot}
             context={{ hasWorkspace: Boolean(workspaceId), hasSession: Boolean(activeSessionId) }}
             saving={settingsSaving}

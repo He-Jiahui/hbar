@@ -26,8 +26,17 @@ interface ThemeSettingsState {
   applySnapshot(snapshot: SettingsSnapshot): void
 }
 
+function legacyThemeMode(value: unknown): ThemeProfile['mode'] | undefined {
+  return value === 'dark' || value === 'light' || value === 'white' || value === 'custom' ? value : undefined
+}
+
 function profileFromSnapshot(snapshot: SettingsSnapshot): ThemeProfile {
-  return normalizeThemeProfile(snapshot.values['appearance.profile']?.effectiveValue)
+  const profileSetting = snapshot.values['appearance.profile']
+  const profile = normalizeThemeProfile(profileSetting?.effectiveValue)
+  const legacy = legacyThemeMode(snapshot.values['appearance.theme']?.effectiveValue)
+  // Older installations persisted only appearance.theme. Preserve that value
+  // while the new full profile is still inherited from its default.
+  return profileSetting?.source === 'default' && legacy ? { ...profile, mode: legacy } : profile
 }
 
 function hasTarget(scope: ThemeSettingScope, targetId?: string): targetId is string {
@@ -125,7 +134,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
 }))
 
 export function handleThemeEvent(event: WireNotification, transport: ClientTransport): void {
-  if (event.method !== 'settings.changed' || !event.params.ids.includes('appearance.profile')) return
+  if (event.method !== 'settings.changed' || !event.params.ids.some((id) => id === 'appearance.profile' || id === 'appearance.theme')) return
   const state = useThemeSettings.getState()
   if (event.params.scope !== state.scope || event.params.targetId !== state.targetId) return
   if (JSON.stringify(state.profile) !== JSON.stringify(state.savedProfile)) void state.refreshSnapshot(transport)
