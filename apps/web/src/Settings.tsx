@@ -199,6 +199,7 @@ function mirrorSelectedModel(
 }
 
 function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close(): void }) {
+  const { t } = useLocale()
   const detailPageRef = useRef<HTMLElement>(null)
   const initialPreset = provider
     ? (providerPresets.find(
@@ -301,7 +302,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
       setBusy(false)
     }
   }
-  const title = provider ? '编辑模型' : '添加模型'
+  const title = provider ? t('editModel') : t('addModel')
   return (
     <section ref={detailPageRef} className="settings-detail-page rb-settings-detail-page" aria-label={title}>
       <GlassSurface className="settings-detail-glass" width="100%" height="100%" aria-hidden="true" />
@@ -309,27 +310,27 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
         <button
           type="button"
           className="settings-detail-back"
-          title="返回供应商与模型"
-          aria-label="返回供应商与模型"
+          title={t('backProvidersModels')}
+          aria-label={t('backProvidersModels')}
           onClick={close}
         >
           <ArrowLeft size={15} />
-          <span>供应商与模型</span>
+          <span>{t('providersAndModels')}</span>
         </button>
         <div className="settings-detail-heading">
-          <span className="settings-detail-eyebrow">设置 / 模型</span>
+          <span className="settings-detail-eyebrow">{t('settingsModels')}</span>
           <h1>{title}</h1>
           <p>
             {provider
-              ? `${provider.providerName || provider.name} · ${value.models.length} 个模型`
-              : '配置供应商连接与模型能力'}
+              ? `${provider.providerName || provider.name} · ${value.models.length} ${t('providerModelCount')}`
+              : t('configureProvider')}
           </p>
         </div>
       </header>
       <form onSubmit={(event) => void save(event)} className="settings-form settings-detail-form">
         {!provider && (
           <fieldset className="provider-presets">
-            <legend>快速开始</legend>
+            <legend>{t('quickStart')}</legend>
             <div className="provider-preset-grid">
               {providerPresets.map((preset) => (
                 <GlareButton
@@ -347,17 +348,17 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                 </GlareButton>
               ))}
             </div>
-            <p>选择预设后只需填写 API Key；模型和地址都可以继续调整。</p>
+            <p>{t('providerPresetHint')}</p>
           </fieldset>
         )}
         {customConnection ? (
           <>
             <label>
-              名称
+              {t('fieldName')}
               <input autoFocus value={value.name} onChange={(event) => field('name', event.target.value)} required />
             </label>
             <label>
-              协议
+              {t('fieldProtocol')}
               <select
                 value={value.protocol}
                 onChange={(event) => field('protocol', event.target.value as ProviderConfig['protocol'])}
@@ -369,7 +370,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
               </select>
             </label>
             <label>
-              API 地址
+              {t('apiAddress')}
               <input
                 type="url"
                 value={value.baseUrl}
@@ -390,17 +391,17 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
             <code>{value.baseUrl}</code>
           </SpotlightCard>
         )}
-        <section className="provider-model-editor" aria-label="供应商模型">
+        <section className="provider-model-editor" aria-label={t('providerModels')}>
           <header className="provider-model-editor-heading">
             <div>
-              <strong>模型</strong>
-              <span>{value.models.length} 个模型；每个模型可独立设置思考等级</span>
+              <strong>{t('modelsHeading')}</strong>
+              <span>{value.models.length} {t('modelsThinkingHint')}</span>
             </div>
             <button
               type="button"
               className="button icon-button"
-              title="添加模型"
-              aria-label="添加模型"
+              title={t('addModel')}
+              aria-label={t('addModel')}
               onClick={addModel}
             >
               <Plus size={14} />
@@ -412,21 +413,21 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                 className={`provider-model-card rb-provider-model-surface ${model.id === value.model ? 'selected' : ''}`}
                 key={`model-editor-${index}`}
               >
-                <legend>{model.id === value.model ? '默认模型' : `模型 ${index + 1}`}</legend>
+                <legend>{model.id === value.model ? t('defaultModel') : `${t('modelsHeading')} ${index + 1}`}</legend>
                 <GlassSurface className="provider-model-card-glass" width="100%" height="100%" aria-hidden="true" />
                 <div className="form-grid">
                   <label>
-                    {index === 0 ? '模型 ID' : `模型标识 ${index + 1}`}
+                    {index === 0 ? t('modelId') : `${t('modelIdentifier')} ${index + 1}`}
                     <input
                       list={`provider-models-${presetId}`}
-                      aria-label={index === 0 ? '模型 ID' : `模型标识 ${index + 1}`}
+                      aria-label={index === 0 ? t('modelId') : `${t('modelIdentifier')} ${index + 1}`}
                       value={model.id}
                       onChange={(event) => updateModel(index, { id: event.target.value })}
                       required
                     />
                   </label>
                   <label>
-                    显示名称
+                    {t('displayName')}
                     <input
                       value={model.name}
                       onChange={(event) => updateModel(index, { name: event.target.value })}
@@ -441,10 +442,10 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                     checked={model.id === value.model}
                     onChange={() => selectDefaultModel(model.id)}
                   />
-                  默认模型
+                  {t('defaultModel')}
                 </label>
                 <div className="provider-thinking-editor">
-                  <span>支持的思考等级</span>
+                  <span>{t('supportedThinkingLevels')}</span>
                   <div className="provider-thinking-options">
                     {ALL_THINKING_LEVELS.map((level) => (
                       <label className="checkbox" key={level}>
@@ -478,7 +479,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                     ))}
                   </div>
                   <label>
-                    默认思考等级
+                    {t('defaultThinkingLevel')}
                     <select
                       value={model.defaultThinkingLevel}
                       onChange={(event) => {
@@ -498,7 +499,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                 {value.models.length > 1 && (
                   <button type="button" className="provider-remove-model" onClick={() => removeModel(index)}>
                     <Trash2 size={13} />
-                    移除模型
+                    {t('removeModel')}
                   </button>
                 )}
               </fieldset>
@@ -518,18 +519,18 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
               type="password"
               autoComplete="new-password"
               value={apiKey}
-              placeholder={provider?.hasKey ? '已保存' : '未设置'}
+              placeholder={provider?.hasKey ? t('saved') : t('notConfigured')}
               onChange={(event) => setApiKey(event.target.value)}
             />
           </div>
         </label>
         {selectedModel && (
           <details className="advanced rb-provider-advanced" open={customConnection}>
-            <summary>当前模型高级设置</summary>
+            <summary>{t('advancedModelSettings')}</summary>
             <GlassSurface className="provider-advanced-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="form-grid">
               <label>
-                上下文窗口
+                {t('contextWindow')}
                 <input
                   type="number"
                   min={1024}
@@ -540,7 +541,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                 />
               </label>
               <label>
-                最大输出
+                {t('maxOutput')}
                 <input
                   type="number"
                   min={64}
@@ -551,7 +552,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                 />
               </label>
               <label>
-                输入 / 百万 tokens
+                {t('inputPerMillionTokens')}
                 <input
                   type="number"
                   min={0}
@@ -563,7 +564,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                 />
               </label>
               <label>
-                输出 / 百万 tokens
+                {t('outputPerMillionTokens')}
                 <input
                   type="number"
                   min={0}
@@ -583,7 +584,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                   updateModel(value.models.indexOf(selectedModel), { imageInput: event.target.checked })
                 }
               />
-              图片输入
+              {t('imageInputCapability')}
             </label>
             <label className="checkbox">
               <input
@@ -620,7 +621,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
                   }
                 }}
               />
-              推理模型
+              {t('reasoningModel')}
             </label>
           </details>
         )}
@@ -631,11 +632,11 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
         )}
         <footer className="modal-footer settings-detail-footer">
           <button type="button" className="button" onClick={close}>
-            取消
+            {t('cancel')}
           </button>
           <GlareButton className="button primary" disabled={busy || !dirty}>
             <Save size={14} />
-            保存
+            {t('save')}
           </GlareButton>
         </footer>
       </form>
@@ -644,6 +645,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
 }
 
 function SkillsSettings() {
+  const { t } = useLocale()
   const [skills, setSkills] = useState<RpcResults['system.skills.list']>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -668,14 +670,14 @@ function SkillsSettings() {
       <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
       <div className="section-toolbar">
         <div>
-          <h2>全局技能</h2>
-          <p className="section-description">查看此 Host 可用的技能目录；会话中可通过命令控制台引用。</p>
+          <h2>{t('globalSkills')}</h2>
+          <p className="section-description">{t('globalSkillsHint')}</p>
         </div>
         <button
           type="button"
           className="settings-refresh"
-          title="刷新技能"
-          aria-label="刷新技能"
+          title={t('refreshSkills')}
+          aria-label={t('refreshSkills')}
           onClick={() => void load()}
           disabled={loading}
         >
@@ -685,8 +687,8 @@ function SkillsSettings() {
       <label className="settings-search skills-search">
         <Search size={14} aria-hidden="true" />
         <input
-          aria-label="搜索技能"
-          placeholder="搜索全局技能"
+          aria-label={t('searchSkills')}
+          placeholder={t('searchGlobalSkills')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -703,18 +705,18 @@ function SkillsSettings() {
               <span className="skill-icon" aria-hidden="true"><BookOpen size={16} /></span>
               <div className="skill-copy">
                 <strong>{skill.id}</strong>
-                <small>全局技能</small>
+                <small>{t('globalSkill')}</small>
                 <code title={skill.path}>{skill.path}</code>
               </div>
-              <span className="skill-scope">全局</span>
+              <span className="skill-scope">{t('globalSettings')}</span>
             </SpotlightCard>
           ))}
         </AnimatedList>
       ) : (
         <div className="empty-list skills-empty-state" role="status">
           <BookOpen size={20} aria-hidden="true" />
-          <strong>{query ? '没有匹配的技能' : '尚未安装全局技能'}</strong>
-          <span>{query ? '尝试其他关键词。' : '将技能目录放入 Host 的 global skills 目录后即可在这里查看。'}</span>
+          <strong>{query ? t('noMatchingSkills') : t('noGlobalSkills')}</strong>
+          <span>{query ? t('tryOtherKeywords') : t('installGlobalSkillsHint')}</span>
         </div>
       )}
     </section>
@@ -1406,7 +1408,7 @@ export default function Settings() {
             <h2>{t('plugins')}</h2>
           </div>
           <PluginDiagnostics />
-          <div className="plugin-theme-summary" aria-label="主题插件">
+          <div className="plugin-theme-summary" aria-label={t('plugins')}>
             <h3>{t('pluginThemeSummary')}</h3>
             <p>{t('pluginThemeSummaryHint')}</p>
             {themePlugins.length ? <ul>{themePlugins.map((theme) => {
@@ -1445,7 +1447,7 @@ export default function Settings() {
           ) : null}
           <div className="install-plugin">
             <label>
-              本地插件目录或归档
+              {t('localPluginPath')}
               <input
                 value={pluginPath}
                 placeholder="D:\Plugins\my-plugin"
@@ -1453,13 +1455,13 @@ export default function Settings() {
               />
             </label>
             <label>
-              安装范围
+              {t('installScope')}
               <select
                 value={pluginScope}
                 onChange={(event) => setPluginScope(event.target.value as 'global' | 'project')}
               >
-                <option value="global">全局</option>
-                <option value="project">当前项目</option>
+                <option value="global">{t('globalSettings')}</option>
+                <option value="project">{t('currentProjectScope')}</option>
               </select>
             </label>
             <button
@@ -1479,7 +1481,7 @@ export default function Settings() {
               }
             >
               <Plus size={14} />
-              加载可信插件
+              {t('loadTrustedPlugin')}
             </button>
           </div>
         </section>
@@ -1488,8 +1490,8 @@ export default function Settings() {
         <section className="settings-section">
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
-            <h2>宿主连接</h2>
-            <span className="success">在线</span>
+            <h2>{t('hostConnection')}</h2>
+            <span className="success">{t('online')}</span>
           </div>
           <div className="host-addresses">
             {host?.addresses.map((address) => (
@@ -1499,30 +1501,30 @@ export default function Settings() {
                 spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
               >
                 <code>{address}</code>
-                <button title="复制地址" aria-label="复制地址" onClick={() => void copyText(address).catch(report)}>
+                <button title={t('copyAddress')} aria-label={t('copyAddress')} onClick={() => void copyText(address).catch(report)}>
                   <Copy size={14} />
                 </button>
               </SpotlightCard>
             ))}
           </div>
           <div className="section-toolbar">
-            <h2>已配对设备</h2>
+            <h2>{t('pairedDevices')}</h2>
             <button
               className="button"
               onClick={() => void client().call('pairing.create', {}).then(setPairing).catch(report)}
             >
               <Plus size={14} />
-              配对设备
+              {t('pairDevice')}
             </button>
           </div>
           {pairing && (
             <div className="pairing-code rb-pairing-surface">
               <GlassSurface className="pairing-code-glass" width="100%" height="100%" aria-hidden="true" />
               <code>{pairing.code}</code>
-              <span>有效期至 {new Date(pairing.expiresAt).toLocaleTimeString()}</span>
+              <span>{t('expiresAt')} {new Date(pairing.expiresAt).toLocaleTimeString()}</span>
               <button
-                title="复制配对码"
-                aria-label="复制配对码"
+                title={t('copyPairingCode')}
+                aria-label={t('copyPairingCode')}
                 onClick={() =>
                   void copyText(pairing.code)
                     .then(() => setCopied(true))
@@ -1551,10 +1553,10 @@ export default function Settings() {
                     <span>{new Date(device.createdAt).toLocaleString()}</span>
                   </div>
                   <button
-                    title={`撤销 ${device.name}`}
-                    aria-label={`撤销 ${device.name}`}
+                    title={`${t('revokeDevice')} ${device.name}`}
+                    aria-label={`${t('revokeDevice')} ${device.name}`}
                     onClick={() => {
-                      if (window.confirm(`撤销 ${device.name} 的访问权限？`))
+                      if (window.confirm(`${t('revokeDevice')} ${device.name} ${t('revokeDeviceConfirm')}`))
                         void client()
                           .call('device.revoke', { id: device.id })
                           .then(() => client().call('device.list', {}))
