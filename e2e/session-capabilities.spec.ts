@@ -32,7 +32,7 @@ async function visible(locator: Locator) {
 test('session capability actions configure inline Goal, Plan, Budget, and unattended state', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
-    const newSession = await visible(page.locator('button[aria-label="新建会话"]'))
+    const newSession = await visible(page.locator('button[aria-label$=" 中新建会话"]'))
     await newSession.click()
     await expect(page.locator('.chat-panel').filter({ visible: true })).toBeVisible()
 
@@ -51,7 +51,7 @@ test('session capability actions configure inline Goal, Plan, Budget, and unatte
     await expect(page.getByRole('menuitem', { name: 'Goal 模式', exact: true })).toBeEnabled()
     await page.getByRole('menuitem', { name: 'Goal 模式', exact: true }).click()
 
-    await expect(page.getByRole('button', { name: /Goal · 待设置/ })).toBeVisible()
+    await expect(page.locator('.composer-mode-tag', { hasText: 'Goal · 待设置' })).toBeVisible()
     await plus.click()
     await page.getByRole('menuitem', { name: 'Plan 模式', exact: true }).click()
     await expect(page.locator('.composer-mode-tag', { hasText: 'Plan' })).toBeVisible()
@@ -69,7 +69,7 @@ test('session capability actions configure inline Goal, Plan, Budget, and unatte
 test('prompt composer exposes keyboard-navigable slash commands', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
-    const newSession = await visible(page.locator('button[aria-label="新建会话"]'))
+    const newSession = await visible(page.locator('button[aria-label$=" 中新建会话"]'))
     await newSession.click()
     const chat = page.getByRole('tabpanel', { name: 'New session', exact: true })
     const input = chat.getByRole('textbox', { name: '消息', exact: true })
@@ -95,7 +95,7 @@ test('prompt composer exposes keyboard-navigable slash commands', async ({ page,
     await input.fill('/goal')
     await expect(options).toHaveCount(1)
     await input.press('Enter')
-    await expect(page.getByRole('button', { name: /Goal · 待设置/ })).toBeVisible()
+    await expect(page.locator('.composer-mode-tag', { hasText: 'Goal · 待设置' })).toBeVisible()
   } finally {
     fixture.api.disconnect()
   }
