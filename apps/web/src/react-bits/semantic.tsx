@@ -155,6 +155,7 @@ export function SegmentedControl<Value extends string>({
           type="button"
           role="tab"
           aria-selected={option.value === value}
+          className={option.value === value ? 'selected' : undefined}
           tabIndex={option.value === value ? 0 : -1}
           disabled={option.disabled}
           onClick={() => onChange(option.value)}

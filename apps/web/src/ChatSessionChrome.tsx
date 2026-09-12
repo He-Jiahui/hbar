@@ -1,6 +1,7 @@
 import { FolderOpen, GitBranch, RefreshCw } from 'lucide-react'
 import type { GitInfo, Run, Session, Workspace } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
+import { SegmentedControl } from './react-bits'
 import './ChatSessionChrome.css'
 
 export interface ChatSessionChromeProps {
@@ -49,26 +50,16 @@ export default function ChatSessionChrome({
             </span>
           )}
         </div>
-        <div className="session-view-tabs" role="tablist" aria-label="会话视图">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'chat'}
-            className={view === 'chat' ? 'selected' : ''}
-            onClick={() => onViewChange('chat')}
-          >
-            Chat
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'console'}
-            className={view === 'console' ? 'selected' : ''}
-            onClick={() => onViewChange('console')}
-          >
-            控制台
-          </button>
-        </div>
+        <SegmentedControl
+          className="session-view-tabs"
+          ariaLabel="会话视图"
+          value={view}
+          options={[
+            { value: 'chat', label: 'Chat' },
+            { value: 'console', label: '控制台' },
+          ]}
+          onChange={onViewChange}
+        />
         <button
           type="button"
           className="session-refresh"

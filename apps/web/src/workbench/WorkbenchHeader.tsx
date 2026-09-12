@@ -2,6 +2,7 @@ import type { ConnectionStatus } from '@hbar/client'
 import type { HostInfo, Workspace } from '@hbar/contracts'
 import { ChevronDown, Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
 import GlassSurface from '../react-bits/GlassSurface'
+import { StatusBadge } from '../react-bits'
 import './WorkbenchHeader.css'
 
 export interface WorkbenchHeaderProps {
@@ -107,14 +108,15 @@ export default function WorkbenchHeader({
         <span>命令</span>
         <kbd>Ctrl⇧P</kbd>
       </button>
-      <span
+      <StatusBadge
+        status={connectionReady ? 'success' : 'warning'}
         className={`host-status ${connectionReady ? 'success' : 'warning'}`}
         aria-live="polite"
         title={connectionReady ? `已连接 · ${host?.version ?? 'Host'}` : '宿主连接正在恢复'}
+        data-connection-status={status}
       >
-        <i aria-hidden="true" />
         <span className="host-status-text">{hostLabel(status, host)}</span>
-      </span>
+      </StatusBadge>
     </header>
   )
 }
