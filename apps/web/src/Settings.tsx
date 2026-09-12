@@ -817,12 +817,12 @@ export default function Settings() {
     if (tab !== 'appearance') return
     let cancelled = false
     void platform().then((adapter) => adapter.setWindowEffect(themeProfile)).then((result) => {
-      if (!cancelled) setWindowEffectStatus(result.native ? '已启用系统原生窗口效果。' : result.message ?? '当前使用 CSS 模糊回退。')
+      if (!cancelled) setWindowEffectStatus(result.native ? t('nativeEffectEnabled') : result.message ?? t('cssBlurFallback'))
     }).catch((error) => {
-      if (!cancelled) setWindowEffectStatus(error instanceof Error ? `原生窗口效果不可用：${error.message}` : '原生窗口效果不可用，已使用 CSS 回退。')
+      if (!cancelled) setWindowEffectStatus(error instanceof Error ? `${t('nativeEffectUnavailable')}：${error.message}` : `${t('nativeEffectUnavailable')}，${t('cssBlurFallback')}`)
     })
     return () => { cancelled = true }
-  }, [tab, themeProfile])
+  }, [t, tab, themeProfile])
   useEffect(() => {
     const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
     useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined)
@@ -878,13 +878,13 @@ export default function Settings() {
   async function importThemeProfile(file: File | undefined) {
     if (!file) return
     try {
-      if (file.size > 512_000) throw new Error('主题文件不能超过 512 KB。')
+      if (file.size > 512_000) throw new Error(t('themeFileTooLarge'))
       const parsed = themeProfileSchema.safeParse(JSON.parse(await file.text()))
-      if (!parsed.success) throw new Error('主题文件不符合当前主题契约。')
+      if (!parsed.success) throw new Error(t('invalidThemeFile'))
       useThemeSettings.getState().updateDraft(() => parsed.data)
       setSettingsError('')
     } catch (error) {
-      setSettingsError(error instanceof Error ? error.message : '主题导入失败。')
+      setSettingsError(error instanceof Error ? error.message : t('themeImportFailed'))
     } finally {
       if (themeImportInput.current) themeImportInput.current.value = ''
     }
@@ -896,7 +896,7 @@ export default function Settings() {
       const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
       setNotificationPermissionHint(
         permission === 'denied'
-          ? '浏览器已阻止系统通知。请在浏览器的站点设置中允许通知；应用内通知仍会保留。'
+          ? t('browserNotificationsBlocked')
           : '',
       )
     } else if (id.startsWith('notifications.')) setNotificationPermissionHint('')
@@ -1148,7 +1148,7 @@ export default function Settings() {
           </div>
           <div className="theme-preview">
             <h3>{t('themePreview')}</h3>
-            <p>正文文本与中文 English 混排，<strong>粗体 Bold</strong>，<u>下划线 Underline</u>。</p>
+            <p>{t('mixedTypographyPreview')}<strong>{t('boldPreview')}</strong>，<u>{t('underlinePreview')}</u>。</p>
             <code>const theme = 'global';</code>
           </div>
           {themeBackgroundAssets.length > 0 && <div className="theme-plugin-assets" aria-label={t('pluginBackgrounds')}><span>{t('pluginBackgrounds')}</span>{themeBackgroundAssets.map((asset) => { const selected = themeProfile.surface.backgroundAsset === `plugin/${asset.owner}/${asset.path}`; return <button type="button" className={selected ? 'selected' : ''} key={asset.id} aria-pressed={selected} onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: `plugin/${asset.owner}/${asset.path}` } }))}>{asset.title ?? asset.path}</button> })}</div>}
@@ -1347,9 +1347,9 @@ export default function Settings() {
                           <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
                           <span className="model-thinking-count">{model.thinkingLevels.length} {t('thinkingLevelsCount')}</span>
                           <label className="model-thinking-select">
-                            <span className="visually-hidden">{model.modelName} 思考等级</span>
+                            <span className="visually-hidden">{model.modelName} {t('thinkingLevelLabel')}</span>
                             <select
-                              aria-label={`${model.modelName} 思考等级`}
+                              aria-label={`${model.modelName} ${t('thinkingLevelLabel')}`}
                               value={model.id === selectedModelId ? selectedThinkingLevel : model.defaultThinkingLevel}
                               onChange={(event) => selectModel(model.id, event.target.value as ThinkingLevel)}
                             >
@@ -1418,7 +1418,7 @@ export default function Settings() {
                 : undefined
               return <li key={theme.id} className="plugin-theme-item">
                 {previewUrl ? <img src={previewUrl} alt={`${theme.title} preview`} loading="lazy" /> : <span className="plugin-theme-swatch" aria-hidden="true" />}
-                <span className="plugin-theme-copy"><strong>{theme.title}</strong><span>{theme.owner} · 优先级 {theme.priority ?? 0}</span></span>
+                <span className="plugin-theme-copy"><strong>{theme.title}</strong><span>{theme.owner} · {t('priorityLabel')} {theme.priority ?? 0}</span></span>
               </li>
             })}</ul> : <span className="settings-muted">{t('noThemePlugins')}</span>}
             <div className="plugin-renderer-summary" aria-label={t('pluginThemeSummary')}>
