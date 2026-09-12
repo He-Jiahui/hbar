@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -9,7 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 import './GlassSurface.css'
-import { useThemeSettings } from '../theme-store'
+import { mergeThemeContributions, useThemeSettings } from '../theme-store'
+import { useUIPlugins } from '../ui-plugins'
 
 type Channel = 'R' | 'G' | 'B'
 type BlendMode =
@@ -58,6 +60,9 @@ type SurfaceStyle = CSSProperties & {
   '--glass-frost': number
   '--glass-saturation': number
   '--glass-blur': string
+  '--glass-elasticity': number
+  '--glass-aberration': number
+  '--glass-transition-duration': string
   '--filter-id': string
 }
 
@@ -100,11 +105,15 @@ export default function GlassSurface({
   ...rest
 }: GlassSurfaceProps) {
   const themeProfile = useThemeSettings((state) => state.profile)
-  const resolvedBorderRadius = borderRadius ?? themeProfile.surface.cornerRadius
-  const resolvedBlur = blur ?? themeProfile.surface.blurAmount
-  const resolvedDisplace = displace ?? themeProfile.surface.displacementScale
-  const resolvedBackgroundOpacity = backgroundOpacity ?? themeProfile.surface.backgroundOpacity
-  const resolvedSaturation = saturation ?? themeProfile.surface.saturation / 100
+  const themeContributions = useUIPlugins((state) => state.themes)
+  const effectiveTheme = useMemo(() => mergeThemeContributions(themeProfile, themeContributions), [themeContributions, themeProfile])
+  const resolvedBorderRadius = borderRadius ?? effectiveTheme.surface.cornerRadius
+  const resolvedBlur = blur ?? effectiveTheme.surface.blurAmount
+  const resolvedDisplace = displace ?? effectiveTheme.surface.displacementScale
+  const resolvedBackgroundOpacity = backgroundOpacity ?? effectiveTheme.surface.backgroundOpacity
+  const resolvedSaturation = saturation ?? effectiveTheme.surface.saturation / 100
+  const resolvedAberration = effectiveTheme.surface.aberrationIntensity
+  const resolvedElasticity = effectiveTheme.surface.elasticity
   const uniqueId = useId().replace(/:/g, '-')
   const filterId = `glass-filter-${uniqueId}`
   const redGradId = `red-grad-${uniqueId}`
@@ -141,13 +150,14 @@ export default function GlassSurface({
       { ref: greenChannelRef, offset: greenOffset },
       { ref: blueChannelRef, offset: blueOffset },
     ]
-    for (const channel of channels) {
-      channel.ref.current?.setAttribute('scale', String(distortionScale + channel.offset))
+    for (const [index, channel] of channels.entries()) {
+      const chromaticOffset = (index - 1) * resolvedAberration * 8
+      channel.ref.current?.setAttribute('scale', String(distortionScale + channel.offset + chromaticOffset))
       channel.ref.current?.setAttribute('xChannelSelector', xChannel)
       channel.ref.current?.setAttribute('yChannelSelector', yChannel)
     }
     gaussianBlurRef.current?.setAttribute('stdDeviation', String(resolvedDisplace))
-  }, [distortionScale, greenOffset, redOffset, blueOffset, updateDisplacementMap, xChannel, yChannel, resolvedDisplace])
+  }, [distortionScale, greenOffset, redOffset, blueOffset, resolvedAberration, updateDisplacementMap, xChannel, yChannel, resolvedDisplace])
 
   useEffect(() => {
     const element = containerRef.current
@@ -165,6 +175,9 @@ export default function GlassSurface({
     '--glass-frost': resolvedBackgroundOpacity,
     '--glass-saturation': resolvedSaturation,
     '--glass-blur': `${resolvedBlur}px`,
+    '--glass-elasticity': resolvedElasticity,
+    '--glass-aberration': resolvedAberration,
+    '--glass-transition-duration': `${160 + Math.round(resolvedElasticity * 140)}ms`,
     '--filter-id': `url(#${filterId})`,
   }
 
