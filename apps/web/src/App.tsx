@@ -66,8 +66,9 @@ import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbenc
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
 import { FileNavigation, FileViewer } from './FileNavigation'
 import SystemTerminalPanel from './SystemTerminalPanel'
+import { applyThemeProfile, handleThemeEvent, mergeThemeContributions, useThemeSettings } from './theme-store'
+import type { ToolWindowProps } from '@hbar/ui-sdk'
 import ReferenceGallery from './react-bits/reference/ReferenceGallery'
-import { applyThemeProfile, handleThemeEvent, useThemeSettings } from './theme-store'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
 const DEFAULT_TOOL_RAIL_ORDER = [

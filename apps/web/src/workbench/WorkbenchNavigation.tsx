@@ -49,7 +49,13 @@ export interface WorkbenchNavigationProps {
     placement: 'left' | 'right' | 'top' | 'bottom' | 'editor',
     config?: Record<string, unknown>,
   ): void
-  onToggleTool(id: string, title: string, component: string, placement: 'left' | 'right' | 'top' | 'bottom' | 'editor'): void
+  onToggleTool(
+    id: string,
+    title: string,
+    component: string,
+    placement: 'left' | 'right' | 'top' | 'bottom' | 'editor',
+    config?: Record<string, unknown>,
+  ): void
   onSetMobileView(view: string): void
   toolOrder: readonly string[]
   toolSides: Readonly<Record<string, 'left' | 'right'>>
@@ -207,7 +213,6 @@ export function WorkbenchToolRails({
   diagnosePanelId,
   contributions,
   onSelectPrimary,
-  onOpenTool,
   onToggleTool,
   toolOrder,
   toolSides,
@@ -223,8 +228,7 @@ export function WorkbenchToolRails({
   | 'diagnosePanelId'
   | 'contributions'
   | 'onSelectPrimary'
-  | 'onOpenTool'
-  | 'onToggleTool'
+ | 'onToggleTool'
   | 'toolOrder'
   | 'toolSides'
   | 'onMoveTool'
@@ -284,13 +288,7 @@ export function WorkbenchToolRails({
       tooltipPlacement={tooltipPlacement}
       selected={toolPanel === `plugin:${contribution.id}`}
       onClick={() =>
-        onOpenTool(
-          `plugin:${contribution.id}`,
-          contribution.title,
-          'plugin',
-          contributionPlacement(contribution),
-          { panelId: contribution.id },
-        )
+        onToggleTool(`plugin:${contribution.id}`, contribution.title, 'plugin', contributionPlacement(contribution), { panelId: contribution.id })
       }
       draggable
       onDragStart={(event) => {
