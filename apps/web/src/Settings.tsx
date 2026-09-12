@@ -1298,20 +1298,20 @@ export default function Settings() {
                         <div>
                           <strong>{group.providerName}</strong>
                           <small>
-                            {group.models.length} 个模型 · {first.protocol === 'mock' ? 'Local fixture' : first.baseUrl}
+                            {group.models.length} {t('providerModelCount')} · {first.protocol === 'mock' ? t('localFixture') : first.baseUrl}
                           </small>
                         </div>
                       </div>
                       <div className="settings-provider-actions">
                         <span className={`model-connection ${connected ? 'connected' : 'needs-key'}`}>
                           <KeyRound size={12} />
-                          {first.protocol === 'mock' ? '本地' : connected ? '已连接' : '待配置 Key'}
+                          {first.protocol === 'mock' ? t('localModel') : connected ? t('connected') : t('pendingKey')}
                         </span>
                         <button
-                          title={`删除供应商 ${group.providerName}`}
-                          aria-label={`删除供应商 ${group.providerName}`}
+                          title={`${t('deleteProvider')} ${group.providerName}`}
+                          aria-label={`${t('deleteProvider')} ${group.providerName}`}
                           onClick={() => {
-                            if (window.confirm(`删除供应商 ${group.providerName} 及其全部模型？`))
+                            if (window.confirm(`${t('deleteProvider')} ${group.providerName} ${t('deleteProviderConfirm')}`))
                               void client()
                                 .call('provider.delete', { id: providerId })
                                 .then(refreshCatalog)
@@ -1332,20 +1332,20 @@ export default function Settings() {
                           <button
                             type="button"
                             className="model-details"
-                            aria-label={`选择模型 ${model.modelName}`}
+                            aria-label={`${t('selectModelLabel')} ${model.modelName}`}
                             onClick={() => selectModel(model.id)}
                           >
                             <strong>{model.modelName}</strong>
                             <span>{model.model}</span>
                             <small>
                               {model.defaultThinkingLevel === 'off'
-                                ? '思考关闭'
-                                : `默认思考：${modelThinkingLabel(model.defaultThinkingLevel)}`}
+                                ? t('thinkingOff')
+                                : `${t('defaultThinking')}：${modelThinkingLabel(model.defaultThinkingLevel)}`}
                             </small>
                           </button>
-                          <span className="model-capability">{model.imageInput ? '图文' : '文本'}</span>
+                          <span className="model-capability">{model.imageInput ? t('imageAndText') : t('plainText')}</span>
                           <span className="model-window">{Math.round(model.contextWindow / 1000)}k</span>
-                          <span className="model-thinking-count">{model.thinkingLevels.length} 级</span>
+                          <span className="model-thinking-count">{model.thinkingLevels.length} {t('thinkingLevelsCount')}</span>
                           <label className="model-thinking-select">
                             <span className="visually-hidden">{model.modelName} 思考等级</span>
                             <select
@@ -1363,12 +1363,12 @@ export default function Settings() {
                           <button
                             type="button"
                             className="model-config-action button"
-                            aria-label={`配置模型 ${model.modelName}`}
-                            title={`配置模型 ${model.modelName}`}
+                            aria-label={`${t('configure')} ${model.modelName}`}
+                            title={`${t('configure')} ${model.modelName}`}
                             onClick={() => setEditor(model)}
                           >
                             <Settings2 size={13} />
-                            {model.protocol === 'mock' || model.hasKey ? '配置' : '配置 Key'}
+                            {model.protocol === 'mock' || model.hasKey ? t('configure') : t('configureKey')}
                           </button>
                         </SpotlightCard>
                       ))}
