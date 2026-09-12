@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { create } from 'zustand'
-import { themeContributionSchema, type PluginInfo } from '@hbar/contracts'
+import { themeContributionSchema, toolWindowDescriptorSchema, type PluginInfo } from '@hbar/contracts'
 import type {
   ClientPanel,
   ClientPlugin,
@@ -114,10 +114,14 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               id: `${plugin.id}:${parsedTheme.id}`,
               title: parsedTheme.title,
               ...(parsedTheme.description ? { description: parsedTheme.description } : {}),
+              ...(parsedTheme.preview ? { preview: parsedTheme.preview } : {}),
               priority: parsedTheme.priority ?? 0,
               tokenOverrides: parsedTheme.tokenOverrides as ClientTheme['tokenOverrides'],
+              ...(parsedTheme.surfaceEffects ? { surfaceEffects: parsedTheme.surfaceEffects as NonNullable<ClientTheme['surfaceEffects']> } : {}),
+              ...(parsedTheme.motion ? { motion: parsedTheme.motion as NonNullable<ClientTheme['motion']> } : {}),
+              ...(parsedTheme.backgroundAssets.length ? { backgroundAssets: parsedTheme.backgroundAssets } : {}),
               owner: plugin.id,
-            })
+            } as RegisteredTheme)
           }
           const result = await module.default.apply({
             react: React,
@@ -127,7 +131,18 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               const id = `${plugin.id}:${panel.id}`
               if (useUIPlugins.getState().panels.some((p) => p.id === id) || pendingPanels.some((p) => p.id === id))
                 throw new Error(`Duplicate panel ${id}`)
-              const registered = { ...panel, id, owner: plugin.id }
+              const descriptor = toolWindowDescriptorSchema.parse({
+                id: panel.id,
+                title: panel.title,
+                icon: panel.icon,
+                defaultDock: panel.defaultDock,
+                allowedDocks: panel.allowedDocks,
+                scope: panel.scope,
+                canPopout: panel.canPopout,
+                closable: panel.closable,
+                minSize: panel.minSize,
+              })
+              const registered = { ...descriptor, id, owner: plugin.id, component: panel.component }
               pendingPanels.push(registered)
               return own(() => {
                 if (!committed) {
@@ -227,14 +242,18 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               const id = `${plugin.id}:${parsed.id}`
               if (useUIPlugins.getState().themes.some((item) => item.id === id) || pendingThemes.some((item) => item.id === id))
                 throw new Error(`Duplicate theme ${id}`)
-              const registered: RegisteredTheme = {
+              const registered = {
                 id,
                 title: parsed.title,
                 ...(parsed.description ? { description: parsed.description } : {}),
+                ...(parsed.preview ? { preview: parsed.preview } : {}),
                 priority: parsed.priority ?? 0,
                 tokenOverrides: parsed.tokenOverrides as ClientTheme['tokenOverrides'],
+                ...(parsed.surfaceEffects ? { surfaceEffects: parsed.surfaceEffects as NonNullable<ClientTheme['surfaceEffects']> } : {}),
+                ...(parsed.motion ? { motion: parsed.motion as NonNullable<ClientTheme['motion']> } : {}),
+                ...(parsed.backgroundAssets.length ? { backgroundAssets: parsed.backgroundAssets } : {}),
                 owner: plugin.id,
-              }
+              } as RegisteredTheme
               pendingThemes.push(registered)
               return own(() => {
                 if (!committed) {
