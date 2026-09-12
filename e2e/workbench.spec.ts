@@ -624,6 +624,30 @@ test('session context menu closes when clicking outside the floating surface', a
   }
 })
 
+test('session context menu hover state uses a visible themed highlight', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const workspace = bootstrap.workspaces[0]!
+    const title = `Hover menu ${Date.now().toString(36)}`
+    await fixture.api.call('session.create', { workspaceId: workspace.id, title })
+    await page.reload()
+    const sessionCard = page.locator('.session-item').filter({ hasText: title, visible: true }).first()
+    await expect(sessionCard).toBeVisible()
+    await sessionCard.click({ button: 'right' })
+    const menu = page.getByRole('menu', { name: '会话选项', exact: true })
+    const item = menu.getByRole('menuitem').first()
+    await expect(item).toBeVisible()
+    const base = await menu.evaluate((element) => getComputedStyle(element).backgroundColor)
+    await item.hover()
+    await expect.poll(() => item.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(base)
+    await expect.poll(() => item.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none')
+    await expect(item).toHaveCSS('color', /rgb\(/)
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('new-session action creates only one session when double-clicked', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
