@@ -11,7 +11,7 @@ import {
 } from '@hbar/contracts'
 import type { PlanState, PlanStep, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
+import type { GoalService, HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from './instructions.ts'
 
 const MAX_RESTORE_EVENTS = 100_000
@@ -21,7 +21,7 @@ export const planConfigSchema = z.object({
   maxRestoreEvents: z.number().int().min(1_000).max(MAX_RESTORE_EVENTS).default(MAX_RESTORE_EVENTS),
   // Codex keeps the synchronous control tool Plan-only by default. Hosts may
   // explicitly enable it in Default mode for compatibility with that feature.
-  allowDefaultModeRequestUserInput: z.boolean().default(false),
+  allowDefaultModeRequestUserInput: z.boolean().default(true),
 })
 export type PlanConfig = z.infer<typeof planConfigSchema>
 
@@ -29,6 +29,10 @@ const planUpdatedEventSchema = z.object({ plan: planStateSchema })
 const planClearedEventSchema = z.object({ sessionId: idSchema })
 const modeChangedEventSchema = z.object({ mode: runModeSchema })
 const updatePlanSchema = z.object({
+  explanation: z.string().max(4_000).optional(),
+  plan: z.array(planStepSchema).max(100),
+})
+const savePlanSchema = z.object({
   explanation: z.string().max(4_000).optional(),
   plan: z.array(planStepSchema).max(100),
 })
@@ -195,7 +199,7 @@ class PlanRuntime implements PlanService {
         runId,
         callId,
         questions: normalizedQuestions,
-        isBlocking: mode === 'plan',
+        isBlocking: true,
         autoResolutionMs: undefined,
       }),
       signal,
@@ -240,7 +244,7 @@ class PlanRuntime implements PlanService {
 
   enforceReadOnly(name: string, context: ToolContext, tool: ToolDefinition) {
     if (context.run.input.mode !== 'plan') return
-    if (name !== 'update_plan' && tool.effect !== 'read')
+    if (name !== 'update_plan' && name !== 'save_plan' && tool.effect !== 'read')
       throw new HbarError('PLAN_READ_ONLY', `Plan mode cannot execute ${name}; switch back to default mode to make changes`)
   }
 }
@@ -258,6 +262,19 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
         const parsed = updatePlanSchema.parse(args)
         const plan = await runtime.update(context.session.id, parsed.plan, parsed.explanation ?? null, context.run.id)
         return { text: 'Plan updated', details: plan }
+      },
+    },
+    {
+      name: 'save_plan',
+      description: 'Save a structured implementation plan while in Plan mode. This only persists the plan and never changes workspace files.',
+      inputSchema: savePlanSchema,
+      effect: 'read',
+      execute: async (args, context) => {
+        if (context.run.input.mode !== 'plan')
+          throw new HbarError('PLAN_MODE', 'save_plan is only available in Plan mode')
+        const parsed = savePlanSchema.parse(args)
+        const plan = await runtime.update(context.session.id, parsed.plan, parsed.explanation ?? null, context.run.id)
+        return { text: 'Structured plan saved', details: plan }
       },
     },
     {
@@ -309,6 +326,21 @@ export const planPlugin = definePlugin({
     })
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))
     ctx.hbar.api.hooks.on('tool.before', ({ name, context, tool }) => runtime.enforceReadOnly(name, context, tool))
+    ctx.hbar.api.hooks.on('run.end', async ({ sessionId, run, status }) => {
+      if (status !== 'completed' || run.input.mode !== 'plan') return
+      const current = await runtime.get(sessionId)
+      if (!current?.plan.length) return
+      const objective = [
+        current.explanation,
+        ...current.plan.map((step, index) => `${index + 1}. ${step.step}`),
+      ].filter(Boolean).join('\n')
+      const goals = ctx.hbar.api.service<GoalService>('goal')
+      const existing = (await goals.get(sessionId)).goal
+      if (existing) await goals.set(sessionId, { objective, expectedGoalId: existing.goalId })
+      else await goals.create(sessionId, objective)
+      await runtime.setMode(sessionId, 'default')
+      await ctx.hbar.api.sessions.submit(sessionId, `goal-${crypto.randomUUID()}`, { text: '', images: [], source: 'goal' }, run.modelId)
+    })
     for (const tool of planTools(runtime)) ctx.hbar.api.tools.register(tool)
   },
 })

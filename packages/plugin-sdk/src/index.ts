@@ -34,7 +34,7 @@ import type {
   UIContribution,
   Usage,
   Workspace,
-  SettingsContribution,
+  SettingsContributionInput,
 } from '@hbar/contracts'
 
 export { Context }
@@ -379,7 +379,7 @@ export interface PluginManifest {
         commands: TerminalContribution[]
         panels: Record<string, unknown>[]
         renderers: Record<string, unknown>[]
-        settings?: SettingsContribution | undefined
+        settings?: SettingsContributionInput | undefined
       }
     | undefined
   permissions: string[]

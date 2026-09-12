@@ -172,6 +172,32 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         return kernel.setPermissionMode(p.mode)
       }
+      case 'settings.catalog':
+        return kernel.settingsCatalog()
+      case 'settings.snapshot': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.settingsSnapshot(p.scope, p.targetId)
+      }
+      case 'settings.set': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.setSetting(p.scope, p.targetId, p.id, p.value, p.expectedRevision)
+      }
+      case 'settings.reset': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.resetSetting(p.scope, p.targetId, p.id, p.expectedRevision)
+      }
+      case 'settings.search': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.searchSettings(p.query)
+      }
+      case 'automation.get': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.automationGet(p.sessionId)
+      }
+      case 'automation.set': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.automationSet(p.sessionId, p.unattended)
+      }
       case 'goal.get': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<GoalService>('goal').get(p.sessionId)

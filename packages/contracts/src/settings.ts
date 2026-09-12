@@ -7,7 +7,7 @@ export type SettingScope = z.infer<typeof settingScopeSchema>
 export const settingRestartPolicySchema = z.enum(['live', 'idle', 'restart'])
 export type SettingRestartPolicy = z.infer<typeof settingRestartPolicySchema>
 
-const settingIdSchema = z.string().regex(/^[a-z][a-z0-9_.-]{0,127}$/)
+const settingIdSchema = z.string().regex(/^[a-z][a-zA-Z0-9_.-]{0,127}$/)
 
 /**
  * Safe, serializable JSON-Schema subset used by the settings renderer.
@@ -89,6 +89,7 @@ export const settingDescriptorSchema = z
   })
   .strict()
 export type SettingDescriptor = z.infer<typeof settingDescriptorSchema>
+export type SettingDescriptorInput = z.input<typeof settingDescriptorSchema>
 
 export const settingsSectionSchema = z
   .object({
@@ -100,6 +101,7 @@ export const settingsSectionSchema = z
   })
   .strict()
 export type SettingsSection = z.infer<typeof settingsSectionSchema>
+export type SettingsSectionInput = z.input<typeof settingsSectionSchema>
 
 export const settingsContributionSchema = z
   .object({
@@ -110,6 +112,7 @@ export const settingsContributionSchema = z
   })
   .strict()
 export type SettingsContribution = z.infer<typeof settingsContributionSchema>
+export type SettingsContributionInput = z.input<typeof settingsContributionSchema>
 
 export const settingsNavigationGroupSchema = z
   .object({

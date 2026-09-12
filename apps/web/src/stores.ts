@@ -266,6 +266,8 @@ export function client(): HbarClient {
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 let generation = 0
 const bufferedEvents = new Map<string, Map<number, SessionEvent>>()
+const sessionLoadGeneration = new Map<string, number>()
+const olderMessageRequests = new Map<string, { connection: HbarClient; before: number }>()
 
 export async function connectHost(url: string, token?: string) {
   const prior = useConnection.getState().client
@@ -274,6 +276,8 @@ export async function connectHost(url: string, token?: string) {
   const next = new HbarClient(url, token)
   useConnection.setState({ client: next, url, status: 'connecting', error: '' })
   useSessions.setState({ snapshots: {}, loading: new Set() })
+  sessionLoadGeneration.clear()
+  olderMessageRequests.clear()
   resetSessionCapabilities()
   bufferedEvents.clear()
   next.onStatus((status) => {
@@ -322,6 +326,8 @@ export async function refreshCatalog() {
 }
 export async function openSession(sessionId: string) {
   const connection = client()
+  const sessionGeneration = (sessionLoadGeneration.get(sessionId) ?? 0) + 1
+  sessionLoadGeneration.set(sessionId, sessionGeneration)
   const current = useWorkbench.getState().activeSession
   useWorkbench.setState({ activeSession: sessionId })
   if (current && current !== sessionId) await connection.unfollow(current).catch(() => {})
@@ -344,24 +350,49 @@ export async function openSession(sessionId: string) {
   }
 }
 export async function loadOlder(sessionId: string) {
+  const connection = useConnection.getState().client
   const snapshot = useSessions.getState().snapshots[sessionId]
-  if (!snapshot?.messages[0]) return
-  const older = await client().call('session.snapshot', { sessionId, before: snapshot.messages[0].seq, limit: 100 })
-  useSessions.setState((state) => {
-    const current = state.snapshots[sessionId]
-    if (!current) return state
-    const known = new Set(current.messages.map((m) => m.id))
-    return {
-      snapshots: {
-        ...state.snapshots,
-        [sessionId]: {
-          ...current,
-          messages: [...older.messages.filter((m) => !known.has(m.id)), ...current.messages],
-          hasOlder: older.hasOlder,
+  const firstMessage = snapshot?.messages[0]
+  if (!connection || !firstMessage) return
+  const before = firstMessage.seq
+  const previousRequest = olderMessageRequests.get(sessionId)
+  if (previousRequest?.connection === connection && previousRequest.before === before) return
+  const request = { connection, before }
+  olderMessageRequests.set(sessionId, request)
+  const sessionGeneration = sessionLoadGeneration.get(sessionId) ?? 0
+  const connectionGeneration = generation
+  const isCurrentRequest = () =>
+    connection === useConnection.getState().client &&
+    connectionGeneration === generation &&
+    olderMessageRequests.get(sessionId) === request &&
+    sessionGeneration === (sessionLoadGeneration.get(sessionId) ?? 0) &&
+    (!useWorkbench.getState().activeSession || useWorkbench.getState().activeSession === sessionId)
+  try {
+    const older = await connection.call('session.snapshot', { sessionId, before, limit: 100 })
+    if (!isCurrentRequest()) return
+    const current = useSessions.getState().snapshots[sessionId]
+    if (!current || current.messages[0]?.seq !== before) return
+    useSessions.setState((state) => {
+      const current = state.snapshots[sessionId]
+      if (!current || current.messages[0]?.seq !== before) return state
+      const known = new Set(current.messages.map((m) => m.id))
+      return {
+        snapshots: {
+          ...state.snapshots,
+          [sessionId]: {
+            ...current,
+            messages: [...older.messages.filter((m) => !known.has(m.id)), ...current.messages],
+            hasOlder: older.hasOlder,
+          },
         },
-      },
-    }
-  })
+      }
+    })
+  } catch (error) {
+    if (isCurrentRequest()) throw error
+    return
+  } finally {
+    if (olderMessageRequests.get(sessionId) === request) olderMessageRequests.delete(sessionId)
+  }
 }
 function onEvent(event: WireNotification) {
   applySessionCapabilityEvent(event)

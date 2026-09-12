@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { SettingsContribution } from './settings.ts'
+import { settingScopeSchema } from './settings.ts'
+import type { SettingDescriptor, SettingScope, SettingsCatalog, SettingsContribution, SettingsSnapshot } from './settings.ts'
 
 export * from './settings.ts'
 
@@ -826,6 +827,22 @@ export const rpcSchemas = {
   'system.restart': z.object({}),
   'permission.get': z.object({}),
   'permission.set': z.object({ mode: permissionModeSchema }),
+  'settings.catalog': z.object({}),
+  'settings.snapshot': z.object({ scope: settingScopeSchema, targetId: idSchema.optional() }),
+  'settings.set': z.object({
+    scope: settingScopeSchema,
+    targetId: idSchema.optional(),
+    id: idSchema,
+    value: z.unknown(),
+    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  }),
+  'settings.reset': z.object({
+    scope: settingScopeSchema,
+    targetId: idSchema.optional(),
+    id: idSchema,
+    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  }),
+  'settings.search': z.object({ query: z.string().trim().max(200) }),
   'goal.get': z.object({ sessionId: idSchema }),
   'goal.create': z.object({
     sessionId: idSchema,
@@ -1065,6 +1082,11 @@ export interface RpcResults {
   'system.restart': { accepted: boolean; restartRequired: boolean }
   'permission.get': { mode: PermissionMode }
   'permission.set': { mode: PermissionMode }
+  'settings.catalog': SettingsCatalog
+  'settings.snapshot': SettingsSnapshot
+  'settings.set': SettingsSnapshot
+  'settings.reset': SettingsSnapshot
+  'settings.search': Array<SettingDescriptor & { path: string; source?: SettingScope | 'default' | undefined }>
   'goal.get': { goal: ThreadGoal | null; remainingTokens: number | null }
   'goal.create': { goal: ThreadGoal; remainingTokens: number | null }
   'goal.update': { goal: ThreadGoal; remainingTokens: number | null; completionBudgetReport?: string }

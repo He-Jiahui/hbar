@@ -20,6 +20,8 @@ export interface SessionCapabilityState {
   loading: boolean
   saving: boolean
   error: string
+  unattended: boolean
+  goalArmed: boolean
 }
 
 interface SessionCapabilityStore {
@@ -36,6 +38,8 @@ const EMPTY_STATE: SessionCapabilityState = {
   loading: false,
   saving: false,
   error: '',
+  unattended: false,
+  goalArmed: false,
 }
 
 export const useSessionCapabilities = create<SessionCapabilityStore>((set) => ({
@@ -74,11 +78,12 @@ export async function loadSessionCapabilities(
   const sequence = nextSequence(sessionId)
   useSessionCapabilities.getState().setSession(sessionId, { loading: true, error: '' })
   try {
-    const [goalResult, plan, mode, budget] = await Promise.all([
+    const [goalResult, plan, mode, budget, automation] = await Promise.all([
       transport.call('goal.get', { sessionId }),
       transport.call('plan.get', { sessionId }),
       transport.call('mode.get', { sessionId }),
       transport.call('budget.get', { sessionId }),
+      transport.call('automation.get', { sessionId }),
     ])
     if (!isCurrent(sessionId, sequence, isConnected)) return
     const current = useSessionCapabilities.getState().sessions[sessionId]
@@ -90,6 +95,7 @@ export async function loadSessionCapabilities(
       plan: currentPlan && plan && currentPlan.updatedAt > plan.updatedAt ? currentPlan : plan,
       mode: mode.mode,
       budget: currentBudget && budget && currentBudget.revision > budget.revision ? currentBudget : budget,
+      unattended: automation.unattended,
       loading: false,
       error: '',
     })
@@ -185,6 +191,16 @@ export function clearBudget(transport: ClientTransport, sessionId: string) {
   )
 }
 
+export function setUnattended(transport: ClientTransport, sessionId: string, unattended: boolean) {
+  return mutation(sessionId, () => transport.call('automation.set', { sessionId, unattended }), (result) =>
+    useSessionCapabilities.getState().setSession(sessionId, { unattended: result.unattended }),
+  )
+}
+
+export function setGoalArmed(sessionId: string, goalArmed: boolean) {
+  useSessionCapabilities.getState().setSession(sessionId, { goalArmed })
+}
+
 export function applySessionCapabilityEvent(event: WireNotification) {
   if (event.method === 'goal.updated') {
     const current = useSessionCapabilities.getState().sessions[event.params.sessionId]?.goal
@@ -206,6 +222,12 @@ export function applySessionCapabilityEvent(event: WireNotification) {
       useSessionCapabilities.getState().setSession(event.params.sessionId, { budget: event.params.budget, saving: false, error: '' })
   } else if (event.method === 'budget.cleared') {
     useSessionCapabilities.getState().setSession(event.params.sessionId, { budget: null, saving: false, error: '' })
+  } else if (event.method === 'automation.changed') {
+    useSessionCapabilities.getState().setSession(event.params.sessionId, {
+      unattended: event.params.unattended,
+      saving: false,
+      error: '',
+    })
   }
 }
 

@@ -113,6 +113,51 @@
   color: var(--hbar-t1);
 }
 
+.rb-prompt-composer .composer-mode-tag-active {
+  border-color: color-mix(in srgb, var(--rb-accent) 55%, var(--hbar-bd));
+  background: color-mix(in srgb, var(--rb-accent) 15%, var(--hbar-s0));
+  color: var(--hbar-t1);
+}
+
+.rb-prompt-composer .composer-mode-budget-editor {
+  gap: 4px;
+  padding-left: 5px;
+}
+
+.rb-prompt-composer .composer-mode-budget-editor input {
+  width: 88px;
+  height: 20px;
+  padding: 2px 5px;
+  border: 1px solid var(--hbar-bd2);
+  border-radius: 4px;
+  background: var(--hbar-s0);
+  color: var(--hbar-t1);
+  font-size: 10px;
+}
+
+.rb-prompt-composer .composer-mode-budget-editor button {
+  width: 18px;
+  height: 18px;
+  margin-left: 0;
+  opacity: 1;
+}
+
+.rb-prompt-composer .composer-unattended-toggle {
+  min-height: 25px;
+  padding: 0 7px;
+  border: 1px dashed var(--hbar-bd2);
+  border-radius: 999px;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.rb-prompt-composer .composer-unattended-toggle:hover,
+.rb-prompt-composer .composer-unattended-toggle:focus-visible {
+  border-color: var(--rb-accent);
+  color: var(--hbar-t1);
+}
+
 .rb-prompt-composer .composer-right {
   gap: 7px;
 }
