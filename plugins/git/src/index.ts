@@ -574,14 +574,20 @@ export class GitRuntime implements GitService {
     return { path: target, head: null, branch: null, bare: false, locked: false, prunable: false }
   }
 
-  async diffToRemote(cwd?: string, signal?: AbortSignal) {
+  async diffToRemote(cwd?: string, signal?: AbortSignal, paths: string[] = []) {
     const path = await this.resolveWithinRoot(cwd)
     const status = await this.status(path, signal)
     const base = await this.remoteBase(path, status, signal)
     if (!base) return null
-    const tracked = await this.run(path, ['diff', '--no-ext-diff', base.reference], signal)
+    const requestedPaths = paths.map(pathSpec)
+    const trackedArgs = ['diff', '--no-ext-diff', base.reference]
+    if (requestedPaths.length) trackedArgs.push('--', ...requestedPaths)
+    const tracked = await this.run(path, trackedArgs, signal)
     const untracked = await this.tryRun(path, ['ls-files', '--others', '--exclude-standard', '-z'], signal)
-    const untrackedPaths = (untracked?.stdout ?? '').split('\0').filter(Boolean)
+    const untrackedPaths = (untracked?.stdout ?? '')
+      .split('\0')
+      .filter(Boolean)
+      .filter((candidate) => !requestedPaths.length || requestedPaths.some((selected) => candidate === selected || candidate.startsWith(`${selected}/`)))
     const extra = await this.untrackedDiff(path, untrackedPaths, signal)
     const diff = `${tracked.stdout}${extra.diff}`
     const truncated = tracked.truncated || extra.truncated || diff.length > this.config.maxOutputBytes
@@ -599,6 +605,7 @@ export class GitRuntime implements GitService {
 }
 
 const cwdSchema = z.object({ cwd: z.string().min(1).max(MAX_PATH).optional() })
+const remoteDiffArgs = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).max(100).default([]) })
 const diffArgs = cwdSchema.extend({ cached: z.boolean().default(false), paths: z.array(z.string().min(1).max(MAX_PATH)).max(100).default([]) })
 const logArgs = cwdSchema.extend({ limit: z.number().int().min(1).max(MAX_LOG).default(20) })
 const commitArgs = cwdSchema.extend({ message: z.string().trim().min(1).max(4_000), paths: z.array(z.string().min(1).max(MAX_PATH)).max(100).default([]), stage: z.boolean().default(false) })
@@ -619,7 +626,7 @@ export function gitTools(runtime: GitRuntime): ToolDefinition[] {
     { name: 'git_status', description: 'Inspect the current Git repository status, branch, upstream, and sanitized origin URL.', inputSchema: cwdSchema, effect: 'read', execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).status(parsed.cwd, context.signal)) } },
     { name: 'git_diff', description: 'Read a bounded Git diff for the workspace. Paths are relative to the workspace.', inputSchema: diffArgs, effect: 'read', execute: async (args, context) => { const parsed = diffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diff(parsed.cwd, parsed, context.signal)) } },
     { name: 'git_log', description: 'Read recent Git commits from the workspace.', inputSchema: logArgs, effect: 'read', execute: async (args, context) => { const parsed = logArgs.parse(args); return toolResult(await scopedTool(runtime, context).log(parsed.cwd, parsed.limit, context.signal)) } },
-    { name: 'git_diff_to_remote', description: 'Read the diff from the current HEAD to its configured upstream branch.', inputSchema: cwdSchema, effect: 'read', execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).diffToRemote(parsed.cwd, context.signal)) } },
+    { name: 'git_diff_to_remote', description: 'Read the diff from the current HEAD to its configured upstream branch.', inputSchema: remoteDiffArgs, effect: 'read', execute: async (args, context) => { const parsed = remoteDiffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diffToRemote(parsed.cwd, context.signal, parsed.paths)) } },
     { name: 'git_commit', description: 'Create a Git commit. This is a write operation and requires approval.', inputSchema: commitArgs, effect: 'write', execute: async (args, context) => { const parsed = commitArgs.parse(args); return toolResult(await scopedTool(runtime, context).commit(parsed.cwd, parsed, context.signal)) } },
     { name: 'git_stage', description: 'Stage bounded workspace paths for the next Git commit. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).stage(parsed.cwd, parsed.paths, context.signal)) } },
     { name: 'git_unstage', description: 'Remove bounded workspace paths from the Git index. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).unstage(parsed.cwd, parsed.paths, context.signal)) } },

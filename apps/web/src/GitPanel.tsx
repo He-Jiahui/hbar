@@ -145,7 +145,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     }
     try {
       const nextDiff = mode === 'remote'
-        ? await requestConnection.call('git.diff_to_remote', { cwd: workspacePath }).then((remote) => remote ? { cwd: workspacePath, diff: remote.diff, cached: false, truncated: remote.truncated } : null)
+        ? await requestConnection.call('git.diff_to_remote', { cwd: workspacePath, paths: [path] }).then((remote) => remote ? { cwd: workspacePath, diff: remote.diff, cached: false, truncated: remote.truncated } : null)
         : await requestConnection.call('git.diff', { cwd: workspacePath, cached: mode === 'staged', paths: [path] })
       if (isCurrentRequest()) setDiff(nextDiff)
     } catch (cause) {

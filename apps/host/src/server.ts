@@ -295,7 +295,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.diff_to_remote': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').diffToRemote(p.cwd)
+        return kernel.plugins.get<GitService>('git').diffToRemote(p.cwd, undefined, p.paths)
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)

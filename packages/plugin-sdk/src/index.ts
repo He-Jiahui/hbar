@@ -215,7 +215,7 @@ export interface GitService {
     operation?: GitWorktreeOperation,
     signal?: AbortSignal,
   ): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
-  diffToRemote(cwd?: string, signal?: AbortSignal): Promise<{ sha: string; diff: string; truncated: boolean } | null>
+  diffToRemote(cwd?: string, signal?: AbortSignal, paths?: string[]): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {
   status(sessionId: string, signal?: AbortSignal): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>

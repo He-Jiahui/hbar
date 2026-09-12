@@ -221,3 +221,17 @@ test('Git diff to remote reports the remote base and includes working-tree files
   expect(diff?.diff).toContain('README.md')
   expect(diff?.diff).toContain('untracked.txt')
 })
+
+test('Git diff to remote can scope the comparison to one path', async () => {
+  const { root, runtime } = await fixture()
+  const remote = await mkdtemp(join(tmpdir(), 'hbar-git-remote-'))
+  roots.push(remote)
+  await runGit(remote, ['init', '--bare', '-q'])
+  await runGit(root, ['remote', 'add', 'origin', remote])
+  await runGit(root, ['push', '-u', 'origin', 'HEAD'])
+  await writeFile(join(root, 'README.md'), 'changed\n')
+  await writeFile(join(root, 'untracked.txt'), 'new\n')
+  const diff = await runtime.diffToRemote(undefined, undefined, ['README.md'])
+  expect(diff?.diff).toContain('README.md')
+  expect(diff?.diff).not.toContain('untracked.txt')
+})

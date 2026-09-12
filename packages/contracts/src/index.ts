@@ -965,7 +965,10 @@ export const rpcSchemas = {
     createBranch: z.boolean().default(false),
     force: z.boolean().default(false),
   }),
-  'git.diff_to_remote': z.object({ cwd: z.string().min(1).max(4_000).optional() }),
+  'git.diff_to_remote': z.object({
+    cwd: z.string().min(1).max(4_000).optional(),
+    paths: z.array(z.string().min(1).max(4_000)).max(100).default([]),
+  }),
   'browser.status': z.object({ sessionId: idSchema }),
   'browser.navigate': z.object({
     sessionId: idSchema,
