@@ -48,7 +48,7 @@ import SpotlightCard from './react-bits/SpotlightCard'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 import { FloatingSurface } from './FloatingLayer'
-import { useThemeSettings } from './theme-store'
+import { mergeThemeContributions, useThemeSettings } from './theme-store'
 import { platform } from './platform'
 import { useUIPlugins } from './ui-plugins'
 import { useLocale } from './locale'
@@ -816,13 +816,14 @@ export default function Settings() {
   useEffect(() => {
     if (tab !== 'appearance') return
     let cancelled = false
-    void platform().then((adapter) => adapter.setWindowEffect(themeProfile)).then((result) => {
+    const effectiveTheme = mergeThemeContributions(themeProfile, themePlugins)
+    void platform().then((adapter) => adapter.setWindowEffect(effectiveTheme)).then((result) => {
       if (!cancelled) setWindowEffectStatus(result.native ? t('nativeEffectEnabled') : result.message ?? t('cssBlurFallback'))
     }).catch((error) => {
       if (!cancelled) setWindowEffectStatus(error instanceof Error ? `${t('nativeEffectUnavailable')}：${error.message}` : `${t('nativeEffectUnavailable')}，${t('cssBlurFallback')}`)
     })
     return () => { cancelled = true }
-  }, [t, tab, themeProfile])
+  }, [t, tab, themePlugins, themeProfile])
   useEffect(() => {
     const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
     useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined)
