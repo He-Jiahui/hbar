@@ -99,7 +99,7 @@ test('legacy appearance theme is retained until a full profile is saved', () => 
   }
   useThemeSettings.getState().applySnapshot(snapshot)
   expect(useThemeSettings.getState().profile.mode).toBe('light')
-  useThemeSettings.setState({ profile: DEFAULT_THEME_PROFILE, profileExplicit: false, savedProfile: DEFAULT_THEME_PROFILE, snapshot: null })
+  useThemeSettings.setState({ profile: DEFAULT_THEME_PROFILE, profileExplicit: false, savedProfile: DEFAULT_THEME_PROFILE, snapshot: null, draftGeneration: 0 })
 })
 
 test('discarding a draft restores inherited preset eligibility', () => {

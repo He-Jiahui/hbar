@@ -322,6 +322,7 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(page.locator('.theme-options .rb-glare-button')).toHaveCount(4)
     await page.getByRole('button', { name: '浅色', exact: true }).click()
     await expect(page.getByRole('button', { name: '浅色', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(() => page.locator('html').evaluate((element) => getComputedStyle(element).getPropertyValue('--hbar-bg').trim())).toBe('#ffffff')
     await page.getByRole('button', { name: '权限', exact: true }).click()
     await expect(page.getByRole('heading', { name: '工具权限', exact: true })).toBeVisible()
     await expect(page.locator('.permission-setting-row')).toHaveClass(/rb-spotlight-card/)

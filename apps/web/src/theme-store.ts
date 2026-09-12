@@ -13,6 +13,7 @@ interface ThemeSettingsState {
   snapshot: SettingsSnapshot | null
   profile: ThemeProfile
   profileExplicit: boolean
+  draftGeneration: number
   savedProfile: ThemeProfile
   loading: boolean
   saving: boolean
@@ -57,29 +58,31 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   snapshot: null,
   profile: DEFAULT_THEME_PROFILE,
   profileExplicit: false,
+  draftGeneration: 0,
   savedProfile: DEFAULT_THEME_PROFILE,
   loading: false,
   saving: false,
   error: '',
   conflict: false,
   setScope(scope, targetId, parentTargetId) {
-    set({ scope, ...(hasTarget(scope, targetId) ? { targetId } : { targetId: undefined }), ...(scope === 'session' && parentTargetId ? { parentTargetId } : { parentTargetId: undefined }) })
+    set((state) => ({ draftGeneration: state.draftGeneration + 1, scope, ...(hasTarget(scope, targetId) ? { targetId } : { targetId: undefined }), ...(scope === 'session' && parentTargetId ? { parentTargetId } : { parentTargetId: undefined }) }))
   },
   updateDraft(update) {
-    set((state) => ({ profile: normalizeThemeProfile(update(state.profile)), profileExplicit: true, error: '' }))
+    set((state) => ({ profile: normalizeThemeProfile(update(state.profile)), profileExplicit: true, draftGeneration: state.draftGeneration + 1, error: '' }))
   },
   discardDraft() {
-    set((state) => ({ profile: state.savedProfile, profileExplicit: profileIsExplicit(state.snapshot), error: '' }))
+    set((state) => ({ profile: state.savedProfile, profileExplicit: profileIsExplicit(state.snapshot), draftGeneration: state.draftGeneration + 1, error: '' }))
   },
   async load(transport, scope = get().scope, targetId = get().targetId) {
     if (scope !== 'global' && !targetId) return
+    const generation = get().draftGeneration
     set({ loading: true, error: '', conflict: false, scope, ...(targetId ? { targetId } : { targetId: undefined }) })
     try {
       const snapshot = await transport.call('settings.snapshot', {
         scope,
         ...(targetId ? { targetId } : {}),
       })
-      get().applySnapshot(snapshot)
+      if (get().draftGeneration === generation && get().scope === scope && get().targetId === targetId) get().applySnapshot(snapshot)
     } catch (cause) {
       set({ error: cause instanceof Error ? cause.message : String(cause) })
     } finally {
