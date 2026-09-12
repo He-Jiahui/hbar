@@ -70,7 +70,7 @@ export default function SettingsNavigation({
               key={group.id}
               role="listitem"
               title={`${group.title} 插件设置`}
-              onClick={() => onSelectPlugin?.(group.id.replace(/^plugin\./, ''))}
+              onClick={() => onSelectPlugin?.(group.owner ?? group.id.replace(/^plugin\./, ''))}
             >
               <span>{group.title}</span>
               <small>{group.settingIds.length} 项设置</small>

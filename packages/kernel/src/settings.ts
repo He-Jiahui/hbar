@@ -141,6 +141,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
 function pluginDescriptors(plugin: PluginInfo): SettingDescriptor[] {
   const contribution = plugin.contributes?.settings
   if (!contribution) return []
+  const group = settingKey(plugin.id, 'settings').replace(/\.settings$/, '')
   return contribution.sections.flatMap((section) =>
     section.settings.map((setting) => {
       const id = settingKey(plugin.id, setting.id)
@@ -148,7 +149,7 @@ function pluginDescriptors(plugin: PluginInfo): SettingDescriptor[] {
         ...setting,
         id,
         root: 'plugins',
-        group: `plugin.${plugin.id}`,
+        group,
         section: setting.section ?? section.id,
         sectionTitle: setting.sectionTitle ?? section.title,
         owner: plugin.id,
@@ -157,8 +158,12 @@ function pluginDescriptors(plugin: PluginInfo): SettingDescriptor[] {
   )
 }
 
-function navigationGroup(id: string, title: string, order: number, settingIds: string[]): SettingsNavigationGroup {
-  return { id, title, order, settingIds }
+function navigationGroup(id: string, title: string, order: number, settingIds: string[], owner?: string): SettingsNavigationGroup {
+  return { id, title, order, settingIds, ...(owner ? { owner } : {}) }
+}
+
+function pluginNavigationGroupId(id: string) {
+  return settingKey(id, 'settings').replace(/\.settings$/, '')
 }
 
 export function buildSettingsCatalog(plugins: PluginInfo[]): SettingsCatalog {
@@ -227,10 +232,11 @@ export function buildSettingsCatalog(plugins: PluginInfo[]): SettingsCatalog {
         .filter((plugin) => plugin.contributes?.settings)
         .map((plugin, index) =>
           navigationGroup(
-            `plugin.${plugin.id}`,
+            pluginNavigationGroupId(plugin.id),
             plugin.name,
             index,
             settings.filter((setting) => setting.owner === plugin.id).map((setting) => setting.id),
+            plugin.id,
           ),
         ),
     },

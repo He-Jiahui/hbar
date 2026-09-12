@@ -120,6 +120,7 @@ export const settingsNavigationGroupSchema = z
     id: settingIdSchema,
     title: z.string().trim().min(1).max(200),
     description: z.string().max(2_000).optional(),
+    owner: z.string().max(160).optional(),
     order: z.number().int().min(-1_000_000).max(1_000_000).default(0),
     settingIds: z.array(settingIdSchema).max(500),
   })
@@ -180,6 +181,12 @@ export type SettingsCatalog = z.infer<typeof settingsCatalogSchema>
 export function settingKey(owner: string | undefined, id: string): string {
   const parsedId = settingIdSchema.parse(id)
   if (!owner) return parsedId
-  const parsedOwner = z.string().regex(/^[a-z][a-z0-9.-]{0,95}$/).parse(owner)
-  return `plugin.${parsedOwner}.${parsedId}`
+  const parsedOwner = z.string().min(1).max(160).parse(owner)
+  const safeOwner = parsedOwner
+    .toLocaleLowerCase()
+    .replaceAll('@', 'scope-')
+    .replaceAll('/', '-')
+    .replaceAll(/[^a-z0-9_.-]/g, '-')
+  const normalizedOwner = safeOwner.replace(/^[^a-z]+/, 'plugin-')
+  return `plugin.${normalizedOwner}.${parsedId}`
 }

@@ -61,5 +61,6 @@ test('validates catalog structure and namespaces plugin settings', () => {
   })
   expect(catalog.schemaVersion).toBe(1)
   expect(settingKey('git.codex', 'timeout-ms')).toBe('plugin.git.codex.timeout-ms')
+  expect(settingKey('@hbar/goal', 'enabled')).toBe('plugin.scope-hbar-goal.enabled')
   expect(settingKey(undefined, 'appearance.theme')).toBe('appearance.theme')
 })
