@@ -97,7 +97,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     order: 10,
     icon: 'palette',
     scopes: ['global', 'project', 'session'],
-    schema: { type: 'string', enum: ['dark', 'light', 'white'], default: 'dark' },
+    schema: { type: 'string', enum: ['dark', 'light', 'white', 'custom'], default: 'dark' },
     default: 'dark',
     restartPolicy: 'live',
     secret: false,

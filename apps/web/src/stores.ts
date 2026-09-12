@@ -57,13 +57,13 @@ interface WorkbenchState {
   pinnedWorkspaceIds: string[]
   panel: 'sessions' | 'files'
   toolPanel: string
-  theme: 'dark' | 'light' | 'white'
+  theme: 'dark' | 'light' | 'white' | 'custom'
   layout: unknown
   sidebarWidth: number
 }
 
 function isTheme(value: unknown): value is WorkbenchState['theme'] {
-  return value === 'dark' || value === 'light' || value === 'white'
+  return value === 'dark' || value === 'light' || value === 'white' || value === 'custom'
 }
 
 const defaultWorkbenchState: WorkbenchState = {

@@ -26,6 +26,8 @@ test('theme plugin contributions are token-only and namespaced by contract', () 
   expect(contribution.tokenOverrides).toEqual({ surface: { blurAmount: 24 } })
   expect(() => themeContributionSchema.parse({ id: 'Bad ID', title: 'Bad', tokenOverrides: {} })).toThrow()
   expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { cssText: 'body{}' } })).toThrow()
+  expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { surface: { blurAmount: 999 } } })).toThrow()
+  expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { colors: { primary: 'rgb(1, 2, 3)' } } })).toThrow()
   expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: {}, backgroundAssets: ['../escape.png'] })).toThrow()
 })
 

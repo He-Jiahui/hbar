@@ -103,25 +103,18 @@ const themeSurfaceContributionSchema = themeProfileSchema.shape.surface.partial(
 const themeMotionContributionSchema = themeProfileSchema.shape.motion.partial()
 const themeAssetPathSchema = z.string().min(7).max(240).regex(/^assets\/(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/)
 
-const themeOverrideKeys: Record<string, readonly string[]> = {
-  root: ['mode', 'colors', 'typography', 'surface', 'motion', 'renderer'],
-  colors: ['primary', 'secondary', 'highlight', 'background', 'surface', 'surfaceElevated', 'border', 'borderStrong', 'textPrimary', 'textSecondary', 'textTertiary', 'headingText', 'focus', 'success', 'warning', 'error', 'info', 'codeBackground', 'diffAdded', 'diffRemoved', 'diffContext', 'diffHeader'],
-  typography: ['locale', 'bodyFontFamily', 'headingFontFamily', 'codeFontFamily', 'bodySize', 'headingSize', 'codeSize', 'bodyLineHeight', 'headingWeight', 'bodyWeight', 'underlineLinks', 'bodyTextColor', 'headingTextColor', 'inlineCodeBackground', 'inlineCodeTextColor'],
-  surface: ['mode', 'backgroundOpacity', 'blurAmount', 'saturation', 'displacementScale', 'aberrationIntensity', 'elasticity', 'cornerRadius', 'glowIntensity', 'backgroundAsset'],
-  motion: ['intensity', 'respectReducedMotion'],
-  renderer: ['markdown', 'code', 'patch', 'git-diff'],
-}
-
-function validateThemeOverride(value: unknown, level: keyof typeof themeOverrideKeys = 'root', depth = 0): boolean {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 3) return false
-  const allowed = new Set(themeOverrideKeys[level])
-  return Object.entries(value).every(([key, child]) => {
-    if (!allowed.has(key)) return false
-    if (child && typeof child === 'object' && !Array.isArray(child))
-      return validateThemeOverride(child, key in themeOverrideKeys ? (key as keyof typeof themeOverrideKeys) : 'root', depth + 1)
-    return true
+/** Partial theme preset derived from the full profile so ranges and colour
+ * formats stay identical for persisted profiles and plugin contributions. */
+const themeOverrideSchema = z
+  .object({
+    mode: themeProfileSchema.shape.mode.optional(),
+    colors: themeProfileSchema.shape.colors.partial().optional(),
+    typography: themeProfileSchema.shape.typography.partial().optional(),
+    surface: themeProfileSchema.shape.surface.partial().optional(),
+    motion: themeProfileSchema.shape.motion.partial().optional(),
+    renderer: themeProfileSchema.shape.renderer.partial().optional(),
   })
-}
+  .strict()
 
 /** Metadata and token-only contribution accepted from a client theme plugin. */
 export const themeContributionSchema = z
@@ -131,9 +124,7 @@ export const themeContributionSchema = z
     description: z.string().max(500).optional(),
     preview: themeAssetPathSchema.optional(),
     priority: z.number().int().min(-1000).max(1000).optional(),
-    tokenOverrides: z.record(z.string(), z.unknown()).default({}).superRefine((value, context) => {
-      if (!validateThemeOverride(value)) context.addIssue({ code: 'custom', message: 'tokenOverrides must contain only ThemeProfile keys' })
-    }),
+    tokenOverrides: themeOverrideSchema.default({}),
     surfaceEffects: themeSurfaceContributionSchema.optional(),
     motion: themeMotionContributionSchema.optional(),
     backgroundAssets: z.array(themeAssetPathSchema).max(32).default([]),

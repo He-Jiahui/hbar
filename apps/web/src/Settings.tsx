@@ -1105,6 +1105,7 @@ export default function Settings() {
               ['codeBackground', '代码背景'],
               ['diffAdded', '新增高亮'],
               ['diffRemoved', '删除高亮'],
+              ['diffContext', '上下文颜色'],
               ['diffHeader', 'Diff 文件头'],
             ] as const).map(([key, label]) => (
               <label key={key} className="theme-color-field"><span>{label}</span><input type="color" value={themeProfile.colors[key].slice(0, 7)} onChange={(event) => updateThemeColor(key, event.target.value)} /></label>

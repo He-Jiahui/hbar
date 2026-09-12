@@ -277,6 +277,7 @@ fn open_tool_window(
     let event_window_id = options.window_id.clone();
     let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(target))
         .title(options.title)
+        .transparent(true)
         .inner_size(width, height)
         .min_inner_size(420.0, 280.0)
         .on_navigation(move |next| is_allowed_web_origin(next, &expected))

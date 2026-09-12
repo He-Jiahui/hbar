@@ -13,6 +13,7 @@ function initialTheme(): 'dsh-dark' | 'dsh-light' | 'white' {
     const persisted = raw ? (JSON.parse(raw) as { state?: { theme?: unknown } }) : undefined
     if (persisted?.state?.theme === 'light') return 'dsh-light'
     if (persisted?.state?.theme === 'white') return 'white'
+    if (persisted?.state?.theme === 'custom') return 'dsh-dark'
   } catch {
     // A blocked or malformed storage entry should not prevent the app from booting.
   }
