@@ -26,3 +26,12 @@ test('unified diff parser preserves rename and binary metadata', () => {
 test('unified diff parser marks bounded output as truncated', () => {
   expect(parseUnifiedDiff('@@ -1 +1 @@\n-old\n+new', { truncated: true })).toMatchObject({ before: 'old', after: 'new', truncated: true })
 })
+
+test('unified diff parser reports malformed patch headers', () => {
+  expect(parseUnifiedDiff('diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts')).toEqual({
+    before: '',
+    after: '',
+    kind: 'malformed',
+  })
+  expect(parseUnifiedDiff('@@ malformed\n-old\n+new')).toMatchObject({ kind: 'malformed' })
+})
