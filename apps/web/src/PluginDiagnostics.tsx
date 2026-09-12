@@ -63,6 +63,7 @@ type LockEntry = {
   path: string | null
   enabled: boolean | null
   dependencyCount: number
+  dependencies: string[]
 }
 
 function reportLabel(kind: PluginReportKind) {
@@ -94,10 +95,24 @@ function lockEntries(plugins: Record<string, unknown>): LockEntry[] {
         source: stringValue(entry.source),
         path: stringValue(entry.path),
         enabled: typeof entry.enabled === 'boolean' ? entry.enabled : null,
+        dependencies: Object.keys(record(entry.dependencies)),
         dependencyCount: Object.keys(record(entry.dependencies)).length,
       }
     })
     .sort((left, right) => left.id.localeCompare(right.id))
+}
+
+function LockGraphNodeView({ data }: NodeProps<FlowNode<{ label: string; version: string | null; enabled: boolean | null }, 'lock-plugin'>>) {
+  return (
+    <div className={`plugin-graph-node ${data.enabled === true ? 'is-enabled' : 'is-disabled'}`}>
+      <Handle type="target" position={Position.Left} aria-label={`${data.label} 锁定依赖输入`} />
+      <div className="plugin-graph-node-heading">
+        <div><strong>{data.label}</strong><small>{data.version ? `v${data.version}` : '版本未知'}</small></div>
+        <span className="plugin-graph-node-state">{data.enabled === true ? '已启用' : data.enabled === false ? '已停用' : '状态未知'}</span>
+      </div>
+      <Handle type="source" position={Position.Right} aria-label={`${data.label} 锁定依赖输出`} />
+    </div>
+  )
 }
 
 async function requestReport(kind: PluginReportKind): Promise<PluginReport> {
@@ -444,6 +459,28 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
 
 function LockReportView({ data }: { data: LockReport }) {
   const entries = lockEntries(data.plugins)
+  const nodeTypes = useMemo(() => ({ 'lock-plugin': LockGraphNodeView }), [])
+  const lockNodes = useMemo<FlowNode<{ label: string; version: string | null; enabled: boolean | null }, 'lock-plugin'>[]>(
+    () => entries.map((entry, index) => ({
+      id: entry.id,
+      type: 'lock-plugin',
+      position: { x: (index % 3) * 290, y: Math.floor(index / 3) * 120 },
+      data: { label: entry.id, version: entry.version, enabled: entry.enabled },
+    })),
+    [entries],
+  )
+  const lockEdges = useMemo<FlowEdge[]>(
+    () => entries.flatMap((entry) => entry.dependencies.map((dependency) => ({
+      id: `${entry.id}:${dependency}`,
+      source: entry.id,
+      target: dependency,
+      label: 'locked dependency',
+      type: 'smoothstep',
+      animated: true,
+      className: 'plugin-graph-edge-dependency',
+    }))),
+    [entries],
+  )
   return (
     <ReportSurface
       kind="lock"
@@ -451,6 +488,26 @@ function LockReportView({ data }: { data: LockReport }) {
       title="插件锁定清单"
       subtitle={`${entries.length} 个已锁定插件 · 格式版本 ${data.version}`}
     >
+      <section className="plugin-graph-canvas plugin-lock-graph-canvas" aria-label="插件锁依赖图">
+        {entries.length ? (
+          <ReactFlow
+            nodes={lockNodes}
+            edges={lockEdges}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            nodesConnectable={false}
+            nodesDraggable
+            panOnScroll
+            zoomOnScroll
+            aria-label="插件锁依赖图"
+          >
+            <Background gap={24} size={1} color="var(--rb-border)" />
+            <MiniMap pannable zoomable nodeColor={(node) => node.data?.enabled === true ? 'var(--rb-ok)' : 'var(--rb-muted)'} />
+            <Controls showInteractive={false} />
+          </ReactFlow>
+        ) : <div className="plugin-report-empty">没有可用的锁定节点</div>}
+      </section>
       <section className="plugin-report-list-section" aria-labelledby="plugin-lock-entries-heading">
         <h4 id="plugin-lock-entries-heading">已锁定插件</h4>
         {entries.length ? (
