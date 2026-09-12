@@ -50,7 +50,7 @@ import AnimatedList from './react-bits/AnimatedList'
 import { FloatingSurface } from './FloatingLayer'
 import { mergeThemeContributions, useThemeSettings } from './theme-store'
 import { platform } from './platform'
-import { useUIPlugins } from './ui-plugins'
+import { rendererSlotDiagnostics, useUIPlugins } from './ui-plugins'
 import { useLocale } from './locale'
 
 type SettingsScope = 'global' | 'project' | 'session'
@@ -765,7 +765,6 @@ export default function Settings() {
   const themeError = useThemeSettings((state) => state.error)
   const themeConflict = useThemeSettings((state) => state.conflict)
   const themePlugins = useUIPlugins((state) => state.themes)
-  const rendererSlots = useUIPlugins((state) => state.rendererSlots)
   const themeBackgroundAssets = useUIPlugins((state) => state.backgroundAssets)
   const themeConnection = useConnection((state) => state.client)
   const models = data?.models ?? []
@@ -1443,16 +1442,28 @@ export default function Settings() {
                 ['patch', 'rendererPatch'],
                 ['git-diff', 'rendererGitDiff'],
               ] as const).map(([slot, label]) => {
-                const candidates = rendererSlots[slot]
                 const preferred = themeProfile.renderer[slot]
-                const active = preferred !== 'builtin'
-                  ? candidates.find((renderer) => renderer.id === preferred || renderer.id.endsWith(`:${preferred}`)) ?? candidates[0]
-                  : candidates[0]
+                const diagnostics = rendererSlotDiagnostics(slot, undefined, preferred)
+                const active = diagnostics.find((entry) => entry.active)?.renderer
+                const diagnosticText = diagnostics
+                  .filter((entry) => !entry.active)
+                  .map((entry) => {
+                    const reason = entry.reason === 'unsupported-language'
+                      ? t('rendererUnsupportedLanguage')
+                      : entry.reason === 'priority'
+                        ? t('rendererPrioritySelected')
+                        : entry.reason === 'stable-order'
+                          ? t('rendererStableOrderSelected')
+                          : entry.reason === 'preferred'
+                            ? t('rendererPreferredSelected')
+                            : t('rendererNoCompatibleRenderer')
+                    return `${entry.renderer.id}: ${reason}${entry.overriddenBy ? ` (${entry.overriddenBy})` : ''}`
+                  })
                 return (
                   <div className="plugin-renderer-row" key={slot}>
                     <span>{t(label)}</span>
                     {active ? <strong>{active.id} · {t('pluginRendererActive')}</strong> : <strong>{t('builtinRenderer')}</strong>}
-                    {candidates.length > 1 && <small>{t('rendererConflict')} · {candidates.map((candidate) => `${candidate.id} (${candidate.priority})`).join(' · ')}</small>}
+                    {diagnosticText.length > 0 && <small>{t('rendererConflict')} · {diagnosticText.join(' · ')}</small>}
                   </div>
                 )
               })}

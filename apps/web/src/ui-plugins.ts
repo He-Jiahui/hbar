@@ -34,6 +34,18 @@ export interface RegisteredRendererSlot {
   editable: boolean
   fallback?: RendererComponent
 }
+export type RendererSlotDiagnosticReason =
+  | 'preferred'
+  | 'priority'
+  | 'stable-order'
+  | 'unsupported-language'
+  | 'no-compatible-renderer'
+export interface RendererSlotDiagnostic {
+  renderer: RegisteredRendererSlot
+  active: boolean
+  reason?: RendererSlotDiagnosticReason
+  overriddenBy?: string
+}
 export interface RegisteredTheme extends ClientTheme {
   owner: string
   id: string
@@ -69,6 +81,26 @@ export function selectRendererSlot(slot: RendererSlot, language?: string, prefer
     if (preferred) return preferred
   }
   return candidates.find(matchesLanguage)
+}
+export function rendererSlotDiagnostics(slot: RendererSlot, language?: string, preferredId?: string): RendererSlotDiagnostic[] {
+  const candidates = useUIPlugins.getState().rendererSlots[slot]
+  const matchesLanguage = (renderer: RegisteredRendererSlot) => !renderer.languages.length || (language ? renderer.languages.includes(language) : false)
+  const active = selectRendererSlot(slot, language, preferredId)
+  const preferred = preferredId && preferredId !== 'builtin'
+    ? candidates.find((renderer) => (renderer.id === preferredId || renderer.id.endsWith(`:${preferredId}`)) && matchesLanguage(renderer))
+    : undefined
+  return candidates.map((renderer) => {
+    if (active?.id === renderer.id)
+      return { renderer, active: true, ...(preferred?.id === renderer.id ? { reason: 'preferred' as const } : {}) }
+    if (!matchesLanguage(renderer)) return { renderer, active: false, reason: 'unsupported-language' as const }
+    if (!active) return { renderer, active: false, reason: 'no-compatible-renderer' as const }
+    return {
+      renderer,
+      active: false,
+      reason: preferred ? 'preferred' as const : renderer.priority < active.priority ? 'priority' as const : 'stable-order' as const,
+      overriddenBy: active.id,
+    }
+  })
 }
 export function syncUIPlugins(plugins: PluginInfo[]) {
   update = update

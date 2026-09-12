@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileForMode, themeProfileSchema } from '@hbar/contracts'
 import { isThemeEventRelevant, mergeThemeContributions, themeContrastRatio, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
-import { selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
+import { rendererSlotDiagnostics, selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
   expect(themeProfileSchema.parse(DEFAULT_THEME_PROFILE)).toEqual(DEFAULT_THEME_PROFILE)
@@ -137,6 +137,27 @@ test('renderer slots honour the selected theme renderer before priority fallback
   expect(selectRendererSlot('code', 'typescript', 'preferred-code')?.id).toBe('other:preferred-code')
   expect(selectRendererSlot('code', 'typescript', 'missing-code')?.id).toBe('acme:fast-code')
   useUIPlugins.setState((state) => ({ ...state, rendererSlots: { ...state.rendererSlots, code: [] } }))
+})
+
+test('renderer slot diagnostics explain preferred and priority overrides', () => {
+  const component = () => null
+  useUIPlugins.setState({
+    rendererSlots: {
+      markdown: [],
+      code: [
+        { slot: 'code', id: 'acme:fast', owner: 'acme', component, priority: 20, languages: [], supportsStreaming: false, editable: false },
+        { slot: 'code', id: 'other:preferred', owner: 'other', component, priority: 1, languages: [], supportsStreaming: false, editable: false },
+      ],
+      patch: [],
+      'git-diff': [],
+    },
+  })
+  const preferred = rendererSlotDiagnostics('code', undefined, 'preferred')
+  expect(preferred.find((entry) => entry.active)?.renderer.id).toBe('other:preferred')
+  expect(preferred.find((entry) => entry.renderer.id === 'acme:fast')?.reason).toBe('preferred')
+  const priority = rendererSlotDiagnostics('code')
+  expect(priority.find((entry) => entry.renderer.id === 'other:preferred')?.reason).toBe('priority')
+  expect(priority.find((entry) => entry.renderer.id === 'other:preferred')?.overriddenBy).toBe('acme:fast')
 })
 
 test('theme events respect global, project, and session ancestry', () => {
