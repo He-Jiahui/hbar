@@ -60,6 +60,7 @@ function ChatFixture({ definition }: ReferenceFixtureProps) {
           open={modelOpen}
           onClose={() => setModelOpen(false)}
           placement="below"
+          nested
           className="rb-reference-model-menu"
           role="menu"
           aria-label="模型选择"
