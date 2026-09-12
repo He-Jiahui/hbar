@@ -822,8 +822,8 @@ export default function App() {
     const pluginBackground = typeof background === 'string' && background.startsWith('plugin/')
       ? (() => {
           const [, owner, ...parts] = background.split('/')
-          return owner && parts.length && (themeContributions.some((theme) => theme.owner === owner) || themeBackgroundAssets.some((asset) => asset.owner === owner))
-            ? new URL(`/api/plugins/${encodeURIComponent(owner)}/assets/${parts.join('/')}`, connection?.baseUrl ?? window.location.origin).href
+          return owner && parts[0] === 'assets' && parts.length > 1 && (themeContributions.some((theme) => theme.owner === owner) || themeBackgroundAssets.some((asset) => asset.owner === owner))
+            ? new URL(`/api/plugins/${encodeURIComponent(owner)}/${parts.join('/')}`, connection?.baseUrl ?? window.location.origin).href
             : null
         })()
       : null
