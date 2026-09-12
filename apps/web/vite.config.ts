@@ -8,13 +8,13 @@ export default defineConfig({
   build: { outDir: '../../dist/web', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: Number(process.env.HBAR_WEB_PORT ?? 5173),
     strictPort: true,
     proxy: {
-      '/rpc': { target: 'http://127.0.0.1:4317', ws: true },
-      '/auth': 'http://127.0.0.1:4317',
-      '/api': 'http://127.0.0.1:4317',
-      '/healthz': 'http://127.0.0.1:4317',
+      '/rpc': { target: process.env.HBAR_HOST_URL ?? 'http://127.0.0.1:4317', ws: true },
+      '/auth': process.env.HBAR_HOST_URL ?? 'http://127.0.0.1:4317',
+      '/api': process.env.HBAR_HOST_URL ?? 'http://127.0.0.1:4317',
+      '/healthz': process.env.HBAR_HOST_URL ?? 'http://127.0.0.1:4317',
     },
   },
 })
