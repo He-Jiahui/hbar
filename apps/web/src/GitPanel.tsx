@@ -9,6 +9,7 @@ import GitDiffViewer from './GitDiffViewer'
 import { useLocale, type LocaleMessageKey } from './locale'
 
 type GitTab = 'changes' | 'history' | 'branches'
+type GitDiffMode = 'unstaged' | 'staged' | 'remote'
 
 function statusCode(entry: GitStatus['entries'][number], t: (key: LocaleMessageKey) => string) {
   const value = `${entry.index}${entry.worktree}`
@@ -50,6 +51,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
   const [branches, setBranches] = useState<GitBranchInfo[]>([])
   const [selectedPath, setSelectedPath] = useState('')
   const [diff, setDiff] = useState<GitDiff | null>(null)
+  const [diffMode, setDiffMode] = useState<GitDiffMode>('unstaged')
   const [commitMessage, setCommitMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [diffLoading, setDiffLoading] = useState(false)
@@ -107,6 +109,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     setBranches([])
     setSelectedPath('')
     setDiff(null)
+    setDiffMode('unstaged')
     setLoading(false)
     setDiffLoading(false)
     setMutating(false)
@@ -124,12 +127,13 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     [selectedPath, status?.entries],
   )
 
-  async function openDiff(path: string) {
+  async function openDiff(path: string, mode: GitDiffMode = diffMode) {
     const currentRequest = ++diffRequestId.current
     const requestConnection = connection
     const isCurrentRequest = () =>
       currentRequest === diffRequestId.current && requestConnection === useConnection.getState().client
     setSelectedPath(path)
+    setDiffMode(mode)
     setDiffLoading(true)
     setDiff(null)
     if (!requestConnection) {
@@ -140,7 +144,9 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
       return
     }
     try {
-      const nextDiff = await requestConnection.call('git.diff', { cwd: workspacePath, paths: [path] })
+      const nextDiff = mode === 'remote'
+        ? await requestConnection.call('git.diff_to_remote', { cwd: workspacePath }).then((remote) => remote ? { cwd: workspacePath, diff: remote.diff, cached: false, truncated: remote.truncated } : null)
+        : await requestConnection.call('git.diff', { cwd: workspacePath, cached: mode === 'staged', paths: [path] })
       if (isCurrentRequest()) setDiff(nextDiff)
     } catch (cause) {
       if (isCurrentRequest()) setError(cause instanceof Error ? cause.message : String(cause))
@@ -311,7 +317,11 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
           )}
           {selectedEntry && (
             <section className="git-diff-card" aria-label={`${selectedEntry.path} diff`}>
-              <header><code>{selectedEntry.path}</code><span>{diff?.truncated ? t('truncated') : t('unstagedDiff')}</span></header>
+              <header>
+                <code>{selectedEntry.path}</code>
+                <label className="git-diff-mode"><span className="visually-hidden">{t('diffMode')}</span><select aria-label={t('diffMode')} value={diffMode} onChange={(event) => void openDiff(selectedEntry.path, event.target.value as GitDiffMode)}><option value="unstaged">{t('unstagedDiff')}</option><option value="staged">{t('stagedDiff')}</option><option value="remote">{t('remoteDiff')}</option></select></label>
+                {diff?.truncated && <span>{t('truncated')}</span>}
+              </header>
               {diffLoading ? <div className="git-diff-loading" role="status"><LoaderCircle size={15} className="spinning" />{t('readingDiff')}</div> : diff?.diff ? <GitDiffViewer source={diff.diff} path={selectedEntry.path} truncated={diff.truncated} /> : <pre>{t('noTextDiff')}</pre>}
             </section>
           )}
