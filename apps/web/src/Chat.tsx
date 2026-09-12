@@ -483,9 +483,14 @@ export default function Chat({
     }
     let alive = true
     void connection
-      .call('git.info', { cwd: workspace.path })
-      .then((info) => {
-        if (alive) setGitInfo(info)
+      .call('git.status', { cwd: workspace.path })
+      .then((status) => {
+        if (alive)
+          setGitInfo({
+            sha: status.head,
+            branch: status.root ? status.branch ?? '分离 HEAD' : null,
+            originUrl: status.originUrl,
+          })
       })
       .catch(() => {
         if (alive) setGitInfo(null)
