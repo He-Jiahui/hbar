@@ -418,7 +418,6 @@ fn pick_directory() -> Option<String> {
     None
 }
 
-#[tauri::command]
 fn curated_fonts() -> Vec<String> {
     vec![
         "system-ui".into(),
