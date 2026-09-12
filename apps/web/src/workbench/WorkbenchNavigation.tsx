@@ -20,6 +20,8 @@ import { FloatingSurface } from '../FloatingLayer'
 import type { ToolWindowDock, ToolWindowIcon } from '@hbar/contracts'
 import './WorkbenchNavigation.css'
 
+let activeToolDrag: string | null = null
+
 export type PrimaryPanel = 'sessions' | 'files'
 
 export interface NavigationContribution {
@@ -293,12 +295,15 @@ export function WorkbenchToolRails({
       draggable
       onDragStart={(event) => {
         draggingTool.current = contribution.id
+        activeToolDrag = contribution.id
+        document.body.dataset.hbarDraggingTool = contribution.id
         onDragState?.(contribution.id)
         event.dataTransfer.setData('application/x-hbar-tool', contribution.id)
       }}
-      onDragEnd={() => {
-        draggingTool.current = null
-        onDragState?.(null)
+      onDragEnd={(event) => {
+        // Keep the source identity until the drop target consumes it. Native
+        // HTML5 drag events can clear DataTransfer before `drop` bubbles.
+        finishToolDrag(contribution.id, event)
       }}
       onDrop={(event) => reorderTool(contribution.id, event)}
       onKeyboardMove={(direction) => moveToolByKeyboard(contribution.id, direction)}
@@ -310,16 +315,41 @@ export function WorkbenchToolRails({
     </ToolRailButton>
   )
   function reorderTool(target: string, event?: React.DragEvent<HTMLButtonElement>) {
-    const source = event?.dataTransfer.getData('application/x-hbar-tool') || draggingTool.current
+    const source =
+      event?.dataTransfer.getData('application/x-hbar-tool') ||
+      draggingTool.current ||
+      activeToolDrag ||
+      document.body.dataset.hbarDraggingTool ||
+      null
     draggingTool.current = null
+    activeToolDrag = null
+    delete document.body.dataset.hbarDraggingTool
+    onDragState?.(null)
     if (!source || source === target) return
     onReorderTool(source, target)
   }
   function dropOnRail(event: React.DragEvent<HTMLElement>, rail: 'left' | 'right') {
     event.preventDefault()
-    const source = event.dataTransfer.getData('application/x-hbar-tool') || draggingTool.current
+    const source =
+      event.dataTransfer.getData('application/x-hbar-tool') ||
+      draggingTool.current ||
+      activeToolDrag ||
+      document.body.dataset.hbarDraggingTool ||
+      null
     draggingTool.current = null
+    activeToolDrag = null
+    delete document.body.dataset.hbarDraggingTool
     if (source) onMoveTool(source, rail)
+    onDragState?.(null)
+  }
+  function previewRailDrop(event: React.DragEvent<HTMLElement>, rail: 'left' | 'right') {
+    event.preventDefault()
+    const source = event.dataTransfer.getData('application/x-hbar-tool') || document.body.dataset.hbarDraggingTool || activeToolDrag
+    if (source && (toolSides[source] ?? 'right') !== rail) onMoveTool(source, rail)
+  }
+  function finishToolDrag(id: string, event: React.DragEvent<HTMLButtonElement>) {
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.tool-rail')
+    if (target) onMoveTool(id, target.classList.contains('left-rail') ? 'left' : 'right')
   }
   function moveToolByKeyboard(source: string, direction: 'up' | 'down' | 'left' | 'right') {
     const currentSide = toolSides[source] ?? 'right'
@@ -340,7 +370,9 @@ export function WorkbenchToolRails({
         <nav
           className="tool-rail left-rail"
           aria-label="主导航"
-          onDragOver={(event) => event.preventDefault()}
+          onPointerEnter={() => { if (activeToolDrag) onMoveTool(activeToolDrag, 'left') }}
+          onDragOver={(event) => previewRailDrop(event, 'left')}
+          onDragEnter={(event) => previewRailDrop(event, 'left')}
           onDrop={(event) => dropOnRail(event, 'left')}
         >
           {showPrimary && <>
@@ -378,12 +410,15 @@ export function WorkbenchToolRails({
                   draggable
                   onDragStart={(event) => {
                     draggingTool.current = id
+                    activeToolDrag = id
+                    document.body.dataset.hbarDraggingTool = id
                     onDragState?.(id)
                     event.dataTransfer.setData('application/x-hbar-tool', id)
                   }}
-                  onDragEnd={() => {
-                    draggingTool.current = null
-                    onDragState?.(null)
+                  onDragEnd={(event) => {
+                    // The rail drop handler owns cleanup after consuming the
+                    // source; this keeps drag-to-rail reliable in Chromium.
+                    finishToolDrag(id, event)
                   }}
                   onDrop={(event) => reorderTool(id, event)}
                   onKeyboardMove={(direction) => moveToolByKeyboard(id, direction)}
@@ -409,7 +444,9 @@ export function WorkbenchToolRails({
         <nav
           className="tool-rail right-rail"
           aria-label="工具窗口"
-          onDragOver={(event) => event.preventDefault()}
+          onPointerEnter={() => { if (activeToolDrag) onMoveTool(activeToolDrag, 'right') }}
+          onDragOver={(event) => previewRailDrop(event, 'right')}
+          onDragEnter={(event) => previewRailDrop(event, 'right')}
           onDrop={(event) => dropOnRail(event, 'right')}
         >
           {toolOrder
@@ -428,12 +465,15 @@ export function WorkbenchToolRails({
                   draggable
                   onDragStart={(event) => {
                     draggingTool.current = id
+                    activeToolDrag = id
+                    document.body.dataset.hbarDraggingTool = id
                     onDragState?.(id)
                     event.dataTransfer.setData('application/x-hbar-tool', id)
                   }}
-                  onDragEnd={() => {
-                    draggingTool.current = null
-                    onDragState?.(null)
+                  onDragEnd={(event) => {
+                    // The rail drop handler owns cleanup after consuming the
+                    // source; this keeps drag-to-rail reliable in Chromium.
+                    finishToolDrag(id, event)
                   }}
                   onDrop={(event) => reorderTool(id, event)}
                   onKeyboardMove={(direction) => moveToolByKeyboard(id, direction)}

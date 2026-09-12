@@ -2,9 +2,10 @@ import { Model } from 'flexlayout-react'
 import type { IJsonModel } from 'flexlayout-react'
 import rawDefaultLayout from './default-layout.json'
 
-export const CURRENT_LAYOUT_VERSION = 3
+export const CURRENT_LAYOUT_VERSION = 4
 const LEGACY_LAYOUT_VERSION = 1
-const PREVIOUS_LAYOUT_VERSION = 2
+const PREVIOUS_LAYOUT_VERSION = 3
+const COMMAND_LAYOUT_VERSION = 2
 type UnknownRecord = Record<string, unknown>
 
 // This is only an emergency escape hatch for a malformed bundled descriptor.
@@ -73,18 +74,19 @@ function parseModel(value: unknown): IJsonModel | null {
 
 function parseCandidate(value: unknown): IJsonModel | null {
   if (!isRecord(value)) return null
-  const version = value.schemaVersion
+  const version = typeof value.schemaVersion === 'number' ? value.schemaVersion : undefined
   if (
     version !== undefined &&
     version !== CURRENT_LAYOUT_VERSION &&
     version !== PREVIOUS_LAYOUT_VERSION &&
+    version !== COMMAND_LAYOUT_VERSION &&
     version !== LEGACY_LAYOUT_VERSION
   )
     return null
   const candidate = { ...value }
   delete candidate.schemaVersion
   if (version === LEGACY_LAYOUT_VERSION) migrateLegacyLayout(candidate)
-  if (version === LEGACY_LAYOUT_VERSION || version === PREVIOUS_LAYOUT_VERSION) migrateCommandConsole(candidate)
+  if (version === LEGACY_LAYOUT_VERSION || version === COMMAND_LAYOUT_VERSION) migrateCommandConsole(candidate)
   ensureDefaultToolBorders(candidate)
   migrateToolLabels(candidate)
   return parseModel(candidate)

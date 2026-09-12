@@ -10,6 +10,8 @@ test('default layout is a valid, versioned workbench model', () => {
   expect(model.getNodeById('welcome')).toBeDefined()
   expect(model.getNodeById('border_right')).toBeDefined()
   expect(model.getNodeById('border_bottom')).toBeDefined()
+  expect(model.getNodeById('border_left')).toBeDefined()
+  expect(model.getNodeById('border_top')).toBeDefined()
   expect(model.getNodeById('browser')).toBeDefined()
   expect(model.getNodeById('activity')).toBeDefined()
   expect(model.getNodeById('diagnose-right')).toBeDefined()
@@ -81,7 +83,7 @@ test('legacy generated tool dock migrates to the explicit on-demand tool border'
   const restored = restoreLayout(legacy)
 
   expect(restored.layout.children?.map((child) => child.id)).toEqual(['main'])
-  expect(restored.borders?.map((border) => border.location)).toEqual(['right', 'bottom'])
+  expect(restored.borders?.map((border) => border.location)).toEqual(['left', 'top', 'right', 'bottom'])
   expect(restored.borders?.every((border) => border.show === false)).toBe(true)
   expect(Model.fromJson(restored).getNodeById('welcome')).toBeDefined()
 })
@@ -89,6 +91,6 @@ test('legacy generated tool dock migrates to the explicit on-demand tool border'
 test('layout snapshots retain the current descriptor version when persisted', () => {
   const snapshot = versionedLayout(defaultLayout())
 
-  expect(snapshot.schemaVersion).toBe(3)
+  expect(snapshot.schemaVersion).toBe(4)
   expect(restoreLayout(snapshot).layout.id).toBe('root')
 })

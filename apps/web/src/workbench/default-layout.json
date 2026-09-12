@@ -1,15 +1,34 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "global": {
     "tabSetEnableMaximize": true,
     "tabSetMinWidth": 230,
     "tabSetMinHeight": 180,
     "tabEnableRename": false,
     "tabEnableRenderOnDemand": true,
+    "tabEnablePopout": true,
+    "tabEnablePopoutIcon": true,
+    "tabEnablePopoutFloatIcon": true,
     "tabSetEnableTabScrollbar": false,
     "borderEnableAutoHide": false
   },
   "borders": [
+    {
+      "type": "border",
+      "location": "left",
+      "size": 220,
+      "selected": -1,
+      "show": false,
+      "children": []
+    },
+    {
+      "type": "border",
+      "location": "top",
+      "size": 220,
+      "selected": -1,
+      "show": false,
+      "children": []
+    },
     {
       "type": "border",
       "location": "right",
