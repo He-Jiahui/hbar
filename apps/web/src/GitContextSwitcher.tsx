@@ -6,6 +6,10 @@ import { platform } from './platform'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 import './GitContextSwitcher.css'
 
+function pathKey(value: string) {
+  return value.trim().replaceAll('\\', '/').replace(/\/+$/, '').toLocaleLowerCase()
+}
+
 export default function GitContextSwitcher({
   workspacePath,
   branch,
@@ -91,7 +95,7 @@ export default function GitContextSwitcher({
   async function chooseBranch(name: string) {
     if (!name || name === branch || busy) return
     const existingWorktree = worktrees.find((item) => item.branch === name || item.branch === `refs/heads/${name}`)
-    if (existingWorktree && existingWorktree.path.toLocaleLowerCase() !== workspacePath.toLocaleLowerCase()) {
+    if (existingWorktree && pathKey(existingWorktree.path) !== pathKey(workspacePath)) {
       await selectWorktree(existingWorktree)
       return
     }
@@ -126,7 +130,7 @@ export default function GitContextSwitcher({
       })
       if (client() !== connection || workspacePath !== operationWorkspacePath)
         throw new Error('工作区已切换，请重新选择 Worktree')
-      const created = Array.isArray(result) ? result.find((item) => item.path === operationTarget) : result
+      const created = Array.isArray(result) ? result.find((item) => pathKey(item.path) === pathKey(operationTarget)) : result
       if (!created) throw new Error('Worktree 创建失败')
       await onUseWorktree(created.path)
       setOpen(false)
@@ -216,10 +220,10 @@ export default function GitContextSwitcher({
         <section>
           <h3>切换 Worktree</h3>
           {worktrees.length ? worktrees.map((item) => (
-              <button type="button" role="menuitem" className={item.path === workspacePath ? 'current' : ''} key={item.path} onClick={() => void selectWorktree(item)} disabled={busy || item.path === workspacePath}>
+              <button type="button" role="menuitem" className={pathKey(item.path) === pathKey(workspacePath) ? 'current' : ''} key={item.path} onClick={() => void selectWorktree(item)} disabled={busy || pathKey(item.path) === pathKey(workspacePath)}>
               <GitBranch size={13} />
               <span><strong>{item.branch ?? '分离 HEAD'}</strong><small title={item.path}>{item.path}</small></span>
-              {item.path === workspacePath && <small>当前</small>}
+              {pathKey(item.path) === pathKey(workspacePath) && <small>当前</small>}
             </button>
           )) : <p className="git-context-empty">没有检测到 Worktree</p>}
         </section>
