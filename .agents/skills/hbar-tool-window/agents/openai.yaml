@@ -1,0 +1,4 @@
+interface:
+  display_name: hbar Tool Window
+  short_description: 设计 hbar 可停靠、可成页签或可独立窗口的插件面板
+  default_prompt: 使用 hbar Tool Window 规范设计或评审一个可停靠插件窗口。
