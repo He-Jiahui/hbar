@@ -58,7 +58,10 @@ const VIEWPORT_GAP = 8
 // Keep every transient option surface above workbench panels and modal chrome.
 // The CSS contract mirrors this value so inline positioning cannot accidentally
 // lower a menu into an ancestor stacking context.
-const LAYER_Z_INDEX = 2100
+// Shared highest layer token for every transient surface. Keeping the value in
+// one place makes the portal and CSS contract agree across menus, tooltips and
+// dialogs instead of letting individual callers invent stacking levels.
+const LAYER_Z_INDEX = 10000
 const FOCUSABLE_SELECTOR = [
   '[autofocus]',
   'button:not([disabled])',

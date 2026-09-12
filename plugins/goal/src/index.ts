@@ -490,8 +490,6 @@ class GoalRuntime implements GoalService {
         usageLimited
           ? 'usage_limited'
           : autoBlocked
-          ? 'blocked'
-          : event.status === 'failed' && existing.status === 'active'
             ? 'blocked'
             : existing.status
       const goal: PersistedGoal = {
@@ -523,6 +521,7 @@ class GoalRuntime implements GoalService {
           await this.api.sessions.append(event.sessionId, 'goal.continuation_failed', {
             error: error instanceof Error ? error.message : String(error),
           }, event.runId)
+          await this.api.taskNotification?.('retry_failed', event.sessionId, event.runId, '任务失败', '目标继续执行失败，请检查错误后重试。')
         }
       }
     })

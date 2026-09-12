@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { HbarError, idSchema, usageSchema } from '@hbar/contracts'
 import type { RunSource, SessionEvent, Usage } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
+import type { GoalService, HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
 
 const MAX_RESTORE_EVENTS = 100_000
 const MAX_ACCOUNTED_RUNS = 512
@@ -72,6 +72,7 @@ export class BudgetRuntime {
     private maxLimit: number,
     private autoContinue: boolean,
     private maxContinuations: number,
+    private goals?: GoalService,
   ) {}
 
   async restore() {
@@ -193,6 +194,21 @@ export class BudgetRuntime {
         accountedRuns: [...prior.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
       })
       await this.persist(event.sessionId, next, 'budget.accounted', event.runId)
+      if (next.phase === 'exhausted' && this.goals) {
+        try {
+          const currentGoal = await this.goals.get(event.sessionId)
+          if (currentGoal.goal?.status === 'active') {
+            await this.goals.set(event.sessionId, {
+              status: 'budget_limited',
+              expectedGoalId: currentGoal.goal.goalId,
+            })
+          }
+        } catch (error) {
+          await this.api.sessions.append(event.sessionId, 'budget.goal_limit_failed', {
+            error: error instanceof Error ? error.message : String(error),
+          }, event.runId)
+        }
+      }
       if (
         this.autoContinue &&
         event.status === 'completed' &&
@@ -214,6 +230,7 @@ export class BudgetRuntime {
           await this.api.sessions.append(event.sessionId, 'budget.continuation_failed', {
             error: error instanceof Error ? error.message : String(error),
           }, event.runId)
+          await this.api.taskNotification?.('retry_failed', event.sessionId, event.runId, '任务失败', '预算任务继续执行失败，请检查错误后重试。')
         }
       }
     })
@@ -287,13 +304,13 @@ export const budgetPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { budget: '1.0.0' },
-    requires: { storage: '^1.0.0' },
+    requires: { storage: '^1.0.0', goal: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: budgetConfigSchema,
   async apply(ctx, rawConfig) {
     const config = budgetConfigSchema.parse(rawConfig)
-    const runtime = new BudgetRuntime(ctx.hbar.api, config.maxLimit, config.autoContinue, config.maxContinuations)
+    const runtime = new BudgetRuntime(ctx.hbar.api, config.maxLimit, config.autoContinue, config.maxContinuations, ctx.hbar.api.service<GoalService>('goal'))
     await runtime.restore()
     provide<BudgetRuntime>(ctx, 'budget', runtime)
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))

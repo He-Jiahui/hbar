@@ -88,6 +88,22 @@ test('goal accounting uses input minus cache plus output and plan-mode runs are 
   expect((await kernel.storage.call('run', planRun.id)).status).toBe('completed')
 })
 
+test('goal keeps retrying after one failed run and blocks after three repeated execution failures', async () => {
+  const { kernel, session } = await fixture()
+  await kernel.setPermissionMode('deny')
+  const goals = kernel.plugins.get<GoalService>('goal')
+  await goals.create(session.id, 'retry the denied execution')
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await kernel.submit(session.id, `denied-${attempt}`, {
+      text: '/tool shell {"command":"echo nope"}',
+      images: [],
+    }, 'local-fixture')
+    await kernel.waitForIdle()
+    const current = await goals.get(session.id)
+    expect(current.goal?.status).toBe(attempt === 2 ? 'blocked' : 'active')
+  }
+})
+
 test('goal completion accounts the current run and stopped goals ignore later runs', async () => {
   const { kernel, session } = await fixture()
   const goals = kernel.plugins.get<GoalService>('goal')

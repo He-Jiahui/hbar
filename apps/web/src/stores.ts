@@ -272,6 +272,19 @@ let generation = 0
 const bufferedEvents = new Map<string, Map<number, SessionEvent>>()
 const sessionLoadGeneration = new Map<string, number>()
 const olderMessageRequests = new Map<string, { connection: HbarClient; before: number }>()
+const seenTaskNotificationKeys = new Set<string>()
+const MAX_SEEN_TASK_NOTIFICATIONS = 256
+
+function rememberTaskNotification(event: Extract<WireNotification, { method: 'task.notification' }>) {
+  const key = `${event.params.sessionId}:${event.params.runId ?? ''}:${event.params.kind}`
+  if (seenTaskNotificationKeys.has(key)) return false
+  seenTaskNotificationKeys.add(key)
+  if (seenTaskNotificationKeys.size > MAX_SEEN_TASK_NOTIFICATIONS) {
+    const oldest = seenTaskNotificationKeys.values().next().value
+    if (typeof oldest === 'string') seenTaskNotificationKeys.delete(oldest)
+  }
+  return true
+}
 
 export async function connectHost(url: string, token?: string) {
   const prior = useConnection.getState().client
@@ -284,6 +297,7 @@ export async function connectHost(url: string, token?: string) {
   useGitState.setState({ revision: 0, changedCwds: [] })
   sessionLoadGeneration.clear()
   olderMessageRequests.clear()
+  seenTaskNotificationKeys.clear()
   resetSessionCapabilities()
   bufferedEvents.clear()
   next.onStatus((status) => {
@@ -493,6 +507,7 @@ function onEvent(event: WireNotification) {
       }
     })
   } else if (event.method === 'task.notification') {
+    if (!rememberTaskNotification(event)) return
     useNotice.setState({ notice: `${event.params.title}：${event.params.message}` })
     if (typeof Notification !== 'undefined' && document.visibilityState === 'hidden' && Notification.permission === 'granted')
       new Notification(event.params.title, { body: event.params.message })

@@ -35,6 +35,7 @@ import type {
   Usage,
   Workspace,
   SettingsContributionInput,
+  TaskNotificationKind,
 } from '@hbar/contracts'
 
 export { Context }
@@ -157,7 +158,7 @@ export interface GoalToolResponse {
 }
 export interface GoalService {
   get(sessionId: string): Promise<GoalToolResponse>
-  create(sessionId: string, objective: string, tokenBudget?: number, runId?: string, startedAt?: number): Promise<GoalToolResponse>
+  create(sessionId: string, objective: string, tokenBudget?: number | null, runId?: string, startedAt?: number): Promise<GoalToolResponse>
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
   update(sessionId: string, status: 'complete' | 'blocked', runId?: string): Promise<GoalToolResponse>
   clear(sessionId: string): Promise<{ cleared: boolean }>
@@ -318,6 +319,7 @@ export interface HbarAPI {
   sessions: SessionService
   userInput: UserInputService
   notify(event: import('@hbar/contracts').WireNotification): void
+  taskNotification?(kind: TaskNotificationKind, sessionId: string, runId: string | null, title: string, message: string): Promise<void>
   changed(kind: string): void
   automationSet?(sessionId: string, unattended?: boolean, goalEnabled?: boolean): Promise<import('@hbar/contracts').AutomationState>
   panels: { register(panel: Omit<ToolWindowContribution, 'owner'>): Disposer }

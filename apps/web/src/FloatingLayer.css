@@ -3,7 +3,7 @@
  * overflow, transform or stacking context can never reshape the popup. */
 .floating-layer {
   position: fixed !important;
-  z-index: 2100 !important;
+  z-index: 10000 !important;
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
   max-height: calc(100dvh - 16px);
@@ -20,7 +20,7 @@
 .floating-layer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2090;
+  z-index: 9990;
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--hbar-overlay) 32%, transparent);
@@ -109,7 +109,6 @@
  * through the composer or duplicate the text underneath. */
 .floating-layer.composer-menu {
   isolation: isolate;
-  z-index: 10000 !important;
   background: var(--hbar-s1) !important;
   background-image: none !important;
   backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
@@ -119,7 +118,7 @@
 .command-palette-backdrop,
 .mobile-more-backdrop {
   position: fixed !important;
-  z-index: 2090 !important;
+  z-index: 9990 !important;
 }
 
 .floating-layer.model-picker-menu,

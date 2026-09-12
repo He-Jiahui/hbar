@@ -243,7 +243,8 @@ export class Kernel {
           request: (request, signal) => this.requestUserInput(request, signal),
         } satisfies UserInputService,
         notify: (event) => this.publish(event),
-          changed: (kind) => this.changed(kind),
+        taskNotification: (kind, sessionId, runId, title, message) => this.taskNotification(kind, sessionId, runId, title, message),
+        changed: (kind) => this.changed(kind),
         automationSet: (sessionId, unattended, goalEnabled) => this.automationSet(sessionId, unattended, goalEnabled),
       },
       {
@@ -953,9 +954,13 @@ export class Kernel {
               console.error('Task notification failed:', error),
             )
         } else if (status === 'failed') {
-          void this.taskNotification('retry_failed', sessionId, run.id, '任务失败', '任务执行失败，请检查错误后重试。').catch((error) =>
-            console.error('Task notification failed:', error),
-          )
+          const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
+          const controlled = run.input.source === 'goal' || run.input.source === 'system' ||
+            ['active', 'blocked', 'usage_limited', 'budget_limited'].includes(goalState.goal?.status ?? '')
+          if (controlled)
+            void this.taskNotification('retry_failed', sessionId, run.id, '任务失败', '任务执行失败，请检查错误后重试。').catch((error) =>
+              console.error('Task notification failed:', error),
+            )
         }
         await scope.dispose()
         this.changed('sessions')

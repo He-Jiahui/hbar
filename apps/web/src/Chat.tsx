@@ -13,7 +13,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
-import type { ArtifactRef, ContentBlock, GitInfo, Message, Run, UserInput, UserInputRequest } from '@hbar/contracts'
+import type { ArtifactRef, ContentBlock, GitInfo, GoalStatus, Message, Run, UserInput, UserInputRequest } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
   acknowledgeComposerDraft,
@@ -44,6 +44,17 @@ import GitContextSwitcher from './GitContextSwitcher'
 import TerminalPanel from './TerminalPanel'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
+
+function goalStatusLabel(status: GoalStatus) {
+  return {
+    active: '进行中',
+    paused: '已暂停',
+    blocked: '已阻塞',
+    usage_limited: '用量受限',
+    budget_limited: '预算受限',
+    complete: '已完成',
+  }[status]
+}
 
 function QueuedRunList({
   runs,
@@ -669,13 +680,13 @@ export default function Chat({
     <div className="composer-mode-tags" aria-label="当前会话模式">
       {capabilityState?.goalArmed && !capabilityState.goal && (
         <span className="composer-mode-tag composer-mode-tag-active" title="下一条消息将创建 Goal 并立即执行">
-          <span>Goal · 待设置</span>
+          <span>{capabilityState.mode === 'plan' && capabilityState.plan ? 'Goal · 计划转目标' : 'Goal · 待设置'}</span>
           <button type="button" title="取消设置 Goal" aria-label="取消设置 Goal" onClick={() => setGoalArmed(sessionId, false)}><X size={12} /></button>
         </span>
       )}
       {capabilityState?.mode === 'plan' && (
-        <span className="composer-mode-tag" title="Plan 模式：只读探索并生成可审核计划">
-          <span>Plan</span>
+        <span className={`composer-mode-tag${capabilityState.plan ? '' : ' composer-mode-tag-pending'}`} title="Plan 模式：只读探索并生成可审核计划">
+          <span>{capabilityState.plan ? `Plan · 已保存 ${capabilityState.plan.plan.length} 步` : 'Plan · 待保存结构化计划'}</span>
           <button
             type="button"
             title="关闭 Plan 模式"
@@ -688,7 +699,7 @@ export default function Chat({
       )}
       {capabilityState?.goal && (
         <span className="composer-mode-tag" title={`Goal：${capabilityState.goal.objective}`}>
-          <span>Goal</span>
+          <span>Goal · {goalStatusLabel(capabilityState.goal.status)}</span>
           <button
             type="button"
             title="关闭 Goal 模式"
@@ -701,7 +712,7 @@ export default function Chat({
       )}
       {capabilityState?.budget && (
         <span className="composer-mode-tag" title={`Budget：剩余 ${capabilityState.budget.remainingTokens.toLocaleString()} tokens`}>
-          <span>Budget</span>
+          <span>Budget · {capabilityState.budget.phase === 'exhausted' ? '已耗尽' : `${capabilityState.budget.usedTokens.toLocaleString()} / ${capabilityState.budget.limit.toLocaleString()}`}</span>
           <button
             type="button"
             title="关闭 Budget 模式"

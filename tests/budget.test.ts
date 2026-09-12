@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarClient } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import type { BudgetService } from '@hbar/plugin-sdk'
+import type { BudgetService, GoalService } from '@hbar/plugin-sdk'
 import { startServer } from '../apps/host/src/server.ts'
 
 const resources: Array<{ root: string; kernel: Kernel; close?: () => Promise<void> }> = []
@@ -95,4 +95,15 @@ test('active budgets continue completed user runs until the budget is exhausted 
   expect((await kernel.storage.call('run', first.id)).status).toBe('completed')
   expect(runs.filter((run) => run.input.source === 'system')).toHaveLength(1)
   expect((await budget.get(session.id))?.phase).toBe('active')
+})
+
+test('exhausting a session budget marks an active goal budget_limited', async () => {
+  const { kernel, session } = await fixture()
+  const goals = kernel.plugins.get<GoalService>('goal')
+  const budget = kernel.plugins.get<BudgetService>('budget')
+  await goals.create(session.id, 'finish within the session budget')
+  await budget.set(session.id, 1)
+  await kernel.submit(session.id, 'budget-goal-limit', { text: 'continue', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  expect((await goals.get(session.id)).goal?.status).toBe('budget_limited')
 })
