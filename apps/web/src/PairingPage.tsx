@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Circle, LoaderCircle, Network, ShieldCheck } from 'lucide-react'
-import { client, refreshCatalog, useConnection } from './stores'
+import { refreshCatalog, useConnection } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -8,15 +8,33 @@ import SpotlightCard from './react-bits/SpotlightCard'
 export default function PairingPage() {
   const [code, setCode] = useState('')
   const [name, setName] = useState('Browser')
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const connection = useConnection((state) => state.client)
+  const [pendingClient, setPendingClient] = useState<typeof connection>(null)
+  const attemptSerial = useRef(0)
   const status = useConnection((state) => state.status)
   const url = useConnection((state) => state.url)
   const connectionError = useConnection((state) => state.error)
   const codeReady = code.length === 8
   const nameReady = Boolean(name.trim())
   const ready = codeReady && nameReady
+  // Scope the pending state to the transport that started the request. A host
+  // switch must make the form usable immediately even if the old fetch is
+  // still in flight; its eventual response is ignored by the attempt guard.
+  const busy = pendingClient !== null && pendingClient === connection
   const connecting = busy || status === 'connecting'
+
+  const previousConnection = useRef(connection)
+  useEffect(() => {
+    if (previousConnection.current === connection) return
+    previousConnection.current = connection
+    attemptSerial.current += 1
+    setPendingClient(null)
+    setError('')
+  }, [connection])
+  useEffect(() => () => {
+    attemptSerial.current += 1
+  }, [])
 
   return (
     <main className="pairing-page rb-pairing-page">
@@ -35,16 +53,29 @@ export default function PairingPage() {
           onSubmit={(event) => {
             event.preventDefault()
             if (!ready || busy) return
-            setBusy(true)
+            const attempt = ++attemptSerial.current
+            const pairingClient = connection
+            if (!pairingClient) {
+              setError('Host 未连接，请先检查目标地址。')
+              return
+            }
+            setPendingClient(pairingClient)
             setError('')
-            void client()
+            const isCurrentAttempt = () =>
+              attempt === attemptSerial.current && useConnection.getState().client === pairingClient
+            void pairingClient
               .pair(code, name.trim())
               .then((host) => {
+                if (!isCurrentAttempt()) return
                 useConnection.setState({ host })
                 return refreshCatalog()
               })
-              .catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)))
-              .finally(() => setBusy(false))
+              .catch((failure) => {
+                if (isCurrentAttempt()) setError(failure instanceof Error ? failure.message : String(failure))
+              })
+              .finally(() => {
+                if (isCurrentAttempt()) setPendingClient(null)
+              })
           }}
         >
           <div className="pairing-heading">
