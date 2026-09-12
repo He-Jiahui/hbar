@@ -307,6 +307,13 @@ const messages = {
     installScope: '安装范围',
     currentProjectScope: '当前项目',
     loadTrustedPlugin: '加载可信插件',
+    rendererMarkdown: 'Markdown 渲染',
+    rendererCode: '代码渲染',
+    rendererPatch: 'Patch 高亮',
+    rendererGitDiff: 'Git 差异比较',
+    builtinRenderer: '内置渲染器',
+    pluginRendererActive: '插件接管',
+    rendererConflict: '存在优先级冲突',
   },
   'en-US': {
     preview: 'Preview',
@@ -611,6 +618,13 @@ const messages = {
     installScope: 'Install scope',
     currentProjectScope: 'Current project',
     loadTrustedPlugin: 'Load trusted plugin',
+    rendererMarkdown: 'Markdown renderer',
+    rendererCode: 'Code renderer',
+    rendererPatch: 'Patch highlighter',
+    rendererGitDiff: 'Git diff comparison',
+    builtinRenderer: 'Built-in renderer',
+    pluginRendererActive: 'Plugin takeover',
+    rendererConflict: 'Priority conflict',
   },
 } as const
 

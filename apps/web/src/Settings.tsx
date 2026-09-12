@@ -764,6 +764,7 @@ export default function Settings() {
   const themeError = useThemeSettings((state) => state.error)
   const themeConflict = useThemeSettings((state) => state.conflict)
   const themePlugins = useUIPlugins((state) => state.themes)
+  const rendererSlots = useUIPlugins((state) => state.rendererSlots)
   const themeBackgroundAssets = useUIPlugins((state) => state.backgroundAssets)
   const themeConnection = useConnection((state) => state.client)
   const models = data?.models ?? []
@@ -1420,6 +1421,27 @@ export default function Settings() {
                 <span className="plugin-theme-copy"><strong>{theme.title}</strong><span>{theme.owner} · 优先级 {theme.priority ?? 0}</span></span>
               </li>
             })}</ul> : <span className="settings-muted">{t('noThemePlugins')}</span>}
+            <div className="plugin-renderer-summary" aria-label={t('pluginThemeSummary')}>
+              {([
+                ['markdown', 'rendererMarkdown'],
+                ['code', 'rendererCode'],
+                ['patch', 'rendererPatch'],
+                ['git-diff', 'rendererGitDiff'],
+              ] as const).map(([slot, label]) => {
+                const candidates = rendererSlots[slot]
+                const preferred = themeProfile.renderer[slot]
+                const active = preferred !== 'builtin'
+                  ? candidates.find((renderer) => renderer.id === preferred || renderer.id.endsWith(`:${preferred}`)) ?? candidates[0]
+                  : candidates[0]
+                return (
+                  <div className="plugin-renderer-row" key={slot}>
+                    <span>{t(label)}</span>
+                    {active ? <strong>{active.id} · {t('pluginRendererActive')}</strong> : <strong>{t('builtinRenderer')}</strong>}
+                    {candidates.length > 1 && <small>{t('rendererConflict')} · {candidates.length}</small>}
+                  </div>
+                )
+              })}
+            </div>
           </div>
           {data?.plugins.length ? (
             <AnimatedList
