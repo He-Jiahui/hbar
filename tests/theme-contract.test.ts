@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileForMode, themeProfileSchema } from '@hbar/contracts'
 import { isThemeEventRelevant, mergeThemeContributions, themeContrastRatio, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
-import { rendererSlotDiagnostics, selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
+import { parseThemeContributionForPlugin, rendererSlotDiagnostics, selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
   expect(themeProfileSchema.parse(DEFAULT_THEME_PROFILE)).toEqual(DEFAULT_THEME_PROFILE)
@@ -39,6 +39,24 @@ test('theme typography rejects executable CSS font expressions', () => {
 test('theme background references accept artifacts or managed plugin assets only', () => {
   expect(themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, surface: { ...DEFAULT_THEME_PROFILE.surface, backgroundAsset: 'plugin/acme.theme/assets/backgrounds/glass.webp' } }).surface.backgroundAsset).toContain('plugin/')
   expect(() => themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, surface: { ...DEFAULT_THEME_PROFILE.surface, backgroundAsset: 'https://example.invalid/bg.png' } })).toThrow()
+})
+
+test('plugin theme contributions can only reference assets owned by that plugin', () => {
+  expect(parseThemeContributionForPlugin('acme.theme', {
+    id: 'glass',
+    title: 'Glass',
+    tokenOverrides: { surface: { backgroundAsset: 'plugin/acme.theme/assets/glass.webp' } },
+  }).tokenOverrides.surface?.backgroundAsset).toBe('plugin/acme.theme/assets/glass.webp')
+  expect(() => parseThemeContributionForPlugin('acme.theme', {
+    id: 'glass',
+    title: 'Glass',
+    tokenOverrides: { surface: { backgroundAsset: 'a'.repeat(64) } },
+  })).toThrow(/must reference plugin\/acme\.theme\/assets/)
+  expect(() => parseThemeContributionForPlugin('acme.theme', {
+    id: 'glass',
+    title: 'Glass',
+    surfaceEffects: { backgroundAsset: 'plugin/other/assets/glass.webp' },
+  })).toThrow(/must reference plugin\/acme\.theme\/assets/)
 })
 
 test('theme CSS projects a visible primary-colour hover state', () => {

@@ -73,6 +73,22 @@ export const useUIPlugins = create<{
 const loaded = new Map<string, { key: string; dispose(): void }>()
 let update = Promise.resolve()
 
+/**
+ * Parse a theme contribution and enforce the ownership boundary for
+ * background references. User-uploaded artifact hashes belong to the user
+ * theme profile; a plugin may only point at assets in its own namespace.
+ */
+export function parseThemeContributionForPlugin(pluginId: string, value: unknown) {
+  const parsed = themeContributionSchema.parse(value)
+  const ownedPrefix = `plugin/${pluginId}/assets/`
+  const references = [parsed.tokenOverrides.surface?.backgroundAsset, parsed.surfaceEffects?.backgroundAsset]
+  for (const reference of references) {
+    if (typeof reference === 'string' && !reference.startsWith(ownedPrefix))
+      throw new Error(`${pluginId}: theme backgroundAsset must reference ${ownedPrefix}`)
+  }
+  return parsed
+}
+
 export function selectRendererSlot(slot: RendererSlot, language?: string, preferredId?: string): RegisteredRendererSlot | undefined {
   const candidates = useUIPlugins.getState().rendererSlots[slot]
   const matchesLanguage = (renderer: RegisteredRendererSlot) => !renderer.languages.length || (language ? renderer.languages.includes(language) : false)
@@ -155,7 +171,7 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
           const pendingBackgroundAssets: RegisteredBackgroundAsset[] = []
           const declaredTheme = plugin.contributes?.theme
           if (declaredTheme) {
-            const parsedTheme = themeContributionSchema.parse(declaredTheme)
+            const parsedTheme = parseThemeContributionForPlugin(plugin.id, declaredTheme)
             pendingThemes.push({
               id: `${plugin.id}:${parsedTheme.id}`,
               title: parsedTheme.title,
@@ -288,7 +304,7 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               })
             },
             registerTheme(theme: ClientTheme) {
-              const parsed = themeContributionSchema.parse(theme)
+              const parsed = parseThemeContributionForPlugin(plugin.id, theme)
               const id = `${plugin.id}:${parsed.id}`
               if (useUIPlugins.getState().themes.some((item) => item.id === id) || pendingThemes.some((item) => item.id === id))
                 throw new Error(`Duplicate theme ${id}`)
