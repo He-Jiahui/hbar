@@ -5,6 +5,7 @@ import './styles.css'
 import './settings-models.css'
 import './gallery-theme.css'
 import './react-bits/theme.css'
+import './react-bits/semantic.css'
 
 function initialTheme(): 'dsh-dark' | 'dsh-light' | 'white' {
   try {

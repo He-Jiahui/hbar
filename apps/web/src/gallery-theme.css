@@ -41,6 +41,52 @@
   --hbar-teal: #7dd3c7;
   --hbar-teal-soft: #1c3535;
   --hbar-code: #111111;
+  /* Semantic ReactBits surface contract. Feature CSS should consume these
+     aliases instead of re-declaring palette, spacing, or motion values. */
+  --hbar-canvas: var(--hbar-bg);
+  --hbar-surface-0: var(--hbar-s0);
+  --hbar-surface-1: var(--hbar-s2);
+  --hbar-surface-2: var(--hbar-s1);
+  --hbar-overlay: var(--hbar-s1);
+  --hbar-code-surface: var(--hbar-code);
+  --hbar-decision: var(--hbar-wn-soft);
+  --hbar-border-subtle: var(--hbar-bd);
+  --hbar-border-strong: var(--hbar-bd2);
+  --hbar-border-focus: var(--hbar-ac);
+  --hbar-text-primary: var(--hbar-t1);
+  --hbar-text-secondary: var(--hbar-t2);
+  --hbar-text-tertiary: var(--hbar-t3);
+  --hbar-accent: var(--hbar-ac);
+  --hbar-accent-hover: var(--hbar-ac2);
+  --hbar-accent-surface: var(--hbar-ac-soft);
+  --hbar-on-accent: var(--hbar-on-ac);
+  --hbar-success: var(--hbar-ok);
+  --hbar-success-surface: var(--hbar-ok-soft);
+  --hbar-warning: var(--hbar-wn);
+  --hbar-warning-surface: var(--hbar-wn-soft);
+  --hbar-error: var(--hbar-er);
+  --hbar-error-surface: var(--hbar-er-soft);
+  --hbar-error-ink: var(--hbar-er-ink);
+  --hbar-radius-sm: var(--radius-sm);
+  --hbar-radius-control: var(--control-radius);
+  --hbar-radius-card: var(--radius-md);
+  --hbar-radius-panel: var(--panel-radius);
+  --hbar-radius-pill: var(--radius-full);
+  --hbar-control-height-sm: 28px;
+  --hbar-control-height-md: 32px;
+  --hbar-control-height-lg: 38px;
+  --hbar-space-2: 4px;
+  --hbar-space-3: 6px;
+  --hbar-space-4: 8px;
+  --hbar-space-5: 12px;
+  --hbar-space-6: 16px;
+  --hbar-motion-duration: var(--dsh-motion-duration);
+  --hbar-motion-easing: var(--dsh-motion-easing);
+  --hbar-focus-ring: 2px solid var(--hbar-border-focus);
+  --hbar-focus-offset: 1px;
+  --hbar-disabled-opacity: 0.5;
+  --hbar-shadow-panel: var(--dsh-shadow-panel);
+  --hbar-shadow-overlay: var(--dsh-shadow-prominent);
   --dsh-font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
     'Helvetica Neue', Helvetica, Arial, sans-serif;
