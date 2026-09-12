@@ -1852,8 +1852,8 @@ p {
   color: #8e95a3;
 }
 .settings-global-search:focus-within {
-  border-color: #8b6cff;
-  box-shadow: 0 0 0 2px #8b6cff33;
+  border-color: var(--hbar-ac-border);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--hbar-ac) 20%, transparent);
 }
 .settings-global-search input {
   min-width: 0;
@@ -1886,9 +1886,9 @@ p {
 }
 .settings-scope-switcher > button:hover:not(:disabled),
 .settings-scope-switcher > button.selected {
-  border-color: #6d54c4;
-  background: #352765;
-  color: #f0edff;
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft-hover);
+  color: var(--hbar-highlight);
 }
 .settings-scope-switcher > button:disabled {
   cursor: not-allowed;
@@ -1918,10 +1918,10 @@ p {
 }
 .settings-search-results > button:hover,
 .settings-search-results > button:focus-visible {
-  background: #2b253f;
+  background: var(--hbar-ac-soft-hover);
 }
 .settings-search-results > button > span {
-  color: #a891ff;
+  color: var(--hbar-ac);
   font-size: 10px;
 }
 .settings-search-results > button > strong {
@@ -2045,10 +2045,10 @@ p {
   place-items: center;
   width: 25px;
   height: 25px;
-  border: 1px solid #4a3f72;
+  border: 1px solid var(--hbar-ac-border);
   border-radius: 5px;
-  background: #2a2243;
-  color: #b7a5ff;
+  background: var(--hbar-ac-soft);
+  color: var(--hbar-highlight);
 }
 .plugin-expand > div {
   min-width: 0;
