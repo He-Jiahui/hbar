@@ -67,6 +67,11 @@ export default function LineSidebar({
     const list = listRef.current
     if (!list) return []
     const items = Array.from(list.querySelectorAll<HTMLElement>(itemSelector))
+    const previous = itemRefs.current
+    if (previous.length !== items.length || items.some((item, index) => previous[index] !== item)) {
+      currentRef.current = items.map((item, index) => (previous[index] === item ? (currentRef.current[index] ?? 0) : 0))
+      targetsRef.current = items.map((item, index) => (previous[index] === item ? (targetsRef.current[index] ?? 0) : 0))
+    }
     itemRefs.current = items
     return items
   }, [itemSelector])
@@ -137,6 +142,14 @@ export default function LineSidebar({
       rafRef.current = null
     }
   }, [activeId, activeIndex, startLoop])
+
+  useEffect(() => {
+    const list = listRef.current
+    if (!list || typeof MutationObserver === 'undefined') return
+    const observer = new MutationObserver(() => startLoop())
+    observer.observe(list, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [itemSelector, startLoop])
 
   return (
     <nav

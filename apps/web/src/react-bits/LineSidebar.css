@@ -21,13 +21,6 @@
   transition: transform 100ms var(--dsh-motion-easing);
 }
 
-.line-sidebar [data-line-item]::before {
-  position: absolute;
-  inset: -5px -10px;
-  content: '';
-  pointer-events: auto;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .line-sidebar [data-line-item] {
     transition: none;
