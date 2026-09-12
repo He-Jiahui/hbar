@@ -19,7 +19,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { DEFAULT_THEME_PROFILE, DEFAULT_THINKING_LEVELS, providerSchema, themeProfileSchema } from '@hbar/contracts'
+import { DEFAULT_THEME_PROFILE, DEFAULT_THINKING_LEVELS, providerSchema, themeProfileForMode, themeProfileSchema } from '@hbar/contracts'
 import type {
   Device,
   ModelInfo,
@@ -1078,7 +1078,7 @@ export default function Settings() {
                 className={themeProfile.mode === value ? 'selected' : ''}
                 aria-pressed={themeProfile.mode === value}
                 glareColor="color-mix(in srgb, var(--rb-accent) 42%, transparent)"
-                onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, mode: value }))}
+                onClick={() => useThemeSettings.getState().updateDraft((current) => themeProfileForMode(current, value))}
               >
                 <Icon size={17} />
                 <span>{label}</span>

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileSchema } from '@hbar/contracts'
+import { DEFAULT_THEME_PROFILE, normalizeThemeProfile, themeContributionSchema, themeProfileForMode, themeProfileSchema } from '@hbar/contracts'
 import { isThemeEventRelevant, mergeThemeContributions, themeContrastRatio, themeCssVariables, useThemeSettings } from '../apps/web/src/theme-store'
 import { selectRendererSlot, useUIPlugins } from '../apps/web/src/ui-plugins'
 
@@ -52,6 +52,15 @@ test('default theme maintains readable text and accent contrast', () => {
   expect(themeContrastRatio(DEFAULT_THEME_PROFILE.colors.textPrimary, DEFAULT_THEME_PROFILE.colors.background)).toBeGreaterThanOrEqual(4.5)
   expect(themeContrastRatio(DEFAULT_THEME_PROFILE.colors.headingText, DEFAULT_THEME_PROFILE.colors.background)).toBeGreaterThanOrEqual(4.5)
   expect(themeContrastRatio(DEFAULT_THEME_PROFILE.colors.primary, DEFAULT_THEME_PROFILE.colors.background)).toBeGreaterThanOrEqual(4.5)
+})
+
+test('theme mode presets update the complete palette while custom preserves edits', () => {
+  const light = themeProfileForMode(DEFAULT_THEME_PROFILE, 'light')
+  expect(light.colors.background).toBe('#ffffff')
+  expect(light.colors.textPrimary).toBe('#17181c')
+  expect(light.typography.bodyTextColor).toBe(light.colors.textPrimary)
+  const custom = themeProfileForMode({ ...light, colors: { ...light.colors, primary: '#123456' } }, 'custom')
+  expect(custom.colors.primary).toBe('#123456')
 })
 
 test('plugin presets apply to the untouched default while explicit user values win', () => {

@@ -194,6 +194,42 @@ export const DEFAULT_THEME_PROFILE: ThemeProfile = {
   renderer: { markdown: 'builtin', code: 'builtin', patch: 'builtin', 'git-diff': 'builtin' },
 }
 
+/** Built-in Material-inspired palettes used by the mode selector. */
+export const THEME_MODE_COLOR_PRESETS: Record<Exclude<ThemeProfile['mode'], 'custom'>, ThemeProfile['colors']> = {
+  dark: DEFAULT_THEME_PROFILE.colors,
+  light: {
+    primary: '#315fbf', secondary: '#244b9b', highlight: '#182238', background: '#ffffff', surface: '#f5f6f8',
+    surfaceElevated: '#e9edf3', border: '#e1e5ec', borderStrong: '#70757d', textPrimary: '#17181c',
+    textSecondary: '#545960', textTertiary: '#62676f', headingText: '#111318', focus: '#315fbf', success: '#3e8153',
+    warning: '#a8751f', error: '#c74436', info: '#315fbf', codeBackground: '#f5f6f8', diffAdded: '#3e8153',
+    diffRemoved: '#c74436', diffContext: '#62676f', diffHeader: '#182238',
+  },
+  white: {
+    primary: '#315fbf', secondary: '#244b9b', highlight: '#182238', background: '#ffffff', surface: '#ffffff',
+    surfaceElevated: '#f1f3f6', border: '#e3e6eb', borderStrong: '#b8bec8', textPrimary: '#17181c',
+    textSecondary: '#545960', textTertiary: '#69717c', headingText: '#111318', focus: '#315fbf', success: '#3e8153',
+    warning: '#a8751f', error: '#c74436', info: '#315fbf', codeBackground: '#f5f6f8', diffAdded: '#3e8153',
+    diffRemoved: '#c74436', diffContext: '#69717c', diffHeader: '#182238',
+  },
+}
+
+export function themeProfileForMode(profile: ThemeProfile, mode: ThemeProfile['mode']): ThemeProfile {
+  if (mode === 'custom') return { ...profile, mode }
+  const colors = THEME_MODE_COLOR_PRESETS[mode]
+  return {
+    ...profile,
+    mode,
+    colors: { ...colors },
+    typography: {
+      ...profile.typography,
+      bodyTextColor: colors.textPrimary,
+      headingTextColor: colors.headingText,
+      inlineCodeBackground: colors.surfaceElevated,
+      inlineCodeTextColor: colors.textPrimary,
+    },
+  }
+}
+
 export function normalizeThemeProfile(value: unknown): ThemeProfile {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return DEFAULT_THEME_PROFILE
   const candidate = value as Record<string, unknown>
