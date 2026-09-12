@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GitBranch, GitCommitHorizontal, GitCompareArrows, LoaderCircle, RefreshCw, Upload } from 'lucide-react'
 import type { GitBranchInfo, GitCommitInfo, GitDiff, GitStatus } from '@hbar/contracts'
-import { client } from './stores'
+import { useConnection } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import './GitPanel.css'
@@ -40,6 +40,7 @@ function shortSha(value: string) {
 }
 
 export default function GitPanel({ workspacePath = '' }: { workspacePath?: string }) {
+  const connection = useConnection((state) => state.client)
   const [tab, setTab] = useState<GitTab>('changes')
   const [status, setStatus] = useState<GitStatus | null>(null)
   const [commits, setCommits] = useState<GitCommitInfo[]>([])
@@ -53,41 +54,65 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
   const [error, setError] = useState('')
   const requestId = useRef(0)
   const diffRequestId = useRef(0)
+  const mutationId = useRef(0)
 
   const refresh = useCallback(async () => {
     const currentRequest = ++requestId.current
-    if (!workspacePath) {
-      setStatus(null)
-      setCommits([])
-      setBranches([])
-      setError('')
+    const requestConnection = connection
+    const isCurrentRequest = () =>
+      currentRequest === requestId.current && requestConnection === useConnection.getState().client
+    if (!workspacePath || !requestConnection) {
+      if (isCurrentRequest()) {
+        setLoading(false)
+        setDiffLoading(false)
+        setMutating(false)
+        setStatus(null)
+        setCommits([])
+        setBranches([])
+        setSelectedPath('')
+        setDiff(null)
+        setError(workspacePath ? 'Host 未连接' : '')
+      }
       return
     }
     setLoading(true)
     setError('')
     try {
       const [nextStatus, nextCommits, nextBranches] = await Promise.all([
-        client().call('git.status', { cwd: workspacePath }),
-        client().call('git.log', { cwd: workspacePath, limit: 20 }),
-        client().call('git.branch', { cwd: workspacePath, operation: 'list' }),
+        requestConnection.call('git.status', { cwd: workspacePath }),
+        requestConnection.call('git.log', { cwd: workspacePath, limit: 20 }),
+        requestConnection.call('git.branch', { cwd: workspacePath, operation: 'list' }),
       ])
-      if (currentRequest !== requestId.current) return
+      if (!isCurrentRequest()) return
       setStatus(nextStatus)
       setCommits(nextCommits)
       setBranches(Array.isArray(nextBranches) ? nextBranches : [])
       setSelectedPath((current) => (nextStatus.entries.some((entry) => entry.path === current) ? current : ''))
     } catch (cause) {
-      if (currentRequest === requestId.current) setError(cause instanceof Error ? cause.message : String(cause))
+      if (isCurrentRequest()) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      if (currentRequest === requestId.current) setLoading(false)
+      if (isCurrentRequest()) setLoading(false)
     }
-  }, [workspacePath])
+  }, [connection, workspacePath])
 
   useEffect(() => {
+    requestId.current += 1
+    diffRequestId.current += 1
+    mutationId.current += 1
+    setStatus(null)
+    setCommits([])
+    setBranches([])
+    setSelectedPath('')
+    setDiff(null)
+    setLoading(false)
+    setDiffLoading(false)
+    setMutating(false)
+    setError('')
     void refresh()
     return () => {
       requestId.current += 1
       diffRequestId.current += 1
+      mutationId.current += 1
     }
   }, [refresh])
 
@@ -98,46 +123,74 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
 
   async function openDiff(path: string) {
     const currentRequest = ++diffRequestId.current
+    const requestConnection = connection
+    const isCurrentRequest = () =>
+      currentRequest === diffRequestId.current && requestConnection === useConnection.getState().client
     setSelectedPath(path)
     setDiffLoading(true)
     setDiff(null)
+    if (!requestConnection) {
+      if (isCurrentRequest()) {
+        setDiffLoading(false)
+        setError('Host 未连接')
+      }
+      return
+    }
     try {
-      const nextDiff = await client().call('git.diff', { cwd: workspacePath, paths: [path] })
-      if (currentRequest === diffRequestId.current) setDiff(nextDiff)
+      const nextDiff = await requestConnection.call('git.diff', { cwd: workspacePath, paths: [path] })
+      if (isCurrentRequest()) setDiff(nextDiff)
     } catch (cause) {
-      if (currentRequest === diffRequestId.current) setError(cause instanceof Error ? cause.message : String(cause))
+      if (isCurrentRequest()) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      if (currentRequest === diffRequestId.current) setDiffLoading(false)
+      if (isCurrentRequest()) setDiffLoading(false)
     }
   }
 
   async function switchBranch(name: string) {
     if (!workspacePath || !name || name === status?.branch || mutating) return
+    const requestConnection = connection
+    const operation = ++mutationId.current
+    const isCurrentMutation = () =>
+      operation === mutationId.current && requestConnection === useConnection.getState().client
+    if (!requestConnection) {
+      setError('Host 未连接')
+      return
+    }
     setMutating(true)
     setError('')
     try {
-      await client().call('git.branch', { cwd: workspacePath, operation: 'switch', name })
-      await refresh()
+      await requestConnection.call('git.branch', { cwd: workspacePath, operation: 'switch', name })
+      if (isCurrentMutation()) await refresh()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      if (isCurrentMutation()) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setMutating(false)
+      if (isCurrentMutation()) setMutating(false)
     }
   }
 
   async function updateIndex(path: string, staged: boolean) {
     if (!workspacePath || mutating) return
+    const requestConnection = connection
+    const operation = ++mutationId.current
+    const isCurrentMutation = () =>
+      operation === mutationId.current && requestConnection === useConnection.getState().client
+    if (!requestConnection) {
+      setError('Host 未连接')
+      return
+    }
     setMutating(true)
     setError('')
     try {
-      await client().call(staged ? 'git.stage' : 'git.unstage', { cwd: workspacePath, paths: [path] })
-      setDiff(null)
-      setSelectedPath('')
-      await refresh()
+      await requestConnection.call(staged ? 'git.stage' : 'git.unstage', { cwd: workspacePath, paths: [path] })
+      if (isCurrentMutation()) {
+        setDiff(null)
+        setSelectedPath('')
+        await refresh()
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      if (isCurrentMutation()) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setMutating(false)
+      if (isCurrentMutation()) setMutating(false)
     }
   }
 
@@ -145,23 +198,33 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
     const message = commitMessage.trim()
     if (!workspacePath || !message || !status?.entries.length || mutating) return
     if (!window.confirm(`提交 ${status.entries.length} 个更改？`)) return
+    const requestConnection = connection
+    const operation = ++mutationId.current
+    const isCurrentMutation = () =>
+      operation === mutationId.current && requestConnection === useConnection.getState().client
+    if (!requestConnection) {
+      setError('Host 未连接')
+      return
+    }
     setMutating(true)
     setError('')
     try {
-      await client().call('git.commit', {
+      await requestConnection.call('git.commit', {
         cwd: workspacePath,
         message,
         paths: status.entries.map((entry) => entry.path).slice(0, 100),
         stage: true,
       })
-      setCommitMessage('')
-      setDiff(null)
-      setSelectedPath('')
-      await refresh()
+      if (isCurrentMutation()) {
+        setCommitMessage('')
+        setDiff(null)
+        setSelectedPath('')
+        await refresh()
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      if (isCurrentMutation()) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setMutating(false)
+      if (isCurrentMutation()) setMutating(false)
     }
   }
 
