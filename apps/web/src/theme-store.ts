@@ -36,7 +36,7 @@ function profileFromSnapshot(snapshot: SettingsSnapshot): ThemeProfile {
   const legacy = legacyThemeMode(snapshot.values['appearance.theme']?.effectiveValue)
   // Older installations persisted only appearance.theme. Preserve that value
   // while the new full profile is still inherited from its default.
-  return profileSetting?.source === 'default' && legacy ? { ...profile, mode: legacy } : profile
+  return (!profileSetting || profileSetting.source === 'default') && legacy ? { ...profile, mode: legacy } : profile
 }
 
 function hasTarget(scope: ThemeSettingScope, targetId?: string): targetId is string {
