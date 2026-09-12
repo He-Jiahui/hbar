@@ -348,6 +348,10 @@ export function WorkbenchToolRails({
   function finishToolDrag(id: string, event: React.DragEvent<HTMLButtonElement>) {
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.tool-rail')
     if (target) onMoveTool(id, target.classList.contains('left-rail') ? 'left' : 'right')
+    draggingTool.current = null
+    if (activeToolDrag === id) activeToolDrag = null
+    delete document.body.dataset.hbarDraggingTool
+    onDragState?.(null)
   }
   function moveToolByKeyboard(source: string, direction: 'up' | 'down' | 'left' | 'right') {
     const currentSide = toolSides[source] ?? 'right'
