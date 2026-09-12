@@ -179,7 +179,7 @@ p {
   font-size: var(--hbar-font-size-small);
 }
 .spinning {
-  animation: spin var(--hbar-motion-spin-duration, 1s) linear infinite;
+  animation: spin var(--hbar-motion-spin-duration) linear infinite;
 }
 @keyframes spin {
   to {
@@ -303,7 +303,7 @@ p {
   width: 29px;
   height: 31px;
   color: var(--hbar-t2);
-  transition: transform var(--hbar-motion-duration) var(--hbar-motion-easing, ease-out), background var(--hbar-motion-duration) ease, color var(--hbar-motion-duration) ease;
+  transition: transform var(--hbar-motion-duration) var(--hbar-motion-easing), background var(--hbar-motion-duration) var(--hbar-motion-easing), color var(--hbar-motion-duration) var(--hbar-motion-easing);
   transform-origin: center;
 }
 .tool-rail:hover button:hover { transform: scale(1.18); }
@@ -911,7 +911,7 @@ p {
 }
 .markdown {
   font-size: var(--hbar-font-size-body);
-  line-height: var(--hbar-line-height-body, 1.8);
+  line-height: var(--hbar-line-height-body);
   color: var(--hbar-t1);
   overflow-wrap: anywhere;
 }
@@ -927,23 +927,23 @@ p {
 .markdown h1 {
   font-size: var(--hbar-font-size-heading);
   font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
-  color: var(--hbar-heading-text, var(--hbar-t1));
+  color: var(--hbar-heading-text);
   line-height: 1.5;
   margin: 18px 0 12px;
-  font-weight: var(--hbar-font-weight-heading, 600);
+  font-weight: var(--hbar-font-weight-heading);
 }
 .markdown h2 {
   font-size: var(--hbar-font-size-heading);
   font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
-  color: var(--hbar-heading-text, var(--hbar-t1));
-  font-weight: var(--hbar-font-weight-heading, 600);
+  color: var(--hbar-heading-text);
+  font-weight: var(--hbar-font-weight-heading);
   margin: 18px 0 10px;
 }
 .markdown h3 {
   font-size: var(--hbar-font-size-heading);
   font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
-  color: var(--hbar-heading-text, var(--hbar-t1));
-  font-weight: var(--hbar-font-weight-heading, 600);
+  color: var(--hbar-heading-text);
+  font-weight: var(--hbar-font-weight-heading);
   margin: 16px 0 8px;
 }
 .markdown ul,
@@ -955,8 +955,8 @@ p {
   margin-bottom: 3px;
 }
 .markdown code:not(.code-block code) {
-  color: var(--hbar-inline-code-text, var(--hbar-ac-ink));
-  background: var(--hbar-inline-code-bg, color-mix(in srgb, var(--hbar-s1) 80%, transparent));
+  color: var(--hbar-inline-code-text);
+  background: var(--hbar-inline-code-bg);
   border-radius: 3px;
   padding: 2px 4px;
   font-size: var(--hbar-font-size-code);
@@ -984,7 +984,7 @@ p {
 }
 .markdown th {
   background: var(--hbar-s0);
-  font-weight: var(--hbar-font-weight-heading, 600);
+  font-weight: var(--hbar-font-weight-heading);
 }
 .markdown hr {
   border: none;
@@ -2007,7 +2007,7 @@ p {
 .plugin-expand > svg {
   flex-shrink: 0;
   color: var(--hbar-ac);
-  transition: transform var(--hbar-motion-duration) var(--hbar-motion-easing, ease-out);
+  transition: transform var(--hbar-motion-duration) var(--hbar-motion-easing);
 }
 .plugin-icon {
   display: grid;

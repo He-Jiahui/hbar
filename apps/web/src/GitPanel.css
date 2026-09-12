@@ -327,7 +327,7 @@
   margin: 0;
   padding: 8px 0;
   overflow: auto;
-  color: var(--hbar-diff-context, var(--hbar-t2));
+  color: var(--hbar-diff-context);
   font: var(--hbar-font-size-code)/var(--hbar-line-height-body) var(--dsh-font-family-code);
   white-space: pre;
 }
@@ -410,13 +410,13 @@
 }
 
 .patch-line-added {
-  background: color-mix(in srgb, var(--hbar-diff-added, var(--hbar-ok)) 18%, transparent);
-  color: var(--hbar-diff-added, var(--hbar-ok));
+  background: color-mix(in srgb, var(--hbar-diff-added) 18%, transparent);
+  color: var(--hbar-diff-added);
 }
 
 .patch-line-removed {
-  background: color-mix(in srgb, var(--hbar-diff-removed, var(--hbar-er)) 18%, transparent);
-  color: var(--hbar-diff-removed, var(--hbar-er));
+  background: color-mix(in srgb, var(--hbar-diff-removed) 18%, transparent);
+  color: var(--hbar-diff-removed);
 }
 
 .patch-line-hunk {

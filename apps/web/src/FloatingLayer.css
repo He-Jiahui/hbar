@@ -10,9 +10,9 @@
   overflow: auto;
   overscroll-behavior: contain;
   isolation: isolate;
-  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity) * 100%), transparent) !important;
   border: 1px solid var(--hbar-bd2);
-  box-shadow: var(--dsh-shadow-prominent), 0 0 18px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity, 0.16) * 100%), transparent);
+  box-shadow: var(--dsh-shadow-prominent), 0 0 18px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity) * 100%), transparent);
   backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
   -webkit-backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
 }
@@ -54,9 +54,9 @@
 .floating-layer [role='option'],
 .floating-layer [role='menuitemradio'] {
   color: var(--hbar-t1);
-  transition: background-color var(--hbar-motion-duration, 160ms) var(--dsh-motion-easing),
-    border-color var(--hbar-motion-duration, 160ms) var(--dsh-motion-easing),
-    color var(--hbar-motion-duration, 160ms) var(--dsh-motion-easing);
+  transition: background-color var(--hbar-motion-duration) var(--dsh-motion-easing),
+    border-color var(--hbar-motion-duration) var(--dsh-motion-easing),
+    color var(--hbar-motion-duration) var(--dsh-motion-easing);
 }
 
 .floating-layer button:hover:not(:disabled),
@@ -69,16 +69,16 @@
 .floating-layer [role='menuitemradio']:focus-visible {
   border-color: var(--hbar-ac-border);
   background: var(--hbar-ac-soft-hover);
-  color: var(--hbar-highlight, var(--hbar-t1));
+  color: var(--hbar-highlight);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--hbar-ac) 34%, transparent),
-    0 0 12px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity, 0.16) * 100%), transparent);
+    0 0 12px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity) * 100%), transparent);
 }
 
 .floating-layer button:focus-visible,
 .floating-layer [role='menuitem']:focus-visible,
 .floating-layer [role='option']:focus-visible,
 .floating-layer [role='menuitemradio']:focus-visible {
-  outline: 2px solid var(--hbar-focus, var(--hbar-t1));
+  outline: 2px solid var(--hbar-focus);
   outline-offset: -2px;
 }
 
@@ -105,7 +105,7 @@
   overflow: hidden;
   border: 1px solid var(--hbar-bd2);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity) * 100%), transparent) !important;
   box-shadow: var(--dsh-shadow-panel);
   color: var(--hbar-t1);
   font-size: var(--hbar-font-size-code);
@@ -127,7 +127,7 @@
  * through the composer or duplicate the text underneath. */
 .floating-layer.composer-menu {
   isolation: isolate;
-  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity) * 100%), transparent) !important;
   background-image: none !important;
   backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));
   -webkit-backdrop-filter: blur(var(--hbar-glass-blur)) saturate(var(--hbar-glass-saturation));

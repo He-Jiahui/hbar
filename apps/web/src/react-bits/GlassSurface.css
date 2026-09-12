@@ -4,11 +4,11 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--rb-glass-border) 78%, transparent);
-  background: color-mix(in srgb, var(--hbar-s1, var(--rb-glass-surface)) calc(var(--hbar-glass-opacity, 0.82) * 100%), transparent);
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity) * 100%), transparent);
   box-shadow: var(--rb-glass-shadow);
   transition:
-    border-color var(--glass-transition-duration, var(--dsh-motion-duration)) var(--dsh-motion-easing),
-    box-shadow var(--glass-transition-duration, var(--dsh-motion-duration)) cubic-bezier(0.22, 1, 0.36, 1);
+    border-color var(--glass-transition-duration) var(--dsh-motion-easing),
+    box-shadow var(--glass-transition-duration) var(--dsh-motion-easing);
 }
 
 .glass-surface__filter {
@@ -26,13 +26,13 @@
 }
 
 .glass-surface--svg {
-  background: color-mix(in srgb, var(--hbar-s1, var(--rb-glass-surface)) calc(var(--hbar-glass-opacity, 0.82) * 100%), transparent);
-  backdrop-filter: var(--filter-id) saturate(var(--glass-saturation, 1));
-  -webkit-backdrop-filter: var(--filter-id) saturate(var(--glass-saturation, 1));
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity) * 100%), transparent);
+  backdrop-filter: var(--filter-id) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: var(--filter-id) saturate(var(--glass-saturation));
 }
 
 .glass-surface--fallback {
-  background: color-mix(in srgb, var(--hbar-s1, var(--rb-glass-surface)) calc(var(--hbar-glass-opacity, 0.82) * 100%), transparent);
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity) * 100%), transparent);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
 }
@@ -53,14 +53,14 @@
 }
 
 :root[data-theme-surface='solid'] .glass-surface {
-  background: var(--hbar-s1, var(--rb-glass-surface)) !important;
+  background: var(--hbar-s1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 @supports not (backdrop-filter: blur(10px)) {
   .glass-surface--fallback {
-    background: var(--hbar-s1, var(--rb-glass-surface));
+    background: var(--hbar-s1);
   }
 }
 

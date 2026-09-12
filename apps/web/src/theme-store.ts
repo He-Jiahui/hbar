@@ -194,6 +194,7 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-t3': profile.colors.textTertiary,
     '--hbar-text-primary': profile.colors.textPrimary,
     '--hbar-ac': profile.colors.primary,
+    '--hbar-link': profile.colors.primary,
     '--hbar-ac2': profile.colors.secondary,
     '--hbar-ac-soft': `color-mix(in srgb, ${profile.colors.primary} 18%, ${profile.colors.surface})`,
     '--hbar-ac-soft-hover': `color-mix(in srgb, ${profile.colors.primary} 34%, ${profile.colors.surfaceElevated})`,
