@@ -121,7 +121,7 @@
  * through the composer or duplicate the text underneath. */
 .floating-layer.composer-menu {
   isolation: isolate;
-  background: var(--hbar-s1) !important;
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
   background-image: none !important;
   backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
   -webkit-backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
