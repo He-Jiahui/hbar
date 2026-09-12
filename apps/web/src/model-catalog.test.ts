@@ -45,6 +45,7 @@ test('returns model-specific thinking levels and labels', () => {
   const entry = model({ thinkingLevels: ['off', 'medium', 'high'], supportedThinkingLevels: ['off', 'medium', 'high'] })
   expect(modelThinkingLevels(entry)).toEqual(['off', 'medium', 'high'])
   expect(modelThinkingLabel('medium')).toBe('中')
+  expect(modelThinkingLabel('medium', 'en-US')).toBe('Medium')
 })
 
 test('expands preset model options into one provider catalog', () => {
