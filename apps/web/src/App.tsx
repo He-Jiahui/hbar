@@ -443,7 +443,7 @@ function Sessions({
                 </button>
                 <div className="workspace-actions">
                   <button title={t('pinnedWorkspace')} aria-label={`${t('pinnedWorkspace')} ${workspace.name}`} onClick={() => togglePinned('workspace', workspace.id)}>{pinnedWorkspaceIds.includes(workspace.id) ? <PinOff size={12} /> : <Pin size={12} />}</button>
-                  <button title={t('newSession')} aria-label={`${t('newSession')} · ${workspace.name}`} disabled={creating} onClick={() => { useWorkbench.setState({ workspaceId: workspace.id }); onNew() }}><Plus size={13} /></button>
+                  <button title={t('newSession')} aria-label={t('newSessionInWorkspace').replace('{workspace}', workspace.name)} disabled={creating} onClick={() => { useWorkbench.setState({ workspaceId: workspace.id }); onNew() }}><Plus size={13} /></button>
                 </div>
               </div>
               {isExpanded && workspaceSessions.map((session) => (
