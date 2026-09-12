@@ -842,12 +842,12 @@ test('desktop pairs, sends Chinese input, approves a tool, recovers layout and c
       .locator('.flexlayout__tab_button_trailing')
       .click()
     await expect(page.getByRole('tab', { name: '请检查当前项目', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('tab', { name: '新会话', exact: true, selected: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: '新建会话', exact: true, selected: true })).toBeVisible()
     await expect(page.getByRole('textbox', { name: '消息', exact: true }).filter({ visible: true })).toBeEnabled()
     await page.reload()
     await expect(page.locator('.app-shell')).toBeVisible()
     await expect(page.getByRole('tab', { name: '请检查当前项目', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('tab', { name: '新会话', exact: true, selected: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: '新建会话', exact: true, selected: true })).toBeVisible()
     await expect(page.getByRole('textbox', { name: '消息', exact: true }).filter({ visible: true })).toBeEnabled()
     expect(errors).toEqual([])
   } finally {
@@ -1039,7 +1039,7 @@ test('storage paths and plugin dependencies are manageable on desktop and phone'
     await doctorReport.locator('.plugin-report-raw summary').click()
     await expect(doctorReport.locator('.plugin-report-raw pre')).toContainText('"ok": true')
 
-    await page.getByRole('button', { name: '依赖图', exact: true }).click()
+    await page.getByRole('button', { name: '插件依赖图', exact: true }).click()
     const graphReport = pluginDiagnostics.locator('.plugin-diagnostic-result-graph')
     await expect(graphReport).toBeVisible()
     await expect(graphReport).toHaveAttribute('aria-label', '插件依赖图结果')
@@ -1167,7 +1167,7 @@ test('command console supports keyboard commands, concurrent sessions, approval 
 
     await input.fill('/skills')
     await input.press('Enter')
-    await expect(terminal.locator('.terminal-command-entry').last()).toContainText('Global skills')
+    await expect(terminal.locator('.terminal-command-entry').last()).toContainText('全局技能')
     await expect(page.locator('.settings-panel').filter({ visible: true })).toHaveCount(0)
 
     await input.fill('/thinking')

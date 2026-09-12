@@ -76,7 +76,7 @@ test('Git composer context moves a session to an external worktree and keeps car
 
     const normalCard = page.locator('.session-item').filter({ hasText: sessionTitle, visible: true }).first()
     await expect(normalCard).toContainText('feature/context')
-    await normalCard.getByRole('button', { name: `置顶 ${sessionTitle}`, exact: true }).click()
+    await normalCard.getByRole('button', { name: `置顶会话 ${sessionTitle}`, exact: true }).click()
     const pinnedCard = page.locator('.session-item-pinned').filter({ hasText: sessionTitle, visible: true })
     await expect(pinnedCard).toContainText('feature/context')
     await expect(pinnedCard.getByLabel('无状态')).toBeVisible()
