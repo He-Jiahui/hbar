@@ -136,8 +136,8 @@ function SettingValueEditor({
 
 function inheritedLabel(setting: ResolvedSetting | undefined, scope: SettingsSnapshot['scope'], t: Translate) {
   if (!setting || !setting.overridden) return null
-  const source = setting.source === 'default' ? '默认' : setting.source === 'global' ? '全局' : setting.source === 'project' ? '项目' : '会话'
-  const localScope = scope === 'global' ? '全局' : scope === 'project' ? '项目' : '会话'
+  const source = setting.source === 'default' ? t('defaultSettings') : setting.source === 'global' ? t('globalSettings') : setting.source === 'project' ? t('projectSettings') : t('session')
+  const localScope = scope === 'global' ? t('globalSettings') : scope === 'project' ? t('projectSettings') : t('session')
   return <span className="descriptor-setting-inherited">{t('inheritedSetting')}{source}{t('scopeLabelOpen')}{localScope}{t('scopeNotOverridden')}</span>
 }
 

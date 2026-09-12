@@ -123,7 +123,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
       </div>
       <nav className="file-breadcrumb" aria-label={t('filePath')} title={path}>
         <button type="button" className={path === '.' ? 'selected' : ''} onClick={() => navigateTo(-1)}>
-          工作区
+          {t('workspace')}
         </button>
         {segments.map((segment, index) => (
           <span className="file-breadcrumb-segment" key={`${segment}-${index}`}>
