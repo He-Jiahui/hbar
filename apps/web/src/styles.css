@@ -119,7 +119,7 @@ input[role='switch']::after {
   width: 12px;
   height: 12px;
   top: 2px;
-  left: calc(-1 * var(--line-marker-length) - var(--line-marker-gap));
+  left: 2px;
   border-radius: 50%;
   background: #d8dbe3;
 }
@@ -290,6 +290,8 @@ p {
   flex-direction: column;
   align-items: center;
   gap: 5px;
+  position: relative;
+  z-index: 1301;
   padding: 8px 0;
   background: #282a2f;
 }
@@ -528,47 +530,39 @@ p {
   color: #a7b1c6;
 }
 .session-item-pinned {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   width: 100%;
-  align-items: flex-start;
+  align-items: start;
   gap: 7px;
-  padding: 6px 9px;
+  padding: 9px;
   color: #b7c0d1;
   text-align: left;
   font-size: 11px;
 }
-.session-item-pinned,
-.session-item-pinned > span {
-  text-align: left;
+.session-item-pinned .session-leading-icon {
+  margin-top: 2px;
+  color: #8fa9d3;
 }
-.session-item-pinned > span:nth-of-type(1) {
-  display: grid;
+.session-item-pinned > div {
   min-width: 0;
-  flex: 1;
-  gap: 2px;
 }
-.session-item-pinned > span:nth-of-type(1) strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.session-item-pinned > span:nth-of-type(1) small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.session-item-pinned span {
-  display: grid;
+.session-item-pinned > div > span {
+  display: block;
   min-width: 0;
-  gap: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .session-item-pinned small {
+  display: block;
   overflow: hidden;
   color: #7e899d;
   text-overflow: ellipsis;
+}
+.session-item-pinned .session-status-indicator {
+  margin-top: 0;
 }
 .session-item-pinned:hover,
 .session-item-pinned.selected {
@@ -583,7 +577,7 @@ p {
 .session-line-marker {
   position: absolute;
   top: 50%;
-  left: 2px;
+  left: calc(-1 * var(--line-marker-length) - var(--line-marker-gap));
   z-index: 1;
   width: min(10px, var(--line-marker-length));
   height: 1px;
@@ -967,11 +961,17 @@ p {
   font-weight: var(--hbar-font-weight-heading, 600);
 }
 .markdown h2 {
-  font-size: 17px;
+  font-size: var(--hbar-font-size-heading, 18px);
+  font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
+  color: var(--hbar-heading-text, var(--hbar-t1));
+  font-weight: var(--hbar-font-weight-heading, 600);
   margin: 18px 0 10px;
 }
 .markdown h3 {
-  font-size: 14px;
+  font-size: var(--hbar-font-size-heading, 18px);
+  font-family: var(--dsh-font-family-heading, var(--dsh-font-family));
+  color: var(--hbar-heading-text, var(--hbar-t1));
+  font-weight: var(--hbar-font-weight-heading, 600);
   margin: 16px 0 8px;
 }
 .markdown ul,
@@ -2632,6 +2632,46 @@ p {
   color: var(--hbar-t3);
   font: 9px var(--dsh-font-family-code);
 }
+.workspace-create-errors {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--hbar-er-ink) 45%, var(--hbar-bd2));
+  border-radius: var(--radius-sm);
+  background: var(--hbar-er-soft);
+  color: var(--hbar-er-ink);
+}
+.workspace-create-errors strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+.workspace-create-errors ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 16px;
+}
+.workspace-create-errors li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.workspace-create-errors li span,
+.workspace-create-errors li small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-create-errors li span {
+  font: 9px var(--dsh-font-family-code);
+}
+.workspace-create-errors li small {
+  color: var(--hbar-t2);
+  font-size: 10px;
+}
+.workspace-create-errors .button {
+  justify-self: start;
+}
 .input-icon {
   display: flex;
   align-items: center;
@@ -2789,6 +2829,11 @@ p {
 .dock-target-right { inset: 35% 8px 35% auto; width: 92px; }
 .dock-target-editor { inset: 25% 25%; }
 .dock-target-window { inset: auto 50% 8px; transform: translateX(50%); height: 30px; padding: 0 12px; }
+/* The real rails remain the drop targets for horizontal moves. */
+.dock-target-left,
+.dock-target-right {
+  pointer-events: none;
+}
 .statusbar > span {
   display: flex;
   align-items: center;
@@ -3494,8 +3539,9 @@ textarea:hover {
    vertical tab strip that otherwise duplicates every rail action. */
 .flexlayout__border_left,
 .flexlayout__border_right {
-  /* Keep FlexLayout's measured rail width so opening a second tool does not
-     collapse the border content; only the duplicate controls are hidden. */
+  /* The application owns the icon rails. Keep FlexLayout's measured rail
+     width while hiding its duplicate tab buttons; the separate border
+     content host remains visible for docked panels. */
   opacity: 0;
   border: 0 !important;
   pointer-events: none;
