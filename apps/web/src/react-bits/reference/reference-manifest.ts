@@ -218,6 +218,7 @@ function createDefinition(category: ReferenceCategory, index: number): Reference
   const captured = observed?.status === 200
   const cssResources = observedBundle?.css.filter((resource) => resource.status === 200).map((resource) => resource.url) ?? []
   const jsResources = observedBundle?.js.filter((resource) => resource.status === 200).map((resource) => resource.url) ?? []
+  const cssObservation = observedBundle?.cssObservation?.filter((value): value is NonNullable<typeof value> => Boolean(value)) ?? []
   const observedFields = observed ? {
     ...(observed.title === undefined ? {} : { title: observed.title }),
     ...(observed.description === undefined ? {} : { description: observed.description }),
@@ -250,6 +251,7 @@ function createDefinition(category: ReferenceCategory, index: number): Reference
       ...observedFields,
       cssResourceCount: cssResources.length,
       jsResourceCount: jsResources.length,
+      cssObservation,
       captureStatus: captured ? 'public-observed' : 'fixture-derived',
     },
     interactions: interactionsFor(category, index),

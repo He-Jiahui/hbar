@@ -19,6 +19,11 @@ export type ChatPreviewConfig = {
   readonly subheading?: string
   readonly labels?: readonly string[]
   readonly composerPlaceholder: string
+  readonly footerNote?: string
+  readonly assistantAvatar?: 'initial' | 'spark'
+  readonly themeControl?: boolean
+  readonly modelPicker?: boolean
+  readonly reasoningDisclosure?: boolean
 }
 
 export const CHAT_PREVIEWS: Record<string, ChatPreviewConfig> = {
@@ -31,6 +36,7 @@ export const CHAT_PREVIEWS: Record<string, ChatPreviewConfig> = {
     sourceLabels: ['Billing events', 'Pricing change · Jun 12'],
     attachmentLabels: ['refunds-week-24.csv'],
     composerPlaceholder: 'Reply, or ask a follow-up',
+    reasoningDisclosure: true,
   },
   'ai-chat-2': {
     heading: 'Build assistant',
@@ -100,9 +106,17 @@ export const CHAT_PREVIEWS: Record<string, ChatPreviewConfig> = {
     modelProvider: 'Meridian Labs',
     status: 'Balanced',
     userMessages: ['Our depot capacity model is off by roughly 8% on Tuesdays. Where should I look first?', 'Makes sense. Draft the fix and list what it changes.', 'Does the test catch the reverse case, where reconciliation finishes late?'],
-    assistantMessages: ['Tuesday is the only day the model reads the carrier feed before overnight reconciliation, so late Monday arrivals are counted twice.', 'The patch moves the ingest cutoff to 04:00, removes duplicate rows, and adds a regression test for four weeks of Tuesday feeds.', 'It does. The fixture parameterises the reconciliation finish time and fails on row counts instead of passing quietly.'],
+    assistantMessages: [
+      "Tuesday is the only day the model reads the carrier feed before the overnight reconciliation finishes, so a slice of Monday's late arrivals is counted twice. Start with the ingest window in loaders/carrier_feed.py, then compare the reconciled totals for the last four Tuesdays against the raw feed.",
+      "The patch moves the ingest cutoff to 04:00 so it always lands after reconciliation, drops the duplicate rows that the old window let through, and adds a regression test that replays four weeks of Tuesday feeds. Nothing outside the loader changes, and last week's totals fall back in line to within 0.3%.",
+      'It does. The fixture parameterises the reconciliation finish time, so a run that lands at 05:10 fails on row counts instead of passing quietly. I also kept the old window behind a flag for one release, which lets you diff both outputs on staging before the cutover.',
+    ],
     toolLabel: 'Context analysis · complete',
     composerPlaceholder: 'Reply, or pick a different model below',
+    footerNote: 'Atlas runs on Meridian Labs. Answers can be wrong, so check anything that matters.',
+    assistantAvatar: 'spark',
+    themeControl: true,
+    modelPicker: true,
   },
 }
 
@@ -117,16 +131,19 @@ export type PromptPreviewConfig = {
   readonly dropzone?: string
   readonly contextPills?: readonly string[]
   readonly empty?: boolean
+  readonly showLabelsInTray?: boolean
+  readonly helperPrefix?: string
+  readonly submitLabel?: string
 }
 
 export const PROMPT_PREVIEWS: Record<string, PromptPreviewConfig> = {
-  'prompt-input-1': { heading: 'Prompt input', subheading: 'Autosizing composer', placeholder: 'Message', labels: ['auth-service.ts · 12 KB', 'billing-invoice-4021.pdf · 1.2 MB'], helper: 'Type / to run a command, or drop a file to attach it.' },
-  'prompt-input-2': { heading: 'Prompt input', subheading: 'Model and tools', placeholder: 'Ask anything', labels: ['Atlas', 'Search'], tokens: '356 / 8K', helper: 'Responses can be inaccurate; check anything important.' },
+  'prompt-input-1': { heading: 'Prompt input', subheading: 'Autosizing composer', placeholder: 'Message', labels: ['auth-service.ts · 12 KB', 'billing-invoice-4021.pdf · 1.2 MB'], helper: 'Type / to run a command, or drop a file to attach it.', submitLabel: 'Send' },
+  'prompt-input-2': { heading: 'Prompt input', subheading: 'Model and tools', placeholder: 'Ask anything', labels: ['Atlas', 'Search'], tokens: '356 / 8K', helper: 'Responses can be inaccurate; check anything important.', showLabelsInTray: false },
   'prompt-input-3': { heading: 'What do you want to build?', subheading: 'Describe it in a sentence and get a working first draft.', placeholder: 'Describe your idea', labels: ['Landing page', 'Analytics dashboard', 'Storefront', 'Onboarding flow'], empty: true },
-  'prompt-input-4': { heading: 'PROMPT TEMPLATE', subheading: 'Write a warm announcement for existing customers introducing product.', placeholder: 'Write a reusable template…', labels: ['Tone', 'Audience', 'Product'], helper: '1 variable needs a value' },
+  'prompt-input-4': { heading: 'PROMPT TEMPLATE', subheading: 'Write a warm announcement for existing customers introducing product.', placeholder: 'Write a reusable template…', labels: ['Tone', 'Audience', 'Product'], helper: '1 variable needs a value', helperPrefix: '!' },
   'prompt-input-5': { heading: 'Attachment drop zone', subheading: 'Transfer state', placeholder: 'Add a message about these files', labels: ['brand-guidelines.pdf · 3.4 MB', 'q3-campaign-metrics.csv · 44%', 'product-shot-hero.png'], dropzone: 'Connection lost · Drag files here, or browse' },
   'prompt-input-6': { heading: 'Prompt context', subheading: 'Scoped source pills', placeholder: 'Type @ to pull context…', labels: ['auth-service.ts', 'billing', 'Dana Whitfield'], contextPills: ['@workspace', '@git diff'], helper: 'Type @ to pull a file, person, or channel into context.' },
-  'prompt-input-7': { heading: 'Prompt input', subheading: 'Ask, agent, or edit', placeholder: 'Describe the task', labels: ['Ask', 'Agent', 'Edit'], modes: ['Ask', 'Agent', 'Edit'], helper: 'Enter to send · Shift Enter for a new line' },
+  'prompt-input-7': { heading: 'Prompt input', subheading: 'Ask, agent, or edit', placeholder: 'Describe the task', labels: ['Ask', 'Agent', 'Edit'], modes: ['Ask', 'Agent', 'Edit'], helper: 'Enter to send · Shift Enter for a new line', showLabelsInTray: false },
 }
 
 export type ActivityPreviewConfig = {

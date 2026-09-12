@@ -1,3 +1,17 @@
+:root {
+  /* Keep the reference layer usable when it is mounted outside .app-shell. */
+  --hbar-surface: var(--hbar-surface-0);
+  --hbar-surface-strong: var(--hbar-surface-2);
+  --hbar-surface-hover: var(--hbar-surface-1);
+  --hbar-border: var(--hbar-border-subtle);
+  --hbar-text: var(--hbar-text-primary);
+  --hbar-muted: var(--hbar-text-tertiary);
+  --hbar-accent-soft: var(--hbar-accent-surface);
+  --hbar-accent-contrast: var(--hbar-on-accent);
+  --hbar-danger: var(--hbar-error);
+  --hbar-success-soft: var(--hbar-success-surface);
+  --hbar-shadow: var(--hbar-shadow-panel);
+}
 .rb-reference-surface { min-width: 0; border: 1px solid var(--hbar-border); border-radius: 10px; background: var(--hbar-surface); color: var(--hbar-text); }
 .rb-reference-surface-canvas { background: var(--hbar-canvas); }
 .rb-reference-surface-card { padding: 12px; background: var(--hbar-surface-strong); }

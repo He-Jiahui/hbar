@@ -52,6 +52,25 @@ export type ReferenceInteraction = {
   readonly screenshotId?: string
 }
 
+/**
+ * Compact, public stylesheet evidence extracted from the observed resource
+ * bundles.  It intentionally stores selector/token summaries rather than
+ * copying the remote stylesheet into the runtime bundle.
+ */
+export type ReferenceCssObservation = {
+  readonly selectorCount: number
+  readonly selectorSamples: readonly string[]
+  readonly relevantSelectors: readonly string[]
+  readonly customPropertyNames: readonly string[]
+  readonly mediaQueryCount: number
+  readonly mediaQueries: readonly string[]
+  readonly keyframeNames: readonly string[]
+  readonly animationDeclarations: readonly string[]
+  readonly colorTokenCount: number
+  readonly fontFaceCount: number
+  readonly declarationCount: number
+}
+
 export type ReferenceObservation = {
   readonly sourceUrl: string
   readonly observationFile: string
@@ -69,6 +88,7 @@ export type ReferenceObservation = {
   readonly ariaRoles?: Readonly<Record<string, number>>
   readonly cssResourceCount?: number
   readonly jsResourceCount?: number
+  readonly cssObservation?: readonly ReferenceCssObservation[]
   readonly captureStatus: 'public-observed' | 'fixture-derived'
 }
 

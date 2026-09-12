@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState, type ComponentType } from 'react'
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, CircleDashed, Code2, Copy, File, FileDiff, Folder, GitBranch, Globe2, GripVertical, ListFilter, MoreHorizontal, Pause, Play, Plus, Search, Settings2, ShieldCheck, SlidersHorizontal, Terminal, Upload, Users, WandSparkles } from 'lucide-react'
 import type { ReferenceCategory, ReferenceFixtureProps } from './reference-types'
 import { ReferenceBadge, ReferenceButton, ReferenceEmptyState, ReferenceList, ReferenceListRow, ReferenceMetric, ReferenceSurface, ReferenceTabs, ReferenceTimeline, type ReferenceTone } from './primitives/ReferencePrimitives'
@@ -138,7 +138,7 @@ function CardBlueprint({ definition, onInteraction }: ReferenceFixtureProps) {
 
 const fallbackTableRows = DATA_TABLE_PREVIEWS['data-table-1']!.rows
 
-function DataTableBlueprint({ definition, onInteraction }: ReferenceFixtureProps) {
+export function DataTableBlueprint({ definition, onInteraction }: ReferenceFixtureProps) {
   const variant = indexOf(definition)
   const config = DATA_TABLE_PREVIEWS[`data-table-${variant}`] ?? DATA_TABLE_PREVIEWS['data-table-1']!
   const rows = config.rows.length > 0 ? config.rows : fallbackTableRows
@@ -179,11 +179,14 @@ function DataTableBlueprint({ definition, onInteraction }: ReferenceFixtureProps
   </ReferenceSurface>
 }
 
-export function DataBlueprint({ definition, viewport, onInteraction, refreshKey }: ReferenceFixtureProps) {
-  void refreshKey
-  if (definition.category === 'card') return <CardBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (definition.category === 'data-table') return <DataTableBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  return <GenericDataBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
+const dataBlueprintByCategory: Partial<Record<ReferenceCategory, ComponentType<ReferenceFixtureProps>>> = {
+  card: CardBlueprint,
+  'data-table': DataTableBlueprint,
+}
+
+export function DataBlueprint(props: ReferenceFixtureProps) {
+  const Blueprint = dataBlueprintByCategory[props.definition.category] ?? GenericDataBlueprint
+  return <Blueprint {...props} />
 }
 
 function GenericDataBlueprint({ definition, onInteraction }: ReferenceFixtureProps) {
@@ -224,19 +227,46 @@ export function GenericBlueprint({ definition, onInteraction }: ReferenceFixture
   return <ReferenceSurface className="rb-blueprint rb-generic-blueprint" onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><FixtureHeader definition={definition} icon={<WandSparkles size={14} />} /><ReferenceTabs tabs={['Overview', 'Details', 'Activity']} value={tab} onChange={setTab} /><div className="rb-generic-blueprint-body"><ReferenceEmptyState title={`${tab} surface`} description="Deterministic clean-room fixture with the same information hierarchy and responsive surface language." action={<ReferenceButton variant="primary"><Plus size={12} /> Add item</ReferenceButton>} /></div></ReferenceSurface>
 }
 
-export function ReferenceBlueprint({ definition, viewport, onInteraction, refreshKey }: ReferenceFixtureProps) {
-  void viewport
-  void onInteraction
-  void refreshKey
-  if (definition.category === 'agent-activity' || definition.category === 'monitoring') return <ActivityBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (definition.category === 'tool-calls') return <ToolCallsBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (definition.category === 'agent-approval') return <ApprovalBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (definition.category === 'agent-plan') return <PlanBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (definition.category === 'ai-usage') return <UsageBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (definition.category === 'app-shell' || definition.category === 'app-sidebar' || definition.category === 'command-menu' || definition.category === 'navbar' || definition.category === 'mobile') return <ShellBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (['card', 'data-table', 'dashboard', 'analytics', 'list', 'filtering', 'file-manager'].includes(definition.category)) return <DataBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (['settings-form', 'forms', 'app-dialog', 'notifications', 'onboarding', 'paywall', 'authentication'].includes(definition.category)) return <FormBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (definition.category === 'empty-state') return <EmptyBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  if (['kanban', 'wizard', 'comments', 'scheduling', 'integrations', 'editor', 'feedback', 'support', 'billing', 'chat'].includes(definition.category)) return <WorkflowBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
-  return <GenericBlueprint definition={definition} viewport={viewport} onInteraction={onInteraction} />
+const blueprintByCategory: Partial<Record<ReferenceCategory, ComponentType<ReferenceFixtureProps>>> = {
+  'agent-activity': ActivityBlueprint,
+  monitoring: ActivityBlueprint,
+  'tool-calls': ToolCallsBlueprint,
+  'agent-approval': ApprovalBlueprint,
+  'agent-plan': PlanBlueprint,
+  'ai-usage': UsageBlueprint,
+  'app-shell': ShellBlueprint,
+  'app-sidebar': ShellBlueprint,
+  'command-menu': ShellBlueprint,
+  navbar: ShellBlueprint,
+  mobile: ShellBlueprint,
+  card: CardBlueprint,
+  'data-table': DataTableBlueprint,
+  dashboard: GenericDataBlueprint,
+  analytics: GenericDataBlueprint,
+  list: GenericDataBlueprint,
+  filtering: GenericDataBlueprint,
+  'file-manager': GenericDataBlueprint,
+  'settings-form': FormBlueprint,
+  forms: FormBlueprint,
+  'app-dialog': FormBlueprint,
+  notifications: FormBlueprint,
+  onboarding: FormBlueprint,
+  paywall: FormBlueprint,
+  authentication: FormBlueprint,
+  'empty-state': EmptyBlueprint,
+  kanban: WorkflowBlueprint,
+  wizard: WorkflowBlueprint,
+  comments: WorkflowBlueprint,
+  scheduling: WorkflowBlueprint,
+  integrations: WorkflowBlueprint,
+  editor: WorkflowBlueprint,
+  feedback: WorkflowBlueprint,
+  support: WorkflowBlueprint,
+  billing: WorkflowBlueprint,
+  chat: WorkflowBlueprint,
+}
+
+export function ReferenceBlueprint(props: ReferenceFixtureProps) {
+  const Blueprint = blueprintByCategory[props.definition.category] ?? GenericBlueprint
+  return <Blueprint {...props} />
 }

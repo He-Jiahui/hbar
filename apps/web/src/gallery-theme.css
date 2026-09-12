@@ -56,6 +56,15 @@
   --hbar-surface-1: var(--hbar-s2);
   --hbar-surface-2: var(--hbar-s1);
   --hbar-overlay: var(--hbar-s1);
+  /* Compatibility aliases used by the clean-room reference primitives. */
+  --hbar-surface: var(--hbar-surface-0);
+  --hbar-surface-strong: var(--hbar-surface-2);
+  --hbar-surface-hover: var(--hbar-surface-1);
+  --hbar-border: var(--hbar-border-subtle);
+  --hbar-text: var(--hbar-text-primary);
+  --hbar-muted: var(--hbar-text-tertiary);
+  --hbar-danger: var(--hbar-error);
+  --hbar-shadow: var(--hbar-shadow-panel);
   --hbar-code-surface: var(--hbar-code);
   --hbar-decision: var(--hbar-wn-soft);
   --hbar-border-subtle: var(--hbar-bd);
@@ -67,8 +76,11 @@
   --hbar-accent: var(--hbar-ac);
   --hbar-accent-hover: var(--hbar-ac2);
   --hbar-accent-surface: var(--hbar-ac-soft);
+  --hbar-accent-soft: var(--hbar-ac-soft);
+  --hbar-accent-contrast: var(--hbar-on-ac);
   --hbar-on-accent: var(--hbar-on-ac);
   --hbar-success: var(--hbar-ok);
+  --hbar-success-soft: var(--hbar-ok-soft);
   --hbar-success-surface: var(--hbar-ok-soft);
   --hbar-warning: var(--hbar-wn);
   --hbar-warning-surface: var(--hbar-wn-soft);

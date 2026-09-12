@@ -6,6 +6,7 @@ import './settings-models.css'
 import './gallery-theme.css'
 import './react-bits/theme.css'
 import './react-bits/semantic.css'
+import ReferenceFixtureRoute, { referenceFixtureRouteFromLocation } from './react-bits/reference/ReferenceFixtureRoute'
 
 function initialTheme(): 'dsh-dark' | 'dsh-light' | 'white' {
   try {
@@ -22,8 +23,9 @@ function initialTheme(): 'dsh-dark' | 'dsh-light' | 'white' {
 
 document.documentElement.dataset.theme = initialTheme()
 
+const fixtureRoute = referenceFixtureRouteFromLocation()
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    {fixtureRoute ? <ReferenceFixtureRoute {...fixtureRoute} /> : <App />}
   </React.StrictMode>,
 )
