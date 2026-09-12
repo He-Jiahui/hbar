@@ -52,18 +52,23 @@ export default function ActivityPanel() {
     setEvents([])
     setDetail(null)
     setEventsError('')
-  }, [sessionId])
+  }, [connection, sessionId])
 
   useEffect(() => {
     const requestId = ++requestSerial.current
     let alive = true
     if (cursor === undefined || !sessionId) {
+      setEvents([])
+      setDetail(null)
+      setEventsError('')
       setEventsLoading(false)
       return () => {
         alive = false
       }
     }
     if (!connection) {
+      setEvents([])
+      setDetail(null)
       setEventsLoading(false)
       setEventsError('Host 尚未连接，无法加载事件。')
       return () => {

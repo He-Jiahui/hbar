@@ -241,6 +241,7 @@ export class Kernel {
         } satisfies UserInputService,
         notify: (event) => this.publish(event),
         changed: (kind) => this.changed(kind),
+        automationSet: (sessionId, unattended, goalEnabled) => this.automationSet(sessionId, unattended, goalEnabled),
       },
       {
         pluginRoot: options.layout.plugins,
