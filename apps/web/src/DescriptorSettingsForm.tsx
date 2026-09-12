@@ -119,7 +119,8 @@ function SettingValueEditor({
 function inheritedLabel(setting: ResolvedSetting | undefined, scope: SettingsSnapshot['scope']) {
   if (!setting || !setting.overridden) return null
   const source = setting.source === 'default' ? '默认' : setting.source === 'global' ? '全局' : setting.source === 'project' ? '项目' : '会话'
-  return <span className="descriptor-setting-inherited">当前值继承自{source}设置（{scope}作用域未覆盖）</span>
+  const localScope = scope === 'global' ? '全局' : scope === 'project' ? '项目' : '会话'
+  return <span className="descriptor-setting-inherited">当前值继承自{source}设置（{localScope}作用域未覆盖）</span>
 }
 
 export default function DescriptorSettingsForm({ descriptors, snapshot, saving = false, onSet, onReset }: DescriptorSettingsFormProps) {
