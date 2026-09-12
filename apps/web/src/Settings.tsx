@@ -90,7 +90,7 @@ function catalogSearchEntry(setting: SettingDescriptor, catalog: SettingsCatalog
   }
 }
 
-function pluginInstanceKey(plugin: { id: string; projectId?: string }) {
+function pluginInstanceKey(plugin: { id: string; projectId?: string | undefined }) {
   return plugin.projectId ? `${plugin.id}@${plugin.projectId}` : plugin.id
 }
 
@@ -1408,7 +1408,7 @@ export default function Settings() {
             <p>主题插件只能通过全局 token 覆盖颜色、字体、玻璃和动效；渲染器插槽用于 Markdown、代码、Patch 与 Git 差异。</p>
             {themePlugins.length ? <ul>{themePlugins.map((theme) => {
               const previewUrl = theme.preview && themeConnection
-                ? new URL(`/api/plugins/${encodeURIComponent(theme.owner)}/assets/${theme.preview.replace(/^assets\//, '')}`, themeConnection.baseUrl).href
+                ? new URL(`/api/plugins/${encodeURIComponent(theme.owner)}/${theme.preview}`, themeConnection.baseUrl).href
                 : undefined
               return <li key={theme.id} className="plugin-theme-item">
                 {previewUrl ? <img src={previewUrl} alt={`${theme.title} preview`} loading="lazy" /> : <span className="plugin-theme-swatch" aria-hidden="true" />}
