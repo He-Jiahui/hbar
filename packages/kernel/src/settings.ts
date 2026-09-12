@@ -25,6 +25,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     root: 'automation',
     group: 'automation',
     section: 'session',
+    sectionTitle: '会话任务',
     order: 10,
     icon: 'gauge',
     scopes: ['global'],
@@ -41,6 +42,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     root: 'automation',
     group: 'notifications',
     section: 'notifications',
+    sectionTitle: '通知',
     order: 20,
     icon: 'bell',
     scopes: ['global'],
@@ -57,6 +59,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     root: 'automation',
     group: 'notifications',
     section: 'notifications',
+    sectionTitle: '通知',
     order: 30,
     icon: 'bell',
     scopes: ['global'],
@@ -73,6 +76,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     root: 'automation',
     group: 'notifications',
     section: 'notifications',
+    sectionTitle: '通知',
     order: 40,
     icon: 'bell',
     scopes: ['global'],
@@ -89,6 +93,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     root: 'appearance',
     group: 'appearance',
     section: 'theme',
+    sectionTitle: '界面主题',
     order: 10,
     icon: 'palette',
     scopes: ['global', 'project', 'session'],
@@ -105,6 +110,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     root: 'appearance',
     group: 'appearance',
     section: 'theme',
+    sectionTitle: '界面主题',
     order: 20,
     icon: 'palette',
     scopes: ['global', 'project', 'session'],
@@ -121,6 +127,7 @@ export const BUILTIN_SETTINGS: readonly SettingDescriptor[] = [
     root: 'permissions',
     group: 'permissions',
     section: 'tool-execution',
+    sectionTitle: '工具权限',
     order: 10,
     icon: 'shield-check',
     scopes: ['global', 'project', 'session'],
@@ -143,6 +150,7 @@ function pluginDescriptors(plugin: PluginInfo): SettingDescriptor[] {
         root: 'plugins',
         group: `plugin.${plugin.id}`,
         section: setting.section ?? section.id,
+        sectionTitle: setting.sectionTitle ?? section.title,
         owner: plugin.id,
       })
     }),
@@ -313,6 +321,7 @@ export function resolveSettings(
 
 export function searchSettings(catalog: SettingsCatalog, query: string): Array<SettingDescriptor & { path: string }> {
   const normalized = query.trim().toLocaleLowerCase()
+  const roots = new Map(catalog.navigation.roots.map((root) => [root.id, root]))
   return catalog.settings
     .filter((setting) => {
       if (!normalized) return true
@@ -321,5 +330,14 @@ export function searchSettings(catalog: SettingsCatalog, query: string): Array<S
       )
     })
     .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
-    .map((setting) => ({ ...setting, path: [setting.root, setting.group, setting.section, setting.title].filter(Boolean).join(' / ') }))
+    .map((setting) => {
+      const root = roots.get(setting.root)
+      const group = root?.groups.find((candidate) => candidate.id === setting.group)
+      return {
+        ...setting,
+        path: [root?.title ?? setting.root, group?.title, setting.sectionTitle ?? setting.section, setting.title]
+          .filter(Boolean)
+          .join(' / '),
+      }
+    })
 }

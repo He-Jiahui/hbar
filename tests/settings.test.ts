@@ -116,7 +116,7 @@ test('rejects values outside the descriptor and searches complete setting paths'
   }
   expect(failure instanceof Error ? failure.message : String(failure)).toContain('allowed options')
   const results = await kernel.searchSettings('permission')
-  expect(results.some((entry) => entry.path.includes('permissions'))).toBeTrue()
+  expect(results.some((entry) => entry.path.includes('权限 / 工具权限 / 默认权限模式'))).toBeTrue()
 })
 
 test('validates nested schema values, unions, and collection bounds', () => {
