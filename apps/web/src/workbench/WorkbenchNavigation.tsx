@@ -555,6 +555,7 @@ export function MobileToolMenu({
 }: Pick<WorkbenchNavigationProps, 'contributions' | 'onOpenTool'> & { onClose(): void }) {
   const { t } = useLocale()
   const mobileTools = {
+    git: { title: 'Git', description: t('gitToolDescription') },
     browser: { title: t('browser'), description: t('browserToolDescription') },
     inspector: { title: t('sessionInspector'), description: t('inspectorToolDescription') },
     plan: { title: t('plan'), description: t('planToolDescription') },
