@@ -33,6 +33,20 @@ function schemaLabel(schema: JsonSchemaDescriptor, fallback: string) {
   return schema.title?.trim() || fallback
 }
 
+function localizedDescriptor(setting: SettingDescriptor, t: Translate) {
+  const copy: Record<string, [LocaleMessageKey, LocaleMessageKey]> = {
+    'appearance.theme': ['settingThemeTitle', 'settingThemeDescription'],
+    'appearance.profile': ['settingProfileTitle', 'settingProfileDescription'],
+    'session.defaultBudgetTokens': ['settingDefaultBudgetTitle', 'settingDefaultBudgetDescription'],
+    'notifications.taskCompleted': ['settingTaskCompletedTitle', 'settingTaskCompletedDescription'],
+    'notifications.userInteraction': ['settingUserInteractionTitle', 'settingUserInteractionDescription'],
+    'notifications.retryFailed': ['settingRetryFailedTitle', 'settingRetryFailedDescription'],
+    'permission.mode': ['settingPermissionTitle', 'settingPermissionDescription'],
+  }
+  const keys = copy[setting.id]
+  return keys ? { title: t(keys[0]), description: t(keys[1]) } : { title: setting.title, description: setting.description }
+}
+
 function SettingValueEditor({
   schema,
   value,
@@ -158,6 +172,7 @@ export default function DescriptorSettingsForm({ descriptors, snapshot, context 
   return (
     <section className="descriptor-settings-form" aria-label={t('descriptorSettings')}>
       {ordered.map((setting) => {
+        const descriptorCopy = localizedDescriptor(setting, t)
         const resolved = snapshot?.values[setting.id]
         const value = displayValue(setting.schema, resolved?.effectiveValue ?? setting.default)
         const editable = Boolean(resolved?.editable ?? setting.scopes.includes(snapshot?.scope ?? 'global'))
@@ -165,8 +180,8 @@ export default function DescriptorSettingsForm({ descriptors, snapshot, context 
           <div className="descriptor-setting-row" key={setting.id}>
             <div className="descriptor-setting-heading">
               <div>
-                <strong>{setting.title}</strong>
-                <small>{setting.description || setting.id}</small>
+                <strong>{descriptorCopy.title}</strong>
+                <small>{descriptorCopy.description || setting.id}</small>
               </div>
               {inheritedLabel(resolved, snapshot?.scope ?? 'global', t)}
             </div>
