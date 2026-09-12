@@ -513,7 +513,7 @@ export default function Chat({
     return () => {
       alive = false
     }
-  }, [gitRevision, workspace?.path])
+  }, [gitRevision, t, workspace?.path])
   const virtual = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scroll.current,
@@ -528,9 +528,8 @@ export default function Chat({
   const lastRun = snapshot?.runs[0]
   const totalSize = virtual.getTotalSize()
   const streamText = snapshot?.streams.map((stream) => stream.text.length + stream.thinking.length).join(',')
-  const composerActions = useMemo(
-    () =>
-      buildComposerActions(contributedActions, {
+  const composerActions = useMemo(() => {
+    const availability = {
         hasSession: Boolean(sessionId),
         canAttachImages: Boolean(catalog?.models.find((model) => model.id === modelId)?.imageInput),
         hasGoalPlugin: Boolean(
@@ -542,9 +541,27 @@ export default function Chat({
         hasBudgetPlugin: Boolean(
           catalog?.plugins.some((plugin) => plugin.id === 'budget.codex' && plugin.status === 'active'),
         ),
-      }),
-    [catalog?.models, catalog?.plugins, contributedActions, modelId, sessionId],
-  )
+      }
+    const built = buildComposerActions(contributedActions, availability)
+    const labels: Record<string, { label: string; description: string }> = {
+      goal: { label: t('chatGoalMode'), description: t('chatGoalDescription') },
+      plan: { label: t('chatPlanModeAction'), description: t('chatPlanDescription') },
+      budget: { label: t('chatBudgetMode'), description: t('chatBudgetDescription') },
+      'add-image': { label: t('chatAddImage'), description: t('chatAddImageDescription') },
+      'add-file': { label: t('chatAddFile'), description: t('chatAddFileDescription') },
+    }
+    return built.map((action) => {
+      const localized = labels[action.id]
+      if (!localized) return action
+      let disabledReason = action.disabledReason
+      if (action.id === 'add-image' && !availability.canAttachImages) disabledReason = t('chatImageUnsupported')
+      else if (action.id === 'goal' && availability.hasGoalPlugin === false) disabledReason = t('chatGoalPluginDisabled')
+      else if (action.id === 'plan' && availability.hasPlanPlugin === false) disabledReason = t('chatPlanPluginDisabled')
+      else if (action.id === 'budget' && availability.hasBudgetPlugin === false) disabledReason = t('chatBudgetPluginDisabled')
+      else if (action.requiresSession && !availability.hasSession) disabledReason = t('chatSessionRequired')
+      return { ...action, ...localized, ...(disabledReason ? { disabledReason } : {}) }
+    })
+  }, [catalog?.models, catalog?.plugins, contributedActions, modelId, sessionId, t])
   useEffect(() => {
     stick.current = true
     setAtBottom(true)
