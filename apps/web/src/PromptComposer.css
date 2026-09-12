@@ -8,6 +8,25 @@
   overflow: visible;
 }
 
+.rb-prompt-composer.is-drag-active {
+  border-color: var(--hbar-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hbar-accent) 16%, transparent), var(--hbar-shadow-panel);
+}
+
+.rb-prompt-composer .composer-dropzone {
+  position: absolute;
+  z-index: 4;
+  inset: 7px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--hbar-accent);
+  border-radius: var(--hbar-radius-card);
+  background: color-mix(in srgb, var(--hbar-accent-surface) 94%, var(--hbar-surface-0));
+  color: var(--hbar-accent);
+  font-size: 12px;
+  pointer-events: none;
+}
+
 .rb-prompt-composer > .composer-glass {
   position: absolute;
   inset: 0;
@@ -44,13 +63,19 @@
 
 .rb-prompt-composer textarea {
   min-height: 78px;
+  max-height: 220px;
   padding: 13px 14px 10px;
-  resize: vertical;
+  resize: none;
 }
 
 .rb-prompt-composer .composer-toolbar {
   min-height: 44px;
   padding: 5px 8px 7px 10px;
+}
+
+.rb-prompt-composer .composer-status-row {
+  padding: 0 10px 8px;
+  border-top: 1px solid color-mix(in srgb, var(--hbar-bd) 72%, transparent);
 }
 
 .rb-prompt-composer .composer-left,
@@ -60,7 +85,9 @@
 
 .rb-prompt-composer .composer-mode-tags {
   display: flex;
+  width: 100%;
   min-width: 0;
+  padding-top: 7px;
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;

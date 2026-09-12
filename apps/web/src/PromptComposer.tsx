@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { ArrowUp, FileText, LoaderCircle, Square, X } from 'lucide-react'
 import type { ArtifactRef, Run, Session, Workspace } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
@@ -7,7 +7,7 @@ import ModelPicker from './ModelPicker'
 import PermissionSelector from './PermissionSelector'
 import { IMAGE_ACCEPT } from './composer-actions'
 import GlassSurface from './react-bits/GlassSurface'
-import GlareButton from './react-bits/GlareButton'
+import { ActionButton } from './react-bits'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface } from './FloatingLayer'
 import './PromptComposer.css'
@@ -121,6 +121,15 @@ export default function PromptComposer({
   const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
   const [slashIndex, setSlashIndex] = useState(0)
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+
+  useEffect(() => {
+    const textarea = slashAnchor.current
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    const computed = Math.min(textarea.scrollHeight, 220)
+    textarea.style.height = `${Math.max(computed, 78)}px`
+  }, [draft])
 
   function openFilePicker(options?: { accept?: string; multiple?: boolean }) {
     const accept = options?.accept ?? (pendingAttachmentKind.current === 'file' ? '*/*' : IMAGE_ACCEPT)
@@ -167,9 +176,40 @@ export default function PromptComposer({
     })
   }
 
+  function handleDragOver(event: DragEvent<HTMLFormElement>) {
+    if (sessionInfo?.archived || uploading) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+    setDragActive(true)
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLFormElement>) {
+    if (event.currentTarget === event.target || !event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setDragActive(false)
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setDragActive(false)
+    if (sessionInfo?.archived || uploading) return
+    const dropped = event.dataTransfer.files
+    if (dropped.length === 0) return
+    const kind: AttachmentKind = [...dropped].every((file) => file.type.startsWith('image/')) ? 'image' : 'file'
+    void Promise.resolve(onAttach(dropped, kind))
+  }
+
   return (
-    <form className="composer rb-composer-surface rb-prompt-composer" aria-label="消息输入器" onSubmit={handleSubmit}>
+    <form
+      className={`composer rb-composer-surface rb-prompt-composer${dragActive ? ' is-drag-active' : ''}`}
+      aria-label="消息输入器"
+      onSubmit={handleSubmit}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <GlassSurface className="composer-glass" width="100%" height="100%" aria-hidden="true" />
+      {dragActive && <div className="composer-dropzone" role="status">释放以上传附件</div>}
       {(images.length > 0 || files.length > 0) && (
         <AttachmentStrip
           images={images}
@@ -273,7 +313,6 @@ export default function PromptComposer({
           />
           {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
           <PermissionSelector />
-          {modeTags}
           {gitContext}
         </div>
         <div className="composer-right">
@@ -289,7 +328,8 @@ export default function PromptComposer({
               <Square size={14} fill="currentColor" />
             </button>
           )}
-          <GlareButton
+          <ActionButton
+            variant="primary"
             className="send-button"
             type="submit"
             title={activeRun ? '加入队列' : '发送'}
@@ -303,9 +343,10 @@ export default function PromptComposer({
             }
           >
             {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
-          </GlareButton>
+          </ActionButton>
         </div>
       </div>
+      {modeTags && <div className="composer-status-row">{modeTags}</div>}
     </form>
   )
 }
