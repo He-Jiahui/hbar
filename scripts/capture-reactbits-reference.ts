@@ -34,13 +34,13 @@ function resources(html: string, sourceUrl: string, kind: 'css' | 'js') {
   return values.map((value) => (value ? absoluteUrl(value, sourceUrl) : undefined)).filter((value): value is string => Boolean(value))
 }
 
-async function fetchResource(url: string) {
+async function fetchResource(url: string, includeBody = false) {
   try {
     const response = await fetch(url)
     const buffer = await response.arrayBuffer()
-    return { url, status: response.status, hash: await hash(buffer) }
+    return { url, status: response.status, hash: await hash(buffer), ...(includeBody ? { body: new Uint8Array(buffer) } : {}) }
   } catch {
-    return { url, status: 'error' as const, hash: '' }
+    return { url, status: 'error' as const, hash: '', ...(includeBody ? { body: new Uint8Array() } : {}) }
   }
 }
 
@@ -54,10 +54,15 @@ async function capture(referenceId: string) {
   try {
     const response = await fetch(variant.sourceUrl)
     const html = await response.text()
-    const [cssResources, jsResources] = await Promise.all([
-      Promise.all(resources(html, variant.sourceUrl, 'css').map(fetchResource)),
-      Promise.all(resources(html, variant.sourceUrl, 'js').map(fetchResource)),
+    const [cssFetched, jsResources] = await Promise.all([
+      Promise.all(resources(html, variant.sourceUrl, 'css').map((url) => fetchResource(url, true))),
+      Promise.all(resources(html, variant.sourceUrl, 'js').map((url) => fetchResource(url, false))),
     ])
+    await Bun.write(join(outputDir, 'page.html'), html)
+    for (const [index, resource] of cssFetched.entries()) {
+      if ('body' in resource && resource.body.length > 0) await Bun.write(join(outputDir, `styles-${index + 1}.css`), resource.body)
+    }
+    const cssResources = cssFetched.map(({ body: _body, ...resource }) => resource)
     record = {
       sourceUrl: variant.sourceUrl,
       fetchedAt,

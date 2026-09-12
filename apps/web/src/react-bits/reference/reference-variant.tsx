@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Code2, Copy, FileText, Gauge, Lock, Play, Search, Send, Sparkles, Terminal, Wrench, X } from 'lucide-react'
+import { FloatingSurface } from '../../FloatingLayer'
 import type { ReferenceFixtureProps } from './reference-types'
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,15 +45,28 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function ChatFixture({ definition }: ReferenceFixtureProps) {
   const [modelOpen, setModelOpen] = useState(false)
+  const modelTrigger = useRef<HTMLButtonElement>(null)
   const [message, setMessage] = useState('')
   return (
     <div className="rb-reference-chat">
       <header className="rb-reference-chat-header">
         <div><strong>{definition.title}</strong><small>Depot capacity model</small></div>
-        <button className="rb-reference-model-trigger" onClick={() => setModelOpen((open) => !open)} aria-expanded={modelOpen}>
+        <button ref={modelTrigger} className="rb-reference-model-trigger" onClick={() => setModelOpen((open) => !open)} aria-expanded={modelOpen}>
           <Sparkles size={14} /> Atlas · Balanced <ChevronDown size={13} />
         </button>
-        {modelOpen && <div className="rb-reference-model-menu" role="menu"><button role="menuitem"><Sparkles size={13} /> Atlas · Balanced <Check size={13} /></button><button role="menuitem"><Gauge size={13} /> Atlas · Fast</button></div>}
+        <FloatingSurface
+          mode="anchored"
+          anchorRef={modelTrigger}
+          open={modelOpen}
+          onClose={() => setModelOpen(false)}
+          placement="below"
+          className="rb-reference-model-menu"
+          role="menu"
+          aria-label="模型选择"
+        >
+          <button role="menuitem" onClick={() => setModelOpen(false)}><Sparkles size={13} /> Atlas · Balanced <Check size={13} /></button>
+          <button role="menuitem" onClick={() => setModelOpen(false)}><Gauge size={13} /> Atlas · Fast</button>
+        </FloatingSurface>
       </header>
       <div className="rb-reference-chat-body">
         <div className="rb-reference-message rb-reference-message-user">Model depot capacity for the next release window.</div>
