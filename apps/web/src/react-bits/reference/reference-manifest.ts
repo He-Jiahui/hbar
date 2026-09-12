@@ -26,7 +26,6 @@ const interactions: readonly ReferenceInteraction[] = [
 function createDefinition(category: ReferenceCategory, index: number): ReferenceVariantDefinition {
   const variantSlug = `${category}-${index}`
   const sourceUrl = `https://pro.reactbits.dev/docs/app-ui/${category}/${variantSlug}`
-  const isBound = ['ai-chat', 'prompt-input', 'agent-activity', 'tool-calls', 'agent-approval', 'agent-plan', 'ai-usage', 'app-shell', 'app-sidebar', 'command-menu', 'navbar', 'mobile', 'card', 'data-table', 'dashboard', 'analytics', 'list', 'filtering', 'file-manager', 'monitoring', 'empty-state', 'settings-form', 'forms', 'app-dialog', 'notifications', 'editor'].includes(category)
   return {
     referenceId: `reactbits.${variantSlug}`,
     category,
@@ -48,7 +47,7 @@ function createDefinition(category: ReferenceCategory, index: number): Reference
       captureStatus: 'fixture-derived',
     },
     interactions,
-    productionBinding: isBound ? { mode: 'hbar-bound', adapterId: `hbar.${category}` } : { mode: 'fixture-only', reason: 'No matching hbar contract is currently exposed.' },
+    productionBinding: { mode: 'fixture-only', reason: 'The reference fixture is complete, but a typed hbar production adapter has not been implemented for this category yet.' },
     fixture: getReferenceFixture(variantSlug),
   }
 }
