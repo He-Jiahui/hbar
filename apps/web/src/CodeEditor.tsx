@@ -6,7 +6,6 @@ import { keymap } from '@codemirror/view'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
-import { oneDark } from '@codemirror/theme-one-dark'
 
 export default function CodeEditor({
   value,
@@ -43,13 +42,15 @@ export default function CodeEditor({
           history(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
           extension,
-          oneDark,
           EditorState.readOnly.of(readOnly),
           EditorView.lineWrapping,
           EditorView.theme({
-            '&': { fontSize: '12px', backgroundColor: 'var(--editor)' },
-            '.cm-content': { fontFamily: 'var(--mono)', padding: '10px 0' },
-            '.cm-gutters': { backgroundColor: 'var(--editor)', border: 'none' },
+            '&': { fontSize: 'var(--hbar-font-size-code)', backgroundColor: 'var(--hbar-code)' },
+            '.cm-content': { fontFamily: 'var(--dsh-font-family-code)', padding: '10px 0', color: 'var(--hbar-t1)' },
+            '.cm-gutters': { backgroundColor: 'var(--hbar-code)', border: 'none', color: 'var(--hbar-t3)' },
+            '.cm-activeLineGutter': { backgroundColor: 'var(--hbar-s1)', color: 'var(--hbar-t1)' },
+            '.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--hbar-ac) 8%, transparent)' },
+            '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'color-mix(in srgb, var(--hbar-ac) 25%, transparent)' },
             '.cm-scroller': { overflow: 'auto' },
             '&.cm-focused': { outline: 'none' },
           }),

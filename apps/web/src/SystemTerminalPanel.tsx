@@ -5,10 +5,12 @@ import { FitAddon } from '@xterm/addon-fit'
 import { client } from './stores'
 import './SystemTerminalPanel.css'
 import '@xterm/xterm/css/xterm.css'
+import { useThemeSettings } from './theme-store'
 
 export default function SystemTerminalPanel({ workspaceId, onClose }: { workspaceId: string; onClose(): void }) {
   const viewport = useRef<HTMLDivElement>(null)
   const terminalId = useRef('')
+  const theme = useThemeSettings((state) => state.profile)
 
   useEffect(() => {
     const host = viewport.current
@@ -17,30 +19,30 @@ export default function SystemTerminalPanel({ workspaceId, onClose }: { workspac
       convertEol: true,
       cursorBlink: true,
       cursorStyle: 'bar',
-      fontFamily: 'JetBrains Mono, Cascadia Code, Consolas, monospace',
-      fontSize: 13,
+      fontFamily: theme.typography.codeFontFamily,
+      fontSize: theme.typography.codeSize,
       scrollback: 10_000,
       theme: {
-        background: '#0a0a0a',
-        foreground: '#e8e8e8',
-        cursor: '#b19eef',
-        selectionBackground: '#8b7dff55',
-        black: '#0a0a0a',
-        brightBlack: '#666666',
-        blue: '#8da7ff',
-        brightBlue: '#a9baff',
-        cyan: '#78dce8',
-        brightCyan: '#9af1f5',
-        green: '#70d49b',
-        brightGreen: '#98f2bc',
-        magenta: '#c7a4ff',
-        brightMagenta: '#d8c3ff',
-        red: '#f08b9b',
-        brightRed: '#ffb0bc',
-        white: '#e8e8e8',
-        brightWhite: '#ffffff',
-        yellow: '#e8c779',
-        brightYellow: '#ffe49b',
+        background: theme.colors.codeBackground,
+        foreground: theme.colors.textPrimary,
+        cursor: theme.colors.highlight,
+        selectionBackground: `${theme.colors.primary}66`,
+        black: theme.colors.background,
+        brightBlack: theme.colors.textTertiary,
+        blue: theme.colors.info,
+        brightBlue: theme.colors.highlight,
+        cyan: theme.colors.secondary,
+        brightCyan: theme.colors.textPrimary,
+        green: theme.colors.success,
+        brightGreen: theme.colors.success,
+        magenta: theme.colors.secondary,
+        brightMagenta: theme.colors.highlight,
+        red: theme.colors.error,
+        brightRed: theme.colors.error,
+        white: theme.colors.textSecondary,
+        brightWhite: theme.colors.textPrimary,
+        yellow: theme.colors.warning,
+        brightYellow: theme.colors.highlight,
       },
     })
     const fit = new FitAddon()
@@ -94,7 +96,7 @@ export default function SystemTerminalPanel({ workspaceId, onClose }: { workspac
       if (id) void connection.call('terminal.close', { terminalId: id }).catch(() => {})
       terminal.dispose()
     }
-  }, [workspaceId])
+  }, [theme, workspaceId])
 
   return (
     <section className="system-terminal-panel" aria-label="系统终端">

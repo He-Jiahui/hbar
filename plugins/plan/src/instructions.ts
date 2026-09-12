@@ -15,6 +15,8 @@ Plan Mode is a collaboration mode that can involve requesting user input and eve
 
 Separately, \`update_plan\` is a checklist/progress/TODOs tool; it does not enter or exit Plan Mode. Do not confuse it with Plan mode or try to use it while in Plan mode. If you try to use \`update_plan\` in Plan mode, it will return an error.
 
+In Plan mode, use the \`save_plan\` tool when you have a reviewable structured checklist. It only persists the plan and does not modify the workspace. Save the plan before presenting the final \`<proposed_plan>\` response when Goal+Plan continuation is intended.
+
 ## Execution vs. mutation in Plan Mode
 
 You may explore and execute **non-mutating** actions that improve the plan. You must not perform **mutating** actions.
