@@ -1,0 +1,124 @@
+.rb-public-prompt-3 {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  border: 1px solid oklch(.205 0 0);
+  border-radius: 14px;
+  background: oklch(.145 0 0);
+  color: oklch(.97 0 0);
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rb-public-prompt-3 *,
+.rb-public-prompt-3 *::before,
+.rb-public-prompt-3 *::after { box-sizing: border-box; }
+
+.rb-public-prompt-3-content {
+  width: 672px;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 120px 24px 0;
+}
+
+.rb-public-prompt-3 header { text-align: center; }
+
+.rb-public-prompt-3 h1 {
+  margin: 0;
+  color: oklch(.97 0 0);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -.68px;
+  line-height: 32px;
+}
+
+.rb-public-prompt-3 header p {
+  margin: 8px 0 0;
+  color: oklch(.708 0 0);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.rb-public-prompt-3-composer {
+  display: flex;
+  width: 100%;
+  height: 100px;
+  flex-direction: column;
+  margin-top: 25px;
+  border: 1px solid oklch(.269 0 0);
+  border-radius: 14px;
+  background: oklch(.205 0 0);
+}
+
+.rb-public-prompt-3-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  flex: 1;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 14px 16px 0;
+  background: transparent;
+  color: oklch(.97 0 0);
+  font: 14px/21px inherit;
+}
+
+.rb-public-prompt-3-composer textarea::placeholder { color: oklch(.556 0 0); opacity: 1; }
+
+.rb-public-prompt-3-composer footer {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 10px;
+}
+
+.rb-public-prompt-3 button {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: oklch(.269 0 0);
+  color: oklch(.708 0 0);
+  cursor: pointer;
+  font: inherit;
+}
+
+.rb-public-prompt-3-composer footer button { width: 32px; }
+.rb-public-prompt-3-composer footer button[type="submit"] { background: oklch(.371 0 0); color: oklch(.708 0 0); }
+.rb-public-prompt-3-composer footer button[type="submit"]:disabled { cursor: default; opacity: .78; }
+.rb-public-prompt-3-composer footer button[type="submit"]:not(:disabled) { background: oklch(.97 0 0); color: oklch(.205 0 0); }
+
+.rb-public-prompt-3 nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.rb-public-prompt-3 nav button {
+  gap: 6px;
+  border: 1px solid oklch(.269 0 0);
+  padding: 0 11px;
+  background: oklch(.205 0 0);
+  color: oklch(.97 0 0);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.rb-public-prompt-3 nav button svg { color: oklch(.556 0 0); }
+.rb-public-prompt-3 nav button:hover { background: oklch(.269 0 0); }
+
+@media (max-width: 680px) {
+  .rb-public-prompt-3-content { padding-top: 88px; }
+  .rb-public-prompt-3 nav { flex-wrap: wrap; }
+}
+
+.rb-public-prompt-3 nav button { font-size: 13px; }
