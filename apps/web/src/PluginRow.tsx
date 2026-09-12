@@ -137,8 +137,9 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
   async function apply(enabled: boolean, configuration?: Record<string, unknown>) {
     setError('')
     try {
-      if (configuration) await client().call('plugin.set', { id: plugin.id, enabled, config: configuration })
-      else await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id: plugin.id })
+      const projectId = plugin.projectId
+      if (configuration) await client().call('plugin.set', { id: plugin.id, enabled, config: configuration, ...(projectId ? { projectId } : {}) })
+      else await client().call(enabled ? 'plugin.enable' : 'plugin.disable', { id: plugin.id, ...(projectId ? { projectId } : {}) })
       await refreshCatalog()
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure))
@@ -150,7 +151,7 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
     if (plugin.required || !window.confirm(`卸载插件 ${plugin.name}？`)) return
     setError('')
     try {
-      await client().call('plugin.remove', { id: plugin.id })
+      await client().call('plugin.remove', { id: plugin.id, ...(plugin.projectId ? { projectId: plugin.projectId } : {}) })
       await refreshCatalog()
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure))

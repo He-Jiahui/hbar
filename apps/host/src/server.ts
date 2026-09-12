@@ -421,7 +421,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plugin.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, p.enabled, p.config)
+        return kernel.changePlugin(p.id, p.enabled, p.config, p.projectId)
       }
       case 'plugin.install': {
         const p = rpcSchemas[method].parse(raw)
@@ -432,17 +432,17 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'plugin.remove': {
         const p = rpcSchemas[method].parse(raw)
         kernel.assertIdle()
-        const result = await kernel.plugins.remove(p.id)
+        const result = await kernel.plugins.remove(p.id, p.projectId)
         kernel.changed('plugins')
         return result
       }
       case 'plugin.enable': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, true)
+        return kernel.changePlugin(p.id, true, undefined, p.projectId)
       }
       case 'plugin.disable': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, false)
+        return kernel.changePlugin(p.id, false, undefined, p.projectId)
       }
       case 'plugin.disableTree': {
         const p = rpcSchemas[method].parse(raw)
