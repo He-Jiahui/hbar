@@ -10,10 +10,11 @@
   overflow: auto;
   overscroll-behavior: contain;
   isolation: isolate;
-  background: rgba(26, 26, 26, 0.96) !important;
-  background: color-mix(in srgb, var(--hbar-s1) 94%, transparent) !important;
-  backdrop-filter: blur(16px) saturate(1.12);
-  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.94) * 100%), transparent) !important;
+  border: 1px solid var(--hbar-bd2);
+  box-shadow: var(--dsh-shadow-prominent), 0 0 18px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity, 0.16) * 100%), transparent);
+  backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
+  -webkit-backdrop-filter: blur(var(--hbar-glass-blur, 16px)) saturate(var(--hbar-glass-saturation, 112%));
 }
 
 .floating-layer-backdrop {
@@ -23,6 +24,8 @@
   display: grid;
   place-items: center;
   background: color-mix(in srgb, #000 32%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   pointer-events: auto;
 }
 
@@ -38,6 +41,45 @@
 .floating-layer [role='menuitemradio'] {
   justify-content: flex-start;
   text-align: left;
+}
+
+.floating-layer button,
+.floating-layer [role='menuitem'],
+.floating-layer [role='option'],
+.floating-layer [role='menuitemradio'] {
+  color: var(--hbar-t1);
+  transition: background-color var(--hbar-motion-duration, 160ms) var(--dsh-motion-easing),
+    border-color var(--hbar-motion-duration, 160ms) var(--dsh-motion-easing),
+    color var(--hbar-motion-duration, 160ms) var(--dsh-motion-easing);
+}
+
+.floating-layer button:hover:not(:disabled),
+.floating-layer button:focus-visible,
+.floating-layer [role='menuitem']:hover,
+.floating-layer [role='menuitem']:focus-visible,
+.floating-layer [role='option']:hover,
+.floating-layer [role='option']:focus-visible,
+.floating-layer [role='menuitemradio']:hover,
+.floating-layer [role='menuitemradio']:focus-visible {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft-hover);
+  color: var(--hbar-highlight, var(--hbar-t1));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--hbar-ac) 34%, transparent),
+    0 0 12px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity, 0.16) * 100%), transparent);
+}
+
+.floating-layer button:focus-visible,
+.floating-layer [role='menuitem']:focus-visible,
+.floating-layer [role='option']:focus-visible,
+.floating-layer [role='menuitemradio']:focus-visible {
+  outline: 2px solid var(--hbar-focus, var(--hbar-t1));
+  outline-offset: -2px;
+}
+
+.session-context-menu button {
+  min-height: 34px;
+  color: var(--hbar-t1);
+  font-size: var(--hbar-font-size-body, 13px);
 }
 
 /* Tool-rail labels are deliberately rendered by the same body portal as

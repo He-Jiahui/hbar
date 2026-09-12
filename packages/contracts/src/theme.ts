@@ -1,0 +1,159 @@
+import { z } from 'zod'
+
+/**
+ * Theme values are deliberately serialisable and constrained to a small,
+ * portable subset. Components consume the resulting CSS variables rather
+ * than inventing local colours or typography values.
+ */
+export const themeColorSchema = z.string().regex(/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i)
+export type ThemeColor = z.infer<typeof themeColorSchema>
+
+const fontFamilySchema = z.string().trim().min(1).max(240).refine((value) => !/[\r\n]/.test(value))
+
+export const themeProfileSchema = z
+  .object({
+    mode: z.enum(['dark', 'light', 'white', 'custom']),
+    colors: z
+      .object({
+        primary: themeColorSchema,
+        secondary: themeColorSchema,
+        highlight: themeColorSchema,
+        background: themeColorSchema,
+        surface: themeColorSchema,
+        surfaceElevated: themeColorSchema,
+        border: themeColorSchema,
+        borderStrong: themeColorSchema,
+        textPrimary: themeColorSchema,
+        textSecondary: themeColorSchema,
+        textTertiary: themeColorSchema,
+        headingText: themeColorSchema,
+        focus: themeColorSchema,
+        success: themeColorSchema,
+        warning: themeColorSchema,
+        error: themeColorSchema,
+        info: themeColorSchema,
+        codeBackground: themeColorSchema,
+        diffAdded: themeColorSchema,
+        diffRemoved: themeColorSchema,
+        diffContext: themeColorSchema,
+      })
+      .strict(),
+    typography: z
+      .object({
+        locale: z.string().regex(/^[a-z]{2}(?:-[A-Z][a-z]{2})?$/),
+        bodyFontFamily: fontFamilySchema,
+        headingFontFamily: fontFamilySchema,
+        codeFontFamily: fontFamilySchema,
+        bodySize: z.number().min(10).max(24),
+        headingSize: z.number().min(14).max(40),
+        codeSize: z.number().min(9).max(24),
+        bodyLineHeight: z.number().min(1).max(2.4),
+        headingWeight: z.number().int().min(400).max(800),
+        bodyWeight: z.number().int().min(300).max(800),
+        underlineLinks: z.boolean(),
+        bodyTextColor: themeColorSchema,
+        headingTextColor: themeColorSchema,
+        inlineCodeBackground: themeColorSchema,
+        inlineCodeTextColor: themeColorSchema,
+      })
+      .strict(),
+    surface: z
+      .object({
+        mode: z.enum(['solid', 'acrylic', 'liquid-glass']),
+        backgroundOpacity: z.number().min(0.12).max(1),
+        blurAmount: z.number().min(0).max(64),
+        saturation: z.number().min(0).max(220),
+        displacementScale: z.number().min(0).max(120),
+        aberrationIntensity: z.number().min(0).max(10),
+        elasticity: z.number().min(0).max(1),
+        cornerRadius: z.number().min(0).max(32),
+        glowIntensity: z.number().min(0).max(1),
+        backgroundAsset: z.string().regex(/^[a-f0-9]{64}$/i).nullable(),
+      })
+      .strict(),
+    motion: z
+      .object({
+        intensity: z.enum(['off', 'subtle', 'full']),
+        respectReducedMotion: z.boolean(),
+      })
+      .strict(),
+    renderer: z
+      .object({
+        markdown: z.string().max(160),
+        code: z.string().max(160),
+        patch: z.string().max(160),
+        'git-diff': z.string().max(160),
+      })
+      .strict(),
+  })
+  .strict()
+
+export type ThemeProfile = z.infer<typeof themeProfileSchema>
+
+/** Neutral, low-saturation defaults with a restrained silver highlight. */
+export const DEFAULT_THEME_PROFILE: ThemeProfile = {
+  mode: 'dark',
+  colors: {
+    primary: '#c7ced8',
+    secondary: '#9ca7b5',
+    highlight: '#f2f5f8',
+    background: '#0b0d10',
+    surface: '#15181c',
+    surfaceElevated: '#1c2025',
+    border: '#2a3038',
+    borderStrong: '#414a56',
+    textPrimary: '#f2f4f7',
+    textSecondary: '#c5ccd5',
+    textTertiary: '#929ca8',
+    headingText: '#ffffff',
+    focus: '#dce3eb',
+    success: '#7ed7a2',
+    warning: '#e7bd78',
+    error: '#ef8d8d',
+    info: '#a9c3df',
+    codeBackground: '#101317',
+    diffAdded: '#75c995',
+    diffRemoved: '#e98585',
+    diffContext: '#aab3bf',
+  },
+  typography: {
+    locale: 'zh-CN',
+    bodyFontFamily:
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+    headingFontFamily:
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+    codeFontFamily: "'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', monospace",
+    bodySize: 13,
+    headingSize: 18,
+    codeSize: 12,
+    bodyLineHeight: 1.55,
+    headingWeight: 650,
+    bodyWeight: 400,
+    underlineLinks: true,
+    bodyTextColor: '#f2f4f7',
+    headingTextColor: '#ffffff',
+    inlineCodeBackground: '#20252b',
+    inlineCodeTextColor: '#e1e7ee',
+  },
+  surface: {
+    mode: 'acrylic',
+    backgroundOpacity: 0.82,
+    blurAmount: 18,
+    saturation: 112,
+    displacementScale: 18,
+    aberrationIntensity: 0.4,
+    elasticity: 0.12,
+    cornerRadius: 8,
+    glowIntensity: 0.16,
+    backgroundAsset: null,
+  },
+  motion: { intensity: 'subtle', respectReducedMotion: true },
+  renderer: { markdown: 'builtin', code: 'builtin', patch: 'builtin', 'git-diff': 'builtin' },
+}
+
+export function normalizeThemeProfile(value: unknown): ThemeProfile {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return DEFAULT_THEME_PROFILE
+  const candidate = value as Record<string, unknown>
+  const parsed = themeProfileSchema.safeParse(candidate)
+  return parsed.success ? parsed.data : DEFAULT_THEME_PROFILE
+}

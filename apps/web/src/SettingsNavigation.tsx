@@ -1,8 +1,8 @@
-import { Blocks, BookOpen, Bot, HardDrive, Monitor, Palette, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { Bell, Blocks, BookOpen, Bot, HardDrive, Monitor, Palette, ShieldCheck, type LucideIcon } from 'lucide-react'
 import GlassSurface from './react-bits/GlassSurface'
 
 type SettingsDestination = {
-  id: 'appearance' | 'models' | 'permissions' | 'paths' | 'skills' | 'plugins' | 'devices'
+  id: 'appearance' | 'automation' | 'models' | 'permissions' | 'paths' | 'skills' | 'plugins' | 'devices'
   label: string
   description: string
   icon: LucideIcon
@@ -10,6 +10,7 @@ type SettingsDestination = {
 
 const SETTINGS_DESTINATIONS = [
   { id: 'appearance', label: '外观', description: '主题与显示体验', icon: Palette },
+  { id: 'automation', label: '任务与通知', description: '默认预算与通知提醒', icon: Bell },
   { id: 'models', label: '模型', description: '供应商与能力', icon: Bot },
   { id: 'permissions', label: '权限', description: '工具执行策略', icon: ShieldCheck },
   { id: 'paths', label: '存储', description: '目录与数据位置', icon: HardDrive },

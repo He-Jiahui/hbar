@@ -55,6 +55,7 @@ import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbenc
 import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
 import { FileNavigation, FileViewer } from './FileNavigation'
 import SystemTerminalPanel from './SystemTerminalPanel'
+import { applyThemeProfile, handleThemeEvent, useThemeSettings } from './theme-store'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
 const DEFAULT_TOOL_RAIL_ORDER = [
@@ -450,12 +451,13 @@ export default function App() {
     workspaceId = useWorkbench((state) => state.workspaceId),
     panel = useWorkbench((state) => state.panel),
     approvalMode = useWorkbench((state) => state.approvalMode),
-    theme = useWorkbench((state) => state.theme),
     modelId = useWorkbench((state) => state.modelId),
     toolPanel = useWorkbench((state) => state.toolPanel),
     sidebarWidth = useWorkbench((state) => state.sidebarWidth),
     persistedToolRailLayout = useWorkbench((state) => state.toolRailLayout)
   const notice = useNotice((state) => state.error)
+  const themeProfile = useThemeSettings((state) => state.profile)
+  const taskNotice = useNotice((state) => state.notice)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
   const sessions = data?.sessions
@@ -493,6 +495,13 @@ export default function App() {
     setToastPaused(false)
   }, [notice])
   useEffect(() => {
+    if (!taskNotice) return
+    const timer = window.setTimeout(() => {
+      if (useNotice.getState().notice === taskNotice) useNotice.setState({ notice: '' })
+    }, 6000)
+    return () => window.clearTimeout(timer)
+  }, [taskNotice])
+  useEffect(() => {
     if (!notice || toastPaused) return
     const timer = window.setTimeout(() => {
       if (useNotice.getState().error === notice) useNotice.setState({ error: '' })
@@ -512,8 +521,18 @@ export default function App() {
     return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
   })
   useEffect(() => {
-    document.documentElement.dataset.theme = theme === 'white' ? 'white' : theme === 'light' ? 'dsh-light' : 'dsh-dark'
-  }, [theme])
+    applyThemeProfile(themeProfile)
+  }, [themeProfile])
+  useEffect(() => {
+    if (status !== 'connected') return
+    const connection = useConnection.getState().client
+    if (!connection) return
+    const scope = activeSession ? 'session' : workspaceId ? 'project' : 'global'
+    const targetId = activeSession || workspaceId || undefined
+    useThemeSettings.getState().setScope(scope, targetId)
+    void useThemeSettings.getState().load(connection, scope, targetId)
+    return connection.onEvent((event) => handleThemeEvent(event, connection))
+  }, [activeSession, status, workspaceId])
   useEffect(() => {
     const onResize = () => setSmall(window.innerWidth < 900)
     window.addEventListener('resize', onResize)
@@ -1389,6 +1408,14 @@ export default function App() {
         >
           <span>{notice}</span>
           <button title="关闭通知" aria-label="关闭通知" onClick={() => useNotice.setState({ error: '' })}>
+            <X size={15} />
+          </button>
+        </div>
+      )}
+      {taskNotice && !notice && (
+        <div className="toast task-toast" role="status" tabIndex={0}>
+          <span>{taskNotice}</span>
+          <button title="关闭通知" aria-label="关闭通知" onClick={() => useNotice.setState({ notice: '' })}>
             <X size={15} />
           </button>
         </div>

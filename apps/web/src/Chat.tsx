@@ -34,7 +34,7 @@ import { copyText, newRequestId } from './browser-utils'
 import { buildComposerActions } from './composer-actions'
 import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
-import { clearBudget, clearGoal, setBudget, setMode, useSessionCapabilities } from './session-capabilities'
+import { clearBudget, clearGoal, createGoal, setBudget, setGoalArmed, setMode, setUnattended, useSessionCapabilities } from './session-capabilities'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
@@ -446,6 +446,8 @@ export default function Chat({
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
+  const [budgetDraft, setBudgetDraft] = useState('')
+  const [budgetEditing, setBudgetEditing] = useState(false)
   const [resolvingApprovals, setResolvingApprovals] = useState<Set<string>>(() => new Set())
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -567,6 +569,11 @@ export default function Chat({
         thinking: thinkingLevel,
         approval: approvalMode,
       }
+      const capabilities = useSessionCapabilities.getState().sessions[target]
+      if (capabilities?.goalArmed && !capabilities.goal && sentDraft.text.trim()) {
+        await createGoal(client(), target, sentDraft.text.trim())
+        setGoalArmed(target, false)
+      }
       const key = JSON.stringify({ target, input, modelId, thinkingLevel })
       if (pendingRequest.current?.key !== key) pendingRequest.current = { key, requestId: newRequestId() }
       await client().call('run.start', {
@@ -629,10 +636,18 @@ export default function Chat({
   function selectComposerAction(action: ComposerAction, openFilePicker: OpenFilePicker) {
     if (action.id === 'goal' || action.id === 'plan' || action.id === 'budget') {
       if (!sessionId) return
+      if (action.id === 'goal' && !capabilityState?.goal) {
+        setGoalArmed(sessionId, true)
+        return
+      }
+      if (action.id === 'budget') {
+        setBudgetDraft(capabilityState?.budget ? String(capabilityState.budget.limit) : '')
+        setBudgetEditing(true)
+        return
+      }
       const mode = action.id === 'plan' ? 'plan' : 'default'
       void (async () => {
         await setMode(client(), sessionId, mode)
-        if (action.id === 'budget') await setBudget(client(), sessionId, 10_000)
       })().catch(report)
       return
     }
@@ -645,8 +660,14 @@ export default function Chat({
       }),
     ).catch(report)
   }
-  const modeTags = sessionId && (capabilityState?.mode === 'plan' || capabilityState?.goal || capabilityState?.budget) ? (
+  const modeTags = sessionId && (capabilityState?.mode === 'plan' || capabilityState?.goal || capabilityState?.budget || capabilityState?.goalArmed || capabilityState?.unattended || budgetEditing) ? (
     <div className="composer-mode-tags" aria-label="当前会话模式">
+      {capabilityState?.goalArmed && !capabilityState.goal && (
+        <span className="composer-mode-tag composer-mode-tag-active" title="下一条消息将创建 Goal 并立即执行">
+          <span>Goal · 待设置</span>
+          <button type="button" title="取消设置 Goal" aria-label="取消设置 Goal" onClick={() => setGoalArmed(sessionId, false)}><X size={12} /></button>
+        </span>
+      )}
       {capabilityState?.mode === 'plan' && (
         <span className="composer-mode-tag" title="Plan 模式：只读探索并生成可审核计划">
           <span>Plan</span>
@@ -685,6 +706,33 @@ export default function Chat({
             <X size={12} />
           </button>
         </span>
+      )}
+      {budgetEditing && (
+        <span className="composer-mode-tag composer-mode-budget-editor">
+          <input aria-label="预算 token" type="number" min={1} value={budgetDraft} placeholder="默认预算" onChange={(event) => setBudgetDraft(event.target.value)} />
+          <button type="button" title="保存预算" aria-label="保存预算" onClick={() => {
+            const value = Number(budgetDraft)
+            const save = Number.isSafeInteger(value) && value > 0
+              ? setBudget(client(), sessionId, value)
+              : client().call('settings.snapshot', { scope: 'global' }).then((snapshot) => {
+                  const fallback = snapshot.values['session.defaultBudgetTokens']?.effectiveValue
+                  return setBudget(client(), sessionId, typeof fallback === 'number' ? fallback : 10_000)
+                })
+            void save.then(() => setBudgetEditing(false)).catch(report)
+          }}>✓</button>
+          <button type="button" title="取消预算编辑" aria-label="取消预算编辑" onClick={() => setBudgetEditing(false)}><X size={12} /></button>
+        </span>
+      )}
+      {capabilityState?.unattended ? (
+        <span className="composer-mode-tag composer-mode-tag-active" title="无人模式：有推荐选项时自动选择">
+          <span>无人模式</span>
+          <button type="button" title="关闭无人模式" aria-label="关闭无人模式" onClick={() => void setUnattended(client(), sessionId, false).catch(report)}><X size={12} /></button>
+        </span>
+      ) : (
+        <button type="button" className="composer-unattended-toggle" onClick={() => {
+          if (window.confirm('无人模式会自动选择唯一推荐项，无推荐项时仍会暂停等待。继续开启？'))
+            void setUnattended(client(), sessionId, true).catch(report)
+        }}>进入无人模式</button>
       )}
     </div>
   ) : undefined

@@ -3,6 +3,7 @@ import { settingScopeSchema } from './settings.ts'
 import type { SettingDescriptor, SettingScope, SettingsCatalog, SettingsContribution, SettingsSnapshot } from './settings.ts'
 
 export * from './settings.ts'
+export * from './theme.ts'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
@@ -89,6 +90,7 @@ const userInputIdSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
 export const userInputOptionSchema = z.object({
   label: z.string().trim().min(1).max(80),
   description: z.string().trim().min(1).max(500),
+  recommended: z.boolean().optional(),
 })
 export type UserInputOption = z.infer<typeof userInputOptionSchema>
 export const userInputQuestionSchema = z.object({
@@ -142,6 +144,24 @@ export const sessionBudgetSchema = z.object({
   updatedAt: z.number().int().nonnegative(),
 })
 export type SessionBudget = z.infer<typeof sessionBudgetSchema>
+
+export const automationStateSchema = z.object({
+  sessionId: idSchema,
+  unattended: z.boolean(),
+})
+export type AutomationState = z.infer<typeof automationStateSchema>
+
+export const taskNotificationKindSchema = z.enum(['completed', 'user_input', 'retry_failed'])
+export type TaskNotificationKind = z.infer<typeof taskNotificationKindSchema>
+export const taskNotificationSchema = z.object({
+  notificationId: idSchema,
+  kind: taskNotificationKindSchema,
+  sessionId: idSchema,
+  runId: idSchema.nullable().optional(),
+  title: z.string().min(1).max(200),
+  message: z.string().min(1).max(2_000),
+})
+export type TaskNotification = z.infer<typeof taskNotificationSchema>
 
 // Git metadata and operation results are intentionally bounded so a dirty
 // repository cannot turn a notification or RPC response into an unbounded log.
@@ -807,6 +827,12 @@ export type WireNotification =
   | { method: 'mode.changed'; params: { sessionId: string; mode: RunMode } }
   | { method: 'budget.updated'; params: { sessionId: string; runId: string | null; budget: SessionBudget } }
   | { method: 'budget.cleared'; params: { sessionId: string } }
+  | { method: 'automation.changed'; params: AutomationState }
+  | { method: 'task.notification'; params: TaskNotification }
+  | {
+      method: 'settings.changed'
+      params: { scope: SettingScope; targetId?: string | undefined; revision: string; ids: string[] }
+    }
   | { method: 'git.changed'; params: { cwd: string } }
   | { method: 'browser.changed'; params: { sessionId: string; contextId: string } }
   | { method: 'computer.changed'; params: { sessionId: string } }
@@ -843,6 +869,8 @@ export const rpcSchemas = {
     expectedRevision: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   }),
   'settings.search': z.object({ query: z.string().trim().max(200) }),
+  'automation.get': z.object({ sessionId: idSchema }),
+  'automation.set': z.object({ sessionId: idSchema, unattended: z.boolean() }),
   'goal.get': z.object({ sessionId: idSchema }),
   'goal.create': z.object({
     sessionId: idSchema,
@@ -1037,6 +1065,7 @@ export const rpcSchemas = {
   'plugin.remove': z.object({ id: idSchema }),
   'plugin.enable': z.object({ id: idSchema }),
   'plugin.disable': z.object({ id: idSchema }),
+  'plugin.disableTree': z.object({ id: idSchema }),
   'plugin.resolve': z.object({ id: idSchema.optional() }),
   'plugin.graph': z.object({}),
   'plugin.lock': z.object({}),
@@ -1087,6 +1116,8 @@ export interface RpcResults {
   'settings.set': SettingsSnapshot
   'settings.reset': SettingsSnapshot
   'settings.search': Array<SettingDescriptor & { path: string; source?: SettingScope | 'default' | undefined }>
+  'automation.get': AutomationState
+  'automation.set': AutomationState
   'goal.get': { goal: ThreadGoal | null; remainingTokens: number | null }
   'goal.create': { goal: ThreadGoal; remainingTokens: number | null }
   'goal.update': { goal: ThreadGoal; remainingTokens: number | null; completionBudgetReport?: string }
@@ -1159,6 +1190,7 @@ export interface RpcResults {
   'plugin.remove': PluginInfo[]
   'plugin.enable': PluginInfo[]
   'plugin.disable': PluginInfo[]
+  'plugin.disableTree': PluginInfo[]
   'plugin.resolve': { order: string[]; enabled: string[] }
   'plugin.graph': {
     nodes: { id: string; version: string; enabled: boolean }[]

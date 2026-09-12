@@ -12,6 +12,10 @@ import {
   resolveProviderModel,
   userInputRequestSchema,
   userInputResponseSchema,
+  settingScopeSchema,
+  automationStateSchema,
+  taskNotificationSchema,
+  themeProfileSchema,
 } from '@hbar/contracts'
 import type {
   Approval,
@@ -30,10 +34,16 @@ import type {
   UserInputResponse,
   UserInput,
   WireNotification,
+  SettingScope,
+  SettingsCatalog,
+  SettingsSnapshot,
+  AutomationState,
+  TaskNotificationKind,
 } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
+  GoalService,
   DriverInput,
   HarnessDriver,
   ModelRegistry,
@@ -47,6 +57,7 @@ import type {
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
+import { buildSettingsCatalog, resolveSettings, searchSettings, settingDescriptors, validateSettingValue } from './settings.ts'
 import piPlugin from '@hbar/pi-driver'
 import localTools, { executionPlugin, LocalExecution } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
@@ -196,6 +207,7 @@ export class Kernel {
   private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
   private admissions = 0
   private closing = false
+  private unattended = new Map<string, boolean>()
   recovered = 0
   private constructor(
     readonly options: ResolvedKernelOptions,
@@ -254,6 +266,7 @@ export class Kernel {
       const parsedPermission = approvalModeSchema.safeParse(storedPermission)
       kernel.permissionModeValue = parsedPermission.success ? parsedPermission.data : 'ask'
       kernel.recovered = await kernel.storage.call('recover')
+      await kernel.restoreAutomation()
       kernel.registerDefaults()
       for (const [id, plugin] of Object.entries(options.profile?.replacements ?? {})) kernel.plugins.replace(id, plugin)
       for (const plugin of options.profile?.plugins ?? []) kernel.plugins.add(plugin)
@@ -277,6 +290,17 @@ export class Kernel {
     } catch (error) {
       await kernel.storage.close()
       throw error
+    }
+  }
+  private async restoreAutomation() {
+    this.unattended.clear()
+    for (const session of await this.storage.call('sessions')) {
+      const events = await this.storage.call('events', session.id, 0, 2_000)
+      for (const event of events) {
+        if (event.type !== 'automation.changed') continue
+        const parsed = automationStateSchema.safeParse(event.data)
+        if (parsed.success && parsed.data.sessionId === session.id) this.unattended.set(session.id, parsed.data.unattended)
+      }
     }
   }
   private registerDefaults() {
@@ -520,6 +544,121 @@ export class Kernel {
       panels: [...this.plugins.panels.values()],
     }
   }
+  async settingsCatalog(): Promise<SettingsCatalog> {
+    return buildSettingsCatalog(this.plugins.list())
+  }
+  async automationGet(sessionId: string): Promise<AutomationState> {
+    await this.storage.call('session', sessionId)
+    return { sessionId, unattended: this.unattended.get(sessionId) ?? false }
+  }
+  async automationSet(sessionId: string, unattended: boolean): Promise<AutomationState> {
+    await this.storage.call('session', sessionId)
+    const next = automationStateSchema.parse({ sessionId, unattended })
+    await this.append(sessionId, 'automation.changed', next)
+    this.unattended.set(sessionId, unattended)
+    this.publish({ method: 'automation.changed', params: next })
+    return next
+  }
+  private async taskNotification(
+    kind: TaskNotificationKind,
+    sessionId: string,
+    runId: string | null,
+    title: string,
+    message: string,
+  ) {
+    const values = (await this.storage.call('getSettings', 'global')).values
+    const setting =
+      kind === 'completed'
+        ? 'notifications.taskCompleted'
+        : kind === 'user_input'
+          ? 'notifications.userInteraction'
+          : 'notifications.retryFailed'
+    if (values[setting] === false) return
+    const notification = taskNotificationSchema.parse({
+      notificationId: crypto.randomUUID(),
+      kind,
+      sessionId,
+      ...(runId ? { runId } : {}),
+      title,
+      message,
+    })
+    this.publish({ method: 'task.notification', params: notification })
+  }
+  private async settingDocuments(scope: SettingScope, targetId?: string) {
+    settingScopeSchema.parse(scope)
+    let projectId: string | undefined
+    if (scope === 'project' && targetId) {
+      await this.storage.call('workspace', targetId)
+      projectId = targetId
+    }
+    if (scope === 'session' && targetId) {
+      const session = await this.storage.call('session', targetId)
+      projectId = session.workspaceId
+    }
+    const global = await this.storage.call('getSettings', 'global')
+    const project = projectId
+      ? await this.storage.call('getSettings', 'project', projectId)
+      : { version: 1 as const, revision: '', values: {} }
+    const session = scope === 'session' ? await this.storage.call('getSettings', 'session', targetId) : { version: 1 as const, revision: '', values: {} }
+    return { global, project, session }
+  }
+  async settingsSnapshot(scope: SettingScope, targetId?: string): Promise<SettingsSnapshot> {
+    const catalog = await this.settingsCatalog()
+    const documents = await this.settingDocuments(scope, targetId)
+    const values = resolveSettings(catalog.settings, scope, documents.global.values, documents.project.values, documents.session.values)
+    const revision = createHash('sha256')
+      .update([documents.global.revision, documents.project.revision, documents.session.revision].join(':'))
+      .digest('hex')
+    return { schemaVersion: 1, revision, scope, ...(targetId ? { targetId } : {}), values }
+  }
+  async setSetting(scope: SettingScope, targetId: string | undefined, id: string, value: unknown, expectedRevision?: string) {
+    const catalog = await this.settingsCatalog()
+    const descriptor = settingDescriptors(catalog).get(id)
+    if (!descriptor) throw new HbarError('NOT_FOUND', `Setting not found: ${id}`)
+    if (!descriptor.scopes.includes(scope)) throw new HbarError('INVALID_INPUT', `Setting ${id} is not editable at ${scope} scope`)
+    validateSettingValue(descriptor.schema, value)
+    if (id === 'appearance.profile') themeProfileSchema.parse(value)
+    const current = await this.storage.call('getSettings', scope, targetId)
+    const snapshot = await this.settingsSnapshot(scope, targetId)
+    if (expectedRevision && expectedRevision !== snapshot.revision)
+      throw new HbarError('SETTINGS_CONFLICT', 'Settings changed since they were read')
+    await this.storage.call('setSettings', scope, targetId, { ...current.values, [id]: value }, current.revision)
+    if (id === 'permission.mode' && typeof value === 'string') {
+      this.permissionModeValue = approvalModeSchema.parse(value)
+      await this.storage.call('setSetting', 'permission.mode', this.permissionModeValue)
+    }
+    const next = await this.settingsSnapshot(scope, targetId)
+    this.changed('settings')
+    this.publish({
+      method: 'settings.changed',
+      params: { scope, ...(targetId ? { targetId } : {}), revision: next.revision, ids: [id] },
+    })
+    return next
+  }
+  async resetSetting(scope: SettingScope, targetId: string | undefined, id: string, expectedRevision?: string) {
+    const catalog = await this.settingsCatalog()
+    const descriptor = settingDescriptors(catalog).get(id)
+    if (!descriptor) throw new HbarError('NOT_FOUND', `Setting not found: ${id}`)
+    if (!descriptor.scopes.includes(scope)) throw new HbarError('INVALID_INPUT', `Setting ${id} is not editable at ${scope} scope`)
+    const current = await this.storage.call('getSettings', scope, targetId)
+    const snapshot = await this.settingsSnapshot(scope, targetId)
+    if (expectedRevision && expectedRevision !== snapshot.revision)
+      throw new HbarError('SETTINGS_CONFLICT', 'Settings changed since they were read')
+    const values = { ...current.values }
+    delete values[id]
+    await this.storage.call('setSettings', scope, targetId, values, current.revision)
+    const next = await this.settingsSnapshot(scope, targetId)
+    this.changed('settings')
+    this.publish({
+      method: 'settings.changed',
+      params: { scope, ...(targetId ? { targetId } : {}), revision: next.revision, ids: [id] },
+    })
+    return next
+  }
+  async searchSettings(query: string) {
+    const catalog = await this.settingsCatalog()
+    return searchSettings(catalog, query)
+  }
   async snapshot(id: string, before?: number, limit?: number): Promise<SessionSnapshot> {
     const snapshot = await this.storage.call('snapshot', id, before, limit)
     snapshot.streams = [...this.streams.values()].filter((s) => s.sessionId === id)
@@ -535,6 +674,9 @@ export class Kernel {
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
     input = { ...input, files }
     const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
+    const goal = await this.plugins.get<GoalService>('goal').get(sessionId)
+    if (goal.goal && ['budget_limited', 'complete', 'blocked', 'usage_limited'].includes(goal.goal.status) && input.source === 'goal')
+      throw new HbarError('GOAL_NOT_ACTIVE', `Goal is ${goal.goal.status} and cannot continue automatically`)
     input = {
       ...input,
       mode,
@@ -744,6 +886,18 @@ export class Kernel {
         await scope.hooks
           .dispatch('run.end', { sessionId, runId: run.id, status, run: await this.storage.call('run', run.id) })
           .catch((error) => console.error('Run observer failed:', error))
+        if (status === 'completed') {
+          const queued = (await this.storage.call('snapshot', sessionId, undefined, 40)).runs.some((item) => item.status === 'queued')
+          const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
+          if (!queued && (!goalState.goal || goalState.goal.status === 'complete'))
+            void this.taskNotification('completed', sessionId, run.id, '任务完成', '当前任务已完成。').catch((error) =>
+              console.error('Task notification failed:', error),
+            )
+        } else if (status === 'failed') {
+          void this.taskNotification('retry_failed', sessionId, run.id, '任务失败', '任务执行失败，请检查错误后重试。').catch((error) =>
+            console.error('Task notification failed:', error),
+          )
+        }
         await scope.dispose()
         this.changed('sessions')
       }
@@ -919,6 +1073,16 @@ export class Kernel {
       return new Set(labels).size !== labels.length
     }))
       throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
+    if (request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1))
+      throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
+    const unattended = this.unattended.get(request.sessionId) ?? false
+    const recommended = request.questions.map((question) => (question.options ?? []).filter((option) => option.recommended))
+    if (unattended && recommended.every((options) => options.length === 1)) {
+      const answers = Object.fromEntries(
+        request.questions.map((question, index) => [question.id, { answers: [recommended[index]![0]!.label] }]),
+      )
+      return { answers }
+    }
     if (this.userInputs.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
     signal.throwIfAborted()
@@ -957,7 +1121,16 @@ export class Kernel {
     signal.addEventListener('abort', onAbort, { once: true })
     try {
       await this.append(request.sessionId, 'user_input.requested', request, request.runId)
-      if (!settled) this.publish({ method: 'user_input.requested', params: request })
+      if (!settled) {
+        this.publish({ method: 'user_input.requested', params: request })
+        void this.taskNotification(
+          'user_input',
+          request.sessionId,
+          request.runId,
+          '需要你的回答',
+          `${request.questions.length} 个问题正在等待处理。`,
+        ).catch((error) => console.error('Task notification failed:', error))
+      }
       if (signal.aborted) onAbort()
       return await outcome
     } catch (error) {
@@ -1139,6 +1312,17 @@ export class Kernel {
     this.maintenance = true
     try {
       const plugins = await this.plugins.set(id, enabled, config)
+      this.changed('plugins')
+      return plugins
+    } finally {
+      this.maintenance = false
+    }
+  }
+  async changePluginTree(id: string) {
+    this.assertIdle()
+    this.maintenance = true
+    try {
+      const plugins = await this.plugins.disableTree(id)
       this.changed('plugins')
       return plugins
     } finally {

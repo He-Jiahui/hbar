@@ -470,6 +470,10 @@ function onEvent(event: WireNotification) {
         },
       }
     })
+  } else if (event.method === 'task.notification') {
+    useNotice.setState({ notice: `${event.params.title}：${event.params.message}` })
+    if (typeof Notification !== 'undefined' && document.visibilityState === 'hidden' && Notification.permission === 'granted')
+      new Notification(event.params.title, { body: event.params.message })
   } else if (event.method === 'session.event') applyEvent(event.params)
 }
 export function applyEvent(event: SessionEvent) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
+  Bell,
   BookOpen,
   Check,
   Copy,
@@ -19,7 +20,7 @@ import {
   X,
 } from 'lucide-react'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
-import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, RpcResults, ThinkingLevel } from '@hbar/contracts'
+import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, RpcResults, SettingsSnapshot, ThemeProfile, ThinkingLevel } from '@hbar/contracts'
 import { client, refreshCatalog, report, selectModel, useCatalog, useConnection, useWorkbench } from './stores'
 import { copyText } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
@@ -35,6 +36,7 @@ import SpotlightCard from './react-bits/SpotlightCard'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 import { FloatingSurface } from './FloatingLayer'
+import { useThemeSettings } from './theme-store'
 
 type SettingsScope = 'global' | 'project' | 'session'
 
@@ -48,6 +50,8 @@ type SettingSearchEntry = {
 }
 
 const SETTINGS_SEARCH_INDEX: readonly SettingSearchEntry[] = [
+  { tab: 'automation', tabLabel: '任务与通知', section: '会话任务', title: '默认会话预算', description: 'Budget 未填写时使用的 token 上限', keywords: ['budget', 'token', '预算'] },
+  { tab: 'automation', tabLabel: '任务与通知', section: '通知', title: '任务通知', description: '任务完成、需要交互和重试失败提醒', keywords: ['notification', '通知', '提醒'] },
   { tab: 'appearance', tabLabel: '外观', section: '界面主题', title: '主题', description: '深色、浅色和纯白主题', keywords: ['theme', '颜色', '显示'] },
   { tab: 'models', tabLabel: '模型', section: '供应商与模型', title: '模型和供应商', description: '连接地址、API Key、模型与思考等级', keywords: ['model', 'provider', 'api', 'key'] },
   { tab: 'permissions', tabLabel: '权限', section: '工具权限', title: '默认权限模式', description: '控制写入文件和运行命令前是否需要确认', keywords: ['permission', 'approval', '工具'] },
@@ -702,14 +706,19 @@ export default function Settings() {
     [modelQuery, setModelQuery] = useState(''),
     [settingsQuery, setSettingsQuery] = useState(''),
     [modelFilter, setModelFilter] = useState<'all' | 'connected' | 'needs-key'>('all')
+  const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsError, setSettingsError] = useState('')
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId),
     activeSessionId = useWorkbench((state) => state.activeSession),
-    theme = useWorkbench((state) => state.theme),
     selectedModelId = useWorkbench((state) => state.modelId),
     selectedThinkingLevel = useWorkbench((state) => state.thinkingLevel)
+  const themeProfile = useThemeSettings((state) => state.profile)
+  const themeSaving = useThemeSettings((state) => state.saving)
+  const themeError = useThemeSettings((state) => state.error)
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
     const query = modelQuery.trim().toLocaleLowerCase()
@@ -732,6 +741,49 @@ export default function Settings() {
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
+  useEffect(() => {
+    if (tab !== 'automation') return
+    setSettingsError('')
+    void client().call('settings.snapshot', { scope: 'global' }).then(setSettingsSnapshot).catch((error) => {
+      setSettingsError(error instanceof Error ? error.message : String(error))
+    })
+  }, [tab])
+  useEffect(() => {
+    const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
+    useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined)
+    if (useConnection.getState().status !== 'connected') return
+    const connection = useConnection.getState().client
+    if (connection && (settingsScope === 'global' || targetId))
+      void useThemeSettings.getState().load(connection, settingsScope, targetId ?? undefined)
+  }, [activeSessionId, settingsScope, workspaceId])
+  function updateThemeColor(key: keyof ThemeProfile['colors'], value: string) {
+    useThemeSettings.getState().updateDraft((current) => ({
+      ...current,
+      mode: 'custom',
+      colors: { ...current.colors, [key]: value },
+    }))
+  }
+  function updateThemeTypography<K extends keyof ThemeProfile['typography']>(key: K, value: ThemeProfile['typography'][K]) {
+    useThemeSettings.getState().updateDraft((current) => ({
+      ...current,
+      typography: { ...current.typography, [key]: value },
+    }))
+  }
+  async function saveGlobalSetting(id: string, value: unknown) {
+    if (!settingsSnapshot) return
+    if (id.startsWith('notifications.') && value === true && typeof Notification !== 'undefined' && Notification.permission === 'default')
+      await Notification.requestPermission()
+    setSettingsSaving(true)
+    setSettingsError('')
+    try {
+      const next = await client().call('settings.set', { scope: 'global', id, value, expectedRevision: settingsSnapshot.revision })
+      setSettingsSnapshot(next)
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
   if (editor) {
     return (
       <div className="settings-panel settings-editor-panel">
@@ -823,7 +875,11 @@ export default function Settings() {
           <div className="section-toolbar">
             <div>
               <h2>界面主题</h2>
-              <p className="section-description">选择此设备使用的工作台配色。</p>
+              <p className="section-description">选择工作台配色，并实时预览字体、透明度和玻璃效果。</p>
+            </div>
+            <div className="appearance-actions">
+              <button type="button" className="button" onClick={() => useThemeSettings.getState().discardDraft()} disabled={themeSaving}>取消</button>
+              <button type="button" className="button" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().save(connection) }} disabled={themeSaving}>{themeSaving ? '保存中…' : '保存主题'}</button>
             </div>
           </div>
           <div className="theme-options rb-theme-options" role="group" aria-label="界面主题">
@@ -838,15 +894,84 @@ export default function Settings() {
               <GlareButton
                 type="button"
                 key={value}
-                className={theme === value ? 'selected' : ''}
-                aria-pressed={theme === value}
+                className={themeProfile.mode === value ? 'selected' : ''}
+                aria-pressed={themeProfile.mode === value}
                 glareColor="color-mix(in srgb, var(--rb-accent) 42%, transparent)"
-                onClick={() => useWorkbench.setState({ theme: value })}
+                onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, mode: value }))}
               >
                 <Icon size={17} />
                 <span>{label}</span>
               </GlareButton>
             ))}
+          </div>
+          <div className="theme-editor-grid">
+            {([
+              ['primary', '主颜色'],
+              ['secondary', '次要颜色'],
+              ['highlight', '高亮色'],
+              ['background', '背景色'],
+              ['textPrimary', '正文颜色'],
+              ['headingText', '标题颜色'],
+              ['codeBackground', '代码背景'],
+              ['diffAdded', '新增高亮'],
+              ['diffRemoved', '删除高亮'],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="theme-color-field"><span>{label}</span><input type="color" value={themeProfile.colors[key].slice(0, 7)} onChange={(event) => updateThemeColor(key, event.target.value)} /></label>
+            ))}
+            <label className="theme-range-field"><span>背景不透明度 <output>{Math.round(themeProfile.surface.backgroundOpacity * 100)}%</output></span><input type="range" min="12" max="100" value={Math.round(themeProfile.surface.backgroundOpacity * 100)} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundOpacity: Number(event.target.value) / 100 } }))} /></label>
+            <label className="theme-range-field"><span>模糊比例 <output>{themeProfile.surface.blurAmount}px</output></span><input type="range" min="0" max="64" value={themeProfile.surface.blurAmount} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, blurAmount: Number(event.target.value) } }))} /></label>
+            <label className="theme-select-field"><span>背景效果</span><select value={themeProfile.surface.mode} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, mode: event.target.value as ThemeProfile['surface']['mode'] } }))}><option value="solid">纯色</option><option value="acrylic">亚克力</option><option value="liquid-glass">液态玻璃</option></select></label>
+            <label className="theme-select-field"><span>正文大小</span><input type="number" min="10" max="24" value={themeProfile.typography.bodySize} onChange={(event) => updateThemeTypography('bodySize', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>代码字体</span><input value={themeProfile.typography.codeFontFamily} onChange={(event) => updateThemeTypography('codeFontFamily', event.target.value)} /></label>
+          </div>
+          <div className="theme-preview" style={{ fontFamily: themeProfile.typography.bodyFontFamily, color: themeProfile.typography.bodyTextColor, fontSize: `${themeProfile.typography.bodySize}px`, background: themeProfile.typography.inlineCodeBackground }}>
+            <h3 style={{ fontFamily: themeProfile.typography.headingFontFamily, color: themeProfile.typography.headingTextColor, fontSize: `${themeProfile.typography.headingSize}px` }}>主题预览 Preview</h3>
+            <p>正文文本与中文 English 混排，<strong>粗体 Bold</strong>，<u>下划线 Underline</u>。</p>
+            <code style={{ fontFamily: themeProfile.typography.codeFontFamily, color: themeProfile.typography.inlineCodeTextColor }}>const theme = 'global';</code>
+          </div>
+          {themeError && <p className="inline-error" role="alert">{themeError}</p>}
+        </section>
+      )}
+      {tab === 'automation' && (
+        <section className="settings-section automation-section">
+          <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
+          <div className="section-toolbar">
+            <div>
+              <h2><Bell size={17} /> 任务与通知</h2>
+              <p className="section-description">这些选项保存在 Host 全局设置中，并对所有项目生效。</p>
+            </div>
+          </div>
+          <div className="permission-settings-list">
+            <label className="settings-inline-field">
+              默认会话预算（tokens）
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={String(settingsSnapshot?.values['session.defaultBudgetTokens']?.effectiveValue ?? 10_000)}
+                disabled={settingsSaving || !settingsSnapshot}
+                onChange={(event) => {
+                  const value = Number(event.target.value)
+                  if (Number.isSafeInteger(value) && value > 0) void saveGlobalSetting('session.defaultBudgetTokens', value)
+                }}
+              />
+            </label>
+            {(['taskCompleted', 'userInteraction', 'retryFailed'] as const).map((key) => {
+              const id = `notifications.${key}`
+              const labels = { taskCompleted: '任务完成时通知', userInteraction: '需要用户交互时通知', retryFailed: '错误重试失败时通知' }
+              return (
+                <label className="checkbox" key={id}>
+                  <input
+                    type="checkbox"
+                    checked={settingsSnapshot?.values[id]?.effectiveValue !== false}
+                    disabled={settingsSaving || !settingsSnapshot}
+                    onChange={(event) => void saveGlobalSetting(id, event.target.checked)}
+                  />
+                  {labels[key]}
+                </label>
+              )
+            })}
+            {settingsError && <p className="inline-error" role="alert">{settingsError}</p>}
           </div>
         </section>
       )}
