@@ -3,6 +3,7 @@ import { ChevronRight, Puzzle, Save, Trash2 } from 'lucide-react'
 import type { PluginInfo } from '@hbar/contracts'
 import { client, refreshCatalog, report } from './stores'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { useLocale } from './locale'
 
 type ConfigSchema = {
   type?: string
@@ -29,8 +30,9 @@ function ConfigFields({
   value: Record<string, unknown>
   onChange(next: Record<string, unknown>): void
 }) {
+  const { t } = useLocale()
   const properties = Object.entries(schema.properties ?? {})
-  if (!properties.length) return <p className="plugin-config-empty">此插件没有可视化配置项。</p>
+  if (!properties.length) return <p className="plugin-config-empty">{t('pluginNoVisualConfig')}</p>
   return (
     <div className="plugin-config-fields">
       {properties.map(([key, field]) => {
@@ -71,15 +73,15 @@ function ConfigFields({
                   <button
                     type="button"
                     className="plugin-config-array-remove"
-                    aria-label={`删除 ${label} 第 ${index + 1} 项`}
+                    aria-label={`${t('pluginDeleteItem')} ${label} ${index + 1}`}
                     onClick={() => onChange({ ...value, [key]: items.filter((_, itemIndex) => itemIndex !== index) })}
                   >
-                    删除
+                    {t('pluginDeleteItem')}
                   </button>
                 </div>
               ))}
               <button type="button" className="button" onClick={() => onChange({ ...value, [key]: [...items, ''] })}>
-                添加一项
+                {t('pluginAddItem')}
               </button>
             </fieldset>
           )
@@ -128,6 +130,7 @@ function ConfigFields({
 }
 
 export default function PluginRow({ plugin, className = '', id }: { plugin: PluginInfo; className?: string; id?: string }) {
+  const { t } = useLocale()
   const [expanded, setExpanded] = useState(false)
   const schema = configSchema(plugin.configSchema)
   const settingsIcon = plugin.contributes?.settings?.icon
@@ -148,7 +151,7 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
   }
 
   async function remove() {
-    if (plugin.required || !window.confirm(`卸载插件 ${plugin.name}？`)) return
+    if (plugin.required || !window.confirm(`${t('pluginUninstallConfirm')} ${plugin.name}？`)) return
     setError('')
     try {
       await client().call('plugin.remove', { id: plugin.id, ...(plugin.projectId ? { projectId: plugin.projectId } : {}) })
@@ -168,7 +171,7 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
       <div className="plugin-heading">
         <button className="plugin-expand" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
           <ChevronRight size={14} className={expanded ? 'rotate' : ''} />
-          <span className="plugin-icon" aria-label={settingsIcon ? `${plugin.name} 图标 ${settingsIcon}` : undefined} title={settingsIcon ? `图标：${settingsIcon}` : undefined}>
+          <span className="plugin-icon" aria-label={settingsIcon ? `${plugin.name} ${t('pluginIcon')} ${settingsIcon}` : undefined} title={settingsIcon ? `${t('pluginIcon')}：${settingsIcon}` : undefined}>
             {settingsIcon ? <span className="plugin-icon-label" aria-hidden="true">{settingsIcon}</span> : <Puzzle size={16} aria-hidden="true" />}
           </span>
           <div>
@@ -179,12 +182,12 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
           </div>
         </button>
         <span className={`state-label ${plugin.status === 'active' ? 'success' : ''}`}>
-          {plugin.required ? '必需' : plugin.status === 'active' ? '已启用' : '已停用'}
+          {plugin.required ? t('pluginRequired') : plugin.status === 'active' ? t('pluginEnabled') : t('pluginDisabled')}
         </span>
         <input
           type="checkbox"
           role="switch"
-          aria-label={`启用 ${plugin.name}`}
+          aria-label={`${t('pluginEnabled')} ${plugin.name}`}
           checked={plugin.status === 'active'}
           disabled={plugin.required}
           onChange={(event) => void apply(event.target.checked)}
@@ -192,8 +195,8 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
         <button
           type="button"
           className="plugin-remove-action"
-          title={plugin.required ? '必需插件不可卸载' : `卸载 ${plugin.name}`}
-          aria-label={plugin.required ? '必需插件不可卸载' : `卸载 ${plugin.name}`}
+          title={plugin.required ? t('pluginRequiredCannotRemove') : `${t('pluginUninstallConfirm')} ${plugin.name}`}
+          aria-label={plugin.required ? t('pluginRequiredCannotRemove') : `${t('pluginUninstallConfirm')} ${plugin.name}`}
           disabled={plugin.required}
           onClick={() => void remove()}
         >
@@ -202,27 +205,27 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
       </div>
       {expanded && (
         <div className="plugin-detail">
-          <p className="plugin-description">{plugin.description || '该插件没有提供描述。'}</p>
+          <p className="plugin-description">{plugin.description || t('pluginNoDescription')}</p>
           <dl>
-            <dt>安装范围</dt>
-            <dd>{plugin.installScope === 'project' ? `项目 · ${plugin.projectId ?? '未知'}` : '全局'}</dd>
-            <dt>提供服务</dt>
+            <dt>{t('pluginInstallScope')}</dt>
+            <dd>{plugin.installScope === 'project' ? `${t('pluginProject')} · ${plugin.projectId ?? t('pluginUnknown')}` : t('pluginGlobal')}</dd>
+            <dt>{t('pluginProvides')}</dt>
             <dd>{plugin.provides.join(', ') || '—'}</dd>
-            <dt>依赖服务</dt>
+            <dt>{t('pluginRequires')}</dt>
             <dd>{plugin.requires.join(', ') || '—'}</dd>
-            <dt>包依赖</dt>
+            <dt>{t('pluginDependencies')}</dt>
             <dd>
               {Object.entries(plugin.dependencies ?? {})
                 .map(([id, range]) => `${id}@${range}`)
                 .join(', ') || '—'}
             </dd>
-            <dt>宿主依赖</dt>
+            <dt>{t('pluginHostDependencies')}</dt>
             <dd>
               {Object.entries(plugin.peerDependencies ?? {})
                 .map(([id, range]) => `${id}@${range}`)
                 .join(', ') || '—'}
             </dd>
-            <dt>可选依赖</dt>
+            <dt>{t('pluginOptionalDependencies')}</dt>
             <dd>
               {Object.entries(plugin.optionalDependencies ?? {})
                 .map(([id, range]) => `${id}@${range}`)
@@ -235,15 +238,15 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
             </p>
           )}
           {schema ? (
-            <section className="plugin-config-editor" aria-label={`${plugin.name} 可视化配置`}>
+            <section className="plugin-config-editor" aria-label={`${plugin.name} ${t('pluginVisualConfig')}`}>
               <div className="plugin-config-heading">
-                <strong>详细配置</strong>
-                <span>由插件 Schema 生成</span>
+                <strong>{t('pluginDetailedConfig')}</strong>
+                <span>{t('pluginSchemaGenerated')}</span>
               </div>
               <ConfigFields schema={schema} value={config} onChange={setConfig} />
             </section>
-          ) : <p className="plugin-config-empty">此插件没有提供可视化 Schema，详细配置只能由插件声明后使用。</p>}
-          {schema && <button className="button" onClick={() => void apply(true, config)}><Save size={13} />保存配置</button>}
+          ) : <p className="plugin-config-empty">{t('pluginNoVisualSchema')}</p>}
+          {schema && <button className="button" onClick={() => void apply(true, config)}><Save size={13} />{t('pluginSaveConfig')}</button>}
         </div>
       )}
     </SpotlightCard>
