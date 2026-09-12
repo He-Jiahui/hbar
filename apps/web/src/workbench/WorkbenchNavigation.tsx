@@ -18,6 +18,7 @@ import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
 import { FloatingSurface } from '../FloatingLayer'
 import type { ToolWindowDock, ToolWindowIcon } from '@hbar/contracts'
+import { useLocale } from '../locale'
 import './WorkbenchNavigation.css'
 
 let activeToolDrag: string | null = null
@@ -152,6 +153,7 @@ function ToolRailButton({
   onKeyboardMove?(direction: 'up' | 'down' | 'left' | 'right'): void
   children: React.ReactNode
 }) {
+  const { t } = useLocale()
   const [dragging, setDragging] = useState(false)
   return (
     <GlassIconButton
@@ -163,7 +165,7 @@ function ToolRailButton({
       aria-label={label}
       aria-pressed={selected}
       aria-grabbed={dragging}
-      aria-roledescription={draggable ? '可拖动工具' : undefined}
+      aria-roledescription={draggable ? t('draggableTool') : undefined}
       className={`${selected ? 'selected ' : ''}${dragging ? 'dragging' : ''}`}
       onClick={onClick}
       draggable={draggable}
@@ -236,10 +238,19 @@ export function WorkbenchToolRails({
   | 'showPrimary'
   | 'onDragState'
 > & { side?: 'left' | 'right' | 'both'; showPrimary?: boolean }) {
+  const { t } = useLocale()
   const draggingTool = useRef<string | null>(null)
+  const toolLabels = {
+    browser: t('browser'),
+    inspector: t('sessionInspector'),
+    plan: t('plan'),
+    insights: t('sessionInsights'),
+    activity: t('runningEvents'),
+    diagnose: t('diagnose'),
+  }
   const rightTools = {
     browser: {
-      title: '浏览器',
+      title: toolLabels.browser,
       component: 'browser',
       icon: Globe,
       tone: 'accent' as const,
@@ -247,29 +258,29 @@ export function WorkbenchToolRails({
     },
     git: { title: 'Git', component: 'git', icon: GitBranch, tone: 'neutral' as const, placement: 'right' as const },
     inspector: {
-      title: '会话检查',
+      title: toolLabels.inspector,
       component: 'inspector',
       icon: FileSearch,
       tone: 'accent' as const,
       placement: 'right' as const,
     },
-    plan: { title: '计划', component: 'plan', icon: ListChecks, tone: 'accent' as const, placement: 'right' as const },
+    plan: { title: toolLabels.plan, component: 'plan', icon: ListChecks, tone: 'accent' as const, placement: 'right' as const },
     insights: {
-      title: '会话洞察',
+      title: toolLabels.insights,
       component: 'insights',
       icon: BarChart3,
       tone: 'status' as const,
       placement: 'right' as const,
     },
     activity: {
-      title: '运行与事件',
+      title: toolLabels.activity,
       component: 'activity',
       icon: Activity,
       tone: 'status' as const,
       placement: 'right' as const,
     },
     diagnose: {
-      title: '诊断',
+      title: toolLabels.diagnose,
       component: 'diagnose',
       icon: CircleHelp,
       tone: 'warning' as const,
@@ -366,13 +377,13 @@ export function WorkbenchToolRails({
       {side !== 'right' && (
         <nav
           className="tool-rail left-rail"
-          aria-label="主导航"
+          aria-label={t('mainNavigation')}
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => dropOnRail(event, 'left')}
         >
           {showPrimary && <>
             <ToolRailButton
-              label="会话"
+              label={t('sessions')}
               tooltipPlacement="right"
               selected={panel === 'sessions'}
               onClick={() => onSelectPrimary('sessions')}
@@ -380,7 +391,7 @@ export function WorkbenchToolRails({
               <MessageSquare size={19} />
             </ToolRailButton>
             <ToolRailButton
-              label="文件"
+              label={t('files')}
               tooltipPlacement="right"
               selected={panel === 'files'}
               onClick={() => onSelectPrimary('files')}
@@ -420,7 +431,7 @@ export function WorkbenchToolRails({
                   onClick={() =>
                     onToggleTool(
                       panelId,
-                      tool.title === '运行与事件' ? '运行' : tool.title,
+                      tool.id === 'activity' ? t('running') : tool.title,
                       tool.component,
                       tool.placement,
                     )
@@ -438,7 +449,7 @@ export function WorkbenchToolRails({
       {side !== 'left' && (
         <nav
           className="tool-rail right-rail"
-          aria-label="工具窗口"
+          aria-label={t('toolWindow')}
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => dropOnRail(event, 'right')}
         >
@@ -474,7 +485,7 @@ export function WorkbenchToolRails({
                   onClick={() =>
                     onToggleTool(
                       panelId,
-                      tool.title === '运行与事件' ? '运行' : tool.title,
+                      tool.id === 'activity' ? t('running') : tool.title,
                       tool.component,
                       tool.placement,
                     )
@@ -497,6 +508,8 @@ export function MobileNavigation({
   mobileView,
   onSetMobileView,
 }: Pick<WorkbenchNavigationProps, 'mobileView' | 'onSetMobileView'>) {
+  const { t } = useLocale()
+  const mobilePrimaryLabels = { sessions: t('sessions'), chat: t('chat'), files: t('files'), activity: t('running') }
   const activePrimary =
     mobileView === 'file'
       ? 'files'
@@ -504,31 +517,31 @@ export function MobileNavigation({
         ? mobileView
         : 'plugins'
   return (
-    <nav className="mobile-nav" aria-label="移动导航">
+    <nav className="mobile-nav" aria-label={t('mobileNavigation')}>
       <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="mobile-nav-items">
-        {MOBILE_PRIMARY_ITEMS.map(({ id, label, icon: Icon }) => (
+        {MOBILE_PRIMARY_ITEMS.map(({ id, icon: Icon }) => (
           <button
             type="button"
             key={id}
             className={activePrimary === id ? 'selected' : ''}
-            aria-label={label}
+            aria-label={mobilePrimaryLabels[id]}
             aria-current={activePrimary === id ? 'page' : undefined}
             onClick={() => onSetMobileView(id)}
           >
             <Icon size={18} />
-            <span>{label}</span>
+            <span>{mobilePrimaryLabels[id]}</span>
           </button>
         ))}
         <button
           type="button"
           className={activePrimary === 'plugins' ? 'selected' : ''}
-          aria-label="更多"
+          aria-label={t('more')}
           aria-current={activePrimary === 'plugins' ? 'page' : undefined}
           onClick={() => onSetMobileView('plugins')}
         >
           <MoreHorizontal size={20} />
-          <span>更多</span>
+          <span>{t('more')}</span>
         </button>
       </div>
     </nav>
@@ -540,6 +553,19 @@ export function MobileToolMenu({
   onOpenTool,
   onClose,
 }: Pick<WorkbenchNavigationProps, 'contributions' | 'onOpenTool'> & { onClose(): void }) {
+  const { t } = useLocale()
+  const mobileTools = {
+    browser: { title: t('browser'), description: t('browserToolDescription') },
+    inspector: { title: t('sessionInspector'), description: t('inspectorToolDescription') },
+    plan: { title: t('plan'), description: t('planToolDescription') },
+    insights: { title: t('sessionInsights'), description: t('insightsToolDescription') },
+    diagnose: { title: t('diagnose'), description: t('diagnoseToolDescription') },
+  }
+  const mobileMore = {
+    terminal: { title: t('commandConsole'), description: t('commandConsoleDescription') },
+    'system-terminal': { title: t('systemTerminal'), description: t('systemTerminalDescription') },
+    settings: { title: t('settingsTitle'), description: t('settingsDescription') },
+  }
   const closeButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -564,47 +590,51 @@ export function MobileToolMenu({
         <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
         <header className="mobile-more-header">
           <div>
-            <span className="mobile-more-eyebrow">工作台</span>
-            <h2 id="mobile-more-title">更多</h2>
+            <span className="mobile-more-eyebrow">{t('workbench')}</span>
+            <h2 id="mobile-more-title">{t('more')}</h2>
           </div>
           <button
             ref={closeButton}
             type="button"
             className="mobile-more-close"
-            aria-label="关闭更多"
-            title="关闭更多"
+            aria-label={t('closeMore')}
+            title={t('closeMore')}
             onClick={onClose}
           >
             <span aria-hidden="true">×</span>
           </button>
         </header>
-        <h3 className="mobile-tool-heading">工作台</h3>
-        <div className="mobile-more-grid" aria-label="更多工作台功能">
-          {MOBILE_MORE_ITEMS.map(({ id, title, description, icon: Icon, component, placement }) => (
+        <h3 className="mobile-tool-heading">{t('workbench')}</h3>
+        <div className="mobile-more-grid" aria-label={`${t('more')} ${t('workbench')}`}>
+          {MOBILE_MORE_ITEMS.map(({ id, icon: Icon, component, placement }) => {
+            const copy = mobileMore[id]
+            return (
             <button
               type="button"
               key={id}
               className="new-session mobile-more-action"
-              aria-label={title}
-              title={description}
-              onClick={() => onOpenTool(id, title, component, placement)}
+              aria-label={copy.title}
+              title={copy.description}
+              onClick={() => onOpenTool(id, copy.title, component, placement)}
             >
               <Icon size={16} />
-              <span>{title}</span>
-              <small>{description}</small>
+              <span>{copy.title}</span>
+              <small>{copy.description}</small>
             </button>
-          ))}
+            )
+          })}
         </div>
-        <h3 className="mobile-tool-heading">会话工具</h3>
-        <div className="mobile-tool-grid" aria-label="工具窗口">
-          {MOBILE_TOOLS.map(({ id, title, icon: Icon }) => (
-            <button type="button" key={id} className="new-session" onClick={() => onOpenTool(id, title, id, 'right')}>
+        <h3 className="mobile-tool-heading">{t('sessionTools')}</h3>
+        <div className="mobile-tool-grid" aria-label={t('toolWindow')}>
+          {MOBILE_TOOLS.map(({ id, icon: Icon }) => {
+            const title = mobileTools[id as keyof typeof mobileTools]?.title ?? id
+            return <button type="button" key={id} className="new-session" onClick={() => onOpenTool(id, title, id, 'right')}>
               <Icon size={16} />
               {title}
             </button>
-          ))}
+          })}
         </div>
-        <h3 className="mobile-tool-heading">插件面板</h3>
+        <h3 className="mobile-tool-heading">{t('pluginPanels')}</h3>
         {contributions.map((contribution) => (
           <button
             type="button"
