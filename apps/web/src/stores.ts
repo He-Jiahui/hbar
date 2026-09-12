@@ -10,8 +10,10 @@ import type {
   HostInfo,
   Message,
   Run,
+  Session,
   SessionEvent,
   SessionSnapshot,
+  SessionSummary,
   ThinkingLevel,
   Usage,
   WireNotification,
@@ -36,6 +38,8 @@ export const useConnection = create<{
   url: string
 }>(() => ({ client: null, status: 'disconnected', host: null, error: '', url: location.origin }))
 export const useCatalog = create<{ data: Bootstrap | null }>(() => ({ data: null }))
+export const useSessionSummaries = create<{ byId: Record<string, SessionSummary> }>(() => ({ byId: {} }))
+export const useGitState = create<{ revision: number; changedCwds: string[] }>(() => ({ revision: 0, changedCwds: [] }))
 export const useSessions = create<{ snapshots: Record<string, SessionSnapshot>; loading: Set<string> }>(() => ({
   snapshots: {},
   loading: new Set(),
@@ -276,6 +280,8 @@ export async function connectHost(url: string, token?: string) {
   const next = new HbarClient(url, token)
   useConnection.setState({ client: next, url, status: 'connecting', error: '' })
   useSessions.setState({ snapshots: {}, loading: new Set() })
+  useSessionSummaries.setState({ byId: {} })
+  useGitState.setState({ revision: 0, changedCwds: [] })
   sessionLoadGeneration.clear()
   olderMessageRequests.clear()
   resetSessionCapabilities()
@@ -309,6 +315,18 @@ export async function refreshCatalog() {
   if (client() !== connection) return
   useCatalog.setState({ data })
   useConnection.setState({ host: data.host })
+  try {
+    const ids = data.sessions.map((session) => session.id).slice(0, 2_000)
+    const summaries = (await Promise.all(
+      Array.from({ length: Math.ceil(ids.length / 200) }, (_, index) =>
+        connection.call('session.summaries', { sessionIds: ids.slice(index * 200, index * 200 + 200) }),
+      ),
+    )).flat()
+    if (client() === connection)
+      useSessionSummaries.setState({ byId: Object.fromEntries(summaries.map((summary) => [summary.sessionId, summary])) })
+  } catch (error) {
+    if (client() === connection) report(error)
+  }
   const state = useWorkbench.getState()
   const changes: Partial<typeof state> = {}
   if (!data.workspaces.some((w) => w.id === state.workspaceId)) changes.workspaceId = data.workspaces[0]?.id ?? ''
@@ -395,6 +413,10 @@ export async function loadOlder(sessionId: string) {
   }
 }
 function onEvent(event: WireNotification) {
+  if (event.method === 'git.changed') {
+    useGitState.setState((state) => ({ revision: state.revision + 1, changedCwds: [...state.changedCwds.slice(-31), event.params.cwd] }))
+    return
+  }
   applySessionCapabilityEvent(event)
   if (event.method === 'host.changed') {
     if (event.params.kind === 'permissions') {
@@ -474,6 +496,12 @@ function onEvent(event: WireNotification) {
     useNotice.setState({ notice: `${event.params.title}：${event.params.message}` })
     if (typeof Notification !== 'undefined' && document.visibilityState === 'hidden' && Notification.permission === 'granted')
       new Notification(event.params.title, { body: event.params.message })
+  } else if (event.method === 'session.summary') {
+    useSessionSummaries.setState((state) => {
+      const previous = state.byId[event.params.sessionId]
+      if (previous && previous.seq > event.params.seq) return state
+      return { byId: { ...state.byId, [event.params.sessionId]: event.params } }
+    })
   } else if (event.method === 'session.event') applyEvent(event.params)
 }
 export function applyEvent(event: SessionEvent) {
@@ -499,7 +527,10 @@ export function applyEvent(event: SessionEvent) {
 }
 function reduce(snapshot: SessionSnapshot, event: SessionEvent): SessionSnapshot {
   let next = { ...snapshot, cursor: event.seq, session: { ...snapshot.session, seq: event.seq } }
-  if (event.type === 'message.committed') {
+  if (event.type === 'session.updated' || event.type === 'session.moved') {
+    const data = event.data as { session?: Session }
+    if (data.session) next.session = data.session
+  } else if (event.type === 'message.committed') {
     const data = event.data as { id: string; role: Message['role']; content: ContentBlock[] }
     if (!next.messages.some((m) => m.id === data.id))
       next.messages = [
