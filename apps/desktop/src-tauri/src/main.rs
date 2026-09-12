@@ -483,11 +483,12 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
         .create(true)
         .append(true)
         .open(diagnostics.join("desktop-host.log"))?;
+    let development_url = development_web_url();
     let mut command = Command::new(executable);
     command
         .arg(resources.join("host.js"))
         .args(["--desktop", "--port"])
-        .arg(if development_web_url().is_some() { "4317" } else { "0" })
+        .arg("0")
         .arg("--data-root")
         .arg(&data_root)
         .arg("--cache-root")
@@ -497,12 +498,10 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
         .stdin(Stdio::null())
         .stdout(log.try_clone()?)
         .stderr(log);
-    if development_web_url().is_some() {
+    if let Some(url) = development_url {
         command
             .arg("--origin")
-            .arg("http://127.0.0.1:5173")
-            .arg("--origin")
-            .arg("http://localhost:5173");
+            .arg(url.origin().ascii_serialization());
     }
     if let Some(workspace) = std::env::var_os("HBAR_WORKSPACE") {
         command.arg("--workspace").arg(workspace);

@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { findFreePort, parsePort } from './dev-ports.ts'
 
 const mode = Bun.argv[2] === 'build' ? 'build' : 'dev'
 
@@ -10,10 +11,28 @@ for (const command of [
   if ((await child.exited) !== 0) process.exit(child.exitCode ?? 1)
 }
 
-const webDevUrl = process.env.HBAR_WEB_DEV_URL ?? 'http://127.0.0.1:5173'
+const configuredWebDevUrl = process.env.HBAR_WEB_DEV_URL
+const configuredWebPort = process.env.HBAR_WEB_PORT
+function portFromWebUrl(raw: string): number {
+  const url = new URL(raw)
+  if (!url.port) throw new Error('HBAR_WEB_DEV_URL must include an explicit port')
+  return parsePort(url.port, 5173)
+}
+const configuredUrlPort = configuredWebDevUrl ? portFromWebUrl(configuredWebDevUrl) : undefined
+const webPort = configuredWebPort
+  ? parsePort(configuredWebPort, 5173)
+  : configuredUrlPort ?? (await findFreePort())
+if (configuredUrlPort !== undefined && configuredWebPort !== undefined && webPort !== configuredUrlPort)
+  throw new Error(`HBAR_WEB_PORT (${webPort}) does not match HBAR_WEB_DEV_URL (${configuredUrlPort})`)
+const webDevUrl = configuredWebDevUrl ?? `http://127.0.0.1:${webPort}`
 let web: Bun.Subprocess | undefined
 if (mode === 'dev') {
   web = Bun.spawn([process.execPath, 'node_modules/vite/bin/vite.js', '--config', 'apps/web/vite.config.ts'], {
+    env: {
+      ...process.env,
+      HBAR_WEB_DEV_URL: webDevUrl,
+      HBAR_WEB_PORT: String(webPort),
+    },
     stdio: ['inherit', 'inherit', 'inherit'],
     windowsHide: true,
   })
@@ -49,6 +68,7 @@ const child = Bun.spawn(
             HBAR_WORKSPACE: process.cwd(),
             HBAR_DEMO: process.env.HBAR_DEMO ?? '1',
             HBAR_WEB_DEV_URL: webDevUrl,
+            HBAR_WEB_PORT: String(webPort),
           }
         : {}),
     },
