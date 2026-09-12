@@ -18,6 +18,16 @@
   --amber: #dfb875;
   --red: #eb8b96;
   --mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  /* Semantic typography defaults. ThemeStore replaces these at runtime. */
+  --hbar-font-family-body: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  --hbar-font-family-heading: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  --hbar-font-family-code: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  --hbar-font-size-ui: 12px;
+  --hbar-font-size-label: 11px;
+  --hbar-font-size-small: 10px;
+  --hbar-font-size-micro: 9px;
+  --hbar-font-size-icon: 14px;
+  --hbar-line-height-body: 1.5;
   --flexlayout-font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --flexlayout-font-size: 12px;
   --flexlayout-color-tab-content: #1e1f22;

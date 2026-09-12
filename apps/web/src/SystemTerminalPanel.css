@@ -39,12 +39,12 @@
 }
 
 .system-terminal-title strong {
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
 }
 
 .system-terminal-title small {
   color: var(--hbar-t3);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 .system-terminal-toolbar button {
