@@ -66,8 +66,12 @@ export interface ClientTheme {
   id: string
   title: string
   description?: string
+  preview?: string
   priority?: number
   tokenOverrides: DeepPartial<ThemeProfile>
+  surfaceEffects?: DeepPartial<ThemeProfile['surface']>
+  motion?: DeepPartial<ThemeProfile['motion']>
+  backgroundAssets?: string[]
 }
 
 export interface ClientPluginAPI {

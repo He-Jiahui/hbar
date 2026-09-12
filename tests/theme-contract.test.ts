@@ -18,7 +18,16 @@ test('theme plugin contributions are token-only and namespaced by contract', () 
     title: 'Neutral glass',
     priority: 10,
     tokenOverrides: { surface: { blurAmount: 24 } },
+    surfaceEffects: { elasticity: 0.2 },
+    motion: { intensity: 'subtle' },
+    backgroundAssets: ['textures/neutral.png'],
   })
   expect(contribution.tokenOverrides).toEqual({ surface: { blurAmount: 24 } })
   expect(() => themeContributionSchema.parse({ id: 'Bad ID', title: 'Bad', tokenOverrides: {} })).toThrow()
+  expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { cssText: 'body{}' } })).toThrow()
+  expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: {}, backgroundAssets: ['../escape.png'] })).toThrow()
+})
+
+test('theme typography rejects executable CSS font expressions', () => {
+  expect(() => themeProfileSchema.parse({ ...DEFAULT_THEME_PROFILE, typography: { ...DEFAULT_THEME_PROFILE.typography, bodyFontFamily: 'url(https://example.invalid/font)' } })).toThrow()
 })

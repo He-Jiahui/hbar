@@ -183,7 +183,14 @@ export function mergeThemeContributions(profile: ThemeProfile, themes: readonly 
   // override a lower-priority theme while the persisted profile remains final.
   const contributed = [...themes]
     .sort((left, right) => (left.priority ?? 0) - (right.priority ?? 0))
-    .reduce((current, theme) => mergeThemeValue(current, theme.tokenOverrides), DEFAULT_THEME_PROFILE)
+    .reduce((current, theme) => {
+      const overrides: DeepPartial<ThemeProfile> = {
+        ...theme.tokenOverrides,
+        ...(theme.surfaceEffects ? { surface: theme.surfaceEffects } : {}),
+        ...(theme.motion ? { motion: theme.motion } : {}),
+      }
+      return mergeThemeValue(current, overrides)
+    }, DEFAULT_THEME_PROFILE)
   return normalizeThemeProfile(mergeThemeValue(contributed, profile))
 }
 

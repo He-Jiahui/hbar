@@ -19,7 +19,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
+import { DEFAULT_THEME_PROFILE, DEFAULT_THINKING_LEVELS, providerSchema, themeProfileSchema } from '@hbar/contracts'
 import type {
   Device,
   ModelInfo,
@@ -738,6 +738,7 @@ export default function Settings() {
   const [themeUploading, setThemeUploading] = useState(false)
   const [fontFamilies, setFontFamilies] = useState<string[]>([])
   const themeBackgroundInput = useRef<HTMLInputElement>(null)
+  const themeImportInput = useRef<HTMLInputElement>(null)
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
@@ -831,6 +832,29 @@ export default function Settings() {
     } finally {
       setThemeUploading(false)
       if (themeBackgroundInput.current) themeBackgroundInput.current.value = ''
+    }
+  }
+  function exportThemeProfile() {
+    const blob = new Blob([JSON.stringify(themeProfile, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'hbar-theme.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+  async function importThemeProfile(file: File | undefined) {
+    if (!file) return
+    try {
+      if (file.size > 512_000) throw new Error('主题文件不能超过 512 KB。')
+      const parsed = themeProfileSchema.safeParse(JSON.parse(await file.text()))
+      if (!parsed.success) throw new Error('主题文件不符合当前主题契约。')
+      useThemeSettings.getState().updateDraft(() => parsed.data)
+      setSettingsError('')
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : '主题导入失败。')
+    } finally {
+      if (themeImportInput.current) themeImportInput.current.value = ''
     }
   }
   async function saveSetting(id: string, value: unknown) {
@@ -979,6 +1003,10 @@ export default function Settings() {
             </div>
             <div className="appearance-actions">
               <button type="button" className="button" onClick={() => useThemeSettings.getState().discardDraft()} disabled={themeSaving}>取消</button>
+              <button type="button" className="button" onClick={() => useThemeSettings.getState().updateDraft(() => DEFAULT_THEME_PROFILE)} disabled={themeSaving}>恢复默认</button>
+              <button type="button" className="button" onClick={() => themeImportInput.current?.click()} disabled={themeSaving}>导入主题</button>
+              <input ref={themeImportInput} hidden type="file" accept="application/json,.json" onChange={(event) => void importThemeProfile(event.target.files?.[0])} />
+              <button type="button" className="button" onClick={exportThemeProfile} disabled={themeSaving}>导出主题</button>
               <button type="button" className="button" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().save(connection) }} disabled={themeSaving}>{themeSaving ? '保存中…' : '保存主题'}</button>
             </div>
           </div>

@@ -385,8 +385,12 @@ export interface PluginManifest {
           id: string
           title: string
           description?: string | undefined
+          preview?: string | undefined
           priority?: number | undefined
           tokenOverrides: Record<string, unknown>
+          surfaceEffects?: Record<string, unknown> | undefined
+          motion?: Record<string, unknown> | undefined
+          backgroundAssets?: string[] | undefined
         } | undefined
       }
     | undefined

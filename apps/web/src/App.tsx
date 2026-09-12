@@ -3,12 +3,18 @@ import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexl
 import {
   Activity,
   Archive,
+  Brain,
+  CheckCircle2,
+  CircleX,
+  Clock3,
+  FileSearch,
   Folder,
   FolderOpen,
   GitBranch,
   LayoutGrid,
   LoaderCircle,
   MessageSquare,
+  ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
   Pin,
@@ -18,9 +24,11 @@ import {
   Search,
   Settings2,
   TerminalSquare,
+  Target,
+  Wrench,
   X,
 } from 'lucide-react'
-import type { Session } from '@hbar/contracts'
+import type { GitWorktreeInfo, Session, ToolWindowDock } from '@hbar/contracts'
 import {
   client,
   connectHost,
@@ -31,6 +39,8 @@ import {
   useConnection,
   useNotice,
   useSessions,
+  useSessionSummaries,
+  useGitState,
   useWorkbench,
 } from './stores'
 import { platform } from './platform'
@@ -154,6 +164,8 @@ function Sessions({
     pinnedSessionIds = useWorkbench((state) => state.pinnedSessionIds),
     pinnedWorkspaceIds = useWorkbench((state) => state.pinnedWorkspaceIds)
   const snapshots = useSessions((state) => state.snapshots)
+  const summaries = useSessionSummaries((state) => state.byId)
+  const gitRevision = useGitState((state) => state.revision)
   const [workspaceBranches, setWorkspaceBranches] = useState<Record<string, string | null>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'workspace' | 'session'; id: string } | null>(null)
@@ -161,30 +173,62 @@ function Sessions({
   const workspaces = useMemo(() => data?.workspaces ?? [], [data?.workspaces])
   useEffect(() => {
     let cancelled = false
-    void Promise.all(
-      workspaces.slice(0, 24).map(async (workspace) => {
+    const entries: Array<readonly [string, string | null]> = []
+    let cursor = 0
+    async function worker() {
+      while (!cancelled) {
+        const workspace = workspaces[cursor++]
+        if (!workspace) return
         try {
           const info = await client().call('git.info', { cwd: workspace.path })
-          return [workspace.id, info.branch] as const
+          entries.push([workspace.id, info.branch])
         } catch {
-          return [workspace.id, null] as const
+          entries.push([workspace.id, null])
         }
-      }),
-    ).then((entries) => {
+      }
+    }
+    void Promise.all(Array.from({ length: Math.min(8, workspaces.length) }, () => worker())).then(() => {
       if (!cancelled) setWorkspaceBranches(Object.fromEntries(entries))
     })
     return () => {
       cancelled = true
     }
-  }, [workspaces])
+  }, [gitRevision, workspaces])
   const visibleSessions = sessions.filter((s) => s.archived === archived && s.title.toLowerCase().includes(search.toLowerCase()))
   const pinnedSessions = visibleSessions.filter((s) => pinnedSessionIds.includes(s.id))
   const pinnedWorkspaces = workspaces.filter((workspace) => pinnedWorkspaceIds.includes(workspace.id))
   function sessionMeta(session: Session) {
     const snapshot = snapshots[session.id]
     const run = snapshot?.runs.find((item) => ['running', 'waiting_approval', 'queued'].includes(item.status))
-    const status = run?.status === 'waiting_approval' ? '等待批准' : run?.status === 'queued' ? '排队中' : run ? '运行中' : '就绪'
-    return { snapshot, status, branch: workspaceBranches[session.workspaceId] }
+    const summary = summaries[session.id]
+    const activity = summary?.activity ?? (run?.status === 'waiting_approval' ? 'waiting_approval' : run?.status === 'queued' ? 'queued' : run ? 'thinking' : 'idle')
+    const labels: Record<string, string> = {
+      idle: '就绪', queued: '排队中', thinking: '正在思考', tool: '正在调用工具', reading: '正在读取文件',
+      output: '正在输出内容', goal: '正在执行目标', plan: '正在编写计划', waiting_approval: '等待批准',
+      completed: '已完成', failed: '失败', cancelled: '已取消',
+    }
+    const icons: Record<string, typeof Activity> = {
+      idle: Clock3, queued: Clock3, thinking: Brain, tool: Wrench, reading: FileSearch, output: MessageSquare,
+      goal: Target, plan: ListChecks, waiting_approval: Clock3, completed: CheckCircle2, failed: CircleX,
+      cancelled: CircleX,
+    }
+    return { snapshot, summary, activity, status: labels[activity] ?? '就绪', StatusIcon: icons[activity] ?? Activity, branch: workspaceBranches[session.workspaceId] }
+  }
+  function renderSessionDetails(session: Session) {
+    const meta = sessionMeta(session)
+    const StatusIcon = meta.StatusIcon
+    const workspace = workspaces.find((item) => item.id === session.workspaceId)
+    const responseAt = meta.summary?.lastResponseAt ?? null
+    const responseLabel = responseAt ? new Date(responseAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '暂无响应'
+    return <>
+      <span className="session-leading-icon" aria-hidden="true">{pinnedSessionIds.includes(session.id) ? <Pin size={14} /> : <MessageSquare size={14} />}</span>
+      <div>
+        <span>{session.title}</span>
+        <small>{workspace?.name ?? '未知工作区'} · {meta.branch ? `分支 · ${meta.branch}` : '无 Git 分支'}</small>
+      </div>
+      <span className={`session-status-indicator session-status-${meta.activity}`} title={meta.status} aria-label={meta.status}><StatusIcon size={13} /></span>
+      <small className="session-last-response" title={responseAt ? new Date(responseAt).toLocaleString() : undefined}>最后响应 {responseLabel}</small>
+    </>
   }
   const openMenu = (event: React.MouseEvent, type: 'workspace' | 'session', id: string) => {
     event.preventDefault()
@@ -357,18 +401,9 @@ function Sessions({
                   }
                 }}
               />
-                  ) : (
+              ) : (
               <button className="session-select" onClick={() => onSelect(session.id)}>
-                <span className="session-leading-icon" aria-hidden="true">{pinnedSessionIds.includes(session.id) ? <Pin size={14} /> : <MessageSquare size={14} />}</span>
-                <div>
-                  <span>{session.title}</span>
-                  <small>
-                    {meta.branch ? `分支 · ${meta.branch}` : new Date(session.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                    {session.parentId && ' · 会话分支'}
-                  </small>
-                </div>
-                <span className={`session-status-indicator session-status-${meta.snapshot?.runs.find((run) => ['running', 'waiting_approval', 'queued'].includes(run.status))?.status ?? 'idle'}`} title={meta.status} aria-label={meta.status} />
-                <small className="session-last-response">最后响应 {new Date(session.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                {renderSessionDetails(session)}
               </button>
                   )}
             <div className="session-row-actions">
@@ -474,6 +509,8 @@ export default function App() {
     [workspaceModal, setWorkspaceModal] = useState(false),
     [workspacePaths, setWorkspacePaths] = useState<string[]>([]),
     [workspaceAlias, setWorkspaceAlias] = useState('')
+  const [discoveredWorktrees, setDiscoveredWorktrees] = useState<Array<GitWorktreeInfo & { sourcePath: string }>>([])
+  const [selectedWorktreePaths, setSelectedWorktreePaths] = useState<string[]>([])
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')

@@ -8,7 +8,13 @@ import { z } from 'zod'
 export const themeColorSchema = z.string().regex(/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i)
 export type ThemeColor = z.infer<typeof themeColorSchema>
 
-const fontFamilySchema = z.string().trim().min(1).max(240).refine((value) => !/[\r\n]/.test(value))
+const fontFamilySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(240)
+  .refine((value) => !/[\r\n;{}]/.test(value))
+  .refine((value) => !/url\s*\(|var\s*\(|expression\s*\(/i.test(value))
 
 export const themeProfileSchema = z
   .object({
@@ -89,6 +95,29 @@ export const themeProfileSchema = z
   .strict()
 
 export type ThemeProfile = z.infer<typeof themeProfileSchema>
+const themeSurfaceContributionSchema = themeProfileSchema.shape.surface.partial()
+const themeMotionContributionSchema = themeProfileSchema.shape.motion.partial()
+const themeAssetPathSchema = z.string().min(1).max(240).regex(/^(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/)
+
+const themeOverrideKeys: Record<string, readonly string[]> = {
+  root: ['mode', 'colors', 'typography', 'surface', 'motion', 'renderer'],
+  colors: ['primary', 'secondary', 'highlight', 'background', 'surface', 'surfaceElevated', 'border', 'borderStrong', 'textPrimary', 'textSecondary', 'textTertiary', 'headingText', 'focus', 'success', 'warning', 'error', 'info', 'codeBackground', 'diffAdded', 'diffRemoved', 'diffContext'],
+  typography: ['locale', 'bodyFontFamily', 'headingFontFamily', 'codeFontFamily', 'bodySize', 'headingSize', 'codeSize', 'bodyLineHeight', 'headingWeight', 'bodyWeight', 'underlineLinks', 'bodyTextColor', 'headingTextColor', 'inlineCodeBackground', 'inlineCodeTextColor'],
+  surface: ['mode', 'backgroundOpacity', 'blurAmount', 'saturation', 'displacementScale', 'aberrationIntensity', 'elasticity', 'cornerRadius', 'glowIntensity', 'backgroundAsset'],
+  motion: ['intensity', 'respectReducedMotion'],
+  renderer: ['markdown', 'code', 'patch', 'git-diff'],
+}
+
+function validateThemeOverride(value: unknown, level: keyof typeof themeOverrideKeys = 'root', depth = 0): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 3) return false
+  const allowed = new Set(themeOverrideKeys[level])
+  return Object.entries(value).every(([key, child]) => {
+    if (!allowed.has(key)) return false
+    if (child && typeof child === 'object' && !Array.isArray(child))
+      return validateThemeOverride(child, key in themeOverrideKeys ? (key as keyof typeof themeOverrideKeys) : 'root', depth + 1)
+    return true
+  })
+}
 
 /** Metadata and token-only contribution accepted from a client theme plugin. */
 export const themeContributionSchema = z
@@ -96,8 +125,14 @@ export const themeContributionSchema = z
     id: z.string().regex(/^[a-z][a-z0-9._-]{0,127}$/),
     title: z.string().min(1).max(120),
     description: z.string().max(500).optional(),
+    preview: z.string().max(240).optional(),
     priority: z.number().int().min(-1000).max(1000).optional(),
-    tokenOverrides: z.record(z.string(), z.unknown()).default({}),
+    tokenOverrides: z.record(z.string(), z.unknown()).default({}).superRefine((value, context) => {
+      if (!validateThemeOverride(value)) context.addIssue({ code: 'custom', message: 'tokenOverrides must contain only ThemeProfile keys' })
+    }),
+    surfaceEffects: themeSurfaceContributionSchema.optional(),
+    motion: themeMotionContributionSchema.optional(),
+    backgroundAssets: z.array(themeAssetPathSchema).max(32).default([]),
   })
   .strict()
 export type ThemeContribution = z.infer<typeof themeContributionSchema>

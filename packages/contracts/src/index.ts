@@ -148,7 +148,9 @@ export type SessionBudget = z.infer<typeof sessionBudgetSchema>
 export const automationStateSchema = z.object({
   sessionId: idSchema,
   unattended: z.boolean(),
-  goalEnabled: z.boolean(),
+  // Default keeps automation.changed events written before Goal+Plan support
+  // replayable while exposing a normalized boolean to current clients.
+  goalEnabled: z.boolean().default(false),
 })
 export type AutomationState = z.infer<typeof automationStateSchema>
 
