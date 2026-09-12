@@ -130,6 +130,7 @@ function ConfigFields({
 export default function PluginRow({ plugin, className = '', id }: { plugin: PluginInfo; className?: string; id?: string }) {
   const [expanded, setExpanded] = useState(false)
   const schema = configSchema(plugin.configSchema)
+  const settingsIcon = plugin.contributes?.settings?.icon
   const [config, setConfig] = useState<Record<string, unknown>>(plugin.config)
   const [error, setError] = useState(plugin.error ?? '')
 
@@ -166,7 +167,9 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
       <div className="plugin-heading">
         <button className="plugin-expand" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
           <ChevronRight size={14} className={expanded ? 'rotate' : ''} />
-          <span className="plugin-icon" aria-hidden="true"><Puzzle size={16} /></span>
+          <span className="plugin-icon" aria-label={settingsIcon ? `${plugin.name} 图标 ${settingsIcon}` : undefined} title={settingsIcon ? `图标：${settingsIcon}` : undefined}>
+            {settingsIcon ? <span className="plugin-icon-label" aria-hidden="true">{settingsIcon}</span> : <Puzzle size={16} aria-hidden="true" />}
+          </span>
           <div>
             <strong>{plugin.name}</strong>
             <span>
