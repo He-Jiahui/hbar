@@ -23,7 +23,7 @@
   z-index: 2090;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, #000 32%, transparent);
+  background: color-mix(in srgb, var(--hbar-overlay) 32%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   pointer-events: auto;
@@ -96,7 +96,7 @@
   background: var(--hbar-s1) !important;
   box-shadow: var(--dsh-shadow-panel);
   color: var(--hbar-t1);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-code, 10px);
   line-height: 1.25;
   pointer-events: none;
   text-align: left;

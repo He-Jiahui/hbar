@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ClientTransport } from '@hbar/client'
 import type { SettingScope, SettingsSnapshot, ThemeProfile, WireNotification } from '@hbar/contracts'
 import { DEFAULT_THEME_PROFILE, normalizeThemeProfile } from '@hbar/contracts'
+import type { ClientTheme, DeepPartial } from '@hbar/ui-sdk'
 
 export type ThemeSettingScope = SettingScope
 
@@ -117,6 +118,7 @@ export function handleThemeEvent(event: WireNotification, transport: ClientTrans
 export function themeCssVariables(profile: ThemeProfile): Record<string, string> {
   return {
     '--hbar-bg': profile.colors.background,
+    '--hbar-overlay': profile.colors.background,
     '--hbar-s0': profile.colors.surface,
     '--hbar-s1': profile.colors.surfaceElevated,
     '--hbar-s2': profile.colors.surface,
@@ -154,9 +156,35 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-glass-blur': `${profile.surface.blurAmount}px`,
     '--hbar-glass-saturation': `${profile.surface.saturation}%`,
     '--hbar-glow-intensity': String(profile.surface.glowIntensity),
+    '--hbar-inline-code-bg': profile.typography.inlineCodeBackground,
+    '--hbar-inline-code-text': profile.typography.inlineCodeTextColor,
+    '--hbar-body-text': profile.typography.bodyTextColor,
+    '--hbar-heading-text': profile.typography.headingTextColor,
+    '--hbar-underline-links': profile.typography.underlineLinks ? 'underline' : 'none',
     '--hbar-radius': `${profile.surface.cornerRadius}px`,
     '--hbar-motion-duration': profile.motion.intensity === 'off' ? '0ms' : profile.motion.intensity === 'subtle' ? '160ms' : '220ms',
   }
+}
+
+function mergeThemeValue<T>(base: T, override: DeepPartial<T>): T {
+  if (!base || typeof base !== 'object' || !override || typeof override !== 'object') return (override as T) ?? base
+  const result = { ...(base as Record<string, unknown>) }
+  for (const [key, value] of Object.entries(override as Record<string, unknown>)) {
+    if (value && typeof value === 'object' && !Array.isArray(value))
+      result[key] = mergeThemeValue(result[key], value as DeepPartial<unknown>)
+    else if (value !== undefined) result[key] = value
+  }
+  return result as T
+}
+
+export function mergeThemeContributions(profile: ThemeProfile, themes: readonly ClientTheme[]): ThemeProfile {
+  // Plugin tokens provide defaults; the user's profile always wins over them.
+  // Applying contributions in ascending priority makes a higher-priority theme
+  // override a lower-priority theme while the persisted profile remains final.
+  const contributed = [...themes]
+    .sort((left, right) => (left.priority ?? 0) - (right.priority ?? 0))
+    .reduce((current, theme) => mergeThemeValue(current, theme.tokenOverrides), DEFAULT_THEME_PROFILE)
+  return normalizeThemeProfile(mergeThemeValue(contributed, profile))
 }
 
 export function applyThemeProfile(profile: ThemeProfile): void {

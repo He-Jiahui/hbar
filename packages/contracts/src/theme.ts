@@ -40,7 +40,7 @@ export const themeProfileSchema = z
       .strict(),
     typography: z
       .object({
-        locale: z.string().regex(/^[a-z]{2}(?:-[A-Z][a-z]{2})?$/),
+        locale: z.string().regex(/^[a-z]{2}(?:-[A-Z]{2,3})?$/),
         bodyFontFamily: fontFamilySchema,
         headingFontFamily: fontFamilySchema,
         codeFontFamily: fontFamilySchema,
@@ -89,6 +89,18 @@ export const themeProfileSchema = z
   .strict()
 
 export type ThemeProfile = z.infer<typeof themeProfileSchema>
+
+/** Metadata and token-only contribution accepted from a client theme plugin. */
+export const themeContributionSchema = z
+  .object({
+    id: z.string().regex(/^[a-z][a-z0-9._-]{0,127}$/),
+    title: z.string().min(1).max(120),
+    description: z.string().max(500).optional(),
+    priority: z.number().int().min(-1000).max(1000).optional(),
+    tokenOverrides: z.record(z.string(), z.unknown()).default({}),
+  })
+  .strict()
+export type ThemeContribution = z.infer<typeof themeContributionSchema>
 
 /** Neutral, low-saturation defaults with a restrained silver highlight. */
 export const DEFAULT_THEME_PROFILE: ThemeProfile = {

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import './GlassSurface.css'
+import { useThemeSettings } from '../theme-store'
 
 type Channel = 'R' | 'G' | 'B'
 type BlendMode =
@@ -79,14 +80,14 @@ export default function GlassSurface({
   children,
   width = '100%',
   height = 'auto',
-  borderRadius = 10,
+  borderRadius,
   borderWidth = 0.07,
   brightness = 50,
   opacity = 0.93,
-  blur = 12,
-  displace = 0,
-  backgroundOpacity = 0.18,
-  saturation = 1.15,
+  blur,
+  displace,
+  backgroundOpacity,
+  saturation,
   distortionScale = -180,
   redOffset = 0,
   greenOffset = 10,
@@ -98,6 +99,12 @@ export default function GlassSurface({
   style,
   ...rest
 }: GlassSurfaceProps) {
+  const themeProfile = useThemeSettings((state) => state.profile)
+  const resolvedBorderRadius = borderRadius ?? themeProfile.surface.cornerRadius
+  const resolvedBlur = blur ?? themeProfile.surface.blurAmount
+  const resolvedDisplace = displace ?? themeProfile.surface.displacementScale
+  const resolvedBackgroundOpacity = backgroundOpacity ?? themeProfile.surface.backgroundOpacity
+  const resolvedSaturation = saturation ?? themeProfile.surface.saturation / 100
   const uniqueId = useId().replace(/:/g, '-')
   const filterId = `glass-filter-${uniqueId}`
   const redGradId = `red-grad-${uniqueId}`
@@ -115,9 +122,9 @@ export default function GlassSurface({
     const actualWidth = rect?.width || 400
     const actualHeight = rect?.height || 200
     const edgeSize = Math.min(actualWidth, actualHeight) * (borderWidth * 0.5)
-    const svgContent = `<svg viewBox="0 0 ${actualWidth} ${actualHeight}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="${redGradId}" x1="100%" y1="0%" x2="0%" y2="0%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="red"/></linearGradient><linearGradient id="${blueGradId}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="blue"/></linearGradient></defs><rect width="${actualWidth}" height="${actualHeight}" fill="black"/><rect width="${actualWidth}" height="${actualHeight}" rx="${borderRadius}" fill="url(#${redGradId})"/><rect width="${actualWidth}" height="${actualHeight}" rx="${borderRadius}" fill="url(#${blueGradId})" style="mix-blend-mode:${mixBlendMode}"/><rect x="${edgeSize}" y="${edgeSize}" width="${Math.max(0, actualWidth - edgeSize * 2)}" height="${Math.max(0, actualHeight - edgeSize * 2)}" rx="${borderRadius}" fill="hsl(0 0% ${brightness}% / ${opacity})" style="filter:blur(${blur}px)"/></svg>`
+    const svgContent = `<svg viewBox="0 0 ${actualWidth} ${actualHeight}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="${redGradId}" x1="100%" y1="0%" x2="0%" y2="0%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="red"/></linearGradient><linearGradient id="${blueGradId}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="blue"/></linearGradient></defs><rect width="${actualWidth}" height="${actualHeight}" fill="black"/><rect width="${actualWidth}" height="${actualHeight}" rx="${resolvedBorderRadius}" fill="url(#${redGradId})"/><rect width="${actualWidth}" height="${actualHeight}" rx="${resolvedBorderRadius}" fill="url(#${blueGradId})" style="mix-blend-mode:${mixBlendMode}"/><rect x="${edgeSize}" y="${edgeSize}" width="${Math.max(0, actualWidth - edgeSize * 2)}" height="${Math.max(0, actualHeight - edgeSize * 2)}" rx="${resolvedBorderRadius}" fill="hsl(0 0% ${brightness}% / ${opacity})" style="filter:blur(${resolvedBlur}px)"/></svg>`
     return `data:image/svg+xml,${encodeURIComponent(svgContent)}`
-  }, [blueGradId, borderRadius, borderWidth, brightness, blur, mixBlendMode, opacity, redGradId])
+  }, [blueGradId, borderWidth, brightness, mixBlendMode, opacity, redGradId, resolvedBlur, resolvedBorderRadius])
 
   const updateDisplacementMap = useCallback(() => {
     imageRef.current?.setAttribute('href', generateDisplacementMap())
@@ -139,8 +146,8 @@ export default function GlassSurface({
       channel.ref.current?.setAttribute('xChannelSelector', xChannel)
       channel.ref.current?.setAttribute('yChannelSelector', yChannel)
     }
-    gaussianBlurRef.current?.setAttribute('stdDeviation', String(displace))
-  }, [displace, distortionScale, greenOffset, redOffset, blueOffset, updateDisplacementMap, xChannel, yChannel])
+    gaussianBlurRef.current?.setAttribute('stdDeviation', String(resolvedDisplace))
+  }, [distortionScale, greenOffset, redOffset, blueOffset, updateDisplacementMap, xChannel, yChannel, resolvedDisplace])
 
   useEffect(() => {
     const element = containerRef.current
@@ -154,10 +161,10 @@ export default function GlassSurface({
     ...style,
     width: typeof width === 'number' ? `${width}px` : width,
     height: typeof height === 'number' ? `${height}px` : height,
-    borderRadius: `${borderRadius}px`,
-    '--glass-frost': backgroundOpacity,
-    '--glass-saturation': saturation,
-    '--glass-blur': `${blur}px`,
+    borderRadius: `${resolvedBorderRadius}px`,
+    '--glass-frost': resolvedBackgroundOpacity,
+    '--glass-saturation': resolvedSaturation,
+    '--glass-blur': `${resolvedBlur}px`,
     '--filter-id': `url(#${filterId})`,
   }
 

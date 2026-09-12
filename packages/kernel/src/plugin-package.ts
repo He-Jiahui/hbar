@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { extract as extractTar } from 'tar'
 import { Open } from 'unzipper'
 import { z } from 'zod'
-import { HbarError, settingsContributionSchema, terminalCommandSchema } from '@hbar/contracts'
+import { HbarError, settingsContributionSchema, terminalCommandSchema, themeContributionSchema, toolWindowContributionSchema } from '@hbar/contracts'
 
 export const packageNameSchema = z
   .string()
@@ -32,9 +32,10 @@ export const pluginPackageSchema = z.object({
     contributes: z
       .object({
         commands: z.array(terminalCommandSchema).default([]),
-        panels: z.array(z.record(z.string(), z.unknown())).default([]),
+        panels: z.array(toolWindowContributionSchema).default([]),
         renderers: z.array(z.record(z.string(), z.unknown())).default([]),
         settings: settingsContributionSchema.optional(),
+        theme: themeContributionSchema.optional(),
       })
       .default({ commands: [], panels: [], renderers: [] }),
   }),

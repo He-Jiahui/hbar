@@ -6,7 +6,7 @@
   --rb-status: var(--hbar-ok);
   --rb-glass-surface: color-mix(in srgb, var(--hbar-s1) 82%, var(--hbar-bg));
   --rb-glass-border: color-mix(in srgb, var(--hbar-bd2) 82%, var(--hbar-ac));
-  --rb-glass-shadow: 0 10px 28px rgb(0 0 0 / 24%), inset 0 1px 0 rgb(255 255 255 / 7%);
+  --rb-glass-shadow: var(--dsh-shadow-panel), inset 0 1px 0 color-mix(in srgb, var(--hbar-highlight) 7%, transparent);
 }
 
 .command-palette.glass-surface {
@@ -3052,8 +3052,9 @@
   box-shadow: 0 0 16px color-mix(in srgb, var(--hbar-t2) 12%, transparent);
 }
 
+
 /* Selected controls use a quiet neutral glow so selection is readable without
- * turning every active control into a saturated purple outline. */
+ * turning every active control into a saturated accent outline. */
 .composer-menu-item.selected,
 .permission-option.selected,
 .model-picker-option.selected,

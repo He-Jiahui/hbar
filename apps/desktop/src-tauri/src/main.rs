@@ -15,6 +15,56 @@ use tauri::{
     Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
 };
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowThemeSurface {
+    mode: String,
+    background_opacity: f64,
+}
+
+#[derive(Deserialize)]
+struct WindowThemeProfile {
+    surface: WindowThemeSurface,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowEffectResult {
+    native: bool,
+    message: Option<String>,
+}
+
+#[tauri::command]
+fn set_window_effect(
+    window: tauri::WebviewWindow,
+    profile: WindowThemeProfile,
+) -> Result<WindowEffectResult, String> {
+    let opacity = (profile.surface.background_opacity.clamp(0.12, 1.0) * 255.0).round() as u8;
+    match profile.surface.mode.as_str() {
+        "acrylic" | "liquid-glass" => {
+            #[cfg(target_os = "windows")]
+            {
+                use window_vibrancy::apply_acrylic;
+                apply_acrylic(&window, Some((18, 20, 24, opacity))).map_err(|error| error.to_string())?;
+                return Ok(WindowEffectResult { native: true, message: None });
+            }
+            #[cfg(target_os = "macos")]
+            {
+                use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+                apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, None)
+                    .map_err(|error| error.to_string())?;
+                return Ok(WindowEffectResult { native: true, message: None });
+            }
+            #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+            {
+                let _ = window;
+                Ok(WindowEffectResult { native: false, message: Some("当前平台使用 CSS 模糊回退。".into()) })
+            }
+        }
+        _ => Ok(WindowEffectResult { native: false, message: Some("纯色表面不启用原生模糊。".into()) }),
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Connection {
@@ -148,6 +198,19 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dialog.
 #[cfg(not(target_os = "windows"))]
 fn pick_directory() -> Option<String> {
     None
+}
+
+#[tauri::command]
+fn list_fonts() -> Vec<String> {
+    vec![
+        "system-ui".into(),
+        "Segoe UI".into(),
+        "Microsoft YaHei".into(),
+        "PingFang SC".into(),
+        "Noto Sans".into(),
+        "Arial".into(),
+        "sans-serif".into(),
+    ]
 }
 
 fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
@@ -284,7 +347,7 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![connection_info, pick_directory])
+        .invoke_handler(tauri::generate_handler![connection_info, pick_directory, list_fonts, set_window_effect])
         .setup(|app| {
             let connection = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
@@ -300,6 +363,7 @@ fn main() {
             app.manage(connection);
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
                 .title("hbar")
+                .transparent(true)
                 .inner_size(1440.0, 960.0)
                 .min_inner_size(900.0, 600.0)
                 .on_navigation(move |next| {

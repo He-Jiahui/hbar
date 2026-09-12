@@ -31,7 +31,7 @@ import type {
   UserInputRequest,
   UserInputResponse,
   UserInput,
-  UIContribution,
+  ToolWindowContribution,
   Usage,
   Workspace,
   SettingsContributionInput,
@@ -319,7 +319,7 @@ export interface HbarAPI {
   notify(event: import('@hbar/contracts').WireNotification): void
   changed(kind: string): void
   automationSet?(sessionId: string, unattended?: boolean, goalEnabled?: boolean): Promise<import('@hbar/contracts').AutomationState>
-  panels: { register(panel: Omit<UIContribution, 'owner'>): Disposer }
+  panels: { register(panel: Omit<ToolWindowContribution, 'owner'>): Disposer }
   service<T>(name: string): T
 }
 export interface UserInputService {
@@ -378,9 +378,16 @@ export interface PluginManifest {
   contributes?:
     | {
         commands: TerminalContribution[]
-        panels: Record<string, unknown>[]
+        panels: ToolWindowContribution[]
         renderers: Record<string, unknown>[]
         settings?: SettingsContributionInput | undefined
+        theme?: {
+          id: string
+          title: string
+          description?: string | undefined
+          priority?: number | undefined
+          tokenOverrides: Record<string, unknown>
+        } | undefined
       }
     | undefined
   permissions: string[]

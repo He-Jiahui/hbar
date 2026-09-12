@@ -60,4 +60,11 @@ description: 在 hbar 仓库开发、重构、排错、评审和交付 React/Zus
 - `App.tsx` 仍含默认布局构造和直接 Client 调用；`stores.ts` 集中多类行为。修改相应功能时落实组件、ViewModel 和布局描述边界。
 - 当前 `stream.update` 的 `LiveStream` 携带累计文本，不能仅因限频就视作增量推送。涉及流式链路的实现任务须按后端规范同时设计契约、生产端、消费端和恢复逻辑。
 
+### 主题与渲染约束
+
+- Web 组件不得写死颜色、字体族、字号、动效时长或玻璃参数；统一消费 `@hbar/contracts` 的主题 profile 和 `document.documentElement` 的语义 CSS variables。默认主题使用低饱和中性灰白，不以紫色作为品牌或交互色。
+- 新增设置必须通过分层 settings 契约持久化，并区分草稿、已保存值、继承来源、revision 冲突和恢复路径；组件不能直接写 Host 存储或复制全局主题状态。
+- 悬浮窗统一复用共享 FloatingLayer/FloatingSurface，捕获阶段处理外部 pointerdown、Escape、视口定位和释放；不得为单个菜单重新实现 portal 关闭逻辑。
+- Markdown、代码、patch 和 Git 差异使用明确 renderer slot 和内置回退；可信插件注册必须有稳定 ID、优先级、能力声明和 disposer，不能注入任意全局 CSS 或越过公开 SDK。
+
 这些差距是后续实现的约束输入。本技能创建任务只建立规范，不自动扩张为整个仓库的架构迁移；不能把未处理的差距标记为已解决。

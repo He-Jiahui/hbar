@@ -232,6 +232,12 @@ export function FloatingLayer(props: FloatingLayerProps) {
     const handlePointerDown = (event: PointerEvent) => {
       const path = event.composedPath()
       if (layerRef.current && path.includes(layerRef.current)) return
+      if (anchorRef?.current && path.includes(anchorRef.current)) {
+        // The anchor is outside the portal, but a bubbling toggle handler must
+        // not immediately reopen the surface after this close.
+        event.stopImmediatePropagation()
+        event.preventDefault()
+      }
       onCloseRef.current()
     }
     const handleKeyDown = (event: KeyboardEvent) => {

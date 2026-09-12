@@ -472,6 +472,52 @@
   accent-color: var(--hbar-ac);
 }
 
+.theme-option-checkbox {
+  align-content: center;
+  min-height: 36px;
+}
+
+.theme-background-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plugin-theme-summary {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hbar-s0) 72%, transparent);
+}
+
+.plugin-theme-summary h3,
+.plugin-theme-summary p {
+  margin: 0;
+}
+
+.plugin-theme-summary p,
+.plugin-theme-summary li,
+.settings-muted {
+  color: var(--hbar-t2);
+  font-size: var(--hbar-font-size-code);
+}
+
+.plugin-theme-summary ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.plugin-theme-summary li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .theme-preview {
   display: grid;
   gap: 8px;
@@ -479,6 +525,10 @@
   padding: 16px;
   border: 1px solid var(--hbar-bd2);
   border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity, 0.82) * 100%), transparent);
+  color: var(--hbar-body-text, var(--hbar-t1));
+  font-family: var(--dsh-font-family);
+  font-size: var(--hbar-font-size-body);
   box-shadow: 0 0 18px color-mix(in srgb, var(--hbar-ac) calc(var(--hbar-glow-intensity) * 100%), transparent);
   line-height: var(--hbar-line-height-body);
 }
@@ -488,10 +538,29 @@
   margin: 0;
 }
 
+.theme-preview h3 {
+  color: var(--hbar-heading-text, var(--hbar-t1));
+  font-family: var(--dsh-font-family-heading);
+  font-size: var(--hbar-font-size-heading);
+  font-weight: var(--hbar-font-weight-heading);
+}
+
+.theme-preview strong {
+  font-weight: var(--hbar-font-weight-heading);
+}
+
+.theme-preview u {
+  text-decoration: var(--hbar-underline-links);
+}
+
 .theme-preview code {
   width: fit-content;
   padding: 3px 6px;
   border-radius: var(--control-radius);
+  background: var(--hbar-inline-code-bg);
+  color: var(--hbar-inline-code-text);
+  font-family: var(--dsh-font-family-code);
+  font-size: var(--hbar-font-size-code);
 }
 
 @media (max-width: 640px) {
