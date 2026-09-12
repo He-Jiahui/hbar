@@ -51,7 +51,7 @@ export default function ChartView({ source }: { source: string }) {
                 <Bar
                   key={series.key}
                   dataKey={series.key}
-                  fill={series.color ?? colors[index % colors.length] ?? '#62b594'}
+                  fill={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
                   radius={[3, 3, 0, 0]}
                   isAnimationActive={false}
                 />
@@ -59,15 +59,15 @@ export default function ChartView({ source }: { source: string }) {
                 <Line
                   key={series.key}
                   dataKey={series.key}
-                  stroke={series.color ?? colors[index % colors.length] ?? '#62b594'}
+                  stroke={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
                   isAnimationActive={false}
                 />
               ) : (
                 <Area
                   key={series.key}
                   dataKey={series.key}
-                  stroke={series.color ?? colors[index % colors.length] ?? '#62b594'}
-                  fill={series.color ?? colors[index % colors.length] ?? '#62b594'}
+                  stroke={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
+                  fill={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
                   fillOpacity={0.15}
                   isAnimationActive={false}
                 />
