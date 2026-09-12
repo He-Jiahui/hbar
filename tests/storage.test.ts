@@ -111,3 +111,15 @@ test('session summaries prioritize active output, goal, plan, and tool activity'
   expect((await store.call('sessionSummary', session.id)).activity).toBe('waiting_approval')
   await store.call('setRun', run.id, 'cancelled')
 })
+
+test('session summaries prioritize waiting approval across concurrent runs', async () => {
+  const { store, session } = await fixture()
+  const waiting = await store.call('enqueue', session.id, 'waiting', { text: 'waiting', images: [] }, 'test')
+  await store.call('claim', session.id)
+  await store.call('setRun', waiting.id, 'waiting_approval')
+  await store.call('enqueue', session.id, 'newer-queued', { text: 'queued', images: [] }, 'test')
+  const summary = await store.call('sessionSummary', session.id)
+  expect(summary.activity).toBe('waiting_approval')
+  expect(summary.activeRunId).toBe(waiting.id)
+  await store.call('setRun', waiting.id, 'cancelled')
+})

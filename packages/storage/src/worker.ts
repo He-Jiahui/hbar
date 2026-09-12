@@ -168,7 +168,7 @@ function sessionRow(row: Row | null): Session {
 function sessionSummary(id: string): SessionSummary {
   const session = sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null)
   const active = db
-    .query("SELECT * FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') ORDER BY createdAt DESC LIMIT 1")
+    .query("SELECT * FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') ORDER BY CASE status WHEN 'waiting_approval' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, createdAt DESC LIMIT 1")
     .get(id) as Row | null
   const latest = db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 1').get(id) as Row | null
   const run = active ? runRow(active) : latest ? runRow(latest) : null
