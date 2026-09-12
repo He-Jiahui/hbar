@@ -65,7 +65,7 @@
 .hbar-action-button--ghost { border-color: transparent; background: transparent; color: var(--hbar-text-secondary); }
 .hbar-action-button--ghost:hover:not(:disabled) { border-color: var(--hbar-border-subtle); background: var(--hbar-surface-1); color: var(--hbar-text-primary); }
 .hbar-action-button--danger { border-color: color-mix(in srgb, var(--hbar-error) 48%, var(--hbar-border-strong)); background: var(--hbar-error-surface); color: var(--hbar-error-ink); }
-.hbar-action-button__spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: hbar-semantic-spin var(--hbar-motion-spin-duration) linear infinite; }
+.hbar-action-button__spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: hbar-semantic-spin var(--hbar-motion-spin-duration, 1s) linear infinite; }
 
 .hbar-status-badge {
   display: inline-flex;
