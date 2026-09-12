@@ -30,9 +30,10 @@ const stderr = `  console.warn
 export default function ToolCalls5(props: ReferenceFixtureProps) {
   const [tab, setTab] = useState<'stdout' | 'stderr'>('stdout')
   const [copied, setCopied] = useState(false)
-  const copy = async () => {
+  const copy = () => {
     setCopied(true)
-    try { await navigator.clipboard?.writeText('$ pnpm test payments --runInBand') } catch { /* clipboard is optional in the fixture */ }
+    const write = navigator.clipboard?.writeText('$ pnpm test payments --runInBand')
+    void Promise.resolve(write).catch(() => undefined)
     window.setTimeout(() => setCopied(false), 1200)
   }
   return <div className="rb-public-tool-5" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}>
