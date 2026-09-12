@@ -264,7 +264,7 @@ export function applyThemeProfile(profile: ThemeProfile): void {
   root.style.setProperty('color-scheme', profile.mode === 'dark' || (profile.mode === 'custom' && isDarkThemeColor(profile.colors.background)) ? 'dark' : 'light')
 }
 
-function isDarkThemeColor(value: string): boolean {
+export function isDarkThemeColor(value: string): boolean {
   const red = Number.parseInt(value.slice(1, 3), 16)
   const green = Number.parseInt(value.slice(3, 5), 16)
   const blue = Number.parseInt(value.slice(5, 7), 16)

@@ -6,11 +6,13 @@ import { client } from './stores'
 import './SystemTerminalPanel.css'
 import '@xterm/xterm/css/xterm.css'
 import { useThemeSettings } from './theme-store'
+import { useLocale } from './locale'
 
 export default function SystemTerminalPanel({ workspaceId, onClose }: { workspaceId: string; onClose(): void }) {
   const viewport = useRef<HTMLDivElement>(null)
   const terminalId = useRef('')
   const theme = useThemeSettings((state) => state.profile)
+  const { t } = useLocale()
 
   useEffect(() => {
     const host = viewport.current
@@ -71,7 +73,7 @@ export default function SystemTerminalPanel({ workspaceId, onClose }: { workspac
       if (event.method === 'terminal.output' && event.params.terminalId === terminalId.current) terminal.write(event.params.data)
       if (event.method === 'terminal.exit' && event.params.terminalId === terminalId.current) {
         const code = event.params.code === null ? 'unknown' : String(event.params.code)
-        terminal.write(`\r\n\r\n[hbar] shell exited with code ${code}.\r\n`)
+        terminal.write(`\r\n\r\n[hbar] ${t('shellExited')} ${code}.\r\n`)
       }
     })
     void connection
@@ -82,10 +84,10 @@ export default function SystemTerminalPanel({ workspaceId, onClose }: { workspac
           return
         }
         terminalId.current = info.id
-        terminal.write(`\x1b[1;35mhbar system terminal\x1b[0m  ${info.cwd}\r\n`)
+        terminal.write(`[hbar] ${t('systemTerminal')}  ${info.cwd}\r\n`)
         resize()
       })
-      .catch((error) => terminal.write(`\r\n[hbar] unable to open shell: ${error instanceof Error ? error.message : String(error)}\r\n`))
+      .catch((error) => terminal.write(`\r\n[hbar] ${t('terminalOpenFailed')}: ${error instanceof Error ? error.message : String(error)}\r\n`))
     return () => {
       disposed = true
       cancelAnimationFrame(resizeFrame)
@@ -96,17 +98,17 @@ export default function SystemTerminalPanel({ workspaceId, onClose }: { workspac
       if (id) void connection.call('terminal.close', { terminalId: id }).catch(() => {})
       terminal.dispose()
     }
-  }, [theme, workspaceId])
+  }, [t, theme, workspaceId])
 
   return (
-    <section className="system-terminal-panel" aria-label="系统终端">
+    <section className="system-terminal-panel" aria-label={t('systemTerminal')}>
       <header className="system-terminal-toolbar">
         <span className="system-terminal-title">
           <TerminalSquare size={14} aria-hidden="true" />
-          <strong>系统终端</strong>
-          <small>交互式 Shell · 当前工作区</small>
+          <strong>{t('systemTerminal')}</strong>
+          <small>{t('interactiveShellCurrentWorkspace')}</small>
         </span>
-        <button type="button" title="关闭系统终端" aria-label="关闭系统终端" onClick={onClose}>
+        <button type="button" title={t('closeSystemTerminal')} aria-label={t('closeSystemTerminal')} onClick={onClose}>
           <X size={14} />
         </button>
       </header>

@@ -314,6 +314,11 @@ const messages = {
     builtinRenderer: '内置渲染器',
     pluginRendererActive: '插件接管',
     rendererConflict: '存在优先级冲突',
+    systemTerminal: '系统终端',
+    interactiveShellCurrentWorkspace: '交互式 Shell · 当前工作区',
+    closeSystemTerminal: '关闭系统终端',
+    shellExited: 'Shell 已退出，退出码',
+    terminalOpenFailed: '无法打开 Shell',
   },
   'en-US': {
     preview: 'Preview',
@@ -625,6 +630,11 @@ const messages = {
     builtinRenderer: 'Built-in renderer',
     pluginRendererActive: 'Plugin takeover',
     rendererConflict: 'Priority conflict',
+    systemTerminal: 'System terminal',
+    interactiveShellCurrentWorkspace: 'Interactive shell · current workspace',
+    closeSystemTerminal: 'Close system terminal',
+    shellExited: 'Shell exited with code',
+    terminalOpenFailed: 'Unable to open shell',
   },
 } as const
 

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import GlassSurface from './react-bits/GlassSurface'
-import { useThemeSettings } from './theme-store'
+import { isDarkThemeColor, useThemeSettings } from './theme-store'
 const schema = z.object({
   nodes: z
     .array(
@@ -19,6 +19,7 @@ const schema = z.object({
 })
 export default function FlowView({ source }: { source: string }) {
   const themeMode = useThemeSettings((state) => state.profile.mode)
+  const themeBackground = useThemeSettings((state) => state.profile.colors.background)
   try {
     const spec = schema.parse(JSON.parse(source))
     return (
@@ -29,7 +30,7 @@ export default function FlowView({ source }: { source: string }) {
           defaultNodes={spec.nodes}
           defaultEdges={spec.edges}
           fitView
-          colorMode={themeMode === 'dark' ? 'dark' : 'light'}
+          colorMode={themeMode === 'dark' || (themeMode === 'custom' && isDarkThemeColor(themeBackground)) ? 'dark' : 'light'}
           nodesDraggable
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}

@@ -46,12 +46,13 @@ export default function ChartView({ source }: { source: string }) {
             <YAxis tick={{ fontSize: 'var(--hbar-font-size-code)', fill: 'var(--hbar-t3)' }} />
             <Tooltip contentStyle={{ background: 'var(--hbar-s1)', border: '1px solid var(--hbar-bd2)', color: 'var(--hbar-t1)', fontFamily: 'var(--dsh-font-family)', fontSize: 'var(--hbar-font-size-code)' }} />
             <Legend />
-            {spec.series.map((series, index) =>
-              spec.type === 'bar' ? (
+            {spec.series.map((series, index) => {
+              const seriesColor = colors[index % colors.length] ?? 'var(--hbar-chart-1)'
+              return spec.type === 'bar' ? (
                 <Bar
                   key={series.key}
                   dataKey={series.key}
-                  fill={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
+                  fill={seriesColor}
                   radius={[3, 3, 0, 0]}
                   isAnimationActive={false}
                 />
@@ -59,20 +60,20 @@ export default function ChartView({ source }: { source: string }) {
                 <Line
                   key={series.key}
                   dataKey={series.key}
-                  stroke={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
+                  stroke={seriesColor}
                   isAnimationActive={false}
                 />
               ) : (
                 <Area
                   key={series.key}
                   dataKey={series.key}
-                  stroke={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
-                  fill={series.color ?? colors[index % colors.length] ?? 'var(--hbar-chart-1)'}
+                  stroke={seriesColor}
+                  fill={seriesColor}
                   fillOpacity={0.15}
                   isAnimationActive={false}
                 />
-              ),
-            )}
+              )
+            })}
           </Chart>
         </ResponsiveContainer>
       </div>

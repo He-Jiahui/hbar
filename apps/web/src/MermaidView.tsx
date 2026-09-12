@@ -1,20 +1,31 @@
 import { useEffect, useId, useState } from 'react'
 import mermaid from 'mermaid'
 import GlassSurface from './react-bits/GlassSurface'
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: 'strict',
-  theme: 'dark',
-  maxTextSize: 30_000,
-  maxEdges: 200,
-  suppressErrorRendering: true,
-})
+import { useThemeSettings } from './theme-store'
 let renderQueue: Promise<unknown> = Promise.resolve()
 export default function MermaidView({ source }: { source: string }) {
+  const theme = useThemeSettings((state) => state.profile)
   const id = useId().replace(/[^a-zA-Z0-9]/g, ''),
     [svg, setSvg] = useState(''),
     [error, setError] = useState('')
   useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'base',
+      themeVariables: {
+        background: theme.colors.background,
+        primaryColor: theme.colors.surfaceElevated,
+        primaryTextColor: theme.colors.textPrimary,
+        primaryBorderColor: theme.colors.borderStrong,
+        lineColor: theme.colors.secondary,
+        secondaryColor: theme.colors.surface,
+        tertiaryColor: theme.colors.codeBackground,
+      },
+      maxTextSize: 30_000,
+      maxEdges: 200,
+      suppressErrorRendering: true,
+    })
     let disposed = false
     renderQueue = renderQueue
       .catch(() => {})
@@ -33,7 +44,7 @@ export default function MermaidView({ source }: { source: string }) {
     return () => {
       disposed = true
     }
-  }, [id, source])
+  }, [id, source, theme])
   return error ? (
     <pre className="render-error">{source}</pre>
   ) : (
