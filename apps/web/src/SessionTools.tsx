@@ -24,10 +24,12 @@ import GlassSurface from './react-bits/GlassSurface'
 import AnimatedList from './react-bits/AnimatedList'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { EmptyState, ProgressRail, type ProgressStep } from './react-bits'
+import { useLocale } from './locale'
 
 type PanelProps = { sessionId?: string }
 
 function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof Activity; title: string; subtitle?: string; onRefresh?: () => void }) {
+  const { t } = useLocale()
   return (
     <header className="tool-surface-header rb-tool-header">
       <GlassSurface className="tool-header-glass" width="100%" height="100%" aria-hidden="true" />
@@ -39,7 +41,7 @@ function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof 
         </div>
       </div>
       {onRefresh && (
-        <button type="button" className="tool-surface-refresh" title="刷新" aria-label={`刷新${title}`} onClick={onRefresh}>
+        <button type="button" className="tool-surface-refresh" title={t('toolRefresh')} aria-label={`${t('toolRefresh')}${title}`} onClick={onRefresh}>
           <RefreshCw size={14} />
         </button>
       )}
@@ -67,6 +69,7 @@ type BrowserRequest = {
 }
 
 export function BrowserPanel({ sessionId = '' }: PanelProps) {
+  const { t } = useLocale()
   const connection = useConnection((state) => state.client)
   const [status, setStatus] = useState<BrowserStatus | null>(null)
   const [page, setPage] = useState<BrowserPage | null>(null)
@@ -282,39 +285,39 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
   return (
     <section className="tool-surface browser-panel">
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={Globe} title="浏览器" subtitle={page?.title || '会话浏览器'} onRefresh={() => void refresh()} />
+      <PanelHeader icon={Globe} title={t('browser')} subtitle={page?.title || t('sessionBrowser')} onRefresh={() => void refresh()} />
       {!sessionId ? (
-        <EmptyTool icon={Globe} title="尚未选择会话" body="打开一个会话后即可使用浏览器工具。" />
+        <EmptyTool icon={Globe} title={t('noSessionSelected')} body={t('browserEmptyBody')} />
       ) : (
         <div className="tool-surface-body">
           <div className="browser-navigation-row">
-            <div className="browser-navigation-actions" aria-label="页面导航">
-              <button type="button" title="后退" aria-label="后退" disabled={!page || busy} onClick={() => void navigateHistory('back')}>
+            <div className="browser-navigation-actions" aria-label={t('pageNavigation')}>
+              <button type="button" title={t('back')} aria-label={t('back')} disabled={!page || busy} onClick={() => void navigateHistory('back')}>
                 <ChevronLeft size={14} />
               </button>
-              <button type="button" title="前进" aria-label="前进" disabled={!page || busy} onClick={() => void navigateHistory('forward')}>
+              <button type="button" title={t('forward')} aria-label={t('forward')} disabled={!page || busy} onClick={() => void navigateHistory('forward')}>
                 <ChevronRight size={14} />
               </button>
-              <button type="button" title="刷新页面" aria-label="刷新页面" disabled={!page || busy} onClick={() => void navigateHistory('reload')}>
+              <button type="button" title={t('reloadPage')} aria-label={t('reloadPage')} disabled={!page || busy} onClick={() => void navigateHistory('reload')}>
                 <RotateCw size={13} />
               </button>
-              <button type="button" title="新建页面" aria-label="新建页面" disabled={busy} onClick={startNewPage}>
+              <button type="button" title={t('newPage')} aria-label={t('newPage')} disabled={busy} onClick={startNewPage}>
                 <Plus size={14} />
               </button>
             </div>
             <form className="browser-address rb-browser-address" onSubmit={(event) => void navigate(event)}>
               <GlassSurface className="browser-address-glass" width="100%" height="100%" aria-hidden="true" />
               <Globe size={13} />
-              <input aria-label="浏览器地址" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com" />
-              <button type="submit" title="打开地址" aria-label="打开地址" disabled={busy || !url.trim()}>
+              <input aria-label={t('browserAddress')} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com" />
+              <button type="submit" title={t('openAddress')} aria-label={t('openAddress')} disabled={busy || !url.trim()}>
                 {busy ? <LoaderCircle size={14} className="spinning" /> : <ExternalLink size={14} />}
               </button>
             </form>
           </div>
           {error && <p className="tool-error" role="alert"><CircleAlert size={14} />{error}</p>}
-          {status && !status.available && <p className="tool-muted">浏览器运行时不可用，请检查浏览器插件配置。</p>}
+          {status && !status.available && <p className="tool-muted">{t('browserUnavailable')}</p>}
           {status?.contexts.length ? (
-            <AnimatedList viewportClassName="browser-pages" aria-label="打开的页面">
+            <AnimatedList viewportClassName="browser-pages" aria-label={t('openPages')}>
               {status.contexts.map((item) => (
                 <SpotlightCard
                   as="button"
@@ -331,23 +334,23 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
               ))}
             </AnimatedList>
           ) : (
-            <EmptyTool icon={Globe} title="没有打开的页面" body="在上方输入地址开始浏览。" />
+            <EmptyTool icon={Globe} title={t('noOpenPages')} body={t('startBrowsing')} />
           )}
           {snapshot && (
             <section className="browser-snapshot rb-tool-detail-surface">
               <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
-              <div className="tool-section-label"><span>页面文本</span>{page && <button type="button" onClick={() => void closePage()}><X size={13} />关闭页面</button>}</div>
-              <pre>{snapshot.text || '页面没有可读文本。'}</pre>
+              <div className="tool-section-label"><span>{t('pageText')}</span>{page && <button type="button" onClick={() => void closePage()}><X size={13} />{t('closePage')}</button>}</div>
+              <pre>{snapshot.text || t('unreadablePage')}</pre>
             </section>
           )}
           {screenshot?.data && (
             <SpotlightCard className="browser-screenshot-card" spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)">
-              <img className="browser-screenshot" src={`data:${screenshot.mime};base64,${screenshot.data}`} alt={page?.title || '浏览器页面'} />
+              <img className="browser-screenshot" src={`data:${screenshot.mime};base64,${screenshot.data}`} alt={page?.title || t('browserPage')} />
             </SpotlightCard>
           )}
           {status?.history.length ? (
             <details className="browser-history">
-              <summary>最近访问</summary>
+              <summary>{t('recentVisits')}</summary>
               {status.history.slice(0, 8).map((item, index) => <div key={`${item}-${index}`}>{item}</div>)}
             </details>
           ) : null}
@@ -358,6 +361,7 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
 }
 
 export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
+  const { t } = useLocale()
   const snapshot = useSessions((state) => (sessionId ? state.snapshots[sessionId] : undefined))
   const catalog = useCatalog((state) => state.data)
   const modelId = useWorkbench((state) => state.modelId)
@@ -368,32 +372,32 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
   return (
     <section className="tool-surface">
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={FileSearch} title="会话检查" subtitle={session?.title || 'Session'} onRefresh={() => sessionId && void openSession(sessionId).catch(report)} />
+      <PanelHeader icon={FileSearch} title={t('sessionInspector')} subtitle={session?.title || t('session')} onRefresh={() => sessionId && void openSession(sessionId).catch(report)} />
       {!sessionId || !snapshot ? (
-        <EmptyTool icon={FileSearch} title="尚未加载会话" body="选择一个会话后查看运行时信息。" />
+        <EmptyTool icon={FileSearch} title={t('sessionNotLoaded')} body={t('inspectSessionHint')} />
       ) : (
         <div className="tool-surface-body">
           <dl className="inspector-grid">
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>状态</dt><dd><span className={`inspector-dot ${activeRuns ? 'active' : ''}`} />{activeRuns ? '运行中' : '空闲'}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>模型</dt><dd>{model?.name ?? (modelId || '未配置')}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>消息</dt><dd>{snapshot.messages.length.toLocaleString()}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>工具调用</dt><dd>{toolCalls.toLocaleString()}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>事件游标</dt><dd>{snapshot.cursor.toLocaleString()}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>权限</dt><dd><ShieldCheck size={13} />{snapshot.approvals.length ? `${snapshot.approvals.length} 待处理` : '无待处理'}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('status')}</dt><dd><span className={`inspector-dot ${activeRuns ? 'active' : ''}`} />{activeRuns ? t('active') : t('idle')}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('model')}</dt><dd>{model?.name ?? (modelId || t('unconfigured'))}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('messageCount')}</dt><dd>{snapshot.messages.length.toLocaleString()}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('toolCallCount')}</dt><dd>{toolCalls.toLocaleString()}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('eventCursor')}</dt><dd>{snapshot.cursor.toLocaleString()}</dd></SpotlightCard>
+            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('approvals')}</dt><dd><ShieldCheck size={13} />{snapshot.approvals.length ? `${snapshot.approvals.length} ${t('pendingCount')}` : t('noPending')}</dd></SpotlightCard>
           </dl>
           <section className="tool-detail-card rb-tool-detail-surface">
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
-            <h3>最近运行</h3>
+            <h3>{t('recentRuns')}</h3>
             <AnimatedList className="inspector-runs-list" viewportClassName="inspector-runs" showGradients={false}>
               {snapshot.runs.slice(0, 8).map((run) => (
                 <SpotlightCard className="inspector-run" key={run.id} spotlightColor="color-mix(in srgb, var(--rb-status) 24%, transparent)">
                   <span className={`inspector-dot ${run.status}`} />
-                  <span>{run.input.text || '图片消息'}</span>
+                  <span>{run.input.text || t('imageMessage')}</span>
                   <small>{run.status}</small>
                 </SpotlightCard>
               ))}
             </AnimatedList>
-            {!snapshot.runs.length && <p className="tool-muted">暂无运行记录。</p>}
+            {!snapshot.runs.length && <p className="tool-muted">{t('noRunRecords')}</p>}
           </section>
         </div>
       )}
@@ -402,6 +406,7 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
 }
 
 export function PlanPanel({ sessionId = '' }: PanelProps) {
+  const { t } = useLocale()
   const state = useSessionCapabilities((current) => (sessionId ? current.sessions[sessionId] : undefined))
   const [dialog, setDialog] = useState<SessionCapabilityTab | null>(null)
   const goal = state?.goal
@@ -419,9 +424,9 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
   return (
     <section className="tool-surface">
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={ListChecks} title="计划" subtitle={goal?.objective || 'Agent plan'} />
+      <PanelHeader icon={ListChecks} title={t('plan')} subtitle={goal?.objective || t('plan')} />
       {!sessionId ? (
-        <EmptyTool icon={ListChecks} title="尚未选择会话" body="选择会话后查看 Goal 和 Plan。" />
+        <EmptyTool icon={ListChecks} title={t('noSessionSelected')} body={t('selectSessionPlanHint')} />
       ) : (
         <div className="tool-surface-body">
           <section className="tool-detail-card goal-card rb-tool-detail-surface">
@@ -433,7 +438,7 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
               </span>
               <button type="button" onClick={() => setDialog('goal')}>
                 <Target size={13} />
-                编辑
+                {t('edit')}
               </button>
             </div>
             {goal ? (
@@ -445,7 +450,7 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
                 </div>
               </>
             ) : (
-              <p className="tool-muted">当前会话没有活动 Goal。</p>
+              <p className="tool-muted">{t('noActiveGoal')}</p>
             )}
           </section>
           <section className="tool-detail-card plan-card rb-tool-detail-surface">
@@ -460,33 +465,33 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
               {activeRun && (
                 <button
                   type="button"
-                  aria-label="停止计划运行"
-                  title="停止计划运行"
+                  aria-label={t('stopPlanRun')}
+                  title={t('stopPlanRun')}
                   onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
                 >
                   <X size={12} />
-                  停止
+                  {t('stop')}
                 </button>
               )}
             </div>
             {totalSteps > 0 && (
-              <div className="plan-progress-track" aria-label={`计划进度 ${completedSteps} / ${totalSteps}`}>
+              <div className="plan-progress-track" aria-label={`${t('planProgress')} ${completedSteps} / ${totalSteps}`}>
                 <span style={{ width: `${Math.round((completedSteps / totalSteps) * 100)}%` }} />
               </div>
             )}
-            {currentStep && <p className="plan-current-step">正在处理：{currentStep.step}</p>}
+            {currentStep && <p className="plan-current-step">{t('processing')}：{currentStep.step}</p>}
             <div className="tool-section-label">
               <span>
                 <ListChecks size={13} />
-                步骤
+                {t('steps')}
               </span>
               <button type="button" onClick={() => setDialog('plan')}>
                 <ListChecks size={13} />
-                编辑
+                {t('edit')}
               </button>
             </div>
-            {!progressSteps.length && <EmptyState title="当前会话没有计划步骤" description="创建 Plan 后，步骤进度会显示在这里。" />}
-            {progressSteps.length > 0 && <ProgressRail className="plan-progress-rail" steps={progressSteps} aria-label="计划步骤进度" />}
+            {!progressSteps.length && <EmptyState title={t('noPlanSteps')} description={t('createPlanHint')} />}
+            {progressSteps.length > 0 && <ProgressRail className="plan-progress-rail" steps={progressSteps} aria-label={t('planStepsProgress')} />}
           </section>
         </div>
       )}
@@ -498,6 +503,7 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
 }
 
 export function InsightsPanel({ sessionId = '' }: PanelProps) {
+  const { t } = useLocale()
   const snapshot = useSessions((state) => (sessionId ? state.snapshots[sessionId] : undefined))
   const stats = useMemo(() => {
     const counts = new Map<string, number>()
@@ -511,25 +517,25 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
   return (
     <section className="tool-surface">
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={Activity} title="会话洞察" subtitle="工具与 token 使用" />
+      <PanelHeader icon={Activity} title={t('sessionInsights')} subtitle={t('toolTokenUsage')} />
       {!sessionId || !snapshot ? (
-        <EmptyTool icon={Activity} title="暂无会话数据" body="运行一次会话后查看洞察。" />
+        <EmptyTool icon={Activity} title={t('noSessionData')} body={t('runHistoryHint')} />
       ) : (
         <div className="tool-surface-body">
           <div className="insight-kpis">
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>输入</span><strong>{snapshot.usage.input.toLocaleString()}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>输出</span><strong>{snapshot.usage.output.toLocaleString()}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>运行</span><strong>{snapshot.runs.length.toLocaleString()}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--hbar-wn) 22%, transparent)"><span>费用</span><strong>${snapshot.usage.cost.toFixed(4)}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"><span>缓存命中</span><strong>{cacheRate}%</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>{t('inputTokens')}</span><strong>{snapshot.usage.input.toLocaleString()}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>{t('outputTokens')}</span><strong>{snapshot.usage.output.toLocaleString()}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>{t('runMetric')}</span><strong>{snapshot.runs.length.toLocaleString()}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--hbar-wn) 22%, transparent)"><span>{t('cost')}</span><strong>${snapshot.usage.cost.toFixed(4)}</strong></SpotlightCard>
+            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"><span>{t('cacheHit')}</span><strong>{cacheRate}%</strong></SpotlightCard>
           </div>
           <section className="tool-detail-card insight-chart rb-tool-detail-surface">
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
-            <h3>工具调用</h3>
+            <h3>{t('toolCallCount')}</h3>
             <AnimatedList className="insight-list" viewportClassName="insight-rows" showGradients={false}>
               {stats.map(([name, count]) => <SpotlightCard className="insight-row" key={name} spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)"><span>{name}</span><i><b style={{ width: `${Math.max(8, (count / max) * 100)}%` }} /></i><strong>{count}</strong></SpotlightCard>)}
             </AnimatedList>
-            {!stats.length && <p className="tool-muted">暂无工具调用。</p>}
+            {!stats.length && <p className="tool-muted">{t('noToolCalls')}</p>}
           </section>
         </div>
       )}
