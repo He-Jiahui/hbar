@@ -5,6 +5,7 @@ import AnimatedList from './react-bits/AnimatedList'
 import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { useLocale, type LocaleMessageKey } from './locale'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -62,7 +63,7 @@ function strings(value: unknown): string[] {
     : []
 }
 
-function normalizeDiagnose(data: UnknownRecord): DiagnoseView {
+function normalizeDiagnose(data: UnknownRecord, t: (key: LocaleMessageKey) => string): DiagnoseView {
   const host = record(data.host)
   const database = record(data.database)
   const plugins = Array.isArray(data.plugins)
@@ -72,7 +73,7 @@ function normalizeDiagnose(data: UnknownRecord): DiagnoseView {
         return {
           id,
           name: text(plugin.name) ?? id,
-          version: text(plugin.version) ?? '未知版本',
+          version: text(plugin.version) ?? t('pluginVersionUnknown'),
           status: text(plugin.status) ?? 'unknown',
           required: plugin.required === true,
           provides: strings(plugin.provides),
@@ -83,7 +84,7 @@ function normalizeDiagnose(data: UnknownRecord): DiagnoseView {
   const storage = Object.entries(database)
     .flatMap(([key, value]) => {
       const numericValue = count(value)
-      return numericValue === null ? [] : [{ key, label: STORAGE_LABELS[key] ?? key, value: numericValue }]
+      return numericValue === null ? [] : [{ key, label: STORAGE_LABELS[key] ? t(key as LocaleMessageKey) : key, value: numericValue }]
     })
     .sort((left, right) => {
       const leftIndex = STORAGE_ORDER.indexOf(left.key)
@@ -112,15 +113,15 @@ function formatCount(value: number | null) {
   return value === null ? '—' : value.toLocaleString()
 }
 
-function pluginStatus(status: string) {
-  if (status === 'active') return '已启用'
-  if (status === 'disabled') return '已停用'
-  if (status === 'failed') return '失败'
+function pluginStatus(status: string, t: (key: LocaleMessageKey) => string) {
+  if (status === 'active') return t('statusActive')
+  if (status === 'disabled') return t('statusDisabled')
+  if (status === 'failed') return t('statusFailed')
   return status
 }
 
-function refreshError(error: unknown) {
-  return error instanceof Error && error.message ? error.message : '无法读取当前诊断信息，请检查 Host 连接后重试。'
+function refreshError(error: unknown, t: (key: LocaleMessageKey) => string) {
+  return error instanceof Error && error.message ? error.message : t('cannotReadDiagnose')
 }
 
 function SummaryCard({
@@ -150,6 +151,7 @@ function SummaryCard({
 }
 
 export default function DiagnosePanel() {
+  const { t } = useLocale()
   const connection = useConnection((state) => state.client)
   const [data, setData] = useState<UnknownRecord | null>(null)
   const [loading, setLoading] = useState(true)
@@ -167,7 +169,7 @@ export default function DiagnosePanel() {
       if (isCurrentRequest()) {
         setData(null)
         setRefreshedAt(null)
-        setError('Host 未连接，请检查连接后重试。')
+        setError(t('hostDisconnected'))
         setLoading(false)
       }
       return
@@ -179,11 +181,11 @@ export default function DiagnosePanel() {
       setRefreshedAt(new Date())
     } catch (reason) {
       if (!isCurrentRequest()) return
-      setError(refreshError(reason))
+      setError(refreshError(reason, t))
     } finally {
       if (isCurrentRequest()) setLoading(false)
     }
-  }, [connection])
+  }, [connection, t])
   useEffect(() => {
     setData(null)
     setRefreshedAt(null)
@@ -194,42 +196,42 @@ export default function DiagnosePanel() {
     }
   }, [refresh])
 
-  const diagnose = useMemo(() => (data ? normalizeDiagnose(data) : null), [data])
+  const diagnose = useMemo(() => (data ? normalizeDiagnose(data, t) : null), [data, t])
   const hostDetail = diagnose
     ? [diagnose.host.platform, diagnose.host.version ? `v${diagnose.host.version}` : null]
         .filter(Boolean)
-        .join(' · ') || '宿主信息不可用'
+        .join(' · ') || t('unavailable')
     : ''
-  const runtimeDetail = diagnose ? `${formatCount(diagnose.streams)} 个活动流` : ''
+  const runtimeDetail = diagnose ? `${formatCount(diagnose.streams)} ${t('activeStreams')}` : ''
   const recoveryDetail = diagnose
-    ? diagnose.host.demo === true
-      ? '演示模式'
+      ? diagnose.host.demo === true
+      ? t('demoMode')
       : diagnose.host.demo === false
-        ? '标准模式'
-        : '运行模式未知'
+        ? t('standardMode')
+        : t('unknownRunMode')
     : ''
   const refreshedLabel = loading
-    ? '正在刷新诊断…'
+    ? t('refreshing')
     : error
-      ? '最近一次刷新失败'
+      ? t('latestRefreshFailed')
       : refreshedAt
-        ? `更新于 ${refreshedAt.toLocaleTimeString()}`
-        : '等待诊断结果'
+        ? `${t('updatedAt')} ${refreshedAt.toLocaleTimeString()}`
+        : t('waitingDiagnose')
 
   return (
-    <section className="diagnose-panel rb-diagnose-panel" aria-label="诊断" aria-busy={loading}>
+    <section className="diagnose-panel rb-diagnose-panel" aria-label={t('diagnose')} aria-busy={loading}>
       <GlassSurface className="diagnose-panel-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="diagnose-page-heading">
         <div className="diagnose-heading-copy">
-          <span className="diagnose-eyebrow">HOST STATUS</span>
-          <h1>诊断</h1>
+          <span className="diagnose-eyebrow">{t('hostStatus')}</span>
+          <h1>{t('diagnose')}</h1>
           <p aria-live="polite">{refreshedLabel}</p>
         </div>
         <GlassIconButton
           type="button"
-          label="刷新诊断"
+          label={t('refreshDiagnose')}
           tone="accent"
-          title="刷新诊断"
+          title={t('refreshDiagnose')}
           disabled={loading}
           onClick={() => void refresh()}
         >
@@ -244,11 +246,11 @@ export default function DiagnosePanel() {
           role="alert"
         >
           <div>
-            <strong>未能刷新诊断</strong>
+            <strong>{t('diagnoseRefreshFailed')}</strong>
             <span>{error}</span>
           </div>
           <button type="button" className="button" onClick={() => void refresh()}>
-            重试
+            {t('retry')}
           </button>
         </SpotlightCard>
       )}
@@ -256,7 +258,7 @@ export default function DiagnosePanel() {
       {!diagnose && !error && (
         <div className="diagnose-state" role="status">
           <LoaderCircle className="diagnose-refreshing" size={18} />
-          <span>正在读取诊断信息</span>
+          <span>{t('readingDiagnose')}</span>
         </div>
       )}
 
@@ -264,18 +266,18 @@ export default function DiagnosePanel() {
         <div className="diagnose-content">
           <dl className="diagnose-summary-grid">
             <SummaryCard
-              label="宿主"
+              label={t('host')}
               value={diagnose.host.version ? `v${diagnose.host.version}` : '—'}
               detail={hostDetail}
             />
             <SummaryCard
-              label="运行"
+              label={t('run')}
               value={formatCount(diagnose.host.activeRuns)}
               detail={runtimeDetail}
               tone="status"
             />
             <SummaryCard
-              label="恢复运行"
+              label={t('recoveredRuns')}
               value={formatCount(diagnose.recoveredRuns)}
               detail={recoveryDetail}
               tone="warning"
@@ -286,8 +288,8 @@ export default function DiagnosePanel() {
             <div className="diagnose-section-heading">
               <Database size={16} aria-hidden="true" />
               <div>
-                <h2 id="diagnose-storage-heading">存储</h2>
-                <span>{diagnose.database.length} 个数据集</span>
+              <h2 id="diagnose-storage-heading">{t('storage')}</h2>
+                <span>{diagnose.database.length} {t('dataSets')}</span>
               </div>
             </div>
             <SpotlightCard
@@ -304,7 +306,7 @@ export default function DiagnosePanel() {
                   ))}
                 </dl>
               ) : (
-                <span className="diagnose-empty">没有可用的存储统计</span>
+                <span className="diagnose-empty">{t('noStorageStats')}</span>
               )}
             </SpotlightCard>
           </section>
@@ -313,8 +315,8 @@ export default function DiagnosePanel() {
             <div className="diagnose-section-heading">
               <PlugZap size={16} aria-hidden="true" />
               <div>
-                <h2 id="diagnose-plugins-heading">扩展</h2>
-                <span>{diagnose.plugins.length} 个已加载扩展</span>
+              <h2 id="diagnose-plugins-heading">{t('extensions')}</h2>
+                <span>{diagnose.plugins.length} {t('loadedExtensions')}</span>
               </div>
             </div>
             {diagnose.plugins.length ? (
@@ -336,20 +338,20 @@ export default function DiagnosePanel() {
                       </span>
                     </div>
                     <span className={`diagnose-plugin-status diagnose-plugin-status-${plugin.status}`}>
-                      {pluginStatus(plugin.status)}
+                      {pluginStatus(plugin.status, t)}
                     </span>
                     <span className="diagnose-plugin-provides">
                       {plugin.required
-                        ? '必需扩展'
+                        ? t('requiredExtension')
                         : plugin.provides.length
                           ? plugin.provides.join(' · ')
-                          : '没有提供服务'}
+                          : t('noServices')}
                     </span>
                   </SpotlightCard>
                 ))}
               </AnimatedList>
             ) : (
-              <div className="diagnose-empty">没有加载的扩展</div>
+              <div className="diagnose-empty">{t('noLoadedExtensions')}</div>
             )}
           </section>
 
@@ -357,7 +359,7 @@ export default function DiagnosePanel() {
             <summary>
               <span className="diagnose-details-title">
                 <Wrench size={16} aria-hidden="true" />
-                <span>已注册工具</span>
+                <span>{t('registeredTools')}</span>
                 <small>{diagnose.tools.length}</small>
               </span>
               <ChevronRight className="diagnose-details-chevron" size={16} aria-hidden="true" />
@@ -369,7 +371,7 @@ export default function DiagnosePanel() {
                 ))}
               </div>
             ) : (
-              <div className="diagnose-empty">没有注册的工具</div>
+              <div className="diagnose-empty">{t('noRegisteredTools')}</div>
             )}
           </details>
 
@@ -377,7 +379,7 @@ export default function DiagnosePanel() {
             <summary>
               <span className="diagnose-details-title">
                 <Server size={16} aria-hidden="true" />
-                <span>原始诊断结果</span>
+                <span>{t('rawDiagnose')}</span>
               </span>
               <ChevronRight className="diagnose-details-chevron" size={16} aria-hidden="true" />
             </summary>
