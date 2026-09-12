@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
 import type { JsonSchemaDescriptor, ResolvedSetting, SettingDescriptor, SettingsSnapshot } from '@hbar/contracts'
 import './descriptor-settings.css'
+import { useLocale, type LocaleMessageKey } from './locale'
+
+type Translate = (key: LocaleMessageKey) => string
 
 type DescriptorSettingsFormProps = {
   descriptors: readonly SettingDescriptor[]
@@ -35,11 +38,13 @@ function SettingValueEditor({
   value,
   onChange,
   path,
+  t,
 }: {
   schema: JsonSchemaDescriptor
   value: unknown
   onChange(value: unknown): void
   path: string
+  t: Translate
 }) {
   if (schema.oneOf?.length) {
     const selected = schema.oneOf.find((candidate) => {
@@ -50,7 +55,7 @@ function SettingValueEditor({
       if (candidate.type === 'array') return Array.isArray(value)
       return true
     }) ?? schema.oneOf[0]
-    return <SettingValueEditor schema={selected!} value={value} onChange={onChange} path={path} />
+    return <SettingValueEditor schema={selected!} value={value} onChange={onChange} path={path} t={t} />
   }
   if (schema.enum?.length) {
     return (
@@ -75,7 +80,7 @@ function SettingValueEditor({
             <label key={key} className="descriptor-setting-field">
               <span>{schemaLabel(child, key)}{schema.required?.includes(key) ? ' *' : ''}</span>
               {child.description && <small>{child.description}</small>}
-              <SettingValueEditor schema={child} value={childValue} path={`${path}.${key}`} onChange={(next) => onChange({ ...record, [key]: next })} />
+              <SettingValueEditor schema={child} value={childValue} path={`${path}.${key}`} t={t} onChange={(next) => onChange({ ...record, [key]: next })} />
             </label>
           )
         })}
@@ -88,11 +93,11 @@ function SettingValueEditor({
       <div className="descriptor-setting-array">
         {items.map((item, index) => (
           <div className="descriptor-setting-array-row" key={`${path}-${index}`}>
-            <SettingValueEditor schema={schema.items!} value={item} path={`${path}[${index}]`} onChange={(next) => onChange(items.map((current, itemIndex) => itemIndex === index ? next : current))} />
-            <button type="button" className="text-command" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}>删除</button>
+            <SettingValueEditor schema={schema.items!} value={item} path={`${path}[${index}]`} t={t} onChange={(next) => onChange(items.map((current, itemIndex) => itemIndex === index ? next : current))} />
+            <button type="button" className="text-command" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}>{t('delete')}</button>
           </div>
         ))}
-        <button type="button" className="button" disabled={schema.maxItems !== undefined && items.length >= schema.maxItems} onClick={() => onChange([...items, displayValue(schema.items!, undefined) ?? ''])}>添加一项</button>
+        <button type="button" className="button" disabled={schema.maxItems !== undefined && items.length >= schema.maxItems} onClick={() => onChange([...items, displayValue(schema.items!, undefined) ?? ''])}>{t('addItem')}</button>
       </div>
     )
   }
@@ -118,7 +123,7 @@ function SettingValueEditor({
       max={schema.maximum}
       minLength={schema.minLength}
       maxLength={schema.maxLength}
-      placeholder={schema.format === 'path' ? '输入路径' : undefined}
+      placeholder={schema.format === 'path' ? t('inputPath') : undefined}
       onChange={(event) => {
         if (schema.type === 'number' || schema.type === 'integer') {
           const next = event.target.value === '' ? undefined : Number(event.target.value)
@@ -129,14 +134,15 @@ function SettingValueEditor({
   )
 }
 
-function inheritedLabel(setting: ResolvedSetting | undefined, scope: SettingsSnapshot['scope']) {
+function inheritedLabel(setting: ResolvedSetting | undefined, scope: SettingsSnapshot['scope'], t: Translate) {
   if (!setting || !setting.overridden) return null
   const source = setting.source === 'default' ? '默认' : setting.source === 'global' ? '全局' : setting.source === 'project' ? '项目' : '会话'
   const localScope = scope === 'global' ? '全局' : scope === 'project' ? '项目' : '会话'
-  return <span className="descriptor-setting-inherited">当前值继承自{source}设置（{localScope}作用域未覆盖）</span>
+  return <span className="descriptor-setting-inherited">{t('inheritedSetting')}{source}{t('scopeLabelOpen')}{localScope}{t('scopeNotOverridden')}</span>
 }
 
 export default function DescriptorSettingsForm({ descriptors, snapshot, context = { hasWorkspace: false, hasSession: false }, saving = false, onSet, onReset }: DescriptorSettingsFormProps) {
+  const { t } = useLocale()
   const ordered = useMemo(() => descriptors
     .filter((setting) => {
       if (!setting.visibility) return true
@@ -150,7 +156,7 @@ export default function DescriptorSettingsForm({ descriptors, snapshot, context 
     .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id)), [context.hasSession, context.hasWorkspace, context.pluginEnabled, descriptors])
   if (!ordered.length) return null
   return (
-    <section className="descriptor-settings-form" aria-label="描述驱动设置">
+    <section className="descriptor-settings-form" aria-label={t('descriptorSettings')}>
       {ordered.map((setting) => {
         const resolved = snapshot?.values[setting.id]
         const value = displayValue(setting.schema, resolved?.effectiveValue ?? setting.default)
@@ -162,13 +168,13 @@ export default function DescriptorSettingsForm({ descriptors, snapshot, context 
                 <strong>{setting.title}</strong>
                 <small>{setting.description || setting.id}</small>
               </div>
-              {inheritedLabel(resolved, snapshot?.scope ?? 'global')}
+              {inheritedLabel(resolved, snapshot?.scope ?? 'global', t)}
             </div>
             <div className="descriptor-setting-control">
-              <SettingValueEditor schema={setting.schema} value={value} path={setting.id} onChange={(next) => onSet(setting.id, next)} />
-              {resolved?.overridden && editable && <button type="button" className="text-command" disabled={saving} onClick={() => onReset(setting.id)}>恢复继承</button>}
+              <SettingValueEditor schema={setting.schema} value={value} path={setting.id} t={t} onChange={(next) => onSet(setting.id, next)} />
+              {resolved?.overridden && editable && <button type="button" className="text-command" disabled={saving} onClick={() => onReset(setting.id)}>{t('restoreInheritance')}</button>}
             </div>
-            {!editable && <small className="descriptor-setting-readonly">此选项不能在当前作用域修改。</small>}
+            {!editable && <small className="descriptor-setting-readonly">{t('settingReadonly')}</small>}
           </div>
         )
       })}
