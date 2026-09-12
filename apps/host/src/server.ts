@@ -446,16 +446,20 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plugin.disableTree': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePluginTree(p.id)
+        return kernel.changePluginTree(p.id, p.projectId)
       }
       case 'plugin.resolve': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.resolve(p.id)
       }
-      case 'plugin.graph':
-        return kernel.plugins.graph()
-      case 'plugin.lock':
-        return kernel.plugins.lock()
+      case 'plugin.graph': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.graph(p.projectId)
+      }
+      case 'plugin.lock': {
+        const p = rpcSchemas[method].parse(raw)
+        return kernel.plugins.lock(p.projectId)
+      }
       case 'plugin.doctor':
         return kernel.plugins.doctor()
       case 'browser.status': {

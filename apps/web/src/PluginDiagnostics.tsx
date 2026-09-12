@@ -24,7 +24,7 @@ import {
   type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { client, refreshCatalog } from './stores'
+import { client, refreshCatalog, useWorkbench } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
@@ -118,10 +118,10 @@ function LockGraphNodeView({ data }: NodeProps<FlowNode<{ label: string; version
   )
 }
 
-async function requestReport(kind: PluginReportKind): Promise<PluginReport> {
+async function requestReport(kind: PluginReportKind, projectId?: string): Promise<PluginReport> {
   if (kind === 'doctor') return { kind, data: await client().call('plugin.doctor', {}) }
-  if (kind === 'graph') return { kind, data: await client().call('plugin.graph', {}) }
-  return { kind, data: await client().call('plugin.lock', {}) }
+  if (kind === 'graph') return { kind, data: await client().call('plugin.graph', projectId ? { projectId } : {}) }
+  return { kind, data: await client().call('plugin.lock', projectId ? { projectId } : {}) }
 }
 
 function RawReport({ data }: { data: unknown }) {
@@ -272,7 +272,7 @@ function DoctorReportView({ data }: { data: DoctorReport }) {
   )
 }
 
-function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): void }) {
+function GraphReportView({ data, onRefresh, projectId }: { data: GraphReport; onRefresh(): void; projectId?: string | undefined }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const nodeTypes = useMemo(() => ({ plugin: PluginGraphNodeView }), [])
@@ -346,7 +346,7 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
     setBusyId(rootId)
     setActionError(null)
     try {
-      await client().call('plugin.disableTree', { id: rootId })
+      await client().call('plugin.disableTree', { id: rootId, ...(projectId ? { projectId } : {}) })
       await refreshCatalog()
       onRefresh()
     } catch (error) {
@@ -566,15 +566,16 @@ function LockReportView({ data }: { data: LockReport }) {
   )
 }
 
-function PluginReportView({ report, onRefresh }: { report: PluginReport; onRefresh(): void }) {
+function PluginReportView({ report, onRefresh, projectId }: { report: PluginReport; onRefresh(): void; projectId?: string | undefined }) {
   if (report.kind === 'doctor') return <DoctorReportView data={report.data} />
-  if (report.kind === 'graph') return <GraphReportView data={report.data} onRefresh={onRefresh} />
+  if (report.kind === 'graph') return <GraphReportView data={report.data} onRefresh={onRefresh} projectId={projectId} />
   return <LockReportView data={report.data} />
 }
 
 export default function PluginDiagnostics() {
   const [state, setState] = useState<PluginReportState>({ active: null, report: null, loading: false, error: null })
   const requestVersion = useRef(0)
+  const projectId = useWorkbench((state) => state.workspaceId) ?? undefined
 
   useEffect(() => {
     return () => {
@@ -591,14 +592,14 @@ export default function PluginDiagnostics() {
       error: null,
     }))
     try {
-      const report = await requestReport(kind)
+      const report = await requestReport(kind, projectId)
       if (requestVersion.current !== version) return
       setState({ active: kind, report, loading: false, error: null })
     } catch (error) {
       if (requestVersion.current !== version) return
       setState((current) => ({ ...current, loading: false, error: reportError(error) }))
     }
-  }, [])
+  }, [projectId])
 
   const active = state.active
   return (
@@ -675,7 +676,7 @@ export default function PluginDiagnostics() {
         </SpotlightCard>
       )}
 
-      {state.report && <PluginReportView report={state.report} onRefresh={() => void run(active ?? 'graph')} />}
+      {state.report && <PluginReportView report={state.report} onRefresh={() => void run(active ?? 'graph')} projectId={projectId} />}
     </div>
   )
 }

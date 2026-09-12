@@ -221,6 +221,9 @@ export class PluginManager {
   private entries = new Map<string, Installed>()
   private mounted: string[] = []
   private scopes = new Map<string, Promise<RuntimeScope>>()
+  private scopedEntries(projectId?: string): Installed[] {
+    return [...this.entries.values()].filter((entry) => !projectId || !entry.projectId || entry.projectId === projectId)
+  }
   constructor(
     private storage: StoragePort,
     private api: Omit<HbarAPI, 'panels' | 'service' | 'scope'>,
@@ -598,15 +601,17 @@ export class PluginManager {
     }
     return this.list()
   }
-  async disableTree(id: string) {
+  async disableTree(id: string, projectId?: string) {
     const root = this.entries.get(id)
     if (!root) throw new HbarError('NOT_FOUND', 'Plugin not found')
+    if (projectId && root.projectId && root.projectId !== projectId)
+      throw new HbarError('PLUGIN_SCOPE', `Plugin ${id} is not installed in project ${projectId}`)
     const rootName = packageId(root.plugin.manifest)
     const affected = new Set<string>([rootName])
     let changed = true
     while (changed) {
       changed = false
-      for (const entry of this.entries.values()) {
+      for (const entry of this.scopedEntries(projectId)) {
         const manifest = entry.plugin.manifest
         const dependencies = new Set([
           ...Object.keys(manifest.dependencies ?? {}),
@@ -618,7 +623,7 @@ export class PluginManager {
         }
       }
     }
-    const selected = [...this.entries.values()].filter((entry) => entry.enabled && affected.has(packageId(entry.plugin.manifest)))
+    const selected = this.scopedEntries(projectId).filter((entry) => entry.enabled && affected.has(packageId(entry.plugin.manifest)))
     const required = selected.find((entry) => entry.plugin.manifest.required)
     if (required) throw new HbarError('REQUIRED_PLUGIN', `${packageId(required.plugin.manifest)} is required and cannot be disabled`)
     const old = new Map([...this.entries].map(([key, value]) => [key, { enabled: value.enabled, config: value.config }]))
@@ -700,13 +705,14 @@ export class PluginManager {
     }
     return this.list()
   }
-  graph() {
-    const nodes = [...this.entries.values()].map((entry) => ({
+  graph(projectId?: string) {
+    const scoped = this.scopedEntries(projectId)
+    const nodes = scoped.map((entry) => ({
       id: packageId(entry.plugin.manifest),
       version: entry.plugin.manifest.version,
       enabled: entry.enabled,
     }))
-    const edges = [...this.entries.values()].flatMap((entry) => {
+    const edges = scoped.flatMap((entry) => {
       const from = packageId(entry.plugin.manifest)
       return [
         ...Object.entries(entry.plugin.manifest.dependencies ?? {}).map(([to, range]) => ({
@@ -744,12 +750,12 @@ export class PluginManager {
       return { ok: false, errors: [error instanceof Error ? error.message : String(error)] }
     }
   }
-  async lock() {
-    return this.lockData()
+  async lock(projectId?: string) {
+    return this.lockData(projectId)
   }
-  private async lockData() {
+  private async lockData(projectId?: string) {
     const plugins: Record<string, unknown> = {}
-    for (const entry of this.entries.values()) {
+    for (const entry of this.scopedEntries(projectId)) {
       if (!entry.path) continue
       const manifest = entry.plugin.manifest
       plugins[packageId(manifest)] = {

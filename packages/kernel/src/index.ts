@@ -1376,11 +1376,11 @@ export class Kernel {
       this.maintenance = false
     }
   }
-  async changePluginTree(id: string) {
+  async changePluginTree(id: string, projectId?: string) {
     this.assertIdle()
     this.maintenance = true
     try {
-      const plugins = await this.plugins.disableTree(id)
+      const plugins = await this.plugins.disableTree(id, projectId)
       this.changed('plugins')
       return plugins
     } finally {

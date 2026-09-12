@@ -80,6 +80,38 @@ test('disables an entire downstream plugin tree atomically', async () => {
   expect(kernel.plugins.list().filter((plugin) => plugin.id.startsWith('tree.')).every((plugin) => plugin.status !== 'active')).toBeTrue()
 })
 
+test('scopes dependency graphs and tree shutdown to a project installation', async () => {
+  const { kernel, workspace } = await fixture()
+  kernel.plugins.add(
+    definePlugin({
+      manifest: {
+        id: 'project.base', name: 'Project base', version: '1.0.0', apiVersion: '^1.0.0',
+        scope: 'workspace', description: '', permissions: [],
+      },
+      apply() {},
+    }),
+    undefined,
+    workspace.id,
+  )
+  kernel.plugins.add(
+    definePlugin({
+      manifest: {
+        id: 'project.child', name: 'Project child', version: '1.0.0', apiVersion: '^1.0.0',
+        scope: 'workspace', description: '', permissions: [], dependencies: { 'project.base': '^1.0.0' },
+      },
+      apply() {},
+    }),
+    undefined,
+    workspace.id,
+  )
+  const projectNodeIds = kernel.plugins.graph(workspace.id).nodes.map((node) => node.id)
+  expect(projectNodeIds).toContain('project.base')
+  expect(projectNodeIds).toContain('project.child')
+  expect(kernel.plugins.graph('other-project').nodes.map((node) => node.id)).not.toContain('project.base')
+  await kernel.changePluginTree('project.base', workspace.id)
+  expect(kernel.plugins.list().filter((plugin) => plugin.id.startsWith('project.')).every((plugin) => plugin.status !== 'active')).toBeTrue()
+})
+
 test('concurrent run plugins see their own scopes and dispose at settlement', async () => {
   const { kernel, workspace } = await fixture()
   const disposed: string[] = []
