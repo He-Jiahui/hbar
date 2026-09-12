@@ -3,6 +3,7 @@ import type { HostInfo, Workspace } from '@hbar/contracts'
 import { ChevronDown, Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
 import GlassSurface from '../react-bits/GlassSurface'
 import { StatusBadge } from '../react-bits'
+import { useLocale } from '../locale'
 import './WorkbenchHeader.css'
 
 export interface WorkbenchHeaderProps {
@@ -18,8 +19,8 @@ export interface WorkbenchHeaderProps {
   onOpenCommandPalette(): void
 }
 
-function hostLabel(status: ConnectionStatus, host: HostInfo | null): string {
-  if (status !== 'connected') return '重新连接中'
+function hostLabel(status: ConnectionStatus, host: HostInfo | null, reconnecting: string): string {
+  if (status !== 'connected') return reconnecting
   if (host?.platform === 'win32') return 'Windows Host'
   return 'Host'
 }
@@ -41,6 +42,7 @@ export default function WorkbenchHeader({
   onAddWorkspace,
   onOpenCommandPalette,
 }: WorkbenchHeaderProps) {
+  const { t } = useLocale()
   const connectionReady = status === 'connected'
 
   return (
@@ -50,8 +52,8 @@ export default function WorkbenchHeader({
         <button
           type="button"
           className="sidebar-toggle"
-          title={compact ? '打开会话侧栏' : '会话侧栏'}
-          aria-label="会话侧栏"
+          title={t('sessionSidebar')}
+          aria-label={t('sessionSidebar')}
           aria-expanded={sidebarOpen}
           onClick={onToggleSidebar}
         >
@@ -67,15 +69,15 @@ export default function WorkbenchHeader({
         <FolderOpen size={16} className="folder-icon" aria-hidden="true" />
         <label className="workspace-switcher">
           <span className="workspace-switcher-copy">
-            <span className="workspace-switcher-eyebrow">工作区</span>
+            <span className="workspace-switcher-eyebrow">{t('workspace')}</span>
             <select
               className="workspace-select"
-              aria-label="选择工作区"
+              aria-label={t('selectWorkspace')}
               value={workspaceId}
               onChange={(event) => onSelectWorkspace(event.target.value)}
             >
               <option value="" disabled>
-                选择工作区
+                {t('selectWorkspace')}
               </option>
               {workspaces.map((workspace) => (
                 <option value={workspace.id} key={workspace.id}>
@@ -89,8 +91,8 @@ export default function WorkbenchHeader({
         <button
           type="button"
           className="add-workspace"
-          title="添加工作区"
-          aria-label="添加工作区"
+          title={t('addWorkspace')}
+          aria-label={t('addWorkspace')}
           onClick={onAddWorkspace}
         >
           <Plus size={14} />
@@ -100,22 +102,22 @@ export default function WorkbenchHeader({
       <button
         type="button"
         className="top-command"
-        title="命令面板（Ctrl+Shift+P）"
-        aria-label="打开命令面板"
+        title={`${t('commandPalette')}（Ctrl+Shift+P）`}
+        aria-label={t('commandPalette')}
         onClick={onOpenCommandPalette}
       >
         <Command size={17} aria-hidden="true" />
-        <span>命令</span>
+        <span>{t('commandShort')}</span>
         <kbd>Ctrl⇧P</kbd>
       </button>
       <StatusBadge
         status={connectionReady ? 'success' : 'warning'}
         className={`host-status ${connectionReady ? 'success' : 'warning'}`}
         aria-live="polite"
-        title={connectionReady ? `已连接 · ${host?.version ?? 'Host'}` : '宿主连接正在恢复'}
+        title={connectionReady ? `${t('connected')} · ${host?.version ?? 'Host'}` : t('hostRecovering')}
         data-connection-status={status}
       >
-        <span className="host-status-text">{hostLabel(status, host)}</span>
+        <span className="host-status-text">{hostLabel(status, host, t('reconnecting'))}</span>
       </StatusBadge>
     </header>
   )
