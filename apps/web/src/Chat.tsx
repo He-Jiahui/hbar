@@ -45,17 +45,19 @@ import PromptComposer, { type AttachmentKind, type OpenFilePicker } from './Prom
 import ChatSessionChrome from './ChatSessionChrome'
 import GitContextSwitcher from './GitContextSwitcher'
 import TerminalPanel from './TerminalPanel'
+import { useLocale, type LocaleMessageKey } from './locale'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
+type Translate = (key: LocaleMessageKey) => string
 
-function goalStatusLabel(status: GoalStatus) {
+function goalStatusLabel(status: GoalStatus, t: Translate) {
   return {
-    active: '进行中',
-    paused: '已暂停',
-    blocked: '已阻塞',
-    usage_limited: '用量受限',
-    budget_limited: '预算受限',
-    complete: '已完成',
+    active: t('chatStatusActive'),
+    paused: t('chatStatusPaused'),
+    blocked: t('chatStatusBlocked'),
+    usage_limited: t('chatStatusUsageLimited'),
+    budget_limited: t('chatStatusBudgetLimited'),
+    complete: t('chatStatusComplete'),
   }[status]
 }
 
@@ -74,20 +76,21 @@ function QueuedRunList({
   onRemove(run: Run): void
   onReorder(runIds: string[]): void
 }) {
+  const { t } = useLocale()
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   if (!runs.length) return null
   return (
-    <section className="queue-panel rb-queue-surface" aria-label="排队消息">
+    <section className="queue-panel rb-queue-surface" aria-label={t('chatQueueAria')}>
       <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="queue-panel-heading">
         <div>
-          <strong>{runs.length} 条消息排队中</strong>
-          <small>当前运行结束后，将自动发送最上方的消息。</small>
+          <strong>{runs.length} {t('chatQueueCount')}</strong>
+          <small>{t('chatQueueAutoSend')}</small>
         </div>
         {activeRun && (
           <button type="button" className="queue-continue" onClick={onStopActive}>
-            中断当前并继续
+            {t('chatQueueContinue')}
           </button>
         )}
       </header>
@@ -119,13 +122,13 @@ function QueuedRunList({
           >
             <span className="queue-item-index">{index + 1}</span>
             <span className="queue-item-grip" aria-hidden="true">⋮⋮</span>
-            <span className="queue-item-text">{run.input.text || '附件消息'}</span>
+            <span className="queue-item-text">{run.input.text || t('chatAttachmentMessage')}</span>
             <div className="queue-item-actions">
-              <button type="button" title="重新编辑" aria-label="重新编辑排队消息" onClick={() => onEdit(run)}>
-                编辑
+              <button type="button" title={t('chatEditQueued')} aria-label={t('chatEditQueued')} onClick={() => onEdit(run)}>
+                {t('chatEdit')}
               </button>
-              <button type="button" title="删除排队消息" aria-label="删除排队消息" onClick={() => onRemove(run)}>
-                删除
+              <button type="button" title={t('chatRemoveQueued')} aria-label={t('chatRemoveQueued')} onClick={() => onRemove(run)}>
+                {t('chatRemove')}
               </button>
             </div>
           </li>
@@ -136,6 +139,7 @@ function QueuedRunList({
 }
 
 function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_result' }> }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false),
     [diff, setDiff] = useState<'after' | 'before'>('after')
   const details = block.details as { before?: string; after?: string; path?: string } | undefined
@@ -161,10 +165,10 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
             <>
               <div className="segmented">
                 <button className={diff === 'before' ? 'selected' : ''} onClick={() => setDiff('before')}>
-                  修改前
+                  {t('chatBefore')}
                 </button>
                 <button className={diff === 'after' ? 'selected' : ''} onClick={() => setDiff('after')}>
-                  修改后
+                  {t('chatAfter')}
                 </button>
                 <span>{details.path}</span>
               </div>
@@ -182,6 +186,7 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
 }
 
 function ToolCallView({ block }: { block: Extract<ContentBlock, { type: 'tool_call' }> }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const argumentSummary = String(block.args.path ?? block.args.command ?? '').slice(0, 160)
   return (
@@ -195,11 +200,11 @@ function ToolCallView({ block }: { block: Extract<ContentBlock, { type: 'tool_ca
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <Wrench size={13} />
         <span>{block.name}</span>
-        <code>{argumentSummary || '调用参数'}</code>
+        <code>{argumentSummary || t('chatCallArguments')}</code>
       </button>
       {open && (
         <div className="tool-call-content">
-          <span>参数</span>
+          <span>{t('chatArguments')}</span>
           <pre>{JSON.stringify(block.args, null, 2)}</pre>
         </div>
       )}
@@ -213,15 +218,16 @@ function approvalSummary(tool: string, args: Record<string, unknown>): string {
   return tool
 }
 
-function approvalImpact(tool: string): string {
+function approvalImpact(tool: string, t: Translate): string {
   const normalized = tool.toLocaleLowerCase()
-  if (/(write|edit|delete|move|rename|mkdir)/.test(normalized)) return '此操作将修改工作区中的文件或目录。'
-  if (/(terminal|shell|command|exec)/.test(normalized)) return '此操作将在本机执行命令，可能改变项目状态。'
-  if (/(browser|navigate|page)/.test(normalized)) return '此操作将访问或操作浏览器页面。'
-  return '此工具请求需要你的确认后才能继续。'
+  if (/(write|edit|delete|move|rename|mkdir)/.test(normalized)) return t('chatApprovalWorkspaceImpact')
+  if (/(terminal|shell|command|exec)/.test(normalized)) return t('chatApprovalTerminalImpact')
+  if (/(browser|navigate|page)/.test(normalized)) return t('chatApprovalBrowserImpact')
+  return t('chatApprovalConfirmImpact')
 }
 
 function UserInputPrompt({ request }: { request: UserInputRequest }) {
+  const { t } = useLocale()
   const [selected, setSelected] = useState<Record<string, string>>({})
   const [other, setOther] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
@@ -238,14 +244,14 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
       }),
     )
     if (request.questions.some((question) => !answers[question.id]?.answers.length)) {
-      setError('请回答所有问题')
+      setError(t('chatAnswerAllQuestions'))
       return
     }
     setError('')
     setSaving(true)
     try {
       const result = await client().call('user_input.resolve', { requestId: request.requestId, answers })
-      if (!result.accepted) setError('问题已由其他客户端处理或已取消')
+      if (!result.accepted) setError(t('chatInputHandled'))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -253,11 +259,11 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
     }
   }
   return (
-    <section className="user-input-prompt rb-decision-surface" aria-label="需要你的回答" aria-busy={saving}>
+    <section className="user-input-prompt rb-decision-surface" aria-label={t('chatUserInputRequired')} aria-busy={saving}>
       <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="user-input-heading">
-        <strong>需要你的回答</strong>
-        <span>{request.questions.length} 个问题</span>
+        <strong>{t('chatUserInputRequired')}</strong>
+        <span>{request.questions.length} {t('chatQuestionsCount')}</span>
       </div>
       <div className="user-input-questions">
         {request.questions.map((question) => (
@@ -278,7 +284,7 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
                     onChange={() => setSelected((current) => ({ ...current, [question.id]: option.label }))}
                   />
                   <span>
-                    <strong>{option.label}{option.recommended ? '（推荐）' : ''}</strong>
+                    <strong>{option.label}{option.recommended ? `（${t('chatRecommended')}）` : ''}</strong>
                     <small>{option.description}</small>
                   </span>
                 </label>
@@ -295,15 +301,15 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
                       onChange={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
                     />
                     <span>
-                      <strong>其他</strong>
+                      <strong>{t('chatOther')}</strong>
                       {selected[question.id] === '__other__' && (
                         <input
                           autoFocus
-                          aria-label={`${question.header} 其他答案`}
+                          aria-label={`${question.header} ${t('chatOtherAnswer')}`}
                           type={question.isSecret ? 'password' : 'text'}
                           value={other[question.id] ?? ''}
                           disabled={saving}
-                          placeholder="填写其他答案"
+                          placeholder={t('chatFillOtherAnswer')}
                           onChange={(event) =>
                             setOther((current) => ({ ...current, [question.id]: event.target.value }))
                           }
@@ -315,9 +321,9 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
               ) : (
                 <label className="user-input-option user-input-freeform">
                   <span>
-                    <strong>填写答案</strong>
+                    <strong>{t('chatFillAnswer')}</strong>
                     <input
-                      aria-label={`${question.header} 答案`}
+                      aria-label={`${question.header} ${t('chatAnswer')}`}
                       type={question.isSecret ? 'password' : 'text'}
                       value={other[question.id] ?? ''}
                       disabled={saving}
@@ -338,13 +344,14 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
       <div className="user-input-actions">
         <GlareButton type="button" className="button primary" disabled={saving} onClick={() => void submit()}>
           {saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
-          提交回答
+          {t('chatSubmitAnswers')}
         </GlareButton>
       </div>
     </section>
   )
 }
 function MessageView({ message }: { message: Message }) {
+  const { t } = useLocale()
   const [copied, setCopied] = useState(false)
   const text = message.content
     .filter((b) => b.type === 'text')
@@ -356,7 +363,7 @@ function MessageView({ message }: { message: Message }) {
       return (
         <details className="thinking rb-thinking-surface" key={index}>
           <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
-          <summary>思考过程</summary>
+          <summary>{t('chatThinking')}</summary>
           <Markdown text={block.text} />
         </details>
       )
@@ -394,7 +401,7 @@ function MessageView({ message }: { message: Message }) {
           <span className={`avatar ${message.role === 'user' ? 'avatar-user' : ''}`}>
             {message.role === 'user' ? 'U' : 'h'}
           </span>
-          <span>{message.role === 'user' ? '你' : 'hbar'}</span>
+          <span>{message.role === 'user' ? t('chatYou') : 'hbar'}</span>
           <time>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
         </div>
       )}
@@ -411,8 +418,8 @@ function MessageView({ message }: { message: Message }) {
       {text && message.role !== 'tool' && (
         <div className="message-actions">
           <button
-            title="复制消息"
-            aria-label="复制消息"
+            title={t('chatCopyMessage')}
+            aria-label={t('chatCopyMessage')}
             onClick={() => {
               void copyText(text)
                 .then(() => {
@@ -444,6 +451,7 @@ export default function Chat({
   onSelectSession(sessionId: string): void
   onUseWorktree(path: string): void | Promise<void>
 }) {
+  const { t } = useLocale()
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
@@ -493,7 +501,7 @@ export default function Chat({
         if (alive)
           setGitInfo({
             sha: status.head,
-            branch: status.root ? status.branch ?? '分离 HEAD' : null,
+            branch: status.root ? status.branch ?? t('chatDetachedHead') : null,
             originUrl: status.originUrl,
           })
         if (alive) setGitProject(Boolean(status.root))
@@ -640,7 +648,7 @@ export default function Chat({
     if (!selected) return
     const capacity = 12 - images.length - files.length
     if (capacity <= 0) {
-      report(new Error('一条消息最多附加 12 个文件'))
+      report(new Error(t('chatAttachmentLimit')))
       return
     }
     setUploading(true)
@@ -691,20 +699,20 @@ export default function Chat({
     ).catch(report)
   }
   const modeTags = sessionId && (capabilityState?.mode === 'plan' || capabilityState?.goal || capabilityState?.budget || capabilityState?.goalArmed || capabilityState?.unattended || budgetEditing) ? (
-    <div className="composer-mode-tags" aria-label="当前会话模式">
+    <div className="composer-mode-tags" aria-label={t('chatSessionModeAria')}>
       {capabilityState?.goalArmed && !capabilityState.goal && (
-        <span className="composer-mode-tag composer-mode-tag-active" title="下一条消息将创建 Goal 并立即执行">
-          <span>{capabilityState.mode === 'plan' && capabilityState.plan ? 'Goal · 计划转目标' : 'Goal · 待设置'}</span>
-          <button type="button" title="取消设置 Goal" aria-label="取消设置 Goal" onClick={() => setGoalArmed(sessionId, false)}><X size={12} /></button>
+        <span className="composer-mode-tag composer-mode-tag-active" title={t('chatGoalNextMessage')}>
+          <span>{capabilityState.mode === 'plan' && capabilityState.plan ? t('chatGoalArmedPlan') : t('chatGoalArmedPending')}</span>
+          <button type="button" title={t('chatCancelGoalSetup')} aria-label={t('chatCancelGoalSetup')} onClick={() => setGoalArmed(sessionId, false)}><X size={12} /></button>
         </span>
       )}
       {capabilityState?.mode === 'plan' && (
-        <span className={`composer-mode-tag${capabilityState.plan ? '' : ' composer-mode-tag-pending'}`} title="Plan 模式：只读探索并生成可审核计划">
-          <span>{capabilityState.plan ? `Plan · 已保存 ${capabilityState.plan.plan.length} 步` : 'Plan · 待保存结构化计划'}</span>
+        <span className={`composer-mode-tag${capabilityState.plan ? '' : ' composer-mode-tag-pending'}`} title={t('chatPlanModeTitle')}>
+          <span>{capabilityState.plan ? `${t('chatPlanSaved')} ${capabilityState.plan.plan.length} ${t('chatSteps')}` : t('chatPlanPending')}</span>
           <button
             type="button"
-            title="关闭 Plan 模式"
-            aria-label="关闭 Plan 模式"
+            title={t('chatClosePlan')}
+            aria-label={t('chatClosePlan')}
             onClick={() => void setMode(client(), sessionId, 'default').catch(report)}
           >
             <X size={12} />
@@ -712,13 +720,13 @@ export default function Chat({
         </span>
       )}
       {capabilityState?.goal && (
-        <span className="composer-mode-tag" title={`Goal：${capabilityState.goal.objective}`}>
-          <span>Goal · {goalStatusLabel(capabilityState.goal.status)}</span>
+        <span className="composer-mode-tag" title={`${t('chatGoalTitle')}：${capabilityState.goal.objective}`}>
+          <span>{t('chatGoalTitle')} · {goalStatusLabel(capabilityState.goal.status, t)}</span>
           {['active', 'paused'].includes(capabilityState.goal.status) && (
             <button
               type="button"
-              title={capabilityState.goal.status === 'active' ? '暂停 Goal' : '继续 Goal'}
-              aria-label={capabilityState.goal.status === 'active' ? '暂停 Goal' : '继续 Goal'}
+              title={capabilityState.goal.status === 'active' ? t('chatPauseGoal') : t('chatContinueGoal')}
+              aria-label={capabilityState.goal.status === 'active' ? t('chatPauseGoal') : t('chatContinueGoal')}
               onClick={() => {
                 const goalId = capabilityState.goal?.goalId
                 void setGoal(client(), sessionId, {
@@ -732,8 +740,8 @@ export default function Chat({
           )}
           <button
             type="button"
-            title="关闭 Goal 模式"
-            aria-label="关闭 Goal 模式"
+            title={t('chatCloseGoal')}
+            aria-label={t('chatCloseGoal')}
             onClick={() => void clearGoal(client(), sessionId).catch(report)}
           >
             <X size={12} />
@@ -741,12 +749,12 @@ export default function Chat({
         </span>
       )}
       {capabilityState?.budget && (
-        <span className="composer-mode-tag" title={`Budget：剩余 ${capabilityState.budget.remainingTokens.toLocaleString()} tokens`}>
-          <span>Budget · {capabilityState.budget.phase === 'exhausted' ? '已耗尽' : `${capabilityState.budget.usedTokens.toLocaleString()} / ${capabilityState.budget.limit.toLocaleString()}`}</span>
+        <span className="composer-mode-tag" title={`${t('chatBudgetTitle')}：${t('chatBudgetRemaining')} ${capabilityState.budget.remainingTokens.toLocaleString()} ${t('chatTokens')}`}>
+          <span>{t('chatBudgetTitle')} · {capabilityState.budget.phase === 'exhausted' ? t('chatBudgetExhausted') : `${capabilityState.budget.usedTokens.toLocaleString()} / ${capabilityState.budget.limit.toLocaleString()}`}</span>
           <button
             type="button"
-            title="关闭 Budget 模式"
-            aria-label="关闭 Budget 模式"
+            title={t('chatCloseBudget')}
+            aria-label={t('chatCloseBudget')}
             onClick={() => void clearBudget(client(), sessionId).catch(report)}
           >
             <X size={12} />
@@ -755,8 +763,8 @@ export default function Chat({
       )}
       {budgetEditing && (
         <span className="composer-mode-tag composer-mode-budget-editor">
-          <input aria-label="预算 token" type="number" min={1} value={budgetDraft} placeholder="默认预算" onChange={(event) => setBudgetDraft(event.target.value)} />
-          <button type="button" title="保存预算" aria-label="保存预算" onClick={() => {
+          <input aria-label={t('chatBudgetTokens')} type="number" min={1} value={budgetDraft} placeholder={t('chatDefaultBudget')} onChange={(event) => setBudgetDraft(event.target.value)} />
+          <button type="button" title={t('chatSaveBudget')} aria-label={t('chatSaveBudget')} onClick={() => {
             const value = Number(budgetDraft)
             const save = Number.isSafeInteger(value) && value > 0
               ? setBudget(client(), sessionId, value)
@@ -766,19 +774,19 @@ export default function Chat({
                 })
             void save.then(() => setBudgetEditing(false)).catch(report)
           }}>✓</button>
-          <button type="button" title="取消预算编辑" aria-label="取消预算编辑" onClick={() => setBudgetEditing(false)}><X size={12} /></button>
+          <button type="button" title={t('chatCancelBudget')} aria-label={t('chatCancelBudget')} onClick={() => setBudgetEditing(false)}><X size={12} /></button>
         </span>
       )}
       {capabilityState?.unattended ? (
-        <span className="composer-mode-tag composer-mode-tag-active" title="无人模式：有推荐选项时自动选择">
-          <span>无人模式</span>
-          <button type="button" title="关闭无人模式" aria-label="关闭无人模式" onClick={() => void setUnattended(client(), sessionId, false).catch(report)}><X size={12} /></button>
+        <span className="composer-mode-tag composer-mode-tag-active" title={t('chatUnattendedTitle')}>
+          <span>{t('chatUnattended')}</span>
+          <button type="button" title={t('chatCloseUnattended')} aria-label={t('chatCloseUnattended')} onClick={() => void setUnattended(client(), sessionId, false).catch(report)}><X size={12} /></button>
         </span>
       ) : (
         <button type="button" className="composer-unattended-toggle" onClick={() => {
-          if (window.confirm('无人模式会自动选择唯一推荐项，无推荐项时仍会暂停等待。继续开启？'))
+          if (window.confirm(t('chatUnattendedConfirm')))
             void setUnattended(client(), sessionId, true).catch(report)
-        }}>进入无人模式</button>
+        }}>{t('chatEnterUnattended')}</button>
       )}
     </div>
   ) : undefined
@@ -816,7 +824,7 @@ export default function Chat({
                 void loadOlder(sessionId).catch(report)
               }}
             >
-              加载更早的消息
+              {t('chatOlderMessages')}
             </button>
           )}
           <div
@@ -837,14 +845,14 @@ export default function Chat({
                   hbar
                   <span className="empty-dot" />
                 </div>
-                <h1>新会话</h1>
+                <h1>{t('chatNewSession')}</h1>
                 <div className="empty-context">
                   <FileCode2 size={15} />
-                  {catalog?.workspaces.find((w) => w.id === workspaceId)?.path ?? '未选择工作区'}
+                  {catalog?.workspaces.find((w) => w.id === workspaceId)?.path ?? t('chatNoWorkspace')}
                 </div>
                 {!catalog?.models.length && (
                   <button className="text-command" onClick={onSettings}>
-                    配置模型
+                    {t('chatConfigureModel')}
                   </button>
                 )}
               </div>
@@ -878,7 +886,7 @@ export default function Chat({
                   {stream.thinking && (
                     <details className="thinking rb-thinking-surface">
                       <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
-                      <summary>思考过程</summary>
+                      <summary>{t('chatThinking')}</summary>
                       <Markdown text={stream.thinking} streaming />
                     </details>
                   )}
@@ -890,7 +898,7 @@ export default function Chat({
               <div className={`run-outcome rb-run-outcome-surface ${lastRun.status === 'cancelled' ? '' : 'danger'}`}>
                 <GlassSurface className="run-outcome-glass" width="100%" height="100%" aria-hidden="true" />
                 <Square size={12} />
-                <span className="run-outcome-copy">{lastRun.status === 'cancelled' ? '已停止' : lastRun.error}</span>
+                <span className="run-outcome-copy">{lastRun.status === 'cancelled' ? t('chatStopped') : lastRun.error}</span>
                 <button
                   className="text-command"
                   onClick={() => {
@@ -901,7 +909,7 @@ export default function Chat({
                     })
                   }}
                 >
-                  重新编辑
+                  {t('chatEditAgain')}
                 </button>
               </div>
             )}
@@ -910,8 +918,8 @@ export default function Chat({
           {!atBottom && (
             <button
               className="scroll-bottom"
-              title="回到底部"
-              aria-label="回到底部"
+              title={t('chatScrollBottom')}
+              aria-label={t('chatScrollBottom')}
               onClick={() => {
                 stick.current = true
                 if (scroll.current) scroll.current.scrollTo({ top: scroll.current.scrollHeight, behavior: 'smooth' })
@@ -933,14 +941,14 @@ export default function Chat({
                 <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
                 <div className="approval-heading">
                   <ShieldCheck size={16} />
-                  <strong>批准工具调用</strong>
+                  <strong>{t('chatApproveTool')}</strong>
                   <code>{approval.tool}</code>
                 </div>
                 <div className="approval-target">
-                  <p className="approval-impact">{approvalImpact(approval.tool)}</p>
+                  <p className="approval-impact">{approvalImpact(approval.tool, t)}</p>
                   <strong>{approvalSummary(approval.tool, approval.args)}</strong>
                   <details>
-                    <summary>查看请求</summary>
+                    <summary>{t('chatViewRequest')}</summary>
                     <pre>{JSON.stringify(approval.args, null, 2)}</pre>
                   </details>
                 </div>
@@ -955,7 +963,7 @@ export default function Chat({
                     ) : (
                       <X size={14} />
                     )}
-                    拒绝
+                    {t('chatDeny')}
                   </button>
                   <GlareButton
                     className="button primary"
@@ -968,7 +976,7 @@ export default function Chat({
                     ) : (
                       <Check size={14} />
                     )}
-                    批准
+                    {t('chatApprove')}
                   </GlareButton>
                   <button
                     className="button approval-remember"
@@ -980,7 +988,7 @@ export default function Chat({
                     ) : (
                       <ShieldCheck size={14} />
                     )}
-                    允许并记住
+                    {t('chatAllowRemember')}
                   </button>
                 </div>
               </section>
@@ -1038,15 +1046,15 @@ export default function Chat({
             />
             <div className="composer-footer">
               <span className="composer-footer-model">
-                {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}
+                {capabilityState?.mode === 'plan' ? t('chatPlanMode') : t('chatDefaultMode')}
                 {capabilityState?.budget && (
-                  <em title="当前会话 token 预算">
-                    预算 {capabilityState.budget.remainingTokens.toLocaleString()} /{' '}
+                  <em title={t('chatSessionBudget')}>
+                    {t('chatBudget')} {capabilityState.budget.remainingTokens.toLocaleString()} /{' '}
                     {capabilityState.budget.limit.toLocaleString()}
                   </em>
                 )}
                 <small>
-                  {modelId ? catalog?.models.find((model) => model.id === modelId)?.model : '未配置模型'} ·{' '}
+                  {modelId ? catalog?.models.find((model) => model.id === modelId)?.model : t('chatUnconfiguredModel')} ·{' '}
                   {modelThinkingLabel(thinkingLevel)}
                 </small>
               </span>
