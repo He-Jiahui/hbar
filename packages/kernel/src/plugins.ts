@@ -126,6 +126,10 @@ function packageId(manifest: PluginManifest) {
   return manifest.packageName ?? manifest.id
 }
 
+function installationKey(id: string, projectId?: string): string {
+  return `${projectId ?? ''}\u0000${id}`
+}
+
 export function packageDependencyOrder(manifests: PluginManifest[]): string[] {
   const byPackage = new Map(manifests.map((manifest) => [packageId(manifest), manifest]))
   if (byPackage.size !== manifests.length) throw new HbarError('PLUGIN_CONFLICT', 'Duplicate plugin package id')
@@ -160,7 +164,7 @@ export function packageDependencyOrder(manifests: PluginManifest[]): string[] {
     }
     visiting.delete(id)
     visited.add(id)
-    order.push(manifest.id)
+    order.push(id)
   }
   for (const manifest of manifests) visit(manifest, [])
   return order
@@ -221,8 +225,24 @@ export class PluginManager {
   private entries = new Map<string, Installed>()
   private mounted: string[] = []
   private scopes = new Map<string, Promise<RuntimeScope>>()
+  private findEntry(id: string, projectId?: string): Installed | undefined {
+    if (projectId !== undefined) return this.entries.get(installationKey(id, projectId))
+    return this.entries.get(installationKey(id)) ?? [...this.entries.values()].find((entry) => packageId(entry.plugin.manifest) === id)
+  }
   private scopedEntries(projectId?: string): Installed[] {
-    return [...this.entries.values()].filter((entry) => !projectId || !entry.projectId || entry.projectId === projectId)
+    return [...this.entries.values()].filter((entry) => projectId === undefined || !entry.projectId || entry.projectId === projectId)
+  }
+  private runtimeEntries(projectId?: string): Installed[] {
+    const candidates = projectId === undefined
+      ? this.scopedEntries().filter((entry) => !entry.projectId)
+      : this.scopedEntries(projectId)
+    const byPackage = new Map<string, Installed>()
+    for (const entry of candidates) {
+      const id = packageId(entry.plugin.manifest)
+      const existing = byPackage.get(id)
+      if (!existing || (entry.projectId === projectId && existing.projectId !== projectId)) byPackage.set(id, entry)
+    }
+    return [...byPackage.values()]
   }
   constructor(
     private storage: StoragePort,
@@ -267,8 +287,9 @@ export class PluginManager {
   }
   add(plugin: HbarPlugin, path?: string, projectId?: string) {
     const manifest = manifestSchema.parse(plugin.manifest)
-    if (this.entries.has(manifest.id)) throw new HbarError('PLUGIN_CONFLICT', `Already installed: ${manifest.id}`)
-    this.entries.set(manifest.id, {
+    const key = installationKey(manifest.id, projectId)
+    if (this.entries.has(key)) throw new HbarError('PLUGIN_CONFLICT', `Already installed: ${manifest.id}`)
+    this.entries.set(key, {
       plugin,
       enabled: true,
       config: {},
@@ -301,7 +322,7 @@ export class PluginManager {
   }
   replace(id: string, plugin: HbarPlugin) {
     if (this.mounted.length) throw new HbarError('RESTART_REQUIRED', 'Provider replacement requires a Host restart')
-    const existing = this.entries.get(id)
+    const existing = this.findEntry(id)
     if (!existing) throw new HbarError('NOT_FOUND', `No default plugin ${id}`)
     if (id === 'storage.sqlite') throw new HbarError('STORAGE_PROFILE', 'Select storage through profile.createStorage')
     for (const [name, version] of Object.entries(existing.plugin.manifest.provides ?? {})) {
@@ -310,7 +331,7 @@ export class PluginManager {
     }
     if (plugin.manifest.scope !== existing.plugin.manifest.scope)
       throw new HbarError('PLUGIN_SCOPE', 'Replacement must use the same scope')
-    this.entries.delete(id)
+    this.entries.delete(installationKey(existing.info.id, existing.projectId))
     this.add({
       ...plugin,
       manifest: {
@@ -318,7 +339,7 @@ export class PluginManager {
         required: existing.plugin.manifest.required,
         restartRequired: existing.plugin.manifest.restartRequired,
       },
-    })
+    }, existing.path, existing.projectId)
   }
   async loadLocal(path: string, projectId?: string) {
     const root = await realpath(path)
@@ -364,11 +385,11 @@ export class PluginManager {
         if (!result.success) throw new AggregateError(result.logs, 'Client plugin build failed')
         if (result.outputs.length !== 1)
           throw new HbarError('PLUGIN_MANIFEST', 'Client entry must bundle into one self-contained JavaScript module')
-        const installed = this.entries.get(plugin.manifest.id)!
+        const installed = this.findEntry(plugin.manifest.id, projectId)!
         installed.clientCode = await result.outputs[0]!.text()
         installed.info.clientEntry = `/api/plugins/${encodeURIComponent(installed.info.id)}/client.js?v=${createHash('sha256').update(installed.clientCode).digest('hex').slice(0, 12)}`
       } catch (error) {
-        this.entries.delete(plugin.manifest.id)
+        this.entries.delete(installationKey(plugin.manifest.id, projectId))
         throw error
       }
     }
@@ -376,18 +397,18 @@ export class PluginManager {
   }
   async start() {
     for (const stored of await this.storage.call('plugins')) {
-      if (stored.path && !this.entries.has(stored.id)) {
+      const relativePath = this.options.pluginRoot && stored.path
+        ? relative(this.options.pluginRoot, stored.path).replaceAll('\\', '/')
+        : ''
+      const projectId = stored.projectId ?? (relativePath.startsWith('projects/') ? relativePath.split('/')[1] : undefined)
+      if (stored.path && !this.findEntry(stored.id, projectId)) {
         try {
-          const relativePath = this.options.pluginRoot
-            ? relative(this.options.pluginRoot, stored.path).replaceAll('\\', '/')
-            : ''
-          const projectId = stored.projectId ?? (relativePath.startsWith('projects/') ? relativePath.split('/')[1] : undefined)
           await this.loadLocal(stored.path, projectId)
         } catch (error) {
           console.error(`Plugin ${stored.id}:`, error)
         }
       }
-      const entry = this.entries.get(stored.id)
+      const entry = this.findEntry(stored.id, projectId)
       if (entry) {
         entry.enabled = Boolean(entry.plugin.manifest.required) || stored.enabled
         entry.config = stored.config
@@ -411,11 +432,13 @@ export class PluginManager {
     const tools = new Tools(parent?.tools ?? this.api.tools),
       hooks = new Hooks(parent?.hooks ?? this.api.hooks)
     const workspaceId = descriptor.workspaceId
-    const entries = [...this.entries.values()].filter(
-      (entry) => entry.enabled && (!entry.projectId || entry.projectId === workspaceId),
-    )
+    const entries = this.runtimeEntries(workspaceId).filter((entry) => entry.enabled)
     const order = dependencyOrder(entries.map((e) => e.plugin.manifest))
-    const local = order.map((key) => this.entries.get(key)!).filter((e) => e.plugin.manifest.scope === kind)
+    const byPackage = new Map(entries.flatMap((entry) => [
+      [entry.plugin.manifest.id, entry] as const,
+      [packageId(entry.plugin.manifest), entry] as const,
+    ]))
+    const local = order.map((key) => byPackage.get(key)).filter((entry): entry is Installed => Boolean(entry)).filter((e) => e.plugin.manifest.scope === kind)
     let owned!: Context
     const fiber = (parent?.ctx ?? this.ctx).plugin({
       name: `scope:${kind}:${id}`,
@@ -468,12 +491,19 @@ export class PluginManager {
     }
   }
   private async mountAll() {
-    const active = [...this.entries.values()].filter((entry) => entry.enabled && !entry.projectId)
+    const active = this.runtimeEntries().filter((entry) => entry.enabled)
     packageDependencyOrder(active.map((entry) => entry.plugin.manifest))
     const order = dependencyOrder(active.map((entry) => entry.plugin.manifest))
+    // dependencyOrder returns manifest ids (not package names); keep the
+    // package-name deduplication in runtimeEntries but resolve the mount order
+    // through the public manifest id here.
+    const byPackage = new Map(active.flatMap((entry) => [
+      [entry.plugin.manifest.id, entry] as const,
+      [packageId(entry.plugin.manifest), entry] as const,
+    ]))
     try {
       for (const id of order) {
-        const entry = this.entries.get(id)!
+        const entry = byPackage.get(id)!
         const manifest = entry.plugin.manifest
         const config = entry.plugin.configSchema ? entry.plugin.configSchema.parse(entry.config) : entry.config
         if (manifest.scope !== 'host') {
@@ -496,7 +526,7 @@ export class PluginManager {
           },
         })
         entry.dispose = fiber.dispose
-        this.mounted.push(id)
+        this.mounted.push(installationKey(entry.info.id, entry.projectId))
         await fiber.await()
         if (startupError) throw startupError
         fiber.assertActive()
@@ -511,16 +541,17 @@ export class PluginManager {
   private async unmountAll() {
     for (const scope of [...this.scopes.values()].reverse()) await (await scope).dispose()
     this.scopes.clear()
-    for (const id of [...this.mounted].reverse()) {
-      const entry = this.entries.get(id)!
+    for (const key of [...this.mounted].reverse()) {
+      const entry = this.entries.get(key)
+      if (!entry) continue
       await entry.dispose?.()
       entry.dispose = undefined
       entry.info.status = 'disabled'
     }
     this.mounted = []
   }
-  async set(id: string, enabled: boolean, config?: Record<string, unknown>) {
-    const entry = this.entries.get(id)
+  async set(id: string, enabled: boolean, config?: Record<string, unknown>, projectId?: string) {
+    const entry = this.findEntry(id, projectId)
     if (!entry) throw new HbarError('NOT_FOUND', 'Plugin not found')
     if (entry.plugin.manifest.required && !enabled)
       throw new HbarError('REQUIRED_PLUGIN', 'This capability is required by the active profile')
@@ -530,7 +561,7 @@ export class PluginManager {
       [...this.entries].map(([key, value]) => [key, { enabled: value.enabled, config: value.config }]),
     )
     if (enabled) {
-      const byPackage = new Map([...this.entries.values()].map((value) => [packageId(value.plugin.manifest), value]))
+      const byPackage = new Map(this.runtimeEntries(projectId).map((value) => [packageId(value.plugin.manifest), value]))
       const enable = (value: Installed, chain: string[]) => {
         const name = packageId(value.plugin.manifest)
         if (chain.includes(name)) throw new HbarError('PLUGIN_CYCLE', [...chain, name].join(' -> '))
@@ -552,7 +583,7 @@ export class PluginManager {
       enable(entry, [])
     } else {
       const name = packageId(entry.plugin.manifest)
-      const dependent = [...this.entries.values()].find(
+      const dependent = this.runtimeEntries(projectId).find(
         (value) =>
           value.enabled &&
           value !== entry &&
@@ -567,15 +598,15 @@ export class PluginManager {
     }
     entry.config = config ?? entry.config
     try {
-      packageDependencyOrder([...this.entries.values()].filter((e) => e.enabled).map((e) => e.plugin.manifest))
-      dependencyOrder([...this.entries.values()].filter((e) => e.enabled).map((e) => e.plugin.manifest))
+      packageDependencyOrder(this.runtimeEntries(projectId).filter((e) => e.enabled).map((e) => e.plugin.manifest))
+      dependencyOrder(this.runtimeEntries(projectId).filter((e) => e.enabled).map((e) => e.plugin.manifest))
       entry.plugin.configSchema?.parse(entry.config)
       await this.unmountAll()
       await this.mountAll()
       await this.storage.call(
         'setPlugins',
-        [...this.entries].map(([key, value]) => ({
-          id: key,
+        [...this.entries].map(([, value]) => ({
+          id: value.info.id,
           enabled: value.enabled,
           config: value.config,
           path: value.path,
@@ -591,7 +622,7 @@ export class PluginManager {
       await this.storage.call(
         'setPlugins',
         [...old].map(([key, state]) => ({
-          id: key,
+          id: this.entries.get(key)?.info.id ?? key.slice(key.indexOf('\u0000') + 1),
           enabled: state.enabled,
           config: state.config,
           path: this.entries.get(key)?.path,
@@ -604,7 +635,7 @@ export class PluginManager {
     return this.list()
   }
   async disableTree(id: string, projectId?: string) {
-    const root = this.entries.get(id)
+    const root = this.findEntry(id, projectId)
     if (!root) throw new HbarError('NOT_FOUND', 'Plugin not found')
     if (projectId && root.projectId && root.projectId !== projectId)
       throw new HbarError('PLUGIN_SCOPE', `Plugin ${id} is not installed in project ${projectId}`)
@@ -613,7 +644,7 @@ export class PluginManager {
     let changed = true
     while (changed) {
       changed = false
-      for (const entry of this.scopedEntries(projectId)) {
+      for (const entry of this.runtimeEntries(projectId)) {
         const manifest = entry.plugin.manifest
         const dependencies = new Set([
           ...Object.keys(manifest.dependencies ?? {}),
@@ -625,18 +656,19 @@ export class PluginManager {
         }
       }
     }
-    const selected = this.scopedEntries(projectId).filter((entry) => entry.enabled && affected.has(packageId(entry.plugin.manifest)))
+    const selected = this.runtimeEntries(projectId).filter((entry) => entry.enabled && affected.has(packageId(entry.plugin.manifest)))
     const required = selected.find((entry) => entry.plugin.manifest.required)
     if (required) throw new HbarError('REQUIRED_PLUGIN', `${packageId(required.plugin.manifest)} is required and cannot be disabled`)
     const old = new Map([...this.entries].map(([key, value]) => [key, { enabled: value.enabled, config: value.config }]))
     for (const entry of selected) entry.enabled = false
     try {
-      dependencyOrder([...this.entries.values()].filter((entry) => entry.enabled).map((entry) => entry.plugin.manifest))
+      packageDependencyOrder(this.runtimeEntries(projectId).filter((entry) => entry.enabled).map((entry) => entry.plugin.manifest))
+      dependencyOrder(this.runtimeEntries(projectId).filter((entry) => entry.enabled).map((entry) => entry.plugin.manifest))
       await this.unmountAll()
       await this.mountAll()
       await this.storage.call(
         'setPlugins',
-        [...this.entries].map(([key, value]) => ({ id: key, enabled: value.enabled, config: value.config, path: value.path, ...(value.projectId ? { projectId: value.projectId } : {}) })),
+        [...this.entries].map(([, value]) => ({ id: value.info.id, enabled: value.enabled, config: value.config, path: value.path, ...(value.projectId ? { projectId: value.projectId } : {}) })),
       )
       await this.writeLock()
       return this.list()
@@ -647,7 +679,7 @@ export class PluginManager {
       }
       await this.storage.call(
         'setPlugins',
-        [...old].map(([key, state]) => ({ id: key, enabled: state.enabled, config: state.config, path: this.entries.get(key)?.path, ...(this.entries.get(key)?.projectId ? { projectId: this.entries.get(key)?.projectId } : {}) })),
+        [...old].map(([key, state]) => ({ id: this.entries.get(key)?.info.id ?? key.split('\u0000').at(-1)!, enabled: state.enabled, config: state.config, path: this.entries.get(key)?.path, ...(this.entries.get(key)?.projectId ? { projectId: this.entries.get(key)?.projectId } : {}) })),
       )
       if (!this.mounted.length) await this.mountAll()
       throw error
@@ -662,7 +694,7 @@ export class PluginManager {
     let installedTree = false
     try {
       const pkg = await readPluginPackage(staged.root)
-      if (this.entries.has(pkg.name)) throw new HbarError('PLUGIN_CONFLICT', `Already installed: ${pkg.name}`)
+      if (this.findEntry(pkg.name, projectId)) throw new HbarError('PLUGIN_CONFLICT', `Already installed: ${pkg.name}`)
       if (pkg.hbar.scope === 'project' && !projectId)
         throw new HbarError('PLUGIN_SCOPE', 'Project plugin installation requires a project id')
       destination = pluginDirectory(
@@ -674,25 +706,26 @@ export class PluginManager {
       await installPluginTree(staged.root, destination)
       installedTree = true
       id = await this.loadLocal(destination, projectId)
-      const entry = this.entries.get(id)!
+      const entry = this.findEntry(id, projectId)!
       entry.enabled = false
-      return await this.set(id, true)
+      return await this.set(id, true, undefined, projectId)
     } catch (error) {
-      if (id) this.entries.delete(id)
+      if (id) this.entries.delete(installationKey(id, projectId))
       if (installedTree) await rm(destination, { recursive: true, force: true })
       throw error
     } finally {
       await staged.cleanup()
     }
   }
-  async remove(id: string) {
-    const entry = this.entries.get(id)
+  async remove(id: string, projectId?: string) {
+    const entry = this.findEntry(id, projectId)
     if (!entry) throw new HbarError('NOT_FOUND', 'Plugin not found')
     if (entry.plugin.manifest.required) throw new HbarError('REQUIRED_PLUGIN', 'Required plugins cannot be removed')
     if (entry.enabled) throw new HbarError('PLUGIN_ACTIVE', 'Disable the plugin before removing it')
-    this.entries.delete(id)
+    const key = installationKey(entry.info.id, entry.projectId)
+    this.entries.delete(key)
     try {
-      await this.storage.call('removePlugin', id, entry.projectId)
+      await this.storage.call('removePlugin', entry.info.id, entry.projectId)
       await this.writeLock()
       if (entry.path && this.options.pluginRoot) {
         const rel = relative(this.options.pluginRoot, entry.path)
@@ -701,14 +734,14 @@ export class PluginManager {
         await rm(entry.path, { recursive: true, force: true })
       }
     } catch (error) {
-      this.entries.set(id, entry)
-      await this.storage.call('setPlugin', id, entry.enabled, entry.config, entry.path, entry.projectId)
+      this.entries.set(key, entry)
+      await this.storage.call('setPlugin', entry.info.id, entry.enabled, entry.config, entry.path, entry.projectId)
       throw error
     }
     return this.list()
   }
   graph(projectId?: string) {
-    const scoped = this.scopedEntries(projectId)
+    const scoped = projectId === undefined ? this.scopedEntries() : this.runtimeEntries(projectId)
     const nodes = scoped.map((entry) => ({
       id: packageId(entry.plugin.manifest),
       version: entry.plugin.manifest.version,
@@ -740,7 +773,7 @@ export class PluginManager {
     return { nodes, edges }
   }
   resolve(id?: string) {
-    const entries = [...this.entries.values()].filter((entry) => entry.enabled || entry.info.id === id)
+    const entries = [...this.runtimeEntries()].filter((entry) => entry.enabled || entry.info.id === id)
     const order = packageDependencyOrder(entries.map((entry) => entry.plugin.manifest))
     dependencyOrder(entries.map((entry) => entry.plugin.manifest))
     return { order, enabled: entries.map((entry) => entry.info.id) }
@@ -757,7 +790,7 @@ export class PluginManager {
   }
   private async lockData(projectId?: string) {
     const plugins: Record<string, unknown> = {}
-    for (const entry of this.scopedEntries(projectId)) {
+    for (const entry of projectId === undefined ? this.scopedEntries() : this.runtimeEntries(projectId)) {
       if (!entry.path) continue
       const manifest = entry.plugin.manifest
       plugins[packageId(manifest)] = {
@@ -796,13 +829,13 @@ export class PluginManager {
     }))
   }
   clientCode(id: string): string {
-    const entry = this.entries.get(id)
+    const entry = this.findEntry(id)
     if (entry?.info.status !== 'active' || !entry.clientCode)
       throw new HbarError('NOT_FOUND', 'Active client plugin not found')
     return entry.clientCode
   }
   async assetPath(id: string, assetPath: string): Promise<string> {
-    const entry = this.entries.get(id)
+    const entry = this.findEntry(id)
     if (!entry?.path || entry.info.status !== 'active') throw new HbarError('NOT_FOUND', 'Active plugin asset not found')
     const normalized = assetPath.replaceAll('\\', '/')
     if (!normalized.startsWith('assets/') || normalized.includes('..') || isAbsolute(normalized))
