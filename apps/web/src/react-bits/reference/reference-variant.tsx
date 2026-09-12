@@ -1,10 +1,94 @@
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { ArrowRight, Check, ChevronDown, FileText, Plus, Send, Sparkles, Upload, Wrench, X } from 'lucide-react'
 import { FloatingSurface } from '../../FloatingLayer'
 import type { ReferenceFixtureProps } from './reference-types'
 import { ReferenceBlueprint } from './ReferenceBlueprints'
 import { ReferenceButton } from './primitives/ReferencePrimitives'
 import { reportFixtureClick } from './reference-interactions'
+import { CHAT_PREVIEWS, PROMPT_PREVIEWS } from './reference-preview-data'
+
+type ReferenceModelDetail = {
+  readonly provider: string
+  readonly context: string
+  readonly speed: string
+  readonly cost: string
+  readonly description: string
+  readonly reasoning: 'Brief' | 'Balanced' | 'Detailed' | 'Not supported'
+  readonly reasoningLevels: readonly ('Brief' | 'Balanced' | 'Detailed')[]
+  readonly reasoningNote: string
+}
+
+const referenceModelDetails: Record<string, ReferenceModelDetail> = {
+  Auto: {
+    provider: 'Northwind AI',
+    context: '200K tokens',
+    speed: 'Varies by turn',
+    cost: 'Metered',
+    description: 'Routes every turn to whichever model fits the request best.',
+    reasoning: 'Balanced',
+    reasoningLevels: ['Brief', 'Balanced', 'Detailed'],
+    reasoningNote: 'Thinks through the request before answering.',
+  },
+  Atlas: {
+    provider: 'Meridian Labs',
+    context: '200K tokens',
+    speed: 'Standard',
+    cost: '4 credits per turn',
+    description: 'The strongest general model. Best for multi-step work that spans several files.',
+    reasoning: 'Balanced',
+    reasoningLevels: ['Brief', 'Balanced', 'Detailed'],
+    reasoningNote: 'Thinks through the request before answering.',
+  },
+  'Atlas Long': {
+    provider: 'Meridian Labs',
+    context: '1M tokens',
+    speed: 'Slower to first token',
+    cost: '9 credits per turn',
+    description: 'Atlas with a one million token window for whole repositories and long transcripts.',
+    reasoning: 'Detailed',
+    reasoningLevels: ['Detailed'],
+    reasoningNote: 'Plans at length and checks its own work.',
+  },
+  Quill: {
+    provider: 'Meridian Labs',
+    context: '128K tokens',
+    speed: 'Fast',
+    cost: '2 credits per turn',
+    description: 'Tuned for drafting and rewriting prose. Keeps tone and structure steady.',
+    reasoning: 'Not supported',
+    reasoningLevels: [],
+    reasoningNote: 'This model answers directly and has no thinking budget to set.',
+  },
+  Ember: {
+    provider: 'Orbital',
+    context: '64K tokens',
+    speed: 'Fastest',
+    cost: '1 credit per turn',
+    description: 'Quick and inexpensive. Good for small edits and short answers.',
+    reasoning: 'Brief',
+    reasoningLevels: ['Brief', 'Balanced'],
+    reasoningNote: 'Answers immediately with little planning.',
+  },
+  Wren: {
+    provider: 'Orbital',
+    context: '32K tokens',
+    speed: 'Depends on hardware',
+    cost: 'Free',
+    description: 'Runs locally. Nothing in the conversation leaves this machine.',
+    reasoning: 'Not supported',
+    reasoningLevels: [],
+    reasoningNote: 'This model answers directly and has no thinking budget to set.',
+  },
+}
+
+const referenceModelOptions: readonly [name: string, badge: string, provider: string][] = [
+  ['Auto', 'Recommended', 'Northwind AI'],
+  ['Atlas', '', 'Meridian Labs'],
+  ['Atlas Long', '1M context', 'Meridian Labs'],
+  ['Quill', '', 'Meridian Labs'],
+  ['Ember', '', 'Orbital'],
+  ['Wren', 'On device', 'Orbital'],
+]
 
 export function ChatReferenceFixture({ definition, onInteraction }: ReferenceFixtureProps) {
   const [modelOpen, setModelOpen] = useState(false)
@@ -12,32 +96,40 @@ export function ChatReferenceFixture({ definition, onInteraction }: ReferenceFix
   const [message, setMessage] = useState('')
   const [selectedModel, setSelectedModel] = useState('Atlas')
   const [reasoning, setReasoning] = useState('Balanced')
+  const [artifactTab, setArtifactTab] = useState('Preview')
+  const [approvalDecision, setApprovalDecision] = useState<'pending' | 'approved' | 'kept'>('pending')
+  const selectedModelDetail: ReferenceModelDetail = referenceModelDetails[selectedModel] ?? referenceModelDetails.Atlas!
   const variant = definition.variantSlug
-  const isEmpty = variant === 'ai-chat-3' || variant === 'prompt-input-3'
-  const isApproval = variant === 'ai-chat-5'
-  const isArtifact = variant === 'ai-chat-2'
-  const isPinned = variant === 'ai-chat-7'
-  const isUsage = variant === 'ai-chat-4' || variant === 'prompt-input-2'
-  const isReasoning = variant === 'ai-chat-1'
-  const isAttachment = variant === 'ai-chat-1' || variant === 'prompt-input-1' || variant === 'prompt-input-5'
-  if (isEmpty) return <div className="rb-reference-chat rb-reference-chat-empty" onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><div className="rb-reference-empty-icon"><Sparkles size={20} /></div><strong>Start a new conversation</strong><p>Choose a suggested prompt or type a request to begin.</p><div className="rb-reference-chip-row"><button>Inspect workspace</button><button>Summarize changes</button><button>Draft a plan</button></div><footer className="rb-reference-composer"><textarea aria-label="Message" placeholder="Message" /></footer></div>
+  const config = CHAT_PREVIEWS[variant] ?? {
+    heading: definition.title,
+    model: 'Atlas',
+    userMessages: ['Ask the assistant to inspect the current workspace.'],
+    assistantMessages: ['The fixture is ready to show the next response state.'],
+    composerPlaceholder: 'Message',
+  }
+  const selectedModelSummary = selectedModelDetail.reasoning === 'Not supported' ? 'Not supported' : reasoning
+  const selectModel = (name: string) => {
+    setSelectedModel(name)
+    const next = referenceModelDetails[name]
+    if (next && next.reasoningLevels.length > 0) setReasoning(next.reasoning)
+  }
+  if (config.empty) return <div className="rb-reference-chat rb-reference-chat-empty" onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><div className="rb-reference-empty-icon"><Sparkles size={20} /></div><strong>{config.heading}</strong><p>{config.subheading ?? 'Choose a suggestion or type a request to begin.'}</p><div className="rb-reference-chip-row">{(config.labels ?? []).map((label) => <button type="button" key={label} onClick={() => setMessage(label)}>{label}</button>)}</div><footer className="rb-reference-composer"><textarea aria-label="Message" placeholder={config.composerPlaceholder} value={message} onChange={(event) => setMessage(event.target.value)} /></footer></div>
   return (
-    <div className="rb-reference-chat" onClickCapture={(event) => reportFixtureClick(event, onInteraction)}>
+    <div className={`rb-reference-chat rb-reference-chat-${variant}`} onClickCapture={(event) => reportFixtureClick(event, onInteraction)}>
       <header className="rb-reference-chat-header">
-        <div><strong>{definition.title}</strong><small>Depot capacity model</small></div>
-        {variant === 'ai-chat-9' ? <span className="rb-reference-model-summary"><Sparkles size={13} /> {selectedModel} · {reasoning}</span> : <button ref={modelTrigger} className="rb-reference-model-trigger" onClick={() => setModelOpen((open) => !open)} aria-expanded={modelOpen}>
-          <Sparkles size={14} /> Atlas · Balanced <ChevronDown size={13} />
-        </button>}
+        <div><strong>{config.heading}</strong><small>{config.status ?? config.model}</small></div>
+        {variant === 'ai-chat-9' ? <span className="rb-reference-model-summary"><Sparkles size={13} /> {selectedModel} · {selectedModelSummary}</span> : <span className="rb-reference-model-summary"><Sparkles size={13} /> {config.model}{config.status ? ` · ${config.status}` : ''}</span>}
       </header>
-      {isPinned && <div className="rb-reference-pinned-context"><span aria-hidden="true">◆</span> Pinned context <span>Workspace · 4 files</span></div>}
-      {isUsage && <div className="rb-reference-usage-strip"><span>Live context</span><strong>18.4k / 128k tokens</strong><i><b /></i></div>}
+      {config.pinnedContext && <div className="rb-reference-pinned-context"><span aria-hidden="true">◆</span> {config.pinnedContext}<span>Workspace context</span></div>}
+      {config.usage && <div className="rb-reference-usage-strip"><span>Live context</span><strong>{config.usage}</strong><i><b /></i></div>}
       <div className="rb-reference-chat-body">
-        <div className="rb-reference-message rb-reference-message-user">Model depot capacity for the next release window.</div>
-        {isArtifact && <aside className="rb-reference-artifact-panel"><header><strong>Capacity model</strong><button aria-label="Close artifact"><X size={13} /></button></header><nav><button className="selected">Preview</button><button>Code</button><button>Document</button></nav><pre>{'capacity = demand * safetyFactor\nreturn capacity.withinRange()'}</pre></aside>}
-        <div className="rb-reference-message rb-reference-message-assistant"><span className="rb-reference-avatar">A</span><div><strong>Atlas</strong>{isReasoning && <details open className="rb-reference-reasoning"><summary>Reasoning complete</summary><p>Checked demand, safety margin, and workspace assumptions.</p></details>}<p>Capacity is projected to remain within the balanced operating range. I can break down the assumptions or inspect the attached context.</p><div className="rb-reference-tool-row"><Wrench size={13} /> Context analysis <span>complete</span></div></div></div>
-        {isApproval && <div className="rb-reference-approval-card"><div><strong>Allow workspace write?</strong><p>This action will update the capacity model file in the selected workspace.</p></div><button className="danger">Deny</button><button className="primary">Approve</button></div>}
+        {config.userMessages.map((userMessage, index) => <Fragment key={`${userMessage}-${index}`}><div className="rb-reference-message rb-reference-message-user">{userMessage}</div>{config.assistantMessages[index] && <div className="rb-reference-message rb-reference-message-assistant"><span className="rb-reference-avatar">{config.model.slice(0, 1)}</span><div><strong>{config.model}</strong>{variant === 'ai-chat-1' && index === 0 && <details open className="rb-reference-reasoning"><summary>Thought for 4s</summary><p>Checked the relevant workspace assumptions before answering.</p></details>}<p>{config.assistantMessages[index]}</p>{config.toolLabel && index === 0 && <div className="rb-reference-tool-row"><Wrench size={13} /> {config.toolLabel}</div>}</div></div>}</Fragment>)}
+        {config.sourceLabels && <div className="rb-reference-source-block"><small>Sources</small>{config.sourceLabels.map((source) => <span key={source}>{source}</span>)}</div>}
+        {config.artifact && <aside className="rb-reference-artifact-panel"><header><strong>{config.artifact.title}</strong><button type="button" aria-label="Close artifact"><X size={13} /></button></header><nav>{config.artifact.versions.map((tab) => <button type="button" className={artifactTab === tab ? 'selected' : ''} key={tab} onClick={() => setArtifactTab(tab)}>{tab}</button>)}</nav><pre>{artifactTab === 'Preview' || artifactTab === 'v3' ? config.artifact.code : `${config.artifact.title}\n// ${artifactTab} snapshot`}</pre></aside>}
+        {config.voice && <div className="rb-reference-voice-card"><div className="rb-reference-waveform">{Array.from({ length: 22 }, (_, index) => <i key={index} style={{ height: `${18 + (index * 17) % 55}%` }} />)}</div><strong>{config.voice.status} · {config.voice.duration}</strong><small>Tap to stop</small></div>}
+        {config.approval && <div className={`rb-reference-approval-card ${approvalDecision !== 'pending' ? 'resolved' : ''}`}><div><strong>{approvalDecision === 'pending' ? config.approval.title : approvalDecision === 'approved' ? 'Approved' : 'Kept for review'}</strong><p>{config.approval.description}</p></div>{approvalDecision === 'pending' ? <><button type="button" className="danger" onClick={() => setApprovalDecision('kept')}>{config.approval.secondary}</button><button type="button" className="primary" onClick={() => setApprovalDecision('approved')}>{config.approval.primary}</button></> : <ReferenceButton variant="secondary" onClick={() => setApprovalDecision('pending')}>Show request</ReferenceButton>}</div>}
       </div>
-      <footer className="rb-reference-composer">{isAttachment && <div className="rb-reference-attachment-tray"><FileText size={13} /> workspace/context.md <button aria-label="Remove attachment"><X size={12} /></button></div>}<textarea aria-label="Message" placeholder="Message" value={message} onChange={(event) => setMessage(event.target.value)} /><div className="rb-reference-composer-actions">{variant === 'ai-chat-9' && <button ref={modelTrigger} className="rb-reference-model-trigger rb-reference-composer-model" onClick={() => setModelOpen((open) => !open)} aria-expanded={modelOpen}><Sparkles size={13} /> {selectedModel} <ChevronDown size={12} /></button>}<button aria-label="Attach a file"><FileText size={14} /></button><span>⌘ Enter to send</span><button className="rb-reference-send" disabled={!message.trim()} aria-label="Send"><Send size={14} /></button></div></footer>
+      <footer className="rb-reference-composer">{config.attachmentLabels && <div className="rb-reference-attachment-tray"><FileText size={13} /> {config.attachmentLabels.join(' · ')} <button type="button" aria-label="Remove attachment"><X size={12} /></button></div>}<textarea aria-label="Message" placeholder={config.composerPlaceholder} value={message} onChange={(event) => setMessage(event.target.value)} /><div className="rb-reference-composer-actions">{variant === 'ai-chat-9' && <button ref={modelTrigger} className="rb-reference-model-trigger rb-reference-composer-model" onClick={() => setModelOpen((open) => !open)} aria-expanded={modelOpen} aria-haspopup="listbox"><Sparkles size={13} /> {selectedModel} <ChevronDown size={12} /></button>}<button type="button" aria-label="Attach a file"><FileText size={14} /></button><span>⌘ Enter to send</span><button type="button" className="rb-reference-send" disabled={!message.trim()} aria-label="Send"><Send size={14} /></button></div></footer>
       {variant === 'ai-chat-9' && <FloatingSurface
         mode="anchored"
         anchorRef={modelTrigger}
@@ -49,15 +141,8 @@ export function ChatReferenceFixture({ definition, onInteraction }: ReferenceFix
         role="dialog"
         aria-label="Model"
       >
-        <div className="rb-reference-model-options"><small>MODEL</small>{[
-          ['Auto', 'Recommended', 'Northwind AI'],
-          ['Atlas', '', 'Meridian Labs'],
-          ['Atlas Long', '1M context', 'Meridian Labs'],
-          ['Quill', '', 'Meridian Labs'],
-          ['Ember', '', 'Orbital'],
-          ['Wren', 'On device', 'Orbital'],
-        ].map(([name, badge, provider]) => name ? <button type="button" role="option" aria-selected={selectedModel === name} className={selectedModel === name ? 'selected' : ''} key={name} onClick={() => { setSelectedModel(name); setModelOpen(false) }}><span><strong>{name}</strong>{badge && <em>{badge}</em>}<small>{provider}</small></span>{selectedModel === name && <Check size={13} />}</button> : null)}</div>
-        <div className="rb-reference-model-detail"><strong>{selectedModel}</strong><small>Meridian Labs</small><p>The strongest general model. Best for multi-step work that spans several files.</p><dl><div><dt>Context</dt><dd>200K tokens</dd></div><div><dt>Speed</dt><dd>Standard</dd></div><div><dt>Cost</dt><dd>4 credits per turn</dd></div></dl><div className="rb-reference-reasoning-control"><header><span>REASONING</span><strong>{reasoning}</strong></header><div className="rb-reference-reasoning-meter"><i /><i /><i /><i /></div><div className="rb-reference-reasoning-options">{['Brief', 'Balanced', 'Detailed'].map((level) => <label key={level}><input type="radio" name="reference-reasoning" checked={reasoning === level} onChange={() => setReasoning(level)} />{level}</label>)}</div><p>Thinks through the request before answering.</p></div></div>
+        <div className="rb-reference-model-options"><small>MODEL</small>{referenceModelOptions.map(([name, badge, provider]) => <button type="button" role="option" aria-selected={selectedModel === name} className={selectedModel === name ? 'selected' : ''} key={name} onClick={() => { selectModel(name); setModelOpen(false) }}><span><strong>{name}</strong>{badge && <em>{badge}</em>}<small>{provider}</small></span>{selectedModel === name && <Check size={13} />}</button>)}</div>
+        <div className="rb-reference-model-detail"><strong>{selectedModel}</strong><small>{selectedModelDetail.provider}</small><p>{selectedModelDetail.description}</p><dl><div><dt>Context</dt><dd>{selectedModelDetail.context}</dd></div><div><dt>Speed</dt><dd>{selectedModelDetail.speed}</dd></div><div><dt>Cost</dt><dd>{selectedModelDetail.cost}</dd></div></dl><div className="rb-reference-reasoning-control"><header><span>REASONING</span><strong>{selectedModelDetail.reasoning === 'Not supported' ? 'Not supported' : reasoning}</strong></header>{selectedModelDetail.reasoningLevels.length > 0 && <><div className="rb-reference-reasoning-meter">{['Brief', 'Balanced', 'Detailed'].map((level) => <i className={selectedModelDetail.reasoningLevels.includes(level as 'Brief' | 'Balanced' | 'Detailed') ? 'enabled' : ''} key={level} />)}</div><div className="rb-reference-reasoning-options">{['Brief', 'Balanced', 'Detailed'].map((level) => <label key={level}><input type="radio" name="reference-reasoning" checked={reasoning === level} disabled={!selectedModelDetail.reasoningLevels.includes(level as 'Brief' | 'Balanced' | 'Detailed')} onChange={() => setReasoning(level)} />{level}</label>)}</div></>}<p>{selectedModelDetail.reasoningNote}</p></div></div>
       </FloatingSurface>}
     </div>
   )
@@ -71,11 +156,13 @@ export default function ReferenceVariant(props: ReferenceFixtureProps) {
 
 export function PromptReferenceFixture({ definition, onInteraction }: ReferenceFixtureProps) {
   const variant = Number(definition.variantSlug.match(/-(\d+)$/)?.[1] ?? 1)
-  const [mode, setMode] = useState(variant === 7 ? 'Ask' : 'Compose')
+  const config: import('./reference-preview-data').PromptPreviewConfig = PROMPT_PREVIEWS[definition.variantSlug] ?? { heading: definition.title, subheading: definition.description, placeholder: 'Message', labels: [] }
+  const [mode, setMode] = useState(config.modes?.[0] ?? (variant === 7 ? 'Ask' : 'Compose'))
   const [text, setText] = useState('')
   const [dropActive, setDropActive] = useState(false)
-  const modes = variant === 7 ? ['Ask', 'Agent', 'Edit'] : ['Compose', 'Commands', 'Context']
-  return <div className={`rb-reference-prompt rb-reference-prompt-${variant}`} onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><header><div><strong>{definition.title}</strong><small>{variant === 3 ? 'Hero launcher · recent prompts' : variant === 5 ? 'Attachment drop zone · transfer state' : 'Prompt input surface'}</small></div><div className="rb-reference-prompt-mode">{modes.map((item) => <button type="button" key={item} className={mode === item ? 'selected' : ''} onClick={() => setMode(item)}>{item}</button>)}</div></header>{variant === 3 ? <div className="rb-reference-prompt-hero"><Sparkles size={20} /><strong>What can I help you ship?</strong><p>Start with a suggestion or bring a recent prompt back into focus.</p><div className="rb-reference-chip-row"><button type="button" onClick={() => setText('Inspect the workspace')}>Inspect workspace</button><button type="button" onClick={() => setText('Summarize changes')}>Summarize changes</button><button type="button" onClick={() => setText('Draft a plan')}>Draft a plan</button></div><div className="rb-reference-recent"><small>Recent prompts</small><button type="button" onClick={() => setText('Review the latest run')}>Review the latest run <ArrowRightIcon /></button></div></div> : <div className={`rb-reference-prompt-box${dropActive ? ' drop-active' : ''}`} onDragEnter={(event) => { event.preventDefault(); setDropActive(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDropActive(false)} onDrop={(event) => { event.preventDefault(); setDropActive(false) }}><textarea aria-label="Prompt" placeholder={variant === 6 ? 'Type @ to add context…' : variant === 4 ? 'Write a reusable template…' : 'Message'} value={text} onChange={(event) => setText(event.target.value)} />{variant === 5 && <div className="rb-reference-upload-row"><Upload size={13} /> Drop files here <span>or browse</span></div>}{variant === 6 && <div className="rb-reference-context-pills"><span>@workspace</span><span>@git diff</span></div>}{variant === 1 && <div className="rb-reference-slash-hint"><span>/</span> commands · ⌘ Enter to send</div>}{variant === 2 && <div className="rb-reference-token-counter">{text.length} / 4,000 tokens <span>Tools enabled</span></div>}<footer><ReferenceButton variant="ghost"><Plus size={13} /> Attach</ReferenceButton><ReferenceButton variant="primary" disabled={!text.trim()}><ArrowRightIcon /> {variant === 1 ? 'Send' : 'Run'}</ReferenceButton></footer></div>}</div>
+  const modes = config.modes ?? (variant === 7 ? ['Ask', 'Agent', 'Edit'] : [])
+  const isHero = Boolean(config.empty)
+  return <div className={`rb-reference-prompt rb-reference-prompt-${variant}`} onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><header><div><strong>{config.heading}</strong><small>{config.subheading}</small></div>{modes.length > 0 && <div className="rb-reference-prompt-mode">{modes.map((item) => <button type="button" key={item} className={mode === item ? 'selected' : ''} onClick={() => setMode(item)}>{item}</button>)}</div>}</header>{isHero ? <div className="rb-reference-prompt-hero"><Sparkles size={20} /><strong>{config.heading}</strong><p>{config.subheading}</p><div className="rb-reference-chip-row">{config.labels.map((label) => <button type="button" key={label} onClick={() => setText(label)}>{label}</button>)}</div><div className="rb-reference-recent"><small>Recent prompts</small><button type="button" onClick={() => setText('Review the latest run')}>Review the latest run <ArrowRightIcon /></button></div></div> : <div className={`rb-reference-prompt-box${dropActive ? ' drop-active' : ''}`} onDragEnter={(event) => { event.preventDefault(); setDropActive(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDropActive(false)} onDrop={(event) => { event.preventDefault(); setDropActive(false) }}><textarea aria-label="Prompt" placeholder={config.placeholder} value={text} onChange={(event) => setText(event.target.value)} />{config.labels.length > 0 && variant !== 2 && variant !== 7 && <div className="rb-reference-upload-row"><FileText size={13} /> {config.labels.join(' · ')}</div>}{config.dropzone && <div className="rb-reference-upload-row"><Upload size={13} /> {config.dropzone}</div>}{config.contextPills && <div className="rb-reference-context-pills">{config.contextPills.map((pill) => <span key={pill}>{pill}</span>)}</div>}{config.helper && <div className="rb-reference-slash-hint"><span>{variant === 4 ? '!' : '/'}</span> {config.helper}</div>}{config.tokens && <div className="rb-reference-token-counter">{config.tokens} <span>Tools enabled</span></div>}<footer><ReferenceButton variant="ghost"><Plus size={13} /> Attach</ReferenceButton><ReferenceButton variant="primary" disabled={!text.trim()}><ArrowRightIcon /> {variant === 1 ? 'Send' : 'Run'}</ReferenceButton></footer></div>}</div>
 }
 
 function ArrowRightIcon() { return <ArrowRight size={12} /> }
