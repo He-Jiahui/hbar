@@ -18,7 +18,7 @@ hbar 只从数据根中的受管目录加载已安装插件。用户选择的源
 └─ lock.json
 ```
 
-包名就是插件的规范 ID。普通包 `plain-package` 占一个目录；scoped 包 `@scope/package` 保留两级目录。路径只能由通过 npm 包名规则校验的 `name` 生成，插件不能自定义安装目录。全局与项目目录中出现同名包时首版直接报告冲突，不做隐式覆盖。项目插件只在所属 Workspace 及其 Session/Run 中可见。
+包名就是插件的规范 ID。普通包 `plain-package` 占一个目录；scoped 包 `@scope/package` 保留两级目录。路径只能由通过 npm 包名规则校验的 `name` 生成，插件不能自定义安装目录。全局与项目目录可以安装同名包：项目 Workspace/Session/Run 运行时优先使用项目实例，未安装项目实例时回退全局实例；锁文件会为项目实例追加 `@<project-id>` 后缀，避免覆盖。项目插件只在所属 Workspace 及其 Session/Run 中可见。
 
 安装后的目录由 hbar 管理。插件运行时不得修改自身目录，也不得把状态写入 `dist/` 或 `node_modules/`。插件状态进入存储服务，临时构建进入 `<cacheRoot>/plugin-build`，解包暂存进入 `<cacheRoot>/plugin-extract`。缓存删除后不影响已安装插件和 lock；删除受管插件必须通过插件管理 API 或 CLI。
 
@@ -103,7 +103,13 @@ my-plugin/
 
 `activationEvents` 与 `contributes` 会进入 manifest 和 lock。首版生命周期仍由 Host/Workspace/Session/Run/Client scope 驱动；除 `host.start` 外的事件是后续惰性激活的兼容字段。声明命令只提供可发现的静态元数据，Host 或 Client 入口仍须通过 SDK 注册同 ID 的执行器。
 
-`plugins/lock.json` 是 Host 原子生成的事实文件，记录版本、安装范围、受管相对路径、内容完整性、启用状态和依赖。插件与用户不应手工编辑它。`hbar plugins doctor` 校验已安装目录、依赖图和 lock；`hbar plugins lock` 输出当前锁定结果。
+`plugins/lock.json` 是 Host 原子生成的事实文件，记录版本、安装范围、受管相对路径、内容完整性、启用状态和依赖。全局条目以包名为键，项目条目以 `包名@项目 ID` 为键；插件与用户不应手工编辑它。`hbar plugins doctor` 校验已安装目录、依赖图和 lock；`hbar plugins lock` 输出当前锁定结果。
+
+## 设置贡献与可视化配置
+
+插件通过 `hbar.contributes.settings` 声明设置，不直接要求用户编辑 JSON。每个设置包含稳定 `id`、标题、说明、关键词、可写作用域（`global`/`project`/`session`）、重启策略和受限 JSON Schema 子集。Host 会校验描述、命名空间化插件 ID、默认值与保存值；Web 工作台据此生成字符串、数字、布尔、枚举、对象和数组编辑器。
+
+设置文档按全局、项目、会话三层保存为版本化文件，越窄作用域覆盖越宽作用域；快照同时返回有效值、来源、当前作用域值和是否被覆盖。设置页顶部的搜索基于同一份 catalog，结果显示一级页签、二级分组、子标题和选项标题，并直接跳转到插件二级设置。插件 ID 含 npm scope 时会编码为安全的设置键，但导航仍保留插件显示名与原始 owner。
 
 ## Host 入口
 
