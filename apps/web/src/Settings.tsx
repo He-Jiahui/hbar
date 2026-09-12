@@ -40,6 +40,7 @@ import { providerFromPreset, providerPresets } from './provider-presets'
 import PathSettings from './PathSettings'
 import PluginDiagnostics from './PluginDiagnostics'
 import PluginRow from './PluginRow'
+import DescriptorSettingsForm from './DescriptorSettingsForm'
 import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
 import SettingsNavigation, { type SettingsTab } from './SettingsNavigation'
 import GlassSurface from './react-bits/GlassSurface'
@@ -48,6 +49,8 @@ import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 import { FloatingSurface } from './FloatingLayer'
 import { useThemeSettings } from './theme-store'
+import { platform } from './platform'
+import { useUIPlugins } from './ui-plugins'
 
 type SettingsScope = 'global' | 'project' | 'session'
 
@@ -730,6 +733,9 @@ export default function Settings() {
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsError, setSettingsError] = useState('')
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null)
+  const [themeUploading, setThemeUploading] = useState(false)
+  const [fontFamilies, setFontFamilies] = useState<string[]>([])
+  const themeBackgroundInput = useRef<HTMLInputElement>(null)
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
@@ -741,6 +747,7 @@ export default function Settings() {
   const themeSnapshot = useThemeSettings((state) => state.snapshot)
   const themeSaving = useThemeSettings((state) => state.saving)
   const themeError = useThemeSettings((state) => state.error)
+  const themePlugins = useUIPlugins((state) => state.themes)
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
     const query = modelQuery.trim().toLocaleLowerCase()
@@ -769,12 +776,24 @@ export default function Settings() {
     void connection.call('settings.catalog', {}).then(setSettingsCatalog).catch(report)
   }, [data?.plugins])
   useEffect(() => {
-    if (tab !== 'automation') return
+    const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
+    if (settingsScope !== 'global' && !targetId) {
+      setSettingsSnapshot(null)
+      return
+    }
     setSettingsError('')
-    void client().call('settings.snapshot', { scope: 'global' }).then(setSettingsSnapshot).catch((error) => {
+    void client().call('settings.snapshot', { scope: settingsScope, ...(targetId ? { targetId } : {}) }).then(setSettingsSnapshot).catch((error) => {
       setSettingsError(error instanceof Error ? error.message : String(error))
     })
-  }, [tab])
+  }, [activeSessionId, settingsScope, workspaceId])
+  useEffect(() => {
+    if (tab !== 'appearance' || fontFamilies.length) return
+    let cancelled = false
+    void platform().then((adapter) => adapter.listFonts()).then((families) => {
+      if (!cancelled) setFontFamilies(families)
+    }).catch(report)
+    return () => { cancelled = true }
+  }, [fontFamilies.length, tab])
   useEffect(() => {
     const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
     useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined)
@@ -796,14 +815,54 @@ export default function Settings() {
       typography: { ...current.typography, [key]: value },
     }))
   }
-  async function saveGlobalSetting(id: string, value: unknown) {
+  async function uploadThemeBackground(file: File | undefined) {
+    if (!file || !file.type.startsWith('image/')) return
+    setThemeUploading(true)
+    try {
+      const artifact = await client().upload(file)
+      useThemeSettings.getState().updateDraft((current) => ({
+        ...current,
+        surface: { ...current.surface, backgroundAsset: artifact.id },
+      }))
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setThemeUploading(false)
+      if (themeBackgroundInput.current) themeBackgroundInput.current.value = ''
+    }
+  }
+  async function saveSetting(id: string, value: unknown) {
     if (!settingsSnapshot) return
     if (id.startsWith('notifications.') && value === true && typeof Notification !== 'undefined' && Notification.permission === 'default')
       await Notification.requestPermission()
     setSettingsSaving(true)
     setSettingsError('')
     try {
-      const next = await client().call('settings.set', { scope: 'global', id, value, expectedRevision: settingsSnapshot.revision })
+      const next = await client().call('settings.set', {
+        scope: settingsSnapshot.scope,
+        ...(settingsSnapshot.targetId ? { targetId: settingsSnapshot.targetId } : {}),
+        id,
+        value,
+        expectedRevision: settingsSnapshot.revision,
+      })
+      setSettingsSnapshot(next)
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+  async function resetSetting(id: string) {
+    if (!settingsSnapshot) return
+    setSettingsSaving(true)
+    setSettingsError('')
+    try {
+      const next = await client().call('settings.reset', {
+        scope: settingsSnapshot.scope,
+        ...(settingsSnapshot.targetId ? { targetId: settingsSnapshot.targetId } : {}),
+        id,
+        expectedRevision: settingsSnapshot.revision,
+      })
       setSettingsSnapshot(next)
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : String(error))
@@ -977,12 +1036,20 @@ export default function Settings() {
             <label className="theme-range-field"><span>模糊比例 <output>{themeProfile.surface.blurAmount}px</output></span><input type="range" min="0" max="64" value={themeProfile.surface.blurAmount} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, blurAmount: Number(event.target.value) } }))} /></label>
             <label className="theme-select-field"><span>背景效果</span><select value={themeProfile.surface.mode} onChange={(event) => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, mode: event.target.value as ThemeProfile['surface']['mode'] } }))}><option value="solid">纯色</option><option value="acrylic">亚克力</option><option value="liquid-glass">液态玻璃</option></select></label>
             <label className="theme-select-field"><span>正文大小</span><input type="number" min="10" max="24" value={themeProfile.typography.bodySize} onChange={(event) => updateThemeTypography('bodySize', Number(event.target.value))} /></label>
-            <label className="theme-select-field"><span>代码字体</span><input value={themeProfile.typography.codeFontFamily} onChange={(event) => updateThemeTypography('codeFontFamily', event.target.value)} /></label>
+            <label className="theme-select-field"><span>标题大小</span><input type="number" min="12" max="40" value={themeProfile.typography.headingSize} onChange={(event) => updateThemeTypography('headingSize', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>正文语言</span><select value={themeProfile.typography.locale} onChange={(event) => updateThemeTypography('locale', event.target.value)}><option value="zh-CN">中文（简体）</option><option value="zh-TW">中文（繁体）</option><option value="en-US">English</option><option value="ja-JP">日本語</option><option value="ko-KR">한국어</option></select></label>
+            <label className="theme-select-field"><span>正文字体</span><select value={themeProfile.typography.bodyFontFamily} onChange={(event) => updateThemeTypography('bodyFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.bodyFontFamily}>{themeProfile.typography.bodyFontFamily}</option></select></label>
+            <label className="theme-select-field"><span>标题字体</span><select value={themeProfile.typography.headingFontFamily} onChange={(event) => updateThemeTypography('headingFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.headingFontFamily}>{themeProfile.typography.headingFontFamily}</option></select></label>
+            <label className="theme-select-field"><span>代码字体</span><select value={themeProfile.typography.codeFontFamily} onChange={(event) => updateThemeTypography('codeFontFamily', event.target.value)}>{fontFamilies.map((family) => <option key={family} value={family}>{family}</option>)}<option value={themeProfile.typography.codeFontFamily}>{themeProfile.typography.codeFontFamily}</option></select></label>
+            <label className="theme-select-field"><span>正文粗细</span><input type="number" min="300" max="800" step="100" value={themeProfile.typography.bodyWeight} onChange={(event) => updateThemeTypography('bodyWeight', Number(event.target.value))} /></label>
+            <label className="theme-select-field"><span>标题粗细</span><input type="number" min="300" max="900" step="100" value={themeProfile.typography.headingWeight} onChange={(event) => updateThemeTypography('headingWeight', Number(event.target.value))} /></label>
+            <label className="checkbox theme-option-checkbox"><input type="checkbox" checked={themeProfile.typography.underlineLinks} onChange={(event) => updateThemeTypography('underlineLinks', event.target.checked)} />链接使用下划线</label>
+            <div className="theme-select-field theme-background-field"><span>背景贴图</span><div className="theme-background-actions"><button type="button" className="button" disabled={themeUploading} onClick={() => themeBackgroundInput.current?.click()}>{themeUploading ? '上传中…' : '选择图片'}</button><input ref={themeBackgroundInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => void uploadThemeBackground(event.target.files?.[0])} />{themeProfile.surface.backgroundAsset && <button type="button" className="text-command" onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: null } }))}>移除</button>}</div></div>
           </div>
-          <div className="theme-preview" style={{ fontFamily: themeProfile.typography.bodyFontFamily, color: themeProfile.typography.bodyTextColor, fontSize: `${themeProfile.typography.bodySize}px`, background: themeProfile.typography.inlineCodeBackground }}>
-            <h3 style={{ fontFamily: themeProfile.typography.headingFontFamily, color: themeProfile.typography.headingTextColor, fontSize: `${themeProfile.typography.headingSize}px` }}>主题预览 Preview</h3>
+          <div className="theme-preview">
+            <h3>主题预览 Preview</h3>
             <p>正文文本与中文 English 混排，<strong>粗体 Bold</strong>，<u>下划线 Underline</u>。</p>
-            <code style={{ fontFamily: themeProfile.typography.codeFontFamily, color: themeProfile.typography.inlineCodeTextColor }}>const theme = 'global';</code>
+            <code>const theme = 'global';</code>
           </div>
           {themeError && <p className="inline-error" role="alert">{themeError}</p>}
         </section>
@@ -1007,7 +1074,7 @@ export default function Settings() {
                 disabled={settingsSaving || !settingsSnapshot}
                 onChange={(event) => {
                   const value = Number(event.target.value)
-                  if (Number.isSafeInteger(value) && value > 0) void saveGlobalSetting('session.defaultBudgetTokens', value)
+                  if (Number.isSafeInteger(value) && value > 0) void saveSetting('session.defaultBudgetTokens', value)
                 }}
               />
             </label>
@@ -1020,7 +1087,7 @@ export default function Settings() {
                     type="checkbox"
                     checked={settingsSnapshot?.values[id]?.effectiveValue !== false}
                     disabled={settingsSaving || !settingsSnapshot}
-                    onChange={(event) => void saveGlobalSetting(id, event.target.checked)}
+                    onChange={(event) => void saveSetting(id, event.target.checked)}
                   />
                   {labels[key]}
                 </label>
@@ -1252,15 +1319,32 @@ export default function Settings() {
             <h2>已安装插件</h2>
           </div>
           <PluginDiagnostics />
+          <div className="plugin-theme-summary" aria-label="主题插件">
+            <h3>主题插件与渲染器</h3>
+            <p>主题插件只能通过全局 token 覆盖颜色、字体、玻璃和动效；渲染器插槽用于 Markdown、代码、Patch 与 Git 差异。</p>
+            {themePlugins.length ? <ul>{themePlugins.map((theme) => <li key={theme.id}><strong>{theme.title}</strong><span>{theme.owner} · 优先级 {theme.priority ?? 0}</span></li>)}</ul> : <span className="settings-muted">暂无已注册主题插件，当前使用内置渲染器。</span>}
+          </div>
           {data?.plugins.length ? (
             <AnimatedList
               className="settings-plugin-list"
               viewportClassName="settings-plugin-viewport"
               showGradients={false}
             >
-              {data.plugins.map((plugin) => (
-                <PluginRow key={plugin.id} plugin={plugin} id={`plugin-settings-${plugin.id}`} className={selectedPluginId === plugin.id ? 'selected' : ''} />
-              ))}
+              {data.plugins.map((plugin) => {
+                const descriptors = settingsCatalog?.settings.filter((setting) => setting.owner === plugin.id) ?? []
+                return (
+                  <div className="plugin-setting-group" key={plugin.id}>
+                    <PluginRow plugin={plugin} id={`plugin-settings-${plugin.id}`} className={selectedPluginId === plugin.id ? 'selected' : ''} />
+                    <DescriptorSettingsForm
+                      descriptors={descriptors}
+                      snapshot={settingsSnapshot}
+                      saving={settingsSaving}
+                      onSet={(id, value) => void saveSetting(id, value)}
+                      onReset={(id) => void resetSetting(id)}
+                    />
+                  </div>
+                )
+              })}
             </AnimatedList>
           ) : null}
           <div className="install-plugin">
