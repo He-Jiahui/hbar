@@ -243,7 +243,7 @@ export class Kernel {
           request: (request, signal) => this.requestUserInput(request, signal),
         } satisfies UserInputService,
         notify: (event) => this.publish(event),
-        changed: (kind) => this.changed(kind),
+          changed: (kind) => this.changed(kind),
         automationSet: (sessionId, unattended, goalEnabled) => this.automationSet(sessionId, unattended, goalEnabled),
       },
       {
@@ -1367,11 +1367,12 @@ export class Kernel {
       this.maintenance = false
     }
   }
-  async changePlugin(id: string, enabled: boolean, config?: Record<string, unknown>) {
+  async changePlugin(id: string, enabled: boolean, config?: Record<string, unknown>, projectId?: string) {
     this.assertIdle()
     this.maintenance = true
     try {
-      const plugins = await this.plugins.set(id, enabled, config)
+      if (projectId) await this.storage.call('workspace', projectId)
+      const plugins = await this.plugins.set(id, enabled, config, projectId)
       this.changed('plugins')
       return plugins
     } finally {
