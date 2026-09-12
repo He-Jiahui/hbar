@@ -136,7 +136,11 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
 export function handleThemeEvent(event: WireNotification, transport: ClientTransport): void {
   if (event.method !== 'settings.changed' || !event.params.ids.some((id) => id === 'appearance.profile' || id === 'appearance.theme')) return
   const state = useThemeSettings.getState()
-  if (event.params.scope !== state.scope || event.params.targetId !== state.targetId) return
+  const sameTarget = event.params.targetId === state.targetId
+  const relevant = event.params.scope === 'global'
+    || (event.params.scope === state.scope && sameTarget)
+    || (state.scope === 'session' && event.params.scope === 'project')
+  if (!relevant) return
   if (JSON.stringify(state.profile) !== JSON.stringify(state.savedProfile)) void state.refreshSnapshot(transport)
   else void state.load(transport, state.scope, state.targetId)
 }
