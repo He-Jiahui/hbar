@@ -96,6 +96,7 @@ function pluginInstanceKey(plugin: { id: string; projectId?: string | undefined 
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
+  const { t } = useLocale()
   return (
     <FloatingSurface
       mode="modal"
@@ -109,7 +110,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
       <GlassSurface className="modal-glass" width="100%" height="100%" aria-hidden="true" />
       <header>
         <h2>{title}</h2>
-        <button title="关闭" aria-label="关闭" onClick={onClose}>
+        <button title={t('cancel')} aria-label={t('cancel')} onClick={onClose}>
           <X size={17} />
         </button>
       </header>
@@ -946,35 +947,35 @@ export default function Settings() {
       <div className="page-heading settings-page-heading">
         <div className="settings-heading-row">
           <div>
-            <h1>设置</h1>
+          <h1>{t('settingsTitle')}</h1>
             <p className="settings-scope-caption">
-              {settingsScope === 'global' ? '全局设置对所有项目生效。' : settingsScope === 'project' ? '项目设置覆盖全局设置。' : '会话设置只影响当前会话。'}
+              {settingsScope === 'global' ? t('settingsScopeGlobalHint') : settingsScope === 'project' ? t('settingsScopeProjectHint') : t('settingsScopeSessionHint')}
             </p>
           </div>
-          <button title="刷新设置" aria-label="刷新设置" onClick={() => void refreshCatalog().catch(report)}>
+          <button title={t('refreshSettings')} aria-label={t('refreshSettings')} onClick={() => void refreshCatalog().catch(report)}>
             <RefreshCw size={15} />
           </button>
         </div>
         <label className="settings-global-search">
           <Search size={15} aria-hidden="true" />
           <input
-            aria-label="搜索所有设置"
-            placeholder="搜索所有设置"
+            aria-label={t('searchAllSettings')}
+            placeholder={t('searchAllSettings')}
             value={settingsQuery}
             onChange={(event) => setSettingsQuery(event.target.value)}
           />
           {settingsQuery && (
-            <button type="button" aria-label="清除设置搜索" title="清除搜索" onClick={() => setSettingsQuery('')}>
+            <button type="button" aria-label={t('clearSettingsSearch')} title={t('clearSettingsSearch')} onClick={() => setSettingsQuery('')}>
               <X size={14} />
             </button>
           )}
         </label>
-        <div className="settings-scope-switcher" role="tablist" aria-label="设置作用域">
+        <div className="settings-scope-switcher" role="tablist" aria-label={t('settingsScope')}>
           {(
             [
-              ['global', '全局'],
-              ['project', '项目'],
-              ['session', '会话'],
+              ['global', t('globalSettings')],
+              ['project', t('projectSettings')],
+              ['session', t('currentSession')],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -990,11 +991,11 @@ export default function Settings() {
             </button>
           ))}
           <span className="settings-scope-target">
-            {settingsScope === 'global' ? '所有项目' : settingsScope === 'project' ? `当前项目 · ${workspaceId ?? '未选择'}` : `当前会话 · ${activeSessionId ?? '未选择'}`}
+            {settingsScope === 'global' ? t('allProjects') : settingsScope === 'project' ? `${t('currentProject')} · ${workspaceId ?? t('unavailable')}` : `${t('currentSession')} · ${activeSessionId ?? t('unavailable')}`}
           </span>
         </div>
         {settingsQuery.trim() && (
-          <div className="settings-search-results" role="listbox" aria-label="设置搜索结果">
+          <div className="settings-search-results" role="listbox" aria-label={t('settingsSearchResults')}>
             {settingSearchResults.length ? (
               settingSearchResults.map((entry) => (
                 <button
@@ -1013,7 +1014,7 @@ export default function Settings() {
                 </button>
               ))
             ) : (
-              <div className="settings-search-empty">没有匹配的设置</div>
+              <div className="settings-search-empty">{t('noMatchingSettings')}</div>
             )}
           </div>
         )}
@@ -1157,8 +1158,8 @@ export default function Settings() {
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
-              <h2><Bell size={17} /> 任务与通知</h2>
-              <p className="section-description">这些选项保存在 Host 全局设置中，并对所有项目生效。</p>
+              <h2><Bell size={17} /> {t('automationTitle')}</h2>
+              <p className="section-description">{t('automationHint')}</p>
             </div>
           </div>
           <div className="permission-settings-list">
@@ -1180,8 +1181,8 @@ export default function Settings() {
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
-              <h2>工具权限</h2>
-              <p className="section-description">控制 hbar 是否需要在写入文件或运行命令前暂停。</p>
+              <h2>{t('permissionsTitle')}</h2>
+              <p className="section-description">{t('permissionsHint')}</p>
             </div>
             <PermissionSelector compact={false} placement="below" />
           </div>
@@ -1202,7 +1203,7 @@ export default function Settings() {
                 <ShieldCheck size={16} />
               </div>
               <div>
-                <strong>当前默认模式</strong>
+                <strong>{t('currentDefaultMode')}</strong>
                 <span>{permissionPreset(approvalMode).description}</span>
               </div>
               <span className={`state-label permission-state-${permissionPreset(approvalMode).tone}`}>
@@ -1213,8 +1214,8 @@ export default function Settings() {
               className="permission-note"
               spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)"
             >
-              <strong>只对之后发送的消息生效</strong>
-              <span>正在运行的任务不会被中途改变。你也可以在聊天输入框旁快速切换。</span>
+                  <strong>{t('futureMessagesOnly')}</strong>
+                  <span>{t('runningTasksHint')}</span>
             </SpotlightCard>
           </div>
         </section>
@@ -1224,47 +1225,47 @@ export default function Settings() {
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div className="model-section-title">
-              <h2>供应商与模型</h2>
+            <h2>{t('providersAndModels')}</h2>
               <span>
-                {modelGroups.length} 个供应商 · {models.length} 个模型
+                {modelGroups.length} {t('providerCount')} · {models.length} {t('modelCount')}
               </span>
             </div>
             <button className="button" onClick={() => setEditor('new')}>
               <Plus size={14} />
-              添加模型
+              {t('addModel')}
             </button>
           </div>
           <div className="model-list-toolbar">
             <label className="settings-search">
               <Search size={14} />
               <input
-                aria-label="搜索供应商或模型"
-                placeholder="搜索供应商、模型或地址"
+                aria-label={t('searchProvidersOrModels')}
+                placeholder={t('searchProvidersModelsOrAddress')}
                 value={modelQuery}
                 onChange={(event) => setModelQuery(event.target.value)}
               />
             </label>
-            <div className="model-filter segmented" role="group" aria-label="模型状态">
+            <div className="model-filter segmented" role="group" aria-label={t('modelStatus')}>
               <button
                 type="button"
                 className={modelFilter === 'all' ? 'selected' : ''}
                 onClick={() => setModelFilter('all')}
               >
-                全部
+                {t('allModels')}
               </button>
               <button
                 type="button"
                 className={modelFilter === 'connected' ? 'selected' : ''}
                 onClick={() => setModelFilter('connected')}
               >
-                已连接
+                {t('connectedModels')}
               </button>
               <button
                 type="button"
                 className={modelFilter === 'needs-key' ? 'selected' : ''}
                 onClick={() => setModelFilter('needs-key')}
               >
-                待配置
+                {t('needsConfiguration')}
               </button>
             </div>
           </div>
@@ -1377,7 +1378,7 @@ export default function Settings() {
             <div className="empty-list model-empty-state">
               {models.length ? (
                 <>
-                  <span>没有匹配的模型</span>
+                  <span>{t('noMatchingModels')}</span>
                   <button
                     type="button"
                     className="text-command"
@@ -1386,11 +1387,11 @@ export default function Settings() {
                       setModelFilter('all')
                     }}
                   >
-                    清除筛选
+                    {t('clearModelFilter')}
                   </button>
                 </>
               ) : (
-                '尚未配置模型'
+                t('noConfiguredModels')
               )}
             </div>
           )}
@@ -1402,12 +1403,12 @@ export default function Settings() {
         <section className="settings-section">
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
-            <h2>已安装插件</h2>
+            <h2>{t('plugins')}</h2>
           </div>
           <PluginDiagnostics />
           <div className="plugin-theme-summary" aria-label="主题插件">
-            <h3>主题插件与渲染器</h3>
-            <p>主题插件只能通过全局 token 覆盖颜色、字体、玻璃和动效；渲染器插槽用于 Markdown、代码、Patch 与 Git 差异。</p>
+            <h3>{t('pluginThemeSummary')}</h3>
+            <p>{t('pluginThemeSummaryHint')}</p>
             {themePlugins.length ? <ul>{themePlugins.map((theme) => {
               const previewUrl = theme.preview && themeConnection
                 ? new URL(`/api/plugins/${encodeURIComponent(theme.owner)}/${theme.preview}`, themeConnection.baseUrl).href
@@ -1416,7 +1417,7 @@ export default function Settings() {
                 {previewUrl ? <img src={previewUrl} alt={`${theme.title} preview`} loading="lazy" /> : <span className="plugin-theme-swatch" aria-hidden="true" />}
                 <span className="plugin-theme-copy"><strong>{theme.title}</strong><span>{theme.owner} · 优先级 {theme.priority ?? 0}</span></span>
               </li>
-            })}</ul> : <span className="settings-muted">暂无已注册主题插件，当前使用内置渲染器。</span>}
+            })}</ul> : <span className="settings-muted">{t('noThemePlugins')}</span>}
           </div>
           {data?.plugins.length ? (
             <AnimatedList
