@@ -1,0 +1,50 @@
+.rb-public-tool-3 {
+  box-sizing: border-box;
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 560px;
+  min-height: 560px;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  padding: 24px;
+  background: oklch(0.145 0 0);
+  color: oklch(0.97 0 0);
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.rb-public-tool-3::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 1px; background: oklch(0.269 0 0); content: ''; }
+.rb-public-tool-3-header { display: flex; width: 100%; height: 24px; min-height: 24px; align-items: center; justify-content: space-between; gap: 12px; }
+.rb-public-tool-3-header > div { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.rb-public-tool-3-header span { color: oklch(0.556 0 0); font-size: 12px; line-height: 16px; }
+.rb-public-tool-3-header h2 { margin: 0; color: oklch(0.97 0 0); font-size: 16px; font-weight: 500; letter-spacing: -0.16px; line-height: 24px; }
+.rb-public-tool-3-header p { height: 16px; margin: 0; color: oklch(0.556 0 0); font-size: 12px; line-height: 16px; white-space: nowrap; }
+.rb-public-tool-3-header b, .rb-public-tool-3-file em b, .rb-public-tool-3-secondary em b { color: oklch(0.765 0.177 163.223); font-weight: 500; }
+.rb-public-tool-3-header i, .rb-public-tool-3-file em i, .rb-public-tool-3-secondary em i { color: oklch(0.704 0.191 22.216); font-style: normal; }
+.rb-public-tool-3-frame { box-sizing: border-box; display: block; width: 100%; height: 476px; min-height: 476px; flex: 0 0 476px; overflow: hidden; border: 1px solid oklch(0.269 0 0); border-radius: 14px; padding: 4px; background: oklch(0.205 0 0); }
+.rb-public-tool-3-frame-inner { box-sizing: border-box; width: 100%; height: 466px; min-height: 466px; overflow: hidden; border: 1px solid oklch(0.269 0 0); border-radius: 10px; background: oklch(0.145 0 0); }
+.rb-public-tool-3-file, .rb-public-tool-3-secondary { box-sizing: border-box; display: flex; width: 100%; height: 40px; align-items: center; gap: 8px; border: 0; padding: 0 8px; background: transparent; color: oklch(0.97 0 0); cursor: pointer; font: 12px/16px ui-sans-serif, system-ui, sans-serif; text-align: left; }
+.rb-public-tool-3-file { border-radius: 8px 8px 0 0; }
+.rb-public-tool-3-file svg, .rb-public-tool-3-secondary svg { width: 28px; flex: 0 0 28px; padding: 6.5px; border-radius: 6px; background: oklch(0.205 0 0); color: oklch(0.556 0 0); }
+.rb-public-tool-3-file > span, .rb-public-tool-3-secondary > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-public-tool-3-file em, .rb-public-tool-3-secondary em { margin-left: auto; color: oklch(0.556 0 0); font-size: 12px; font-style: normal; white-space: nowrap; }
+.rb-public-tool-3-diff { overflow: hidden; padding-bottom: 4px; color: oklch(0.922 0 0); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 19.5px; }
+.rb-public-tool-3-hunk { box-sizing: border-box; display: block; height: 23.5px; padding: 2px 8px; overflow: hidden; background: oklab(0.269 0 0 / .6); color: oklch(0.556 0 0); line-height: 19.5px; white-space: nowrap; }
+.rb-public-tool-3-line { box-sizing: border-box; display: flex; width: 100%; height: 19.5px; align-items: center; }
+.rb-public-tool-3-line.added { background: oklab(0.696 -0.162114 0.0511765 / .12); }
+.rb-public-tool-3-line.removed { background: oklab(0.637 0.214213 0.1014 / .12); }
+.rb-public-tool-3-line > span { box-sizing: border-box; display: block; width: 40px; flex: 0 0 40px; padding: 0 8px; color: oklch(0.556 0 0); text-align: right; }
+.rb-public-tool-3-line > small { display: block; width: 16px; flex: 0 0 16px; padding: 0; color: oklch(0.556 0 0); font: inherit; text-align: center; }
+.rb-public-tool-3-line code { display: block; min-width: 0; flex: 1; overflow: hidden; padding-right: 16px; color: oklch(0.922 0 0); font: inherit; text-overflow: ellipsis; white-space: pre; }
+.rb-public-tool-3-secondary { height: 40px; border-top: 1px solid oklch(0.269 0 0); border-radius: 0 0 8px 8px; }
+.rb-public-tool-3-secondary:hover, .rb-public-tool-3-file:hover { background: oklch(0.205 0 0); }
+@media (max-width: 680px) {
+  .rb-public-tool-3 { padding: 16px; }
+  .rb-public-tool-3-frame { height: 484px; min-height: 484px; flex-basis: 484px; }
+  .rb-public-tool-3-frame-inner { height: 474px; min-height: 474px; }
+  .rb-public-tool-3-header h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
