@@ -31,7 +31,7 @@
 .descriptor-setting-heading small,
 .descriptor-setting-field small,
 .descriptor-setting-readonly,
-.descriptor-setting-inherited { color: var(--rb-muted); font-size: 12px; }
+.descriptor-setting-inherited { color: var(--rb-muted); font-size: var(--hbar-font-size-ui); }
 .descriptor-setting-inherited { color: var(--hbar-wn); }
 .descriptor-setting-control > input:not([type='checkbox']),
 .descriptor-setting-control > select,

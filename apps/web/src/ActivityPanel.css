@@ -41,7 +41,7 @@
 .activity-timeline-heading strong {
   overflow: hidden;
   color: var(--hbar-t1);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -49,7 +49,7 @@
 
 .activity-timeline-heading span {
   color: var(--hbar-t3);
-  font: 9px var(--mono);
+  font: var(--hbar-font-size-micro) var(--dsh-font-family-code);
 }
 
 .activity-timeline-heading button {
@@ -85,7 +85,7 @@
   gap: 6px;
   min-height: 28px;
   color: var(--hbar-t2);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .activity-timeline-entry::before {
@@ -142,7 +142,7 @@
 
 .activity-timeline-entry time {
   color: var(--hbar-t3);
-  font: 9px var(--mono);
+  font: var(--hbar-font-size-micro) var(--dsh-font-family-code);
 }
 
 .activity-live-indicator {
@@ -153,13 +153,13 @@
   border: 1px solid color-mix(in srgb, var(--hbar-ok) 46%, var(--hbar-bd2));
   border-radius: var(--radius-full);
   color: var(--hbar-ok-ink);
-  font: 10px var(--mono);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 .activity-loading {
   margin: 12px 14px 0;
   color: var(--hbar-t3);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .activity-error {
@@ -193,13 +193,13 @@
   outline: 0;
   background: transparent;
   color: var(--hbar-t1);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
 }
 
 .event-filter > span {
   flex: 0 0 auto;
   color: var(--hbar-t3);
-  font: 10px var(--mono);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
 /* Event details stay inside the activity tool region.  React Bits' activity
@@ -229,7 +229,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--hbar-ac-ink);
-  font: 10px var(--mono);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -243,7 +243,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--hbar-t2);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
 }
 
 .event-detail-back:hover,
@@ -268,7 +268,7 @@
 
 .event-detail-meta dt {
   color: var(--hbar-t3);
-  font-size: 9px;
+  font-size: var(--hbar-font-size-micro);
 }
 
 .event-detail-meta dd {
@@ -276,7 +276,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--hbar-t2);
-  font: 9px var(--mono);
+  font: var(--hbar-font-size-micro) var(--dsh-font-family-code);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -290,14 +290,14 @@
   border-radius: var(--radius-sm);
   background: var(--hbar-bg);
   color: var(--hbar-t2);
-  font: 10px/1.5 var(--mono);
+  font: var(--hbar-font-size-small)/var(--hbar-line-height-body) var(--dsh-font-family-code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 @media (max-width: 899px) {
   .rb-activity-panel .activity-live-indicator {
-    font-size: 10px;
+    font-size: var(--hbar-font-size-small);
   }
 
   .activity-timeline {

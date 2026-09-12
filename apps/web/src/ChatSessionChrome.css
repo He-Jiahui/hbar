@@ -28,7 +28,7 @@
   max-width: min(32vw, 320px);
   overflow: hidden;
   color: var(--hbar-t3);
-  font: 10px var(--dsh-font-family-code);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
