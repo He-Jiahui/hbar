@@ -67,6 +67,21 @@ test('builds a catalog from built-in and plugin descriptors', async () => {
   expect(catalog.navigation.roots.find((root) => root.id === 'plugins')?.groups[0]?.title).toBe('Settings fixture')
 })
 
+test('exposes the global budget default and task notification switches', async () => {
+  const { kernel } = await fixture()
+  const catalog = await kernel.settingsCatalog()
+  expect(catalog.navigation.roots.find((root) => root.id === 'automation')?.title).toBe('任务与通知')
+  expect(catalog.settings.filter((setting) => setting.root === 'automation').map((setting) => setting.id)).toEqual([
+    'session.defaultBudgetTokens',
+    'notifications.taskCompleted',
+    'notifications.userInteraction',
+    'notifications.retryFailed',
+  ])
+  const snapshot = await kernel.settingsSnapshot('global')
+  expect(snapshot.values['session.defaultBudgetTokens']?.effectiveValue).toBe(10_000)
+  expect(snapshot.values['notifications.taskCompleted']?.effectiveValue).toBe(true)
+})
+
 test('resolves global, project, and session overrides with source metadata', async () => {
   const { root, kernel } = await fixture()
   const workspace = await kernel.createWorkspace(root)
