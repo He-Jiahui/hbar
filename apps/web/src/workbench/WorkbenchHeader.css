@@ -111,7 +111,7 @@
 
 .workspace-switcher-eyebrow {
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   line-height: 1.05;
   pointer-events: none;
 }
@@ -124,7 +124,7 @@
   padding: 1px 17px 1px 0;
   border: 0;
   background: transparent;
-  font-size: 12px;
+  font-size: var(--hbar-font-size-ui);
   line-height: 1.25;
   text-overflow: ellipsis;
 }
@@ -182,7 +182,7 @@
   border: 1px solid color-mix(in srgb, var(--hbar-bd2) 80%, transparent);
   border-radius: 4px;
   color: var(--hbar-t3);
-  font: 10px var(--mono);
+  font: var(--hbar-font-size-small) var(--mono);
 }
 
 .rb-shell-header .host-status {
@@ -192,7 +192,7 @@
   border: 1px solid color-mix(in srgb, var(--hbar-bd2) 86%, transparent);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--hbar-s0) 82%, transparent);
-  font-size: 11px;
+  font-size: var(--hbar-font-size-label);
   white-space: nowrap;
 }
 
@@ -211,7 +211,7 @@
   }
 
   .rb-shell-header .brand {
-    font-size: 18px;
+    font-size: var(--hbar-font-size-heading);
   }
 
   .rb-shell-header .top-divider,

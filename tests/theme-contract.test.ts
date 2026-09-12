@@ -46,6 +46,7 @@ test('theme CSS projects a visible primary-colour hover state', () => {
   expect(variables['--hbar-ac-soft']).toContain('color-mix')
   expect(variables['--hbar-ac-soft-hover']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
   expect(variables['--hbar-ac-border']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
+  expect(variables['--radius-md']).toBe(`${DEFAULT_THEME_PROFILE.surface.cornerRadius}px`)
 })
 
 test('default theme maintains readable text and accent contrast', () => {

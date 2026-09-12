@@ -28,7 +28,7 @@
   display: flex;
   align-items: flex-end;
   padding: 12px 10px calc(58px + env(safe-area-inset-bottom));
-  background: rgb(4 6 10 / 58%);
+  background: color-mix(in srgb, var(--hbar-overlay) 58%, transparent);
 }
 
 .mobile-more-header {
@@ -43,7 +43,7 @@
   display: block;
   margin-bottom: 2px;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -51,7 +51,7 @@
 .mobile-more-header h2 {
   margin: 0;
   color: var(--hbar-t1);
-  font-size: 18px;
+  font-size: var(--hbar-font-size-heading);
 }
 
 .mobile-more-close {
@@ -62,7 +62,7 @@
   border: 1px solid var(--hbar-bd);
   border-radius: var(--radius-md);
   color: var(--hbar-t2);
-  font-size: 22px;
+  font-size: var(--hbar-font-size-heading);
   line-height: 1;
 }
 
@@ -101,7 +101,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--hbar-t3);
-  font-size: 10px;
+  font-size: var(--hbar-font-size-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

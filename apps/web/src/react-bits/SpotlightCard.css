@@ -20,7 +20,7 @@
   content: '';
   opacity: 0;
   pointer-events: none;
-  transition: opacity 220ms var(--dsh-motion-easing);
+  transition: opacity var(--hbar-motion-duration) var(--dsh-motion-easing);
 }
 
 .rb-spotlight-card::after {
@@ -32,7 +32,7 @@
   content: '';
   opacity: 0;
   pointer-events: none;
-  transition: opacity 220ms var(--dsh-motion-easing);
+  transition: opacity var(--hbar-motion-duration) var(--dsh-motion-easing);
 }
 
 .rb-spotlight-card:hover::before,

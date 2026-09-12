@@ -27,7 +27,7 @@
   border-color: var(--hbar-ac);
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--hbar-ac) 28%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 7%);
+    inset 0 1px 0 color-mix(in srgb, var(--hbar-highlight) 7%, transparent);
 }
 
 .tool-rail .rb-glass-icon-label {
@@ -64,10 +64,10 @@
   border-radius: 7px;
   pointer-events: none;
   transition:
-    transform 220ms var(--dsh-motion-easing),
-    opacity 220ms var(--dsh-motion-easing),
-    border-color 220ms var(--dsh-motion-easing),
-    background-color 220ms var(--dsh-motion-easing);
+    transform var(--hbar-motion-duration) var(--dsh-motion-easing),
+    opacity var(--hbar-motion-duration) var(--dsh-motion-easing),
+    border-color var(--hbar-motion-duration) var(--dsh-motion-easing),
+    background-color var(--hbar-motion-duration) var(--dsh-motion-easing);
 }
 
 .rb-glass-icon-back {
@@ -114,8 +114,8 @@
   text-overflow: ellipsis;
   transform: translate(-50%, -2px);
   transition:
-    opacity 160ms var(--dsh-motion-easing),
-    transform 160ms var(--dsh-motion-easing);
+    opacity var(--hbar-motion-duration) var(--dsh-motion-easing),
+    transform var(--hbar-motion-duration) var(--dsh-motion-easing);
   white-space: nowrap;
 }
 

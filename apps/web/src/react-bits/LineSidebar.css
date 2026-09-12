@@ -18,7 +18,7 @@
 .line-sidebar [data-line-item] {
   position: relative;
   transform: translateX(calc(var(--line-effect, 0) * var(--line-max-shift)));
-  transition: transform 100ms var(--dsh-motion-easing);
+  transition: transform var(--hbar-motion-duration) var(--dsh-motion-easing);
 }
 
 @media (prefers-reduced-motion: reduce) {

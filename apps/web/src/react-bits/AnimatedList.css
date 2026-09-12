@@ -9,7 +9,7 @@
 
 .rb-animated-list__item {
   min-width: 0;
-  animation: rb-animated-list-item-in 220ms var(--dsh-motion-easing) both;
+  animation: rb-animated-list-item-in var(--hbar-motion-duration) var(--dsh-motion-easing) both;
   animation-delay: calc(min(var(--rb-list-index, 0), 8) * 24ms);
 }
 
@@ -24,7 +24,7 @@
   z-index: 2;
   height: 34px;
   pointer-events: none;
-  transition: opacity 180ms var(--dsh-motion-easing);
+  transition: opacity var(--hbar-motion-duration) var(--dsh-motion-easing);
 }
 
 .rb-animated-list__gradient--top {

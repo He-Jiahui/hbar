@@ -41,6 +41,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rb-glare-button::before {
-    transition: opacity 120ms var(--dsh-motion-easing);
+    transition: opacity var(--hbar-motion-duration) var(--dsh-motion-easing);
   }
 }
