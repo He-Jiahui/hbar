@@ -827,6 +827,7 @@ export class PluginManager {
   list(): PluginInfo[] {
     return [...this.entries.values()].map((e) => ({
       ...e.info,
+      status: e.info.status === 'failed' ? 'failed' : e.enabled ? 'active' : 'disabled',
       config: e.info.status === 'active' ? e.info.config : e.config,
     }))
   }

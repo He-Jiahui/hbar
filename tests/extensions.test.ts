@@ -104,6 +104,7 @@ test('scopes dependency graphs and tree shutdown to a project installation', asy
     undefined,
     workspace.id,
   )
+  expect(kernel.plugins.list().find((plugin) => plugin.id === 'project.base')?.status).toBe('active')
   const projectNodeIds = kernel.plugins.graph(workspace.id).nodes.map((node) => node.id)
   expect(projectNodeIds).toContain('project.base')
   expect(projectNodeIds).toContain('project.child')
