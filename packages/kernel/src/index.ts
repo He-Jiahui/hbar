@@ -676,7 +676,26 @@ export class Kernel {
     if (!descriptor) throw new HbarError('NOT_FOUND', `Setting not found: ${id}`)
     if (!descriptor.scopes.includes(scope)) throw new HbarError('INVALID_INPUT', `Setting ${id} is not editable at ${scope} scope`)
     validateSettingValue(descriptor.schema, value)
-    if (id === 'appearance.profile') themeProfileSchema.parse(value)
+    if (id === 'appearance.profile') {
+      const profile = themeProfileSchema.parse(value)
+      const backgroundAsset = profile.surface.backgroundAsset
+      if (typeof backgroundAsset === 'string' && /^[a-f0-9]{64}$/i.test(backgroundAsset)) {
+        let artifact: ArtifactRef
+        try {
+          artifact = await this.storage.call('artifact', backgroundAsset)
+        } catch {
+          throw new HbarError('NOT_FOUND', 'Theme background artifact not found')
+        }
+        if (!isImageMime(artifact.mime))
+          throw new HbarError('UNSUPPORTED_TYPE', 'Theme background must reference a supported image artifact')
+        try {
+          const file = await stat(join(this.options.layout.artifacts, backgroundAsset))
+          if (!file.isFile()) throw new Error('not a file')
+        } catch {
+          throw new HbarError('NOT_FOUND', 'Theme background artifact file not found')
+        }
+      }
+    }
     const current = await this.storage.call('getSettings', scope, targetId)
     const snapshot = await this.settingsSnapshot(scope, targetId)
     if (expectedRevision && expectedRevision !== snapshot.revision)
