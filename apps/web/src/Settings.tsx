@@ -1435,6 +1435,7 @@ export default function Settings() {
           <div className="plugin-theme-summary" aria-label={t('plugins')}>
             <h3>{t('pluginThemeSummary')}</h3>
             <p>{t('pluginThemeSummaryHint')}</p>
+            {themePlugins.length > 0 && <p className="settings-muted"><strong>{t('activeThemePlugin')}:</strong> {themePlugins[0]?.title} · {t('themePluginsComposed')}</p>}
             {themePlugins.length ? <ul>{themePlugins.map((theme) => {
               const previewUrl = theme.preview && themeConnection
                 ? new URL(`/api/plugins/${encodeURIComponent(theme.owner)}/${theme.preview}`, themeConnection.baseUrl).href
@@ -1442,7 +1443,7 @@ export default function Settings() {
               return <li key={theme.id} className="plugin-theme-item">
                 {previewUrl ? <img src={previewUrl} alt={`${theme.title} preview`} loading="lazy" /> : <span className="plugin-theme-swatch" aria-hidden="true" />}
                 <span className="plugin-theme-copy">
-                  <strong>{theme.title}</strong>
+                  <strong>{theme.title} {theme.id === themePlugins[0]?.id && <em>{t('themePluginActive')}</em>}</strong>
                   <span>{theme.owner} · {t('priorityLabel')} {theme.priority ?? 0}</span>
                   <small>{Object.keys(theme.tokenOverrides).length ? `${t('themeTokenOverrides')}: ${Object.keys(theme.tokenOverrides).join(', ')}` : t('noThemeTokenOverrides')}{theme.backgroundAssets?.length ? ` · ${t('themeBackgroundAssetCount')} ${theme.backgroundAssets.length}` : ''}</small>
                 </span>
