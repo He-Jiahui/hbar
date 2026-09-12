@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { GitRuntime, gitConfigSchema } from '../plugins/git/src/index.ts'
@@ -117,6 +117,28 @@ test('Git can create a worktree at an explicitly selected external path', async 
   expect((created as { path: string }).path.replaceAll('/', '\\').toLowerCase()).toBe(target.toLowerCase())
   expect((await runtime.worktree(root, { operation: 'list' }) as { path: string }[]).some((item) => item.path.replaceAll('/', '\\').toLowerCase() === target.toLowerCase())).toBeTrue()
   await runtime.worktree(root, { operation: 'remove', path: target, force: true })
+})
+
+test('Git rejects non-empty or symbolic-link worktree targets', async () => {
+  const { root, runtime } = await fixture()
+  const parent = await mkdtemp(join(tmpdir(), 'hbar-worktree-targets-'))
+  roots.push(parent)
+  const branch = 'feature/target-validation'
+  const baseBranch = await runGit(root, ['branch', '--show-current'])
+  await runtime.branch(root, { operation: 'create', name: branch })
+  await runtime.branch(root, { operation: 'switch', name: baseBranch })
+  const nonEmpty = join(parent, 'non-empty')
+  await mkdir(nonEmpty)
+  await writeFile(join(nonEmpty, 'keep.txt'), 'do not overwrite\n')
+  await expect(runtime.worktree(root, { operation: 'add', path: nonEmpty, branch })).rejects.toThrow('must be empty')
+  const link = join(parent, 'link')
+  try {
+    await symlink(nonEmpty, link, 'junction')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EPERM') return
+    throw error
+  }
+  await expect(runtime.worktree(root, { operation: 'add', path: link, branch })).rejects.toThrow('symbolic link')
 })
 
 test('Git command runner never turns a path into shell syntax', async () => {

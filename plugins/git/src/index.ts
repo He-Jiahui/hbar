@@ -1,4 +1,4 @@
-import { mkdir, realpath } from 'node:fs/promises'
+import { lstat, mkdir, readdir, realpath } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import {
@@ -538,6 +538,17 @@ export class GitRuntime implements GitService {
       }
     }
     if (operation.operation === 'add') {
+      try {
+        const existing = await lstat(target)
+        if (existing.isSymbolicLink()) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree target cannot be a symbolic link')
+        if (!existing.isDirectory()) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree target must be a directory')
+        if ((await readdir(target)).length > 0)
+          throw new HbarError('GIT_WORKTREE_PATH', 'Worktree target directory must be empty')
+      } catch (error) {
+        if (error instanceof HbarError) throw error
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+          throw new HbarError('GIT_WORKTREE_PATH', 'Worktree target cannot be inspected')
+      }
       const branch = operation.branch ? branchName(operation.branch) : undefined
       const args = ['worktree', 'add']
       if (operation.createBranch) {
