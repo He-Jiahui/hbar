@@ -337,30 +337,28 @@ function Sessions({
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
-      {(pinnedWorkspaces.length > 0 || pinnedSessions.length > 0) && (
-        <section className="session-pinned-section" aria-label="置顶区">
-          <div className="session-group-heading"><Pin size={12} />置顶</div>
-          {pinnedWorkspaces.map((workspace) => (
-            <button key={workspace.id} className="workspace-item pinned" onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)} onClick={() => useWorkbench.setState({ workspaceId: workspace.id })}>
-              <Folder size={14} /><span>{workspace.name}</span><Pin size={11} />
-            </button>
-          ))}
-          {pinnedSessions.map((session) => (
-            <button key={session.id} className={`session-item-pinned${selected === session.id ? ' selected' : ''}`} onContextMenu={(event) => openMenu(event, 'session', session.id)} onClick={() => onSelect(session.id)}>
-              {(() => { const meta = sessionMeta(session); return <>
-                <Pin size={13} /><span><strong>{session.title}</strong><small>{workspaces.find((workspace) => workspace.id === session.workspaceId)?.name}</small><small>{meta.branch ? `分支 · ${meta.branch}` : '无 Git 分支'}</small></span>
-                <span className={`session-status-indicator session-status-${meta.snapshot?.runs.find((run) => ['running', 'waiting_approval', 'queued'].includes(run.status))?.status ?? 'idle'}`} title={meta.status} aria-label={meta.status} />
-                <small className="session-last-response">最后响应 {new Date(session.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
-              </> })()}
-            </button>
-          ))}
-        </section>
-      )}
-      <AnimatedList
-        className="session-list"
-        viewportClassName="session-list-viewport"
-        aria-label={archived ? '已归档会话列表' : '会话列表'}
-      >
+      <LineSidebar className="session-line-sidebar" activeId={selected} itemSelector="[data-session-line-item]">
+        {(pinnedWorkspaces.length > 0 || pinnedSessions.length > 0) && (
+          <section className="session-pinned-section" aria-label="置顶区">
+            <div className="session-group-heading"><Pin size={12} />置顶</div>
+            {pinnedWorkspaces.map((workspace) => (
+              <button key={workspace.id} className="workspace-item pinned" onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)} onClick={() => useWorkbench.setState({ workspaceId: workspace.id })}>
+                <Folder size={14} /><span>{workspace.name}</span><Pin size={11} />
+              </button>
+            ))}
+            {pinnedSessions.map((session) => (
+              <button data-session-line-item data-line-id={session.id} key={session.id} className={`session-item-pinned${selected === session.id ? ' selected' : ''}`} onContextMenu={(event) => openMenu(event, 'session', session.id)} onClick={() => onSelect(session.id)}>
+                <span className="session-line-marker" aria-hidden="true" />
+                {renderSessionDetails(session)}
+              </button>
+            ))}
+          </section>
+        )}
+        <AnimatedList
+          className="session-list"
+          viewportClassName="session-list-viewport"
+          aria-label={archived ? '已归档会话列表' : '会话列表'}
+        >
         {workspaces.map((workspace) => {
           const workspaceSessions = visibleSessions.filter((session) => session.workspaceId === workspace.id)
           if (!workspaceSessions.length && search) return null
@@ -447,17 +445,16 @@ function Sessions({
                 )}
               </button>
             </div>
-                    </>
-                  })()}
               </SpotlightCard>
               ))}
             </section>
           )
         })}
-        {!visibleSessions.length && (
-          <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
-        )}
-      </AnimatedList>
+          {!visibleSessions.length && (
+            <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
+          )}
+        </AnimatedList>
+      </LineSidebar>
       {contextMenu && <SessionContextMenu menu={contextMenu} sessions={sessions} onClose={() => setContextMenu(null)} onTogglePinned={togglePinned} onRename={(id) => { const session = sessions.find((item) => item.id === id); if (session) { setRenamingId(id); setRenameValue(session.title) }; setContextMenu(null) }} onArchive={(id) => { const session = sessions.find((item) => item.id === id); if (session) void toggleArchive(session); setContextMenu(null) }} />}
     </div>
   )
@@ -520,6 +517,47 @@ export default function App() {
   const toolRailOrder = [...DEFAULT_TOOL_RAIL_ORDER].sort(
     (a, b) =>
       (persistedToolRailLayout[a]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(a)) -
+  useEffect(() => {
+    let cancelled = false
+    if (!workspacePaths.length) {
+      setDiscoveredWorktrees([])
+      setSelectedWorktreePaths([])
+      return () => {
+        cancelled = true
+      }
+    }
+    void Promise.all(
+      workspacePaths.map(async (sourcePath) => {
+        try {
+          const [status, result] = await Promise.all([
+            client().call('git.status', { cwd: sourcePath }),
+            client().call('git.worktree', { cwd: sourcePath, operation: 'list' }),
+          ])
+          const entries = Array.isArray(result) ? result : [result]
+          const currentRoot = status.root ?? sourcePath
+          return entries
+            .filter((item) => item.path.toLocaleLowerCase() !== currentRoot.toLocaleLowerCase())
+            .map((item) => ({ ...item, sourcePath }))
+        } catch {
+          return []
+        }
+      }),
+    ).then((groups) => {
+      if (cancelled) return
+      const seen = new Set<string>()
+      const external = groups.flat().filter((item) => {
+        const key = item.path.toLocaleLowerCase()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      setDiscoveredWorktrees(external)
+      setSelectedWorktreePaths(external.map((item) => item.path))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [workspacePaths])
       (persistedToolRailLayout[b]?.order ?? DEFAULT_TOOL_RAIL_ORDER.indexOf(b)),
   )
   const toolRailSides = Object.fromEntries(
@@ -825,6 +863,8 @@ export default function App() {
     setWorkspaceModal(false)
     setWorkspacePaths([])
     setWorkspaceAlias('')
+    setDiscoveredWorktrees([])
+    setSelectedWorktreePaths([])
   }
   async function chooseWorkspaceDirectory() {
     try {
@@ -838,22 +878,8 @@ export default function App() {
     const paths = [...workspacePaths]
     if (!paths.length) return
     try {
-      const selectedPaths = new Set(paths.map((path) => path.toLowerCase()))
       const discovered = new Set(paths)
-      for (const path of paths) {
-        try {
-          const result = await client().call('git.worktree', { cwd: path, operation: 'list' })
-          const worktrees = Array.isArray(result) ? result : [result]
-          const external = worktrees
-            .map((item) => item.path)
-            .filter((item) => !selectedPaths.has(item.toLowerCase()))
-          if (external.length && window.confirm(`检测到 ${external.length} 个位于当前目录之外的 Git Worktree，是否一并加入工作区？`)) {
-            external.forEach((item) => discovered.add(item))
-          }
-        } catch {
-          // 非 Git 目录无需额外处理，仍可作为普通工作区加入。
-        }
-      }
+      selectedWorktreePaths.forEach((path) => discovered.add(path))
       const pathsToCreate = [...discovered]
       const alias = workspaceAlias.trim()
       const created = []
@@ -869,14 +895,16 @@ export default function App() {
     }
   }
   async function useWorktreePath(path: string) {
-    const existing = data?.workspaces.find((workspace) => workspace.path.toLocaleLowerCase() === path.toLocaleLowerCase())
-    if (existing) {
-      useWorkbench.setState({ workspaceId: existing.id })
-      return
-    }
-    const created = await client().call('workspace.create', { path })
+    const currentData = useCatalog.getState().data
+    const existing = currentData?.workspaces.find((workspace) => workspace.path.toLocaleLowerCase() === path.toLocaleLowerCase())
+    const target = existing ?? await client().call('workspace.create', { path })
+    const currentSessionId = useWorkbench.getState().activeSession
+    const currentSession = currentData?.sessions.find((session) => session.id === currentSessionId)
+    if (currentSessionId && currentSession && currentSession.workspaceId !== target.id)
+      await client().call('session.move', { sessionId: currentSessionId, workspaceId: target.id })
     await refreshCatalog()
-    useWorkbench.setState({ workspaceId: created.id })
+    useWorkbench.setState({ workspaceId: target.id })
+    if (currentSessionId) await openSession(currentSessionId)
   }
   function openSessionTab(session: Session) {
     initialSelection.current = false
@@ -1516,6 +1544,24 @@ export default function App() {
                 </ul>
               ) : (
                 <p className="workspace-picker-empty">请选择一个或多个文件夹。</p>
+              )}
+              {discoveredWorktrees.length > 0 && (
+                <div className="workspace-worktree-discovery" aria-label="检测到的外部 Worktree">
+                  <strong>检测到其他 Worktree（默认全部加入）</strong>
+                  {discoveredWorktrees.map((item) => {
+                    const checked = selectedWorktreePaths.includes(item.path)
+                    return (
+                      <label key={item.path} className="workspace-worktree-option">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setSelectedWorktreePaths((current) => checked ? current.filter((path) => path !== item.path) : [...current, item.path])}
+                        />
+                        <span><b>{item.branch ?? '分离 HEAD'}</b><small title={item.path}>{item.path}</small></span>
+                      </label>
+                    )
+                  })}
+                </div>
               )}
               {workspacePaths.length > 1 && <p className="workspace-picker-hint">多个目录将分别加入工作区，并使用各自的目录名。</p>}
             </div>
