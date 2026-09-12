@@ -452,7 +452,7 @@ function Sessions({
                   {renamingId === session.id ? (
               <input
                 className="session-rename-input"
-                aria-label={`${t('renameSession')} ${session.title}`}
+                aria-label={`${t('rename')} ${session.title}`}
                 value={renameValue}
                 autoFocus
                 disabled={renameBusy}
@@ -484,7 +484,7 @@ function Sessions({
               </button>
               <button
                 title={t('renameSession')}
-                aria-label={`${t('renameSession')} ${session.title}`}
+                aria-label={`${t('rename')} ${session.title}`}
                 disabled={renameBusy || Boolean(sessionActions[session.id])}
                 onClick={(event) => startRename(event, session)}
               >
