@@ -294,7 +294,7 @@ function Sessions({
       <span className="session-leading-icon" aria-hidden="true">{pinnedSessionIds.includes(session.id) ? <Pin size={14} /> : <MessageSquare size={14} />}</span>
       <div>
         <span>{session.title}</span>
-        <small>{workspace?.name ?? '未知工作区'} · {meta.branch ? `分支 · ${meta.branch}` : '无 Git 分支'}</small>
+        <small title={meta.branch ? `${workspace?.path ?? workspace?.name ?? '未知工作区'} · ${meta.branch}` : '无 Git 分支'}>{workspace?.name ?? '未知工作区'} · {meta.branch ? `分支 · ${meta.branch}` : '无 Git 分支'}</small>
       </div>
       <span className={`session-status-indicator session-status-${meta.activity}`} title={meta.status} aria-label={meta.status}><StatusIcon size={13} /></span>
       <small className="session-last-response" title={responseAt ? new Date(responseAt).toLocaleString() : undefined}>最后响应 {responseLabel}</small>
