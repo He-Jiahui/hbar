@@ -5,6 +5,7 @@ import { DEFAULT_THEME_PROFILE, HbarError, normalizeThemeProfile } from '@hbar/c
 import type { ClientTheme, DeepPartial } from '@hbar/ui-sdk'
 
 export type ThemeSettingScope = SettingScope
+export const THEME_CONFLICT_ERROR = 'theme-conflict'
 
 interface ThemeSettingsState {
   scope: ThemeSettingScope
@@ -95,7 +96,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
     try {
       const snapshot = await transport.call('settings.snapshot', { scope, ...(targetId ? { targetId } : {}) })
       const latest = profileFromSnapshot(snapshot)
-      set({ snapshot, savedProfile: latest, profile, conflict: true, error: '设置已在其他窗口修改。当前草稿已保留，请确认后重试保存。' })
+      set({ snapshot, savedProfile: latest, profile, conflict: true, error: THEME_CONFLICT_ERROR })
     } catch (cause) {
       set({ error: cause instanceof Error ? cause.message : String(cause) })
     }
@@ -115,7 +116,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
       get().applySnapshot(next)
     } catch (cause) {
       if (cause instanceof HbarError && cause.code === 'SETTINGS_CONFLICT') {
-        set({ conflict: true, error: '设置已在其他窗口修改。当前草稿已保留，请加载最新快照后重试保存。' })
+        set({ conflict: true, error: THEME_CONFLICT_ERROR })
       } else set({ error: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       set({ saving: false })

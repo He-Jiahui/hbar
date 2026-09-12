@@ -48,7 +48,7 @@ import SpotlightCard from './react-bits/SpotlightCard'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
 import { FloatingSurface } from './FloatingLayer'
-import { mergeThemeContributions, useThemeSettings } from './theme-store'
+import { mergeThemeContributions, THEME_CONFLICT_ERROR, useThemeSettings } from './theme-store'
 import { platform } from './platform'
 import { rendererSlotDiagnostics, useUIPlugins } from './ui-plugins'
 import { useLocale } from './locale'
@@ -1176,7 +1176,7 @@ export default function Settings() {
           </div>
           {themeBackgroundAssets.length > 0 && <div className="theme-plugin-assets" aria-label={t('pluginBackgrounds')}><span>{t('pluginBackgrounds')}</span>{themeBackgroundAssets.map((asset) => { const selected = themeProfile.surface.backgroundAsset === `plugin/${asset.owner}/${asset.path}`; return <button type="button" className={selected ? 'selected' : ''} key={asset.id} aria-pressed={selected} onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: `plugin/${asset.owner}/${asset.path}` } }))}>{asset.title ?? asset.path}</button> })}</div>}
           {windowEffectStatus && <p className="settings-muted" role="status">{windowEffectStatus}</p>}
-          {themeError && <p className="inline-error" role="alert">{themeError}</p>}
+          {themeError && <p className="inline-error" role="alert">{themeError === THEME_CONFLICT_ERROR ? t('themeConflictNotice') : themeError}</p>}
         </section>
       )}
       {tab === 'automation' && (
