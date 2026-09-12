@@ -4,6 +4,7 @@ import type { GitBranchInfo, GitStatus, GitWorktreeInfo } from '@hbar/contracts'
 import { client } from './stores'
 import { platform } from './platform'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
+import { useLocale } from './locale'
 import './GitContextSwitcher.css'
 
 function pathKey(value: string) {
@@ -21,6 +22,7 @@ export default function GitContextSwitcher({
   gitProject?: boolean | null
   onUseWorktree(path: string): void | Promise<void>
 }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [branches, setBranches] = useState<GitBranchInfo[]>([])
   const [worktrees, setWorktrees] = useState<GitWorktreeInfo[]>([])
@@ -81,11 +83,9 @@ export default function GitContextSwitcher({
     setError('')
     try {
       await connection.call('git.branch', { cwd: operationWorkspacePath, operation: 'switch', name })
-      if (client() !== connection || workspacePath !== operationWorkspacePath)
-        throw new Error('工作区已切换，请重新选择分支')
+      if (client() !== connection || workspacePath !== operationWorkspacePath) throw new Error(t('workspaceChanged'))
       await load()
-      if (client() !== connection || workspacePath !== operationWorkspacePath)
-        throw new Error('连接或工作区已切换，请重新选择分支')
+      if (client() !== connection || workspacePath !== operationWorkspacePath) throw new Error(t('workspaceChanged'))
       setBranchDecision(null)
       setWorktreeTarget(null)
       setWorktreePath('')
@@ -104,7 +104,7 @@ export default function GitContextSwitcher({
       return
     }
     setBranchDecision(name)
-    setError(status?.dirty ? '当前目录有未提交改动，不能在当前目录切换分支。' : '')
+    setError(status?.dirty ? t('dirtyWorkspace') : '')
   }
   async function createWorktreeForBranch() {
     if (!branchDecision || busy) return
@@ -132,10 +132,9 @@ export default function GitContextSwitcher({
         branch: operationBranch,
         createBranch: false,
       })
-      if (client() !== connection || workspacePath !== operationWorkspacePath)
-        throw new Error('工作区已切换，请重新选择 Worktree')
+      if (client() !== connection || workspacePath !== operationWorkspacePath) throw new Error(t('workspaceChangedWorktree'))
       const created = Array.isArray(result) ? result.find((item) => pathKey(item.path) === pathKey(operationTarget)) : result
-      if (!created) throw new Error('Worktree 创建失败')
+      if (!created) throw new Error(t('worktreeCreateFailed'))
       await onUseWorktree(created.path)
       setOpen(false)
       setWorktreeTarget(null)
@@ -171,7 +170,7 @@ export default function GitContextSwitcher({
         {...triggerHandlers}
       >
         <GitBranch size={13} />
-        <span>{gitProject === false ? '非 Git 项目' : branch ?? (gitProject === true ? '分离 HEAD' : '读取 Git 状态…')}</span>
+        <span>{gitProject === false ? t('gitNonProject') : branch ?? (gitProject === true ? t('gitDetachedHead') : t('gitReadingStatus'))}</span>
         {busy ? <LoaderCircle size={12} className="spinning" /> : <Plus size={12} />}
       </button>
       <FloatingSurface
@@ -181,55 +180,55 @@ export default function GitContextSwitcher({
         placement="above"
         className="git-context-menu"
         role="menu"
-        aria-label="切换 Git 分支或 worktree"
+        aria-label={`${t('switchBranch')} / Worktree`}
       >
         <header>
-          <strong>Git 上下文</strong>
-          <button type="button" aria-label="刷新 Git 上下文" title="刷新" onClick={() => void load()} disabled={busy}>
+          <strong>{t('gitContext')}</strong>
+          <button type="button" aria-label={t('refreshGitContext')} title={t('refresh')} onClick={() => void load()} disabled={busy}>
             <RefreshCw size={13} />
           </button>
         </header>
         {error && <p className="git-context-error" role="alert">{error}</p>}
-        {!isGit ? <p className="git-context-empty">当前目录不是 Git 项目。</p> : null}
-        {isGit && status?.root && <p className="git-context-root" title={status.root}>当前目录：{status.root}</p>}
+        {!isGit ? <p className="git-context-empty">{t('notGitProject')}</p> : null}
+        {isGit && status?.root && <p className="git-context-root" title={status.root}>{t('currentDirectory')}：{status.root}</p>}
         {branchDecision && (
-          <section className="git-context-decision" aria-label={`切换到分支 ${branchDecision}`}>
-            <h3>切换到 {branchDecision}</h3>
+          <section className="git-context-decision" aria-label={`${t('switchToBranch')} ${branchDecision}`}>
+            <h3>{t('switchToBranch')} {branchDecision}</h3>
             <button type="button" onClick={() => void applyBranchSwitch(branchDecision)} disabled={busy || Boolean(status?.dirty)}>
               <GitBranch size={13} />
-              <span>在当前目录切换</span>
+              <span>{t('switchInCurrentDirectory')}</span>
             </button>
             <button type="button" onClick={() => void createWorktreeForBranch()} disabled={busy}>
               <Plus size={13} />
-              <span>新建 Worktree 并切换</span>
+              <span>{t('createWorktreeAndSwitch')}</span>
             </button>
-            <button type="button" onClick={() => { setBranchDecision(null); setWorktreeTarget(null) }} disabled={busy}>返回分支列表</button>
+            <button type="button" onClick={() => { setBranchDecision(null); setWorktreeTarget(null) }} disabled={busy}>{t('backToBranches')}</button>
           </section>
         )}
         {worktreeTarget && <form className="git-context-worktree-form" onSubmit={(event) => { event.preventDefault(); void createWorktree() }}>
-          <label htmlFor="git-worktree-path">为 {worktreeTarget} 创建 Worktree</label>
-          <input id="git-worktree-path" value={worktreePath} onChange={(event) => setWorktreePath(event.target.value)} placeholder="Worktree 路径" autoFocus />
-          <div><button type="button" onClick={() => void createWorktreeForBranch()} disabled={busy}>浏览文件夹</button><button type="submit" disabled={busy || !worktreePath.trim()}>创建并切换</button><button type="button" onClick={() => { setWorktreeTarget(null); setBranchDecision(null) }}>取消</button></div>
+          <label htmlFor="git-worktree-path">{t('createWorktreeFor')} {worktreeTarget}</label>
+          <input id="git-worktree-path" value={worktreePath} onChange={(event) => setWorktreePath(event.target.value)} placeholder={t('worktreePath')} autoFocus />
+          <div><button type="button" onClick={() => void createWorktreeForBranch()} disabled={busy}>{t('browseFolder')}</button><button type="submit" disabled={busy || !worktreePath.trim()}>{t('createAndSwitch')}</button><button type="button" onClick={() => { setWorktreeTarget(null); setBranchDecision(null) }}>{t('cancel')}</button></div>
         </form>}
         <section>
-          <h3>切换分支</h3>
+          <h3>{t('switchBranch')}</h3>
           {branches.length ? branches.map((item) => (
               <button type="button" role="menuitem" className={item.current ? 'current' : ''} key={item.name} onClick={() => void chooseBranch(item.name)} disabled={busy}>
               <GitBranch size={13} />
               <span>{item.name}</span>
-              {item.current && <small>当前</small>}
+              {item.current && <small>{t('current')}</small>}
             </button>
-          )) : <p className="git-context-empty">没有可切换的分支</p>}
+          )) : <p className="git-context-empty">{t('noBranches')}</p>}
         </section>
         <section>
-          <h3>切换 Worktree</h3>
+          <h3>{t('switchWorktree')}</h3>
           {worktrees.length ? worktrees.map((item) => (
               <button type="button" role="menuitem" className={pathKey(item.path) === pathKey(workspacePath) ? 'current' : ''} key={item.path} onClick={() => void selectWorktree(item)} disabled={busy || pathKey(item.path) === pathKey(workspacePath)}>
               <GitBranch size={13} />
-              <span><strong>{item.branch ?? '分离 HEAD'}</strong><small title={item.path}>{item.path}</small></span>
-              {pathKey(item.path) === pathKey(workspacePath) && <small>当前</small>}
+              <span><strong>{item.branch ?? t('gitDetachedHead')}</strong><small title={item.path}>{item.path}</small></span>
+              {pathKey(item.path) === pathKey(workspacePath) && <small>{t('current')}</small>}
             </button>
-          )) : <p className="git-context-empty">没有检测到 Worktree</p>}
+          )) : <p className="git-context-empty">{t('noWorktrees')}</p>}
         </section>
       </FloatingSurface>
     </div>

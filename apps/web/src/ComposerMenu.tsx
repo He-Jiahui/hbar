@@ -14,13 +14,14 @@ import {
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
+import { useLocale } from './locale'
 
 const GROUP_ORDER: readonly ComposerActionGroup[] = ['session', 'context', 'tools', 'extensions']
-const GROUP_LABELS: Record<ComposerActionGroup, string> = {
-  session: '会话模式',
-  context: '上下文',
-  tools: '工具',
-  extensions: '插件',
+const GROUP_MESSAGE_KEYS: Record<ComposerActionGroup, 'sessionCapabilities' | 'context' | 'tools' | 'extensions'> = {
+  session: 'sessionCapabilities',
+  context: 'context',
+  tools: 'tools',
+  extensions: 'extensions',
 }
 const ICONS: Record<ComposerActionIcon, typeof Target> = {
   target: Target,
@@ -51,6 +52,7 @@ type ComposerMenuProps = {
 }
 
 export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -107,10 +109,10 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
         ref={trigger}
         type="button"
         className="composer-plus-trigger"
-        aria-label="添加能力"
+        aria-label={t('addCapability')}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="添加能力"
+        title={t('addCapability')}
         {...triggerProps}
       >
         <Plus size={17} />
@@ -125,7 +127,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
         placement="above"
         className="composer-menu rb-menu-surface"
         role="menu"
-        aria-label="会话能力"
+        aria-label={t('sessionCapabilities')}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown') {
             event.preventDefault()
@@ -146,16 +148,16 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
           <Search size={14} />
           <input
             autoFocus
-            aria-label="搜索能力"
-            placeholder="搜索能力"
+            aria-label={t('searchCapabilities')}
+            placeholder={t('searchCapabilities')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
         <div className="composer-menu-list">
           {grouped.map(({ group, actions: groupActions }) => (
-            <section key={group} className="composer-menu-group" aria-label={GROUP_LABELS[group]}>
-              <div className="composer-menu-heading">{GROUP_LABELS[group]}</div>
+            <section key={group} className="composer-menu-group" aria-label={t(GROUP_MESSAGE_KEYS[group])}>
+              <div className="composer-menu-heading">{t(GROUP_MESSAGE_KEYS[group])}</div>
               {groupActions.map((action) => {
                 const itemIndex = index
                 index += 1
@@ -186,14 +188,14 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
                         <strong>{action.label}</strong>
                         {action.description && <small>{action.description}</small>}
                       </span>
-                      {action.disabled && <span className="composer-menu-status">不可用</span>}
+                      {action.disabled && <span className="composer-menu-status">{t('unavailable')}</span>}
                     </button>
                   </SpotlightCard>
                 )
               })}
             </section>
           ))}
-          {!grouped.length && <div className="composer-menu-empty">没有匹配的能力</div>}
+          {!grouped.length && <div className="composer-menu-empty">{t('noMatchingCapabilities')}</div>}
         </div>
       </FloatingSurface>
     </div>

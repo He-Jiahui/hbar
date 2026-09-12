@@ -6,6 +6,7 @@ import { report, setApprovalMode, useWorkbench } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
+import { useLocale } from './locale'
 
 export interface PermissionSelectorProps {
   compact?: boolean
@@ -24,6 +25,7 @@ export default function PermissionSelector({
   className = '',
   placement = 'above',
 }: PermissionSelectorProps) {
+  const { t } = useLocale()
   const mode = useWorkbench((state) => state.approvalMode)
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState<ApprovalMode | null>(null)
@@ -55,7 +57,7 @@ export default function PermissionSelector({
     })
     setPending(null)
     if (saved) setOpen(false)
-    else if (useWorkbench.getState().approvalMode === next) setFailure('保存失败，当前模式未改变。请重试。')
+    else if (useWorkbench.getState().approvalMode === next) setFailure(t('saveFailure'))
   }
 
   return (
@@ -84,11 +86,11 @@ export default function PermissionSelector({
         placement={placement}
         className="permission-menu rb-menu-surface"
         role="menu"
-        aria-label="权限模式"
+        aria-label={t('permissionMode')}
         aria-busy={pending !== null}
       >
         <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
-        <div className="permission-menu-heading">工具权限</div>
+        <div className="permission-menu-heading">{t('toolPermissions')}</div>
         {permissionPresets.map((preset) => (
           <SpotlightCard
             className={`permission-option-card permission-tone-${preset.tone} ${preset.id === selected.id ? 'selected' : ''}`}
@@ -118,7 +120,7 @@ export default function PermissionSelector({
             {failure}
           </div>
         )}
-        <div className="permission-menu-footer">可在设置中修改默认模式</div>
+        <div className="permission-menu-footer">{t('permissionSettingsHint')}</div>
       </FloatingSurface>
     </div>
   )

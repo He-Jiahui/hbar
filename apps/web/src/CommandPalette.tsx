@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface } from './FloatingLayer'
+import { useLocale } from './locale'
 
 export interface PaletteCommand {
   id: string
@@ -17,9 +18,9 @@ export interface PaletteCommand {
 
 export type PaletteCommandGroup = 'navigation' | 'actions'
 
-const GROUP_LABELS: Record<PaletteCommandGroup, string> = {
-  navigation: '导航',
-  actions: '操作',
+const GROUP_MESSAGE_KEYS: Record<PaletteCommandGroup, 'navigation' | 'actions'> = {
+  navigation: 'navigation',
+  actions: 'actions',
 }
 
 interface CommandPaletteProps {
@@ -29,6 +30,7 @@ interface CommandPaletteProps {
 }
 
 export default function CommandPalette({ open, commands, onClose }: CommandPaletteProps) {
+  const { t } = useLocale()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
   const [recentIds, setRecentIds] = useState<string[]>([])
@@ -143,15 +145,15 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
         width="min(620px, 100%)"
         role="dialog"
         aria-modal="true"
-        aria-label="命令面板"
+        aria-label={t('commandPalette')}
       >
         <div className="command-palette-search">
           <Search size={16} aria-hidden="true" />
           <input
             ref={input}
             type="search"
-            aria-label="搜索命令"
-            placeholder="搜索命令"
+            aria-label={t('searchCommands')}
+            placeholder={t('searchCommands')}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value)
@@ -172,24 +174,24 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
           />
           <kbd>Esc</kbd>
         </div>
-        <div className="command-palette-list" role="listbox" aria-label="可用命令">
+        <div className="command-palette-list" role="listbox" aria-label={t('availableCommands')}>
           {grouped.flat.length ? (
             <>
               {grouped.recent.length > 0 && (
-                <section className="command-palette-group" role="group" aria-label="最近使用">
-                  <h3>最近使用</h3>
+                <section className="command-palette-group" role="group" aria-label={t('recentCommands')}>
+                  <h3>{t('recentCommands')}</h3>
                   {grouped.recent.map((command) => renderCommand(command, grouped.flat.indexOf(command)))}
                 </section>
               )}
               {grouped.groups.map(({ group, commands: groupCommands }) => (
-                <section className="command-palette-group" role="group" key={group} aria-label={GROUP_LABELS[group]}>
-                  <h3>{GROUP_LABELS[group]}</h3>
+                <section className="command-palette-group" role="group" key={group} aria-label={t(GROUP_MESSAGE_KEYS[group])}>
+                  <h3>{t(GROUP_MESSAGE_KEYS[group])}</h3>
                   {groupCommands.map((command) => renderCommand(command, grouped.flat.indexOf(command)))}
                 </section>
               ))}
             </>
           ) : (
-            <p className="command-palette-empty">没有匹配命令</p>
+            <p className="command-palette-empty">{t('noMatchingCommands')}</p>
           )}
         </div>
       </GlassSurface>
