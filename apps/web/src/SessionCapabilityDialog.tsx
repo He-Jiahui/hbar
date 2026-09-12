@@ -32,6 +32,7 @@ import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { useLocale } from './locale'
 
 const TAB_LABELS: Record<SessionCapabilityTab, string> = {
   goal: 'Goal',
@@ -39,19 +40,23 @@ const TAB_LABELS: Record<SessionCapabilityTab, string> = {
   budget: 'Budget',
 }
 
-const STATUS_LABELS: Record<ThreadGoal['status'], string> = {
-  active: '进行中',
-  paused: '已暂停',
-  blocked: '已阻塞',
-  usage_limited: '用量受限',
-  budget_limited: '预算受限',
-  complete: '已完成',
+function statusLabel(status: ThreadGoal['status'], t: ReturnType<typeof useLocale>['t']) {
+  return {
+    active: t('chatStatusActive'),
+    paused: t('chatStatusPaused'),
+    blocked: t('chatStatusBlocked'),
+    usage_limited: t('chatStatusUsageLimited'),
+    budget_limited: t('chatStatusBudgetLimited'),
+    complete: t('chatStatusComplete'),
+  }[status]
 }
 
-const PLAN_STATUS_LABELS: Record<PlanStepStatus, string> = {
-  pending: '待处理',
-  in_progress: '进行中',
-  completed: '已完成',
+function planStatusLabel(status: PlanStepStatus, t: ReturnType<typeof useLocale>['t']) {
+  return {
+    pending: t('capabilityPending'),
+    in_progress: t('chatStatusActive'),
+    completed: t('chatStatusComplete'),
+  }[status]
 }
 
 function parsePositiveInteger(value: string) {
@@ -61,6 +66,7 @@ function parsePositiveInteger(value: string) {
 }
 
 function CapabilityFeedback({ loading, saving, error }: { loading: boolean; saving: boolean; error: string }) {
+  const { t } = useLocale()
   if (error)
     return (
       <p className="inline-error session-capability-feedback" role="alert">
@@ -70,19 +76,20 @@ function CapabilityFeedback({ loading, saving, error }: { loading: boolean; savi
   if (loading)
     return (
       <p className="small-muted session-capability-feedback" role="status">
-        <LoaderCircle size={13} className="spinning" /> 正在读取会话状态
+        <LoaderCircle size={13} className="spinning" /> {t('capabilityLoading')}
       </p>
     )
   if (saving)
     return (
       <p className="small-muted session-capability-feedback" role="status">
-        <LoaderCircle size={13} className="spinning" /> 正在保存
+        <LoaderCircle size={13} className="spinning" /> {t('capabilitySaving')}
       </p>
     )
   return null
 }
 
 function GoalPane({ sessionId }: { sessionId: string }) {
+  const { t } = useLocale()
   const state = useSessionCapabilities((value) => value.sessions[sessionId])
   const goal = state?.goal ?? null
   const [objective, setObjective] = useState('')
@@ -98,12 +105,12 @@ function GoalPane({ sessionId }: { sessionId: string }) {
   async function save() {
     const trimmed = objective.trim()
     if (!trimmed) {
-      setValidation('目标不能为空')
+      setValidation(t('capabilityTargetRequired'))
       return
     }
     const parsedBudget = parsePositiveInteger(tokenBudget)
     if (parsedBudget === null) {
-      setValidation('预算必须是正整数')
+      setValidation(t('capabilityPositiveBudget'))
       return
     }
     setValidation('')
@@ -136,7 +143,7 @@ function GoalPane({ sessionId }: { sessionId: string }) {
   }
 
   async function clear() {
-    if (!goal || !window.confirm('清除当前 Goal？')) return
+    if (!goal || !window.confirm(t('capabilityClearGoalConfirm'))) return
     try {
       await clearGoal(client(), sessionId)
     } catch (error) {
@@ -145,46 +152,46 @@ function GoalPane({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <section className="session-capability-pane" aria-label="Goal 设置">
+    <section className="session-capability-pane" aria-label={`${TAB_LABELS.goal} ${t('capabilitySettings')}`}>
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
       {goal && (
         <div className="session-capability-summary rb-capability-surface">
           <GlassSurface className="capability-surface-glass" width="100%" height="100%" aria-hidden="true" />
           <div>
-            <span className="small-muted">状态</span>
-            <strong>{STATUS_LABELS[goal.status]}</strong>
+            <span className="small-muted">{t('capabilityStatus')}</span>
+            <strong>{statusLabel(goal.status, t)}</strong>
           </div>
           <div>
-            <span className="small-muted">已用 tokens</span>
+            <span className="small-muted">{t('capabilityUsedTokens')}</span>
             <strong>{goal.tokensUsed.toLocaleString()}</strong>
           </div>
           <div>
-            <span className="small-muted">剩余 tokens</span>
+            <span className="small-muted">{t('capabilityRemainingTokens')}</span>
             <strong>
-              {goal.tokenBudget === null ? '不限' : Math.max(0, goal.tokenBudget - goal.tokensUsed).toLocaleString()}
+              {goal.tokenBudget === null ? t('capabilityUnlimited') : Math.max(0, goal.tokenBudget - goal.tokensUsed).toLocaleString()}
             </strong>
           </div>
         </div>
       )}
       <label>
-        目标
+        {t('capabilityTarget')}
         <textarea
           rows={4}
           value={objective}
           onChange={(event) => setObjective(event.target.value)}
-          placeholder="例如：完成登录流程并通过端到端测试"
+          placeholder={t('capabilityTargetPlaceholder')}
           disabled={state?.saving ?? false}
         />
       </label>
       <label>
-        Token 预算（可选）
+        {t('capabilityTokenBudgetOptional')}
         <input
           type="number"
           min={1}
           step={1}
           value={tokenBudget}
           onChange={(event) => setTokenBudget(event.target.value)}
-          placeholder="不限"
+          placeholder={t('capabilityUnlimited')}
           disabled={state?.saving ?? false}
         />
       </label>
@@ -193,18 +200,18 @@ function GoalPane({ sessionId }: { sessionId: string }) {
         {goal && ['active', 'paused'].includes(goal.status) && (
           <button type="button" className="button" onClick={() => void togglePaused()} disabled={state?.saving ?? false}>
             {goal.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
-            {goal.status === 'paused' ? '恢复' : '暂停'}
+            {goal.status === 'paused' ? t('capabilityResume') : t('capabilityPause')}
           </button>
         )}
         {goal && (
           <button type="button" className="button danger-button" onClick={() => void clear()} disabled={state?.saving ?? false}>
             <Trash2 size={14} />
-            清除
+            {t('capabilityClear')}
           </button>
         )}
         <GlareButton type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Save size={14} />}
-          {goal ? '保存 Goal' : '创建 Goal'}
+          {goal ? t('capabilitySaveGoal') : t('capabilityCreateGoal')}
         </GlareButton>
       </footer>
     </section>
@@ -212,6 +219,7 @@ function GoalPane({ sessionId }: { sessionId: string }) {
 }
 
 function PlanPane({ sessionId }: { sessionId: string }) {
+  const { t } = useLocale()
   const state = useSessionCapabilities((value) => value.sessions[sessionId])
   const plan = state?.plan ?? null
   const mode = state?.mode ?? 'default'
@@ -237,7 +245,7 @@ function PlanPane({ sessionId }: { sessionId: string }) {
   async function savePlan() {
     const normalized = steps.map((step) => ({ step: step.step.trim(), status: step.status })).filter((step) => step.step)
     if (!normalized.length) {
-      setValidation('至少保留一个计划步骤')
+      setValidation(t('capabilityPlanRequired'))
       return
     }
     setValidation('')
@@ -249,7 +257,7 @@ function PlanPane({ sessionId }: { sessionId: string }) {
   }
 
   async function clear() {
-    if (!plan || !window.confirm('清除当前计划？')) return
+    if (!plan || !window.confirm(t('capabilityClearPlanConfirm'))) return
     try {
       await clearPlan(client(), sessionId)
     } catch (error) {
@@ -258,14 +266,14 @@ function PlanPane({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <section className="session-capability-pane" aria-label="Plan 设置">
+    <section className="session-capability-pane" aria-label={`${TAB_LABELS.plan} ${t('capabilitySettings')}`}>
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
-      <div className="session-capability-mode segmented" aria-label="运行模式">
+      <div className="session-capability-mode segmented" aria-label={t('capabilityRunMode')}>
         <button type="button" className={mode === 'default' ? 'selected' : ''} onClick={() => void changeMode('default')}>
-          默认模式
+          {t('capabilityDefaultMode')}
         </button>
         <button type="button" className={mode === 'plan' ? 'selected' : ''} onClick={() => void changeMode('plan')}>
-          Plan 模式
+          {t('capabilityPlanMode')}
         </button>
       </div>
       {plan?.explanation && <p className="session-capability-note">{plan.explanation}</p>}
@@ -273,7 +281,7 @@ function PlanPane({ sessionId }: { sessionId: string }) {
         className="session-plan-list"
         viewportClassName="session-plan-viewport"
         showGradients={false}
-        aria-label="计划步骤列表"
+        aria-label={t('capabilityPlanSteps')}
       >
         {steps.map((step, index) => (
           <SpotlightCard
@@ -282,7 +290,7 @@ function PlanPane({ sessionId }: { sessionId: string }) {
             spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
           >
             <input
-              aria-label={`计划步骤 ${index + 1}`}
+              aria-label={`${t('capabilityStep')} ${index + 1}`}
               value={step.step}
               onChange={(event) =>
                 setSteps((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, step: event.target.value } : item)))
@@ -290,7 +298,7 @@ function PlanPane({ sessionId }: { sessionId: string }) {
               disabled={state?.saving ?? false}
             />
             <select
-              aria-label={`计划步骤 ${index + 1} 状态`}
+              aria-label={`${t('capabilityStepStatus')} ${index + 1}`}
               value={step.status}
               onChange={(event) =>
                 setSteps((current) =>
@@ -301,17 +309,17 @@ function PlanPane({ sessionId }: { sessionId: string }) {
               }
               disabled={state?.saving ?? false}
             >
-              {Object.entries(PLAN_STATUS_LABELS).map(([value, label]) => (
+              {(Object.keys({ pending: true, in_progress: true, completed: true }) as PlanStepStatus[]).map((value) => (
                 <option value={value} key={value}>
-                  {label}
+                  {planStatusLabel(value, t)}
                 </option>
               ))}
             </select>
             <button
               type="button"
               className="icon-button"
-              title="删除步骤"
-              aria-label={`删除计划步骤 ${index + 1}`}
+              title={t('capabilityDeleteStep')}
+              aria-label={`${t('capabilityDeleteStep')} ${index + 1}`}
               onClick={() => setSteps((current) => current.filter((_item, itemIndex) => itemIndex !== index))}
               disabled={state?.saving ?? false}
             >
@@ -319,7 +327,7 @@ function PlanPane({ sessionId }: { sessionId: string }) {
             </button>
           </SpotlightCard>
         ))}
-        {!steps.length && <p className="empty-list">暂无计划</p>}
+        {!steps.length && <p className="empty-list">{t('capabilityNoPlan')}</p>}
       </AnimatedList>
       <button
         type="button"
@@ -328,15 +336,15 @@ function PlanPane({ sessionId }: { sessionId: string }) {
         disabled={state?.saving ?? false}
       >
         <Plus size={14} />
-        添加步骤
+        {t('capabilityAddStep')}
       </button>
       <label>
-        备注
+        {t('capabilityNote')}
         <textarea
           rows={2}
           value={explanation}
           onChange={(event) => setExplanation(event.target.value)}
-          placeholder="可选"
+          placeholder={t('capabilityOptional')}
           disabled={state?.saving ?? false}
         />
       </label>
@@ -345,12 +353,12 @@ function PlanPane({ sessionId }: { sessionId: string }) {
         {plan && (
           <button type="button" className="button danger-button" onClick={() => void clear()} disabled={state?.saving ?? false}>
             <Trash2 size={14} />
-            清除计划
+            {t('capabilityClearPlan')}
           </button>
         )}
         <GlareButton type="button" className="button primary" onClick={() => void savePlan()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
-          保存计划
+          {t('capabilitySavePlan')}
         </GlareButton>
       </footer>
     </section>
@@ -358,6 +366,7 @@ function PlanPane({ sessionId }: { sessionId: string }) {
 }
 
 function BudgetPane({ sessionId }: { sessionId: string }) {
+  const { t } = useLocale()
   const state = useSessionCapabilities((value) => value.sessions[sessionId])
   const budget = state?.budget ?? null
   const [limit, setLimit] = useState('')
@@ -373,7 +382,7 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
   async function save() {
     const parsed = parsePositiveInteger(limit)
     if (parsed === null || parsed === undefined) {
-      setValidation('预算必须是正整数')
+      setValidation(t('capabilityPositiveBudget'))
       return
     }
     setValidation('')
@@ -385,7 +394,7 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
   }
 
   async function clear() {
-    if (!budget || !window.confirm('清除当前 token 预算？')) return
+    if (!budget || !window.confirm(t('capabilityClearBudgetConfirm'))) return
     try {
       await clearBudget(client(), sessionId)
     } catch (error) {
@@ -394,35 +403,35 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <section className="session-capability-pane" aria-label="Budget 设置">
+    <section className="session-capability-pane" aria-label={`${TAB_LABELS.budget} ${t('capabilitySettings')}`}>
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
       {budget ? (
-        <div className={`budget-meter rb-capability-surface budget-meter-${budget.phase}`} aria-label="预算使用情况">
+        <div className={`budget-meter rb-capability-surface budget-meter-${budget.phase}`} aria-label={t('capabilityBudgetUsage')}>
           <GlassSurface className="capability-surface-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="budget-meter-heading">
-            <strong>{budget.phase === 'exhausted' ? '预算已耗尽' : '预算使用情况'}</strong>
+            <strong>{budget.phase === 'exhausted' ? t('capabilityBudgetExhausted') : t('capabilityBudgetUsage')}</strong>
             <span>{percentage}%</span>
           </div>
           <div className="budget-meter-track" role="progressbar" aria-valuemin={0} aria-valuemax={budget.limit} aria-valuenow={budget.usedTokens}>
             <span style={{ width: `${percentage}%` }} />
           </div>
           <div className="budget-meter-values">
-            <span>{budget.usedTokens.toLocaleString()} used</span>
-            <span>{budget.remainingTokens.toLocaleString()} remaining</span>
+            <span>{budget.usedTokens.toLocaleString()} {t('capabilityUsed')}</span>
+            <span>{budget.remainingTokens.toLocaleString()} {t('capabilityRemaining')}</span>
           </div>
         </div>
       ) : (
-        <p className="empty-list">当前会话未设置预算</p>
+        <p className="empty-list">{t('capabilityNoBudget')}</p>
       )}
       <label>
-        Token 上限
+        {t('capabilityTokenLimit')}
         <input
           type="number"
           min={1}
           step={1}
           value={limit}
           onChange={(event) => setLimit(event.target.value)}
-          placeholder="例如 100000"
+          placeholder={t('capabilityLimitPlaceholder')}
           disabled={state?.saving ?? false}
         />
       </label>
@@ -431,12 +440,12 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
         {budget && (
           <button type="button" className="button danger-button" onClick={() => void clear()} disabled={state?.saving ?? false}>
             <Trash2 size={14} />
-            清除预算
+            {t('capabilityClearBudget')}
           </button>
         )}
         <GlareButton type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Gauge size={14} />}
-          {budget ? '增加上限' : '设置预算'}
+          {budget ? t('capabilityIncreaseLimit') : t('capabilitySetBudget')}
         </GlareButton>
       </footer>
     </section>
@@ -452,12 +461,13 @@ export default function SessionCapabilityDialog({
   initialTab: SessionCapabilityTab
   onClose(): void
 }) {
+  const { t } = useLocale()
   const [tab, setTab] = useState(initialTab)
   const state = useSessionCapabilities((value) => value.sessions[sessionId])
   return (
-    <Modal title="会话能力" onClose={onClose}>
+    <Modal title={t('capabilityDialogTitle')} onClose={onClose}>
       <div className="session-capability-dialog">
-        <nav className="session-capability-tabs rb-capability-tabs" aria-label="会话能力类型">
+        <nav className="session-capability-tabs rb-capability-tabs" aria-label={t('capabilityTabs')}>
           <GlassSurface className="capability-tabs-glass" width="100%" height="100%" aria-hidden="true" />
           <button type="button" className={tab === 'goal' ? 'selected' : ''} onClick={() => setTab('goal')}>
             <Target size={14} /> {TAB_LABELS.goal}
