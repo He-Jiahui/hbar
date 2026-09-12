@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, FocusEvent, PointerEvent, ReactNode } from 'react'
-import FloatingLayer, { type FloatingPlacement } from '../FloatingLayer'
+import { FloatingSurface, type FloatingPlacement } from '../FloatingLayer'
 import './GlassIconButton.css'
 
 export type GlassIconTone = 'accent' | 'status' | 'warning' | 'neutral'
@@ -76,7 +76,7 @@ export default function GlassIconButton({
         </span>
       )}
       {portalTooltip && tooltipOpen && (
-        <FloatingLayer
+        <FloatingSurface
           id={tooltipId}
           role="tooltip"
           anchorRef={buttonRef}
@@ -86,7 +86,7 @@ export default function GlassIconButton({
           className="floating-tooltip"
         >
           {label}
-        </FloatingLayer>
+        </FloatingSurface>
       )}
     </button>
   )

@@ -5,7 +5,7 @@ import { selectModel, selectThinkingLevel, useCatalog, useWorkbench } from './st
 import { groupModelsByProvider, modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
-import FloatingLayer from './FloatingLayer'
+import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 
 const EMPTY_MODELS: readonly ModelInfo[] = []
 
@@ -134,6 +134,16 @@ export default function ModelPicker() {
   const [highlightedModelIndex, setHighlightedModelIndex] = useState(0)
   const trigger = useRef<HTMLButtonElement>(null)
   const highlightedModelIndexRef = useRef(0)
+  const triggerProps = useFloatingTrigger({
+    open,
+    onOpen: () => {
+      setExpandedModelId(selectedId || models[0]?.id || '')
+      highlightedModelIndexRef.current = 0
+      setHighlightedModelIndex(0)
+      setOpen(true)
+    },
+    onClose: closePicker,
+  })
 
   useEffect(() => {
     if (selectedId) setExpandedModelId(selectedId)
@@ -187,16 +197,7 @@ export default function ModelPicker() {
             ? `${selected.providerName} · ${selected.modelName} · ${modelThinkingLabel(selectedLevel)}`
             : '选择模型'
         }
-        onClick={() => {
-          if (open) {
-            closePicker()
-            return
-          }
-          setExpandedModelId(selectedId || models[0]?.id || '')
-          highlightedModelIndexRef.current = 0
-          setHighlightedModelIndex(0)
-          setOpen(true)
-        }}
+        {...triggerProps}
       >
         <Sparkles size={13} aria-hidden="true" />
         <span className="model-picker-selected">
@@ -205,7 +206,7 @@ export default function ModelPicker() {
         </span>
         <ChevronDown size={13} className={open ? 'model-picker-chevron-open' : ''} />
       </button>
-      <FloatingLayer
+      <FloatingSurface
         anchorRef={trigger}
         open={open}
         onClose={closePicker}
@@ -304,7 +305,7 @@ export default function ModelPicker() {
             />
           )}
         </div>
-      </FloatingLayer>
+      </FloatingSurface>
     </div>
   )
 }

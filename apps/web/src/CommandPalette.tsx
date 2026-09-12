@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Command as CommandIcon, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { FloatingSurface } from './FloatingLayer'
 
 export interface PaletteCommand {
   id: string
@@ -138,20 +138,20 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
     )
   }
 
-  return createPortal(
-    <div
-      className="command-palette-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+  return (
+    <FloatingSurface
+      mode="modal"
+      open={open}
+      onClose={onClose}
+      backdropClassName="command-palette-backdrop"
+      className="command-palette-shell"
+      role="dialog"
+      aria-modal="true"
+      aria-label="命令面板"
     >
       <GlassSurface
         className="command-palette"
         width="min(620px, 100%)"
-        role="dialog"
-        aria-modal="true"
-        aria-label="命令面板"
       >
         <div className="command-palette-search">
           <Search size={16} aria-hidden="true" />
@@ -201,7 +201,6 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
           )}
         </div>
       </GlassSurface>
-    </div>,
-    document.body,
+    </FloatingSurface>
   )
 }

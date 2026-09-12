@@ -26,6 +26,7 @@ import Markdown from './Markdown'
 import { modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
+import { FloatingSurface } from './FloatingLayer'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -242,15 +243,6 @@ export default function TerminalPanel({
     }
     window.addEventListener('hbar:terminal-commands', openCommands)
     return () => window.removeEventListener('hbar:terminal-commands', openCommands)
-  }, [])
-
-  useEffect(() => {
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target
-      if (target instanceof Node && !composerRef.current?.contains(target)) setCompletionsOpen(false)
-    }
-    document.addEventListener('pointerdown', closeOnOutsidePointer)
-    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
   }, [])
 
   const write = (markdown: string) => {
@@ -560,8 +552,15 @@ export default function TerminalPanel({
       </div>
       <div className="terminal-composer" ref={composerRef}>
         <GlassSurface className="terminal-composer-glass" width="100%" height="100%" aria-hidden="true" />
-        {completionsOpen && candidates.length > 0 && (
-          <div className="terminal-completions terminal-completions-inline" role="listbox" aria-label="命令补全">
+        <FloatingSurface
+          anchorRef={composerRef}
+          open={completionsOpen && candidates.length > 0}
+          onClose={() => setCompletionsOpen(false)}
+          placement="above"
+          className="terminal-completions"
+          role="listbox"
+          aria-label="命令补全"
+        >
             <div className="terminal-completions-prompt">候选参数 · ↑↓ 选择 · Enter 执行 · Tab 补全</div>
             {candidates.map((candidate, index) => (
               <button
@@ -579,8 +578,7 @@ export default function TerminalPanel({
                 <span>{candidate.description}</span>
               </button>
             ))}
-          </div>
-        )}
+        </FloatingSurface>
         <textarea
           ref={inputRef}
           aria-label="控制台输入"

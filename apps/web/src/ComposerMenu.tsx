@@ -14,7 +14,7 @@ import {
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
-import FloatingLayer from './FloatingLayer'
+import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 
 const GROUP_ORDER: readonly ComposerActionGroup[] = ['session', 'context', 'tools', 'extensions']
 const GROUP_LABELS: Record<ComposerActionGroup, string> = {
@@ -56,6 +56,14 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const trigger = useRef<HTMLButtonElement>(null)
+  const triggerProps = useFloatingTrigger({
+    open,
+    onOpen: () => setOpen(true),
+    onClose: () => {
+      setOpen(false)
+      setQuery('')
+    },
+  })
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const filtered = useMemo(() => filterComposerActions(actions, query), [actions, query])
   const grouped = useMemo(
@@ -104,11 +112,11 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         title="添加能力"
-        onClick={() => setOpen((current) => !current)}
+        {...triggerProps}
       >
         <Plus size={17} />
       </button>
-      <FloatingLayer
+      <FloatingSurface
         anchorRef={trigger}
         open={open}
         onClose={() => {
@@ -189,7 +197,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
           ))}
           {!grouped.length && <div className="composer-menu-empty">没有匹配的能力</div>}
         </div>
-      </FloatingLayer>
+      </FloatingSurface>
     </div>
   )
 }

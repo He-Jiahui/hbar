@@ -14,9 +14,9 @@ import {
   TerminalSquare,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
+import { FloatingSurface } from '../FloatingLayer'
 import './WorkbenchNavigation.css'
 
 export type PrimaryPanel = 'sessions' | 'files'
@@ -462,30 +462,19 @@ export function MobileToolMenu({
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
-  return createPortal(
-    <div
-      className="mobile-more-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+  return (
+    <FloatingSurface
+      mode="modal"
+      open
+      onClose={onClose}
+      backdropClassName="mobile-more-backdrop"
+      className="plugin-panel rb-plugin-panel mobile-more-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mobile-more-title"
     >
       <section
-        className="plugin-panel rb-plugin-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="mobile-more-title"
+        className="mobile-more-content"
       >
         <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
         <header className="mobile-more-header">
@@ -551,7 +540,6 @@ export function MobileToolMenu({
           </button>
         ))}
       </section>
-    </div>,
-    document.body,
+    </FloatingSurface>
   )
 }

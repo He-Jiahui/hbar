@@ -18,7 +18,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { createPortal } from 'react-dom'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
 import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, RpcResults, ThinkingLevel } from '@hbar/contracts'
 import { client, refreshCatalog, report, selectModel, useCatalog, useConnection, useWorkbench } from './stores'
@@ -35,6 +34,7 @@ import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
 import GlareButton from './react-bits/GlareButton'
 import AnimatedList from './react-bits/AnimatedList'
+import { FloatingSurface } from './FloatingLayer'
 
 type SettingsScope = 'global' | 'project' | 'session'
 
@@ -63,30 +63,15 @@ function settingMatches(entry: SettingSearchEntry, query: string) {
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = ref.current
-    dialog?.showModal()
-    return () => dialog?.close()
-  }, [])
-  return createPortal(
-    <dialog
-      ref={ref}
+  return (
+    <FloatingSurface
+      mode="modal"
+      open
+      onClose={onClose}
       className="modal rb-modal-surface"
       aria-label={title}
-      onCancel={onClose}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          const bounds = event.currentTarget.getBoundingClientRect()
-          if (
-            event.clientX < bounds.left ||
-            event.clientX > bounds.right ||
-            event.clientY < bounds.top ||
-            event.clientY > bounds.bottom
-          )
-            onClose()
-        }
-      }}
+      role="dialog"
+      aria-modal="true"
     >
       <GlassSurface className="modal-glass" width="100%" height="100%" aria-hidden="true" />
       <header>
@@ -96,8 +81,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
         </button>
       </header>
       {children}
-    </dialog>,
-    document.body,
+    </FloatingSurface>
   )
 }
 const ALL_THINKING_LEVELS: readonly ThinkingLevel[] = [...DEFAULT_THINKING_LEVELS]

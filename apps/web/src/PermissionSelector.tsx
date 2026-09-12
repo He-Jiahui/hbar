@@ -5,7 +5,7 @@ import { permissionPreset, permissionPresets } from './permissions'
 import { report, setApprovalMode, useWorkbench } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
-import FloatingLayer from './FloatingLayer'
+import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 
 export interface PermissionSelectorProps {
   compact?: boolean
@@ -30,6 +30,16 @@ export default function PermissionSelector({
   const [failure, setFailure] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
   const selected = permissionPreset(mode)
+  const triggerProps = useFloatingTrigger({
+    open,
+    onOpen: () => {
+      if (!pending) {
+        setFailure('')
+        setOpen(true)
+      }
+    },
+    onClose: () => setOpen(false),
+  })
 
   async function choose(next: ApprovalMode) {
     if (pending) return
@@ -61,18 +71,13 @@ export default function PermissionSelector({
         aria-busy={pending !== null}
         disabled={pending !== null}
         title={selected.description}
-        onClick={() => {
-          if (!pending) {
-            setFailure('')
-            setOpen((value) => !value)
-          }
-        }}
+        {...triggerProps}
       >
         {pending ? <LoaderCircle size={14} className="spinning" /> : <ModeIcon mode={selected.id} />}
         <span>{compact ? selected.shortLabel : selected.label}</span>
         <ChevronDown size={13} className={open ? 'permission-chevron-open' : ''} />
       </button>
-      <FloatingLayer
+      <FloatingSurface
         anchorRef={trigger}
         open={open}
         onClose={() => setOpen(false)}
@@ -114,7 +119,7 @@ export default function PermissionSelector({
           </div>
         )}
         <div className="permission-menu-footer">可在设置中修改默认模式</div>
-      </FloatingLayer>
+      </FloatingSurface>
     </div>
   )
 }

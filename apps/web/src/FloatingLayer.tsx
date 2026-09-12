@@ -21,19 +21,29 @@ interface FloatingLayerBaseProps extends Omit<HTMLAttributes<HTMLDivElement>, 'c
   open: boolean
   onClose(): void
   className?: string
+  backdropClassName?: string
   children: ReactNode
 }
 
-export type AnchoredFloatingLayerProps = FloatingLayerBaseProps & {
-  mode?: 'anchored'
-  anchorRef: RefObject<HTMLElement | null>
-  placement?: FloatingPlacement
-  matchAnchorWidth?: boolean
-}
+export type AnchoredFloatingLayerProps = FloatingLayerBaseProps &
+  ({
+    mode?: 'anchored'
+    anchorRef: RefObject<HTMLElement | null>
+    anchorPoint?: never
+    placement?: FloatingPlacement
+    matchAnchorWidth?: boolean
+  } | {
+    mode?: 'anchored'
+    anchorRef?: never
+    anchorPoint: { x: number; y: number }
+    placement?: FloatingPlacement
+    matchAnchorWidth?: never
+  })
 
 export type ModalFloatingLayerProps = FloatingLayerBaseProps & {
   mode: 'modal'
   anchorRef?: never
+  anchorPoint?: never
   placement?: never
   matchAnchorWidth?: never
 }
@@ -99,9 +109,11 @@ export function FloatingLayer(props: FloatingLayerProps) {
     open,
     onClose,
     className = '',
+    backdropClassName = '',
     children,
     mode = 'anchored',
     anchorRef: anchorProp,
+    anchorPoint,
     placement: placementProp,
     matchAnchorWidth: matchAnchorWidthProp,
     ...attributes
@@ -120,12 +132,14 @@ export function FloatingLayer(props: FloatingLayerProps) {
   })
 
   const updatePosition = useCallback(() => {
-    if (mode !== 'anchored' || !anchorRef) return
-    const anchor = anchorRef.current
     const layer = layerRef.current
-    if (!anchor || !layer) return
+    if (!layer) return
 
-    const anchorBounds = anchor.getBoundingClientRect()
+    if (mode !== 'anchored') return
+    const anchorBounds = anchorPoint
+      ? { left: anchorPoint.x, right: anchorPoint.x, top: anchorPoint.y, bottom: anchorPoint.y, width: 0, height: 0 }
+      : anchorRef?.current?.getBoundingClientRect()
+    if (!anchorBounds) return
     const layerBounds = layer.getBoundingClientRect()
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
@@ -158,7 +172,7 @@ export function FloatingLayer(props: FloatingLayerProps) {
       ...(matchAnchorWidth && !isHorizontal ? { width } : {}),
       visibility: 'visible',
     })
-  }, [anchorRef, matchAnchorWidth, mode, placement])
+  }, [anchorPoint, anchorRef, matchAnchorWidth, mode, placement])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -186,6 +200,9 @@ export function FloatingLayer(props: FloatingLayerProps) {
     const handlePointerDown = (event: PointerEvent) => {
       const path = event.composedPath()
       if (layerRef.current && path.includes(layerRef.current)) return
+      if (anchorRef?.current && path.includes(anchorRef.current)) {
+        event.stopImmediatePropagation()
+      }
       onCloseRef.current()
     }
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -207,13 +224,16 @@ export function FloatingLayer(props: FloatingLayerProps) {
       window.removeEventListener('resize', handleViewportChange)
       release()
     }
-  }, [layerId, open, updatePosition])
+  }, [anchorRef, layerId, open, updatePosition])
 
   if (!open) return null
 
   return createPortal(
     mode === 'modal' ? (
-      <div className="floating-layer-backdrop" data-floating-layer-backdrop="true">
+      <div
+        className={`floating-layer-backdrop ${backdropClassName}`.trim()}
+        data-floating-layer-backdrop="true"
+      >
         <div
           {...attributes}
           ref={layerRef}
