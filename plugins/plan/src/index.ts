@@ -313,7 +313,7 @@ export const planPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { plan: '1.0.0', mode: '1.0.0' },
-    requires: { storage: '^1.0.0' },
+    requires: { storage: '^1.0.0', goal: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: planConfigSchema,

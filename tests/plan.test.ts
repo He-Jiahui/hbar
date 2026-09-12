@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { userInputQuestionSchema, userInputResponseSchema } from '@hbar/contracts'
-import type { PlanService } from '@hbar/plugin-sdk'
+import type { GoalService, PlanService } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from '../plugins/plan/src/instructions.ts'
 
 const resources: Array<{ root: string; kernel: Kernel }> = []
@@ -123,4 +123,29 @@ test('plan mode request_user_input pauses the run and resumes with validated ans
     answers: { scope: { answers: ['App'] } },
   })
   expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+})
+
+test('Goal+Plan promotes the saved plan into a goal before continuing', async () => {
+  const { kernel, session } = await fixture()
+  await kernel.changePlugin('goal.codex', true, { autoContinue: false, maxContinuations: 0 })
+  await kernel.automationSet(session.id, false, true)
+  const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }> }>('mode')
+  await mode.set(session.id, 'plan')
+  const planRun = await kernel.submit(
+    session.id,
+    'goal-plan',
+    {
+      mode: 'plan',
+      text: '/tool save_plan {"explanation":"Read-only review","plan":[{"step":"Inspect the repository","status":"pending"}]}',
+      images: [],
+    },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const goal = await kernel.plugins.get<GoalService>('goal').get(session.id)
+  expect((await kernel.storage.call('run', planRun.id)).status).toBe('completed')
+  expect(goal.goal?.objective).toContain('Inspect the repository')
+  expect(goal.goal?.status).toBe('active')
+  expect((await mode.get(session.id)).mode).toBe('default')
+  expect((await kernel.automationGet(session.id)).goalEnabled).toBe(false)
 })

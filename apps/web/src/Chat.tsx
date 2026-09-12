@@ -570,7 +570,10 @@ export default function Chat({
         approval: approvalMode,
       }
       const capabilities = useSessionCapabilities.getState().sessions[target]
-      if (capabilities?.goalArmed && !capabilities.goal && sentDraft.text.trim()) {
+      // Goal+Plan keeps the goal intent armed until Plan has persisted a
+      // reviewable checklist; the Plan hook then promotes that checklist into
+      // the active goal and starts the execution turn.
+      if (capabilities?.goalArmed && !capabilities.goal && capabilities.mode !== 'plan' && sentDraft.text.trim()) {
         await createGoal(client(), target, sentDraft.text.trim())
         await setUnattended(client(), target, capabilities.unattended, false)
         setGoalArmed(target, false)
