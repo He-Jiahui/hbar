@@ -118,8 +118,9 @@ export default function GlassSurface({
   ...rest
 }: GlassSurfaceProps) {
   const themeProfile = useThemeSettings((state) => state.profile)
+  const profileExplicit = useThemeSettings((state) => state.profileExplicit)
   const themeContributions = useUIPlugins((state) => state.themes)
-  const effectiveTheme = useMemo(() => mergeThemeContributions(themeProfile, themeContributions), [themeContributions, themeProfile])
+  const effectiveTheme = useMemo(() => mergeThemeContributions(themeProfile, themeContributions, profileExplicit), [profileExplicit, themeContributions, themeProfile])
   const prefersReducedMotion = usePrefersReducedMotion()
   const motionDisabled = effectiveTheme.motion.intensity === 'off' || (effectiveTheme.motion.respectReducedMotion && prefersReducedMotion)
   const resolvedBorderRadius = borderRadius ?? effectiveTheme.surface.cornerRadius

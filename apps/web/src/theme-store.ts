@@ -11,6 +11,7 @@ interface ThemeSettingsState {
   targetId: string | undefined
   snapshot: SettingsSnapshot | null
   profile: ThemeProfile
+  profileExplicit: boolean
   savedProfile: ThemeProfile
   loading: boolean
   saving: boolean
@@ -48,6 +49,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   targetId: undefined,
   snapshot: null,
   profile: DEFAULT_THEME_PROFILE,
+  profileExplicit: false,
   savedProfile: DEFAULT_THEME_PROFILE,
   loading: false,
   saving: false,
@@ -57,7 +59,7 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
     set({ scope, ...(hasTarget(scope, targetId) ? { targetId } : { targetId: undefined }) })
   },
   updateDraft(update) {
-    set((state) => ({ profile: normalizeThemeProfile(update(state.profile)), error: '' }))
+    set((state) => ({ profile: normalizeThemeProfile(update(state.profile)), profileExplicit: true, error: '' }))
   },
   discardDraft() {
     set((state) => ({ profile: state.savedProfile, error: '' }))
@@ -129,7 +131,8 @@ export const useThemeSettings = create<ThemeSettingsState>((set, get) => ({
   },
   applySnapshot(snapshot) {
     const profile = profileFromSnapshot(snapshot)
-    set({ snapshot, profile, savedProfile: profile, conflict: false, scope: snapshot.scope, ...(snapshot.targetId ? { targetId: snapshot.targetId } : { targetId: undefined }), error: '' })
+    const profileSetting = snapshot.values['appearance.profile']
+    set({ snapshot, profile, profileExplicit: profileSetting?.source !== undefined && profileSetting.source !== 'default', savedProfile: profile, conflict: false, scope: snapshot.scope, ...(snapshot.targetId ? { targetId: snapshot.targetId } : { targetId: undefined }), error: '' })
   },
 }))
 
@@ -303,7 +306,7 @@ function mergeThemeValue<T>(base: T, override: DeepPartial<T>): T {
   return result as T
 }
 
-export function mergeThemeContributions(profile: ThemeProfile, themes: readonly ClientTheme[]): ThemeProfile {
+export function mergeThemeContributions(profile: ThemeProfile, themes: readonly ClientTheme[], profileExplicit = true): ThemeProfile {
   // Plugin tokens provide defaults; the user's profile always wins over them.
   // Applying contributions in ascending priority makes a higher-priority theme
   // override a lower-priority theme while the persisted profile remains final.
@@ -317,11 +320,10 @@ export function mergeThemeContributions(profile: ThemeProfile, themes: readonly 
       }
       return mergeThemeValue(current, overrides)
     }, DEFAULT_THEME_PROFILE)
-  // A freshly loaded profile is materialised as a complete object from the
-  // settings default. Treat that exact default as "no user override" so a
-  // plugin preset can actually take effect. As soon as the user changes any
-  // value, the full persisted profile remains the final layer and wins.
-  const userOverride = JSON.stringify(profile) === JSON.stringify(DEFAULT_THEME_PROFILE) ? {} : profile
+  // An inherited profile is intentionally absent from the final layer so a
+  // plugin preset can provide its defaults. Once the user edits or saves a
+  // profile, even if it equals DEFAULT_THEME_PROFILE, it remains authoritative.
+  const userOverride = profileExplicit ? profile : {}
   return normalizeThemeProfile(mergeThemeValue(contributed, userOverride))
 }
 

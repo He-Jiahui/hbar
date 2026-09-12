@@ -14,11 +14,12 @@ export default function ThemeRuntimeSync() {
   const activeSession = useWorkbench((state) => state.activeSession)
   const workspaceId = useWorkbench((state) => state.workspaceId)
   const profile = useThemeSettings((state) => state.profile)
+  const profileExplicit = useThemeSettings((state) => state.profileExplicit)
   const themes = useUIPlugins((state) => state.themes)
   const backgroundAssets = useUIPlugins((state) => state.backgroundAssets)
 
   useEffect(() => {
-    const effectiveTheme = mergeThemeContributions(profile, themes)
+    const effectiveTheme = mergeThemeContributions(profile, themes, profileExplicit)
     applyThemeProfile(effectiveTheme)
     const background = effectiveTheme.surface.backgroundAsset
     const pluginBackground = typeof background === 'string' && background.startsWith('plugin/')
@@ -42,7 +43,7 @@ export default function ThemeRuntimeSync() {
     void platform()
       .then((adapter) => adapter.setWindowEffect(effectiveTheme))
       .catch(() => {})
-  }, [backgroundAssets, connection, profile, themes])
+  }, [backgroundAssets, connection, profile, profileExplicit, themes])
 
   useEffect(() => {
     if (status !== 'connected' || !connection) return

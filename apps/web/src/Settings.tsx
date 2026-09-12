@@ -759,6 +759,7 @@ export default function Settings() {
     selectedModelId = useWorkbench((state) => state.modelId),
     selectedThinkingLevel = useWorkbench((state) => state.thinkingLevel)
   const themeProfile = useThemeSettings((state) => state.profile)
+  const themeProfileExplicit = useThemeSettings((state) => state.profileExplicit)
   const themeSnapshot = useThemeSettings((state) => state.snapshot)
   const themeSaving = useThemeSettings((state) => state.saving)
   const themeError = useThemeSettings((state) => state.error)
@@ -816,14 +817,14 @@ export default function Settings() {
   useEffect(() => {
     if (tab !== 'appearance') return
     let cancelled = false
-    const effectiveTheme = mergeThemeContributions(themeProfile, themePlugins)
+    const effectiveTheme = mergeThemeContributions(themeProfile, themePlugins, themeProfileExplicit)
     void platform().then((adapter) => adapter.setWindowEffect(effectiveTheme)).then((result) => {
       if (!cancelled) setWindowEffectStatus(result.native ? t('nativeEffectEnabled') : result.message ?? t('cssBlurFallback'))
     }).catch((error) => {
       if (!cancelled) setWindowEffectStatus(error instanceof Error ? `${t('nativeEffectUnavailable')}：${error.message}` : `${t('nativeEffectUnavailable')}，${t('cssBlurFallback')}`)
     })
     return () => { cancelled = true }
-  }, [t, tab, themePlugins, themeProfile])
+  }, [t, tab, themePlugins, themeProfile, themeProfileExplicit])
   useEffect(() => {
     const targetId = settingsScope === 'session' ? activeSessionId : settingsScope === 'project' ? workspaceId : undefined
     useThemeSettings.getState().setScope(settingsScope, targetId ?? undefined)

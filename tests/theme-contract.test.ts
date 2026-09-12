@@ -50,7 +50,8 @@ test('theme CSS projects a visible primary-colour hover state', () => {
 
 test('plugin presets apply to the untouched default while explicit user values win', () => {
   const plugin = { id: 'silver-glass', title: 'Silver glass', tokenOverrides: { colors: { primary: '#22aa88' } } }
-  expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin]).colors.primary).toBe('#22aa88')
+  expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin], false).colors.primary).toBe('#22aa88')
+  expect(mergeThemeContributions(DEFAULT_THEME_PROFILE, [plugin], true).colors.primary).toBe(DEFAULT_THEME_PROFILE.colors.primary)
   const explicit = { ...DEFAULT_THEME_PROFILE, mode: 'custom' as const, colors: { ...DEFAULT_THEME_PROFILE.colors, primary: '#cc8844' } }
   expect(mergeThemeContributions(explicit, [plugin]).colors.primary).toBe('#cc8844')
 })
@@ -81,7 +82,7 @@ test('legacy appearance theme is retained until a full profile is saved', () => 
   }
   useThemeSettings.getState().applySnapshot(snapshot)
   expect(useThemeSettings.getState().profile.mode).toBe('light')
-  useThemeSettings.setState({ profile: DEFAULT_THEME_PROFILE, savedProfile: DEFAULT_THEME_PROFILE, snapshot: null })
+  useThemeSettings.setState({ profile: DEFAULT_THEME_PROFILE, profileExplicit: false, savedProfile: DEFAULT_THEME_PROFILE, snapshot: null })
 })
 
 test('renderer slots honour the selected theme renderer before priority fallback', () => {
