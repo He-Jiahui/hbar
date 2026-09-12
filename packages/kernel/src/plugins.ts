@@ -741,7 +741,7 @@ export class PluginManager {
     return this.list()
   }
   graph(projectId?: string) {
-    const scoped = projectId === undefined ? this.scopedEntries() : this.runtimeEntries(projectId)
+    const scoped = this.runtimeEntries(projectId)
     const nodes = scoped.map((entry) => ({
       id: packageId(entry.plugin.manifest),
       version: entry.plugin.manifest.version,
@@ -790,7 +790,7 @@ export class PluginManager {
   }
   private async lockData(projectId?: string) {
     const plugins: Record<string, unknown> = {}
-    for (const entry of projectId === undefined ? this.scopedEntries() : this.runtimeEntries(projectId)) {
+    for (const entry of this.runtimeEntries(projectId)) {
       if (!entry.path) continue
       const manifest = entry.plugin.manifest
       plugins[packageId(manifest)] = {
