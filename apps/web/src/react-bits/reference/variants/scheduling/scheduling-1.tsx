@@ -1,7 +1,14 @@
-import { WorkflowBlueprint as Fixture } from '../../ReferenceBlueprints'
+import { ChevronLeft, ChevronRight, Clock3, MapPin, Plus } from 'lucide-react'
+import { useState } from 'react'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { reportFixtureClick } from '../../reference-interactions'
+import './scheduling-1.css'
+
+const events = [['Mobile QA handoff', 'Upcoming', '2:30 pm', 'Remote', 'RSM TA'], ['Quarterly all-hands', 'Upcoming', '4:00 pm', 'Main hall', 'DV'], ['Campaign review', 'Upcoming', '10:30 am', 'Video call', 'LIV PR JR'], ['Hiring panel · Design', 'Confirmed', '11:00 am', 'Room 4B', 'AC SE'], ['Platform retro', 'Confirmed', '5:15 pm', 'Video call', 'KT BR'], ['Support escalation sync', 'Tentative', '6:00 pm', 'Remote', 'WH']] as const
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/scheduling/scheduling-1. */
-export default function Scheduling1(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+export default function Scheduling1({ onInteraction }: ReferenceFixtureProps) {
+  const [day, setDay] = useState(10)
+  const [month, setMonth] = useState('June')
+  return <section className="rb-public-scheduling-1" onClickCapture={(event) => reportFixtureClick(event, onInteraction)}><div className="rb-schedule-frame"><aside className="rb-schedule-calendar"><header><button type="button" aria-label="Previous month"><ChevronLeft size={14} /></button><select value={month} onChange={(event) => setMonth(event.target.value)}><option>June</option><option>July</option></select><select defaultValue="2026"><option>2026</option><option>2027</option></select><button type="button" aria-label="Next month"><ChevronRight size={14} /></button></header><div className="rb-weekdays">{['SUN','MON','TUE','WED','THU','FRI','SAT'].map((item) => <span key={item}>{item}</span>)}</div><div className="rb-days">{Array.from({ length: 35 }, (_, index) => { const value = index - 0; const number = value < 1 ? 31 : value > 30 ? value - 30 : value; const outside = value < 1 || value > 30; return <button type="button" className={`${outside ? 'outside ' : ''}${day === number && !outside ? 'selected' : ''}${[4,8,9,11,17,18,25].includes(number) && !outside ? ' has-event' : ''}`} key={`${index}-${number}`} onClick={() => !outside && setDay(number)}>{number}</button> })}</div></aside><main className="rb-schedule-agenda"><header><div><h2>Wednesday, June {day}</h2><p>6 events · 3 need a reply</p></div><div><select defaultValue="All events"><option>All events</option><option>Needs reply</option></select><button type="button"><Plus size={14} /> Add</button></div></header><div className="rb-event-list">{events.map(([title, state, time, place, people]) => <button type="button" className="rb-event" key={title} onClick={() => setDay(day)}><h3>{title}</h3><div><span className={state.toLowerCase()}>{state}</span><small>{people}</small><span><Clock3 size={13} /> {time}</span><span><MapPin size={13} /> {place}</span></div></button>)}</div></main></div><button type="button" className="rb-schedule-theme">◉&nbsp; Theme</button></section>
 }
