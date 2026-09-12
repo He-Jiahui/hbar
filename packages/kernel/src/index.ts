@@ -720,7 +720,7 @@ export class Kernel {
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
     this.admissions++
     try {
-      if (!input.text.trim() && !input.images.length && !files.length && input.source !== 'goal')
+      if (!input.text.trim() && !input.images.length && !files.length && !['goal', 'system'].includes(input.source ?? 'user'))
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       input = { ...input, thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan') }
