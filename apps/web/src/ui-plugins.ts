@@ -321,6 +321,12 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
                 owner: plugin.id,
               } as RegisteredTheme
               pendingThemes.push(registered)
+              for (const path of parsed.backgroundAssets) {
+                const assetId = `${plugin.id}:${path}`
+                if (useUIPlugins.getState().backgroundAssets.some((item) => item.id === assetId) || pendingBackgroundAssets.some((item) => item.id === assetId))
+                  throw new Error(`Duplicate background asset ${assetId}`)
+                pendingBackgroundAssets.push({ id: assetId, path, owner: plugin.id })
+              }
               return own(() => {
                 if (!committed) {
                   const index = pendingThemes.findIndex((item) => item.id === id)
