@@ -21,7 +21,8 @@ for (const line of lines) {
   const display = currentFile.replaceAll('\\', '/')
   if (allowlist.has(display)) continue
   const cssLiteral = /#[0-9a-f]{3,8}\b|(?:rgba?|hsla?)\s*\(/i.test(line)
-  const cssTypography = /(?:font-size|font-family)\s*:\s*(?!var\()/i.test(line)
+  const cssTypographyValue = /(?:font-size|font-family)\s*:\s*([^;]+)/i.exec(line)?.[1]?.trim()
+  const cssTypography = Boolean(cssTypographyValue && !/^var\s*\(/i.test(cssTypographyValue))
   const inlineTypography = /\b(?:fontSize|fontFamily)\s*:/.test(line) && !/var\(--/.test(line)
   if ((cssLiteral || cssTypography || inlineTypography) && !seen.has(display)) {
     seen.add(display)
