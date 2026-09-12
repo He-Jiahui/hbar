@@ -6,7 +6,12 @@ export default {
     api.registerPanel({
       id: 'interactive',
       title: 'Observer counter',
-      placement: 'right',
+      icon: 'layout-grid',
+      defaultDock: 'right',
+      allowedDocks: ['left', 'right', 'bottom', 'editor', 'window'],
+      scope: 'workspace',
+      canPopout: true,
+      closable: true,
       component: function ObserverCounter() {
         const [count, setCount] = useState(0)
         return h(

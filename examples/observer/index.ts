@@ -27,7 +27,12 @@ export default definePlugin({
     ctx.hbar.api.panels.register({
       id: 'status',
       title: 'Workspace observer',
-      placement: 'right',
+      icon: 'layout-grid',
+      defaultDock: 'right',
+      allowedDocks: ['left', 'right', 'bottom', 'editor', 'window'],
+      scope: 'workspace',
+      canPopout: true,
+      closable: true,
       kind: 'markdown',
       content: `### Workspace observer\n\n${config.greeting}`,
     })
