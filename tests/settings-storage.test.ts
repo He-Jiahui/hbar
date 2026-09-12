@@ -57,3 +57,18 @@ test('rejects unsafe project and session target ids', async () => {
     expect(failure instanceof Error ? failure.message : String(failure)).toContain('safe target id')
   }
 })
+
+test('keeps plugin state isolated for the same id in different projects', async () => {
+  const root = await mkdtemp(join(process.env.TEMP ?? '.', 'hbar-settings-'))
+  const kernel = await Kernel.create({ home: join(root, 'data'), secrets: new MemorySecrets() })
+  resources.push({ root, kernel })
+  const storage = kernel.storage
+  await storage.call('setPlugin', 'shared.plugin', true, { project: 'one' }, undefined, 'project-one')
+  await storage.call('setPlugin', 'shared.plugin', false, { project: 'two' }, undefined, 'project-two')
+  await storage.call('setPlugin', 'shared.plugin', true, { global: true })
+  const states = await storage.call('plugins')
+  expect(states.filter((entry) => entry.id === 'shared.plugin')).toHaveLength(3)
+  expect(states.find((entry) => entry.projectId === 'project-one')?.enabled).toBe(true)
+  expect(states.find((entry) => entry.projectId === 'project-two')?.enabled).toBe(false)
+  expect(states.find((entry) => !entry.projectId)?.config).toEqual({ global: true })
+})

@@ -74,10 +74,10 @@ export interface StorageMethods {
   deviceByHash(hash: string): Device | null
   devices(): Device[]
   revokeDevice(id: string): void
-  setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string): void
-  setPlugins(plugins: { id: string; enabled: boolean; config: Record<string, unknown>; path?: string | undefined }[]): void
-  removePlugin(id: string): void
-  plugins(): { id: string; enabled: boolean; config: Record<string, unknown>; path: string | null }[]
+  setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string, projectId?: string): void
+  setPlugins(plugins: { id: string; enabled: boolean; config: Record<string, unknown>; path?: string | undefined; projectId?: string | undefined }[]): void
+  removePlugin(id: string, projectId?: string): void
+  plugins(): { id: string; enabled: boolean; config: Record<string, unknown>; path: string | null; projectId?: string | undefined }[]
   stats(): Record<string, number>
   getSetting(key: string): string | null
   setSetting(key: string, value: string): void
