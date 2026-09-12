@@ -30,6 +30,7 @@ import type {
   Run,
   SessionEvent,
   SessionSnapshot,
+  SessionSummary,
   UserInputRequest,
   UserInputResponse,
   UserInput,
@@ -207,7 +208,7 @@ export class Kernel {
   private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
   private admissions = 0
   private closing = false
-  private unattended = new Map<string, boolean>()
+  private automation = new Map<string, { unattended: boolean; goalEnabled: boolean }>()
   recovered = 0
   private constructor(
     readonly options: ResolvedKernelOptions,
@@ -293,13 +294,14 @@ export class Kernel {
     }
   }
   private async restoreAutomation() {
-    this.unattended.clear()
+    this.automation.clear()
     for (const session of await this.storage.call('sessions')) {
       const events = await this.storage.call('events', session.id, 0, 2_000)
       for (const event of events) {
         if (event.type !== 'automation.changed') continue
         const parsed = automationStateSchema.safeParse(event.data)
-        if (parsed.success && parsed.data.sessionId === session.id) this.unattended.set(session.id, parsed.data.unattended)
+        if (parsed.success && parsed.data.sessionId === session.id)
+          this.automation.set(session.id, { unattended: parsed.data.unattended, goalEnabled: parsed.data.goalEnabled })
       }
     }
   }
@@ -437,10 +439,20 @@ export class Kernel {
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const event = await this.storage.call('append', sessionId, type, data, runId, stepId)
     this.publish({ method: 'session.event', params: event })
+    void this.publishSessionSummary(sessionId)
     return event
   }
   private publishEvent(event: SessionEvent) {
     this.publish({ method: 'session.event', params: event })
+    void this.publishSessionSummary(event.sessionId)
+  }
+  private async publishSessionSummary(sessionId: string) {
+    try {
+      const summary = await this.storage.call('sessionSummary', sessionId)
+      this.publish({ method: 'session.summary', params: summary })
+    } catch (error) {
+      console.error('Session summary failed:', error)
+    }
   }
   async createWorkspace(path: string, name?: string) {
     const resolved = await realpath(path)
@@ -460,6 +472,15 @@ export class Kernel {
     this.publishEvent(event)
     this.changed('sessions')
     return session
+  }
+  async moveSession(id: string, workspaceId: string) {
+    const { session, event } = await this.storage.call('moveSession', id, workspaceId)
+    this.publishEvent(event)
+    this.changed('sessions')
+    return session
+  }
+  async sessionSummaries(ids: string[]): Promise<SessionSummary[]> {
+    return this.storage.call('sessionSummaries', ids)
   }
   async models(): Promise<ModelInfo[]> {
     const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
@@ -549,13 +570,19 @@ export class Kernel {
   }
   async automationGet(sessionId: string): Promise<AutomationState> {
     await this.storage.call('session', sessionId)
-    return { sessionId, unattended: this.unattended.get(sessionId) ?? false }
+    const current = this.automation.get(sessionId) ?? { unattended: false, goalEnabled: false }
+    return { sessionId, ...current }
   }
-  async automationSet(sessionId: string, unattended: boolean): Promise<AutomationState> {
+  async automationSet(sessionId: string, unattended?: boolean, goalEnabled?: boolean): Promise<AutomationState> {
     await this.storage.call('session', sessionId)
-    const next = automationStateSchema.parse({ sessionId, unattended })
+    const current = this.automation.get(sessionId) ?? { unattended: false, goalEnabled: false }
+    const next = automationStateSchema.parse({
+      sessionId,
+      unattended: unattended ?? current.unattended,
+      goalEnabled: goalEnabled ?? current.goalEnabled,
+    })
     await this.append(sessionId, 'automation.changed', next)
-    this.unattended.set(sessionId, unattended)
+    this.automation.set(sessionId, { unattended: next.unattended, goalEnabled: next.goalEnabled })
     this.publish({ method: 'automation.changed', params: next })
     return next
   }
@@ -1075,7 +1102,7 @@ export class Kernel {
       throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
     if (request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1))
       throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
-    const unattended = this.unattended.get(request.sessionId) ?? false
+    const unattended = this.automation.get(request.sessionId)?.unattended ?? false
     const recommended = request.questions.map((question) => (question.options ?? []).filter((option) => option.recommended))
     if (unattended && recommended.every((options) => options.length === 1)) {
       const answers = Object.fromEntries(

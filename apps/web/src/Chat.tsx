@@ -572,6 +572,7 @@ export default function Chat({
       const capabilities = useSessionCapabilities.getState().sessions[target]
       if (capabilities?.goalArmed && !capabilities.goal && sentDraft.text.trim()) {
         await createGoal(client(), target, sentDraft.text.trim())
+        await setUnattended(client(), target, capabilities.unattended, false)
         setGoalArmed(target, false)
       }
       const key = JSON.stringify({ target, input, modelId, thinkingLevel })
@@ -638,6 +639,7 @@ export default function Chat({
       if (!sessionId) return
       if (action.id === 'goal' && !capabilityState?.goal) {
         setGoalArmed(sessionId, true)
+        void setUnattended(client(), sessionId, capabilityState?.unattended ?? false, true).catch(report)
         return
       }
       if (action.id === 'budget') {

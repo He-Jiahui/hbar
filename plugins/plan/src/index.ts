@@ -8,6 +8,7 @@ import {
   userInputOptionSchema,
   userInputQuestionSchema,
   userInputRequestSchema,
+  automationStateSchema,
 } from '@hbar/contracts'
 import type { PlanState, PlanStep, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
@@ -330,6 +331,13 @@ export const planPlugin = definePlugin({
       if (status !== 'completed' || run.input.mode !== 'plan') return
       const current = await runtime.get(sessionId)
       if (!current?.plan.length) return
+      const events = await ctx.hbar.api.sessions.events(sessionId, 0, 2_000)
+      const automation = events
+        .filter((event) => event.type === 'automation.changed')
+        .map((event) => automationStateSchema.safeParse(event.data))
+        .filter((result): result is { success: true; data: import('@hbar/contracts').AutomationState } => result.success)
+        .at(-1)?.data
+      if (!automation?.goalEnabled) return
       const objective = [
         current.explanation,
         ...current.plan.map((step, index) => `${index + 1}. ${step.step}`),

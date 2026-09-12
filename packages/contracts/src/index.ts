@@ -148,6 +148,7 @@ export type SessionBudget = z.infer<typeof sessionBudgetSchema>
 export const automationStateSchema = z.object({
   sessionId: idSchema,
   unattended: z.boolean(),
+  goalEnabled: z.boolean(),
 })
 export type AutomationState = z.infer<typeof automationStateSchema>
 
@@ -870,7 +871,7 @@ export const rpcSchemas = {
   }),
   'settings.search': z.object({ query: z.string().trim().max(200) }),
   'automation.get': z.object({ sessionId: idSchema }),
-  'automation.set': z.object({ sessionId: idSchema, unattended: z.boolean() }),
+  'automation.set': z.object({ sessionId: idSchema, unattended: z.boolean().optional(), goalEnabled: z.boolean().optional() }),
   'goal.get': z.object({ sessionId: idSchema }),
   'goal.create': z.object({
     sessionId: idSchema,

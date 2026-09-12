@@ -21,6 +21,7 @@ export interface SessionCapabilityState {
   saving: boolean
   error: string
   unattended: boolean
+  goalEnabled: boolean
   goalArmed: boolean
 }
 
@@ -39,6 +40,7 @@ const EMPTY_STATE: SessionCapabilityState = {
   saving: false,
   error: '',
   unattended: false,
+  goalEnabled: false,
   goalArmed: false,
 }
 
@@ -96,6 +98,8 @@ export async function loadSessionCapabilities(
       mode: mode.mode,
       budget: currentBudget && budget && currentBudget.revision > budget.revision ? currentBudget : budget,
       unattended: automation.unattended,
+      goalEnabled: automation.goalEnabled,
+      goalArmed: automation.goalEnabled && !goalResult.goal,
       loading: false,
       error: '',
     })
@@ -191,9 +195,11 @@ export function clearBudget(transport: ClientTransport, sessionId: string) {
   )
 }
 
-export function setUnattended(transport: ClientTransport, sessionId: string, unattended: boolean) {
-  return mutation(sessionId, () => transport.call('automation.set', { sessionId, unattended }), (result) =>
-    useSessionCapabilities.getState().setSession(sessionId, { unattended: result.unattended }),
+export function setUnattended(transport: ClientTransport, sessionId: string, unattended: boolean, goalEnabled?: boolean) {
+  return mutation(
+    sessionId,
+    () => transport.call('automation.set', { sessionId, unattended, ...(goalEnabled === undefined ? {} : { goalEnabled }) }),
+    (result) => useSessionCapabilities.getState().setSession(sessionId, { unattended: result.unattended, goalEnabled: result.goalEnabled }),
   )
 }
 
@@ -225,6 +231,7 @@ export function applySessionCapabilityEvent(event: WireNotification) {
   } else if (event.method === 'automation.changed') {
     useSessionCapabilities.getState().setSession(event.params.sessionId, {
       unattended: event.params.unattended,
+      goalEnabled: event.params.goalEnabled,
       saving: false,
       error: '',
     })
