@@ -200,9 +200,6 @@ export function FloatingLayer(props: FloatingLayerProps) {
     const handlePointerDown = (event: PointerEvent) => {
       const path = event.composedPath()
       if (layerRef.current && path.includes(layerRef.current)) return
-      if (anchorRef?.current && path.includes(anchorRef.current)) {
-        event.stopImmediatePropagation()
-      }
       onCloseRef.current()
     }
     const handleKeyDown = (event: KeyboardEvent) => {
