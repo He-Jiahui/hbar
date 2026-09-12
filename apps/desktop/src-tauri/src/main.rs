@@ -25,6 +25,42 @@ struct WindowThemeSurface {
 #[derive(Deserialize)]
 struct WindowThemeProfile {
     surface: WindowThemeSurface,
+    #[serde(default)]
+    colors: WindowThemeColors,
+}
+
+#[derive(Default, Deserialize)]
+struct WindowThemeColors {
+    #[serde(default = "default_window_background")]
+    background: String,
+}
+
+fn default_window_background() -> String {
+    "#0b0d10".into()
+}
+
+fn window_background_rgba(value: &str, opacity: u8) -> (u8, u8, u8, u8) {
+    let hex = value.strip_prefix('#').unwrap_or(value);
+    let parse = |part: &str| u8::from_str_radix(part, 16).ok();
+    let rgb = match hex.len() {
+        6 | 8 => (parse(&hex[0..2]), parse(&hex[2..4]), parse(&hex[4..6])),
+        _ => (None, None, None),
+    };
+    match rgb {
+        (Some(red), Some(green), Some(blue)) => (red, green, blue, opacity),
+        _ => (11, 13, 16, opacity),
+    }
+}
+
+#[cfg(test)]
+mod window_effect_tests {
+    use super::window_background_rgba;
+
+    #[test]
+    fn uses_theme_background_for_native_acrylic() {
+        assert_eq!(window_background_rgba("#c7ced8", 210), (199, 206, 216, 210));
+        assert_eq!(window_background_rgba("not-a-colour", 210), (11, 13, 16, 210));
+    }
 }
 
 #[derive(Serialize)]
@@ -45,7 +81,7 @@ fn set_window_effect(
             #[cfg(target_os = "windows")]
             {
                 use window_vibrancy::apply_acrylic;
-                apply_acrylic(&window, Some((18, 20, 24, opacity))).map_err(|error| error.to_string())?;
+                apply_acrylic(&window, Some(window_background_rgba(&profile.colors.background, opacity))).map_err(|error| error.to_string())?;
                 return Ok(WindowEffectResult { native: true, message: None });
             }
             #[cfg(target_os = "macos")]
