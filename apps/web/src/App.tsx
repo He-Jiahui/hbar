@@ -1184,6 +1184,11 @@ export default function App() {
     } else if (node) model.doAction(Actions.deleteTab(id))
     if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
   }
+  function clearWorkspaceSurface() {
+    const activeTool = useWorkbench.getState().toolPanel
+    if (activeTool) closePanel(activeTool)
+    if (small) setMobileView('chat')
+  }
   function activateConversationView(view: 'chat' | 'console') {
     const key = activeSession || 'new'
     setConversationViews((current) => ({ ...current, [key]: view }))
@@ -1368,6 +1373,7 @@ export default function App() {
     if (useConnection.getState().client !== connection) throw new Error('连接已切换，请重新选择 Worktree')
     await refreshCatalog()
     if (useConnection.getState().client !== connection) throw new Error('连接已切换，请重新选择 Worktree')
+    clearWorkspaceSurface()
     useWorkbench.setState({ workspaceId: target.id })
     if (startingSessionId) await openSession(startingSessionId)
   }
@@ -1437,6 +1443,7 @@ export default function App() {
   function selectWorkspace(nextWorkspaceId: string) {
     if (!nextWorkspaceId || nextWorkspaceId === workspaceId) return
     const previousSession = useWorkbench.getState().activeSession
+    clearWorkspaceSurface()
     useWorkbench.setState({ workspaceId: nextWorkspaceId, activeSession: '' })
     if (previousSession) void client().unfollow(previousSession).catch(report)
     clearSessionTab()
