@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { PlatformAdapter, ToolWindowEvent, ToolWindowHandle, ToolWindowOpenOptions } from './platform.ts'
+import { pickBackgroundAssetFile, type PlatformAdapter, type ToolWindowEvent, type ToolWindowHandle, type ToolWindowOpenOptions } from './platform.ts'
 import { copyText } from './browser-utils'
 import type { ThemeProfile } from '@hbar/contracts'
 export const desktop: PlatformAdapter = {
@@ -7,6 +7,7 @@ export const desktop: PlatformAdapter = {
   connection: () => invoke<{ url: string; token: string }>('connection_info'),
   copy: copyText,
   pickDirectory: () => invoke<string | null>('pick_directory'),
+  pickBackgroundAsset: pickBackgroundAssetFile,
   listFonts: () => invoke<string[]>('list_fonts'),
   setWindowEffect: (profile: ThemeProfile) => invoke<{ native: boolean; message?: string }>('set_window_effect', { profile }),
   openToolWindow: async (options: ToolWindowOpenOptions): Promise<ToolWindowHandle> => ({

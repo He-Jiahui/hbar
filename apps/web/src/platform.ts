@@ -8,12 +8,14 @@ export type ToolWindowOpenOptions = {
   height?: number
 }
 export type ToolWindowEvent = { type: 'closed'; windowId: string }
+export type BackgroundAssetFile = File
 export type ToolWindowHandle = { windowId: string }
 export interface PlatformAdapter {
   kind: 'web' | 'desktop'
   connection(): Promise<{ url: string; token?: string }>
   copy(text: string): Promise<void>
   pickDirectory(): Promise<string | null>
+  pickBackgroundAsset(): Promise<BackgroundAssetFile | null>
   listFonts(): Promise<string[]>
   setWindowEffect(profile: ThemeProfile): Promise<{ native: boolean; message?: string }>
   openToolWindow(options: ToolWindowOpenOptions): Promise<ToolWindowHandle | null>
@@ -36,11 +38,32 @@ function developmentConnection(): { url: string; token: string } | undefined {
 }
 
 const devConnection = developmentConnection()
+
+/** Open the host platform's image picker without exposing arbitrary paths. */
+export function pickBackgroundAssetFile(): Promise<BackgroundAssetFile | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif'
+    const finish = (file: BackgroundAssetFile | null) => {
+      input.remove()
+      resolve(file)
+    }
+    input.addEventListener('change', () => finish(input.files?.[0] ?? null), { once: true })
+    input.addEventListener('cancel', () => finish(null), { once: true })
+    input.style.position = 'fixed'
+    input.style.left = '-10000px'
+    document.body.appendChild(input)
+    input.click()
+  })
+}
+
 const web: PlatformAdapter = {
   kind: 'web',
   connection: async () => devConnection ?? { url: location.origin },
   copy: copyText,
   pickDirectory: async () => null,
+  pickBackgroundAsset: pickBackgroundAssetFile,
   listFonts: async () => {
     const localFontWindow = window as Window & { queryLocalFonts?: () => Promise<Array<{ family: string }>> }
     try {

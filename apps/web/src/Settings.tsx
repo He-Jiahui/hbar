@@ -750,7 +750,6 @@ export default function Settings() {
   const [fontFamilies, setFontFamilies] = useState<string[]>([])
   const [windowEffectStatus, setWindowEffectStatus] = useState('')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-  const themeBackgroundInput = useRef<HTMLInputElement>(null)
   const themeImportInput = useRef<HTMLInputElement>(null)
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
@@ -863,7 +862,7 @@ export default function Settings() {
       surface: { ...current.surface, [key]: value },
     }))
   }
-  async function uploadThemeBackground(file: File | undefined) {
+  async function uploadThemeBackground(file: File | null | undefined) {
     if (!file || !file.type.startsWith('image/')) return
     setThemeUploading(true)
     try {
@@ -876,7 +875,6 @@ export default function Settings() {
       setSettingsError(error instanceof Error ? error.message : String(error))
     } finally {
       setThemeUploading(false)
-      if (themeBackgroundInput.current) themeBackgroundInput.current.value = ''
     }
   }
   function exportThemeProfile() {
@@ -1166,7 +1164,7 @@ export default function Settings() {
             <label className="theme-select-field"><span>{t('bodyWeight')}</span><input type="number" min="300" max="800" step="100" value={themeProfile.typography.bodyWeight} onChange={(event) => updateThemeTypography('bodyWeight', Number(event.target.value))} /></label>
             <label className="theme-select-field"><span>{t('headingWeight')}</span><input type="number" min="400" max="800" step="100" value={themeProfile.typography.headingWeight} onChange={(event) => updateThemeTypography('headingWeight', Number(event.target.value))} /></label>
             <label className="checkbox theme-option-checkbox"><input type="checkbox" checked={themeProfile.typography.underlineLinks} onChange={(event) => updateThemeTypography('underlineLinks', event.target.checked)} />{t('underlineLinks')}</label>
-            <div className="theme-select-field theme-background-field"><span>{t('backgroundImage')}</span><div className="theme-background-actions"><button type="button" className="button" disabled={themeUploading} onClick={() => themeBackgroundInput.current?.click()}>{themeUploading ? t('uploading') : t('chooseImage')}</button><input ref={themeBackgroundInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => void uploadThemeBackground(event.target.files?.[0])} />{themeProfile.surface.backgroundAsset && <button type="button" className="text-command" onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: null } }))}>{t('remove')}</button>}</div></div>
+            <div className="theme-select-field theme-background-field"><span>{t('backgroundImage')}</span><div className="theme-background-actions"><button type="button" className="button" disabled={themeUploading} onClick={() => void platform().then((adapter) => adapter.pickBackgroundAsset()).then(uploadThemeBackground).catch((error) => setSettingsError(error instanceof Error ? error.message : String(error)))}>{themeUploading ? t('uploading') : t('chooseImage')}</button>{themeProfile.surface.backgroundAsset && <button type="button" className="text-command" onClick={() => useThemeSettings.getState().updateDraft((current) => ({ ...current, surface: { ...current.surface, backgroundAsset: null } }))}>{t('remove')}</button>}</div></div>
           </div>
           <div className="theme-preview">
             <h3>{t('themePreview')}</h3>
