@@ -1,0 +1,4 @@
+interface:
+  display_name: "hbar ReactBits UI"
+  short_description: "统一 hbar 的 ReactBits 工作台布局与组件语义"
+  default_prompt: "Use $hbar-reactbits-ui to design or migrate an hbar workbench surface with the required ReactBits reference URLs."
