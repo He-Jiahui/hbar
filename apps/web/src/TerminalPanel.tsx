@@ -27,7 +27,7 @@ import { modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import { FloatingSurface } from './FloatingLayer'
-import { useLocale } from './locale'
+import { useLocale, type LocaleMessageKey } from './locale'
 
 interface TerminalContext {
   dispatch(invocation: CommandInvocation): Promise<void>
@@ -37,12 +37,12 @@ const builtins = new CommandRegistry<TerminalContext>()
 for (const command of BUILTIN_TERMINAL_COMMANDS)
   builtins.register(command, (invocation, context) => context.dispatch(invocation))
 
-function block(block: ContentBlock, key: number) {
+function block(block: ContentBlock, key: number, labels: { thinking: string; failed: string; completed: string }) {
   if (block.type === 'text') return <Markdown key={key} text={block.text} />
   if (block.type === 'thinking')
     return (
       <details className="terminal-thinking rb-terminal-thinking-surface" key={key}>
-        <summary>思考过程</summary>
+        <summary>{labels.thinking}</summary>
         <GlassSurface className="terminal-thinking-glass" width="100%" height="100%" aria-hidden="true" />
         <Markdown text={block.text} />
       </details>
@@ -76,7 +76,7 @@ function block(block: ContentBlock, key: number) {
       key={key}
     >
       <summary>
-        {block.name} · {block.isError ? '失败' : '完成'}
+        {block.name} · {block.isError ? labels.failed : labels.completed}
       </summary>
       <GlassSurface className="terminal-tool-glass" width="100%" height="100%" aria-hidden="true" />
       <pre>{block.text}</pre>
@@ -85,16 +85,17 @@ function block(block: ContentBlock, key: number) {
 }
 
 function TranscriptMessage({ message }: { message: Message }) {
+  const { t } = useLocale()
   return (
     <article className={`terminal-message terminal-${message.role}`}>
       <header>{message.role === 'assistant' ? 'hbar' : message.role === 'user' ? 'You' : message.role}</header>
-      <div>{message.content.map(block)}</div>
+      <div>{message.content.map((item, index) => block(item, index, { thinking: t('thinkingProcess'), failed: t('failed'), completed: t('completed') }))}</div>
     </article>
   )
 }
 
-function approvalMarkdown(approval: Approval) {
-  return `### 等待审批\n\n工具：\`${approval.tool}\`\n\n\`/approve ${approval.id}\` 或 \`/deny ${approval.id}\``
+function approvalMarkdown(approval: Approval, t: (key: LocaleMessageKey) => string) {
+  return `### ${t('approvalPending')}\n\n${t('toolLabel')}\`${approval.tool}\`\n\n\`/approve ${approval.id}\` ${t('approveOrDeny')} \`/deny ${approval.id}\``
 }
 
 interface ConsoleCandidate {
@@ -182,7 +183,7 @@ export default function TerminalPanel({
           key: `approval:${mode}`,
           value: `/settings approval ${mode}`,
           label: mode,
-          description: mode === 'allow' ? '自动允许' : mode === 'deny' ? '自动拒绝' : '每次询问',
+          description: mode === 'allow' ? t('approvalAllowDescription') : mode === 'deny' ? t('approvalDenyDescription') : t('approvalAskDescription'),
           kind: 'argument',
         }))
     }
@@ -199,12 +200,12 @@ export default function TerminalPanel({
           label: action,
           description:
             action === 'inspect'
-              ? '查看插件清单'
+              ? t('pluginManifest')
               : action === 'lock'
-                ? '查看插件锁定文件'
+                ? t('pluginLockfile')
                 : action === 'doctor'
-                  ? '运行插件检查'
-                  : '插件管理操作',
+                  ? t('pluginDoctor')
+                  : t('pluginManagementAction'),
           kind: 'argument' as const,
         }))
     }
@@ -254,13 +255,13 @@ export default function TerminalPanel({
   const chooseSession = async (id: string) => {
     onSelectSession?.(id)
     await openSession(id)
-    write(`已切换到 Session \`${id}\``)
+    write(`${t('sessionSwitched')}\`${id}\``)
   }
   const resolveApproval = async (decision: 'allowed' | 'denied', id?: string) => {
     const approval = id
       ? snapshot?.approvals.find((item) => item.id === id)
       : snapshot?.approvals.find((item) => item.status === 'pending')
-    if (!approval) throw new Error('没有待处理的审批')
+    if (!approval) throw new Error(t('noPendingApproval'))
     if (resolvingApprovalIds.current.has(approval.id)) return
     resolvingApprovalIds.current.add(approval.id)
     setResolvingApprovals((current) => new Set(current).add(approval.id))
@@ -279,11 +280,11 @@ export default function TerminalPanel({
   const dispatch = async ({ command, args }: CommandInvocation) => {
     const argument = args.join(' ')
     if (command === 'help') {
-      write(`### 控制台命令\n\n${commands.map((item) => `- \`${item.usage}\`：${item.description}`).join('\n')}`)
+      write(`### ${t('consoleCommands')}\n\n${commands.map((item) => `- \`${item.usage}\`：${item.description}`).join('\n')}`)
       return
     }
     if (command === 'new') {
-      if (!workspaceId) throw new Error('请先选择项目')
+      if (!workspaceId) throw new Error(t('selectProjectFirst'))
       const created = await client().call('session.create', { workspaceId })
       await refreshCatalog()
       await chooseSession(created.id)
@@ -298,7 +299,7 @@ export default function TerminalPanel({
               (item) =>
                 `| ${item.id} | ${item.title.replaceAll('|', '\\|')} | ${item.archived ? 'archived' : 'active'} |`,
             )
-            .join('\n') || '| — | 没有 Session | — |'
+            .join('\n') || `| — | ${t('noSession')} | — |`
         }`,
       )
       return
@@ -307,7 +308,7 @@ export default function TerminalPanel({
       const target = catalog?.sessions.find(
         (item) => item.workspaceId === workspaceId && (item.id === argument || item.title === argument),
       )
-      if (!target) throw new Error(`找不到 Session：${argument}`)
+      if (!target) throw new Error(`${t('sessionNotFound')}${argument}`)
       await chooseSession(target.id)
       return
     }
@@ -315,7 +316,7 @@ export default function TerminalPanel({
       !sessionId &&
       !['model', 'thinking', 'plugins', 'skills', 'settings', 'paths', 'diagnose', 'clear', 'quit'].includes(command)
     )
-      throw new Error('请先创建或选择 Session')
+      throw new Error(t('createOrSelectSession'))
     if (command === 'fork') {
       const created = await client().call('session.fork', { sessionId })
       await refreshCatalog()
@@ -323,11 +324,11 @@ export default function TerminalPanel({
     } else if (command === 'archive') {
       await client().call('session.archive', { sessionId, archived: true })
       await refreshCatalog()
-      write('当前 Session 已归档')
+      write(t('sessionArchivedNotice'))
     } else if (command === 'model') {
       if (!argument)
         write(
-          `### Models\n\n${catalog?.models.map((item) => `- \`${item.id}\` · ${item.providerName} / ${item.modelName} · ${item.model}`).join('\n') ?? ''}`,
+          `### ${t('modelList')}\n\n${catalog?.models.map((item) => `- \`${item.id}\` · ${item.providerName} / ${item.modelName} · ${item.model}`).join('\n') ?? ''}`,
         )
       else {
         const normalized = argument.toLocaleLowerCase()
@@ -341,27 +342,27 @@ export default function TerminalPanel({
             `${item.providerName}/${item.model}`,
           ].some((candidate) => candidate === argument || candidate.toLocaleLowerCase() === normalized),
         )
-        if (!target) throw new Error(`找不到模型：${argument}`)
+        if (!target) throw new Error(`${t('modelNotFound')}${argument}`)
         selectModel(target.id)
-        write(`已切换到模型 \`${target.providerName} / ${target.model}\``)
+        write(`${t('modelSwitched')}\`${target.providerName} / ${target.model}\``)
       }
     } else if (command === 'thinking') {
-      if (!DEFAULT_THINKING_LEVELS.includes(argument as ThinkingLevel)) throw new Error('无效的 thinking 级别')
+      if (!DEFAULT_THINKING_LEVELS.includes(argument as ThinkingLevel)) throw new Error(t('invalidThinkingLevel'))
       selectThinkingLevel(argument as ThinkingLevel)
-      write(`思考等级：${modelThinkingLabel(argument as ThinkingLevel)}`)
+      write(`${t('thinkingLevelNotice')}${modelThinkingLabel(argument as ThinkingLevel)}`)
     } else if (command === 'compact') {
       const result = await client().call('context.compact', { sessionId, modelId })
-      write(`### 上下文摘要\n\n${result.summary}`)
+      write(`### ${t('contextSummary')}\n\n${result.summary}`)
     } else if (command === 'approve') await resolveApproval('allowed', args[0])
     else if (command === 'deny') await resolveApproval('denied', args[0])
     else if (command === 'stop') {
       const currentRun = useSessions
         .getState()
         .snapshots[sessionId]?.runs.find((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
-      if (!currentRun) throw new Error('当前 Session 没有运行')
+      if (!currentRun) throw new Error(t('sessionNotRunning'))
       await client().call('run.cancel', { runId: currentRun.id })
     } else if (command === 'retry') {
-      if (!lastMessage.current) throw new Error('没有可重试的消息')
+      if (!lastMessage.current) throw new Error(t('noMessageToRetry'))
       await sendMessage(lastMessage.current)
     } else if (command === 'export') {
       const events = await client().call('session.export', { sessionId })
@@ -384,7 +385,7 @@ export default function TerminalPanel({
       else if (action === 'remove' && id) await client().call('plugin.remove', { id })
       else if (action === 'inspect' && id) {
         const plugin = catalog?.plugins.find((item) => item.id === id)
-        if (!plugin) throw new Error(`找不到插件：${id}`)
+        if (!plugin) throw new Error(`${t('pluginNotFound')}${id}`)
         write(`\`\`\`json\n${JSON.stringify(plugin, null, 2)}\n\`\`\``)
         return
       } else if (action === 'lock') {
@@ -394,16 +395,16 @@ export default function TerminalPanel({
       else if (action === 'doctor')
         write(`\`\`\`json\n${JSON.stringify(await client().call('plugin.doctor', {}), null, 2)}\n\`\`\``)
       else if (action !== 'list')
-        throw new Error('使用 /plugins list|install|enable|disable|remove|inspect|doctor|lock')
+        throw new Error(t('pluginUsage'))
       if (action === 'list')
         write(
-          `### Plugins\n\n${catalog?.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n') ?? ''}`,
+          `### ${t('pluginsList')}\n\n${catalog?.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n') ?? ''}`,
         )
       await refreshCatalog()
     } else if (command === 'skills') {
       const skills = await client().call('system.skills.list', {})
       write(
-        `### Global skills\n\n${skills.map((skill) => `- \`${skill.id}\``).join('\n') || 'No skills installed.'}`,
+        `### ${t('skillsList')}\n\n${skills.map((skill) => `- \`${skill.id}\``).join('\n') || t('noSkillsInstalled')}`,
       )
     } else if (command === 'settings') {
       if (!args.length) {
@@ -415,13 +416,13 @@ export default function TerminalPanel({
           // The local store remains the useful value while a reconnect is in progress.
         }
         write(
-          `\`\`\`text\nsettings\napproval: ${persistedApproval}\nthinking: ${thinkingLevel}\nmodel: ${model?.name ?? modelId ?? '未配置'}\n\n可用设置命令:\n  /settings approval allow\n  /settings approval ask\n  /settings approval deny\n\`\`\``,
+          `\`\`\`text\nsettings\napproval: ${persistedApproval}\nthinking: ${thinkingLevel}\nmodel: ${model?.name ?? modelId ?? t('unconfigured')}\n\n${t('availableSettingsCommands')}\n  /settings approval allow\n  /settings approval ask\n  /settings approval deny\n\`\`\``,
         )
       } else if (args[0] === 'approval' && ['allow', 'ask', 'deny'].includes(args[1] ?? '')) {
         const mode = args[1] as ApprovalMode
-        if (!(await setApprovalMode(mode))) throw new Error('权限策略保存失败')
+        if (!(await setApprovalMode(mode))) throw new Error(t('permissionSaveFailed'))
         write(`approval: \`${mode}\``)
-      } else throw new Error('使用 /settings approval allow|ask|deny')
+      } else throw new Error(t('settingsUsage'))
     } else if (command === 'paths')
       write(`\`\`\`json\n${JSON.stringify(await client().call('system.paths.get', {}), null, 2)}\n\`\`\``)
     else if (command === 'diagnose')
@@ -432,7 +433,7 @@ export default function TerminalPanel({
   const sendMessage = async (text: string) => {
     let targetSessionId = useWorkbench.getState().activeSession
     if (!targetSessionId) {
-      if (!workspaceId) throw new Error('请先选择项目')
+      if (!workspaceId) throw new Error(t('selectProjectFirst'))
       const created = await client().call('session.create', { workspaceId })
       targetSessionId = created.id
       await refreshCatalog()
@@ -441,7 +442,7 @@ export default function TerminalPanel({
     const currentRun = useSessions
       .getState()
       .snapshots[targetSessionId]?.runs.find((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
-    if (currentRun) throw new Error('当前 Session 正在运行，可先切换 Session 或 /stop')
+    if (currentRun) throw new Error(t('sessionRunningNotice'))
     lastMessage.current = text
     await client().call('run.start', {
       sessionId: targetSessionId,
@@ -468,12 +469,12 @@ export default function TerminalPanel({
           const plugin = pluginCommands.find(
             (item) => item.id === parsed.invocation.command || item.id.endsWith(`:${parsed.invocation.command}`),
           )
-          if (!plugin) throw new Error(`未知命令：/${parsed.invocation.command}`)
+          if (!plugin) throw new Error(`${t('unknownCommand')}${parsed.invocation.command}`)
           await plugin.execute({ sessionId, workspaceId, writeMarkdown: write, setInput }, parsed.invocation.args)
         }
       }
     } catch (error) {
-      write(`> 错误：${error instanceof Error ? error.message : String(error)}`)
+      write(`> ${t('errorPrefix')}${error instanceof Error ? error.message : String(error)}`)
       report(error)
     }
   }
@@ -483,11 +484,11 @@ export default function TerminalPanel({
         <header className="terminal-toolbar">
           <GlassSurface className="terminal-toolbar-glass" width="100%" height="100%" aria-hidden="true" />
           <TerminalSquare size={15} />
-          <strong className="command-console-title">命令控制台</strong>
+          <strong className="command-console-title">{t('commandConsole')}</strong>
           <span className="terminal-toolbar-context">
-            {sessions.find((item) => item.id === sessionId)?.title ?? '未选择 Session'} · {thinkingLevel}
+            {sessions.find((item) => item.id === sessionId)?.title ?? t('unselectedSession')} · {thinkingLevel}
           </span>
-          <button title="关闭命令控制台" aria-label="关闭命令控制台" onClick={onClose}>
+          <button title={t('closeSystemTerminal')} aria-label={t('closeSystemTerminal')} onClick={onClose}>
             <X size={14} />
           </button>
         </header>
@@ -501,7 +502,7 @@ export default function TerminalPanel({
             <header>hbar</header>
             {stream.thinking && (
               <details className="terminal-thinking rb-terminal-thinking-surface">
-                <summary>思考过程</summary>
+                <summary>{t('thinkingProcess')}</summary>
                 <GlassSurface className="terminal-thinking-glass" width="100%" height="100%" aria-hidden="true" />
                 <Markdown text={stream.thinking} streaming />
               </details>
@@ -516,7 +517,7 @@ export default function TerminalPanel({
             aria-busy={resolvingApprovals.has(approval.id)}
           >
             <GlassSurface className="terminal-approval-glass" width="100%" height="100%" aria-hidden="true" />
-            <Markdown text={approvalMarkdown(approval)} />
+            <Markdown text={approvalMarkdown(approval, t)} />
             <div>
               <button
                 className="button"
@@ -633,8 +634,8 @@ export default function TerminalPanel({
         />
         <GlareButton
           className="terminal-send"
-          title="执行"
-          aria-label="执行"
+          title={t('execute')}
+          aria-label={t('execute')}
           disabled={!input.trim()}
           onClick={() => void submit()}
         >
