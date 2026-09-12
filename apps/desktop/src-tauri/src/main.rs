@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeSet,
     fs::{self, OpenOptions},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -113,7 +114,10 @@ fn validate_window_theme(profile: &WindowThemeProfile) -> Result<(), String> {
 
 #[cfg(test)]
 mod window_effect_tests {
-    use super::{validate_window_theme, window_background_rgba, WindowThemeColors, WindowThemeProfile, WindowThemeSurface};
+    use super::{
+        list_fonts, normalize_font_list, validate_window_theme, window_background_rgba,
+        WindowThemeColors, WindowThemeProfile, WindowThemeSurface,
+    };
 
     #[test]
     fn uses_theme_background_for_native_acrylic() {
@@ -133,6 +137,22 @@ mod window_effect_tests {
             colors: WindowThemeColors { background: "rgb(1, 2, 3)".into() },
         };
         assert!(validate_window_theme(&invalid).is_err());
+    }
+
+    #[test]
+    fn normalizes_font_names_and_keeps_a_safe_fallback() {
+        let fonts = normalize_font_list([
+            " Segoe UI ".to_owned(),
+            "Segoe UI".to_owned(),
+            "url(https://example.invalid/font)".to_owned(),
+            "body; color: red".to_owned(),
+            "Noto Sans".to_owned(),
+        ]);
+        assert_eq!(
+            fonts,
+            vec!["Noto Sans".to_owned(), "Segoe UI".to_owned()]
+        );
+        assert!(list_fonts().iter().any(|font| font == "system-ui"));
     }
 }
 
@@ -396,7 +416,7 @@ fn pick_directory() -> Option<String> {
 }
 
 #[tauri::command]
-fn list_fonts() -> Vec<String> {
+fn curated_fonts() -> Vec<String> {
     vec![
         "system-ui".into(),
         "Segoe UI".into(),
@@ -406,6 +426,87 @@ fn list_fonts() -> Vec<String> {
         "Arial".into(),
         "sans-serif".into(),
     ]
+}
+
+fn normalize_font_list(values: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut fonts = BTreeSet::new();
+    for value in values {
+        let name = value.trim();
+        if name.is_empty()
+            || name.len() > 240
+            || name.chars().any(|character| character.is_control())
+            || name.contains(';')
+            || name.contains('{')
+            || name.contains('}')
+            || name.to_ascii_lowercase().contains("url(")
+            || name.to_ascii_lowercase().contains("var(")
+            || name.to_ascii_lowercase().contains("expression(")
+        {
+            continue;
+        }
+        fonts.insert(name.to_owned());
+    }
+    fonts.into_iter().collect()
+}
+
+#[cfg(target_os = "windows")]
+fn system_font_names() -> Vec<String> {
+    use std::os::windows::process::CommandExt;
+
+    const SCRIPT: &str = r#"
+$paths = @(
+  'HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts',
+  'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts'
+)
+foreach ($path in $paths) {
+  if (Test-Path $path) {
+    (Get-ItemProperty -Path $path).PSObject.Properties |
+      Where-Object { $_.Name -notlike 'PS*' } |
+      ForEach-Object { ($_.Name -replace '\s+\([^)]*\)$', '') }
+  }
+}
+"#;
+    Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", SCRIPT])
+        .creation_flags(0x08000000)
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn system_font_names() -> Vec<String> {
+    Command::new("fc-list")
+        .args([":", "family"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .flat_map(|line| line.split(','))
+                .map(str::trim)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn system_font_names() -> Vec<String> {
+    Vec::new()
+}
+
+#[tauri::command]
+fn list_fonts() -> Vec<String> {
+    normalize_font_list(curated_fonts().into_iter().chain(system_font_names()))
 }
 
 fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
