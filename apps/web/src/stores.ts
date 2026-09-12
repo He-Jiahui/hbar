@@ -36,7 +36,13 @@ export const useConnection = create<{
   host: HostInfo | null
   error: string
   url: string
-}>(() => ({ client: null, status: 'disconnected', host: null, error: '', url: location.origin }))
+}>(() => ({
+  client: null,
+  status: 'disconnected',
+  host: null,
+  error: '',
+  url: typeof globalThis.location !== 'undefined' ? globalThis.location.origin : 'http://127.0.0.1',
+}))
 export const useCatalog = create<{ data: Bootstrap | null }>(() => ({ data: null }))
 export const useSessionSummaries = create<{ byId: Record<string, SessionSummary> }>(() => ({ byId: {} }))
 export const useGitState = create<{ revision: number; changedCwds: string[] }>(() => ({ revision: 0, changedCwds: [] }))
