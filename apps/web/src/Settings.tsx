@@ -20,7 +20,18 @@ import {
   X,
 } from 'lucide-react'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
-import type { Device, ModelInfo, ProviderConfig, ProviderModelConfig, RpcResults, SettingsSnapshot, ThemeProfile, ThinkingLevel } from '@hbar/contracts'
+import type {
+  Device,
+  ModelInfo,
+  ProviderConfig,
+  ProviderModelConfig,
+  RpcResults,
+  SettingDescriptor,
+  SettingsCatalog,
+  SettingsSnapshot,
+  ThemeProfile,
+  ThinkingLevel,
+} from '@hbar/contracts'
 import { client, refreshCatalog, report, selectModel, useCatalog, useConnection, useWorkbench } from './stores'
 import { copyText } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
@@ -64,6 +75,26 @@ const SETTINGS_SEARCH_INDEX: readonly SettingSearchEntry[] = [
 function settingMatches(entry: SettingSearchEntry, query: string) {
   const haystack = [entry.tabLabel, entry.section, entry.title, entry.description, ...entry.keywords].join(' ').toLocaleLowerCase()
   return haystack.includes(query.trim().toLocaleLowerCase())
+}
+
+function settingTab(root: string): SettingsTab {
+  if (root === 'automation' || root === 'appearance' || root === 'permissions' || root === 'plugins')
+    return root
+  if (root === 'models') return 'models'
+  if (root === 'paths') return 'paths'
+  if (root === 'skills') return 'skills'
+  return 'devices'
+}
+
+function catalogSearchEntry(setting: SettingDescriptor): SettingSearchEntry {
+  return {
+    tab: settingTab(setting.root),
+    tabLabel: setting.root === 'plugins' ? '插件' : setting.root,
+    section: [setting.group, setting.section].filter(Boolean).join(' / ') || setting.root,
+    title: setting.title,
+    description: setting.description ?? '',
+    keywords: setting.keywords,
+  }
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
@@ -706,6 +737,7 @@ export default function Settings() {
     [modelQuery, setModelQuery] = useState(''),
     [settingsQuery, setSettingsQuery] = useState(''),
     [modelFilter, setModelFilter] = useState<'all' | 'connected' | 'needs-key'>('all')
+  const [settingsCatalog, setSettingsCatalog] = useState<SettingsCatalog | null>(null)
   const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null)
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsError, setSettingsError] = useState('')
@@ -733,7 +765,7 @@ export default function Settings() {
   })
   const modelGroups = groupModelsByProvider(filteredModels)
   const settingSearchResults = settingsQuery.trim()
-    ? SETTINGS_SEARCH_INDEX.filter((entry) => settingMatches(entry, settingsQuery)).slice(0, 8)
+    ? (settingsCatalog?.settings ?? []).map(catalogSearchEntry).filter((entry) => settingMatches(entry, settingsQuery)).slice(0, 8)
     : []
   useEffect(() => {
     window.localStorage.setItem('hbar.settings.scope', settingsScope)
@@ -741,6 +773,11 @@ export default function Settings() {
   useEffect(() => {
     if (tab === 'devices') void client().call('device.list', {}).then(setDevices).catch(report)
   }, [tab])
+  useEffect(() => {
+    const connection = useConnection.getState().client
+    if (!connection) return
+    void connection.call('settings.catalog', {}).then(setSettingsCatalog).catch(report)
+  }, [data?.plugins])
   useEffect(() => {
     if (tab !== 'automation') return
     setSettingsError('')

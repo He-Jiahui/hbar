@@ -29,7 +29,7 @@ async function visible(locator: Locator) {
   throw new Error('Expected a visible locator')
 }
 
-test('session capability actions open the Goal, Plan, and Budget panel', async ({ page, context }) => {
+test('session capability actions configure inline Goal, Plan, Budget, and unattended state', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
     const newSession = await visible(page.locator('button[aria-label="新建会话"]'))
@@ -51,21 +51,16 @@ test('session capability actions open the Goal, Plan, and Budget panel', async (
     await expect(page.getByRole('menuitem', { name: 'Goal 模式', exact: true })).toBeEnabled()
     await page.getByRole('menuitem', { name: 'Goal 模式', exact: true }).click()
 
-    const dialog = page.getByRole('dialog', { name: '会话能力', exact: true })
-    await expect(dialog).toBeVisible()
-    expect(await dialog.evaluate((element) => element.parentElement === document.body)).toBeTruthy()
-    await dialog.getByRole('textbox', { name: '目标', exact: true }).fill('完成 capability 面板验收')
-    await dialog.getByRole('button', { name: '创建 Goal', exact: true }).click()
-    await expect(dialog).toContainText('进行中')
-
-    await dialog.getByRole('button', { name: 'Plan', exact: true }).click()
-    await dialog.getByRole('button', { name: 'Plan 模式', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: 'Plan 模式', exact: true })).toHaveClass(/selected/)
-
-    await dialog.getByRole('button', { name: 'Budget', exact: true }).click()
-    await dialog.getByRole('spinbutton', { name: 'Token 上限', exact: true }).fill('1000')
-    await dialog.getByRole('button', { name: '设置预算', exact: true }).click()
-    await expect(dialog).toContainText('预算使用情况')
+    await expect(page.getByRole('button', { name: /Goal · 待设置/ })).toBeVisible()
+    await plus.click()
+    await page.getByRole('menuitem', { name: 'Plan 模式', exact: true }).click()
+    await expect(page.locator('.composer-mode-tag', { hasText: 'Plan' })).toBeVisible()
+    await plus.click()
+    await page.getByRole('menuitem', { name: 'Budget 模式', exact: true }).click()
+    await expect(page.getByRole('spinbutton', { name: '预算 token', exact: true })).toBeVisible()
+    await page.getByRole('spinbutton', { name: '预算 token', exact: true }).fill('1000')
+    await page.getByRole('button', { name: '保存预算', exact: true }).click()
+    await expect(page.locator('.composer-mode-tag', { hasText: 'Budget' })).toBeVisible()
   } finally {
     fixture.api.disconnect()
   }
@@ -100,7 +95,7 @@ test('prompt composer exposes keyboard-navigable slash commands', async ({ page,
     await input.fill('/goal')
     await expect(options).toHaveCount(1)
     await input.press('Enter')
-    await expect(page.getByRole('dialog', { name: '会话能力', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Goal · 待设置/ })).toBeVisible()
   } finally {
     fixture.api.disconnect()
   }
