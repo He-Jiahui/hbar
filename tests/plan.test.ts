@@ -78,7 +78,10 @@ test('request user input contracts preserve free-text wire questions and answer-
 
 test('plan mode uses medium reasoning unless the caller explicitly chooses an effort', async () => {
   const { kernel, session } = await fixture()
-  const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }> }>('mode')
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>
+    get(id: string): Promise<{ mode: 'plan' | 'default' }>
+  }>('mode')
   await mode.set(session.id, 'plan')
   const inherited = await kernel.submit(session.id, 'plan-medium', { text: 'inspect', images: [] }, 'local-fixture')
   expect((await kernel.storage.call('run', inherited.id)).input.thinking).toBe('medium')

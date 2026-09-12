@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
 import { FloatingSurface } from '../FloatingLayer'
+import type { ToolWindowDock, ToolWindowIcon } from '@hbar/contracts'
 import './WorkbenchNavigation.css'
 
 export type PrimaryPanel = 'sessions' | 'files'
@@ -24,7 +25,11 @@ export type PrimaryPanel = 'sessions' | 'files'
 export interface NavigationContribution {
   id: string
   title: string
-  placement?: 'left' | 'right' | 'bottom' | 'editor'
+  icon?: ToolWindowIcon
+  defaultDock?: Exclude<ToolWindowDock, 'window'>
+  allowedDocks?: readonly ToolWindowDock[] | undefined
+  canPopout?: boolean
+  placement?: Exclude<ToolWindowDock, 'window' | 'top'>
 }
 
 export interface WorkbenchNavigationProps {
@@ -39,15 +44,17 @@ export interface WorkbenchNavigationProps {
     id: string,
     title: string,
     component: string,
-    placement: 'left' | 'right' | 'bottom' | 'editor',
+    placement: 'left' | 'right' | 'top' | 'bottom' | 'editor',
     config?: Record<string, unknown>,
   ): void
-  onToggleTool(id: string, title: string, component: string, placement: 'left' | 'right' | 'bottom' | 'editor'): void
+  onToggleTool(id: string, title: string, component: string, placement: 'left' | 'right' | 'top' | 'bottom' | 'editor'): void
   onSetMobileView(view: string): void
   toolOrder: readonly string[]
   toolSides: Readonly<Record<string, 'left' | 'right'>>
   onMoveTool(id: string, side: 'left' | 'right'): void
   onReorderTool(source: string, target: string): void
+  showPrimary?: boolean
+  onDragState?(id: string | null): void
 }
 
 const MOBILE_TOOLS = [
@@ -93,8 +100,23 @@ const MOBILE_MORE_ITEMS = [
   },
 ] as const
 
-function contributionPlacement(placement: NavigationContribution['placement']): 'left' | 'right' | 'bottom' | 'editor' {
-  return placement ?? 'right'
+function contributionPlacement(contribution: NavigationContribution): 'left' | 'right' | 'top' | 'bottom' | 'editor' {
+  return contribution.defaultDock ?? contribution.placement ?? 'right'
+}
+
+const CONTRIBUTION_ICONS: Partial<Record<ToolWindowIcon, typeof LayoutGrid>> = {
+  activity: Activity,
+  'bar-chart-3': BarChart3,
+  'circle-help': CircleHelp,
+  'file-search': FileSearch,
+  folder: Folder,
+  'git-branch': GitBranch,
+  globe: Globe,
+  'layout-grid': LayoutGrid,
+  'list-checks': ListChecks,
+  'message-square': MessageSquare,
+  'terminal-square': TerminalSquare,
+  wrench: Settings2,
 }
 
 function ToolRailButton({
@@ -189,6 +211,8 @@ export function WorkbenchToolRails({
   toolSides,
   onMoveTool,
   onReorderTool,
+  showPrimary = true,
+  onDragState,
   side = 'both',
 }: Pick<
   WorkbenchNavigationProps,
@@ -203,7 +227,9 @@ export function WorkbenchToolRails({
   | 'toolSides'
   | 'onMoveTool'
   | 'onReorderTool'
-> & { side?: 'left' | 'right' | 'both' }) {
+  | 'showPrimary'
+  | 'onDragState'
+> & { side?: 'left' | 'right' | 'both'; showPrimary?: boolean }) {
   const draggingTool = useRef<string | null>(null)
   const rightTools = {
     browser: {
@@ -236,13 +262,6 @@ export function WorkbenchToolRails({
       tone: 'status' as const,
       placement: 'right' as const,
     },
-    settings: {
-      title: '设置',
-      component: 'settings',
-      icon: Settings2,
-      tone: 'neutral' as const,
-      placement: 'editor' as const,
-    },
     diagnose: {
       title: '诊断',
       component: 'diagnose',
@@ -251,6 +270,45 @@ export function WorkbenchToolRails({
       placement: 'right' as const,
     },
   } as const
+  const contributionById = new Map(contributions.map((contribution) => [contribution.id, contribution]))
+  const orderedContributions = [
+    ...toolOrder.filter((id) => contributionById.has(id)).map((id) => contributionById.get(id)!),
+    ...contributions.filter((contribution) => !toolOrder.includes(contribution.id)),
+  ]
+  const renderContribution = (contribution: NavigationContribution, tooltipPlacement: 'left' | 'right') => (
+    <ToolRailButton
+      key={contribution.id}
+      label={contribution.title}
+      tooltipPlacement={tooltipPlacement}
+      selected={toolPanel === `plugin:${contribution.id}`}
+      onClick={() =>
+        onOpenTool(
+          `plugin:${contribution.id}`,
+          contribution.title,
+          'plugin',
+          contributionPlacement(contribution),
+          { panelId: contribution.id },
+        )
+      }
+      draggable
+      onDragStart={(event) => {
+        draggingTool.current = contribution.id
+        onDragState?.(contribution.id)
+        event.dataTransfer.setData('application/x-hbar-tool', contribution.id)
+      }}
+      onDragEnd={() => {
+        draggingTool.current = null
+        onDragState?.(null)
+      }}
+      onDrop={(event) => reorderTool(contribution.id, event)}
+      onKeyboardMove={(direction) => moveToolByKeyboard(contribution.id, direction)}
+    >
+      {(() => {
+        const Icon = contribution.icon ? CONTRIBUTION_ICONS[contribution.icon] ?? LayoutGrid : LayoutGrid
+        return <Icon size={18} />
+      })()}
+    </ToolRailButton>
+  )
   function reorderTool(target: string, event?: React.DragEvent<HTMLButtonElement>) {
     const source = event?.dataTransfer.getData('application/x-hbar-tool') || draggingTool.current
     draggingTool.current = null
@@ -285,22 +343,24 @@ export function WorkbenchToolRails({
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => dropOnRail(event, 'left')}
         >
-          <ToolRailButton
-            label="会话"
-            tooltipPlacement="right"
-            selected={panel === 'sessions'}
-            onClick={() => onSelectPrimary('sessions')}
-          >
-            <MessageSquare size={19} />
-          </ToolRailButton>
-          <ToolRailButton
-            label="文件"
-            tooltipPlacement="right"
-            selected={panel === 'files'}
-            onClick={() => onSelectPrimary('files')}
-          >
-            <Folder size={19} />
-          </ToolRailButton>
+          {showPrimary && <>
+            <ToolRailButton
+              label="会话"
+              tooltipPlacement="right"
+              selected={panel === 'sessions'}
+              onClick={() => onSelectPrimary('sessions')}
+            >
+              <MessageSquare size={19} />
+            </ToolRailButton>
+            <ToolRailButton
+              label="文件"
+              tooltipPlacement="right"
+              selected={panel === 'files'}
+              onClick={() => onSelectPrimary('files')}
+            >
+              <Folder size={19} />
+            </ToolRailButton>
+          </>}
           {toolOrder
             .filter((id) => toolSides[id] === 'left')
             .map((id) => {
@@ -318,10 +378,12 @@ export function WorkbenchToolRails({
                   draggable
                   onDragStart={(event) => {
                     draggingTool.current = id
+                    onDragState?.(id)
                     event.dataTransfer.setData('application/x-hbar-tool', id)
                   }}
                   onDragEnd={() => {
                     draggingTool.current = null
+                    onDragState?.(null)
                   }}
                   onDrop={(event) => reorderTool(id, event)}
                   onKeyboardMove={(direction) => moveToolByKeyboard(id, direction)}
@@ -338,6 +400,9 @@ export function WorkbenchToolRails({
                 </ToolRailButton>
               )
             })}
+          {orderedContributions.filter((contribution) => (toolSides[contribution.id] ?? 'right') === 'left').map((contribution) =>
+            renderContribution(contribution, 'right'),
+          )}
         </nav>
       )}
       {side !== 'left' && (
@@ -363,10 +428,12 @@ export function WorkbenchToolRails({
                   draggable
                   onDragStart={(event) => {
                     draggingTool.current = id
+                    onDragState?.(id)
                     event.dataTransfer.setData('application/x-hbar-tool', id)
                   }}
                   onDragEnd={() => {
                     draggingTool.current = null
+                    onDragState?.(null)
                   }}
                   onDrop={(event) => reorderTool(id, event)}
                   onKeyboardMove={(direction) => moveToolByKeyboard(id, direction)}
@@ -383,25 +450,9 @@ export function WorkbenchToolRails({
                 </ToolRailButton>
               )
             })}
-          {contributions.map((contribution) => (
-            <ToolRailButton
-              key={contribution.id}
-              label={contribution.title}
-              tooltipPlacement="left"
-              selected={toolPanel === `plugin:${contribution.id}`}
-              onClick={() =>
-                onOpenTool(
-                  `plugin:${contribution.id}`,
-                  contribution.title,
-                  'plugin',
-                  contributionPlacement(contribution.placement),
-                  { panelId: contribution.id },
-                )
-              }
-            >
-              <LayoutGrid size={18} />
-            </ToolRailButton>
-          ))}
+          {orderedContributions.filter((contribution) => (toolSides[contribution.id] ?? 'right') === 'right').map((contribution) =>
+            renderContribution(contribution, 'left'),
+          )}
         </nav>
       )}
     </>
@@ -530,7 +581,7 @@ export function MobileToolMenu({
                 `plugin:${contribution.id}`,
                 contribution.title,
                 'plugin',
-                contributionPlacement(contribution.placement),
+                contributionPlacement(contribution),
                 { panelId: contribution.id },
               )
             }
