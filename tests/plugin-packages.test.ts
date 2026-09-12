@@ -135,3 +135,24 @@ test('zip and tgz packages install without scripts, while archive traversal is r
   await expect(kernel.installPlugin(malicious)).rejects.toThrow('Unsafe archive path')
   expect(await Bun.file(join(root, 'escaped.txt')).exists()).toBe(false)
 })
+
+test('active plugin assets resolve only from its managed assets directory', async () => {
+  const { root, kernel } = await fixture()
+  const source = join(root, 'asset-plugin')
+  await mkdir(join(source, 'assets', 'textures'), { recursive: true })
+  await writeFile(join(source, 'package.json'), JSON.stringify({
+    name: 'fixture-assets',
+    version: '1.0.0',
+    type: 'module',
+    hbar: { apiVersion: '^1.0.0', scope: 'global', host: './index.js' },
+  }))
+  await writeFile(join(source, 'index.js'), "export default { manifest: { id: 'fixture-assets', name: 'Fixture assets', version: '1.0.0', apiVersion: '^1.0.0', description: '', scope: 'host', permissions: [] }, apply() {} }")
+  await writeFile(join(source, 'assets', 'textures', 'glass.png'), 'fixture')
+
+  await kernel.installPlugin(source)
+  await kernel.changePlugin('fixture-assets', true)
+  const resolved = await kernel.plugins.assetPath('fixture-assets', 'assets/textures/glass.png')
+  expect(resolved).toContain(join('fixture-assets', 'assets', 'textures', 'glass.png'))
+  await expect(kernel.plugins.assetPath('fixture-assets', '../package.json')).rejects.toThrow('managed assets directory')
+  await expect(kernel.plugins.assetPath('fixture-assets', 'assets/../../package.json')).rejects.toThrow('managed assets directory')
+})

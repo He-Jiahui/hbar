@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { getReferenceVariant, listReferenceVariants, REFERENCE_CATEGORY_COUNTS, REFERENCE_VARIANTS, validateReferenceRegistry } from '../apps/web/src/react-bits/reference/reference-manifest'
 import { REFERENCE_FIXTURE_COUNT } from '../apps/web/src/react-bits/reference/reference-fixtures'
+import { getReferenceProductionAdapter, listReferenceProductionAdapters } from '../apps/web/src/react-bits/reference/adapters/reference-adapters'
+import observationIndex from '../apps/web/src/react-bits/reference/reference-observation-index.json'
 
 describe('ReactBits reference registry', () => {
   test('contains the complete public Application UI matrix', () => {
@@ -18,5 +20,18 @@ describe('ReactBits reference registry', () => {
     expect(variant?.interactionsFile).toBe('artifacts/reactbits-reference/ai-chat-9/interactions.json')
     expect(variant?.fixture).toBeDefined()
     expect(listReferenceVariants('ai-chat')).toHaveLength(9)
+  })
+
+  test('keeps public observations and typed production bindings honest', () => {
+    expect(observationIndex.records).toHaveLength(300)
+    expect(new Set(observationIndex.records.map((record: { sourceUrl: string }) => record.sourceUrl)).size).toBe(300)
+    expect(listReferenceProductionAdapters().length).toBeGreaterThan(0)
+    const bound = REFERENCE_VARIANTS.filter((variant) => variant.productionBinding.mode === 'hbar-bound')
+    expect(bound.length).toBeGreaterThan(0)
+    for (const variant of bound) {
+      const binding = variant.productionBinding
+      if (binding.mode === 'hbar-bound') expect(getReferenceProductionAdapter(binding.adapterId)).toBeDefined()
+    }
+    for (const variant of REFERENCE_VARIANTS) expect(variant.viewportModes).toEqual(['desktop', 'tablet', 'mobile'])
   })
 })
