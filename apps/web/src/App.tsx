@@ -83,6 +83,7 @@ const DEFAULT_TOOL_RAIL_ORDER = [
   'activity',
   'diagnose',
 ] as const
+const BUILTIN_TOOL_IDS = new Set(['browser', 'git', 'inspector', 'plan', 'insights', 'activity', 'diagnose', 'diagnose-right'])
 const TOOL_WINDOW_TAB_ICONS: Partial<Record<ToolWindowIcon, typeof LayoutGrid>> = {
   activity: Activity,
   'bar-chart-3': BarChart3,
@@ -1208,6 +1209,25 @@ export default function App() {
       return
     }
     const existing = model.getNodeById(id) ?? (id.startsWith('plugin:') ? undefined : model.getNodeById(`plugin:${id}`))
+    if (existing instanceof TabNode) {
+      // FlexLayout can keep a border tab selected while another editor tab
+      // (for example Settings) is active.  The Zustand toolPanel is the
+      // authoritative visible-tool state; the model selection alone must
+      // not turn a subsequent click into an accidental close.
+      const selected = useWorkbench.getState().toolPanel === id
+      if (selected) {
+        closePanel(id)
+        if (small) setMobileView('chat')
+        return
+      }
+      const selectedEditorTab = selectedLayoutTab(model)
+      if (selectedEditorTab?.getComponent() !== 'conversation') {
+        const conversation = conversationTabs(model)[0]
+        if (conversation) model.doAction(Actions.selectTab(conversation.getId()))
+      }
+      openPanel(id, title, component, config, placement)
+      return
+    }
     if (openToolIdsRef.current.has(id) && existing) {
       let parent = existing.getParent()
       while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
@@ -1256,6 +1276,15 @@ export default function App() {
     const existing = model.getNodeById('settings')
     if (existing instanceof TabNode && useWorkbench.getState().toolPanel === 'settings') {
       closePanel('settings')
+      return
+    }
+    if (existing instanceof TabNode) {
+      let parent = existing.getParent()
+      while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
+      if (parent instanceof BorderNode)
+        model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: parent.getTabNodes().indexOf(existing) }))
+      else model.doAction(Actions.selectTab(existing.getId()))
+      useWorkbench.setState({ toolPanel: 'settings' })
       return
     }
     openPanel('settings', '设置', 'settings', undefined, 'editor')
@@ -1887,7 +1916,7 @@ export default function App() {
           onReorderTool={reorderToolRail}
         />
       </div>
-      {draggingTool && (
+      {draggingTool?.startsWith('plugin:') && !BUILTIN_TOOL_IDS.has(draggingTool.slice('plugin:'.length)) && (
         <DockTargetOverlay
           allowedDocks={dragAllowedDocks}
           onDrop={(dock) => {
