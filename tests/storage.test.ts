@@ -94,3 +94,20 @@ test('session move preserves history and rejects active runs', async () => {
   }
   await store.call('setRun', run.id, 'cancelled')
 })
+
+test('session summaries prioritize active output, goal, plan, and tool activity', async () => {
+  const { store, session } = await fixture()
+  const run = await store.call('enqueue', session.id, 'summary-activity', { text: 'activity', images: [] }, 'test')
+  await store.call('claim', session.id)
+  await store.call('toolStart', session.id, run.id, 'read', 'read_file', { path: 'README.md' })
+  expect((await store.call('sessionSummary', session.id)).activity).toBe('reading')
+  await store.call('append', session.id, 'plan.updated', { steps: [] }, run.id)
+  expect((await store.call('sessionSummary', session.id)).activity).toBe('plan')
+  await store.call('append', session.id, 'goal.started', { id: 'goal' }, run.id)
+  expect((await store.call('sessionSummary', session.id)).activity).toBe('goal')
+  await store.call('commit', session.id, run.id, 'assistant', [{ type: 'text', text: 'answer' }])
+  expect((await store.call('sessionSummary', session.id)).activity).toBe('output')
+  await store.call('setRun', run.id, 'waiting_approval')
+  expect((await store.call('sessionSummary', session.id)).activity).toBe('waiting_approval')
+  await store.call('setRun', run.id, 'cancelled')
+})

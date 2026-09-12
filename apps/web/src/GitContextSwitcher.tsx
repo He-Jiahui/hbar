@@ -25,6 +25,7 @@ export default function GitContextSwitcher({
   const [isGit, setIsGit] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const loadGeneration = useRef(0)
   const trigger = useRef<HTMLButtonElement>(null)
   const triggerHandlers = useFloatingTrigger({
     open,
@@ -33,6 +34,7 @@ export default function GitContextSwitcher({
   })
   const load = useCallback(async () => {
     if (!workspacePath) return
+    const generation = ++loadGeneration.current
     setBusy(true)
     setError('')
     try {
@@ -41,25 +43,28 @@ export default function GitContextSwitcher({
         client().call('git.branch', { cwd: workspacePath, operation: 'list' }),
         client().call('git.worktree', { cwd: workspacePath, operation: 'list' }),
       ])
+      if (generation !== loadGeneration.current) return
       setStatus(nextStatus)
       setBranches(Array.isArray(nextBranches) ? nextBranches : [])
       setWorktrees(Array.isArray(nextWorktrees) ? nextWorktrees : [])
       setIsGit(Boolean(nextStatus.root))
     } catch (cause) {
+      if (generation !== loadGeneration.current) return
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setBusy(false)
+      if (generation === loadGeneration.current) setBusy(false)
     }
   }, [workspacePath])
   useEffect(() => {
     if (open) void load()
   }, [load, open])
   useEffect(() => {
+    if (!open) loadGeneration.current += 1
     setBranchDecision(null)
     setWorktreeTarget(null)
     setWorktreePath('')
     setError('')
-  }, [workspacePath])
+  }, [open, workspacePath])
   async function applyBranchSwitch(name: string) {
     if (!name || name === branch || busy) return
     setBusy(true)

@@ -172,26 +172,33 @@ function sessionSummary(id: string): SessionSummary {
     .get(id) as Row | null
   const latest = db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 1').get(id) as Row | null
   const run = active ? runRow(active) : latest ? runRow(latest) : null
-  const latestEvent = db.query('SELECT type,data FROM events WHERE sessionId=? ORDER BY seq DESC LIMIT 1').get(id) as {
-    type: string
-    data: string
-  } | null
-  const eventData = latestEvent ? (parseJson(latestEvent.data) as { name?: unknown; run?: { status?: unknown } }) : null
+  const activeEvents = active
+    ? (db.query('SELECT type,data FROM events WHERE sessionId=? AND runId=? ORDER BY seq DESC LIMIT 64').all(id, String(active.id)) as Array<{ type: string; data: string }>)
+    : []
+  const hasEvent = (type: string) => activeEvents.some((event) => event.type === type)
+  const hasGoalEvent = activeEvents.some((event) => event.type.startsWith('goal.'))
+  const latestTool = activeEvents.find((event) => event.type === 'tool.started')
+  const latestToolData = latestTool ? (parseJson(latestTool.data) as { name?: unknown }) : null
+  const hasAssistantOutput = activeEvents.some((event) => {
+    if (event.type !== 'message.committed') return false
+    const data = parseJson(event.data) as { role?: unknown }
+    return data.role === 'assistant'
+  })
   const activity: SessionSummary['activity'] = active
     ? run?.status === 'waiting_approval'
       ? 'waiting_approval'
       : run?.status === 'queued'
         ? 'queued'
-        : latestEvent?.type === 'plan.updated'
-          ? 'plan'
-          : latestEvent?.type.startsWith('goal.')
+        : hasAssistantOutput
+          ? 'output'
+          : hasGoalEvent
             ? 'goal'
-            : latestEvent?.type === 'tool.started'
-              ? typeof eventData?.name === 'string' && /read|file/i.test(eventData.name)
+            : hasEvent('plan.updated')
+              ? 'plan'
+              : latestTool
+                ? typeof latestToolData?.name === 'string' && /read|file/i.test(latestToolData.name)
                 ? 'reading'
                 : 'tool'
-              : latestEvent?.type === 'message.committed'
-                ? 'output'
                 : 'thinking'
     : run?.status === 'failed' || run?.status === 'interrupted'
       ? 'failed'
