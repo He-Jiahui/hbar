@@ -203,32 +203,71 @@ export function buildSettingsCatalog(plugins: PluginInfo[]): SettingsCatalog {
         ),
     },
   ]
-  return settingsCatalogSchema.parse({
+  const catalog = settingsCatalogSchema.parse({
     schemaVersion: 1,
     navigation: { schemaVersion: 1, roots },
     settings,
   })
+  for (const descriptor of catalog.settings) {
+    const defaultValue = descriptor.default ?? descriptor.schema.default
+    if (defaultValue !== undefined) validateSettingValue(descriptor.schema, defaultValue, `${descriptor.id}.default`)
+  }
+  return catalog
 }
 
 export function settingDescriptors(catalog: SettingsCatalog): Map<string, SettingDescriptor> {
   return new Map(catalog.settings.map((setting) => [setting.id, setting]))
 }
 
-export function validateSettingValue(schema: JsonSchemaDescriptor, value: unknown): void {
-  if (schema.enum && !schema.enum.some((candidate) => Object.is(candidate, value))) throw new Error('Value is not one of the allowed options')
+export function validateSettingValue(schema: JsonSchemaDescriptor, value: unknown, path = 'value'): void {
+  if (schema.oneOf?.length) {
+    const failures: string[] = []
+    for (const variant of schema.oneOf) {
+      try {
+        validateSettingValue(variant, value, path)
+        return
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error))
+      }
+    }
+    throw new Error(`${path} does not match any allowed schema${failures.length ? ` (${failures.join('; ')})` : ''}`)
+  }
+  if (schema.enum && !schema.enum.some((candidate) => Object.is(candidate, value)))
+    throw new Error(`${path} is not one of the allowed options`)
   if (schema.type === 'string') {
-    if (typeof value !== 'string') throw new Error('Value must be a string')
-    if (schema.minLength !== undefined && value.length < schema.minLength) throw new Error('Value is too short')
-    if (schema.maxLength !== undefined && value.length > schema.maxLength) throw new Error('Value is too long')
-    if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(value)) throw new Error('Value has an invalid format')
+    if (typeof value !== 'string') throw new Error(`${path} must be a string`)
+    if (schema.minLength !== undefined && value.length < schema.minLength) throw new Error(`${path} is too short`)
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) throw new Error(`${path} is too long`)
+    if (schema.pattern !== undefined) {
+      let pattern: RegExp
+      try {
+        pattern = new RegExp(schema.pattern)
+      } catch {
+        throw new Error(`${path} has an invalid schema pattern`)
+      }
+      if (!pattern.test(value)) throw new Error(`${path} has an invalid format`)
+    }
   } else if (schema.type === 'number' || schema.type === 'integer') {
     if (typeof value !== 'number' || !Number.isFinite(value) || (schema.type === 'integer' && !Number.isInteger(value)))
-      throw new Error(`Value must be a ${schema.type}`)
-    if (schema.minimum !== undefined && value < schema.minimum) throw new Error('Value is below the minimum')
-    if (schema.maximum !== undefined && value > schema.maximum) throw new Error('Value is above the maximum')
-  } else if (schema.type === 'boolean' && typeof value !== 'boolean') throw new Error('Value must be a boolean')
-  else if (schema.type === 'array' && !Array.isArray(value)) throw new Error('Value must be an array')
-  else if (schema.type === 'object' && (value === null || typeof value !== 'object' || Array.isArray(value))) throw new Error('Value must be an object')
+      throw new Error(`${path} must be a ${schema.type}`)
+    if (schema.minimum !== undefined && value < schema.minimum) throw new Error(`${path} is below the minimum`)
+    if (schema.maximum !== undefined && value > schema.maximum) throw new Error(`${path} is above the maximum`)
+  } else if (schema.type === 'boolean' && typeof value !== 'boolean') throw new Error(`${path} must be a boolean`)
+  else if (schema.type === 'array') {
+    if (!Array.isArray(value)) throw new Error(`${path} must be an array`)
+    if (schema.minItems !== undefined && value.length < schema.minItems) throw new Error(`${path} has too few items`)
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) throw new Error(`${path} has too many items`)
+    if (schema.items) value.forEach((item, index) => validateSettingValue(schema.items!, item, `${path}[${index}]`))
+  } else if (schema.type === 'object') {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${path} must be an object`)
+    const record = value as Record<string, unknown>
+    for (const key of schema.required ?? []) {
+      if (!Object.hasOwn(record, key)) throw new Error(`${path}.${key} is required`)
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties ?? {})) {
+      if (Object.hasOwn(record, key)) validateSettingValue(childSchema, record[key], `${path}.${key}`)
+    }
+  }
 }
 
 export function resolveSettings(
@@ -251,6 +290,7 @@ export function resolveSettings(
     let source: ResolvedSetting['source'] = 'default'
     for (const [candidateScope, values] of candidates) {
       if (Object.hasOwn(values, descriptor.id)) {
+        validateSettingValue(descriptor.schema, values[descriptor.id], `${descriptor.id} (${candidateScope})`)
         effectiveValue = values[descriptor.id]
         source = candidateScope
       }

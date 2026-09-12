@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { definePlugin } from '@hbar/plugin-sdk'
+import { validateSettingValue } from '../packages/kernel/src/settings.ts'
 
 const resources: { root: string; kernel: Kernel }[] = []
 
@@ -101,4 +102,29 @@ test('rejects values outside the descriptor and searches complete setting paths'
   expect(failure instanceof Error ? failure.message : String(failure)).toContain('allowed options')
   const results = await kernel.searchSettings('permission')
   expect(results.some((entry) => entry.path.includes('permissions'))).toBeTrue()
+})
+
+test('validates nested schema values, unions, and collection bounds', () => {
+  const schema = {
+    type: 'object' as const,
+    required: ['mode', 'rules'],
+    properties: {
+      mode: { oneOf: [{ type: 'string' as const, enum: ['safe'] }, { type: 'integer' as const, minimum: 1 }] },
+      rules: {
+        type: 'array' as const,
+        minItems: 1,
+        maxItems: 2,
+        items: {
+          type: 'object' as const,
+          required: ['name'],
+          properties: { name: { type: 'string' as const, minLength: 2 } },
+        },
+      },
+    },
+  }
+  validateSettingValue(schema, { mode: 'safe', rules: [{ name: 'io' }] })
+  expect(() => validateSettingValue(schema, { mode: false, rules: [{ name: 'io' }] })).toThrow('does not match any allowed schema')
+  expect(() => validateSettingValue(schema, { mode: 'safe', rules: [] })).toThrow('too few items')
+  expect(() => validateSettingValue(schema, { mode: 'safe', rules: [{ name: 'x' }] })).toThrow('too short')
+  expect(() => validateSettingValue(schema, { mode: 'safe' })).toThrow('rules is required')
 })
