@@ -109,19 +109,11 @@
  * through the composer or duplicate the text underneath. */
 .floating-layer.composer-menu {
   isolation: isolate;
-  z-index: 2200 !important;
-}
-
-.floating-layer.composer-menu > .rb-menu-glass {
-  background: var(--hbar-s1);
-  mix-blend-mode: normal;
-  opacity: 1;
+  z-index: 10000 !important;
+  background: var(--hbar-s1) !important;
+  background-image: none !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-.floating-layer.composer-menu > .rb-menu-glass::before {
-  display: none;
 }
 
 .command-palette-backdrop,
