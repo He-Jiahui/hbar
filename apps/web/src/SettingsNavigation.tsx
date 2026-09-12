@@ -1,4 +1,5 @@
 import { Bell, Blocks, BookOpen, Bot, HardDrive, Monitor, Palette, ShieldCheck, type LucideIcon } from 'lucide-react'
+import type { SettingsCatalog } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
 
 type SettingsDestination = {
@@ -24,10 +25,15 @@ export type SettingsTab = (typeof SETTINGS_DESTINATIONS)[number]['id']
 export default function SettingsNavigation({
   tab,
   onSelect,
+  catalog,
+  onSelectPlugin,
 }: {
   tab: SettingsTab
   onSelect(tab: SettingsTab): void
+  catalog?: SettingsCatalog | null
+  onSelectPlugin?(id: string): void
 }) {
+  const pluginGroups = catalog?.navigation.roots.find((root) => root.id === 'plugins')?.groups ?? []
   return (
     <nav className="settings-tabs settings-nav rb-settings-tabs" aria-label="设置分组">
       <GlassSurface className="settings-tabs-glass" width="100%" height="100%" aria-hidden="true" />
@@ -52,6 +58,22 @@ export default function SettingsNavigation({
           </button>
         ))}
       </div>
+      {tab === 'plugins' && pluginGroups.length > 0 && (
+        <div className="settings-subnav" role="list" aria-label="插件设置">
+          {pluginGroups.map((group) => (
+            <button
+              type="button"
+              key={group.id}
+              role="listitem"
+              title={`${group.title} 插件设置`}
+              onClick={() => onSelectPlugin?.(group.id.replace(/^plugin\./, ''))}
+            >
+              <span>{group.title}</span>
+              <small>{group.settingIds.length} 项设置</small>
+            </button>
+          ))}
+        </div>
+      )}
     </nav>
   )
 }

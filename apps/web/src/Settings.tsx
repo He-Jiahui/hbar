@@ -60,18 +60,6 @@ type SettingSearchEntry = {
   keywords: readonly string[]
 }
 
-const SETTINGS_SEARCH_INDEX: readonly SettingSearchEntry[] = [
-  { tab: 'automation', tabLabel: '任务与通知', section: '会话任务', title: '默认会话预算', description: 'Budget 未填写时使用的 token 上限', keywords: ['budget', 'token', '预算'] },
-  { tab: 'automation', tabLabel: '任务与通知', section: '通知', title: '任务通知', description: '任务完成、需要交互和重试失败提醒', keywords: ['notification', '通知', '提醒'] },
-  { tab: 'appearance', tabLabel: '外观', section: '界面主题', title: '主题', description: '深色、浅色和纯白主题', keywords: ['theme', '颜色', '显示'] },
-  { tab: 'models', tabLabel: '模型', section: '供应商与模型', title: '模型和供应商', description: '连接地址、API Key、模型与思考等级', keywords: ['model', 'provider', 'api', 'key'] },
-  { tab: 'permissions', tabLabel: '权限', section: '工具权限', title: '默认权限模式', description: '控制写入文件和运行命令前是否需要确认', keywords: ['permission', 'approval', '工具'] },
-  { tab: 'paths', tabLabel: '存储', section: '数据目录', title: '数据与缓存目录', description: '配置工作区数据、缓存和归档位置', keywords: ['path', 'storage', '目录'] },
-  { tab: 'skills', tabLabel: '技能', section: '全局技能', title: '技能目录', description: '查看 Host 可用的技能', keywords: ['skill', 'extension'] },
-  { tab: 'plugins', tabLabel: '插件', section: '插件管理', title: '插件依赖图与配置', description: '管理插件启用状态、依赖关系和配置', keywords: ['plugin', 'dependency', 'lock', '插件'] },
-  { tab: 'devices', tabLabel: '设备与连接', section: '宿主连接', title: '设备配对', description: '管理已配对设备和 Host 地址', keywords: ['device', 'connection', 'pairing'] },
-]
-
 function settingMatches(entry: SettingSearchEntry, query: string) {
   const haystack = [entry.tabLabel, entry.section, entry.title, entry.description, ...entry.keywords].join(' ').toLocaleLowerCase()
   return haystack.includes(query.trim().toLocaleLowerCase())
@@ -741,6 +729,7 @@ export default function Settings() {
   const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null)
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsError, setSettingsError] = useState('')
+  const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null)
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
@@ -749,6 +738,7 @@ export default function Settings() {
     selectedModelId = useWorkbench((state) => state.modelId),
     selectedThinkingLevel = useWorkbench((state) => state.thinkingLevel)
   const themeProfile = useThemeSettings((state) => state.profile)
+  const themeSnapshot = useThemeSettings((state) => state.snapshot)
   const themeSaving = useThemeSettings((state) => state.saving)
   const themeError = useThemeSettings((state) => state.error)
   const models = data?.models ?? []
@@ -905,7 +895,19 @@ export default function Settings() {
           </div>
         )}
       </div>
-      <SettingsNavigation tab={tab} onSelect={setTab} />
+      <SettingsNavigation
+        tab={tab}
+        onSelect={(nextTab) => {
+          setTab(nextTab)
+          if (nextTab !== 'plugins') setSelectedPluginId(null)
+        }}
+        catalog={settingsCatalog}
+        onSelectPlugin={(id) => {
+          setTab('plugins')
+          setSelectedPluginId(id)
+          window.requestAnimationFrame(() => document.getElementById(`plugin-settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+        }}
+      />
       {tab === 'appearance' && (
         <section className="settings-section appearance-section">
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
@@ -941,6 +943,22 @@ export default function Settings() {
               </GlareButton>
             ))}
           </div>
+          {settingsScope !== 'global' && themeSnapshot?.values['appearance.profile']?.source !== settingsScope && (
+            <div className="settings-override-notice" role="status">
+              当前值继承自{themeSnapshot?.values['appearance.profile']?.source === 'project' ? '项目' : themeSnapshot?.values['appearance.profile']?.source === 'global' ? '全局' : '默认'}设置。
+              <button
+                type="button"
+                className="text-command"
+                disabled={themeSaving || !useConnection.getState().client}
+                onClick={() => {
+                  const connection = useConnection.getState().client
+                  if (connection) void useThemeSettings.getState().reset(connection)
+                }}
+              >
+                恢复继承
+              </button>
+            </div>
+          )}
           <div className="theme-editor-grid">
             {([
               ['primary', '主颜色'],
@@ -1241,7 +1259,7 @@ export default function Settings() {
               showGradients={false}
             >
               {data.plugins.map((plugin) => (
-                <PluginRow key={plugin.id} plugin={plugin} />
+                <PluginRow key={plugin.id} plugin={plugin} id={`plugin-settings-${plugin.id}`} className={selectedPluginId === plugin.id ? 'selected' : ''} />
               ))}
             </AnimatedList>
           ) : null}
