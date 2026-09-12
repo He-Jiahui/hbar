@@ -29,6 +29,12 @@
   pointer-events: auto;
 }
 
+:root[data-theme-surface='solid'] .floating-layer {
+  background: var(--hbar-s1) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 .floating-layer-modal {
   width: min(720px, calc(100vw - 16px));
   max-height: calc(100dvh - 16px);
