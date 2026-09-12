@@ -21,6 +21,7 @@ import type {
   Run,
   Session,
   SessionEvent,
+  SessionSummary,
   Usage,
   Workspace,
 } from '@hbar/contracts'
@@ -153,6 +154,55 @@ function sessionRow(row: Row | null): Session {
   const value = required(row, 'Session')
   return { ...value, archived: Boolean(value.archived) } as unknown as Session
 }
+
+function sessionSummary(id: string): SessionSummary {
+  const session = sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null)
+  const active = db
+    .query("SELECT * FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') ORDER BY createdAt DESC LIMIT 1")
+    .get(id) as Row | null
+  const latest = db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 1').get(id) as Row | null
+  const run = active ? runRow(active) : latest ? runRow(latest) : null
+  const latestEvent = db.query('SELECT type,data FROM events WHERE sessionId=? ORDER BY seq DESC LIMIT 1').get(id) as {
+    type: string
+    data: string
+  } | null
+  const eventData = latestEvent ? (parseJson(latestEvent.data) as { name?: unknown; run?: { status?: unknown } }) : null
+  const activity: SessionSummary['activity'] = active
+    ? run?.status === 'waiting_approval'
+      ? 'waiting_approval'
+      : run?.status === 'queued'
+        ? 'queued'
+        : latestEvent?.type === 'plan.updated'
+          ? 'plan'
+          : latestEvent?.type.startsWith('goal.')
+            ? 'goal'
+            : latestEvent?.type === 'tool.started'
+              ? typeof eventData?.name === 'string' && /read|file/i.test(eventData.name)
+                ? 'reading'
+                : 'tool'
+              : latestEvent?.type === 'message.committed'
+                ? 'output'
+                : 'thinking'
+    : run?.status === 'failed' || run?.status === 'interrupted'
+      ? 'failed'
+      : run?.status === 'cancelled'
+        ? 'cancelled'
+        : run?.status === 'completed'
+          ? 'completed'
+          : 'idle'
+  const response = db
+    .query("SELECT createdAt FROM messages WHERE sessionId=? AND role='assistant' ORDER BY createdAt DESC LIMIT 1")
+    .get(id) as { createdAt: number } | null
+  return {
+    sessionId: session.id,
+    workspaceId: session.workspaceId,
+    activity,
+    activeRunId: active ? String(active.id) : null,
+    lastResponseAt: response?.createdAt ?? null,
+    updatedAt: session.updatedAt,
+    seq: session.seq,
+  }
+}
 function runRow(row: Row | null): Run {
   const value = required(row, 'Run')
   return { ...value, input: inputSchema.parse(parseJson(value.input as string)) } as unknown as Run
@@ -276,6 +326,8 @@ const methods: StorageMethods = {
   sessions: () =>
     (db.query('SELECT * FROM sessions ORDER BY updatedAt DESC LIMIT 2000').all() as Row[]).map(sessionRow),
   session: (id) => sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null),
+  sessionSummary: (id) => sessionSummary(id),
+  sessionSummaries: (ids) => ids.map((id) => sessionSummary(id)),
   updateSession(id, update) {
     return db.transaction(() => {
       const prior = methods.session(id)
@@ -292,6 +344,24 @@ const methods: StorageMethods = {
         updated.updatedAt,
         id,
       )
+      return { session: methods.session(id), event }
+    })()
+  },
+  moveSession(id, workspaceId) {
+    return db.transaction(() => {
+      const prior = methods.session(id)
+      const target = methods.workspace(workspaceId)
+      if (prior.workspaceId === target.id) {
+        const latest = db.query('SELECT * FROM events WHERE sessionId=? ORDER BY seq DESC LIMIT 1').get(id) as Row | null
+        return { session: prior, event: eventRow(required(latest, 'Session event')) }
+      }
+      const ongoing = db
+        .query("SELECT id FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') LIMIT 1")
+        .get(id)
+      if (ongoing) throw new HbarError('BUSY', 'Stop the session before moving it to another workspace')
+      const updated: Session = { ...prior, workspaceId: target.id, updatedAt: Date.now() }
+      const event = appendEvent(id, 'session.moved', { session: updated, previousWorkspaceId: prior.workspaceId })
+      db.query('UPDATE sessions SET workspaceId=?,updatedAt=? WHERE id=?').run(updated.workspaceId, updated.updatedAt, id)
       return { session: methods.session(id), event }
     })()
   },
@@ -733,9 +803,10 @@ function restoreProjection(event: SessionEvent) {
     event.time,
     event.sessionId,
   )
-  if (event.type === 'session.updated') {
+  if (event.type === 'session.updated' || event.type === 'session.moved') {
     const value = data.session as Session
-    db.query('UPDATE sessions SET title=?,archived=?,updatedAt=? WHERE id=?').run(
+    db.query('UPDATE sessions SET workspaceId=?,title=?,archived=?,updatedAt=? WHERE id=?').run(
+      value.workspaceId,
       value.title,
       Number(value.archived),
       value.updatedAt,

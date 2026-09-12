@@ -105,6 +105,20 @@ test('Git stage and unstage update the index for selected paths', async () => {
   expect(finalStatus.entries.find((entry) => entry.path === 'README.md')?.worktree).toBe('M')
 })
 
+test('Git can create a worktree at an explicitly selected external path', async () => {
+  const { root, runtime } = await fixture()
+  const parent = await mkdtemp(join(tmpdir(), 'hbar-worktree-external-'))
+  roots.push(parent)
+  const target = join(parent, 'feature-tree')
+  const baseBranch = (await runGit(root, ['branch', '--show-current'])).trim()
+  await runtime.branch(root, { operation: 'create', name: 'feature/external' })
+  await runtime.branch(root, { operation: 'switch', name: baseBranch })
+  const created = await runtime.worktree(root, { operation: 'add', path: target, branch: 'feature/external' })
+  expect((created as { path: string }).path.replaceAll('/', '\\').toLowerCase()).toBe(target.toLowerCase())
+  expect((await runtime.worktree(root, { operation: 'list' }) as { path: string }[]).some((item) => item.path.replaceAll('/', '\\').toLowerCase() === target.toLowerCase())).toBeTrue()
+  await runtime.worktree(root, { operation: 'remove', path: target, force: true })
+})
+
 test('Git command runner never turns a path into shell syntax', async () => {
   const calls: string[][] = []
   const root = await mkdtemp(join(tmpdir(), 'hbar-git-runner-'))

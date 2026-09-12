@@ -1,5 +1,5 @@
 import { mkdir, realpath } from 'node:fs/promises'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import {
   HbarError,
@@ -520,10 +520,23 @@ export class GitRuntime implements GitService {
       return result ? parseWorktrees(result.stdout) : []
     }
     if (!('path' in operation)) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations')
-    const root = await this.worktreeRootPromise
-    await mkdir(root, { recursive: true })
-    const target = resolve(root, operation.path)
-    if (!inside(root, target) || target === (await this.rootPromise)) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree path must be inside the configured worktree root')
+    const configuredRoot = await this.worktreeRootPromise
+    const requestedPath = operation.path
+    const externalAbsolute = isAbsolute(requestedPath)
+    const root = externalAbsolute ? resolve(dirname(requestedPath)) : configuredRoot
+    if (!externalAbsolute) await mkdir(root, { recursive: true })
+    const target = externalAbsolute ? resolve(requestedPath) : resolve(root, requestedPath)
+    if ((!externalAbsolute && !inside(root, target)) || target === (await this.rootPromise))
+      throw new HbarError('GIT_WORKTREE_PATH', externalAbsolute ? 'Worktree path is invalid' : 'Worktree path must be inside the configured worktree root')
+    if (externalAbsolute) {
+      try {
+        const parent = await realpath(dirname(target))
+        if (!inside(parent, dirname(target))) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree parent path is invalid')
+      } catch (error) {
+        if (error instanceof HbarError) throw error
+        throw new HbarError('GIT_WORKTREE_PATH', 'Worktree parent directory must exist')
+      }
+    }
     if (operation.operation === 'add') {
       const branch = operation.branch ? branchName(operation.branch) : undefined
       const args = ['worktree', 'add']

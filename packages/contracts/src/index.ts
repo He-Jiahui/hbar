@@ -359,6 +359,31 @@ export interface Session {
   updatedAt: number
   seq: number
 }
+export const sessionActivitySchema = z.enum([
+  'idle',
+  'queued',
+  'thinking',
+  'tool',
+  'reading',
+  'output',
+  'goal',
+  'plan',
+  'waiting_approval',
+  'completed',
+  'failed',
+  'cancelled',
+])
+export type SessionActivity = z.infer<typeof sessionActivitySchema>
+export const sessionSummarySchema = z.object({
+  sessionId: idSchema,
+  workspaceId: idSchema,
+  activity: sessionActivitySchema,
+  activeRunId: idSchema.nullable(),
+  lastResponseAt: z.number().int().nonnegative().nullable(),
+  updatedAt: z.number().int().nonnegative(),
+  seq: z.number().int().nonnegative(),
+})
+export type SessionSummary = z.infer<typeof sessionSummarySchema>
 export type RunStatus = 'queued' | 'running' | 'waiting_approval' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
 export interface Run {
   id: string
@@ -819,6 +844,7 @@ export interface Bootstrap {
 }
 export type WireNotification =
   | { method: 'session.event'; params: SessionEvent }
+  | { method: 'session.summary'; params: SessionSummary }
   | { method: 'stream.update'; params: StreamDelta }
   | { method: 'host.changed'; params: { kind: string } }
   | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal } }
@@ -1033,6 +1059,8 @@ export const rpcSchemas = {
   'computer.launch': z.object({ sessionId: idSchema, appId: z.string().min(1).max(1_000) }),
   'workspace.create': z.object({ path: z.string().min(1).max(4000), name: z.string().trim().min(1).max(160).optional() }),
   'session.create': z.object({ workspaceId: idSchema, title: z.string().max(160).optional() }),
+  'session.move': z.object({ sessionId: idSchema, workspaceId: idSchema }),
+  'session.summaries': z.object({ sessionIds: z.array(idSchema).max(200) }),
   'session.snapshot': z.object({
     sessionId: idSchema,
     before: z.number().int().positive().optional(),
@@ -1165,6 +1193,8 @@ export interface RpcResults {
   'computer.launch': ComputerAction
   'workspace.create': Workspace
   'session.create': Session
+  'session.move': Session
+  'session.summaries': SessionSummary[]
   'session.snapshot': SessionSnapshot
   'session.follow': { events: SessionEvent[]; cursor: number; streams: LiveStream[]; reset: boolean }
   'session.unfollow': null

@@ -10,6 +10,7 @@ import type {
   Session,
   SessionEvent,
   SessionSnapshot,
+  SessionSummary,
   UserInput,
   Workspace,
   SettingScope,
@@ -30,6 +31,9 @@ export interface StorageMethods {
   sessions(): Session[]
   session(id: string): Session
   updateSession(id: string, update: { title?: string; archived?: boolean }): { session: Session; event: SessionEvent }
+  moveSession(id: string, workspaceId: string): { session: Session; event: SessionEvent }
+  sessionSummary(id: string): SessionSummary
+  sessionSummaries(ids: string[]): SessionSummary[]
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
   commit(

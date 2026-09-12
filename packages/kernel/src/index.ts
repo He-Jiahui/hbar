@@ -447,10 +447,17 @@ export class Kernel {
     this.publish({ method: 'session.event', params: event })
     void this.publishSessionSummary(event.sessionId)
   }
-  private async publishSessionSummary(sessionId: string) {
+  private async publishSessionSummary(sessionId: string, activity?: SessionSummary['activity'], activeRunId?: string | null) {
     try {
       const summary = await this.storage.call('sessionSummary', sessionId)
-      this.publish({ method: 'session.summary', params: summary })
+      this.publish({
+        method: 'session.summary',
+        params: {
+          ...summary,
+          ...(activity ? { activity } : {}),
+          ...(activeRunId === undefined ? {} : { activeRunId }),
+        },
+      })
     } catch (error) {
       console.error('Session summary failed:', error)
     }
@@ -959,6 +966,7 @@ export class Kernel {
       offset: stream.text.length + stream.thinking.length,
       version: published?.version ?? 0,
     })
+    void this.publishSessionSummary(stream.sessionId, stream.thinking ? 'thinking' : stream.text ? 'output' : 'thinking', stream.runId)
     if (this.streamTimers.has(stream.id)) return
     this.streamTimers.set(
       stream.id,
