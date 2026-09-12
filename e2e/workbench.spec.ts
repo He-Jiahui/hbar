@@ -648,6 +648,20 @@ test('session context menu hover state uses a visible themed highlight', async (
   }
 })
 
+test('glass surfaces disable displacement when reduced motion is requested', async ({ page, context }) => {
+  const fixture = await login(context, page)
+  try {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.reload()
+    const glass = page.locator('.session-header-glass').first()
+    await expect(glass).toBeVisible()
+    await expect.poll(() => glass.evaluate((element) => getComputedStyle(element).getPropertyValue('--glass-elasticity').trim())).toBe('0')
+    await expect.poll(() => glass.locator('feGaussianBlur').getAttribute('stdDeviation')).toBe('0')
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('new-session action creates only one session when double-clicked', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
