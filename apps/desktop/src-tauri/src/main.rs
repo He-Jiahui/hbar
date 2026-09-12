@@ -153,6 +153,9 @@ mod window_effect_tests {
             vec!["Noto Sans".to_owned(), "Segoe UI".to_owned()]
         );
         assert!(list_fonts().iter().any(|font| font == "system-ui"));
+
+        let bounded = normalize_font_list((0..4096).map(|index| format!("Font {index}")));
+        assert_eq!(bounded.len(), 2048);
     }
 }
 
@@ -429,6 +432,7 @@ fn curated_fonts() -> Vec<String> {
 }
 
 fn normalize_font_list(values: impl IntoIterator<Item = String>) -> Vec<String> {
+    const MAX_FONT_FAMILIES: usize = 2048;
     let mut fonts = BTreeSet::new();
     for value in values {
         let name = value.trim();
@@ -445,6 +449,9 @@ fn normalize_font_list(values: impl IntoIterator<Item = String>) -> Vec<String> 
             continue;
         }
         fonts.insert(name.to_owned());
+        if fonts.len() >= MAX_FONT_FAMILIES {
+            break;
+        }
     }
     fonts.into_iter().collect()
 }
