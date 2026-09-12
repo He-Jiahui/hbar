@@ -83,7 +83,7 @@ function catalogSearchEntry(setting: SettingDescriptor, catalog: SettingsCatalog
   return {
     tab: settingTab(setting.root),
     tabLabel: root?.title ?? (setting.root === 'plugins' ? '插件' : setting.root),
-    section: [group?.title, setting.section].filter(Boolean).join(' / ') || root?.title || setting.root,
+    section: [group?.title, setting.sectionTitle ?? setting.section].filter(Boolean).join(' / ') || root?.title || setting.root,
     title: setting.title,
     description: setting.description ?? '',
     keywords: setting.keywords,
@@ -750,6 +750,7 @@ export default function Settings() {
   const themeSnapshot = useThemeSettings((state) => state.snapshot)
   const themeSaving = useThemeSettings((state) => state.saving)
   const themeError = useThemeSettings((state) => state.error)
+  const themeConflict = useThemeSettings((state) => state.conflict)
   const themePlugins = useUIPlugins((state) => state.themes)
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
@@ -1013,6 +1014,7 @@ export default function Settings() {
           <DescriptorSettingsForm
             descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'appearance' && setting.id !== 'appearance.profile') ?? []}
             snapshot={settingsSnapshot}
+            context={{ hasWorkspace: Boolean(workspaceId), hasSession: Boolean(activeSessionId) }}
             saving={settingsSaving}
             onSet={(id, value) => void saveSetting(id, value)}
             onReset={(id) => void resetSetting(id)}
@@ -1055,6 +1057,7 @@ export default function Settings() {
               </button>
             </div>
           )}
+          {themeConflict && <div className="settings-override-notice" role="alert"><span>检测到其他窗口更新了主题，当前草稿仍然保留。</span><button type="button" className="text-command" onClick={() => { const connection = useConnection.getState().client; if (connection) void useThemeSettings.getState().refreshSnapshot(connection) }}>加载最新值并保留草稿</button><button type="button" className="text-command" onClick={() => useThemeSettings.getState().discardDraft()}>放弃草稿</button></div>}
           <div className="theme-editor-grid">
             {([
               ['primary', '主颜色'],
@@ -1104,6 +1107,7 @@ export default function Settings() {
             <DescriptorSettingsForm
               descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'automation') ?? []}
               snapshot={settingsSnapshot}
+              context={{ hasWorkspace: Boolean(workspaceId), hasSession: Boolean(activeSessionId) }}
               saving={settingsSaving}
               onSet={(id, value) => void saveSetting(id, value)}
               onReset={(id) => void resetSetting(id)}
@@ -1126,6 +1130,7 @@ export default function Settings() {
             <DescriptorSettingsForm
               descriptors={settingsCatalog?.settings.filter((setting) => setting.root === 'permissions') ?? []}
               snapshot={settingsSnapshot}
+              context={{ hasWorkspace: Boolean(workspaceId), hasSession: Boolean(activeSessionId) }}
               saving={settingsSaving}
               onSet={(id, value) => void saveSetting(id, value)}
               onReset={(id) => void resetSetting(id)}
@@ -1360,6 +1365,7 @@ export default function Settings() {
                     <DescriptorSettingsForm
                       descriptors={descriptors}
                       snapshot={settingsSnapshot}
+                      context={{ hasWorkspace: Boolean(workspaceId), hasSession: Boolean(activeSessionId), pluginEnabled: plugin.status === 'active' }}
                       saving={settingsSaving}
                       onSet={(id, value) => void saveSetting(id, value)}
                       onReset={(id) => void resetSetting(id)}
