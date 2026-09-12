@@ -5,8 +5,10 @@ import { useConnection } from './stores'
 import GlareButton from './react-bits/GlareButton'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { useLocale } from './locale'
 
 export default function PathSettings() {
+  const { t } = useLocale()
   const state = usePathSettings()
   const load = state.load
   const connection = useConnection((current) => current.client)
@@ -22,13 +24,13 @@ export default function PathSettings() {
       <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
       <div className="section-toolbar">
         <div>
-          <h2>存储目录</h2>
-          <p className="section-description">会话和设置使用持久目录；可删除的派生文件进入缓存目录。</p>
+          <h2>{t('storageDirectories')}</h2>
+          <p className="section-description">{t('storageDirectoriesHint')}</p>
         </div>
         <button
           className="button icon-button"
-          title="重新读取路径"
-          aria-label="重新读取路径"
+          title={t('rereadPaths')}
+          aria-label={t('rereadPaths')}
           onClick={() => void state.load()}
         >
           <RefreshCw size={14} />
@@ -39,7 +41,7 @@ export default function PathSettings() {
         <label>
           <span>
             <Database size={15} />
-            数据目录
+            {t('dataDirectory')}
           </span>
           <input
             value={state.dataRoot}
@@ -51,14 +53,14 @@ export default function PathSettings() {
         <label>
           <span>
             <HardDrive size={15} />
-            缓存目录
+            {t('cacheDirectory')}
           </span>
           <input
             value={state.cacheRoot}
             onChange={(event) => state.setCacheRoot(event.target.value)}
             spellCheck={false}
           />
-          <small>模型、插件构建、Markdown、Mermaid、附件预览和临时文件</small>
+          <small>{t('cacheContents')}</small>
         </label>
       </div>
       {state.current && (
@@ -67,17 +69,17 @@ export default function PathSettings() {
           spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
         >
           <dl className="path-details">
-            <dt>缓存占用</dt>
+            <dt>{t('cacheUsage')}</dt>
             <dd>{formatBytes(state.current.cacheBytes)}</dd>
-            <dt>会话日志</dt>
+            <dt>{t('sessionLogs')}</dt>
             <dd>{state.current.sessions}</dd>
             <dt>SQLite</dt>
             <dd>{state.current.database}</dd>
-            <dt>插件</dt>
+            <dt>{t('plugins')}</dt>
             <dd>{state.current.plugins}</dd>
-            <dt>技能</dt>
+            <dt>{t('skills')}</dt>
             <dd>{state.current.skills}</dd>
-            <dt>系统指针</dt>
+            <dt>{t('systemPointer')}</dt>
             <dd>{state.current.pointerFile}</dd>
           </dl>
         </SpotlightCard>
@@ -95,8 +97,8 @@ export default function PathSettings() {
         >
           <FolderCog size={16} />
           <div>
-            <strong>路径已更新</strong>
-            <span>重启 Host 后，所有客户端会连接到新的数据和缓存目录。</span>
+            <strong>{t('pathsUpdated')}</strong>
+            <span>{t('pathsUpdatedHint')}</span>
           </div>
         </SpotlightCard>
       )}
@@ -107,11 +109,11 @@ export default function PathSettings() {
           onClick={() => void state.validate()}
         >
           <ShieldCheck size={14} />
-          {state.status === 'validating' ? '验证中' : '验证目录'}
+          {state.status === 'validating' ? t('validating') : t('validateDirectory')}
         </button>
         <button className="button" disabled={busy || !changed} onClick={state.reset}>
           <RotateCcw size={14} />
-          还原
+          {t('restore')}
         </button>
         <GlareButton
           className="button primary"
@@ -119,7 +121,7 @@ export default function PathSettings() {
           onClick={() => void state.save()}
         >
           <Save size={14} />
-          {state.status === 'saving' ? '应用中' : '应用并在重启后生效'}
+          {state.status === 'saving' ? t('applying') : t('applyAfterRestart')}
         </GlareButton>
       </div>
     </section>

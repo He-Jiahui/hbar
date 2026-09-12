@@ -4,8 +4,10 @@ import { refreshCatalog, useConnection } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { useLocale } from './locale'
 
 export default function PairingPage() {
+  const { t } = useLocale()
   const [code, setCode] = useState('')
   const [name, setName] = useState('Browser')
   const [error, setError] = useState('')
@@ -44,8 +46,8 @@ export default function PairingPage() {
           hbar
           <span />
         </div>
-        <span className="pairing-eyebrow">安全连接</span>
-        <p>把这个浏览器配对到你的 hbar Host，之后即可在任意设备继续同一个工作台。</p>
+        <span className="pairing-eyebrow">{t('secureConnection')}</span>
+        <p>{t('pairingIntro')}</p>
       </header>
       <SpotlightCard className="pairing-card" spotlightColor="color-mix(in srgb, var(--rb-accent) 26%, transparent)">
         <form
@@ -56,7 +58,7 @@ export default function PairingPage() {
             const attempt = ++attemptSerial.current
             const pairingClient = connection
             if (!pairingClient) {
-              setError('Host 未连接，请先检查目标地址。')
+              setError(t('hostNotConnectedTarget'))
               return
             }
             setPendingClient(pairingClient)
@@ -80,26 +82,26 @@ export default function PairingPage() {
         >
           <div className="pairing-heading">
             <div>
-              <h1>{connecting ? '连接宿主' : '设备配对'}</h1>
-              <p>使用 Host 中生成的一次性配对码建立受信任连接。</p>
+              <h1>{connecting ? t('connectHost') : t('pairDevice')}</h1>
+              <p>{t('pairingHint')}</p>
             </div>
             <span className={`pairing-state ${connecting ? 'connecting' : 'ready'}`} aria-live="polite">
               <i />
-              {connecting ? '连接中' : '等待配对'}
+              {connecting ? t('connecting') : t('waitingPairing')}
             </span>
           </div>
-          <div className="pairing-host-card" aria-label="目标 Host">
+          <div className="pairing-host-card" aria-label={t('targetHost')}>
             <span className="pairing-host-icon" aria-hidden="true">
               <Network size={16} />
             </span>
             <div>
-              <small>目标 Host</small>
+              <small>{t('targetHost')}</small>
               <code>{url}</code>
             </div>
           </div>
           <div className="pairing-fields">
             <label>
-              配对码
+              {t('pairingCode')}
               <input
                 autoFocus
                 inputMode="numeric"
@@ -107,32 +109,32 @@ export default function PairingPage() {
                 maxLength={8}
                 value={code}
                 onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-                aria-label="配对码"
+                aria-label={t('pairingCode')}
                 aria-invalid={code.length > 0 && !codeReady}
               />
             </label>
             <label>
-              设备名称
+              {t('deviceName')}
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                aria-label="设备名称"
+                aria-label={t('deviceName')}
               />
             </label>
           </div>
-          <ol className="pairing-steps" aria-label="配对准备情况">
+          <ol className="pairing-steps" aria-label={t('pairingPreparation')}>
             <li className={codeReady ? 'complete' : ''}>
               <span aria-hidden="true">{codeReady ? <Check size={13} /> : <Circle size={13} />}</span>
               <div>
-                <strong>验证配对码</strong>
-                <small>{codeReady ? '8 位配对码已准备好' : '输入 Host 显示的 8 位代码'}</small>
+                <strong>{t('verifyPairingCode')}</strong>
+                <small>{codeReady ? t('pairingCodeReady') : t('pairingCodeHint')}</small>
               </div>
             </li>
             <li className={nameReady ? 'complete' : ''}>
               <span aria-hidden="true">{nameReady ? <Check size={13} /> : <Circle size={13} />}</span>
               <div>
-                <strong>命名此设备</strong>
-                <small>{nameReady ? `将显示为 ${name.trim()}` : '为这台设备填写可识别名称'}</small>
+                <strong>{t('nameDevice')}</strong>
+                <small>{nameReady ? `${t('nameWillDisplay')} ${name.trim()}` : t('deviceNameHint')}</small>
               </div>
             </li>
           </ol>
@@ -143,7 +145,7 @@ export default function PairingPage() {
           )}
           <GlareButton className="button primary pair-submit" disabled={busy || !ready}>
             {busy ? <LoaderCircle size={16} className="spinning" /> : <ShieldCheck size={16} />}
-            配对并连接
+            {t('pairAndConnect')}
           </GlareButton>
         </form>
       </SpotlightCard>
