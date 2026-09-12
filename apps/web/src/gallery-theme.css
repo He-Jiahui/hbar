@@ -101,6 +101,11 @@
   --dsh-font-family-code:
     'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'PingFang SC',
     'Microsoft YaHei', monospace;
+  --hbar-font-size-caption: 9px;
+  --hbar-font-size-code: 10px;
+  --hbar-font-size-body: 13px;
+  --hbar-font-size-heading: 18px;
+  --hbar-font-size-display: 25px;
   --dsh-motion-duration: 200ms;
   --dsh-motion-easing: cubic-bezier(0.4, 0, 0.2, 1);
   --dsh-bg-base: var(--hbar-bg);

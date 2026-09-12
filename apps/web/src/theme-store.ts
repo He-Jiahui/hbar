@@ -188,6 +188,8 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     '--hbar-font-size-body': `${profile.typography.bodySize}px`,
     '--hbar-font-size-heading': `${profile.typography.headingSize}px`,
     '--hbar-font-size-code': `${profile.typography.codeSize}px`,
+    '--hbar-font-size-caption': `${Math.max(8, profile.typography.bodySize - 4)}px`,
+    '--hbar-font-size-display': `${Math.max(profile.typography.headingSize, profile.typography.headingSize + 7)}px`,
     '--hbar-line-height-body': String(profile.typography.bodyLineHeight),
     '--hbar-font-weight-body': String(profile.typography.bodyWeight),
     '--hbar-font-weight-heading': String(profile.typography.headingWeight),
