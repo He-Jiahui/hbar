@@ -23,6 +23,8 @@
   --hbar-t3: #a3a3a3;
   --hbar-ac: #c7ced8;
   --hbar-ac2: #9ca7b5;
+  --hbar-highlight: #f2f5f8;
+  --hbar-focus: #dce3eb;
   --hbar-ac-soft: #20252b;
   --hbar-ac-soft-hover: #2b323a;
   --hbar-ac-border: #414a56;
@@ -41,6 +43,7 @@
   --hbar-teal: #7dd3c7;
   --hbar-teal-soft: #1c3535;
   --hbar-code: #111111;
+  --hbar-diff-header: var(--hbar-highlight);
   --hbar-chart-1: var(--hbar-ac);
   --hbar-chart-2: var(--hbar-ac2);
   --hbar-chart-3: var(--hbar-t1);
@@ -276,6 +279,9 @@ body {
   background: var(--hbar-bg);
   color: var(--hbar-t1);
   font-family: var(--dsh-font-family);
+  font-size: var(--hbar-font-size-body);
+  font-weight: var(--hbar-font-weight-body);
+  line-height: var(--hbar-line-height-body);
   letter-spacing: 0;
   text-rendering: optimizeLegibility;
   background-image: var(--hbar-background-image, none);
@@ -568,7 +574,9 @@ textarea:hover:not(:disabled) {
 
 .tool-rail {
   position: relative;
-  z-index: 4;
+  /* Keep the real rails above the drag affordance so HTML5 drop events still
+     reach a rail when the user drops directly on its icon column. */
+  z-index: 1301;
   gap: 5px;
   padding: 6px 0;
   overflow: visible;
@@ -1093,8 +1101,9 @@ body.resizing-sidebar .sidebar-resizer::after {
 
 .markdown {
   color: var(--hbar-t1);
-  font-size: 14px;
-  line-height: 1.7;
+  font-family: var(--dsh-font-family);
+  font-size: var(--hbar-font-size-body);
+  line-height: var(--hbar-line-height-body);
 }
 
 .markdown code:not(.code-block code) {
