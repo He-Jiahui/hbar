@@ -102,6 +102,11 @@ export type ThemeProfile = z.infer<typeof themeProfileSchema>
 const themeSurfaceContributionSchema = themeProfileSchema.shape.surface.partial()
 const themeMotionContributionSchema = themeProfileSchema.shape.motion.partial()
 const themeAssetPathSchema = z.string().min(7).max(240).regex(/^assets\/(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/)
+const themePluginBackgroundAssetSchema = z.union([
+  z.string().regex(/^plugin\/[a-z][a-z0-9._-]{0,127}\/assets\/(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/),
+  z.null(),
+])
+const themeContributionSurfaceSchema = themeSurfaceContributionSchema.extend({ backgroundAsset: themePluginBackgroundAssetSchema.optional() })
 
 /** Partial theme preset derived from the full profile so ranges and colour
  * formats stay identical for persisted profiles and plugin contributions. */
@@ -110,7 +115,7 @@ const themeOverrideSchema = z
     mode: themeProfileSchema.shape.mode.optional(),
     colors: themeProfileSchema.shape.colors.partial().optional(),
     typography: themeProfileSchema.shape.typography.partial().optional(),
-    surface: themeProfileSchema.shape.surface.partial().optional(),
+    surface: themeContributionSurfaceSchema.optional(),
     motion: themeProfileSchema.shape.motion.partial().optional(),
     renderer: themeProfileSchema.shape.renderer.partial().optional(),
   })
@@ -125,7 +130,7 @@ export const themeContributionSchema = z
     preview: themeAssetPathSchema.optional(),
     priority: z.number().int().min(-1000).max(1000).optional(),
     tokenOverrides: themeOverrideSchema.default({}),
-    surfaceEffects: themeSurfaceContributionSchema.optional(),
+    surfaceEffects: themeContributionSurfaceSchema.optional(),
     motion: themeMotionContributionSchema.optional(),
     backgroundAssets: z.array(themeAssetPathSchema).max(32).default([]),
   })

@@ -29,6 +29,7 @@ test('theme plugin contributions are token-only and namespaced by contract', () 
   expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { cssText: 'body{}' } })).toThrow()
   expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { surface: { blurAmount: 999 } } })).toThrow()
   expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { colors: { primary: 'rgb(1, 2, 3)' } } })).toThrow()
+  expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: { surface: { backgroundAsset: 'a'.repeat(64) } } })).toThrow()
   expect(() => themeContributionSchema.parse({ id: 'unsafe', title: 'Unsafe', tokenOverrides: {}, backgroundAssets: ['../escape.png'] })).toThrow()
 })
 
@@ -50,7 +51,7 @@ test('plugin theme contributions can only reference assets owned by that plugin'
   expect(() => parseThemeContributionForPlugin('acme.theme', {
     id: 'glass',
     title: 'Glass',
-    tokenOverrides: { surface: { backgroundAsset: 'a'.repeat(64) } },
+    tokenOverrides: { surface: { backgroundAsset: 'plugin/other/assets/glass.webp' } },
   })).toThrow(/must reference plugin\/acme\.theme\/assets/)
   expect(() => parseThemeContributionForPlugin('acme.theme', {
     id: 'glass',
