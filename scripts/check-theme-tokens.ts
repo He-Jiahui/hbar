@@ -9,9 +9,9 @@ const staged = Bun.spawnSync(['git', 'diff', '--cached', '--quiet']).exitCode ==
 const diff = Bun.spawnSync(staged
   ? ['git', 'diff', '--cached', '--unified=0', '--', 'apps/web/src']
   : ['git', 'diff', 'HEAD^', 'HEAD', '--unified=0', '--', 'apps/web/src'])
-const changed = new TextDecoder().decode(diff.stdout).split(/\r?\n/)
+const lines = new TextDecoder().decode(diff.stdout).split(/\r?\n/)
 let currentFile = ''
-for (const line of changed) {
+for (const line of lines) {
   const file = /^diff --git a\/(.+) b\/(.+)$/.exec(line)?.[2]
   if (file) {
     currentFile = file
@@ -22,7 +22,7 @@ for (const line of changed) {
   if (allowlist.has(display)) continue
   const cssLiteral = /#[0-9a-f]{3,8}\b|(?:rgba?|hsla?)\s*\(/i.test(line)
   const cssTypography = /(?:font-size|font-family)\s*:\s*(?!var\()/i.test(line)
-  const inlineTypography = /\bfontSize\s*:\s*(?:\d+(?:\.\d+)?|["'`](?!var\(--)[^"'`]+["'`])|\bfontFamily\s*:\s*["'`](?!var\(--)[^"'`]+["'`])/.test(line)
+  const inlineTypography = /\b(?:fontSize|fontFamily)\s*:/.test(line) && !/var\(--/.test(line)
   if ((cssLiteral || cssTypography || inlineTypography) && !seen.has(display)) {
     seen.add(display)
     violations.push(display)
