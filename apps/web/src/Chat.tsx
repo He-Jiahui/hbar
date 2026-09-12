@@ -28,6 +28,7 @@ import {
   report,
   setApprovalMode,
   useCatalog,
+  useGitState,
   useSessions,
   useWorkbench,
 } from './stores'
@@ -454,6 +455,7 @@ export default function Chat({
     thinkingLevel = useWorkbench((state) => state.thinkingLevel),
     approvalMode = useWorkbench((state) => state.approvalMode),
     workspaceId = useWorkbench((state) => state.workspaceId)
+  const gitRevision = useGitState((state) => state.revision)
   const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
@@ -503,7 +505,7 @@ export default function Chat({
     return () => {
       alive = false
     }
-  }, [workspace?.path])
+  }, [gitRevision, workspace?.path])
   const virtual = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scroll.current,
