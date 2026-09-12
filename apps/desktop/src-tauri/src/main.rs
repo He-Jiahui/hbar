@@ -154,13 +154,21 @@ fn set_window_effect(
         "acrylic" | "liquid-glass" => {
             #[cfg(target_os = "windows")]
             {
-                use window_vibrancy::apply_acrylic;
+                use window_vibrancy::{apply_acrylic, clear_acrylic};
+                // Re-applying Acrylic after a mode/opacity change can leave the
+                // previous composition state behind on Windows. Clear first;
+                // there may be no active effect, so the result is intentionally
+                // ignored.
+                let _ = clear_acrylic(&window);
                 apply_acrylic(&window, Some(window_background_rgba(&profile.colors.background, opacity))).map_err(|error| error.to_string())?;
                 return Ok(WindowEffectResult { native: true, message: None });
             }
             #[cfg(target_os = "macos")]
             {
-                use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+                use window_vibrancy::{apply_vibrancy, clear_vibrancy, NSVisualEffectMaterial};
+                // Remove the previous material before applying the selected
+                // profile so switching between profiles is deterministic.
+                let _ = clear_vibrancy(&window);
                 apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, None)
                     .map_err(|error| error.to_string())?;
                 return Ok(WindowEffectResult { native: true, message: None });
@@ -171,7 +179,17 @@ fn set_window_effect(
                 Ok(WindowEffectResult { native: false, message: Some("css-fallback".into()) })
             }
         }
-        "solid" => Ok(WindowEffectResult { native: false, message: Some("solid-surface".into()) }),
+        "solid" => {
+            #[cfg(target_os = "windows")]
+            {
+                let _ = window_vibrancy::clear_acrylic(&window);
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let _ = window_vibrancy::clear_vibrancy(&window);
+            }
+            Ok(WindowEffectResult { native: false, message: Some("solid-surface".into()) })
+        }
         _ => Ok(WindowEffectResult { native: false, message: Some("css-fallback".into()) }),
     }
 }
