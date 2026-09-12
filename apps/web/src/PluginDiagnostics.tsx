@@ -197,8 +197,9 @@ function ReportSurface({
   subtitle: string
   children: ReactNode
 }) {
+  const { t } = useLocale()
   return (
-    <section className={`plugin-diagnostic-result plugin-diagnostic-result-${kind}`} aria-label={title}>
+    <section className={`plugin-diagnostic-result plugin-diagnostic-result-${kind}`} aria-label={`${title}${t('pluginResultSuffix')}`}>
       <GlassSurface className="plugin-diagnostic-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="plugin-diagnostic-heading">
         <span className="plugin-diagnostic-heading-icon" aria-hidden="true">
@@ -221,7 +222,7 @@ function DoctorReportView({ data }: { data: DoctorReport }) {
     <ReportSurface
       kind="doctor"
       icon={data.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-      title={t('pluginDoctor')}
+      title={t('pluginDoctorTitle')}
       subtitle={data.ok ? t('pluginDependencyResolved') : t('pluginDependencyIssues')}
     >
       <div className="plugin-diagnostic-summary">
