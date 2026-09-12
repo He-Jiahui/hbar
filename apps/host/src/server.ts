@@ -649,6 +649,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             return response(request, kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
               'Content-Type': 'text/javascript; charset=utf-8',
             })
+          const pluginAsset = /^\/api\/plugins\/([^/]+)\/assets\/(.+)$/.exec(url.pathname)
+          if (pluginAsset && request.method === 'GET') {
+            const assetPath = await kernel.plugins.assetPath(decodeURIComponent(pluginAsset[1]!), decodeURIComponent(pluginAsset[2]!))
+            const file = Bun.file(assetPath)
+            return response(request, file, 200, { 'Content-Type': file.type || 'application/octet-stream', 'Content-Security-Policy': "default-src 'none'" })
+          }
           if (url.pathname === '/api/artifacts' && request.method === 'POST') {
             const name = decodeURIComponent(request.headers.get('x-filename') ?? 'image')
             return json(

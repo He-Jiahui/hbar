@@ -35,7 +35,7 @@
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run lint && bun run typecheck && bun test tests --timeout 20000"
+    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun test tests --timeout 20000"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",

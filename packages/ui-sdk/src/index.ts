@@ -90,6 +90,7 @@ export interface ClientPluginAPI {
   registerRenderer(language: string, component: React.ComponentType<{ source: string }>): () => void
   registerRendererSlot(slot: RendererSlot, component: RendererComponent, options: RendererSlotOptions): () => void
   registerTheme(theme: ClientTheme): () => void
+  registerBackgroundAsset(asset: BackgroundAsset): () => void
   onEvent(listener: (event: WireNotification) => void): () => void
   effect(setup: () => void | (() => void)): () => void
 }

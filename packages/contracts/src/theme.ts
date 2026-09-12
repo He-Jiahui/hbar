@@ -75,7 +75,10 @@ export const themeProfileSchema = z
         elasticity: z.number().min(0).max(1),
         cornerRadius: z.number().min(0).max(32),
         glowIntensity: z.number().min(0).max(1),
-        backgroundAsset: z.string().regex(/^[a-f0-9]{64}$/i).nullable(),
+        backgroundAsset: z.union([
+          z.string().regex(/^[a-f0-9]{64}$/i),
+          z.string().regex(/^plugin\/[a-z][a-z0-9._-]{0,95}\/assets\/(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/),
+        ]).nullable(),
       })
       .strict(),
     motion: z
@@ -98,7 +101,7 @@ export const themeProfileSchema = z
 export type ThemeProfile = z.infer<typeof themeProfileSchema>
 const themeSurfaceContributionSchema = themeProfileSchema.shape.surface.partial()
 const themeMotionContributionSchema = themeProfileSchema.shape.motion.partial()
-const themeAssetPathSchema = z.string().min(1).max(240).regex(/^(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/)
+const themeAssetPathSchema = z.string().min(7).max(240).regex(/^assets\/(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/)
 
 const themeOverrideKeys: Record<string, readonly string[]> = {
   root: ['mode', 'colors', 'typography', 'surface', 'motion', 'renderer'],
@@ -126,7 +129,7 @@ export const themeContributionSchema = z
     id: z.string().regex(/^[a-z][a-z0-9._-]{0,127}$/),
     title: z.string().min(1).max(120),
     description: z.string().max(500).optional(),
-    preview: z.string().max(240).optional(),
+    preview: themeAssetPathSchema.optional(),
     priority: z.number().int().min(-1000).max(1000).optional(),
     tokenOverrides: z.record(z.string(), z.unknown()).default({}).superRefine((value, context) => {
       if (!validateThemeOverride(value)) context.addIssue({ code: 'custom', message: 'tokenOverrides must contain only ThemeProfile keys' })

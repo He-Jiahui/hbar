@@ -10,6 +10,7 @@ import type {
   RendererSlot,
   RendererSlotOptions,
   ClientTheme,
+  BackgroundAsset,
 } from '@hbar/ui-sdk'
 import { client, report, useConnection } from './stores'
 
@@ -34,6 +35,9 @@ export interface RegisteredTheme extends ClientTheme {
   owner: string
   id: string
 }
+export interface RegisteredBackgroundAsset extends BackgroundAsset {
+  owner: string
+}
 export const useUIPlugins = create<{
   panels: RegisteredPanel[]
   composerActions: RegisteredComposerAction[]
@@ -41,6 +45,7 @@ export const useUIPlugins = create<{
   renderers: Record<string, React.ComponentType<{ source: string }>>
   rendererSlots: Record<RendererSlot, RegisteredRendererSlot[]>
   themes: RegisteredTheme[]
+  backgroundAssets: RegisteredBackgroundAsset[]
 }>(() => ({
   panels: [],
   composerActions: [],
@@ -48,6 +53,7 @@ export const useUIPlugins = create<{
   renderers: {},
   rendererSlots: { markdown: [], code: [], patch: [], 'git-diff': [] },
   themes: [],
+  backgroundAssets: [],
 }))
 const loaded = new Map<string, { key: string; dispose(): void }>()
 let update = Promise.resolve()
@@ -90,11 +96,12 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               report(error)
             }
           }
-          if (committed)
-            useUIPlugins.setState((state) => ({
-              ...state,
-              themes: state.themes.filter((theme) => theme.owner !== plugin.id),
-            }))
+            if (committed)
+              useUIPlugins.setState((state) => ({
+                ...state,
+                themes: state.themes.filter((theme) => theme.owner !== plugin.id),
+                backgroundAssets: state.backgroundAssets.filter((asset) => asset.owner !== plugin.id),
+              }))
         }
         try {
           const url = new URL(plugin.clientEntry!, useConnection.getState().url).href
@@ -107,6 +114,7 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
           const pendingRenderers: Record<string, React.ComponentType<{ source: string }>> = {}
           const pendingRendererSlots: RegisteredRendererSlot[] = []
           const pendingThemes: RegisteredTheme[] = []
+          const pendingBackgroundAssets: RegisteredBackgroundAsset[] = []
           const declaredTheme = plugin.contributes?.theme
           if (declaredTheme) {
             const parsedTheme = themeContributionSchema.parse(declaredTheme)
@@ -122,6 +130,7 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               ...(parsedTheme.backgroundAssets.length ? { backgroundAssets: parsedTheme.backgroundAssets } : {}),
               owner: plugin.id,
             } as RegisteredTheme)
+            for (const path of parsedTheme.backgroundAssets) pendingBackgroundAssets.push({ id: `${plugin.id}:${path}`, path, owner: plugin.id })
           }
           const result = await module.default.apply({
             react: React,
@@ -262,6 +271,20 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
                 } else useUIPlugins.setState((state) => ({ themes: state.themes.filter((item) => item.id !== id) }))
               })
             },
+            registerBackgroundAsset(asset: BackgroundAsset) {
+              if (!/^[a-z][a-z0-9._-]{0,95}$/.test(asset.id)) throw new Error(`Invalid background asset id: ${asset.id}`)
+              if (!/^assets\/(?!.*\.\.)(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/.test(asset.path)) throw new Error(`Invalid background asset path: ${asset.path}`)
+              const id = `${plugin.id}:${asset.id}`
+              if (useUIPlugins.getState().backgroundAssets.some((item) => item.id === id) || pendingBackgroundAssets.some((item) => item.id === id)) throw new Error(`Duplicate background asset ${id}`)
+              const registered: RegisteredBackgroundAsset = { ...asset, id, owner: plugin.id }
+              pendingBackgroundAssets.push(registered)
+              return own(() => {
+                if (!committed) {
+                  const index = pendingBackgroundAssets.findIndex((item) => item.id === id)
+                  if (index >= 0) pendingBackgroundAssets.splice(index, 1)
+                } else useUIPlugins.setState((state) => ({ backgroundAssets: state.backgroundAssets.filter((item) => item.id !== id) }))
+              })
+            },
             onEvent: (listener) => own(client().onEvent(listener)),
             effect(setup) {
               const cleanup = setup()
@@ -283,6 +306,7 @@ export function syncUIPlugins(plugins: PluginInfo[]) {
               state.rendererSlots,
             ),
             themes: [...state.themes, ...pendingThemes].sort((left, right) => (right.priority ?? 0) - (left.priority ?? 0) || left.id.localeCompare(right.id)),
+            backgroundAssets: [...state.backgroundAssets, ...pendingBackgroundAssets].sort((left, right) => left.id.localeCompare(right.id)),
           }))
           loaded.set(plugin.id, { key: `${plugin.clientEntry}:${JSON.stringify(plugin.config)}`, dispose })
         } catch (error) {
