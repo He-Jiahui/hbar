@@ -325,35 +325,10 @@ function GraphReportView({ data, onRefresh }: { data: GraphReport; onRefresh(): 
   }
 
   async function disableTree(rootId: string) {
-    const ids = new Set([rootId])
-    let changed = true
-    while (changed) {
-      changed = false
-      for (const edge of data.edges) {
-        if (ids.has(edge.to) && !ids.has(edge.from)) {
-          ids.add(edge.from)
-          changed = true
-        }
-      }
-    }
-    const enabled = new Set(data.nodes.filter((node) => node.enabled).map((node) => node.id))
-    const depth = new Map<string, number>([[rootId, 0]])
-    const queue = [rootId]
-    while (queue.length) {
-      const id = queue.shift()!
-      const currentDepth = depth.get(id) ?? 0
-      for (const edge of data.edges) {
-        if (edge.to === id && ids.has(edge.from) && !depth.has(edge.from)) {
-          depth.set(edge.from, currentDepth + 1)
-          queue.push(edge.from)
-        }
-      }
-    }
-    const ordered = [...ids].filter((id) => enabled.has(id)).sort((left, right) => (depth.get(right) ?? 0) - (depth.get(left) ?? 0))
     setBusyId(rootId)
     setActionError(null)
     try {
-      for (const id of ordered) await client().call('plugin.disable', { id })
+      await client().call('plugin.disableTree', { id: rootId })
       await refreshCatalog()
       onRefresh()
     } catch (error) {

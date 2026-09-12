@@ -54,6 +54,32 @@ test('local plugin registers a tool, configuration, host/client panels and relea
   ).toHaveLength(1)
 })
 
+test('disables an entire downstream plugin tree atomically', async () => {
+  const { kernel } = await fixture()
+  kernel.plugins.add(
+    definePlugin({
+      manifest: {
+        id: 'tree.base', name: 'Tree base', version: '1.0.0', apiVersion: '^1.0.0', scope: 'host',
+        description: '', permissions: [],
+      },
+      apply() {},
+    }),
+  )
+  kernel.plugins.add(
+    definePlugin({
+      manifest: {
+        id: 'tree.child', packageName: 'tree.child', name: 'Tree child', version: '1.0.0', apiVersion: '^1.0.0',
+        scope: 'host', description: '', permissions: [], dependencies: { 'tree.base': '^1.0.0' },
+      },
+      apply() {},
+    }),
+  )
+  await kernel.changePlugin('tree.child', true)
+  expect(kernel.plugins.list().filter((plugin) => plugin.id.startsWith('tree.')).every((plugin) => plugin.status === 'active')).toBeTrue()
+  await kernel.changePluginTree('tree.base')
+  expect(kernel.plugins.list().filter((plugin) => plugin.id.startsWith('tree.')).every((plugin) => plugin.status !== 'active')).toBeTrue()
+})
+
 test('concurrent run plugins see their own scopes and dispose at settlement', async () => {
   const { kernel, workspace } = await fixture()
   const disposed: string[] = []

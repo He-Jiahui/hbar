@@ -596,6 +596,54 @@ export class PluginManager {
     }
     return this.list()
   }
+  async disableTree(id: string) {
+    const root = this.entries.get(id)
+    if (!root) throw new HbarError('NOT_FOUND', 'Plugin not found')
+    const rootName = packageId(root.plugin.manifest)
+    const affected = new Set<string>([rootName])
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const entry of this.entries.values()) {
+        const manifest = entry.plugin.manifest
+        const dependencies = new Set([
+          ...Object.keys(manifest.dependencies ?? {}),
+          ...Object.keys(manifest.peerDependencies ?? {}),
+        ])
+        if (entry.enabled && [...dependencies].some((dependency) => affected.has(dependency)) && !affected.has(packageId(manifest))) {
+          affected.add(packageId(manifest))
+          changed = true
+        }
+      }
+    }
+    const selected = [...this.entries.values()].filter((entry) => entry.enabled && affected.has(packageId(entry.plugin.manifest)))
+    const required = selected.find((entry) => entry.plugin.manifest.required)
+    if (required) throw new HbarError('REQUIRED_PLUGIN', `${packageId(required.plugin.manifest)} is required and cannot be disabled`)
+    const old = new Map([...this.entries].map(([key, value]) => [key, { enabled: value.enabled, config: value.config }]))
+    for (const entry of selected) entry.enabled = false
+    try {
+      dependencyOrder([...this.entries.values()].filter((entry) => entry.enabled).map((entry) => entry.plugin.manifest))
+      await this.unmountAll()
+      await this.mountAll()
+      await this.storage.call(
+        'setPlugins',
+        [...this.entries].map(([key, value]) => ({ id: key, enabled: value.enabled, config: value.config, path: value.path })),
+      )
+      await this.writeLock()
+      return this.list()
+    } catch (error) {
+      for (const [key, state] of old) {
+        const entry = this.entries.get(key)
+        if (entry) Object.assign(entry, state)
+      }
+      await this.storage.call(
+        'setPlugins',
+        [...old].map(([key, state]) => ({ id: key, enabled: state.enabled, config: state.config, path: this.entries.get(key)?.path })),
+      )
+      if (!this.mounted.length) await this.mountAll()
+      throw error
+    }
+  }
   async install(path: string, projectId?: string) {
     if (!this.options.pluginRoot || !this.options.pluginExtract)
       throw new HbarError('PLUGIN_STORAGE', 'Managed plugin directories are not configured')
