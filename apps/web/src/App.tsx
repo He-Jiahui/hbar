@@ -332,19 +332,23 @@ function Files({ onOpen }: { onOpen(path: string): void }) {
       {error ? (
         <div className="inline-error">{error}</div>
       ) : (
-        <div className="file-list">
-          {entries.map((entry) => (
-            <button
-              key={entry.path}
-              onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
-              title={entry.path}
-            >
-              {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
-              <span>{entry.name}</span>
-              {entry.directory && <ChevronRight size={12} />}
-            </button>
-          ))}
-        </div>
+        entries.length ? (
+          <div className="file-list">
+            {entries.map((entry) => (
+              <button
+                key={entry.path}
+                onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
+                title={entry.path}
+              >
+                {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
+                <span>{entry.name}</span>
+                {entry.directory && <ChevronRight size={12} />}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <HbarAppUiEmptyState icon={<Folder size={20} />} title="目录为空" description="当前工作区还没有可浏览的文件。" />
+        )
       )}
     </div>
   )

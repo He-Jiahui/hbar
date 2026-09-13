@@ -28,6 +28,7 @@ import { permissionPreset } from './permissions'
 import { providerFromPreset, providerPresets } from './provider-presets'
 import PathSettings from './PathSettings'
 import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
+import { HbarAppUiSpotlight, HbarAppUiTabs } from 'hbar-app-ui'
 
 export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -754,7 +755,7 @@ export default function Settings() {
             <PermissionSelector compact={false} placement="below" />
           </div>
           <div className="permission-settings-list">
-            <div className="permission-setting-row">
+            <HbarAppUiSpotlight className="permission-setting-row">
               <div className="permission-setting-icon permission-tone-balanced">
                 <ShieldCheck size={16} />
               </div>
@@ -765,7 +766,7 @@ export default function Settings() {
               <span className={`state-label permission-state-${permissionPreset(approvalMode).tone}`}>
                 {permissionPreset(approvalMode).label}
               </span>
-            </div>
+            </HbarAppUiSpotlight>
             <div className="permission-note">
               <strong>只对之后发送的消息生效</strong>
               <span>正在运行的任务不会被中途改变。你也可以在聊天输入框旁快速切换。</span>
@@ -797,29 +798,12 @@ export default function Settings() {
                 onChange={(event) => setModelQuery(event.target.value)}
               />
             </label>
-            <div className="model-filter segmented" role="group" aria-label="模型状态">
-              <button
-                type="button"
-                className={modelFilter === 'all' ? 'selected' : ''}
-                onClick={() => setModelFilter('all')}
-              >
-                全部
-              </button>
-              <button
-                type="button"
-                className={modelFilter === 'connected' ? 'selected' : ''}
-                onClick={() => setModelFilter('connected')}
-              >
-                已连接
-              </button>
-              <button
-                type="button"
-                className={modelFilter === 'needs-key' ? 'selected' : ''}
-                onClick={() => setModelFilter('needs-key')}
-              >
-                待配置
-              </button>
-            </div>
+            <HbarAppUiTabs
+              label="模型状态"
+              value={modelFilter}
+              options={[{ id: 'all', label: '全部' }, { id: 'connected', label: '已连接' }, { id: 'needs-key', label: '待配置' }]}
+              onChange={(value) => setModelFilter(value as 'all' | 'connected' | 'needs-key')}
+            />
           </div>
           {modelGroups.length ? (
             modelGroups.map((group) => {
