@@ -1,0 +1,16 @@
+{
+  "name": "@hbar/app-ui-preview",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "hbar-app-ui": "workspace:*",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "lucide-react": "1.43.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.2.2",
+    "typescript": "6.0.2"
+  }
+}
