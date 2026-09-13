@@ -95,9 +95,12 @@ const LAYOUTS: Readonly<Record<HbarAppUiCategory, HbarAppUiVariantSpec['layout']
 }
 
 function actionsFor(category: HbarAppUiCategory): HbarAppUiVariantSpec['actions'] {
-  if (category === 'agent-activity' || category === 'monitoring') return [{ id: 'pause', label: 'Pause', tone: 'warning' }, { id: 'cancel', label: 'Stop', tone: 'danger' }]
-  if (category === 'agent-approval' || category === 'app-dialog') return [{ id: 'close', label: 'Close' }, { id: 'confirm', label: 'Confirm', tone: 'accent' }]
-  if (category === 'prompt-input' || category === 'chat' || category === 'ai-chat') return [{ id: 'attach', label: 'Attach' }, { id: 'send', label: 'Send', tone: 'accent' }]
+  if (category === 'agent-activity') return [{ id: 'pause', label: 'Pause', tone: 'warning' }, { id: 'cancel', label: 'Stop', tone: 'danger' }]
+  if (category === 'monitoring') return [{ id: 'filter', label: 'Filter' }, { id: 'open', label: 'Inspect', tone: 'accent' }]
+  if (category === 'agent-approval' || category === 'app-dialog') return [{ id: 'open', label: 'Open' }, { id: 'confirm', label: 'Confirm', tone: 'accent' }]
+  if (category === 'prompt-input') return [{ id: 'mode', label: 'Change mode' }, { id: 'attach', label: 'Attach' }, { id: 'send', label: 'Send', tone: 'accent' }]
+  if (category === 'chat') return [{ id: 'invite', label: 'Invite' }, { id: 'open', label: 'Open channel' }, { id: 'send', label: 'Send', tone: 'accent' }]
+  if (category === 'ai-chat') return [{ id: 'attach', label: 'Attach' }, { id: 'open', label: 'Open context' }, { id: 'send', label: 'Send', tone: 'accent' }]
   if (category === 'empty-state') return [{ id: 'recover', label: 'Get started', tone: 'accent' }]
   if (category === 'settings-form' || category === 'forms' || category === 'authentication') return [{ id: 'reset', label: 'Reset' }, { id: 'save', label: 'Save', tone: 'accent' }]
   return [{ id: 'filter', label: 'Filter' }, { id: 'open', label: 'Open', tone: 'accent' }]
