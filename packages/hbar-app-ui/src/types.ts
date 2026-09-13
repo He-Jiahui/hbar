@@ -92,12 +92,16 @@ export interface HbarAppUiAction {
 
 export interface HbarAppUiVariantSpec {
   readonly id: string
+  readonly entry: string
   readonly category: HbarAppUiCategory
   readonly variant: number
   readonly title: string
   readonly description: string
   readonly layout: 'conversation' | 'composer' | 'activity' | 'table' | 'dashboard' | 'form' | 'overlay' | 'workflow'
   readonly actions: readonly HbarAppUiAction[]
+  readonly behavior: readonly string[]
+  readonly observation: readonly string[]
+  readonly visualValidation: readonly string[]
   readonly density: 'compact' | 'comfortable' | 'spacious'
 }
 

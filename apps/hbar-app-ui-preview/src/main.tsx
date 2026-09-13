@@ -155,6 +155,10 @@ function PreviewApp() {
                 <div className="hbar-app-ui-preview-section-heading"><strong>Interaction log</strong><small>{eventLog.length} events</small></div>
                 {eventLog.length ? <ol className="hbar-app-ui-preview-events">{eventLog.map((event, index) => <li key={`${event.variantId}-${event.actionId}-${index}`}><code>{event.actionId}</code>{event.value && <span>{event.value}</span>}</li>)}</ol> : <p className="hbar-app-ui-preview-muted">Use the selected component to observe action events.</p>}
               </div>
+              <div className="hbar-app-ui-preview-inspector-section hbar-app-ui-preview-contract">
+                <div className="hbar-app-ui-preview-section-heading"><strong>Variant contract</strong><small>{selected.spec.density}</small></div>
+                <dl><dt>Entry</dt><dd><code>{selected.spec.entry}</code></dd><dt>Behavior</dt><dd>{selected.spec.behavior.join(' / ')}</dd><dt>Observation</dt><dd>{selected.spec.observation.join(' / ')}</dd><dt>Visual checks</dt><dd>{selected.spec.visualValidation.join(' / ')}</dd></dl>
+              </div>
             </aside>
           </div>
         </main>

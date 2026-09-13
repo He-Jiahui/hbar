@@ -15,6 +15,7 @@ describe('hbar-app-ui registry', () => {
     expect(HBAR_APP_UI_VARIANT_SPECS).toHaveLength(300)
     expect(listHbarAppUiVariants()).toHaveLength(300)
     expect(Object.keys(HBAR_APP_UI_VARIANT_EXPORTS)).toHaveLength(300)
+    expect(new Set(Object.values(HBAR_APP_UI_VARIANT_EXPORTS)).size).toBe(300)
     expect(new Set(listHbarAppUiVariants().map((entry) => entry.component)).size).toBe(300)
     expect(HBAR_APP_UI_CATEGORIES.reduce((total, category) => total + HBAR_APP_UI_CATEGORY_COUNTS[category], 0)).toBe(300)
   })
@@ -29,7 +30,11 @@ describe('hbar-app-ui registry', () => {
 
   test('returns a stable entry and rejects invalid variants', () => {
     const entry = getHbarAppUiVariant('agent-activity', 1)
-    expect(entry.spec.id).toBe('hbar-app-ui.agent-activity-1')
+    expect(entry.spec.id).toBe('hbar-app-ui-agent-activity-1')
+    expect(entry.spec.entry).toBe(entry.spec.id)
+    expect(entry.spec.behavior.length).toBeGreaterThan(0)
+    expect(entry.spec.observation.length).toBeGreaterThan(0)
+    expect(entry.spec.visualValidation).toHaveLength(3)
     expect(entry.component).toBeFunction()
     expect(() => createHbarAppUiVariantSpec('agent-activity', 0)).toThrow(RangeError)
     expect(() => createHbarAppUiVariantSpec('agent-activity', 8)).toThrow(RangeError)

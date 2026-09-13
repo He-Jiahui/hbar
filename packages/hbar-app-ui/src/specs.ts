@@ -106,14 +106,20 @@ function actionsFor(category: HbarAppUiCategory): HbarAppUiVariantSpec['actions'
 export function createHbarAppUiVariantSpec(category: HbarAppUiCategory, variant: number): HbarAppUiVariantSpec {
   const count = HBAR_APP_UI_CATEGORY_COUNTS[category]
   if (!Number.isInteger(variant) || variant < 1 || variant > count) throw new RangeError(`Invalid ${category} variant ${variant}`)
+  const actions = actionsFor(category)
+  const id = `hbar-app-ui-${category}-${variant}`
   return {
-    id: `hbar-app-ui.${category}-${variant}`,
+    id,
+    entry: id,
     category,
     variant,
     title: `${TITLES[category]} ${variant}`,
     description: DESCRIPTIONS[category],
     layout: LAYOUTS[category],
-    actions: actionsFor(category),
+    actions,
+    behavior: actions.map((action) => `${action.id}: ${action.label}`).concat(`variant ${variant} keeps interaction state local`),
+    observation: [`${TITLES[category]} uses the ${LAYOUTS[category]} interaction model`, 'Action events expose the variant ID and optional value'],
+    visualValidation: ['desktop, tablet and mobile viewports', 'light and dark themes', `${variant % 3 === 0 ? 'spacious' : variant % 2 === 0 ? 'comfortable' : 'compact'} density spacing`],
     density: variant % 3 === 0 ? 'spacious' : variant % 2 === 0 ? 'comfortable' : 'compact',
   }
 }
