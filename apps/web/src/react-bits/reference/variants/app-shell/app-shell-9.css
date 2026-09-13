@@ -1,0 +1,504 @@
+.rb-public-app-shell-9 {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 720px;
+  min-height: 720px;
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+}
+.rb-public-app-shell-9 *,
+.rb-public-app-shell-9 *::before,
+.rb-public-app-shell-9 *::after {
+  box-sizing: border-box;
+}
+.rb-public-app-shell-9 button,
+.rb-public-app-shell-9 textarea {
+  font: inherit;
+}
+.rb-public-app-shell-9 aside,
+.rb-public-app-shell-9 main {
+  min-width: 0;
+  height: 696px;
+  border: 1px solid #262626;
+  border-radius: 18px;
+  background: #171717;
+}
+.rb-public-app-shell-9 aside {
+  position: relative;
+  width: 288px;
+  flex: none;
+  overflow: hidden;
+}
+.rb-public-app-shell-9 aside > header {
+  display: flex;
+  height: 60px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+.rb-shell-9-logo {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff;
+  color: #171717;
+  font-size: 14px;
+}
+.rb-public-app-shell-9 aside header strong {
+  font-size: 16px;
+  font-weight: 500;
+}
+.rb-public-app-shell-9 aside header button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+}
+.rb-shell-9-new {
+  display: flex;
+  width: 262px;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+  color: #171717;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-shell-9-new svg:last-child {
+  margin-left: auto;
+}
+.rb-shell-9-sidebody {
+  height: 514px;
+  margin: 0 12px;
+  padding-top: 0;
+  overflow: hidden;
+}
+.rb-shell-9-sidebody .label {
+  height: 17px;
+  margin-top: 0;
+  color: #737373;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.08em;
+}
+.rb-shell-9-models {
+  display: grid;
+  height: 61px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+.rb-shell-9-models button {
+  display: flex;
+  height: 61px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: transparent;
+  color: #a3a3a3;
+  cursor: pointer;
+  font-size: 11px;
+}
+.rb-shell-9-models button.selected {
+  border-color: #fff;
+  background: #262626;
+  color: #f5f5f5;
+}
+.rb-shell-9-sidebody > .label:nth-of-type(2) {
+  margin-top: 15px;
+}
+.rb-shell-9-pinned {
+  display: flex;
+  width: 262px;
+  height: 64px;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 6px;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  color: #f5f5f5;
+  cursor: pointer;
+  text-align: left;
+}
+.rb-shell-9-pinned > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.rb-shell-9-pinned strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-shell-9-pinned small {
+  color: #737373;
+  font-size: 11px;
+}
+.rb-shell-9-pinned small b {
+  display: inline-block;
+  margin-right: 6px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: #262626;
+  color: #a3a3a3;
+  font-weight: 400;
+}
+.rb-shell-9-sidebody > .recent {
+  margin-top: 16px;
+}
+.rb-shell-9-sidebody ul {
+  margin: 5px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rb-shell-9-sidebody li {
+  height: 34px;
+}
+.rb-shell-9-sidebody li button {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: transparent;
+  color: #a3a3a3;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+.rb-shell-9-sidebody li button:hover {
+  background: #262626;
+  color: #f5f5f5;
+}
+.rb-shell-9-sidebody li button small {
+  margin-left: auto;
+  color: #737373;
+}
+.rb-shell-9-sidebody > .quick {
+  margin-top: 14px;
+}
+.rb-public-app-shell-9 aside > footer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  height: 72px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+.rb-public-app-shell-9 aside > footer > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: #262626;
+  color: #d4d4d4;
+  font-size: 11px;
+}
+.rb-public-app-shell-9 aside > footer div {
+  display: flex;
+  flex-direction: column;
+}
+.rb-public-app-shell-9 aside > footer strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.rb-public-app-shell-9 aside > footer small {
+  color: #737373;
+  font-size: 12px;
+}
+.rb-public-app-shell-9 main {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+.rb-public-app-shell-9 main > header {
+  display: flex;
+  height: 60px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+.rb-shell-9-menu {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #a3a3a3;
+  cursor: pointer;
+}
+.rb-shell-9-model {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #171717;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-shell-9-new-label {
+  color: #737373;
+  font-size: 13px;
+}
+.rb-shell-9-share {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: transparent;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-shell-9-empty {
+  position: absolute;
+  top: 192px;
+  right: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.rb-shell-9-empty-logo {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff;
+  color: #171717;
+  font-size: 16px;
+}
+.rb-shell-9-empty h1 {
+  margin: 16px 0 0;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 32px;
+}
+.rb-shell-9-empty > p {
+  margin: 6px 0 0;
+  color: #737373;
+  font-size: 14px;
+  line-height: 21px;
+}
+.rb-shell-9-composer {
+  width: min(672px, calc(100% - 64px));
+  height: 78px;
+  margin-top: 24px;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  background: #171717;
+  overflow: hidden;
+}
+.rb-shell-9-composer textarea {
+  display: block;
+  width: 100%;
+  height: 38px;
+  resize: none;
+  border: 0;
+  padding: 12px 14px 0;
+  background: transparent;
+  color: #f5f5f5;
+  outline: none;
+  font-size: 14px;
+}
+.rb-shell-9-composer textarea::placeholder {
+  color: #737373;
+}
+.rb-shell-9-composer > div {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  padding: 0 10px;
+  color: #737373;
+}
+.rb-shell-9-composer > div > button {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #a3a3a3;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-shell-9-composer .search {
+  padding: 0 10px;
+}
+.rb-shell-9-composer > div > span {
+  margin-left: auto;
+  font-size: 12px;
+}
+.rb-shell-9-composer .send {
+  display: grid;
+  width: 32px;
+  place-items: center;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: #262626;
+}
+.rb-shell-9-suggestions {
+  display: grid;
+  width: min(672px, calc(100% - 64px));
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.rb-shell-9-suggestions button {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: transparent;
+  color: #f5f5f5;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+.rb-shell-9-suggestions button svg:last-child {
+  margin-left: auto;
+  color: #737373;
+}
+.rb-shell-9-disclaimer {
+  position: absolute;
+  right: 0;
+  bottom: 12px;
+  left: 0;
+  color: #737373;
+  text-align: center;
+  font-size: 12px;
+  line-height: 18px;
+}
+@media (min-width: 1000px) {
+  .rb-shell-9-menu,
+  .rb-shell-9-new-label {
+    display: none;
+  }
+}
+@media (max-width: 1000px) {
+  .rb-public-app-shell-9 aside {
+    display: none;
+  }
+  .rb-public-app-shell-9 main {
+    width: 100%;
+    height: 696px;
+  }
+  .rb-shell-9-menu {
+    display: grid;
+  }
+}
+@media (max-width: 700px) {
+  .rb-public-app-shell-9 {
+    height: 720px;
+    padding: 12px;
+  }
+  .rb-public-app-shell-9 aside {
+    display: none;
+  }
+  .rb-public-app-shell-9 main {
+    width: 100%;
+    height: 696px;
+  }
+  .rb-shell-9-menu {
+    display: grid;
+  }
+  .rb-shell-9-new-label {
+    display: none;
+  }
+  .rb-shell-9-share {
+    width: 42px;
+    justify-content: center;
+    padding: 0;
+  }
+  .rb-shell-9-share {
+    font-size: 0;
+  }
+  .rb-shell-9-share svg {
+    margin: 0;
+  }
+  .rb-shell-9-empty {
+    top: 119px;
+    align-items: stretch;
+    padding: 0 16px;
+  }
+  .rb-shell-9-empty-logo {
+    align-self: center;
+  }
+  .rb-shell-9-empty h1 {
+    font-size: 20px;
+    line-height: 28px;
+    align-self: center;
+    text-align: center;
+  }
+  .rb-shell-9-empty > p {
+    max-width: 270px;
+    line-height: 20px;
+    text-align: left;
+  }
+  .rb-shell-9-composer,
+  .rb-shell-9-suggestions {
+    width: 100%;
+  }
+  .rb-shell-9-composer {
+    height: 78px;
+    margin-top: 24px;
+  }
+  .rb-shell-9-suggestions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .rb-shell-9-suggestions button {
+    height: 48px;
+  }
+  .rb-shell-9-disclaimer {
+    padding: 0 20px;
+  }
+}
