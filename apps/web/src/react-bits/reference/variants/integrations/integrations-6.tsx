@@ -1,7 +1,12 @@
-import { WorkflowBlueprint as Fixture } from '../../ReferenceBlueprints'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { Check, CircleAlert, Pause, Play, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { reportFixtureClick } from '../../reference-interactions'
+import './integrations-6.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/integrations/integrations-6. */
 export default function Integrations6(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+  const [synced, setSynced] = useState(false)
+  const sources = [['NW', 'Northwind', 'events.usage_rollups', '41,822 rows · running now', 'Syncing', 64], ['AL', 'Alder', 'billing.invoices', '1,204 rows · 8 minutes ago', 'Healthy', 100], ['CL', 'Cedar Labs', 'ci.check_results', '9,640 rows · 22 minutes ago', 'Healthy', 100], ['MD', 'Meridian', 'storage.exports', '318 rows · 1 hour ago', 'Failed', 42], ['QR', 'Quarry', 'audit.entries', '76,210 rows · yesterday', 'Paused', 0]] as const
+  return <section className="rb-public-integrations-6" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}><header className="rb-integrations-6-heading"><div><h2>Sync status</h2><p>Five connected sources writing into the warehouse.</p></div><button type="button" onClick={() => setSynced(true)}><RefreshCw size={14} /> {synced ? 'Synced' : 'Sync all'}</button><div className="rb-integrations-6-summary">{[['Healthy', '2', 'healthy'], ['Syncing', '1', 'syncing'], ['Failed', '1', 'failed'], ['Paused', '1', 'paused']].map(([label, value, tone]) => <article key={label}><span>{label}</span><strong className={tone}>{value}</strong></article>)}</div></header><main className="rb-integrations-6-sources">{sources.map(([code, name, table, detail, status, progress]) => <article className="rb-integrations-6-source" key={name}><div className="rb-integrations-6-source-head"><span className="rb-integrations-6-logo">{code}</span><div><h3>{name} <em>→</em> <small>{table}</small></h3><p>{detail}</p></div><span className={`rb-integrations-6-status ${status.toLowerCase()}`}><i />{status}</span><button type="button" aria-label={`${status === 'Paused' ? 'Resume' : 'Pause'} ${name}`}>{status === 'Paused' ? <Play size={13} /> : <Pause size={13} />}</button></div><div className={`rb-integrations-6-progress ${status.toLowerCase()}`}><i style={{ width: `${progress}%` }} /></div>{status === 'Failed' && <p className="rb-integrations-6-error"><CircleAlert size={13} /> Bucket rejected the write: missing s3:PutObject on the export prefix.</p>}</article>)}</main><footer className="rb-integrations-6-footer"><Check size={13} /> Warehouse reachable · checked 30 seconds ago</footer></section>
 }
