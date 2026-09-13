@@ -14,7 +14,6 @@ import {
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
-import GlassSurface from './react-bits/GlassSurface'
 import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 
@@ -147,7 +146,6 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
           }
         }}
       >
-        <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
         <div className="composer-menu-search">
           <Search size={14} />
           <input
