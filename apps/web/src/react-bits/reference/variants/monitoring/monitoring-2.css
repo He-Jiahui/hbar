@@ -1,0 +1,324 @@
+.rb-public-monitoring-2 {
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  height: 640px;
+  min-height: 640px;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+}
+.rb-public-monitoring-2 *,
+.rb-public-monitoring-2 *::before,
+.rb-public-monitoring-2 *::after {
+  box-sizing: border-box;
+}
+.rb-public-monitoring-2 h2,
+.rb-public-monitoring-2 p {
+  margin: 0;
+}
+.rb-public-monitoring-2 button {
+  font: inherit;
+  cursor: pointer;
+}
+.rb-monitor-2-shell {
+  width: 1100px;
+  height: 592px;
+  margin: 24px auto;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  padding: 4px;
+  background: #0a0a0a;
+}
+.rb-monitor-2-header {
+  display: flex;
+  height: 68.5px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: #171717;
+}
+.rb-monitor-2-title {
+  display: flex;
+  height: 42.5px;
+  flex-direction: column;
+}
+.rb-monitor-2-title > div {
+  display: flex;
+  height: 22.5px;
+  align-items: center;
+  gap: 8px;
+}
+.rb-monitor-2-title h2 {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22.5px;
+}
+.rb-monitor-2-title > div > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-monitor-2-title > div > span i,
+.rb-monitor-2-chart-top p i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #525252;
+}
+.rb-monitor-2-title > p {
+  height: 18px;
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-monitor-2-actions {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+}
+.rb-monitor-2-actions nav {
+  display: flex;
+  height: 32px;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 4px;
+  background: rgb(38 38 38 / 60%);
+}
+.rb-monitor-2-actions nav button {
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-monitor-2-actions nav button.selected {
+  background: #171717;
+  color: #f5f5f5;
+}
+.rb-monitor-2-pause {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #171717;
+  color: #dedede;
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-monitor-2-chart {
+  height: 439.5px;
+  margin-top: 4px;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  padding: 16px;
+  background: #171717;
+}
+.rb-monitor-2-chart-top {
+  display: flex;
+  height: 34px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rb-monitor-2-chart-top > div {
+  display: flex;
+  height: 33.5px;
+  align-items: center;
+  gap: 8px;
+}
+.rb-monitor-2-chart-top strong {
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 32px;
+}
+.rb-monitor-2-chart-top small {
+  color: #737373;
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-monitor-2-chart-top > p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-monitor-2-plot {
+  height: 331px;
+  margin-top: 16px;
+}
+.rb-monitor-2-plot svg {
+  display: block;
+  width: 100%;
+  height: 220px;
+  overflow: visible;
+}
+.rb-monitor-2-plot line {
+  stroke: #262626;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.rb-monitor-2-plot line.threshold {
+  stroke: #fb7185;
+  stroke-dasharray: 4 4;
+}
+.rb-monitor-2-plot path {
+  fill: url(#monitor-2-fill);
+  stroke: none;
+}
+.rb-monitor-2-plot path.line {
+  fill: none;
+  stroke: #f5f5f5;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rb-monitor-2-plot circle {
+  fill: #f5f5f5;
+  stroke: #171717;
+  stroke-width: 2;
+}
+.rb-monitor-2-axis {
+  display: flex;
+  height: 16.5px;
+  margin-top: 8px;
+  justify-content: space-between;
+  color: #a3a3a3;
+  font-size: 11px;
+  line-height: 16.5px;
+}
+.rb-monitor-2-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  height: 66px;
+  margin-top: 4px;
+}
+.rb-monitor-2-stats article {
+  height: 66px;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: #171717;
+}
+.rb-monitor-2-stats p {
+  height: 18px;
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-monitor-2-stats strong {
+  display: block;
+  height: 18px;
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 18px;
+}
+.rb-monitor-2-stats strong small {
+  margin-left: 4px;
+  color: #737373;
+  font-size: 12px;
+  line-height: 12px;
+}
+.rb-monitor-2-theme {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgb(38 38 38 / 60%);
+  border-radius: 12px;
+  padding: 0 14px 0 12px;
+  background: rgb(10 10 10 / 95%);
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  box-shadow: 0 8px 28px -8px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(12px);
+}
+@media (max-width: 1180px) {
+  .rb-monitor-2-shell {
+    width: calc(100% - 48px);
+  }
+}
+@media (max-width: 680px) {
+  .rb-public-monitoring-2 {
+    height: 640px;
+  }
+  .rb-monitor-2-shell {
+    width: calc(100% - 32px);
+    height: 608px;
+    margin: 16px;
+  }
+  .rb-monitor-2-header {
+    height: 112.5px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .rb-monitor-2-actions {
+    align-self: stretch;
+  }
+  .rb-monitor-2-actions nav {
+    min-width: 0;
+    flex: 1;
+  }
+  .rb-monitor-2-actions nav button {
+    min-width: 0;
+    flex: 1;
+    padding: 0 8px;
+  }
+  .rb-monitor-2-chart {
+    height: 201.5px;
+  }
+  .rb-monitor-2-chart-top {
+    height: 34px;
+  }
+  .rb-monitor-2-plot {
+    height: 93px;
+    margin-top: 16px;
+  }
+  .rb-monitor-2-plot svg {
+    height: 220px;
+  }
+  .rb-monitor-2-axis {
+    margin-top: 8px;
+  }
+  .rb-monitor-2-stats {
+    grid-template-columns: 1fr;
+    height: 276px;
+    gap: 4px;
+  }
+  .rb-monitor-2-stats article {
+    height: 66px;
+  }
+  .rb-monitor-2-theme {
+    right: 16px;
+    bottom: 16px;
+  }
+}
