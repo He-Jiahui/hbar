@@ -149,6 +149,7 @@
 .hbar-app-ui-mobile-top strong { font-size: 13px; }
 .hbar-app-ui-mobile-list { display: grid; gap: 7px; }
 .hbar-app-ui-mobile-list .hbar-app-ui-spotlight { display: flex; align-items: center; justify-content: space-between; padding: 12px; font-size: 11px; }
+.hbar-app-ui-mobile-list .hbar-app-ui-button { width: 28px; min-height: 28px; padding: 0; }
 .hbar-app-ui-mobile-dock { padding: 10px 12px 2px; color: var(--hbar-app-ui-muted); }
 .hbar-app-ui-mobile-dock svg:nth-child(3) { color: var(--hbar-app-ui-accent); }
 .hbar-app-ui-comment-thread { display: grid; gap: 8px; }

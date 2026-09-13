@@ -25,3 +25,11 @@ bun run app-ui:preview
 ```
 
 The preview supports category search, direct `?variant=hbar-app-ui-...` navigation, action-event observation, light/dark themes, desktop/tablet/mobile frames, reset and fullscreen controls.
+
+Generate a fresh local acceptance report for every entry with:
+
+```sh
+bun run app-ui:verify
+```
+
+The verifier writes ignored artifacts under `artifacts/hbar-app-ui/` and fails if an entry does not mount or expose its variant contract.

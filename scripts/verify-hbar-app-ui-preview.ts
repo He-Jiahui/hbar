@@ -1,0 +1,159 @@
+import { chromium } from '@playwright/test'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/index'
+
+const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
+const artifactRoot = 'artifacts/hbar-app-ui'
+
+type VariantCheck = {
+  readonly id: string
+  readonly category: string
+  readonly mounted: boolean
+  readonly contractVisible: boolean
+  readonly interactiveControlCount: number
+}
+
+type ViewportThemeCheck = {
+  readonly category: string
+  readonly variantId: string
+  readonly viewport: 'desktop' | 'tablet' | 'mobile'
+  readonly theme: 'dark' | 'light'
+  readonly viewportWidth: number
+  readonly frameWidth: number
+  readonly themeApplied: boolean
+  readonly noHorizontalOverflow: boolean
+}
+
+const viewportChecks = [
+  { id: 'desktop', width: 1440, height: 900 },
+  { id: 'tablet', width: 768, height: 1024 },
+  { id: 'mobile', width: 390, height: 844 },
+] as const
+
+async function waitForPreview() {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      const response = await fetch(baseUrl)
+      if (response.ok) return
+    } catch {
+      // The local preview may need a few hundred milliseconds to bind its port.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+  throw new Error(`Preview is not reachable at ${baseUrl}`)
+}
+
+async function ensurePreview() {
+  try {
+    await waitForPreview()
+    return undefined
+  } catch {
+    const server = Bun.spawn(['bun', 'run', 'app-ui:preview', '--', '--host', '127.0.0.1'], { stdout: 'ignore', stderr: 'ignore' })
+    await waitForPreview()
+    return server
+  }
+}
+
+async function run() {
+  const server = await ensurePreview()
+  await mkdir(artifactRoot, { recursive: true })
+  const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+  const browser = await chromium.launch({ headless: true, executablePath })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  const checks: VariantCheck[] = []
+  const viewportThemeChecks: ViewportThemeCheck[] = []
+
+  try {
+    for (const spec of HBAR_APP_UI_VARIANT_SPECS) {
+      await page.goto(`${baseUrl}/?variant=${encodeURIComponent(spec.id)}`, { waitUntil: 'domcontentloaded' })
+      const mounted = await page.locator(`[data-hbar-app-ui-variant="${spec.id}"]`).count() === 1
+      const contractVisible = await page.locator('.hbar-app-ui-preview-contract').isVisible()
+      const interactiveControlCount = await page.locator('[data-hbar-app-ui-variant] button, [data-hbar-app-ui-variant] textarea, [data-hbar-app-ui-variant] input, [data-hbar-app-ui-variant] select').count()
+      if (!mounted || !contractVisible || interactiveControlCount === 0) throw new Error(`Incomplete preview for ${spec.id}`)
+      checks.push({ id: spec.id, category: spec.category, mounted, contractVisible, interactiveControlCount })
+    }
+
+    const categoryScreenshots: string[] = []
+    for (const category of HBAR_APP_UI_CATEGORIES) {
+      const spec = HBAR_APP_UI_VARIANT_SPECS.find((item) => item.category === category)
+      if (!spec) throw new Error(`Missing first variant for ${category}`)
+      await page.goto(`${baseUrl}/?variant=${encodeURIComponent(spec.id)}`, { waitUntil: 'networkidle' })
+      const path = `${artifactRoot}/${category}.png`
+      await page.screenshot({ path, fullPage: true })
+      categoryScreenshots.push(path)
+
+      for (const viewport of viewportChecks) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        for (const theme of ['dark', 'light'] as const) {
+          await page.goto(`${baseUrl}/?variant=${encodeURIComponent(spec.id)}`, { waitUntil: 'networkidle' })
+          if (theme === 'light') await page.getByRole('button', { name: 'Use light theme', exact: true }).click()
+          const themeApplied = await page.locator(`[data-hbar-app-ui-theme="${theme}"]`).count() === 1
+          const frame = page.locator('.hbar-app-ui-preview-frame')
+          const frameWidth = await frame.evaluate((element) => Math.round(element.getBoundingClientRect().width))
+          const noHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
+          viewportThemeChecks.push({ category, variantId: spec.id, viewport: viewport.id, theme, viewportWidth: viewport.width, frameWidth, themeApplied, noHorizontalOverflow })
+          if (!themeApplied || !noHorizontalOverflow || frameWidth > viewport.width) throw new Error(`Viewport/theme check failed for ${spec.id} (${viewport.id}, ${theme})`)
+        }
+      }
+    }
+
+    const observationLines = HBAR_APP_UI_CATEGORIES.flatMap((category) => {
+      const spec = HBAR_APP_UI_VARIANT_SPECS.find((item) => item.category === category)
+      if (!spec) return []
+      const categoryCheck = viewportThemeChecks.find((check) => check.category === category)
+      return [
+        `## ${category}`,
+        `- entry: ${spec.id}`,
+        `- actions: ${spec.actions.map((action) => action.id).join(', ')}`,
+        `- behavior: ${spec.behavior.join(' | ')}`,
+        `- observation: ${spec.observation.join(' | ')}`,
+        `- visual validation: ${spec.visualValidation.join(' | ')}`,
+        `- viewport sample: ${categoryCheck?.viewport ?? 'not recorded'} / ${categoryCheck?.theme ?? 'not recorded'}`,
+        `- screenshot: ${artifactRoot}/${category}.png`,
+        '',
+      ]
+    }).join('\n')
+    await writeFile(`${artifactRoot}/observations.md`, `# hbar-app-ui local acceptance observations\n\n${observationLines}`)
+
+    await page.goto(`${baseUrl}/?variant=hbar-app-ui-agent-activity-1`, { waitUntil: 'networkidle' })
+    await page.getByRole('button', { name: 'Stop', exact: true }).click()
+    const stopped = (await page.locator('[data-hbar-app-ui-variant]').innerText()).includes('Stopped')
+
+    await page.goto(`${baseUrl}/?variant=hbar-app-ui-prompt-input-1`, { waitUntil: 'networkidle' })
+    await page.locator('[data-hbar-app-ui-variant] .hbar-app-ui-tabs button').nth(1).click()
+    const modeEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes('mode')
+
+    await page.goto(`${baseUrl}/?variant=hbar-app-ui-chat-1`, { waitUntil: 'networkidle' })
+    await page.getByPlaceholder('Message # operations').fill('acceptance smoke')
+    await page.getByPlaceholder('Message # operations').press('Enter')
+    const chatEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes('send')
+
+    await page.goto(`${baseUrl}/?variant=hbar-app-ui-agent-approval-1`, { waitUntil: 'networkidle' })
+    await page.getByRole('button', { name: 'Open detail', exact: true }).click()
+    const dialogOpened = await page.getByRole('dialog').count() === 1
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+    const dialogClosed = await page.getByRole('dialog').count() === 0
+
+    await writeFile(`${artifactRoot}/report.json`, JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      expectedVariants: HBAR_APP_UI_VARIANT_SPECS.length,
+      mountedVariants: checks.length,
+      categories: HBAR_APP_UI_CATEGORIES.length,
+      pageErrors,
+      categoryScreenshots,
+      viewportThemeChecks,
+      interactions: { stopped, modeEvent, chatEvent, dialogOpened, dialogClosed },
+      checks,
+    }, null, 2))
+
+    if (pageErrors.length || !stopped || !modeEvent || !chatEvent || !dialogOpened || !dialogClosed) throw new Error('One or more interaction checks failed')
+    console.log(JSON.stringify({ expected: HBAR_APP_UI_VARIANT_SPECS.length, mounted: checks.length, categories: HBAR_APP_UI_CATEGORIES.length, pageErrors: pageErrors.length, interactions: { stopped, modeEvent, chatEvent, dialogOpened, dialogClosed } }))
+  } finally {
+    await browser.close()
+    server?.kill()
+  }
+}
+
+await run()
