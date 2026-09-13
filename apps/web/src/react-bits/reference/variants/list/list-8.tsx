@@ -1,7 +1,14 @@
-import { DataBlueprint as Fixture } from '../../ReferenceBlueprints'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { AtSign, GitPullRequest, Rocket, TriangleAlert } from 'lucide-react'
+import { useState } from 'react'
+import { reportFixtureClick } from '../../reference-interactions'
+import './list-8.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/list/list-8. */
 export default function List8(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+  const [tab, setTab] = useState('all')
+  const [read, setRead] = useState<number[]>([])
+  const items = [['Priya Nair mentioned you in Checkout v3', 'Can you take the payment-intent race here? I left a thread on the retry logic and tagged you for the final call.', '2m', AtSign, true], ['Review requested on “Split ledger writes”', 'Marcus Feld opened a pull request in billing-core and asked for your review before the freeze.', '11m', GitPullRequest, true], ['Deploy succeeded, web-app 4.18.0', 'Production rollout finished across all three regions. Error rate is flat and latency is within budget.', '38m', Rocket, false], ['API usage at 82% of your monthly quota', 'At the current rate you will reach the plan limit around Aug 24. Raise the cap to avoid throttled requests.', '1h', TriangleAlert, true], ['Dana Okafor mentioned you in Design review', 'The empty states look great now. One note on the toast timing that I think is worth a quick pass.', '3h', AtSign, true], ['Your pull request was approved and merged', '“Cache supplier lookups” passed review from two reviewers and merged into main a moment ago.', '5h', GitPullRequest, false], ['Staging deploy started, api-gateway 2.9.1', 'Build 4821 is rolling out to staging. You will get a follow-up when smoke tests complete.', 'Yesterday', Rocket, false], ['Certificate for hooks.northwind.io renews in 6 days', 'Auto-renewal is enabled, but the last attempt was rate-limited. Confirm DNS still points to the load balancer.', '2d', TriangleAlert, true]] as const
+  const visible = tab === 'unread' ? items.filter(([, , , , unread], index) => unread && !read.includes(index)) : items
+  return <section className="rb-public-list-8" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}><header><div><h2>Inbox</h2><p>5 unread</p></div><div className="rb-list-8-controls"><button type="button" onClick={() => setRead(items.map((_, index) => index))}>Mark all read</button><div>{['all', 'unread'].map((value) => <button type="button" key={value} className={tab === value ? 'selected' : ''} onClick={() => setTab(value)}>{value === 'all' ? 'All' : 'Unread'}</button>)}</div></div></header><main>{visible.slice(0, 6).map(([title, detail, age, Icon, unread], index) => <article key={title} className={unread && !read.includes(index) ? 'unread' : ''}><i className="rb-list-8-dot">{unread && !read.includes(index) ? '•' : ''}</i><span className="rb-list-8-icon"><Icon size={16} /></span><div><h3>{title}</h3><p>{detail}</p></div><time>{age}</time><footer><button type="button" onClick={() => setRead((value) => [...value, index])}>{unread && !read.includes(index) ? 'Mark as read' : 'Mark as unread'}</button><button type="button">Snooze</button><button type="button">Archive</button></footer></article>)}</main></section>
 }
