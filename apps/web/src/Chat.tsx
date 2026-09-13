@@ -44,6 +44,7 @@ import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import { GlareButton, IconButton, SpotlightSurface } from './ui'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -52,7 +53,7 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
     [diff, setDiff] = useState<'after' | 'before'>('after')
   const details = block.details as { before?: string; after?: string; path?: string } | undefined
   return (
-    <div className={`tool-result ${block.isError ? 'tool-failed' : ''}`}>
+    <SpotlightSurface className={`tool-result ${block.isError ? 'tool-failed' : ''}`} spotlightColor={block.isError ? 'color-mix(in srgb, var(--hbar-er) 20%, transparent)' : 'color-mix(in srgb, var(--hbar-ac) 18%, transparent)'}>
       <button className="tool-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <Wrench size={13} />
@@ -82,7 +83,7 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
           )}
         </div>
       )}
-    </div>
+    </SpotlightSurface>
   )
 }
 function approvalSummary(tool: string, args: Record<string, unknown>): string {
@@ -272,9 +273,11 @@ function MessageView({ message }: { message: Message }) {
       </div>
       {text && message.role !== 'tool' && (
         <div className="message-actions">
-          <button
+          <IconButton
+            label="复制消息"
+            type="button"
+            className="message-copy"
             title="复制消息"
-            aria-label="复制消息"
             onClick={() => {
               void copyText(text)
                 .then(() => {
@@ -285,7 +288,7 @@ function MessageView({ message }: { message: Message }) {
             }}
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
-          </button>
+          </IconButton>
         </div>
       )}
     </article>
@@ -641,7 +644,7 @@ export default function Chat({
           <UserInputPrompt key={request.requestId} request={request} />
         ))}
         {snapshot?.approvals.map((approval) => (
-          <section className="approval" key={approval.id}>
+          <SpotlightSurface className="approval" tone="danger" key={approval.id} spotlightColor="color-mix(in srgb, var(--hbar-er) 24%, transparent)">
             <div className="approval-heading">
               <ShieldCheck size={16} />
               <strong>批准工具调用</strong>
@@ -664,17 +667,19 @@ export default function Chat({
                 <X size={14} />
                 拒绝
               </button>
-              <button
+              <GlareButton
                 className="button primary"
+                type="button"
                 onClick={() =>
                   void client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' }).catch(report)
                 }
               >
                 <Check size={14} />
                 批准
-              </button>
-              <button
+              </GlareButton>
+              <GlareButton
                 className="button approval-remember"
+                type="button"
                 onClick={() => {
                   void (async () => {
                     if (!(await setApprovalMode('allow'))) return
@@ -684,9 +689,9 @@ export default function Chat({
               >
                 <ShieldCheck size={14} />
                 允许并记住
-              </button>
+              </GlareButton>
             </div>
-          </section>
+          </SpotlightSurface>
         ))}
         {queued.length > 0 && (
           <div className="queue-strip">
