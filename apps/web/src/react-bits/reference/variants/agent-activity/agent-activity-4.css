@@ -1,2 +1,253 @@
-.rb-public-activity-4{box-sizing:border-box;display:flex;position:relative;width:100%;height:560px;min-height:560px;flex-direction:column;gap:16px;overflow:hidden;padding:24px;background:oklch(.145 0 0);color:oklch(.97 0 0);font-family:ui-sans-serif,system-ui,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";font-size:16px;line-height:24px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.rb-public-activity-4::after{position:absolute;right:0;bottom:-1px;left:0;height:1px;background:oklch(.269 0 0);content:''}.rb-public-activity-4>header{display:flex;height:24px;align-items:center;justify-content:space-between}.rb-public-activity-4 h2{margin:0;font-size:16px;font-weight:500;line-height:24px}.rb-public-activity-4 h2 small{margin-left:8px;color:oklch(.556 0 0);font-size:12px;font-weight:400}.rb-public-activity-4>header>span{color:oklch(.556 0 0);font-size:13px}.rb-public-activity-4>section{box-sizing:border-box;height:495px;min-height:495px;overflow:hidden;border:1px solid oklch(.269 0 0);border-radius:14px;padding:4px;background:oklch(.205 0 0)}.rb-public-activity-4 .head,.rb-public-activity-4 .row{display:grid;grid-template-columns:minmax(0,3fr) 1.8fr 1.1fr 1.1fr 1fr 28px;align-items:center;gap:10px}.rb-public-activity-4 .head{height:36px;padding:0 16px;color:oklch(.556 0 0);font-size:12px}.rb-public-activity-4 .row{box-sizing:border-box;height:44px;padding:0 16px;border-top:1px solid oklch(.269 0 0);color:oklch(.708 0 0);font-size:13px}.rb-public-activity-4 .row strong{overflow:hidden;color:oklch(.87 0 0);font-weight:500;text-overflow:ellipsis;white-space:nowrap}.rb-public-activity-4 .status{display:flex;align-items:center;gap:6px}.rb-public-activity-4 .status i{width:6px;height:6px;border-radius:50%;background:oklch(.439 0 0)}.rb-public-activity-4 .status.failed{color:oklch(.708 .2 25)}.rb-public-activity-4 .status.failed i{background:oklch(.65 .25 25)}.rb-public-activity-4 .status.cancelled i{background:oklch(.556 .16 80)}.rb-public-activity-4 .row>span:nth-child(3),.rb-public-activity-4 .row>span:nth-child(4),.rb-public-activity-4 .row>span:nth-child(5){text-align:right}.rb-public-activity-4 .row button{display:flex;width:28px;height:28px;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:oklch(.556 0 0)}
-@media(max-width:680px){.rb-public-activity-4{padding:16px}.rb-public-activity-4 .head,.rb-public-activity-4 .row{grid-template-columns:minmax(0,2fr) 1.3fr .8fr 28px}.rb-public-activity-4 .head span:nth-child(4),.rb-public-activity-4 .head span:nth-child(5),.rb-public-activity-4 .row>span:nth-child(4),.rb-public-activity-4 .row>span:nth-child(5){display:none}}
+.rb-public-activity-4 {
+  box-sizing: border-box;
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 640px;
+  min-height: 640px;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  padding: 24px;
+  background: oklch(0.145 0 0);
+  color: oklch(0.97 0 0);
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.rb-public-activity-4::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: oklch(0.269 0 0);
+  content: '';
+}
+.rb-public-activity-4 > header {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  justify-content: space-between;
+}
+.rb-public-activity-4 h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+.rb-public-activity-4 h2 small {
+  margin-left: 8px;
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+  font-weight: 400;
+}
+.rb-public-activity-4 > header > span {
+  color: oklch(0.556 0 0);
+  font-size: 13px;
+}
+.rb-public-activity-4 > section {
+  box-sizing: border-box;
+  position: relative;
+  height: 552px;
+  min-height: 552px;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(0.205 0 0);
+}
+.rb-public-activity-4 > section::before {
+  position: absolute;
+  inset: 4px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  background: oklch(0.145 0 0);
+  content: '';
+  pointer-events: none;
+}
+.rb-public-activity-4 .head,
+.rb-public-activity-4 .row {
+  display: grid;
+  position: relative;
+  z-index: 1;
+  grid-template-columns: 36% 15% 13% 12% 16% 8%;
+  align-items: center;
+  gap: 0;
+}
+.rb-public-activity-4 .head {
+  height: 36px;
+  padding: 0;
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+}
+.rb-public-activity-4 .row {
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0;
+  border-top: 1px solid oklch(0.269 0 0);
+  color: oklch(0.708 0 0);
+  font-size: 13px;
+}
+.rb-public-activity-4 .head > span,
+.rb-public-activity-4 .row > * {
+  min-width: 0;
+  padding-inline: 16px;
+}
+.rb-public-activity-4 .row strong {
+  overflow: hidden;
+  color: oklch(0.87 0 0);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-public-activity-4 .status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rb-public-activity-4 .status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.439 0 0);
+}
+.rb-public-activity-4 .status.failed {
+  color: oklch(0.708 0.2 25);
+}
+.rb-public-activity-4 .status.failed i {
+  background: oklch(0.65 0.25 25);
+}
+.rb-public-activity-4 .status.cancelled i {
+  background: oklch(0.556 0.16 80);
+}
+.rb-public-activity-4 .row > span:nth-child(3),
+.rb-public-activity-4 .row > span:nth-child(4),
+.rb-public-activity-4 .row > span:nth-child(5) {
+  text-align: right;
+}
+.rb-public-activity-4 .row button {
+  box-sizing: border-box;
+  justify-self: end;
+  margin-right: 16px;
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  background: oklch(0.269 0 0);
+  color: oklch(0.556 0 0);
+}
+.rb-activity-4-mobile-runs {
+  display: none;
+}
+@media (max-width: 680px) {
+  .rb-public-activity-4 {
+    padding: 16px;
+    gap: 12px;
+  }
+  .rb-public-activity-4 > section {
+    height: 572px;
+    min-height: 572px;
+  }
+  .rb-public-activity-4 .head,
+  .rb-public-activity-4 .row {
+    display: none;
+  }
+  .rb-activity-4-mobile-runs {
+    display: grid;
+    position: relative;
+    z-index: 1;
+    gap: 6px;
+    width: calc(100% - 2px);
+    min-width: 0;
+    margin: 1px;
+    padding: 6px;
+    list-style: none;
+  }
+  .rb-activity-4-mobile-runs > li {
+    display: grid;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 97.67px;
+    gap: 8px;
+    border: 0;
+    border-radius: 8px;
+    padding: 12px;
+    background: oklch(0.205 0 0);
+  }
+  .rb-activity-4-mobile-head {
+    display: flex;
+    height: 28px;
+    align-items: center;
+    gap: 8px;
+  }
+  .rb-activity-4-mobile-head strong {
+    min-width: 0;
+    overflow: hidden;
+    color: oklch(0.87 0 0);
+    font-size: 13px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rb-activity-4-mobile-head button {
+    display: flex;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    border: 0;
+    border-radius: 6px;
+    padding: 0;
+    background: oklch(0.269 0 0);
+    color: oklch(0.708 0 0);
+  }
+  .rb-activity-4-mobile-runs dl {
+    display: flex;
+    height: 37.67px;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px 12px;
+    margin: 0;
+  }
+  .rb-activity-4-mobile-runs dl > div {
+    display: flex;
+    flex: 0 0 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+  }
+  .rb-activity-4-mobile-runs dt {
+    color: oklch(0.556 0 0);
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .rb-activity-4-mobile-runs dl > div:first-child dt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .rb-activity-4-mobile-runs dd {
+    min-width: 0;
+    margin: 0;
+    color: oklch(0.708 0 0);
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .rb-activity-4-mobile-runs .status {
+    font-size: 13px;
+  }
+}
