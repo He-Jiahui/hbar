@@ -1,7 +1,7 @@
 import { FolderOpen, GitBranch, RefreshCw } from 'lucide-react'
 import type { GitInfo, Run, Session, Workspace } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
-import { SegmentedControl } from './react-bits'
+import { ReferenceContextRail, SegmentedControl, referenceAttributes, type ReferenceContextItem } from './react-bits'
 import { useLocale } from './locale'
 import './ChatSessionChrome.css'
 
@@ -17,6 +17,7 @@ export interface ChatSessionChromeProps {
   onViewChange(view: 'chat' | 'console'): void
   onRefresh(): void | Promise<void>
   showContext?: boolean
+  referenceContext?: readonly ReferenceContextItem[]
 }
 
 export default function ChatSessionChrome({
@@ -31,6 +32,7 @@ export default function ChatSessionChrome({
   onViewChange,
   onRefresh,
   showContext = true,
+  referenceContext = [],
 }: ChatSessionChromeProps) {
   const { t } = useLocale()
   const sessionTitle = session?.title ?? t('session')
@@ -38,7 +40,11 @@ export default function ChatSessionChrome({
 
   return (
     <>
-      <header className="session-header rb-session-header rb-chat-session-chrome" data-testid="session-header">
+      <header
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-4', 'session-chat')}
+        className="session-header rb-session-header rb-chat-session-chrome"
+        data-testid="session-header"
+      >
         <GlassSurface className="session-header-glass" width="100%" height="100%" aria-hidden="true" />
         <div className="session-header-title">
           <span className="session-header-mark" aria-hidden="true">
@@ -74,7 +80,11 @@ export default function ChatSessionChrome({
         </button>
       </header>
       {showContext && (
-        <div className="chat-context rb-chat-context rb-chat-context-bar" aria-label={t('sessionContext')}>
+        <div
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-7', 'session-chat')}
+          className="chat-context rb-chat-context rb-chat-context-bar"
+          aria-label={t('sessionContext')}
+        >
           <GlassSurface className="chat-context-glass" width="100%" height="100%" aria-hidden="true" />
           <div className="chat-context-copy">
             <FolderOpen size={13} aria-hidden="true" />
@@ -97,6 +107,12 @@ export default function ChatSessionChrome({
               {sessionTitle}
             </span>
           </div>
+          <ReferenceContextRail
+            className="chat-reference-context"
+            reference="https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-7"
+            adapter="session-chat"
+            items={referenceContext}
+          />
           <span className="session-state" data-session-state={activeRun?.status ?? 'idle'}>
             <i className={activeRun ? 'running' : ''} aria-hidden="true" />
             {stateLabel}

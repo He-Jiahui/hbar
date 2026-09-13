@@ -114,6 +114,47 @@
   max-width: 100%;
 }
 
+.rb-reference-context-rail {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--hbar-space-2);
+  overflow: auto hidden;
+  scrollbar-width: none;
+}
+
+.rb-reference-context-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.rb-reference-context-item {
+  display: inline-flex;
+  min-width: max-content;
+  min-height: 22px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--hbar-border-subtle);
+  border-radius: var(--hbar-radius-pill);
+  padding: 0 7px;
+  background: color-mix(in srgb, var(--hbar-surface-1) 82%, transparent);
+  color: var(--hbar-text-tertiary);
+  font-size: var(--hbar-font-size-small);
+  white-space: nowrap;
+}
+
+.rb-reference-context-item strong {
+  color: var(--hbar-text-secondary);
+  font: 560 var(--hbar-font-size-small) var(--dsh-font-family-code);
+}
+
+.rb-reference-context-item .hbar-status-badge {
+  min-height: 16px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-size: var(--hbar-font-size-caption);
+}
+
 @media (max-width: 560px) {
   .rb-reference-section-header {
     align-items: flex-start;
@@ -125,6 +166,10 @@
 
   .rb-reference-metric-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rb-reference-context-item:nth-child(n + 4) {
+    display: none;
   }
 }
 

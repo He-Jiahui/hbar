@@ -5,6 +5,7 @@ import { selectModel, selectThinkingLevel, useCatalog, useWorkbench } from './st
 import { groupModelsByProvider, modelThinkingLabel, modelThinkingLevels } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 import { useLocale, type LocaleMessageKey } from './locale'
 
@@ -186,7 +187,10 @@ export default function ModelPicker() {
   }
 
   return (
-    <div className="model-picker">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9', 'model-picker')}
+      className="model-picker"
+    >
       <button
         ref={trigger}
         type="button"
@@ -218,6 +222,7 @@ export default function ModelPicker() {
         onClose={closePicker}
         placement="below"
         className="model-picker-menu rb-menu-surface"
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9', 'model-picker')}
         role="menu"
         aria-label={t('selectModel')}
       >

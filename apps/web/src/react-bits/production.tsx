@@ -23,6 +23,41 @@ export function referenceAttributes(reference: string, adapter?: string) {
   } as const
 }
 
+export interface ReferenceContextItem {
+  id: string
+  label: ReactNode
+  value: ReactNode
+  status?: StatusBadgeStatus
+  title?: string
+}
+
+export interface ReferenceContextRailProps {
+  items: readonly ReferenceContextItem[]
+  reference: string
+  adapter?: string
+  className?: string
+}
+
+/** Compact context pills for the AI frame (model, usage and pending work). */
+export function ReferenceContextRail({ items, reference, adapter, className = '' }: ReferenceContextRailProps) {
+  if (!items.length) return null
+  return (
+    <div
+      {...referenceAttributes(reference, adapter)}
+      className={`rb-reference-context-rail${className ? ` ${className}` : ''}`}
+      role="list"
+    >
+      {items.map((item) => (
+        <span className="rb-reference-context-item" key={item.id} role="listitem" title={item.title}>
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+          {item.status ? <StatusBadge status={item.status} /> : null}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export interface ReferenceSurfaceProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   children?: ReactNode
   reference: string

@@ -87,6 +87,16 @@
   flex: 0 0 auto;
 }
 
+.rb-chat-context-bar .chat-reference-context {
+  min-width: 0;
+  max-width: min(42vw, 520px);
+  margin-left: auto;
+}
+
+.rb-chat-context-bar .chat-reference-context + .session-state {
+  margin-left: 2px;
+}
+
 @media (max-width: 899px) {
   .rb-chat-session-chrome .session-header-title h1 {
     max-width: 34vw;
@@ -107,5 +117,20 @@
 
   .rb-chat-context-bar .chat-context-branch {
     display: inline;
+  }
+
+  .rb-chat-context-bar .chat-reference-context {
+    max-width: 38vw;
+  }
+}
+
+@media (max-width: 560px) {
+  .rb-chat-context-bar .chat-reference-context {
+    max-width: 100%;
+    margin-left: 0;
+  }
+
+  .rb-chat-context-bar .chat-reference-context + .session-state {
+    display: none;
   }
 }

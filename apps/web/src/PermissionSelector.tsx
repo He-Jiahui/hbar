@@ -5,6 +5,7 @@ import { permissionPreset, permissionPresets } from './permissions'
 import { report, setApprovalMode, useWorkbench } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 import { useLocale } from './locale'
 
@@ -73,6 +74,7 @@ export default function PermissionSelector({
 
   return (
     <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-approval', 'approval')}
       className={`permission-selector permission-placement-${placement} ${compact ? 'permission-selector-compact' : ''} ${className}`.trim()}
     >
       <button

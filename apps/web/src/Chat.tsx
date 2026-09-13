@@ -45,6 +45,8 @@ import PromptComposer, { type AttachmentKind, type OpenFilePicker } from './Prom
 import ChatSessionChrome from './ChatSessionChrome'
 import GitContextSwitcher from './GitContextSwitcher'
 import TerminalPanel from './TerminalPanel'
+import { useReferenceProjections } from './react-bits/production-context'
+import { referenceAttributes, type ReferenceContextItem } from './react-bits'
 import { useLocale, type LocaleMessageKey } from './locale'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
@@ -81,7 +83,11 @@ function QueuedRunList({
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   if (!runs.length) return null
   return (
-    <section className="queue-panel rb-queue-surface" aria-label={t('chatQueueAria')}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-6', 'activity')}
+      className="queue-panel rb-queue-surface"
+      aria-label={t('chatQueueAria')}
+    >
       <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="queue-panel-heading">
         <div>
@@ -145,6 +151,7 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
   const details = block.details as { before?: string; after?: string; path?: string } | undefined
   return (
     <SpotlightCard
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-2', 'session-chat')}
       className={`tool-result ${block.isError ? 'tool-failed' : ''}`}
       spotlightColor={
         block.isError
@@ -190,7 +197,11 @@ function ToolCallView({ block }: { block: Extract<ContentBlock, { type: 'tool_ca
   const [open, setOpen] = useState(false)
   const argumentSummary = String(block.args.path ?? block.args.command ?? '').slice(0, 160)
   return (
-    <SpotlightCard className="tool-call" spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)">
+    <SpotlightCard
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls', 'session-chat')}
+      className="tool-call"
+      spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"
+    >
       <button
         type="button"
         className="tool-call-summary"
@@ -467,6 +478,7 @@ export default function Chat({
   const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
+  const referenceProjections = useReferenceProjections(sessionId)
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false)
   const [budgetDraft, setBudgetDraft] = useState('')
@@ -527,6 +539,45 @@ export default function Chat({
   const queued = snapshot?.runs.filter((run) => run.status === 'queued').sort((left, right) => left.createdAt - right.createdAt) ?? []
   const lastRun = snapshot?.runs[0]
   const totalSize = virtual.getTotalSize()
+  const referenceContext = useMemo<ReferenceContextItem[]>(() => {
+    const items: ReferenceContextItem[] = []
+    const selectedModel = catalog?.models.find((model) => model.id === modelId)
+    if (selectedModel) {
+      items.push({ id: 'model', label: t('model'), value: selectedModel.modelName, title: selectedModel.providerName })
+    }
+    if (snapshot) {
+      items.push({
+        id: 'tokens',
+        label: t('contextUsage'),
+        value: `${referenceProjections.usage.totalTokens.toLocaleString()} ${t('chatTokens')}`,
+        title: `${t('inputTokens')} + ${t('outputTokens')}`,
+      })
+    }
+    const approvalCount = referenceProjections.approval.approvals.filter((approval) => approval.status === 'pending').length
+    if (approvalCount > 0)
+      items.push({ id: 'approvals', label: t('approvals'), value: approvalCount, status: 'waiting' })
+    if (referenceProjections.plan.steps.length > 0) {
+      const completed = referenceProjections.plan.completed
+      items.push({
+        id: 'plan',
+        label: t('steps'),
+        value: `${completed}/${referenceProjections.plan.steps.length}`,
+        status: completed === referenceProjections.plan.steps.length ? 'success' : 'running',
+      })
+    }
+    if (referenceProjections.artifact.artifacts.length > 0)
+      items.push({ id: 'artifacts', label: t('pendingAttachments'), value: referenceProjections.artifact.artifacts.length })
+    if (referenceProjections.usage.budget) {
+      const budget = referenceProjections.usage.budget
+      items.push({
+        id: 'budget',
+        label: t('chatBudget'),
+        value: `${budget.usedTokens.toLocaleString()}/${budget.limit.toLocaleString()}`,
+        status: budget.remainingTokens === 0 ? 'error' : 'warning',
+      })
+    }
+    return items
+  }, [catalog?.models, modelId, referenceProjections, snapshot, t])
   const streamText = snapshot?.streams.map((stream) => stream.text.length + stream.thinking.length).join(',')
   const composerActions = useMemo(() => {
     const availability = {
@@ -808,7 +859,10 @@ export default function Chat({
     </div>
   ) : undefined
   return (
-    <div className="chat-panel">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-1', 'session-chat')}
+      className="chat-panel"
+    >
       <ChatSessionChrome
         sessionId={sessionId}
         session={sessionInfo}
@@ -817,6 +871,7 @@ export default function Chat({
         modelContext={catalog?.models.find((model) => model.id === modelId)?.modelName ?? modelId}
         thinkingContext={thinkingLevel}
         activeRun={activeRun}
+        referenceContext={referenceContext}
         view={view}
         showContext={view === 'chat'}
         onViewChange={onViewChange}
@@ -951,6 +1006,7 @@ export default function Chat({
             ))}
             {snapshot?.approvals.map((approval) => (
               <section
+                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-5', 'approval')}
                 className="approval rb-decision-surface"
                 key={approval.id}
                 aria-busy={resolvingApprovals.has(approval.id)}

@@ -28,13 +28,17 @@ export {
 } from './semantic'
 export {
   ReferenceMetricStrip,
+  ReferenceContextRail,
   ReferenceSectionHeader,
   ReferenceSurface,
   ReferenceTabs,
   referenceAttributes,
   type ReferenceMetric,
+  type ReferenceContextItem,
+  type ReferenceContextRailProps,
   type ReferenceMetricStripProps,
   type ReferenceSectionHeaderProps,
   type ReferenceSurfaceProps,
   type ReferenceTabsProps,
 } from './production'
+export { useReferenceProductionContext, useReferenceProjections } from './production-context'

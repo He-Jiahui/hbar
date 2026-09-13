@@ -7,7 +7,7 @@ import ModelPicker from './ModelPicker'
 import PermissionSelector from './PermissionSelector'
 import { IMAGE_ACCEPT } from './composer-actions'
 import GlassSurface from './react-bits/GlassSurface'
-import { ActionButton } from './react-bits'
+import { ActionButton, referenceAttributes } from './react-bits'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface } from './FloatingLayer'
 import { useLocale } from './locale'
@@ -204,6 +204,7 @@ export default function PromptComposer({
 
   return (
     <form
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-1', 'session-chat')}
       className={`composer rb-composer-surface rb-prompt-composer${dragActive ? ' is-drag-active' : ''}`}
       aria-label={t('messageComposer')}
       onSubmit={handleSubmit}
