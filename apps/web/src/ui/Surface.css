@@ -1,0 +1,265 @@
+.ui-surface {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: var(--hbar-s0);
+  color: var(--hbar-t1);
+}
+
+.ui-surface-raised {
+  background: var(--hbar-s1);
+  box-shadow: var(--dsh-shadow-panel);
+}
+
+.ui-surface-subtle {
+  background: var(--hbar-s2);
+}
+
+.ui-surface-accent {
+  border-color: var(--hbar-ac-border);
+  background: var(--hbar-ac-soft);
+}
+
+.ui-surface-danger {
+  border-color: var(--hbar-er);
+  background: var(--hbar-er-soft);
+}
+
+.ui-spotlight {
+  overflow: hidden;
+  isolation: isolate;
+  transition: border-color var(--dsh-motion-duration) var(--dsh-motion-easing), background-color var(--dsh-motion-duration) var(--dsh-motion-easing);
+}
+
+.ui-spotlight::before {
+  position: absolute;
+  z-index: -1;
+  top: var(--ui-spotlight-y, 50%);
+  left: var(--ui-spotlight-x, 50%);
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: var(--ui-spotlight-color);
+  content: '';
+  opacity: 0;
+  filter: blur(38px);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity var(--dsh-motion-duration) var(--dsh-motion-easing);
+}
+
+.ui-spotlight:hover::before,
+.ui-spotlight:focus-within::before {
+  opacity: 0.75;
+}
+
+.ui-icon-button {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--hbar-t2);
+}
+
+.ui-icon-button:hover:not(:disabled) {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.ui-glare-button {
+  position: relative;
+  min-height: 32px;
+  overflow: hidden;
+  padding: 6px 13px;
+  border: 1px solid var(--hbar-ac-border);
+  border-radius: var(--control-radius);
+  background: var(--hbar-ac);
+  color: var(--hbar-on-ac);
+  font-size: 12px;
+  font-weight: 600;
+  isolation: isolate;
+}
+
+.ui-glare-button::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 24%, color-mix(in srgb, var(--hbar-t1) 46%, transparent) 48%, transparent 72%);
+  content: '';
+  opacity: 0;
+  transform: translateX(-110%);
+  transition: opacity var(--dsh-motion-duration) var(--dsh-motion-easing), transform 450ms var(--dsh-motion-easing);
+  z-index: -1;
+}
+
+.ui-glare-button:hover:not(:disabled)::after {
+  opacity: 0.42;
+  transform: translateX(110%);
+}
+
+.ui-glare-quiet {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  color: var(--hbar-t1);
+}
+
+.ui-glare-danger {
+  border-color: var(--hbar-er);
+  background: var(--hbar-er-soft);
+  color: var(--hbar-er-ink);
+}
+
+.ui-animated-list {
+  min-width: 0;
+}
+
+.ui-animated-list-item {
+  min-width: 0;
+  animation: ui-list-in 260ms var(--dsh-motion-easing) both;
+  animation-delay: calc(var(--ui-list-index, 0) * 25ms);
+}
+
+@keyframes ui-list-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ui-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: var(--hbar-s0);
+}
+
+.ui-tabs button {
+  min-height: 29px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--hbar-t3);
+  font-size: 11px;
+}
+
+.ui-tabs button:hover:not(:disabled),
+.ui-tabs button.selected {
+  border-color: var(--hbar-bd2);
+  background: var(--hbar-s1);
+  box-shadow: inset 0 -2px 0 var(--hbar-ac);
+  color: var(--hbar-t1);
+}
+
+.ui-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.ui-metric {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: var(--hbar-s0);
+}
+
+.ui-metric dt,
+.ui-metric small {
+  overflow: hidden;
+  color: var(--hbar-t3);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-metric dd {
+  margin: 0;
+  color: var(--hbar-t1);
+  font: 600 15px var(--dsh-font-family-code);
+}
+
+.ui-metric-positive dd { color: var(--hbar-ok-ink); }
+.ui-metric-warning dd { color: var(--hbar-wn-ink); }
+.ui-metric-negative dd { color: var(--hbar-er-ink); }
+
+.ui-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 38px 18px;
+  color: var(--hbar-t3);
+  text-align: center;
+}
+
+.ui-empty-icon {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--hbar-bd);
+  border-radius: var(--radius-md);
+  background: var(--hbar-s1);
+  color: var(--hbar-ac2);
+}
+
+.ui-empty-state strong { color: var(--hbar-t1); font-size: 12px; font-weight: 600; }
+.ui-empty-state > span:not(.ui-empty-icon) { max-width: 32ch; font-size: 11px; line-height: 1.55; }
+
+.ui-timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 8px 12px;
+  list-style: none;
+}
+
+.ui-timeline-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 42px;
+}
+
+.ui-timeline-step:not(:last-child)::after {
+  position: absolute;
+  top: 14px;
+  bottom: 0;
+  left: 7px;
+  width: 1px;
+  background: var(--hbar-bd);
+  content: '';
+}
+
+.ui-timeline-marker {
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  border: 2px solid var(--hbar-bd2);
+  border-radius: 50%;
+  background: var(--hbar-s0);
+}
+
+.ui-timeline-step > div { display: grid; gap: 2px; min-width: 0; }
+.ui-timeline-step strong { color: var(--hbar-t2); font-size: 11px; font-weight: 500; }
+.ui-timeline-step small { color: var(--hbar-t3); font: 10px var(--dsh-font-family-code); }
+.ui-timeline-active .ui-timeline-marker { border-color: var(--hbar-ac); background: var(--hbar-ac-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hbar-ac) 16%, transparent); }
+.ui-timeline-complete .ui-timeline-marker { border-color: var(--hbar-ok); background: var(--hbar-ok-soft); }
+.ui-timeline-failed .ui-timeline-marker { border-color: var(--hbar-er); background: var(--hbar-er-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-animated-list-item,
+  .ui-glare-button::after { animation: none; transition: none; }
+}
+
