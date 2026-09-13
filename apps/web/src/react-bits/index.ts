@@ -105,3 +105,9 @@ export {
   type SessionSidebarSurfaceProps,
   type SessionSidebarWorkspaceGroup,
 } from './components/SessionSidebarSurface'
+export {
+  default as ActivitySurface,
+  type ActivitySurfaceLabels,
+  type ActivitySurfaceMode,
+  type ActivitySurfaceProps,
+} from './components/ActivitySurface'
