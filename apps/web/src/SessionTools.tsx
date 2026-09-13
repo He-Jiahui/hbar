@@ -24,6 +24,7 @@ import {
 } from './stores'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import { EmptyState, IconButton, MetricStrip, SpotlightSurface } from './ui'
 
 type PanelProps = { sessionId?: string }
 
@@ -37,23 +38,13 @@ function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof 
           {subtitle && <p>{subtitle}</p>}
         </div>
       </div>
-      {onRefresh && (
-        <button type="button" className="tool-surface-refresh" title="刷新" aria-label={`刷新${title}`} onClick={onRefresh}>
-          <RefreshCw size={14} />
-        </button>
-      )}
+      {onRefresh && <IconButton className="tool-surface-refresh" label={`刷新${title}`} onClick={onRefresh}><RefreshCw size={14} /></IconButton>}
     </header>
   )
 }
 
 function EmptyTool({ icon: Icon, title, body }: { icon: typeof Activity; title: string; body: string }) {
-  return (
-    <div className="tool-empty-state">
-      <Icon size={24} />
-      <strong>{title}</strong>
-      <span>{body}</span>
-    </div>
-  )
+  return <EmptyState className="tool-empty-state" icon={<Icon size={22} />} title={title} description={body} />
 }
 
 type BrowserStatus = { available: boolean; contexts: BrowserPage[]; history: string[] }
@@ -231,11 +222,11 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
           <section className="tool-detail-card">
             <h3>最近运行</h3>
             {snapshot.runs.slice(0, 8).map((run) => (
-              <div className="inspector-run" key={run.id}>
+            <SpotlightSurface className="inspector-run" key={run.id} spotlightColor="color-mix(in srgb, var(--hbar-ac) 20%, transparent)">
                 <span className={`inspector-dot ${run.status}`} />
                 <span>{run.input.text || '图片消息'}</span>
                 <small>{run.status}</small>
-              </div>
+            </SpotlightSurface>
             ))}
             {!snapshot.runs.length && <p className="tool-muted">暂无运行记录。</p>}
           </section>
@@ -257,7 +248,7 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
         <EmptyTool icon={ListChecks} title="尚未选择会话" body="选择会话后查看 Goal 和 Plan。" />
       ) : (
         <div className="tool-surface-body">
-          <section className="tool-detail-card goal-card">
+          <SpotlightSurface className="tool-detail-card goal-card" spotlightColor="color-mix(in srgb, var(--hbar-ac) 18%, transparent)">
             <div className="tool-section-label"><span><Target size={13} />Goal</span><button type="button" onClick={() => setDialog('goal')}><Target size={13} />编辑</button></div>
             {goal ? (
               <>
@@ -265,15 +256,15 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
                 <div className="goal-meta"><span>{goal.status}</span><span>{goal.tokensUsed.toLocaleString()} tokens</span></div>
               </>
             ) : <p className="tool-muted">当前会话没有活动 Goal。</p>}
-          </section>
-          <section className="tool-detail-card plan-card">
+          </SpotlightSurface>
+          <SpotlightSurface className="tool-detail-card plan-card" spotlightColor="color-mix(in srgb, var(--hbar-ok) 18%, transparent)">
             <div className="tool-section-label"><span><ListChecks size={13} />Plan</span><button type="button" onClick={() => setDialog('plan')}><ListChecks size={13} />编辑</button></div>
             {plan?.plan.length ? (
               <ol>
                 {plan.plan.map((step, index) => <li key={`${index}-${step.step}`} className={step.status}><span>{step.status === 'completed' ? <Check size={13} /> : index + 1}</span><p>{step.step}</p></li>)}
               </ol>
             ) : <p className="tool-muted">当前会话没有计划步骤。</p>}
-          </section>
+          </SpotlightSurface>
         </div>
       )}
       {dialog && sessionId && <SessionCapabilityDialog sessionId={sessionId} initialTab={dialog} onClose={() => setDialog(null)} />}
@@ -297,16 +288,19 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
         <EmptyTool icon={Activity} title="暂无会话数据" body="运行一次会话后查看洞察。" />
       ) : (
         <div className="tool-surface-body">
-          <div className="insight-kpis">
-            <div><span>输入</span><strong>{snapshot.usage.input.toLocaleString()}</strong></div>
-            <div><span>输出</span><strong>{snapshot.usage.output.toLocaleString()}</strong></div>
-            <div><span>运行</span><strong>{snapshot.runs.length.toLocaleString()}</strong></div>
-          </div>
-          <section className="tool-detail-card insight-chart">
+          <MetricStrip
+            className="insight-kpis"
+            metrics={[
+              { label: '输入', value: snapshot.usage.input.toLocaleString() },
+              { label: '输出', value: snapshot.usage.output.toLocaleString() },
+              { label: '运行', value: snapshot.runs.length.toLocaleString() },
+            ]}
+          />
+          <SpotlightSurface className="tool-detail-card insight-chart" spotlightColor="color-mix(in srgb, var(--hbar-teal) 18%, transparent)">
             <h3>工具调用</h3>
             {stats.map(([name, count]) => <div className="insight-row" key={name}><span>{name}</span><i><b style={{ width: `${Math.max(8, (count / max) * 100)}%` }} /></i><strong>{count}</strong></div>)}
             {!stats.length && <p className="tool-muted">暂无工具调用。</p>}
-          </section>
+          </SpotlightSurface>
         </div>
       )}
     </section>
