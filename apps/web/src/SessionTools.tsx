@@ -454,6 +454,7 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
         <div className="tool-surface-body">
           <ReferenceMetricStrip
             className="inspector-grid"
+            metricClassName="inspector-metric"
             reference="https://pro.reactbits.dev/docs/app-ui/dashboard"
             adapter="activity"
             metrics={[
@@ -649,6 +650,7 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
         <div className="tool-surface-body">
           <ReferenceMetricStrip
             className="insight-kpis"
+            metricClassName="insight-kpi"
             reference="https://pro.reactbits.dev/docs/app-ui/ai-usage"
             adapter="usage"
             metrics={[

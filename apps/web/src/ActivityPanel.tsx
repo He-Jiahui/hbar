@@ -195,6 +195,7 @@ export default function ActivityPanel() {
           )}
           <ReferenceMetricStrip
             className="metrics"
+            metricClassName="activity-metric"
             reference="https://pro.reactbits.dev/docs/app-ui/ai-usage"
             adapter="usage"
             metrics={[

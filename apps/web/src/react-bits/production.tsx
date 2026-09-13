@@ -140,10 +140,16 @@ export interface ReferenceMetricStripProps {
   reference: string
   adapter?: string
   className?: string
+  /**
+   * Preserve a feature-specific card hook while sharing the ReactBits metric
+   * surface. Existing workbench selectors and local layout rules rely on
+   * these hooks (for example activity-metric and inspector-metric).
+   */
+  metricClassName?: string
 }
 
 /** Metric/card strip shared by AI usage, activity, dashboards and inspectors. */
-export function ReferenceMetricStrip({ metrics, reference, adapter, className = '' }: ReferenceMetricStripProps) {
+export function ReferenceMetricStrip({ metrics, reference, adapter, className = '', metricClassName = '' }: ReferenceMetricStripProps) {
   return (
     <div
       {...referenceAttributes(reference, adapter)}
@@ -151,7 +157,7 @@ export function ReferenceMetricStrip({ metrics, reference, adapter, className = 
     >
       {metrics.map((metric) => (
         <SpotlightCard
-          className="rb-reference-metric"
+          className={`rb-reference-metric${metricClassName ? ` ${metricClassName}` : ''}`}
           key={metric.id}
           spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
         >
