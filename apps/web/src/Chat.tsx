@@ -2,20 +2,12 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowDown,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Copy,
   FileCode2,
-  LoaderCircle,
   Pause,
   Play,
-  ShieldCheck,
-  Square,
-  Wrench,
   X,
 } from 'lucide-react'
-import type { ArtifactRef, ContentBlock, GitInfo, GoalStatus, Message, Run, UserInput, UserInputRequest } from '@hbar/contracts'
+import type { ArtifactRef, GitInfo, GoalStatus, Run, UserInput } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
   acknowledgeComposerDraft,
@@ -38,15 +30,26 @@ import { buildComposerActions } from './composer-actions'
 import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import { clearBudget, clearGoal, createGoal, setBudget, setGoal, setGoalArmed, setMode, setUnattended, useSessionCapabilities } from './session-capabilities'
-import GlassSurface from './react-bits/GlassSurface'
-import GlareButton from './react-bits/GlareButton'
-import SpotlightCard from './react-bits/SpotlightCard'
 import PromptComposer, { type AttachmentKind, type OpenFilePicker } from './PromptComposer'
 import ChatSessionChrome from './ChatSessionChrome'
 import GitContextSwitcher from './GitContextSwitcher'
 import TerminalPanel from './TerminalPanel'
 import { useReferenceProjections } from './react-bits/production-context'
-import { referenceAttributes, type ReferenceContextItem } from './react-bits'
+import {
+  ChatApprovalSurface,
+  ChatMessageSurface,
+  ChatQueueSurface,
+  ChatStreamSurface,
+  RunOutcomeSurface,
+  UserInputSurface,
+  referenceAttributes,
+  type ChatApprovalSurfaceLabels,
+  type ChatMessageSurfaceLabels,
+  type ChatQueueSurfaceLabels,
+  type ReferenceContextItem,
+  type RunOutcomeSurfaceLabels,
+  type UserInputSurfaceLabels,
+} from './react-bits'
 import { useLocale, type LocaleMessageKey } from './locale'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
@@ -63,166 +66,6 @@ function goalStatusLabel(status: GoalStatus, t: Translate) {
   }[status]
 }
 
-function QueuedRunList({
-  runs,
-  activeRun,
-  onStopActive,
-  onEdit,
-  onRemove,
-  onReorder,
-}: {
-  runs: readonly Run[]
-  activeRun?: Run | undefined
-  onStopActive(): void
-  onEdit(run: Run): void
-  onRemove(run: Run): void
-  onReorder(runIds: string[]): void
-}) {
-  const { t } = useLocale()
-  const [draggedId, setDraggedId] = useState<string | null>(null)
-  const [dragOverId, setDragOverId] = useState<string | null>(null)
-  if (!runs.length) return null
-  return (
-    <section
-      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-6', 'activity')}
-      className="queue-panel rb-queue-surface"
-      aria-label={t('chatQueueAria')}
-    >
-      <GlassSurface className="queue-glass" width="100%" height="100%" aria-hidden="true" />
-      <header className="queue-panel-heading">
-        <div>
-          <strong>{runs.length} {t('chatQueueCount')}</strong>
-          <small>{t('chatQueueAutoSend')}</small>
-        </div>
-        {activeRun && (
-          <button type="button" className="queue-continue" onClick={onStopActive}>
-            {t('chatQueueContinue')}
-          </button>
-        )}
-      </header>
-      <ol className="queue-list">
-        {runs.map((run, index) => (
-          <li
-            key={run.id}
-            draggable
-            className={`queue-item ${dragOverId === run.id ? 'drag-over' : ''}`}
-            onDragStart={() => setDraggedId(run.id)}
-            onDragOver={(event) => {
-              event.preventDefault()
-              setDragOverId(run.id)
-            }}
-            onDragEnd={() => {
-              setDraggedId(null)
-              setDragOverId(null)
-            }}
-            onDrop={(event) => {
-              event.preventDefault()
-              if (!draggedId || draggedId === run.id) return
-              const ids = runs.map((item) => item.id).filter((id) => id !== draggedId)
-              const targetIndex = ids.indexOf(run.id)
-              ids.splice(Math.max(0, targetIndex), 0, draggedId)
-              onReorder(ids)
-              setDraggedId(null)
-              setDragOverId(null)
-            }}
-          >
-            <span className="queue-item-index">{index + 1}</span>
-            <span className="queue-item-grip" aria-hidden="true">⋮⋮</span>
-            <span className="queue-item-text">{run.input.text || t('chatAttachmentMessage')}</span>
-            <div className="queue-item-actions">
-              <button type="button" title={t('chatEditQueued')} aria-label={t('chatEditQueued')} onClick={() => onEdit(run)}>
-                {t('chatEdit')}
-              </button>
-              <button type="button" title={t('chatRemoveQueued')} aria-label={t('chatRemoveQueued')} onClick={() => onRemove(run)}>
-                {t('chatRemove')}
-              </button>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
-  )
-}
-
-function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_result' }> }) {
-  const { t } = useLocale()
-  const [open, setOpen] = useState(false),
-    [diff, setDiff] = useState<'after' | 'before'>('after')
-  const details = block.details as { before?: string; after?: string; path?: string } | undefined
-  return (
-    <SpotlightCard
-      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-2', 'session-chat')}
-      className={`tool-result ${block.isError ? 'tool-failed' : ''}`}
-      spotlightColor={
-        block.isError
-          ? 'color-mix(in srgb, var(--hbar-er) 24%, transparent)'
-          : 'color-mix(in srgb, var(--rb-accent) 22%, transparent)'
-      }
-    >
-      <button className="tool-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <Wrench size={13} />
-        <span>{block.name}</span>
-        <span className="tool-path">{details?.path ?? block.text.split('\n')[0]?.slice(0, 90)}</span>
-        {block.isError ? <X size={13} className="danger" /> : <Check size={13} className="success" />}
-      </button>
-      {open && (
-        <div className="tool-content">
-          {details?.after !== undefined ? (
-            <>
-              <div className="segmented">
-                <button className={diff === 'before' ? 'selected' : ''} onClick={() => setDiff('before')}>
-                  {t('chatBefore')}
-                </button>
-                <button className={diff === 'after' ? 'selected' : ''} onClick={() => setDiff('after')}>
-                  {t('chatAfter')}
-                </button>
-                <span>{details.path}</span>
-              </div>
-              <Suspense fallback={<pre>{details[diff]}</pre>}>
-                <CodeEditor value={details[diff] ?? ''} />
-              </Suspense>
-            </>
-          ) : (
-            <pre>{block.text}</pre>
-          )}
-        </div>
-      )}
-    </SpotlightCard>
-  )
-}
-
-function ToolCallView({ block }: { block: Extract<ContentBlock, { type: 'tool_call' }> }) {
-  const { t } = useLocale()
-  const [open, setOpen] = useState(false)
-  const argumentSummary = String(block.args.path ?? block.args.command ?? '').slice(0, 160)
-  return (
-    <SpotlightCard
-      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls', 'session-chat')}
-      className="tool-call"
-      spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"
-    >
-      <button
-        type="button"
-        className="tool-call-summary"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <Wrench size={13} />
-        <span>{block.name}</span>
-        <code>{argumentSummary || t('chatCallArguments')}</code>
-      </button>
-      {open && (
-        <div className="tool-call-content">
-          <span>{t('chatArguments')}</span>
-          <pre>{JSON.stringify(block.args, null, 2)}</pre>
-        </div>
-      )}
-    </SpotlightCard>
-  )
-}
-
 function approvalSummary(tool: string, args: Record<string, unknown>): string {
   if (typeof args.path === 'string') return `${tool} · ${args.path}`
   if (typeof args.command === 'string') return `${tool} · ${args.command}`
@@ -237,225 +80,6 @@ function approvalImpact(tool: string, t: Translate): string {
   return t('chatApprovalConfirmImpact')
 }
 
-function UserInputPrompt({ request }: { request: UserInputRequest }) {
-  const { t } = useLocale()
-  const [selected, setSelected] = useState<Record<string, string>>({})
-  const [other, setOther] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  async function submit() {
-    const answers = Object.fromEntries(
-      request.questions.map((question) => {
-        const value = question.options?.length
-          ? selected[question.id] === '__other__'
-            ? other[question.id]
-            : selected[question.id]
-          : other[question.id]
-        return [question.id, { answers: value?.trim() ? [value.trim()] : [] }]
-      }),
-    )
-    if (request.questions.some((question) => !answers[question.id]?.answers.length)) {
-      setError(t('chatAnswerAllQuestions'))
-      return
-    }
-    setError('')
-    setSaving(true)
-    try {
-      const result = await client().call('user_input.resolve', { requestId: request.requestId, answers })
-      if (!result.accepted) setError(t('chatInputHandled'))
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-    } finally {
-      setSaving(false)
-    }
-  }
-  return (
-    <section
-      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-approval', 'approval')}
-      className="user-input-prompt rb-decision-surface"
-      aria-label={t('chatUserInputRequired')}
-      aria-busy={saving}
-    >
-      <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
-      <div className="user-input-heading">
-        <strong>{t('chatUserInputRequired')}</strong>
-        <span>{request.questions.length} {t('chatQuestionsCount')}</span>
-      </div>
-      <div className="user-input-questions">
-        {request.questions.map((question) => (
-          <fieldset key={question.id}>
-            <legend>
-              <span>{question.header}</span>
-              {question.question}
-            </legend>
-            <div className="user-input-options">
-              {question.options?.map((option) => (
-                <label key={option.label} className="user-input-option">
-                  <input
-                    type="radio"
-                    name={`${request.requestId}:${question.id}`}
-                    value={option.label}
-                    checked={selected[question.id] === option.label}
-                    disabled={saving}
-                    onChange={() => setSelected((current) => ({ ...current, [question.id]: option.label }))}
-                  />
-                  <span>
-                    <strong>{option.label}{option.recommended ? `（${t('chatRecommended')}）` : ''}</strong>
-                    <small>{option.description}</small>
-                  </span>
-                </label>
-              ))}
-              {question.options?.length ? (
-                question.isOther !== false && (
-                  <label className="user-input-option">
-                    <input
-                      type="radio"
-                      name={`${request.requestId}:${question.id}`}
-                      value="__other__"
-                      checked={selected[question.id] === '__other__'}
-                      disabled={saving}
-                      onChange={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
-                    />
-                    <span>
-                      <strong>{t('chatOther')}</strong>
-                      {selected[question.id] === '__other__' && (
-                        <input
-                          autoFocus
-                          aria-label={`${question.header} ${t('chatOtherAnswer')}`}
-                          type={question.isSecret ? 'password' : 'text'}
-                          value={other[question.id] ?? ''}
-                          disabled={saving}
-                          placeholder={t('chatFillOtherAnswer')}
-                          onChange={(event) =>
-                            setOther((current) => ({ ...current, [question.id]: event.target.value }))
-                          }
-                        />
-                      )}
-                    </span>
-                  </label>
-                )
-              ) : (
-                <label className="user-input-option user-input-freeform">
-                  <span>
-                    <strong>{t('chatFillAnswer')}</strong>
-                    <input
-                      aria-label={`${question.header} ${t('chatAnswer')}`}
-                      type={question.isSecret ? 'password' : 'text'}
-                      value={other[question.id] ?? ''}
-                      disabled={saving}
-                      onChange={(event) => setOther((current) => ({ ...current, [question.id]: event.target.value }))}
-                    />
-                  </span>
-                </label>
-              )}
-            </div>
-          </fieldset>
-        ))}
-      </div>
-      {error && (
-        <p className="inline-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="user-input-actions">
-        <GlareButton type="button" className="button primary" disabled={saving} onClick={() => void submit()}>
-          {saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
-          {t('chatSubmitAnswers')}
-        </GlareButton>
-      </div>
-    </section>
-  )
-}
-function MessageView({ message }: { message: Message }) {
-  const { t } = useLocale()
-  const [copied, setCopied] = useState(false)
-  const text = message.content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-  const messageContent = message.content.map((block, index) => {
-    if (block.type === 'text') return <Markdown key={index} text={block.text} />
-    if (block.type === 'thinking')
-      return (
-        <details className="thinking rb-thinking-surface" key={index}>
-          <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
-          <summary>{t('chatThinking')}</summary>
-          <Markdown text={block.text} />
-        </details>
-      )
-    if (block.type === 'image')
-      return (
-        <a key={index} href={client().artifactUrl(block.artifact.id)} target="_blank" rel="noreferrer">
-          <img
-            className="attachment-image"
-            src={client().artifactUrl(block.artifact.id)}
-            alt={block.artifact.name}
-            loading="lazy"
-          />
-        </a>
-      )
-    if (block.type === 'file')
-      return (
-        <a
-          className="attachment-file"
-          key={index}
-          href={client().artifactUrl(block.artifact.id)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <FileCode2 size={15} />
-          <span>{block.artifact.name}</span>
-        </a>
-      )
-    if (block.type === 'tool_call') return <ToolCallView key={index} block={block} />
-    return <ToolResult key={index} block={block} />
-  })
-  return (
-    <article
-      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-1', 'session-chat')}
-      className={`message message-${message.role}`}
-      data-message-id={message.id}
-    >
-      {message.role !== 'tool' && (
-        <div className="message-heading">
-          <span className={`avatar ${message.role === 'user' ? 'avatar-user' : ''}`}>
-            {message.role === 'user' ? 'U' : 'h'}
-          </span>
-          <span>{message.role === 'user' ? t('chatYou') : 'hbar'}</span>
-          <time>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-        </div>
-      )}
-      {message.role === 'user' ? (
-        <SpotlightCard
-          className="message-body rb-message-user-surface"
-          spotlightColor="color-mix(in srgb, var(--rb-accent) 24%, transparent)"
-        >
-          {messageContent}
-        </SpotlightCard>
-      ) : (
-        <div className="message-body">{messageContent}</div>
-      )}
-      {text && message.role !== 'tool' && (
-        <div className="message-actions">
-          <button
-            title={t('chatCopyMessage')}
-            aria-label={t('chatCopyMessage')}
-            onClick={() => {
-              void copyText(text)
-                .then(() => {
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 1200)
-                })
-                .catch(report)
-            }}
-          >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-          </button>
-        </div>
-      )}
-    </article>
-  )
-}
 export default function Chat({
   sessionId = '',
   onSettings,
@@ -622,6 +246,50 @@ export default function Chat({
       return { ...action, ...localized, ...(disabledReason ? { disabledReason } : {}) }
     })
   }, [catalog?.models, catalog?.plugins, contributedActions, modelId, sessionId, t])
+  const messageLabels: ChatMessageSurfaceLabels = {
+    thinking: t('chatThinking'),
+    you: t('chatYou'),
+    copyMessage: t('chatCopyMessage'),
+    before: t('chatBefore'),
+    after: t('chatAfter'),
+    arguments: t('chatArguments'),
+    callArguments: t('chatCallArguments'),
+  }
+  const queueLabels: ChatQueueSurfaceLabels = {
+    queueAria: t('chatQueueAria'),
+    queueCount: t('chatQueueCount'),
+    queueAutoSend: t('chatQueueAutoSend'),
+    queueContinue: t('chatQueueContinue'),
+    editQueued: t('chatEditQueued'),
+    removeQueued: t('chatRemoveQueued'),
+    edit: t('chatEdit'),
+    remove: t('chatRemove'),
+    attachmentMessage: t('chatAttachmentMessage'),
+  }
+  const approvalLabels: ChatApprovalSurfaceLabels = {
+    approveTool: t('chatApproveTool'),
+    viewRequest: t('chatViewRequest'),
+    deny: t('chatDeny'),
+    approve: t('chatApprove'),
+    allowRemember: t('chatAllowRemember'),
+  }
+  const userInputLabels: UserInputSurfaceLabels = {
+    userInputRequired: t('chatUserInputRequired'),
+    questionsCount: t('chatQuestionsCount'),
+    recommended: t('chatRecommended'),
+    other: t('chatOther'),
+    otherAnswer: t('chatOtherAnswer'),
+    fillOtherAnswer: t('chatFillOtherAnswer'),
+    fillAnswer: t('chatFillAnswer'),
+    answer: t('chatAnswer'),
+    submitAnswers: t('chatSubmitAnswers'),
+    answerAllQuestions: t('chatAnswerAllQuestions'),
+    inputHandled: t('chatInputHandled'),
+  }
+  const outcomeLabels: RunOutcomeSurfaceLabels = {
+    stopped: t('chatStopped'),
+    editAgain: t('chatEditAgain'),
+  }
   useEffect(() => {
     stick.current = true
     setAtBottom(true)
@@ -955,54 +623,41 @@ export default function Chat({
                     transform: `translateY(${item.start}px)`,
                   }}
                 >
-                  <MessageView message={messages[item.index]!} />
+                  <ChatMessageSurface
+                    message={messages[item.index]!}
+                    labels={messageLabels}
+                    artifactUrl={(id) => client().artifactUrl(id)}
+                    renderMarkdown={(text) => <Markdown text={text} />}
+                    renderCode={(value) => (
+                      <Suspense fallback={<pre>{value}</pre>}>
+                        <CodeEditor value={value} />
+                      </Suspense>
+                    )}
+                    onCopy={(text) => copyText(text).catch(report)}
+                  />
                 </div>
               ))}
             </div>
             {snapshot?.streams.map((stream) => (
-              <article
-                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-1', 'session-chat')}
-                className="message message-assistant"
+              <ChatStreamSurface
                 key={stream.id}
-              >
-                <div className="message-heading">
-                  <span className="avatar">h</span>
-                  <span>hbar</span>
-                  <LoaderCircle size={13} className="spinning" />
-                </div>
-                <div className="message-body">
-                  {stream.thinking && (
-                    <details className="thinking rb-thinking-surface">
-                      <GlassSurface className="thinking-glass" width="100%" height="100%" aria-hidden="true" />
-                      <summary>{t('chatThinking')}</summary>
-                      <Markdown text={stream.thinking} streaming />
-                    </details>
-                  )}
-                  <Markdown text={stream.text} streaming />
-                </div>
-              </article>
+                stream={stream}
+                thinkingLabel={t('chatThinking')}
+                renderMarkdown={(text) => <Markdown text={text} streaming />}
+              />
             ))}
             {lastRun && ['failed', 'interrupted', 'cancelled'].includes(lastRun.status) && (
-              <div
-                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-2', 'session-chat')}
-                className={`run-outcome rb-run-outcome-surface ${lastRun.status === 'cancelled' ? '' : 'danger'}`}
-              >
-                <GlassSurface className="run-outcome-glass" width="100%" height="100%" aria-hidden="true" />
-                <Square size={12} />
-                <span className="run-outcome-copy">{lastRun.status === 'cancelled' ? t('chatStopped') : lastRun.error}</span>
-                <button
-                  className="text-command"
-                  onClick={() => {
-                    setDraft(lastRun.input.text)
-                    updateComposerDraft(sessionId, {
-                      images: lastRun.input.images,
-                      files: lastRun.input.files ?? [],
-                    })
-                  }}
-                >
-                  {t('chatEditAgain')}
-                </button>
-              </div>
+              <RunOutcomeSurface
+                run={lastRun}
+                labels={outcomeLabels}
+                onEdit={() => {
+                  setDraft(lastRun.input.text)
+                  updateComposerDraft(sessionId, {
+                    images: lastRun.input.images,
+                    files: lastRun.input.files ?? [],
+                  })
+                }}
+              />
             )}
             <div className="conversation-tail" />
           </div>
@@ -1024,71 +679,26 @@ export default function Chat({
             className="composer-area"
           >
             {(snapshot?.userInputs ?? []).map((request) => (
-              <UserInputPrompt key={request.requestId} request={request} />
+              <UserInputSurface
+                key={request.requestId}
+                request={request}
+                labels={userInputLabels}
+                resolve={(answers) => client().call('user_input.resolve', { requestId: request.requestId, answers })}
+              />
             ))}
             {snapshot?.approvals.map((approval) => (
-              <section
-                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-5', 'approval')}
-                className="approval rb-decision-surface"
+              <ChatApprovalSurface
                 key={approval.id}
-                aria-busy={resolvingApprovals.has(approval.id)}
-              >
-                <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
-                <div className="approval-heading">
-                  <ShieldCheck size={16} />
-                  <strong>{t('chatApproveTool')}</strong>
-                  <code>{approval.tool}</code>
-                </div>
-                <div className="approval-target">
-                  <p className="approval-impact">{approvalImpact(approval.tool, t)}</p>
-                  <strong>{approvalSummary(approval.tool, approval.args)}</strong>
-                  <details>
-                    <summary>{t('chatViewRequest')}</summary>
-                    <pre>{JSON.stringify(approval.args, null, 2)}</pre>
-                  </details>
-                </div>
-                <div className="approval-actions">
-                  <button
-                    className="button"
-                    disabled={resolvingApprovals.has(approval.id)}
-                    onClick={() => void resolveApproval(approval.id, 'denied')}
-                  >
-                    {resolvingApprovals.has(approval.id) ? (
-                      <LoaderCircle size={14} className="spinning" />
-                    ) : (
-                      <X size={14} />
-                    )}
-                    {t('chatDeny')}
-                  </button>
-                  <GlareButton
-                    className="button primary"
-                    disabled={resolvingApprovals.has(approval.id)}
-                    onClick={() => void resolveApproval(approval.id, 'allowed')}
-                    glareColor="color-mix(in srgb, var(--hbar-ok) 62%, transparent)"
-                  >
-                    {resolvingApprovals.has(approval.id) ? (
-                      <LoaderCircle size={14} className="spinning" />
-                    ) : (
-                      <Check size={14} />
-                    )}
-                    {t('chatApprove')}
-                  </GlareButton>
-                  <button
-                    className="button approval-remember"
-                    disabled={resolvingApprovals.has(approval.id)}
-                    onClick={() => void resolveApproval(approval.id, 'allowed', true)}
-                  >
-                    {resolvingApprovals.has(approval.id) ? (
-                      <LoaderCircle size={14} className="spinning" />
-                    ) : (
-                      <ShieldCheck size={14} />
-                    )}
-                    {t('chatAllowRemember')}
-                  </button>
-                </div>
-              </section>
+                approval={approval}
+                labels={approvalLabels}
+                impact={approvalImpact(approval.tool, t)}
+                summary={approvalSummary(approval.tool, approval.args)}
+                resolving={resolvingApprovals.has(approval.id)}
+                onResolve={(decision, remember = false) => resolveApproval(approval.id, decision, remember)}
+              />
             ))}
-            <QueuedRunList
+            <ChatQueueSurface
+              labels={queueLabels}
               runs={queued}
               activeRun={activeRun}
               onStopActive={() => {
