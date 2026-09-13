@@ -113,6 +113,7 @@
         "@hbar/contracts": "workspace:*",
         "@hbar/terminal": "workspace:*",
         "@hbar/ui-sdk": "workspace:*",
+        "hbar-app-ui": "workspace:*",
       },
     },
     "packages/client": {

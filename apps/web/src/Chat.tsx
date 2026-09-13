@@ -44,6 +44,7 @@ import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import { HbarAppUiSpotlight, HbarAppUiStatus } from 'hbar-app-ui'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -52,7 +53,7 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
     [diff, setDiff] = useState<'after' | 'before'>('after')
   const details = block.details as { before?: string; after?: string; path?: string } | undefined
   return (
-    <div className={`tool-result ${block.isError ? 'tool-failed' : ''}`}>
+    <HbarAppUiSpotlight className={`tool-result ${block.isError ? 'tool-failed' : ''}`}>
       <button className="tool-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <Wrench size={13} />
@@ -82,7 +83,7 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
           )}
         </div>
       )}
-    </div>
+    </HbarAppUiSpotlight>
   )
 }
 function approvalSummary(tool: string, args: Record<string, unknown>): string {
@@ -641,11 +642,12 @@ export default function Chat({
           <UserInputPrompt key={request.requestId} request={request} />
         ))}
         {snapshot?.approvals.map((approval) => (
-          <section className="approval" key={approval.id}>
+          <HbarAppUiSpotlight className="approval" key={approval.id}>
             <div className="approval-heading">
               <ShieldCheck size={16} />
               <strong>批准工具调用</strong>
               <code>{approval.tool}</code>
+              <HbarAppUiStatus value="需要决定" tone="warning" />
             </div>
             <div className="approval-target">
               <strong>{approvalSummary(approval.tool, approval.args)}</strong>
@@ -686,7 +688,7 @@ export default function Chat({
                 允许并记住
               </button>
             </div>
-          </section>
+          </HbarAppUiSpotlight>
         ))}
         {queued.length > 0 && (
           <div className="queue-strip">
@@ -703,7 +705,8 @@ export default function Chat({
             </button>
           </div>
         )}
-        <form
+        <HbarAppUiSpotlight
+          as="form"
           className="composer"
           onSubmit={(event) => {
             event.preventDefault()
@@ -724,8 +727,8 @@ export default function Chat({
               </span>
             )}
           </div>
-          {(images.length > 0 || files.length > 0) && (
-            <div className="attachment-strip">
+            {(images.length > 0 || files.length > 0) && (
+              <div className="attachment-strip">
               {images.map((image) => (
                 <div className="attachment-chip" key={image.id}>
                   <img src={client().artifactUrl(image.id)} alt={image.name} />
@@ -754,9 +757,9 @@ export default function Chat({
                   </button>
                 </div>
               ))}
-            </div>
-          )}
-          <textarea
+              </div>
+            )}
+            <textarea
             aria-label="消息"
             placeholder={sessionInfo?.archived ? '会话已归档' : '发送消息…'}
             disabled={sessionInfo?.archived}
@@ -775,8 +778,8 @@ export default function Chat({
                 void send()
               }
             }}
-          />
-          <div className="composer-toolbar">
+            />
+            <div className="composer-toolbar">
             <div className="composer-left">
               <ComposerMenu actions={composerActions} onSelect={selectComposerAction} />
               <input
@@ -819,8 +822,8 @@ export default function Chat({
                 {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
               </button>
             </div>
-          </div>
-        </form>
+            </div>
+        </HbarAppUiSpotlight>
         <div className="composer-footer">
           <span className="composer-footer-model">
             {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}

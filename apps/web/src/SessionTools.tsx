@@ -24,6 +24,7 @@ import {
 } from './stores'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import { HbarAppUiEmptyState } from 'hbar-app-ui'
 
 type PanelProps = { sessionId?: string }
 
@@ -49,9 +50,7 @@ function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof 
 function EmptyTool({ icon: Icon, title, body }: { icon: typeof Activity; title: string; body: string }) {
   return (
     <div className="tool-empty-state">
-      <Icon size={24} />
-      <strong>{title}</strong>
-      <span>{body}</span>
+      <HbarAppUiEmptyState icon={<Icon size={24} />} title={title} description={body} />
     </div>
   )
 }

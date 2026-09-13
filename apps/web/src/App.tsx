@@ -52,6 +52,7 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
+import { HbarAppUiEmptyState, HbarAppUiMetricStrip, HbarAppUiSpotlight, HbarAppUiTabs } from 'hbar-app-ui'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -236,7 +237,7 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
       </div>
       <div className="session-list">
         {sessions.map((session) => (
-          <div className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id}>
+          <HbarAppUiSpotlight className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id}>
             <button
               className="session-select"
               onClick={() => onSelect(session.id)}
@@ -275,7 +276,7 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
                 <Archive size={12} />
               </button>
             </div>
-          </div>
+          </HbarAppUiSpotlight>
         ))}
         {!sessions.length && (
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
@@ -405,42 +406,30 @@ function ActivityPanel() {
   const usage = snapshot?.usage
   return (
     <div className="activity-panel">
-      <div className="tool-panel-tabs">
-        <button className={mode === 'activity' ? 'selected' : ''} onClick={() => setMode('activity')}>
-          运行
-        </button>
-        <button className={mode === 'trace' ? 'selected' : ''} onClick={() => setMode('trace')}>
-          事件
-        </button>
-      </div>
+      <HbarAppUiTabs
+        label="活动视图"
+        value={mode}
+        options={[{ id: 'activity', label: '运行' }, { id: 'trace', label: '事件' }]}
+        onChange={(value) => setMode(value as 'activity' | 'trace')}
+      />
       {mode === 'activity' ? (
         <>
           <div className="activity-heading">
             <h2>当前会话</h2>
             <span className="small-muted">{snapshot?.runs.length ?? 0} runs</span>
           </div>
-          <dl className="metrics">
-            <div>
-              <dt>输入 tokens</dt>
-              <dd>{(usage?.input ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>输出 tokens</dt>
-              <dd>{(usage?.output ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>缓存读取</dt>
-              <dd>{(usage?.cacheRead ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>费用</dt>
-              <dd>${(usage?.cost ?? 0).toFixed(4)}</dd>
-            </div>
-          </dl>
+          <HbarAppUiMetricStrip
+            metrics={[
+              { label: '输入 tokens', value: (usage?.input ?? 0).toLocaleString() },
+              { label: '输出 tokens', value: (usage?.output ?? 0).toLocaleString() },
+              { label: '缓存读取', value: (usage?.cacheRead ?? 0).toLocaleString() },
+              { label: '费用', value: `$${(usage?.cost ?? 0).toFixed(4)}` },
+            ]}
+          />
           <div className="section-label">运行记录</div>
           <div className="run-list">
             {snapshot?.runs.map((run) => (
-              <div className="run-row" key={run.id}>
+              <HbarAppUiSpotlight className="run-row" key={run.id}>
                 <i className={`status-dot ${run.status}`} />
                 <div>
                   <strong>{run.input.text.slice(0, 65) || '图片消息'}</strong>
@@ -458,14 +447,11 @@ function ActivityPanel() {
                     <Square size={12} />
                   </button>
                 )}
-              </div>
+              </HbarAppUiSpotlight>
             ))}
           </div>
           {!snapshot?.runs.length && (
-            <div className="empty-tool">
-              <Activity size={25} />
-              <span>尚无运行记录</span>
-            </div>
+            <HbarAppUiEmptyState icon={<Activity size={25} />} title="尚无运行记录" description="当前会话还没有可查看的运行历史。" />
           )}
         </>
       ) : (

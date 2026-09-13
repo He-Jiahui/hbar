@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useState, type ButtonHTMLAttributes, type ElementType, type HTMLAttributes, type ReactNode } from 'react'
 import type { HbarAppUiDataRow, HbarAppUiMetric, HbarAppUiOption, HbarAppUiTimelineStep } from './types'
 
 export function HbarAppUiSurface({ className = '', children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props} className={`hbar-app-ui-surface${className ? ` ${className}` : ''}`}>{children}</div>
 }
 
-export function HbarAppUiSpotlight({ className = '', children, ...props }: HTMLAttributes<HTMLDivElement>) {
-  const ref = useRef<HTMLDivElement>(null)
+type HbarAppUiSpotlightProps = HTMLAttributes<HTMLElement> & { readonly as?: 'div' | 'form' | 'section' }
+
+export function HbarAppUiSpotlight({ as = 'div', className = '', children, ...props }: HbarAppUiSpotlightProps) {
+  const Element: ElementType = as
   return (
-    <div
+    <Element
       {...props}
-      ref={ref}
       className={`hbar-app-ui-spotlight${className ? ` ${className}` : ''}`}
       onPointerMove={(event) => {
         const rect = event.currentTarget.getBoundingClientRect()
@@ -20,7 +21,7 @@ export function HbarAppUiSpotlight({ className = '', children, ...props }: HTMLA
       }}
     >
       {children}
-    </div>
+    </Element>
   )
 }
 

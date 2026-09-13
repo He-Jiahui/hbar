@@ -7,6 +7,7 @@
     "@hbar/client": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/terminal": "workspace:*",
-    "@hbar/ui-sdk": "workspace:*"
+    "@hbar/ui-sdk": "workspace:*",
+    "hbar-app-ui": "workspace:*"
   }
 }
