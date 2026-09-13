@@ -1,7 +1,18 @@
-import { ActivityBlueprint as Fixture } from '../../ReferenceBlueprints'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { ArrowDownToLine, Pause, Play, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { reportFixtureClick } from '../../reference-interactions'
+import './monitoring-5.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/monitoring/monitoring-5. */
 export default function Monitoring5(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+  const [level, setLevel] = useState('All')
+  const [following, setFollowing] = useState(true)
+  const [paused, setPaused] = useState(false)
+  const [query, setQuery] = useState('')
+  const lines = [
+    ['09:04:42', 'debug', 'edge-proxy', 'upstream health probe ok'], ['09:04:49', 'warn', 'search-api', 'embeddings index read latency 1.9s'], ['09:04:56', 'info', 'api-gateway', 'GET /v2/orders 200 in 42ms'], ['09:05:03', 'debug', 'catalog-api', 'cache warm complete for tenant 4821'], ['09:05:10', 'warn', 'invoice-worker', 'vendor responded 503, scheduling retry 2 of 5'], ['09:05:17', 'info', 'payments-edge', 'charge authorised for ORD-99214'], ['09:05:24', 'error', 'payments-edge', 'charge timed out after 8s, releasing the hold'], ['09:05:31', 'info', 'search-api', 'reindex batch 18/64 committed'], ['09:05:38', 'debug', 'edge-proxy', 'upstream health probe ok'], ['09:05:45', 'warn', 'search-api', 'embeddings index read latency 1.9s'], ['09:05:52', 'info', 'api-gateway', 'GET /v2/orders 200 in 42ms'], ['09:05:59', 'debug', 'catalog-api', 'cache warm complete for tenant 4821'], ['09:06:06', 'warn', 'invoice-worker', 'vendor responded 503, scheduling retry 2 of 5'], ['09:06:13', 'info', 'payments-edge', 'charge authorised for ORD-99214'], ['09:06:20', 'error', 'payments-edge', 'charge timed out after 8s, releasing the hold'], ['09:06:27', 'info', 'search-api', 'reindex batch 18/64 committed'],
+  ] as const
+  const visible = lines.filter((line) => (level === 'All' || line[1] === level.toLowerCase()) && (!query || line.join(' ').toLowerCase().includes(query.toLowerCase())))
+  return <section className="rb-public-monitoring-5" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}><div className="rb-monitoring-5-shell"><header className="rb-monitoring-5-head"><div className="rb-monitoring-5-title"><div><h2>Live tail</h2><span className={following ? 'streaming' : ''}>●&nbsp; Streaming</span></div><p>production · all services · 3 errors in view</p></div><div className="rb-monitoring-5-actions"><button type="button" className={following ? 'primary' : ''} onClick={() => setFollowing((value) => !value)}><ArrowDownToLine size={13} />Follow</button><button type="button" className={paused ? 'paused' : ''} onClick={() => setPaused((value) => !value)}>{paused ? <Play size={13} /> : <Pause size={13} />}{paused ? 'Resume' : 'Pause'}</button><button type="button" aria-label="Clear the buffer" onClick={() => setQuery('')}><Trash2 size={14} /></button></div><div className="rb-monitoring-5-filters"><div className="levels">{['All', 'Error', 'Warn', 'Info', 'Debug'].map((value) => <button type="button" key={value} className={level === value ? 'selected' : ''} onClick={() => setLevel(value)}>{value}</button>)}</div><label><span className="sr-only">Filter log lines</span><input aria-label="Filter by message or service" placeholder="Filter by message or service" value={query} onChange={(event) => setQuery(event.target.value)} /></label></div></header><div className="rb-monitoring-5-log"><ul>{visible.map((line) => <li key={line[0]} className={line[1]}><button type="button"><time>{line[0]}</time><span className="severity">{line[1]}</span><span className="service">{line[2]}</span><strong>{line[3]}</strong></button></li>)}</ul></div><footer><span>22 of 22 lines · buffer capped at 140</span><span>~50 lines/min</span></footer><button type="button" className="rb-monitoring-5-theme">◉&nbsp; Theme</button></div></section>
 }

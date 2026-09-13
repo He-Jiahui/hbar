@@ -1,0 +1,286 @@
+.rb-public-monitoring-5 {
+  box-sizing: border-box;
+  width: 100%;
+  height: 680px;
+  min-height: 680px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+}
+.rb-public-monitoring-5 *,
+.rb-public-monitoring-5 *::before,
+.rb-public-monitoring-5 *::after {
+  box-sizing: border-box;
+}
+.rb-public-monitoring-5 h2,
+.rb-public-monitoring-5 p,
+.rb-public-monitoring-5 ul {
+  margin: 0;
+}
+.rb-public-monitoring-5 button,
+.rb-public-monitoring-5 input {
+  font: inherit;
+}
+.rb-monitoring-5-shell {
+  position: relative;
+  width: min(1100px, calc(100% - 48px));
+  height: 632px;
+  margin: 24px auto;
+  padding: 4px;
+  border: 1px solid #292929;
+  border-radius: 14px;
+  background: #171717;
+}
+.rb-monitoring-5-head {
+  height: 113px;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: #202020;
+}
+.rb-monitoring-5-title {
+  height: 43px;
+}
+.rb-monitoring-5-title > div {
+  display: flex;
+  height: 23px;
+  align-items: center;
+  gap: 8px;
+}
+.rb-monitoring-5-title h2 {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22.5px;
+}
+.rb-monitoring-5-title span {
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-monitoring-5-title span.streaming {
+  color: #737373;
+}
+.rb-monitoring-5-title span.streaming:first-letter {
+  color: #34d399;
+}
+.rb-monitoring-5-title > p {
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-monitoring-5-actions {
+  display: flex;
+  position: absolute;
+  top: 18px;
+  right: 14px;
+  gap: 8px;
+}
+.rb-monitoring-5-actions button {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #292929;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #202020;
+  color: #d4d4d4;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-monitoring-5-actions button.primary {
+  border-color: #fff;
+  background: #fff;
+  color: #202020;
+}
+.rb-monitoring-5-actions button[aria-label] {
+  display: grid;
+  width: 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #737373;
+}
+.rb-monitoring-5-filters {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+}
+.levels {
+  display: flex;
+  height: 32px;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 4px;
+  background: #292929;
+}
+.levels button {
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+  font-size: 12px;
+}
+.levels button.selected {
+  background: #202020;
+  color: #f5f5f5;
+}
+.rb-monitoring-5-filters label {
+  width: 280px;
+  height: 32px;
+}
+.rb-monitoring-5-filters input {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #292929;
+  border-radius: 8px;
+  padding: 0 10px 0 32px;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  outline: none;
+  font-size: 13px;
+}
+.rb-monitoring-5-filters input::placeholder {
+  color: #737373;
+}
+.rb-monitoring-5-log {
+  height: 466px;
+  margin-top: 4px;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 6px;
+  background: #171717;
+  overflow: hidden;
+}
+.rb-monitoring-5-log ul {
+  margin: -7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rb-monitoring-5-log li {
+  height: 29px;
+}
+.rb-monitoring-5-log li button {
+  display: grid;
+  width: 100%;
+  height: 29px;
+  grid-template-columns: 60px 76px 132px minmax(0, 1fr);
+  align-items: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: transparent;
+  color: #d4d4d4;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+}
+.rb-monitoring-5-log time {
+  color: #a3a3a3;
+}
+.rb-monitoring-5-log .severity,
+.rb-monitoring-5-log .service {
+  color: #737373;
+}
+.rb-monitoring-5-log strong {
+  overflow: hidden;
+  color: #d4d4d4;
+  font-size: 12px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-monitoring-5-log li.warn .severity::before,
+.rb-monitoring-5-log li.error .severity::before,
+.rb-monitoring-5-log li.info .severity::before,
+.rb-monitoring-5-log li.debug .severity::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #737373;
+  content: '';
+}
+.rb-monitoring-5-log li.warn .severity::before {
+  background: #ff9d0a;
+}
+.rb-monitoring-5-log li.error .severity::before {
+  background: #ff3b4d;
+}
+.rb-monitoring-5-log li.error strong {
+  color: #ff3b4d;
+}
+.rb-monitoring-5-shell > footer {
+  display: flex;
+  height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #737373;
+  font-size: 12px;
+}
+.rb-monitoring-5-theme {
+  position: absolute;
+  right: -27px;
+  bottom: -1px;
+  display: flex;
+  height: 40px;
+  align-items: center;
+  border: 1px solid #202020;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-size: 13px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 760px) {
+  .rb-monitoring-5-shell {
+    width: calc(100% - 32px);
+    margin: 16px auto;
+  }
+  .rb-monitoring-5-actions {
+    top: 14px;
+    right: 8px;
+  }
+  .rb-monitoring-5-filters {
+    margin-top: 8px;
+  }
+  .rb-monitoring-5-filters label {
+    width: 180px;
+  }
+  .rb-monitoring-5-log {
+    padding: 6px 8px;
+  }
+  .rb-monitoring-5-log li button {
+    grid-template-columns: 60px 66px 100px minmax(0, 1fr);
+  }
+  .rb-monitoring-5-theme {
+    right: 0;
+    bottom: 0;
+  }
+}
