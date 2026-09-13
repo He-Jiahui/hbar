@@ -1,7 +1,19 @@
-import { FormBlueprint as Fixture } from '../../ReferenceBlueprints'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Expand, Eye, Monitor, RefreshCw, Smartphone, Tablet, Bookmark, Code2 } from 'lucide-react'
+import { useState } from 'react'
+import { reportFixtureClick } from '../../reference-interactions'
+import './paywall-3.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/paywall/paywall-3. */
 export default function Paywall3(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+  const [cycle, setCycle] = useState<'Monthly' | 'Yearly'>('Yearly')
+  const [chosen, setChosen] = useState<string | undefined>()
+  const plans = [
+    { name: 'Starter', price: '$0', suffix: 'forever', description: 'For a single project and a short history window.', features: ['1 workspace', '30 days of history', 'Community support'], badge: 'Current', action: 'Your current plan' },
+    { name: 'Pro', price: '$19', suffix: 'per seat / mo', description: 'For teams that need exports, roles and full history.', features: ['Unlimited workspaces', 'Full history, no sampling', 'Scheduled exports', 'Role-based access'], badge: 'Recommended', action: 'Choose Pro' },
+    { name: 'Scale', price: '$54', suffix: 'per seat / mo', description: 'For organisations with review and residency requirements.', features: ['Everything in Pro', 'Audit log and SSO', 'Region pinning', 'Named support contact'], action: 'Choose Scale' },
+  ] as const
+  return <section className="rb-public-paywall-3" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}>
+    <nav className="rb-paywall-3-previewbar"><div className="rb-paywall-3-viewtabs"><button type="button" className="selected"><Eye size={13} />Preview</button><button type="button"><Code2 size={13} />Code</button></div><span className="rb-paywall-3-slug">paywall-3</span><button type="button" className="rb-paywall-3-icon"><Copy size={14} /></button><div className="rb-paywall-3-preview-actions"><button type="button" className="rb-paywall-3-copy-ai">Copy for AI <ChevronDown size={13} /></button><button type="button" className="rb-paywall-3-icon"><Bookmark size={14} /></button><button type="button" className="rb-paywall-3-icon"><Monitor size={14} /></button><button type="button" className="rb-paywall-3-icon"><Tablet size={14} /></button><button type="button" className="rb-paywall-3-icon"><Smartphone size={14} /></button><button type="button" className="rb-paywall-3-icon"><Expand size={14} /></button><button type="button" className="rb-paywall-3-icon"><RefreshCw size={14} /></button><button type="button" className="rb-paywall-3-icon"><ChevronLeft size={14} /></button><button type="button" className="rb-paywall-3-icon"><ChevronRight size={14} /></button></div></nav><div className="rb-paywall-3-inner"><header className="rb-paywall-3-header"><div><h2>Choose a plan to continue</h2><p>Your trial ended on 3 March. Pick a plan to restore access to your workspaces.</p></div><div className="rb-paywall-3-toggle">{(['Monthly', 'Yearly'] as const).map((value) => <button type="button" key={value} className={cycle === value ? 'selected' : ''} onClick={() => setCycle(value)}>{value}</button>)}</div></header><p className="rb-paywall-3-note">Yearly billing saves 20 percent and is charged once per year.</p><div className="rb-paywall-3-cards">{plans.map((plan) => { const badge = 'badge' in plan ? plan.badge : undefined; return <article key={plan.name} className="rb-paywall-3-card"><div className="rb-paywall-3-plan-title"><p>{plan.name}</p>{badge && <span className={badge === 'Recommended' ? 'recommended' : ''}>{badge}</span>}</div><div className="rb-paywall-3-price"><strong>{plan.price}</strong><span>{plan.suffix}</span></div><p className="rb-paywall-3-description">{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><Check size={12} />{feature}</li>)}</ul><button type="button" className={plan.name === 'Pro' ? 'primary' : ''} disabled={plan.name === 'Starter'} onClick={() => setChosen(plan.name)}>{chosen === plan.name ? 'Selected' : plan.action}</button></article> })}</div><footer><p>Prices in USD. Seats can be added or removed at any time.</p><button type="button">Compare every feature</button></footer></div>
+  </section>
 }

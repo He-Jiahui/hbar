@@ -1,0 +1,326 @@
+.rb-public-paywall-3 {
+  box-sizing: border-box;
+  width: 100%;
+  height: 560px;
+  min-height: 560px;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+}
+.rb-public-paywall-3 *,
+.rb-public-paywall-3 *::before,
+.rb-public-paywall-3 *::after {
+  box-sizing: border-box;
+}
+.rb-public-paywall-3 h2,
+.rb-public-paywall-3 p,
+.rb-public-paywall-3 ul {
+  margin: 0;
+}
+.rb-public-paywall-3 button {
+  font: inherit;
+}
+.rb-paywall-3-previewbar {
+  display: none;
+  height: 44px;
+  align-items: center;
+  border-bottom: 1px solid #202020;
+  color: #f5f5f5;
+  overflow: hidden;
+}
+.rb-paywall-3-viewtabs {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  border-radius: 9px;
+  padding: 2px;
+  background: #171717;
+}
+.rb-paywall-3-viewtabs button,
+.rb-paywall-3-preview-actions button {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: #a3a3a3;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-paywall-3-viewtabs button.selected {
+  background: #0a0a0a;
+  color: #f5f5f5;
+}
+.rb-paywall-3-slug {
+  margin-left: 12px;
+  color: #f5f5f5;
+  font-size: 13px;
+}
+.rb-paywall-3-icon {
+  display: grid !important;
+  width: 32px;
+  place-items: center;
+  padding: 0 !important;
+}
+.rb-paywall-3-preview-actions {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.rb-paywall-3-copy-ai {
+  border: 1px solid #292929 !important;
+  background: #171717 !important;
+  color: #f5f5f5 !important;
+}
+.rb-public-paywall-3 .rb-paywall-3-note {
+  margin-top: 7px;
+}
+.rb-paywall-3-inner {
+  width: min(900px, calc(100% - 64px));
+  height: 437px;
+  margin: 62px auto 0;
+}
+.rb-paywall-3-header {
+  display: flex;
+  height: 46px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rb-paywall-3-header h2 {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+.rb-paywall-3-header p {
+  color: #8b8b8b;
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-paywall-3-toggle {
+  display: flex;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 4px;
+  background: #292929;
+}
+.rb-paywall-3-toggle button {
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: #8b8b8b;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-paywall-3-toggle button.selected {
+  background: #0a0a0a;
+  color: #f5f5f5;
+}
+.rb-paywall-3-note {
+  height: 18px;
+  margin-top: 7px;
+  color: #8b8b8b;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-paywall-3-cards {
+  display: grid;
+  height: 309px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: 12px;
+  border: 1px solid #292929;
+  border-radius: 14px;
+  padding: 4px;
+  background: #0a0a0a;
+}
+.rb-paywall-3-card {
+  display: flex;
+  min-width: 0;
+  height: 299px;
+  flex-direction: column;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 16px;
+  background: #171717;
+}
+.rb-paywall-3-plan-title {
+  display: flex;
+  height: 20px;
+  align-items: center;
+  gap: 8px;
+}
+.rb-paywall-3-plan-title p {
+  color: #f5f5f5;
+  font-size: 13px;
+  line-height: 20px;
+}
+.rb-paywall-3-plan-title span {
+  display: inline-flex;
+  height: 20px;
+  align-items: center;
+  border: 1px solid #292929;
+  border-radius: 4px;
+  padding: 0 6px;
+  color: #8b8b8b;
+  font-size: 11px;
+  line-height: 17px;
+}
+.rb-paywall-3-plan-title span.recommended {
+  border: 0;
+  background: #fff;
+  color: #1f1f1f;
+}
+.rb-paywall-3-price {
+  display: flex;
+  height: 32px;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 12px;
+}
+.rb-paywall-3-price strong {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 32px;
+}
+.rb-paywall-3-price span {
+  color: #8b8b8b;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-paywall-3-description {
+  height: 39px;
+  margin-top: 8px;
+  color: #8b8b8b;
+  font-size: 12px;
+  line-height: 19.5px;
+}
+.rb-paywall-3-card ul {
+  display: flex;
+  height: 90px;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 0;
+  list-style: none;
+}
+.rb-paywall-3-card li {
+  display: flex;
+  height: 18px;
+  align-items: center;
+  gap: 8px;
+  color: #d4d4d4;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-paywall-3-card li svg {
+  color: #a3a3a3;
+}
+.rb-paywall-3-card > button {
+  width: 100%;
+  height: 36px;
+  margin-top: auto;
+  border: 1px solid #292929;
+  border-radius: 8px;
+  background: transparent;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-paywall-3-card > button.primary {
+  border-color: #fff;
+  background: #fff;
+  color: #1f1f1f;
+}
+.rb-paywall-3-card > button:disabled {
+  color: #737373;
+  cursor: default;
+}
+.rb-paywall-3-inner > footer {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 12px;
+}
+.rb-paywall-3-inner > footer p {
+  color: #8b8b8b;
+  font-size: 12px;
+  line-height: 18px;
+}
+.rb-paywall-3-inner > footer button {
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: #d4d4d4;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+@media (max-width: 760px) {
+  .rb-paywall-3-previewbar {
+    display: none;
+  }
+  .rb-paywall-3-inner {
+    width: calc(100% - 48px);
+    height: 520px;
+    margin-top: 4px;
+  }
+  .rb-paywall-3-header {
+    height: auto;
+    display: block;
+  }
+  .rb-paywall-3-header p {
+    max-width: 280px;
+  }
+  .rb-paywall-3-toggle {
+    width: max-content;
+    margin-top: 12px;
+  }
+  .rb-paywall-3-note {
+    height: auto;
+    max-width: 250px;
+    margin-top: 10px;
+    line-height: 19px;
+  }
+  .rb-paywall-3-cards {
+    display: flex;
+    height: 299px;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .rb-paywall-3-card {
+    height: 299px;
+    flex: none;
+  }
+  .rb-paywall-3-inner > footer {
+    height: auto;
+    display: block;
+    margin-top: 12px;
+  }
+  .rb-paywall-3-inner > footer p {
+    max-width: 260px;
+  }
+  .rb-paywall-3-inner > footer button {
+    margin-top: 8px;
+    padding: 0 10px;
+  }
+}
+@media (min-width: 1000px) {
+  .rb-paywall-3-previewbar {
+    display: flex;
+  }
+}
