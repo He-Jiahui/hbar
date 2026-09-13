@@ -48,3 +48,10 @@ export {
   type ReactBitsModelPickerLabels,
   type ReactBitsModelPickerProps,
 } from './components/ModelPickerSurface'
+export {
+  default as PromptInputSurface,
+  type PromptInputAttachmentKind,
+  type PromptInputFilePicker,
+  type PromptInputLabels,
+  type PromptInputSurfaceProps,
+} from './components/PromptInputSurface'

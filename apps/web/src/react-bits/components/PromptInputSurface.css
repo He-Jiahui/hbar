@@ -1,0 +1,23 @@
+/* The production prompt surface keeps the public Prompt Input geometry while
+ * letting the host application supply controls and state through props. */
+.rb-prompt-input-surface {
+  min-width: 0;
+}
+
+.rb-prompt-input-surface .rb-prompt-attachment-strip {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-prompt-input-surface .composer-toolbar,
+.rb-prompt-input-surface .composer-status-row,
+.rb-prompt-input-surface > textarea {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-prompt-input-surface .composer-dropzone {
+    transition: none;
+  }
+}
