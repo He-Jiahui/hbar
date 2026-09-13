@@ -15,6 +15,7 @@ describe('hbar-app-ui registry', () => {
     expect(HBAR_APP_UI_VARIANT_SPECS).toHaveLength(300)
     expect(listHbarAppUiVariants()).toHaveLength(300)
     expect(Object.keys(HBAR_APP_UI_VARIANT_EXPORTS)).toHaveLength(300)
+    expect(new Set(listHbarAppUiVariants().map((entry) => entry.component)).size).toBe(300)
     expect(HBAR_APP_UI_CATEGORIES.reduce((total, category) => total + HBAR_APP_UI_CATEGORY_COUNTS[category], 0)).toBe(300)
   })
 
