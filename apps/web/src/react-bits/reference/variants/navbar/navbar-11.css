@@ -1,0 +1,179 @@
+.rb-public-navbar-11 {
+  box-sizing: border-box;
+  width: 100%;
+  height: 480px;
+  min-height: 480px;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+}
+.rb-public-navbar-11 *,
+.rb-public-navbar-11 *::before,
+.rb-public-navbar-11 *::after {
+  box-sizing: border-box;
+}
+.rb-public-navbar-11 h1,
+.rb-public-navbar-11 p {
+  margin: 0;
+}
+.rb-public-navbar-11 button {
+  font: inherit;
+}
+.rb-public-navbar-11 > header {
+  display: flex;
+  height: 56px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #262626;
+  padding: 0 12px;
+}
+.rb-public-navbar-11 > header > button,
+.rb-navbar-11-actions > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+}
+.rb-navbar-11-document {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+}
+.rb-navbar-11-document > button {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: transparent;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 21px;
+  white-space: nowrap;
+}
+.rb-navbar-11-document > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.rb-navbar-11-document > span i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #737373;
+}
+.rb-navbar-11-actions {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+}
+.rb-navbar-11-avatars {
+  display: flex;
+  width: 80px;
+  height: 32px;
+  align-items: center;
+}
+.rb-navbar-11-avatars span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  margin-left: -8px;
+  border: 1px solid #0a0a0a;
+  border-radius: 50%;
+  background: #262626;
+  color: #d4d4d4;
+  font-size: 11px;
+  line-height: 16.5px;
+}
+.rb-navbar-11-avatars span:first-child {
+  margin-left: 0;
+}
+.rb-navbar-11-share {
+  display: flex !important;
+  width: 75px !important;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px !important;
+  padding: 0 10px;
+  background: #fff !important;
+  color: #171717 !important;
+  font-size: 13px;
+}
+.rb-public-navbar-11 > main {
+  width: 600px;
+  height: 424px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+.rb-public-navbar-11 h1 {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 36px;
+  letter-spacing: -0.78px;
+}
+.rb-navbar-11-lede {
+  margin-top: 12px !important;
+  color: #a3a3a3;
+  font-size: 13px;
+  line-height: 21.125px;
+}
+.rb-navbar-11-sections {
+  display: grid;
+  gap: 8px;
+  margin-top: 20.25px;
+}
+.rb-navbar-11-sections button {
+  display: flex;
+  width: 100%;
+  height: 39.5px;
+  align-items: center;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: rgb(23 23 23 / 60%);
+  color: #d4d4d4;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  line-height: 19.5px;
+}
+@media (max-width: 700px) {
+  .rb-public-navbar-11 > header {
+    padding: 0 8px;
+  }
+  .rb-navbar-11-document > button {
+    max-width: 105px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rb-navbar-11-document > span {
+    display: none;
+  }
+  .rb-navbar-11-avatars {
+    display: none;
+  }
+  .rb-public-navbar-11 > main {
+    width: 100%;
+    padding: 32px 20px;
+  }
+}
