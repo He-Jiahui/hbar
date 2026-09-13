@@ -12,7 +12,6 @@ import {
   Plus,
   RefreshCw,
   RotateCw,
-  ShieldCheck,
   Target,
   X,
 } from 'lucide-react'
@@ -23,15 +22,39 @@ import { useSessionCapabilities, type SessionCapabilityTab } from './session-cap
 import GlassSurface from './react-bits/GlassSurface'
 import AnimatedList from './react-bits/AnimatedList'
 import SpotlightCard from './react-bits/SpotlightCard'
-import { EmptyState, ProgressRail, type ProgressStep } from './react-bits'
+import {
+  EmptyState,
+  ProgressRail,
+  ReferenceMetricStrip,
+  referenceAttributes,
+  type ProgressStep,
+} from './react-bits'
+import { useReferenceProjections } from './react-bits/production-context'
 import { useLocale } from './locale'
 
 type PanelProps = { sessionId?: string }
 
-function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof Activity; title: string; subtitle?: string; onRefresh?: () => void }) {
+function PanelHeader({
+  icon: Icon,
+  title,
+  subtitle,
+  onRefresh,
+  reference,
+  adapter,
+}: {
+  icon: typeof Activity
+  title: string
+  subtitle?: string
+  onRefresh?: () => void
+  reference?: string
+  adapter?: string
+}) {
   const { t } = useLocale()
   return (
-    <header className="tool-surface-header rb-tool-header">
+    <header
+      {...(reference ? referenceAttributes(reference, adapter) : {})}
+      className="tool-surface-header rb-tool-header"
+    >
       <GlassSurface className="tool-header-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="tool-surface-title">
         <span className="tool-surface-icon"><Icon size={15} /></span>
@@ -48,9 +71,24 @@ function PanelHeader({ icon: Icon, title, subtitle, onRefresh }: { icon: typeof 
     </header>
   )
 }
-function EmptyTool({ icon: Icon, title, body }: { icon: typeof Activity; title: string; body: string }) {
+function EmptyTool({
+  icon: Icon,
+  title,
+  body,
+  reference,
+  adapter,
+}: {
+  icon: typeof Activity
+  title: string
+  body: string
+  reference?: string
+  adapter?: string
+}) {
   return (
-    <div className="tool-empty-state rb-tool-empty">
+    <div
+      {...(reference ? referenceAttributes(reference, adapter) : {})}
+      className="tool-empty-state rb-tool-empty"
+    >
       <GlassSurface className="tool-empty-glass" width="100%" height="100%" aria-hidden="true" />
       <Icon size={24} />
       <strong>{title}</strong>
@@ -283,11 +321,26 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
   }
 
   return (
-    <section className="tool-surface browser-panel">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-4', 'session-chat')}
+      className="tool-surface browser-panel"
+    >
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={Globe} title={t('browser')} subtitle={page?.title || t('sessionBrowser')} onRefresh={() => void refresh()} />
+      <PanelHeader
+        icon={Globe}
+        title={t('browser')}
+        subtitle={page?.title || t('sessionBrowser')}
+        onRefresh={() => void refresh()}
+        reference="https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-4"
+        adapter="session-chat"
+      />
       {!sessionId ? (
-        <EmptyTool icon={Globe} title={t('noSessionSelected')} body={t('browserEmptyBody')} />
+        <EmptyTool
+          icon={Globe}
+          title={t('noSessionSelected')}
+          body={t('browserEmptyBody')}
+          reference="https://pro.reactbits.dev/docs/app-ui/empty-state"
+        />
       ) : (
         <div className="tool-surface-body">
           <div className="browser-navigation-row">
@@ -334,7 +387,12 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
               ))}
             </AnimatedList>
           ) : (
-            <EmptyTool icon={Globe} title={t('noOpenPages')} body={t('startBrowsing')} />
+            <EmptyTool
+              icon={Globe}
+              title={t('noOpenPages')}
+              body={t('startBrowsing')}
+              reference="https://pro.reactbits.dev/docs/app-ui/empty-state"
+            />
           )}
           {snapshot && (
             <section className="browser-snapshot rb-tool-detail-surface">
@@ -365,26 +423,58 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
   const snapshot = useSessions((state) => (sessionId ? state.snapshots[sessionId] : undefined))
   const catalog = useCatalog((state) => state.data)
   const modelId = useWorkbench((state) => state.modelId)
+  const referenceProjections = useReferenceProjections(sessionId)
   const session = catalog?.sessions.find((item) => item.id === sessionId) ?? snapshot?.session
   const model = catalog?.models.find((item) => item.id === modelId)
   const activeRuns = snapshot?.runs.filter((run) => ['running', 'queued', 'waiting_approval'].includes(run.status)).length ?? 0
   const toolCalls = snapshot?.messages.reduce((total, message) => total + message.content.filter((block) => block.type === 'tool_call').length, 0) ?? 0
+  const approvalCount = referenceProjections.approval.approvals.length
   return (
-    <section className="tool-surface">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-6', 'activity')}
+      className="tool-surface"
+    >
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={FileSearch} title={t('sessionInspector')} subtitle={session?.title || t('session')} onRefresh={() => sessionId && void openSession(sessionId).catch(report)} />
+      <PanelHeader
+        icon={FileSearch}
+        title={t('sessionInspector')}
+        subtitle={session?.title || t('session')}
+        onRefresh={() => sessionId && void openSession(sessionId).catch(report)}
+        reference="https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-6"
+        adapter="activity"
+      />
       {!sessionId || !snapshot ? (
-        <EmptyTool icon={FileSearch} title={t('sessionNotLoaded')} body={t('inspectSessionHint')} />
+        <EmptyTool
+          icon={FileSearch}
+          title={t('sessionNotLoaded')}
+          body={t('inspectSessionHint')}
+          reference="https://pro.reactbits.dev/docs/app-ui/empty-state"
+        />
       ) : (
         <div className="tool-surface-body">
-          <dl className="inspector-grid">
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('status')}</dt><dd><span className={`inspector-dot ${activeRuns ? 'active' : ''}`} />{activeRuns ? t('active') : t('idle')}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('model')}</dt><dd>{model?.name ?? (modelId || t('unconfigured'))}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('messageCount')}</dt><dd>{snapshot.messages.length.toLocaleString()}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('toolCallCount')}</dt><dd>{toolCalls.toLocaleString()}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('eventCursor')}</dt><dd>{snapshot.cursor.toLocaleString()}</dd></SpotlightCard>
-            <SpotlightCard className="inspector-metric" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><dt>{t('approvals')}</dt><dd><ShieldCheck size={13} />{snapshot.approvals.length ? `${snapshot.approvals.length} ${t('pendingCount')}` : t('noPending')}</dd></SpotlightCard>
-          </dl>
+          <ReferenceMetricStrip
+            className="inspector-grid"
+            reference="https://pro.reactbits.dev/docs/app-ui/dashboard"
+            adapter="activity"
+            metrics={[
+              {
+                id: 'status',
+                label: t('status'),
+                value: activeRuns ? t('active') : t('idle'),
+                status: activeRuns ? 'running' : 'idle',
+              },
+              { id: 'model', label: t('model'), value: model?.name ?? (modelId || t('unconfigured')) },
+              { id: 'messages', label: t('messageCount'), value: referenceProjections.chat.messages.length.toLocaleString() },
+              { id: 'tools', label: t('toolCallCount'), value: toolCalls.toLocaleString() },
+              { id: 'cursor', label: t('eventCursor'), value: snapshot.cursor.toLocaleString() },
+              {
+                id: 'approvals',
+                label: t('approvals'),
+                value: approvalCount ? `${approvalCount} ${t('pendingCount')}` : t('noPending'),
+                status: approvalCount ? 'waiting' : 'idle',
+              },
+            ]}
+          />
           <section className="tool-detail-card rb-tool-detail-surface">
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <h3>{t('recentRuns')}</h3>
@@ -408,28 +498,45 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
 export function PlanPanel({ sessionId = '' }: PanelProps) {
   const { t } = useLocale()
   const state = useSessionCapabilities((current) => (sessionId ? current.sessions[sessionId] : undefined))
+  const referenceProjections = useReferenceProjections(sessionId)
   const [dialog, setDialog] = useState<SessionCapabilityTab | null>(null)
   const goal = state?.goal
-  const plan = state?.plan
   const snapshot = useSessions((current) => (sessionId ? current.snapshots[sessionId] : undefined))
   const activeRun = snapshot?.runs.find((run) => ['running', 'queued', 'waiting_approval'].includes(run.status))
-  const completedSteps = plan?.plan.filter((step) => step.status === 'completed').length ?? 0
-  const currentStep = plan?.plan.find((step) => step.status === 'in_progress')
-  const totalSteps = plan?.plan.length ?? 0
-  const progressSteps: ProgressStep[] = (plan?.plan ?? []).map((step, index) => ({
-    id: `${index}-${step.step}`,
-    title: step.step,
+  const completedSteps = referenceProjections.plan.completed
+  const currentStep = referenceProjections.plan.steps.find((step) => step.status === 'in_progress')
+  const totalSteps = referenceProjections.plan.steps.length
+  const progressSteps: ProgressStep[] = referenceProjections.plan.steps.map((step, index) => ({
+    id: `${index}-${step.label}`,
+    title: step.label,
     status: step.status === 'in_progress' ? 'in_progress' : step.status === 'completed' ? 'completed' : 'pending',
   }))
   return (
-    <section className="tool-surface">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-plan', 'plan')}
+      className="tool-surface"
+    >
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={ListChecks} title={t('plan')} subtitle={goal?.objective || t('plan')} />
+      <PanelHeader
+        icon={ListChecks}
+        title={t('plan')}
+        subtitle={goal?.objective || t('plan')}
+        reference="https://pro.reactbits.dev/docs/app-ui/agent-plan"
+        adapter="plan"
+      />
       {!sessionId ? (
-        <EmptyTool icon={ListChecks} title={t('noSessionSelected')} body={t('selectSessionPlanHint')} />
+        <EmptyTool
+          icon={ListChecks}
+          title={t('noSessionSelected')}
+          body={t('selectSessionPlanHint')}
+          reference="https://pro.reactbits.dev/docs/app-ui/empty-state"
+        />
       ) : (
         <div className="tool-surface-body">
-          <section className="tool-detail-card goal-card rb-tool-detail-surface">
+          <section
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-plan', 'plan')}
+            className="tool-detail-card goal-card rb-tool-detail-surface"
+          >
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="tool-section-label">
               <span>
@@ -453,7 +560,10 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
               <p className="tool-muted">{t('noActiveGoal')}</p>
             )}
           </section>
-          <section className="tool-detail-card plan-card rb-tool-detail-surface">
+          <section
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-plan', 'plan')}
+            className="tool-detail-card plan-card rb-tool-detail-surface"
+          >
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <div className="plan-progress-heading">
               <div>
@@ -479,7 +589,7 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
                 <span style={{ width: `${Math.round((completedSteps / totalSteps) * 100)}%` }} />
               </div>
             )}
-            {currentStep && <p className="plan-current-step">{t('processing')}：{currentStep.step}</p>}
+            {currentStep && <p className="plan-current-step">{t('processing')}：{currentStep.label}</p>}
             <div className="tool-section-label">
               <span>
                 <ListChecks size={13} />
@@ -505,6 +615,7 @@ export function PlanPanel({ sessionId = '' }: PanelProps) {
 export function InsightsPanel({ sessionId = '' }: PanelProps) {
   const { t } = useLocale()
   const snapshot = useSessions((state) => (sessionId ? state.snapshots[sessionId] : undefined))
+  const referenceProjections = useReferenceProjections(sessionId)
   const stats = useMemo(() => {
     const counts = new Map<string, number>()
     for (const message of snapshot?.messages ?? [])
@@ -512,24 +623,46 @@ export function InsightsPanel({ sessionId = '' }: PanelProps) {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
   }, [snapshot?.messages])
   const max = stats[0]?.[1] ?? 1
-  const usage = snapshot?.usage
+  const usage = referenceProjections.usage.usage
   const cacheRate = usage?.input ? Math.round((usage.cacheRead / usage.input) * 100) : 0
   return (
-    <section className="tool-surface">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-usage', 'usage')}
+      className="tool-surface"
+    >
       <GlassSurface className="tool-surface-glass" width="100%" height="100%" aria-hidden="true" />
-      <PanelHeader icon={Activity} title={t('sessionInsights')} subtitle={t('toolTokenUsage')} />
+      <PanelHeader
+        icon={Activity}
+        title={t('sessionInsights')}
+        subtitle={t('toolTokenUsage')}
+        reference="https://pro.reactbits.dev/docs/app-ui/ai-usage"
+        adapter="usage"
+      />
       {!sessionId || !snapshot ? (
-        <EmptyTool icon={Activity} title={t('noSessionData')} body={t('runHistoryHint')} />
+        <EmptyTool
+          icon={Activity}
+          title={t('noSessionData')}
+          body={t('runHistoryHint')}
+          reference="https://pro.reactbits.dev/docs/app-ui/empty-state"
+        />
       ) : (
         <div className="tool-surface-body">
-          <div className="insight-kpis">
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>{t('inputTokens')}</span><strong>{snapshot.usage.input.toLocaleString()}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>{t('outputTokens')}</span><strong>{snapshot.usage.output.toLocaleString()}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"><span>{t('runMetric')}</span><strong>{snapshot.runs.length.toLocaleString()}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--hbar-wn) 22%, transparent)"><span>{t('cost')}</span><strong>${snapshot.usage.cost.toFixed(4)}</strong></SpotlightCard>
-            <SpotlightCard className="insight-kpi" spotlightColor="color-mix(in srgb, var(--rb-status) 22%, transparent)"><span>{t('cacheHit')}</span><strong>{cacheRate}%</strong></SpotlightCard>
-          </div>
-          <section className="tool-detail-card insight-chart rb-tool-detail-surface">
+          <ReferenceMetricStrip
+            className="insight-kpis"
+            reference="https://pro.reactbits.dev/docs/app-ui/ai-usage"
+            adapter="usage"
+            metrics={[
+              { id: 'input', label: t('inputTokens'), value: usage.input.toLocaleString() },
+              { id: 'output', label: t('outputTokens'), value: usage.output.toLocaleString() },
+              { id: 'runs', label: t('runMetric'), value: snapshot.runs.length.toLocaleString() },
+              { id: 'cost', label: t('cost'), value: `$${usage.cost.toFixed(4)}`, status: usage.cost > 0 ? 'warning' : 'idle' },
+              { id: 'cache', label: t('cacheHit'), value: `${cacheRate}%` },
+            ]}
+          />
+          <section
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/analytics', 'usage')}
+            className="tool-detail-card insight-chart rb-tool-detail-surface"
+          >
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <h3>{t('toolCallCount')}</h3>
             <AnimatedList className="insight-list" viewportClassName="insight-rows" showGradients={false}>

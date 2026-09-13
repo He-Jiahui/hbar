@@ -5,7 +5,16 @@ import { client, report, useConnection, useSessions, useWorkbench } from './stor
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
-import { EmptyState, SegmentedControl, Timeline, type TimelineItem, type TimelineStatus } from './react-bits'
+import {
+  EmptyState,
+  ReferenceMetricStrip,
+  ReferenceTabs,
+  Timeline,
+  referenceAttributes,
+  type TimelineItem,
+  type TimelineStatus,
+} from './react-bits'
+import { useReferenceProjections } from './react-bits/production-context'
 import { useLocale, type LocaleMessageKey } from './locale'
 import './ActivityPanel.css'
 
@@ -40,6 +49,7 @@ export default function ActivityPanel() {
   const sessionId = useWorkbench((state) => state.activeSession)
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const connection = useConnection((state) => state.client)
+  const referenceProjections = useReferenceProjections(sessionId)
   const [mode, setMode] = useState<ActivityMode>('activity')
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [detail, setDetail] = useState<SessionEvent | null>(null)
@@ -99,7 +109,7 @@ export default function ActivityPanel() {
     }
   }, [connection, sessionId, cursor, t])
 
-  const usage = snapshot?.usage
+  const usage = referenceProjections.usage.usage
   const runningCount =
     snapshot?.runs.filter((run) => ['running', 'queued', 'waiting_approval'].includes(run.status)).length ?? 0
   useEffect(() => {
@@ -128,14 +138,21 @@ export default function ActivityPanel() {
   })
 
   return (
-    <div className="activity-panel rb-activity-panel" aria-label={t('activityAndEvents')} aria-busy={eventsLoading}>
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-1', 'activity')}
+      className="activity-panel rb-activity-panel"
+      aria-label={t('activityAndEvents')}
+      aria-busy={eventsLoading}
+    >
       <GlassSurface className="activity-panel-glass" width="100%" height="100%" aria-hidden="true" />
-      <SegmentedControl
+      <ReferenceTabs<ActivityMode>
         className="tool-panel-tabs"
         ariaLabel={t('activityView')}
         value={mode}
         options={[{ value: 'activity', label: t('run') }, { value: 'trace', label: t('events') }]}
         onChange={setMode}
+        reference="https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-2"
+        adapter="activity"
       />
       {mode === 'activity' ? (
         <>
@@ -176,36 +193,21 @@ export default function ActivityPanel() {
               {timelineEvents.length > 0 && <Timeline className="activity-timeline-list" items={timelineItems} />}
             </section>
           )}
-          <dl className="metrics">
-            <SpotlightCard
-              className="activity-metric"
-              spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
-            >
-              <dt>{t('inputTokens')}</dt>
-              <dd>{(usage?.input ?? 0).toLocaleString()}</dd>
-            </SpotlightCard>
-            <SpotlightCard
-              className="activity-metric"
-              spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
-            >
-              <dt>{t('outputTokens')}</dt>
-              <dd>{(usage?.output ?? 0).toLocaleString()}</dd>
-            </SpotlightCard>
-            <SpotlightCard
-              className="activity-metric"
-              spotlightColor="color-mix(in srgb, var(--rb-status) 18%, transparent)"
-            >
-              <dt>{t('cacheRead')}</dt>
-              <dd>{(usage?.cacheRead ?? 0).toLocaleString()}</dd>
-            </SpotlightCard>
-            <SpotlightCard
-              className="activity-metric"
-              spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)"
-            >
-              <dt>{t('cost')}</dt>
-              <dd>${(usage?.cost ?? 0).toFixed(4)}</dd>
-            </SpotlightCard>
-          </dl>
+          <ReferenceMetricStrip
+            className="metrics"
+            reference="https://pro.reactbits.dev/docs/app-ui/ai-usage"
+            adapter="usage"
+            metrics={[
+              { id: 'input', label: t('inputTokens'), value: (usage?.input ?? 0).toLocaleString() },
+              { id: 'output', label: t('outputTokens'), value: (usage?.output ?? 0).toLocaleString() },
+              { id: 'cache', label: t('cacheRead'), value: (usage?.cacheRead ?? 0).toLocaleString() },
+              {
+                id: 'cost',
+                label: t('cost'),
+                value: `$${(referenceProjections.usage.usage.cost ?? 0).toFixed(4)}`,
+              },
+            ]}
+          />
           <div className="section-label">{t('runHistory')}</div>
           <AnimatedList className="run-list" viewportClassName="run-list-viewport" showGradients={false}>
             {snapshot?.runs.map((run) => (
@@ -294,7 +296,10 @@ export default function ActivityPanel() {
             />
             {eventFilter && <span>{visibleEvents.length}</span>}
           </label>
-          <div className="event-list">
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-5', 'session-events')}
+            className="event-list"
+          >
             {visibleEvents.map((event) => (
               <SpotlightCard
                 as="button"
