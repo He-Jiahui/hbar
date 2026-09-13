@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Command as CommandIcon, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { HbarAppUiSpotlight } from 'hbar-app-ui'
 
 export interface PaletteCommand {
   id: string
@@ -73,7 +74,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <section className="command-palette" role="dialog" aria-modal="true" aria-label="命令面板">
+      <HbarAppUiSpotlight as="section" className="command-palette" role="dialog" aria-modal="true" aria-label="命令面板">
         <div className="command-palette-search">
           <Search size={16} aria-hidden="true" />
           <input
@@ -130,7 +131,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
             <p className="command-palette-empty">没有匹配命令</p>
           )}
         </div>
-      </section>
+      </HbarAppUiSpotlight>
     </div>
   )
 }

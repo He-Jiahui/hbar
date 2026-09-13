@@ -42,6 +42,7 @@
 }
 
 .hbar-app-ui-canvas { min-height: 100%; color: var(--hbar-app-ui-text); background: var(--hbar-app-ui-bg); font-family: var(--hbar-app-ui-font); letter-spacing: 0; }
+.hbar-app-ui-workbench-shell { border: 0; border-radius: 0; background: transparent; }
 .hbar-app-ui-surface { border: 1px solid var(--hbar-app-ui-border); border-radius: var(--hbar-app-ui-radius-medium); background: var(--hbar-app-ui-surface-0); }
 .hbar-app-ui-spotlight { position: relative; overflow: hidden; border: 1px solid var(--hbar-app-ui-border); border-radius: var(--hbar-app-ui-radius-medium); background: var(--hbar-app-ui-surface-0); isolation: isolate; }
 .hbar-app-ui-spotlight::before { position: absolute; z-index: -1; top: var(--hbar-app-ui-y, 50%); left: var(--hbar-app-ui-x, 50%); width: 220px; height: 220px; border-radius: 50%; background: color-mix(in srgb, var(--hbar-app-ui-accent) 24%, transparent); content: ''; opacity: 0; filter: blur(40px); pointer-events: none; transform: translate(-50%, -50%); transition: opacity 180ms ease; }

@@ -52,7 +52,7 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
-import { HbarAppUiEmptyState, HbarAppUiMetricStrip, HbarAppUiSpotlight, HbarAppUiTabs } from 'hbar-app-ui'
+import { HbarAppUiEmptyState, HbarAppUiMetricStrip, HbarAppUiSpotlight, HbarAppUiSurface, HbarAppUiTabs } from 'hbar-app-ui'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -970,7 +970,7 @@ export default function App() {
   }
   if (status === 'pairing' || (!data && status !== 'connected')) return <Pairing />
   return (
-    <div className="app-shell">
+    <HbarAppUiSurface className="app-shell hbar-app-ui-workbench-shell" data-hbar-app-ui-shell="workbench">
       <header className="topbar">
         <button
           className="sidebar-toggle"
@@ -1438,6 +1438,6 @@ export default function App() {
           </form>
         </Modal>
       )}
-    </div>
+    </HbarAppUiSurface>
   )
 }
