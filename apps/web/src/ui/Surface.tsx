@@ -89,12 +89,11 @@ export interface TabsProps<T extends string> {
 
 export function Tabs<T extends string>({ value, options, onChange, label, className = '' }: TabsProps<T>) {
   return (
-    <div className={`ui-tabs${className ? ` ${className}` : ''}`} role="tablist" aria-label={label}>
+    <div className={`ui-tabs${className ? ` ${className}` : ''}`} role="group" aria-label={label}>
       {options.map((option) => (
         <button
           type="button"
-          role="tab"
-          aria-selected={value === option.value}
+          aria-pressed={value === option.value}
           className={value === option.value ? 'selected' : ''}
           key={option.value}
           onClick={() => onChange(option.value)}
