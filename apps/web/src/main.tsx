@@ -6,6 +6,7 @@ import './settings-models.css'
 import './gallery-theme.css'
 import './react-bits/theme.css'
 import './react-bits/semantic.css'
+import './react-bits/production.css'
 import ReferenceFixtureRoute, { referenceFixtureRouteFromLocation } from './react-bits/reference/ReferenceFixtureRoute'
 
 function initialTheme(): 'dsh-dark' | 'dsh-light' | 'white' {

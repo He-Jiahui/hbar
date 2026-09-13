@@ -1,0 +1,136 @@
+.rb-production-surface {
+  min-width: 0;
+}
+
+.rb-reference-section-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--hbar-space-4);
+}
+
+.rb-reference-section-header__icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--hbar-border-subtle);
+  border-radius: var(--hbar-radius-sm);
+  background: var(--hbar-accent-surface);
+  color: var(--hbar-accent);
+}
+
+.rb-reference-section-header__copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.rb-reference-section-header__eyebrow {
+  color: var(--hbar-text-tertiary);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rb-reference-section-header__copy h2,
+.rb-reference-section-header__copy p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-reference-section-header__copy h2 {
+  color: var(--hbar-text-primary);
+  font-size: var(--hbar-font-size-ui);
+  font-weight: 620;
+}
+
+.rb-reference-section-header__copy p {
+  color: var(--hbar-text-tertiary);
+  font-size: var(--hbar-font-size-small);
+}
+
+.rb-reference-section-header__actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--hbar-space-2);
+  margin-left: auto;
+}
+
+.rb-reference-metric-strip {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: var(--hbar-space-3);
+}
+
+.rb-reference-metric {
+  display: grid;
+  min-width: 0;
+  min-height: 76px;
+  align-content: start;
+  gap: 3px;
+  border: 1px solid var(--hbar-border-subtle);
+  border-radius: var(--hbar-radius-card);
+  padding: var(--hbar-space-4);
+  background: var(--hbar-surface-1);
+}
+
+.rb-reference-metric > * {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-reference-metric__label,
+.rb-reference-metric__detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-text-tertiary);
+  font-size: var(--hbar-font-size-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-reference-metric__value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-text-primary);
+  font: 620 var(--hbar-font-size-heading) var(--dsh-font-family-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-reference-metric .hbar-status-badge {
+  justify-self: start;
+  margin-top: 2px;
+}
+
+.rb-reference-tabs {
+  max-width: 100%;
+}
+
+@media (max-width: 560px) {
+  .rb-reference-section-header {
+    align-items: flex-start;
+  }
+
+  .rb-reference-section-header__actions {
+    align-self: center;
+  }
+
+  .rb-reference-metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-reference-metric.rb-spotlight-card::before,
+  .rb-reference-metric.rb-spotlight-card::after {
+    display: none;
+  }
+}

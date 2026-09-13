@@ -26,3 +26,15 @@ export {
   type TimelineProps,
   type TimelineStatus,
 } from './semantic'
+export {
+  ReferenceMetricStrip,
+  ReferenceSectionHeader,
+  ReferenceSurface,
+  ReferenceTabs,
+  referenceAttributes,
+  type ReferenceMetric,
+  type ReferenceMetricStripProps,
+  type ReferenceSectionHeaderProps,
+  type ReferenceSurfaceProps,
+  type ReferenceTabsProps,
+} from './production'
