@@ -72,6 +72,7 @@ import SystemTerminalPanel from './SystemTerminalPanel'
 import ThemeRuntimeSync from './ThemeRuntimeSync'
 import type { ToolWindowProps } from '@hbar/ui-sdk'
 import ReferenceGallery from './react-bits/reference/ReferenceGallery'
+import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -385,7 +386,11 @@ function Sessions({
     }
   }
   return (
-    <div className="session-nav" onClick={() => contextMenu && setContextMenu(null)}>
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
+      className="session-nav"
+      onClick={() => contextMenu && setContextMenu(null)}
+    >
       <div className="sidebar-heading">
         <strong>{archived ? t('archived') : t('sessions')}</strong>
         <div>
@@ -409,7 +414,12 @@ function Sessions({
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
-      <LineSidebar className="session-line-sidebar" activeId={selected} itemSelector="[data-session-line-item]">
+      <LineSidebar
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
+        className="session-line-sidebar"
+        activeId={selected}
+        itemSelector="[data-session-line-item]"
+      >
         {(pinnedWorkspaces.length > 0 || pinnedSessions.length > 0) && (
           <section className="session-pinned-section" aria-label={t('pinnedArea')}>
             <div className="session-group-heading"><Pin size={12} />{t('pinned')}</div>
@@ -1656,7 +1666,12 @@ export default function App() {
   return (
     <>
       <ThemeRuntimeSync />
-      <div className="app-shell" onDragOver={handleToolRailDragOver} onDropCapture={handleToolRailDrop}>
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4', 'bootstrap-shell')}
+        className="app-shell"
+        onDragOver={handleToolRailDragOver}
+        onDropCapture={handleToolRailDrop}
+      >
       <WorkbenchHeader
         status={status}
         host={host}
@@ -1676,7 +1691,10 @@ export default function App() {
         className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
         style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
       >
-        <aside className="sidebar">
+        <aside
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
+          className="sidebar"
+        >
           <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
           {panel === 'sessions' ? (
             <Sessions onSelect={selectSession} onNew={() => void newSession()} onAddWorkspace={() => setWorkspaceModal(true)} creating={isCreatingSession} />
@@ -1731,7 +1749,10 @@ export default function App() {
           onMoveTool={moveToolRail}
           onReorderTool={reorderToolRail}
         />
-        <main className="workbench">
+        <main
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell', 'bootstrap-shell')}
+          className="workbench"
+        >
           {small ? (
             <>
               {mobileView === 'sessions' ? (

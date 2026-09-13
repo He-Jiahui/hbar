@@ -1,5 +1,6 @@
 import { Folder, Network, ShieldCheck } from 'lucide-react'
 import GlassSurface from '../react-bits/GlassSurface'
+import { referenceAttributes } from '../react-bits'
 import { useLocale } from '../locale'
 import './WorkbenchStatusBar.css'
 
@@ -24,7 +25,11 @@ export default function WorkbenchStatusBar({
 }: WorkbenchStatusBarProps) {
   const { t } = useLocale()
   return (
-    <footer className="statusbar rb-statusbar" aria-label={t('hostStatus')}>
+    <footer
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-usage', 'usage')}
+      className="statusbar rb-statusbar"
+      aria-label={t('hostStatus')}
+    >
       <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="statusbar-primary">
         <span className="status-item status-workspace" data-status-item="workspace" title={t('workspace')}>

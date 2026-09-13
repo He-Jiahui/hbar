@@ -16,6 +16,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import GlassIconButton from '../react-bits/GlassIconButton'
 import GlassSurface from '../react-bits/GlassSurface'
+import { referenceAttributes } from '../react-bits'
 import { FloatingSurface } from '../FloatingLayer'
 import type { ToolWindowDock, ToolWindowIcon } from '@hbar/contracts'
 import { useLocale } from '../locale'
@@ -157,6 +158,7 @@ function ToolRailButton({
   const [dragging, setDragging] = useState(false)
   return (
     <GlassIconButton
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
       label={label}
       portalTooltip
       tooltipPlacement={tooltipPlacement}
@@ -376,6 +378,7 @@ export function WorkbenchToolRails({
     <>
       {side !== 'right' && (
         <nav
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
           className="tool-rail left-rail"
           aria-label={t('mainNavigation')}
           onDragOver={(event) => event.preventDefault()}
@@ -448,6 +451,7 @@ export function WorkbenchToolRails({
       )}
       {side !== 'left' && (
         <nav
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
           className="tool-rail right-rail"
           aria-label={t('toolWindow')}
           onDragOver={(event) => event.preventDefault()}
@@ -517,7 +521,11 @@ export function MobileNavigation({
         ? mobileView
         : 'plugins'
   return (
-    <nav className="mobile-nav" aria-label={t('mobileNavigation')}>
+    <nav
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/mobile', 'bootstrap-shell')}
+      className="mobile-nav"
+      aria-label={t('mobileNavigation')}
+    >
       <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="mobile-nav-items">
         {MOBILE_PRIMARY_ITEMS.map(({ id, icon: Icon }) => (
@@ -581,6 +589,7 @@ export function MobileToolMenu({
       onClose={onClose}
       backdropClassName="mobile-more-backdrop"
       className="plugin-panel rb-plugin-panel mobile-more-panel"
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/mobile', 'bootstrap-shell')}
       role="dialog"
       aria-modal="true"
       aria-labelledby="mobile-more-title"

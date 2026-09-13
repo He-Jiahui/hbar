@@ -3,6 +3,7 @@ import { Command as CommandIcon, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { FloatingSurface } from './FloatingLayer'
 import { useLocale } from './locale'
 
@@ -114,6 +115,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
     return (
       <SpotlightCard
         as="button"
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'bootstrap-shell')}
         key={command.id}
         type="button"
         role="option"
@@ -141,6 +143,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
       className="command-palette-shell"
     >
       <GlassSurface
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'bootstrap-shell')}
         className="command-palette"
         width="min(620px, 100%)"
         role="dialog"

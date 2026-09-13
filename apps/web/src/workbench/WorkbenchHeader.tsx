@@ -2,7 +2,7 @@ import type { ConnectionStatus } from '@hbar/client'
 import type { HostInfo, Workspace } from '@hbar/contracts'
 import { ChevronDown, Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
 import GlassSurface from '../react-bits/GlassSurface'
-import { StatusBadge } from '../react-bits'
+import { StatusBadge, referenceAttributes } from '../react-bits'
 import { useLocale } from '../locale'
 import './WorkbenchHeader.css'
 
@@ -46,7 +46,10 @@ export default function WorkbenchHeader({
   const connectionReady = status === 'connected'
 
   return (
-    <header className={`topbar rb-shell-header${compact ? ' rb-shell-header-compact' : ''}`}>
+    <header
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/navbar', 'bootstrap-shell')}
+      className={`topbar rb-shell-header${compact ? ' rb-shell-header-compact' : ''}`}
+    >
       <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="shell-header-leading">
         <button
