@@ -18,7 +18,9 @@ function initialTheme(): 'dsh-dark' | 'dsh-light' | 'white' {
   return 'dsh-dark'
 }
 
-document.documentElement.dataset.theme = initialTheme()
+const initial = initialTheme()
+document.documentElement.dataset.theme = initial
+document.documentElement.dataset.hbarAppUiTheme = initial === 'dsh-dark' ? 'dark' : 'light'
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

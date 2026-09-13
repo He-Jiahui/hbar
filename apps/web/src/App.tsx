@@ -532,6 +532,7 @@ export default function App() {
   })
   useEffect(() => {
     document.documentElement.dataset.theme = theme === 'white' ? 'white' : theme === 'light' ? 'dsh-light' : 'dsh-dark'
+    document.documentElement.dataset.hbarAppUiTheme = theme === 'dark' ? 'dark' : 'light'
   }, [theme])
   useEffect(() => {
     const onResize = () => setSmall(window.innerWidth < 900)
