@@ -1,7 +1,16 @@
-import { WorkflowBlueprint as Fixture } from '../../ReferenceBlueprints'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { Banknote, CreditCard, MoreHorizontal, Plus, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { reportFixtureClick } from '../../reference-interactions'
+import './billing-6.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/billing/billing-6. */
 export default function Billing6(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+  const [added, setAdded] = useState(false)
+  const paymentMethods = [
+    { icon: CreditCard, name: 'Visa ending 4242', badge: 'Primary', detail: 'Expires 04 / 2029 · Amelia Whitfield', note: 'Charged for subscriptions' },
+    { icon: CreditCard, name: 'Mastercard ending 8829', badge: 'Expires soon', detail: 'Expires 09 / 2026 · Marcus Bell', note: 'Backup for failed charges' },
+    { icon: Banknote, name: 'ACH · Northwind Trust 1190', badge: '', detail: 'Verified 12 Mar · 2 business days to settle', note: 'Used for invoices over $5,000' },
+  ] as const
+  return <section className="rb-public-billing-6" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}><div className="rb-billing-6-inner"><header className="rb-billing-6-heading"><div><h2>Payment methods</h2><p>How Cedar Labs pays for its subscription and usage.</p></div><button type="button" onClick={() => setAdded((value) => !value)}><Plus size={14} />{added ? 'Method added' : 'Add method'}</button></header><div className="rb-billing-6-methods">{paymentMethods.map((method, index) => { const Icon = method.icon; return <article key={method.name}><span className="rb-billing-6-method-icon"><Icon size={15} /></span><div className="rb-billing-6-method-copy"><div><strong>{method.name}</strong>{method.badge && <span className={index === 0 ? 'primary' : 'soon'}>{method.badge}</span>}</div><p>{method.detail} <b>· {method.note}</b></p></div>{index > 0 && <button type="button" className="make-primary">Make primary</button>}<button type="button" className="more" aria-label={`Actions for ${method.name}`}><MoreHorizontal size={15} /></button></article>})}</div><h3>Billing contacts</h3><p className="rb-billing-6-subtitle">Everyone here receives invoices and payment failures.</p><div className="rb-billing-6-contacts"><article><span className="rb-billing-6-avatar">AW</span><div><strong>Amelia Whitfield</strong><p>amelia@cedarlabs.com · Owner · receives every invoice</p></div><button type="button" aria-label="Actions for Amelia Whitfield"><MoreHorizontal size={15} /></button></article><article><span className="rb-billing-6-avatar">TG</span><div><strong>Tomás Guerrero</strong><p>ap@cedarlabs.com · Accounts payable · receipts only</p></div><button type="button" aria-label="Actions for Tomás Guerrero"><MoreHorizontal size={15} /></button></article><button type="button" className="invite"><Plus size={14} />Invite a billing contact</button></div><div className="rb-billing-6-bottom"><article><p className="eyebrow">▥&nbsp; BILLING ADDRESS</p><p className="address">Cedar Labs Inc.<br />14 Warren Street, Suite 620<br />New York, NY 10007</p><button type="button">Edit address</button></article><article><p className="eyebrow"><ShieldCheck size={13} /> TAX AND COMPLIANCE</p><dl><div><dt>Tax ID</dt><dd>US-88-2947135</dd></div><div><dt>Status</dt><dd>Verified 12 Mar</dd></div><div><dt>Invoices</dt><dd>Emailed on issue</dd></div></dl><p className="legal">Card details are held by the payment processor. We store only the last four digits.</p></article></div><button type="button" className="rb-billing-6-theme">◉&nbsp; Theme</button></div></section>
 }
