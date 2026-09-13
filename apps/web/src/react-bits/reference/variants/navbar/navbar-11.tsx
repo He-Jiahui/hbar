@@ -1,12 +1,10 @@
 import type { ReferenceFixtureProps } from '../../reference-types'
-import { ArrowLeft, History, MoreHorizontal, Share2, Users } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeft, History, MoreHorizontal, Share2 } from 'lucide-react'
 import { reportFixtureClick } from '../../reference-interactions'
 import './navbar-11.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/navbar/navbar-11. */
 export default function Navbar11(props: ReferenceFixtureProps) {
-  const [saved, setSaved] = useState(true)
   const sections = ['Hypothesis and success metric', 'Segment definition', 'Rollout plan'] as const
   return (
     <section className="rb-public-navbar-11" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}>
@@ -16,9 +14,9 @@ export default function Navbar11(props: ReferenceFixtureProps) {
         </button>
         <div className="rb-navbar-11-document">
           <button type="button">Q3 pricing experiment</button>
-          <span className={saved ? 'saved' : ''}>
+          <span>
             <i />
-            {saved ? 'Saved' : 'Unsaved'}
+            Saved
           </span>
         </div>
         <div className="rb-navbar-11-actions">
