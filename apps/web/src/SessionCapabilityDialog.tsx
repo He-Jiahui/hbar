@@ -32,6 +32,7 @@ import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { ReferenceTabs, referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 
 const TAB_LABELS: Record<SessionCapabilityTab, string> = {
@@ -152,7 +153,11 @@ function GoalPane({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <section className="session-capability-pane" aria-label={`${TAB_LABELS.goal} ${t('capabilitySettings')}`}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-plan', 'plan')}
+      className="session-capability-pane"
+      aria-label={`${TAB_LABELS.goal} ${t('capabilitySettings')}`}
+    >
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
       {goal && (
         <div className="session-capability-summary rb-capability-surface">
@@ -266,7 +271,11 @@ function PlanPane({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <section className="session-capability-pane" aria-label={`${TAB_LABELS.plan} ${t('capabilitySettings')}`}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-plan', 'plan')}
+      className="session-capability-pane"
+      aria-label={`${TAB_LABELS.plan} ${t('capabilitySettings')}`}
+    >
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
       <div className="session-capability-mode segmented" aria-label={t('capabilityRunMode')}>
         <button type="button" className={mode === 'default' ? 'selected' : ''} onClick={() => void changeMode('default')}>
@@ -403,7 +412,11 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <section className="session-capability-pane" aria-label={`${TAB_LABELS.budget} ${t('capabilitySettings')}`}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-usage', 'usage')}
+      className="session-capability-pane"
+      aria-label={`${TAB_LABELS.budget} ${t('capabilitySettings')}`}
+    >
       <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
       {budget ? (
         <div className={`budget-meter rb-capability-surface budget-meter-${budget.phase}`} aria-label={t('capabilityBudgetUsage')}>
@@ -466,18 +479,25 @@ export default function SessionCapabilityDialog({
   const state = useSessionCapabilities((value) => value.sessions[sessionId])
   return (
     <Modal title={t('capabilityDialogTitle')} onClose={onClose}>
-      <div className="session-capability-dialog">
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-approval', 'approval')}
+        className="session-capability-dialog"
+      >
         <nav className="session-capability-tabs rb-capability-tabs" aria-label={t('capabilityTabs')}>
           <GlassSurface className="capability-tabs-glass" width="100%" height="100%" aria-hidden="true" />
-          <button type="button" className={tab === 'goal' ? 'selected' : ''} onClick={() => setTab('goal')}>
-            <Target size={14} /> {TAB_LABELS.goal}
-          </button>
-          <button type="button" className={tab === 'plan' ? 'selected' : ''} onClick={() => setTab('plan')}>
-            <ClipboardList size={14} /> {TAB_LABELS.plan}
-          </button>
-          <button type="button" className={tab === 'budget' ? 'selected' : ''} onClick={() => setTab('budget')}>
-            <Gauge size={14} /> {TAB_LABELS.budget}
-          </button>
+          <ReferenceTabs<SessionCapabilityTab>
+            className="session-capability-tabs-control"
+            ariaLabel={t('capabilityTabs')}
+            reference="https://pro.reactbits.dev/docs/app-ui/agent-plan"
+            adapter="plan"
+            value={tab}
+            options={[
+              { value: 'goal', label: <><Target size={14} /> {TAB_LABELS.goal}</> },
+              { value: 'plan', label: <><ClipboardList size={14} /> {TAB_LABELS.plan}</> },
+              { value: 'budget', label: <><Gauge size={14} /> {TAB_LABELS.budget}</> },
+            ]}
+            onChange={setTab}
+          />
         </nav>
         {tab === 'goal' && <GoalPane sessionId={sessionId} />}
         {tab === 'plan' && <PlanPane sessionId={sessionId} />}

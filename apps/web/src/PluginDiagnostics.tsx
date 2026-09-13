@@ -29,6 +29,7 @@ import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { useLocale, type LocaleMessageKey } from './locale'
 type Translate = (key: LocaleMessageKey) => string
 
@@ -199,7 +200,11 @@ function ReportSurface({
 }) {
   const { t } = useLocale()
   return (
-    <section className={`plugin-diagnostic-result plugin-diagnostic-result-${kind}`} aria-label={`${title}${t('pluginResultSuffix')}`}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
+      className={`plugin-diagnostic-result plugin-diagnostic-result-${kind}`}
+      aria-label={`${title}${t('pluginResultSuffix')}`}
+    >
       <GlassSurface className="plugin-diagnostic-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="plugin-diagnostic-heading">
         <span className="plugin-diagnostic-heading-icon" aria-hidden="true">
@@ -613,7 +618,10 @@ export default function PluginDiagnostics() {
 
   const active = state.active
   return (
-    <div className="plugin-diagnostics">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
+      className="plugin-diagnostics"
+    >
       <div className="plugin-diagnostic-actions" role="group" aria-label={t('pluginDiagnosticActions')}>
         <GlareButton
           type="button"

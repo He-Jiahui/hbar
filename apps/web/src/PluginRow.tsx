@@ -3,6 +3,7 @@ import { ChevronRight, Puzzle, Save, Trash2 } from 'lucide-react'
 import type { PluginInfo } from '@hbar/contracts'
 import { client, refreshCatalog, report } from './stores'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 
 type ConfigSchema = {
@@ -165,6 +166,7 @@ export default function PluginRow({ plugin, className = '', id }: { plugin: Plug
   return (
     <SpotlightCard
       {...(id ? { id } : {})}
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/card', 'settings')}
       className={`plugin-row${className ? ` ${className}` : ''}`}
       spotlightColor="color-mix(in srgb, var(--rb-accent) 22%, transparent)"
     >

@@ -5,6 +5,7 @@ import { useConnection } from './stores'
 import GlareButton from './react-bits/GlareButton'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 
 export default function PathSettings() {
@@ -20,7 +21,10 @@ export default function PathSettings() {
     state.current && (state.dataRoot !== state.current.dataRoot || state.cacheRoot !== state.current.cacheRoot),
   )
   return (
-    <section className="settings-section path-settings">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+      className="settings-section path-settings"
+    >
       <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
       <div className="section-toolbar">
         <div>
@@ -36,7 +40,10 @@ export default function PathSettings() {
           <RefreshCw size={14} />
         </button>
       </div>
-      <div className="path-root-grid rb-path-roots">
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/file-manager', 'settings')}
+        className="path-root-grid rb-path-roots"
+      >
         <GlassSurface className="path-roots-glass" width="100%" height="100%" aria-hidden="true" />
         <label>
           <span>
@@ -65,6 +72,7 @@ export default function PathSettings() {
       </div>
       {state.current && (
         <SpotlightCard
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/card', 'settings')}
           className="path-details-surface"
           spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"
         >

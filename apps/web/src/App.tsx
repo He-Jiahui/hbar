@@ -1951,6 +1951,7 @@ export default function App() {
       <MobileNavigation mobileView={mobileView} onSetMobileView={setMobileView} />
       {notice && (
         <div
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'settings')}
           className="toast"
           role="alert"
           tabIndex={0}
@@ -1966,7 +1967,12 @@ export default function App() {
         </div>
       )}
       {taskNotice && !notice && (
-        <div className="toast task-toast" role="status" tabIndex={0}>
+        <div
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'settings')}
+          className="toast task-toast"
+          role="status"
+          tabIndex={0}
+        >
           <span>{taskNotice}</span>
           <button title={t('closeNotification')} aria-label={t('closeNotification')} onClick={() => useNotice.setState({ notice: '' })}>
             <X size={15} />
@@ -1978,6 +1984,7 @@ export default function App() {
       {workspaceModal && (
         <Modal title={t('addWorkspace')} onClose={closeWorkspaceModal}>
           <form
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/forms', 'settings')}
             className="settings-form"
             onSubmit={(event) => {
               event.preventDefault()

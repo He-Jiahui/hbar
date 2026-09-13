@@ -1,6 +1,7 @@
 import { Bell, Blocks, BookOpen, Bot, HardDrive, Monitor, Palette, ShieldCheck, type LucideIcon } from 'lucide-react'
 import type { SettingsCatalog } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
+import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 
 type SettingsDestination = {
@@ -47,7 +48,11 @@ export default function SettingsNavigation({
     devices: { label: t('devices'), description: t('devicesDescription') },
   } satisfies Record<SettingsTab, { label: string; description: string }>
   return (
-    <nav className="settings-tabs settings-nav rb-settings-tabs" aria-label={t('settingsGroup')}>
+    <nav
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+      className="settings-tabs settings-nav rb-settings-tabs"
+      aria-label={t('settingsGroup')}
+    >
       <GlassSurface className="settings-tabs-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="settings-nav-items">
         {SETTINGS_DESTINATIONS.map(({ id, icon: Icon }) => {

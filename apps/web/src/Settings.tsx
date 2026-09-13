@@ -52,6 +52,7 @@ import { mergeThemeContributions, THEME_CONFLICT_ERROR, useThemeSettings } from 
 import { platform } from './platform'
 import { rendererSlotDiagnostics, useUIPlugins } from './ui-plugins'
 import { useLocale } from './locale'
+import { referenceAttributes } from './react-bits'
 
 type SettingsScope = 'global' | 'project' | 'session'
 
@@ -103,6 +104,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose(): 
       open
       onClose={onClose}
       className="modal rb-modal-surface"
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-dialog', 'settings')}
       aria-label={title}
       role="dialog"
       aria-modal="true"
@@ -304,7 +306,12 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
   }
   const title = provider ? t('editModel') : t('addModel')
   return (
-    <section ref={detailPageRef} className="settings-detail-page rb-settings-detail-page" aria-label={title}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+      ref={detailPageRef}
+      className="settings-detail-page rb-settings-detail-page"
+      aria-label={title}
+    >
       <GlassSurface className="settings-detail-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="settings-detail-header">
         <button
@@ -327,9 +334,16 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
           </p>
         </div>
       </header>
-      <form onSubmit={(event) => void save(event)} className="settings-form settings-detail-form">
+      <form
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/forms', 'settings')}
+        onSubmit={(event) => void save(event)}
+        className="settings-form settings-detail-form"
+      >
         {!provider && (
-          <fieldset className="provider-presets">
+          <fieldset
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9', 'model-picker')}
+            className="provider-presets"
+          >
             <legend>{t('quickStart')}</legend>
             <div className="provider-preset-grid">
               {providerPresets.map((preset) => (
@@ -381,6 +395,7 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
           </>
         ) : (
           <SpotlightCard
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9', 'model-picker')}
             className="provider-connection-summary"
             spotlightColor="color-mix(in srgb, var(--rb-accent) 20%, transparent)"
           >
@@ -391,7 +406,11 @@ function ProviderEditorPage({ provider, close }: { provider?: ModelInfo; close()
             <code>{value.baseUrl}</code>
           </SpotlightCard>
         )}
-        <section className="provider-model-editor" aria-label={t('providerModels')}>
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9', 'model-picker')}
+          className="provider-model-editor"
+          aria-label={t('providerModels')}
+        >
           <header className="provider-model-editor-heading">
             <div>
               <strong>{t('modelsHeading')}</strong>
@@ -666,7 +685,10 @@ function SkillsSettings() {
   }, [load])
   const filtered = skills.filter((skill) => skill.id.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
   return (
-    <section className="settings-section skills-section">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+      className="settings-section skills-section"
+    >
       <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
       <div className="section-toolbar">
         <div>
@@ -951,14 +973,23 @@ export default function Settings() {
   }
   if (editor) {
     return (
-      <div className="settings-panel settings-editor-panel">
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+        className="settings-panel settings-editor-panel"
+      >
         <ProviderEditorPage {...(editor === 'new' ? {} : { provider: editor })} close={() => setEditor(null)} />
       </div>
     )
   }
   return (
-    <div className="settings-panel">
-      <div className="page-heading settings-page-heading">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+      className="settings-panel"
+    >
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/navbar', 'settings')}
+        className="page-heading settings-page-heading"
+      >
         <div className="settings-heading-row">
           <div>
           <h1>{t('settingsTitle')}</h1>
@@ -984,7 +1015,12 @@ export default function Settings() {
             </button>
           )}
         </label>
-        <div className="settings-scope-switcher" role="tablist" aria-label={t('settingsScope')}>
+        <div
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+          className="settings-scope-switcher"
+          role="tablist"
+          aria-label={t('settingsScope')}
+        >
           {(
             [
               ['global', t('globalSettings')],
@@ -1009,7 +1045,12 @@ export default function Settings() {
           </span>
         </div>
         {settingsQuery.trim() && (
-          <div className="settings-search-results" role="listbox" aria-label={t('settingsSearchResults')}>
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'bootstrap-shell')}
+            className="settings-search-results"
+            role="listbox"
+            aria-label={t('settingsSearchResults')}
+          >
             {settingSearchResults.length ? (
               settingSearchResults.map((entry) => (
                 <button
@@ -1047,7 +1088,10 @@ export default function Settings() {
         }}
       />
       {tab === 'appearance' && (
-        <section className="settings-section appearance-section">
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+          className="settings-section appearance-section"
+        >
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
@@ -1071,7 +1115,12 @@ export default function Settings() {
             onSet={(id, value) => void saveSetting(id, value)}
             onReset={(id) => void resetSetting(id)}
           />
-          <div className="theme-options rb-theme-options" role="group" aria-label={t('appearanceTheme')}>
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/card', 'settings')}
+            className="theme-options rb-theme-options"
+            role="group"
+            aria-label={t('appearanceTheme')}
+          >
             <GlassSurface className="theme-options-glass" width="100%" height="100%" aria-hidden="true" />
             {(
               [
@@ -1180,7 +1229,10 @@ export default function Settings() {
         </section>
       )}
       {tab === 'automation' && (
-        <section className="settings-section automation-section">
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'settings')}
+          className="settings-section automation-section"
+        >
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
@@ -1203,7 +1255,10 @@ export default function Settings() {
         </section>
       )}
       {tab === 'permissions' && (
-        <section className="settings-section permissions-section">
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-approval', 'approval')}
+          className="settings-section permissions-section"
+        >
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div>
@@ -1222,6 +1277,7 @@ export default function Settings() {
               onReset={(id) => void resetSetting(id)}
             />
             <SpotlightCard
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-approval', 'approval')}
               className="permission-setting-row"
               spotlightColor="color-mix(in srgb, var(--hbar-ok) 18%, transparent)"
             >
@@ -1237,6 +1293,7 @@ export default function Settings() {
               </span>
             </SpotlightCard>
             <SpotlightCard
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-approval', 'approval')}
               className="permission-note"
               spotlightColor="color-mix(in srgb, var(--hbar-wn) 18%, transparent)"
             >
@@ -1247,7 +1304,10 @@ export default function Settings() {
         </section>
       )}
       {tab === 'models' && (
-        <section className="settings-section models-section">
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9', 'model-picker')}
+          className="settings-section models-section"
+        >
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <div className="model-section-title">
@@ -1261,7 +1321,10 @@ export default function Settings() {
               {t('addModel')}
             </button>
           </div>
-          <div className="model-list-toolbar">
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/filtering', 'settings')}
+            className="model-list-toolbar"
+          >
             <label className="settings-search">
               <Search size={14} />
               <input
@@ -1426,13 +1489,20 @@ export default function Settings() {
       {tab === 'paths' && <PathSettings />}
       {tab === 'skills' && <SkillsSettings />}
       {tab === 'plugins' && (
-        <section className="settings-section">
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+          className="settings-section"
+        >
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <h2>{t('plugins')}</h2>
           </div>
           <PluginDiagnostics />
-          <div className="plugin-theme-summary" aria-label={t('plugins')}>
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/dashboard', 'settings')}
+            className="plugin-theme-summary"
+            aria-label={t('plugins')}
+          >
             <h3>{t('pluginThemeSummary')}</h3>
             <p>{t('pluginThemeSummaryHint')}</p>
             {themePlugins.length > 0 && <p className="settings-muted"><strong>{t('activeThemePlugin')}:</strong> {themePlugins[0]?.title} · {t('themePluginsComposed')}</p>}
@@ -1507,7 +1577,10 @@ export default function Settings() {
               })}
             </AnimatedList>
           ) : null}
-          <div className="install-plugin">
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/forms', 'settings')}
+            className="install-plugin"
+          >
             <label>
               {t('localPluginPath')}
               <input
@@ -1549,13 +1622,19 @@ export default function Settings() {
         </section>
       )}
       {tab === 'devices' && (
-        <section className="settings-section">
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/authentication', 'settings')}
+          className="settings-section"
+        >
           <GlassSurface className="settings-glass-section" width="100%" height="100%" aria-hidden="true" />
           <div className="section-toolbar">
             <h2>{t('hostConnection')}</h2>
             <span className="success">{t('online')}</span>
           </div>
-          <div className="host-addresses">
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/authentication', 'settings')}
+            className="host-addresses"
+          >
             {host?.addresses.map((address) => (
               <SpotlightCard
                 className="host-address-row"
@@ -1580,7 +1659,10 @@ export default function Settings() {
             </button>
           </div>
           {pairing && (
-            <div className="pairing-code rb-pairing-surface">
+            <div
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/onboarding', 'settings')}
+              className="pairing-code rb-pairing-surface"
+            >
               <GlassSurface className="pairing-code-glass" width="100%" height="100%" aria-hidden="true" />
               <code>{pairing.code}</code>
               <span>{t('expiresAt')} {new Date(pairing.expiresAt).toLocaleTimeString()}</span>

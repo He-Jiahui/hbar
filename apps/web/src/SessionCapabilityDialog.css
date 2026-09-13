@@ -6,12 +6,22 @@
 }
 
 .session-capability-tabs {
+  position: relative;
+  isolation: isolate;
   display: flex;
   gap: 4px;
   overflow-x: auto;
   padding: 10px 16px 0;
   border-bottom: 1px solid var(--hbar-bd);
   scrollbar-width: thin;
+}
+
+.session-capability-tabs-control {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: max-content;
+  gap: 4px;
 }
 
 .session-plan-list.rb-animated-list {

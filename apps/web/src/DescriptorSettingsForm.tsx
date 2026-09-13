@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { JsonSchemaDescriptor, ResolvedSetting, SettingDescriptor, SettingsSnapshot } from '@hbar/contracts'
 import './descriptor-settings.css'
 import { useLocale, type LocaleMessageKey } from './locale'
+import { referenceAttributes } from './react-bits'
 
 type Translate = (key: LocaleMessageKey) => string
 
@@ -170,7 +171,11 @@ export default function DescriptorSettingsForm({ descriptors, snapshot, context 
     .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id)), [context.hasSession, context.hasWorkspace, context.pluginEnabled, descriptors])
   if (!ordered.length) return null
   return (
-    <section className="descriptor-settings-form" aria-label={t('descriptorSettings')}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/settings-form', 'settings')}
+      className="descriptor-settings-form"
+      aria-label={t('descriptorSettings')}
+    >
       {ordered.map((setting) => {
         const descriptorCopy = localizedDescriptor(setting, t)
         const resolved = snapshot?.values[setting.id]
