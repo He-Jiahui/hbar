@@ -1,7 +1,17 @@
-import { WorkflowBlueprint as Fixture } from '../../ReferenceBlueprints'
 import type { ReferenceFixtureProps } from '../../reference-types'
+import { Database, Edit3, Layers3, Plus, Shield, Users, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { reportFixtureClick } from '../../reference-interactions'
+import './billing-2.css'
 
 /** Public clean-room fixture for https://pro.reactbits.dev/docs/app-ui/billing/billing-2. */
 export default function Billing2(props: ReferenceFixtureProps) {
-  return <Fixture {...props} />
+  const [saved, setSaved] = useState(false)
+  const [active, setActive] = useState<Record<string, boolean>>({ Starter: true, Growth: true, Scale: true })
+  const plans = [
+    { name: 'Starter', id: 'PLAN-Starter', subscribers: '1,840', price: '$29', seats: '5 included', api: '50k / month', storage: '10 GB', env: '1', addons: [['Extra storage', '$9 / mo', Database]] as const },
+    { name: 'Growth', id: 'PLAN-Growth', subscribers: '1,120', price: '$89', seats: '20 included', api: '500k / month', storage: '100 GB', env: '3', addons: [['Usage insights', '$19 / mo', Zap]] as const },
+    { name: 'Scale', id: 'PLAN-Scale', subscribers: '214', price: '$249', seats: '100 included', api: '5M / month', storage: '1 TB', env: '10', addons: [['SSO and SAML', '$99 / mo', Shield], ['Usage insights', '$19 / mo', Zap]] as const },
+  ] as const
+  return <section className="rb-public-billing-2" onClickCapture={(event) => reportFixtureClick(event, props.onInteraction)}><div className="rb-billing-2-shell"><header className="rb-billing-2-heading"><div><h2>Plans</h2><p>3 plans · 3 live · edited 14 min ago by Amelia Whitfield</p></div><button type="button"><Plus size={14} /> New plan</button></header><section className="rb-billing-2-unsaved"><div><span>●</span><strong>Unsaved changes</strong><p>4 edits across Scale and Enterprise are not published yet.</p></div><div><button type="button" onClick={() => setSaved(false)}>Discard</button><button type="button" className="save" onClick={() => setSaved(true)}>{saved ? 'Saved' : 'Save changes'}</button></div></section><div className="rb-billing-2-plans">{plans.map((plan) => <article key={plan.name} className="rb-billing-2-plan"><header><div><h3>{plan.name} <small>● Active</small></h3><p>{plan.id} · {plan.subscribers} subscribers</p></div><button type="button" aria-label={`Edit ${plan.name}`}><Edit3 size={14} /></button></header><strong className="rb-billing-2-price">{plan.price}<small>per seat / mo</small></strong><section className="rb-billing-2-entitlements"><h4>ENTITLEMENTS</h4><p><Users size={14} />Seats <span>{plan.seats}</span></p><p><Zap size={14} />API calls <span>{plan.api}</span></p><p><Database size={14} />Storage <span>{plan.storage}</span></p><p><Layers3 size={14} />Environments <span>{plan.env}</span></p><h4>ADD-ONS</h4>{plan.addons.map(([name, cost, Icon]) => <p key={name}><Icon size={14} />{name}<span>{cost}</span></p>)}</section><button type="button" className="rb-billing-2-add"><Plus size={13} /> Add entitlement</button><footer><label>Active <button type="button" className={active[plan.name] ? 'on' : ''} onClick={() => setActive((value) => ({ ...value, [plan.name]: !value[plan.name] }))}><i /></button></label><label>Listed publicly <button type="button" className={active[plan.name] ? 'on' : ''} onClick={() => setActive((value) => ({ ...value, [plan.name]: !value[plan.name] }))}><i /></button></label></footer></article>)}</div></div><button type="button" className="rb-billing-2-theme">◉&nbsp; Theme</button></section>
 }
