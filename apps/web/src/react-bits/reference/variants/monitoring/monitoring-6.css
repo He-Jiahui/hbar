@@ -1,0 +1,216 @@
+.rb-public-monitoring-6 {
+  box-sizing: border-box;
+  width: 100%;
+  height: 600px;
+  min-height: 600px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+}
+.rb-public-monitoring-6 *,
+.rb-public-monitoring-6 *::before,
+.rb-public-monitoring-6 *::after {
+  box-sizing: border-box;
+}
+.rb-public-monitoring-6 h2,
+.rb-public-monitoring-6 p,
+.rb-public-monitoring-6 ul {
+  margin: 0;
+}
+.rb-public-monitoring-6 button {
+  font: inherit;
+}
+.rb-monitoring-6-shell {
+  position: relative;
+  width: min(1000px, calc(100% - 192px));
+  height: 552px;
+  margin: 24px auto;
+  padding: 4px;
+  border: 1px solid #292929;
+  border-radius: 14px;
+  background: #171717;
+}
+.rb-monitoring-6-shell > header {
+  display: flex;
+  height: 73px;
+  align-items: flex-start;
+  justify-content: space-between;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #171717;
+}
+.rb-monitoring-6-shell > header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22.5px;
+}
+.ok-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #737373;
+}
+.rb-monitoring-6-shell > header p {
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.ranges {
+  display: flex;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 4px;
+  background: #292929;
+}
+.ranges button {
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+  font-size: 12px;
+}
+.ranges button.selected {
+  background: #202020;
+  color: #f5f5f5;
+}
+.rb-monitoring-6-services {
+  height: 426px;
+  margin-top: 4px;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 8px;
+  background: #202020;
+  overflow: hidden;
+}
+.rb-monitoring-6-services ul {
+  display: grid;
+  gap: 3px;
+  padding: 0;
+}
+.rb-monitoring-6-services li {
+  height: 82px;
+  border-radius: 8px;
+  padding: 12px;
+  background: #202020;
+  list-style: none;
+}
+.service-head {
+  display: flex;
+  height: 22px;
+  align-items: center;
+  justify-content: space-between;
+}
+.service-head button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-size: 13px;
+}
+.service-head > span {
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+}
+.service-bars {
+  display: grid;
+  height: 28px;
+  grid-template-columns: repeat(90, minmax(3px, 1fr));
+  gap: 2px;
+  margin-top: 7px;
+  overflow: hidden;
+}
+.service-bars i {
+  display: block;
+  border-radius: 2px;
+  background: #525252;
+}
+.service-bars i.degraded {
+  background: #ff9d0a;
+}
+.service-bars i.outage {
+  background: #ff3b4d;
+}
+.rb-monitoring-6-shell > footer {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #171717;
+  color: #737373;
+  font-size: 12px;
+}
+.rb-monitoring-6-shell > footer ul {
+  display: flex;
+  gap: 12px;
+  list-style: none;
+}
+.rb-monitoring-6-shell > footer li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rb-monitoring-6-shell > footer li i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #737373;
+}
+.rb-monitoring-6-shell > footer li i.degraded {
+  background: #ff9d0a;
+}
+.rb-monitoring-6-shell > footer li i.outage {
+  background: #ff3b4d;
+}
+.rb-monitoring-6-theme {
+  position: absolute;
+  right: -27px;
+  bottom: -1px;
+  display: flex;
+  height: 40px;
+  align-items: center;
+  border: 1px solid #202020;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  cursor: pointer;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .rb-monitoring-6-shell {
+    width: calc(100% - 32px);
+    margin: 16px auto;
+  }
+  .rb-monitoring-6-shell > header {
+    height: 73px;
+  }
+  .rb-monitoring-6-services {
+    height: 426px;
+  }
+  .rb-monitoring-6-shell > footer ul {
+    display: none;
+  }
+  .rb-monitoring-6-theme {
+    right: 0;
+    bottom: 0;
+  }
+}
