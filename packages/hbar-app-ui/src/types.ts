@@ -117,7 +117,8 @@ export interface HbarAppUiVariantProps {
   readonly className?: string
 }
 
-export type HbarAppUiVariantComponent = ComponentType<HbarAppUiVariantProps>
+export type HbarAppUiVariantComponentProps = Omit<HbarAppUiVariantProps, 'spec'> & { readonly spec?: HbarAppUiVariantSpec }
+export type HbarAppUiVariantComponent = ComponentType<HbarAppUiVariantComponentProps>
 
 export interface HbarAppUiRegistryEntry {
   readonly spec: HbarAppUiVariantSpec

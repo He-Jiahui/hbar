@@ -28,6 +28,7 @@ export type {
   HbarAppUiRegistryEntry,
   HbarAppUiTimelineStep,
   HbarAppUiVariantComponent,
+  HbarAppUiVariantComponentProps,
   HbarAppUiVariantProps,
   HbarAppUiVariantSpec,
 } from './types'
