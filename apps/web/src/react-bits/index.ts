@@ -94,3 +94,14 @@ export {
   type RunOutcomeSurfaceLabels,
   type RunOutcomeSurfaceProps,
 } from './components/RunOutcomeSurface'
+export {
+  default as SessionSidebarSurface,
+  SessionContextMenuSurface,
+  type SessionActionKind,
+  type SessionContextMenuLabels,
+  type SessionContextMenuState,
+  type SessionSidebarLabels,
+  type SessionSidebarRow,
+  type SessionSidebarSurfaceProps,
+  type SessionSidebarWorkspaceGroup,
+} from './components/SessionSidebarSurface'

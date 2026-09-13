@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
-  Archive,
   BarChart3,
   Brain,
   CheckCircle2,
@@ -15,16 +14,11 @@ import {
   GitBranch,
   Globe,
   LayoutGrid,
-  LoaderCircle,
   MessageSquare,
   ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
-  Pin,
-  PinOff,
-  Pencil,
   Plus,
-  Search,
   Settings2,
   TerminalSquare,
   Target,
@@ -51,17 +45,13 @@ import Chat from './Chat'
 import Settings, { Modal } from './Settings'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
-import { FloatingSurface } from './FloatingLayer'
 import { permissionPreset } from './permissions'
 import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layout'
 import PairingPage from './PairingPage'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import Diagnose from './DiagnosePanel'
-import SpotlightCard from './react-bits/SpotlightCard'
-import LineSidebar from './react-bits/LineSidebar'
 import GlassSurface from './react-bits/GlassSurface'
-import AnimatedList from './react-bits/AnimatedList'
 import ActivityPanel from './ActivityPanel'
 import GitPanel from './GitPanel'
 import WorkbenchHeader from './workbench/WorkbenchHeader'
@@ -72,7 +62,13 @@ import SystemTerminalPanel from './SystemTerminalPanel'
 import ThemeRuntimeSync from './ThemeRuntimeSync'
 import type { ToolWindowProps } from '@hbar/ui-sdk'
 import ReferenceGallery from './react-bits/reference/ReferenceGallery'
-import { referenceAttributes } from './react-bits'
+import {
+  SessionSidebarSurface,
+  referenceAttributes,
+  type SessionSidebarLabels,
+  type SessionSidebarRow,
+  type SessionSidebarWorkspaceGroup,
+} from './react-bits'
 import { useLocale } from './locale'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -287,22 +283,6 @@ function Sessions({
     }
     return { snapshot, summary, activity, status: labels[activity] ?? t('ready'), StatusIcon: icons[activity] ?? Activity, branch: workspaceBranches[session.workspaceId] }
   }
-  function renderSessionDetails(session: Session) {
-    const meta = sessionMeta(session)
-    const StatusIcon = meta.StatusIcon
-    const workspace = workspaces.find((item) => item.id === session.workspaceId)
-    const responseAt = meta.summary?.lastResponseAt ?? null
-    const responseLabel = responseAt ? new Date(responseAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : t('noResponse')
-    return <>
-      <span className="session-leading-icon" aria-hidden="true">{pinnedSessionIds.includes(session.id) ? <Pin size={14} /> : <MessageSquare size={14} />}</span>
-      <div>
-        <span>{session.title}</span>
-        <small title={meta.branch ? `${workspace?.path ?? workspace?.name ?? t('unknownWorkspace')} · ${meta.branch}` : t('noGitBranch')}>{workspace?.name ?? t('unknownWorkspace')} · {meta.branch ? `${t('branchLabel')} · ${meta.branch}` : t('noGitBranch')}</small>
-      </div>
-      <span className={`session-status-indicator session-status-${meta.activity}`} title={meta.status} aria-label={meta.status}><StatusIcon size={13} /></span>
-      <small className="session-last-response" title={responseAt ? new Date(responseAt).toLocaleString() : undefined}>{t('lastResponse')} {responseLabel}</small>
-    </>
-  }
   const openMenu = (event: React.MouseEvent, type: 'workspace' | 'session', id: string) => {
     event.preventDefault()
     event.stopPropagation()
@@ -385,180 +365,127 @@ function Sessions({
       })
     }
   }
+  const rowForSession = (session: Session): SessionSidebarRow => {
+    const meta = sessionMeta(session)
+    const StatusIcon = meta.StatusIcon
+    const workspace = workspaces.find((item) => item.id === session.workspaceId)
+    const responseAt = meta.summary?.lastResponseAt ?? null
+    return {
+      session,
+      workspaceName: workspace?.name ?? t('unknownWorkspace'),
+      workspacePath: workspace?.path,
+      branch: meta.branch,
+      status: meta.activity,
+      statusIcon: <StatusIcon size={13} />,
+      responseLabel: responseAt
+        ? new Date(responseAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : t('noResponse'),
+      responseTitle: responseAt ? new Date(responseAt).toLocaleString() : undefined,
+      pinned: pinnedSessionIds.includes(session.id),
+      selected: selected === session.id,
+    }
+  }
+  const sessionRows = visibleSessions.map(rowForSession)
+  const rowsByWorkspace = new Map<string, SessionSidebarRow[]>()
+  for (const row of sessionRows) {
+    const rows = rowsByWorkspace.get(row.session.workspaceId) ?? []
+    rows.push(row)
+    rowsByWorkspace.set(row.session.workspaceId, rows)
+  }
+  const workspaceGroups: SessionSidebarWorkspaceGroup[] = workspaces
+    .map((workspace) => ({
+      workspace,
+      sessions: rowsByWorkspace.get(workspace.id) ?? [],
+      expanded: expanded[workspace.id] ?? true,
+      pinned: pinnedWorkspaceIds.includes(workspace.id),
+      branch: workspaceBranches[workspace.id],
+    }))
+    .filter((group) => !search || group.sessions.length > 0)
+  const sessionSidebarLabels: SessionSidebarLabels = {
+    archived: t('archived'),
+    sessions: t('sessions'),
+    newWorkspace: t('newWorkspace'),
+    activeSessions: t('activeSessions'),
+    archivedSessions: t('archivedSessions'),
+    searchSessions: t('searchSessions'),
+    pinnedArea: t('pinnedArea'),
+    pinned: t('pinned'),
+    pinnedWorkspace: t('pinnedWorkspace'),
+    newSession: t('newSession'),
+    newSessionInWorkspace: t('newSessionInWorkspace'),
+    pinSession: t('pinSession'),
+    unpinSession: t('unpinSession'),
+    renameSession: t('renameSession'),
+    rename: t('rename'),
+    createBranch: t('createBranch'),
+    restore: t('restore'),
+    archive: t('archive'),
+    restoreSession: t('restoreSession'),
+    archiveSession: t('archiveSession'),
+    noMatchingSessions: t('noMatchingSessions'),
+    noArchivedSessions: t('noArchivedSessions'),
+    noSessions: t('noSessions'),
+    noGitBranch: t('noGitBranch'),
+    branchLabel: t('branchLabel'),
+    lastResponse: t('lastResponse'),
+    sessionOptions: t('sessionOptions'),
+    pinWorkspace: t('pinWorkspace'),
+  }
+  const contextSession = contextMenu?.type === 'session' ? sessions.find((item) => item.id === contextMenu.id) : undefined
   return (
-    <div
-      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
-      className="session-nav"
-      onClick={() => contextMenu && setContextMenu(null)}
-    >
-      <div className="sidebar-heading">
-        <strong>{archived ? t('archived') : t('sessions')}</strong>
-        <div>
-          {!archived && <button title={t('newWorkspace')} aria-label={t('newWorkspace')} onClick={onAddWorkspace}><Plus size={15} /></button>}
-          <button
-            title={archived ? t('activeSessions') : t('archivedSessions')}
-            aria-label={archived ? t('activeSessions') : t('archivedSessions')}
-            className={archived ? 'selected' : ''}
-            onClick={() => useWorkbench.setState({ showArchived: !archived })}
-          >
-            <Archive size={15} />
-          </button>
-        </div>
-      </div>
-      <div className="search-field">
-        <Search size={13} />
-        <input
-          placeholder={t('searchSessions')}
-          aria-label={t('searchSessions')}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </div>
-      <LineSidebar
-        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
-        className="session-line-sidebar"
-        activeId={selected}
-        itemSelector="[data-session-line-item]"
-      >
-        {(pinnedWorkspaces.length > 0 || pinnedSessions.length > 0) && (
-          <section className="session-pinned-section" aria-label={t('pinnedArea')}>
-            <div className="session-group-heading"><Pin size={12} />{t('pinned')}</div>
-            {pinnedWorkspaces.map((workspace) => (
-              <button key={workspace.id} className="workspace-item pinned" onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)} onClick={() => useWorkbench.setState({ workspaceId: workspace.id })}>
-                <Folder size={14} /><span>{workspace.name}</span><Pin size={11} />
-              </button>
-            ))}
-            {pinnedSessions.map((session) => (
-              <button data-session-line-item data-line-id={session.id} key={session.id} className={`session-item-pinned${selected === session.id ? ' selected' : ''}`} onContextMenu={(event) => openMenu(event, 'session', session.id)} onClick={() => onSelect(session.id)}>
-                <span className="session-line-marker" aria-hidden="true" />
-                {renderSessionDetails(session)}
-              </button>
-            ))}
-          </section>
-        )}
-        <AnimatedList
-          className="session-list"
-          viewportClassName="session-list-viewport"
-          aria-label={archived ? t('archivedSessions') : t('sessions')}
-        >
-        {workspaces.map((workspace) => {
-          const workspaceSessions = visibleSessions.filter((session) => session.workspaceId === workspace.id)
-          if (!workspaceSessions.length && search) return null
-          const isExpanded = expanded[workspace.id] ?? true
-          return (
-            <section className={`workspace-group${pinnedWorkspaceIds.includes(workspace.id) ? ' pinned' : ''}`} key={workspace.id}>
-              <div className="workspace-heading" onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)}>
-                <button className="workspace-toggle" onClick={() => setExpanded((current) => ({ ...current, [workspace.id]: !isExpanded }))}>
-                  <Folder size={14} /><strong>{workspace.name}</strong><span>{workspaceSessions.length}</span>
-                </button>
-                <div className="workspace-actions">
-                  <button title={t('pinnedWorkspace')} aria-label={`${t('pinnedWorkspace')} ${workspace.name}`} onClick={() => togglePinned('workspace', workspace.id)}>{pinnedWorkspaceIds.includes(workspace.id) ? <PinOff size={12} /> : <Pin size={12} />}</button>
-                  <button title={t('newSession')} aria-label={t('newSessionInWorkspace').replace('{workspace}', workspace.name)} disabled={creating} onClick={() => { useWorkbench.setState({ workspaceId: workspace.id }); onNew() }}><Plus size={13} /></button>
-                </div>
-              </div>
-              {isExpanded && workspaceSessions.map((session) => (
-                <SpotlightCard data-session-line-item data-line-id={session.id} className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id} spotlightColor="color-mix(in srgb, var(--rb-accent) 34%, transparent)" onContextMenu={(event) => openMenu(event, 'session', session.id)}>
-                  <span className="session-line-marker" aria-hidden="true" />
-                  {renamingId === session.id ? (
-              <input
-                className="session-rename-input"
-                aria-label={`${t('rename')} ${session.title}`}
-                value={renameValue}
-                autoFocus
-                disabled={renameBusy}
-                onChange={(event) => setRenameValue(event.target.value)}
-                onBlur={() => void finishRename()}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    void finishRename()
-                  } else if (event.key === 'Escape') {
-                    event.preventDefault()
-                    setRenamingId(null)
-                    setRenameValue('')
-                  }
-                }}
-              />
-              ) : (
-              <button className="session-select" onClick={() => onSelect(session.id)}>
-                {renderSessionDetails(session)}
-              </button>
-                  )}
-            <div className="session-row-actions">
-              <button
-                title={pinnedSessionIds.includes(session.id) ? `${t('unpinSession')} ` : t('pinSession')}
-                aria-label={`${pinnedSessionIds.includes(session.id) ? t('unpinSession') : t('pinSession')} ${session.title}`}
-                onClick={() => togglePinned('session', session.id)}
-              >
-                {pinnedSessionIds.includes(session.id) ? <PinOff size={12} /> : <Pin size={12} />}
-              </button>
-              <button
-                title={t('renameSession')}
-                aria-label={`${t('rename')} ${session.title}`}
-                disabled={renameBusy || Boolean(sessionActions[session.id])}
-                onClick={(event) => startRename(event, session)}
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                title={t('createBranch')}
-                aria-label={`${t('createBranch')} ${session.title}`}
-                disabled={Boolean(sessionActions[session.id])}
-                onClick={() => void fork(session)}
-              >
-                {sessionActions[session.id] === 'fork' ? (
-                  <LoaderCircle size={12} className="spinning" />
-                ) : (
-                  <GitBranch size={12} />
-                )}
-              </button>
-              <button
-                title={archived ? `${t('restore')} ${t('sessions')}` : `${t('archive')} ${t('sessions')}`}
-                aria-label={`${archived ? t('restore') : t('archive')} ${session.title}`}
-                disabled={Boolean(sessionActions[session.id])}
-                onClick={() => void toggleArchive(session)}
-              >
-                {sessionActions[session.id] === 'archive' ? (
-                  <LoaderCircle size={12} className="spinning" />
-                ) : (
-                  <Archive size={12} />
-                )}
-              </button>
-            </div>
-              </SpotlightCard>
-              ))}
-            </section>
-          )
-        })}
-          {!visibleSessions.length && (
-            <div className="empty-nav">{search ? t('noMatchingSessions') : archived ? t('noArchivedSessions') : t('noSessions')}</div>
-          )}
-        </AnimatedList>
-      </LineSidebar>
-      {contextMenu && <SessionContextMenu menu={contextMenu} sessions={sessions} onClose={() => setContextMenu(null)} onTogglePinned={togglePinned} onRename={(id) => { const session = sessions.find((item) => item.id === id); if (session) { setRenamingId(id); setRenameValue(session.title) }; setContextMenu(null) }} onArchive={(id) => { const session = sessions.find((item) => item.id === id); if (session) void toggleArchive(session); setContextMenu(null) }} />}
-    </div>
+    <SessionSidebarSurface
+      labels={sessionSidebarLabels}
+      archived={archived}
+      creating={creating}
+      selectedId={selected}
+      search={search}
+      renamingId={renamingId}
+      renameValue={renameValue}
+      renameBusy={renameBusy}
+      sessionActions={sessionActions}
+      workspaces={workspaceGroups}
+      pinnedWorkspaces={pinnedWorkspaces}
+      pinnedSessions={pinnedSessions.map(rowForSession)}
+      visibleSessionCount={visibleSessions.length}
+      contextMenu={contextMenu}
+      contextSession={contextSession}
+      onSearchChange={setSearch}
+      onToggleArchived={() => useWorkbench.setState({ showArchived: !archived })}
+      onAddWorkspace={onAddWorkspace}
+      onSelectSession={onSelect}
+      onSelectWorkspace={(id) => useWorkbench.setState({ workspaceId: id })}
+      onNewSession={(workspaceId) => {
+        useWorkbench.setState({ workspaceId })
+        onNew()
+      }}
+      onToggleWorkspace={(id) => setExpanded((current) => ({ ...current, [id]: !(current[id] ?? true) }))}
+      onContextMenu={openMenu}
+      onTogglePinned={togglePinned}
+      onStartRename={startRename}
+      onRenameChange={setRenameValue}
+      onFinishRename={() => void finishRename()}
+      onCancelRename={() => {
+        setRenamingId(null)
+        setRenameValue('')
+      }}
+      onFork={(session) => void fork(session)}
+      onArchive={(session) => void toggleArchive(session)}
+      onCloseContextMenu={() => setContextMenu(null)}
+      onContextRename={(id) => {
+        const session = sessions.find((item) => item.id === id)
+        if (session) {
+          setRenamingId(id)
+          setRenameValue(session.title)
+        }
+        setContextMenu(null)
+      }}
+      onContextArchive={(id) => {
+        const session = sessions.find((item) => item.id === id)
+        if (session) void toggleArchive(session)
+        setContextMenu(null)
+      }}
+    />
   )
-}
-
-function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename, onArchive }: { menu: { x: number; y: number; type: 'workspace' | 'session'; id: string }; sessions: readonly Session[]; onClose(): void; onTogglePinned(type: 'workspace' | 'session', id: string): void; onRename(id: string): void; onArchive(id: string): void }) {
-  const { t } = useLocale()
-  const session = sessions.find((item) => item.id === menu.id)
-  return <FloatingSurface
-    mode="point"
-    anchorPoint={{ x: menu.x, y: menu.y }}
-    open
-    onClose={onClose}
-    placement="below"
-    {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
-    className="session-context-menu rb-menu-surface"
-    role="menu"
-    aria-label={t('sessionOptions')}
-    onClick={(event) => event.stopPropagation()}
-  >
-    <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
-    <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? t('pinSession') : t('pinWorkspace')}</button>
-    {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />{t('rename')}</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? t('restoreSession') : t('archiveSession')}</button></>}
-  </FloatingSurface>
 }
 
 function DockTargetOverlay({ allowedDocks, onDrop }: { allowedDocks: readonly ToolWindowDock[]; onDrop(dock: ToolWindowDock): void }) {
