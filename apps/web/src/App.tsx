@@ -52,6 +52,7 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
+import { AnimatedList, EmptyState, MetricStrip, SpotlightSurface, Tabs } from './ui'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -236,7 +237,11 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
       </div>
       <div className="session-list">
         {sessions.map((session) => (
-          <div className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id}>
+          <SpotlightSurface
+            className={`session-item ${selected === session.id ? 'selected' : ''}`}
+            key={session.id}
+            spotlightColor="color-mix(in srgb, var(--hbar-ac) 34%, transparent)"
+          >
             <button
               className="session-select"
               onClick={() => onSelect(session.id)}
@@ -275,7 +280,7 @@ function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): vo
                 <Archive size={12} />
               </button>
             </div>
-          </div>
+          </SpotlightSurface>
         ))}
         {!sessions.length && (
           <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
@@ -405,42 +410,32 @@ function ActivityPanel() {
   const usage = snapshot?.usage
   return (
     <div className="activity-panel">
-      <div className="tool-panel-tabs">
-        <button className={mode === 'activity' ? 'selected' : ''} onClick={() => setMode('activity')}>
-          运行
-        </button>
-        <button className={mode === 'trace' ? 'selected' : ''} onClick={() => setMode('trace')}>
-          事件
-        </button>
-      </div>
+      <Tabs
+        className="tool-panel-tabs"
+        label="运行视图"
+        value={mode}
+        options={[{ value: 'activity', label: '运行' }, { value: 'trace', label: '事件' }]}
+        onChange={setMode}
+      />
       {mode === 'activity' ? (
         <>
           <div className="activity-heading">
             <h2>当前会话</h2>
             <span className="small-muted">{snapshot?.runs.length ?? 0} runs</span>
           </div>
-          <dl className="metrics">
-            <div>
-              <dt>输入 tokens</dt>
-              <dd>{(usage?.input ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>输出 tokens</dt>
-              <dd>{(usage?.output ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>缓存读取</dt>
-              <dd>{(usage?.cacheRead ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>费用</dt>
-              <dd>${(usage?.cost ?? 0).toFixed(4)}</dd>
-            </div>
-          </dl>
+          <MetricStrip
+            className="metrics"
+            metrics={[
+              { label: '输入 tokens', value: (usage?.input ?? 0).toLocaleString() },
+              { label: '输出 tokens', value: (usage?.output ?? 0).toLocaleString() },
+              { label: '缓存读取', value: (usage?.cacheRead ?? 0).toLocaleString() },
+              { label: '费用', value: `$${(usage?.cost ?? 0).toFixed(4)}` },
+            ]}
+          />
           <div className="section-label">运行记录</div>
-          <div className="run-list">
+          <AnimatedList className="run-list">
             {snapshot?.runs.map((run) => (
-              <div className="run-row" key={run.id}>
+              <SpotlightSurface className="run-row" key={run.id} spotlightColor="color-mix(in srgb, var(--hbar-ok) 28%, transparent)">
                 <i className={`status-dot ${run.status}`} />
                 <div>
                   <strong>{run.input.text.slice(0, 65) || '图片消息'}</strong>
@@ -458,14 +453,11 @@ function ActivityPanel() {
                     <Square size={12} />
                   </button>
                 )}
-              </div>
+              </SpotlightSurface>
             ))}
-          </div>
+          </AnimatedList>
           {!snapshot?.runs.length && (
-            <div className="empty-tool">
-              <Activity size={25} />
-              <span>尚无运行记录</span>
-            </div>
+            <EmptyState className="empty-tool" icon={<Activity size={22} />} title="尚无运行记录" description="发送一条消息后，运行状态会显示在这里。" />
           )}
         </>
       ) : (
