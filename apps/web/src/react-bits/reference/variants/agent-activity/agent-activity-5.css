@@ -8,6 +8,7 @@
   flex-direction: column;
   gap: 16px;
   overflow: hidden;
+  overflow-x: clip;
   padding: 24px;
   background: oklch(0.145 0 0);
   color: oklch(0.97 0 0);
@@ -228,4 +229,16 @@
   .rb-public-activity-5-stop { width: 68.359375px; }
   .rb-public-activity-5-frame { flex: 1 1 auto; }
   .rb-public-activity-5-theme { right: 16px; bottom: 16px; }
+}
+
+/* The gallery can render a mobile-width preview inside a desktop browser
+   viewport, so keep the fixed header controls within the constrained frame in
+   that container as well as in a genuinely narrow viewport. */
+.rb-reference-preview-mobile .rb-public-activity-5-stop-slot {
+  width: 78px;
+  flex-basis: 78px;
+}
+
+.rb-reference-preview-mobile .rb-public-activity-5-filters button {
+  padding-inline: 6px;
 }
