@@ -1,42 +1,2093 @@
-.rb-observed-chat{box-sizing:border-box;position:relative;display:flex;width:100%;height:100%;min-height:480px;overflow:hidden;background:oklch(.145 0 0);color:oklch(.97 0 0);font-family:ui-sans-serif,system-ui,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";font-size:16px;line-height:24px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.rb-observed-chat::after{position:absolute;right:0;bottom:-1px;left:0;height:1px;background:oklch(.269 0 0);content:''}.rb-observed-chat button,.rb-observed-chat textarea{box-sizing:border-box;font:inherit}.rb-observed-chat button{appearance:none;cursor:pointer}.rb-observed-chat-header{box-sizing:border-box;display:flex;width:768px;height:56px;min-height:56px;align-items:center;justify-content:space-between;gap:12px;margin:0 auto;padding:0 24px}.rb-observed-chat-header strong{font-size:16px;font-weight:500;line-height:24px}.rb-observed-chat-header>span{color:oklch(.556 0 0);font-size:13px;line-height:19.5px}.rb-observed-column{box-sizing:border-box;display:flex;width:768px;min-height:0;flex:1;flex-direction:column;overflow:hidden;margin:0 auto;padding:0 24px}.rb-observed-stream{display:flex;min-height:0;flex:1;flex-direction:column;gap:24px;overflow:hidden;padding:5px 0 12px}.rb-observed-message{box-sizing:border-box;max-width:100%;font-size:14px;line-height:22.75px}.rb-observed-message.user{align-self:flex-end;border-radius:14px;padding:10px 14px;background:oklch(.269 0 0);color:oklch(.97 0 0);line-height:24px}.rb-observed-message.assistant{display:flex;align-items:flex-start;gap:12px;align-self:flex-start;width:100%;padding:0}.rb-observed-avatar{display:flex;width:24px;height:24px;flex:0 0 24px;align-items:center;justify-content:center;border:1px solid oklch(.269 0 0);border-radius:50%;background:oklch(.205 0 0);color:oklch(.708 0 0)}.rb-observed-message-copy{min-width:0;max-width:684px}.rb-observed-message-copy>p{margin:0;color:oklch(.87 0 0);font-size:14px;line-height:22.75px}.rb-observed-label{display:inline-flex;height:24px;align-items:center;border-radius:6px;padding:0 8px;background:oklch(.269 0 0);color:oklch(.708 0 0);font-size:11px;letter-spacing:.08em;line-height:16px}.rb-observed-reasoning{margin:-4px 0 12px;color:oklch(.556 0 0);font-size:13px}.rb-observed-reasoning summary{cursor:pointer;line-height:28px}.rb-observed-reasoning p{margin:6px 0 0;font-size:12px}.rb-observed-tool{display:flex;width:100%;height:32px;align-items:center;gap:8px;margin-top:12px;border:0;border-radius:8px;padding:0 8px;background:oklab(.205 0 0 / .6);color:oklch(.87 0 0);font-size:13px;text-align:left}.rb-observed-tool small{color:oklch(.556 0 0)}.rb-observed-tool time{margin-left:auto;color:oklch(.556 0 0);font-size:12px}.rb-observed-approval{box-sizing:border-box;width:100%;margin-top:12px;border:1px solid oklch(.269 0 0);border-radius:10px;padding:4px;background:oklch(.145 0 0)}.rb-observed-approval>strong{display:flex;height:19.5px;align-items:center;gap:6px;padding:0 8px;font-size:13px}.rb-observed-approval>strong i{width:6px;height:6px;border-radius:50%;background:oklch(.75 .18 80)}.rb-observed-approval>p{margin:8px 8px 12px;color:oklch(.87 0 0);font-size:14px;line-height:22.75px}.rb-observed-approval>div{display:flex;justify-content:flex-end;gap:4px;border-top:1px solid oklch(.269 0 0);padding:4px}.rb-observed-approval button{height:32px;border:0;border-radius:6px;padding:0 10px;background:oklch(.269 0 0);color:oklch(.87 0 0);font-size:13px}.rb-observed-approval button.primary{background:oklch(1 0 0);color:oklch(.205 0 0)}.rb-observed-composer{box-sizing:border-box;display:flex;width:720px;height:122px;min-height:122px;flex-direction:column;margin:0 auto 16px;border:1px solid oklch(.269 0 0);border-radius:14px;background:oklch(.205 0 0)}.rb-observed-composer-input{min-height:0;flex:1}.rb-observed-composer textarea{display:block;width:100%;height:60px;min-height:60px;resize:none;border:0;outline:0;padding:12px 12px 0;background:transparent;color:oklch(.97 0 0);font-size:14px;line-height:24px}.rb-observed-composer textarea::placeholder{color:oklch(.556 0 0);opacity:1}.rb-observed-attachment{display:flex;height:36px;align-items:center;gap:6px;margin:12px 12px 0;border-radius:6px;padding:0 8px;background:oklch(.269 0 0);color:oklch(.87 0 0);font-size:12px}.rb-observed-attachment button{display:flex;width:20px;height:20px;align-items:center;justify-content:center;margin-left:auto;border:0;border-radius:5px;background:oklch(.205 0 0);color:oklch(.556 0 0)}.rb-observed-composer-actions{box-sizing:border-box;display:flex;height:48px;align-items:center;gap:6px;padding:4px 12px 12px}.rb-observed-composer-actions button{display:flex;width:32px;height:32px;align-items:center;justify-content:center;border:0;border-radius:8px;background:oklch(.269 0 0);color:oklch(.708 0 0)}.rb-observed-composer-actions button:last-child{margin-left:auto}.rb-observed-composer-actions button.stop{background:oklch(1 0 0);color:oklch(.205 0 0)}.rb-observed-composer-actions span{margin-left:0;color:oklch(.556 0 0);font-size:11px}.rb-observed-theme{position:absolute;right:24px;bottom:16px;display:inline-flex;height:40px;align-items:center;gap:7px;border:1px solid oklch(.205 0 0);border-radius:999px;padding:0 14px;background:oklch(.145 0 0);color:oklch(.97 0 0);font-size:13px}.rb-observed-usage{box-sizing:border-box;display:flex;width:100%;height:53px;align-items:center;gap:8px;border-bottom:1px solid oklch(.205 0 0);padding:0 calc((100% - 768px)/2 + 24px);color:oklch(.556 0 0);font-size:11px}.rb-observed-usage strong{margin-left:auto;color:oklch(.708 0 0);font-size:11px}.rb-observed-usage i{width:70px;height:4px;border-radius:99px;background:oklch(.269 0 0)}.rb-observed-usage i b{display:block;width:38%;height:100%;border-radius:inherit;background:oklch(.87 0 0)}.rb-observed-status-lines{box-sizing:border-box;width:768px;margin:0 auto;padding:8px 24px 0;color:oklch(.708 0 0);font-size:13px;line-height:32px}.rb-observed-status-lines span{display:block}
-/* Artifact side panel (AI Chat 2) */.rb-observed-ai-chat-2{display:flex}.rb-observed-artifact-main{display:flex;width:calc(100% - 384px);min-width:0;flex-direction:column}.rb-observed-artifact-main>.rb-observed-chat-header{width:768px;max-width:100%}.rb-observed-artifact-main>.rb-observed-column{width:768px;max-width:100%}.rb-observed-artifact{box-sizing:border-box;display:flex;position:relative;width:384px;height:100%;flex:0 0 384px;flex-direction:column;overflow:hidden;border-left:1px solid oklch(.269 0 0);padding:16px;background:oklch(.145 0 0)}.rb-observed-artifact>header{display:flex;height:40px;align-items:center;justify-content:space-between}.rb-observed-artifact>header strong{font-size:13px}.rb-observed-artifact>header div{display:flex;gap:4px}.rb-observed-artifact>header button{display:flex;width:32px;height:32px;align-items:center;justify-content:center;border:0;border-radius:8px;background:oklch(.269 0 0);color:oklch(.87 0 0)}.rb-observed-artifact>nav{display:flex;height:36px;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;border:1px solid oklch(.269 0 0);border-radius:8px;padding:3px}.rb-observed-artifact>nav div{display:flex;gap:2px}.rb-observed-artifact>nav button{height:28px;border:0;border-radius:7px;padding:0 10px;background:transparent;color:oklch(.556 0 0);font-size:13px}.rb-observed-artifact>nav button.selected{background:oklch(.371 0 0);color:oklch(.97 0 0)}.rb-observed-artifact>pre{box-sizing:border-box;min-height:0;flex:1;margin:12px 0 0;overflow:hidden;border:1px solid oklch(.269 0 0);border-radius:10px;padding:14px 12px;background:oklch(.145 0 0);color:oklch(.87 0 0);font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap}.rb-observed-artifact>.rb-observed-theme{right:24px;bottom:16px}
-/* compact assistant panel (AI Chat 3) */.rb-observed-ai-chat-3{align-items:center;justify-content:center;padding:24px}.rb-observed-compact-card{box-sizing:border-box;display:flex;width:384px;height:512px;flex-direction:column;border:4px solid oklch(.205 0 0);border-radius:16px;background:oklch(.145 0 0);box-shadow:0 0 0 1px oklch(.269 0 0)}.rb-observed-chat-header.compact{width:100%;height:48px;min-height:48px;padding:0 16px;border-bottom:1px solid oklch(.269 0 0)}.rb-observed-chat-header.compact>span{font-size:12px}.rb-observed-compact-body{box-sizing:border-box;min-height:0;flex:1;overflow:hidden;padding:0 12px}.rb-observed-compact-body .rb-observed-stream{gap:16px;padding:16px 4px}.rb-observed-compact-body .rb-observed-message{font-size:13px;line-height:19.5px}.rb-observed-compact-body .rb-observed-message.user{padding:8px 12px}.rb-observed-compact-body .rb-observed-message.assistant{gap:0}.rb-observed-compact-body .rb-observed-avatar{display:none}.rb-observed-compact-body .rb-observed-message-copy>p{font-size:13px;line-height:19.5px}.rb-observed-compact-card .rb-observed-composer{width:calc(100% - 24px);height:46px;min-height:46px;margin:0 12px 12px;border-radius:10px}.rb-observed-compact-card .rb-observed-composer textarea{height:40px;min-height:40px;padding:8px 10px;font-size:13px}.rb-observed-compact-card .rb-observed-composer-actions{position:absolute;right:18px;bottom:18px;height:32px;padding:0}.rb-observed-compact-card .rb-observed-composer-actions button:first-child,.rb-observed-compact-card .rb-observed-composer-actions span{display:none}.rb-observed-compact-card .rb-observed-composer-actions button:last-child{width:32px;height:32px}
-/* activity rail (AI Chat 6) */.rb-observed-ai-chat-6 .rb-observed-artifact-main{width:calc(100% - 320px)}.rb-observed-ai-chat-6 .rb-observed-artifact-main>.rb-observed-chat-header,.rb-observed-ai-chat-6 .rb-observed-artifact-main>.rb-observed-column{width:768px;max-width:100%}.rb-observed-activity{box-sizing:border-box;display:flex;width:320px;height:100%;flex:0 0 320px;flex-direction:column;overflow:hidden;border-left:1px solid oklch(.269 0 0);padding:16px;background:oklch(.145 0 0)}.rb-observed-activity h2{height:19.5px;margin:0 4px 8px;font-size:13px;font-weight:500;line-height:19.5px}.rb-observed-activity>div{box-sizing:border-box;min-height:0;flex:1;overflow:hidden;border:1px solid oklch(.269 0 0);border-radius:10px;padding:12px}.rb-observed-activity article{display:grid;position:relative;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;gap:4px;min-height:52px;color:oklch(.708 0 0);font-size:13px}.rb-observed-activity article::before{position:absolute;top:12px;bottom:-12px;left:4px;width:1px;background:oklch(.269 0 0);content:''}.rb-observed-activity article:last-child::before{display:none}.rb-observed-activity article>i{z-index:1;width:6px;height:6px;border-radius:50%;background:oklch(.439 0 0);box-shadow:0 0 0 3px oklch(.145 0 0)}.rb-observed-activity article strong{overflow:hidden;color:oklch(.87 0 0);font-weight:500;text-overflow:ellipsis;white-space:nowrap}.rb-observed-activity article span{font-size:12px}.rb-observed-activity article small{grid-column:2/-1;overflow:hidden;color:oklch(.556 0 0);font-size:12px;text-overflow:ellipsis;white-space:nowrap}.rb-observed-activity .rb-observed-theme{right:16px;bottom:16px}
-/* pinned sources (AI Chat 7) */.rb-observed-ai-chat-7 .rb-observed-pinned{box-sizing:border-box;display:flex;width:320px;height:100%;flex:0 0 320px;flex-direction:column;overflow:hidden;padding:16px;background:oklch(.145 0 0)}.rb-observed-pinned h2{display:flex;height:19.5px;align-items:center;gap:8px;margin:0 0 8px 4px;font-size:13px;font-weight:500}.rb-observed-pinned>div{box-sizing:border-box;min-height:0;flex:1;overflow:hidden;border:1px solid oklch(.269 0 0);border-radius:10px;padding:8px}.rb-observed-pinned button{display:flex;width:100%;height:51.5px;align-items:center;gap:10px;border:0;border-radius:8px;padding:8px;background:transparent;color:oklch(.87 0 0);text-align:left}.rb-observed-pinned button:hover{background:oklch(.205 0 0)}.rb-observed-pinned button>b{display:flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:6px;background:oklch(.269 0 0);font-size:11px;font-weight:400}.rb-observed-pinned button>span{display:grid;min-width:0;gap:0}.rb-observed-pinned button strong,.rb-observed-pinned button small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rb-observed-pinned button strong{font-size:13px;font-weight:500;line-height:19.5px}.rb-observed-pinned button small{color:oklch(.556 0 0);font-size:12px;line-height:16px}.rb-observed-ai-chat-7 .rb-observed-artifact-main{width:calc(100% - 320px)}.rb-observed-ai-chat-7 .rb-observed-artifact-main>.rb-observed-chat-header,.rb-observed-ai-chat-7 .rb-observed-artifact-main>.rb-observed-column{width:768px;max-width:100%}
-/* voice message (AI Chat 8) */.rb-observed-ai-chat-8{align-items:center;justify-content:center;padding:32px}.rb-observed-voice-column{display:flex;width:512px;height:416px;flex-direction:column}.rb-observed-voice-column .rb-observed-chat-header{width:100%;height:24px;min-height:24px;padding:0}.rb-observed-voice-column .rb-observed-chat-header strong{font-size:16px}.rb-observed-voice-prompt{height:65px;margin:59.5px 0 0;color:oklch(.97 0 0);font-size:24px;line-height:32.5px}.rb-observed-waveform{display:flex;height:64px;align-items:center;gap:3px;margin-top:17px}.rb-observed-waveform i{width:13px;min-height:8px;border-radius:5px;background:oklch(.269 0 0)}.rb-observed-voice-composer{box-sizing:border-box;display:flex;width:512px;height:136px;flex-direction:column;margin-top:22px;border:1px solid oklch(.269 0 0);border-radius:14px;padding:12px;background:oklch(.205 0 0)}.rb-observed-file-pills{display:flex;height:62px;align-content:flex-start;flex-wrap:wrap;gap:6px}.rb-observed-file-pills span{display:inline-flex;height:28px;align-items:center;gap:4px;border-radius:6px;padding:0 8px;background:oklch(.269 0 0);color:oklch(.87 0 0);font-size:13px}.rb-observed-file-pills button{display:flex;width:18px;height:18px;align-items:center;justify-content:center;border:0;background:transparent;color:oklch(.556 0 0)}.rb-observed-voice-composer>div:last-child{display:flex;height:36px;align-items:center;gap:8px}.rb-observed-voice-composer>div:last-child button{display:flex;width:36px;height:36px;align-items:center;justify-content:center;border:0;border-radius:8px;background:oklch(.269 0 0);color:oklch(.87 0 0)}.rb-observed-voice-composer>div:last-child button.recording{background:oklch(1 0 0);color:oklch(.205 0 0)}.rb-observed-voice-composer>div:last-child button:last-child{margin-left:auto}.rb-observed-voice-composer>div:last-child span{color:oklch(.556 0 0);font-size:13px}
-@media(max-width:767px){.rb-observed-chat-header,.rb-observed-column{width:100%}.rb-observed-column{padding-inline:16px}.rb-observed-composer{width:calc(100% - 32px)}.rb-observed-artifact-main{width:100%!important}.rb-observed-artifact,.rb-observed-activity,.rb-observed-pinned{display:none}.rb-observed-ai-chat-3{padding:20px}.rb-observed-compact-card{width:100%;max-width:384px}.rb-observed-voice-column{width:100%;max-width:512px}.rb-observed-voice-composer{width:100%}.rb-observed-theme{display:none}}
-.rb-observed-chat{flex-direction:column}.rb-observed-chat.rb-observed-ai-chat-2,.rb-observed-chat.rb-observed-ai-chat-6,.rb-observed-chat.rb-observed-ai-chat-7{flex-direction:row}
-.rb-observed-message-copy>p{max-width:533.64px}
-.rb-observed-voice-prompt{font-size:20px}
-.rb-observed-message.assistant{gap:0}
-.rb-observed-reasoning{height:28px;margin:0 0 12px}
-.rb-observed-reasoning summary{height:28px}
-.rb-observed-reasoning p{display:none}
-.rb-observed-tool{margin-top:0;margin-bottom:12px}
-.rb-observed-artifact-link{display:flex;width:100%;height:36px;align-items:center;gap:8px;margin:0 0 12px;border:0;border-radius:8px;padding:0 10px;background:oklab(.205 0 0 / .6);color:oklch(.87 0 0);font-size:13px;text-align:left}
-.rb-observed-artifact-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rb-observed-artifact-link small{margin-left:auto;color:oklch(.556 0 0);font-size:12px}
-.rb-observed-artifact-link svg:last-child{color:oklch(.556 0 0)}
-.rb-observed-status-lines{width:100%;margin:0;padding:0;color:oklch(.708 0 0);font-size:13px;line-height:44px}
-.rb-observed-status-lines span{display:block;height:44px}
-.rb-observed-approval{margin-top:0}
-.rb-observed-sources{display:flex;height:24px;align-items:center;gap:6px;margin-top:12px;color:oklch(.556 0 0);font-size:12px;line-height:16px}
-.rb-observed-sources>span:not(:first-child){border-radius:6px;padding:4px 8px;background:oklch(.269 0 0);color:oklch(.708 0 0)}
+.rb-observed-chat {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  background: oklch(0.145 0 0);
+  color: oklch(0.97 0 0);
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.rb-observed-ai-chat-1 {
+  /* AI Chat 1's public example is presented in the muted/grayscale review
+     treatment (the other variants retain the normal antialiased color
+     fringes of the live preview). */
+  filter: grayscale(1);
+}
+.rb-observed-chat::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: oklch(0.269 0 0);
+  content: '';
+}
+.rb-observed-chat button,
+.rb-observed-chat textarea {
+  box-sizing: border-box;
+  font: inherit;
+}
+.rb-observed-chat button {
+  appearance: none;
+  cursor: pointer;
+}
+.rb-observed-chat-header {
+  box-sizing: border-box;
+  display: flex;
+  width: 768px;
+  height: 56px;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.rb-observed-chat-header strong {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.16px;
+  line-height: 24px;
+}
+.rb-observed-chat-header > span {
+  color: oklch(0.556 0 0);
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-observed-column {
+  box-sizing: border-box;
+  display: flex;
+  width: 768px;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.rb-observed-stream {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
+  overflow: hidden;
+  padding: 5px 0 12px;
+}
+.rb-observed-message {
+  box-sizing: border-box;
+  max-width: 100%;
+  font-size: 14px;
+  line-height: 22.75px;
+}
+.rb-observed-message.user {
+  align-self: flex-end;
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.97 0 0);
+  line-height: 24px;
+}
+.rb-observed-message.assistant {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  align-self: flex-start;
+  width: 100%;
+  padding: 0;
+}
+.rb-observed-avatar {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 50%;
+  background: oklch(0.205 0 0);
+  color: oklch(0.708 0 0);
+}
+.rb-observed-message-copy {
+  width: 100%;
+  min-width: 0;
+  max-width: 720px;
+}
+.rb-observed-message-copy > p {
+  margin: 0;
+  color: oklch(0.97 0 0);
+  font-size: 14px;
+  line-height: 22.75px;
+}
+.rb-observed-label {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.708 0 0);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+}
+.rb-observed-reasoning {
+  margin: -4px 0 12px;
+  color: oklch(0.556 0 0);
+  font-size: 13px;
+}
+.rb-observed-reasoning summary {
+  cursor: pointer;
+  line-height: 28px;
+  list-style: none;
+}
+.rb-observed-reasoning summary::-webkit-details-marker {
+  display: none;
+}
+.rb-observed-reasoning summary::before {
+  display: inline-block;
+  width: 13px;
+  margin-right: 6px;
+  color: oklch(0.556 0 0);
+  content: '›';
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
+}
+.rb-observed-reasoning p {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+.rb-observed-tool {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: oklab(0.205 0 0 / 0.6);
+  color: oklch(0.87 0 0);
+  font-size: 13px;
+  text-align: left;
+}
+.rb-observed-tool small {
+  color: oklch(0.556 0 0);
+}
+.rb-observed-tool-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-observed-tool time {
+  margin-left: auto;
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+}
+.rb-observed-approval {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 4px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-approval > strong {
+  display: flex;
+  height: 19.5px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+.rb-observed-approval > strong i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.75 0.18 80);
+}
+.rb-observed-approval > p {
+  margin: 8px 8px 12px;
+  color: oklch(0.87 0 0);
+  font-size: 14px;
+  line-height: 22.75px;
+}
+.rb-observed-approval > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  border-top: 1px solid oklch(0.269 0 0);
+  padding: 4px;
+}
+.rb-observed-approval button {
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+  font-size: 13px;
+}
+.rb-observed-approval button.primary {
+  background: oklch(1 0 0);
+  color: oklch(0.205 0 0);
+}
+.rb-observed-composer {
+  box-sizing: border-box;
+  display: flex;
+  width: 720px;
+  height: 122px;
+  min-height: 122px;
+  flex-direction: column;
+  margin: 0 auto 16px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  background: oklch(0.205 0 0);
+}
+.rb-observed-composer-input {
+  min-height: 0;
+  flex: 1;
+}
+.rb-observed-composer textarea {
+  display: block;
+  width: 100%;
+  height: 60px;
+  min-height: 60px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 12px 12px 0;
+  background: transparent;
+  color: oklch(0.97 0 0);
+  font-size: 14px;
+  line-height: 24px;
+}
+.rb-observed-composer textarea::placeholder {
+  color: oklch(0.556 0 0);
+  opacity: 1;
+}
+.rb-observed-attachment {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 12px 0;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+  font-size: 12px;
+}
+.rb-observed-attachment button {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: 0;
+  border-radius: 5px;
+  background: oklch(0.205 0 0);
+  color: oklch(0.556 0 0);
+}
+.rb-observed-composer-actions {
+  box-sizing: border-box;
+  display: flex;
+  height: 48px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 12px;
+}
+.rb-observed-composer-actions button {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.708 0 0);
+}
+.rb-observed-composer-actions button:last-child {
+  margin-left: auto;
+}
+.rb-observed-composer-actions button.stop {
+  background: oklch(1 0 0);
+  color: oklch(0.205 0 0);
+}
+.rb-observed-composer-actions span {
+  margin-left: 0;
+  color: oklch(0.556 0 0);
+  font-size: 11px;
+}
+/* The public previews reserve the shortcut hint for the full application
+   shell; the isolated fixture keeps the action row intentionally quiet. */
+.rb-observed-composer-actions > span {
+  display: none;
+}
+.rb-observed-theme {
+  position: absolute;
+  right: 24px;
+  bottom: 16px;
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid oklch(0.205 0 0);
+  border-radius: 999px;
+  padding: 0 14px;
+  background: oklch(0.145 0 0);
+  color: oklch(0.97 0 0);
+  font-size: 13px;
+}
+.rb-observed-usage {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 53px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid oklch(0.205 0 0);
+  padding: 0 calc((100% - 768px) / 2 + 24px);
+  color: oklch(0.556 0 0);
+  font-size: 11px;
+}
+.rb-observed-usage strong {
+  margin-left: auto;
+  color: oklch(0.708 0 0);
+  font-size: 11px;
+}
+.rb-observed-usage i {
+  width: 70px;
+  height: 4px;
+  border-radius: 99px;
+  background: oklch(0.269 0 0);
+}
+.rb-observed-usage i b {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: oklch(0.87 0 0);
+}
+.rb-observed-status-lines {
+  box-sizing: border-box;
+  width: 768px;
+  margin: 0 auto;
+  padding: 8px 24px 0;
+  color: oklch(0.708 0 0);
+  font-size: 13px;
+  line-height: 32px;
+}
+.rb-observed-status-lines span {
+  display: block;
+}
+/* Artifact side panel (AI Chat 2) */
+.rb-observed-ai-chat-2 {
+  display: flex;
+}
+.rb-observed-artifact-main {
+  display: flex;
+  width: calc(100% - 384px);
+  min-width: 0;
+  flex-direction: column;
+}
+.rb-observed-artifact-main > .rb-observed-chat-header {
+  width: 768px;
+  max-width: 100%;
+}
+.rb-observed-artifact-main > .rb-observed-column {
+  width: 768px;
+  max-width: 100%;
+}
+.rb-observed-artifact {
+  box-sizing: border-box;
+  display: flex;
+  position: relative;
+  width: 384px;
+  height: 100%;
+  flex: 0 0 384px;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid oklch(0.269 0 0);
+  padding: 16px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-artifact > header {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  justify-content: space-between;
+}
+.rb-observed-artifact > header strong {
+  font-size: 13px;
+}
+.rb-observed-artifact > header div {
+  display: flex;
+  gap: 4px;
+}
+.rb-observed-artifact > header button {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+}
+.rb-observed-artifact > nav {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 8px;
+  padding: 3px;
+}
+.rb-observed-artifact > nav div {
+  display: flex;
+  gap: 2px;
+}
+.rb-observed-artifact > nav button {
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: transparent;
+  color: oklch(0.556 0 0);
+  font-size: 13px;
+}
+.rb-observed-artifact > nav button.selected {
+  background: oklch(0.371 0 0);
+  color: oklch(0.97 0 0);
+}
+.rb-observed-artifact > pre {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  margin: 12px 0 0;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 14px 12px;
+  background: oklch(0.145 0 0);
+  color: oklch(0.87 0 0);
+  font:
+    12px/1.55 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+}
+.rb-observed-artifact > .rb-observed-theme {
+  right: 24px;
+  bottom: 16px;
+}
+/* compact assistant panel (AI Chat 3) */
+.rb-observed-ai-chat-3 {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.rb-observed-compact-card {
+  box-sizing: border-box;
+  display: flex;
+  width: 384px;
+  height: 512px;
+  flex-direction: column;
+  border: 4px solid oklch(0.205 0 0);
+  border-radius: 16px;
+  background: oklch(0.145 0 0);
+  box-shadow: 0 0 0 1px oklch(0.269 0 0);
+}
+.rb-observed-chat-header.compact {
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid oklch(0.269 0 0);
+}
+.rb-observed-chat-header.compact > span {
+  font-size: 12px;
+}
+.rb-observed-compact-body {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  padding: 0 12px;
+}
+.rb-observed-compact-body .rb-observed-stream {
+  gap: 16px;
+  padding: 16px 4px;
+}
+.rb-observed-compact-body .rb-observed-message {
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-observed-compact-body .rb-observed-message.user {
+  padding: 8px 12px;
+}
+.rb-observed-compact-body .rb-observed-message.assistant {
+  gap: 0;
+}
+.rb-observed-compact-body .rb-observed-avatar {
+  display: none;
+}
+.rb-observed-compact-body .rb-observed-message-copy > p {
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-observed-compact-card .rb-observed-composer {
+  width: calc(100% - 24px);
+  height: 46px;
+  min-height: 46px;
+  margin: 0 12px 12px;
+  border-radius: 10px;
+}
+.rb-observed-compact-card .rb-observed-composer textarea {
+  height: 40px;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.rb-observed-compact-card .rb-observed-composer-actions {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  height: 32px;
+  padding: 0;
+}
+.rb-observed-compact-card .rb-observed-composer-actions button:first-child,
+.rb-observed-compact-card .rb-observed-composer-actions span {
+  display: none;
+}
+.rb-observed-compact-card .rb-observed-composer-actions button:last-child {
+  width: 32px;
+  height: 32px;
+}
+/* activity rail (AI Chat 6) */
+.rb-observed-ai-chat-6 .rb-observed-artifact-main {
+  width: calc(100% - 320px);
+}
+.rb-observed-ai-chat-6 .rb-observed-artifact-main > .rb-observed-chat-header,
+.rb-observed-ai-chat-6 .rb-observed-artifact-main > .rb-observed-column {
+  width: 768px;
+  max-width: 100%;
+}
+.rb-observed-activity {
+  box-sizing: border-box;
+  display: flex;
+  width: 320px;
+  height: 100%;
+  flex: 0 0 320px;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid oklch(0.269 0 0);
+  padding: 16px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-activity h2 {
+  height: 19.5px;
+  margin: 0 4px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+.rb-observed-activity > div {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 12px;
+}
+.rb-observed-activity article {
+  display: grid;
+  position: relative;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+  color: oklch(0.708 0 0);
+  font-size: 13px;
+}
+.rb-observed-activity article::before {
+  position: absolute;
+  top: 12px;
+  bottom: -12px;
+  left: 4px;
+  width: 1px;
+  background: oklch(0.269 0 0);
+  content: '';
+}
+.rb-observed-activity article:last-child::before {
+  display: none;
+}
+.rb-observed-activity article > i {
+  z-index: 1;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.439 0 0);
+  box-shadow: 0 0 0 3px oklch(0.145 0 0);
+}
+.rb-observed-activity article strong {
+  overflow: hidden;
+  color: oklch(0.87 0 0);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-observed-activity article span {
+  font-size: 12px;
+}
+.rb-observed-activity article small {
+  grid-column: 2/-1;
+  overflow: hidden;
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-observed-activity .rb-observed-theme {
+  right: 16px;
+  bottom: 16px;
+}
+/* pinned sources (AI Chat 7) */
+.rb-observed-ai-chat-7 .rb-observed-pinned {
+  box-sizing: border-box;
+  display: flex;
+  width: 320px;
+  height: 100%;
+  flex: 0 0 320px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-pinned h2 {
+  display: flex;
+  height: 19.5px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.rb-observed-pinned > div {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 8px;
+}
+.rb-observed-pinned button {
+  display: flex;
+  width: 100%;
+  height: 51.5px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px;
+  background: transparent;
+  color: oklch(0.87 0 0);
+  text-align: left;
+}
+.rb-observed-pinned button:hover {
+  background: oklch(0.205 0 0);
+}
+.rb-observed-pinned button > b {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: oklch(0.269 0 0);
+  font-size: 11px;
+  font-weight: 400;
+}
+.rb-observed-pinned button > span {
+  display: grid;
+  min-width: 0;
+  gap: 0;
+}
+.rb-observed-pinned button strong,
+.rb-observed-pinned button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-observed-pinned button strong {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+.rb-observed-pinned button small {
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+  line-height: 16px;
+}
+.rb-observed-ai-chat-7 .rb-observed-artifact-main {
+  width: calc(100% - 320px);
+}
+.rb-observed-ai-chat-7 .rb-observed-artifact-main > .rb-observed-chat-header,
+.rb-observed-ai-chat-7 .rb-observed-artifact-main > .rb-observed-column {
+  width: 768px;
+  max-width: 100%;
+}
+/* voice message (AI Chat 8) */
+.rb-observed-ai-chat-8 {
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+.rb-observed-voice-column {
+  display: flex;
+  width: 512px;
+  height: 416px;
+  flex-direction: column;
+}
+.rb-observed-voice-column .rb-observed-chat-header {
+  width: 100%;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+.rb-observed-voice-column .rb-observed-chat-header strong {
+  font-size: 16px;
+}
+.rb-observed-voice-prompt {
+  height: 65px;
+  letter-spacing: -0.3px;
+  margin: 59.5px 0 0;
+  color: oklch(0.97 0 0);
+  font-size: 24px;
+  line-height: 32.5px;
+}
+.rb-observed-waveform {
+  display: flex;
+  height: 56px;
+  align-items: center;
+  gap: 3px;
+  margin-top: 16px;
+}
+.rb-observed-waveform i {
+  width: auto;
+  flex: 1 1 0;
+  min-height: 8px;
+  border-radius: 5px;
+  background: oklch(0.371 0 0);
+}
+.rb-observed-voice-composer {
+  box-sizing: border-box;
+  display: flex;
+  width: 512px;
+  height: 136px;
+  flex-direction: column;
+  margin-top: 22px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 12px;
+  background: oklch(0.205 0 0);
+}
+.rb-observed-file-pills {
+  display: flex;
+  height: 62px;
+  align-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rb-observed-file-pills span {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  padding: 0 4px 0 6px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+  font-size: 13px;
+}
+.rb-observed-file-pills button {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: oklch(0.556 0 0);
+}
+.rb-observed-voice-composer > div:last-child {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+}
+.rb-observed-voice-composer > div:last-child button {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+}
+.rb-observed-voice-composer > div:last-child button.recording {
+  background: oklch(1 0 0);
+  color: oklch(0.205 0 0);
+}
+.rb-observed-voice-composer > div:last-child button:last-child {
+  margin-left: auto;
+}
+.rb-observed-voice-composer > div:last-child span {
+  color: oklch(0.556 0 0);
+  font-size: 13px;
+}
+@media (max-width: 767px) {
+  .rb-observed-chat-header,
+  .rb-observed-column {
+    width: 100%;
+  }
+  .rb-observed-chat-header {
+    padding-inline: 16px;
+  }
+  .rb-observed-column {
+    padding-inline: 16px;
+  }
+  .rb-observed-composer {
+    width: calc(100% - 32px);
+  }
+  .rb-observed-artifact-main {
+    width: 100% !important;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .rb-observed-artifact,
+  .rb-observed-activity,
+  .rb-observed-pinned {
+    display: none;
+  }
+  .rb-observed-ai-chat-3 {
+    padding: 20px;
+  }
+  .rb-observed-compact-card {
+    width: 100%;
+    max-width: 384px;
+  }
+  .rb-observed-voice-column {
+    width: 100%;
+    max-width: 512px;
+  }
+  .rb-observed-voice-composer {
+    width: 100%;
+  }
+  .rb-observed-theme {
+    display: none;
+  }
+}
+
+
+.rb-observed-chat {
+  flex-direction: column;
+}
+.rb-observed-chat.rb-observed-ai-chat-2,
+.rb-observed-chat.rb-observed-ai-chat-6,
+.rb-observed-chat.rb-observed-ai-chat-7 {
+  flex-direction: row;
+}
+.rb-observed-message-copy > p {
+  max-width: 533.64px;
+}
+.rb-observed-voice-prompt {
+  font-size: 20px;
+}
+.rb-observed-message.assistant {
+  gap: 0;
+}
+.rb-observed-reasoning {
+  height: 28px;
+  margin: 0 0 12px;
+}
+.rb-observed-reasoning summary {
+  height: 28px;
+}
+.rb-observed-reasoning p {
+  display: none;
+}
+.rb-observed-tool {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+.rb-observed-artifact-link {
+  display: flex;
+  width: 100%;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: oklab(0.205 0 0 / 0.6);
+  color: oklch(0.87 0 0);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+}
+.rb-observed-artifact-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-observed-artifact-link small {
+  margin-left: auto;
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+}
+.rb-observed-artifact-link svg:last-child {
+  color: oklch(0.556 0 0);
+}
+.rb-observed-status-lines {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  color: oklch(0.708 0 0);
+  font-size: 13px;
+  line-height: 44px;
+}
+.rb-observed-status-lines span {
+  display: block;
+  height: 44px;
+}
+.rb-observed-approval {
+  margin-top: 0;
+}
+.rb-observed-sources {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+  line-height: 16px;
+}
+.rb-observed-sources > span:not(:first-child) {
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.708 0 0);
+}
 
 /* The public voice preview anchors the composer to the bottom of its 416px column. */
-.rb-observed-voice-composer{margin-top:auto}
+.rb-observed-voice-composer {
+  margin-top: auto;
+}
 
 /* AI Chat 4 keeps usage inline with the compact header rather than consuming a content row. */
-.rb-observed-ai-chat-4 .rb-observed-chat-header{height:48px;min-height:48px}
-.rb-observed-ai-chat-4 .rb-observed-chat-header>span{visibility:hidden}
-.rb-observed-ai-chat-4 .rb-observed-usage{position:absolute;top:8px;left:50%;width:348px;height:32px;border:0;padding:0;transform:translateX(-50%)}
-.rb-observed-ai-chat-4 .rb-observed-usage>span{display:none}
-.rb-observed-ai-chat-4 .rb-observed-usage::before{content:'Atlas';color:oklch(.556 0 0);font-size:13px;line-height:19.5px}
-.rb-observed-ai-chat-4 .rb-observed-usage strong{margin-left:auto}
+.rb-observed-ai-chat-4 .rb-observed-chat-header {
+  height: 48px;
+  min-height: 48px;
+}
+.rb-observed-ai-chat-4 .rb-observed-chat-header > span {
+  visibility: hidden;
+}
+.rb-observed-ai-chat-4 .rb-observed-usage {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 348px;
+  height: 32px;
+  border: 0;
+  padding: 0;
+  transform: translateX(-50%);
+}
+.rb-observed-ai-chat-4 .rb-observed-usage > span {
+  display: none;
+}
+.rb-observed-ai-chat-4 .rb-observed-usage::before {
+  content: 'Atlas';
+  color: oklch(0.556 0 0);
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-observed-ai-chat-4 .rb-observed-usage strong {
+  margin-left: auto;
+}
 
-@media(max-width:767px){
+/* The public message views keep the composer compact and pin the transcript
+   to its lower edge.  AI Chat 1 keeps the taller attachment composer. */
+.rb-observed-ai-chat-2 .rb-observed-composer,
+.rb-observed-ai-chat-4 .rb-observed-composer,
+.rb-observed-ai-chat-5 .rb-observed-composer,
+.rb-observed-ai-chat-6 .rb-observed-composer,
+.rb-observed-ai-chat-7 .rb-observed-composer {
+  height: 87px;
+  min-height: 87px;
+}
+.rb-observed-ai-chat-4 .rb-observed-stream,
+.rb-observed-ai-chat-5 .rb-observed-stream {
+  justify-content: flex-end;
+  padding-bottom: 24px;
+}
+.rb-observed-ai-chat-2 .rb-observed-stream {
+  transform: translateY(-4px);
+}
+.rb-observed-ai-chat-7 .rb-observed-stream {
+  /* The public preview is captured with the transcript scrolled past the
+     first user/assistant exchange.  Keep that scroll position deterministic
+     in the fixture instead of relying on browser restoration. */
+  transform: translateY(-210px);
+}
+.rb-observed-ai-chat-6 .rb-observed-stream {
+  /* The activity preview leaves a 24px breathing band below its header. */
+  transform: translateY(24px);
+}
+.rb-observed-ai-chat-6 .rb-observed-label {
+  display: flex;
+  width: max-content;
+  margin-bottom: 12px;
+}
+.rb-observed-ai-chat-6 .rb-observed-message.assistant:last-child p {
+  height: 22.75px;
+  overflow: hidden;
+}
+
+/* Approval card: observed outer decision surface, request body and sticky
+   action row. */
+.rb-observed-ai-chat-5 .rb-observed-approval {
+  height: 151px;
+  min-height: 151px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(0.205 0 0);
+}
+.rb-observed-approval-main {
+  box-sizing: border-box;
+  height: 95px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-approval-main > strong {
+  display: flex;
+  height: 19.5px;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font-size: 13px;
+}
+.rb-observed-approval-main > p {
+  margin: 8px 0 0;
+}
+.rb-observed-approval-footer {
+  display: flex;
+  height: 42px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  border-radius: 10px;
+  padding: 4px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-approval-footer button {
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+  font-size: 13px;
+}
+.rb-observed-approval-footer button.show-request {
+  margin-right: auto;
+  background: transparent;
+  color: oklch(0.556 0 0);
+}
+.rb-observed-approval-footer button.primary {
+  background: oklch(1 0 0);
+  color: oklch(0.205 0 0);
+}
+
+/* The approval preview keeps a 12px gap before the tool row and uses nested
+   bordered surfaces.  These selectors intentionally outrank the generic
+   direct-child rules above. */
+.rb-observed-ai-chat-5 .rb-observed-stream {
+  transform: translateY(1px);
+}
+.rb-observed-ai-chat-5 .rb-observed-tool {
+  margin-top: 12px;
+}
+.rb-observed-approval > .rb-observed-approval-main {
+  display: block;
+  height: 95px;
+  padding: 10px 12px;
+}
+.rb-observed-approval > .rb-observed-approval-main > strong {
+  display: flex;
+  height: 19.5px;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+}
+.rb-observed-approval > .rb-observed-approval-main > p {
+  margin: 8px 0 0;
+}
+.rb-observed-approval > .rb-observed-approval-footer {
+  display: flex;
+  height: 42px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  border-top: 0;
+  border-radius: 10px;
+  padding: 4px;
+}
+
+/* AI Chat 6 activity rail: outer and inner rounded surfaces are distinct in
+   the public preview, with the timeline inset by 12px. */
+.rb-observed-activity > .rb-observed-activity-surface {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(0.205 0 0);
+}
+.rb-observed-activity-surface > .rb-observed-activity-list {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 12px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-activity h2 {
+  width: 288px;
+  margin: 0 0 8px;
+  padding: 0 4px;
+}
+.rb-observed-activity article {
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+}
+
+/* AI Chat 7 pinned sources uses the same nested surface contract as the
+   activity rail, while preserving the 8px list inset and 51.5px rows. */
+.rb-observed-pinned h2 {
+  box-sizing: border-box;
+  width: 288px;
+  margin: 0 0 8px;
+  padding: 0 4px;
+}
+.rb-observed-pinned > .rb-observed-pinned-surface {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(0.205 0 0);
+}
+.rb-observed-pinned-surface > .rb-observed-pinned-list {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 8px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-pinned-surface > .rb-observed-pinned-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rb-observed-pinned button {
+  border-radius: 6px;
+}
+
+/* Keep the scrollport in place while offsetting its children.  A transform on
+   the flex scrollport itself moves the clipping rectangle as well, which
+   would hide the same historical rows that the public preview leaves visible
+   beneath the fixed header. */
+.rb-observed-stream {
+  transform: none !important;
+}
+.rb-observed-ai-chat-2 .rb-observed-stream > * {
+  position: relative;
+  top: -4px;
+}
+.rb-observed-ai-chat-4 .rb-observed-stream > * {
+  position: relative;
+  top: 0;
+}
+.rb-observed-ai-chat-5 .rb-observed-stream > * {
+  position: relative;
+  top: 1px;
+}
+.rb-observed-ai-chat-6 .rb-observed-stream > * {
+  position: relative;
+  top: 24px;
+}
+.rb-observed-ai-chat-7 .rb-observed-stream > * {
+  position: relative;
+  top: -210px;
+}
+
+/* Model picker/header used by the onboarding analysis preview. */
+.rb-observed-model-header {
+  height: 48px;
+  min-height: 48px;
+}
+.rb-observed-composer .send-icon {
+  display: none;
+}
+.rb-observed-model-header > strong {
+  font-size: 14px;
+  line-height: 20px;
+}
+.rb-observed-model-controls {
+  display: flex;
+  width: 347.5px;
+  height: 32px;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.rb-observed-model-controls > button {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: transparent;
+  color: oklch(0.708 0 0);
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.rb-observed-model-controls > button:first-child {
+  width: 66.5px;
+}
+.rb-observed-model-controls > button:last-child {
+  width: 32px;
+  padding: 0;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+}
+.rb-observed-token-meter {
+  display: flex;
+  width: 225px;
+  height: 16px;
+  align-items: center;
+  gap: 8px;
+}
+.rb-observed-token-meter > i {
+  display: block;
+  width: 112px;
+  height: 4px;
+  border-radius: 99px;
+  background: oklch(0.269 0 0);
+}
+.rb-observed-token-meter > i > b {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: oklch(0.87 0 0);
+}
+.rb-observed-token-meter > span {
+  color: oklch(0.556 0 0);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.rb-observed-ai-chat-4 .rb-observed-usage {
+  display: none;
+}
+.rb-observed-ai-chat-4 .rb-observed-message.assistant:last-child p {
+  height: 22.75px;
+  overflow: hidden;
+}
+
+/* The live previews keep the scrollport under a fixed header/composer.  A
+   short neutral fade at either edge is what makes partially visible history
+   read as scrollable (and is also why the first/last glyph rows are softer in
+   the reference captures). */
+.rb-observed-ai-chat-1 .rb-observed-column,
+.rb-observed-ai-chat-2 .rb-observed-column,
+.rb-observed-ai-chat-4 .rb-observed-column,
+.rb-observed-ai-chat-6 .rb-observed-column,
+.rb-observed-ai-chat-7 .rb-observed-column {
+  position: relative;
+}
+.rb-observed-ai-chat-1 .rb-observed-column::before,
+.rb-observed-ai-chat-2 .rb-observed-column::before,
+.rb-observed-ai-chat-4 .rb-observed-column::before,
+.rb-observed-ai-chat-6 .rb-observed-column::before,
+.rb-observed-ai-chat-7 .rb-observed-column::before,
+.rb-observed-ai-chat-1 .rb-observed-column::after,
+.rb-observed-ai-chat-2 .rb-observed-column::after,
+.rb-observed-ai-chat-4 .rb-observed-column::after,
+.rb-observed-ai-chat-6 .rb-observed-column::after,
+.rb-observed-ai-chat-7 .rb-observed-column::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  display: block;
+  height: 36px;
+  pointer-events: none;
+  content: '';
+}
+.rb-observed-ai-chat-1 .rb-observed-column::before,
+.rb-observed-ai-chat-2 .rb-observed-column::before,
+.rb-observed-ai-chat-4 .rb-observed-column::before,
+.rb-observed-ai-chat-6 .rb-observed-column::before,
+.rb-observed-ai-chat-7 .rb-observed-column::before {
+  top: 0;
+  background: linear-gradient(to bottom, oklch(0.145 0 0), transparent);
+}
+.rb-observed-ai-chat-1 .rb-observed-column::after,
+.rb-observed-ai-chat-2 .rb-observed-column::after,
+.rb-observed-ai-chat-4 .rb-observed-column::after,
+.rb-observed-ai-chat-6 .rb-observed-column::after,
+.rb-observed-ai-chat-7 .rb-observed-column::after {
+  bottom: 0;
+  height: 48px;
+  background: linear-gradient(to top, oklch(0.145 0 0), transparent);
+}
+
+/* The final reply is intentionally clipped by the fixed composer at the
+   larger breakpoints; the mobile capture has enough vertical room to show the
+   complete reply and its action row. */
+.rb-observed-ai-chat-1 .rb-observed-message.assistant:last-child p,
+.rb-observed-ai-chat-2 .rb-observed-message.assistant:last-child p {
+  height: 45.5px;
+  overflow: hidden;
+}
+
+/* Inline source markers in the cited conversation. */
+.rb-observed-citation {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  vertical-align: baseline;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 4px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.708 0 0);
+  font-size: 11px;
+  line-height: 17.875px;
+}
+.rb-observed-copy {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+}
+
+/* Message-level actions are present in the public tablet/mobile captures but
+   intentionally hidden in the desktop generating state. */
+.rb-observed-message-actions {
+  display: none;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.rb-observed-regenerate {
+  display: inline-flex;
+  width: 90.8125px;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+  font-size: 13px;
+  line-height: 19.5px;
+  white-space: nowrap;
+}
+
+/* Shared floating jump affordance shown when the public transcript is not at
+   its latest scroll position. */
+.rb-observed-jump {
+  display: none;
+  position: absolute;
+  z-index: 4;
+  right: auto;
+  bottom: 115px;
+  left: 50%;
+  width: 133.953px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: oklch(0.269 0 0);
+  color: oklch(0.922 0 0);
+  font-size: 13px;
+  line-height: 19.5px;
+  transform: translateX(-50%);
+}
+
+/* Approval action row has a nested action group in the reference DOM. */
+.rb-observed-approval-actions {
+  display: flex;
+  gap: 4px;
+}
+.rb-observed-approval-footer > .show-request {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  padding-inline: 8px;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* At tablet width the public examples collapse their auxiliary rails into
+     the transcript; the desktop side panels only appear once there is room
+     for a 320–384px rail. */
   .rb-observed-chat.rb-observed-ai-chat-2,
   .rb-observed-chat.rb-observed-ai-chat-6,
-  .rb-observed-chat.rb-observed-ai-chat-7{flex-direction:column}
-  .rb-observed-ai-chat-4 .rb-observed-usage{right:16px;left:auto;width:auto;transform:none}
+  .rb-observed-chat.rb-observed-ai-chat-7 {
+    flex-direction: column;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-artifact,
+  .rb-observed-ai-chat-6 .rb-observed-activity,
+  .rb-observed-ai-chat-7 .rb-observed-pinned {
+    display: none;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-artifact-main,
+  .rb-observed-ai-chat-6 .rb-observed-artifact-main,
+  .rb-observed-ai-chat-7 .rb-observed-artifact-main {
+    width: 100% !important;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .rb-observed-theme {
+    display: none;
+  }
+  .rb-observed-ai-chat-1 .rb-observed-stream > * {
+    position: relative;
+    top: -22px;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-stream > * {
+    top: -73px;
+  }
+  .rb-observed-ai-chat-4 .rb-observed-stream > * {
+    top: 44px;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-stream > * {
+    top: 0;
+  }
+  .rb-observed-ai-chat-6 .rb-observed-stream > * {
+    top: -64px;
+  }
+  .rb-observed-ai-chat-7 .rb-observed-stream > * {
+    top: -254px;
+  }
+  .rb-observed-ai-chat-6 .rb-observed-message.assistant:last-child p {
+    height: 68.25px;
+    overflow: hidden;
+  }
+  .rb-observed-ai-chat-1 .rb-observed-message.assistant:last-child p,
+  .rb-observed-ai-chat-2 .rb-observed-message.assistant:last-child p {
+    height: 68.25px;
+    overflow: hidden;
+  }
+  .rb-observed-ai-chat-4 .rb-observed-message.assistant:last-child p {
+    height: 45.5px;
+    overflow: hidden;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-composer button.stop .stop-icon,
+  .rb-observed-ai-chat-6 .rb-observed-composer button.stop .stop-icon,
+  .rb-observed-ai-chat-7 .rb-observed-composer button.stop .stop-icon {
+    display: none;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-composer button.stop .send-icon,
+  .rb-observed-ai-chat-6 .rb-observed-composer button.stop .send-icon,
+  .rb-observed-ai-chat-7 .rb-observed-composer button.stop .send-icon {
+    display: block;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-composer button.stop,
+  .rb-observed-ai-chat-6 .rb-observed-composer button.stop,
+  .rb-observed-ai-chat-7 .rb-observed-composer button.stop {
+    background: oklch(0.371 0 0);
+    color: oklch(0.205 0 0);
+  }
+  .rb-observed-ai-chat-2 .rb-observed-message-actions,
+  .rb-observed-ai-chat-4 .rb-observed-message-actions,
+  .rb-observed-ai-chat-6 .rb-observed-message-actions,
+  .rb-observed-ai-chat-7 .rb-observed-message-actions {
+    display: flex;
+  }
+}
+
+@media (max-width: 767px) {
+  .rb-observed-message.user {
+    max-width: 85%;
+  }
+  .rb-observed-composer button.stop .stop-icon {
+    display: none;
+  }
+  .rb-observed-composer button.stop .send-icon {
+    display: block;
+  }
+  .rb-observed-composer button.stop {
+    background: oklch(0.371 0 0);
+    color: oklch(0.205 0 0);
+  }
+  .rb-observed-jump {
+    display: flex;
+    white-space: nowrap;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-stream {
+    transform: translateY(-189px);
+  }
+  .rb-observed-ai-chat-4 .rb-observed-stream {
+    transform: translateY(184.25px);
+  }
+  .rb-observed-ai-chat-5 .rb-observed-stream {
+    transform: translateY(151.25px);
+  }
+  .rb-observed-ai-chat-6 .rb-observed-stream {
+    transform: translateY(-135px);
+  }
+  .rb-observed-ai-chat-7 .rb-observed-stream {
+    transform: translateY(-734px);
+  }
+  .rb-observed-ai-chat-2 .rb-observed-message-actions,
+  .rb-observed-ai-chat-4 .rb-observed-message-actions,
+  .rb-observed-ai-chat-6 .rb-observed-message-actions,
+  .rb-observed-ai-chat-7 .rb-observed-message-actions {
+    display: flex;
+  }
+  .rb-observed-ai-chat-4 .rb-observed-model-header > strong {
+    font-size: 14px;
+    line-height: 20px;
+  }
+  .rb-observed-model-controls {
+    width: 106.5px;
+    gap: 8px;
+  }
+  .rb-observed-model-controls > button:first-child {
+    width: 66.5px;
+  }
+  .rb-observed-token-meter {
+    display: none;
+  }
+  .rb-observed-ai-chat-4 .rb-observed-message.assistant:last-child p,
+  .rb-observed-ai-chat-6 .rb-observed-message.assistant:last-child p {
+    height: auto;
+    overflow: visible;
+  }
+  .rb-observed-ai-chat-1 .rb-observed-message.assistant:last-child p,
+  .rb-observed-ai-chat-2 .rb-observed-message.assistant:last-child p {
+    height: auto;
+    overflow: visible;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-approval {
+    height: 232.5px;
+    min-height: 232.5px;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-approval > .rb-observed-approval-main {
+    height: 140.5px;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-approval > .rb-observed-approval-footer {
+    position: relative;
+    height: 78px;
+    min-height: 78px;
+    margin-top: 4px;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-approval-footer > .show-request {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 110.09375px;
+    font-size: 12px;
+    line-height: 16px;
+    margin: 0;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-approval-actions {
+    position: absolute;
+    top: 41px;
+    left: 90.46875px;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-approval-actions button {
+    line-height: 19.5px;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-tool-name {
+    width: 155.46875px;
+    height: 39px;
+    align-self: flex-start;
+    margin-top: -3.5px;
+    line-height: 19.5px;
+    white-space: normal;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-tool {
+    gap: 9px;
+  }
+  .rb-observed-stream {
+    transform: none !important;
+  }
+  .rb-observed-ai-chat-2 .rb-observed-stream > * {
+    top: -189px;
+  }
+  .rb-observed-ai-chat-1 .rb-observed-stream > * {
+    position: relative;
+    top: -166px;
+  }
+  .rb-observed-ai-chat-4 .rb-observed-stream > * {
+    top: 184.25px;
+  }
+  .rb-observed-ai-chat-5 .rb-observed-stream > * {
+    top: 151.25px;
+  }
+  .rb-observed-ai-chat-6 .rb-observed-stream > * {
+    top: -135px;
+  }
+  .rb-observed-ai-chat-7 .rb-observed-stream > * {
+    top: -414px;
+  }
+  .rb-observed-ai-chat-1 .rb-observed-message-actions {
+    display: flex;
+  }
+  .rb-observed-ai-chat-7 .rb-observed-pinned {
+    display: none;
+  }
+  .rb-observed-ai-chat-1 .rb-observed-sources {
+    height: 54px;
+    align-content: flex-start;
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+}
+
+/* The public rails meet the transcript without a divider; their own nested
+   surfaces provide the only one-pixel outlines. */
+.rb-observed-artifact,
+.rb-observed-activity {
+  border-left: 0;
+}
+
+.rb-observed-activity article {
+  height: 51.5px;
+  min-height: 51.5px;
+  grid-template-rows: 19.5px 16px;
+  align-items: start;
+  column-gap: 6px;
+  row-gap: 0;
+}
+.rb-observed-activity article > i {
+  align-self: center;
+}
+.rb-observed-activity article strong,
+.rb-observed-activity article span {
+  line-height: 19.5px;
+}
+.rb-observed-activity article small {
+  line-height: 16px;
+}
+
+@media (max-width: 767px) {
+  .rb-observed-chat.rb-observed-ai-chat-2,
+  .rb-observed-chat.rb-observed-ai-chat-6,
+  .rb-observed-chat.rb-observed-ai-chat-7 {
+    flex-direction: column;
+  }
+  .rb-observed-ai-chat-4 .rb-observed-usage {
+    right: 16px;
+    left: auto;
+    width: auto;
+    transform: none;
+  }
+}
+
+/* AI Chat 2 public artifact frame: the preview nests a rounded surface, a
+   two-row file toolbar, and a separate code well inside the side rail. */
+.rb-observed-artifact-surface {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 608px;
+  min-height: 0;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 4px;
+  background: oklch(0.205 0 0);
+}
+.rb-observed-artifact-top {
+  box-sizing: border-box;
+  display: flex;
+  height: 94px;
+  min-height: 94px;
+  flex-direction: column;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 8px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-artifact-top > header {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+}
+.rb-observed-artifact-top > header strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.rb-observed-artifact-top > header > div {
+  display: flex;
+  gap: 4px;
+}
+.rb-observed-artifact-top > header button {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  background: oklch(0.269 0 0);
+  color: oklch(0.87 0 0);
+}
+.rb-observed-artifact-top > nav {
+  display: flex;
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 8px;
+  padding: 3px;
+}
+.rb-observed-artifact-top > nav > div {
+  display: flex;
+  gap: 2px;
+}
+.rb-observed-artifact-top > nav button {
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: transparent;
+  color: oklch(0.556 0 0);
+  font-size: 13px;
+}
+.rb-observed-artifact-top > nav button.selected {
+  background: oklch(0.371 0 0);
+  color: oklch(0.97 0 0);
+}
+.rb-observed-artifact-code {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 10px;
+  padding: 12px 12px 0;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-artifact-code > pre {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: oklch(0.87 0 0);
+  font:
+    12px/1.55 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+}
+
+/* Voice message responsive measurements taken from the public 480px mobile
+   capture.  The desktop/tablet card remains a 512×416 column; mobile keeps
+   the same internal rhythm while expanding to the available 272px rail. */
+.rb-observed-voice-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rb-observed-voice-status i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.439 0 0);
+}
+.rb-observed-voice-status b {
+  color: oklch(0.439 0 0);
+  font-weight: 400;
+}
+.rb-observed-voice-status em {
+  color: inherit;
+  font-style: normal;
+}
+@media (max-width: 767px) {
+  .rb-observed-ai-chat-8 {
+    padding: 24px;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-column {
+    width: 100%;
+    max-width: none;
+    height: 432px;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-column .rb-observed-chat-header {
+    width: 100%;
+    height: 24px;
+    min-height: 24px;
+    padding: 0;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-prompt {
+    height: 130px;
+    margin-top: 18px;
+    font-size: 20px;
+    line-height: 32.5px;
+    white-space: normal;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-prompt > span {
+    display: block;
+    white-space: nowrap;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-waveform {
+    height: 56px;
+    margin-top: 16px;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-composer {
+    width: 100%;
+    height: 170px;
+    margin-top: auto;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-file-pills {
+    height: 96px;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-status em {
+    font-size: 0;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-status em::after {
+    content: '0:19';
+    font-size: 13px;
+  }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .rb-observed-ai-chat-8 .rb-observed-voice-status em {
+    font-size: 0;
+  }
+  .rb-observed-ai-chat-8 .rb-observed-voice-status em::after {
+    content: '0:16';
+    font-size: 13px;
+  }
+}
+
+/* AI Chat 3 compact panel: the public preview uses a four-pixel inset card,
+   two bordered inner surfaces, and a fixed 378px transcript scrollport.  The
+   composer is a direct two-control row rather than the full application
+   composer used by the other examples. */
+.rb-observed-ai-chat-3 .rb-observed-compact-card {
+  box-sizing: border-box;
+  gap: 4px;
+  border: 1px solid oklch(0.269 0 0);
+  padding: 4px;
+  background: oklch(0.205 0 0);
+  box-shadow: none;
+}
+.rb-observed-ai-chat-3 {
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: auto;
+}
+.rb-observed-ai-chat-3 .rb-observed-chat-header.compact {
+  box-sizing: border-box;
+  flex: 0 0 48px;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 12px;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-body {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 12px;
+  padding: 0;
+  background: oklch(0.145 0 0);
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-body > .rb-observed-stream {
+  box-sizing: border-box;
+  width: 100%;
+  height: 378px;
+  min-height: 378px;
+  flex: 0 0 378px;
+  gap: 16px;
+  overflow: hidden;
+  padding: 16px;
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-body .rb-observed-message {
+  font-size: 13px;
+  line-height: 20px;
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-body .rb-observed-message.user {
+  padding: 8px 12px;
+  line-height: 20px;
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-body .rb-observed-message-copy > p {
+  font-size: 13px;
+  line-height: 21.125px;
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-composer-shell {
+  box-sizing: border-box;
+  width: 100%;
+  height: 70px;
+  min-height: 70px;
+  flex: 0 0 70px;
+  padding: 12px;
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-composer {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 46px;
+  min-height: 46px;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid oklch(0.269 0 0);
+  border-radius: 14px;
+  padding: 6px;
+  background: oklch(0.205 0 0);
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-composer textarea {
+  display: block;
+  width: auto;
+  height: 28px;
+  min-height: 28px;
+  flex: 1 1 0;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 4px 6px;
+  background: transparent;
+  color: oklch(0.97 0 0);
+  font-size: 13px;
+  line-height: 20px;
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-composer textarea::placeholder {
+  color: oklch(0.556 0 0);
+  opacity: 1;
+}
+.rb-observed-ai-chat-3 .rb-observed-compact-composer button {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  background: oklch(0.371 0 0);
+  color: oklch(0.205 0 0);
+}
+@media (max-width: 767px) {
+  .rb-observed-ai-chat-3 {
+    padding: 16px;
+    justify-content: flex-start;
+  }
+  .rb-observed-ai-chat-3 .rb-observed-compact-card {
+    height: auto;
+  }
+  .rb-observed-ai-chat-3 .rb-observed-compact-body {
+    height: auto;
+    flex: 0 0 auto;
+  }
+  .rb-observed-ai-chat-3 .rb-observed-compact-body > .rb-observed-stream {
+    height: auto;
+    min-height: 0;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+}
+
+/* The desktop AI Chat 6 capture starts at the first user turn; the compact
+   public iframe does not apply the historical +24px scroll offset that is
+   retained by the tablet/mobile states. */
+@media (min-width: 1024px) {
+  .rb-observed-ai-chat-6 .rb-observed-stream > * {
+    top: 0;
+  }
+  .rb-observed-ai-chat-6 .rb-observed-column::before {
+    display: none;
+  }
 }

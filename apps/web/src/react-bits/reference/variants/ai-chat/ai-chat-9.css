@@ -1,23 +1,46 @@
-.rb-reference-chat-ai-chat-9 { width: 100%; height: 100%; min-height: 720px; border: 0; border-radius: 0; background: var(--hbar-canvas); font-family: var(--dsh-font-family); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.rb-reference-chat-ai-chat-9 { width: 100%; height: 100%; min-height: 720px; border: 0; border-radius: 0; background: var(--hbar-canvas); color: oklch(0.97 0 0); font-family: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 .rb-reference-chat-ai-chat-9 .rb-reference-chat-header { box-sizing: border-box; width: min(768px, 100%); height: 48px; min-height: 48px; margin: 0 auto; padding: 0 24px; border-bottom: 0; }
 .rb-reference-chat-ai-chat-9 .rb-reference-chat-header > div { display: flex; min-width: 0; flex: 1; align-items: center; }
-.rb-reference-chat-ai-chat-9 .rb-reference-chat-header strong { font-size: var(--hbar-font-size-body); line-height: 20px; }
+.rb-reference-chat-ai-chat-9 .rb-reference-chat-header strong { color: oklch(0.97 0 0); font-size: 14px; font-weight: 500; line-height: 20px; }
 .rb-reference-chat-ai-chat-9 .rb-reference-chat-header small { display: none; }
-.rb-reference-chat-ai-chat-9 .rb-reference-model-summary { font-size: 12px; line-height: 16px; gap: 0; }
+.rb-reference-chat-ai-chat-9 .rb-reference-model-summary { color: oklch(0.708 0 0); font-size: 12px; line-height: 16px; gap: 0; }
 .rb-reference-chat-ai-chat-9 .rb-reference-chat-body { box-sizing: border-box; width: min(768px, 100%); margin: 0 auto; gap: 20px; padding: 34px 24px 16px; overflow: hidden; }
-.rb-reference-chat-ai-chat-9 .rb-reference-message { box-sizing: border-box; max-width: 100%; border-radius: 14px; padding: 10px 14px; font-size: var(--hbar-font-size-body); line-height: 24px; }
-.rb-reference-chat-ai-chat-9 .rb-reference-message-user { background: var(--hbar-surface-strong); color: var(--hbar-text-primary); }
-.rb-reference-chat-ai-chat-9 .rb-reference-message-assistant { gap: 12px; padding: 0; }
-.rb-reference-chat-ai-chat-9 .rb-reference-message-assistant p { margin: 0; color: var(--hbar-text-secondary); font-size: var(--hbar-font-size-body); line-height: 24px; }
+.rb-reference-chat-ai-chat-9 .rb-reference-message { box-sizing: border-box; max-width: 85%; border-radius: 14px; padding: 10px 14px; font-size: 14px; line-height: 24px; }
+.rb-reference-chat-ai-chat-9 .rb-reference-message-user { background: oklch(0.269 0 0); color: oklch(0.97 0 0); }
+.rb-reference-chat-ai-chat-9 .rb-reference-message-assistant { width: 100%; max-width: none; gap: 12px; padding: 0; }
+.rb-reference-chat-ai-chat-9 .rb-reference-message-assistant p { margin: 0; color: oklch(0.87 0 0); font-size: 14px; line-height: 24px; }
 .rb-reference-chat-ai-chat-9 .rb-reference-message-assistant strong { display: none; }
 .rb-reference-chat-ai-chat-9 .rb-reference-avatar { box-sizing: border-box; width: 24px; height: 24px; flex: 0 0 24px; border: 1px solid var(--hbar-border-subtle); border-radius: 50%; background: var(--hbar-surface-strong); color: var(--hbar-text-tertiary); font-size: 10px; }
+.rb-reference-chat-ai-chat-9 .rb-reference-avatar { border-color: oklch(0.269 0 0); background: oklch(0.205 0 0); color: oklch(0.708 0 0); margin-top: 2px; }
 .rb-reference-chat-ai-chat-9 .rb-reference-tool-row { display: none; }
-.rb-reference-chat-ai-chat-9 .rb-reference-composer { box-sizing: border-box; width: min(720px, calc(100% - 48px)); height: 110px; min-height: 110px; margin: 0 auto; border-color: var(--hbar-border-subtle); border-radius: 14px; background: var(--hbar-surface-strong); }
-.rb-reference-chat-ai-chat-9 .rb-reference-composer textarea { box-sizing: border-box; height: 60px; min-height: 60px; padding: 12px 14px 0; font-size: var(--hbar-font-size-body); line-height: 24px; }
+.rb-reference-chat-ai-chat-9 .rb-reference-composer { box-sizing: border-box; width: min(720px, calc(100% - 48px)); height: 110px; min-height: 110px; margin: 0 auto; border-color: oklch(0.269 0 0); border-radius: 14px; background: oklch(0.205 0 0); }
+.rb-reference-chat-ai-chat-9 .rb-reference-composer textarea { box-sizing: border-box; height: 60px; min-height: 60px; padding: 12px 14px 0; color: oklch(0.97 0 0); font-size: 14px; line-height: 24px; }
 .rb-reference-chat-ai-chat-9 .rb-reference-composer-actions { box-sizing: border-box; height: 48px; justify-content: flex-start; padding: 4px 12px 12px; gap: 6px; }
 .rb-reference-chat-ai-chat-9 .rb-reference-composer-actions button { width: 32px; height: 32px; border-radius: 8px; }
-.rb-reference-chat-ai-chat-9 .rb-reference-composer-model { width: 88.46875px !important; min-width: 88.46875px; margin-right: 0; padding: 0 8px 0 10px; background: var(--hbar-surface-strong); color: var(--hbar-text-primary); font-size: 13px; line-height: 19.5px; }
-.rb-reference-chat-ai-chat-9 .rb-reference-send { margin-left: auto; background: var(--hbar-surface-strong) !important; color: var(--hbar-text-tertiary) !important; }
-.rb-reference-chat-ai-chat-9 .rb-reference-chat-footer-note { box-sizing: border-box; width: min(720px, calc(100% - 48px)); height: 16px; margin: 8px auto 17px; color: var(--hbar-text-tertiary); font-size: 12px; line-height: 16px; text-align: center; }
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-actions > button:not(.rb-reference-send) { color: oklch(0.708 0 0); }
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-model { width: 88.46875px !important; min-width: 88.46875px; margin-right: 0; padding: 0 8px 0 10px; background: oklch(0.269 0 0); color: oklch(0.97 0 0); font-size: 13px; line-height: 19.5px; }
+.rb-reference-chat-ai-chat-9 .rb-reference-send { margin-left: auto; opacity: 1; background: oklch(0.269 0 0) !important; color: oklch(0.439 0 0) !important; }
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-model,
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-actions > button {
+  border: 0;
+}
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-model {
+  font-weight: 500;
+}
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-model svg,
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-actions > button svg {
+  width: 14px;
+  height: 14px;
+}
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-actions > button:not(.rb-reference-send) svg,
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-actions > .rb-reference-send svg {
+  width: 16px;
+  height: 16px;
+}
+.rb-reference-chat-ai-chat-9 .rb-reference-composer-model svg {
+  width: 14px;
+  height: 14px;
+}
+.rb-reference-chat-ai-chat-9 .rb-reference-chat-footer-note { box-sizing: border-box; width: min(720px, calc(100% - 48px)); height: 16px; margin: 8px auto 17px; color: oklch(0.708 0 0); font-size: 12px; line-height: 16px; text-align: center; }
 .rb-reference-theme-control { position: absolute; right: 24px; bottom: 16px; display: inline-flex; align-items: center; gap: 7px; height: 40px; border: 1px solid var(--hbar-surface-strong); border-radius: var(--radius-full); padding: 0 14px; background: var(--hbar-canvas); color: var(--hbar-text-primary); cursor: pointer; font: var(--hbar-font-size-body) var(--dsh-font-family); }
-@media (max-width: 767px) { .rb-reference-chat-ai-chat-9 { min-height: 100%; }.rb-reference-chat-ai-chat-9 .rb-reference-chat-header, .rb-reference-chat-ai-chat-9 .rb-reference-chat-body { width: 100%; }.rb-reference-chat-ai-chat-9 .rb-reference-chat-header { padding-inline: 16px; }.rb-reference-chat-ai-chat-9 .rb-reference-chat-body { padding-inline: 16px; }.rb-reference-chat-ai-chat-9 .rb-reference-composer, .rb-reference-chat-ai-chat-9 .rb-reference-chat-footer-note { width: calc(100% - 32px); } }
+@media (max-width: 767px) { .rb-reference-chat-ai-chat-9 { min-height: 100%; }.rb-reference-chat-ai-chat-9 .rb-reference-chat-header, .rb-reference-chat-ai-chat-9 .rb-reference-chat-body { width: 100%; }.rb-reference-chat-ai-chat-9 .rb-reference-chat-header { padding-inline: 16px; }.rb-reference-chat-ai-chat-9 .rb-reference-chat-body { padding: 16px 16px 16px; }.rb-reference-chat-ai-chat-9 .rb-reference-composer, .rb-reference-chat-ai-chat-9 .rb-reference-chat-footer-note { width: calc(100% - 32px); position: relative; top: -1px; }.rb-reference-chat-ai-chat-9 .rb-reference-chat-footer-note { height: 32px; margin-bottom: 16px; }.rb-reference-chat-ai-chat-9 .rb-reference-theme-control { display: none; } }
