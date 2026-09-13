@@ -171,17 +171,17 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
         </div>
       )}
       {!workspaceId ? (
-        <div className="file-empty-state" role="status">
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'artifact')} className="file-empty-state" role="status">
           <Folder size={18} />
           <strong>{t('noWorkspaceSelected')}</strong>
           <span>{t('selectWorkspaceHint')}</span>
         </div>
       ) : error ? (
-        <div className="inline-error" role="alert">
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'artifact')} className="inline-error" role="alert">
           {error}
         </div>
       ) : loading ? (
-        <div className="file-empty-state" role="status">
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'artifact')} className="file-empty-state" role="status">
           <LoaderCircle size={18} className="spinning" />
           <strong>{t('readingDirectory')}</strong>
           <span>{t('readingDirectoryHint')}</span>
@@ -216,7 +216,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           ))}
         </AnimatedList>
       ) : entries.length ? (
-        <div className="file-empty-state" role="status">
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'artifact')} className="file-empty-state" role="status">
           <Search size={18} />
           <strong>{t('noMatchingFiles')}</strong>
           <span>{t('changeFilterHint')}</span>
@@ -225,7 +225,7 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           </button>
         </div>
       ) : (
-        <div className="file-empty-state" role="status">
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'artifact')} className="file-empty-state" role="status">
           <Folder size={18} />
           <strong>{t('emptyDirectory')}</strong>
           <span>{t('emptyDirectoryHint')}</span>
@@ -384,7 +384,11 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
         </div>
       </div>
       {error ? (
-        <div className="file-viewer-feedback" role="alert">
+        <div
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'artifact')}
+          className="file-viewer-feedback"
+          role="alert"
+        >
           <p className="inline-error">{error}</p>
           {conflict && (
             <div className="file-viewer-conflict-actions">
@@ -398,7 +402,7 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
           )}
         </div>
       ) : loading ? (
-        <div className="file-viewer-empty" role="status">
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'artifact')} className="file-viewer-empty" role="status">
           <LoaderCircle size={18} className="spinning" />
           <span>{t('readingFile')}</span>
         </div>

@@ -156,7 +156,7 @@ export default function ActivityPanel() {
       />
       {mode === 'activity' ? (
         <>
-          <div className="activity-heading">
+          <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-3', 'activity')} className="activity-heading">
             <div>
               <h2>{t('currentSession')}</h2>
               <span className="small-muted">{snapshot?.runs.length ?? 0} {t('runCount')}</span>
@@ -164,7 +164,11 @@ export default function ActivityPanel() {
             {runningCount > 0 && <span className="activity-live-indicator">{runningCount} {t('activeCount')}</span>}
           </div>
           {timelineRun && (
-            <section className="activity-timeline" aria-label={t('timeline')}>
+            <section
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-2', 'activity')}
+              className="activity-timeline"
+              aria-label={t('timeline')}
+            >
               <div className="activity-timeline-heading">
                 <div>
                   <strong>{timelineRun.input.text.slice(0, 80) || t('imageMessage')}</strong>
@@ -210,7 +214,12 @@ export default function ActivityPanel() {
             ]}
           />
           <div className="section-label">{t('runHistory')}</div>
-          <AnimatedList className="run-list" viewportClassName="run-list-viewport" showGradients={false}>
+          <AnimatedList
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-4', 'activity')}
+            className="run-list"
+            viewportClassName="run-list-viewport"
+            showGradients={false}
+          >
             {snapshot?.runs.map((run) => (
               <SpotlightCard
                 className="run-row"
@@ -247,7 +256,11 @@ export default function ActivityPanel() {
           )}
         </>
       ) : detail ? (
-        <section className="event-detail-panel" aria-label={`${detail.type} ${t('eventDetails')}`}>
+        <section
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-7', 'session-events')}
+          className="event-detail-panel"
+          aria-label={`${detail.type} ${t('eventDetails')}`}
+        >
           <header className="event-detail-header">
             <button
               type="button"
@@ -281,13 +294,16 @@ export default function ActivityPanel() {
         </section>
       ) : (
         <>
-          {eventsLoading && <p className="activity-loading">{t('loadingEvents')}</p>}
+          {eventsLoading && <p {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'session-events')} className="activity-loading">{t('loadingEvents')}</p>}
           {eventsError && (
-            <p className="inline-error activity-error" role="alert">
+            <p {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'session-events')} className="inline-error activity-error" role="alert">
               {eventsError}
             </p>
           )}
-          <label className="event-filter">
+          <label
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/filtering', 'session-events')}
+            className="event-filter"
+          >
             <Search size={13} aria-hidden="true" />
             <input
               aria-label={t('filterEvents')}

@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import mermaid from 'mermaid'
 import GlassSurface from './react-bits/GlassSurface'
+import { referenceAttributes } from './react-bits'
 import { useThemeSettings } from './theme-store'
 let renderQueue: Promise<unknown> = Promise.resolve()
 export default function MermaidView({ source }: { source: string }) {
@@ -46,9 +47,12 @@ export default function MermaidView({ source }: { source: string }) {
     }
   }, [id, source, theme])
   return error ? (
-    <pre className="render-error">{source}</pre>
+    <pre {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state')} className="render-error">{source}</pre>
   ) : (
-    <div className="mermaid-view rb-render-surface">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/dashboard')}
+      className="mermaid-view rb-render-surface"
+    >
       <GlassSurface className="render-surface-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="render-surface-content" dangerouslySetInnerHTML={{ __html: svg }} />
     </div>

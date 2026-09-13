@@ -395,7 +395,10 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
             />
           )}
           {snapshot && (
-            <section className="browser-snapshot rb-tool-detail-surface">
+            <section
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-4', 'session-chat')}
+              className="browser-snapshot rb-tool-detail-surface"
+            >
               <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
               <div className="tool-section-label"><span>{t('pageText')}</span>{page && <button type="button" onClick={() => void closePage()}><X size={13} />{t('closePage')}</button>}</div>
               <pre>{snapshot.text || t('unreadablePage')}</pre>
@@ -407,7 +410,10 @@ export function BrowserPanel({ sessionId = '' }: PanelProps) {
             </SpotlightCard>
           )}
           {status?.history.length ? (
-            <details className="browser-history">
+            <details
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-4', 'activity')}
+              className="browser-history"
+            >
               <summary>{t('recentVisits')}</summary>
               {status.history.slice(0, 8).map((item, index) => <div key={`${item}-${index}`}>{item}</div>)}
             </details>
@@ -476,7 +482,10 @@ export function SessionInspectorPanel({ sessionId = '' }: PanelProps) {
               },
             ]}
           />
-          <section className="tool-detail-card rb-tool-detail-surface">
+          <section
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-7', 'activity')}
+            className="tool-detail-card rb-tool-detail-surface"
+          >
             <GlassSurface className="tool-detail-glass" width="100%" height="100%" aria-hidden="true" />
             <h3>{t('recentRuns')}</h3>
             <AnimatedList className="inspector-runs-list" viewportClassName="inspector-runs" showGradients={false}>

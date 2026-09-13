@@ -270,7 +270,12 @@ function UserInputPrompt({ request }: { request: UserInputRequest }) {
     }
   }
   return (
-    <section className="user-input-prompt rb-decision-surface" aria-label={t('chatUserInputRequired')} aria-busy={saving}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-approval', 'approval')}
+      className="user-input-prompt rb-decision-surface"
+      aria-label={t('chatUserInputRequired')}
+      aria-busy={saving}
+    >
       <GlassSurface className="decision-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="user-input-heading">
         <strong>{t('chatUserInputRequired')}</strong>
@@ -406,7 +411,11 @@ function MessageView({ message }: { message: Message }) {
     return <ToolResult key={index} block={block} />
   })
   return (
-    <article className={`message message-${message.role}`} data-message-id={message.id}>
+    <article
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-1', 'session-chat')}
+      className={`message message-${message.role}`}
+      data-message-id={message.id}
+    >
       {message.role !== 'tool' && (
         <div className="message-heading">
           <span className={`avatar ${message.role === 'user' ? 'avatar-user' : ''}`}>
@@ -912,7 +921,10 @@ export default function Chat({
             }}
           >
             {!messages.length && !activeRun && (
-              <div className="empty-conversation">
+              <div
+                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-3', 'session-chat')}
+                className="empty-conversation"
+              >
                 <div className="empty-symbol">
                   hbar
                   <span className="empty-dot" />
@@ -948,7 +960,11 @@ export default function Chat({
               ))}
             </div>
             {snapshot?.streams.map((stream) => (
-              <article className="message message-assistant" key={stream.id}>
+              <article
+                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-1', 'session-chat')}
+                className="message message-assistant"
+                key={stream.id}
+              >
                 <div className="message-heading">
                   <span className="avatar">h</span>
                   <span>hbar</span>
@@ -967,7 +983,10 @@ export default function Chat({
               </article>
             ))}
             {lastRun && ['failed', 'interrupted', 'cancelled'].includes(lastRun.status) && (
-              <div className={`run-outcome rb-run-outcome-surface ${lastRun.status === 'cancelled' ? '' : 'danger'}`}>
+              <div
+                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-2', 'session-chat')}
+                className={`run-outcome rb-run-outcome-surface ${lastRun.status === 'cancelled' ? '' : 'danger'}`}
+              >
                 <GlassSurface className="run-outcome-glass" width="100%" height="100%" aria-hidden="true" />
                 <Square size={12} />
                 <span className="run-outcome-copy">{lastRun.status === 'cancelled' ? t('chatStopped') : lastRun.error}</span>
@@ -1000,7 +1019,10 @@ export default function Chat({
               <ArrowDown size={17} />
             </button>
           )}
-          <div className="composer-area">
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-1', 'session-chat')}
+            className="composer-area"
+          >
             {(snapshot?.userInputs ?? []).map((request) => (
               <UserInputPrompt key={request.requestId} request={request} />
             ))}

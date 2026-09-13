@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import GlassSurface from './react-bits/GlassSurface'
+import { referenceAttributes } from './react-bits'
 import { isDarkThemeColor, useThemeSettings } from './theme-store'
 const schema = z.object({
   nodes: z
@@ -23,7 +24,10 @@ export default function FlowView({ source }: { source: string }) {
   try {
     const spec = schema.parse(JSON.parse(source))
     return (
-      <div className="flow-view rb-render-surface">
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/dashboard')}
+        className="flow-view rb-render-surface"
+      >
         <GlassSurface className="render-surface-glass" width="100%" height="100%" aria-hidden="true" />
         <ReactFlow
           key={source}
@@ -41,6 +45,6 @@ export default function FlowView({ source }: { source: string }) {
       </div>
     )
   } catch {
-    return <pre className="render-error">{source}</pre>
+    return <pre {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state')} className="render-error">{source}</pre>
   }
 }

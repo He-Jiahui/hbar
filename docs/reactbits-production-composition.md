@@ -23,6 +23,20 @@
 | 文件、编辑器和空/加载/失败态 | [file-manager](https://pro.reactbits.dev/docs/app-ui/file-manager)、[editor](https://pro.reactbits.dev/docs/app-ui/editor)、[list](https://pro.reactbits.dev/docs/app-ui/list)、[filtering](https://pro.reactbits.dev/docs/app-ui/filtering)、[empty-state](https://pro.reactbits.dev/docs/app-ui/empty-state) | breadcrumb/tree/detail preview、before/after review、筛选计数、dropzone、恢复动作 | 文件/Git/renderer slot 真实结果；统一 `EmptyState` 与 `AnimatedList` |
 | 配对与首次连接 | [authentication](https://pro.reactbits.dev/docs/app-ui/authentication)、[onboarding](https://pro.reactbits.dev/docs/app-ui/onboarding) | centered credential card、验证反馈、完成后进入工作台 | Host pairing RPC 和连接状态；不在 URL 暴露 token |
 
+## 已落地的组件级绑定
+
+下列条目是生产组件的实际落点，不是参考画廊 fixture。每个根节点都会写入 `data-reactbits-skill`、具体 `data-reactbits-reference`，并在有纯投影时写入 `data-reactbits-adapter`；业务数据仍由 hbar 的 Zustand/Client 契约提供。
+
+| hbar 组件 | 具体参考 URL | 采用的逻辑、层级和风格 | 生产事实来源 |
+| --- | --- | --- | --- |
+| `DiagnosePanel`、`PluginDiagnostics` | [monitoring](https://pro.reactbits.dev/docs/app-ui/monitoring)、[dashboard](https://pro.reactbits.dev/docs/app-ui/dashboard)、[card](https://pro.reactbits.dev/docs/app-ui/card)、[list](https://pro.reactbits.dev/docs/app-ui/list) | health header、三列状态卡、按需展开的工具/JSON 详情、插件列表密度、失败后就地 retry；使用 `GlassSurface`、`SpotlightCard`、`AnimatedList`，不补虚构 uptime 或趋势图 | `system.diagnose`、插件 doctor/graph/lock RPC；adapter `activity` 只投影已有 runs/events |
+| `TerminalPanel` | [tool-calls-5](https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5)、[agent-activity-5](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-5)、[prompt-input-1](https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-1)、[command-menu](https://pro.reactbits.dev/docs/app-ui/command-menu) | command/output hierarchy、日志滚动、取消和审批卡；当真实 `tool_result.details` 提供 `stdout`/`stderr`/`exitCode` 时才显示对应页签和退出码，否则保持原始结果文本 | `SessionSnapshot.messages/streams/approvals`、terminal command registry；adapter `session-chat`/`session-events` |
+| `SystemTerminalPanel` | [tool-calls-5](https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5)、[agent-activity-5](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-5) | xterm toolbar、独立 terminal surface、滚动输出和退出反馈；玻璃层只作背景，输入/resize/output 生命周期仍由 Host terminal RPC 管理 | `terminal.open/input/resize/output/exit/close`；没有可投影的 SessionSnapshot 字段时不标记虚假 adapter |
+| `PairingPage` | [authentication](https://pro.reactbits.dev/docs/app-ui/authentication)、[onboarding](https://pro.reactbits.dev/docs/app-ui/onboarding)、[forms](https://pro.reactbits.dev/docs/app-ui/forms)、[notifications](https://pro.reactbits.dev/docs/app-ui/notifications) | centered credential card、目标 Host 摘要、准备 checklist、连接/失败反馈和完成后切换工作台；代码与设备名均绑定真实 pairing 状态 | Host `pairing` RPC、连接状态和错误；token 不写入 URL |
+| `ComposerMenu`、`CommandPalette`、会话上下文菜单、Prompt slash menu | [command-menu](https://pro.reactbits.dev/docs/app-ui/command-menu)、[app-sidebar](https://pro.reactbits.dev/docs/app-ui/app-sidebar) | 搜索优先、分组结果、键盘上下移动、左对齐图标槽和 recent/context action；所有 portal、最高层级、模糊、Escape、capture-phase outside-click 和焦点恢复统一由 `FloatingSurface` 提供 | Composer action registry、palette action registry、session/workspace IDs |
+| App toast、workspace modal、插件 dock/detached window | [notifications](https://pro.reactbits.dev/docs/app-ui/notifications)、[app-dialog](https://pro.reactbits.dev/docs/app-ui/app-dialog)、[app-shell-4](https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4) | toast stack 的暂停/关闭/焦点行为、可滚动 dialog body/sticky footer、docked 与独立窗口共享同一 panel ID 和玻璃层级 | `useNotice`、workspace/file/Git RPC、`ToolWindowContribution`；不复制第二套布局状态 |
+| `FileNavigation`、`FileViewer`、`CodeEditor`、`GitPanel`、`GitDiffViewer`、`PatchViewer` | [file-manager](https://pro.reactbits.dev/docs/app-ui/file-manager)、[filtering](https://pro.reactbits.dev/docs/app-ui/filtering)、[list](https://pro.reactbits.dev/docs/app-ui/list)、[editor](https://pro.reactbits.dev/docs/app-ui/editor)、[data-table](https://pro.reactbits.dev/docs/app-ui/data-table)、[tool-calls-3](https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-3)、[prompt-input-6](https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-6) | breadcrumb/filter/list/detail、before/after diff、changes/history/branches tab hierarchy、scope picker 和长文本滚动；保留既有 button role 与 tool-window 直接子元素选择器 | `file.list/read/write`、Git status/log/branch/diff/worktree RPC、`ArtifactRef`；adapter `artifact` 或对应 shell/activity projection |
+
 ## 交付顺序
 
 1. 组合层和 typed projection（本次建立）：`ReferenceSurface`、`ReferenceSectionHeader`、`ReferenceMetricStrip`、`ReferenceTabs`、`useReferenceProductionContext`。
@@ -32,4 +46,11 @@
 5. Settings/forms/dialog/notifications：统一 master/detail、保存状态、局部错误和 FloatingSurface 关闭/焦点契约。
 6. File/Git/editor/diagnose 与最终 QA：统一列表/卡片/预览、空态、加载、失败、取消、恢复和长文本溢出。
 
-每一项都在对应组件上保留真实实体 ID，执行 targeted tests、lint、typecheck、build 和相关 Playwright/CUA 视觉检查后独立提交。
+每一项都在对应组件上保留真实实体 ID，执行 targeted tests、lint、typecheck、build 和相关 Playwright/CUA 视觉检查后独立提交。当前生产组合提交为：`c794fe9`（组合层）、`4759680`（会话/模型）、`d25b1d3`（活动/用量）、`5241d59`（外壳/导航）、`b3121c8`（指标兼容）、`40ea5e5`（设置/能力）、`9a201b3`（文件/Git）、`c3d4571`（诊断/终端/配对/反馈）、`4f33ad0`（菜单 surface 回归修复）。
+
+## 诚实边界与验收记录
+
+- 生产入口不直接导入 `react-bits/reference/variants`；参考画廊仍是独立 clean-room fixture。`bun run check:reactbits-reference` 必须保持 `38 categories, 300 variants` 通过。
+- 目前没有协议支持的 citations、multi-agent handoff、单工具 retry、artifact version history、usage 时间序列、商业 paywall、账户级认证或 scheduling，不在生产界面填充假数据；对应 URL 只用于未来布局和状态语言。`PairingPage` 实现的是 Host 配对，不是账户体系。
+- 终端 stdout/stderr 只在 `tool_result.details` 中存在并通过 primitive 校验时展示；xterm PTY 的合并流不会被拆成伪造的两个流。
+- 固定视口回归目标为 1280×720、768×900、390×844。Playwright 针对工具窗口、诊断、配对、命令、设置和移动导航已覆盖；本环境的 CUA 浏览器入口因 Codex auth method `apikey` 不可用，未将 CUA 结果写成已通过，改用 Playwright 截图进行视觉核对。

@@ -12,6 +12,7 @@ import GlassSurface from './react-bits/GlassSurface'
 import PatchViewer from './PatchViewer'
 import RendererBoundary from './RendererBoundary'
 import { useThemeSettings } from './theme-store'
+import { referenceAttributes } from './react-bits'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const MermaidView = lazy(() => import('./MermaidView'))
 const ChartView = lazy(() => import('./ChartView'))
@@ -36,7 +37,10 @@ function CodeBlock({ source, language, streaming }: { source: string; language: 
   const { t } = useLocale()
   const rich = ['mermaid', 'chart', 'flow'].includes(language) || Boolean(CustomRenderer)
   return (
-    <div className="code-block rb-code-surface">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/editor', 'artifact')}
+      className="code-block rb-code-surface"
+    >
       <GlassSurface className="code-block-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="code-toolbar">
         <span>{language || 'text'}</span>

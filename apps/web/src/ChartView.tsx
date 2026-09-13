@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts'
 import GlassSurface from './react-bits/GlassSurface'
+import { referenceAttributes } from './react-bits'
 const schema = z.object({
   type: z.enum(['bar', 'line', 'area']),
   xKey: z.string().max(100),
@@ -37,7 +38,10 @@ export default function ChartView({ source }: { source: string }) {
     const spec = schema.parse(JSON.parse(source))
     const Chart = spec.type === 'bar' ? BarChart : spec.type === 'line' ? LineChart : AreaChart
     return (
-      <div className="chart-view rb-render-surface">
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/analytics')}
+        className="chart-view rb-render-surface"
+      >
         <GlassSurface className="render-surface-glass" width="100%" height="100%" aria-hidden="true" />
         <ResponsiveContainer width="100%" height={240}>
           <Chart data={spec.data} margin={{ top: 16, right: 16, bottom: 8, left: -14 }}>
@@ -79,6 +83,6 @@ export default function ChartView({ source }: { source: string }) {
       </div>
     )
   } catch {
-    return <pre className="render-error">{source}</pre>
+    return <pre {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state')} className="render-error">{source}</pre>
   }
 }

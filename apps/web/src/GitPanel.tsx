@@ -273,11 +273,11 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
         </button>
       </nav>
       {!workspacePath ? (
-        <div className="git-panel-empty" role="status"><GitBranch size={20} /><strong>{t('noWorkspaceSelected')}</strong><span>{t('selectWorkspaceHint')}</span></div>
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'activity')} className="git-panel-empty" role="status"><GitBranch size={20} /><strong>{t('noWorkspaceSelected')}</strong><span>{t('selectWorkspaceHint')}</span></div>
       ) : error && !status ? (
-        <div className="git-panel-empty" role="alert"><GitBranch size={20} /><strong>{t('cannotReadGit')}</strong><span>{error}</span><button type="button" className="button" onClick={() => void refresh()}>{t('retry')}</button></div>
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'activity')} className="git-panel-empty" role="alert"><GitBranch size={20} /><strong>{t('cannotReadGit')}</strong><span>{error}</span><button type="button" className="button" onClick={() => void refresh()}>{t('retry')}</button></div>
       ) : status && !status.root ? (
-        <div className="git-panel-empty" role="status"><GitBranch size={20} /><strong>{t('notGitRepository')}</strong><span>{t('initGitHint')}</span></div>
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'activity')} className="git-panel-empty" role="status"><GitBranch size={20} /><strong>{t('notGitRepository')}</strong><span>{t('initGitHint')}</span></div>
       ) : tab === 'changes' ? (
         <div className="git-panel-content">
           <div className="git-branch-summary">
@@ -285,9 +285,14 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
             <span className="git-sync-state">{status?.ahead ? `${t('ahead')} ${status.ahead}` : ''}{status?.ahead && status.behind ? ' · ' : ''}{status?.behind ? `${t('behind')} ${status.behind}` : !status?.ahead ? t('synced') : ''}</span>
           </div>
           {status?.entries.length ? (
-            <div className="git-change-list" aria-label={t('fileChanges')}>
+            <div
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/data-table', 'activity')}
+              className="git-change-list"
+              aria-label={t('fileChanges')}
+            >
               {status.entries.slice(0, 100).map((entry) => (
                 <SpotlightCard
+                  {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/card', 'activity')}
                   className={`git-change-row ${entry.path === selectedPath ? 'selected' : ''}`}
                   key={`${entry.index}${entry.worktree}:${entry.path}`}
                   onClick={() => void openDiff(entry.path)}
@@ -322,7 +327,7 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
               {status.entries.length > 100 && <p className="git-panel-muted">{t('onlyFirstFiles')}</p>}
             </div>
           ) : (
-            <div className="git-panel-empty compact" role="status"><GitCompareArrows size={18} /><strong>{t('cleanWorkspace')}</strong><span>{t('noPendingChanges')}</span></div>
+            <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'activity')} className="git-panel-empty compact" role="status"><GitCompareArrows size={18} /><strong>{t('cleanWorkspace')}</strong><span>{t('noPendingChanges')}</span></div>
           )}
           {selectedEntry && (
             <section
@@ -346,15 +351,15 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
           ) : null}
         </div>
       ) : tab === 'history' ? (
-        <div className="git-panel-content git-history-list" aria-label={t('commitHistory')}>
-          {commits.length ? commits.map((commit) => <SpotlightCard className="git-commit-row" key={commit.sha} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><code>{shortSha(commit.shortSha)}</code><div><strong>{commit.subject}</strong><small>{commit.author} · {commit.authoredAt}</small></div></SpotlightCard>) : <div className="git-panel-empty compact" role="status"><GitCommitHorizontal size={18} /><strong>{t('noCommits')}</strong><span>{t('noCommitRecords')}</span></div>}
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/list', 'activity')} className="git-panel-content git-history-list" aria-label={t('commitHistory')}>
+          {commits.length ? commits.map((commit) => <SpotlightCard {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/card', 'activity')} className="git-commit-row" key={commit.sha} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><code>{shortSha(commit.shortSha)}</code><div><strong>{commit.subject}</strong><small>{commit.author} · {commit.authoredAt}</small></div></SpotlightCard>) : <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'activity')} className="git-panel-empty compact" role="status"><GitCommitHorizontal size={18} /><strong>{t('noCommits')}</strong><span>{t('noCommitRecords')}</span></div>}
         </div>
       ) : (
-        <div className="git-panel-content git-branch-list" aria-label={t('branchList')}>
-          {branches.length ? branches.map((branch) => <SpotlightCard className={`git-branch-row ${branch.current ? 'selected' : ''}`} key={branch.name} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><div><strong>{branch.name}</strong><small>{branch.current ? t('currentBranchLabel') : branch.remote ?? t('localBranch')}</small></div>{branch.current ? <span className="git-branch-current">{t('current')}</span> : <button type="button" className="button" onClick={() => void switchBranch(branch.name)} disabled={mutating}>{t('switch')}</button>}</SpotlightCard>) : <div className="git-panel-empty compact" role="status"><GitBranch size={18} /><strong>{t('noBranchesInRepository')}</strong><span>{t('noBranchesHint')}</span></div>}
+        <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/list', 'activity')} className="git-panel-content git-branch-list" aria-label={t('branchList')}>
+          {branches.length ? branches.map((branch) => <SpotlightCard {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/card', 'activity')} className={`git-branch-row ${branch.current ? 'selected' : ''}`} key={branch.name} spotlightColor="color-mix(in srgb, var(--rb-accent) 18%, transparent)"><div><strong>{branch.name}</strong><small>{branch.current ? t('currentBranchLabel') : branch.remote ?? t('localBranch')}</small></div>{branch.current ? <span className="git-branch-current">{t('current')}</span> : <button type="button" className="button" onClick={() => void switchBranch(branch.name)} disabled={mutating}>{t('switch')}</button>}</SpotlightCard>) : <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/empty-state', 'activity')} className="git-panel-empty compact" role="status"><GitBranch size={18} /><strong>{t('noBranchesInRepository')}</strong><span>{t('noBranchesHint')}</span></div>}
         </div>
       )}
-      {error && status && <p className="git-panel-error" role="alert">{error}</p>}
+      {error && status && <p {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'activity')} className="git-panel-error" role="alert">{error}</p>}
     </section>
   )
 }
