@@ -89,6 +89,38 @@
   background: color-mix(in srgb, var(--hbar-s0) 78%, transparent);
 }
 
+.toast {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: transparent;
+}
+
+.toast > .toast-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--hbar-s1) 92%, transparent);
+  pointer-events: none;
+}
+
+.toast > .toast-glass::before {
+  background: linear-gradient(125deg, color-mix(in srgb, var(--rb-accent) 10%, transparent), transparent 46%);
+}
+
+.toast > :not(.toast-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.toast.task-toast {
+  border-color: color-mix(in srgb, var(--hbar-ok) 58%, var(--hbar-bd));
+  color: var(--hbar-ok);
+}
+
 .composer-menu-card.rb-spotlight-card,
 .permission-option-card.rb-spotlight-card {
   border-radius: var(--radius-sm);
@@ -3192,6 +3224,60 @@
   z-index: 1;
 }
 
+.rb-terminal-tool-surface > summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+  text-align: left;
+}
+
+.rb-terminal-tool-surface > summary::-webkit-details-marker {
+  display: none;
+}
+
+.rb-terminal-tool-surface > summary > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-output-exit {
+  flex: 0 0 auto;
+  color: var(--hbar-t3);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
+}
+
+.terminal-tool-output {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.terminal-output-command {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--hbar-t2);
+  font: var(--hbar-font-size-small) var(--dsh-font-family-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-output-tabs {
+  justify-self: start;
+}
+
+.terminal-tool-output > pre {
+  min-height: 32px;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .terminal-composer > .terminal-completions {
   z-index: 30;
 }
@@ -3214,6 +3300,62 @@
   justify-content: flex-start;
   padding-inline: 16px;
   text-align: left;
+}
+
+.rb-system-terminal-panel {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-system-terminal-panel > .system-terminal-panel-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--hbar-s0) 76%, transparent);
+  pointer-events: none;
+}
+
+.rb-system-terminal-panel > .system-terminal-panel-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 6%, transparent), transparent 48%);
+}
+
+.rb-system-terminal-panel > :not(.system-terminal-panel-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-system-terminal-panel .system-terminal-toolbar {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.rb-system-terminal-panel .system-terminal-toolbar > .system-terminal-toolbar-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--hbar-s1) 84%, transparent);
+  pointer-events: none;
+}
+
+.rb-system-terminal-panel .system-terminal-toolbar > .system-terminal-toolbar-glass::before {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rb-accent) 7%, transparent), transparent 48%);
+}
+
+.rb-system-terminal-panel .system-terminal-toolbar > :not(.system-terminal-toolbar-glass) {
+  position: relative;
+  z-index: 1;
+}
+
+.rb-system-terminal-panel .system-terminal-viewport {
+  background: color-mix(in srgb, var(--hbar-s0) 58%, transparent);
 }
 
 .tool-call {

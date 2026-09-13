@@ -274,6 +274,7 @@ export default function PromptComposer({
         }}
       />
       <FloatingSurface
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'session-chat')}
         anchorRef={slashAnchor}
         open={slashMenuOpen && slashOpen}
         onClose={() => setSlashMenuOpen(false)}

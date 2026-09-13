@@ -4,6 +4,7 @@ import { refreshCatalog, useConnection } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 
 export default function PairingPage() {
@@ -39,9 +40,15 @@ export default function PairingPage() {
   }, [])
 
   return (
-    <main className="pairing-page rb-pairing-page">
+    <main
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/authentication')}
+      className="pairing-page rb-pairing-page"
+    >
       <GlassSurface className="pairing-page-glass" width="100%" height="100%" aria-hidden="true" />
-      <header className="pairing-intro">
+      <header
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/onboarding')}
+        className="pairing-intro"
+      >
         <div className="pairing-brand">
           hbar
           <span />
@@ -49,8 +56,13 @@ export default function PairingPage() {
         <span className="pairing-eyebrow">{t('secureConnection')}</span>
         <p>{t('pairingIntro')}</p>
       </header>
-      <SpotlightCard className="pairing-card" spotlightColor="color-mix(in srgb, var(--rb-accent) 26%, transparent)">
+      <SpotlightCard
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/authentication')}
+        className="pairing-card"
+        spotlightColor="color-mix(in srgb, var(--rb-accent) 26%, transparent)"
+      >
         <form
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/forms')}
           className="pairing-form"
           onSubmit={(event) => {
             event.preventDefault()
@@ -90,7 +102,11 @@ export default function PairingPage() {
               {connecting ? t('connecting') : t('waitingPairing')}
             </span>
           </div>
-          <div className="pairing-host-card" aria-label={t('targetHost')}>
+          <div
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/authentication')}
+            className="pairing-host-card"
+            aria-label={t('targetHost')}
+          >
             <span className="pairing-host-icon" aria-hidden="true">
               <Network size={16} />
             </span>
@@ -122,7 +138,11 @@ export default function PairingPage() {
               />
             </label>
           </div>
-          <ol className="pairing-steps" aria-label={t('pairingPreparation')}>
+          <ol
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/onboarding')}
+            className="pairing-steps"
+            aria-label={t('pairingPreparation')}
+          >
             <li className={codeReady ? 'complete' : ''}>
               <span aria-hidden="true">{codeReady ? <Check size={13} /> : <Circle size={13} />}</span>
               <div>
@@ -139,7 +159,11 @@ export default function PairingPage() {
             </li>
           </ol>
           {(error || connectionError) && (
-            <p className="inline-error" role="alert">
+            <p
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications')}
+              className="inline-error"
+              role="alert"
+            >
               {error || connectionError}
             </p>
           )}

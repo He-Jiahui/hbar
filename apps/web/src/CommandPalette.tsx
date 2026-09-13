@@ -141,6 +141,7 @@ export default function CommandPalette({ open, commands, onClose }: CommandPalet
       onClose={onClose}
       backdropClassName="command-palette-backdrop"
       className="command-palette-shell"
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'bootstrap-shell')}
     >
       <GlassSurface
         {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'bootstrap-shell')}

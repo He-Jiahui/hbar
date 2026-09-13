@@ -14,6 +14,8 @@ import {
 import type { ComposerAction, ComposerActionGroup, ComposerActionIcon } from '@hbar/ui-sdk'
 import SpotlightCard from './react-bits/SpotlightCard'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
+import GlassSurface from './react-bits/GlassSurface'
+import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 
 const GROUP_ORDER: readonly ComposerActionGroup[] = ['session', 'context', 'tools', 'extensions']
@@ -118,6 +120,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
         <Plus size={17} />
       </button>
       <FloatingSurface
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'bootstrap-shell')}
         anchorRef={trigger}
         open={open}
         onClose={() => {
@@ -144,6 +147,7 @@ export default function ComposerMenu({ actions, onSelect }: ComposerMenuProps) {
           }
         }}
       >
+        <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
         <div className="composer-menu-search">
           <Search size={14} />
           <input

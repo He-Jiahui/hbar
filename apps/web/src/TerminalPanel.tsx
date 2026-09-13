@@ -27,6 +27,7 @@ import { modelThinkingLabel } from './model-catalog'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'
 import { FloatingSurface } from './FloatingLayer'
+import { ReferenceTabs, referenceAttributes, type SegmentedOption } from './react-bits'
 import { useLocale, type LocaleMessageKey } from './locale'
 
 interface TerminalContext {
@@ -36,6 +37,79 @@ interface TerminalContext {
 const builtins = new CommandRegistry<TerminalContext>()
 for (const command of BUILTIN_TERMINAL_COMMANDS)
   builtins.register(command, (invocation, context) => context.dispatch(invocation))
+
+type TerminalOutputTab = 'stdout' | 'stderr'
+
+interface TerminalOutputDetails {
+  stdout?: string
+  stderr?: string
+  exitCode?: string
+  command?: string
+}
+
+function detailText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return undefined
+}
+
+function terminalOutputDetails(value: unknown): TerminalOutputDetails | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
+  const details = value as Record<string, unknown>
+  const stdout = detailText(details.stdout)
+  const stderr = detailText(details.stderr)
+  const exitCode = detailText(details.exitCode ?? details.exit_code)
+  const command = detailText(details.command)
+  if (stdout === undefined && stderr === undefined && exitCode === undefined) return null
+  return { ...(stdout !== undefined ? { stdout } : {}), ...(stderr !== undefined ? { stderr } : {}), ...(exitCode !== undefined ? { exitCode } : {}), ...(command !== undefined ? { command } : {}) }
+}
+
+function TerminalToolResult({
+  block,
+  labels,
+  keyValue,
+}: {
+  block: Extract<ContentBlock, { type: 'tool_result' }>
+  labels: { failed: string; completed: string }
+  keyValue: number
+}) {
+  const output = terminalOutputDetails(block.details)
+  const [tab, setTab] = useState<TerminalOutputTab>(() => output?.stdout !== undefined ? 'stdout' : 'stderr')
+  const options: SegmentedOption<TerminalOutputTab>[] = [
+    ...(output?.stdout !== undefined ? [{ value: 'stdout' as const, label: 'stdout' }] : []),
+    ...(output?.stderr !== undefined ? [{ value: 'stderr' as const, label: 'stderr' }] : []),
+  ]
+  const activeTab = options.some((option) => option.value === tab) ? tab : options[0]?.value ?? 'stdout'
+  const outputText = output ? output[activeTab] ?? '' : block.text
+  return (
+    <details
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5', 'session-events')}
+      className={`${block.isError ? 'terminal-tool failed' : 'terminal-tool'} rb-terminal-tool-surface`}
+      key={keyValue}
+    >
+      <summary>
+        <span>{block.name} · {block.isError ? labels.failed : labels.completed}</span>
+        {output?.exitCode !== undefined && <code className="terminal-output-exit">exit {output.exitCode}</code>}
+      </summary>
+      <GlassSurface className="terminal-tool-glass" width="100%" height="100%" aria-hidden="true" />
+      <div className="terminal-tool-output">
+        {output?.command && <code className="terminal-output-command">$ {output.command}</code>}
+        {options.length > 1 && (
+          <ReferenceTabs
+            value={activeTab}
+            options={options}
+            onChange={(value) => setTab(value as TerminalOutputTab)}
+            ariaLabel="Terminal output stream"
+            reference="https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5"
+            adapter="session-events"
+            className="terminal-output-tabs"
+          />
+        )}
+        <pre>{outputText}</pre>
+      </div>
+    </details>
+  )
+}
 
 function block(block: ContentBlock, key: number, labels: { thinking: string; failed: string; completed: string }) {
   if (block.type === 'text') return <Markdown key={key} text={block.text} />
@@ -70,18 +144,7 @@ function block(block: ContentBlock, key: number, labels: { thinking: string; fai
     )
   if (block.type === 'tool_call')
     return <pre key={key}>{JSON.stringify({ tool: block.name, args: block.args }, null, 2)}</pre>
-  return (
-    <details
-      className={`${block.isError ? 'terminal-tool failed' : 'terminal-tool'} rb-terminal-tool-surface`}
-      key={key}
-    >
-      <summary>
-        {block.name} · {block.isError ? labels.failed : labels.completed}
-      </summary>
-      <GlassSurface className="terminal-tool-glass" width="100%" height="100%" aria-hidden="true" />
-      <pre>{block.text}</pre>
-    </details>
-  )
+  return <TerminalToolResult key={key} block={block} labels={labels} keyValue={key} />
 }
 
 function TranscriptMessage({ message }: { message: Message }) {
@@ -479,9 +542,15 @@ export default function TerminalPanel({
     }
   }
   return (
-    <section className={`terminal-panel ${embedded ? 'terminal-embedded' : ''}`}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5', 'session-chat')}
+      className={`terminal-panel ${embedded ? 'terminal-embedded' : ''}`}
+    >
       {!embedded && (
-        <header className="terminal-toolbar">
+        <header
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5', 'session-chat')}
+          className="terminal-toolbar"
+        >
           <GlassSurface className="terminal-toolbar-glass" width="100%" height="100%" aria-hidden="true" />
           <TerminalSquare size={15} />
           <strong className="command-console-title">{t('commandConsole')}</strong>
@@ -493,7 +562,11 @@ export default function TerminalPanel({
           </button>
         </header>
       )}
-      <div className="terminal-transcript" ref={scroll}>
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-5', 'session-events')}
+        className="terminal-transcript"
+        ref={scroll}
+      >
         {snapshot?.messages.map((message) => (
           <TranscriptMessage message={message} key={message.id} />
         ))}
@@ -553,9 +626,14 @@ export default function TerminalPanel({
           </div>
         ))}
       </div>
-      <div className="terminal-composer" ref={composerRef}>
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-1', 'session-chat')}
+        className="terminal-composer"
+        ref={composerRef}
+      >
         <GlassSurface className="terminal-composer-glass" width="100%" height="100%" aria-hidden="true" />
         <FloatingSurface
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/command-menu', 'session-chat')}
           anchorRef={composerRef}
           open={completionsOpen && candidates.length > 0}
           onClose={() => setCompletionsOpen(false)}
@@ -564,23 +642,24 @@ export default function TerminalPanel({
           role="listbox"
           aria-label={t('commandCompletion')}
         >
-            <div className="terminal-completions-prompt">{t('completionHint')}</div>
-            {candidates.map((candidate, index) => (
-              <button
-                type="button"
-                className={index === completion ? 'selected' : ''}
-                role="option"
-                aria-selected={index === completion}
-                key={candidate.key}
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
-                }}
-              >
-                <code>{index === completion ? '›' : ' '} {candidate.label}</code>
-                <span>{candidate.description}</span>
-              </button>
-            ))}
+          <GlassSurface className="terminal-completions-glass" width="100%" height="100%" aria-hidden="true" />
+          <div className="terminal-completions-prompt">{t('completionHint')}</div>
+          {candidates.map((candidate, index) => (
+            <button
+              type="button"
+              className={index === completion ? 'selected' : ''}
+              role="option"
+              aria-selected={index === completion}
+              key={candidate.key}
+              onMouseDown={(event) => {
+                event.preventDefault()
+                setInput(candidate.kind === 'command' ? `${candidate.value} ` : candidate.value)
+              }}
+            >
+              <code>{index === completion ? '›' : ' '} {candidate.label}</code>
+              <span>{candidate.description}</span>
+            </button>
+          ))}
         </FloatingSurface>
         <textarea
           ref={inputRef}

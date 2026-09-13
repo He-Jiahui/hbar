@@ -7,6 +7,8 @@ import './SystemTerminalPanel.css'
 import '@xterm/xterm/css/xterm.css'
 import { useThemeSettings } from './theme-store'
 import { useLocale } from './locale'
+import GlassSurface from './react-bits/GlassSurface'
+import { referenceAttributes } from './react-bits'
 
 export default function SystemTerminalPanel({ workspaceId, onClose }: { workspaceId: string; onClose(): void }) {
   const viewport = useRef<HTMLDivElement>(null)
@@ -101,8 +103,17 @@ export default function SystemTerminalPanel({ workspaceId, onClose }: { workspac
   }, [t, theme, workspaceId])
 
   return (
-    <section className="system-terminal-panel" aria-label={t('systemTerminal')}>
-      <header className="system-terminal-toolbar">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5')}
+      className="system-terminal-panel rb-system-terminal-panel"
+      aria-label={t('systemTerminal')}
+    >
+      <GlassSurface className="system-terminal-panel-glass" width="100%" height="100%" aria-hidden="true" />
+      <header
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5')}
+        className="system-terminal-toolbar"
+      >
+        <GlassSurface className="system-terminal-toolbar-glass" width="100%" height="100%" aria-hidden="true" />
         <span className="system-terminal-title">
           <TerminalSquare size={14} aria-hidden="true" />
           <strong>{t('systemTerminal')}</strong>
@@ -112,7 +123,11 @@ export default function SystemTerminalPanel({ workspaceId, onClose }: { workspac
           <X size={14} />
         </button>
       </header>
-      <div className="system-terminal-viewport" ref={viewport} />
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-5')}
+        className="system-terminal-viewport"
+        ref={viewport}
+      />
     </section>
   )
 }

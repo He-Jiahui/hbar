@@ -622,7 +622,12 @@ export default function PluginDiagnostics() {
       {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
       className="plugin-diagnostics"
     >
-      <div className="plugin-diagnostic-actions" role="group" aria-label={t('pluginDiagnosticActions')}>
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
+        className="plugin-diagnostic-actions"
+        role="group"
+        aria-label={t('pluginDiagnosticActions')}
+      >
         <GlareButton
           type="button"
           className={`button plugin-diagnostic-action ${active === 'doctor' ? 'selected' : ''}`}
@@ -672,7 +677,11 @@ export default function PluginDiagnostics() {
       </div>
 
       {state.loading && !state.report && (
-        <div className="plugin-diagnostic-loading" role="status">
+        <div
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
+          className="plugin-diagnostic-loading"
+          role="status"
+        >
           <LoaderCircle className="plugin-diagnostic-spin" size={16} />
           <span>{t('pluginReading')}{active ? reportLabel(active, t) : t('pluginDiagnostics')}…</span>
         </div>
@@ -680,6 +689,7 @@ export default function PluginDiagnostics() {
 
       {state.error && active && (
         <SpotlightCard
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'activity')}
           className="plugin-diagnostic-error"
           role="alert"
           spotlightColor="color-mix(in srgb, var(--hbar-er) 20%, transparent)"

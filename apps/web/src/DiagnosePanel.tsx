@@ -5,6 +5,7 @@ import AnimatedList from './react-bits/AnimatedList'
 import GlassIconButton from './react-bits/GlassIconButton'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { useLocale, type LocaleMessageKey } from './locale'
 
 type UnknownRecord = Record<string, unknown>
@@ -219,9 +220,17 @@ export default function DiagnosePanel() {
         : t('waitingDiagnose')
 
   return (
-    <section className="diagnose-panel rb-diagnose-panel" aria-label={t('diagnose')} aria-busy={loading}>
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
+      className="diagnose-panel rb-diagnose-panel"
+      aria-label={t('diagnose')}
+      aria-busy={loading}
+    >
       <GlassSurface className="diagnose-panel-glass" width="100%" height="100%" aria-hidden="true" />
-      <header className="diagnose-page-heading">
+      <header
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/dashboard', 'activity')}
+        className="diagnose-page-heading"
+      >
         <div className="diagnose-heading-copy">
           <span className="diagnose-eyebrow">{t('hostStatus')}</span>
           <h1>{t('diagnose')}</h1>
@@ -264,7 +273,10 @@ export default function DiagnosePanel() {
 
       {diagnose && (
         <div className="diagnose-content">
-          <dl className="diagnose-summary-grid">
+          <dl
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/dashboard', 'activity')}
+            className="diagnose-summary-grid"
+          >
             <SummaryCard
               label={t('host')}
               value={diagnose.host.version ? `v${diagnose.host.version}` : '—'}
@@ -284,7 +296,11 @@ export default function DiagnosePanel() {
             />
           </dl>
 
-          <section className="diagnose-section" aria-labelledby="diagnose-storage-heading">
+          <section
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/card', 'activity')}
+            className="diagnose-section"
+            aria-labelledby="diagnose-storage-heading"
+          >
             <div className="diagnose-section-heading">
               <Database size={16} aria-hidden="true" />
               <div>
@@ -311,7 +327,11 @@ export default function DiagnosePanel() {
             </SpotlightCard>
           </section>
 
-          <section className="diagnose-section" aria-labelledby="diagnose-plugins-heading">
+          <section
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/list', 'activity')}
+            className="diagnose-section"
+            aria-labelledby="diagnose-plugins-heading"
+          >
             <div className="diagnose-section-heading">
               <PlugZap size={16} aria-hidden="true" />
               <div>
@@ -321,6 +341,7 @@ export default function DiagnosePanel() {
             </div>
             {diagnose.plugins.length ? (
               <AnimatedList
+                {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/list', 'activity')}
                 className="diagnose-plugin-list"
                 viewportClassName="diagnose-plugin-list-viewport"
                 showGradients={false}
@@ -355,7 +376,10 @@ export default function DiagnosePanel() {
             )}
           </section>
 
-          <details className="diagnose-details">
+          <details
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
+            className="diagnose-details"
+          >
             <summary>
               <span className="diagnose-details-title">
                 <Wrench size={16} aria-hidden="true" />
@@ -375,7 +399,10 @@ export default function DiagnosePanel() {
             )}
           </details>
 
-          <details className="diagnose-details diagnose-raw-details">
+          <details
+            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/monitoring', 'activity')}
+            className="diagnose-details diagnose-raw-details"
+          >
             <summary>
               <span className="diagnose-details-title">
                 <Server size={16} aria-hidden="true" />

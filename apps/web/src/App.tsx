@@ -549,11 +549,13 @@ function SessionContextMenu({ menu, sessions, onClose, onTogglePinned, onRename,
     open
     onClose={onClose}
     placement="below"
-    className="session-context-menu"
+    {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
+    className="session-context-menu rb-menu-surface"
     role="menu"
     aria-label={t('sessionOptions')}
     onClick={(event) => event.stopPropagation()}
   >
+    <GlassSurface className="rb-menu-glass" width="100%" height="100%" aria-hidden="true" />
     <button role="menuitem" onClick={() => onTogglePinned(menu.type, menu.id)}><Pin size={14} />{menu.type === 'session' ? t('pinSession') : t('pinWorkspace')}</button>
     {menu.type === 'session' && session && <><button role="menuitem" onClick={() => onRename(session.id)}><Pencil size={14} />{t('rename')}</button><button role="menuitem" onClick={() => onArchive(session.id)}><Archive size={14} />{session.archived ? t('restoreSession') : t('archiveSession')}</button></>}
   </FloatingSurface>
@@ -1630,7 +1632,10 @@ export default function App() {
     const panelDocument = hostDocument ?? node?.getDocument()
     if (ClientPanel)
       return (
-        <div className="plugin-panel rb-plugin-panel">
+        <div
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4', 'bootstrap-shell')}
+          className="plugin-panel rb-plugin-panel"
+        >
           <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
           <ClientPanel
             panelId={panelId}
@@ -1645,7 +1650,10 @@ export default function App() {
       )
     const contribution = data?.panels.find((p) => p.id === panelId)
     return contribution ? (
-      <div className="plugin-panel rb-plugin-panel">
+      <div
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4', 'bootstrap-shell')}
+        className="plugin-panel rb-plugin-panel"
+      >
         <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
         {contribution.kind === 'markdown' ? (
           <Markdown text={contribution.content} />
@@ -1661,7 +1669,7 @@ export default function App() {
   if (detachedPanelId && data) {
     const detachedContribution = [...(data.panels ?? []), ...clientPanels].find((panel) => panel.id === detachedPanelId)
     if (detachedContribution)
-      return <><ThemeRuntimeSync /><div className="detached-tool-window">{renderPlugin(detachedPanelId, 'window', undefined, window, document)}</div></>
+      return <><ThemeRuntimeSync /><div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell', 'bootstrap-shell')} className="detached-tool-window">{renderPlugin(detachedPanelId, 'window', undefined, window, document)}</div></>
   }
   return (
     <>
@@ -1960,6 +1968,7 @@ export default function App() {
           onFocus={() => setToastPaused(true)}
           onBlur={() => setToastPaused(false)}
         >
+          <GlassSurface className="toast-glass" width="100%" height="100%" aria-hidden="true" />
           <span>{notice}</span>
           <button title={t('closeNotification')} aria-label={t('closeNotification')} onClick={() => useNotice.setState({ error: '' })}>
             <X size={15} />
@@ -1973,6 +1982,7 @@ export default function App() {
           role="status"
           tabIndex={0}
         >
+          <GlassSurface className="toast-glass" width="100%" height="100%" aria-hidden="true" />
           <span>{taskNotice}</span>
           <button title={t('closeNotification')} aria-label={t('closeNotification')} onClick={() => useNotice.setState({ notice: '' })}>
             <X size={15} />
