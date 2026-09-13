@@ -1,0 +1,456 @@
+.rb-public-app-shell-2 {
+  box-sizing: border-box;
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 720px;
+  min-height: 720px;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #fff;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.rb-public-app-shell-2 *,
+.rb-public-app-shell-2 *::before,
+.rb-public-app-shell-2 *::after {
+  box-sizing: border-box;
+}
+
+.rb-public-app-shell-2 h1,
+.rb-public-app-shell-2 h2,
+.rb-public-app-shell-2 p,
+.rb-public-app-shell-2 ul {
+  margin: 0;
+}
+
+.rb-public-app-shell-2 ul {
+  padding: 0;
+  list-style: none;
+}
+
+.rb-public-app-shell-2 button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.rb-shell-2-aside {
+  display: flex;
+  width: 312px;
+  min-width: 312px;
+  height: 720px;
+  flex: none;
+  background: #171717;
+}
+
+.rb-shell-2-rail {
+  position: relative;
+  display: flex;
+  width: 56px;
+  height: 720px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-right: 1px solid #262626;
+  padding: 8px;
+  background: #171717;
+}
+
+.rb-shell-2-rail > button:not(.rb-shell-2-user) {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #737373;
+}
+
+.rb-shell-2-rail > button:not(.rb-shell-2-user).selected {
+  background: #fff;
+  color: #171717;
+}
+
+.rb-shell-2-rail > button:not(.rb-shell-2-user):hover {
+  color: #f5f5f5;
+}
+
+.rb-public-app-shell-2 .rb-shell-2-user {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: #525252;
+  color: #dedede;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.rb-shell-2-workspace {
+  width: 256px;
+  min-width: 0;
+  height: 720px;
+  overflow: hidden;
+  background: #171717;
+}
+
+.rb-shell-2-workspace-switch {
+  display: flex;
+  width: 240px;
+  height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 8px 4px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 8px;
+  background: #262626;
+  color: #f5f5f5;
+  text-align: left;
+}
+
+.rb-shell-2-workspace-switch > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 8px;
+  background: #525252;
+  color: #f5f5f5;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.rb-shell-2-workspace-switch > strong {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+
+.rb-shell-2-workspace-switch > strong small {
+  color: #737373;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.rb-shell-2-workspace-switch > svg {
+  flex: none;
+  color: #737373;
+}
+
+.rb-shell-2-nav {
+  height: 664px;
+  overflow: hidden;
+  padding: 0 8px 12px;
+}
+
+.rb-shell-2-nav > div + div {
+  margin-top: 16px;
+}
+
+.rb-shell-2-nav p {
+  height: 16.5px;
+  padding: 0 12px;
+  color: #737373;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  line-height: 16.5px;
+}
+
+.rb-shell-2-nav ul {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.rb-shell-2-nav li,
+.rb-shell-2-nav li button {
+  width: 240px;
+  height: 32px;
+}
+
+.rb-shell-2-nav li button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: transparent;
+  color: #a3a3a3;
+  font-size: 13px;
+  line-height: 19.5px;
+  text-align: left;
+}
+
+.rb-shell-2-nav li button:hover,
+.rb-shell-2-nav li button.selected {
+  background: #262626;
+  color: #f5f5f5;
+}
+
+.rb-shell-2-nav li button small {
+  margin-left: auto;
+  color: #737373;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.rb-shell-2-main {
+  min-width: 0;
+  height: 720px;
+  flex: 1;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+.rb-shell-2-main > header {
+  display: flex;
+  height: 56px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #262626;
+  padding: 0 24px;
+}
+
+.rb-shell-2-main h1 {
+  min-width: 0;
+  flex: 1;
+  color: #f5f5f5;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 28px;
+}
+
+.rb-shell-2-menu {
+  display: none;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: #262626;
+  color: #dedede;
+}
+
+.rb-public-app-shell-2 .rb-shell-2-new {
+  display: grid;
+  width: 110.265625px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: #171717;
+  font-size: 13px;
+  line-height: 19.5px;
+  white-space: nowrap;
+}
+
+.rb-shell-2-content {
+  height: 664px;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.rb-shell-2-list {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  background: #171717;
+}
+
+.rb-shell-2-list-head {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: rgb(38 38 38 / 40%);
+}
+
+.rb-shell-2-list-head h2 {
+  min-width: 0;
+  flex: 1;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+
+.rb-shell-2-list-head > span {
+  color: #737373;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.rb-shell-2-list li {
+  height: 58.5px;
+  border-bottom: 1px solid #262626;
+}
+
+.rb-shell-2-list li:last-child {
+  height: 57.5px;
+  border-bottom: 0;
+}
+
+.rb-shell-2-list li > button {
+  display: flex;
+  width: 100%;
+  height: 57.5px;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
+  border: 0;
+  padding: 10px 16px;
+  background: transparent;
+  color: #f5f5f5;
+  text-align: left;
+}
+
+.rb-shell-2-list li > button:hover {
+  background: rgb(38 38 38 / 24%);
+}
+
+.rb-shell-2-shipment-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  height: 37.5px;
+  overflow: hidden;
+}
+
+.rb-shell-2-shipment-copy strong {
+  overflow: hidden;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-shell-2-shipment-copy small {
+  overflow: hidden;
+  color: #737373;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-shell-2-shipment-status {
+  display: flex;
+  min-width: max-content;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  height: 37.5px;
+}
+
+.rb-shell-2-shipment-status > strong {
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+}
+
+.rb-shell-2-shipment-status > small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #737373;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.rb-shell-2-shipment-status > small i {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: #525252;
+}
+
+.rb-shell-2-shipment-status > small.warning i {
+  background: #fe9a00;
+}
+
+.rb-shell-2-shipment-status > small.danger i {
+  background: #fb2c36;
+}
+
+.rb-public-app-shell-2 .rb-shell-2-theme {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgb(38 38 38 / 60%);
+  border-radius: 12px;
+  padding: 0 14px 0 12px;
+  background: rgb(10 10 10 / 95%);
+  backdrop-filter: blur(12px);
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  box-shadow: 0 8px 28px -8px rgb(0 0 0 / 35%);
+}
+
+.rb-public-app-shell-2 .rb-shell-2-theme svg {
+  color: #f5f5f5;
+}
+
+@media (max-width: 1000px) {
+  .rb-shell-2-aside {
+    display: none;
+  }
+
+  .rb-shell-2-menu {
+    display: grid;
+  }
+
+  .rb-public-app-shell-2 .rb-shell-2-theme {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .rb-shell-2-main > header {
+    padding: 0 16px;
+  }
+
+  .rb-shell-2-content {
+    padding: 16px;
+  }
+}
