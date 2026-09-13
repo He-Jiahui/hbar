@@ -1,0 +1,152 @@
+.rb-public-navbar-14 {
+  box-sizing: border-box;
+  width: 100%;
+  height: 480px;
+  min-height: 480px;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+}
+.rb-public-navbar-14 *,
+.rb-public-navbar-14 *::before,
+.rb-public-navbar-14 *::after {
+  box-sizing: border-box;
+}
+.rb-public-navbar-14 h1,
+.rb-public-navbar-14 h2,
+.rb-public-navbar-14 p {
+  margin: 0;
+}
+.rb-public-navbar-14 button {
+  font: inherit;
+}
+.rb-public-navbar-14 > header {
+  display: flex;
+  height: 57px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #262626;
+  padding: 0 12px;
+}
+.rb-public-navbar-14 > header > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+}
+.rb-public-navbar-14 > header > div {
+  min-width: 0;
+  flex: 1;
+}
+.rb-public-navbar-14 > header p {
+  overflow: hidden;
+  color: #f5f5f5;
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-public-navbar-14 > header small {
+  display: block;
+  overflow: hidden;
+  color: #737373;
+  font-size: 12px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-public-navbar-14 > header nav {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 2px;
+}
+.rb-public-navbar-14 > header nav button {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rb-public-navbar-14 > header nav button:first-child {
+  padding: 0 10px;
+}
+.rb-public-navbar-14 > header nav button:first-child span {
+  display: inline;
+}
+.rb-public-navbar-14 > header nav button:not(:first-child) {
+  width: 32px;
+  justify-content: center;
+}
+.rb-public-navbar-14 > header nav button.saved {
+  color: #f5f5f5;
+}
+.rb-public-navbar-14 > main {
+  width: 600px;
+  height: 1024px;
+  margin: 0 auto;
+  padding: 28px 20px;
+}
+.rb-public-navbar-14 h1 {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 29.9px;
+  letter-spacing: -0.78px;
+}
+.rb-public-navbar-14 .lede {
+  margin-top: 12px;
+  color: #a3a3a3;
+  font-size: 14px;
+  line-height: 22.75px;
+}
+.rb-public-navbar-14 main section {
+  margin-top: 27px;
+}
+.rb-public-navbar-14 main section h2 {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+.rb-public-navbar-14 main section p {
+  margin-top: 8px;
+  color: #a3a3a3;
+  font-size: 13px;
+  line-height: 21.125px;
+}
+.rb-navbar-14-figure {
+  height: 90px;
+  margin-top: 12px;
+  border-radius: 10px;
+  background: #171717;
+}
+@media (max-width: 700px) {
+  .rb-public-navbar-14 > header {
+    padding: 0 8px;
+  }
+  .rb-public-navbar-14 > header nav button:first-child {
+    width: 34px;
+    justify-content: center;
+    padding: 0;
+  }
+  .rb-public-navbar-14 > header nav button:first-child span {
+    display: none;
+  }
+  .rb-public-navbar-14 > main {
+    width: 100%;
+    padding: 28px 20px;
+  }
+  .rb-public-navbar-14 main section {
+    margin-top: 27px;
+  }
+}
