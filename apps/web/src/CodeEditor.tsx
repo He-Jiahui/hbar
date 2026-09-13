@@ -8,6 +8,7 @@ import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
+import { referenceAttributes } from './react-bits'
 
 const themeSyntax = syntaxHighlighting(HighlightStyle.define([
   { tag: tags.keyword, color: 'var(--hbar-ac)' },
@@ -84,5 +85,11 @@ export default function CodeEditor({
     if (editor && editor.state.doc.toString() !== value)
       editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value } })
   }, [value])
-  return <div ref={root} className="code-editor" />
+  return (
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/editor', 'artifact')}
+      ref={root}
+      className="code-editor"
+    />
+  )
 }

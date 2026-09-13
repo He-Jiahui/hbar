@@ -8,6 +8,7 @@ import { parseUnifiedDiff } from './git-diff-parser'
 import { useLocale } from './locale'
 import RendererBoundary from './RendererBoundary'
 import { useThemeSettings } from './theme-store'
+import { referenceAttributes } from './react-bits'
 
 const editorTheme = EditorView.theme({
   '&': {
@@ -57,17 +58,17 @@ export default function GitDiffViewer({ source, path = '', truncated = false }: 
     )
   }
   if (compare?.kind === 'binary') {
-    return <div className="git-diff-notice" role="status">{t('binaryDiff')}</div>
+    return <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-3', 'artifact')} className="git-diff-notice" role="status">{t('binaryDiff')}</div>
   }
   if (compare?.kind === 'malformed') {
-    return <div className="git-diff-render"><div className="git-diff-notice" role="status">{t('malformedDiff')}</div><PatchViewer source={source} language={path || 'diff'} /></div>
+    return <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-3', 'artifact')} className="git-diff-render"><div className="git-diff-notice" role="status">{t('malformedDiff')}</div><PatchViewer source={source} language={path || 'diff'} /></div>
   }
   const renameNotice = compare?.kind === 'rename' && !compare.before && !compare.after
     ? `${t('renamedFile')}: ${compare.oldPath ?? path} → ${compare.newPath ?? path}`
     : null
   if (!compare) return <PatchViewer source={source} language={path || 'diff'} />
   return (
-    <div className="git-diff-render">
+    <div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-3', 'artifact')} className="git-diff-render">
       {(renameNotice || compare.truncated) && <div className="git-diff-notice" role="status">{renameNotice ?? t('truncatedDiff')}</div>}
       <div ref={root} className="git-compare-view" aria-label={t('gitComparison')} />
     </div>

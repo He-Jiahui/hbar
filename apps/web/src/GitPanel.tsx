@@ -4,6 +4,7 @@ import type { GitBranchInfo, GitCommitInfo, GitDiff, GitStatus } from '@hbar/con
 import { useConnection } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import './GitPanel.css'
 import GitDiffViewer from './GitDiffViewer'
 import { useLocale, type LocaleMessageKey } from './locale'
@@ -238,7 +239,11 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
   }
 
   return (
-    <section className="git-panel rb-git-panel" aria-label="Git">
+    <section
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/data-table', 'activity')}
+      className="git-panel rb-git-panel"
+      aria-label="Git"
+    >
       <GlassSurface className="git-panel-glass" width="100%" height="100%" aria-hidden="true" />
       <header className="git-panel-header">
         <div className="git-panel-title">
@@ -252,7 +257,11 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
           {loading ? <LoaderCircle size={14} className="spinning" /> : <RefreshCw size={14} />}
         </button>
       </header>
-      <nav className="git-panel-tabs" aria-label={t('gitGroup')}>
+      <nav
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/data-table', 'activity')}
+        className="git-panel-tabs"
+        aria-label={t('gitGroup')}
+      >
         <button type="button" className={tab === 'changes' ? 'selected' : ''} aria-current={tab === 'changes' ? 'page' : undefined} onClick={() => setTab('changes')}>
           <GitCompareArrows size={13} /> {t('changes')} {status?.entries.length ? <b>{status.entries.length}</b> : null}
         </button>
@@ -316,7 +325,11 @@ export default function GitPanel({ workspacePath = '' }: { workspacePath?: strin
             <div className="git-panel-empty compact" role="status"><GitCompareArrows size={18} /><strong>{t('cleanWorkspace')}</strong><span>{t('noPendingChanges')}</span></div>
           )}
           {selectedEntry && (
-            <section className="git-diff-card" aria-label={`${selectedEntry.path} diff`}>
+            <section
+              {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-3', 'artifact')}
+              className="git-diff-card"
+              aria-label={`${selectedEntry.path} diff`}
+            >
               <header>
                 <code>{selectedEntry.path}</code>
                 <label className="git-diff-mode"><span className="visually-hidden">{t('diffMode')}</span><select aria-label={t('diffMode')} value={diffMode} onChange={(event) => void openDiff(selectedEntry.path, event.target.value as GitDiffMode)}><option value="unstaged">{t('unstagedDiff')}</option><option value="staged">{t('stagedDiff')}</option><option value="remote">{t('remoteDiff')}</option></select></label>

@@ -17,6 +17,7 @@ import { useConnection } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'
 import SpotlightCard from './react-bits/SpotlightCard'
+import { referenceAttributes } from './react-bits'
 import { useLocale } from './locale'
 import './FileNavigation.css'
 
@@ -96,7 +97,10 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
     setQuery('')
   }
   return (
-    <div className="file-nav rb-file-nav">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/file-manager', 'artifact')}
+      className="file-nav rb-file-nav"
+    >
       <GlassSurface className="file-nav-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="sidebar-heading">
         <strong>{t('files')}</strong>
@@ -121,7 +125,12 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           </button>
         </div>
       </div>
-      <nav className="file-breadcrumb" aria-label={t('filePath')} title={path}>
+      <nav
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/file-manager', 'artifact')}
+        className="file-breadcrumb"
+        aria-label={t('filePath')}
+        title={path}
+      >
         <button type="button" className={path === '.' ? 'selected' : ''} onClick={() => navigateTo(-1)}>
           {t('workspace')}
         </button>
@@ -138,7 +147,10 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           </span>
         ))}
       </nav>
-      <label className="file-filter">
+      <label
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/filtering', 'artifact')}
+        className="file-filter"
+      >
         <Search size={13} aria-hidden="true" />
         <input
           type="search"
@@ -175,7 +187,12 @@ export function FileNavigation({ workspaceId, onOpen }: FileNavigationProps) {
           <span>{t('readingDirectoryHint')}</span>
         </div>
       ) : visibleEntries.length ? (
-        <AnimatedList className="file-list" viewportClassName="file-list-viewport" aria-label={`${t('fileList')} ${path}`}>
+        <AnimatedList
+          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/list', 'artifact')}
+          className="file-list"
+          viewportClassName="file-list-viewport"
+          aria-label={`${t('fileList')} ${path}`}
+        >
           {visibleEntries.map((entry) => (
             <SpotlightCard
               as="button"
@@ -333,7 +350,10 @@ export function FileViewer({ path, workspaceId }: FileViewerProps) {
     reload()
   }
   return (
-    <div className="file-viewer rb-file-viewer">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-2', 'artifact')}
+      className="file-viewer rb-file-viewer"
+    >
       <GlassSurface className="file-viewer-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="file-viewer-header">
         <FileCode2 size={14} />

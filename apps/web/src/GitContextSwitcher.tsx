@@ -5,6 +5,7 @@ import { client } from './stores'
 import { platform } from './platform'
 import { FloatingSurface, useFloatingTrigger } from './FloatingLayer'
 import { useLocale } from './locale'
+import { referenceAttributes } from './react-bits'
 import './GitContextSwitcher.css'
 
 function pathKey(value: string) {
@@ -160,7 +161,10 @@ export default function GitContextSwitcher({
     }
   }
   return (
-    <div className="git-context-switcher">
+    <div
+      {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-6', 'artifact')}
+      className="git-context-switcher"
+    >
       <button
         ref={trigger}
         type="button"
@@ -175,6 +179,7 @@ export default function GitContextSwitcher({
         {busy ? <LoaderCircle size={12} className="spinning" /> : <Plus size={12} />}
       </button>
       <FloatingSurface
+        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-6', 'artifact')}
         anchorRef={trigger}
         open={open}
         onClose={() => setOpen(false)}
