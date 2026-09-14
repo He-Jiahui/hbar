@@ -1,15 +1,15 @@
 :root {
-    --hbar-app-ui-bg: #111214;
-    --hbar-app-ui-surface-0: #17191d;
-    --hbar-app-ui-surface-1: #202329;
-    --hbar-app-ui-surface-2: #292d35;
-    --hbar-app-ui-border: #343943;
-    --hbar-app-ui-border-strong: #505967;
-    --hbar-app-ui-text: #f0f2f5;
-    --hbar-app-ui-muted: #969eab;
-    --hbar-app-ui-subtle: #6f7783;
-    --hbar-app-ui-accent: #a6b9ff;
-    --hbar-app-ui-accent-bg: #344875;
+    --hbar-app-ui-bg: #0a0a0a;
+    --hbar-app-ui-surface-0: #111111;
+    --hbar-app-ui-surface-1: #171717;
+    --hbar-app-ui-surface-2: #1f1f1f;
+    --hbar-app-ui-border: #1f1f1f;
+    --hbar-app-ui-border-strong: #2a2a2a;
+    --hbar-app-ui-text: #ffffff;
+    --hbar-app-ui-muted: #d6d6d6;
+    --hbar-app-ui-subtle: #a3a3a3;
+    --hbar-app-ui-accent: #ebebeb;
+    --hbar-app-ui-accent-bg: #292929;
     --hbar-app-ui-positive: #72c39a;
     --hbar-app-ui-warning: #e3b568;
     --hbar-app-ui-danger: #ef8d87;
@@ -24,17 +24,17 @@
 }
 
 [data-hbar-app-ui-theme='light'] {
-    --hbar-app-ui-bg: #f5f6f8;
+    --hbar-app-ui-bg: #ffffff;
     --hbar-app-ui-surface-0: #ffffff;
-    --hbar-app-ui-surface-1: #eef0f4;
-    --hbar-app-ui-surface-2: #e4e8ef;
-    --hbar-app-ui-border: #d9dee7;
-    --hbar-app-ui-border-strong: #aeb7c5;
-    --hbar-app-ui-text: #16181c;
-    --hbar-app-ui-muted: #535b68;
-    --hbar-app-ui-subtle: #717a88;
-    --hbar-app-ui-accent: #315fbf;
-    --hbar-app-ui-accent-bg: #e6edff;
+    --hbar-app-ui-surface-1: #fafafa;
+    --hbar-app-ui-surface-2: #f0f0f0;
+    --hbar-app-ui-border: #e5e5e5;
+    --hbar-app-ui-border-strong: #d4d4d4;
+    --hbar-app-ui-text: #171717;
+    --hbar-app-ui-muted: #525252;
+    --hbar-app-ui-subtle: #737373;
+    --hbar-app-ui-accent: #171717;
+    --hbar-app-ui-accent-bg: #e5e5e5;
     --hbar-app-ui-positive: #3b8153;
     --hbar-app-ui-warning: #a77520;
     --hbar-app-ui-danger: #c74436;
@@ -123,7 +123,7 @@
 .hbar-app-ui-button-accent {
     border-color: var(--hbar-app-ui-accent);
     background: var(--hbar-app-ui-accent);
-    color: #111723;
+    color: #0a0a0a;
 }
 
 .hbar-app-ui-button-positive {
@@ -1379,6 +1379,23 @@
     font-size: 12px;
 }
 
+.hbar-app-ui-auth-card label:has(> input[type='checkbox']) {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+}
+
+.hbar-app-ui-auth-card label > input[type='checkbox'] {
+    width: 14px;
+    min-width: 14px;
+    height: 14px;
+    min-height: 14px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--hbar-app-ui-accent);
+}
+
 .hbar-app-ui-auth-card > small {
     display: flex;
     align-items: center;
@@ -1783,6 +1800,11 @@
         justify-self: start;
     }
 
+    .hbar-app-ui-approval-card > .hbar-app-ui-approval-actions {
+        grid-column: 2 / -1;
+        justify-self: start;
+    }
+
     .hbar-app-ui-ranked-sources .hbar-app-ui-spotlight {
         grid-template-columns: auto minmax(0, 1fr);
     }
@@ -1891,6 +1913,199 @@
 .hbar-app-ui-approval-queue {
     display: grid;
     gap: 8px;
+}
+
+.hbar-app-ui-plan-checklist {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+}
+
+.hbar-app-ui-plan-checklist > button {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+    color: var(--hbar-app-ui-text);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.hbar-app-ui-plan-checklist > button.is-complete {
+    color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-ui-plan-checklist > button.is-active {
+    border-color: var(--hbar-app-ui-accent);
+    background: var(--hbar-app-ui-accent-bg);
+}
+
+.hbar-app-ui-plan-checklist > button > strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.hbar-app-ui-plan-checklist > button > small {
+    color: var(--hbar-app-ui-muted);
+    font: 10px var(--hbar-app-ui-mono);
+}
+
+.hbar-app-ui-plan-actual {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+}
+
+.hbar-app-ui-plan-actual-header,
+.hbar-app-ui-plan-actual-row {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1.7fr) repeat(3, minmax(58px, .7fr));
+    gap: 8px;
+    align-items: center;
+}
+
+.hbar-app-ui-plan-actual-header {
+    padding: 7px 9px;
+    border-bottom: 1px solid var(--hbar-app-ui-border);
+    color: var(--hbar-app-ui-muted);
+    font: 9px var(--hbar-app-ui-mono);
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-plan-actual-row {
+    padding: 8px 9px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+    font-size: 10px;
+}
+
+.hbar-app-ui-plan-actual-row > strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.hbar-app-ui-plan-actual-row > span,
+.hbar-app-ui-plan-actual-row > b {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 10px var(--hbar-app-ui-mono);
+}
+
+.hbar-app-ui-plan-actual-row > b.is-positive { color: var(--hbar-app-ui-positive); }
+.hbar-app-ui-plan-actual-row > b.is-warning { color: var(--hbar-app-ui-warning); }
+
+.hbar-app-ui-plan-actual-row > small {
+    grid-column: 1 / -1;
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-editable-plan {
+    display: grid;
+    min-width: 0;
+    gap: 7px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-editable-plan > li {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+}
+
+.hbar-app-ui-editable-plan > li > span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.hbar-app-ui-editable-plan > li strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.hbar-app-ui-editable-plan > li small {
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-editable-plan > li > button {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-0);
+    color: var(--hbar-app-ui-muted);
+    cursor: pointer;
+}
+
+.hbar-app-ui-editable-plan > li.is-skipped {
+    opacity: .6;
+}
+
+.hbar-app-ui-editable-plan > li.is-skipped strong {
+    text-decoration: line-through;
+}
+
+.hbar-app-ui-plan-tree,
+.hbar-app-ui-plan-tree-children {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+}
+
+.hbar-app-ui-plan-tree > button,
+.hbar-app-ui-plan-tree-children > button {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 8px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+    color: var(--hbar-app-ui-text);
+    font: inherit;
+    text-align: left;
+}
+
+.hbar-app-ui-plan-tree-children {
+    margin-left: 18px;
+    padding-left: 9px;
+    border-left: 1px solid var(--hbar-app-ui-border);
 }
 
 .hbar-app-ui-nested-heading {
@@ -2294,6 +2509,206 @@
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     background: color-mix(in srgb, var(--hbar-app-ui-surface-1) 84%, var(--hbar-app-ui-accent));
+}
+
+.hbar-app-ui-chat-tool > button {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--hbar-app-ui-text);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.hbar-app-ui-chat-tool > button > span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.hbar-app-ui-chat-tool > button small {
+    overflow: hidden;
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-chat-tool > pre {
+    grid-column: 1 / -1;
+    min-width: 0;
+    margin: 0;
+}
+
+.hbar-app-ui-tool-card {
+    display: grid;
+    min-width: 0;
+    gap: 8px;
+    padding: 10px;
+}
+
+.hbar-app-ui-tool-card-heading {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 7px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--hbar-app-ui-text);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.hbar-app-ui-tool-card-heading strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-tool-card-heading span {
+    color: var(--hbar-app-ui-muted);
+    font: 10px var(--hbar-app-ui-mono);
+}
+
+.hbar-app-ui-tool-card-body {
+    display: grid;
+    min-width: 0;
+    gap: 8px;
+}
+
+.hbar-app-ui-tool-card-body > div {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+}
+
+.hbar-app-ui-tool-card-body small {
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-tool-card-body pre,
+.hbar-app-ui-diff-code,
+.hbar-app-ui-terminal-output {
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 9px 10px;
+    overflow: auto;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+    color: var(--hbar-app-ui-text);
+    font: 10px/1.55 var(--hbar-app-ui-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-tool-card-body > span {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 5px;
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-tool-list .hbar-app-ui-spotlight {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 10px;
+}
+
+.hbar-app-ui-tool-list .hbar-app-ui-spotlight > div,
+.hbar-app-ui-permission-list .hbar-app-ui-spotlight > div {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.hbar-app-ui-tool-list .hbar-app-ui-spotlight > div strong,
+.hbar-app-ui-permission-list .hbar-app-ui-spotlight > div strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.hbar-app-ui-tool-list .hbar-app-ui-spotlight > div small,
+.hbar-app-ui-permission-list .hbar-app-ui-spotlight > div small {
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-tool-list .hbar-app-ui-spotlight > .hbar-app-ui-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+.hbar-app-ui-diff-file {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+}
+
+.hbar-app-ui-diff-file strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-search-results .hbar-app-ui-spotlight {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    padding: 10px;
+}
+
+.hbar-app-ui-search-results .hbar-app-ui-spotlight > div {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.hbar-app-ui-search-results .hbar-app-ui-spotlight p {
+    margin: 0;
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-permission-list .hbar-app-ui-spotlight {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    padding: 10px;
+}
+
+.hbar-app-ui-permission-list .hbar-app-ui-spotlight > div {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 6px;
+}
+
+.hbar-app-ui-permission-list .hbar-app-ui-spotlight > div > svg {
+    grid-row: 1 / span 2;
+}
+
+.hbar-app-ui-permission-list .hbar-app-ui-spotlight > div > small {
+    grid-column: 2;
 }
 
 .hbar-app-ui-chat-tool code, .hbar-app-ui-chat-sources code {
@@ -3236,7 +3651,8 @@
 }
 
 .hbar-app-ui-radial-goals {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+    justify-items: center;
 }
 
 .hbar-app-ui-radial-gauge {
@@ -3886,6 +4302,55 @@
     border-bottom: 1px solid var(--hbar-app-ui-border);
     color: var(--hbar-app-ui-muted);
     font-size: 10px;
+}
+
+.hbar-app-ui-line-items {
+    min-width: 0;
+}
+
+.hbar-app-ui-line-items > header,
+.hbar-app-ui-line-items > div {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) 46px 58px 28px;
+    align-items: center;
+    gap: 7px;
+}
+
+.hbar-app-ui-line-items > header {
+    padding: 7px 3px;
+    color: var(--hbar-app-ui-subtle);
+    font: 9px var(--hbar-app-ui-mono);
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-line-items > div {
+    padding: 7px 3px;
+}
+
+.hbar-app-ui-line-items > div > strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-line-items > div > input {
+    min-width: 0;
+    width: 46px;
+}
+
+.hbar-app-ui-line-items > div > button {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    padding: 0;
+}
+
+.hbar-app-ui-line-items > .hbar-app-ui-button {
+    grid-column: 1 / -1;
+    justify-self: start;
 }
 
 .hbar-app-ui-balance-split > div:last-child, .hbar-app-ui-invoice-lines > div:last-child,
@@ -4662,7 +5127,7 @@
 .hbar-app-ui-kanban-board {
     display: grid;
     min-width: 0;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
     gap: 8px;
 }
 
@@ -4696,6 +5161,56 @@
 
 .hbar-app-ui-kanban-board > section > header .hbar-app-ui-progress {
     grid-column: 1 / -1;
+}
+
+.hbar-app-ui-plan-board {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+    gap: 8px;
+}
+
+.hbar-app-ui-plan-board > section {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 6px;
+    padding: 9px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-medium);
+    background: var(--hbar-app-ui-surface-1);
+}
+
+.hbar-app-ui-plan-board > section > header {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.hbar-app-ui-plan-board > section > header strong {
+    min-width: 0;
+    font-size: 11px;
+}
+
+.hbar-app-ui-plan-board > section > header small {
+    flex: 0 0 auto;
+    color: var(--hbar-app-ui-muted);
+    font: 10px var(--hbar-app-ui-mono);
+}
+
+.hbar-app-ui-plan-board .hbar-app-ui-spotlight {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 8px;
+}
+
+.hbar-app-ui-plan-board .hbar-app-ui-spotlight > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .hbar-app-ui-kanban-board .hbar-app-ui-spotlight {
@@ -5133,6 +5648,8 @@
     min-width: 0;
     grid-template-columns: 52px minmax(0, 1fr);
     gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
 }
 
 .hbar-app-ui-week-timeline > aside,
@@ -5142,7 +5659,8 @@
 }
 
 .hbar-app-ui-week-timeline > main {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-width: 440px;
+    grid-template-columns: repeat(5, minmax(80px, 1fr));
 }
 
 .hbar-app-ui-week-timeline > main > div {
@@ -5158,13 +5676,275 @@
     position: absolute;
     right: 3px;
     left: 3px;
+    display: grid;
+    min-width: 0;
+    gap: 2px;
     padding: 6px;
+}
+
+.hbar-app-ui-week-timeline > main > div > .hbar-app-ui-spotlight > span {
+    min-width: 0;
+    color: var(--hbar-app-ui-text);
+    font-size: 10px;
+    line-height: 1.3;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+.hbar-app-ui-week-timeline > main > div > .hbar-app-ui-spotlight > small {
+    min-width: 0;
+    color: var(--hbar-app-ui-muted);
+    font-size: 9px;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 .hbar-app-ui-week-timeline aside span,
 .hbar-app-ui-week-timeline main strong {
     color: var(--hbar-app-ui-muted);
     font-size: 9px;
+}
+
+/* Data tables are independent component surfaces, not inherited document rows. */
+.hbar-app-ui-table-variant-2 > label {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-table-variant-2 input[type='checkbox'],
+.hbar-app-ui-simple-table input[type='checkbox'] {
+    width: 14px;
+    min-width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--hbar-app-ui-accent);
+}
+
+.hbar-app-ui-simple-table,
+.hbar-app-ui-inline-edit-table,
+.hbar-app-ui-expandable-table,
+.hbar-app-ui-grouped-table {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+}
+
+.hbar-app-ui-grouped-table > header,
+.hbar-app-ui-grouped-table > div {
+    min-width: 480px;
+}
+
+.hbar-app-ui-simple-table > label {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+}
+
+.hbar-app-ui-simple-table > label > span,
+.hbar-app-ui-inline-edit-table > div > span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.hbar-app-ui-simple-table strong,
+.hbar-app-ui-inline-edit-table strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-simple-table small,
+.hbar-app-ui-inline-edit-table small {
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-inline-edit-table > div {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(62px, .45fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+}
+
+.hbar-app-ui-inline-edit-table > div > b {
+    color: var(--hbar-app-ui-text);
+    font: 10px var(--hbar-app-ui-mono);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-inline-edit-table > div > input {
+    min-width: 0;
+    width: 100%;
+}
+
+.hbar-app-ui-expandable-table > div {
+    display: grid;
+    min-width: 0;
+    gap: 5px;
+}
+
+.hbar-app-ui-expandable-table > div > button {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+    color: var(--hbar-app-ui-text);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.hbar-app-ui-expandable-table > div > button strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-expandable-table > div > button > span {
+    color: var(--hbar-app-ui-muted);
+    font: 10px var(--hbar-app-ui-mono);
+    white-space: nowrap;
+}
+
+.hbar-app-ui-expandable-table > div > .hbar-app-ui-spotlight {
+    margin-left: 22px;
+    padding: 9px;
+}
+
+.hbar-app-ui-expandable-table > div > .hbar-app-ui-spotlight p {
+    margin: 0;
+}
+
+.hbar-app-ui-grouped-table > header,
+.hbar-app-ui-grouped-table > div {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(72px, .65fr) minmax(0, 1.35fr) auto minmax(56px, .55fr);
+    align-items: center;
+    gap: 8px;
+}
+
+.hbar-app-ui-grouped-table > header {
+    padding: 6px 9px;
+    color: var(--hbar-app-ui-muted);
+    font: 9px var(--hbar-app-ui-mono);
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-grouped-table > div {
+    padding: 8px 9px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-1);
+    font-size: 10px;
+}
+
+.hbar-app-ui-grouped-table > div > strong,
+.hbar-app-ui-grouped-table > div > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-grouped-table > div > strong {
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+}
+
+.hbar-app-ui-master-detail {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: 8px;
+}
+
+.hbar-app-ui-master-detail > aside,
+.hbar-app-ui-master-detail > main {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 7px;
+    padding: 10px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-medium);
+    background: var(--hbar-app-ui-surface-1);
+}
+
+.hbar-app-ui-master-detail > aside > button {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 7px 8px;
+    color: var(--hbar-app-ui-muted);
+    text-align: left;
+}
+
+.hbar-app-ui-master-detail > aside > button.is-selected {
+    background: var(--hbar-app-ui-surface-2);
+    color: var(--hbar-app-ui-text);
+}
+
+.hbar-app-ui-master-detail > aside > button small {
+    color: var(--hbar-app-ui-subtle);
+    font: 9px var(--hbar-app-ui-mono);
+}
+
+.hbar-app-ui-master-detail > main > .hbar-app-ui-spotlight {
+    padding: 10px;
+}
+
+.hbar-app-ui-master-detail > main > .hbar-app-ui-spotlight p {
+    margin: 0;
+}
+
+.hbar-app-ui-account-list > button > span:not(.hbar-app-ui-avatar) {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.hbar-app-ui-account-list > button > span:not(.hbar-app-ui-avatar) > strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-account-list > button > span:not(.hbar-app-ui-avatar) > small {
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
 }
 
 .hbar-app-ui-wide-table-wrap {
@@ -5207,6 +5987,7 @@
 
 @media (max-width: 640px) {
     .hbar-app-ui-kanban-board,
+    .hbar-app-ui-plan-board,
     .hbar-app-ui-onboarding-split,
     .hbar-app-ui-wizard-two-column,
     .hbar-app-ui-plan-selection-layout,
