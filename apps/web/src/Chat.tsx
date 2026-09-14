@@ -532,8 +532,8 @@ export default function Chat({
               customAnswerPlaceholder: t('chatFillOtherAnswer'),
               freeformLabel: t('chatFillAnswer'),
               submitLabel: t('chatSubmitAnswers'),
-              submittingLabel: t('saving'),
-              submittedLabel: t('saved'),
+              submittingLabel: t('chatSubmitting'),
+              submittedLabel: t('chatSubmitted'),
               incompleteMessage: t('chatAnswerAllQuestions'),
               rejectedMessage: t('chatInputHandled'),
               failureMessage: t('chatSubmitFailed'),
@@ -568,12 +568,12 @@ export default function Chat({
             labels={{
               title: t('chatApproveTool'),
               detailsLabel: t('chatViewRequest'),
-              statusLabel: t('approvalPending'),
+              statusLabel: t('chatDecisionRequired'),
               denyLabel: t('chatDeny'),
               allowLabel: t('chatApprove'),
               allowAlwaysLabel: t('chatAllowRemember'),
-              savingLabel: t('saving'),
-              completeLabel: t('saved'),
+              savingLabel: t('chatDecisionSaving'),
+              completeLabel: t('chatDecisionSaved'),
               failureMessage: t('approvalSubmitFailed'),
             }}
             onDecision={async (decision) => {

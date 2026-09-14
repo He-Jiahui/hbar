@@ -401,7 +401,7 @@ const runStatusMessageKeys: Readonly<Record<Run['status'], LocaleMessageKey>> = 
   queued: 'queuedStatus',
   running: 'running',
   waiting_approval: 'waitingApprovalStatus',
-  completed: 'completed',
+  completed: 'runCompletedStatus',
   cancelled: 'cancelledStatus',
   failed: 'failed',
   interrupted: 'interruptedStatus',
@@ -456,7 +456,7 @@ function ActivityPanel() {
   return (
     <div className="activity-panel">
       <HbarAppUiTabs
-        label={t('activityView')}
+        label={t('activityViewLabel')}
         value={mode}
         options={[{ id: 'activity', label: t('run') }, { id: 'trace', label: t('events') }]}
         onChange={(value) => setMode(value as 'activity' | 'trace')}
@@ -464,7 +464,7 @@ function ActivityPanel() {
       {mode === 'activity' ? (
         <>
           <div className="activity-heading">
-            <h2>{t('sessionView')}</h2>
+            <h2>{t('activityCurrentSession')}</h2>
           </div>
           <HbarAppUiMetricStrip
             metrics={[
@@ -481,7 +481,7 @@ function ActivityPanel() {
               emptyDescription: t('runHistoryHint'),
               cancelLabel: t('stopRun'),
               cancellingLabel: t('stopping'),
-              countLabel: (count) => `${count} ${locale === 'en-US' && count === 1 ? t('run') : t('runCount')}`,
+              countLabel: (count) => `${count} ${count === 1 ? t('activitySingleRun') : t('activityRunCount')}`,
               statusLabel: (status) => t(runStatusMessageKeys[status]),
             }}
             runs={snapshot?.runs.map((run) => toRunActivityItem(run, locale, t)) ?? []}
