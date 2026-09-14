@@ -1,6 +1,7 @@
 export { default as HbarAppUiVariant } from './Variant'
 export { getHbarAppUiVariant, getHbarAppUiVariantComponent, listHbarAppUiVariants } from './registry'
 export { createHbarAppUiVariantSpec, HBAR_APP_UI_VARIANT_SPECS } from './specs'
+export { getHbarAppUiVariantProfile, HBAR_APP_UI_VARIANT_PROFILES } from './profiles'
 export { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from './types'
 export {
   HbarAppUiButton,
@@ -31,6 +32,10 @@ export type {
   HbarAppUiVariantComponentProps,
   HbarAppUiVariantProps,
   HbarAppUiVariantSpec,
+  HbarAppUiProfileControl,
+  HbarAppUiProfileState,
+  HbarAppUiProfileSurface,
+  HbarAppUiVariantProfile,
 } from './types'
 
 export { HBAR_APP_UI_VARIANT_EXPORTS } from './variants'

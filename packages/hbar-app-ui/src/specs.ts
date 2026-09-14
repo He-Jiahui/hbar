@@ -1,4 +1,5 @@
 import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS, type HbarAppUiCategory, type HbarAppUiVariantSpec } from './types'
+import { getHbarAppUiVariantProfile } from './profiles'
 
 const TITLES: Readonly<Record<HbarAppUiCategory, string>> = {
   'ai-chat': 'AI Chat',
@@ -111,19 +112,22 @@ export function createHbarAppUiVariantSpec(category: HbarAppUiCategory, variant:
   if (!Number.isInteger(variant) || variant < 1 || variant > count) throw new RangeError(`Invalid ${category} variant ${variant}`)
   const actions = actionsFor(category)
   const id = `hbar-app-ui-${category}-${variant}`
+  const profile = getHbarAppUiVariantProfile(id)
+  const description = profile.scenario || DESCRIPTIONS[category]
   return {
     id,
     entry: id,
     category,
     variant,
     title: `${TITLES[category]} ${variant}`,
-    description: DESCRIPTIONS[category],
+    description,
     layout: LAYOUTS[category],
     actions,
-    behavior: actions.map((action) => `${action.id}: ${action.label}`).concat(`variant ${variant} keeps interaction state local`),
-    observation: [`${TITLES[category]} uses the ${LAYOUTS[category]} interaction model`, 'Action events expose the variant ID and optional value'],
-    visualValidation: ['desktop, tablet and mobile viewports', 'light and dark themes', `${variant % 3 === 0 ? 'spacious' : variant % 2 === 0 ? 'comfortable' : 'compact'} density spacing`],
-    density: variant % 3 === 0 ? 'spacious' : variant % 2 === 0 ? 'comfortable' : 'compact',
+    behavior: actions.map((action) => `${action.id}: ${action.label}`).concat(`profile ${profile.surface} starts ${profile.initialState} and exposes ${profile.controls.join(', ')}`),
+    observation: [`${TITLES[category]} variant ${variant} presents a ${profile.surface} surface`, `Initial state is ${profile.initialState}; controls are ${profile.controls.join(', ')}`],
+    visualValidation: ['desktop, tablet and mobile viewports', 'light and dark themes', `${profile.visualMode} topology with ${profile.itemCount} seeded items`],
+    density: profile.visualMode === 'dense' ? 'compact' : profile.visualMode === 'airy' ? 'spacious' : 'comfortable',
+    profile,
   }
 }
 

@@ -11,6 +11,12 @@ type VariantCheck = {
   readonly mounted: boolean
   readonly contractVisible: boolean
   readonly interactiveControlCount: number
+  readonly profileKey: string | null
+  readonly profileState: string | null
+  readonly profileSurface: string | null
+  readonly profileControlCount: number
+  readonly actionEvent: boolean
+  readonly domSignature: string
 }
 
 type ViewportThemeCheck = {
@@ -70,9 +76,29 @@ async function run() {
       await page.goto(`${baseUrl}/?variant=${encodeURIComponent(spec.id)}`, { waitUntil: 'domcontentloaded' })
       const mounted = await page.locator(`[data-hbar-app-ui-variant="${spec.id}"]`).count() === 1
       const contractVisible = await page.locator('.hbar-app-ui-preview-contract').isVisible()
-      const interactiveControlCount = await page.locator('[data-hbar-app-ui-variant] button, [data-hbar-app-ui-variant] textarea, [data-hbar-app-ui-variant] input, [data-hbar-app-ui-variant] select').count()
-      if (!mounted || !contractVisible || interactiveControlCount === 0) throw new Error(`Incomplete preview for ${spec.id}`)
-      checks.push({ id: spec.id, category: spec.category, mounted, contractVisible, interactiveControlCount })
+      const variant = page.locator(`[data-hbar-app-ui-variant="${spec.id}"]`)
+      const interactiveControlCount = await variant.locator('button, textarea, input, select').count()
+      const profileKey = await variant.getAttribute('data-hbar-app-ui-profile')
+      const profileState = await variant.getAttribute('data-hbar-app-ui-state')
+      const profileSurface = await variant.getAttribute('data-hbar-app-ui-surface')
+      const profileControlCount = await variant.locator('[data-hbar-app-ui-control]').count()
+      const firstProfileControl = variant.locator('[data-hbar-app-ui-control]').first()
+      await firstProfileControl.click()
+      const actionEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes(spec.profile.controls[0] ?? '')
+      const domSignature = await variant.evaluate((element) => JSON.stringify({
+        profile: element.getAttribute('data-hbar-app-ui-profile'),
+        state: element.getAttribute('data-hbar-app-ui-state'),
+        surface: element.getAttribute('data-hbar-app-ui-surface'),
+        controls: [...element.querySelectorAll('[data-hbar-app-ui-control]')].map((control) => control.getAttribute('data-hbar-app-ui-control')),
+        headings: [...element.querySelectorAll('h1,h2,h3,strong')].slice(0, 5).map((heading) => heading.textContent?.trim()),
+      }))
+      if (!mounted || !contractVisible || interactiveControlCount === 0 || profileKey !== spec.profile.key || profileState !== spec.profile.initialState || profileSurface !== spec.profile.surface || profileControlCount !== spec.profile.controls.length || !actionEvent) throw new Error(`Incomplete profile preview for ${spec.id}`)
+      checks.push({ id: spec.id, category: spec.category, mounted, contractVisible, interactiveControlCount, profileKey, profileState, profileSurface, profileControlCount, actionEvent, domSignature })
+    }
+
+    for (const category of HBAR_APP_UI_CATEGORIES) {
+      const categoryChecks = checks.filter((check) => check.category === category)
+      if (new Set(categoryChecks.map((check) => check.domSignature)).size !== categoryChecks.length) throw new Error(`Duplicate observable profile markup in ${category}`)
     }
 
     const categoryScreenshots: string[] = []
@@ -133,7 +159,7 @@ async function run() {
     await page.goto(`${baseUrl}/?variant=hbar-app-ui-agent-approval-1`, { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: 'Open detail', exact: true }).click()
     const dialogOpened = await page.getByRole('dialog').count() === 1
-    await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click()
     const dialogClosed = await page.getByRole('dialog').count() === 0
 
     await writeFile(`${artifactRoot}/report.json`, JSON.stringify({

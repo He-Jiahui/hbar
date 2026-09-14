@@ -90,6 +90,26 @@ export interface HbarAppUiAction {
   readonly tone?: 'neutral' | 'accent' | 'positive' | 'warning' | 'danger'
 }
 
+export type HbarAppUiProfileSurface = 'stream' | 'panel' | 'rail' | 'split' | 'grid' | 'table' | 'form' | 'overlay' | 'timeline' | 'calendar'
+export type HbarAppUiProfileState = 'idle' | 'active' | 'success' | 'warning' | 'error' | 'empty' | 'review'
+export type HbarAppUiProfileControl = 'search' | 'filter' | 'tabs' | 'picker' | 'attachments' | 'upload' | 'retry' | 'save' | 'confirm' | 'sort' | 'pagination' | 'drag' | 'expand' | 'compose'
+
+/**
+ * Stable, variant-level presentation data.  A profile is deliberately part of
+ * the public contract so a registered entry cannot silently collapse into a
+ * category-only template.  It contains no product state or transport handles.
+ */
+export interface HbarAppUiVariantProfile {
+  readonly key: string
+  readonly scenario: string
+  readonly surface: HbarAppUiProfileSurface
+  readonly initialState: HbarAppUiProfileState
+  readonly visualMode: 'dense' | 'balanced' | 'airy' | 'focus' | 'split' | 'stack'
+  readonly seed: number
+  readonly controls: readonly HbarAppUiProfileControl[]
+  readonly itemCount: number
+}
+
 export interface HbarAppUiVariantSpec {
   readonly id: string
   readonly entry: string
@@ -103,6 +123,7 @@ export interface HbarAppUiVariantSpec {
   readonly observation: readonly string[]
   readonly visualValidation: readonly string[]
   readonly density: 'compact' | 'comfortable' | 'spacious'
+  readonly profile: HbarAppUiVariantProfile
 }
 
 export interface HbarAppUiEvent {

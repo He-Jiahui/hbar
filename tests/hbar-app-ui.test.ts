@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import {
   HBAR_APP_UI_CATEGORIES,
   HBAR_APP_UI_CATEGORY_COUNTS,
@@ -38,5 +40,15 @@ describe('hbar-app-ui registry', () => {
     expect(entry.component).toBeFunction()
     expect(() => createHbarAppUiVariantSpec('agent-activity', 0)).toThrow(RangeError)
     expect(() => createHbarAppUiVariantSpec('agent-activity', 8)).toThrow(RangeError)
+  })
+
+  test('keeps a distinct profile and observable markup for every variant', () => {
+    for (const category of HBAR_APP_UI_CATEGORIES) {
+      const entries = listHbarAppUiVariants().filter((entry) => entry.spec.category === category)
+      expect(new Set(entries.map((entry) => entry.spec.profile.key)).size).toBe(entries.length)
+      expect(new Set(entries.map((entry) => entry.spec.profile.scenario)).size).toBe(entries.length)
+      const markup = entries.map((entry) => renderToStaticMarkup(createElement(entry.component, { onAction: () => undefined })))
+      expect(new Set(markup).size).toBe(entries.length)
+    }
   })
 })

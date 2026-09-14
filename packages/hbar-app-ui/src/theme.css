@@ -81,6 +81,13 @@
 .hbar-app-ui-variant-label { display: grid; gap: 4px; padding: 2px 2px 4px; }
 .hbar-app-ui-variant-label span { font-size: 11px; font-weight: 600; }
 .hbar-app-ui-variant-label small { max-width: 72ch; color: var(--hbar-app-ui-muted); font-size: 11px; line-height: 1.5; }
+.hbar-app-ui-profile-meta { display: flex; min-width: 0; align-items: center; gap: 8px; color: var(--hbar-app-ui-muted); font-size: 10px; }
+.hbar-app-ui-profile-meta > span { padding: 2px 6px; border: 1px solid var(--hbar-app-ui-border); border-radius: var(--hbar-app-ui-radius-small); font-family: var(--hbar-app-ui-mono); text-transform: uppercase; }
+.hbar-app-ui-profile-meta small { color: var(--hbar-app-ui-subtle); }
+.hbar-app-ui-profile-meta code { min-width: 0; margin-left: auto; overflow: hidden; color: var(--hbar-app-ui-subtle); font: 9px var(--hbar-app-ui-mono); text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-profile-controls { display: flex; flex-wrap: wrap; gap: 5px; }
+.hbar-app-ui-profile-controls .hbar-app-ui-button { min-height: 25px; padding: 4px 8px; border-color: var(--hbar-app-ui-border); font-size: 10px; }
+.hbar-app-ui-profile-controls .hbar-app-ui-button.is-active { border-color: var(--hbar-app-ui-accent); color: var(--hbar-app-ui-accent); }
 .hbar-app-ui-activity-card { padding: 2px; }
 .hbar-app-ui-activity-heading { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px 0; color: var(--hbar-app-ui-muted); }
 .hbar-app-ui-activity-heading > div { display: flex; align-items: center; gap: 9px; }
