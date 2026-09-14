@@ -184,6 +184,76 @@ describe('hbar-app-ui registry', () => {
     expect(markup).not.toContain('hbar-app-ui-profile-controls')
   })
 
+  test('accepts a host-owned localized bundle for every data-driven surface', () => {
+    const runMarkup = renderToStaticMarkup(
+      createElement(HbarAppUiRunActivity, {
+        labels: {
+          title: 'Aktivitäten',
+          emptyTitle: 'Keine Läufe',
+          emptyDescription: 'Hier erscheinen Ausführungen.',
+          cancelLabel: 'Lauf stoppen',
+          cancellingLabel: 'Wird gestoppt',
+          countLabel: (count) => `${count} ${count === 1 ? 'Lauf' : 'Läufe'}`,
+          statusLabel: (status) => `status:${status}`,
+        },
+        runs: [{ id: 'run-1', label: 'Deploy', status: 'running' }],
+      }),
+    )
+    expect(runMarkup).toContain('Aktivitäten')
+    expect(runMarkup).toContain('1 Lauf')
+    expect(runMarkup).toContain('status:running')
+    expect(runMarkup).not.toContain('Running')
+
+    const approvalMarkup = renderToStaticMarkup(
+      createElement(HbarAppUiApprovalRequest, {
+        labels: {
+          title: 'Freigabe erforderlich',
+          detailsLabel: 'Details anzeigen',
+          statusLabel: 'Entscheidung offen',
+          denyLabel: 'Ablehnen',
+          allowLabel: 'Erlauben',
+          allowAlwaysLabel: 'Immer erlauben',
+          savingLabel: 'Wird gespeichert',
+          completeLabel: 'Gespeichert',
+          failureMessage: 'Speichern fehlgeschlagen',
+        },
+        tool: 'file.write',
+        summary: 'workspace/plan.md',
+        details: '{}',
+        onDecision: () => undefined,
+      }),
+    )
+    expect(approvalMarkup).toContain('Freigabe erforderlich')
+    expect(approvalMarkup).toContain('Details anzeigen')
+    expect(approvalMarkup).toContain('Immer erlauben')
+    expect(approvalMarkup).not.toContain('Approval required')
+
+    const questionnaireMarkup = renderToStaticMarkup(
+      createElement(HbarAppUiQuestionnaire, {
+        requestId: 'request-localized',
+        labels: {
+          title: 'Antwort erforderlich',
+          countLabel: (count) => `${count} Fragen`,
+          customAnswerLabel: 'Andere Option',
+          customAnswerPlaceholder: 'Eigene Antwort',
+          freeformLabel: 'Antwort',
+          submitLabel: 'Antworten senden',
+          submittingLabel: 'Wird gesendet',
+          submittedLabel: 'Gesendet',
+          incompleteMessage: 'Bitte alles beantworten',
+          rejectedMessage: 'Anfrage abgelaufen',
+          failureMessage: 'Senden fehlgeschlagen',
+        },
+        questions: [{ id: 'scope', header: 'Bereich', prompt: 'Welche Zone?', options: [{ value: 'app', label: 'App' }] }],
+        onSubmit: () => ({ accepted: true }),
+      }),
+    )
+    expect(questionnaireMarkup).toContain('Antwort erforderlich')
+    expect(questionnaireMarkup).toContain('1 Fragen')
+    expect(questionnaireMarkup).toContain('Antworten senden')
+    expect(questionnaireMarkup).not.toContain('Your input is needed')
+  })
+
   test('renders a data-driven approval surface without application dependencies', () => {
     const markup = renderToStaticMarkup(
       createElement(HbarAppUiApprovalRequest, {

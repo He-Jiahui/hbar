@@ -30,7 +30,23 @@ The package ships light and dark variables under `--hbar-app-ui-*`. Consumers op
 />
 ```
 
-The props support local status labels, run-count text, empty state copy, row selection, cancellation progress, and failure feedback so application-specific wording remains outside the package.
+The props support local status labels, run-count text, empty state copy, row selection, cancellation progress, and failure feedback so application-specific wording remains outside the package. For hosts that already have an i18n system, the `labels` bundle keeps all generated copy in that system without adding a runtime translation dependency:
+
+```tsx
+<HbarAppUiRunActivity
+  runs={runs}
+  labels={{
+    title: t('runHistory'),
+    countLabel: (count) => pluralize('run', count),
+    statusLabel: (status) => t(runStatusKeys[status]),
+    cancelLabel: t('stopRun'),
+    cancellingLabel: t('stopping'),
+  }}
+  onCancelRun={cancelRun}
+/>
+```
+
+`HbarAppUiApprovalRequest` and `HbarAppUiQuestionnaire` expose the same pattern through their typed `labels` contracts. Existing individual label props remain supported, with an individual prop taking precedence over its bundle entry. The package owns interaction state only; the host owns locale selection, plural rules, date/number formatting, and translation errors.
 
 ## Preview
 

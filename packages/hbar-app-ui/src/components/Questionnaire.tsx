@@ -2,16 +2,18 @@ import {Check, LoaderCircle} from 'lucide-react'
 import {useState} from 'react'
 import {HbarAppUiButton, HbarAppUiSpotlight, HbarAppUiStatus} from '../primitives'
 import type {
+    HbarAppUiFailureMessage,
     HbarAppUiQuestionnaireProps,
     HbarAppUiQuestionnaireQuestion
 } from '../types'
 
 const customValue = '__hbar_app_ui_custom__'
 
-function failureMessage(cause: unknown): string {
+function failureMessage(cause: unknown, localized: HbarAppUiFailureMessage | undefined): string {
+    if (typeof localized === 'function') return localized(cause)
+    if (typeof localized === 'string') return localized
     return cause instanceof Error && cause.message ? cause.message : 'Unable to submit your answers.'
 }
-
 function answerFor(question: HbarAppUiQuestionnaireQuestion, selected: Readonly<Record<string, string>>, custom: Readonly<Record<string, string>>): string {
     if (!question.options?.length) return custom[question.id] ?? ''
     return selected[question.id] === customValue ? custom[question.id] ?? '' : selected[question.id] ?? ''
@@ -25,17 +27,28 @@ export function HbarAppUiQuestionnaire({
     requestId,
     questions,
     onSubmit,
-    title = 'Your input is needed',
-    countLabel = (count) => `${count} ${count === 1 ? 'question' : 'questions'}`,
-    customAnswerLabel = 'Other',
-    customAnswerPlaceholder = 'Enter another answer',
-    freeformLabel = 'Your answer',
-    submitLabel = 'Submit answers',
-    submittingLabel = 'Submitting answers',
-    submittedLabel = 'Answers submitted',
-    incompleteMessage = 'Answer every question before submitting.',
-    rejectedMessage = 'This request is no longer available.'
+    labels,
+    title,
+    countLabel,
+    customAnswerLabel,
+    customAnswerPlaceholder,
+    freeformLabel,
+    submitLabel,
+    submittingLabel,
+    submittedLabel,
+    incompleteMessage,
+    rejectedMessage
 }: HbarAppUiQuestionnaireProps) {
+    const resolvedTitle = title ?? labels?.title ?? 'Your input is needed'
+    const resolvedCountLabel = countLabel ?? labels?.countLabel ?? ((count: number) => `${count} ${count === 1 ? 'question' : 'questions'}`)
+    const resolvedCustomAnswerLabel = customAnswerLabel ?? labels?.customAnswerLabel ?? 'Other'
+    const resolvedCustomAnswerPlaceholder = customAnswerPlaceholder ?? labels?.customAnswerPlaceholder ?? 'Enter another answer'
+    const resolvedFreeformLabel = freeformLabel ?? labels?.freeformLabel ?? 'Your answer'
+    const resolvedSubmitLabel = submitLabel ?? labels?.submitLabel ?? 'Submit answers'
+    const resolvedSubmittingLabel = submittingLabel ?? labels?.submittingLabel ?? 'Submitting answers'
+    const resolvedSubmittedLabel = submittedLabel ?? labels?.submittedLabel ?? 'Answers submitted'
+    const resolvedIncompleteMessage = incompleteMessage ?? labels?.incompleteMessage ?? 'Answer every question before submitting.'
+    const resolvedRejectedMessage = rejectedMessage ?? labels?.rejectedMessage ?? 'This request is no longer available.'
     const [selected, setSelected] = useState<Record<string, string>>({})
     const [custom, setCustom] = useState<Record<string, string>>({})
     const [saving, setSaving] = useState(false)
@@ -46,7 +59,7 @@ export function HbarAppUiQuestionnaire({
         if (saving || submitted) return
         const answers = Object.fromEntries(questions.map((question) => [question.id, answerFor(question, selected, custom).trim()]))
         if (questions.some((question) => !answers[question.id])) {
-            setError(incompleteMessage)
+            setError(resolvedIncompleteMessage)
             return
         }
         setError(undefined)
@@ -54,22 +67,22 @@ export function HbarAppUiQuestionnaire({
         try {
             const result = await onSubmit(answers)
             if (result && !result.accepted) {
-                setError(result.error ?? rejectedMessage)
+                setError(result.error ?? resolvedRejectedMessage)
                 return
             }
             setSubmitted(true)
         } catch (cause) {
-            setError(failureMessage(cause))
+            setError(failureMessage(cause, labels?.failureMessage))
         } finally {
             setSaving(false)
         }
     }
 
-    return <HbarAppUiSpotlight as="section" className="hbar-app-ui-questionnaire" aria-label={title}
+    return <HbarAppUiSpotlight as="section" className="hbar-app-ui-questionnaire" aria-label={resolvedTitle}
                                aria-busy={saving}>
         <header className="hbar-app-ui-questionnaire-heading">
-            <strong>{title}</strong>
-            <HbarAppUiStatus value={submitted ? submittedLabel : countLabel(questions.length)}
+            <strong>{resolvedTitle}</strong>
+            <HbarAppUiStatus value={submitted ? resolvedSubmittedLabel : resolvedCountLabel(questions.length)}
                              tone={submitted ? 'positive' : 'neutral'}/>
         </header>
         <div className="hbar-app-ui-questionnaire-questions">
@@ -90,15 +103,15 @@ export function HbarAppUiQuestionnaire({
                             <input type="radio" name={`${requestId}:${question.id}`} value={customValue}
                                    checked={choice === customValue}
                                    onChange={() => setSelected((current) => ({...current, [question.id]: customValue}))}/>
-                            <span><strong>{customAnswerLabel}</strong>{choice === customValue && <input autoFocus
-                                                                                                          aria-label={`${question.header} ${customAnswerLabel}`}
+                            <span><strong>{resolvedCustomAnswerLabel}</strong>{choice === customValue && <input autoFocus
+                                                                                                          aria-label={`${question.header} ${resolvedCustomAnswerLabel}`}
                                                                                                           type={question.secret ? 'password' : 'text'}
                                                                                                           value={custom[question.id] ?? ''}
-                                                                                                          placeholder={customAnswerPlaceholder}
+                                                                                                          placeholder={resolvedCustomAnswerPlaceholder}
                                                                                                           onChange={(event) => setCustom((current) => ({...current, [question.id]: event.target.value}))}/>}</span>
                         </label>}
                         {!hasOptions && <label className="hbar-app-ui-questionnaire-option hbar-app-ui-questionnaire-freeform">
-                            <span><strong>{freeformLabel}</strong><input aria-label={`${question.header} ${freeformLabel}`}
+                            <span><strong>{resolvedFreeformLabel}</strong><input aria-label={`${question.header} ${resolvedFreeformLabel}`}
                                                                          type={question.secret ? 'password' : 'text'}
                                                                          value={custom[question.id] ?? ''}
                                                                          onChange={(event) => setCustom((current) => ({...current, [question.id]: event.target.value}))}/></span>
@@ -111,7 +124,7 @@ export function HbarAppUiQuestionnaire({
         <footer className="hbar-app-ui-questionnaire-actions">
             <HbarAppUiButton type="button" tone="accent" disabled={saving || submitted} onClick={() => void submit()}>
                 {saving ? <LoaderCircle size={14} className="hbar-app-ui-spin"/> : <Check size={14}/>}
-                {submitted ? submittedLabel : saving ? submittingLabel : submitLabel}
+                {submitted ? resolvedSubmittedLabel : saving ? resolvedSubmittingLabel : resolvedSubmitLabel}
             </HbarAppUiButton>
         </footer>
     </HbarAppUiSpotlight>

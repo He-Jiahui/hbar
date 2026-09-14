@@ -10,7 +10,6 @@ function statusTone(status: HbarAppUiRunActivityItem['status']): 'neutral' | 'po
   if (status === 'queued' || status === 'running' || status === 'waiting_approval') return 'warning'
   return 'neutral'
 }
-
 function statusText(status: HbarAppUiRunActivityItem['status']): string {
   switch (status) {
     case 'queued':
@@ -36,23 +35,30 @@ function statusText(status: HbarAppUiRunActivityItem['status']): string {
  */
 export function HbarAppUiRunActivity({
   runs,
-  title = 'Runs',
-  emptyTitle = 'No runs yet',
-  emptyDescription = 'Execution history will appear here.',
+  labels,
+  title,
+  emptyTitle,
+  emptyDescription,
   selectedRunId,
   cancellingRunIds,
   feedback,
-  cancelLabel = 'Stop run',
-  cancellingLabel = 'Stopping run',
-  countLabel = (count) => `${count} ${count === 1 ? 'run' : 'runs'}`,
+  cancelLabel,
+  cancellingLabel,
+  countLabel,
   onSelectRun,
   onCancelRun,
 }: HbarAppUiRunActivityProps) {
+  const resolvedTitle = title ?? labels?.title ?? 'Runs'
+  const resolvedEmptyTitle = emptyTitle ?? labels?.emptyTitle ?? 'No runs yet'
+  const resolvedEmptyDescription = emptyDescription ?? labels?.emptyDescription ?? 'Execution history will appear here.'
+  const resolvedCancelLabel = cancelLabel ?? labels?.cancelLabel ?? 'Stop run'
+  const resolvedCancellingLabel = cancellingLabel ?? labels?.cancellingLabel ?? 'Stopping run'
+  const resolvedCountLabel = countLabel ?? labels?.countLabel ?? ((count: number) => `${count} ${count === 1 ? 'run' : 'runs'}`)
   return (
-    <section className="hbar-app-ui-run-activity" aria-label={title}>
+    <section className="hbar-app-ui-run-activity" aria-label={resolvedTitle}>
       <header className="hbar-app-ui-run-activity-heading">
-        <strong>{title}</strong>
-        <HbarAppUiStatus value={countLabel(runs.length)} tone="neutral" />
+        <strong>{resolvedTitle}</strong>
+        <HbarAppUiStatus value={resolvedCountLabel(runs.length)} tone="neutral" />
       </header>
       {feedback && (
         <p className="hbar-app-ui-run-activity-feedback" role="alert">
@@ -60,13 +66,17 @@ export function HbarAppUiRunActivity({
         </p>
       )}
       {runs.length === 0 ? (
-        <HbarAppUiEmptyState icon={<Square size={18} />} title={emptyTitle} description={emptyDescription} />
+        <HbarAppUiEmptyState
+          icon={<Square size={18} />}
+          title={resolvedEmptyTitle}
+          description={resolvedEmptyDescription}
+        />
       ) : (
         <ol className="hbar-app-ui-run-activity-list">
           {runs.map((run) => {
             const isCancelling = cancellingRunIds?.includes(run.id) ?? false
             const isActive = activeStatuses.has(run.status)
-            const label = run.statusLabel ?? statusText(run.status)
+            const label = run.statusLabel ?? labels?.statusLabel?.(run.status) ?? statusText(run.status)
             const content = (
               <>
                 <span className="hbar-app-ui-run-activity-marker" aria-hidden="true" />
@@ -76,7 +86,7 @@ export function HbarAppUiRunActivity({
                 </span>
                 <span className="hbar-app-ui-run-activity-status">
                   <HbarAppUiStatus
-                    value={isCancelling ? cancellingLabel : label}
+                    value={isCancelling ? resolvedCancellingLabel : label}
                     tone={isCancelling ? 'warning' : statusTone(run.status)}
                   />
                   {run.duration && <small>{run.duration}</small>}
@@ -100,7 +110,7 @@ export function HbarAppUiRunActivity({
                 {isActive && onCancelRun && (
                   <HbarAppUiIconButton
                     type="button"
-                    label={isCancelling ? cancellingLabel : cancelLabel}
+                    label={isCancelling ? resolvedCancellingLabel : resolvedCancelLabel}
                     className="hbar-app-ui-run-activity-cancel"
                     disabled={isCancelling}
                     onClick={() => onCancelRun(run.id)}

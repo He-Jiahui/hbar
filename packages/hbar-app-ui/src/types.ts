@@ -216,8 +216,24 @@ export interface HbarAppUiRunActivityItem {
   readonly duration?: string | undefined
 }
 
+/**
+ * Host-provided copy for the run activity surface.  The package deliberately
+ * does not depend on a translation framework; a host can adapt any i18n
+ * library to this small, typed bundle and keep pluralisation in its locale.
+ */
+export interface HbarAppUiRunActivityLabels {
+  readonly title?: string | undefined
+  readonly emptyTitle?: string | undefined
+  readonly emptyDescription?: string | undefined
+  readonly cancelLabel?: string | undefined
+  readonly cancellingLabel?: string | undefined
+  readonly countLabel?: ((count: number) => string) | undefined
+  readonly statusLabel?: ((status: HbarAppUiRunActivityStatus) => string) | undefined
+}
+
 export interface HbarAppUiRunActivityProps {
   readonly runs: readonly HbarAppUiRunActivityItem[]
+  readonly labels?: HbarAppUiRunActivityLabels | undefined
   readonly title?: string | undefined
   readonly emptyTitle?: string | undefined
   readonly emptyDescription?: string | undefined
@@ -237,10 +253,30 @@ export interface HbarAppUiRunActivityProps {
  */
 export type HbarAppUiApprovalDecision = 'deny' | 'allow' | 'allow_always'
 
+export type HbarAppUiFailureMessage = string | ((cause: unknown) => string)
+
+/**
+ * Host-provided copy for an approval request.  `failureMessage` lets a host
+ * translate an unknown transport failure while preserving the original error
+ * message when no bundle is supplied.
+ */
+export interface HbarAppUiApprovalRequestLabels {
+  readonly title?: string | undefined
+  readonly detailsLabel?: string | undefined
+  readonly statusLabel?: string | undefined
+  readonly denyLabel?: string | undefined
+  readonly allowLabel?: string | undefined
+  readonly allowAlwaysLabel?: string | undefined
+  readonly savingLabel?: string | undefined
+  readonly completeLabel?: string | undefined
+  readonly failureMessage?: HbarAppUiFailureMessage | undefined
+}
+
 export interface HbarAppUiApprovalRequestProps {
   readonly tool: string
   readonly summary: string
   readonly onDecision: (decision: HbarAppUiApprovalDecision) => void | Promise<void>
+  readonly labels?: HbarAppUiApprovalRequestLabels | undefined
   readonly title?: string | undefined
   readonly details?: string | undefined
   readonly detailsLabel?: string | undefined
@@ -272,12 +308,31 @@ export interface HbarAppUiQuestionnaireResult {
   readonly error?: string | undefined
 }
 
+/**
+ * Host-provided copy for a questionnaire.  Count and failure formatting stay
+ * in the host locale so the component never assumes English plural rules.
+ */
+export interface HbarAppUiQuestionnaireLabels {
+  readonly title?: string | undefined
+  readonly countLabel?: ((count: number) => string) | undefined
+  readonly customAnswerLabel?: string | undefined
+  readonly customAnswerPlaceholder?: string | undefined
+  readonly freeformLabel?: string | undefined
+  readonly submitLabel?: string | undefined
+  readonly submittingLabel?: string | undefined
+  readonly submittedLabel?: string | undefined
+  readonly incompleteMessage?: string | undefined
+  readonly rejectedMessage?: string | undefined
+  readonly failureMessage?: HbarAppUiFailureMessage | undefined
+}
+
 export interface HbarAppUiQuestionnaireProps {
   readonly requestId: string
   readonly questions: readonly HbarAppUiQuestionnaireQuestion[]
   readonly onSubmit: (
     answers: Readonly<Record<string, string>>,
   ) => void | HbarAppUiQuestionnaireResult | Promise<void | HbarAppUiQuestionnaireResult>
+  readonly labels?: HbarAppUiQuestionnaireLabels | undefined
   readonly title?: string | undefined
   readonly countLabel?: ((count: number) => string) | undefined
   readonly customAnswerLabel?: string | undefined
