@@ -11,6 +11,7 @@
     "./agent-activity": "./src/components/AgentActivity.tsx",
     "./tool-calls": "./src/components/ToolCalls.tsx",
     "./agent-approval": "./src/components/AgentApproval.tsx",
+    "./approval-request": "./src/components/ApprovalRequest.tsx",
     "./agent-plan": "./src/components/AgentPlan.tsx",
     "./ai-usage": "./src/components/AiUsage.tsx",
     "./app-shell": "./src/components/AppShell.tsx",

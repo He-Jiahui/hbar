@@ -231,6 +231,27 @@ export interface HbarAppUiRunActivityProps {
   readonly onCancelRun?: ((runId: string) => void) | undefined
 }
 
+/**
+ * A product-neutral decision made against a pending approval request.
+ * Hosts translate this into their own permission or policy operation.
+ */
+export type HbarAppUiApprovalDecision = 'deny' | 'allow' | 'allow_always'
+
+export interface HbarAppUiApprovalRequestProps {
+  readonly tool: string
+  readonly summary: string
+  readonly onDecision: (decision: HbarAppUiApprovalDecision) => void | Promise<void>
+  readonly title?: string | undefined
+  readonly details?: string | undefined
+  readonly detailsLabel?: string | undefined
+  readonly statusLabel?: string | undefined
+  readonly denyLabel?: string | undefined
+  readonly allowLabel?: string | undefined
+  readonly allowAlwaysLabel?: string | undefined
+  readonly savingLabel?: string | undefined
+  readonly completeLabel?: string | undefined
+}
+
 export interface HbarAppUiOption {
     readonly id: string
     readonly label: string

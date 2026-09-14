@@ -44,6 +44,7 @@ export {
     ToolCalls,
     Wizard,
     ActionSurfaceFrame,
+    HbarAppUiApprovalRequest,
     SurfaceFrame,
 } from './components'
 export {
@@ -64,6 +65,8 @@ export {
 } from './primitives'
 export type {
     HbarAppUiAction,
+    HbarAppUiApprovalDecision,
+    HbarAppUiApprovalRequestProps,
     HbarAppUiCategory,
     HbarAppUiDataRow,
     HbarAppUiEvent,

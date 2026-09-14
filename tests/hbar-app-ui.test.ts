@@ -21,6 +21,7 @@ import {
   HBAR_APP_UI_CATEGORY_COUNTS,
   HBAR_APP_UI_VARIANT_EXPORTS,
   HBAR_APP_UI_VARIANT_SPECS,
+  HbarAppUiApprovalRequest,
   HbarAppUiRunActivity,
   Dashboard,
   DataTable,
@@ -178,6 +179,28 @@ describe('hbar-app-ui registry', () => {
     expect(markup).toContain('正在停止')
     expect(markup).toContain('停止此运行')
     expect(markup).toContain('hbar-app-ui-run-status-running')
+    expect(markup).not.toContain('hbar-app-ui-preview')
+    expect(markup).not.toContain('hbar-app-ui-profile-controls')
+  })
+
+  test('renders a data-driven approval surface without application dependencies', () => {
+    const markup = renderToStaticMarkup(
+      createElement(HbarAppUiApprovalRequest, {
+        title: '批准工具调用',
+        tool: 'file.write',
+        summary: 'file.write · workspace/plan.md',
+        details: '{\n  "path": "workspace/plan.md"\n}',
+        detailsLabel: '查看参数',
+        statusLabel: '需要决定',
+        denyLabel: '拒绝',
+        allowLabel: '批准',
+        allowAlwaysLabel: '允许并记住',
+        onDecision: async () => undefined,
+      }),
+    )
+    expect(markup).toContain('hbar-app-ui-approval-request')
+    expect(markup).toContain('file.write · workspace/plan.md')
+    expect(markup).toContain('允许并记住')
     expect(markup).not.toContain('hbar-app-ui-preview')
     expect(markup).not.toContain('hbar-app-ui-profile-controls')
   })

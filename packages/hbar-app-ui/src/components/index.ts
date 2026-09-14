@@ -1,5 +1,6 @@
 export { AgentActivity } from './AgentActivity'
 export { AgentApproval } from './AgentApproval'
+export { HbarAppUiApprovalRequest } from './ApprovalRequest'
 export { AgentPlan } from './AgentPlan'
 export { AiChat } from './AiChat'
 export { AiUsage } from './AiUsage'

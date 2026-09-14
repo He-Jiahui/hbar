@@ -1107,13 +1107,6 @@ p {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.approval {
-  border: 1px solid #716047;
-  background: #2d2b28;
-  border-radius: 5px;
-  padding: 11px;
-  margin-bottom: 9px;
-}
 .user-input-prompt {
   border: 1px solid #4c6684;
   background: #252b35;
@@ -1207,33 +1200,6 @@ p {
   font-size: 11px;
 }
 .user-input-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.approval-heading {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #d9ba83;
-  font-size: 12px;
-}
-.approval-heading code {
-  margin-left: auto;
-  color: #aea291;
-  font-size: 10px;
-}
-.approval pre {
-  margin: 9px 0;
-  padding: 8px;
-  max-height: 120px;
-  overflow: auto;
-  background: #222324;
-  border-radius: 3px;
-  color: #c9c1b2;
-  font-size: 11px;
-}
-.approval-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -2273,15 +2239,6 @@ p {
     bottom: 158px;
     right: 17px;
   }
-  .approval {
-    padding: 9px;
-  }
-  .approval pre {
-    max-height: 90px;
-  }
-  .approval-actions .button {
-    min-height: 33px;
-  }
   .settings-panel,
   .diagnose-panel {
     padding: 21px 17px;
@@ -2555,8 +2512,7 @@ select,
 textarea,
 .session-item,
 .code-block,
-.tool-result,
-.approval {
+.tool-result {
   transition:
     background-color 0.14s ease,
     border-color 0.14s ease,
@@ -3249,12 +3205,6 @@ textarea:hover {
 .send-button:hover {
   background: #548fd9;
 }
-.approval {
-  border-color: #7a6646;
-  border-radius: 8px;
-  background: #302d27;
-  box-shadow: 0 4px 14px #0000002b;
-}
 .user-input-prompt {
   border-color: #4e6488;
   border-radius: 8px;
@@ -3780,40 +3730,6 @@ textarea:hover {
   color: #9cabc2;
   font-size: 10px;
 }
-.approval-target {
-  display: grid;
-  gap: 7px;
-  margin: 9px 0;
-  padding: 9px;
-  border: 1px solid #5a4c38;
-  border-radius: 6px;
-  background: #282722;
-}
-.approval-target > strong {
-  overflow-wrap: anywhere;
-  color: #e0d2b8;
-  font: 11px/1.5 var(--mono);
-}
-.approval-target details {
-  border-top: 1px solid #4c4335;
-  padding-top: 7px;
-}
-.approval-target summary {
-  cursor: pointer;
-  color: #bba77e;
-  font-size: 10px;
-}
-.approval-target pre {
-  margin-bottom: 0;
-}
-.approval-remember {
-  border-color: #4e6e9e;
-  background: #2d405c;
-}
-.approval-remember:hover {
-  border-color: #7198d1;
-  background: #385376;
-}
 @media (max-width: 899px) {
   .permissions-section .section-toolbar {
     flex-direction: column;
@@ -3840,12 +3756,6 @@ textarea:hover {
   }
   .provider-preset-grid {
     grid-template-columns: 1fr;
-  }
-  .approval-actions {
-    flex-wrap: wrap;
-  }
-  .approval-actions .approval-remember {
-    flex: 1 0 100%;
   }
   .model-picker-trigger {
     width: auto;

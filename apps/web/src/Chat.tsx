@@ -13,7 +13,6 @@ import {
   GitBranch,
   LoaderCircle,
   RefreshCw,
-  ShieldCheck,
   Square,
   Wrench,
   X,
@@ -44,7 +43,7 @@ import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
-import { HbarAppUiSpotlight, HbarAppUiStatus } from 'hbar-app-ui'
+import { HbarAppUiApprovalRequest, HbarAppUiSpotlight } from 'hbar-app-ui'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -642,53 +641,28 @@ export default function Chat({
           <UserInputPrompt key={request.requestId} request={request} />
         ))}
         {snapshot?.approvals.map((approval) => (
-          <HbarAppUiSpotlight className="approval" key={approval.id}>
-            <div className="approval-heading">
-              <ShieldCheck size={16} />
-              <strong>批准工具调用</strong>
-              <code>{approval.tool}</code>
-              <HbarAppUiStatus value="需要决定" tone="warning" />
-            </div>
-            <div className="approval-target">
-              <strong>{approvalSummary(approval.tool, approval.args)}</strong>
-              <details>
-                <summary>查看参数</summary>
-                <pre>{JSON.stringify(approval.args, null, 2)}</pre>
-              </details>
-            </div>
-            <div className="approval-actions">
-              <button
-                className="button"
-                onClick={() =>
-                  void client().call('approval.resolve', { approvalId: approval.id, decision: 'denied' }).catch(report)
-                }
-              >
-                <X size={14} />
-                拒绝
-              </button>
-              <button
-                className="button primary"
-                onClick={() =>
-                  void client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' }).catch(report)
-                }
-              >
-                <Check size={14} />
-                批准
-              </button>
-              <button
-                className="button approval-remember"
-                onClick={() => {
-                  void (async () => {
-                    if (!(await setApprovalMode('allow'))) return
-                    await client().call('approval.resolve', { approvalId: approval.id, decision: 'allowed' })
-                  })().catch(report)
-                }}
-              >
-                <ShieldCheck size={14} />
-                允许并记住
-              </button>
-            </div>
-          </HbarAppUiSpotlight>
+          <HbarAppUiApprovalRequest
+            key={approval.id}
+            title="批准工具调用"
+            tool={approval.tool}
+            summary={approvalSummary(approval.tool, approval.args)}
+            details={JSON.stringify(approval.args, null, 2)}
+            detailsLabel="查看参数"
+            statusLabel="需要决定"
+            denyLabel="拒绝"
+            allowLabel="批准"
+            allowAlwaysLabel="允许并记住"
+            savingLabel="正在提交"
+            completeLabel="已提交"
+            onDecision={async (decision) => {
+              if (decision === 'allow_always' && !(await setApprovalMode('allow')))
+                throw new Error('无法保存允许规则')
+              await client().call('approval.resolve', {
+                approvalId: approval.id,
+                decision: decision === 'deny' ? 'denied' : 'allowed',
+              })
+            }}
+          />
         ))}
         {queued.length > 0 && (
           <div className="queue-strip">

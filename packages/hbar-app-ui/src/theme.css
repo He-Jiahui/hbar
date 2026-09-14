@@ -4132,3 +4132,121 @@
         text-align: left;
     }
 }
+
+/* Data-driven approval surface used by host applications with real policy decisions. */
+.hbar-app-ui-approval-request {
+    display: grid;
+    min-width: 0;
+    gap: 9px;
+    margin-bottom: 9px;
+    padding: 11px;
+    border: 1px solid color-mix(in srgb, var(--hbar-app-ui-warning) 56%, var(--hbar-app-ui-border));
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: color-mix(in srgb, var(--hbar-app-ui-warning) 10%, var(--hbar-app-ui-surface-1));
+}
+
+.hbar-app-ui-approval-request-heading {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.hbar-app-ui-approval-request-heading > svg {
+    color: var(--hbar-app-ui-warning);
+}
+
+.hbar-app-ui-approval-request-heading > div {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.hbar-app-ui-approval-request-heading strong {
+    font-size: 12px;
+}
+
+.hbar-app-ui-approval-request-heading code {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--hbar-app-ui-muted);
+    font: 10px var(--hbar-app-ui-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-approval-request-target {
+    display: grid;
+    gap: 7px;
+    padding: 9px;
+    border: 1px solid color-mix(in srgb, var(--hbar-app-ui-warning) 28%, var(--hbar-app-ui-border));
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-0);
+}
+
+.hbar-app-ui-approval-request-target > strong {
+    overflow-wrap: anywhere;
+    color: var(--hbar-app-ui-text);
+    font: 11px/1.5 var(--hbar-app-ui-mono);
+}
+
+.hbar-app-ui-approval-request-target details {
+    border-top: 1px solid var(--hbar-app-ui-border);
+    padding-top: 7px;
+}
+
+.hbar-app-ui-approval-request-target summary {
+    cursor: pointer;
+    color: var(--hbar-app-ui-warning);
+    font-size: 10px;
+}
+
+.hbar-app-ui-approval-request-target pre {
+    max-height: 120px;
+    margin: 8px 0 0;
+    padding: 8px;
+    overflow: auto;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-2);
+    color: var(--hbar-app-ui-muted);
+    font: 10px/1.45 var(--hbar-app-ui-mono);
+    white-space: pre-wrap;
+}
+
+.hbar-app-ui-approval-request-feedback {
+    margin: 0;
+    padding: 7px 9px;
+    border: 1px solid color-mix(in srgb, var(--hbar-app-ui-danger) 55%, var(--hbar-app-ui-border));
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: color-mix(in srgb, var(--hbar-app-ui-danger) 10%, var(--hbar-app-ui-surface-1));
+    color: var(--hbar-app-ui-danger);
+    font-size: 11px;
+}
+
+.hbar-app-ui-approval-request-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.hbar-app-ui-spin {
+    animation: hbar-app-ui-spin 800ms linear infinite;
+}
+
+@media (max-width: 540px) {
+    .hbar-app-ui-approval-request-heading {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-approval-request-heading .hbar-app-ui-status {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .hbar-app-ui-approval-request-actions > button:last-child {
+        flex: 1 0 100%;
+    }
+}
