@@ -32,20 +32,27 @@ import {
   resetSessionCapabilities,
 } from './session-capabilities'
 
+export type WorkbenchLocale = 'zh-CN' | 'en-US'
+
 export const useConnection = create<{
   client: HbarClient | null
   status: ConnectionStatus
   host: HostInfo | null
   error: string
   url: string
-}>(() => ({ client: null, status: 'disconnected', host: null, error: '', url: location.origin }))
+}>(() => ({
+  client: null,
+  status: 'disconnected',
+  host: null,
+  error: '',
+  url: typeof location === 'undefined' ? '' : location.origin,
+}))
 export const useCatalog = create<{ data: Bootstrap | null }>(() => ({ data: null }))
 type RunCancellationError = {
   readonly sessionId: string
   readonly runId: string
   readonly message: string
 }
-
 interface SessionsState {
   snapshots: Record<string, SessionSnapshot>
   loading: Set<string>
@@ -71,12 +78,22 @@ interface WorkbenchState {
   panel: 'sessions' | 'files'
   toolPanel: string
   theme: 'dark' | 'light' | 'white'
+  locale: WorkbenchLocale
   layout: unknown
   sidebarWidth: number
 }
 
 function isTheme(value: unknown): value is WorkbenchState['theme'] {
   return value === 'dark' || value === 'light' || value === 'white'
+}
+
+function isLocale(value: unknown): value is WorkbenchLocale {
+  return value === 'zh-CN' || value === 'en-US'
+}
+
+function initialLocale(): WorkbenchLocale {
+  if (typeof document !== 'undefined' && document.documentElement.lang.toLocaleLowerCase().startsWith('en')) return 'en-US'
+  return 'zh-CN'
 }
 
 const defaultWorkbenchState: WorkbenchState = {
@@ -91,6 +108,7 @@ const defaultWorkbenchState: WorkbenchState = {
   panel: 'sessions',
   toolPanel: '',
   theme: 'dark',
+  locale: initialLocale(),
   layout: null,
   sidebarWidth: 272,
 }
@@ -104,7 +122,7 @@ export const useWorkbench = create(
     () => defaultWorkbenchState,
     {
       name: 'hbar.workbench.v1',
-      version: 4,
+      version: 5,
       migrate: (persisted): WorkbenchState => {
         const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
         return {
@@ -115,6 +133,7 @@ export const useWorkbench = create(
           thinkingByModel: normalizeThinkingMap(value.thinkingByModel),
           approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
           theme: isTheme(value.theme) ? value.theme : 'dark',
+          locale: isLocale(value.locale) ? value.locale : 'zh-CN',
           sidebarWidth: normalizeSidebarWidth(value.sidebarWidth),
         }
       },

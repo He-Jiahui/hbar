@@ -44,6 +44,7 @@ import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 import { HbarAppUiApprovalRequest, HbarAppUiQuestionnaire, HbarAppUiSpotlight } from 'hbar-app-ui'
+import { useLocale } from './locale'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -182,6 +183,7 @@ export default function Chat({
   onSettings(): void
   onTerminal?: () => void
 }) {
+  const { locale, t } = useLocale()
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
@@ -411,7 +413,7 @@ export default function Chat({
         </div>
         <span className="session-state">
           <i className={activeRun ? 'running' : ''} />
-          {activeRun ? (activeRun.status === 'waiting_approval' ? '等待批准' : '运行中') : '就绪'}
+          {activeRun ? (activeRun.status === 'waiting_approval' ? t('waitingApproval') : t('running')) : t('ready')}
         </span>
       </div>
       {snapshot?.hasOlder && (
@@ -523,16 +525,19 @@ export default function Chat({
           <HbarAppUiQuestionnaire
             key={request.requestId}
             requestId={request.requestId}
-            title="需要你的回答"
-            countLabel={(count) => `${count} 个问题`}
-            customAnswerLabel="其他"
-            customAnswerPlaceholder="填写其他答案"
-            freeformLabel="填写答案"
-            submitLabel="提交回答"
-            submittingLabel="正在提交"
-            submittedLabel="已提交"
-            incompleteMessage="请回答所有问题"
-            rejectedMessage="问题已由其他客户端处理或已取消"
+            labels={{
+              title: t('chatUserInputRequired'),
+              countLabel: (count) => `${count} ${t('chatQuestionsCount')}`,
+              customAnswerLabel: t('chatOther'),
+              customAnswerPlaceholder: t('chatFillOtherAnswer'),
+              freeformLabel: t('chatFillAnswer'),
+              submitLabel: t('chatSubmitAnswers'),
+              submittingLabel: t('saving'),
+              submittedLabel: t('saved'),
+              incompleteMessage: t('chatAnswerAllQuestions'),
+              rejectedMessage: t('chatInputHandled'),
+              failureMessage: t('chatSubmitFailed'),
+            }}
             questions={request.questions.map((question) => ({
               id: question.id,
               header: question.header,
@@ -550,24 +555,27 @@ export default function Chat({
                 requestId: request.requestId,
                 answers: Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, {answers: [answer]}])),
               })
-              return result.accepted ? {accepted: true} : {accepted: false, error: '问题已由其他客户端处理或已取消'}
+              return result.accepted ? {accepted: true} : {accepted: false, error: t('chatInputHandled')}
             }}
           />
         ))}
         {snapshot?.approvals.map((approval) => (
           <HbarAppUiApprovalRequest
             key={approval.id}
-            title="批准工具调用"
             tool={approval.tool}
             summary={approvalSummary(approval.tool, approval.args)}
             details={JSON.stringify(approval.args, null, 2)}
-            detailsLabel="查看参数"
-            statusLabel="需要决定"
-            denyLabel="拒绝"
-            allowLabel="批准"
-            allowAlwaysLabel="允许并记住"
-            savingLabel="正在提交"
-            completeLabel="已提交"
+            labels={{
+              title: t('chatApproveTool'),
+              detailsLabel: t('chatViewRequest'),
+              statusLabel: t('approvalPending'),
+              denyLabel: t('chatDeny'),
+              allowLabel: t('chatApprove'),
+              allowAlwaysLabel: t('chatAllowRemember'),
+              savingLabel: t('saving'),
+              completeLabel: t('saved'),
+              failureMessage: t('approvalSubmitFailed'),
+            }}
             onDecision={async (decision) => {
               if (decision === 'allow_always' && !(await setApprovalMode('allow')))
                 throw new Error('无法保存允许规则')
@@ -717,8 +725,8 @@ export default function Chat({
             {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}
             {capabilityState?.budget && (
               <em title="当前会话 token 预算">
-                预算 {capabilityState.budget.remainingTokens.toLocaleString()} /{' '}
-                {capabilityState.budget.limit.toLocaleString()}
+                预算 {capabilityState.budget.remainingTokens.toLocaleString(locale)} /{' '}
+                {capabilityState.budget.limit.toLocaleString(locale)}
               </em>
             )}
             <small>
@@ -726,7 +734,7 @@ export default function Chat({
               {modelThinkingLabel(thinkingLevel)}
             </small>
           </span>
-          <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString() : 0} tokens</span>
+          <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString(locale) : 0} tokens</span>
         </div>
       </div>
       {capabilityDialog && sessionId && (

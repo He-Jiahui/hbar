@@ -61,6 +61,7 @@ import {
   HbarAppUiTabs,
   type HbarAppUiRunActivityItem,
 } from 'hbar-app-ui'
+import { useLocale, type LocaleMessageKey } from './locale'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -396,32 +397,35 @@ function FileViewer({ path, workspaceId }: { path: string; workspaceId: string }
   )
 }
 
-const runStatusLabels: Readonly<Record<Run['status'], string>> = {
-  queued: '排队中',
-  running: '运行中',
-  waiting_approval: '等待批准',
-  completed: '已完成',
-  cancelled: '已取消',
-  failed: '失败',
-  interrupted: '已中断',
+const runStatusMessageKeys: Readonly<Record<Run['status'], LocaleMessageKey>> = {
+  queued: 'queuedStatus',
+  running: 'running',
+  waiting_approval: 'waitingApprovalStatus',
+  completed: 'completed',
+  cancelled: 'cancelledStatus',
+  failed: 'failed',
+  interrupted: 'interruptedStatus',
 }
 
-function formatRunDuration(run: Run): string | undefined {
+function formatRunDuration(run: Run, locale: string): string | undefined {
   if (run.startedAt === null || run.endedAt === null) return undefined
   const seconds = Math.max(0, Math.round((run.endedAt - run.startedAt) / 1000))
-  if (seconds < 60) return `${seconds} 秒`
-  return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
+  if (locale.toLocaleLowerCase().startsWith('zh')) {
+    if (seconds < 60) return `${seconds} 秒`
+    return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
+  }
+  if (seconds < 60) return `${seconds}s`
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
 
-function toRunActivityItem(run: Run): HbarAppUiRunActivityItem {
-  const createdAt = new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function toRunActivityItem(run: Run, locale: string, t: (key: LocaleMessageKey) => string): HbarAppUiRunActivityItem {
+  const createdAt = new Date(run.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   return {
     id: run.id,
-    label: run.input.text.slice(0, 65) || '图片消息',
+    label: run.input.text.slice(0, 65) || t('imageMessage'),
     status: run.status,
-    statusLabel: runStatusLabels[run.status],
     detail: run.error ? `${createdAt} · ${run.error}` : createdAt,
-    duration: formatRunDuration(run),
+    duration: formatRunDuration(run, locale),
   }
 }
 
@@ -433,6 +437,7 @@ function ActivityPanel() {
   const [mode, setMode] = useState<'activity' | 'trace'>('activity'),
     [events, setEvents] = useState<SessionEvent[]>([]),
     [detail, setDetail] = useState<SessionEvent | null>(null)
+  const { locale, t } = useLocale()
   const cursor = snapshot?.cursor
   useEffect(() => {
     if (mode !== 'trace' || cursor === undefined) return
@@ -451,34 +456,37 @@ function ActivityPanel() {
   return (
     <div className="activity-panel">
       <HbarAppUiTabs
-        label="活动视图"
+        label={t('activityView')}
         value={mode}
-        options={[{ id: 'activity', label: '运行' }, { id: 'trace', label: '事件' }]}
+        options={[{ id: 'activity', label: t('run') }, { id: 'trace', label: t('events') }]}
         onChange={(value) => setMode(value as 'activity' | 'trace')}
       />
       {mode === 'activity' ? (
         <>
           <div className="activity-heading">
-            <h2>当前会话</h2>
+            <h2>{t('sessionView')}</h2>
           </div>
           <HbarAppUiMetricStrip
             metrics={[
-              { label: '输入 tokens', value: (usage?.input ?? 0).toLocaleString() },
-              { label: '输出 tokens', value: (usage?.output ?? 0).toLocaleString() },
-              { label: '缓存读取', value: (usage?.cacheRead ?? 0).toLocaleString() },
-              { label: '费用', value: `$${(usage?.cost ?? 0).toFixed(4)}` },
+              { label: t('inputTokens'), value: (usage?.input ?? 0).toLocaleString(locale) },
+              { label: t('outputTokens'), value: (usage?.output ?? 0).toLocaleString(locale) },
+              { label: t('cacheRead'), value: (usage?.cacheRead ?? 0).toLocaleString(locale) },
+              { label: t('cost'), value: `$${(usage?.cost ?? 0).toFixed(4)}` },
             ]}
           />
           <HbarAppUiRunActivity
-            title="运行记录"
-            emptyTitle="尚无运行记录"
-            emptyDescription="当前会话还没有可查看的运行历史。"
-            runs={snapshot?.runs.map(toRunActivityItem) ?? []}
+            labels={{
+              title: t('runHistory'),
+              emptyTitle: t('noRunHistory'),
+              emptyDescription: t('runHistoryHint'),
+              cancelLabel: t('stopRun'),
+              cancellingLabel: t('stopping'),
+              countLabel: (count) => `${count} ${locale === 'en-US' && count === 1 ? t('run') : t('runCount')}`,
+              statusLabel: (status) => t(runStatusMessageKeys[status]),
+            }}
+            runs={snapshot?.runs.map((run) => toRunActivityItem(run, locale, t)) ?? []}
             cancellingRunIds={cancellingRunIds}
             feedback={cancellationError?.sessionId === sessionId ? cancellationError.message : undefined}
-            cancelLabel="停止此运行"
-            cancellingLabel="正在停止"
-            countLabel={(count) => `${count} 个运行`}
             onCancelRun={(runId) => {
               void cancelSessionRun(sessionId, runId).catch(report)
             }}
@@ -491,7 +499,7 @@ function ActivityPanel() {
               <button key={event.eventId} onClick={() => setDetail(event)}>
                 <span className="event-seq">{event.seq}</span>
                 <code>{event.type}</code>
-                <time>{new Date(event.time).toLocaleTimeString()}</time>
+                <time>{new Date(event.time).toLocaleTimeString(locale)}</time>
               </button>
             ))}
           </div>
@@ -534,7 +542,8 @@ export default function App() {
     theme = useWorkbench((state) => state.theme),
     modelId = useWorkbench((state) => state.modelId),
     toolPanel = useWorkbench((state) => state.toolPanel),
-    sidebarWidth = useWorkbench((state) => state.sidebarWidth)
+    sidebarWidth = useWorkbench((state) => state.sidebarWidth),
+    locale = useWorkbench((state) => state.locale)
   const notice = useNotice((state) => state.error)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
@@ -560,6 +569,9 @@ export default function App() {
     document.documentElement.dataset.theme = theme === 'white' ? 'white' : theme === 'light' ? 'dsh-light' : 'dsh-dark'
     document.documentElement.dataset.hbarAppUiTheme = theme === 'dark' ? 'dark' : 'light'
   }, [theme])
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
   useEffect(() => {
     const onResize = () => setSmall(window.innerWidth < 900)
     window.addEventListener('resize', onResize)
