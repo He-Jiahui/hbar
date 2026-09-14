@@ -1,0 +1,1367 @@
+/* Notification surfaces use document flow. The only coordinate relationship in
+ * this file is the bell menu, which is anchored to its trigger by the preview. */
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface {
+    display: flex !important;
+    min-block-size: 100%;
+    flex-direction: column;
+    gap: 0;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: #0a0a0a;
+    color: #f5f5f5;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-notifications-surface :where(h1, h2, p, ul, dl) {
+    margin: 0;
+}
+
+.hbar-app-ui-notifications-surface :where(button) {
+    font: inherit;
+}
+
+.hbar-app-ui-notifications-surface :where(button:focus-visible, [role='switch']:focus-visible) {
+    outline: 2px solid #f5f5f5;
+    outline-offset: 2px;
+}
+
+.hbar-app-ui-notifications-page-header,
+.hbar-app-ui-notifications-activity-header,
+.hbar-app-ui-notifications-system-header,
+.hbar-app-ui-notifications-app-header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #262626;
+}
+
+.hbar-app-ui-notifications-page-header h1,
+.hbar-app-ui-notifications-activity-header h1,
+.hbar-app-ui-notifications-system-header h1 {
+    display: inline-flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .5rem;
+    color: #f5f5f5;
+    font-size: .9375rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.hbar-app-ui-notifications-page-header h1 span {
+    display: inline-flex;
+    min-inline-size: 1.25rem;
+    min-block-size: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: .35rem;
+    background: #f5f5f5;
+    color: #111;
+    font-size: .6875rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.hbar-app-ui-notifications-mark-all,
+.hbar-app-ui-notifications-back,
+.hbar-app-ui-notifications-open-console,
+.hbar-app-ui-notifications-details-toggle,
+.hbar-app-ui-notifications-settings,
+.hbar-app-ui-notifications-bell-trigger,
+.hbar-app-ui-notifications-app-header nav button {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    border: 1px solid #262626;
+    border-radius: .5rem;
+    background: transparent;
+    color: #d4d4d4;
+    cursor: pointer;
+}
+
+.hbar-app-ui-notifications-mark-all,
+.hbar-app-ui-notifications-back,
+.hbar-app-ui-notifications-open-console {
+    min-block-size: 2rem;
+    padding: .375rem .625rem;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-mark-all:hover,
+.hbar-app-ui-notifications-back:hover,
+.hbar-app-ui-notifications-open-console:hover,
+.hbar-app-ui-notifications-details-toggle:hover,
+.hbar-app-ui-notifications-settings:hover,
+.hbar-app-ui-notifications-bell-trigger:hover,
+.hbar-app-ui-notifications-app-header nav button:hover,
+.hbar-app-ui-notifications-app-header nav button.is-selected {
+    border-color: #444;
+    color: #fff;
+}
+
+.hbar-app-ui-notifications-center-main {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: .9rem;
+    padding: 1rem 1.25rem 1.5rem;
+}
+
+.hbar-app-ui-notifications-tabs {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: .15rem;
+    padding: .2rem;
+    border: 1px solid #292929;
+    border-radius: .55rem;
+}
+
+.hbar-app-ui-notifications-tabs button {
+    display: inline-flex;
+    min-block-size: 1.75rem;
+    align-items: center;
+    gap: .35rem;
+    border: 1px solid transparent;
+    border-radius: .35rem;
+    padding: .25rem .55rem;
+    background: transparent;
+    color: #9e9e9e;
+    cursor: pointer;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-tabs button small {
+    color: #777;
+    font-size: .6875rem;
+}
+
+.hbar-app-ui-notifications-tabs button.is-selected,
+.hbar-app-ui-notifications-tabs button:hover {
+    border-color: #343434;
+    background: #171717;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-notifications-feed {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow: auto;
+}
+
+.hbar-app-ui-notifications-feed section {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+}
+
+.hbar-app-ui-notifications-feed h2 {
+    padding-inline: .25rem;
+    color: #777;
+    font-size: .6875rem;
+    font-weight: 500;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-notifications-feed ul,
+.hbar-app-ui-notifications-activity-layout nav ul,
+.hbar-app-ui-notifications-toast-list ul,
+.hbar-app-ui-notifications-bell-popover ul {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-notifications-feed li {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: start;
+    gap: .9rem;
+    padding: .65rem .75rem;
+    border-radius: .55rem;
+}
+
+.hbar-app-ui-notifications-feed li:hover,
+.hbar-app-ui-notifications-feed li:focus-within {
+    background: #111;
+}
+
+.hbar-app-ui-notifications-entry-icon,
+.hbar-app-ui-notifications-activity-icon {
+    display: inline-flex;
+    min-inline-size: 1.75rem;
+    min-block-size: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #303030;
+    border-radius: .45rem;
+    background: #111;
+    color: #d8d8d8;
+}
+
+.hbar-app-ui-notifications-feed li.is-unread .hbar-app-ui-notifications-entry-icon {
+    border-color: #e7e7e7;
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-notifications-entry-copy {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .15rem;
+}
+
+.hbar-app-ui-notifications-entry-copy p {
+    min-inline-size: 0;
+    color: #bdbdbd;
+    font-size: .8125rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-notifications-entry-copy p strong {
+    color: #f5f5f5;
+    font-weight: 600;
+}
+
+.hbar-app-ui-notifications-entry-copy small,
+.hbar-app-ui-notifications-feed time {
+    color: #9a9a9a;
+    font-size: .8125rem;
+    line-height: 1.45;
+}
+
+.hbar-app-ui-notifications-feed time {
+    align-self: start;
+    justify-self: end;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-notifications-entry-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .15rem;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.hbar-app-ui-notifications-feed li:hover .hbar-app-ui-notifications-entry-actions,
+.hbar-app-ui-notifications-feed li:focus-within .hbar-app-ui-notifications-entry-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.hbar-app-ui-notifications-button,
+.hbar-app-ui-notifications-icon-button {
+    display: inline-flex;
+    min-block-size: 2rem;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    border: 1px solid #303030;
+    border-radius: .5rem;
+    padding: .375rem .625rem;
+    background: #111;
+    color: #e4e4e4;
+    cursor: pointer;
+    font-size: .8125rem;
+    line-height: 1.25;
+}
+
+.hbar-app-ui-notifications-button:hover:not(:disabled),
+.hbar-app-ui-notifications-icon-button:hover:not(:disabled) {
+    border-color: #565656;
+    background: #1a1a1a;
+}
+
+.hbar-app-ui-notifications-button-light {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-notifications-button-light:hover:not(:disabled) {
+    border-color: #fff;
+    background: #fff;
+}
+
+.hbar-app-ui-notifications-button:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+.hbar-app-ui-notifications-icon-button {
+    min-inline-size: 2rem;
+    padding: .375rem;
+}
+
+.hbar-app-ui-notifications-toasts {
+    align-items: center;
+    justify-content: center;
+}
+
+.hbar-app-ui-notifications-toast-demo {
+    display: flex;
+    inline-size: min(100%, 26rem);
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid #353535;
+    border-radius: .8rem;
+    background: #191919;
+    box-shadow: 0 1rem 2.75rem rgb(0 0 0 / 30%);
+}
+
+.hbar-app-ui-notifications-toast-demo header {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+}
+
+.hbar-app-ui-notifications-toast-demo h1,
+.hbar-app-ui-notifications-preferences-header h1 {
+    color: #f5f5f5;
+    font-size: .9375rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-notifications-toast-demo header p,
+.hbar-app-ui-notifications-preferences-header p,
+.hbar-app-ui-notifications-system-header p {
+    color: #a7a7a7;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-notifications-toast-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem;
+}
+
+.hbar-app-ui-notifications-toast-choices .hbar-app-ui-notifications-button {
+    background: #090909;
+}
+
+.hbar-app-ui-notifications-toast-choices .hbar-app-ui-notifications-button:first-child svg {
+    color: #00c98d;
+}
+
+.hbar-app-ui-notifications-toast-choices .hbar-app-ui-notifications-button:nth-child(2) svg {
+    color: #ff6969;
+}
+
+.hbar-app-ui-notifications-toast-choices .hbar-app-ui-notifications-button:nth-child(3) svg {
+    color: #aaa;
+}
+
+.hbar-app-ui-notifications-toast-choices .hbar-app-ui-notifications-button:nth-child(4) svg {
+    color: #bbb;
+}
+
+.hbar-app-ui-notifications-toast-list {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+}
+
+.hbar-app-ui-notifications-toast-list li,
+.hbar-app-ui-notifications-no-toasts {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .65rem;
+    padding: .6rem .7rem;
+    border: 1px solid #303030;
+    border-radius: .45rem;
+    background: #090909;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-notifications-toast-list li > span {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: .1rem;
+}
+
+.hbar-app-ui-notifications-toast-list li small {
+    color: #909090;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-notifications-toast-list li.is-success > svg {
+    color: #00c98d;
+}
+
+.hbar-app-ui-notifications-toast-list li.is-error > svg {
+    color: #ff6969;
+}
+
+.hbar-app-ui-notifications-toast-list li.is-info > svg {
+    color: #aaa;
+}
+
+.hbar-app-ui-notifications-toast-list li.is-progress > svg {
+    color: #bbb;
+}
+
+.hbar-app-ui-notifications-no-toasts {
+    justify-content: space-between;
+    color: #d0d0d0;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-no-toasts button {
+    border: 0;
+    background: transparent;
+    color: #777;
+    cursor: not-allowed;
+    font: inherit;
+}
+
+.hbar-app-ui-notifications-preferences {
+    min-block-size: 100%;
+}
+
+.hbar-app-ui-notifications-preferences-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .35rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #292929;
+}
+
+.hbar-app-ui-notifications-preferences-main {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.hbar-app-ui-notifications-preferences-scroll {
+    min-block-size: 0;
+    flex: 1;
+    overflow: auto;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.hbar-app-ui-notifications-preferences table {
+    inline-size: 100%;
+    min-inline-size: 36rem;
+    border-collapse: separate;
+    border-spacing: 0 .2rem;
+    color: #d0d0d0;
+    font-size: .8125rem;
+    table-layout: fixed;
+}
+
+.hbar-app-ui-notifications-preferences thead th {
+    padding: 0 .35rem .45rem;
+    color: #777;
+    font-size: .75rem;
+    font-weight: 500;
+    letter-spacing: .06em;
+    text-align: right;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-notifications-preferences thead th:first-child {
+    inline-size: 64%;
+    text-align: left;
+}
+
+.hbar-app-ui-notifications-preferences thead th:not(:first-child) {
+    display: table-cell;
+}
+
+.hbar-app-ui-notifications-preferences thead th svg {
+    margin-inline-end: .3rem;
+    vertical-align: -.15rem;
+}
+
+.hbar-app-ui-notifications-preferences tbody th,
+.hbar-app-ui-notifications-preferences tbody td {
+    padding: .55rem .35rem;
+    text-align: right;
+    vertical-align: middle;
+}
+
+.hbar-app-ui-notifications-preferences tbody th {
+    text-align: left;
+}
+
+.hbar-app-ui-notifications-preferences tbody th strong,
+.hbar-app-ui-notifications-preferences tbody th small {
+    display: block;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-notifications-preferences tbody th strong {
+    color: #f1f1f1;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-notifications-preferences tbody th small {
+    margin-block-start: .12rem;
+    color: #9a9a9a;
+    font-size: .8125rem;
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+.hbar-app-ui-notifications-preference-group th,
+.hbar-app-ui-notifications-preference-group td {
+    background: #1a1a1a;
+    color: #eee;
+}
+
+.hbar-app-ui-notifications-preference-group th {
+    border-radius: .45rem 0 0 .45rem;
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-notifications-preference-group td:last-child {
+    border-radius: 0 .45rem .45rem 0;
+}
+
+.hbar-app-ui-notifications-toggle {
+    display: inline-flex;
+    inline-size: 2.25rem;
+    block-size: 1.25rem;
+    align-items: center;
+    border: 2px solid #454545;
+    border-radius: 999px;
+    padding: .1rem;
+    background: #292929;
+    cursor: pointer;
+}
+
+.hbar-app-ui-notifications-toggle span {
+    inline-size: .85rem;
+    block-size: .85rem;
+    border-radius: 50%;
+    background: #777;
+    transition: transform 150ms ease, background 150ms ease;
+}
+
+.hbar-app-ui-notifications-toggle.is-on {
+    justify-content: flex-end;
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+}
+
+.hbar-app-ui-notifications-toggle.is-on span {
+    background: #111;
+}
+
+.hbar-app-ui-notifications-quiet-hours {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1rem;
+    padding-block: 1.25rem .4rem;
+}
+
+.hbar-app-ui-notifications-quiet-hours > div:first-child {
+    min-inline-size: 0;
+    flex: 1 1 16rem;
+}
+
+.hbar-app-ui-notifications-quiet-hours h2 {
+    color: #f2f2f2;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-notifications-quiet-hours p {
+    margin-block-start: .2rem;
+    color: #9a9a9a;
+    font-size: .8125rem;
+    line-height: 1.45;
+}
+
+.hbar-app-ui-notifications-quiet-days {
+    display: inline-flex;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: .3rem;
+}
+
+.hbar-app-ui-notifications-quiet-days button {
+    min-block-size: 1.75rem;
+    border: 1px solid #303030;
+    border-radius: .4rem;
+    padding: .2rem .45rem;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-notifications-quiet-days button.is-selected,
+.hbar-app-ui-notifications-quiet-days button:hover {
+    border-color: #f5f5f5;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-notifications-save-bar {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .75rem 1.25rem;
+    border-top: 1px solid #292929;
+    background: #0d0d0d;
+    color: #a7a7a7;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-save-bar > div {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.hbar-app-ui-notifications-activity {
+    min-block-size: 100%;
+}
+
+.hbar-app-ui-notifications-activity-header {
+    padding-block: 1rem;
+}
+
+.hbar-app-ui-notifications-activity-layout {
+    display: grid;
+    min-block-size: 0;
+    flex: 1;
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+}
+
+.hbar-app-ui-notifications-activity-layout nav {
+    min-inline-size: 0;
+    overflow: auto;
+    padding: .65rem;
+    border-inline-end: 1px solid #292929;
+}
+
+.hbar-app-ui-notifications-activity-layout nav button {
+    display: flex;
+    min-inline-size: 0;
+    align-items: flex-start;
+    gap: .65rem;
+    inline-size: 100%;
+    border: 1px solid transparent;
+    border-radius: .55rem;
+    padding: .65rem;
+    background: transparent;
+    color: #ddd;
+    cursor: pointer;
+    text-align: left;
+}
+
+.hbar-app-ui-notifications-activity-layout nav button:hover,
+.hbar-app-ui-notifications-activity-layout nav button.is-selected {
+    border-color: #313131;
+    background: #191919;
+}
+
+.hbar-app-ui-notifications-activity-layout nav button > span:last-child {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: .18rem;
+}
+
+.hbar-app-ui-notifications-activity-layout nav button > span:last-child > span {
+    display: flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.hbar-app-ui-notifications-activity-layout nav strong {
+    min-inline-size: 0;
+    overflow: hidden;
+    color: #f2f2f2;
+    font-size: .8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-notifications-activity-layout nav time,
+.hbar-app-ui-notifications-activity-layout nav small {
+    color: #8e8e8e;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-activity-layout nav small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-notifications-activity-detail {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: auto;
+    padding: 1.25rem;
+}
+
+.hbar-app-ui-notifications-activity-detail > header {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.hbar-app-ui-notifications-activity-detail > header p {
+    color: #a7a7a7;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-activity-detail > header p strong {
+    color: #f2f2f2;
+}
+
+.hbar-app-ui-notifications-activity-detail h2 {
+    color: #f5f5f5;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-notifications-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.hbar-app-ui-notifications-detail-copy {
+    max-inline-size: 46rem;
+    color: #b1b1b1;
+    font-size: .8125rem;
+    line-height: 1.6;
+}
+
+.hbar-app-ui-notifications-detail-facts {
+    display: grid;
+    max-inline-size: 54rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid #303030;
+    border-radius: .75rem;
+    overflow: hidden;
+}
+
+.hbar-app-ui-notifications-detail-facts > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .9rem 1rem;
+    background: #191919;
+}
+
+.hbar-app-ui-notifications-detail-facts > div:nth-child(odd) {
+    border-inline-end: 1px solid #303030;
+}
+
+.hbar-app-ui-notifications-detail-facts > div:nth-child(n + 3) {
+    border-block-start: 1px solid #303030;
+}
+
+.hbar-app-ui-notifications-detail-facts dt {
+    color: #999;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-detail-facts dd {
+    margin: 0;
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-notifications-system {
+    min-block-size: 100%;
+}
+
+.hbar-app-ui-notifications-system-header {
+    align-items: flex-start;
+}
+
+.hbar-app-ui-notifications-system-header > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .3rem;
+}
+
+.hbar-app-ui-notifications-system-list {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: .75rem;
+    overflow: auto;
+    padding: 1.25rem;
+}
+
+.hbar-app-ui-notifications-system-message {
+    display: flex;
+    min-inline-size: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #303030;
+    border-radius: .75rem;
+    background: #191919;
+}
+
+.hbar-app-ui-notifications-system-message-main {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1;
+    align-items: flex-start;
+    gap: .75rem;
+}
+
+.hbar-app-ui-notifications-system-message-main > div:last-child {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.hbar-app-ui-notifications-system-icon {
+    display: inline-flex;
+    min-inline-size: 1.5rem;
+    min-block-size: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+}
+
+.hbar-app-ui-notifications-system-icon.is-warning {
+    color: #f0b400;
+}
+
+.hbar-app-ui-notifications-system-icon.is-danger {
+    color: #ff6969;
+}
+
+.hbar-app-ui-notifications-system-icon.is-success {
+    color: #00c98d;
+}
+
+.hbar-app-ui-notifications-system-message h2 {
+    color: #f2f2f2;
+    font-size: .8125rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.hbar-app-ui-notifications-system-message p {
+    max-inline-size: 44rem;
+    color: #b0b0b0;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-notifications-system-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.hbar-app-ui-notifications-details-toggle {
+    align-self: flex-start;
+    padding: .1rem 0;
+    border-color: transparent;
+    color: #d2d2d2;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-expanded-copy {
+    padding: .45rem .6rem;
+    border-inline-start: 2px solid #666;
+    color: #aaa !important;
+}
+
+.hbar-app-ui-notifications-usage-meter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .6rem;
+}
+
+.hbar-app-ui-notifications-usage-meter > span {
+    display: block;
+    inline-size: min(100%, 16rem);
+    block-size: .35rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #303030;
+}
+
+.hbar-app-ui-notifications-usage-meter i {
+    display: block;
+    block-size: 100%;
+    border-radius: inherit;
+    background: #e3b568;
+}
+
+.hbar-app-ui-notifications-usage-meter small {
+    color: #a5a5a5;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-notifications-app-bar {
+    min-block-size: 100%;
+}
+
+.hbar-app-ui-notifications-app-header {
+    min-block-size: 3.5rem;
+    padding-block: .75rem;
+}
+
+.hbar-app-ui-notifications-brand,
+.hbar-app-ui-notifications-app-actions,
+.hbar-app-ui-notifications-app-header nav {
+    display: inline-flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .75rem;
+}
+
+.hbar-app-ui-notifications-brand span {
+    display: inline-flex;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: .4rem;
+    background: #f5f5f5;
+    color: #111;
+    font-size: .75rem;
+    font-weight: 700;
+}
+
+.hbar-app-ui-notifications-brand strong {
+    color: #f5f5f5;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-app-header nav {
+    gap: .15rem;
+}
+
+.hbar-app-ui-notifications-app-header nav button {
+    border-color: transparent;
+    padding: .4rem .6rem;
+    color: #888;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-notifications-bell-anchor {
+    position: relative;
+    display: inline-flex;
+}
+
+.hbar-app-ui-notifications-bell-trigger,
+.hbar-app-ui-notifications-settings {
+    inline-size: 2rem;
+    block-size: 2rem;
+    justify-content: center;
+    padding: .35rem;
+}
+
+.hbar-app-ui-notifications-bell-trigger {
+    border-color: transparent;
+}
+
+.hbar-app-ui-notifications-bell-trigger span {
+    display: inline-flex;
+    min-inline-size: 1rem;
+    min-block-size: 1rem;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+    margin-inline-start: -.45rem;
+    margin-block-start: -.45rem;
+    border-radius: 50%;
+    background: #f5f5f5;
+    color: #111;
+    font-size: .6rem;
+    font-weight: 700;
+}
+
+.hbar-app-ui-notifications-avatar {
+    display: inline-flex;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #292929;
+    border-radius: 50%;
+    color: #d0d0d0;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-dialog-menu.hbar-app-ui-notifications-bell-popover {
+    position: absolute;
+    z-index: 4;
+    inset-block-start: calc(100% + .5rem);
+    inset-inline-end: 0;
+    display: flex;
+    inline-size: min(90vw, 22rem);
+    max-block-size: 70vh;
+    flex-direction: column;
+    gap: .7rem;
+    overflow: auto;
+    padding: .7rem;
+    border: 1px solid #3b3b3b;
+    border-radius: .7rem;
+    background: #191919;
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 45%);
+}
+
+.hbar-app-ui-dialog-menu.hbar-app-ui-notifications-bell-popover > header,
+.hbar-app-ui-dialog-menu.hbar-app-ui-notifications-bell-popover > footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.hbar-app-ui-dialog-menu.hbar-app-ui-notifications-bell-popover h2 {
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-dialog-menu.hbar-app-ui-notifications-bell-popover li {
+    display: flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .6rem .45rem;
+    border-bottom: 1px solid #292929;
+}
+
+.hbar-app-ui-dialog-menu.hbar-app-ui-notifications-bell-popover li strong {
+    min-inline-size: 0;
+    color: #dedede;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-dialog-menu.hbar-app-ui-notifications-bell-popover li small {
+    color: #8d8d8d;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-notifications-bell-empty {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+}
+
+.hbar-app-ui-notifications-bell-empty p {
+    max-inline-size: 22rem;
+    color: #777;
+    font-size: .8125rem;
+    line-height: 1.6;
+    text-align: center;
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-notifications-page-header,
+    .hbar-app-ui-notifications-activity-header,
+    .hbar-app-ui-notifications-system-header,
+    .hbar-app-ui-notifications-app-header {
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-notifications-center-main {
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-notifications-feed li {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: .65rem;
+        padding-inline: .15rem;
+    }
+
+    .hbar-app-ui-notifications-entry-actions {
+        grid-column: 2 / -1;
+        justify-self: start;
+    }
+
+    .hbar-app-ui-notifications-feed time {
+        font-size: .6875rem;
+    }
+
+    .hbar-app-ui-notifications-preferences-scroll,
+    .hbar-app-ui-notifications-system-list {
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-notifications-activity-layout {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .hbar-app-ui-notifications-activity.is-detail-open .hbar-app-ui-notifications-activity-layout nav {
+        display: none;
+    }
+
+    .hbar-app-ui-notifications-activity.is-list-open .hbar-app-ui-notifications-activity-detail {
+        display: none;
+    }
+
+    .hbar-app-ui-notifications-activity-detail {
+        padding: 1rem;
+    }
+
+    .hbar-app-ui-notifications-detail-facts {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-notifications-detail-facts > div:nth-child(odd) {
+        border-inline-end: 0;
+    }
+
+    .hbar-app-ui-notifications-detail-facts > div:nth-child(n + 2) {
+        border-block-start: 1px solid #303030;
+    }
+
+    .hbar-app-ui-notifications-detail-facts > div:nth-child(2) {
+        border-block-start: 1px solid #303030;
+    }
+
+    .hbar-app-ui-notifications-system-message {
+        padding: .9rem;
+    }
+
+    .hbar-app-ui-notifications-app-header nav {
+        display: none;
+    }
+
+    .hbar-app-ui-notifications-app-header {
+        justify-content: space-between;
+    }
+
+    .hbar-app-ui-notifications-bell-empty {
+        padding-inline: 1rem;
+    }
+}
+
+/* The package theme has broad defaults for unclassified buttons. Keep the
+ * notification controls on their own visual contract without changing that
+ * shared theme for other categories. */
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-button {
+    border: 1px solid #303030 !important;
+    border-radius: .5rem !important;
+    background: #111 !important;
+    color: #e4e4e4 !important;
+    cursor: pointer !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-size: .8125rem !important;
+    line-height: 1.25 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-button-light {
+    border-color: #f5f5f5 !important;
+    background: #f5f5f5 !important;
+    color: #111 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-button:disabled {
+    cursor: not-allowed !important;
+    opacity: .45;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-button:hover:not(:disabled) {
+    border-color: #565656 !important;
+    background: #1a1a1a !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-button-light:hover:not(:disabled) {
+    border-color: #fff !important;
+    background: #fff !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-toggle {
+    border: 2px solid #454545 !important;
+    border-radius: 999px !important;
+    background: #292929 !important;
+    color: #f5f5f5 !important;
+    cursor: pointer !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-toggle.is-on {
+    border-color: #f5f5f5 !important;
+    background: #f5f5f5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-quiet-days-button,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-quiet-days button {
+    border: 1px solid #303030 !important;
+    border-radius: .4rem !important;
+    background: transparent !important;
+    color: #999 !important;
+    cursor: pointer !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-quiet-days button.is-selected,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-quiet-days button:hover {
+    border-color: #f5f5f5 !important;
+    color: #f5f5f5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-tabs button {
+    border: 1px solid transparent !important;
+    border-radius: .35rem !important;
+    background: transparent !important;
+    color: #9e9e9e !important;
+    cursor: pointer !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-size: .8125rem !important;
+    line-height: 1.25 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-tabs button.is-selected,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-tabs button:hover {
+    border-color: #343434 !important;
+    background: #171717 !important;
+    color: #f5f5f5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-mark-all,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-back,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-open-console,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-details-toggle,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-settings,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-bell-trigger,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-app-header nav button {
+    border: 1px solid #262626 !important;
+    border-radius: .5rem !important;
+    background: transparent !important;
+    color: #d4d4d4 !important;
+    cursor: pointer !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-size: .8125rem !important;
+    line-height: 1.25 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-app-header nav button {
+    border-color: transparent !important;
+    font-size: .8125rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-entry-copy p,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-entry-copy small,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-feed time,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-toast-demo header p,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-preferences-header p,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-system-header p,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-system-message p,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-detail-copy,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-activity-detail > header p,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-activity-layout nav small,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-activity-layout nav time {
+    font-size: .8125rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-entry-copy small,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-feed time,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-activity-layout nav small,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-activity-layout nav time {
+    font-size: .75rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-mark-all,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-back,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-open-console {
+    align-self: flex-start;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface {
+    background: #0a0a0a !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-center .hbar-app-ui-notifications-feed section {
+    gap: .8rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-center .hbar-app-ui-notifications-feed ul {
+    gap: .45rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-center .hbar-app-ui-notifications-feed li {
+    padding-block: .8rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-activity .hbar-app-ui-notifications-activity-layout {
+    grid-template-columns: minmax(14rem, 19rem) minmax(0, 1fr);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-system .hbar-app-ui-notifications-system-message p {
+    max-inline-size: 32rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-app-bar {
+    justify-content: initial;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-app-bar .hbar-app-ui-notifications-brand {
+    margin-inline-end: .5rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-app-bar .hbar-app-ui-notifications-app-actions {
+    margin-inline-start: auto;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-mark-all:hover,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-back:hover,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-open-console:hover,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-details-toggle:hover,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-settings:hover,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-bell-trigger:hover,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-app-header nav button:hover,
+.hbar-app-ui-variant.hbar-app-ui-notifications-surface .hbar-app-ui-notifications-app-header nav button.is-selected {
+    border-color: #444 !important;
+    color: #fff !important;
+}

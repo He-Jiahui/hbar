@@ -155,6 +155,30 @@ describe('hbar-app-ui registry', () => {
     }
   })
 
+  test('keeps notification variants split by semantic surface and free of legacy naming', () => {
+    const markup = Array.from({ length: 6 }, (_, index) =>
+      renderToStaticMarkup(createElement(getHbarAppUiVariant('notifications', index + 1).component, {})),
+    )
+
+    expect(markup[0]).toContain('hbar-app-ui-notifications-feed')
+    expect(markup[0]).toContain('role="tablist"')
+    expect(markup[1]).toContain('hbar-app-ui-notifications-toast-choices')
+    expect(markup[1]).toContain('No active toasts')
+    expect(markup[2]).toContain('role="switch"')
+    expect(markup[2]).toContain('Notification delivery preferences')
+    expect(markup[3]).toContain('hbar-app-ui-notifications-activity-layout')
+    expect(markup[3]).toContain('Cedar Labs billing')
+    expect(markup[4]).toContain('hbar-app-ui-notifications-system-list')
+    expect(markup[4]).toContain('System messages')
+    expect(markup[5]).toContain('hbar-app-ui-notifications-bell-trigger')
+    expect(markup[5]).toContain('Open the bell to review recent activity')
+    expect(new Set(markup).size).toBe(6)
+    for (const surface of markup) {
+      expect(surface.toLocaleLowerCase()).not.toContain('react-bits')
+      expect(surface.toLocaleLowerCase()).not.toContain('reactbits')
+    }
+  })
+
   test('named components render a self-contained UI block without preview chrome', () => {
     const markup = renderToStaticMarkup(createElement(HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiAgentActivity01, {}))
     expect(markup).toContain('data-hbar-app-ui-component="hbar-app-ui-agent-activity-1"')
