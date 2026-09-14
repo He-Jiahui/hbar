@@ -88,6 +88,21 @@
 .hbar-app-ui-profile-controls { display: flex; flex-wrap: wrap; gap: 5px; }
 .hbar-app-ui-profile-controls .hbar-app-ui-button { min-height: 25px; padding: 4px 8px; border-color: var(--hbar-app-ui-border); font-size: 10px; }
 .hbar-app-ui-profile-controls .hbar-app-ui-button.is-active { border-color: var(--hbar-app-ui-accent); color: var(--hbar-app-ui-accent); }
+.hbar-app-ui-variant.hbar-app-ui-surface-stream { border-left: 3px solid var(--hbar-app-ui-accent); }
+.hbar-app-ui-variant.hbar-app-ui-surface-rail { border-top: 2px solid var(--hbar-app-ui-accent); }
+.hbar-app-ui-variant.hbar-app-ui-surface-split { grid-template-columns: minmax(0, 1fr); }
+.hbar-app-ui-variant.hbar-app-ui-surface-grid .hbar-app-ui-profile-controls { justify-content: flex-end; }
+.hbar-app-ui-variant.hbar-app-ui-surface-table .hbar-app-ui-profile-controls { border-bottom: 1px solid var(--hbar-app-ui-border); padding-bottom: 9px; }
+.hbar-app-ui-variant.hbar-app-ui-surface-overlay { background: color-mix(in srgb, var(--hbar-app-ui-surface-0) 92%, var(--hbar-app-ui-accent)); }
+.hbar-app-ui-variant.hbar-app-ui-surface-calendar { border-radius: var(--hbar-app-ui-radius-large); }
+.hbar-app-ui-variant.hbar-app-ui-visual-dense { gap: 9px; }
+.hbar-app-ui-variant.hbar-app-ui-visual-dense .hbar-app-ui-profile-controls { gap: 3px; }
+.hbar-app-ui-variant.hbar-app-ui-visual-airy { gap: 21px; padding: 22px; }
+.hbar-app-ui-variant.hbar-app-ui-visual-focus { box-shadow: inset 0 2px 0 var(--hbar-app-ui-accent); }
+.hbar-app-ui-variant.hbar-app-ui-visual-split > .hbar-app-ui-profile-meta { background: var(--hbar-app-ui-surface-1); border-radius: var(--hbar-app-ui-radius-small); padding: 7px 9px; }
+.hbar-app-ui-variant.hbar-app-ui-state-error { border-color: color-mix(in srgb, var(--hbar-app-ui-danger) 70%, var(--hbar-app-ui-border)); }
+.hbar-app-ui-variant.hbar-app-ui-state-review { border-color: color-mix(in srgb, var(--hbar-app-ui-warning) 65%, var(--hbar-app-ui-border)); }
+.hbar-app-ui-variant.hbar-app-ui-state-empty { background: color-mix(in srgb, var(--hbar-app-ui-surface-0) 96%, var(--hbar-app-ui-muted)); }
 .hbar-app-ui-activity-card { padding: 2px; }
 .hbar-app-ui-activity-heading { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px 0; color: var(--hbar-app-ui-muted); }
 .hbar-app-ui-activity-heading > div { display: flex; align-items: center; gap: 9px; }
