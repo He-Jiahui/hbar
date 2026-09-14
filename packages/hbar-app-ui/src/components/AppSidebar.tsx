@@ -1,5 +1,26 @@
 import {useState} from 'react'
-import {ChevronDown, ChevronRight, Folder, Menu, MoreHorizontal, Search, Settings2, Sparkles, Users} from 'lucide-react'
+import {
+    Activity,
+    BarChart3,
+    BriefcaseBusiness,
+    CalendarClock,
+    ChevronDown,
+    ChevronRight,
+    CreditCard,
+    Folder,
+    Grid2X2,
+    LayoutDashboard,
+    Menu,
+    MoreHorizontal,
+    Palette,
+    PanelLeftClose,
+    Search,
+    Settings,
+    Settings2,
+    Sparkles,
+    Users,
+    type LucideIcon
+} from 'lucide-react'
 import {
     HbarAppUiButton,
     HbarAppUiIconButton,
@@ -9,23 +30,70 @@ import {
 } from '../primitives'
 import type {HbarAppUiVariantProps} from '../types'
 import {ActionSurfaceFrame} from './SurfaceFrame'
+import './AppSidebarSurface.css'
 
 type SidebarProps = HbarAppUiVariantProps
 
+type SidebarGroup = readonly [string, readonly [string, number | undefined, LucideIcon][]]
+
+const primarySidebarGroups: readonly SidebarGroup[] = [
+    ['WORKSPACE', [
+        ['Command center', 8, Grid2X2],
+        ['Inbox', 12, BriefcaseBusiness],
+        ['Approvals', 5, CalendarClock],
+        ['Automations', undefined, Grid2X2],
+        ['Projects', undefined, BriefcaseBusiness],
+    ]],
+    ['INSIGHTS', [
+        ['Performance', undefined, LayoutDashboard],
+        ['Usage', undefined, BarChart3],
+        ['Activity log', undefined, Activity],
+    ]],
+    ['ACCOUNT', [
+        ['Members', undefined, Users],
+        ['Billing', undefined, CreditCard],
+        ['Settings', undefined, Settings],
+    ]],
+]
+
 function PrimarySidebar({spec, onAction}: SidebarProps) {
-    const [open, setOpen] = useState(true)
-    return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-sidebar-variant-1">
-        <aside className="hbar-app-ui-primary-sidebar">
-            <div className="hbar-app-ui-sidebar-title"><Sparkles
-                size={15}/><strong>Workspace</strong><HbarAppUiIconButton label="More workspace actions"><MoreHorizontal
-                size={14}/></HbarAppUiIconButton></div>
-            <button type="button" onClick={() => setOpen((value) => !value)}><ChevronDown size={13}
-                                                                                          className={open ? '' : 'is-collapsed'}/>Projects
-            </button>
-            {open && <nav><span className="is-active">Overview <small>⌘1</small></span><span>Sessions <small>12</small></span><span>Files</span><span>Members</span>
-            </nav>}
-            <footer><Users size={14}/>Avery Chen</footer>
+    const [collapsed, setCollapsed] = useState(false)
+    const [mobileOpen, setMobileOpen] = useState(false)
+    const [selected, setSelected] = useState('Command center')
+    const [subdued, setSubdued] = useState(false)
+    const selectItem = (item: string) => {
+        setSelected(item)
+        setMobileOpen(false)
+        onAction?.({variantId: spec.id, actionId: 'open', value: item})
+    }
+    return <ActionSurfaceFrame spec={spec} onAction={onAction}
+                               className={`hbar-app-ui-sidebar-variant-1${subdued ? ' is-subdued' : ''}`}>
+        <button type="button" className="hbar-app-ui-sidebar-mobile-trigger" aria-label="Open navigation" onClick={() => {
+            setMobileOpen(true)
+            onAction?.({variantId: spec.id, actionId: 'open', value: 'navigation'})
+        }}><Menu size={18}/></button>
+        <aside className={`hbar-app-ui-primary-sidebar${collapsed ? ' is-collapsed' : ''}${mobileOpen ? ' is-mobile-open' : ''}`}>
+            <header className="hbar-app-ui-primary-sidebar-header"><span>M</span><div><p>Meridian</p><small>Operations</small></div></header>
+            <nav>{primarySidebarGroups.map(([group, items]) => <section key={group}><p>{group}</p><ul>{items.map(([label, count, Icon]) => <li key={label}>
+                <button type="button" className={selected === label ? 'is-selected' : ''} onClick={() => selectItem(label)}><Icon size={15}/><span>{label}</span>{count !== undefined && <small>{count}</small>}</button>
+            </li>)}</ul></section>)}</nav>
+            <footer>
+                <button type="button" className="hbar-app-ui-sidebar-collapse" onClick={() => {
+                    setCollapsed((value) => !value)
+                    onAction?.({variantId: spec.id, actionId: 'collapse', value: collapsed ? 'expanded' : 'collapsed'})
+                }}><PanelLeftClose size={15}/><span>{collapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span></button>
+                <button type="button" className="hbar-app-ui-sidebar-profile" onClick={() => onAction?.({
+                    variantId: spec.id,
+                    actionId: 'open',
+                    value: 'profile'
+                })}><span>IR</span><span><b>Iris Renner</b><small>Operations lead</small></span><ChevronDown size={13}/></button>
+            </footer>
         </aside>
+        {mobileOpen && <button type="button" className="hbar-app-ui-sidebar-dismiss" aria-label="Close navigation" onClick={() => setMobileOpen(false)}/>}
+        <button type="button" className="hbar-app-ui-sidebar-theme-control" onClick={() => {
+            setSubdued((value) => !value)
+            onAction?.({variantId: spec.id, actionId: 'theme', value: subdued ? 'standard' : 'subdued'})
+        }}><Palette size={13}/>{subdued ? 'Standard' : 'Theme'}</button>
     </ActionSurfaceFrame>
 }
 
@@ -142,13 +210,15 @@ function FullSidebarShell({spec, onAction}: SidebarProps) {
         <div className="hbar-app-ui-full-sidebar-shell">
             <aside>
                 <div className="hbar-app-ui-sidebar-title"><Sparkles size={15}/><strong>hbar</strong></div>
-                {sections.map((section) => <button type="button" className={section === activeSection ? 'is-active' : ''}
-                                                key={section} onClick={() => {
+                {sections.map((section) => <button type="button"
+                                                   className={section === activeSection ? 'is-active' : ''}
+                                                   key={section} onClick={() => {
                     setActiveSection(section)
                     onAction?.({variantId: spec.id, actionId: 'tabs', value: section})
                 }}>{section}</button>)}
             </aside>
-            <main><HbarAppUiToolbar title={`Workspace / ${activeSection}`} detail="Full application shell"/><HbarAppUiStatus
+            <main><HbarAppUiToolbar title={`Workspace / ${activeSection}`}
+                                    detail="Full application shell"/><HbarAppUiStatus
                 value="Connected" tone="positive"/><HbarAppUiSpotlight><h3>Content region</h3><p>The sidebar, header and
                 main content share one frame.</p></HbarAppUiSpotlight></main>
         </div>
