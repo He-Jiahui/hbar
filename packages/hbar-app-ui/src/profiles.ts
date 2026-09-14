@@ -2134,53 +2134,53 @@ export const HBAR_APP_UI_VARIANT_PROFILES: Readonly<Record<string, HbarAppUiVari
     },
     'hbar-app-ui-mobile-1': {
         "key": "hbar-app-ui-mobile-1",
-        "scenario": "Five-tab bottom bar with a spring indicator, unread badge, and a crossfading panel per tab.",
+        "scenario": "Mobile activity feed with a filter, inline update metadata, an unread badge and five-tab navigation.",
         "surface": "rail",
         "initialState": "idle",
         "visualMode": "stack",
         "seed": 3200474445,
-        "controls": ["tabs"],
-        "itemCount": 2
+        "controls": ["tabs", "filter"],
+        "itemCount": 7
     },
     'hbar-app-ui-mobile-2': {
         "key": "hbar-app-ui-mobile-2",
-        "scenario": "Expanding action button that fans out labelled quick actions over a blurred scrim.",
+        "scenario": "Mobile task inbox with searchable open items, completion toggles and a create action.",
         "surface": "panel",
         "initialState": "idle",
         "visualMode": "balanced",
         "seed": 3150141588,
-        "controls": ["expand"],
-        "itemCount": 5
+        "controls": ["search", "confirm"],
+        "itemCount": 7
     },
     'hbar-app-ui-mobile-3': {
         "key": "hbar-app-ui-mobile-3",
-        "scenario": "Floating dock that morphs into a full-width search field with a results panel above it.",
-        "surface": "rail",
+        "scenario": "Mobile home feed with semantic update cards and a five-action floating navigation dock.",
+        "surface": "stream",
         "initialState": "idle",
         "visualMode": "balanced",
         "seed": 3166919207,
-        "controls": ["search"],
-        "itemCount": 4
+        "controls": ["tabs"],
+        "itemCount": 5
     },
     'hbar-app-ui-mobile-4': {
         "key": "hbar-app-ui-mobile-4",
-        "scenario": "Bottom bar with a two-snap navigation sheet holding shortcut tiles and secondary destinations.",
-        "surface": "overlay",
+        "scenario": "Mobile order list with account and delivery metadata, direct item actions and bottom navigation.",
+        "surface": "rail",
         "initialState": "idle",
         "visualMode": "stack",
         "seed": 3116586350,
-        "controls": ["confirm"],
-        "itemCount": 2
+        "controls": ["tabs"],
+        "itemCount": 6
     },
     'hbar-app-ui-mobile-5': {
         "key": "hbar-app-ui-mobile-5",
-        "scenario": "Top app bar with a segmented control and a full-screen menu with staggered, collapsible sections.",
-        "surface": "overlay",
-        "initialState": "idle",
-        "visualMode": "airy",
+        "scenario": "Mobile run list with queue, running and completed tabs, a menu overlay and new-run action.",
+        "surface": "panel",
+        "initialState": "active",
+        "visualMode": "balanced",
         "seed": 3133363969,
         "controls": ["tabs", "expand"],
-        "itemCount": 6
+        "itemCount": 8
     },
     'hbar-app-ui-monitoring-1': {
         "key": "hbar-app-ui-monitoring-1",
