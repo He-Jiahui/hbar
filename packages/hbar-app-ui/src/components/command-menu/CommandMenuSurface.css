@@ -1,0 +1,875 @@
+/*
+ * Command Menu surfaces are recreated from the public preview observations.
+ * The root owns the overlay relationship; every dialog child stays in normal
+ * flex/grid flow so text and controls can wrap at the available width.
+ */
+.hbar-app-ui-variant.hbar-app-ui-command-variant-1,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-2,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-3,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-4,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-5,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-6 {
+    position: relative;
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-block-size: min(100dvh, 40rem) !important;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden !important;
+    padding: 1.5rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #0a0a0a !important;
+    color: #fff !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-variant-1 *,
+.hbar-app-ui-command-variant-1 *::before,
+.hbar-app-ui-command-variant-1 *::after,
+.hbar-app-ui-command-variant-2 *,
+.hbar-app-ui-command-variant-2 *::before,
+.hbar-app-ui-command-variant-2 *::after,
+.hbar-app-ui-command-variant-3 *,
+.hbar-app-ui-command-variant-3 *::before,
+.hbar-app-ui-command-variant-3 *::after,
+.hbar-app-ui-command-variant-4 *,
+.hbar-app-ui-command-variant-4 *::before,
+.hbar-app-ui-command-variant-4 *::after,
+.hbar-app-ui-command-variant-5 *,
+.hbar-app-ui-command-variant-5 *::before,
+.hbar-app-ui-command-variant-5 *::after,
+.hbar-app-ui-command-variant-6 *,
+.hbar-app-ui-command-variant-6 *::before,
+.hbar-app-ui-command-variant-6 *::after {
+    box-sizing: border-box;
+}
+
+.hbar-app-ui-command-trigger {
+    display: inline-flex !important;
+    min-block-size: 2.25rem !important;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid #2a2a2a !important;
+    border-radius: .5rem !important;
+    padding: 0 .75rem !important;
+    background: #202020 !important;
+    color: #f7f7f7 !important;
+    cursor: pointer;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* A dialog backdrop is the only positioned element in this surface. */
+.hbar-app-ui-variant.hbar-app-ui-command-variant-1 .hbar-app-ui-dialog-backdrop,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-2 .hbar-app-ui-dialog-backdrop,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-3 .hbar-app-ui-dialog-backdrop,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-4 .hbar-app-ui-dialog-backdrop,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-5 .hbar-app-ui-dialog-backdrop,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-6 .hbar-app-ui-dialog-backdrop {
+    position: absolute !important;
+    z-index: 1;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: auto;
+    padding: 1.5rem !important;
+    background: rgb(10 10 10 / 60%) !important;
+}
+
+.hbar-app-ui-dialog-backdrop .hbar-app-ui-command-backdrop-dismiss {
+    position: absolute !important;
+    z-index: 0;
+    inset: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    cursor: pointer;
+}
+
+.hbar-app-ui-command-dialog {
+    display: flex !important;
+    min-width: 0;
+    max-width: 100%;
+    max-block-size: calc(100% - 1.5rem);
+    flex-direction: column !important;
+    overflow: hidden;
+    border: 1px solid #2a2a2a !important;
+    border-radius: 1.125rem !important;
+    background: #101010 !important;
+    color: #fff !important;
+    z-index: 1;
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 28%);
+}
+
+.hbar-app-ui-command-dialog-list,
+.hbar-app-ui-command-dialog-assistant {
+    inline-size: min(36rem, 100%);
+}
+
+.hbar-app-ui-command-dialog-list {
+    max-block-size: min(26.6rem, calc(100% - 1.5rem));
+}
+
+.hbar-app-ui-command-dialog-search {
+    inline-size: min(42rem, 100%);
+    max-block-size: min(32rem, calc(100% - 1.5rem));
+}
+
+.hbar-app-ui-command-dialog-form {
+    inline-size: min(28rem, 100%);
+}
+
+.hbar-app-ui-command-dialog-room {
+    inline-size: min(24rem, 100%);
+    max-block-size: none;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-command-variant-2 .hbar-app-ui-dialog-backdrop {
+    align-items: flex-start !important;
+    padding: 3.6rem 1.5rem 1.5rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-command-variant-4 .hbar-app-ui-dialog-backdrop,
+.hbar-app-ui-variant.hbar-app-ui-command-variant-6 .hbar-app-ui-dialog-backdrop {
+    align-items: flex-start !important;
+    padding: 3rem 1.5rem 1.5rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-command-variant-5 .hbar-app-ui-dialog-backdrop {
+    align-items: flex-start !important;
+    padding: 4.1875rem 1.5rem 1.5rem !important;
+}
+
+.hbar-app-ui-command-dialog-header,
+.hbar-app-ui-command-form-header {
+    display: flex !important;
+    min-width: 0;
+    min-block-size: 3rem;
+    align-items: center;
+    gap: .75rem;
+    padding: 0 1rem !important;
+    border-block-end: 1px solid #1f1f1f;
+    background: #171717 !important;
+}
+
+.hbar-app-ui-command-search-field {
+    display: flex !important;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: .75rem;
+    color: #a8a8a8;
+}
+
+.hbar-app-ui-command-search-field input {
+    display: block !important;
+    min-width: 0 !important;
+    min-block-size: 2.25rem !important;
+    flex: 1 1 auto;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    outline: 0;
+    background: transparent !important;
+    color: #fff !important;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-search-field input::placeholder {
+    color: #a8a8a8;
+    opacity: 1;
+}
+
+.hbar-app-ui-command-back {
+    display: inline-flex !important;
+    inline-size: 1.75rem !important;
+    block-size: 1.75rem !important;
+    flex: 0 0 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent !important;
+    border-radius: .5rem !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: #a8a8a8 !important;
+    cursor: pointer;
+}
+
+.hbar-app-ui-command-back:hover,
+.hbar-app-ui-command-back:focus-visible {
+    border-color: #3a3a3a !important;
+    background: #262626 !important;
+    color: #fff !important;
+    outline: 0;
+}
+
+.hbar-app-ui-command-list {
+    display: grid !important;
+    min-width: 0;
+    min-block-size: 0;
+    align-content: start;
+    gap: 0;
+    overflow: auto;
+    padding: .375rem !important;
+}
+
+.hbar-app-ui-command-group {
+    display: grid !important;
+    min-width: 0;
+    gap: 0;
+}
+
+.hbar-app-ui-command-group h2 {
+    margin: 0 !important;
+    padding: .5rem .625rem .25rem !important;
+    color: #737373 !important;
+    font: 600 11px/16px ui-sans-serif, system-ui, sans-serif !important;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-command-list > .hbar-app-ui-command-group + .hbar-app-ui-command-group {
+    margin-block-start: .25rem;
+}
+
+.hbar-app-ui-command-list > button,
+.hbar-app-ui-command-group > button {
+    display: flex !important;
+    min-width: 0;
+    min-block-size: 2.75rem !important;
+    align-items: center;
+    gap: .75rem;
+    inline-size: 100%;
+    border: 0 !important;
+    border-radius: .5rem !important;
+    padding: .5rem .75rem !important;
+    background: transparent !important;
+    color: #f7f7f7 !important;
+    cursor: pointer;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+    text-align: start;
+}
+
+.hbar-app-ui-command-list > button:has(> span > small),
+.hbar-app-ui-command-group > button:has(> span > small) {
+    min-block-size: 3.21875rem !important;
+}
+
+.hbar-app-ui-command-list > button:hover,
+.hbar-app-ui-command-list > button:focus-visible,
+.hbar-app-ui-command-group > button:hover,
+.hbar-app-ui-command-group > button:focus-visible,
+.hbar-app-ui-command-list > button.is-selected,
+.hbar-app-ui-command-group > button.is-selected {
+    border-color: #3a3a3a !important;
+    background: #262626 !important;
+    outline: 0;
+}
+
+.hbar-app-ui-command-list > button > svg,
+.hbar-app-ui-command-group > button > svg {
+    flex: 0 0 1rem;
+    color: #737373;
+}
+
+.hbar-app-ui-command-list > button > span:not(.hbar-app-ui-command-hint),
+.hbar-app-ui-command-group > button > span:not(.hbar-app-ui-command-hint) {
+    display: grid !important;
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 0;
+}
+
+.hbar-app-ui-command-list > button > span:not(.hbar-app-ui-command-hint) strong,
+.hbar-app-ui-command-group > button > span:not(.hbar-app-ui-command-hint) strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #f5f5f5 !important;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 19.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.hbar-app-ui-command-list > button > span:not(.hbar-app-ui-command-hint) small,
+.hbar-app-ui-command-group > button > span:not(.hbar-app-ui-command-hint) small {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #737373 !important;
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.hbar-app-ui-command-hint {
+    display: inline-flex !important;
+    min-block-size: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #3a3a3a !important;
+    border-radius: .375rem !important;
+    padding: 0 .375rem !important;
+    background: #2a2a2a !important;
+    color: #c2c2c2 !important;
+    font: 11px/16px ui-monospace, SFMono-Regular, Consolas, monospace !important;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-command-shortcut {
+    display: inline-flex !important;
+    min-width: 0;
+    align-items: center;
+    gap: .375rem;
+    color: #737373 !important;
+    font-size: 11px;
+    line-height: 20px;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-command-footer {
+    display: flex !important;
+    min-width: 0;
+    min-block-size: 2.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem 1rem;
+    padding: .5rem 1rem !important;
+    border-block-start: 1px solid #1f1f1f;
+    background: #101010 !important;
+    color: #737373 !important;
+    font: 11px/20px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-footer small {
+    color: #737373 !important;
+    font-size: 11px;
+}
+
+.hbar-app-ui-command-result-count {
+    min-width: 0;
+    margin-inline-start: auto;
+    color: #777 !important;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-command-tabs {
+    display: flex !important;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    padding: .5rem 1rem !important;
+    border-block-end: 1px solid #1f1f1f;
+    background: #101010 !important;
+}
+
+.hbar-app-ui-command-tabs button {
+    display: inline-flex !important;
+    min-block-size: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent !important;
+    border-radius: .375rem !important;
+    padding: 0 .625rem !important;
+    background: transparent !important;
+    color: #a3a3a3 !important;
+    cursor: pointer;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-tabs button:hover,
+.hbar-app-ui-command-tabs button:focus-visible,
+.hbar-app-ui-command-tabs button.is-selected {
+    border-color: #3a3a3a !important;
+    background: #2a2a2a !important;
+    color: #fff !important;
+    outline: 0;
+}
+
+.hbar-app-ui-command-search-grid {
+    display: grid !important;
+    min-width: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    overflow: hidden;
+}
+
+.hbar-app-ui-command-search-grid > .hbar-app-ui-command-list {
+    padding: .375rem !important;
+}
+
+.hbar-app-ui-command-detail {
+    display: grid !important;
+    min-width: 0;
+    align-content: start;
+    gap: .75rem;
+    overflow: auto;
+    border-inline-start: 1px solid #1f1f1f;
+    padding: 1rem !important;
+}
+
+.hbar-app-ui-command-detail > small {
+    color: #a8a8a8 !important;
+    font: 600 11px/16px ui-sans-serif, system-ui, sans-serif !important;
+    letter-spacing: .04em;
+}
+
+.hbar-app-ui-command-detail h2 {
+    margin: 0 !important;
+    color: #f7f7f7 !important;
+    font: 500 16px/24px ui-sans-serif, system-ui, sans-serif !important;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-command-detail p {
+    margin: 0 !important;
+    color: #a8a8a8 !important;
+    font-size: 12px;
+    line-height: 19px;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-command-detail dl {
+    display: grid !important;
+    gap: .375rem;
+    margin: 0 !important;
+}
+
+.hbar-app-ui-command-detail dl > div {
+    display: flex !important;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    border-radius: .5rem;
+    padding: .5rem .75rem;
+    background: #262626;
+}
+
+.hbar-app-ui-command-detail dt,
+.hbar-app-ui-command-detail dd {
+    min-width: 0;
+    margin: 0 !important;
+    font-size: 12px;
+    line-height: 20px;
+}
+
+.hbar-app-ui-command-detail dt {
+    color: #a8a8a8 !important;
+}
+
+.hbar-app-ui-command-detail dd {
+    color: #f7f7f7 !important;
+    font-weight: 500;
+    text-align: end;
+}
+
+.hbar-app-ui-command-detail > button,
+.hbar-app-ui-command-action {
+    display: inline-flex !important;
+    min-block-size: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid #3a3a3a !important;
+    border-radius: .5rem !important;
+    padding: 0 .75rem !important;
+    background: #2a2a2a !important;
+    color: #fff !important;
+    cursor: pointer;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-detail > button {
+    display: none !important;
+}
+
+.hbar-app-ui-command-detail > button:hover,
+.hbar-app-ui-command-detail > button:focus-visible,
+.hbar-app-ui-command-action:hover,
+.hbar-app-ui-command-action:focus-visible {
+    border-color: #5a5a5a !important;
+    background: #343434 !important;
+    outline: 0;
+}
+
+.hbar-app-ui-command-action-accent {
+    border-color: #f7f7f7 !important;
+    background: #f7f7f7 !important;
+    color: #171717 !important;
+}
+
+.hbar-app-ui-command-action-accent:hover,
+.hbar-app-ui-command-action-accent:focus-visible {
+    border-color: #fff !important;
+    background: #fff !important;
+    color: #0a0a0a !important;
+}
+
+.hbar-app-ui-command-breadcrumb {
+    display: flex !important;
+    min-width: 0;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem 1rem 0 !important;
+    color: #a8a8a8 !important;
+    font-size: 12px;
+}
+
+.hbar-app-ui-command-breadcrumb button {
+    display: inline-flex !important;
+    align-items: center;
+    border: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: #a8a8a8 !important;
+    cursor: pointer;
+    font: inherit;
+}
+
+.hbar-app-ui-command-breadcrumb button:hover,
+.hbar-app-ui-command-breadcrumb button:focus-visible {
+    color: #fff !important;
+    outline: 0;
+}
+
+.hbar-app-ui-command-form-header {
+    padding-inline: .625rem 1rem !important;
+}
+
+.hbar-app-ui-command-form-header > div {
+    display: flex !important;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.hbar-app-ui-command-form-header h2 {
+    min-width: 0;
+    margin: 0 !important;
+    color: #f7f7f7 !important;
+    font: 500 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-command-form-header > div > span {
+    flex: 0 0 auto;
+    color: #a8a8a8 !important;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-command-form-body {
+    display: grid !important;
+    min-width: 0;
+    gap: 1rem;
+    padding: 0 1rem 1rem !important;
+}
+
+.hbar-app-ui-command-form-body > label {
+    display: grid !important;
+    min-width: 0;
+    gap: .375rem;
+    color: #f7f7f7 !important;
+    font-size: 13px;
+    line-height: 20px;
+}
+
+.hbar-app-ui-command-form-body input,
+.hbar-app-ui-command-form-body select {
+    display: block !important;
+    min-width: 0 !important;
+    min-block-size: 2.25rem !important;
+    border: 1px solid #3a3a3a !important;
+    border-radius: .5rem !important;
+    padding: 0 .75rem !important;
+    outline: 0;
+    background: #171717 !important;
+    color: #fff !important;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-form-body input:focus,
+.hbar-app-ui-command-form-body select:focus {
+    border-color: #777 !important;
+}
+
+.hbar-app-ui-command-select {
+    display: flex !important;
+    min-width: 0;
+    align-items: center;
+    border: 1px solid #3a3a3a;
+    border-radius: .5rem;
+    background: #171717;
+    color: #a8a8a8;
+}
+
+.hbar-app-ui-command-select select {
+    min-width: 0 !important;
+    flex: 1 1 auto;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+.hbar-app-ui-command-select svg {
+    flex: 0 0 auto;
+    margin-inline-end: .625rem;
+    pointer-events: none;
+}
+
+.hbar-app-ui-command-form-footer {
+    justify-content: space-between;
+}
+
+.hbar-app-ui-command-footer-shortcuts {
+    display: flex !important;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem;
+}
+
+.hbar-app-ui-command-assistant-body {
+    display: flex !important;
+    min-width: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    padding: 2.5rem 1.5rem 1.5rem !important;
+    text-align: center;
+}
+
+.hbar-app-ui-command-assistant-body > svg {
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    margin-block-end: 1rem;
+    border: 1px solid #262626;
+    border-radius: .5rem;
+    padding: .375rem;
+    color: #a8a8a8;
+}
+
+.hbar-app-ui-command-assistant-body h2 {
+    margin: 0 0 .25rem !important;
+    color: #f7f7f7 !important;
+    font: 500 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-assistant-body > p {
+    max-inline-size: 24rem;
+    margin: 0 0 1rem !important;
+    color: #a8a8a8 !important;
+    font-size: 12px;
+    line-height: 16px !important;
+}
+
+.hbar-app-ui-command-assistant-ask {
+    display: inline-flex !important;
+    max-inline-size: 100%;
+    min-block-size: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid #fff !important;
+    border-radius: .5rem !important;
+    padding: 0 .75rem !important;
+    background: #fff !important;
+    color: #171717 !important;
+    cursor: pointer;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+    margin-block-end: 2rem;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-command-assistant-ask > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-command-assistant-ask:hover,
+.hbar-app-ui-command-assistant-ask:focus-visible {
+    border-color: #e4e4e4 !important;
+    background: #e4e4e4 !important;
+    color: #171717 !important;
+    outline: 0;
+}
+
+.hbar-app-ui-command-assistant-body > small {
+    margin-block-end: .5rem;
+    color: #777 !important;
+    font-size: 10px;
+    line-height: 16.5px !important;
+    letter-spacing: .08em;
+}
+
+.hbar-app-ui-command-suggestions {
+    display: flex !important;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: .5rem;
+}
+
+.hbar-app-ui-command-suggestions button {
+    display: inline-flex !important;
+    min-block-size: 2rem;
+    align-items: center;
+    border: 0 !important;
+    border-radius: .5rem !important;
+    padding: 0 .625rem !important;
+    background: #262626 !important;
+    color: #f7f7f7 !important;
+    cursor: pointer;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-command-suggestions button:hover,
+.hbar-app-ui-command-suggestions button:focus-visible {
+    background: #343434 !important;
+    color: #fff !important;
+    outline: 0;
+}
+
+.hbar-app-ui-command-key-range {
+    display: inline-flex !important;
+    min-width: 0;
+    align-items: center;
+    margin-inline-start: auto;
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-1,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-2,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-3,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-4,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-5,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-6 {
+        min-block-size: min(100dvh, 40rem) !important;
+        padding: 1rem !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-1 .hbar-app-ui-dialog-backdrop,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-2 .hbar-app-ui-dialog-backdrop,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-3 .hbar-app-ui-dialog-backdrop,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-4 .hbar-app-ui-dialog-backdrop,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-5 .hbar-app-ui-dialog-backdrop,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-6 .hbar-app-ui-dialog-backdrop {
+        align-items: flex-start !important;
+        padding: 3rem 1rem 1rem !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-1 .hbar-app-ui-dialog-backdrop,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-3 .hbar-app-ui-dialog-backdrop {
+        align-items: center !important;
+        padding: 1rem !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-2 .hbar-app-ui-dialog-backdrop {
+        align-items: flex-start !important;
+        padding: 3.6rem 1rem 1rem !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-5 .hbar-app-ui-dialog-backdrop {
+        align-items: flex-start !important;
+        padding: 4.1875rem 1rem 1rem !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-1 .hbar-app-ui-dialog-backdrop,
+    .hbar-app-ui-variant.hbar-app-ui-command-variant-3 .hbar-app-ui-dialog-backdrop {
+        align-items: center !important;
+    }
+
+    .hbar-app-ui-command-dialog {
+        max-block-size: calc(100% - 1rem);
+    }
+
+    .hbar-app-ui-command-dialog-list {
+        max-block-size: min(26.6rem, calc(100% - 1rem));
+    }
+
+    .hbar-app-ui-command-dialog-search {
+        max-block-size: min(32rem, calc(100% - 1rem));
+    }
+
+    .hbar-app-ui-command-dialog-assistant {
+        max-block-size: 28rem;
+    }
+
+    .hbar-app-ui-command-dialog-room {
+        max-block-size: none;
+    }
+
+    .hbar-app-ui-command-dialog-search .hbar-app-ui-command-search-grid {
+        grid-template-columns: minmax(0, 1fr);
+        overflow: auto;
+    }
+
+    .hbar-app-ui-command-dialog-search .hbar-app-ui-command-tabs {
+        padding: .125rem 1.125rem .5625rem !important;
+    }
+
+    .hbar-app-ui-command-dialog-search .hbar-app-ui-command-detail {
+        display: none !important;
+    }
+
+    .hbar-app-ui-command-form-footer {
+        align-items: center;
+    }
+
+    .hbar-app-ui-command-result-count {
+        margin-inline-start: 0;
+    }
+
+    .hbar-app-ui-command-dialog-search .hbar-app-ui-command-footer {
+        flex-wrap: nowrap;
+        gap: .5rem;
+        padding-inline: 1rem !important;
+    }
+
+    .hbar-app-ui-command-dialog-search .hbar-app-ui-command-footer .hbar-app-ui-command-shortcut:first-child {
+        display: none !important;
+    }
+
+    .hbar-app-ui-command-variant-1 .hbar-app-ui-command-footer .hbar-app-ui-command-shortcut:first-child {
+        display: none !important;
+    }
+
+    .hbar-app-ui-command-dialog-search .hbar-app-ui-command-footer .hbar-app-ui-command-result-count {
+        margin-inline-start: auto;
+    }
+
+    .hbar-app-ui-command-dialog-form .hbar-app-ui-command-footer-shortcuts .hbar-app-ui-command-shortcut:last-child {
+        display: none !important;
+    }
+
+    .hbar-app-ui-command-dialog-assistant .hbar-app-ui-command-assistant-body {
+        padding-block-start: 2rem !important;
+    }
+
+    .hbar-app-ui-command-dialog-assistant .hbar-app-ui-command-assistant-ask {
+        margin-block-end: 1.5rem;
+    }
+
+    .hbar-app-ui-command-dialog-assistant .hbar-app-ui-command-suggestions {
+        max-inline-size: 12.5rem;
+    }
+}
