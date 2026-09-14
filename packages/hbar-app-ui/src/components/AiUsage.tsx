@@ -18,7 +18,7 @@ type UsageProps = HbarAppUiVariantProps
 function UsageOverview({spec, onAction}: UsageProps) {
     const [range, setRange] = useState('7d')
     const input = seededNumber(spec.profile.seed, 24, 52)
-    const output = seededNumber(spec.profile.seed / 3, 16, 38)
+    const output = seededNumber(Math.floor(spec.profile.seed / 3), 16, 38)
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-usage-variant-1"><HbarAppUiToolbar
         title="Token usage" detail={`${range} · input and output`}/><HbarAppUiTabs label="Usage range" value={range}
                                                                                    options={[{
