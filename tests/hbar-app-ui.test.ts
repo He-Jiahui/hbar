@@ -21,6 +21,7 @@ import {
   HBAR_APP_UI_CATEGORY_COUNTS,
   HBAR_APP_UI_VARIANT_EXPORTS,
   HBAR_APP_UI_VARIANT_SPECS,
+  HbarAppUiRunActivity,
   Dashboard,
   DataTable,
   Editor,
@@ -137,6 +138,48 @@ describe('hbar-app-ui registry', () => {
     expect(markup).not.toContain('hbar-app-ui-preview')
     expect(markup).not.toContain('hbar-app-ui-profile-controls')
     expect(markup).not.toContain('seeded items')
+  })
+
+  test('renders a data-driven run activity surface without coupling to preview state', () => {
+    const markup = renderToStaticMarkup(
+      createElement(HbarAppUiRunActivity, {
+        title: '运行记录',
+        countLabel: (count) => `${count} 个运行`,
+        cancelLabel: '停止此运行',
+        cancellingLabel: '正在停止',
+        cancellingRunIds: ['run-active'],
+        onCancelRun: () => undefined,
+        runs: [
+          {
+            id: 'run-active',
+            label: '同步当前工作区',
+            status: 'running',
+            statusLabel: '运行中',
+            detail: '10:32',
+          },
+          {
+            id: 'run-complete',
+            label: '生成摘要',
+            status: 'completed',
+            statusLabel: '已完成',
+            duration: '2 秒',
+          },
+          {
+            id: 'run-queued',
+            label: '等待同步',
+            status: 'queued',
+            statusLabel: '排队中',
+          },
+        ],
+      }),
+    )
+    expect(markup).toContain('运行记录')
+    expect(markup).toContain('3 个运行')
+    expect(markup).toContain('正在停止')
+    expect(markup).toContain('停止此运行')
+    expect(markup).toContain('hbar-app-ui-run-status-running')
+    expect(markup).not.toContain('hbar-app-ui-preview')
+    expect(markup).not.toContain('hbar-app-ui-profile-controls')
   })
 
   test('keeps a distinct profile and observable markup for every variant', () => {

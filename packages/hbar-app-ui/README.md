@@ -1,6 +1,6 @@
 # hbar-app-ui
 
-The hbar application UI catalog is a React component package for dense workspaces, agent runs, conversations, data, settings and operational workflows.
+The hbar application UI catalog is a component package for dense workspaces, agent runs, conversations, data, settings and operational workflows.
 
 ## Public API
 
@@ -17,6 +17,20 @@ Every catalog entry has a `HbarAppUi...` named export, an `hbar-app-ui-*` entry 
 Category surfaces are also available as independent entry points (for example `hbar-app-ui/agent-activity`, `hbar-app-ui/analytics` and `hbar-app-ui/chat`). Each category module owns its variant switch and concrete interaction markup. The package renders only the UI block; catalog labels, profile facts and validation controls belong to the standalone preview application.
 
 The package ships light and dark variables under `--hbar-app-ui-*`. Consumers opt into the light palette with `data-hbar-app-ui-theme="light"`; the default palette is dark.
+
+## Data-driven Components
+
+`HbarAppUiRunActivity` is a standalone execution-history component at `hbar-app-ui/run-activity`. A host maps its own records into `HbarAppUiRunActivityItem` and supplies the exact row callback; the component does not import host state, transport, or product-specific types.
+
+```tsx
+<HbarAppUiRunActivity
+  runs={runs}
+  cancellingRunIds={cancellingRunIds}
+  onCancelRun={(runId) => cancelRun(runId)}
+/>
+```
+
+The props support local status labels, run-count text, empty state copy, row selection, cancellation progress, and failure feedback so application-specific wording remains outside the package.
 
 ## Preview
 

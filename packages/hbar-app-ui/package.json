@@ -43,7 +43,8 @@
     "./feedback": "./src/components/Feedback.tsx",
     "./support": "./src/components/Support.tsx",
     "./billing": "./src/components/Billing.tsx",
-    "./chat": "./src/components/Chat.tsx"
+    "./chat": "./src/components/Chat.tsx",
+    "./run-activity": "./src/components/RunActivity.tsx"
   },
   "dependencies": {
     "lucide-react": "1.43.0"

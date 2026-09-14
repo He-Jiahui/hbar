@@ -25,13 +25,13 @@ import {
   Search,
   Settings2,
   ShieldCheck,
-  Square,
   TerminalSquare,
   X,
 } from 'lucide-react'
-import type { FileEntry, Session, SessionEvent } from '@hbar/contracts'
+import type { FileEntry, Run, Session, SessionEvent } from '@hbar/contracts'
 import {
   client,
+  cancelSessionRun,
   connectHost,
   openSession,
   refreshCatalog,
@@ -52,7 +52,15 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
-import { HbarAppUiEmptyState, HbarAppUiMetricStrip, HbarAppUiSpotlight, HbarAppUiSurface, HbarAppUiTabs } from 'hbar-app-ui'
+import {
+  HbarAppUiEmptyState,
+  HbarAppUiMetricStrip,
+  HbarAppUiRunActivity,
+  HbarAppUiSpotlight,
+  HbarAppUiSurface,
+  HbarAppUiTabs,
+  type HbarAppUiRunActivityItem,
+} from 'hbar-app-ui'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -387,9 +395,41 @@ function FileViewer({ path, workspaceId }: { path: string; workspaceId: string }
     </div>
   )
 }
+
+const runStatusLabels: Readonly<Record<Run['status'], string>> = {
+  queued: '排队中',
+  running: '运行中',
+  waiting_approval: '等待批准',
+  completed: '已完成',
+  cancelled: '已取消',
+  failed: '失败',
+  interrupted: '已中断',
+}
+
+function formatRunDuration(run: Run): string | undefined {
+  if (run.startedAt === null || run.endedAt === null) return undefined
+  const seconds = Math.max(0, Math.round((run.endedAt - run.startedAt) / 1000))
+  if (seconds < 60) return `${seconds} 秒`
+  return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
+}
+
+function toRunActivityItem(run: Run): HbarAppUiRunActivityItem {
+  const createdAt = new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return {
+    id: run.id,
+    label: run.input.text.slice(0, 65) || '图片消息',
+    status: run.status,
+    statusLabel: runStatusLabels[run.status],
+    detail: run.error ? `${createdAt} · ${run.error}` : createdAt,
+    duration: formatRunDuration(run),
+  }
+}
+
 function ActivityPanel() {
   const sessionId = useWorkbench((state) => state.activeSession),
-    snapshot = useSessions((state) => state.snapshots[sessionId])
+    snapshot = useSessions((state) => state.snapshots[sessionId]),
+    cancellingRunIds = useSessions((state) => state.cancellingRunIds),
+    cancellationError = useSessions((state) => state.cancellationError)
   const [mode, setMode] = useState<'activity' | 'trace'>('activity'),
     [events, setEvents] = useState<SessionEvent[]>([]),
     [detail, setDetail] = useState<SessionEvent | null>(null)
@@ -420,7 +460,6 @@ function ActivityPanel() {
         <>
           <div className="activity-heading">
             <h2>当前会话</h2>
-            <span className="small-muted">{snapshot?.runs.length ?? 0} runs</span>
           </div>
           <HbarAppUiMetricStrip
             metrics={[
@@ -430,33 +469,20 @@ function ActivityPanel() {
               { label: '费用', value: `$${(usage?.cost ?? 0).toFixed(4)}` },
             ]}
           />
-          <div className="section-label">运行记录</div>
-          <div className="run-list">
-            {snapshot?.runs.map((run) => (
-              <HbarAppUiSpotlight className="run-row" key={run.id}>
-                <i className={`status-dot ${run.status}`} />
-                <div>
-                  <strong>{run.input.text.slice(0, 65) || '图片消息'}</strong>
-                  <span>
-                    {run.status} ·{' '}
-                    {new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                {['running', 'queued', 'waiting_approval'].includes(run.status) && (
-                  <button
-                    title="停止此运行"
-                    aria-label="停止此运行"
-                    onClick={() => void client().call('run.cancel', { runId: run.id }).catch(report)}
-                  >
-                    <Square size={12} />
-                  </button>
-                )}
-              </HbarAppUiSpotlight>
-            ))}
-          </div>
-          {!snapshot?.runs.length && (
-            <HbarAppUiEmptyState icon={<Activity size={25} />} title="尚无运行记录" description="当前会话还没有可查看的运行历史。" />
-          )}
+          <HbarAppUiRunActivity
+            title="运行记录"
+            emptyTitle="尚无运行记录"
+            emptyDescription="当前会话还没有可查看的运行历史。"
+            runs={snapshot?.runs.map(toRunActivityItem) ?? []}
+            cancellingRunIds={cancellingRunIds}
+            feedback={cancellationError?.sessionId === sessionId ? cancellationError.message : undefined}
+            cancelLabel="停止此运行"
+            cancellingLabel="正在停止"
+            countLabel={(count) => `${count} 个运行`}
+            onCancelRun={(runId) => {
+              void cancelSessionRun(sessionId, runId).catch(report)
+            }}
+          />
         </>
       ) : (
         <>

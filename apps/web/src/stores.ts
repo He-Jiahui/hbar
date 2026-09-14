@@ -40,9 +40,24 @@ export const useConnection = create<{
   url: string
 }>(() => ({ client: null, status: 'disconnected', host: null, error: '', url: location.origin }))
 export const useCatalog = create<{ data: Bootstrap | null }>(() => ({ data: null }))
-export const useSessions = create<{ snapshots: Record<string, SessionSnapshot>; loading: Set<string> }>(() => ({
+type RunCancellationError = {
+  readonly sessionId: string
+  readonly runId: string
+  readonly message: string
+}
+
+interface SessionsState {
+  snapshots: Record<string, SessionSnapshot>
+  loading: Set<string>
+  cancellingRunIds: readonly string[]
+  cancellationError: RunCancellationError | undefined
+}
+
+export const useSessions = create<SessionsState>(() => ({
   snapshots: {},
   loading: new Set(),
+  cancellingRunIds: [],
+  cancellationError: undefined,
 }))
 interface WorkbenchState {
   activeSession: string
@@ -253,7 +268,7 @@ export async function connectHost(url: string, token?: string) {
   const connectionGeneration = ++generation
   const next = new HbarClient(url, token)
   useConnection.setState({ client: next, url, status: 'connecting', error: '' })
-  useSessions.setState({ snapshots: {}, loading: new Set() })
+  useSessions.setState({ snapshots: {}, loading: new Set(), cancellingRunIds: [], cancellationError: undefined })
   resetSessionCapabilities()
   bufferedEvents.clear()
   next.onStatus((status) => {
@@ -323,6 +338,40 @@ export async function openSession(sessionId: string) {
     })
   }
 }
+
+/**
+ * The session ViewModel owns transport and transient cancellation state. Views
+ * supply both stable identifiers, then render this store's state locally.
+ */
+export async function cancelSessionRun(sessionId: string, runId: string): Promise<void> {
+  const connection = client()
+  if (useSessions.getState().cancellingRunIds.includes(runId)) return
+  useSessions.setState((state) => ({
+    cancellingRunIds: [...state.cancellingRunIds, runId],
+    cancellationError: undefined,
+  }))
+  try {
+    await connection.call('run.cancel', { runId })
+  } catch (error) {
+    if (useConnection.getState().client === connection) {
+      const detail = error instanceof Error && error.message ? error.message : '请求未能完成'
+      useSessions.setState({
+        cancellationError: {
+          sessionId,
+          runId,
+          message: `取消运行失败：${detail}`,
+        },
+      })
+    }
+    throw error
+  } finally {
+    if (useConnection.getState().client === connection)
+      useSessions.setState((state) => ({
+        cancellingRunIds: state.cancellingRunIds.filter((id) => id !== runId),
+      }))
+  }
+}
+
 export async function loadOlder(sessionId: string) {
   const snapshot = useSessions.getState().snapshots[sessionId]
   if (!snapshot?.messages[0]) return
