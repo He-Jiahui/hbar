@@ -107,7 +107,23 @@ const profileControlLabels: Readonly<Record<HbarAppUiVariantProps['spec']['profi
 function HbarAppUiProfileControls({ spec }: { readonly spec: HbarAppUiVariantProps['spec'] }) {
   const onAction = useContext(profileActionContext)
   const [activated, setActivated] = useState<string | undefined>()
-  return <div className="hbar-app-ui-profile-controls" aria-label="Variant controls">{spec.profile.controls.map((control) => <HbarAppUiButton key={control} type="button" className={activated === control ? 'is-active' : ''} data-hbar-app-ui-control={control} onClick={() => { setActivated(control); onAction?.({ variantId: spec.id, actionId: control, value: spec.profile.initialState }) }}>{profileControlLabels[control]}</HbarAppUiButton>)}</div>
+  const [openControl, setOpenControl] = useState<string | undefined>()
+  const [input, setInput] = useState('')
+  const trigger = (control: string) => {
+    setActivated(control)
+    setOpenControl((current) => current === control ? undefined : control)
+    onAction?.({ variantId: spec.id, actionId: control, value: spec.profile.initialState })
+  }
+  return <div className="hbar-app-ui-profile-controls" aria-label="Variant controls">
+    {spec.profile.controls.map((control) => <div className="hbar-app-ui-profile-control" key={control}>
+      <HbarAppUiButton type="button" className={activated === control ? 'is-active' : ''} data-hbar-app-ui-control={control} onClick={() => trigger(control)}>{profileControlLabels[control]}</HbarAppUiButton>
+      {openControl === control && control === 'search' && <input aria-label={`${spec.title} search`} placeholder="Search within this surface" value={input} onChange={(event) => setInput(event.target.value)} />}
+      {openControl === control && control === 'picker' && <select aria-label={`${spec.title} selection`} defaultValue="default" onChange={(event) => onAction?.({ variantId: spec.id, actionId: control, value: event.target.value })}><option value="default">Default scope</option><option value="local">Local workspace</option><option value="shared">Shared workspace</option></select>}
+      {openControl === control && control === 'tabs' && <div className="hbar-app-ui-profile-subtabs" role="group" aria-label={`${spec.title} views`}>{['Overview', 'Details', 'Activity'].map((view) => <button type="button" key={view} onClick={() => onAction?.({ variantId: spec.id, actionId: control, value: view })}>{view}</button>)}</div>}
+      {openControl === control && control === 'compose' && <textarea aria-label={`${spec.title} composer`} placeholder="Add a note" onChange={(event) => setInput(event.target.value)} />}
+      {openControl === control && ['attachments', 'upload', 'retry', 'save', 'confirm', 'sort', 'pagination', 'drag', 'expand', 'filter'].includes(control) && <small className="hbar-app-ui-profile-feedback" aria-live="polite">{profileControlLabels[control]} ready · {spec.profile.initialState}</small>}
+    </div>)}
+  </div>
 }
 
 function HbarAppUiSurfaceFrame({ spec, children, className = '' }: { readonly spec: HbarAppUiVariantProps['spec']; readonly children: ReactNode; readonly className?: string }) {
