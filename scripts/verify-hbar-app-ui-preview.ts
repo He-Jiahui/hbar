@@ -173,19 +173,19 @@ async function run() {
     await page.getByRole('button', { name: 'Stop', exact: true }).click()
     const stopped = (await page.locator('[data-hbar-app-ui-variant]').innerText()).includes('Stopped')
 
-    await page.goto(`${baseUrl}/?variant=hbar-app-ui-prompt-input-1`, { waitUntil: 'networkidle' })
+    await page.goto(`${baseUrl}/?variant=hbar-app-ui-prompt-input-7`, { waitUntil: 'networkidle' })
     await page.locator('[data-hbar-app-ui-variant] .hbar-app-ui-tabs button').nth(1).click()
     const modeEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes('mode')
 
     await page.goto(`${baseUrl}/?variant=hbar-app-ui-chat-1`, { waitUntil: 'networkidle' })
-    await page.getByPlaceholder('Message # operations').fill('acceptance smoke')
-    await page.getByPlaceholder('Message # operations').press('Enter')
+    await page.getByPlaceholder('Message #operations').fill('acceptance smoke')
+    await page.getByPlaceholder('Message #operations').press('Enter')
     const chatEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes('send')
 
-    await page.goto(`${baseUrl}/?variant=hbar-app-ui-agent-approval-1`, { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: 'Open detail', exact: true }).click()
+    await page.goto(`${baseUrl}/?variant=hbar-app-ui-agent-approval-2`, { waitUntil: 'networkidle' })
+    await page.getByRole('button', { name: 'Review diff', exact: true }).click()
     const dialogOpened = await page.getByRole('dialog').count() === 1
-    await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Allow once', exact: true }).click()
     const dialogClosed = await page.getByRole('dialog').count() === 0
 
     await writeFile(`${artifactRoot}/report.json`, JSON.stringify({

@@ -23,6 +23,7 @@
     "apps/**/*.ts",
     "apps/**/*.tsx",
     "packages/**/*.ts",
+    "packages/**/*.tsx",
     "plugins/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",

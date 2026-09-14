@@ -12,6 +12,7 @@ import {
 import type { HbarAppUiEvent, HbarAppUiRegistryEntry, HbarAppUiVariantComponent, HbarAppUiCategory } from 'hbar-app-ui'
 import 'hbar-app-ui/theme.css'
 import './preview.css'
+import { VariantHarness } from './VariantHarness'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -140,7 +141,9 @@ function PreviewApp() {
             <section className="hbar-app-ui-preview-stage" aria-label="Selected component preview">
               <div className="hbar-app-ui-preview-stage-meta"><HbarAppUiStatus value={`${selected.spec.variant} of ${HBAR_APP_UI_CATEGORY_COUNTS[selected.spec.category]}`} tone="positive" /><code>{selected.spec.id}</code></div>
               <div className={`hbar-app-ui-preview-frame hbar-app-ui-preview-frame-${viewport}`} style={{ maxWidth: viewportWidths[viewport] }}>
-                <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                <VariantHarness spec={selected.spec} onAction={handleAction}>
+                  <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                </VariantHarness>
               </div>
             </section>
 

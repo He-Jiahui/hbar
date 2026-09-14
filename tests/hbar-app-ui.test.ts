@@ -2,10 +2,48 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
+  AgentActivity,
+  AgentApproval,
+  AgentPlan,
+  AiChat,
+  AiUsage,
+  Analytics,
+  AppDialog,
+  AppShell,
+  AppSidebar,
+  Authentication,
+  Billing,
+  Card,
+  Chat,
+  CommandMenu,
+  Comments,
   HBAR_APP_UI_CATEGORIES,
   HBAR_APP_UI_CATEGORY_COUNTS,
   HBAR_APP_UI_VARIANT_EXPORTS,
   HBAR_APP_UI_VARIANT_SPECS,
+  Dashboard,
+  DataTable,
+  Editor,
+  EmptyState,
+  Feedback,
+  FileManager,
+  Filtering,
+  Forms,
+  Integrations,
+  Kanban,
+  List,
+  Mobile,
+  Monitoring,
+  Navbar,
+  Notifications,
+  Onboarding,
+  Paywall,
+  PromptInput,
+  Scheduling,
+  SettingsForm,
+  Support,
+  ToolCalls,
+  Wizard,
   createHbarAppUiVariantSpec,
   getHbarAppUiVariant,
   listHbarAppUiVariants,
@@ -46,6 +84,59 @@ describe('hbar-app-ui registry', () => {
     const named = HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiAgentActivity01
     expect(getHbarAppUiVariant('agent-activity', 1).component).toBe(named)
     expect(getHbarAppUiVariant('chat', 6).component).toBe(HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiChat06)
+  })
+
+  test('publishes one independently maintained surface for every category', () => {
+    const categorySurfaces = [
+      AiChat,
+      PromptInput,
+      AgentActivity,
+      ToolCalls,
+      AgentApproval,
+      AgentPlan,
+      AiUsage,
+      AppShell,
+      AppSidebar,
+      CommandMenu,
+      Navbar,
+      Mobile,
+      Card,
+      DataTable,
+      Dashboard,
+      Analytics,
+      List,
+      Filtering,
+      FileManager,
+      Monitoring,
+      EmptyState,
+      SettingsForm,
+      Forms,
+      AppDialog,
+      Notifications,
+      Onboarding,
+      Paywall,
+      Authentication,
+      Kanban,
+      Wizard,
+      Comments,
+      Scheduling,
+      Integrations,
+      Editor,
+      Feedback,
+      Support,
+      Billing,
+      Chat,
+    ]
+    expect(categorySurfaces).toHaveLength(HBAR_APP_UI_CATEGORIES.length)
+    expect(new Set(categorySurfaces).size).toBe(HBAR_APP_UI_CATEGORIES.length)
+  })
+
+  test('named components render a self-contained UI block without preview chrome', () => {
+    const markup = renderToStaticMarkup(createElement(HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiAgentActivity01, {}))
+    expect(markup).toContain('data-hbar-app-ui-component="hbar-app-ui-agent-activity-1"')
+    expect(markup).not.toContain('hbar-app-ui-preview')
+    expect(markup).not.toContain('hbar-app-ui-profile-controls')
+    expect(markup).not.toContain('seeded items')
   })
 
   test('keeps a distinct profile and observable markup for every variant', () => {
