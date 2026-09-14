@@ -1,0 +1,3 @@
+interface:
+  display_name: "Hbar Reference Flow Layout"
+  short_description: "Recreate observed UI with semantic flow layouts"
