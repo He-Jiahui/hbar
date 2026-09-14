@@ -136,13 +136,19 @@ function MobileDrawer({spec, onAction}: SidebarProps) {
 }
 
 function FullSidebarShell({spec, onAction}: SidebarProps) {
+    const [activeSection, setActiveSection] = useState('Overview')
+    const sections = ['Overview', 'Sessions', 'Files', 'Settings']
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-sidebar-variant-7">
         <div className="hbar-app-ui-full-sidebar-shell">
             <aside>
                 <div className="hbar-app-ui-sidebar-title"><Sparkles size={15}/><strong>hbar</strong></div>
-                <span className="is-active">Overview</span><span>Sessions</span><span>Files</span><span>Settings</span>
+                {sections.map((section) => <button type="button" className={section === activeSection ? 'is-active' : ''}
+                                                key={section} onClick={() => {
+                    setActiveSection(section)
+                    onAction?.({variantId: spec.id, actionId: 'tabs', value: section})
+                }}>{section}</button>)}
             </aside>
-            <main><HbarAppUiToolbar title="Workspace / Overview" detail="Full application shell"/><HbarAppUiStatus
+            <main><HbarAppUiToolbar title={`Workspace / ${activeSection}`} detail="Full application shell"/><HbarAppUiStatus
                 value="Connected" tone="positive"/><HbarAppUiSpotlight><h3>Content region</h3><p>The sidebar, header and
                 main content share one frame.</p></HbarAppUiSpotlight></main>
         </div>

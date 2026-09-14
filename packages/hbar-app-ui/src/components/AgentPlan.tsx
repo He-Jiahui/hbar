@@ -88,17 +88,22 @@ function PlanTree({spec, onAction}: PlanProps) {
 }
 
 function PlanActual({spec, onAction}: PlanProps) {
+    const [expanded, setExpanded] = useState(false)
     const rows = ['Load context', 'Process entries', 'Validate output', 'Archive report']
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-plan-variant-4"><HbarAppUiToolbar
         title="Plan vs actual" detail="Drift is shown per step"/><HbarAppUiStatus value="2 steps ahead"
                                                                                   tone="positive"/>
+        <HbarAppUiButton type="button" onClick={() => {
+            setExpanded((value) => !value)
+            onAction?.({variantId: spec.id, actionId: 'expand', value: String(!expanded)})
+        }}><ChevronDown size={14}/>{expanded ? 'Hide timing details' : 'Show timing details'}</HbarAppUiButton>
         <div className="hbar-app-ui-plan-actual">
             <div className="hbar-app-ui-plan-actual-header">
                 <span>Step</span><span>Planned</span><span>Actual</span><span>Delta</span></div>
             {rows.slice(0, Math.max(3, Math.min(rows.length, spec.profile.itemCount + 2))).map((row, index) => <div
                 className="hbar-app-ui-plan-actual-row" key={row}>
                 <strong>{row}</strong><span>{(index + 1) * 1.2}s</span><span>{(index + 1) * 1.05}s</span><b
-                className={index === 2 ? 'is-warning' : 'is-positive'}>{index === 2 ? '+0.8s' : `−0.${index + 2}s`}</b>
+                className={index === 2 ? 'is-warning' : 'is-positive'}>{index === 2 ? '+0.8s' : `−0.${index + 2}s`}</b>{expanded && <small>{index === 2 ? 'Validation waited for a retry.' : 'Completed ahead of its planned duration.'}</small>}
             </div>)}</div>
     </ActionSurfaceFrame>
 }

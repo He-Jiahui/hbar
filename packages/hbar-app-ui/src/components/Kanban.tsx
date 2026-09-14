@@ -109,6 +109,7 @@ function DetailBoard({spec, onAction}: KanbanProps) {
 }
 
 function SprintBoard({spec, onAction}: KanbanProps) {
+    const [movedCard, setMovedCard] = useState<string | undefined>()
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-kanban-variant-5"><HbarAppUiToolbar title="Sprint board"
                                                                                           detail="Points, capacity and blocked flags"/><HbarAppUiMetricStrip
@@ -122,8 +123,19 @@ function SprintBoard({spec, onAction}: KanbanProps) {
             <header><strong>{column}</strong><span>{index * 4 + 6} pts</span></header>
             <HbarAppUiProgress value={index === 1 ? 76 : index === 2 ? 100 : 36} label={`${column} capacity`}
                                tone={index === 1 ? 'warning' : 'accent'}/>{['Review contract', 'Ship editor', 'Resolve incident'].slice(0, index + 1).map((item, itemIndex) =>
-            <HbarAppUiSpotlight key={item}><strong>{item}</strong><small>{itemIndex === 0 && index === 0 ? <>
-                <ShieldAlert size={11}/> Blocked</> : `${itemIndex + 2} pts`}</small></HbarAppUiSpotlight>)}
+            <HbarAppUiSpotlight draggable key={item} onDragEnd={() => {
+                setMovedCard(item)
+                onAction?.({variantId: spec.id, actionId: 'drag', value: item})
+            }}><strong>{item}</strong><small>{itemIndex === 0 && index === 0 ? <>
+                <ShieldAlert size={11}/> Blocked</> : `${itemIndex + 2} pts`}</small><HbarAppUiButton type="button"
+                                                                         onClick={() => {
+                                                                             setMovedCard(item)
+                                                                             onAction?.({
+                                                                                 variantId: spec.id,
+                                                                                 actionId: 'drag',
+                                                                                 value: item
+                                                                             })
+                                                                         }}>{movedCard === item ? 'Moved to next stage' : 'Move to next stage'}</HbarAppUiButton></HbarAppUiSpotlight>)}
         </section>)}</div>
     </ActionSurfaceFrame>
 }

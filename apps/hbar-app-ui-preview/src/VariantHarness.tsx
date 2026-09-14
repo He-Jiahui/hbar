@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui'
 import type { HbarAppUiEvent, HbarAppUiProfileControl, HbarAppUiVariantSpec } from 'hbar-app-ui'
 
@@ -109,38 +109,33 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
 
 type VariantHarnessProps = {
   readonly spec: HbarAppUiVariantSpec
-  readonly children: ReactNode
   readonly onAction: (event: HbarAppUiEvent) => void
 }
 
 /**
- * Preview-only inspector chrome. The component package receives only the
- * recreated surface; this harness owns labels, profile facts and test hooks.
+ * Preview-only inspector controls. The selected package component is mounted
+ * in a separate canvas so catalog metadata never becomes part of its DOM.
  */
-export function VariantHarness({ spec, children, onAction }: VariantHarnessProps) {
+export function VariantHarness({ spec, onAction }: VariantHarnessProps) {
   const { profile } = spec
   return (
-    <article
-      className={`hbar-app-ui-preview-variant hbar-app-ui-surface-${profile.surface} hbar-app-ui-state-${profile.initialState} hbar-app-ui-visual-${profile.visualMode}`}
-      data-hbar-app-ui-variant={spec.id}
-      data-hbar-app-ui-profile={profile.key}
-      data-hbar-app-ui-surface={profile.surface}
-      data-hbar-app-ui-state={profile.initialState}
+    <section
+      className="hbar-app-ui-preview-scenario"
+      data-hbar-app-ui-harness={spec.id}
       data-hbar-app-ui-controls={profile.controls.join(',')}
+      aria-label={`${spec.title} preview controls`}
     >
-      <div className="hbar-app-ui-preview-variant-label">
-        <span>{spec.title}</span>
-        <small>{spec.description}</small>
+      <div className="hbar-app-ui-preview-scenario-heading">
+        <strong>Scenario controls</strong>
+        <HbarAppUiStatus value={profile.initialState} tone={profileTone(profile.initialState)} />
       </div>
       <div className="hbar-app-ui-preview-profile-meta">
-        <HbarAppUiStatus value={profile.initialState} tone={profileTone(profile.initialState)} />
         <span>{profile.surface}</span>
         <small>{profile.itemCount} seeded items</small>
         <code>{profile.key}</code>
       </div>
       <VariantProfileControls spec={spec} onAction={onAction} />
-      <div className="hbar-app-ui-preview-component-slot">{children}</div>
-    </article>
+    </section>
   )
 }
 

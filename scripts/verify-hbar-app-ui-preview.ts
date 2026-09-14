@@ -95,11 +95,13 @@ async function run() {
       const mounted = await page.locator(`[data-hbar-app-ui-variant="${spec.id}"]`).count() === 1
       const contractVisible = await page.locator('.hbar-app-ui-preview-contract').isVisible()
       const variant = page.locator(`[data-hbar-app-ui-variant="${spec.id}"]`)
-      const interactiveControlCount = await variant.locator('button, textarea, input, select').count()
+      const component = variant.locator('[data-hbar-app-ui-component]').first()
+      const harness = page.locator(`[data-hbar-app-ui-harness="${spec.id}"]`)
+      const interactiveControlCount = await component.locator('button, textarea, input, select').count()
       const profileKey = await variant.getAttribute('data-hbar-app-ui-profile')
       const profileState = await variant.getAttribute('data-hbar-app-ui-state')
       const profileSurface = await variant.getAttribute('data-hbar-app-ui-surface')
-      const profileControlCount = await variant.locator('[data-hbar-app-ui-control]').count()
+      const profileControlCount = await harness.locator('[data-hbar-app-ui-control]').count()
       const domSignature = await variant.evaluate((element) => JSON.stringify({
         profile: element.getAttribute('data-hbar-app-ui-profile'),
         state: element.getAttribute('data-hbar-app-ui-state'),
@@ -109,13 +111,13 @@ async function run() {
       }))
       const localScreenshot = `${artifactRoot}/local/${spec.id}.png`
       await mkdir(`${artifactRoot}/local`, { recursive: true })
-      await page.screenshot({ path: localScreenshot, fullPage: true })
+      await component.screenshot({ path: localScreenshot })
       const sourceScreenshot = `${artifactRoot}/source/${spec.category}-${spec.variant}.png`
       const localSha256 = await sha256(localScreenshot)
       if (!localSha256) throw new Error(`Missing local screenshot for ${spec.id}`)
       const sourceSha256 = await sha256(sourceScreenshot)
       visualComparisons.push({ id: spec.id, sourceScreenshot, localScreenshot, sourceSha256, localSha256, sameBytes: sourceSha256 === localSha256 })
-      const firstProfileControl = variant.locator('[data-hbar-app-ui-control]').first()
+      const firstProfileControl = harness.locator('[data-hbar-app-ui-control]').first()
       await firstProfileControl.click()
       const actionEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes(spec.profile.controls[0] ?? '')
       if (!mounted || !contractVisible || interactiveControlCount === 0 || profileKey !== spec.profile.key || profileState !== spec.profile.initialState || profileSurface !== spec.profile.surface || profileControlCount !== spec.profile.controls.length || !actionEvent) throw new Error(`Incomplete profile preview for ${spec.id}`)

@@ -141,9 +141,15 @@ function PreviewApp() {
             <section className="hbar-app-ui-preview-stage" aria-label="Selected component preview">
               <div className="hbar-app-ui-preview-stage-meta"><HbarAppUiStatus value={`${selected.spec.variant} of ${HBAR_APP_UI_CATEGORY_COUNTS[selected.spec.category]}`} tone="positive" /><code>{selected.spec.id}</code></div>
               <div className={`hbar-app-ui-preview-frame hbar-app-ui-preview-frame-${viewport}`} style={{ maxWidth: viewportWidths[viewport] }}>
-                <VariantHarness spec={selected.spec} onAction={handleAction}>
+                <div
+                  className={`hbar-app-ui-preview-component-canvas hbar-app-ui-surface-${selected.spec.profile.surface} hbar-app-ui-state-${selected.spec.profile.initialState} hbar-app-ui-visual-${selected.spec.profile.visualMode}`}
+                  data-hbar-app-ui-variant={selected.spec.id}
+                  data-hbar-app-ui-profile={selected.spec.profile.key}
+                  data-hbar-app-ui-surface={selected.spec.profile.surface}
+                  data-hbar-app-ui-state={selected.spec.profile.initialState}
+                >
                   <SelectedComponent spec={selected.spec} onAction={handleAction} />
-                </VariantHarness>
+                </div>
               </div>
             </section>
 
@@ -154,6 +160,7 @@ function PreviewApp() {
                   {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).map((entry) => <button className={entry.spec.id === selected.spec.id ? 'is-selected' : ''} key={entry.spec.id} type="button" onClick={() => chooseEntry(entry)}><span>{entry.spec.title}</span><small>{entry.spec.layout}</small></button>)}
                 </div>
               </div>
+              <VariantHarness spec={selected.spec} onAction={handleAction} />
               <div className="hbar-app-ui-preview-inspector-section">
                 <div className="hbar-app-ui-preview-section-heading"><strong>Interaction log</strong><small>{eventLog.length} events</small></div>
                 {eventLog.length ? <ol className="hbar-app-ui-preview-events">{eventLog.map((event, index) => <li key={`${event.variantId}-${event.actionId}-${index}`}><code>{event.actionId}</code>{event.value && <span>{event.value}</span>}</li>)}</ol> : <p className="hbar-app-ui-preview-muted">Use the selected component to observe action events.</p>}
