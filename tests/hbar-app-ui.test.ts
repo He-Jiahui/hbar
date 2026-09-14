@@ -134,6 +134,27 @@ describe('hbar-app-ui registry', () => {
     expect(new Set(categorySurfaces).size).toBe(HBAR_APP_UI_CATEGORIES.length)
   })
 
+  test('keeps support variants as separate semantic hbar-app-ui surfaces', () => {
+    const markup = Array.from({ length: 5 }, (_, index) =>
+      renderToStaticMarkup(createElement(getHbarAppUiVariant('support', index + 1).component, {})),
+    )
+
+    expect(markup[0]).toContain('aria-label="Help topics"')
+    expect(markup[1]).toContain('<fieldset')
+    expect(markup[1]).toContain('Area')
+    expect(markup[2]).toContain('hbar-app-ui-support-messages')
+    expect(markup[2]).toContain('hbar-app-ui-support-reply')
+    expect(markup[3]).toContain('role="dialog"')
+    expect(markup[3]).toContain('hbar-app-ui-support-assistant-transcript')
+    expect(markup[4]).toContain('role="tablist"')
+    expect(markup[4]).toContain('aria-label="Support requests"')
+    expect(new Set(markup).size).toBe(5)
+    for (const surface of markup) {
+      expect(surface.toLocaleLowerCase()).not.toContain('react-bits')
+      expect(surface.toLocaleLowerCase()).not.toContain('reactbits')
+    }
+  })
+
   test('named components render a self-contained UI block without preview chrome', () => {
     const markup = renderToStaticMarkup(createElement(HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiAgentActivity01, {}))
     expect(markup).toContain('data-hbar-app-ui-component="hbar-app-ui-agent-activity-1"')

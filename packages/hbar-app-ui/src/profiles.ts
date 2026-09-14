@@ -2835,32 +2835,32 @@ export const HBAR_APP_UI_VARIANT_PROFILES: Readonly<Record<string, HbarAppUiVari
     'hbar-app-ui-support-2': {
         "key": "hbar-app-ui-support-2",
         "scenario": "Ticket form with inline article suggestions, priority-driven response time, and attachments.",
-        "surface": "form",
+        "surface": "split",
         "initialState": "idle",
         "visualMode": "dense",
         "seed": 1641029847,
-        "controls": ["attachments"],
-        "itemCount": 4
+        "controls": ["picker", "attachments", "confirm"],
+        "itemCount": 3
     },
     'hbar-app-ui-support-3': {
         "key": "hbar-app-ui-support-3",
         "scenario": "Ticket conversation thread with a reply composer and a timeline sidebar.",
-        "surface": "rail",
+        "surface": "split",
         "initialState": "idle",
         "visualMode": "balanced",
         "seed": 1624252228,
-        "controls": ["compose"],
-        "itemCount": 5
+        "controls": ["compose", "confirm"],
+        "itemCount": 6
     },
     'hbar-app-ui-support-4': {
         "key": "hbar-app-ui-support-4",
         "scenario": "Support chat widget answering from workspace data, with a handoff to a person.",
-        "surface": "panel",
+        "surface": "overlay",
         "initialState": "idle",
         "visualMode": "balanced",
         "seed": 1607474609,
-        "controls": ["compose"],
-        "itemCount": 6
+        "controls": ["compose", "expand"],
+        "itemCount": 2
     },
     'hbar-app-ui-support-5': {
         "key": "hbar-app-ui-support-5",
@@ -2869,8 +2869,8 @@ export const HBAR_APP_UI_VARIANT_PROFILES: Readonly<Record<string, HbarAppUiVari
         "initialState": "idle",
         "visualMode": "balanced",
         "seed": 1590696990,
-        "controls": ["filter", "tabs", "compose"],
-        "itemCount": 2
+        "controls": ["tabs", "search"],
+        "itemCount": 6
     },
     'hbar-app-ui-tool-calls-1': {
         "key": "hbar-app-ui-tool-calls-1",
