@@ -34,7 +34,7 @@ Recreate the behavior and visual hierarchy of the observed component, not a sing
 1. Verify DOM geometry and computed layout with Playwright at each reference viewport. Check that no selector uses coordinate placement for ordinary content and that long text/narrow layouts wrap without overlap or clipping.
 2. Capture screenshot comparisons using the repository's visual audit tools. Use a diff to discover real deviations, then correct the underlying flow, text semantics, spacing, typography, or responsive rule—not by adding coordinate offsets.
 3. Inspect the resulting desktop and narrow screenshots manually. A low pixel delta is not sufficient when the DOM semantics, text grouping, or responsive behavior is wrong.
-4. Run `.agents/skills/hbar-reference-flow-layout/scripts/validate-flow-layout.ts` through Bun for every newly created or materially changed reference stylesheet. It rejects coordinate placement and fixed pixel dimensions outside recognised overlay selectors.
+4. Run `.agents/skills/hbar-reference-flow-layout/scripts/validate-flow-layout.mjs` through Bun for every newly created or materially changed reference stylesheet. It rejects coordinate placement and fixed pixel dimensions outside recognised overlay selectors.
 5. Run the relevant typecheck, lint, build, interaction checks, and `git diff --check`. Follow `hbar-engineering` for component boundaries, i18n contracts, and independent commits.
 
 ## Reference evidence routing
