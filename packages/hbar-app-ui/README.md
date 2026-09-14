@@ -32,4 +32,4 @@ Generate a fresh local acceptance report for every entry with:
 bun run app-ui:verify
 ```
 
-The verifier writes ignored artifacts under `artifacts/hbar-app-ui/` and fails if an entry does not mount or expose its variant contract.
+The verifier writes ignored artifacts under `artifacts/hbar-app-ui/`, including one local screenshot and a reference-path/hash record for every entry. It fails if an entry does not mount, expose its variant contract, or return its profile control event.

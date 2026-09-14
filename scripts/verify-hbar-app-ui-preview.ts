@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/index'
 
@@ -17,6 +18,16 @@ type VariantCheck = {
   readonly profileControlCount: number
   readonly actionEvent: boolean
   readonly domSignature: string
+  readonly localScreenshot: string
+}
+
+type VisualComparison = {
+  readonly id: string
+  readonly sourceScreenshot: string
+  readonly localScreenshot: string
+  readonly sourceSha256: string | null
+  readonly localSha256: string
+  readonly sameBytes: boolean
 }
 
 type ViewportThemeCheck = {
@@ -60,6 +71,12 @@ async function ensurePreview() {
   }
 }
 
+async function sha256(path: string): Promise<string | null> {
+  const file = Bun.file(path)
+  if (!(await file.exists())) return null
+  return createHash('sha256').update(new Uint8Array(await file.arrayBuffer())).digest('hex')
+}
+
 async function run() {
   const server = await ensurePreview()
   await mkdir(artifactRoot, { recursive: true })
@@ -70,6 +87,7 @@ async function run() {
   page.on('pageerror', (error) => pageErrors.push(error.message))
   const checks: VariantCheck[] = []
   const viewportThemeChecks: ViewportThemeCheck[] = []
+  const visualComparisons: VisualComparison[] = []
 
   try {
     for (const spec of HBAR_APP_UI_VARIANT_SPECS) {
@@ -82,9 +100,6 @@ async function run() {
       const profileState = await variant.getAttribute('data-hbar-app-ui-state')
       const profileSurface = await variant.getAttribute('data-hbar-app-ui-surface')
       const profileControlCount = await variant.locator('[data-hbar-app-ui-control]').count()
-      const firstProfileControl = variant.locator('[data-hbar-app-ui-control]').first()
-      await firstProfileControl.click()
-      const actionEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes(spec.profile.controls[0] ?? '')
       const domSignature = await variant.evaluate((element) => JSON.stringify({
         profile: element.getAttribute('data-hbar-app-ui-profile'),
         state: element.getAttribute('data-hbar-app-ui-state'),
@@ -92,8 +107,19 @@ async function run() {
         controls: [...element.querySelectorAll('[data-hbar-app-ui-control]')].map((control) => control.getAttribute('data-hbar-app-ui-control')),
         headings: [...element.querySelectorAll('h1,h2,h3,strong')].slice(0, 5).map((heading) => heading.textContent?.trim()),
       }))
+      const localScreenshot = `${artifactRoot}/local/${spec.id}.png`
+      await mkdir(`${artifactRoot}/local`, { recursive: true })
+      await page.screenshot({ path: localScreenshot, fullPage: true })
+      const sourceScreenshot = `${artifactRoot}/source/${spec.category}-${spec.variant}.png`
+      const localSha256 = await sha256(localScreenshot)
+      if (!localSha256) throw new Error(`Missing local screenshot for ${spec.id}`)
+      const sourceSha256 = await sha256(sourceScreenshot)
+      visualComparisons.push({ id: spec.id, sourceScreenshot, localScreenshot, sourceSha256, localSha256, sameBytes: sourceSha256 === localSha256 })
+      const firstProfileControl = variant.locator('[data-hbar-app-ui-control]').first()
+      await firstProfileControl.click()
+      const actionEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes(spec.profile.controls[0] ?? '')
       if (!mounted || !contractVisible || interactiveControlCount === 0 || profileKey !== spec.profile.key || profileState !== spec.profile.initialState || profileSurface !== spec.profile.surface || profileControlCount !== spec.profile.controls.length || !actionEvent) throw new Error(`Incomplete profile preview for ${spec.id}`)
-      checks.push({ id: spec.id, category: spec.category, mounted, contractVisible, interactiveControlCount, profileKey, profileState, profileSurface, profileControlCount, actionEvent, domSignature })
+      checks.push({ id: spec.id, category: spec.category, mounted, contractVisible, interactiveControlCount, profileKey, profileState, profileSurface, profileControlCount, actionEvent, domSignature, localScreenshot })
     }
 
     for (const category of HBAR_APP_UI_CATEGORIES) {
@@ -170,6 +196,7 @@ async function run() {
       pageErrors,
       categoryScreenshots,
       viewportThemeChecks,
+      visualComparisons,
       interactions: { stopped, modeEvent, chatEvent, dialogOpened, dialogClosed },
       checks,
     }, null, 2))
