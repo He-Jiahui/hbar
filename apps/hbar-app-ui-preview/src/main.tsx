@@ -26,14 +26,19 @@ function readInitialVariant(): HbarAppUiRegistryEntry {
   return entry ?? allEntries[0]!
 }
 
+function readInitialTheme(): Theme {
+  return new URLSearchParams(window.location.search).get('theme') === 'light' ? 'light' : 'dark'
+}
+
 function PreviewApp() {
   const [selected, setSelected] = useState<HbarAppUiRegistryEntry>(readInitialVariant)
   const [query, setQuery] = useState('')
-  const [theme, setTheme] = useState<Theme>('dark')
+  const [theme, setTheme] = useState<Theme>(readInitialTheme)
   const [viewport, setViewport] = useState<Viewport>('desktop')
   const [eventLog, setEventLog] = useState<readonly HbarAppUiEvent[]>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
+  const isolated = useMemo(() => new URLSearchParams(window.location.search).get('mode') === 'isolated', [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -55,7 +60,9 @@ function PreviewApp() {
   }, [])
 
   useEffect(() => {
-    const nextUrl = `${window.location.pathname}?variant=${encodeURIComponent(selected.spec.id)}`
+    const parameters = new URLSearchParams(window.location.search)
+    parameters.set('variant', selected.spec.id)
+    const nextUrl = `${window.location.pathname}?${parameters.toString()}`
     window.history.replaceState(null, '', nextUrl)
   }, [selected.spec.id])
 
@@ -88,6 +95,18 @@ function PreviewApp() {
       return
     }
     await previewRef.current?.requestFullscreen()
+  }
+
+  if (isolated) {
+    return (
+      <div
+        className="hbar-app-ui-canvas hbar-app-ui-isolated-canvas"
+        data-hbar-app-ui-theme={theme}
+        data-hbar-app-ui-variant={selected.spec.id}
+      >
+        <SelectedComponent spec={selected.spec} onAction={handleAction} />
+      </div>
+    )
   }
 
   return (

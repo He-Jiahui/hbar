@@ -5,6 +5,8 @@ html, body, #root { min-height: 100%; margin: 0; }
 body { background: var(--hbar-app-ui-bg); }
 button, input { font: inherit; }
 .hbar-app-ui-preview { min-height: 100vh; background: var(--hbar-app-ui-bg); color: var(--hbar-app-ui-text); }
+.hbar-app-ui-isolated-canvas { width: 100%; height: 100vh; min-height: 100vh; overflow: hidden; background: var(--hbar-app-ui-bg); }
+.hbar-app-ui-isolated-canvas > .hbar-app-ui-variant { min-height: 100vh; }
 .hbar-app-ui-preview-header { display: flex; height: 64px; align-items: center; justify-content: space-between; padding: 0 22px; border-bottom: 1px solid var(--hbar-app-ui-border); background: var(--hbar-app-ui-surface-0); }
 .hbar-app-ui-preview-brand, .hbar-app-ui-preview-header-actions, .hbar-app-ui-preview-stage-meta, .hbar-app-ui-preview-viewports, .hbar-app-ui-preview-section-heading { display: flex; align-items: center; }
 .hbar-app-ui-preview-brand { gap: 10px; }
