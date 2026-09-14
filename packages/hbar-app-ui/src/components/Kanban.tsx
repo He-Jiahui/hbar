@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import {ChevronDown, GripVertical, MoreHorizontal, Plus, ShieldAlert} from 'lucide-react'
+import {ChevronDown, GripVertical, MessageCircle, MoreHorizontal, Palette, Paperclip, Plus, ShieldAlert} from 'lucide-react'
 import {
     HbarAppUiButton,
     HbarAppUiMetricStrip,
@@ -11,34 +11,108 @@ import {
 } from '../primitives'
 import type {HbarAppUiVariantProps} from '../types'
 import {ActionSurfaceFrame} from './SurfaceFrame'
+import './KanbanSurface.css'
 
 type KanbanProps = HbarAppUiVariantProps
 
+type StatusColumn = 'Backlog' | 'In progress' | 'In review' | 'Done'
+
+type StatusCard = {
+    readonly id: string
+    readonly title: string
+    readonly tag: string
+    readonly comments?: number
+    readonly files?: number
+    readonly avatar: string
+}
+
+const statusColumns: readonly StatusColumn[] = ['Backlog', 'In progress', 'In review', 'Done']
+
+const initialStatusCards: Readonly<Record<StatusColumn, readonly StatusCard[]>> = {
+    Backlog: [
+        {id: 'HAL-241', title: 'Retry billing webhooks that fail on timeout', tag: 'Billing', comments: 4, files: 1, avatar: 'AR'},
+        {id: 'HAL-229', title: 'Deprecate the v1 usage endpoint', tag: 'API', comments: 1, avatar: 'SA'},
+        {id: 'HAL-214', title: 'Backfill workspace regions for EU tenants', tag: 'Platform', avatar: 'WC'},
+    ],
+    'In progress': [
+        {id: 'HAL-238', title: 'Seat count drifts after a downgrade', tag: 'Billing', comments: 2, avatar: 'PN'},
+        {id: 'HAL-221', title: 'Cache invalidation on role change is slow', tag: 'Platform', comments: 8, avatar: 'MS'},
+        {id: 'HAL-233', title: 'Add SCIM group mapping to the admin console', tag: 'Identity', comments: 6, files: 2, avatar: 'WC'},
+    ],
+    'In review': [
+        {id: 'HAL-236', title: 'Audit log export times out past 90 days', tag: 'Platform', files: 3, avatar: 'MS'},
+        {id: 'HAL-208', title: 'Rotate signing keys without downtime', tag: 'Identity', comments: 5, files: 1, avatar: 'SA'},
+    ],
+    Done: [
+        {id: 'HAL-226', title: 'Rework the empty state on first workspace', tag: 'Growth', comments: 3, files: 1, avatar: 'AR'},
+        {id: 'HAL-217', title: 'Ship the invoice PDF redesign', tag: 'Billing', comments: 2, files: 4, avatar: 'PN'},
+    ],
+}
+
 function StatusBoard({spec, onAction}: KanbanProps) {
-    const [items, setItems] = useState(['Review API contract', 'Update empty state', 'Check permissions']);
-    const move = (index: number) => {
-        const next = [...items];
-        const [item] = next.splice(index, 1);
-        if (item) next.push(item);
-        setItems(next);
-        onAction?.({variantId: spec.id, actionId: 'drag', value: next.join('|')})
-    };
+    const [columns, setColumns] = useState<Readonly<Record<StatusColumn, readonly StatusCard[]>>>(initialStatusCards)
+    const [selected, setSelected] = useState<string>()
+    const [subdued, setSubdued] = useState(false)
+    const itemCount = statusColumns.reduce((count, column) => count + columns[column].length, 0)
+
+    const moveCard = (cardId: string, from: StatusColumn) => {
+        const destination = statusColumns[statusColumns.indexOf(from) + 1]
+        const card = columns[from].find((item) => item.id === cardId)
+        if (!destination || !card) return
+        setColumns((current) => ({
+            ...current,
+            [from]: current[from].filter((item) => item.id !== cardId),
+            [destination]: [...current[destination], card],
+        }))
+        onAction?.({variantId: spec.id, actionId: 'drag', value: `${cardId}:${from}:${destination}`})
+    }
+
+    const addCard = (column: StatusColumn) => {
+        setColumns((current) => {
+            const nextNumber = 200 + statusColumns.reduce((count, item) => count + current[item].length, 0) + 1
+            const card: StatusCard = {
+                id: `HAL-${nextNumber}`,
+                title: 'New work item awaiting details',
+                tag: 'Workspace',
+                avatar: 'HB',
+            }
+            return {...current, [column]: [...current[column], card]}
+        })
+        onAction?.({variantId: spec.id, actionId: 'open', value: `add:${column}`})
+    }
+
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
-                               className="hbar-app-ui-kanban-variant-1"><HbarAppUiToolbar title="Status board"
-                                                                                          detail="Drag or use keyboard card moves"/><HbarAppUiButton
-        onClick={() => setItems((current) => [...current, 'New task'])}><Plus size={13}/>Add task</HbarAppUiButton>
-        <div className="hbar-app-ui-kanban-board">{['Todo', 'In progress', 'Done'].map((column, columnIndex) => <section
-            key={column}>
-            <header>
-                <strong>{column}</strong><small>{columnIndex === 0 ? items.length : columnIndex}</small><HbarAppUiProgress
-                value={columnIndex === 0 ? 42 : columnIndex === 1 ? 68 : 100} label={`${column} capacity`}
-                tone="accent"/></header>
-            {columnIndex === 0 && items.map((item, index) => <HbarAppUiSpotlight draggable key={item}
-                                                                                 onDragEnd={() => move(index)}><GripVertical
-                size={13}/><strong>{item}</strong><small>Today <MoreHorizontal
-                size={12}/></small></HbarAppUiSpotlight>)}{columnIndex > 0 &&
-            <HbarAppUiSpotlight><strong>{column === 'Done' ? 'Create workspace' : 'Build activity panel'}</strong><small>Assigned
-                to Avery</small></HbarAppUiSpotlight>}</section>)}</div>
+                               className={`hbar-app-ui-kanban-variant-1${subdued ? ' is-subdued' : ''}`}>
+        <header className="hbar-app-ui-kanban-header">
+            <div><h2>Platform board</h2><p>{itemCount} open items. Drag a card, or focus one and press space to move it with the arrow keys.</p></div>
+            <div className="hbar-app-ui-kanban-people" aria-label="Board participants"><i>AR</i><i>PN</i><i>MS</i><i>WC</i></div>
+        </header>
+        <main className="hbar-app-ui-kanban-board" aria-label="Platform board columns">
+            {statusColumns.map((column) => <section className="hbar-app-ui-kanban-column" key={column}>
+                <header><h3>{column}</h3><span>{column === 'In progress' ? `${columns[column].length}/4` : column === 'In review' ? `${columns[column].length}/3` : columns[column].length}</span><button
+                    type="button" aria-label={`Add a card to ${column}`} onClick={() => addCard(column)}><Plus size={15}/></button></header>
+                <ul className="hbar-app-ui-kanban-cards">{columns[column].map((card, index) => <li key={card.id}>
+                    <button type="button" draggable className={`hbar-app-ui-kanban-card${selected === card.id ? ' is-selected' : ''}`}
+                            aria-label={`${card.id}: ${card.title}`} onClick={() => {
+                        setSelected(card.id)
+                        onAction?.({variantId: spec.id, actionId: 'open', value: card.id})
+                    }} onDragEnd={() => moveCard(card.id, column)} onKeyDown={(event) => {
+                        if (event.key === ' ' || event.key === 'ArrowRight') {
+                            event.preventDefault()
+                            moveCard(card.id, column)
+                        }
+                    }}>
+                        <span className="hbar-app-ui-kanban-card-top"><i className={index === 0 ? 'is-current' : ''}/><span>{card.id}</span><GripVertical size={14}/></span>
+                        <strong>{card.title}</strong>
+                        <footer><span>{card.tag}</span>{card.comments !== undefined && <small><MessageCircle size={12}/>{card.comments}</small>}{card.files !== undefined && <small><Paperclip size={12}/>{card.files}</small>}<i>{card.avatar}</i></footer>
+                    </button>
+                </li>)}</ul>
+            </section>)}
+        </main>
+        <button type="button" className="hbar-app-ui-kanban-theme" onClick={() => {
+            setSubdued((value) => !value)
+            onAction?.({variantId: spec.id, actionId: 'theme', value: subdued ? 'standard' : 'subdued'})
+        }}><Palette size={13}/>{subdued ? 'Standard' : 'Theme'}</button>
     </ActionSurfaceFrame>
 }
 
@@ -128,14 +202,14 @@ function SprintBoard({spec, onAction}: KanbanProps) {
                 onAction?.({variantId: spec.id, actionId: 'drag', value: item})
             }}><strong>{item}</strong><small>{itemIndex === 0 && index === 0 ? <>
                 <ShieldAlert size={11}/> Blocked</> : `${itemIndex + 2} pts`}</small><HbarAppUiButton type="button"
-                                                                         onClick={() => {
-                                                                             setMovedCard(item)
-                                                                             onAction?.({
-                                                                                 variantId: spec.id,
-                                                                                 actionId: 'drag',
-                                                                                 value: item
-                                                                             })
-                                                                         }}>{movedCard === item ? 'Moved to next stage' : 'Move to next stage'}</HbarAppUiButton></HbarAppUiSpotlight>)}
+                                                                                                      onClick={() => {
+                                                                                                          setMovedCard(item)
+                                                                                                          onAction?.({
+                                                                                                              variantId: spec.id,
+                                                                                                              actionId: 'drag',
+                                                                                                              value: item
+                                                                                                          })
+                                                                                                      }}>{movedCard === item ? 'Moved to next stage' : 'Move to next stage'}</HbarAppUiButton></HbarAppUiSpotlight>)}
         </section>)}</div>
     </ActionSurfaceFrame>
 }
