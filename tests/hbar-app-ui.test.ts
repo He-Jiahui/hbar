@@ -22,6 +22,7 @@ import {
   HBAR_APP_UI_VARIANT_EXPORTS,
   HBAR_APP_UI_VARIANT_SPECS,
   HbarAppUiApprovalRequest,
+  HbarAppUiQuestionnaire,
   HbarAppUiRunActivity,
   Dashboard,
   DataTable,
@@ -201,6 +202,33 @@ describe('hbar-app-ui registry', () => {
     expect(markup).toContain('hbar-app-ui-approval-request')
     expect(markup).toContain('file.write · workspace/plan.md')
     expect(markup).toContain('允许并记住')
+    expect(markup).not.toContain('hbar-app-ui-preview')
+    expect(markup).not.toContain('hbar-app-ui-profile-controls')
+  })
+
+  test('renders a data-driven questionnaire without application dependencies', () => {
+    const markup = renderToStaticMarkup(
+      createElement(HbarAppUiQuestionnaire, {
+        requestId: 'request-1',
+        title: '需要你的回答',
+        submitLabel: '提交回答',
+        questions: [
+          {
+            id: 'scope',
+            header: '范围',
+            prompt: '计划应覆盖哪个范围？',
+            options: [
+              {value: 'app', label: '应用', description: '覆盖应用流程。'},
+              {value: 'api', label: '接口', description: '覆盖接口契约。'},
+            ],
+          },
+        ],
+        onSubmit: async () => ({accepted: true}),
+      }),
+    )
+    expect(markup).toContain('hbar-app-ui-questionnaire')
+    expect(markup).toContain('计划应覆盖哪个范围？')
+    expect(markup).toContain('提交回答')
     expect(markup).not.toContain('hbar-app-ui-preview')
     expect(markup).not.toContain('hbar-app-ui-profile-controls')
   })

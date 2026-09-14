@@ -4236,6 +4236,12 @@
     animation: hbar-app-ui-spin 800ms linear infinite;
 }
 
+@keyframes hbar-app-ui-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @media (max-width: 540px) {
     .hbar-app-ui-approval-request-heading {
         grid-template-columns: auto minmax(0, 1fr);
@@ -4249,4 +4255,139 @@
     .hbar-app-ui-approval-request-actions > button:last-child {
         flex: 1 0 100%;
     }
+}
+
+/* Data-driven questionnaire surface for blocking user-input requests. */
+.hbar-app-ui-questionnaire {
+    display: grid;
+    min-width: 0;
+    gap: 10px;
+    margin-bottom: 9px;
+    padding: 11px;
+    border: 1px solid color-mix(in srgb, var(--hbar-app-ui-accent) 52%, var(--hbar-app-ui-border));
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: color-mix(in srgb, var(--hbar-app-ui-accent) 9%, var(--hbar-app-ui-surface-1));
+}
+
+.hbar-app-ui-questionnaire-heading {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.hbar-app-ui-questionnaire-heading > strong {
+    font-size: 12px;
+}
+
+.hbar-app-ui-questionnaire-questions {
+    display: grid;
+    min-width: 0;
+    gap: 10px;
+}
+
+.hbar-app-ui-questionnaire-questions fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.hbar-app-ui-questionnaire-questions fieldset:disabled {
+    opacity: .75;
+}
+
+.hbar-app-ui-questionnaire-questions legend {
+    display: grid;
+    width: 100%;
+    gap: 3px;
+    color: var(--hbar-app-ui-text);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.hbar-app-ui-questionnaire-questions legend > span {
+    color: var(--hbar-app-ui-muted);
+    font: 10px var(--hbar-app-ui-mono);
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-questionnaire-options {
+    display: grid;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.hbar-app-ui-questionnaire-option {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 7px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-0);
+    cursor: pointer;
+}
+
+.hbar-app-ui-questionnaire-option:has(input[type='radio']:checked) {
+    border-color: var(--hbar-app-ui-accent);
+    background: color-mix(in srgb, var(--hbar-app-ui-accent) 15%, var(--hbar-app-ui-surface-0));
+    box-shadow: inset 2px 0 0 var(--hbar-app-ui-accent);
+}
+
+.hbar-app-ui-questionnaire-option > input[type='radio'] {
+    margin-top: 3px;
+    accent-color: var(--hbar-app-ui-accent);
+}
+
+.hbar-app-ui-questionnaire-option > span {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 2px;
+}
+
+.hbar-app-ui-questionnaire-option strong {
+    color: var(--hbar-app-ui-text);
+    font-size: 11px;
+}
+
+.hbar-app-ui-questionnaire-option small {
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.hbar-app-ui-questionnaire-option input[type='text'],
+.hbar-app-ui-questionnaire-option input[type='password'] {
+    width: 100%;
+    min-width: 0;
+    margin-top: 4px;
+    padding: 5px 6px;
+    border: 1px solid var(--hbar-app-ui-border);
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: var(--hbar-app-ui-surface-0);
+    color: var(--hbar-app-ui-text);
+    font-size: 11px;
+}
+
+.hbar-app-ui-questionnaire-freeform > span {
+    width: 100%;
+}
+
+.hbar-app-ui-questionnaire-feedback {
+    margin: 0;
+    padding: 7px 9px;
+    border: 1px solid color-mix(in srgb, var(--hbar-app-ui-danger) 55%, var(--hbar-app-ui-border));
+    border-radius: var(--hbar-app-ui-radius-small);
+    background: color-mix(in srgb, var(--hbar-app-ui-danger) 10%, var(--hbar-app-ui-surface-1));
+    color: var(--hbar-app-ui-danger);
+    font-size: 11px;
+}
+
+.hbar-app-ui-questionnaire-actions {
+    display: flex;
+    justify-content: flex-end;
 }

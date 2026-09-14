@@ -237,8 +237,7 @@ input,
 select,
 textarea,
 .session-item,
-.tool-result,
-.user-input-prompt {
+.tool-result {
   transition:
     background-color var(--dsh-motion-duration) var(--dsh-motion-easing),
     border-color var(--dsh-motion-duration) var(--dsh-motion-easing),
@@ -1216,33 +1215,6 @@ body.resizing-sidebar .sidebar-resizer::after {
   border-color: var(--hbar-bd);
   border-radius: var(--radius-sm);
   background: var(--hbar-s2);
-}
-
-.user-input-prompt {
-  border-radius: var(--radius-md);
-  box-shadow: var(--dsh-shadow-panel);
-}
-
-.user-input-prompt {
-  border-color: var(--hbar-ac-border);
-  background: var(--hbar-ac-soft);
-}
-
-.user-input-option {
-  border-color: var(--hbar-bd);
-  border-radius: var(--radius-sm);
-  background: var(--hbar-bg);
-}
-
-.user-input-option:hover {
-  border-color: var(--hbar-bd2);
-  background: var(--hbar-s1);
-}
-
-.user-input-option:has(input[type='radio']:checked) {
-  border-color: var(--hbar-ac);
-  background: var(--hbar-ac-soft);
-  box-shadow: inset 2px 0 0 var(--hbar-ac);
 }
 
 .queue-strip {

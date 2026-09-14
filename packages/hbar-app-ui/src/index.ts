@@ -45,6 +45,7 @@ export {
     Wizard,
     ActionSurfaceFrame,
     HbarAppUiApprovalRequest,
+    HbarAppUiQuestionnaire,
     SurfaceFrame,
 } from './components'
 export {
@@ -76,6 +77,10 @@ export type {
     HbarAppUiRunActivityItem,
     HbarAppUiRunActivityProps,
     HbarAppUiRunActivityStatus,
+    HbarAppUiQuestionnaireOption,
+    HbarAppUiQuestionnaireProps,
+    HbarAppUiQuestionnaireQuestion,
+    HbarAppUiQuestionnaireResult,
     HbarAppUiTimelineStep,
     HbarAppUiVariantComponent,
     HbarAppUiVariantComponentProps,

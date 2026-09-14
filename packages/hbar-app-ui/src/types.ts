@@ -252,6 +252,44 @@ export interface HbarAppUiApprovalRequestProps {
   readonly completeLabel?: string | undefined
 }
 
+export interface HbarAppUiQuestionnaireOption {
+  readonly value: string
+  readonly label: string
+  readonly description?: string | undefined
+}
+
+export interface HbarAppUiQuestionnaireQuestion {
+  readonly id: string
+  readonly header: string
+  readonly prompt: string
+  readonly options?: readonly HbarAppUiQuestionnaireOption[] | undefined
+  readonly acceptsCustomAnswer?: boolean | undefined
+  readonly secret?: boolean | undefined
+}
+
+export interface HbarAppUiQuestionnaireResult {
+  readonly accepted: boolean
+  readonly error?: string | undefined
+}
+
+export interface HbarAppUiQuestionnaireProps {
+  readonly requestId: string
+  readonly questions: readonly HbarAppUiQuestionnaireQuestion[]
+  readonly onSubmit: (
+    answers: Readonly<Record<string, string>>,
+  ) => void | HbarAppUiQuestionnaireResult | Promise<void | HbarAppUiQuestionnaireResult>
+  readonly title?: string | undefined
+  readonly countLabel?: ((count: number) => string) | undefined
+  readonly customAnswerLabel?: string | undefined
+  readonly customAnswerPlaceholder?: string | undefined
+  readonly freeformLabel?: string | undefined
+  readonly submitLabel?: string | undefined
+  readonly submittingLabel?: string | undefined
+  readonly submittedLabel?: string | undefined
+  readonly incompleteMessage?: string | undefined
+  readonly rejectedMessage?: string | undefined
+}
+
 export interface HbarAppUiOption {
     readonly id: string
     readonly label: string

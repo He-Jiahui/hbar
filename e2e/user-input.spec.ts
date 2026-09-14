@@ -44,10 +44,10 @@ test('plan mode renders structured questions and resumes after an answer', async
     )
     await chat.getByRole('button', { name: '发送', exact: true }).click()
 
-    const prompt = page.locator('.user-input-prompt').filter({ visible: true })
+    const prompt = page.locator('.hbar-app-ui-questionnaire').filter({ visible: true })
     await expect(prompt).toBeVisible()
     await expect(prompt).toContainText('Which scope should the plan cover?')
-    await expect(prompt.locator('.user-input-option')).toHaveCount(2)
+    await expect(prompt.locator('.hbar-app-ui-questionnaire-option')).toHaveCount(2)
     await expect(prompt.locator('input[aria-label$="其他答案"]')).toHaveCount(0)
     await page.screenshot({ path: `artifacts/${Date.now()}-desktop-user-input.png` })
     await page.setViewportSize({ width: 390, height: 844 })

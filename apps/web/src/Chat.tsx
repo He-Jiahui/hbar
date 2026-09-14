@@ -17,7 +17,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
-import type { ArtifactRef, ContentBlock, GitInfo, Message, UserInput, UserInputRequest } from '@hbar/contracts'
+import type { ArtifactRef, ContentBlock, GitInfo, Message, UserInput } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
   acknowledgeComposerDraft,
@@ -43,7 +43,7 @@ import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
-import { HbarAppUiApprovalRequest, HbarAppUiSpotlight } from 'hbar-app-ui'
+import { HbarAppUiApprovalRequest, HbarAppUiQuestionnaire, HbarAppUiSpotlight } from 'hbar-app-ui'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -89,124 +89,6 @@ function approvalSummary(tool: string, args: Record<string, unknown>): string {
   if (typeof args.path === 'string') return `${tool} · ${args.path}`
   if (typeof args.command === 'string') return `${tool} · ${args.command}`
   return tool
-}
-function UserInputPrompt({ request }: { request: UserInputRequest }) {
-  const [selected, setSelected] = useState<Record<string, string>>({})
-  const [other, setOther] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  async function submit() {
-    const answers = Object.fromEntries(
-      request.questions.map((question) => {
-        const value = question.options?.length
-          ? selected[question.id] === '__other__'
-            ? other[question.id]
-            : selected[question.id]
-          : other[question.id]
-        return [question.id, { answers: value?.trim() ? [value.trim()] : [] }]
-      }),
-    )
-    if (request.questions.some((question) => !answers[question.id]?.answers.length)) {
-      setError('请回答所有问题')
-      return
-    }
-    setError('')
-    setSaving(true)
-    try {
-      const result = await client().call('user_input.resolve', { requestId: request.requestId, answers })
-      if (!result.accepted) setError('问题已由其他客户端处理或已取消')
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-    } finally {
-      setSaving(false)
-    }
-  }
-  return (
-    <section className="user-input-prompt" aria-label="需要你的回答" aria-busy={saving}>
-      <div className="user-input-heading">
-        <strong>需要你的回答</strong>
-        <span>{request.questions.length} 个问题</span>
-      </div>
-      <div className="user-input-questions">
-        {request.questions.map((question) => (
-          <fieldset key={question.id}>
-            <legend>
-              <span>{question.header}</span>
-              {question.question}
-            </legend>
-            <div className="user-input-options">
-              {question.options?.map((option) => (
-                <label key={option.label} className="user-input-option">
-                  <input
-                    type="radio"
-                    name={`${request.requestId}:${question.id}`}
-                    value={option.label}
-                    checked={selected[question.id] === option.label}
-                    disabled={saving}
-                    onChange={() => setSelected((current) => ({ ...current, [question.id]: option.label }))}
-                  />
-                  <span>
-                    <strong>{option.label}</strong>
-                    <small>{option.description}</small>
-                  </span>
-                </label>
-              ))}
-              {question.options?.length ? question.isOther !== false && (
-                <label className="user-input-option">
-                  <input
-                    type="radio"
-                    name={`${request.requestId}:${question.id}`}
-                    value="__other__"
-                    checked={selected[question.id] === '__other__'}
-                    disabled={saving}
-                    onChange={() => setSelected((current) => ({ ...current, [question.id]: '__other__' }))}
-                  />
-                  <span>
-                    <strong>其他</strong>
-                    {selected[question.id] === '__other__' && (
-                      <input
-                        autoFocus
-                        aria-label={`${question.header} 其他答案`}
-                        type={question.isSecret ? 'password' : 'text'}
-                        value={other[question.id] ?? ''}
-                        disabled={saving}
-                        placeholder="填写其他答案"
-                        onChange={(event) => setOther((current) => ({ ...current, [question.id]: event.target.value }))}
-                      />
-                    )}
-                  </span>
-                </label>
-              ) : (
-                <label className="user-input-option user-input-freeform">
-                  <span>
-                    <strong>填写答案</strong>
-                    <input
-                      aria-label={`${question.header} 答案`}
-                      type={question.isSecret ? 'password' : 'text'}
-                      value={other[question.id] ?? ''}
-                      disabled={saving}
-                      onChange={(event) => setOther((current) => ({ ...current, [question.id]: event.target.value }))}
-                    />
-                  </span>
-                </label>
-              )}
-            </div>
-          </fieldset>
-        ))}
-      </div>
-      {error && (
-        <p className="inline-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="user-input-actions">
-        <button type="button" className="button primary" disabled={saving} onClick={() => void submit()}>
-          {saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
-          提交回答
-        </button>
-      </div>
-    </section>
-  )
 }
 function MessageView({ message }: { message: Message }) {
   const [copied, setCopied] = useState(false)
@@ -638,7 +520,39 @@ export default function Chat({
       )}
       <div className="composer-area">
         {(snapshot?.userInputs ?? []).map((request) => (
-          <UserInputPrompt key={request.requestId} request={request} />
+          <HbarAppUiQuestionnaire
+            key={request.requestId}
+            requestId={request.requestId}
+            title="需要你的回答"
+            countLabel={(count) => `${count} 个问题`}
+            customAnswerLabel="其他"
+            customAnswerPlaceholder="填写其他答案"
+            freeformLabel="填写答案"
+            submitLabel="提交回答"
+            submittingLabel="正在提交"
+            submittedLabel="已提交"
+            incompleteMessage="请回答所有问题"
+            rejectedMessage="问题已由其他客户端处理或已取消"
+            questions={request.questions.map((question) => ({
+              id: question.id,
+              header: question.header,
+              prompt: question.question,
+              options: question.options?.map((option) => ({
+                value: option.label,
+                label: option.label,
+                description: option.description,
+              })),
+              acceptsCustomAnswer: question.isOther !== false,
+              secret: question.isSecret,
+            }))}
+            onSubmit={async (answers) => {
+              const result = await client().call('user_input.resolve', {
+                requestId: request.requestId,
+                answers: Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, {answers: [answer]}])),
+              })
+              return result.accepted ? {accepted: true} : {accepted: false, error: '问题已由其他客户端处理或已取消'}
+            }}
+          />
         ))}
         {snapshot?.approvals.map((approval) => (
           <HbarAppUiApprovalRequest
