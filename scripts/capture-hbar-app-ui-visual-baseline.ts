@@ -71,11 +71,31 @@ async function referenceDirectories(root: string): Promise<readonly string[]> {
   return requestedIds.size ? names.filter((name) => requestedIds.has(`hbar-app-ui-${name}`)) : names
 }
 
+async function captureCanvas(page: import('@playwright/test').Page, id: string, size: PngSize, localPath: string): Promise<void> {
+  await page.setViewportSize(size)
+  const target = `${baseUrl}/?mode=isolated&theme=dark&variant=${encodeURIComponent(id)}`
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.goto(target, { waitUntil: 'domcontentloaded' })
+      const canvas = page.locator(`[data-hbar-app-ui-variant="${id}"]`)
+      await canvas.waitFor({ state: 'visible', timeout: 10_000 })
+      await canvas.screenshot({ path: localPath })
+      return
+    } catch (error) {
+      lastError = error
+      if (attempt < 3) await page.waitForTimeout(300 * attempt)
+    }
+  }
+  throw new Error(`Could not capture ${id} at ${size.width}x${size.height}: ${String(lastError)}`)
+}
+
 async function capture(): Promise<void> {
   const root = requireReferenceRoot()
   const server = await ensurePreview()
   const records: CaptureRecord[] = []
   const browser = await chromium.launch({ headless: true, executablePath: chromePath })
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
 
   try {
     for (const name of await referenceDirectories(root)) {
@@ -88,22 +108,15 @@ async function capture(): Promise<void> {
           continue
         }
         const size = await pngSize(referencePath)
-        const page = await browser.newPage({ viewport: size })
-        try {
-          await page.goto(`${baseUrl}/?mode=isolated&theme=dark&variant=${encodeURIComponent(id)}`, { waitUntil: 'domcontentloaded' })
-          const canvas = page.locator(`[data-hbar-app-ui-variant="${id}"]`)
-          await canvas.waitFor({ state: 'visible' })
-          const localDirectory = join(outputRoot, name)
-          await mkdir(localDirectory, { recursive: true })
-          const localPath = join(localDirectory, `${viewport}.png`)
-          await canvas.screenshot({ path: localPath })
-          records.push({ id, viewport, referencePath, localPath, ...size })
-        } finally {
-          await page.close()
-        }
+        const localDirectory = join(outputRoot, name)
+        await mkdir(localDirectory, { recursive: true })
+        const localPath = join(localDirectory, `${viewport}.png`)
+        await captureCanvas(page, id, size, localPath)
+        records.push({ id, viewport, referencePath, localPath, ...size })
       }
     }
   } finally {
+    await page.close()
     await browser.close()
     server?.kill()
   }
