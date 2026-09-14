@@ -42,6 +42,12 @@ describe('hbar-app-ui registry', () => {
     expect(() => createHbarAppUiVariantSpec('agent-activity', 8)).toThrow(RangeError)
   })
 
+  test('registry entries resolve to their named public components', () => {
+    const named = HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiAgentActivity01
+    expect(getHbarAppUiVariant('agent-activity', 1).component).toBe(named)
+    expect(getHbarAppUiVariant('chat', 6).component).toBe(HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiChat06)
+  })
+
   test('keeps a distinct profile and observable markup for every variant', () => {
     for (const category of HBAR_APP_UI_CATEGORIES) {
       const entries = listHbarAppUiVariants().filter((entry) => entry.spec.category === category)
