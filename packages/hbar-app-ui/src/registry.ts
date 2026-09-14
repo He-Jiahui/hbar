@@ -1,18 +1,17 @@
-import { createElement } from 'react'
-import HbarAppUiVariant from './Variant'
 import { HBAR_APP_UI_VARIANT_SPECS, createHbarAppUiVariantSpec } from './specs'
-import type { HbarAppUiCategory, HbarAppUiRegistryEntry, HbarAppUiVariantComponent, HbarAppUiVariantSpec } from './types'
+import { HBAR_APP_UI_VARIANT_COMPONENTS_BY_ID } from './variants'
+import type { HbarAppUiCategory, HbarAppUiRegistryEntry, HbarAppUiVariantComponent } from './types'
 
-function createHbarAppUiEntryComponent(spec: HbarAppUiVariantSpec): HbarAppUiVariantComponent {
-  return function HbarAppUiVariantEntry(props) {
-    return createElement(HbarAppUiVariant, { ...props, spec })
-  }
+function componentForSpec(specId: string): HbarAppUiVariantComponent {
+  const component = HBAR_APP_UI_VARIANT_COMPONENTS_BY_ID[specId]
+  if (!component) throw new Error(`Missing hbar-app-ui component ${specId}`)
+  return component
 }
 
 const entries = new Map(
   HBAR_APP_UI_VARIANT_SPECS.map((spec) => [
     spec.id,
-    { spec, component: createHbarAppUiEntryComponent(spec) } satisfies HbarAppUiRegistryEntry,
+    { spec, component: componentForSpec(spec.id) } satisfies HbarAppUiRegistryEntry,
   ]),
 )
 
