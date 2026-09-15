@@ -18,10 +18,10 @@ Rectangles are evidence for padding, gaps, max-widths, and responsive wrapping. 
 
 | Observed effect | Preferred implementation |
 | --- | --- |
-| Centered panel with natural content | overlay parent plus flex/grid child and `margin: auto` / alignment |
+| Centered panel with natural content | overlay parent plus flex child and `margin: auto` / alignment |
 | Header title and close control | flex row, `justify-content: space-between` |
 | Label left / current value right | flex row, `justify-content: space-between`; inline value fragment group |
-| Field label, control, helper | grid or column flex with `gap` |
+| Field label, control, helper | column flex with `gap` |
 | Desktop action row becoming narrow stack | media-query `flex-direction`, preserve DOM order |
 | Right-side details panel | edge overlay container; flowing panel header/body/footer |
 | Menu opened beneath a trigger | trigger-relative overlay; flowing menu rows and separators |

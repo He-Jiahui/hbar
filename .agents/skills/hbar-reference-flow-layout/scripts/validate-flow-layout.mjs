@@ -15,19 +15,32 @@ const coordinateProperties = new Set([
   'transform',
 ])
 
-const dimensionProperties = new Set([
-  'width',
-  'height',
-  'inline-size',
-  'block-size',
-  'min-width',
-  'max-width',
-  'min-height',
-  'max-height',
-  'min-inline-size',
-  'max-inline-size',
-  'min-block-size',
-  'max-block-size',
+const spacingProperties = new Set([
+  'padding',
+  'padding-block',
+  'padding-block-end',
+  'padding-block-start',
+  'padding-inline',
+  'padding-inline-end',
+  'padding-inline-start',
+  'padding-bottom',
+  'padding-left',
+  'padding-right',
+  'padding-top',
+  'margin',
+  'margin-block',
+  'margin-block-end',
+  'margin-block-start',
+  'margin-inline',
+  'margin-inline-end',
+  'margin-inline-start',
+  'margin-bottom',
+  'margin-left',
+  'margin-right',
+  'margin-top',
+  'gap',
+  'row-gap',
+  'column-gap',
 ])
 
 function lineNumber(text, index) {
@@ -87,13 +100,19 @@ function validateCss(path, source) {
       const [, property, value] = match
       const location = `${path}:${rule.startLine + offset}`
       if (coordinateProperties.has(property) && !isOverlay) {
-        errors.push(`${location}: ${property} is reserved for a real overlay container; use flex/grid flow for content.`)
+        errors.push(`${location}: ${property} is reserved for a real overlay container; use flex flow for content.`)
       }
       if (property === 'position' && /\b(?:absolute|fixed)\b/.test(value) && !isOverlay) {
-        errors.push(`${location}: ${value.trim()} positioning is reserved for a real overlay container; use flex/grid flow for content.`)
+        errors.push(`${location}: ${value.trim()} positioning is reserved for a real overlay container; use flex flow for content.`)
       }
-      if (dimensionProperties.has(property) && /(?:^|\s|\()\d+(?:\.\d+)?px\b/.test(value)) {
-        errors.push(`${location}: ${property} uses a fixed px dimension; use intrinsic sizing, percentages, or rem-based bounds instead.`)
+      if (property === 'display' && /\b(?:inline-)?grid\b/.test(value)) {
+        errors.push(`${location}: ${value.trim()} uses CSS Grid; use flex flow for ordinary content.`)
+      }
+      if (/^grid(?:-|$)/.test(property)) {
+        errors.push(`${location}: ${property} is a CSS Grid declaration; use flex flow for ordinary content.`)
+      }
+      if (/\b\d+(?:\.\d+)?px\b/.test(value) && !spacingProperties.has(property)) {
+        errors.push(`${location}: ${property} contains a px value outside spacing; use rem, em, percentages, or intrinsic sizing.`)
       }
     }
   }
@@ -101,6 +120,40 @@ function validateCss(path, source) {
 }
 
 const inputPaths = Bun.argv.slice(2)
+if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const valid = validateCss('self-test-valid.css', `.card {
+  display: flex;
+  padding: 8px;
+  margin-inline: 4px;
+  gap: 6px;
+  border-radius: .5rem;
+}`)
+  if (valid.length !== 0) {
+    console.error(`Flow layout guard self-test expected valid CSS, got: ${valid.join('; ')}`)
+    process.exit(1)
+  }
+  const invalid = validateCss('self-test-invalid.css', `.card {
+  display: grid;
+  border: 1px solid red;
+  width: 320px;
+  left: 2px;
+}`)
+  if (invalid.length < 4) {
+    console.error(`Flow layout guard self-test expected CSS Grid, px, and coordinate errors, got: ${invalid.join('; ')}`)
+    process.exit(1)
+  }
+  const overlay = validateCss('self-test-overlay.css', `.hbar-app-ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  padding: 1rem;
+}`)
+  if (overlay.length !== 0) {
+    console.error(`Flow layout guard self-test expected overlay exception, got: ${overlay.join('; ')}`)
+    process.exit(1)
+  }
+  console.log('Flow layout guard self-test passed.')
+  process.exit(0)
+}
 if (inputPaths.length === 0) {
   console.error('Usage: bun validate-flow-layout.mjs <stylesheet> [...stylesheet]')
   process.exit(1)
