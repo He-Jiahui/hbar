@@ -49,6 +49,7 @@ export {
     SurfaceFrame,
 } from './components'
 export {HbarAppUiEditorProvider} from './components/Editor'
+export {HbarAppUiNavbarProvider, selectHbarAppUiNavbarItem, uniqueHbarAppUiNavbarItems} from './components/Navbar'
 export type {
     HbarAppUiCodeFile,
     HbarAppUiCodeWorkspaceContent,
@@ -78,6 +79,32 @@ export type {
     HbarAppUiSuggestionReviewDocument,
     HbarAppUiSuggestionReviewLabels,
 } from './components/Editor'
+export type {
+    HbarAppUiNavbarActionLabelSet,
+    HbarAppUiNavbarActivityContent,
+    HbarAppUiNavbarActivityItem,
+    HbarAppUiNavbarAnalyticsContent,
+    HbarAppUiNavbarArticleContent,
+    HbarAppUiNavbarCommerceContent,
+    HbarAppUiNavbarContent,
+    HbarAppUiNavbarDeploymentContent,
+    HbarAppUiNavbarDeploymentStat,
+    HbarAppUiNavbarDocumentContent,
+    HbarAppUiNavbarDocsContent,
+    HbarAppUiNavbarFilterContent,
+    HbarAppUiNavbarFilterItem,
+    HbarAppUiNavbarLandingContent,
+    HbarAppUiNavbarListStrategy,
+    HbarAppUiNavbarMetric,
+    HbarAppUiNavbarPortfolioContent,
+    HbarAppUiNavbarProduct,
+    HbarAppUiNavbarProjectBoardContent,
+    HbarAppUiNavbarProjectColumn,
+    HbarAppUiNavbarProps,
+    HbarAppUiNavbarProviderProps,
+    HbarAppUiNavbarTaskListContent,
+    HbarAppUiNavbarTaskRow,
+} from './components/Navbar'
 export {
     HbarAppUiButton,
     HbarAppUiComposer,

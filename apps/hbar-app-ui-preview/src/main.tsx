@@ -6,6 +6,7 @@ import {
   HBAR_APP_UI_CATEGORY_COUNTS,
   HbarAppUiButton,
   HbarAppUiEditorProvider,
+  HbarAppUiNavbarProvider,
   HbarAppUiIconButton,
   HbarAppUiStatus,
   listHbarAppUiVariants,
@@ -19,6 +20,11 @@ import {
   createHbarAppUiEditorOverflowFixtures,
   HBAR_APP_UI_EDITOR_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-editor-fixtures'
+import {
+  createHbarAppUiNavbarLocalizedFixtures,
+  createHbarAppUiNavbarOverflowFixtures,
+  HBAR_APP_UI_NAVBAR_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-navbar-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -51,8 +57,20 @@ function PreviewApp() {
         return createHbarAppUiEditorOverflowFixtures()
       case 'localized':
         return createHbarAppUiEditorLocalizedFixtures()
+      case null:
       default:
         return HBAR_APP_UI_EDITOR_FIXTURES
+    }
+  }, [])
+  const navbarContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('navbarFixture')) {
+      case 'overflow':
+        return createHbarAppUiNavbarOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiNavbarLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_NAVBAR_FIXTURES
     }
   }, [])
 
@@ -120,9 +138,11 @@ function PreviewApp() {
         data-hbar-app-ui-theme={theme}
         data-hbar-app-ui-variant={selected.spec.id}
       >
-        <HbarAppUiEditorProvider content={editorContent}>
-          <SelectedComponent spec={selected.spec} onAction={handleAction} />
-        </HbarAppUiEditorProvider>
+        <HbarAppUiNavbarProvider content={navbarContent}>
+          <HbarAppUiEditorProvider content={editorContent}>
+            <SelectedComponent spec={selected.spec} onAction={handleAction} />
+          </HbarAppUiEditorProvider>
+        </HbarAppUiNavbarProvider>
       </div>
     )
   }
@@ -185,9 +205,11 @@ function PreviewApp() {
                   data-hbar-app-ui-surface={selected.spec.profile.surface}
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
-                  <HbarAppUiEditorProvider content={editorContent}>
-                    <SelectedComponent spec={selected.spec} onAction={handleAction} />
-                  </HbarAppUiEditorProvider>
+                  <HbarAppUiNavbarProvider content={navbarContent}>
+                    <HbarAppUiEditorProvider content={editorContent}>
+                      <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                    </HbarAppUiEditorProvider>
+                  </HbarAppUiNavbarProvider>
                 </div>
               </div>
             </section>
