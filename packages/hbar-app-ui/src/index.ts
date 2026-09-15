@@ -54,6 +54,24 @@ export {HbarAppUiToolCallsProvider, selectHbarAppUiToolCallsItem, uniqueHbarAppU
 export {HbarAppUiAgentActivityProvider, selectHbarAppUiAgentActivityItem, uniqueHbarAppUiAgentActivityItems} from './components/AgentActivity'
 export {HbarAppUiAgentApprovalProvider, selectHbarAppUiAgentApprovalItem, uniqueHbarAppUiAgentApprovalItems} from './components/AgentApproval'
 export {HbarAppUiAgentPlanProvider, selectHbarAppUiAgentPlanItem, uniqueHbarAppUiAgentPlanItems} from './components/AgentPlan'
+export {HbarAppUiPaywallProvider, uniqueHbarAppUiPaywallItems} from './components/Paywall'
+export type {
+    HbarAppUiPaywallAdmin,
+    HbarAppUiPaywallArticleContent,
+    HbarAppUiPaywallContent,
+    HbarAppUiPaywallFeature,
+    HbarAppUiPaywallFeatureGateContent,
+    HbarAppUiPaywallListStrategy,
+    HbarAppUiPaywallPlan,
+    HbarAppUiPaywallPlanContent,
+    HbarAppUiPaywallReadsContent,
+    HbarAppUiPaywallSeatContent,
+    HbarAppUiPaywallTrialContent,
+    HbarAppUiPaywallTrialRow,
+    HbarAppUiPaywallUsageContent,
+    HbarAppUiPaywallUsageMeter,
+    HbarAppUiPaywallProviderProps,
+} from './components/Paywall'
 export type {
     HbarAppUiAgentActivityAttempt,
     HbarAppUiAgentActivityContent,

@@ -8,6 +8,7 @@ import {
   HbarAppUiAgentActivityProvider,
   HbarAppUiAgentApprovalProvider,
   HbarAppUiAgentPlanProvider,
+  HbarAppUiPaywallProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -49,6 +50,11 @@ import {
   createHbarAppUiToolCallsOverflowFixtures,
   HBAR_APP_UI_TOOL_CALLS_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-tool-calls-fixtures'
+import {
+  createHbarAppUiPaywallLocalizedFixtures,
+  createHbarAppUiPaywallOverflowFixtures,
+  HBAR_APP_UI_PAYWALL_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-paywall-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -141,6 +147,17 @@ function PreviewApp() {
         return HBAR_APP_UI_TOOL_CALLS_FIXTURES
     }
   }, [])
+  const paywallContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('paywallFixture')) {
+      case 'overflow':
+        return createHbarAppUiPaywallOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiPaywallLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_PAYWALL_FIXTURES
+    }
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -206,7 +223,8 @@ function PreviewApp() {
         data-hbar-app-ui-theme={theme}
         data-hbar-app-ui-variant={selected.spec.id}
       >
-        <HbarAppUiAgentPlanProvider content={agentPlanContent}>
+        <HbarAppUiPaywallProvider content={paywallContent}>
+          <HbarAppUiAgentPlanProvider content={agentPlanContent}>
           <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
             <HbarAppUiAgentActivityProvider content={agentActivityContent}>
               <HbarAppUiToolCallsProvider content={toolCallsContent}>
@@ -218,7 +236,8 @@ function PreviewApp() {
               </HbarAppUiToolCallsProvider>
             </HbarAppUiAgentActivityProvider>
           </HbarAppUiAgentApprovalProvider>
-        </HbarAppUiAgentPlanProvider>
+          </HbarAppUiAgentPlanProvider>
+        </HbarAppUiPaywallProvider>
       </div>
     )
   }
@@ -281,7 +300,8 @@ function PreviewApp() {
                   data-hbar-app-ui-surface={selected.spec.profile.surface}
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
-                  <HbarAppUiAgentPlanProvider content={agentPlanContent}>
+                  <HbarAppUiPaywallProvider content={paywallContent}>
+                    <HbarAppUiAgentPlanProvider content={agentPlanContent}>
                     <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
                       <HbarAppUiAgentActivityProvider content={agentActivityContent}>
                         <HbarAppUiToolCallsProvider content={toolCallsContent}>
@@ -293,7 +313,8 @@ function PreviewApp() {
                         </HbarAppUiToolCallsProvider>
                       </HbarAppUiAgentActivityProvider>
                     </HbarAppUiAgentApprovalProvider>
-                  </HbarAppUiAgentPlanProvider>
+                    </HbarAppUiAgentPlanProvider>
+                  </HbarAppUiPaywallProvider>
                 </div>
               </div>
             </section>

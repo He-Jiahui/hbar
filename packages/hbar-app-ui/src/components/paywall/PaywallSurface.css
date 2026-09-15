@@ -1,0 +1,870 @@
+.hbar-app-ui-variant.hbar-app-ui-paywall-surface {
+    --hbar-app-ui-paywall-bg: oklch(.145 0 0);
+    --hbar-app-ui-paywall-surface: oklch(.205 0 0);
+    --hbar-app-ui-paywall-surface-soft: oklch(.175 0 0);
+    --hbar-app-ui-paywall-border: oklch(.269 0 0);
+    --hbar-app-ui-paywall-border-strong: oklch(.36 0 0);
+    --hbar-app-ui-paywall-text: oklch(.97 0 0);
+    --hbar-app-ui-paywall-muted: oklch(.708 0 0);
+    --hbar-app-ui-paywall-subtle: oklch(.556 0 0);
+    display: flex !important;
+    min-inline-size: 0;
+    min-block-size: 100%;
+    block-size: 100%;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0;
+    overflow: auto;
+    padding: 0;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--hbar-app-ui-paywall-bg) !important;
+    color: var(--hbar-app-ui-paywall-text);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-paywall-surface *,
+.hbar-app-ui-paywall-surface *::before,
+.hbar-app-ui-paywall-surface *::after {
+    box-sizing: border-box;
+}
+
+.hbar-app-ui-paywall-surface h1,
+.hbar-app-ui-paywall-surface h2,
+.hbar-app-ui-paywall-surface h3,
+.hbar-app-ui-paywall-surface p,
+.hbar-app-ui-paywall-surface ul,
+.hbar-app-ui-paywall-surface dl {
+    margin: 0;
+}
+
+.hbar-app-ui-paywall-surface ul {
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-paywall-surface button,
+.hbar-app-ui-paywall-surface input,
+.hbar-app-ui-paywall-surface textarea {
+    font: inherit;
+}
+
+.hbar-app-ui-paywall-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+}
+
+.hbar-app-ui-paywall-icon svg {
+    inline-size: 100%;
+    block-size: 100%;
+}
+
+.hbar-app-ui-paywall-button {
+    display: inline-flex;
+    min-block-size: 2.25rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: .5rem .875rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .5rem;
+    background: transparent;
+    color: var(--hbar-app-ui-paywall-text);
+    cursor: pointer;
+    line-height: 1.25;
+}
+
+.hbar-app-ui-paywall-button:hover:not(:disabled),
+.hbar-app-ui-paywall-button:focus-visible {
+    border-color: var(--hbar-app-ui-paywall-border-strong);
+}
+
+.hbar-app-ui-paywall-button-accent {
+    border-color: var(--hbar-app-ui-paywall-text);
+    background: var(--hbar-app-ui-paywall-text);
+    color: var(--hbar-app-ui-paywall-bg);
+}
+
+.hbar-app-ui-paywall-button:disabled {
+    cursor: not-allowed;
+    opacity: .48;
+}
+
+.hbar-app-ui-paywall-button {
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-strategy {
+    display: none;
+}
+
+.hbar-app-ui-paywall-article,
+.hbar-app-ui-paywall-limit,
+.hbar-app-ui-paywall-seat {
+    inline-size: min(100%, 42.5rem);
+    margin-inline: auto;
+    padding: 2rem 0;
+}
+
+.hbar-app-ui-paywall-article {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.hbar-app-ui-paywall-article-surface {
+    align-items: center;
+}
+
+.hbar-app-ui-paywall-article-surface .hbar-app-ui-paywall-article {
+    padding-block-start: .3125rem;
+}
+
+.hbar-app-ui-paywall-article-head {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.hbar-app-ui-paywall-eyebrow {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .8125rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-paywall-article h1 {
+    font-size: 1.375rem;
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.hbar-app-ui-paywall-byline,
+.hbar-app-ui-paywall-article-copy p,
+.hbar-app-ui-paywall-member p,
+.hbar-app-ui-paywall-member li,
+.hbar-app-ui-paywall-seat p,
+.hbar-app-ui-paywall-seat small {
+    color: var(--hbar-app-ui-paywall-muted);
+    font-size: .875rem;
+    line-height: 1.75;
+}
+
+.hbar-app-ui-paywall-article-copy {
+    display: flex;
+    flex-direction: column;
+    gap: .875rem;
+}
+
+.hbar-app-ui-paywall-article-copy p:last-child {
+    color: var(--hbar-app-ui-paywall-subtle);
+}
+
+.hbar-app-ui-paywall-member,
+.hbar-app-ui-paywall-feature-card,
+.hbar-app-ui-paywall-limit-card,
+.hbar-app-ui-paywall-seat-card,
+.hbar-app-ui-paywall-payment {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    padding: 1.5rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-paywall-surface);
+}
+
+.hbar-app-ui-paywall-member-actions .hbar-app-ui-paywall-button,
+.hbar-app-ui-paywall-limit-actions .hbar-app-ui-paywall-button,
+.hbar-app-ui-paywall-seat-actions .hbar-app-ui-paywall-button,
+.hbar-app-ui-paywall-feature-actions .hbar-app-ui-paywall-button {
+    min-block-size: 2.25rem;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-member {
+    padding: 1.5rem;
+}
+
+.hbar-app-ui-paywall-member-actions .hbar-app-ui-paywall-button {
+    padding: .5rem 1rem;
+}
+
+.hbar-app-ui-paywall-member > .hbar-app-ui-paywall-icon {
+    inline-size: 2rem;
+    block-size: 2rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border-strong);
+    border-radius: .5rem;
+}
+
+.hbar-app-ui-paywall-member h2,
+.hbar-app-ui-paywall-feature-card h2,
+.hbar-app-ui-paywall-limit-card h2,
+.hbar-app-ui-paywall-seat-card h2 {
+    font-size: .9375rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-paywall-member ul {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-member li,
+.hbar-app-ui-paywall-feature-row,
+.hbar-app-ui-paywall-plan-feature {
+    display: flex;
+    align-items: flex-start;
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-member-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-feature-gate {
+    display: flex;
+    min-block-size: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.hbar-app-ui-paywall-feature-card {
+    inline-size: min(100%, 27.5rem);
+    padding: .5625rem;
+    background: oklch(.145 0 0);
+}
+
+.hbar-app-ui-paywall-feature-head,
+.hbar-app-ui-paywall-feature-footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .75rem;
+}
+
+.hbar-app-ui-paywall-feature-head > .hbar-app-ui-paywall-button {
+    min-inline-size: 1.75rem;
+    min-block-size: 1.75rem;
+    padding: 0;
+    border: 0;
+    color: var(--hbar-app-ui-paywall-muted);
+}
+
+.hbar-app-ui-paywall-feature-head > .hbar-app-ui-paywall-button svg {
+    inline-size: .875rem;
+    block-size: .875rem;
+}
+
+.hbar-app-ui-paywall-feature-head > div,
+.hbar-app-ui-paywall-feature-row > div,
+.hbar-app-ui-paywall-plan-head > div {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.hbar-app-ui-paywall-feature-row {
+    padding: .8125rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-paywall-surface);
+}
+
+.hbar-app-ui-paywall-feature-row p,
+.hbar-app-ui-paywall-plan p,
+.hbar-app-ui-paywall-limit-card p,
+.hbar-app-ui-paywall-seat-card p {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-paywall-feature-list {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    padding: 0 .25rem;
+}
+
+.hbar-app-ui-paywall-feature-footer {
+    align-items: center;
+    padding-top: .75rem;
+}
+
+.hbar-app-ui-paywall-feature-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-feature-footer > p {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+}
+
+.hbar-app-ui-paywall-feature-footer p {
+    color: var(--hbar-app-ui-paywall-text);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-feature-actions,
+.hbar-app-ui-paywall-limit-actions,
+.hbar-app-ui-paywall-seat-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-plans-surface {
+    display: flex;
+    min-block-size: 100%;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 3.875rem max(1rem, 12.25%);
+}
+
+.hbar-app-ui-paywall-plans-head,
+.hbar-app-ui-paywall-plans-foot {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.hbar-app-ui-paywall-plans-head > div {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.hbar-app-ui-paywall-plans-head h2 {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-plans-head p,
+.hbar-app-ui-paywall-plans-foot p {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-period {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: .125rem;
+    padding: .25rem;
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-paywall-surface);
+}
+
+.hbar-app-ui-paywall-period button {
+    min-block-size: 1.75rem;
+    padding: .25rem .75rem;
+    border: 0;
+    border-radius: .5rem;
+    background: transparent;
+    color: var(--hbar-app-ui-paywall-subtle);
+    cursor: pointer;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-period button.is-selected {
+    background: var(--hbar-app-ui-paywall-surface-soft);
+    color: var(--hbar-app-ui-paywall-text);
+}
+
+.hbar-app-ui-paywall-plan-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    padding: .25rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .875rem;
+}
+
+.hbar-app-ui-paywall-plan {
+    display: flex;
+    min-inline-size: 14rem;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: .75rem;
+    padding: 1rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-paywall-surface);
+}
+
+.hbar-app-ui-paywall-plan.is-featured {
+    border-color: var(--hbar-app-ui-paywall-border-strong);
+}
+
+.hbar-app-ui-paywall-plan-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-plan-name {
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-paywall-plan-badge {
+    padding: .125rem .375rem;
+    border-radius: .25rem;
+    background: var(--hbar-app-ui-paywall-text);
+    color: var(--hbar-app-ui-paywall-bg);
+    font-size: .6875rem;
+}
+
+.hbar-app-ui-paywall-plan-price {
+    display: flex;
+    align-items: baseline;
+    gap: .25rem;
+}
+
+.hbar-app-ui-paywall-plan-price strong {
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-plan-price span {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .75rem;
+}
+
+.hbar-app-ui-paywall-plan-features {
+    display: flex;
+    min-block-size: 5.625rem;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-plan-feature {
+    color: var(--hbar-app-ui-paywall-muted);
+    font-size: .75rem;
+}
+
+.hbar-app-ui-paywall-plan > .hbar-app-ui-paywall-button {
+    margin-block-start: auto;
+}
+
+.hbar-app-ui-paywall-limit {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.hbar-app-ui-paywall-limit-surface .hbar-app-ui-paywall-limit,
+.hbar-app-ui-paywall-seat-surface .hbar-app-ui-paywall-seat {
+    padding-block-start: 4.1875rem;
+}
+
+.hbar-app-ui-paywall-limit-surface .hbar-app-ui-paywall-limit,
+.hbar-app-ui-paywall-seat-surface .hbar-app-ui-paywall-seat {
+    inline-size: min(100%, 38.75rem);
+}
+
+.hbar-app-ui-paywall-limit-head,
+.hbar-app-ui-paywall-limit-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.hbar-app-ui-paywall-limit-head > div,
+.hbar-app-ui-paywall-seat-head > div {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.hbar-app-ui-paywall-limit-head h2,
+.hbar-app-ui-paywall-seat-head h2 {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-limit-head p,
+.hbar-app-ui-paywall-seat-head p {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-seat-head p {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+}
+
+.hbar-app-ui-paywall-meter-list {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .25rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .875rem;
+}
+
+.hbar-app-ui-paywall-meter {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding: .8125rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-paywall-surface);
+}
+
+.hbar-app-ui-paywall-meter-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.hbar-app-ui-paywall-meter-head strong {
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-meter-head span {
+    color: var(--hbar-app-ui-paywall-muted);
+    font-size: .75rem;
+}
+
+.hbar-app-ui-paywall-meter-track {
+    block-size: .375rem;
+    overflow: hidden;
+    border-radius: 999rem;
+    background: var(--hbar-app-ui-paywall-border);
+}
+
+.hbar-app-ui-paywall-meter-track span {
+    display: block;
+    block-size: 100%;
+    border-radius: inherit;
+    background: var(--hbar-app-ui-paywall-text);
+}
+
+.hbar-app-ui-paywall-limit-card {
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-limit-card strong {
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-limit-card p {
+    color: var(--hbar-app-ui-paywall-subtle);
+}
+
+.hbar-app-ui-paywall-trial-surface,
+.hbar-app-ui-paywall-reads-surface {
+    display: flex;
+    min-block-size: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.hbar-app-ui-paywall-trial-card {
+    inline-size: min(100%, 35rem);
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    padding: 1.5rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-paywall-surface);
+}
+
+.hbar-app-ui-paywall-trial-card .hbar-app-ui-paywall-button-accent {
+    min-block-size: 2.5rem;
+}
+
+.hbar-app-ui-paywall-trial-card h2 {
+    font-size: 1.125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-trial-card > p {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-trial-list {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .25rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .875rem;
+}
+
+.hbar-app-ui-paywall-trial-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .625rem .75rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .625rem;
+}
+
+.hbar-app-ui-paywall-trial-row span {
+    color: var(--hbar-app-ui-paywall-muted);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-trial-row strong {
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-payment {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.hbar-app-ui-paywall-payment > div {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .125rem;
+}
+
+.hbar-app-ui-paywall-payment span {
+    color: var(--hbar-app-ui-paywall-muted);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-payment small {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .75rem;
+}
+
+.hbar-app-ui-paywall-reads-card {
+    inline-size: min(100%, 32.5rem);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    text-align: center;
+}
+
+.hbar-app-ui-paywall-reads-dots {
+    display: flex;
+    gap: .25rem;
+}
+
+.hbar-app-ui-paywall-reads-dots i {
+    inline-size: 2rem;
+    block-size: .375rem;
+    border-radius: 999rem;
+    background: var(--hbar-app-ui-paywall-text);
+}
+
+.hbar-app-ui-paywall-reads-card h2 {
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-reads-card > p {
+    max-inline-size: 26.25rem;
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-reads-form {
+    display: flex;
+    inline-size: min(100%, 25rem);
+    gap: .5rem;
+}
+
+.hbar-app-ui-paywall-reads-form .hbar-app-ui-paywall-button:disabled {
+    border-color: var(--hbar-app-ui-paywall-text);
+    background: var(--hbar-app-ui-paywall-text);
+    color: var(--hbar-app-ui-paywall-bg);
+    opacity: 1;
+}
+
+.hbar-app-ui-paywall-reads-form input {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    min-block-size: 2.25rem;
+    padding: .5rem .75rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .5rem;
+    background: var(--hbar-app-ui-paywall-surface);
+    color: var(--hbar-app-ui-paywall-text);
+}
+
+.hbar-app-ui-paywall-reads-subscribe,
+.hbar-app-ui-paywall-reads-assurances {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-paywall-reads-subscribe {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .25rem;
+}
+
+.hbar-app-ui-paywall-reads-subscribe button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--hbar-app-ui-paywall-text);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.hbar-app-ui-paywall-reads-assurances {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.hbar-app-ui-paywall-seat-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.hbar-app-ui-paywall-seat-card {
+    gap: .75rem;
+}
+
+.hbar-app-ui-paywall-seat-surface .hbar-app-ui-paywall-seat {
+    gap: 1rem;
+}
+
+.hbar-app-ui-paywall-seat-surface .hbar-app-ui-paywall-seat-card {
+    padding: 1.25rem;
+}
+
+.hbar-app-ui-paywall-seat-surface .hbar-app-ui-paywall-seat-actions {
+    justify-content: flex-end;
+}
+
+.hbar-app-ui-paywall-admin-list {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.hbar-app-ui-paywall-admin {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+.hbar-app-ui-paywall-admin > span {
+    display: inline-flex;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999rem;
+    background: var(--hbar-app-ui-paywall-border);
+    color: var(--hbar-app-ui-paywall-text);
+    font-size: .6875rem;
+}
+
+.hbar-app-ui-paywall-admin > div {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.hbar-app-ui-paywall-admin strong {
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-paywall-admin small {
+    color: var(--hbar-app-ui-paywall-subtle);
+    font-size: .75rem;
+}
+
+.hbar-app-ui-paywall-seat-card textarea {
+    min-block-size: 3.75rem;
+    resize: vertical;
+    padding: .625rem .75rem;
+    border: .0625rem solid var(--hbar-app-ui-paywall-border);
+    border-radius: .5rem;
+    background: var(--hbar-app-ui-paywall-bg);
+    color: var(--hbar-app-ui-paywall-text);
+}
+
+@media (max-width: 42rem) {
+    .hbar-app-ui-paywall-article,
+    .hbar-app-ui-paywall-limit,
+.hbar-app-ui-paywall-seat {
+        inline-size: 100%;
+        padding: 1.5rem;
+    }
+
+    .hbar-app-ui-paywall-feature-gate,
+    .hbar-app-ui-paywall-plans-surface,
+    .hbar-app-ui-paywall-trial-surface,
+    .hbar-app-ui-paywall-reads-surface {
+        padding: 1.5rem;
+    }
+
+    .hbar-app-ui-paywall-plans-head,
+    .hbar-app-ui-paywall-plans-foot,
+    .hbar-app-ui-paywall-payment {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .hbar-app-ui-paywall-period {
+        align-self: flex-start;
+    }
+
+    .hbar-app-ui-paywall-plan {
+        min-inline-size: 100%;
+    }
+
+    .hbar-app-ui-paywall-reads-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .hbar-app-ui-paywall-reads-card {
+        gap: .75rem;
+    }
+
+    .hbar-app-ui-paywall-reads-card > p {
+        max-inline-size: 17rem;
+    }
+}
