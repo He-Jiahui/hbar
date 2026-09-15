@@ -16,7 +16,7 @@ Recreate the behavior and visual hierarchy of the observed component, not a sing
 ## Layout rules
 
 - Build content with normal document flow first. Use `display: flex`, `display: grid`, intrinsic sizing, `gap`, `flex`, `minmax`, wrapping, and `margin-inline: auto` to express rows, columns, centering, and responsive stacking.
-- Pixel values are permitted only for visual rhythm and component tokens: padding, margin, gap, border width/radius, icon/control dimensions, typography, shadows, and bounded max/min widths or heights when the component contract actually needs them. They are not permitted to place content at a screen coordinate.
+- Pixel values are permitted only for visual rhythm and component tokens: padding, margin, gap, border width/radius, icon/control dimensions, typography, shadows, and bounded max/min widths or heights when the component contract actually needs them. They are not permitted to place content at a screen coordinate. Icon dimensions must use the semantic tiers defined by `../hbar-icon-scale/SKILL.md`, rather than one-off measurements.
 - Do not use `position: absolute`, `fixed`, `top`, `right`, `bottom`, `left`, `inset`, `translate`, or coordinate-like offsets to arrange ordinary text, fields, buttons, panels, menus, or cards. Do not encode reference screenshot coordinates as `top`/`left` or fixed content heights to force alignment.
 - The only narrow exception is a true overlay relationship demonstrated by the preview: a modal backdrop may cover its owning component; a drawer may be anchored to a component edge; a menu may be anchored to its trigger. In that case position only the overlay container, keep its internal contents in flex/grid flow, and prefer a trigger-relative anchor over viewport pixels.
 - Width should be intrinsic, percentage, `min()`, `max()`, or `clamp()` where possible. A reference's observed modal width can justify `width: min(...)`, but its height must generally come from content. Use `min-height` only for a true interaction affordance, not to make a screenshot match.
@@ -35,7 +35,7 @@ Recreate the behavior and visual hierarchy of the observed component, not a sing
 2. Capture screenshot comparisons using the repository's visual audit tools. Use a diff to discover real deviations, then correct the underlying flow, text semantics, spacing, typography, or responsive rule—not by adding coordinate offsets.
 3. Inspect the resulting desktop and narrow screenshots manually. A low pixel delta is not sufficient when the DOM semantics, text grouping, or responsive behavior is wrong.
 4. Run `.agents/skills/hbar-reference-flow-layout/scripts/validate-flow-layout.mjs` through Bun for every newly created or materially changed reference stylesheet. It rejects coordinate placement and fixed pixel dimensions outside recognised overlay selectors.
-5. Run the relevant typecheck, lint, build, interaction checks, and `git diff --check`. Follow `hbar-engineering` for component boundaries, i18n contracts, and independent commits.
+5. Run the relevant typecheck, lint, build, interaction checks, and `git diff --check`. Follow `hbar-engineering` for component boundaries and independent commits, `../hbar-content-contract/SKILL.md` for host-owned localized copy and list data, and `../hbar-icon-scale/SKILL.md` for icon tiers.
 
 ## Reference evidence routing
 

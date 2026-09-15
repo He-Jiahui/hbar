@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hbar Content Contract"
+  short_description: "Require localized, host-owned UI content"
+  default_prompt: "Use $hbar-content-contract to design localized labels, editable data props, and tested list capacity for an hbar UI surface."
