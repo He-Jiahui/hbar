@@ -52,6 +52,7 @@ export {HbarAppUiEditorProvider} from './components/Editor'
 export {HbarAppUiNavbarProvider, selectHbarAppUiNavbarItem, uniqueHbarAppUiNavbarItems} from './components/Navbar'
 export {HbarAppUiToolCallsProvider, selectHbarAppUiToolCallsItem, uniqueHbarAppUiToolCallsItems} from './components/ToolCalls'
 export {HbarAppUiAgentActivityProvider, selectHbarAppUiAgentActivityItem, uniqueHbarAppUiAgentActivityItems} from './components/AgentActivity'
+export {HbarAppUiAgentApprovalProvider, selectHbarAppUiAgentApprovalItem, uniqueHbarAppUiAgentApprovalItems} from './components/AgentApproval'
 export type {
     HbarAppUiAgentActivityAttempt,
     HbarAppUiAgentActivityContent,
@@ -78,6 +79,25 @@ export type {
     HbarAppUiAgentActivityWorker,
     HbarAppUiAgentActivityWorkersContent,
 } from './components/AgentActivity'
+export type {
+    HbarAppUiAgentApprovalChange,
+    HbarAppUiAgentApprovalContent,
+    HbarAppUiAgentApprovalCostContent,
+    HbarAppUiAgentApprovalCostMetric,
+    HbarAppUiAgentApprovalDiffContent,
+    HbarAppUiAgentApprovalHistoryContent,
+    HbarAppUiAgentApprovalHistoryEntry,
+    HbarAppUiAgentApprovalHistoryFilter,
+    HbarAppUiAgentApprovalInlineContent,
+    HbarAppUiAgentApprovalListStrategy,
+    HbarAppUiAgentApprovalPermissionContent,
+    HbarAppUiAgentApprovalProviderProps,
+    HbarAppUiAgentApprovalProps,
+    HbarAppUiAgentApprovalQueueContent,
+    HbarAppUiAgentApprovalQueueItem,
+    HbarAppUiAgentApprovalScope,
+    HbarAppUiAgentApprovalState,
+} from './components/AgentApproval'
 export type {
     HbarAppUiCodeFile,
     HbarAppUiCodeWorkspaceContent,
