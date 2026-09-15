@@ -7,6 +7,7 @@ import {
   HbarAppUiButton,
   HbarAppUiAgentActivityProvider,
   HbarAppUiAgentApprovalProvider,
+  HbarAppUiAgentPlanProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -23,6 +24,11 @@ import {
   createHbarAppUiAgentApprovalOverflowFixtures,
   HBAR_APP_UI_AGENT_APPROVAL_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-agent-approval-fixtures'
+import {
+  createHbarAppUiAgentPlanLocalizedFixtures,
+  createHbarAppUiAgentPlanOverflowFixtures,
+  HBAR_APP_UI_AGENT_PLAN_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-agent-plan-fixtures'
 import {
   createHbarAppUiAgentActivityLocalizedFixtures,
   createHbarAppUiAgentActivityOverflowFixtures,
@@ -100,6 +106,17 @@ function PreviewApp() {
       case null:
       default:
         return HBAR_APP_UI_AGENT_APPROVAL_FIXTURES
+    }
+  }, [])
+  const agentPlanContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('agentPlanFixture')) {
+      case 'overflow':
+        return createHbarAppUiAgentPlanOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiAgentPlanLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_AGENT_PLAN_FIXTURES
     }
   }, [])
   const navbarContent = useMemo(() => {
@@ -189,17 +206,19 @@ function PreviewApp() {
         data-hbar-app-ui-theme={theme}
         data-hbar-app-ui-variant={selected.spec.id}
       >
-        <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
-          <HbarAppUiAgentActivityProvider content={agentActivityContent}>
-            <HbarAppUiToolCallsProvider content={toolCallsContent}>
-              <HbarAppUiNavbarProvider content={navbarContent}>
-                <HbarAppUiEditorProvider content={editorContent}>
-                  <SelectedComponent spec={selected.spec} onAction={handleAction} />
-                </HbarAppUiEditorProvider>
-              </HbarAppUiNavbarProvider>
-            </HbarAppUiToolCallsProvider>
-          </HbarAppUiAgentActivityProvider>
-        </HbarAppUiAgentApprovalProvider>
+        <HbarAppUiAgentPlanProvider content={agentPlanContent}>
+          <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
+            <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+              <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                <HbarAppUiNavbarProvider content={navbarContent}>
+                  <HbarAppUiEditorProvider content={editorContent}>
+                    <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                  </HbarAppUiEditorProvider>
+                </HbarAppUiNavbarProvider>
+              </HbarAppUiToolCallsProvider>
+            </HbarAppUiAgentActivityProvider>
+          </HbarAppUiAgentApprovalProvider>
+        </HbarAppUiAgentPlanProvider>
       </div>
     )
   }
@@ -262,17 +281,19 @@ function PreviewApp() {
                   data-hbar-app-ui-surface={selected.spec.profile.surface}
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
-                  <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
-                    <HbarAppUiAgentActivityProvider content={agentActivityContent}>
-                      <HbarAppUiToolCallsProvider content={toolCallsContent}>
-                        <HbarAppUiNavbarProvider content={navbarContent}>
-                          <HbarAppUiEditorProvider content={editorContent}>
-                            <SelectedComponent spec={selected.spec} onAction={handleAction} />
-                          </HbarAppUiEditorProvider>
-                        </HbarAppUiNavbarProvider>
-                      </HbarAppUiToolCallsProvider>
-                    </HbarAppUiAgentActivityProvider>
-                  </HbarAppUiAgentApprovalProvider>
+                  <HbarAppUiAgentPlanProvider content={agentPlanContent}>
+                    <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
+                      <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+                        <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                          <HbarAppUiNavbarProvider content={navbarContent}>
+                            <HbarAppUiEditorProvider content={editorContent}>
+                              <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                            </HbarAppUiEditorProvider>
+                          </HbarAppUiNavbarProvider>
+                        </HbarAppUiToolCallsProvider>
+                      </HbarAppUiAgentActivityProvider>
+                    </HbarAppUiAgentApprovalProvider>
+                  </HbarAppUiAgentPlanProvider>
                 </div>
               </div>
             </section>

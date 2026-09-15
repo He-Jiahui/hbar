@@ -53,6 +53,7 @@ export {HbarAppUiNavbarProvider, selectHbarAppUiNavbarItem, uniqueHbarAppUiNavba
 export {HbarAppUiToolCallsProvider, selectHbarAppUiToolCallsItem, uniqueHbarAppUiToolCallsItems} from './components/ToolCalls'
 export {HbarAppUiAgentActivityProvider, selectHbarAppUiAgentActivityItem, uniqueHbarAppUiAgentActivityItems} from './components/AgentActivity'
 export {HbarAppUiAgentApprovalProvider, selectHbarAppUiAgentApprovalItem, uniqueHbarAppUiAgentApprovalItems} from './components/AgentApproval'
+export {HbarAppUiAgentPlanProvider, selectHbarAppUiAgentPlanItem, uniqueHbarAppUiAgentPlanItems} from './components/AgentPlan'
 export type {
     HbarAppUiAgentActivityAttempt,
     HbarAppUiAgentActivityContent,
@@ -98,6 +99,26 @@ export type {
     HbarAppUiAgentApprovalScope,
     HbarAppUiAgentApprovalState,
 } from './components/AgentApproval'
+export type {
+    HbarAppUiAgentPlanActualContent,
+    HbarAppUiAgentPlanActualMetric,
+    HbarAppUiAgentPlanActualRow,
+    HbarAppUiAgentPlanBoardContent,
+    HbarAppUiAgentPlanBoardSection,
+    HbarAppUiAgentPlanBreakdownRow,
+    HbarAppUiAgentPlanChecklistContent,
+    HbarAppUiAgentPlanContent,
+    HbarAppUiAgentPlanEditableContent,
+    HbarAppUiAgentPlanGroup,
+    HbarAppUiAgentPlanListStrategy,
+    HbarAppUiAgentPlanProviderProps,
+    HbarAppUiAgentPlanProps,
+    HbarAppUiAgentPlanState,
+    HbarAppUiAgentPlanStep,
+    HbarAppUiAgentPlanSummaryContent,
+    HbarAppUiAgentPlanSummaryMetric,
+    HbarAppUiAgentPlanTreeContent,
+} from './components/AgentPlan'
 export type {
     HbarAppUiCodeFile,
     HbarAppUiCodeWorkspaceContent,

@@ -1,0 +1,1236 @@
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface {
+    --hbar-app-ui-icon-xs: .75rem;
+    --hbar-app-ui-icon-sm: .875rem;
+    --hbar-app-ui-icon-md: 1rem;
+    --hbar-app-ui-icon-lg: 1.25rem;
+    --hbar-app-ui-icon-xl: 1.5rem;
+    --hbar-app-ui-plan-surface-0: oklch(.145 0 0);
+    --hbar-app-ui-plan-surface-1: oklch(.205 0 0);
+    --hbar-app-ui-plan-surface-2: oklch(.269 0 0);
+    --hbar-app-ui-plan-border: oklch(.269 0 0);
+    --hbar-app-ui-plan-border-strong: oklch(.36 0 0);
+    --hbar-app-ui-plan-text: oklch(.97 0 0);
+    --hbar-app-ui-plan-muted: oklch(.708 0 0);
+    --hbar-app-ui-plan-subtle: oklch(.556 0 0);
+    --hbar-app-ui-plan-positive: oklch(.708 .12 155);
+    --hbar-app-ui-plan-warning: oklch(.704 .191 22.216);
+    --hbar-app-ui-plan-danger: oklch(.704 .191 22.216);
+    display: flex !important;
+    min-inline-size: 0;
+    min-block-size: 100%;
+    block-size: 100%;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .75rem;
+    overflow: hidden;
+    padding: 1.5rem;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--hbar-app-ui-plan-surface-0) !important;
+    color: var(--hbar-app-ui-plan-text);
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-agent-plan-surface *,
+.hbar-app-ui-agent-plan-surface *::before,
+.hbar-app-ui-agent-plan-surface *::after {
+    box-sizing: border-box;
+}
+
+.hbar-app-ui-agent-plan-surface svg {
+    flex: 0 0 auto;
+}
+
+.hbar-app-ui-agent-plan-surface h2,
+.hbar-app-ui-agent-plan-surface h3,
+.hbar-app-ui-agent-plan-surface p,
+.hbar-app-ui-agent-plan-surface ol,
+.hbar-app-ui-agent-plan-surface ul,
+.hbar-app-ui-agent-plan-surface dl,
+.hbar-app-ui-agent-plan-surface dt,
+.hbar-app-ui-agent-plan-surface dd,
+.hbar-app-ui-agent-plan-surface figure,
+.hbar-app-ui-agent-plan-surface table,
+.hbar-app-ui-agent-plan-surface caption {
+    margin: 0;
+}
+
+.hbar-app-ui-agent-plan-surface ol,
+.hbar-app-ui-agent-plan-surface ul {
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-agent-plan-surface button,
+.hbar-app-ui-agent-plan-surface input {
+    font: inherit;
+}
+
+.hbar-app-ui-agent-plan-surface button {
+    border: 0;
+}
+
+.hbar-app-ui-agent-plan-heading {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 1.5rem;
+    align-items: center;
+    gap: .75rem;
+    flex: 0 0 auto;
+}
+
+.hbar-app-ui-agent-plan-heading h2 {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    color: var(--hbar-app-ui-plan-text);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-heading > span,
+.hbar-app-ui-agent-plan-heading-actions > span {
+    min-inline-size: 0;
+    flex: 0 0 auto;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+    text-align: end;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-heading-actions {
+    display: flex;
+    min-inline-size: 0;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: .625rem;
+}
+
+.hbar-app-ui-agent-plan-progress {
+    display: flex;
+    min-inline-size: 0;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: .625rem;
+}
+
+.hbar-app-ui-agent-plan-progress progress {
+    inline-size: 5rem;
+    block-size: .25rem;
+    flex: 0 0 5rem;
+    appearance: none;
+    border: 0;
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-border-strong);
+}
+
+.hbar-app-ui-agent-plan-progress progress::-webkit-progress-bar {
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-border-strong);
+}
+
+.hbar-app-ui-agent-plan-progress progress::-webkit-progress-value {
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-text);
+}
+
+.hbar-app-ui-agent-plan-progress progress::-moz-progress-bar {
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-text);
+}
+
+.hbar-app-ui-agent-plan-progress > span {
+    min-inline-size: 0;
+    flex: 0 0 auto;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+    text-align: end;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-button {
+    display: inline-flex;
+    min-inline-size: 0;
+    min-block-size: 2rem;
+    align-items: center;
+    justify-content: center;
+    gap: .375rem;
+    padding: .375rem .625rem;
+    border: .0625rem solid transparent;
+    border-radius: .5rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+    color: var(--hbar-app-ui-plan-text);
+    cursor: pointer;
+    font-size: .8125rem;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-button:hover:not(:disabled),
+.hbar-app-ui-agent-plan-button:focus-visible {
+    outline: 0;
+    border-color: var(--hbar-app-ui-plan-border-strong);
+    background: var(--hbar-app-ui-plan-border-strong);
+}
+
+.hbar-app-ui-agent-plan-button:disabled {
+    cursor: not-allowed;
+    opacity: .42;
+}
+
+.hbar-app-ui-agent-plan-button.is-primary {
+    background: #fff;
+    color: #171717;
+}
+
+.hbar-app-ui-agent-plan-button.is-primary:hover:not(:disabled),
+.hbar-app-ui-agent-plan-button.is-primary:focus-visible {
+    background: #e5e5e5;
+}
+
+.hbar-app-ui-agent-plan-number {
+    display: inline-flex;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: 0 0 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: .375rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+    color: var(--hbar-app-ui-plan-subtle);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-agent-plan-state-mark {
+    display: inline-block;
+    inline-size: .375rem;
+    block-size: .375rem;
+    flex: 0 0 .375rem;
+    border-radius: 50%;
+    background: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-agent-plan-state-mark.is-done,
+.hbar-app-ui-agent-plan-state-mark.is-running {
+    background: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-agent-plan-state-mark.is-failed,
+.hbar-app-ui-agent-plan-state-mark.is-blocked {
+    background: var(--hbar-app-ui-plan-danger);
+}
+
+.hbar-app-ui-agent-plan-state-mark.is-skipped {
+    background: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-agent-plan-status {
+    display: inline-flex;
+    min-inline-size: 0;
+    flex: 0 0 5rem;
+    align-items: center;
+    gap: .375rem;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-status.is-done {
+    color: var(--hbar-app-ui-plan-muted);
+}
+
+.hbar-app-ui-agent-plan-status.is-running {
+    color: var(--hbar-app-ui-plan-muted);
+}
+
+.hbar-app-ui-agent-plan-status.is-failed,
+.hbar-app-ui-agent-plan-status.is-blocked {
+    color: var(--hbar-app-ui-plan-danger);
+}
+
+.hbar-app-ui-agent-plan-status.is-skipped {
+    color: var(--hbar-app-ui-plan-muted);
+}
+
+.hbar-app-ui-agent-plan-sr-status {
+    inline-size: 0;
+    block-size: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-empty {
+    padding: 1rem;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-agent-plan-inset-card,
+.hbar-app-ui-agent-plan-editable-card,
+.hbar-app-ui-agent-plan-table-card,
+.hbar-app-ui-agent-plan-board-column,
+.hbar-app-ui-agent-plan-chip-list,
+.hbar-app-ui-agent-plan-breakdown-list {
+    min-inline-size: 0;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-plan-surface-1);
+}
+
+/* Checklist / tree use the reference's nested frame: a dark outer rail,
+   inset inner canvas, then a padded semantic list. */
+.hbar-app-ui-agent-plan-checklist-pane,
+.hbar-app-ui-agent-plan-tree-pane {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.hbar-app-ui-agent-plan-checklist-pane > .hbar-app-ui-agent-plan-inset-card,
+.hbar-app-ui-agent-plan-tree-pane > .hbar-app-ui-agent-plan-inset-card {
+    display: flex;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    padding: .25rem;
+    border-color: var(--hbar-app-ui-plan-border);
+    background: var(--hbar-app-ui-plan-surface-2);
+}
+
+.hbar-app-ui-agent-plan-checklist-pane > .hbar-app-ui-agent-plan-inset-card > ol,
+.hbar-app-ui-agent-plan-tree-pane > .hbar-app-ui-agent-plan-inset-card > ul {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: .5rem;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-plan-surface-0);
+}
+
+.hbar-app-ui-agent-plan-checklist-pane li > button,
+.hbar-app-ui-agent-plan-tree-group {
+    display: flex;
+    min-inline-size: 0;
+    inline-size: 100%;
+    min-block-size: 2.75rem;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem;
+    border-radius: .5rem;
+    background: transparent;
+    color: var(--hbar-app-ui-plan-text);
+    cursor: pointer;
+    text-align: start;
+}
+
+.hbar-app-ui-agent-plan-checklist-pane li > button:hover,
+.hbar-app-ui-agent-plan-checklist-pane li > button:focus-visible,
+.hbar-app-ui-agent-plan-checklist-pane li.is-active > button,
+.hbar-app-ui-agent-plan-tree-group:hover,
+.hbar-app-ui-agent-plan-tree-group:focus-visible {
+    outline: 0;
+    background: color-mix(in srgb, var(--hbar-app-ui-plan-surface-2) 55%, transparent);
+}
+
+.hbar-app-ui-agent-plan-step-title {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-checklist-pane li.is-active .hbar-app-ui-agent-plan-step-title,
+.hbar-app-ui-agent-plan-tree-group > .hbar-app-ui-agent-plan-tree-group-title {
+    color: var(--hbar-app-ui-plan-text);
+    font-weight: 500;
+}
+
+.hbar-app-ui-agent-plan-tree-group > .hbar-app-ui-agent-plan-tree-toggle {
+    display: inline-flex;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: 0 0 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: .375rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+    color: var(--hbar-app-ui-plan-muted);
+}
+
+.hbar-app-ui-agent-plan-tree-group > .hbar-app-ui-agent-plan-tree-group-title {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    font-size: .8125rem;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-tree-group > .hbar-app-ui-agent-plan-tree-group-progress {
+    min-inline-size: 0;
+    flex: 0 0 5rem;
+    overflow: hidden;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+    text-align: end;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-step-detail {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .625rem;
+    margin: .25rem .5rem 0;
+    padding: .75rem;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .5rem;
+    background: var(--hbar-app-ui-plan-surface-1);
+}
+
+.hbar-app-ui-agent-plan-step-detail p {
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.625;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-plan-step-detail dl {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    gap: .25rem 2rem;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-agent-plan-step-detail dl > div {
+    display: inline-flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    gap: .5rem;
+}
+
+.hbar-app-ui-agent-plan-step-detail dd {
+    color: var(--hbar-app-ui-plan-text);
+}
+
+.hbar-app-ui-agent-plan-tree-children {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .25rem;
+    margin-block-start: .25rem;
+    padding-inline-start: 1.5rem;
+}
+
+.hbar-app-ui-agent-plan-tree-children > li {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem;
+    border-radius: .5rem;
+}
+
+.hbar-app-ui-agent-plan-tree-children > li:hover {
+    background: color-mix(in srgb, var(--hbar-app-ui-plan-surface-2) 55%, transparent);
+}
+
+.hbar-app-ui-agent-plan-tree-children > li > .hbar-app-ui-agent-plan-button {
+    min-block-size: 1.75rem;
+    padding: .25rem .5rem;
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-agent-plan-tree-children > li > .hbar-app-ui-agent-plan-status {
+    margin-inline-start: auto;
+}
+
+/* Editable list */
+.hbar-app-ui-agent-plan-editable-body {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.hbar-app-ui-agent-plan-editable-card {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: hidden;
+    padding: .25rem;
+}
+
+.hbar-app-ui-agent-plan-editable-list-viewport {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: auto;
+    padding: .5rem;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-plan-surface-0);
+}
+
+.hbar-app-ui-agent-plan-editable-card ol {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .25rem;
+    padding: 0;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface.hbar-app-ui-agent-plan-editable .hbar-app-ui-agent-plan-editable-card {
+    padding: .25rem;
+    border-color: var(--hbar-app-ui-plan-border);
+    background: var(--hbar-app-ui-plan-surface-1);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface.hbar-app-ui-agent-plan-editable .hbar-app-ui-agent-plan-editable-list-viewport {
+    border-color: var(--hbar-app-ui-plan-border);
+    background: var(--hbar-app-ui-plan-surface-0);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface.hbar-app-ui-agent-plan-editable .hbar-app-ui-agent-plan-step-title {
+    color: var(--hbar-app-ui-plan-text);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface.hbar-app-ui-agent-plan-editable .is-skipped .hbar-app-ui-agent-plan-step-title {
+    color: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-agent-plan-editable-card li {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem;
+    border-radius: .5rem;
+}
+
+.hbar-app-ui-agent-plan-editable-card li:hover,
+.hbar-app-ui-agent-plan-editable-card li:focus-within {
+    background: color-mix(in srgb, var(--hbar-app-ui-plan-surface-2) 55%, transparent);
+}
+
+.hbar-app-ui-agent-plan-editable-card li.is-skipped .hbar-app-ui-agent-plan-step-title {
+    color: var(--hbar-app-ui-plan-subtle);
+    text-decoration: line-through;
+}
+
+.hbar-app-ui-agent-plan-row-actions {
+    display: flex;
+    min-inline-size: 0;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: .25rem;
+}
+
+.hbar-app-ui-agent-plan-row-actions .hbar-app-ui-agent-plan-button {
+    inline-size: 1.75rem;
+    min-block-size: 1.75rem;
+    padding: 0;
+    border-radius: .375rem;
+}
+
+.hbar-app-ui-agent-plan-add-row {
+    display: flex;
+    min-inline-size: 0;
+    align-items: stretch;
+    gap: .5rem;
+}
+
+.hbar-app-ui-agent-plan-add-row input {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    block-size: 2.25rem;
+    padding: .375rem .75rem;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .5rem;
+    outline: 0;
+    background: var(--hbar-app-ui-plan-surface-0);
+    color: var(--hbar-app-ui-plan-text);
+    font-size: .875rem;
+    line-height: 1.25;
+}
+
+.hbar-app-ui-agent-plan-add-row input:focus {
+    border-color: var(--hbar-app-ui-plan-border-strong);
+}
+
+.hbar-app-ui-agent-plan-add-row input::placeholder {
+    color: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-agent-plan-editable-footer,
+.hbar-app-ui-agent-plan-summary-footer {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .75rem;
+}
+
+.hbar-app-ui-agent-plan-editable-review {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    color: var(--hbar-app-ui-plan-subtle);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-agent-plan-summary-footer {
+    gap: .5rem;
+}
+
+/* Actual-duration comparison */
+.hbar-app-ui-agent-plan-metrics {
+    display: flex;
+    min-inline-size: 0;
+    gap: .25rem;
+    padding: .25rem;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+}
+
+.hbar-app-ui-agent-plan-metrics > div {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .75rem 1rem;
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-plan-surface-0);
+}
+
+.hbar-app-ui-agent-plan-metrics dt {
+    min-inline-size: 0;
+    overflow: hidden;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .75rem;
+    line-height: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-metrics dd {
+    color: var(--hbar-app-ui-plan-text);
+    font-size: 1.125rem;
+    line-height: 1.5556;
+}
+
+.hbar-app-ui-agent-plan-metrics > .is-positive dd {
+    color: var(--hbar-app-ui-plan-positive);
+}
+
+.hbar-app-ui-agent-plan-metrics > .is-warning dd,
+.hbar-app-ui-agent-plan-metrics > .is-danger dd {
+    color: var(--hbar-app-ui-plan-warning);
+}
+
+.hbar-app-ui-agent-plan-actual-pane {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: .25rem;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+}
+
+.hbar-app-ui-agent-plan-table-card {
+    min-block-size: 100%;
+    overflow: hidden;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-plan-surface-0);
+}
+
+.hbar-app-ui-agent-plan-table-card table {
+    display: block;
+    inline-size: 100%;
+    border-collapse: collapse;
+}
+
+.hbar-app-ui-agent-plan-table-card caption {
+    inline-size: 0;
+    block-size: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+.hbar-app-ui-agent-plan-table-card thead,
+.hbar-app-ui-agent-plan-table-card tbody,
+.hbar-app-ui-agent-plan-table-card tr {
+    display: flex;
+    min-inline-size: 0;
+    inline-size: 100%;
+}
+
+.hbar-app-ui-agent-plan-table-card thead,
+.hbar-app-ui-agent-plan-table-card tbody {
+    flex-direction: column;
+}
+
+.hbar-app-ui-agent-plan-table-card thead tr {
+    min-block-size: 2.25rem;
+}
+
+.hbar-app-ui-agent-plan-table-card tr {
+    min-block-size: 2.75rem;
+    align-items: center;
+    border-bottom: .0625rem solid var(--hbar-app-ui-plan-border);
+}
+
+.hbar-app-ui-agent-plan-table-card tbody tr:last-child {
+    border-bottom: 0;
+}
+
+.hbar-app-ui-agent-plan-table-card th,
+.hbar-app-ui-agent-plan-table-card td {
+    display: flex;
+    min-inline-size: 0;
+    align-self: stretch;
+    align-items: center;
+    padding: 0 .75rem;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: start;
+}
+
+.hbar-app-ui-agent-plan-table-card th:first-child,
+.hbar-app-ui-agent-plan-table-card td:first-child {
+    min-inline-size: 0;
+    flex: 0 0 38%;
+    padding-inline-start: .75rem;
+}
+
+.hbar-app-ui-agent-plan-table-card th:nth-child(2),
+.hbar-app-ui-agent-plan-table-card td:nth-child(2) {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+}
+
+.hbar-app-ui-agent-plan-table-card th:nth-child(n + 3),
+.hbar-app-ui-agent-plan-table-card td:nth-child(n + 3) {
+    flex: 0 0 5rem;
+}
+
+.hbar-app-ui-agent-plan-table-card thead th {
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-agent-plan-table-card tbody th {
+    overflow: hidden;
+    color: var(--hbar-app-ui-plan-text);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-table-card tbody tr.is-positive td:last-child,
+.hbar-app-ui-agent-plan-table-card tbody tr.is-warning td:last-child,
+.hbar-app-ui-agent-plan-table-card tbody tr.is-danger td:last-child {
+    color: var(--hbar-app-ui-plan-warning);
+}
+
+.hbar-app-ui-agent-plan-duration-cell progress {
+    inline-size: 100%;
+    block-size: .25rem;
+    appearance: none;
+    border: 0;
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-border-strong);
+}
+
+.hbar-app-ui-agent-plan-duration-cell progress::-webkit-progress-bar {
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-border-strong);
+}
+
+.hbar-app-ui-agent-plan-duration-cell progress::-webkit-progress-value {
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-text);
+}
+
+.hbar-app-ui-agent-plan-duration-cell progress::-moz-progress-bar {
+    border-radius: .125rem;
+    background: var(--hbar-app-ui-plan-text);
+}
+
+/* Phase board */
+.hbar-app-ui-agent-plan-board-pane {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    max-block-size: 32rem;
+    flex: 1 1 auto;
+    overflow: auto;
+}
+
+.hbar-app-ui-agent-plan-board-columns {
+    display: flex;
+    min-inline-size: 100%;
+    align-items: flex-start;
+    gap: .75rem;
+}
+
+.hbar-app-ui-agent-plan-board-column {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: .3125rem;
+    padding: .25rem;
+    padding-block-end: .3125rem;
+}
+
+.hbar-app-ui-agent-plan-board-column > header {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: 0 .75rem;
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-plan-surface-0);
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-agent-plan-board-column > header > span:first-child {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-board-column ol {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .375rem;
+    margin-inline: .0625rem;
+    background: var(--hbar-app-ui-plan-surface-0);
+}
+
+.hbar-app-ui-agent-plan-board-column li {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 3.46875rem;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .5rem .625rem;
+    border-radius: .5rem;
+}
+
+.hbar-app-ui-agent-plan-board-column li:hover {
+    background: var(--hbar-app-ui-plan-surface-2);
+}
+
+.hbar-app-ui-agent-plan-board-column li > p:first-child {
+    min-inline-size: 0;
+    overflow: hidden;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-board-column li.is-queued > p:first-child,
+.hbar-app-ui-agent-plan-board-column li.is-skipped > p:first-child,
+.hbar-app-ui-agent-plan-board-column li.is-waiting > p:first-child {
+    color: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-agent-plan-board-column li > p:last-child {
+    display: inline-flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .375rem;
+    color: var(--hbar-app-ui-plan-subtle);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+/* Summary */
+.hbar-app-ui-agent-plan-summary-body {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden;
+}
+
+.hbar-app-ui-agent-plan-summary-section {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.hbar-app-ui-agent-plan-summary-section h3 {
+    padding-inline: .25rem;
+    color: var(--hbar-app-ui-plan-text);
+    font-size: .8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-agent-plan-summary-copy {
+    padding: 1rem;
+    border: .0625rem solid var(--hbar-app-ui-plan-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-plan-surface-1);
+}
+
+.hbar-app-ui-agent-plan-summary-copy p {
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.625;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-plan-chip-list {
+    padding: 1rem;
+}
+
+.hbar-app-ui-agent-plan-chip-list ul {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    gap: .375rem;
+}
+
+.hbar-app-ui-agent-plan-chip-list li {
+    display: inline-flex;
+    min-block-size: 1.75rem;
+    align-items: center;
+    padding: .375rem .5rem;
+    border-radius: .375rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+    color: var(--hbar-app-ui-plan-text);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .25rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-breakdown-list {
+    padding: .25rem;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem;
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-plan-surface-0);
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > span:nth-child(2) {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    color: var(--hbar-app-ui-plan-text);
+    font-size: .8125rem;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > span:nth-child(n + 3) {
+    flex: 0 0 auto;
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .75rem;
+    line-height: 1rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > span:nth-child(3) {
+    flex-basis: 4rem;
+    text-align: end;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > span:nth-child(4) {
+    flex-basis: 2.5rem;
+    text-align: end;
+}
+
+.hbar-app-ui-agent-plan-summary-review {
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+@media (max-width: 48rem) {
+    .hbar-app-ui-agent-plan-heading h2 {
+        text-overflow: ellipsis;
+    }
+
+    .hbar-app-ui-agent-plan-board-columns {
+        min-inline-size: 0;
+        flex-direction: column;
+    }
+
+    .hbar-app-ui-agent-plan-board-column {
+        inline-size: 100%;
+        flex: 0 0 auto;
+    }
+
+    .hbar-app-ui-agent-plan-table-card th:nth-child(n + 3),
+    .hbar-app-ui-agent-plan-table-card td:nth-child(n + 3) {
+        flex-basis: 20.664%;
+    }
+
+    .hbar-app-ui-agent-plan-editable-review {
+        display: none;
+    }
+
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-variant.hbar-app-ui-agent-plan-surface {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 24rem) {
+    .hbar-app-ui-agent-plan-heading-actions {
+        gap: .5rem;
+    }
+
+    .hbar-app-ui-agent-plan-status {
+        flex-basis: 5rem;
+    }
+
+}
+
+@media (min-width: 49rem) {
+    .hbar-app-ui-agent-plan-board-column > ol {
+        gap: .1875rem;
+        padding-block-end: .5rem;
+    }
+}
+
+/* The package theme has a broad native-control reset.  This scoped block is
+   intentionally more specific so the reference typography and button flow
+   remain authoritative when the preview host loads that reset afterwards. */
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-button {
+    gap: .375rem;
+    min-block-size: 2rem;
+    padding: .375rem .625rem;
+    border: .0625rem solid transparent;
+    border-radius: .5rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+    color: var(--hbar-app-ui-plan-text);
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface {
+    gap: .75rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-button.is-primary {
+    background: #fff;
+    color: #171717;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-heading-actions .hbar-app-ui-agent-plan-button {
+    block-size: 2rem;
+    min-block-size: 2rem;
+    padding: 0 .625rem;
+    border: 0;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-heading-actions {
+    gap: .75rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-add-row .hbar-app-ui-agent-plan-button,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-editable-footer .hbar-app-ui-agent-plan-button,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-summary-footer .hbar-app-ui-agent-plan-button {
+    block-size: 2.25rem;
+    min-block-size: 2.25rem;
+    padding: 0 .75rem;
+    gap: .5rem;
+    font-size: .875rem;
+    line-height: 1.42857;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-editable-footer {
+    gap: .75rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-checklist-pane li > button,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-tree-group {
+    min-block-size: 2.75rem;
+    padding: .5rem;
+    border: 0;
+    border-radius: .5rem;
+    background: transparent;
+    color: var(--hbar-app-ui-plan-text);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-row-actions .hbar-app-ui-agent-plan-button {
+    inline-size: 1.75rem;
+    min-block-size: 1.75rem;
+    padding: 0;
+    border-radius: .375rem;
+    color: var(--hbar-app-ui-plan-muted);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-add-row .hbar-app-ui-agent-plan-button {
+    color: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-add-row input {
+    block-size: 2.25rem !important;
+    min-block-size: 2.25rem !important;
+    padding: 0 .75rem !important;
+    border: .0625rem solid var(--hbar-app-ui-plan-border) !important;
+    border-radius: .5rem !important;
+    background: var(--hbar-app-ui-plan-surface-0) !important;
+    color: var(--hbar-app-ui-plan-text) !important;
+    font-size: .875rem !important;
+    line-height: 1.42857 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-step-detail p,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-summary-copy p {
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.625;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-board-column li > p:first-child {
+    color: var(--hbar-app-ui-plan-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-board-column li.is-queued > p:first-child,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-board-column li.is-skipped > p:first-child,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-board-column li.is-waiting > p:first-child {
+    color: var(--hbar-app-ui-plan-subtle);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-board-column li > p:last-child,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-summary-review {
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-tree-children {
+    padding-inline-start: 1.5rem;
+    margin-block-start: .25rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-tree-group > span:nth-child(3) {
+    margin-inline-start: auto;
+    text-align: end;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-tree-group > .hbar-app-ui-agent-plan-tree-toggle {
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: 0 0 1.75rem;
+    padding: 0;
+    border-radius: .375rem;
+    background: var(--hbar-app-ui-plan-surface-2);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-tree-group > .hbar-app-ui-agent-plan-tree-group-title,
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-tree-group > .hbar-app-ui-agent-plan-tree-group-progress {
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-tree-children > li > .hbar-app-ui-agent-plan-button {
+    min-block-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: 0 0 auto;
+    padding: 0 .5rem;
+    border-radius: .375rem;
+    font-size: .75rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-board-columns {
+    inline-size: 100%;
+}
+
+@media (max-width: 48rem) {
+    .hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-table-card th:nth-child(2),
+    .hbar-app-ui-variant.hbar-app-ui-agent-plan-surface .hbar-app-ui-agent-plan-table-card td:nth-child(2) {
+        display: none;
+    }
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface.hbar-app-ui-agent-plan-actual .hbar-app-ui-agent-plan-metrics > div {
+    padding: .6875rem .75rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-agent-plan-surface.hbar-app-ui-agent-plan-summary .hbar-app-ui-agent-plan-metrics > div {
+    padding: .8125rem 1rem;
+}
