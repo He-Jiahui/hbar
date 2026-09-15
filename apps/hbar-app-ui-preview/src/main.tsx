@@ -5,6 +5,7 @@ import {
   HBAR_APP_UI_CATEGORIES,
   HBAR_APP_UI_CATEGORY_COUNTS,
   HbarAppUiButton,
+  HbarAppUiAgentActivityProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -16,6 +17,11 @@ import type { HbarAppUiEvent, HbarAppUiRegistryEntry, HbarAppUiVariantComponent,
 import 'hbar-app-ui/theme.css'
 import './preview.css'
 import { VariantHarness } from './VariantHarness'
+import {
+  createHbarAppUiAgentActivityLocalizedFixtures,
+  createHbarAppUiAgentActivityOverflowFixtures,
+  HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-agent-activity-fixtures'
 import {
   createHbarAppUiEditorLocalizedFixtures,
   createHbarAppUiEditorOverflowFixtures,
@@ -66,6 +72,17 @@ function PreviewApp() {
       case null:
       default:
         return HBAR_APP_UI_EDITOR_FIXTURES
+    }
+  }, [])
+  const agentActivityContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('agentActivityFixture')) {
+      case 'overflow':
+        return createHbarAppUiAgentActivityOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiAgentActivityLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES
     }
   }, [])
   const navbarContent = useMemo(() => {
@@ -155,13 +172,15 @@ function PreviewApp() {
         data-hbar-app-ui-theme={theme}
         data-hbar-app-ui-variant={selected.spec.id}
       >
-        <HbarAppUiToolCallsProvider content={toolCallsContent}>
-          <HbarAppUiNavbarProvider content={navbarContent}>
-            <HbarAppUiEditorProvider content={editorContent}>
-              <SelectedComponent spec={selected.spec} onAction={handleAction} />
-            </HbarAppUiEditorProvider>
-          </HbarAppUiNavbarProvider>
-        </HbarAppUiToolCallsProvider>
+        <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+          <HbarAppUiToolCallsProvider content={toolCallsContent}>
+            <HbarAppUiNavbarProvider content={navbarContent}>
+              <HbarAppUiEditorProvider content={editorContent}>
+                <SelectedComponent spec={selected.spec} onAction={handleAction} />
+              </HbarAppUiEditorProvider>
+            </HbarAppUiNavbarProvider>
+          </HbarAppUiToolCallsProvider>
+        </HbarAppUiAgentActivityProvider>
       </div>
     )
   }
@@ -224,13 +243,15 @@ function PreviewApp() {
                   data-hbar-app-ui-surface={selected.spec.profile.surface}
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
-                  <HbarAppUiToolCallsProvider content={toolCallsContent}>
-                    <HbarAppUiNavbarProvider content={navbarContent}>
-                      <HbarAppUiEditorProvider content={editorContent}>
-                        <SelectedComponent spec={selected.spec} onAction={handleAction} />
-                      </HbarAppUiEditorProvider>
-                    </HbarAppUiNavbarProvider>
-                  </HbarAppUiToolCallsProvider>
+                  <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+                    <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                      <HbarAppUiNavbarProvider content={navbarContent}>
+                        <HbarAppUiEditorProvider content={editorContent}>
+                          <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                        </HbarAppUiEditorProvider>
+                      </HbarAppUiNavbarProvider>
+                    </HbarAppUiToolCallsProvider>
+                  </HbarAppUiAgentActivityProvider>
                 </div>
               </div>
             </section>

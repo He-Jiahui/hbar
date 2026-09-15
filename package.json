@@ -25,6 +25,7 @@
     "app-ui:editor:verify": "bun scripts/verify-hbar-app-ui-editor.ts",
     "app-ui:navbar:verify": "bun scripts/verify-hbar-app-ui-navbar.ts",
     "app-ui:tool-calls:verify": "bun scripts/verify-hbar-app-ui-tool-calls.ts",
+    "app-ui:agent-activity:verify": "bun scripts/verify-hbar-app-ui-agent-activity.ts",
     "app-ui:visual-capture": "bun scripts/capture-hbar-app-ui-visual-baseline.ts",
     "build": "vite build --config apps/web/vite.config.ts",
     "build:cli": "bun build --compile apps/cli/src/main.ts --outfile dist/hbar.exe",

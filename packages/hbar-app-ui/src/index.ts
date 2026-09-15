@@ -51,6 +51,33 @@ export {
 export {HbarAppUiEditorProvider} from './components/Editor'
 export {HbarAppUiNavbarProvider, selectHbarAppUiNavbarItem, uniqueHbarAppUiNavbarItems} from './components/Navbar'
 export {HbarAppUiToolCallsProvider, selectHbarAppUiToolCallsItem, uniqueHbarAppUiToolCallsItems} from './components/ToolCalls'
+export {HbarAppUiAgentActivityProvider, selectHbarAppUiAgentActivityItem, uniqueHbarAppUiAgentActivityItems} from './components/AgentActivity'
+export type {
+    HbarAppUiAgentActivityAttempt,
+    HbarAppUiAgentActivityContent,
+    HbarAppUiAgentActivityDeploymentContent,
+    HbarAppUiAgentActivityDeploymentStep,
+    HbarAppUiAgentActivityFailureContent,
+    HbarAppUiAgentActivityHistoryContent,
+    HbarAppUiAgentActivityHistoryRow,
+    HbarAppUiAgentActivityInput,
+    HbarAppUiAgentActivityListStrategy,
+    HbarAppUiAgentActivityLiveContent,
+    HbarAppUiAgentActivityLiveStep,
+    HbarAppUiAgentActivityLogContent,
+    HbarAppUiAgentActivityLogEntry,
+    HbarAppUiAgentActivityLogFilter,
+    HbarAppUiAgentActivityLogLevel,
+    HbarAppUiAgentActivityNestedChild,
+    HbarAppUiAgentActivityNestedContent,
+    HbarAppUiAgentActivityNestedGroup,
+    HbarAppUiAgentActivityOutput,
+    HbarAppUiAgentActivityProviderProps,
+    HbarAppUiAgentActivityProps,
+    HbarAppUiAgentActivityState,
+    HbarAppUiAgentActivityWorker,
+    HbarAppUiAgentActivityWorkersContent,
+} from './components/AgentActivity'
 export type {
     HbarAppUiCodeFile,
     HbarAppUiCodeWorkspaceContent,
