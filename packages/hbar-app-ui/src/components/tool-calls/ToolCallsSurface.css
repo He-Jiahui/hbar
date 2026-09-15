@@ -1,0 +1,423 @@
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface {
+    --hbar-app-ui-icon-xs: .75rem;
+    --hbar-app-ui-icon-sm: .875rem;
+    --hbar-app-ui-icon-md: 1rem;
+    --hbar-app-ui-icon-lg: 1.25rem;
+    --hbar-app-ui-icon-xl: 1.5rem;
+    display: flex !important;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-inline-size: 0;
+    min-block-size: 100%;
+    block-size: 100%;
+    overflow: hidden;
+    gap: .75rem;
+    padding: 1.5rem;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--hbar-app-ui-surface-0) !important;
+    color: var(--hbar-app-ui-text);
+    font-family: var(--hbar-app-ui-font);
+}
+
+.hbar-app-ui-tool-calls-surface *, .hbar-app-ui-tool-calls-surface *::before, .hbar-app-ui-tool-calls-surface *::after {
+    box-sizing: border-box;
+}
+
+.hbar-app-ui-tool-calls-surface button, .hbar-app-ui-tool-calls-surface code, .hbar-app-ui-tool-calls-surface pre {
+    font: inherit;
+}
+
+.hbar-app-ui-tool-calls-surface h2, .hbar-app-ui-tool-calls-surface h3, .hbar-app-ui-tool-calls-surface p,
+.hbar-app-ui-tool-calls-surface ol, .hbar-app-ui-tool-calls-surface ul, .hbar-app-ui-tool-calls-surface dl {
+    margin: 0;
+}
+
+.hbar-app-ui-tool-calls-surface ol, .hbar-app-ui-tool-calls-surface ul {
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-tool-calls-heading, .hbar-app-ui-tool-calls-activity-heading, .hbar-app-ui-tool-calls-code-heading,
+.hbar-app-ui-tool-calls-search > header, .hbar-app-ui-tool-calls-command > header, .hbar-app-ui-tool-calls-permissions > header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .75rem;
+}
+
+.hbar-app-ui-tool-calls-heading h2, .hbar-app-ui-tool-calls-activity-heading h2, .hbar-app-ui-tool-calls-code-heading h2,
+.hbar-app-ui-tool-calls-search > header h2, .hbar-app-ui-tool-calls-command > header h2, .hbar-app-ui-tool-calls-permissions > header h2 {
+    min-inline-size: 0;
+    margin: 0;
+    color: var(--hbar-app-ui-text);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-tool-calls-button {
+    display: inline-flex;
+    min-inline-size: 0;
+    min-block-size: 2rem;
+    align-items: center;
+    justify-content: center;
+    gap: .375rem;
+    padding: .375rem .625rem;
+    border: 0;
+    border-radius: .5rem;
+    background: var(--hbar-app-ui-surface-2);
+    color: var(--hbar-app-ui-text);
+    cursor: pointer;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-tool-calls-button:hover, .hbar-app-ui-tool-calls-button:focus-visible {
+    outline: 0;
+    background: color-mix(in srgb, var(--hbar-app-ui-surface-2) 76%, var(--hbar-app-ui-text));
+}
+
+.hbar-app-ui-tool-calls-stop {
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+    color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-ui-tool-calls-status {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: .375rem;
+    min-inline-size: 0;
+    color: var(--hbar-app-ui-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-tool-calls-status > i {
+    display: block;
+    flex: 0 0 auto;
+    inline-size: .375rem;
+    block-size: .375rem;
+    border-radius: 50%;
+    background: var(--hbar-app-ui-subtle);
+}
+
+.hbar-app-ui-tool-calls-state-mark {
+    display: block;
+    flex: 0 0 auto;
+    inline-size: .375rem;
+    block-size: .375rem;
+    border-radius: 50%;
+    background: var(--hbar-app-ui-subtle);
+}
+
+.hbar-app-ui-tool-calls-status.is-failed, .hbar-app-ui-tool-calls-status.is-failed > i { color: var(--hbar-app-ui-danger); }
+.hbar-app-ui-tool-calls-status.is-failed > i { background: var(--hbar-app-ui-danger); }
+.hbar-app-ui-tool-calls-state-mark.is-failed { background: var(--hbar-app-ui-danger); }
+.hbar-app-ui-tool-calls-status.is-running, .hbar-app-ui-tool-calls-status.is-streaming, .hbar-app-ui-tool-calls-status.is-needs-approval,
+.hbar-app-ui-tool-calls-status.is-running > i, .hbar-app-ui-tool-calls-status.is-streaming > i, .hbar-app-ui-tool-calls-status.is-needs-approval > i { color: var(--hbar-app-ui-warning); }
+.hbar-app-ui-tool-calls-status.is-running > i, .hbar-app-ui-tool-calls-status.is-streaming > i, .hbar-app-ui-tool-calls-status.is-needs-approval > i { background: var(--hbar-app-ui-warning); }
+.hbar-app-ui-tool-calls-state-mark.is-running, .hbar-app-ui-tool-calls-state-mark.is-streaming, .hbar-app-ui-tool-calls-state-mark.is-needs-approval { background: var(--hbar-app-ui-warning); }
+.hbar-app-ui-tool-calls-status.is-approved, .hbar-app-ui-tool-calls-status.is-complete { color: var(--hbar-app-ui-muted); }
+
+/* Tool calls 1: header remains fixed while the trace itself owns its scroll boundary. */
+.hbar-app-ui-tool-calls-trace-pane {
+    display: flex;
+    flex: 1 1 auto;
+    min-block-size: 0;
+    overflow: auto;
+    padding: .25rem;
+    border: .0625rem solid var(--hbar-app-ui-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-surface-1);
+}
+
+.hbar-app-ui-tool-calls-trace-pane > ol {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-content: start;
+    gap: .25rem;
+    min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-trace-pane > ol > li {
+    min-inline-size: 0;
+    border: .0625rem solid var(--hbar-app-ui-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-surface-0);
+}
+
+.hbar-app-ui-tool-calls-trace-row {
+    inline-size: 100%;
+    min-block-size: 2.5rem;
+    justify-content: flex-start;
+    padding: .5rem;
+    border-radius: .5625rem;
+    background: transparent;
+}
+
+.hbar-app-ui-tool-calls-trace-row > code, .hbar-app-ui-tool-calls-trace-row > time {
+    min-inline-size: 0;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-tool-calls-trace-row > code { color: var(--hbar-app-ui-text); }
+.hbar-app-ui-tool-calls-trace-row > time { margin-inline-start: auto; color: var(--hbar-app-ui-subtle); }
+
+.hbar-app-ui-tool-calls-trace-details {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    padding: .25rem .75rem .75rem 2.75rem;
+}
+
+.hbar-app-ui-tool-calls-trace-details dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.hbar-app-ui-tool-calls-trace-details dl > div { display: inline-flex; gap: .5rem; color: var(--hbar-app-ui-muted); font-size: .75rem; }
+.hbar-app-ui-tool-calls-trace-details dt { color: var(--hbar-app-ui-subtle); }
+.hbar-app-ui-tool-calls-trace-details dd { margin: 0; color: var(--hbar-app-ui-text); }
+.hbar-app-ui-tool-calls-trace-details > div { display: flex; flex-direction: column; gap: .375rem; }
+.hbar-app-ui-tool-calls-trace-details p { color: var(--hbar-app-ui-subtle); font-size: .6875rem; letter-spacing: .04em; }
+.hbar-app-ui-tool-calls-trace-details pre, .hbar-app-ui-tool-calls-command-line, .hbar-app-ui-tool-calls-command-output {
+    min-inline-size: 0;
+    margin: 0;
+    overflow: auto;
+    padding: .75rem;
+    border-radius: .5rem;
+    background: var(--hbar-app-ui-surface-1);
+    color: var(--hbar-app-ui-text);
+    font-family: var(--hbar-app-ui-mono);
+    font-size: .75rem;
+    line-height: 1.5;
+    white-space: pre;
+}
+
+/* Tool calls 2: tab and stop controls stay in document flow above a dense queue. */
+.hbar-app-ui-tool-calls-activity-heading { flex-wrap: wrap; }
+.hbar-app-ui-tool-calls-activity-heading nav {
+    display: flex;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: .25rem;
+}
+
+.hbar-app-ui-tool-calls-activity-heading nav .hbar-app-ui-tool-calls-button { min-block-size: 2rem; background: transparent; color: var(--hbar-app-ui-muted); }
+.hbar-app-ui-tool-calls-activity-heading nav .hbar-app-ui-tool-calls-button.is-selected { background: var(--hbar-app-ui-surface-2); color: var(--hbar-app-ui-text); }
+.hbar-app-ui-tool-calls-activity-pane, .hbar-app-ui-tool-calls-search > main, .hbar-app-ui-tool-calls-diff > main, .hbar-app-ui-tool-calls-command > main {
+    display: flex;
+    flex: 1 1 auto;
+    min-block-size: 0;
+    overflow: auto;
+}
+
+.hbar-app-ui-tool-calls-activity-pane > ol {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-content: start;
+    gap: .25rem;
+    padding: .25rem;
+    border: .0625rem solid var(--hbar-app-ui-border);
+    border-radius: .875rem;
+    background: var(--hbar-app-ui-surface-1);
+}
+
+.hbar-app-ui-tool-calls-activity-pane li { display: flex; min-inline-size: 0; align-items: stretch; gap: .25rem; }
+.hbar-app-ui-tool-calls-activity-row {
+    display: flex;
+    flex: 1 1 auto;
+    min-block-size: 2.5rem;
+    justify-content: initial;
+    gap: .75rem;
+    padding: .5rem .75rem;
+    border: .0625rem solid var(--hbar-app-ui-border);
+    border-radius: .625rem;
+    background: var(--hbar-app-ui-surface-0);
+    text-align: start;
+}
+
+.hbar-app-ui-tool-calls-activity-row > span { display: flex; flex: 1 1 auto; min-inline-size: 0; flex-direction: column; gap: .125rem; }
+.hbar-app-ui-tool-calls-activity-row code { overflow: hidden; color: var(--hbar-app-ui-text); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-tool-calls-activity-row small, .hbar-app-ui-tool-calls-activity-row time { overflow: hidden; color: var(--hbar-app-ui-subtle); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-tool-calls-retry { flex: 0 0 auto; min-inline-size: 2.5rem; padding: .5rem; }
+
+/* Tool calls 3: a file heading and diff rows are one bounded code reader. */
+.hbar-app-ui-tool-calls-code-heading code, .hbar-app-ui-tool-calls-search > header > code, .hbar-app-ui-tool-calls-command > header > code {
+    flex: 0 0 auto;
+    color: var(--hbar-app-ui-muted);
+    font-family: var(--hbar-app-ui-mono);
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-tool-calls-code-heading > span, .hbar-app-ui-tool-calls-command > header > time { margin-inline-start: auto; color: var(--hbar-app-ui-subtle); font-size: .75rem; white-space: nowrap; }
+.hbar-app-ui-tool-calls-diff > main > ol { display: flex; flex: 1 1 auto; flex-direction: column; align-content: start; gap: .25rem; padding: .25rem; border: .0625rem solid var(--hbar-app-ui-border); border-radius: .875rem; background: var(--hbar-app-ui-surface-1); }
+.hbar-app-ui-tool-calls-diff > main > ol > li { min-inline-size: 0; overflow: hidden; border: .0625rem solid var(--hbar-app-ui-border); border-radius: .625rem; background: var(--hbar-app-ui-surface-0); }
+.hbar-app-ui-tool-calls-diff-file { inline-size: 100%; min-block-size: 2.5rem; justify-content: flex-start; padding: .625rem .75rem; border-radius: .5625rem; background: transparent; }
+.hbar-app-ui-tool-calls-diff-file > code { min-inline-size: 0; overflow: hidden; color: var(--hbar-app-ui-text); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-tool-calls-diff-file > span { margin-inline-start: auto; color: var(--hbar-app-ui-subtle); font-family: var(--hbar-app-ui-mono); font-size: .75rem; white-space: nowrap; }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol { display: flex; flex-direction: column; align-content: start; min-inline-size: max-content; padding: .5rem 0; font-family: var(--hbar-app-ui-mono); font-size: .75rem; line-height: 1.625; }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li { display: flex; min-inline-size: 100%; }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li > span { padding-inline: .5rem; color: var(--hbar-app-ui-subtle); text-align: end; }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li > span:nth-child(1), .hbar-app-ui-tool-calls-diff > main > ol > li > ol > li > span:nth-child(2) { flex: 0 0 2.5rem; }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li > span:nth-child(3) { flex: 0 0 1rem; padding-inline: 0; text-align: center; }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li > code { flex: 1 1 auto; padding-inline: 0 .75rem; color: var(--hbar-app-ui-muted); white-space: pre; }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li.is-added { background: color-mix(in srgb, var(--hbar-app-ui-positive) 12%, transparent); }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li.is-added > code { color: var(--hbar-app-ui-positive); }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li.is-removed { background: color-mix(in srgb, var(--hbar-app-ui-danger) 12%, transparent); }
+.hbar-app-ui-tool-calls-diff > main > ol > li > ol > li.is-removed > code { color: var(--hbar-app-ui-danger); }
+
+/* Tool calls 4: ranked results use a flowing text column with an independent score at the end. */
+.hbar-app-ui-tool-calls-search > header { align-items: baseline; }
+.hbar-app-ui-tool-calls-search > header h2 { flex: 1 1 0; overflow: hidden; font-size: .8125rem; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-tool-calls-search > header > span { margin-inline-start: auto; color: var(--hbar-app-ui-muted); font-size: .75rem; white-space: nowrap; }
+.hbar-app-ui-tool-calls-search > main > ol { display: flex; flex: 1 1 auto; flex-direction: column; align-content: start; gap: .25rem; padding: .25rem; border: .0625rem solid var(--hbar-app-ui-border); border-radius: .875rem; background: var(--hbar-app-ui-surface-1); }
+.hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button { display: flex; inline-size: 100%; align-items: flex-start; justify-content: initial; gap: .75rem; min-block-size: 0; padding: .875rem; border: .0625rem solid var(--hbar-app-ui-border); border-radius: .625rem; background: var(--hbar-app-ui-surface-0); text-align: start; }
+.hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button > span:first-child { flex: 0 0 1rem; color: var(--hbar-app-ui-subtle); font-family: var(--hbar-app-ui-mono); font-size: .75rem; }
+.hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button > span:nth-child(2) { display: flex; flex: 1 1 auto; min-inline-size: 0; flex-direction: column; gap: .25rem; }
+.hbar-app-ui-tool-calls-search strong { color: var(--hbar-app-ui-text); font-size: .8125rem; font-weight: 500; line-height: 1.25; }
+.hbar-app-ui-tool-calls-search small { overflow: hidden; color: var(--hbar-app-ui-muted); font-size: .75rem; line-height: 1.333; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-tool-calls-search-excerpt { display: -webkit-box; overflow: hidden; color: var(--hbar-app-ui-muted); font-size: .75rem; line-height: 1.333; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.hbar-app-ui-tool-calls-search em { flex: 0 0 auto; margin-inline-start: auto; color: var(--hbar-app-ui-subtle); font-family: var(--hbar-app-ui-mono); font-size: .75rem; font-style: normal; white-space: nowrap; }
+
+/* Tool calls 5: one framed terminal keeps its command and tabs above the scroll reader. */
+.hbar-app-ui-tool-calls-command > main { overflow: hidden; }
+.hbar-app-ui-tool-calls-command > main > section { display: flex; flex: 1 1 auto; flex-direction: column; min-inline-size: 0; min-block-size: 0; gap: .75rem; overflow: hidden; padding: .25rem; border: .0625rem solid var(--hbar-app-ui-border); border-radius: .875rem; background: var(--hbar-app-ui-surface-1); }
+.hbar-app-ui-tool-calls-command > main > section > header { display: flex; flex: 0 0 auto; min-inline-size: 0; align-items: center; gap: .5rem; }
+.hbar-app-ui-tool-calls-command-line { flex: 1 1 auto; min-inline-size: 0; border: .0625rem solid var(--hbar-app-ui-border); }
+.hbar-app-ui-tool-calls-command > main > section > header > span { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .375rem; color: var(--hbar-app-ui-muted); font-family: var(--hbar-app-ui-mono); font-size: .75rem; white-space: nowrap; }
+.hbar-app-ui-tool-calls-command > main > section > header > span::before { display: block; inline-size: .375rem; block-size: .375rem; border-radius: 50%; background: var(--hbar-app-ui-danger); content: ''; }
+.hbar-app-ui-tool-calls-command > main > section > nav { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: .25rem; }
+.hbar-app-ui-tool-calls-command > main > section > nav .hbar-app-ui-tool-calls-button { min-block-size: 2rem; background: transparent; color: var(--hbar-app-ui-muted); }
+.hbar-app-ui-tool-calls-command > main > section > nav .hbar-app-ui-tool-calls-button.is-selected { background: var(--hbar-app-ui-surface-2); color: var(--hbar-app-ui-text); }
+.hbar-app-ui-tool-calls-command-output { flex: 1 1 auto; min-block-size: 0; border: 0; }
+
+/* Tool calls 6: permission domains grow in normal document flow. */
+.hbar-app-ui-tool-calls-permissions { block-size: auto; overflow: visible; }
+.hbar-app-ui-tool-calls-permissions > header > span { margin-inline-start: auto; color: var(--hbar-app-ui-muted); font-family: var(--hbar-app-ui-mono); font-size: .75rem; }
+.hbar-app-ui-tool-calls-permissions > main { display: flex; flex-direction: column; gap: 1.25rem; min-inline-size: 0; padding-block-start: .8125rem; }
+.hbar-app-ui-tool-calls-permissions section { display: flex; flex-direction: column; gap: .375rem; min-inline-size: 0; }
+.hbar-app-ui-tool-calls-permissions h3 { padding-inline: .5rem; color: var(--hbar-app-ui-subtle); font-size: .6875rem; font-weight: 500; letter-spacing: .06em; line-height: 1.5; }
+.hbar-app-ui-tool-calls-permissions ul { display: flex; flex-direction: column; gap: .25rem; padding: .25rem; border: .0625rem solid var(--hbar-app-ui-border); border-radius: .875rem; background: var(--hbar-app-ui-surface-1); }
+.hbar-app-ui-tool-calls-permissions li { display: flex; min-inline-size: 0; align-items: center; gap: 1rem; padding: .75rem; border: .0625rem solid var(--hbar-app-ui-border); border-radius: .625rem; background: var(--hbar-app-ui-surface-0); }
+.hbar-app-ui-tool-calls-permissions li > div { display: flex; flex: 1 1 auto; min-inline-size: 0; flex-direction: column; gap: .125rem; }
+.hbar-app-ui-tool-calls-permissions li strong { overflow: hidden; color: var(--hbar-app-ui-text); font-family: var(--hbar-app-ui-mono); font-size: .75rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-tool-calls-permissions li small, .hbar-app-ui-tool-calls-permissions li > div > span { overflow: hidden; color: var(--hbar-app-ui-muted); font-size: .75rem; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-app-ui-tool-calls-permissions li.is-request { display: flex; flex-direction: column; align-items: stretch; gap: .6875rem; }
+.hbar-app-ui-tool-calls-permissions li.is-request > div > strong { font-family: var(--hbar-app-ui-font); font-size: .875rem; white-space: normal; }
+.hbar-app-ui-tool-calls-permissions li.is-request > div > small { color: var(--hbar-app-ui-subtle); font-family: var(--hbar-app-ui-mono); }
+.hbar-app-ui-tool-calls-permissions li.is-request > nav { display: flex; flex-wrap: wrap; gap: .5rem; margin-inline-start: 1rem; }
+.hbar-app-ui-tool-calls-permissions li.is-request > nav .hbar-app-ui-tool-calls-button:first-child { flex-basis: 100%; align-self: flex-start; min-block-size: 1.75rem; padding-block: .25rem; }
+.hbar-app-ui-tool-calls-permissions li.is-request > nav .hbar-app-ui-tool-calls-button { min-block-size: 2rem; }
+.hbar-app-ui-tool-calls-permissions li.is-request > nav .hbar-app-ui-tool-calls-button.is-accent { background: var(--hbar-app-ui-text); color: var(--hbar-app-ui-surface-0); }
+.hbar-app-ui-tool-calls-permissions li.is-request > nav .hbar-app-ui-tool-calls-button.is-danger { color: var(--hbar-app-ui-muted); }
+.hbar-app-ui-tool-calls-request-status { color: var(--hbar-app-ui-muted); font-size: .75rem; line-height: 1.5; }
+.hbar-app-ui-tool-calls-permissions li.is-status > div { display: flex; flex-direction: row; align-items: center; gap: .5rem; }
+.hbar-app-ui-tool-calls-permissions li.is-status > div > span { flex: 0 0 auto; margin-inline-start: auto; }
+.hbar-app-ui-tool-calls-toggle { display: flex; flex: 0 0 auto; inline-size: 2.25rem; block-size: 1.25rem; align-items: center; justify-content: flex-start; padding: .125rem; border: 0; border-radius: 999rem; background: var(--hbar-app-ui-subtle); cursor: pointer; }
+.hbar-app-ui-tool-calls-toggle.is-enabled { justify-content: flex-end; background: var(--hbar-app-ui-text); }
+.hbar-app-ui-tool-calls-toggle > i { display: block; inline-size: 1rem; block-size: 1rem; border-radius: 50%; background: var(--hbar-app-ui-surface-0); }
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-variant.hbar-app-ui-tool-calls-surface { padding: 1rem; }
+    .hbar-app-ui-tool-calls-trace-row > time { display: none; }
+    .hbar-app-ui-tool-calls-trace-details { padding-inline-start: .75rem; }
+    .hbar-app-ui-tool-calls-activity-row { gap: .5rem; }
+    .hbar-app-ui-tool-calls-activity-row > time, .hbar-app-ui-tool-calls-activity-row small { display: none; }
+    .hbar-app-ui-tool-calls-code-heading, .hbar-app-ui-tool-calls-search > header, .hbar-app-ui-tool-calls-command > header { flex-wrap: wrap; gap: .5rem; }
+    .hbar-app-ui-tool-calls-code-heading > span, .hbar-app-ui-tool-calls-command > header > time { margin-inline-start: 0; }
+    .hbar-app-ui-tool-calls-search > header > code { flex-basis: 100%; }
+    .hbar-app-ui-tool-calls-search > header h2 { flex-basis: auto; }
+    .hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button { gap: .5rem; padding: .75rem; }
+    .hbar-app-ui-tool-calls-permissions li { gap: .75rem; }
+    .hbar-app-ui-tool-calls-permissions li.is-request > nav { gap: .375rem; }
+}
+
+/* The public preview uses the platform UI stack. Keep these final tokens more
+   specific than the package-wide primitive defaults so each tool surface can
+   preserve the same rhythm without coordinate nudges. */
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface button,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface h2,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface h3,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface p,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface span,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface time {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface code,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-search strong {
+    display: block;
+    overflow: hidden;
+    font-size: .8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button {
+    gap: .5rem;
+    padding-block: .6875rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button > span:nth-child(2) {
+    gap: 0;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button > span:nth-child(2) > strong {
+    margin-block-end: .125rem;
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-search strong {
+        white-space: nowrap;
+        line-height: 1.5;
+    }
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-search > main li > .hbar-app-ui-tool-calls-button > span:nth-child(2) > small {
+    margin-block-end: .125rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-command-line,
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-command-output {
+    font-size: .75rem;
+    line-height: 1.333;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-diff > main > ol > li > ol {
+    font-size: .75rem;
+    line-height: 1.625;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-command > main > section {
+    gap: .3125rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-command-line {
+    display: flex;
+    min-block-size: 3.125rem;
+    align-items: center;
+    padding: .5rem .625rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-tool-calls-surface .hbar-app-ui-tool-calls-command > main > section > nav {
+    min-block-size: 3rem;
+    align-items: center;
+    padding: .5rem;
+    border: .0625rem solid var(--hbar-app-ui-border);
+    border-radius: .5rem;
+}

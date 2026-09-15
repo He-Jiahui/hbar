@@ -50,6 +50,7 @@ export {
 } from './components'
 export {HbarAppUiEditorProvider} from './components/Editor'
 export {HbarAppUiNavbarProvider, selectHbarAppUiNavbarItem, uniqueHbarAppUiNavbarItems} from './components/Navbar'
+export {HbarAppUiToolCallsProvider, selectHbarAppUiToolCallsItem, uniqueHbarAppUiToolCallsItems} from './components/ToolCalls'
 export type {
     HbarAppUiCodeFile,
     HbarAppUiCodeWorkspaceContent,
@@ -105,6 +106,31 @@ export type {
     HbarAppUiNavbarTaskListContent,
     HbarAppUiNavbarTaskRow,
 } from './components/Navbar'
+export type {
+    HbarAppUiToolCallsActivityContent,
+    HbarAppUiToolCallsActivityFilter,
+    HbarAppUiToolCallsActivityItem,
+    HbarAppUiToolCallsCommandContent,
+    HbarAppUiToolCallsContent,
+    HbarAppUiToolCallsDiffContent,
+    HbarAppUiToolCallsDiffFile,
+    HbarAppUiToolCallsDiffLine,
+    HbarAppUiToolCallsDiffLineKind,
+    HbarAppUiToolCallsListStrategy,
+    HbarAppUiToolCallsOutputTab,
+    HbarAppUiToolCallsPermissionAction,
+    HbarAppUiToolCallsPermissionGroup,
+    HbarAppUiToolCallsPermissionItem,
+    HbarAppUiToolCallsPermissionItemKind,
+    HbarAppUiToolCallsPermissionsContent,
+    HbarAppUiToolCallsProviderProps,
+    HbarAppUiToolCallsProps,
+    HbarAppUiToolCallsSearchContent,
+    HbarAppUiToolCallsSearchResult,
+    HbarAppUiToolCallsState,
+    HbarAppUiToolCallsTraceContent,
+    HbarAppUiToolCallsTraceItem,
+} from './components/ToolCalls'
 export {
     HbarAppUiButton,
     HbarAppUiComposer,

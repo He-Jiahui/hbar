@@ -7,6 +7,7 @@ import {
   HbarAppUiButton,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
+  HbarAppUiToolCallsProvider,
   HbarAppUiIconButton,
   HbarAppUiStatus,
   listHbarAppUiVariants,
@@ -25,6 +26,11 @@ import {
   createHbarAppUiNavbarOverflowFixtures,
   HBAR_APP_UI_NAVBAR_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-navbar-fixtures'
+import {
+  createHbarAppUiToolCallsLocalizedFixtures,
+  createHbarAppUiToolCallsOverflowFixtures,
+  HBAR_APP_UI_TOOL_CALLS_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-tool-calls-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -71,6 +77,17 @@ function PreviewApp() {
       case null:
       default:
         return HBAR_APP_UI_NAVBAR_FIXTURES
+    }
+  }, [])
+  const toolCallsContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('toolCallsFixture')) {
+      case 'overflow':
+        return createHbarAppUiToolCallsOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiToolCallsLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_TOOL_CALLS_FIXTURES
     }
   }, [])
 
@@ -138,11 +155,13 @@ function PreviewApp() {
         data-hbar-app-ui-theme={theme}
         data-hbar-app-ui-variant={selected.spec.id}
       >
-        <HbarAppUiNavbarProvider content={navbarContent}>
-          <HbarAppUiEditorProvider content={editorContent}>
-            <SelectedComponent spec={selected.spec} onAction={handleAction} />
-          </HbarAppUiEditorProvider>
-        </HbarAppUiNavbarProvider>
+        <HbarAppUiToolCallsProvider content={toolCallsContent}>
+          <HbarAppUiNavbarProvider content={navbarContent}>
+            <HbarAppUiEditorProvider content={editorContent}>
+              <SelectedComponent spec={selected.spec} onAction={handleAction} />
+            </HbarAppUiEditorProvider>
+          </HbarAppUiNavbarProvider>
+        </HbarAppUiToolCallsProvider>
       </div>
     )
   }
@@ -205,11 +224,13 @@ function PreviewApp() {
                   data-hbar-app-ui-surface={selected.spec.profile.surface}
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
-                  <HbarAppUiNavbarProvider content={navbarContent}>
-                    <HbarAppUiEditorProvider content={editorContent}>
-                      <SelectedComponent spec={selected.spec} onAction={handleAction} />
-                    </HbarAppUiEditorProvider>
-                  </HbarAppUiNavbarProvider>
+                  <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                    <HbarAppUiNavbarProvider content={navbarContent}>
+                      <HbarAppUiEditorProvider content={editorContent}>
+                        <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                      </HbarAppUiEditorProvider>
+                    </HbarAppUiNavbarProvider>
+                  </HbarAppUiToolCallsProvider>
                 </div>
               </div>
             </section>
