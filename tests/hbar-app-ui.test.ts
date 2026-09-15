@@ -179,6 +179,32 @@ describe('hbar-app-ui registry', () => {
     }
   })
 
+  test('keeps wizard variants split by workflow semantics and free of legacy naming', () => {
+    const markup = Array.from({ length: 7 }, (_, index) =>
+      renderToStaticMarkup(createElement(getHbarAppUiVariant('wizard', index + 1).component, {})),
+    )
+
+    expect(markup[0]).toContain('hbar-app-ui-wizard-information-form')
+    expect(markup[0]).toContain('Your information')
+    expect(markup[1]).toContain('hbar-app-ui-wizard-invoice-card')
+    expect(markup[1]).toContain('Customer details')
+    expect(markup[2]).toContain('hbar-app-ui-wizard-plan-list')
+    expect(markup[2]).toContain('Invoice preview')
+    expect(markup[3]).toContain('hbar-app-ui-wizard-service-grid')
+    expect(markup[3]).toContain('Environment services')
+    expect(markup[4]).toContain('hbar-app-ui-wizard-review-sections')
+    expect(markup[4]).toContain('Review before sending')
+    expect(markup[5]).toContain('hbar-app-ui-wizard-migration-list')
+    expect(markup[5]).toContain('Migrating workspace')
+    expect(markup[6]).toContain('hbar-app-ui-wizard-question-options')
+    expect(markup[6]).toContain('Where do you ship to?')
+    expect(new Set(markup).size).toBe(7)
+    for (const surface of markup) {
+      expect(surface.toLocaleLowerCase()).not.toContain('react-bits')
+      expect(surface.toLocaleLowerCase()).not.toContain('reactbits')
+    }
+  })
+
   test('named components render a self-contained UI block without preview chrome', () => {
     const markup = renderToStaticMarkup(createElement(HBAR_APP_UI_VARIANT_EXPORTS.HbarAppUiAgentActivity01, {}))
     expect(markup).toContain('data-hbar-app-ui-component="hbar-app-ui-agent-activity-1"')

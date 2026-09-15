@@ -1,0 +1,1773 @@
+/* Wizard surfaces are authored as normal document flow. Widths express the
+ * component contract; flex/grid own alignment and responsive ordering. */
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface {
+    display: flex !important;
+    min-inline-size: 0;
+    min-block-size: 100%;
+    flex-direction: column;
+    gap: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background: #0a0a0a !important;
+    color: #f5f5f5 !important;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-wizard-surface :where(h1, h2, h3, p, ul, ol, dl) {
+    margin: 0;
+}
+
+.hbar-app-ui-wizard-surface :where(input, select, textarea) {
+    box-sizing: border-box;
+    min-inline-size: 0;
+    border: 1px solid #303030;
+    border-radius: .5rem;
+    outline: 0;
+    padding: .5rem .65rem;
+    background: #0c0c0c;
+    color: #f5f5f5;
+    font: .8125rem/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-wizard-surface :where(input, select, textarea):focus {
+    border-color: #888;
+    box-shadow: 0 0 0 .15rem rgb(255 255 255 / 10%);
+}
+
+.hbar-app-ui-wizard-surface :where(button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible) {
+    outline: 2px solid #f5f5f5;
+    outline-offset: 2px;
+}
+
+.hbar-app-ui-wizard-button {
+    display: inline-flex;
+    min-block-size: 2.25rem;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    border: 1px solid #303030;
+    border-radius: .5rem;
+    padding: .5rem .75rem;
+    background: #111;
+    color: #e8e8e8;
+    cursor: pointer;
+    font: .8125rem/1.2 ui-sans-serif, system-ui, sans-serif;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-button:hover:not(:disabled) {
+    border-color: #5a5a5a;
+    background: #191919;
+}
+
+.hbar-app-ui-wizard-button-light {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-wizard-button-light:hover:not(:disabled) {
+    border-color: #fff;
+    background: #fff;
+}
+
+.hbar-app-ui-wizard-button:disabled {
+    cursor: not-allowed;
+    opacity: .42;
+}
+
+.hbar-app-ui-wizard-step-rail {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .6rem;
+    padding: 1rem 1.5rem;
+}
+
+.hbar-app-ui-wizard-step {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 0;
+    align-items: center;
+    gap: .6rem;
+}
+
+.hbar-app-ui-wizard-step button {
+    display: inline-flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .625rem;
+    border: 0;
+    border-radius: .4rem;
+    padding: .125rem 0;
+    background: transparent;
+    color: #777;
+    cursor: pointer;
+    font: .8125rem/1.25 ui-sans-serif, system-ui, sans-serif;
+    text-align: left;
+}
+
+.hbar-app-ui-wizard-step button:hover:not(:disabled),
+.hbar-app-ui-wizard-step.is-active button,
+.hbar-app-ui-wizard-step.is-complete button {
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-wizard-step button:disabled {
+    cursor: default;
+}
+
+.hbar-app-ui-wizard-step button > .hbar-app-ui-wizard-step-index {
+    display: inline-flex;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    flex: 0 0 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #303030;
+    border-radius: 50%;
+    color: #858585;
+    font-size: .6875rem;
+}
+
+.hbar-app-ui-wizard-step.is-active button > .hbar-app-ui-wizard-step-index,
+.hbar-app-ui-wizard-step.is-complete button > .hbar-app-ui-wizard-step-index {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-wizard-step-label {
+    min-inline-size: 0;
+    color: inherit;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-step.is-active .hbar-app-ui-wizard-step-label,
+.hbar-app-ui-wizard-step.is-complete .hbar-app-ui-wizard-step-label {
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-step i {
+    display: block;
+    min-inline-size: 1rem;
+    flex: 1;
+    border-block-start: 1px solid #303030;
+}
+
+.hbar-app-ui-wizard-step.is-complete i {
+    border-color: #777;
+}
+
+.hbar-app-ui-wizard-footer {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: 1rem 1.25rem;
+    border-block-start: 1px solid #292929;
+    background: #191919;
+}
+
+.hbar-app-ui-wizard-footer > span {
+    min-inline-size: 0;
+    color: #888;
+    font-size: .75rem;
+    line-height: 1.45;
+}
+
+.hbar-app-ui-wizard-field {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .4rem;
+    color: #e7e7e7;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-wizard-field > span:first-child {
+    display: inline-flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    gap: .15rem;
+}
+
+.hbar-app-ui-wizard-field > span:first-child b {
+    color: #f5f5f5;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-input-prefix {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .5rem;
+    border: 1px solid #303030;
+    border-radius: .5rem;
+    padding-inline: .65rem;
+    background: #0c0c0c;
+    color: #aaa;
+}
+
+.hbar-app-ui-wizard-input-prefix:focus-within {
+    border-color: #888;
+    box-shadow: 0 0 0 .15rem rgb(255 255 255 / 10%);
+}
+
+.hbar-app-ui-wizard-input-prefix input {
+    inline-size: 100%;
+    border: 0;
+    padding-inline: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.hbar-app-ui-wizard-input-prefix input:focus {
+    border: 0;
+    box-shadow: none;
+}
+
+.hbar-app-ui-wizard-input-prefix button {
+    display: inline-flex;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: .35rem;
+    padding: 0;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+}
+
+.hbar-app-ui-wizard-information {
+    inline-size: min(100%, 48rem);
+    align-self: center;
+    margin-inline: auto;
+    margin-block: 2rem;
+    border: 1px solid #303030 !important;
+    border-radius: .8rem !important;
+    background: #0b0b0b !important;
+}
+
+.hbar-app-ui-wizard-information-main {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem 1.5rem 1.25rem;
+}
+
+.hbar-app-ui-wizard-information-main > header,
+.hbar-app-ui-wizard-payment-step > header,
+.hbar-app-ui-wizard-complete-step > header {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.hbar-app-ui-wizard-information-main h1,
+.hbar-app-ui-wizard-payment-step h1,
+.hbar-app-ui-wizard-complete-step h1 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-information-main p,
+.hbar-app-ui-wizard-payment-step p,
+.hbar-app-ui-wizard-complete-step p {
+    color: #a8a8a8;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-information-form {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem 1rem;
+}
+
+.hbar-app-ui-wizard-information-note {
+    color: #7f7f7f !important;
+    font-size: .75rem !important;
+}
+
+.hbar-app-ui-wizard-payment-step {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.hbar-app-ui-wizard-payment-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.hbar-app-ui-wizard-complete-step {
+    display: flex;
+    min-block-size: 12rem;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.hbar-app-ui-wizard-complete-step > span {
+    display: inline-flex;
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-wizard-invoice {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    block-size: 100%;
+    min-block-size: 100%;
+    overflow: hidden;
+    row-gap: 1.3125rem;
+}
+
+.hbar-app-ui-wizard-invoice-topbar {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 3.5rem;
+    align-items: center;
+    gap: 1rem;
+    padding: .75rem 1rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-close {
+    inline-size: 2rem;
+    flex: 0 0 2rem;
+    padding: 0;
+}
+
+.hbar-app-ui-wizard-invoice-topbar h1 {
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-invoice-topbar small {
+    color: #858585;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-invoice-progress {
+    display: flex;
+    min-inline-size: 4rem;
+    flex: 1;
+    justify-content: center;
+}
+
+.hbar-app-ui-wizard-invoice-progress span {
+    display: block;
+    inline-size: min(100%, 15rem);
+    block-size: .25rem;
+    border-radius: 999px;
+    background: linear-gradient(to right, #f5f5f5 25%, #333 25%);
+}
+
+.hbar-app-ui-wizard-invoice-main {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    justify-content: center;
+    overflow: auto;
+    padding: 1.5rem 1rem 5rem;
+}
+
+.hbar-app-ui-wizard-invoice-card {
+    display: flex;
+    inline-size: min(100%, 51rem);
+    min-inline-size: 0;
+    flex-direction: column;
+    border: 1px solid #292929;
+    border-radius: .75rem;
+    background: #0b0b0b;
+}
+
+.hbar-app-ui-wizard-invoice-card > header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-invoice-card > header > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.hbar-app-ui-wizard-invoice-card h2 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-invoice-card > header p {
+    color: #a1a1a1;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-invoice-card > header > span,
+.hbar-app-ui-wizard-billing-header > .hbar-app-ui-wizard-draft,
+.hbar-app-ui-wizard-invoice-card h3 em {
+    display: inline-flex;
+    align-items: center;
+    border-radius: .35rem;
+    padding: .2rem .4rem;
+    background: #292929;
+    color: #ddd;
+    font-size: .6875rem;
+    font-style: normal;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-invoice-card > form {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.25rem;
+}
+
+.hbar-app-ui-wizard-invoice-card > form > section {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.hbar-app-ui-wizard-invoice-card > form > section + section {
+    border-block-start: 1px solid #292929;
+    padding-block-start: 1.25rem;
+}
+
+.hbar-app-ui-wizard-invoice-card > form section > header {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.hbar-app-ui-wizard-invoice-card h3 {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    color: #f1f1f1;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-wizard-invoice-card section > header p {
+    color: #898989;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-wizard-invoice-fields {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.hbar-app-ui-wizard-invoice-footer {
+    justify-content: flex-end;
+}
+
+.hbar-app-ui-wizard-invoice-footer .hbar-app-ui-wizard-button {
+    min-inline-size: 7.2rem;
+}
+
+.hbar-app-ui-wizard-invoice-closed {
+    display: flex;
+    min-block-size: 70vh;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.hbar-app-ui-wizard-invoice-closed h1 {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-invoice-closed p {
+    color: #999;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-wizard-billing-upgrade {
+    inline-size: min(100%, 64rem);
+    align-self: center;
+    margin-inline: auto;
+    margin-block: 2rem;
+    border: 1px solid #303030 !important;
+    border-radius: .8rem !important;
+    background: #0b0b0b !important;
+}
+
+.hbar-app-ui-wizard-billing-header {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 1rem;
+    row-gap: 1rem;
+    padding: 1.25rem 1.5rem 1rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-billing-header > div:first-child {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1 1 15rem;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.hbar-app-ui-wizard-billing-header h1 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-billing-header p {
+    color: #a1a1a1;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-draft {
+    gap: .3rem;
+}
+
+.hbar-app-ui-wizard-draft i {
+    inline-size: .4rem;
+    block-size: .4rem;
+    border-radius: 50%;
+    background: #f0a900;
+}
+
+.hbar-app-ui-wizard-billing-header > .hbar-app-ui-wizard-step-rail {
+    flex-basis: 100%;
+    padding: 0;
+}
+
+.hbar-app-ui-wizard-billing-header > .hbar-app-ui-wizard-step-rail .hbar-app-ui-wizard-step button {
+    gap: .5rem;
+    padding: 0;
+}
+
+.hbar-app-ui-wizard-billing-main {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: minmax(0, 1.05fr) minmax(18rem, .7fr);
+    gap: 1.25rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.hbar-app-ui-wizard-plan-column,
+.hbar-app-ui-wizard-invoice-preview {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.hbar-app-ui-wizard-plan-column > h2,
+.hbar-app-ui-wizard-invoice-preview > header h2 {
+    color: #888;
+    font-size: .6875rem;
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-wizard-plan-list {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.hbar-app-ui-wizard-plan-list label {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .75rem;
+    border: 1px solid #303030;
+    border-radius: .75rem;
+    padding: 1rem;
+    background: transparent;
+    color: #ddd;
+    cursor: pointer;
+}
+
+.hbar-app-ui-wizard-plan-list label:hover,
+.hbar-app-ui-wizard-plan-list label.is-selected {
+    border-color: #666;
+    background: #292929;
+}
+
+.hbar-app-ui-wizard-plan-list input,
+.hbar-app-ui-wizard-question-options input {
+    inline-size: 1rem;
+    block-size: 1rem;
+    flex: 0 0 1rem;
+    margin: 0;
+    appearance: none;
+    border: 1px solid #555;
+    border-radius: 50%;
+    padding: 0;
+    background: transparent;
+}
+
+.hbar-app-ui-wizard-plan-list input:checked,
+.hbar-app-ui-wizard-question-options input:checked {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    box-shadow: inset 0 0 0 .2rem #111;
+}
+
+.hbar-app-ui-wizard-radio-mark,
+.hbar-app-ui-wizard-question-radio {
+    display: none;
+    inline-size: 1rem;
+    block-size: 1rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #555;
+    border-radius: 50%;
+    color: #111;
+}
+
+.hbar-app-ui-wizard-plan-list label.is-selected .hbar-app-ui-wizard-radio-mark,
+.hbar-app-ui-wizard-question-options label.is-selected .hbar-app-ui-wizard-question-radio {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+}
+
+.hbar-app-ui-wizard-plan-copy {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .2rem;
+}
+
+.hbar-app-ui-wizard-plan-copy > span {
+    display: inline-flex;
+    min-inline-size: 0;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: .55rem;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-plan-copy strong {
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.hbar-app-ui-wizard-plan-copy em {
+    color: #f5f5f5;
+    font-size: .6875rem;
+    font-style: normal;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-plan-copy small,
+.hbar-app-ui-wizard-plan-note {
+    min-inline-size: 0;
+    color: #909090;
+    font-size: .75rem;
+    line-height: 1.45;
+}
+
+.hbar-app-ui-wizard-plan-copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-plan-price {
+    color: #999;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-plan-price b {
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-invoice-preview > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.hbar-app-ui-wizard-invoice-preview > header > span {
+    border-radius: .35rem;
+    padding: .2rem .4rem;
+    background: #292929;
+    color: #ddd;
+    font-size: .6875rem;
+}
+
+.hbar-app-ui-wizard-invoice-total,
+.hbar-app-ui-wizard-invoice-preview dl {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .45rem;
+    border: 1px solid #303030;
+    border-radius: .7rem;
+    padding: 1rem;
+    background: #111;
+}
+
+.hbar-app-ui-wizard-invoice-total small,
+.hbar-app-ui-wizard-invoice-preview dt {
+    color: #888;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-wizard-invoice-total strong {
+    color: #f5f5f5;
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-invoice-total p {
+    color: #888;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-wizard-invoice-preview dl > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .2rem;
+    padding-block: .35rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-invoice-preview dl > div:last-child {
+    border-block-end: 0;
+}
+
+.hbar-app-ui-wizard-invoice-preview dd {
+    display: flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+    margin: 0;
+}
+
+.hbar-app-ui-wizard-invoice-preview dd strong,
+.hbar-app-ui-wizard-invoice-preview dd span {
+    min-inline-size: 0;
+    color: #f5f5f5;
+    font-size: .75rem;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-wizard-invoice-preview dd span {
+    text-align: right;
+}
+
+.hbar-app-ui-wizard-billing-upgrade > .hbar-app-ui-wizard-footer {
+    justify-content: space-between;
+}
+
+.hbar-app-ui-wizard-environment {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    block-size: 100%;
+    min-block-size: 100%;
+    overflow: hidden;
+}
+
+.hbar-app-ui-wizard-environment-header {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 1rem;
+    row-gap: .5rem;
+    padding: .75rem 1.5rem 0;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-environment-title {
+    display: flex;
+    min-inline-size: 0;
+    align-items: flex-start;
+    gap: .75rem;
+}
+
+.hbar-app-ui-wizard-environment-title > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 0;
+}
+
+.hbar-app-ui-wizard-environment-title h1 {
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-environment-title p {
+    color: #858585;
+    font-size: .75rem;
+    line-height: 1.333 !important;
+}
+
+.hbar-app-ui-wizard-environment-back {
+    inline-size: 2rem;
+    min-block-size: 2rem;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+}
+
+.hbar-app-ui-wizard-environment-header > .hbar-app-ui-wizard-step-rail {
+    grid-column: 1 / -1;
+    justify-self: center;
+    inline-size: min(100%, 35rem);
+    padding: 0 0 .75rem;
+}
+
+.hbar-app-ui-wizard-environment-header > .hbar-app-ui-wizard-step-rail .hbar-app-ui-wizard-step button {
+    gap: .5rem;
+    padding: 0;
+}
+
+.hbar-app-ui-wizard-environment-header > .hbar-app-ui-wizard-button {
+    min-block-size: 2rem !important;
+    font-size: .75rem !important;
+    line-height: 1.333 !important;
+}
+
+.hbar-app-ui-wizard-environment-main {
+    display: flex;
+    inline-size: min(100%, 55rem);
+    min-inline-size: 0;
+    align-self: center;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-block-size: 0;
+    overflow: auto;
+    padding: 1.5rem 0;
+}
+
+.hbar-app-ui-wizard-environment-main > header {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.hbar-app-ui-wizard-environment-main h2 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    line-height: 1.5 !important;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-environment-main > header p {
+    color: #999;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-service-grid {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+}
+
+.hbar-app-ui-wizard-service-grid > button {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    align-content: start;
+    row-gap: .25rem;
+    column-gap: .6rem;
+    border: 1px solid #303030;
+    border-radius: .75rem;
+    padding: 1rem;
+    background: transparent;
+    color: #ddd;
+    cursor: pointer;
+    text-align: left;
+}
+
+.hbar-app-ui-wizard-service-grid > button:hover,
+.hbar-app-ui-wizard-service-grid > button.is-selected {
+    border-color: #666;
+    background: #292929;
+}
+
+.hbar-app-ui-wizard-service-icon {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    grid-column: 1;
+    grid-row: 1;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #363636;
+    border-radius: .5rem;
+    background: #101010;
+    color: #ddd;
+}
+
+.hbar-app-ui-wizard-service-check {
+    display: inline-flex;
+    inline-size: 1rem;
+    block-size: 1rem;
+    align-items: center;
+    justify-content: center;
+    grid-column: 2;
+    grid-row: 1;
+    border: 1px solid #555;
+    border-radius: .25rem;
+    color: #111;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-wizard-service-grid > button.is-selected .hbar-app-ui-wizard-service-check {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+}
+
+.hbar-app-ui-wizard-service-grid strong {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-inline-size: 0;
+    margin-block-start: .75rem;
+    color: #f2f2f2;
+    font-size: .8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-wizard-service-grid small {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-inline-size: 0;
+    color: #8d8d8d;
+    font-size: .75rem;
+    line-height: 1.333;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-wizard-environment-note {
+    display: flex;
+    min-inline-size: 0;
+    align-items: flex-start;
+    gap: .6rem;
+    color: #888;
+}
+
+.hbar-app-ui-wizard-environment-note p {
+    color: #888;
+    font-size: .75rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-environment-footer {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-block-start: 1px solid #292929;
+    background: #191919;
+}
+
+.hbar-app-ui-wizard-environment-footer > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .2rem;
+}
+
+.hbar-app-ui-wizard-environment-footer strong {
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-environment-footer small {
+    color: #888;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-wizard-review {
+    inline-size: min(100%, 42rem);
+    align-self: center;
+    margin-inline: auto;
+    margin-block: 2rem;
+    border: 1px solid #303030 !important;
+    border-radius: .8rem !important;
+    background: #0b0b0b !important;
+}
+
+.hbar-app-ui-wizard-review-main {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.hbar-app-ui-wizard-review-main > header {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.hbar-app-ui-wizard-review-main h1 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-review-main > header p {
+    color: #a1a1a1;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-review-sections {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.hbar-app-ui-wizard-review-sections > section {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .25rem;
+    border: 1px solid #303030;
+    border-radius: .75rem;
+    padding: .25rem;
+    background: #111;
+}
+
+.hbar-app-ui-wizard-review-sections > section > header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .6875rem 1rem;
+}
+
+.hbar-app-ui-wizard-review-sections h2 {
+    color: #f2f2f2;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-review-sections dl {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    padding: .25rem 1rem;
+    border: 1px solid #292929;
+    border-radius: .5rem;
+}
+
+.hbar-app-ui-wizard-review-sections dl > div {
+    display: flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .625rem 0;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-review-sections dl > div:last-child {
+    border-block-end: 0;
+}
+
+.hbar-app-ui-wizard-review-sections dt,
+.hbar-app-ui-wizard-review-sections dd {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-wizard-review-sections dt {
+    color: #8d8d8d;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-review-sections dd {
+    margin: 0;
+    color: #f1f1f1;
+    font-size: .8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    text-align: right;
+}
+
+.hbar-app-ui-wizard-review-sections .hbar-app-ui-wizard-button {
+    min-block-size: 1.75rem;
+    padding: .3rem .5rem;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-wizard-confirm {
+    display: flex;
+    min-inline-size: 0;
+    align-items: flex-start;
+    gap: .65rem;
+    padding: .9rem;
+    border: 1px solid #303030;
+    border-radius: .65rem;
+    background: #111;
+    color: #aaa;
+    font-size: .75rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-confirm input {
+    inline-size: 1rem;
+    block-size: 1rem;
+    flex: 0 0 1rem;
+    margin: .1rem 0 0;
+    accent-color: #f5f5f5;
+}
+
+.hbar-app-ui-wizard-migration {
+    inline-size: min(100%, 42rem);
+    align-self: center;
+    margin-inline: auto;
+    margin-block: 2rem;
+    border: 1px solid #303030 !important;
+    border-radius: .8rem !important;
+    background: #0b0b0b !important;
+}
+
+.hbar-app-ui-wizard-migration-card {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+}
+
+.hbar-app-ui-wizard-migration-card > header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: 1rem 1.5rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-migration-card > header > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.hbar-app-ui-wizard-migration-card h1 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-migration-card header p,
+.hbar-app-ui-wizard-migration-note {
+    color: #888;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-migration-card > header > span {
+    flex: 0 0 auto;
+    color: #888;
+    font-size: .75rem;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-migration-body {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.hbar-app-ui-wizard-migration-progress {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .75rem;
+}
+
+.hbar-app-ui-wizard-migration-progress > span {
+    display: block;
+    min-inline-size: 0;
+    flex: 1;
+    block-size: .3rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #303030;
+}
+
+.hbar-app-ui-wizard-migration-progress i {
+    display: block;
+    block-size: 100%;
+    border-radius: inherit;
+    background: #f5f5f5;
+}
+
+.hbar-app-ui-wizard-migration-progress strong {
+    color: #888;
+    font-size: .75rem;
+    font-weight: 400;
+    line-height: 1.333;
+}
+
+.hbar-app-ui-wizard-migration-list {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-wizard-migration-list li {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .75rem;
+    padding: .75rem 0;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-wizard-migration-list li > span:nth-child(2) {
+    display: flex;
+    min-inline-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: .125rem;
+}
+
+.hbar-app-ui-wizard-migration-icon {
+    display: inline-flex;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    flex: 0 0 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #777;
+}
+
+.hbar-app-ui-wizard-migration-list li.is-complete .hbar-app-ui-wizard-migration-icon {
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-wizard-migration-list li.is-active .hbar-app-ui-wizard-migration-icon {
+    border: 1px dashed #bbb;
+    color: #ddd;
+}
+
+.hbar-app-ui-wizard-migration-list li.is-warning .hbar-app-ui-wizard-migration-icon {
+    background: #3d2a00;
+    color: #f0b400;
+}
+
+.hbar-app-ui-wizard-migration-list li.is-pending strong,
+.hbar-app-ui-wizard-migration-list li.is-pending small {
+    color: #777;
+}
+
+.hbar-app-ui-wizard-migration-list strong {
+    min-inline-size: 0;
+    color: #f1f1f1;
+    font-size: .8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-wizard-migration-list small {
+    min-inline-size: 0;
+    color: #888;
+    font-size: .75rem;
+    line-height: 1.333;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-wizard-migration-list .hbar-app-ui-wizard-button {
+    min-block-size: 1.75rem;
+    padding: .3rem .5rem;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-wizard-migration-note {
+    max-inline-size: 36rem;
+    font-size: .75rem;
+    line-height: 1.625;
+}
+
+.hbar-app-ui-wizard-question {
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem !important;
+}
+
+.hbar-app-ui-wizard-question-card {
+    display: flex;
+    inline-size: min(100%, 26.25rem);
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1.25rem;
+    border: 1px solid #303030;
+    border-radius: .8rem;
+    padding: 1.5rem;
+    background: #0b0b0b;
+}
+
+.hbar-app-ui-wizard-question-header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.hbar-app-ui-wizard-question-header nav {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .45rem;
+}
+
+.hbar-app-ui-wizard-question-header nav button {
+    display: inline-flex;
+    inline-size: .4rem;
+    block-size: .4rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    padding: 0;
+    background: #333;
+    color: #111;
+    cursor: pointer;
+}
+
+.hbar-app-ui-wizard-question-header nav button.is-active {
+    inline-size: 1.5rem;
+    background: #f5f5f5;
+}
+
+.hbar-app-ui-wizard-question-header nav button.is-complete {
+    background: #999;
+}
+
+.hbar-app-ui-wizard-question-header > span {
+    color: #888;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-wizard-question-card > section {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.hbar-app-ui-wizard-question-card h1 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-wizard-question-card > section > p {
+    color: #a1a1a1;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-wizard-question-options {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .5rem;
+    margin-block-start: 1rem;
+}
+
+.hbar-app-ui-wizard-question-options label {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .65rem;
+    border: 1px solid #303030;
+    border-radius: .6rem;
+    padding: .65rem .75rem;
+    background: transparent;
+    color: #f2f2f2;
+    cursor: pointer;
+}
+
+.hbar-app-ui-wizard-question-options label:hover,
+.hbar-app-ui-wizard-question-options label.is-selected {
+    border-color: #666;
+    background: #292929;
+}
+
+.hbar-app-ui-wizard-question-options strong {
+    min-inline-size: 0;
+    color: #f2f2f2;
+    font-size: .8125rem;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-wizard-question-card > .hbar-app-ui-wizard-footer {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.hbar-app-ui-wizard-question-card > .hbar-app-ui-wizard-footer .hbar-app-ui-wizard-button:nth-child(2) {
+    flex: 1;
+}
+
+.hbar-app-ui-wizard-question-skip {
+    align-self: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    font: .75rem/1.3 ui-sans-serif, system-ui, sans-serif;
+    text-decoration: underline;
+}
+
+.hbar-app-ui-wizard-question-skip:hover {
+    color: #f5f5f5;
+}
+
+/* Keep the package-level theme from turning native controls into unrelated
+ * card primitives. These selectors stay within this category's namespace. */
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-button,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-step button,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-question-header nav button,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-question-skip,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-service-grid > button,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-plan-list label {
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-button {
+    border: 1px solid #303030 !important;
+    border-radius: .5rem !important;
+    background: #111 !important;
+    color: #e8e8e8 !important;
+    cursor: pointer !important;
+    font-size: .8125rem !important;
+    line-height: 1.2 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-button-light {
+    border-color: #f5f5f5 !important;
+    background: #f5f5f5 !important;
+    color: #111 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-button:disabled {
+    cursor: not-allowed !important;
+    opacity: .42;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-step button {
+    border: 0 !important;
+    border-radius: .4rem !important;
+    background: transparent !important;
+    color: #777 !important;
+    cursor: pointer !important;
+    font-size: .8125rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-step.is-active button,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-step.is-complete button,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-step button:hover:not(:disabled) {
+    color: #f5f5f5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-question-header nav button {
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: #333 !important;
+    cursor: pointer !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-question-header nav button.is-active {
+    background: #f5f5f5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-question-skip {
+    border: 0 !important;
+    background: transparent !important;
+    color: #888 !important;
+    cursor: pointer !important;
+    font-size: .75rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-service-grid > button {
+    display: grid !important;
+    min-inline-size: 0 !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto auto !important;
+    align-content: start !important;
+    row-gap: .15rem !important;
+    column-gap: .6rem !important;
+    border: 1px solid #303030 !important;
+    border-radius: .75rem !important;
+    padding: 1rem !important;
+    background: transparent !important;
+    color: #ddd !important;
+    cursor: pointer !important;
+    font-size: .8125rem !important;
+    line-height: 1.35 !important;
+    text-align: left !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-service-grid > button:hover,
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-service-grid > button.is-selected {
+    border-color: #666 !important;
+    background: #292929 !important;
+    color: #f2f2f2 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface .hbar-app-ui-wizard-environment-header > .hbar-app-ui-wizard-button {
+    min-block-size: 2rem !important;
+    font-size: .75rem !important;
+    line-height: 1.333 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-wizard-surface.hbar-app-ui-wizard-question {
+    block-size: 100%;
+    min-block-size: 100%;
+    overflow: hidden;
+    padding: 2.5rem !important;
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-wizard-step-rail {
+        padding: 1rem 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-step-label {
+        display: none;
+    }
+
+    .hbar-app-ui-wizard-step button {
+        padding: .125rem 0;
+    }
+
+    .hbar-app-ui-wizard-information,
+    .hbar-app-ui-wizard-billing-upgrade,
+    .hbar-app-ui-wizard-review,
+    .hbar-app-ui-wizard-migration {
+        inline-size: auto;
+        margin-inline: 1.5rem;
+        margin-block: 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-information-main,
+    .hbar-app-ui-wizard-review-main {
+        padding: 1.25rem 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-information-form,
+    .hbar-app-ui-wizard-payment-fields,
+    .hbar-app-ui-wizard-invoice-fields,
+    .hbar-app-ui-wizard-billing-main {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-wizard-invoice-main {
+        justify-content: flex-start;
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-wizard-invoice-card {
+        border-radius: .7rem;
+    }
+
+    .hbar-app-ui-wizard-invoice-card > header,
+    .hbar-app-ui-wizard-invoice-card > form {
+        padding-inline: 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-invoice-footer {
+        margin-block-start: auto;
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-wizard-invoice-footer .hbar-app-ui-wizard-button {
+        min-inline-size: 0;
+    }
+
+    .hbar-app-ui-wizard-billing-header {
+        padding-inline: 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-billing-header > div:first-child {
+        flex: 1 1 0;
+    }
+
+    .hbar-app-ui-wizard-billing-header > .hbar-app-ui-wizard-step-rail {
+        padding-inline: 0;
+    }
+
+    .hbar-app-ui-wizard-billing-main {
+        padding-inline: 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-environment-header {
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-wizard-environment-header > .hbar-app-ui-wizard-step-rail {
+        padding-inline: 1rem;
+        margin-inline: -1rem;
+        inline-size: calc(100% + 2rem);
+    }
+
+    .hbar-app-ui-wizard-environment-main {
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-wizard-service-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-wizard-environment-footer {
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-wizard-review-sections dl > div {
+        align-items: baseline;
+        flex-direction: row;
+        gap: .75rem;
+    }
+
+    .hbar-app-ui-wizard-review-sections dt {
+        flex: 0 0 auto;
+    }
+
+    .hbar-app-ui-wizard-review-sections dd {
+        overflow: hidden;
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-wizard-surface.hbar-app-ui-wizard-question {
+        padding: 1.25rem 2rem !important;
+    }
+
+    .hbar-app-ui-wizard-question-card {
+        inline-size: 100%;
+        padding: 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-migration-card > header,
+    .hbar-app-ui-wizard-migration-body {
+        padding-inline: 1.5rem;
+    }
+
+    .hbar-app-ui-wizard-migration-list li > span:nth-child(2) {
+        overflow: hidden;
+    }
+
+    .hbar-app-ui-wizard-migration-list li > span:nth-child(2) > strong,
+    .hbar-app-ui-wizard-migration-list li > span:nth-child(2) > small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+@media (min-width: 40.0625rem) and (max-width: 60rem) {
+    .hbar-app-ui-wizard-billing-upgrade {
+        inline-size: auto;
+        margin-inline: 2rem;
+    }
+
+    .hbar-app-ui-wizard-billing-main {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-wizard-environment-main {
+        inline-size: calc(100% - 3rem);
+        padding-inline: 0;
+    }
+
+    .hbar-app-ui-wizard-service-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
