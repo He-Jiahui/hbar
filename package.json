@@ -22,6 +22,7 @@
     "app-ui:preview": "vite --config apps/hbar-app-ui-preview/vite.config.ts",
     "app-ui:build": "vite build --config apps/hbar-app-ui-preview/vite.config.ts",
     "app-ui:verify": "bun scripts/verify-hbar-app-ui-preview.ts",
+    "app-ui:editor:verify": "bun scripts/verify-hbar-app-ui-editor.ts",
     "app-ui:visual-capture": "bun scripts/capture-hbar-app-ui-visual-baseline.ts",
     "build": "vite build --config apps/web/vite.config.ts",
     "build:cli": "bun build --compile apps/cli/src/main.ts --outfile dist/hbar.exe",

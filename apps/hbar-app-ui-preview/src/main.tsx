@@ -5,6 +5,7 @@ import {
   HBAR_APP_UI_CATEGORIES,
   HBAR_APP_UI_CATEGORY_COUNTS,
   HbarAppUiButton,
+  HbarAppUiEditorProvider,
   HbarAppUiIconButton,
   HbarAppUiStatus,
   listHbarAppUiVariants,
@@ -13,6 +14,11 @@ import type { HbarAppUiEvent, HbarAppUiRegistryEntry, HbarAppUiVariantComponent,
 import 'hbar-app-ui/theme.css'
 import './preview.css'
 import { VariantHarness } from './VariantHarness'
+import {
+  createHbarAppUiEditorLocalizedFixtures,
+  createHbarAppUiEditorOverflowFixtures,
+  HBAR_APP_UI_EDITOR_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-editor-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -39,6 +45,16 @@ function PreviewApp() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
   const isolated = useMemo(() => new URLSearchParams(window.location.search).get('mode') === 'isolated', [])
+  const editorContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('editorFixture')) {
+      case 'overflow':
+        return createHbarAppUiEditorOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiEditorLocalizedFixtures()
+      default:
+        return HBAR_APP_UI_EDITOR_FIXTURES
+    }
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -104,7 +120,9 @@ function PreviewApp() {
         data-hbar-app-ui-theme={theme}
         data-hbar-app-ui-variant={selected.spec.id}
       >
-        <SelectedComponent spec={selected.spec} onAction={handleAction} />
+        <HbarAppUiEditorProvider content={editorContent}>
+          <SelectedComponent spec={selected.spec} onAction={handleAction} />
+        </HbarAppUiEditorProvider>
       </div>
     )
   }
@@ -167,7 +185,9 @@ function PreviewApp() {
                   data-hbar-app-ui-surface={selected.spec.profile.surface}
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
-                  <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                  <HbarAppUiEditorProvider content={editorContent}>
+                    <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                  </HbarAppUiEditorProvider>
                 </div>
               </div>
             </section>

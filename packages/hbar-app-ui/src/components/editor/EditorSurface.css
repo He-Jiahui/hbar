@@ -1,0 +1,1527 @@
+/* Editor surfaces follow the rendered preview's document flow. Flex and grid
+ * own alignment; dimensions below are rem-based component tokens rather than
+ * screen-coordinate placements. */
+.hbar-app-ui-variant.hbar-app-ui-editor-surface {
+    --hbar-app-ui-icon-xs: .75rem;
+    --hbar-app-ui-icon-sm: .875rem;
+    --hbar-app-ui-icon-md: 1rem;
+    --hbar-app-ui-icon-lg: 1.25rem;
+    --hbar-app-ui-icon-xl: 1.5rem;
+    display: flex !important;
+    min-inline-size: 0;
+    min-block-size: 100%;
+    flex-direction: column;
+    gap: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    background: #0a0a0a !important;
+    color: #f5f5f5 !important;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-editor-surface :where(h1, h2, h3, h4, p, ul, ol, blockquote) {
+    margin: 0;
+}
+
+.hbar-app-ui-editor-surface :where(button, input, textarea) {
+    box-sizing: border-box;
+    min-inline-size: 0;
+    font-family: inherit;
+}
+
+.hbar-app-ui-editor-button {
+    display: inline-flex;
+    min-block-size: 2rem;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: center;
+    gap: .375rem;
+    border: 1px solid #303030;
+    border-radius: .5rem;
+    padding: .375rem .625rem;
+    background: #111;
+    color: #dedede;
+    cursor: pointer;
+    font-size: .8125rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-button:hover:not(:disabled),
+.hbar-app-ui-editor-button.is-selected {
+    border-color: #666;
+    background: #292929;
+    color: #fff;
+}
+
+.hbar-app-ui-editor-button-light {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-editor-button-light:hover:not(:disabled) {
+    border-color: #fff;
+    background: #fff;
+    color: #111;
+}
+
+.hbar-app-ui-editor-button-icon,
+.hbar-app-ui-editor-button-quiet {
+    border-color: transparent;
+    background: transparent;
+}
+
+.hbar-app-ui-editor-button-icon {
+    inline-size: 2rem;
+    padding: 0;
+}
+
+.hbar-app-ui-editor-button:disabled {
+    cursor: not-allowed;
+    opacity: .42;
+}
+
+.hbar-app-ui-editor-surface :where(button:focus-visible, input:focus-visible, textarea:focus-visible) {
+    outline: 2px solid #f5f5f5;
+    outline-offset: 2px;
+}
+
+/* Rich text editor ------------------------------------------------------- */
+.hbar-app-ui-editor-rich-text {
+    min-block-size: 100%;
+}
+
+.hbar-app-ui-editor-rich-toolbar {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 3.0625rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem;
+    padding: .5rem .75rem;
+    border-block-end: 1px solid #292929;
+    background: #0a0a0a;
+}
+
+.hbar-app-ui-editor-rich-toolbar .hbar-app-ui-editor-block-menu {
+    inline-size: 8.25rem;
+    justify-content: space-between;
+    border-color: #303030;
+    padding-inline: .625rem;
+    background: #0c0c0c;
+}
+
+.hbar-app-ui-editor-rich-toolbar .hbar-app-ui-editor-format-group {
+    display: contents;
+}
+
+.hbar-app-ui-editor-rich-toolbar .hbar-app-ui-editor-history-group {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    margin-inline-start: .25rem;
+    border-inline-start: 1px solid #292929;
+    padding-inline-start: .5rem;
+}
+
+.hbar-app-ui-editor-rich-toolbar .hbar-app-ui-editor-format-group .hbar-app-ui-editor-button-icon.is-selected {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #111;
+}
+
+.hbar-app-ui-editor-save-state {
+    display: inline-flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .375rem;
+    margin-inline-start: auto;
+    padding-inline: .25rem;
+    color: #858585;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-save-state i {
+    inline-size: .375rem;
+    block-size: .375rem;
+    border-radius: 50%;
+    background: #e3b568;
+    opacity: .9;
+}
+
+.hbar-app-ui-editor-save-state.is-saved i {
+    background: #72c39a;
+}
+
+.hbar-app-ui-editor-rich-main {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1;
+    overflow: auto;
+}
+
+.hbar-app-ui-editor-rich-document {
+    display: flex;
+    inline-size: min(100%, 45rem);
+    min-inline-size: 0;
+    margin-inline: auto;
+    flex-direction: column;
+    gap: .375rem;
+    padding: 2rem;
+}
+
+.hbar-app-ui-editor-rich-document input,
+.hbar-app-ui-editor-rich-document textarea {
+    inline-size: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-editor-rich-document input {
+    padding: 0;
+    font-size: 1.625rem;
+    line-height: 1.25;
+}
+
+.hbar-app-ui-editor-rich-document input:focus,
+.hbar-app-ui-editor-rich-document textarea:focus {
+    box-shadow: none;
+}
+
+.hbar-app-ui-editor-rich-meta {
+    color: #999;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-editor-rich-document textarea {
+    min-block-size: 20rem;
+    flex: 0 0 20rem;
+    resize: none;
+    padding: 1.25rem 0 0;
+    font-size: 1rem;
+    line-height: 1.75;
+    white-space: pre-wrap;
+}
+
+.hbar-app-ui-editor-rich-footer {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.4375rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .625rem 1.25rem;
+    border-block-start: 1px solid #292929;
+    color: #858585;
+    font-size: .75rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-editor-rich-stats,
+.hbar-app-ui-editor-rich-footer-actions {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: 1rem;
+}
+
+.hbar-app-ui-editor-rich-footer-actions > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Markdown workspace ---------------------------------------------------- */
+.hbar-app-ui-editor-markdown {
+    display: flex !important;
+    min-block-size: 100%;
+    flex-direction: column;
+}
+
+.hbar-app-ui-editor-markdown-header {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 4.3125rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .75rem 1rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-editor-file-summary {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .125rem;
+}
+
+.hbar-app-ui-editor-file-summary h1 {
+    overflow: hidden;
+    color: #f5f5f5;
+    font-size: .9375rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-file-summary p {
+    color: #999;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-editor-mode-tabs {
+    display: flex;
+    min-inline-size: 0;
+    gap: .25rem;
+    padding: .25rem;
+    border: 1px solid #292929;
+    border-radius: .6rem;
+    background: #0c0c0c;
+}
+
+.hbar-app-ui-editor-mode-tabs .hbar-app-ui-editor-button {
+    min-block-size: 1.75rem;
+    padding-inline: .625rem;
+}
+
+.hbar-app-ui-editor-markdown-main {
+    display: grid;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hbar-app-ui-editor-markdown-source,
+.hbar-app-ui-editor-markdown-preview {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex-direction: column;
+}
+
+.hbar-app-ui-editor-markdown-source {
+    border-inline-end: 1px solid #292929;
+}
+
+.hbar-app-ui-editor-markdown-source > header,
+.hbar-app-ui-editor-markdown-preview > header {
+    display: flex;
+    min-block-size: 2rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding-inline: 1rem;
+    color: #888;
+    font-size: .6875rem;
+    letter-spacing: .08em;
+}
+
+.hbar-app-ui-editor-markdown-source > header .hbar-app-ui-editor-button {
+    min-block-size: 1.75rem;
+    padding: .25rem;
+}
+
+.hbar-app-ui-editor-markdown-source textarea {
+    display: block;
+    min-block-size: 0;
+    flex: 1;
+    resize: none;
+    border: 0;
+    outline: 0;
+    padding: 0 1rem 1rem;
+    overflow: auto;
+    background: transparent;
+    color: #ddd;
+    font: .875rem/1.75 var(--hbar-app-ui-mono, ui-monospace, monospace);
+    white-space: pre;
+}
+
+.hbar-app-ui-editor-markdown-source textarea:focus {
+    box-shadow: none;
+}
+
+.hbar-app-ui-editor-markdown-preview {
+    overflow: auto;
+}
+
+.hbar-app-ui-editor-markdown-preview-content {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0 1rem 1.5rem;
+    color: #d1d1d1;
+    font-size: .9375rem;
+    line-height: 1.75;
+}
+
+.hbar-app-ui-editor-markdown-preview-content h1 {
+    color: #f5f5f5;
+    font-size: 1.375rem;
+    line-height: 1.25;
+    font-weight: 600;
+}
+
+.hbar-app-ui-editor-markdown-preview-content h2 {
+    margin-block-start: .5rem;
+    color: #f5f5f5;
+    font-size: 1rem;
+    line-height: 1.5;
+    font-weight: 600;
+}
+
+.hbar-app-ui-editor-markdown-preview-content p {
+    color: #a7a7a7;
+}
+
+.hbar-app-ui-editor-markdown-preview-content ul,
+.hbar-app-ui-editor-markdown-preview-content ol {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .25rem;
+    margin: 0;
+    padding-inline-start: 1.25rem;
+}
+
+.hbar-app-ui-editor-markdown-preview-content li::marker {
+    color: #666;
+}
+
+.hbar-app-ui-editor-markdown-preview-content code {
+    border-radius: .25rem;
+    padding: .125rem .25rem;
+    background: #292929;
+    color: #f5f5f5;
+    font: .875em var(--hbar-app-ui-mono, ui-monospace, monospace);
+}
+
+.hbar-app-ui-editor-markdown-preview-content blockquote {
+    border-radius: .625rem;
+    padding: .75rem 1rem;
+    background: #1b1b1b;
+    color: #aaa;
+}
+
+/* Code workspace -------------------------------------------------------- */
+.hbar-app-ui-editor-code {
+    display: grid !important;
+    min-block-size: 100%;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.hbar-app-ui-editor-code-tabs {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    border-block-end: 1px solid #292929;
+    background: #0a0a0a;
+}
+
+.hbar-app-ui-editor-code-file-list {
+    display: flex;
+    min-inline-size: 0;
+    align-self: stretch;
+    overflow: auto;
+}
+
+.hbar-app-ui-editor-code-file {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    border-inline-end: 1px solid #292929;
+}
+
+.hbar-app-ui-editor-code-file > .hbar-app-ui-editor-button {
+    min-block-size: 2.5rem;
+    border: 0;
+    border-radius: 0;
+    padding: 0 .75rem 0 .5rem;
+    background: transparent;
+    color: #999;
+}
+
+.hbar-app-ui-editor-code-file.is-active > .hbar-app-ui-editor-button {
+    background: #171717;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-editor-code-file > .hbar-app-ui-editor-button > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-code-close {
+    inline-size: 1.75rem;
+    min-block-size: 1.75rem;
+    padding: 0;
+}
+
+.hbar-app-ui-editor-file-dirty {
+    inline-size: .375rem;
+    block-size: .375rem;
+    flex: 0 0 .375rem;
+    border-radius: 50%;
+    background: #f0a900;
+}
+
+.hbar-app-ui-editor-run {
+    min-block-size: 1.75rem;
+    flex: 0 0 auto;
+    margin-inline-end: .5rem;
+    padding-inline: .625rem;
+}
+
+.hbar-app-ui-editor-code-main {
+    display: grid;
+    min-inline-size: 0;
+    min-block-size: 0;
+    grid-template-columns: 2.75rem minmax(0, 1fr) 3.25rem;
+    overflow: hidden;
+    background: #0a0a0a;
+}
+
+.hbar-app-ui-editor-code-empty {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    color: #858585;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-editor-code-gutter {
+    display: flex;
+    min-block-size: 0;
+    flex-direction: column;
+    align-items: flex-end;
+    padding: .75rem .75rem 1rem .5rem;
+    border-inline-end: 1px solid #292929;
+    color: #666;
+    font: .8125rem/1.5 var(--hbar-app-ui-mono, ui-monospace, monospace);
+    user-select: none;
+}
+
+.hbar-app-ui-editor-code-gutter span,
+.hbar-app-ui-editor-code-content code > span {
+    display: block;
+    min-block-size: 1.5rem;
+    line-height: 1.5rem;
+}
+
+.hbar-app-ui-editor-code-gutter span.is-current {
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-editor-code-content {
+    min-inline-size: 0;
+    min-block-size: 0;
+    margin: 0;
+    padding: .75rem 1rem 1rem;
+    overflow: auto;
+    color: #cfcfcf;
+    font: .875rem/1.5 var(--hbar-app-ui-mono, ui-monospace, monospace);
+    tab-size: 2;
+    white-space: pre;
+}
+
+.hbar-app-ui-editor-code-content code > span.is-current {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    background: #171717;
+}
+
+.hbar-app-ui-editor-minimap {
+    display: flex;
+    min-block-size: max-content;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .375rem;
+    padding: .75rem .5rem;
+    border-inline-start: 1px solid #292929;
+    overflow: hidden;
+}
+
+.hbar-app-ui-editor-minimap i {
+    display: block;
+    min-inline-size: .5rem;
+    block-size: .2rem;
+    border-radius: .1rem;
+    background: #444;
+}
+
+.hbar-app-ui-editor-code-footer {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.1875rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem 1rem;
+    padding: .5rem 1rem;
+    border-block-start: 1px solid #292929;
+    color: #858585;
+    font: .75rem/1.5 var(--hbar-app-ui-mono, ui-monospace, monospace);
+}
+
+.hbar-app-ui-editor-warning {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    margin-inline-start: auto;
+    color: #f0a900;
+}
+
+/* Suggestion review ----------------------------------------------------- */
+.hbar-app-ui-editor-suggestions {
+    display: flex !important;
+    min-block-size: 100%;
+    flex-direction: column;
+}
+
+.hbar-app-ui-editor-suggestion-document {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 0%;
+    flex-direction: column;
+}
+
+.hbar-app-ui-editor-suggestion-title {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 4.3125rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .75rem 1.25rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-editor-suggestion-title > div {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .125rem;
+}
+
+.hbar-app-ui-editor-suggestion-title h1 {
+    color: #f5f5f5;
+    font-size: .9375rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-editor-suggestion-title p {
+    color: #999;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-editor-suggestion-title > span {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    border: 1px solid #303030;
+    border-radius: .5rem;
+    padding: .375rem .625rem;
+    color: #aaa;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-suggestion-copy {
+    display: flex;
+    inline-size: min(100%, 38.75rem);
+    min-inline-size: 0;
+    margin-inline: auto;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem 0;
+    overflow: auto;
+    color: #e4e4e4;
+    font-size: 1rem;
+    line-height: 1.75;
+}
+
+.hbar-app-ui-editor-inline-suggestion {
+    display: inline;
+    border: 0;
+    border-radius: .2rem;
+    padding: 0 .125rem;
+    background: #2d210b;
+    color: #f5f5f5;
+    cursor: pointer;
+    font: inherit;
+    line-height: inherit;
+}
+
+.hbar-app-ui-editor-inline-suggestion:hover,
+.hbar-app-ui-editor-inline-suggestion:focus-visible {
+    background: #59400f;
+}
+
+.hbar-app-ui-editor-suggestion-panel {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 0 0 auto;
+    flex-direction: column;
+    border-block-start: 1px solid #292929;
+}
+
+.hbar-app-ui-editor-suggestion-panel > header {
+    display: flex;
+    min-block-size: 3.25rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: 0 1rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-editor-suggestion-panel h2 {
+    color: #f5f5f5;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.hbar-app-ui-editor-suggestion-panel > header .hbar-app-ui-editor-button {
+    min-block-size: 1.75rem;
+    padding-inline: .5rem;
+    color: #aaa;
+}
+
+.hbar-app-ui-editor-suggestion-list {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 0;
+    padding: .75rem;
+    overflow: auto;
+}
+
+.hbar-app-ui-editor-suggestion-card {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    border: 1px solid #303030;
+    border-radius: .75rem;
+    padding: .75rem;
+    background: #111;
+    overflow: hidden;
+}
+
+.hbar-app-ui-editor-suggestion-card {
+    margin-block-end: .5rem;
+}
+
+.hbar-app-ui-editor-suggestion-card:first-child {
+    border-color: #666;
+    background: #292929;
+}
+
+.hbar-app-ui-editor-suggestion-card.is-resolved {
+    opacity: .52;
+}
+
+.hbar-app-ui-editor-suggestion-card > header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .5rem;
+}
+
+.hbar-app-ui-editor-avatar {
+    display: inline-flex;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    flex: 0 0 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #292929;
+    color: #f5f5f5;
+    font-size: .625rem;
+}
+
+.hbar-app-ui-editor-suggestion-card > header strong {
+    min-inline-size: 0;
+    overflow: hidden;
+    color: #f5f5f5;
+    font-size: .75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-suggestion-card > header time {
+    margin-inline-start: auto;
+    color: #888;
+    font-size: .6875rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-suggestion-quote {
+    min-inline-size: 0;
+    margin-block-start: .625rem;
+    border-radius: .5rem;
+    padding: .5rem;
+    background: #202020;
+    color: #aaa;
+    font-size: .8125rem;
+    line-height: 1.25rem;
+}
+
+.hbar-app-ui-editor-suggestion-quote > p {
+    margin: 0 !important;
+}
+
+.hbar-app-ui-editor-suggestion-quote > p + p {
+    margin-block-start: .25rem !important;
+}
+
+.hbar-app-ui-editor-suggestion-quote s {
+    color: #777;
+}
+
+.hbar-app-ui-editor-suggestion-quote strong {
+    color: #f5f5f5;
+    font-weight: 500;
+}
+
+.hbar-app-ui-editor-suggestion-card > p {
+    margin-block-start: .5rem !important;
+    color: #aaa;
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.hbar-app-ui-editor-suggestion-card > footer {
+    display: flex;
+    min-inline-size: 0;
+    margin-block-start: .75rem;
+    gap: .375rem;
+}
+
+.hbar-app-ui-editor-suggestion-card > footer .hbar-app-ui-editor-button:first-child {
+    flex: 1;
+}
+
+.hbar-app-ui-editor-suggestion-card > footer .hbar-app-ui-editor-button {
+    block-size: 1.75rem;
+    min-block-size: 1.75rem;
+    padding-inline: .625rem;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-editor-suggestion-remaining {
+    padding: 0 .75rem .75rem;
+    color: #888;
+    font-size: .75rem;
+}
+
+/* Long document reader ------------------------------------------------- */
+.hbar-app-ui-editor-reader {
+    display: flex !important;
+    min-block-size: 100%;
+    flex-direction: row;
+}
+
+.hbar-app-ui-editor-reader-outline {
+    display: flex;
+    inline-size: 14.5rem;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 0 0 14.5rem;
+    flex-direction: column;
+    border-inline-end: 1px solid #292929;
+    background: #0a0a0a;
+}
+
+.hbar-app-ui-editor-reader-outline > header {
+    display: flex;
+    min-block-size: 3.25rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: 0 1rem;
+    color: #888;
+    font-size: .6875rem;
+    letter-spacing: .08em;
+}
+
+.hbar-app-ui-editor-reader-outline > nav {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 .5rem .75rem;
+    overflow: auto;
+}
+
+.hbar-app-ui-editor-reader-outline > nav .hbar-app-ui-editor-button {
+    min-block-size: 2rem;
+    justify-content: flex-start;
+    border-color: transparent;
+    border-radius: .5rem;
+    padding-inline: .75rem;
+    color: #aaa;
+    text-align: left;
+}
+
+.hbar-app-ui-editor-reader-outline > nav .hbar-app-ui-editor-button.is-selected {
+    background: #292929;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-editor-reader-outline > footer {
+    margin-block-start: auto;
+    padding: .75rem 1rem;
+    color: #858585;
+    font-size: .75rem;
+}
+
+.hbar-app-ui-editor-reader-main {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.hbar-app-ui-editor-reader-toolbar {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 3.25rem;
+    align-items: center;
+    gap: .5rem;
+    padding: 0 .75rem;
+    border-block-end: 1px solid #292929;
+}
+
+.hbar-app-ui-editor-reader-toggle {
+    flex: 0 0 2rem;
+}
+
+.hbar-app-ui-editor-reader-toolbar > p {
+    min-inline-size: 0;
+    flex: 1;
+    overflow: hidden;
+    color: #aaa;
+    font-size: .8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-editor-reader-toolbar > p span {
+    padding-inline: .25rem;
+    color: #666;
+}
+
+.hbar-app-ui-editor-reader-toolbar > p strong {
+    color: #f5f5f5;
+    font-weight: 500;
+}
+
+.hbar-app-ui-editor-reader-toolbar > .hbar-app-ui-editor-button-light {
+    flex: 0 0 auto;
+    min-block-size: 2rem;
+}
+
+.hbar-app-ui-editor-reader-content {
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1;
+    overflow: auto;
+    padding: 2rem 2.5rem;
+}
+
+.hbar-app-ui-editor-reader-content article {
+    display: flex;
+    inline-size: min(100%, 38.75rem);
+    min-inline-size: 0;
+    margin-inline: auto;
+    flex-direction: column;
+}
+
+.hbar-app-ui-editor-reader-content article > section {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.hbar-app-ui-editor-reader-content article > section + section {
+    margin-block-start: 1.75rem;
+}
+
+.hbar-app-ui-editor-reader-content h2 {
+    color: #f5f5f5;
+    font-size: 1.375rem;
+    line-height: 1.25;
+    font-weight: 500;
+}
+
+.hbar-app-ui-editor-reader-content h3 {
+    color: #f5f5f5;
+    font-size: 1rem;
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+.hbar-app-ui-editor-reader-content p {
+    color: #aaa;
+    font-size: .9375rem;
+    line-height: 1.875;
+}
+
+.hbar-app-ui-editor-reader.is-focus-mode .hbar-app-ui-editor-reader-content article > section.is-dimmed {
+    opacity: .28;
+}
+
+/* Keep broad package theme rules from turning these native controls into
+ * unrelated catalog cards. */
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button {
+    border-radius: .5rem !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button-light {
+    border-color: #f5f5f5 !important;
+    background: #f5f5f5 !important;
+    color: #111 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button-icon,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button-quiet {
+    background: transparent !important;
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-editor-rich-toolbar {
+        align-content: center;
+    }
+
+    .hbar-app-ui-editor-save-state {
+        margin-inline-start: auto;
+    }
+
+    .hbar-app-ui-editor-rich-document {
+        inline-size: 100%;
+        padding: 2rem 1.5rem;
+    }
+
+    .hbar-app-ui-editor-rich-footer-actions > span {
+        display: none;
+    }
+
+    .hbar-app-ui-editor-rich-footer {
+        padding-inline: 1.25rem;
+    }
+
+    .hbar-app-ui-editor-markdown-header {
+        align-items: flex-start;
+    }
+
+    .hbar-app-ui-editor-mode-tabs {
+        flex-basis: 100%;
+        justify-content: flex-start;
+    }
+
+    .hbar-app-ui-editor-markdown-main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-editor-markdown-source {
+        border-inline-end: 0;
+        border-block-end: 1px solid #292929;
+    }
+
+    .hbar-app-ui-editor-markdown-preview-content {
+        padding-inline: 1rem;
+    }
+
+    .hbar-app-ui-editor-code-main {
+        grid-template-columns: 2.75rem minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-editor-code-main .hbar-app-ui-editor-minimap,
+    .hbar-app-ui-editor-code-tabs .hbar-app-ui-editor-run {
+        display: none;
+    }
+
+    .hbar-app-ui-editor-code-footer {
+        gap: .25rem .75rem;
+    }
+
+    .hbar-app-ui-editor-warning {
+        margin-inline-start: 0;
+    }
+
+    .hbar-app-ui-editor-suggestion-copy {
+        inline-size: 100%;
+        padding: 1.5rem 1.25rem;
+    }
+
+    .hbar-app-ui-editor-reader-outline {
+        display: none;
+    }
+
+    .hbar-app-ui-editor-reader-content {
+        padding: 2rem 1.25rem;
+    }
+
+    .hbar-app-ui-editor-reader-toggle {
+        display: none;
+    }
+
+    .hbar-app-ui-editor-reader-toolbar {
+        padding-inline: .75rem;
+    }
+}
+
+@media (min-width: 40.0625rem) and (max-width: 63.9375rem) {
+    .hbar-app-ui-editor-suggestion-copy {
+        inline-size: min(100% - 4rem, 38.75rem);
+    }
+}
+
+@media (min-width: 64rem) {
+    .hbar-app-ui-editor-suggestions {
+        flex-direction: row;
+    }
+
+    .hbar-app-ui-editor-suggestion-panel {
+        inline-size: 21rem;
+        border-block-start: 0;
+        border-inline-start: 1px solid #292929;
+    }
+}
+
+/* The catalog theme contains broad variant defaults (for example, every
+ * variant is a grid and every native input gets a compact card treatment).
+ * Keep the editor namespace stronger than those defaults so the observed
+ * editor hierarchy remains intact when this stylesheet is bundled in either
+ * order. */
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button {
+    display: inline-flex !important;
+    min-block-size: 2rem !important;
+    min-inline-size: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: .375rem !important;
+    border: 1px solid #303030 !important;
+    border-radius: .5rem !important;
+    padding: .375rem .625rem !important;
+    background: #111 !important;
+    color: #dedede !important;
+    font: .8125rem/1.2 ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button:hover:not(:disabled),
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button.is-selected {
+    border-color: #666 !important;
+    background: #292929 !important;
+    color: #fff !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button-light {
+    border-color: #f5f5f5 !important;
+    background: #f5f5f5 !important;
+    color: #111 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button-icon,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button-quiet {
+    border-color: transparent !important;
+    background: transparent !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-button-icon {
+    inline-size: 2rem !important;
+    padding: 0 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-rich-document input {
+    display: block !important;
+    min-block-size: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #f5f5f5 !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 1.625rem !important;
+    line-height: 1.25 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-rich-document textarea {
+    display: block !important;
+    min-block-size: 20rem !important;
+    margin-block-start: 1.125rem !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #f5f5f5 !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 1rem !important;
+    line-height: 1.75 !important;
+    resize: none !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-rich-meta {
+    color: #999 !important;
+    font-size: .8125rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-rich-footer,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-rich-footer span {
+    color: #858585 !important;
+    font-size: .75rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-save-state {
+    display: inline-flex !important;
+    color: #858585 !important;
+    font-size: .75rem !important;
+    line-height: 1.5 !important;
+    padding: 0 .25rem 0 0 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-save-state i {
+    display: none !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-rich-toolbar .hbar-app-ui-editor-format-group .hbar-app-ui-editor-button:first-child {
+    margin-inline-start: .8125rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-markdown,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-reader,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-code,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-suggestions,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-rich-text {
+    block-size: 100% !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-markdown {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-reader {
+    display: flex !important;
+    flex-direction: row !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-code {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-suggestions {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-document {
+    flex: 1 1 0% !important;
+    flex-direction: column !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-panel {
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    border-block-start: 1px solid #292929 !important;
+    border-inline-start: 0 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-list {
+    gap: 0 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card {
+    margin-block-end: .5rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-quote {
+    margin-block-start: .625rem !important;
+    line-height: 1.25rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-quote > p {
+    margin: 0 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-quote > p + p {
+    margin-block-start: .25rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > p {
+    margin-block-start: .5rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > footer {
+    margin-block-start: .75rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > footer .hbar-app-ui-editor-button {
+    block-size: 1.75rem !important;
+    min-block-size: 1.75rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-remaining {
+    clip-path: inset(50%) !important;
+    box-sizing: border-box !important;
+    inline-size: 0 !important;
+    block-size: 0 !important;
+    flex: 0 0 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    white-space: nowrap !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-file-summary h1,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-title h1 {
+    color: #f5f5f5 !important;
+    font-size: .9375rem !important;
+    line-height: 1.25 !important;
+    font-weight: 500 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-file-summary p,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-title p {
+    color: #999 !important;
+    font-size: .8125rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-markdown-source textarea {
+    min-block-size: 0 !important;
+    padding: 0 1rem 1rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #ddd !important;
+    font: .8125rem/1.5rem ui-sans-serif, system-ui, sans-serif !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    resize: none !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-markdown-preview-content {
+    color: #d1d1d1 !important;
+    font-size: .9375rem !important;
+    line-height: 1.75 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-markdown-preview-content p {
+    color: #a7a7a7 !important;
+    font-size: .9375rem !important;
+    line-height: 1.75 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-markdown-preview-content h1 {
+    color: #f5f5f5 !important;
+    font-size: 1.375rem !important;
+    line-height: 1.25 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-markdown-preview-content h2 {
+    color: #f5f5f5 !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-content {
+    min-inline-size: 0 !important;
+    min-block-size: 0 !important;
+    margin: 0 !important;
+    padding: .75rem 1rem 1rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #cfcfcf !important;
+    font: .875rem/1.5 var(--hbar-app-ui-mono, ui-monospace, monospace) !important;
+    white-space: pre !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-content code > span {
+    display: block !important;
+    min-block-size: 1.5rem !important;
+    color: inherit !important;
+    font: inherit !important;
+    line-height: 1.5rem !important;
+    white-space: pre !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-content code > span.is-current {
+    background: #171717 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-main {
+    grid-template-columns: 2.75rem minmax(0, 1fr) 3.25rem !important;
+    min-block-size: 0 !important;
+    overflow: hidden !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-gutter,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-minimap {
+    min-block-size: 0 !important;
+    overflow: hidden !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-footer {
+    display: flex !important;
+    color: #858585 !important;
+    font: .75rem/1.5 var(--hbar-app-ui-mono, ui-monospace, monospace) !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-copy p,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > p {
+    color: #aaa !important;
+    font-size: .8125rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-copy p {
+    color: #e4e4e4 !important;
+    font-size: 1rem !important;
+    line-height: 1.75 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-inline-suggestion {
+    display: inline !important;
+    border: 0 !important;
+    padding: 0 .125rem !important;
+    background: #2d210b !important;
+    color: #f5f5f5 !important;
+    font: inherit !important;
+    line-height: inherit !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-panel h2,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > header strong {
+    color: #f5f5f5 !important;
+    font-size: .8125rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > footer .hbar-app-ui-editor-button {
+    min-block-size: 1.75rem !important;
+    font-size: .75rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > .hbar-app-ui-editor-suggestion-quote,
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-quote > p {
+    color: #aaa !important;
+    font-size: .8125rem !important;
+    line-height: 1.25rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > .hbar-app-ui-editor-suggestion-quote {
+    margin-block-start: .625rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-quote strong {
+    color: #f5f5f5 !important;
+    font-weight: 500 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-suggestion-card > p:not(.hbar-app-ui-editor-suggestion-quote) {
+    line-height: 1.25rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-reader-toolbar > p {
+    color: #aaa !important;
+    font-size: .8125rem !important;
+    line-height: 1.5 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-reader-content h2 {
+    color: #f5f5f5 !important;
+    font-size: 1.375rem !important;
+    line-height: 1.25 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-reader-content p {
+    color: #aaa !important;
+    font-size: .9375rem !important;
+    line-height: 1.875 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-reader-outline > nav .hbar-app-ui-editor-button {
+    min-block-size: 2rem !important;
+    justify-content: flex-start !important;
+    padding-inline: .75rem !important;
+    color: #aaa !important;
+    font-size: .8125rem !important;
+}
+
+@media (min-width: 64rem) {
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-suggestions {
+        flex-direction: row !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-suggestions .hbar-app-ui-editor-suggestion-panel {
+        inline-size: 21rem !important;
+        border-block-start: 0 !important;
+        border-inline-start: 1px solid #292929 !important;
+    }
+}
+
+@media (max-width: 63.9375rem) {
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-suggestions .hbar-app-ui-editor-suggestion-document,
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-suggestions .hbar-app-ui-editor-suggestion-panel {
+        min-block-size: 0 !important;
+    }
+}
+
+@media (max-width: 40rem) {
+    /* The narrow reference keeps the source pane in view; the split preview
+     * remains available through its tab without competing for vertical space. */
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface.hbar-app-ui-editor-markdown-mode-split .hbar-app-ui-editor-markdown-preview {
+        display: none !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-markdown-main {
+        display: grid !important;
+        grid-template-rows: minmax(0, 1fr) !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-reader-toggle {
+        display: none !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-main {
+        grid-template-columns: 2.75rem minmax(0, 1fr) !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-main .hbar-app-ui-editor-minimap,
+    .hbar-app-ui-variant.hbar-app-ui-editor-surface .hbar-app-ui-editor-code-tabs .hbar-app-ui-editor-run {
+        display: none !important;
+    }
+}
