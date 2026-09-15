@@ -72,6 +72,27 @@ export type {
     HbarAppUiPaywallUsageMeter,
     HbarAppUiPaywallProviderProps,
 } from './components/Paywall'
+export {HbarAppUiFileManagerProvider, selectHbarAppUiFileManagerItem, uniqueHbarAppUiFileManagerItems} from './components/FileManager'
+export type {
+    HbarAppUiFileKind,
+    HbarAppUiFileManagerAsset,
+    HbarAppUiFileManagerAssetContent,
+    HbarAppUiFileManagerActivity,
+    HbarAppUiFileManagerCollaborator,
+    HbarAppUiFileManagerContent,
+    HbarAppUiFileManagerDetailContent,
+    HbarAppUiFileManagerDetailItem,
+    HbarAppUiFileManagerDriveContent,
+    HbarAppUiFileManagerDriveRow,
+    HbarAppUiFileManagerFolder,
+    HbarAppUiFileManagerListStrategy,
+    HbarAppUiFileManagerMetadata,
+    HbarAppUiFileManagerOwner,
+    HbarAppUiFileManagerProviderProps,
+    HbarAppUiFileManagerUploadContent,
+    HbarAppUiFileManagerUploadItem,
+    HbarAppUiFileManagerUploadState,
+} from './components/FileManager'
 export type {
     HbarAppUiAgentActivityAttempt,
     HbarAppUiAgentActivityContent,
