@@ -1,3 +1,4 @@
+import { PlanPreviewHost } from './PlanPreviewHost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Maximize2, Moon, RotateCcw, Search, Sun, X } from 'lucide-react'
@@ -7,7 +8,6 @@ import {
   HbarAppUiButton,
   HbarAppUiAgentActivityProvider,
   HbarAppUiAgentApprovalProvider,
-  HbarAppUiAgentPlanProvider,
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
   HbarAppUiFeedbackProvider,
@@ -316,7 +316,7 @@ function PreviewApp() {
         <HbarAppUiAuthenticationProvider content={authenticationContent}>
         <HbarAppUiBillingProvider content={billingContent}>
         <HbarAppUiPaywallProvider content={paywallContent}>
-          <HbarAppUiAgentPlanProvider content={agentPlanContent}>
+          <PlanPreviewHost content={agentPlanContent}>
           <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
             <HbarAppUiAgentActivityProvider content={agentActivityContent}>
               <HbarAppUiToolCallsProvider content={toolCallsContent}>
@@ -328,7 +328,7 @@ function PreviewApp() {
               </HbarAppUiToolCallsProvider>
             </HbarAppUiAgentActivityProvider>
           </HbarAppUiAgentApprovalProvider>
-        </HbarAppUiAgentPlanProvider>
+        </PlanPreviewHost>
         </HbarAppUiPaywallProvider>
         </HbarAppUiBillingProvider>
         </HbarAppUiAuthenticationProvider>
@@ -403,7 +403,7 @@ function PreviewApp() {
                   <HbarAppUiAuthenticationProvider content={authenticationContent}>
                   <HbarAppUiBillingProvider content={billingContent}>
                   <HbarAppUiPaywallProvider content={paywallContent}>
-                    <HbarAppUiAgentPlanProvider content={agentPlanContent}>
+                    <PlanPreviewHost content={agentPlanContent}>
                     <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
                       <HbarAppUiAgentActivityProvider content={agentActivityContent}>
                         <HbarAppUiToolCallsProvider content={toolCallsContent}>
@@ -415,7 +415,7 @@ function PreviewApp() {
                         </HbarAppUiToolCallsProvider>
                       </HbarAppUiAgentActivityProvider>
                     </HbarAppUiAgentApprovalProvider>
-                  </HbarAppUiAgentPlanProvider>
+                  </PlanPreviewHost>
                   </HbarAppUiPaywallProvider>
                   </HbarAppUiBillingProvider>
                   </HbarAppUiAuthenticationProvider>

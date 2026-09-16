@@ -67,6 +67,7 @@ export const threadGoalSchema = z.object({
 export type ThreadGoal = z.infer<typeof threadGoalSchema>
 export const planStepStatusSchema = z.enum(['pending', 'in_progress', 'completed'])
 export type PlanStepStatus = z.infer<typeof planStepStatusSchema>
+export const MAX_PLAN_STEPS = 100
 export const planStepSchema = z.object({
   step: z.string().min(1).max(4_000),
   status: planStepStatusSchema,
@@ -76,7 +77,7 @@ export const planStateSchema = z.object({
   sessionId: idSchema,
   turnId: idSchema.nullable(),
   explanation: z.string().max(4_000).nullable(),
-  plan: z.array(planStepSchema).max(100),
+  plan: z.array(planStepSchema).max(MAX_PLAN_STEPS),
   updatedAt: z.number().int().nonnegative(),
 })
 export type PlanState = z.infer<typeof planStateSchema>
@@ -485,12 +486,20 @@ const providerInputSchema = z
   })
   .superRefine((value, context) => {
     if (!value.model && !value.models?.length)
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ['models'], message: 'A provider needs at least one model' })
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['models'],
+        message: 'A provider needs at least one model',
+      })
     if (value.models) {
       const seen = new Set<string>()
       for (const [index, model] of value.models.entries()) {
         if (seen.has(model.id))
-          context.addIssue({ code: z.ZodIssueCode.custom, path: ['models', index, 'id'], message: 'Model ids must be unique within a provider' })
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['models', index, 'id'],
+            message: 'Model ids must be unique within a provider',
+          })
         seen.add(model.id)
       }
     }
@@ -518,7 +527,8 @@ function normalizeProviderModel(
   const normalizedLevels: ThinkingLevel[] = levels.length > 0 ? levels : ['off']
   const requestedDefault = value.defaultThinkingLevel ?? value.defaultReasoningEffort ?? fallback.defaultThinkingLevel
   const defaultThinkingLevel = normalizedLevels.includes(requestedDefault) ? requestedDefault : normalizedLevels[0]!
-  const reasoning = value.reasoning ?? (declaredLevels ? normalizedLevels.some((level) => level !== 'off') : fallback.reasoning)
+  const reasoning =
+    value.reasoning ?? (declaredLevels ? normalizedLevels.some((level) => level !== 'off') : fallback.reasoning)
   return {
     id: value.id,
     name: value.name ?? value.id,
@@ -538,7 +548,9 @@ function normalizeProviderModel(
 
 export const providerSchema = providerInputSchema.transform((value): ProviderConfig => {
   const providerThinkingLevels = uniqueThinkingLevels(
-    value.thinkingLevels ?? value.supportedThinkingLevels ?? value.supportedReasoningEfforts ??
+    value.thinkingLevels ??
+      value.supportedThinkingLevels ??
+      value.supportedReasoningEfforts ??
       (value.reasoning ? DEFAULT_THINKING_LEVELS : ['off']),
   )
   const fallback = {
@@ -549,24 +561,29 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
     inputPrice: value.inputPrice ?? 0,
     outputPrice: value.outputPrice ?? 0,
     thinkingLevels: providerThinkingLevels,
-    defaultThinkingLevel: value.defaultThinkingLevel ?? value.defaultReasoningEffort ?? (providerThinkingLevels.includes('medium') ? 'medium' : providerThinkingLevels[0] ?? 'off'),
+    defaultThinkingLevel:
+      value.defaultThinkingLevel ??
+      value.defaultReasoningEffort ??
+      (providerThinkingLevels.includes('medium') ? 'medium' : (providerThinkingLevels[0] ?? 'off')),
   }
   const rawModels = value.models?.length
     ? value.models
-    : [{
-        id: value.model!,
-        contextWindow: value.contextWindow,
-        maxOutput: value.maxOutput,
-        imageInput: value.imageInput,
-        reasoning: value.reasoning,
-        inputPrice: value.inputPrice,
-        outputPrice: value.outputPrice,
-        thinkingLevels: value.thinkingLevels,
-        supportedThinkingLevels: value.supportedThinkingLevels,
-        defaultThinkingLevel: value.defaultThinkingLevel,
-        defaultReasoningEffort: value.defaultReasoningEffort,
-        supportedReasoningEfforts: value.supportedReasoningEfforts,
-      }]
+    : [
+        {
+          id: value.model!,
+          contextWindow: value.contextWindow,
+          maxOutput: value.maxOutput,
+          imageInput: value.imageInput,
+          reasoning: value.reasoning,
+          inputPrice: value.inputPrice,
+          outputPrice: value.outputPrice,
+          thinkingLevels: value.thinkingLevels,
+          supportedThinkingLevels: value.supportedThinkingLevels,
+          defaultThinkingLevel: value.defaultThinkingLevel,
+          defaultReasoningEffort: value.defaultReasoningEffort,
+          supportedReasoningEfforts: value.supportedReasoningEfforts,
+        },
+      ]
   const models = rawModels.map((model) => normalizeProviderModel(model, fallback))
   const selected = models.find((model) => model.id === value.model) ?? models[0]!
   return {
@@ -633,9 +650,11 @@ export function normalizeThinkingLevel(
 ): ThinkingLevel {
   const levels: ThinkingLevel[] = model.thinkingLevels.length > 0 ? model.thinkingLevels : ['off']
   const wanted = requested ?? (planMode ? 'medium' : model.defaultThinkingLevel)
-  return levels.includes(wanted) ? wanted : model.defaultThinkingLevel && levels.includes(model.defaultThinkingLevel)
-    ? model.defaultThinkingLevel
-    : levels[0]!
+  return levels.includes(wanted)
+    ? wanted
+    : model.defaultThinkingLevel && levels.includes(model.defaultThinkingLevel)
+      ? model.defaultThinkingLevel
+      : levels[0]!
 }
 
 export interface ModelInfo extends ProviderConfig {
@@ -778,7 +797,10 @@ export type WireNotification =
   | { method: 'browser.changed'; params: { sessionId: string; contextId: string } }
   | { method: 'computer.changed'; params: { sessionId: string } }
   | { method: 'user_input.requested'; params: UserInputRequest }
-  | { method: 'user_input.resolved'; params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse } }
+  | {
+      method: 'user_input.resolved'
+      params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse }
+    }
   | { method: 'auth.revoked'; params: { reason: string } }
 
 export const rpcSchemas = {
@@ -812,7 +834,7 @@ export const rpcSchemas = {
     sessionId: idSchema,
     turnId: idSchema.nullable().optional(),
     explanation: z.string().max(4_000).nullable().optional(),
-    plan: z.array(planStepSchema).max(100),
+    plan: z.array(planStepSchema).max(MAX_PLAN_STEPS),
   }),
   'plan.clear': z.object({ sessionId: idSchema }),
   'mode.get': z.object({ sessionId: idSchema }),

@@ -98,6 +98,8 @@ export const HBAR_APP_UI_AGENT_PLAN_FIXTURES: HbarAppUiAgentPlanContent = {
         listStrategy: {kind: 'content-grown', expectedMaximum: 12},
     },
     editable: {
+        draft: '', busy: false, canAdd: true, canSubmit: true,
+        onDraftChange() {}, onAdd() {}, onMove() {}, onRemove() {}, onSubmit() {},
         labels: {title: 'Review the plan', summary: '8 to run · 1 skipped', review: 'Reorder or skip steps, then start the run.', addPlaceholder: 'Add a step', add: 'Add', start: (count) => `Start ${count} steps`, moveUp: (title) => `Move ${title} up`, moveDown: (title) => `Move ${title} down`, skip: (title) => `Skip ${title}`, restore: (title) => `Restore ${title}`, newStepStateLabel: 'Ready', empty: 'No editable steps'},
         steps: editableSteps,
         listStrategy: {kind: 'pane-scroll', expectedMaximum: 16},

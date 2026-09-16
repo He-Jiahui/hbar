@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page, type BrowserContext } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { HbarClient } from '../packages/client/src/index'
+import { MAX_PLAN_STEPS } from '../packages/contracts/src/index'
 
 async function controller() {
   const fixture = JSON.parse(await readFile('.dev/e2e.json', 'utf8')) as {
@@ -22,17 +23,15 @@ async function login(context: BrowserContext, page: Page) {
 }
 
 async function visible(locator: Locator) {
-  for (let index = 0; index < await locator.count(); index += 1) {
-    const candidate = locator.nth(index)
-    if (await candidate.isVisible()) return candidate
-  }
-  throw new Error('Expected a visible locator')
+  const candidate = locator.filter({ visible: true }).first()
+  await expect(candidate).toBeVisible()
+  return candidate
 }
 
 test('session capability actions open the Goal, Plan, and Budget panel', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
-    const newSession = await visible(page.locator('button[aria-label="新建会话"]'))
+    const newSession = await visible(page.getByRole('button', { name: '新建会话', exact: true }))
     await newSession.click()
     await expect(page.locator('.chat-panel').filter({ visible: true })).toBeVisible()
 
@@ -58,6 +57,74 @@ test('session capability actions open the Goal, Plan, and Budget panel', async (
     await dialog.getByRole('spinbutton', { name: 'Token 上限', exact: true }).fill('1000')
     await dialog.getByRole('button', { name: '设置预算', exact: true }).click()
     await expect(dialog).toContainText('预算使用情况')
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
+test('app-ui plan editor preserves typing, detects remote changes, and scrolls the protocol capacity', async ({
+  page,
+  context,
+}) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const session = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: 'Plan draft recovery',
+    })
+    await fixture.api.call('plan.update', {
+      sessionId: session.id,
+      explanation: null,
+      plan: [{ step: 'Initial step', status: 'pending' }],
+    })
+    await page.reload()
+    await page.locator('.session-select').filter({ hasText: 'Plan draft recovery' }).click()
+    await page.getByRole('button', { name: '添加能力', exact: true }).filter({ visible: true }).click()
+    await page.getByRole('menuitem', { name: 'Plan 模式', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '会话能力', exact: true })
+    const step = dialog.getByRole('textbox', { name: '计划步骤 1', exact: true })
+    await expect(step).toHaveValue('Initial step')
+    await step.fill('')
+    await step.pressSequentially('Typing stays focused')
+    await expect(step).toHaveValue('Typing stays focused')
+    await expect(step).toBeFocused()
+    await fixture.api.call('plan.update', {
+      sessionId: session.id,
+      explanation: 'Remote update',
+      plan: [{ step: 'Changed on another device', status: 'completed' }],
+    })
+    await expect(dialog).toContainText('草稿已保留')
+    await expect(step).toHaveValue('Typing stays focused')
+    await expect(dialog.getByRole('button', { name: '保存计划', exact: true })).toBeDisabled()
+    await dialog.getByText('最新已保存计划', { exact: true }).click()
+    await expect(dialog).toContainText('Changed on another device')
+    await dialog.getByRole('button', { name: '已核对，保留草稿', exact: true }).click()
+    await dialog.getByRole('button', { name: '保存计划', exact: true }).click()
+    await expect
+      .poll(async () => (await fixture.api.call('plan.get', { sessionId: session.id }))?.plan[0]?.step)
+      .toBe('Typing stays focused')
+    await fixture.api.call('plan.update', {
+      sessionId: session.id,
+      explanation: null,
+      plan: Array.from({ length: MAX_PLAN_STEPS }, (_, index) => ({ step: `Step ${index + 1}`, status: 'pending' })),
+    })
+    await expect(dialog.getByRole('button', { name: '添加步骤', exact: true })).toBeDisabled()
+    const viewport = dialog.locator('.hbar-app-ui-agent-plan-editable-list-viewport')
+    expect(
+      await viewport.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+        return element.scrollTop > 0
+      }),
+    ).toBe(true)
+    await expect(dialog.getByRole('button', { name: '保存计划', exact: true })).toBeInViewport()
+    await page.setViewportSize({ width: 320, height: 740 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(dialog.getByRole('button', { name: '保存计划', exact: true })).toBeInViewport()
+    await page.screenshot({ path: 'artifacts/app-ui-integration/plan-mobile.png' })
+    await dialog.getByRole('button', { name: '关闭', exact: true }).click()
+    await page.reload()
+    expect((await fixture.api.call('plan.get', { sessionId: session.id }))?.plan).toHaveLength(MAX_PLAN_STEPS)
   } finally {
     fixture.api.disconnect()
   }

@@ -1,3 +1,4 @@
+import type { HbarAppUiPlanEditorControls } from './PlanEditor'
 import {createContext, useContext, type ReactNode} from 'react'
 
 /**
@@ -45,7 +46,7 @@ export interface HbarAppUiAgentPlanChecklistContent {
     readonly listStrategy: HbarAppUiAgentPlanListStrategy
 }
 
-export interface HbarAppUiAgentPlanEditableContent {
+export interface HbarAppUiAgentPlanEditableContent extends HbarAppUiPlanEditorControls {
     readonly labels: {
         readonly title: string
         readonly summary: string

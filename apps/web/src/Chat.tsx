@@ -36,8 +36,7 @@ import ComposerMenu from './ComposerMenu'
 import { buildComposerActions, IMAGE_ACCEPT } from './composer-actions'
 import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
-import SessionCapabilityDialog from './SessionCapabilityDialog'
-import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
+import { useSessionCapabilities } from './session-capabilities'
 import { HbarAppUiSpotlight, HbarAppUiPromptComposer, HbarAppUiMessage } from 'hbar-app-ui'
 import { getPromptCopy, getMessageCopy } from './app-ui-locale'
 import { useComposerOperations, composerTarget, sendComposerInput, attachComposerFiles } from './composer-model'
@@ -182,7 +181,6 @@ export default function Chat({
   const workspace = catalog?.workspaces.find((item) => item.id === (snapshot?.session.workspaceId ?? workspaceId))
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
-  const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
   const composerConnection = useConnection((state) => state.client)
   const operation = useComposerOperations((state) => {
     const candidate = state.byTarget[composerTarget(workspaceId, sessionId)]
@@ -293,7 +291,7 @@ export default function Chat({
   }
   function selectComposerAction(action: ComposerAction) {
     if (action.id === 'goal' || action.id === 'plan' || action.id === 'budget') {
-      setCapabilityDialog(action.id)
+      if (sessionId) useSessionCapabilities.getState().openDialog(sessionId, action.id)
       return
     }
     if (!action.execute) return
@@ -568,13 +566,6 @@ export default function Chat({
           <span>{snapshot ? (snapshot.usage.input + snapshot.usage.output).toLocaleString(locale) : 0} tokens</span>
         </div>
       </div>
-      {capabilityDialog && sessionId && (
-        <SessionCapabilityDialog
-          sessionId={sessionId}
-          initialTab={capabilityDialog}
-          onClose={() => setCapabilityDialog(null)}
-        />
-      )}
     </div>
   )
 }

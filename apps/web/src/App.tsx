@@ -1166,6 +1166,7 @@ export default function App() {
           </button>
         </div>
       )}
+      <CapabilityDialogHost />
       <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
       {workspaceModal && (
         <Modal title="添加工作区" onClose={() => setWorkspaceModal(false)}>
@@ -1206,3 +1207,4 @@ export default function App() {
     </HbarAppUiWorkbenchShell>
   )
 }
+import { CapabilityDialogHost } from './CapabilityDialogHost'

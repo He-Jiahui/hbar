@@ -1,29 +1,15 @@
 import { useEffect, useState } from 'react'
-import {
-  Check,
-  ClipboardList,
-  Gauge,
-  LoaderCircle,
-  Pause,
-  Play,
-  Plus,
-  Save,
-  Target,
-  Trash2,
-  X,
-} from 'lucide-react'
-import type { PlanStep, PlanStepStatus, ThreadGoal } from '@hbar/contracts'
+import { ClipboardList, Gauge, LoaderCircle, Pause, Play, Save, Target, Trash2 } from 'lucide-react'
+import type { ThreadGoal } from '@hbar/contracts'
 import { Modal } from './Settings'
+import { PlanPane } from './PlanPane'
 import { client, report } from './stores'
 import {
   clearBudget,
   clearGoal,
-  clearPlan,
   createGoal,
   setBudget,
   setGoal,
-  setMode,
-  updatePlan,
   useSessionCapabilities,
   type SessionCapabilityTab,
 } from './session-capabilities'
@@ -42,12 +28,6 @@ const STATUS_LABELS: Record<ThreadGoal['status'], string> = {
   usage_limited: '用量受限',
   budget_limited: '预算受限',
   complete: '已完成',
-}
-
-const PLAN_STATUS_LABELS: Record<PlanStepStatus, string> = {
-  pending: '待处理',
-  in_progress: '进行中',
-  completed: '已完成',
 }
 
 function parsePositiveInteger(value: string) {
@@ -142,7 +122,11 @@ function GoalPane({ sessionId }: { sessionId: string }) {
 
   return (
     <section className="session-capability-pane" aria-label="Goal 设置">
-      <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
+      <CapabilityFeedback
+        loading={state?.loading ?? false}
+        saving={state?.saving ?? false}
+        error={state?.error ?? ''}
+      />
       {goal && (
         <div className="session-capability-summary">
           <div>
@@ -186,13 +170,23 @@ function GoalPane({ sessionId }: { sessionId: string }) {
       {validation && <p className="inline-error">{validation}</p>}
       <footer className="modal-footer">
         {goal && ['active', 'paused'].includes(goal.status) && (
-          <button type="button" className="button" onClick={() => void togglePaused()} disabled={state?.saving ?? false}>
+          <button
+            type="button"
+            className="button"
+            onClick={() => void togglePaused()}
+            disabled={state?.saving ?? false}
+          >
             {goal.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
             {goal.status === 'paused' ? '恢复' : '暂停'}
           </button>
         )}
         {goal && (
-          <button type="button" className="button danger-button" onClick={() => void clear()} disabled={state?.saving ?? false}>
+          <button
+            type="button"
+            className="button danger-button"
+            onClick={() => void clear()}
+            disabled={state?.saving ?? false}
+          >
             <Trash2 size={14} />
             清除
           </button>
@@ -200,143 +194,6 @@ function GoalPane({ sessionId }: { sessionId: string }) {
         <button type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Save size={14} />}
           {goal ? '保存 Goal' : '创建 Goal'}
-        </button>
-      </footer>
-    </section>
-  )
-}
-
-function PlanPane({ sessionId }: { sessionId: string }) {
-  const state = useSessionCapabilities((value) => value.sessions[sessionId])
-  const plan = state?.plan ?? null
-  const mode = state?.mode ?? 'default'
-  const [steps, setSteps] = useState<PlanStep[]>([])
-  const [explanation, setExplanation] = useState('')
-  const [validation, setValidation] = useState('')
-
-  useEffect(() => {
-    setSteps(plan?.plan.map((step) => ({ ...step })) ?? [])
-    setExplanation(plan?.explanation ?? '')
-    setValidation('')
-  }, [plan?.updatedAt, plan?.explanation, plan?.plan])
-
-  async function changeMode(next: 'default' | 'plan') {
-    if (next === mode) return
-    try {
-      await setMode(client(), sessionId, next)
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  async function savePlan() {
-    const normalized = steps.map((step) => ({ step: step.step.trim(), status: step.status })).filter((step) => step.step)
-    if (!normalized.length) {
-      setValidation('至少保留一个计划步骤')
-      return
-    }
-    setValidation('')
-    try {
-      await updatePlan(client(), sessionId, normalized, explanation.trim() || null)
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  async function clear() {
-    if (!plan || !window.confirm('清除当前计划？')) return
-    try {
-      await clearPlan(client(), sessionId)
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  return (
-    <section className="session-capability-pane" aria-label="Plan 设置">
-      <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
-      <div className="session-capability-mode segmented" aria-label="运行模式">
-        <button type="button" className={mode === 'default' ? 'selected' : ''} onClick={() => void changeMode('default')}>
-          默认模式
-        </button>
-        <button type="button" className={mode === 'plan' ? 'selected' : ''} onClick={() => void changeMode('plan')}>
-          Plan 模式
-        </button>
-      </div>
-      {plan?.explanation && <p className="session-capability-note">{plan.explanation}</p>}
-      <div className="session-plan-list">
-        {steps.map((step, index) => (
-          <div className="session-plan-row" key={`${index}-${step.step}`}>
-            <input
-              aria-label={`计划步骤 ${index + 1}`}
-              value={step.step}
-              onChange={(event) =>
-                setSteps((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, step: event.target.value } : item)))
-              }
-              disabled={state?.saving ?? false}
-            />
-            <select
-              aria-label={`计划步骤 ${index + 1} 状态`}
-              value={step.status}
-              onChange={(event) =>
-                setSteps((current) =>
-                  current.map((item, itemIndex) =>
-                    itemIndex === index ? { ...item, status: event.target.value as PlanStepStatus } : item,
-                  ),
-                )
-              }
-              disabled={state?.saving ?? false}
-            >
-              {Object.entries(PLAN_STATUS_LABELS).map(([value, label]) => (
-                <option value={value} key={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="icon-button"
-              title="删除步骤"
-              aria-label={`删除计划步骤 ${index + 1}`}
-              onClick={() => setSteps((current) => current.filter((_item, itemIndex) => itemIndex !== index))}
-              disabled={state?.saving ?? false}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-        {!steps.length && <p className="empty-list">暂无计划</p>}
-      </div>
-      <button
-        type="button"
-        className="text-command session-plan-add"
-        onClick={() => setSteps((current) => [...current, { step: '', status: 'pending' }])}
-        disabled={state?.saving ?? false}
-      >
-        <Plus size={14} />
-        添加步骤
-      </button>
-      <label>
-        备注
-        <textarea
-          rows={2}
-          value={explanation}
-          onChange={(event) => setExplanation(event.target.value)}
-          placeholder="可选"
-          disabled={state?.saving ?? false}
-        />
-      </label>
-      {validation && <p className="inline-error">{validation}</p>}
-      <footer className="modal-footer">
-        {plan && (
-          <button type="button" className="button danger-button" onClick={() => void clear()} disabled={state?.saving ?? false}>
-            <Trash2 size={14} />
-            清除计划
-          </button>
-        )}
-        <button type="button" className="button primary" onClick={() => void savePlan()} disabled={state?.saving ?? false}>
-          {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Check size={14} />}
-          保存计划
         </button>
       </footer>
     </section>
@@ -381,14 +238,24 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
 
   return (
     <section className="session-capability-pane" aria-label="Budget 设置">
-      <CapabilityFeedback loading={state?.loading ?? false} saving={state?.saving ?? false} error={state?.error ?? ''} />
+      <CapabilityFeedback
+        loading={state?.loading ?? false}
+        saving={state?.saving ?? false}
+        error={state?.error ?? ''}
+      />
       {budget ? (
         <div className={`budget-meter budget-meter-${budget.phase}`} aria-label="预算使用情况">
           <div className="budget-meter-heading">
             <strong>{budget.phase === 'exhausted' ? '预算已耗尽' : '预算使用情况'}</strong>
             <span>{percentage}%</span>
           </div>
-          <div className="budget-meter-track" role="progressbar" aria-valuemin={0} aria-valuemax={budget.limit} aria-valuenow={budget.usedTokens}>
+          <div
+            className="budget-meter-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={budget.limit}
+            aria-valuenow={budget.usedTokens}
+          >
             <span style={{ width: `${percentage}%` }} />
           </div>
           <div className="budget-meter-values">
@@ -414,7 +281,12 @@ function BudgetPane({ sessionId }: { sessionId: string }) {
       {validation && <p className="inline-error">{validation}</p>}
       <footer className="modal-footer">
         {budget && (
-          <button type="button" className="button danger-button" onClick={() => void clear()} disabled={state?.saving ?? false}>
+          <button
+            type="button"
+            className="button danger-button"
+            onClick={() => void clear()}
+            disabled={state?.saving ?? false}
+          >
             <Trash2 size={14} />
             清除预算
           </button>

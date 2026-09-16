@@ -24,6 +24,9 @@ export interface SessionCapabilityState {
 
 interface SessionCapabilityStore {
   sessions: Record<string, SessionCapabilityState>
+  dialog: { readonly sessionId: string; readonly tab: SessionCapabilityTab } | null
+  openDialog(sessionId: string, tab: SessionCapabilityTab): void
+  closeDialog(): void
   setSession(sessionId: string, patch: Partial<SessionCapabilityState>): void
   clear(): void
 }
@@ -40,6 +43,9 @@ const EMPTY_STATE: SessionCapabilityState = {
 
 export const useSessionCapabilities = create<SessionCapabilityStore>((set) => ({
   sessions: {},
+  dialog: null,
+  openDialog: (sessionId, tab) => set({ dialog: { sessionId, tab } }),
+  closeDialog: () => set({ dialog: null }),
   setSession: (sessionId, patch) =>
     set((state) => ({
       sessions: {
@@ -47,10 +53,11 @@ export const useSessionCapabilities = create<SessionCapabilityStore>((set) => ({
         [sessionId]: { ...(state.sessions[sessionId] ?? EMPTY_STATE), ...patch },
       },
     })),
-  clear: () => set({ sessions: {} }),
+  clear: () => set({ sessions: {}, dialog: null }),
 }))
 
 const operationSequences = new Map<string, number>()
+let connectionGeneration = 0
 
 function nextSequence(sessionId: string) {
   const sequence = (operationSequences.get(sessionId) ?? 0) + 1
@@ -71,6 +78,7 @@ export async function loadSessionCapabilities(
   transport: ClientTransport,
   isConnected: () => boolean = () => true,
 ) {
+  const generation = connectionGeneration
   const sequence = nextSequence(sessionId)
   useSessionCapabilities.getState().setSession(sessionId, { loading: true, error: '' })
   try {
@@ -80,13 +88,16 @@ export async function loadSessionCapabilities(
       transport.call('mode.get', { sessionId }),
       transport.call('budget.get', { sessionId }),
     ])
-    if (!isCurrent(sessionId, sequence, isConnected)) return
+    if (generation !== connectionGeneration || !isCurrent(sessionId, sequence, isConnected)) return
     const current = useSessionCapabilities.getState().sessions[sessionId]
     const currentGoal = current?.goal
     const currentPlan = current?.plan
     const currentBudget = current?.budget
     useSessionCapabilities.getState().setSession(sessionId, {
-      goal: currentGoal && goalResult.goal && currentGoal.updatedAt > goalResult.goal.updatedAt ? currentGoal : goalResult.goal,
+      goal:
+        currentGoal && goalResult.goal && currentGoal.updatedAt > goalResult.goal.updatedAt
+          ? currentGoal
+          : goalResult.goal,
       plan: currentPlan && plan && currentPlan.updatedAt > plan.updatedAt ? currentPlan : plan,
       mode: mode.mode,
       budget: currentBudget && budget && currentBudget.revision > budget.revision ? currentBudget : budget,
@@ -94,37 +105,34 @@ export async function loadSessionCapabilities(
       error: '',
     })
   } catch (error) {
-    if (isCurrent(sessionId, sequence, isConnected))
+    if (generation === connectionGeneration && isCurrent(sessionId, sequence, isConnected))
       useSessionCapabilities.getState().setSession(sessionId, { loading: false, error: messageOf(error) })
   }
 }
 
 async function mutation<T>(sessionId: string, operation: () => Promise<T>, apply: (value: T) => void) {
+  const generation = connectionGeneration
   const sequence = nextSequence(sessionId)
   useSessionCapabilities.getState().setSession(sessionId, { saving: true, error: '' })
   try {
     const result = await operation()
-    if (operationSequences.get(sessionId) === sequence) {
+    if (generation === connectionGeneration && operationSequences.get(sessionId) === sequence) {
       apply(result)
       useSessionCapabilities.getState().setSession(sessionId, { saving: false, error: '' })
     }
     return result
   } catch (error) {
-    if (operationSequences.get(sessionId) === sequence)
+    if (generation === connectionGeneration && operationSequences.get(sessionId) === sequence)
       useSessionCapabilities.getState().setSession(sessionId, { saving: false, error: messageOf(error) })
     throw error
   }
 }
 
-export function createGoal(
-  transport: ClientTransport,
-  sessionId: string,
-  objective: string,
-  tokenBudget?: number,
-) {
+export function createGoal(transport: ClientTransport, sessionId: string, objective: string, tokenBudget?: number) {
   return mutation(
     sessionId,
-    () => transport.call('goal.create', { sessionId, objective, ...(tokenBudget === undefined ? {} : { tokenBudget }) }),
+    () =>
+      transport.call('goal.create', { sessionId, objective, ...(tokenBudget === undefined ? {} : { tokenBudget }) }),
     (result) => useSessionCapabilities.getState().setSession(sessionId, { goal: result.goal }),
   )
 }
@@ -139,20 +147,26 @@ export function setGoal(
     expectedGoalId?: string
   },
 ) {
-  return mutation(sessionId, () => transport.call('goal.set', { sessionId, ...input }), (result) =>
-    useSessionCapabilities.getState().setSession(sessionId, { goal: result.goal }),
+  return mutation(
+    sessionId,
+    () => transport.call('goal.set', { sessionId, ...input }),
+    (result) => useSessionCapabilities.getState().setSession(sessionId, { goal: result.goal }),
   )
 }
 
 export function clearGoal(transport: ClientTransport, sessionId: string) {
-  return mutation(sessionId, () => transport.call('goal.clear', { sessionId }), () =>
-    useSessionCapabilities.getState().setSession(sessionId, { goal: null }),
+  return mutation(
+    sessionId,
+    () => transport.call('goal.clear', { sessionId }),
+    () => useSessionCapabilities.getState().setSession(sessionId, { goal: null }),
   )
 }
 
 export function setMode(transport: ClientTransport, sessionId: string, mode: RunMode) {
-  return mutation(sessionId, () => transport.call('mode.set', { sessionId, mode }), (result) =>
-    useSessionCapabilities.getState().setSession(sessionId, { mode: result.mode }),
+  return mutation(
+    sessionId,
+    () => transport.call('mode.set', { sessionId, mode }),
+    (result) => useSessionCapabilities.getState().setSession(sessionId, { mode: result.mode }),
   )
 }
 
@@ -162,26 +176,38 @@ export function updatePlan(
   plan: PlanStep[],
   explanation: string | null,
 ) {
-  return mutation(sessionId, () => transport.call('plan.update', { sessionId, plan, explanation }), (result) =>
-    useSessionCapabilities.getState().setSession(sessionId, { plan: result }),
+  return mutation(
+    sessionId,
+    () => transport.call('plan.update', { sessionId, plan, explanation }),
+    (result) => {
+      const current = useSessionCapabilities.getState().sessions[sessionId]?.plan
+      if (!current || result.updatedAt >= current.updatedAt)
+        useSessionCapabilities.getState().setSession(sessionId, { plan: result })
+    },
   )
 }
 
 export function clearPlan(transport: ClientTransport, sessionId: string) {
-  return mutation(sessionId, () => transport.call('plan.clear', { sessionId }), () =>
-    useSessionCapabilities.getState().setSession(sessionId, { plan: null }),
+  return mutation(
+    sessionId,
+    () => transport.call('plan.clear', { sessionId }),
+    () => useSessionCapabilities.getState().setSession(sessionId, { plan: null }),
   )
 }
 
 export function setBudget(transport: ClientTransport, sessionId: string, limit: number) {
-  return mutation(sessionId, () => transport.call('budget.set', { sessionId, limit }), (result) =>
-    useSessionCapabilities.getState().setSession(sessionId, { budget: result }),
+  return mutation(
+    sessionId,
+    () => transport.call('budget.set', { sessionId, limit }),
+    (result) => useSessionCapabilities.getState().setSession(sessionId, { budget: result }),
   )
 }
 
 export function clearBudget(transport: ClientTransport, sessionId: string) {
-  return mutation(sessionId, () => transport.call('budget.clear', { sessionId }), () =>
-    useSessionCapabilities.getState().setSession(sessionId, { budget: null }),
+  return mutation(
+    sessionId,
+    () => transport.call('budget.clear', { sessionId }),
+    () => useSessionCapabilities.getState().setSession(sessionId, { budget: null }),
   )
 }
 
@@ -189,27 +215,36 @@ export function applySessionCapabilityEvent(event: WireNotification) {
   if (event.method === 'goal.updated') {
     const current = useSessionCapabilities.getState().sessions[event.params.sessionId]?.goal
     if (!current || event.params.goal.updatedAt >= current.updatedAt)
-      useSessionCapabilities.getState().setSession(event.params.sessionId, { goal: event.params.goal, saving: false, error: '' })
+      useSessionCapabilities
+        .getState()
+        .setSession(event.params.sessionId, { goal: event.params.goal, saving: false, error: '' })
   } else if (event.method === 'goal.cleared') {
     useSessionCapabilities.getState().setSession(event.params.sessionId, { goal: null, saving: false, error: '' })
   } else if (event.method === 'plan.updated') {
     const current = useSessionCapabilities.getState().sessions[event.params.sessionId]?.plan
     if (!current || event.params.updatedAt >= current.updatedAt)
-      useSessionCapabilities.getState().setSession(event.params.sessionId, { plan: event.params, saving: false, error: '' })
+      useSessionCapabilities
+        .getState()
+        .setSession(event.params.sessionId, { plan: event.params, saving: false, error: '' })
   } else if (event.method === 'plan.cleared') {
     useSessionCapabilities.getState().setSession(event.params.sessionId, { plan: null, saving: false, error: '' })
   } else if (event.method === 'mode.changed') {
-    useSessionCapabilities.getState().setSession(event.params.sessionId, { mode: event.params.mode, saving: false, error: '' })
+    useSessionCapabilities
+      .getState()
+      .setSession(event.params.sessionId, { mode: event.params.mode, saving: false, error: '' })
   } else if (event.method === 'budget.updated') {
     const current = useSessionCapabilities.getState().sessions[event.params.sessionId]?.budget
     if (!current || event.params.budget.revision >= current.revision)
-      useSessionCapabilities.getState().setSession(event.params.sessionId, { budget: event.params.budget, saving: false, error: '' })
+      useSessionCapabilities
+        .getState()
+        .setSession(event.params.sessionId, { budget: event.params.budget, saving: false, error: '' })
   } else if (event.method === 'budget.cleared') {
     useSessionCapabilities.getState().setSession(event.params.sessionId, { budget: null, saving: false, error: '' })
   }
 }
 
 export function resetSessionCapabilities() {
+  connectionGeneration += 1
   operationSequences.clear()
   useSessionCapabilities.getState().clear()
 }
