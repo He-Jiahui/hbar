@@ -1,0 +1,40 @@
+.hbar-app-ui-objective-form {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: var(--hbar-app-ui-space-lg);
+}
+.hbar-app-ui-objective-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+  color: var(--hbar-app-ui-text);
+}
+.hbar-app-ui-objective-form textarea,
+.hbar-app-ui-objective-form input {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  inline-size: 100%;
+  padding: var(--hbar-app-ui-space-sm);
+  background: var(--hbar-app-ui-surface-1);
+  color: var(--hbar-app-ui-text);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+}
+.hbar-app-ui-objective-form textarea {
+  resize: vertical;
+  field-sizing: content;
+}
+.hbar-app-ui-objective-form footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-objective-form p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-objective-form [role='alert'] {
+  color: var(--hbar-app-ui-danger);
+}

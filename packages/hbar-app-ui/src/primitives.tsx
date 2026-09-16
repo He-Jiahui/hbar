@@ -39,7 +39,7 @@ export function HbarAppUiButton({
                                 }: ButtonHTMLAttributes<HTMLButtonElement> & {
     readonly tone?: 'neutral' | 'accent' | 'positive' | 'warning' | 'danger'
 }) {
-    return <button {...props}
+    return <button {...props} type={props.type ?? 'button'}
                    className={`hbar-app-ui-button hbar-app-ui-button-${tone}${className ? ` ${className}` : ''}`}>{children}</button>
 }
 

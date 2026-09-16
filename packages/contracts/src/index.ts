@@ -4,6 +4,7 @@ export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
 export const PAIRING_CODE_LENGTH = 8
 export const DEVICE_NAME_MAX_LENGTH = 100
+export const MAX_GOAL_OBJECTIVE_LENGTH = 4_000
 export const idSchema = z.string().min(1).max(160)
 export const artifactSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/),
@@ -58,7 +59,7 @@ export const threadGoalSchema = z.object({
   threadId: idSchema,
   /** Internal identity used to reject stale external mutations. */
   goalId: idSchema.optional(),
-  objective: z.string().min(1).max(4_000),
+  objective: z.string().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
   status: goalStatusSchema,
   tokenBudget: z.number().int().positive().nullable(),
   tokensUsed: z.number().int().nonnegative(),
@@ -818,13 +819,13 @@ export const rpcSchemas = {
   'goal.get': z.object({ sessionId: idSchema }),
   'goal.create': z.object({
     sessionId: idSchema,
-    objective: z.string().trim().min(1).max(4_000),
+    objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
     tokenBudget: z.number().int().positive().optional(),
   }),
   'goal.update': z.object({ sessionId: idSchema, status: z.enum(['complete', 'blocked']) }),
   'goal.set': z.object({
     sessionId: idSchema,
-    objective: z.string().trim().min(1).max(4_000).nullable().optional(),
+    objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH).nullable().optional(),
     status: goalStatusSchema.nullable().optional(),
     tokenBudget: z.number().int().positive().nullable().optional(),
     expectedGoalId: idSchema.optional(),

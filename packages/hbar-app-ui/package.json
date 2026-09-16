@@ -31,7 +31,7 @@
     "./monitoring": "./src/components/Monitoring.tsx",
     "./empty-state": "./src/components/EmptyState.tsx",
     "./settings-form": "./src/settings-form.ts",
-    "./forms": "./src/components/Forms.tsx",
+    "./forms": "./src/forms.ts",
     "./app-dialog": "./src/app-dialog.ts",
     "./notifications": "./src/components/Notifications.tsx",
     "./onboarding": "./src/components/Onboarding.tsx",

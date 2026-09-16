@@ -71,6 +71,11 @@ Keep those changes intact and stage only the verified integration delta.
   Pairing drafts survive failure, duplicate submits coalesce, and switching Host
   aborts obsolete HTTP pairing before it can reconnect the old client. Code/name
   limits come from shared protocol constants; preview owns the resend countdown.
+- Goal editing uses a controlled form in Web and the shell preview. Its ViewModel
+  keeps drafts through usage/lifecycle updates and failures, requires review after
+  remote objective changes, and owns the clear confirmation. Older Goal responses
+  cannot replace newer notifications. Goal/Plan/Budget tabs use shared theme and
+  spacing tokens; obsolete capability form styles were removed.
 
 The latest full `bun run check` at the pairing increment passed 186 tests. Web and
 preview builds passed. Targeted Host E2E covers shell/session/file/chat/approval,

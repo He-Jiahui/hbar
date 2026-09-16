@@ -1,202 +1,18 @@
-import { useEffect, useState } from 'react'
-import { ClipboardList, Gauge, LoaderCircle, Pause, Play, Save, Target, Trash2 } from 'lucide-react'
-import type { ThreadGoal } from '@hbar/contracts'
+import { useState } from 'react'
+import { GoalPane } from './GoalPane'
+import { useLocale } from './locale'
+import { HbarAppUiIcon } from 'hbar-app-ui'
+import { ClipboardList, Gauge, Target } from 'lucide-react'
 import { Modal } from './Modal'
 import { PlanPane } from './PlanPane'
 import { BudgetPane } from './BudgetPane'
-import { client, report } from './stores'
-import {
-  clearGoal,
-  createGoal,
-  setGoal,
-  useSessionCapabilities,
-  type SessionCapabilityTab,
-} from './session-capabilities'
+import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
 import './SessionCapabilityDialog.css'
 
 const TAB_LABELS: Record<SessionCapabilityTab, string> = {
   goal: 'Goal',
   plan: 'Plan',
   budget: 'Budget',
-}
-
-const STATUS_LABELS: Record<ThreadGoal['status'], string> = {
-  active: '进行中',
-  paused: '已暂停',
-  blocked: '已阻塞',
-  usage_limited: '用量受限',
-  budget_limited: '预算受限',
-  complete: '已完成',
-}
-
-function parsePositiveInteger(value: string) {
-  if (!value.trim()) return undefined
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
-}
-
-function CapabilityFeedback({ loading, saving, error }: { loading: boolean; saving: boolean; error: string }) {
-  if (error)
-    return (
-      <p className="inline-error session-capability-feedback" role="alert">
-        {error}
-      </p>
-    )
-  if (loading)
-    return (
-      <p className="small-muted session-capability-feedback" role="status">
-        <LoaderCircle size={13} className="spinning" /> 正在读取会话状态
-      </p>
-    )
-  if (saving)
-    return (
-      <p className="small-muted session-capability-feedback" role="status">
-        <LoaderCircle size={13} className="spinning" /> 正在保存
-      </p>
-    )
-  return null
-}
-
-function GoalPane({ sessionId }: { sessionId: string }) {
-  const state = useSessionCapabilities((value) => value.sessions[sessionId])
-  const goal = state?.goal ?? null
-  const [objective, setObjective] = useState('')
-  const [tokenBudget, setTokenBudget] = useState('')
-  const [validation, setValidation] = useState('')
-
-  useEffect(() => {
-    setObjective(goal?.objective ?? '')
-    setTokenBudget(goal?.tokenBudget === null || goal?.tokenBudget === undefined ? '' : String(goal.tokenBudget))
-    setValidation('')
-  }, [goal?.goalId, goal?.updatedAt, goal?.objective, goal?.tokenBudget])
-
-  async function save() {
-    const trimmed = objective.trim()
-    if (!trimmed) {
-      setValidation('目标不能为空')
-      return
-    }
-    const parsedBudget = parsePositiveInteger(tokenBudget)
-    if (parsedBudget === null) {
-      setValidation('预算必须是正整数')
-      return
-    }
-    setValidation('')
-    try {
-      const transport = client()
-      if (goal) {
-        await setGoal(transport, sessionId, {
-          objective: trimmed,
-          tokenBudget: parsedBudget ?? null,
-          ...(goal.goalId ? { expectedGoalId: goal.goalId } : {}),
-        })
-      } else {
-        await createGoal(transport, sessionId, trimmed, parsedBudget)
-      }
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  async function togglePaused() {
-    if (!goal || !goal.goalId || !['active', 'paused'].includes(goal.status)) return
-    try {
-      await setGoal(client(), sessionId, {
-        status: goal.status === 'paused' ? 'active' : 'paused',
-        expectedGoalId: goal.goalId,
-      })
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  async function clear() {
-    if (!goal || !window.confirm('清除当前 Goal？')) return
-    try {
-      await clearGoal(client(), sessionId)
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  return (
-    <section className="session-capability-pane" aria-label="Goal 设置">
-      <CapabilityFeedback
-        loading={state?.loading ?? false}
-        saving={state?.saving ?? false}
-        error={state?.error ?? ''}
-      />
-      {goal && (
-        <div className="session-capability-summary">
-          <div>
-            <span className="small-muted">状态</span>
-            <strong>{STATUS_LABELS[goal.status]}</strong>
-          </div>
-          <div>
-            <span className="small-muted">已用 tokens</span>
-            <strong>{goal.tokensUsed.toLocaleString()}</strong>
-          </div>
-          <div>
-            <span className="small-muted">剩余 tokens</span>
-            <strong>
-              {goal.tokenBudget === null ? '不限' : Math.max(0, goal.tokenBudget - goal.tokensUsed).toLocaleString()}
-            </strong>
-          </div>
-        </div>
-      )}
-      <label>
-        目标
-        <textarea
-          rows={4}
-          value={objective}
-          onChange={(event) => setObjective(event.target.value)}
-          placeholder="例如：完成登录流程并通过端到端测试"
-          disabled={state?.saving ?? false}
-        />
-      </label>
-      <label>
-        Token 预算（可选）
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={tokenBudget}
-          onChange={(event) => setTokenBudget(event.target.value)}
-          placeholder="不限"
-          disabled={state?.saving ?? false}
-        />
-      </label>
-      {validation && <p className="inline-error">{validation}</p>}
-      <footer className="modal-footer">
-        {goal && ['active', 'paused'].includes(goal.status) && (
-          <button
-            type="button"
-            className="button"
-            onClick={() => void togglePaused()}
-            disabled={state?.saving ?? false}
-          >
-            {goal.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
-            {goal.status === 'paused' ? '恢复' : '暂停'}
-          </button>
-        )}
-        {goal && (
-          <button
-            type="button"
-            className="button danger-button"
-            onClick={() => void clear()}
-            disabled={state?.saving ?? false}
-          >
-            <Trash2 size={14} />
-            清除
-          </button>
-        )}
-        <button type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
-          {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Save size={14} />}
-          {goal ? '保存 Goal' : '创建 Goal'}
-        </button>
-      </footer>
-    </section>
-  )
 }
 
 export default function SessionCapabilityDialog({
@@ -208,20 +24,21 @@ export default function SessionCapabilityDialog({
   initialTab: SessionCapabilityTab
   onClose(): void
 }) {
+  const { t } = useLocale()
   const [tab, setTab] = useState(initialTab)
   const state = useSessionCapabilities((value) => value.sessions[sessionId])
   return (
-    <Modal title="会话能力" onClose={onClose}>
+    <Modal title={t('sessionCapabilities')} onClose={onClose}>
       <div className="session-capability-dialog">
-        <nav className="session-capability-tabs" aria-label="会话能力类型">
+        <nav className="session-capability-tabs" aria-label={t('sessionCapabilities')}>
           <button type="button" className={tab === 'goal' ? 'selected' : ''} onClick={() => setTab('goal')}>
-            <Target size={14} /> {TAB_LABELS.goal}
+            <HbarAppUiIcon icon={Target} tier="sm" /> {TAB_LABELS.goal}
           </button>
           <button type="button" className={tab === 'plan' ? 'selected' : ''} onClick={() => setTab('plan')}>
-            <ClipboardList size={14} /> {TAB_LABELS.plan}
+            <HbarAppUiIcon icon={ClipboardList} tier="sm" /> {TAB_LABELS.plan}
           </button>
           <button type="button" className={tab === 'budget' ? 'selected' : ''} onClick={() => setTab('budget')}>
-            <Gauge size={14} /> {TAB_LABELS.budget}
+            <HbarAppUiIcon icon={Gauge} tier="sm" /> {TAB_LABELS.budget}
           </button>
         </nav>
         {tab === 'goal' && <GoalPane sessionId={sessionId} />}

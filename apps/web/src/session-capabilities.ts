@@ -128,12 +128,17 @@ async function mutation<T>(sessionId: string, operation: () => Promise<T>, apply
   }
 }
 
+function applyGoalResult(sessionId: string, goal: ThreadGoal) {
+  const current = useSessionCapabilities.getState().sessions[sessionId]?.goal
+  if (!current || goal.updatedAt >= current.updatedAt) useSessionCapabilities.getState().setSession(sessionId, { goal })
+}
+
 export function createGoal(transport: ClientTransport, sessionId: string, objective: string, tokenBudget?: number) {
   return mutation(
     sessionId,
     () =>
       transport.call('goal.create', { sessionId, objective, ...(tokenBudget === undefined ? {} : { tokenBudget }) }),
-    (result) => useSessionCapabilities.getState().setSession(sessionId, { goal: result.goal }),
+    (result) => applyGoalResult(sessionId, result.goal),
   )
 }
 
@@ -150,7 +155,7 @@ export function setGoal(
   return mutation(
     sessionId,
     () => transport.call('goal.set', { sessionId, ...input }),
-    (result) => useSessionCapabilities.getState().setSession(sessionId, { goal: result.goal }),
+    (result) => applyGoalResult(sessionId, result.goal),
   )
 }
 

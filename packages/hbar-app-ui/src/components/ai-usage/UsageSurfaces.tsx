@@ -126,11 +126,13 @@ export function HbarAppUiUsageOverview(content: HbarAppUiUsageOverviewContent) {
         />
       )}
       <HbarAppUiMetricStrip metrics={content.metrics} />
-      <div className="hbar-app-ui-stacked-bars">
-        {uniqueItems(content.meters).map((meter) => (
-          <Meter key={meter.id} meter={meter} />
-        ))}
-      </div>
+      {!!content.meters.length && (
+        <div className="hbar-app-ui-stacked-bars">
+          {uniqueItems(content.meters).map((meter) => (
+            <Meter key={meter.id} meter={meter} />
+          ))}
+        </div>
+      )}
     </Frame>
   )
 }

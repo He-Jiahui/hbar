@@ -28,6 +28,69 @@ async function visible(locator: Locator) {
   return candidate
 }
 
+test('Goal editing preserves drafts across remote lifecycle updates and requires review before overwriting another device', async ({
+  page,
+  context,
+}) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const session = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: 'Goal draft recovery',
+    })
+    const created = await fixture.api.call('goal.create', {
+      sessionId: session.id,
+      objective: 'Initial objective',
+      tokenBudget: 2000,
+    })
+    await page.reload()
+    await page.locator('.session-select').filter({ hasText: 'Goal draft recovery' }).click()
+    await page.getByRole('button', { name: '添加能力', exact: true }).filter({ visible: true }).click()
+    await page.getByRole('menuitem', { name: 'Goal 模式', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '会话能力', exact: true }),
+      objective = dialog.getByRole('textbox', { name: '目标', exact: true })
+    await expect(objective).toHaveValue('Initial objective')
+    await objective.fill('Unsaved objective')
+    await fixture.api.call('goal.set', {
+      sessionId: session.id,
+      status: 'paused',
+      expectedGoalId: created.goal.goalId!,
+    })
+    await expect(dialog).toContainText('已暂停')
+    await expect(objective).toHaveValue('Unsaved objective')
+    await fixture.api.call('goal.set', {
+      sessionId: session.id,
+      objective: 'Changed elsewhere',
+      expectedGoalId: created.goal.goalId!,
+    })
+    await expect(dialog).toContainText('草稿仍保留')
+    await expect(objective).toHaveValue('Unsaved objective')
+    await expect(dialog.getByRole('button', { name: '保存 Goal', exact: true })).toBeDisabled()
+    await dialog.getByRole('button', { name: '载入最新 Goal', exact: true }).click()
+    await expect(objective).toHaveValue('Changed elsewhere')
+    await objective.fill('Saved objective')
+    await dialog.getByRole('button', { name: '保存 Goal', exact: true }).click()
+    await expect
+      .poll(async () => (await fixture.api.call('goal.get', { sessionId: session.id })).goal?.objective)
+      .toBe('Saved objective')
+    await page.setViewportSize({ width: 320, height: 740 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/app-ui-integration/goal-mobile.png' })
+    await dialog.getByRole('button', { name: '清除', exact: true }).click()
+    const confirm = page.getByRole('dialog', { name: '清除当前 Goal？', exact: true })
+    await expect(confirm).toBeVisible()
+    await confirm.getByRole('button', { name: '取消', exact: true }).click()
+    expect((await fixture.api.call('goal.get', { sessionId: session.id })).goal?.objective).toBe('Saved objective')
+    await dialog.getByRole('button', { name: '清除', exact: true }).click()
+    await confirm.getByRole('button', { name: '清除', exact: true }).click()
+    await expect.poll(async () => (await fixture.api.call('goal.get', { sessionId: session.id })).goal).toBeNull()
+    await expect(confirm).toHaveCount(0)
+  } finally {
+    fixture.api.disconnect()
+  }
+})
+
 test('session capability actions open the Goal, Plan, and Budget panel', async ({ page, context }) => {
   const fixture = await login(context, page)
   try {
