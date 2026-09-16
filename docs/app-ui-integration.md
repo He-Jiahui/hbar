@@ -10,6 +10,11 @@ This table is a work inventory, not a declaration that the migration is done.
 Each family retains its independent surfaces and receives host-owned content,
 localized labels, explicit actions, and a documented collection strategy.
 
+The [per-variant inventory](app-ui-variant-inventory.md) lists all 300 stable IDs,
+their current contract status and remaining gaps. Regenerate it with
+`bun scripts/inventory-hbar-app-ui.ts`; update the explicit controlled-surface
+registry only after implementation and relevant verification.
+
 | Delivery group            | Component families                                                                                   | Production owner                                | Collection strategy                                        |
 | ------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
 | Navigation                | app-shell, app-sidebar, navbar, command-menu, mobile                                                 | Workbench ViewModel and module descriptors      | Bounded navigation; virtualized session collections        |
@@ -42,3 +47,26 @@ existing full E2E suite and desktop smoke test.
 
 The starting worktree contains unrelated and overlapping uncommitted changes.
 Keep those changes intact and stage only the verified integration delta.
+
+## Implemented increments
+
+- The production root is independent of catalog metadata and preview fixtures.
+  AiUsage additionally has a production category subentry; other legacy category
+  subentries still need migration before the package boundary is complete.
+- App Shell 03, session navigation, file listing/document viewing, chat message
+  and prompt surfaces, approvals, questionnaires, plan editing, usage/budget
+  controls, run history and event traces now have production contracts and Web
+  adapters. This does not imply that all surrounding legacy page content is gone.
+- Plan drafts have stable client IDs and explicit stale-snapshot review. Budget
+  drafts survive usage notifications and failures. Trace loading coalesces
+  requests, merges event IDs and bounds retained records; session/file/run/event
+  panes use virtualization where appropriate.
+- Shared icon tiers replace per-family size maps. Broader spacing, typography,
+  layer, breakpoint and legacy Web style consolidation remains in progress.
+
+The latest full `bun run check` at the AiUsage increment passed 178 tests. Web and
+preview builds passed. Targeted Host E2E covers shell/session/file/chat/approval,
+questionnaire/plan/budget/activity flows; AiUsage has a 48-case viewport/theme
+check. These are incremental results, not final all-package or desktop acceptance.
+Desktop build/smoke, the complete E2E suite and the remaining 288 variant
+contracts are still outstanding at this checkpoint.
