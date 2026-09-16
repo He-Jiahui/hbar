@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
-  Command as CommandIcon,
   FileCode2,
   Folder,
   FolderOpen,
@@ -57,11 +56,14 @@ import {
   HbarAppUiMetricStrip,
   HbarAppUiRunActivity,
   HbarAppUiSpotlight,
-  HbarAppUiSurface,
+  HbarAppUiWorkbenchShell,
+  HbarAppUiNavigation,
   HbarAppUiTabs,
   type HbarAppUiRunActivityItem,
 } from 'hbar-app-ui'
 import { useLocale, type LocaleMessageKey } from './locale'
+import { getWorkbenchCopy } from './app-ui-locale'
+import './workbench/shell.css'
 import 'flexlayout-react/style/dark.css'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
@@ -340,24 +342,26 @@ function Files({ onOpen }: { onOpen(path: string): void }) {
       <div className="file-breadcrumb">{path}</div>
       {error ? (
         <div className="inline-error">{error}</div>
+      ) : entries.length ? (
+        <div className="file-list">
+          {entries.map((entry) => (
+            <button
+              key={entry.path}
+              onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
+              title={entry.path}
+            >
+              {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
+              <span>{entry.name}</span>
+              {entry.directory && <ChevronRight size={12} />}
+            </button>
+          ))}
+        </div>
       ) : (
-        entries.length ? (
-          <div className="file-list">
-            {entries.map((entry) => (
-              <button
-                key={entry.path}
-                onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
-                title={entry.path}
-              >
-                {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
-                <span>{entry.name}</span>
-                {entry.directory && <ChevronRight size={12} />}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <HbarAppUiEmptyState icon={<Folder size={20} />} title="目录为空" description="当前工作区还没有可浏览的文件。" />
-        )
+        <HbarAppUiEmptyState
+          icon={<Folder size={20} />}
+          title="目录为空"
+          description="当前工作区还没有可浏览的文件。"
+        />
       )}
     </div>
   )
@@ -458,7 +462,10 @@ function ActivityPanel() {
       <HbarAppUiTabs
         label={t('activityViewLabel')}
         value={mode}
-        options={[{ id: 'activity', label: t('run') }, { id: 'trace', label: t('events') }]}
+        options={[
+          { id: 'activity', label: t('run') },
+          { id: 'trace', label: t('events') },
+        ]}
         onChange={(value) => setMode(value as 'activity' | 'trace')}
       />
       {mode === 'activity' ? (
@@ -544,6 +551,7 @@ export default function App() {
     toolPanel = useWorkbench((state) => state.toolPanel),
     sidebarWidth = useWorkbench((state) => state.sidebarWidth),
     locale = useWorkbench((state) => state.locale)
+  const shellCopy = getWorkbenchCopy(locale)
   const notice = useNotice((state) => state.error)
   const clientPanels = useUIPlugins((state) => state.panels)
   const plugins = data?.plugins
@@ -737,7 +745,11 @@ export default function App() {
           Actions.addNode(
             { type: 'tab', id, name: title, component, enableClose: true, config },
             model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
-            placement === 'bottom' ? DockLocation.BOTTOM : placement === 'left' ? DockLocation.LEFT : DockLocation.CENTER,
+            placement === 'bottom'
+              ? DockLocation.BOTTOM
+              : placement === 'left'
+                ? DockLocation.LEFT
+                : DockLocation.CENTER,
             -1,
           ),
         )
@@ -1008,113 +1020,53 @@ export default function App() {
   }
   if (status === 'pairing' || (!data && status !== 'connected')) return <Pairing />
   return (
-    <HbarAppUiSurface className="app-shell hbar-app-ui-workbench-shell" data-hbar-app-ui-shell="workbench">
-      <header className="topbar">
-        <button
-          className="sidebar-toggle"
-          title="会话侧栏"
-          aria-label="会话侧栏"
-          onClick={() =>
-            small ? setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions') : setSidebar(!sidebar)
-          }
-        >
-          {sidebar ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
-        </button>
-        <div className="brand">
-          hbar
-          <span />
-        </div>
-        <div className="top-divider" />
-        <FolderOpen size={16} className="folder-icon" />
-        <select
-          className="workspace-select"
-          aria-label="选择工作区"
-          value={workspaceId}
-          onChange={(event) => {
-            selectWorkspace(event.target.value)
-          }}
-        >
-          <option value="" disabled>
-            选择工作区
-          </option>
-          {data?.workspaces.map((workspace) => (
-            <option value={workspace.id} key={workspace.id}>
-              {workspace.name}
-            </option>
-          ))}
-        </select>
-        <button
-          className="add-workspace"
-          title="添加工作区"
-          aria-label="添加工作区"
-          onClick={() => setWorkspaceModal(true)}
-        >
-          <Plus size={14} />
-        </button>
-        <span
-          className="top-context"
-          title={data?.sessions.find((session) => session.id === activeSession)?.title ?? '当前会话'}
-        >
-          {data?.sessions.find((session) => session.id === activeSession)?.title ?? '新会话'}
-        </span>
-        <span className="top-spacer" />
-        <button title="命令面板（Ctrl+Shift+P）" aria-label="打开命令面板" onClick={() => setCommandPaletteOpen(true)}>
-          <CommandIcon size={17} />
-        </button>
-        <span className={`host-status ${status === 'connected' ? 'success' : 'warning'}`}>
-          <i />
-          {status === 'connected' ? (host?.platform === 'win32' ? 'Windows Host' : 'Host') : '重新连接中'}
-        </span>
-      </header>
+    <HbarAppUiWorkbenchShell
+      className="app-shell"
+      brand="hbar"
+      labels={shellCopy.shell}
+      workspaces={(data?.workspaces ?? []).map((workspace) => ({ id: workspace.id, label: workspace.name }))}
+      workspaceId={workspaceId}
+      connection={{
+        label:
+          status === 'connected'
+            ? host?.platform === 'win32'
+              ? shellCopy.windowsHost
+              : shellCopy.host
+            : shellCopy.reconnecting,
+        connected: status === 'connected',
+      }}
+      sidebarOpen={small ? mobileView === 'sessions' : sidebar}
+      onToggleSidebar={() =>
+        small ? setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions') : setSidebar(!sidebar)
+      }
+      onWorkspaceChange={selectWorkspace}
+      onAddWorkspace={() => setWorkspaceModal(true)}
+      onOpenCommands={() => setCommandPaletteOpen(true)}
+    >
       <div
         className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
         style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
       >
-        <nav className="tool-rail left-rail">
-          <button
-            title="会话"
-            aria-label="会话"
-            className={panel === 'sessions' ? 'selected' : ''}
-            onClick={() => {
-              useWorkbench.setState({ panel: 'sessions' })
-              setSidebar(true)
-            }}
-          >
-            <MessageSquare size={19} />
-          </button>
-          <button
-            title="文件"
-            aria-label="文件"
-            className={panel === 'files' ? 'selected' : ''}
-            onClick={() => {
-              useWorkbench.setState({ panel: 'files' })
-              setSidebar(true)
-            }}
-          >
-            <Folder size={19} />
-          </button>
-          <span />
-          <button
-            title="诊断"
-            aria-label="诊断"
-            aria-pressed={toolPanel === DIAGNOSE_PANEL_ID}
-            className={toolPanel === DIAGNOSE_PANEL_ID ? 'selected' : ''}
-            onClick={() => openPanel(DIAGNOSE_PANEL_ID, '诊断', 'diagnose', undefined, 'right')}
-          >
-            <CircleHelp size={18} />
-          </button>
-          <button
-            title="恢复默认布局"
-            aria-label="恢复默认布局"
-            onClick={() => {
-              useWorkbench.setState({ layout: null })
-              setModel(Model.fromJson(defaultLayout()))
-            }}
-          >
-            <LayoutGrid size={18} />
-          </button>
-        </nav>
         <aside className="sidebar">
+          <HbarAppUiNavigation
+            label={shellCopy.shell.navigation}
+            items={[
+              {
+                id: 'sessions',
+                label: shellCopy.sessions,
+                icon: MessageSquare,
+                selected: panel === 'sessions' && !toolPanel,
+              },
+              { id: 'files', label: shellCopy.files, icon: Folder, selected: panel === 'files' && !toolPanel },
+              { id: 'activity', label: shellCopy.activity, icon: Activity, selected: toolPanel === 'activity' },
+              { id: 'settings', label: shellCopy.settings, icon: Settings2, selected: toolPanel === 'settings' },
+            ]}
+            onSelect={(id) => {
+              if (id === 'sessions' || id === 'files') useWorkbench.setState({ panel: id, toolPanel: '' })
+              else if (id === 'activity') toggleGalleryTool('activity', '运行', 'activity', undefined, 'right')
+              else if (id === 'settings') toggleSettings()
+            }}
+          />
           {panel === 'sessions' ? (
             <Sessions onSelect={selectSession} onNew={() => void newSession()} />
           ) : (
@@ -1322,24 +1274,6 @@ export default function App() {
           >
             <TerminalSquare size={18} />
           </button>
-          <button
-            title="运行与事件"
-            aria-label="运行与事件"
-            aria-pressed={toolPanel === 'activity'}
-            className={toolPanel === 'activity' ? 'selected' : ''}
-            onClick={() => toggleGalleryTool('activity', '运行', 'activity', undefined, 'right')}
-          >
-            <Activity size={18} />
-          </button>
-          <button
-            title="设置"
-            aria-label="设置"
-            aria-pressed={toolPanel === 'settings'}
-            className={toolPanel === 'settings' ? 'selected' : ''}
-            onClick={toggleSettings}
-          >
-            <Settings2 size={18} />
-          </button>
           {[...(data?.panels ?? []), ...clientPanels].map((contribution) => (
             <button
               key={contribution.id}
@@ -1476,6 +1410,6 @@ export default function App() {
           </form>
         </Modal>
       )}
-    </HbarAppUiSurface>
+    </HbarAppUiWorkbenchShell>
   )
 }

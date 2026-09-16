@@ -1,0 +1,46 @@
+.hbar-app-ui-workbench .main-frame {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+.hbar-app-ui-workbench .sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 var(--sidebar-width);
+  min-block-size: 0;
+  min-inline-size: 0;
+  background: var(--hbar-app-ui-surface-0);
+}
+.hbar-app-ui-workbench .sidebar-collapsed .sidebar {
+  display: none;
+}
+.hbar-app-ui-workbench .workbench {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.hbar-app-ui-workbench .right-rail {
+  flex: 0 0 auto;
+}
+@media (max-width: 56.1875rem) {
+  .hbar-app-ui-workbench .sidebar {
+    display: none;
+  }
+  .hbar-app-ui-workbench .mobile-nav {
+    flex: 0 0 auto;
+    min-inline-size: 0;
+  }
+  .hbar-app-ui-workbench .mobile-nav button {
+    flex: 1 1 0;
+    min-inline-size: 0;
+    padding-inline: 0.25rem;
+  }
+  .hbar-app-ui-workbench .mobile-nav button span {
+    overflow-wrap: anywhere;
+  }
+}
+.app-shell.hbar-app-ui-workbench {
+  display: flex;
+  flex-direction: column;
+}

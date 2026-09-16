@@ -1,4 +1,11 @@
 /** Production entry: never import the variant registry or preview fixtures here. */
+export { HbarAppUiIcon, type HbarAppUiIconTier } from './icon'
+export { HbarAppUiWorkbenchShell, HbarAppUiNavigation } from './components/app-shell/WorkbenchShell'
+export type {
+  HbarAppUiShellProps,
+  HbarAppUiShellLabels,
+  HbarAppUiNavigationItem,
+} from './components/app-shell/WorkbenchShell'
 export {
   HbarAppUiButton,
   HbarAppUiEmptyState,

@@ -25,6 +25,7 @@ import type { HbarAppUiEvent, HbarAppUiRegistryEntry, HbarAppUiVariantComponent,
 import 'hbar-app-ui/theme.css'
 import './preview.css'
 import { VariantHarness } from './VariantHarness'
+import { ShellPreviewHost } from './ShellPreviewHost'
 import {
   createHbarAppUiAgentApprovalLocalizedFixtures,
   createHbarAppUiAgentApprovalOverflowFixtures,
@@ -320,7 +321,7 @@ function PreviewApp() {
               <HbarAppUiToolCallsProvider content={toolCallsContent}>
                 <HbarAppUiNavbarProvider content={navbarContent}>
                   <HbarAppUiEditorProvider content={editorContent}>
-                    <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ShellPreviewHost>
                   </HbarAppUiEditorProvider>
                 </HbarAppUiNavbarProvider>
               </HbarAppUiToolCallsProvider>
@@ -407,7 +408,7 @@ function PreviewApp() {
                         <HbarAppUiToolCallsProvider content={toolCallsContent}>
                           <HbarAppUiNavbarProvider content={navbarContent}>
                             <HbarAppUiEditorProvider content={editorContent}>
-                              <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ShellPreviewHost>
                             </HbarAppUiEditorProvider>
                           </HbarAppUiNavbarProvider>
                         </HbarAppUiToolCallsProvider>

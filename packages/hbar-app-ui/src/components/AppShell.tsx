@@ -1,5 +1,6 @@
 import {useState} from 'react'
-import {ChevronDown, FileText, LayoutDashboard, Menu, Search, Settings2, Sparkles} from 'lucide-react'
+import {HbarAppUiWorkbenchShell, useHbarAppUiShellContent} from './app-shell/WorkbenchShell'
+import {ChevronDown, FileText, LayoutDashboard, Search, Settings2, Sparkles} from 'lucide-react'
 import {
     HbarAppUiButton,
     HbarAppUiMetricStrip,
@@ -62,26 +63,9 @@ function ShellRails({spec, onAction}: ShellProps) {
 }
 
 function ShellTopbar({spec, onAction}: ShellProps) {
-    const [collapsed, setCollapsed] = useState(false)
-    const [query, setQuery] = useState('')
+    const content = useHbarAppUiShellContent()
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-shell-variant-3">
-        <div className="hbar-app-ui-topbar"><strong>hbar</strong><label><Search size={13}/><input value={query}
-                                                                                                  onChange={(event) => setQuery(event.target.value)}
-                                                                                                  placeholder="Search workspace"/></label><span>Member</span>
-            <button type="button"
-                    onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'account'})}>A
-            </button>
-        </div>
-        <div className="hbar-app-ui-collapsible-shell">
-            <aside className={collapsed ? 'is-collapsed' : ''}>
-                <button type="button" onClick={() => setCollapsed((value) => !value)}><Menu
-                    size={14}/>{collapsed ? '' : 'Collapse'}</button>
-                {!collapsed && <><span className="is-active">Home</span><span>Activity</span><span>Billing</span></>}
-            </aside>
-            <main><HbarAppUiToolbar title="Workspace content"
-                                    detail="Sidebar collapses to an icon rail"/><HbarAppUiSpotlight><strong>{query ? `Results for “${query}”` : 'Welcome back'}</strong>
-                <p>Use the top bar to find sessions, files and settings.</p></HbarAppUiSpotlight></main>
-        </div>
+        {content && <HbarAppUiWorkbenchShell {...content} />}
     </ActionSurfaceFrame>
 }
 

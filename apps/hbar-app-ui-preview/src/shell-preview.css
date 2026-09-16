@@ -1,0 +1,22 @@
+.hbar-app-ui-shell-preview-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.hbar-app-ui-shell-preview-body main {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  padding: var(--hbar-app-ui-space-xl);
+}
+.hbar-app-ui-shell-preview-body nav {
+  flex: 0 1 16rem;
+}
+@media (max-width: 40rem) {
+  .hbar-app-ui-shell-preview-body {
+    flex-direction: column;
+  }
+  .hbar-app-ui-shell-preview-body nav {
+    flex: 0 0 auto;
+  }
+}
