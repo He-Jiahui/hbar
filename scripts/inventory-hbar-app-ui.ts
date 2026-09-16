@@ -7,6 +7,7 @@ const controlled = new Map<string, string>([
   ['ai-chat:1', '正式历史继续分页、虚拟化；嵌入式会话由宿主确定容量'],
   ['prompt-input:1', '附件上限由宿主/协议提供；输入流布局'],
   ['agent-plan:2', '面板滚动；Web 沿用协议 100 步上限'],
+  ['settings-form:3', '宿主提供有限偏好选项；随内容增长，失效选项不回退'],
   ...Array.from({ length: 8 }, (_, index): [string, string] => [
     `ai-usage:${index + 1}`,
     [2, 4, 7].includes(index + 1) ? '宿主显式选择内容增长或虚拟列表' : '宿主提供的有限指标、配额和选项随内容增长',

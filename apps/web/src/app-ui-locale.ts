@@ -12,6 +12,10 @@ interface WorkbenchCopy {
   readonly files: string
   readonly activity: string
   readonly settings: string
+  readonly chat: string
+  readonly runs: string
+  readonly terminal: string
+  readonly plugins: string
   readonly reconnecting: string
   readonly host: string
   readonly windowsHost: string
@@ -88,6 +92,10 @@ const workbenchCopy: Readonly<Record<SupportedLocale, WorkbenchCopy>> = {
     files: '文件',
     activity: '运行与事件',
     settings: '设置',
+    chat: '对话',
+    runs: '运行',
+    terminal: '终端',
+    plugins: '插件',
     reconnecting: '重新连接中',
     host: 'Host',
     windowsHost: 'Windows Host',
@@ -104,6 +112,10 @@ const workbenchCopy: Readonly<Record<SupportedLocale, WorkbenchCopy>> = {
     files: 'Files',
     activity: 'Runs and events',
     settings: 'Settings',
+    chat: 'Chat',
+    runs: 'Runs',
+    terminal: 'Terminal',
+    plugins: 'Plugins',
     reconnecting: 'Reconnecting',
     host: 'Host',
     windowsHost: 'Windows Host',

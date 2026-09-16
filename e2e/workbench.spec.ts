@@ -69,8 +69,8 @@ test('workbench keeps tools on demand and exposes the global command palette', a
     await expect(settingsTab.locator('.flexlayout__tab_button_trailing')).toBeVisible()
     await page.getByRole('button', { name: '外观', exact: true }).click()
     await expect(page.getByRole('heading', { name: '界面主题', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: '浅色', exact: true }).click()
-    await expect(page.getByRole('button', { name: '浅色', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('radio', { name: '浅色', exact: true }).check()
+    await expect(page.getByRole('radio', { name: '浅色', exact: true })).toBeChecked()
     await settingsTab.locator('.flexlayout__tab_button_trailing').click()
     await expect(settingsTab).toHaveCount(0)
 

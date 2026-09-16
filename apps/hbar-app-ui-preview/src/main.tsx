@@ -1,3 +1,4 @@
+import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
@@ -13,7 +14,6 @@ import {
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
   HbarAppUiFeedbackProvider,
-  HbarAppUiSettingsFormProvider,
   HbarAppUiAuthenticationProvider,
   HbarAppUiBillingProvider,
   HbarAppUiEditorProvider,
@@ -314,7 +314,7 @@ function PreviewApp() {
       >
         <HbarAppUiFileManagerProvider content={fileManagerContent}>
         <HbarAppUiFeedbackProvider content={feedbackContent}>
-        <HbarAppUiSettingsFormProvider content={settingsFormContent}>
+        <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
         <HbarAppUiAuthenticationProvider content={authenticationContent}>
         <HbarAppUiBillingProvider content={billingContent}>
         <HbarAppUiPaywallProvider content={paywallContent}>
@@ -334,7 +334,7 @@ function PreviewApp() {
         </HbarAppUiPaywallProvider>
         </HbarAppUiBillingProvider>
         </HbarAppUiAuthenticationProvider>
-        </HbarAppUiSettingsFormProvider>
+        </SettingsPreviewHost>
         </HbarAppUiFeedbackProvider>
         </HbarAppUiFileManagerProvider>
       </div>
@@ -401,7 +401,7 @@ function PreviewApp() {
                 >
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
                   <HbarAppUiFeedbackProvider content={feedbackContent}>
-                  <HbarAppUiSettingsFormProvider content={settingsFormContent}>
+                  <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiAuthenticationProvider content={authenticationContent}>
                   <HbarAppUiBillingProvider content={billingContent}>
                   <HbarAppUiPaywallProvider content={paywallContent}>
@@ -421,7 +421,7 @@ function PreviewApp() {
                   </HbarAppUiPaywallProvider>
                   </HbarAppUiBillingProvider>
                   </HbarAppUiAuthenticationProvider>
-                  </HbarAppUiSettingsFormProvider>
+                  </SettingsPreviewHost>
                   </HbarAppUiFeedbackProvider>
                   </HbarAppUiFileManagerProvider>
                 </div>

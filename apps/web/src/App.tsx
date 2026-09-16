@@ -1014,13 +1014,13 @@ export default function App() {
       </footer>
       <nav className="mobile-nav">
         {[
-          { id: 'sessions', label: '会话', icon: MessageSquare },
-          { id: 'chat', label: '对话', icon: Plus },
-          { id: 'files', label: '文件', icon: Folder },
-          { id: 'activity', label: '运行', icon: Activity },
-          { id: 'terminal', label: '终端', icon: TerminalSquare },
-          { id: 'plugins', label: '插件', icon: LayoutGrid },
-          { id: 'settings', label: '设置', icon: Settings2 },
+          { id: 'sessions', label: shellCopy.sessions, icon: MessageSquare },
+          { id: 'chat', label: shellCopy.chat, icon: Plus },
+          { id: 'files', label: shellCopy.files, icon: Folder },
+          { id: 'activity', label: shellCopy.runs, icon: Activity },
+          { id: 'terminal', label: shellCopy.terminal, icon: TerminalSquare },
+          { id: 'plugins', label: shellCopy.plugins, icon: LayoutGrid },
+          { id: 'settings', label: shellCopy.settings, icon: Settings2 },
         ].map((item) => (
           <button
             key={item.id}

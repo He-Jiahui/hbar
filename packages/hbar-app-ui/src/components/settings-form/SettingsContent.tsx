@@ -1,3 +1,4 @@
+import type { HbarAppUiPreferenceAction, HbarAppUiPreferencePersistence } from './PreferenceContract'
 import {createContext, useContext, type ReactNode} from 'react'
 
 export type HbarAppUiSettingsListStrategy =
@@ -68,6 +69,9 @@ export interface HbarAppUiSettingsPreferenceToggle {
 }
 
 export interface HbarAppUiSettingsPreferencesContent {
+    readonly onChange: (action: HbarAppUiPreferenceAction) => void
+    readonly persistence: HbarAppUiPreferencePersistence
+    readonly error?: string | undefined
     readonly labels: {
         readonly pageTitle: string
         readonly panelTitle: string
@@ -84,21 +88,22 @@ export interface HbarAppUiSettingsPreferencesContent {
         readonly recommended: string
         readonly unsaved: string
         readonly cancel: string
+        readonly unavailableChoice: string
         readonly save: string
     }
     readonly themeChoices: readonly HbarAppUiSettingsChoice[]
-    readonly initialThemeId: string
+    readonly themeId: string
     readonly densityChoices: readonly HbarAppUiSettingsChoice[]
-    readonly initialDensityId: string
+    readonly densityId: string
     readonly languageChoices: readonly HbarAppUiSettingsChoice[]
-    readonly initialLanguageId: string
+    readonly languageId: string
     readonly toggles: readonly HbarAppUiSettingsPreferenceToggle[]
     readonly checkbox: {
         readonly id: string
         readonly label: string
         readonly description: string
         readonly enabled: boolean
-    }
+    } | undefined
 }
 
 export interface HbarAppUiSettingsMember {

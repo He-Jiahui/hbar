@@ -4,7 +4,7 @@
 
 此清单显式记录已迁移的受控表面，不能把“已有内容契约”理解为所有业务状态与动作已经迁完，也不能把单个组件检查理解为最终产品验收。新的独立生产组件（会话导航、文件工作区、审批、问答和事件日志）另见集成文档，它们不占用或替换这 300 个 ID。
 
-当前登记 12 个变体已接入受控契约；其余 288 个继续按清单迁移。仍需完成 Settings/配对、Goal、工具与专用面板接入，其他组件族清理，以及最终桌面和全包视觉验收。
+当前登记 13 个变体已接入受控契约；其余 287 个继续按清单迁移。仍需完成 Settings/配对、Goal、工具与专用面板接入，其他组件族清理，以及最终桌面和全包视觉验收。
 
 | 稳定变体 ID                   | 分类源入口                                                                                 | 当前状态               | 列表/容量归属                                      | 剩余验证或契约缺口                                           |
 | ----------------------------- | ------------------------------------------------------------------------------------------ | ---------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
@@ -189,7 +189,7 @@
 | hbar-app-ui-empty-state-5     | [hbar-app-ui-empty-state-5](../packages/hbar-app-ui/src/components/EmptyState.tsx)         | 待数据化               | 待逐变体验证；不能视为已完成                       | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
 | hbar-app-ui-settings-form-1   | [hbar-app-ui-settings-form-1](../packages/hbar-app-ui/src/components/SettingsForm.tsx)     | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                       | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
 | hbar-app-ui-settings-form-2   | [hbar-app-ui-settings-form-2](../packages/hbar-app-ui/src/components/SettingsForm.tsx)     | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                       | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-settings-form-3   | [hbar-app-ui-settings-form-3](../packages/hbar-app-ui/src/components/SettingsForm.tsx)     | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                       | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
+| hbar-app-ui-settings-form-3   | [hbar-app-ui-settings-form-3](../packages/hbar-app-ui/src/components/SettingsForm.tsx)     | 受控契约已接入         | 宿主提供有限偏好选项；随内容增长，失效选项不回退   | 仍需最终全包/桌面验收                                        |
 | hbar-app-ui-settings-form-4   | [hbar-app-ui-settings-form-4](../packages/hbar-app-ui/src/components/SettingsForm.tsx)     | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                       | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
 | hbar-app-ui-settings-form-5   | [hbar-app-ui-settings-form-5](../packages/hbar-app-ui/src/components/SettingsForm.tsx)     | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                       | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
 | hbar-app-ui-settings-form-6   | [hbar-app-ui-settings-form-6](../packages/hbar-app-ui/src/components/SettingsForm.tsx)     | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                       | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |

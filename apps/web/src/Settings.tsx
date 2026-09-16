@@ -1,4 +1,6 @@
 import { Modal } from './Modal'
+import AppearanceSettings from './AppearanceSettings'
+import { useLocale } from './locale'
 import { useEffect, useState } from 'react'
 import {
   Check,
@@ -7,7 +9,6 @@ import {
   GitBranch,
   KeyRound,
   LockKeyhole,
-  Moon,
   Monitor,
   Network,
   Plus,
@@ -16,7 +17,6 @@ import {
   Save,
   ShieldCheck,
   Stethoscope,
-  Sun,
   Trash2,
 } from 'lucide-react'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
@@ -634,8 +634,8 @@ export default function Settings() {
   const data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host),
     approvalMode = useWorkbench((state) => state.approvalMode),
-    workspaceId = useWorkbench((state) => state.workspaceId),
-    theme = useWorkbench((state) => state.theme)
+    workspaceId = useWorkbench((state) => state.workspaceId)
+  const { t } = useLocale()
   const models = data?.models ?? []
   const filteredModels = models.filter((model) => {
     const query = modelQuery.trim().toLocaleLowerCase()
@@ -655,61 +655,36 @@ export default function Settings() {
   return (
     <div className="settings-panel">
       <div className="page-heading">
-        <h1>设置</h1>
-        <button title="刷新设置" aria-label="刷新设置" onClick={() => void refreshCatalog().catch(report)}>
+        <h1>{t('settingsTitle')}</h1>
+        <button
+          title={t('settingsRefresh')}
+          aria-label={t('settingsRefresh')}
+          onClick={() => void refreshCatalog().catch(report)}
+        >
           <RefreshCw size={15} />
         </button>
       </div>
       <nav className="settings-tabs">
         <button className={tab === 'appearance' ? 'selected' : ''} onClick={() => setTab('appearance')}>
-          外观
+          {t('appearance')}
         </button>
         <button className={tab === 'models' ? 'selected' : ''} onClick={() => setTab('models')}>
-          模型
+          {t('settingsModelTab')}
         </button>
         <button className={tab === 'permissions' ? 'selected' : ''} onClick={() => setTab('permissions')}>
-          权限
+          {t('settingsPermissions')}
         </button>
         <button className={tab === 'paths' ? 'selected' : ''} onClick={() => setTab('paths')}>
-          存储
+          {t('settingsStorage')}
         </button>
         <button className={tab === 'plugins' ? 'selected' : ''} onClick={() => setTab('plugins')}>
-          插件
+          {t('settingsPlugins')}
         </button>
         <button className={tab === 'devices' ? 'selected' : ''} onClick={() => setTab('devices')}>
-          设备与连接
+          {t('settingsDevices')}
         </button>
       </nav>
-      {tab === 'appearance' && (
-        <section className="settings-section appearance-section">
-          <div className="section-toolbar">
-            <div>
-              <h2>界面主题</h2>
-              <p className="section-description">选择此设备使用的工作台配色。</p>
-            </div>
-          </div>
-          <div className="theme-options" role="group" aria-label="界面主题">
-            {(
-              [
-                ['dark', '深色', Moon],
-                ['light', '浅色', Sun],
-                ['white', '纯白', Monitor],
-              ] as const
-            ).map(([value, label, Icon]) => (
-              <button
-                type="button"
-                key={value}
-                className={theme === value ? 'selected' : ''}
-                aria-pressed={theme === value}
-                onClick={() => useWorkbench.setState({ theme: value })}
-              >
-                <Icon size={17} />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {tab === 'appearance' && <AppearanceSettings />}
       {tab === 'permissions' && (
         <section className="settings-section permissions-section">
           <div className="section-toolbar">
