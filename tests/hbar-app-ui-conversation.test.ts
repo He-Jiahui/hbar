@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarAppUiPromptComposer, HbarAppUiMessage } from '../packages/hbar-app-ui/src/production'
-import { getPromptCopy, getMessageCopy } from '../apps/web/src/app-ui-locale'
+import { getPromptCopy, getMessageCopy } from './fixtures/hbar-app-ui-host-copy'
 
 describe('host-controlled conversation components', () => {
   test('renders host attachments, localized controls and a failure without clearing the draft', () => {

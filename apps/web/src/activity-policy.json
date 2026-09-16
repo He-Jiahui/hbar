@@ -1,6 +1,0 @@
-{
-  "initialEventWindow": 200,
-  "retainedEvents": 2000,
-  "cachedSessions": 16,
-  "resetRecoveryAttempts": 2
-}

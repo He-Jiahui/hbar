@@ -109,11 +109,8 @@
       "name": "@hbar/web",
       "version": "0.1.0",
       "dependencies": {
-        "@hbar/client": "workspace:*",
-        "@hbar/contracts": "workspace:*",
-        "@hbar/terminal": "workspace:*",
-        "@hbar/ui-sdk": "workspace:*",
         "hbar-app-ui": "workspace:*",
+        "zod": "4.5.4",
       },
     },
     "packages/client": {

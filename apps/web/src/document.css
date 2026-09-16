@@ -1,0 +1,12 @@
+html,
+body,
+#root {
+  block-size: 100%;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+body {
+  color-scheme: dark;
+  background: var(--hbar-app-ui-bg);
+}

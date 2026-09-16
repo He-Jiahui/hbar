@@ -1,5 +1,7 @@
 # 架构与边界
 
+> 2026-09-16 Web 清理状态：旧 `apps/web` 工作台、store 和业务适配已移除，当前网页仅挂载 `hbar-app-ui/workbench` 组件化外壳，不连接 Host。以下前端与桌面配对段落描述清理前的实现；Host、存储、CLI 和领域服务保留。后续按命令优先计划重建运行时与界面，当前边界见 [Web 说明](../apps/web/README.md)。
+
 ## 进程和依赖方向
 
 ```mermaid

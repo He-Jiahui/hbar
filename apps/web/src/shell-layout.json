@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "id": "app",
+  "type": "app-shell",
+  "sidebar": { "id": "projects", "region": "left", "visible": true, "widthRem": 17 }
+}

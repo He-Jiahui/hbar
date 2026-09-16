@@ -4,6 +4,15 @@ The hbar application UI catalog is a component package for dense workspaces, age
 
 ## Public API
 
+The structural production entry `hbar-app-ui/workbench` exports
+`HbarAppUiAppShell`, `HbarAppUiAppSidebar` and `HbarAppUiWorkbenchNotice`.
+They accept host-owned copy and content slots, and do not import catalog data,
+application stores or transport. The sidebar keeps its header/footer outside its
+scrollable collection slot; collection adapters own paging or virtualization.
+The main slot scrolls independently and the same flow stacks on narrow screens.
+`apps/web` currently uses this entry as a disconnected shell while its command
+runtime is rebuilt. The existing catalog preview remains a separate application.
+
 ```tsx
 import { HbarAppUiAgentActivity01, HbarAppUiSpotlight } from 'hbar-app-ui'
 import 'hbar-app-ui/theme.css'
@@ -23,11 +32,7 @@ The package ships light and dark variables under `--hbar-app-ui-*`. Consumers op
 `HbarAppUiRunActivity` is a standalone execution-history component at `hbar-app-ui/run-activity`. A host maps its own records into `HbarAppUiRunActivityItem` and supplies the exact row callback; the component does not import host state, transport, or product-specific types.
 
 ```tsx
-<HbarAppUiRunActivity
-  runs={runs}
-  cancellingRunIds={cancellingRunIds}
-  onCancelRun={(runId) => cancelRun(runId)}
-/>
+<HbarAppUiRunActivity runs={runs} cancellingRunIds={cancellingRunIds} onCancelRun={(runId) => cancelRun(runId)} />
 ```
 
 The props support local status labels, run-count text, empty state copy, row selection, cancellation progress, and failure feedback so application-specific wording remains outside the package. For hosts that already have an i18n system, the `labels` bundle keeps all generated copy in that system without adding a runtime translation dependency:

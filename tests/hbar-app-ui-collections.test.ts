@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { selectedItem, uniqueItems } from '../packages/hbar-app-ui/src/collection'
-import { getSessionNavigatorCopy } from '../apps/web/src/app-ui-locale'
+import { getSessionNavigatorCopy } from './fixtures/hbar-app-ui-host-copy'
 
 describe('host-owned collections', () => {
   test('merges duplicate IDs, preserves order, and does not replace stale selection', () => {

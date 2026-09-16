@@ -1,5 +1,20 @@
 # app-ui integration
 
+## Current Web reset
+
+On 2026-09-16 the old Web pages, stores, action models, plugin UI loader, layout
+adapters and overriding styles were removed at the user's request. `apps/web`
+now mounts only the structural components from `hbar-app-ui/workbench`, with
+host-supplied copy and a validated shell descriptor. It does not connect to the
+Host or expose business controls. Host/CLI functionality and the component
+preview remain available. See [the Web host boundary](../apps/web/README.md).
+
+Component tests remain active; their localized fixture data no longer imports
+the retired Web adapters. Old Web-specific tests were removed with the retired
+implementations. The current browser suite verifies the disconnected shell in
+both locales and desktop/narrow viewports. The historical integration increments
+below describe the previous implementation, not currently available Web features.
+
 The production entry is `hbar-app-ui`. Gallery hosts explicitly import
 `hbar-app-ui/catalog`; the 300 existing variant IDs remain stable. Production
 dependencies are checked by `tests/hbar-app-ui-entrypoints.test.ts`.

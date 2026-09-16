@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarAppUiNavigation, HbarAppUiWorkbenchShell } from '../packages/hbar-app-ui/src/production'
 import { SHELL_FIXTURE } from './fixtures/hbar-app-ui-shell-fixtures'
-import { getWorkbenchCopy } from '../apps/web/src/app-ui-locale'
+import { getWorkbenchCopy } from './fixtures/hbar-app-ui-host-copy'
 
 describe('host-owned application shell', () => {
   test('uses host copy and preserves an explicitly missing workspace selection', () => {

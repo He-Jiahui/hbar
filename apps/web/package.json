@@ -4,10 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@hbar/client": "workspace:*",
-    "@hbar/contracts": "workspace:*",
-    "@hbar/terminal": "workspace:*",
-    "@hbar/ui-sdk": "workspace:*",
-    "hbar-app-ui": "workspace:*"
+    "hbar-app-ui": "workspace:*",
+    "zod": "4.5.4"
   }
 }

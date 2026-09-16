@@ -57,7 +57,7 @@ try {
     if (message.type() === 'error') console.error(message.text())
   })
   try {
-    await page.locator('.app-shell').waitFor({ timeout: 15_000 })
+    await page.locator('[data-hbar-app-ui-shell="app"]').waitFor({ timeout: 15_000 })
   } catch (error) {
     await page.screenshot({ path: 'artifacts/tauri-startup-failure.png' })
     console.error(`WebView URL: ${page.url()}\n${await page.locator('body').innerText()}\n${errors.join('\n')}`)
@@ -110,7 +110,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native WebView paired; closing hides window; Host survives desktop exit; independent run cancellation works.',
+    'PASS: Native component shell rendered; closing hides window; Host survives desktop exit; independent SDK run cancellation works. Web pairing is not exercised during the UI rebuild.',
   )
 } catch (error) {
   console.error(await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'))

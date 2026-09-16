@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarAppUiObjectiveForm } from '../packages/hbar-app-ui/src/forms'
-import { getGoalCopy } from '../apps/web/src/goal-locale'
+import { getGoalCopy } from './fixtures/hbar-app-ui-goal-locale'
 import { MAX_GOAL_OBJECTIVE_LENGTH } from '@hbar/contracts'
 import { HbarAppUiButton } from '../packages/hbar-app-ui/src/production'
 

@@ -7,6 +7,7 @@
     ".": "./src/production.ts",
     "./catalog": "./src/catalog.ts",
     "./theme.css": "./src/theme.css",
+    "./workbench": "./src/workbench.ts",
     "./ai-chat": "./src/components/AiChat.tsx",
     "./prompt-input": "./src/components/PromptInput.tsx",
     "./agent-activity": "./src/components/AgentActivity.tsx",

@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarAppUiCommandList, type HbarAppUiCommandListProps } from '../packages/hbar-app-ui/src/command-menu'
 import { COMMAND_LABELS, GROUPED_COMMANDS } from './fixtures/hbar-app-ui-command-fixtures'
-import { getCommandCopy } from '../apps/web/src/command-locale'
+import { getCommandCopy } from './fixtures/hbar-app-ui-command-locale'
 const content: HbarAppUiCommandListProps = {
   labels: COMMAND_LABELS,
   items: [],

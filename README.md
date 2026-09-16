@@ -1,6 +1,8 @@
 # hbar
 
-独立 Bun Host、Pi 最小运行循环、Cordis 插件宿主，以及可在 Tauri、桌面浏览器和手机浏览器访问的 React 工作台。
+独立 Bun Host、Pi 最小运行循环、Cordis 插件宿主，以及 CLI/TUI 与 `hbar-app-ui` 组件库。
+
+当前 Web/Tauri 页面处于重建阶段：旧 Web 界面已移除，网页只保留组件化外壳，暂不提供配对、聊天、设置或文件操作。业务服务、数据与 CLI/TUI 保留。使用 `bun run cli --help` 查看当前命令；组件预览使用 `bun run app-ui:preview`。清理边界见 [Web 说明](apps/web/README.md)。下文涉及旧网页按钮的说明是重建前的行为，不能作为当前 Web 功能清单。
 
 首版是可以运行的会话闭环：模型流式响应、工作区文件工具、Shell 审批、持久队列、取消、历史、分支、归档、图片与混合文件附件、摘要压缩、模型配置和本地插件管理。Goal、Plan、Budget 模式已作为内置插件接入；调度、后台任务和团队等后续边界见 [架构说明](docs/architecture.md)。
 
@@ -85,18 +87,18 @@ bun scripts/desktop-smoke.ts
 
 ## 目录
 
-| 目录                                       | 职责                                            |
-| ------------------------------------------ | ----------------------------------------------- |
-| `apps/host`                                | CLI、HTTP/WS、配对与访问控制                    |
-| `apps/web`                                 | React/Zustand 工作台、内容渲染和平台适配        |
-| `apps/desktop/src-tauri`                   | 窗口、托盘、启动或连接本地 Host                 |
-| `packages/contracts`                       | DTO、Zod schema、协议版本与事件类型             |
-| `packages/kernel`                          | Session、队列、运行、强制执行入口与 Cordis 宿主 |
-| `packages/storage`                         | 独立 SQLite Worker、事务、日志和投影            |
-| `packages/plugin-sdk`                      | Host 插件接口与服务/钩子契约                    |
-| `packages/client`、`packages/ui-sdk`       | 跨端网络 SDK、Client 插件接口                   |
-| `plugins/pi-driver`、`plugins/local-tools` | 默认循环驱动与执行实现                          |
-| `examples`                                 | 额外本地插件与启动组合示例                      |
+| 目录                                       | 职责                                               |
+| ------------------------------------------ | -------------------------------------------------- |
+| `apps/host`                                | CLI、HTTP/WS、配对与访问控制                       |
+| `apps/web`                                 | hbar-app-ui 组件挂载、文案与外壳描述；命令层待接入 |
+| `apps/desktop/src-tauri`                   | 窗口、托盘、启动或连接本地 Host                    |
+| `packages/contracts`                       | DTO、Zod schema、协议版本与事件类型                |
+| `packages/kernel`                          | Session、队列、运行、强制执行入口与 Cordis 宿主    |
+| `packages/storage`                         | 独立 SQLite Worker、事务、日志和投影               |
+| `packages/plugin-sdk`                      | Host 插件接口与服务/钩子契约                       |
+| `packages/client`、`packages/ui-sdk`       | 跨端网络 SDK、Client 插件接口                      |
+| `plugins/pi-driver`、`plugins/local-tools` | 默认循环驱动与执行实现                             |
+| `examples`                                 | 额外本地插件与启动组合示例                         |
 
 ## 许可证与贡献
 
