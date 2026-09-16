@@ -125,7 +125,7 @@
 .hbar-app-ui-button-accent {
     border-color: var(--hbar-app-ui-accent);
     background: var(--hbar-app-ui-accent);
-    color: #0a0a0a;
+    color: var(--hbar-app-ui-bg);
 }
 
 .hbar-app-ui-button-positive {
@@ -5859,3 +5859,5 @@
         justify-self: stretch;
     }
 }
+
+.hbar-app-ui-button-accent:hover:not(:disabled) { background: color-mix(in srgb, var(--hbar-app-ui-accent) 90%, var(--hbar-app-ui-bg)); color: var(--hbar-app-ui-bg); }

@@ -3,12 +3,11 @@ import { ClipboardList, Gauge, LoaderCircle, Pause, Play, Save, Target, Trash2 }
 import type { ThreadGoal } from '@hbar/contracts'
 import { Modal } from './Settings'
 import { PlanPane } from './PlanPane'
+import { BudgetPane } from './BudgetPane'
 import { client, report } from './stores'
 import {
-  clearBudget,
   clearGoal,
   createGoal,
-  setBudget,
   setGoal,
   useSessionCapabilities,
   type SessionCapabilityTab,
@@ -194,106 +193,6 @@ function GoalPane({ sessionId }: { sessionId: string }) {
         <button type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
           {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Save size={14} />}
           {goal ? '保存 Goal' : '创建 Goal'}
-        </button>
-      </footer>
-    </section>
-  )
-}
-
-function BudgetPane({ sessionId }: { sessionId: string }) {
-  const state = useSessionCapabilities((value) => value.sessions[sessionId])
-  const budget = state?.budget ?? null
-  const [limit, setLimit] = useState('')
-  const [validation, setValidation] = useState('')
-
-  useEffect(() => {
-    setLimit(budget ? String(budget.limit) : '')
-    setValidation('')
-  }, [budget])
-
-  const percentage = budget ? Math.min(100, Math.round((budget.usedTokens / budget.limit) * 100)) : 0
-
-  async function save() {
-    const parsed = parsePositiveInteger(limit)
-    if (parsed === null || parsed === undefined) {
-      setValidation('预算必须是正整数')
-      return
-    }
-    setValidation('')
-    try {
-      await setBudget(client(), sessionId, parsed)
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  async function clear() {
-    if (!budget || !window.confirm('清除当前 token 预算？')) return
-    try {
-      await clearBudget(client(), sessionId)
-    } catch (error) {
-      report(error)
-    }
-  }
-
-  return (
-    <section className="session-capability-pane" aria-label="Budget 设置">
-      <CapabilityFeedback
-        loading={state?.loading ?? false}
-        saving={state?.saving ?? false}
-        error={state?.error ?? ''}
-      />
-      {budget ? (
-        <div className={`budget-meter budget-meter-${budget.phase}`} aria-label="预算使用情况">
-          <div className="budget-meter-heading">
-            <strong>{budget.phase === 'exhausted' ? '预算已耗尽' : '预算使用情况'}</strong>
-            <span>{percentage}%</span>
-          </div>
-          <div
-            className="budget-meter-track"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={budget.limit}
-            aria-valuenow={budget.usedTokens}
-          >
-            <span style={{ width: `${percentage}%` }} />
-          </div>
-          <div className="budget-meter-values">
-            <span>{budget.usedTokens.toLocaleString()} used</span>
-            <span>{budget.remainingTokens.toLocaleString()} remaining</span>
-          </div>
-        </div>
-      ) : (
-        <p className="empty-list">当前会话未设置预算</p>
-      )}
-      <label>
-        Token 上限
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={limit}
-          onChange={(event) => setLimit(event.target.value)}
-          placeholder="例如 100000"
-          disabled={state?.saving ?? false}
-        />
-      </label>
-      {validation && <p className="inline-error">{validation}</p>}
-      <footer className="modal-footer">
-        {budget && (
-          <button
-            type="button"
-            className="button danger-button"
-            onClick={() => void clear()}
-            disabled={state?.saving ?? false}
-          >
-            <Trash2 size={14} />
-            清除预算
-          </button>
-        )}
-        <button type="button" className="button primary" onClick={() => void save()} disabled={state?.saving ?? false}>
-          {state?.saving ? <LoaderCircle size={14} className="spinning" /> : <Gauge size={14} />}
-          {budget ? '增加上限' : '设置预算'}
         </button>
       </footer>
     </section>

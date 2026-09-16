@@ -3,7 +3,7 @@ import { useStore } from 'zustand'
 import type { Run } from '@hbar/contracts'
 import {
   HbarAppUiEventLog,
-  HbarAppUiMetricStrip,
+  HbarAppUiUsageOverview,
   HbarAppUiRunActivity,
   HbarAppUiTabs,
   type HbarAppUiRunActivityItem,
@@ -79,10 +79,10 @@ export function ActivityPanel() {
       />
       {mode === 'activity' ? (
         <>
-          <div className="activity-heading">
-            <h2>{copy.totals}</h2>
-          </div>
-          <HbarAppUiMetricStrip
+          <HbarAppUiUsageOverview
+            title={copy.totals}
+            description={t('activityCurrentSession')}
+            meters={[]}
             metrics={[
               { label: t('inputTokens'), value: (usage?.input ?? 0).toLocaleString(locale) },
               { label: t('outputTokens'), value: (usage?.output ?? 0).toLocaleString(locale) },

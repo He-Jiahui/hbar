@@ -199,7 +199,11 @@ export function setBudget(transport: ClientTransport, sessionId: string, limit: 
   return mutation(
     sessionId,
     () => transport.call('budget.set', { sessionId, limit }),
-    (result) => useSessionCapabilities.getState().setSession(sessionId, { budget: result }),
+    (result) => {
+      const current = useSessionCapabilities.getState().sessions[sessionId]?.budget
+      if (!current || result.revision >= current.revision)
+        useSessionCapabilities.getState().setSession(sessionId, { budget: result })
+    },
   )
 }
 

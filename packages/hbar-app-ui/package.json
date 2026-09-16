@@ -15,7 +15,7 @@
     "./approval-request": "./src/components/ApprovalRequest.tsx",
     "./questionnaire": "./src/components/Questionnaire.tsx",
     "./agent-plan": "./src/components/AgentPlan.tsx",
-    "./ai-usage": "./src/components/AiUsage.tsx",
+    "./ai-usage": "./src/ai-usage.ts",
     "./app-shell": "./src/components/AppShell.tsx",
     "./app-sidebar": "./src/components/AppSidebar.tsx",
     "./command-menu": "./src/components/CommandMenu.tsx",

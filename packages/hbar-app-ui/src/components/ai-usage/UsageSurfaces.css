@@ -1,0 +1,80 @@
+.hbar-app-ui-usage-content {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  gap: var(--hbar-app-ui-space-md);
+}
+.hbar-app-ui-usage-content:has(> .hbar-app-ui-virtual-list) {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.hbar-app-ui-usage-content > .hbar-app-ui-toolbar {
+  flex: 0 0 auto;
+}
+.hbar-app-ui-usage-content .hbar-app-ui-stacked-bars,
+.hbar-app-ui-usage-content .hbar-app-ui-rate-limits,
+.hbar-app-ui-usage-content .hbar-app-ui-usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-usage-content .hbar-app-ui-overage-split,
+.hbar-app-ui-usage-content .hbar-app-ui-seat-usage-row,
+.hbar-app-ui-usage-content .hbar-app-ui-table-heading,
+.hbar-app-ui-usage-content .hbar-app-ui-model-spend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+  min-inline-size: 0;
+}
+.hbar-app-ui-usage-content .hbar-app-ui-model-spend-row > *,
+.hbar-app-ui-usage-content .hbar-app-ui-table-heading > *,
+.hbar-app-ui-usage-content .hbar-app-ui-overage-split > * {
+  flex: 1 1 8ch;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-usage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+  justify-content: flex-end;
+}
+.hbar-app-ui-usage-content label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-usage-content label input,
+.hbar-app-ui-usage-content label select {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-app-ui-usage-content pre {
+  overflow: auto;
+  max-inline-size: 100%;
+}
+.hbar-app-ui-usage-content .hbar-app-ui-sparkline {
+  block-size: var(--hbar-app-ui-usage-chart-size, 3rem);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--hbar-app-ui-space-xs);
+}
+.hbar-app-ui-usage-content .hbar-app-ui-sparkline i {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hbar-app-ui-variant.hbar-app-ui-usage-catalog {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+.hbar-app-ui-usage-catalog > .hbar-app-ui-usage-content {
+  flex: 1 1 auto;
+}
+.hbar-app-ui-usage-content .hbar-app-ui-toolbar h2 {
+  margin: 0;
+  font-size: inherit;
+}

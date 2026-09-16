@@ -83,7 +83,7 @@ export function HbarAppUiProgress({value, label, tone = 'accent'}: {
     readonly label?: string;
     readonly tone?: 'accent' | 'positive' | 'warning' | 'danger'
 }) {
-    const bounded = Math.max(0, Math.min(100, value))
+    const bounded = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0))
     return <div className="hbar-app-ui-progress" aria-label={label} aria-valuemin={0} aria-valuemax={100}
                 aria-valuenow={bounded} role="progressbar"><span
         className={`hbar-app-ui-progress-fill hbar-app-ui-progress-${tone}`} style={{width: `${bounded}%`}}/></div>

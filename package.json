@@ -27,6 +27,7 @@
     "app-ui:tool-calls:verify": "bun scripts/verify-hbar-app-ui-tool-calls.ts",
     "app-ui:agent-activity:verify": "bun scripts/verify-hbar-app-ui-agent-activity.ts",
     "app-ui:agent-approval:verify": "bun scripts/verify-hbar-app-ui-agent-approval.ts",
+    "app-ui:usage:verify": "bun scripts/verify-hbar-app-ui-usage.ts",
     "app-ui:agent-plan:verify": "bun scripts/verify-hbar-app-ui-agent-plan.ts",
     "app-ui:file-manager:verify": "bun scripts/verify-hbar-app-ui-file-manager.ts",
     "app-ui:feedback:verify": "bun scripts/verify-hbar-app-ui-feedback.ts",

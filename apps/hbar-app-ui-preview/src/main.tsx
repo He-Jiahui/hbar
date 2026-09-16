@@ -1,3 +1,5 @@
+import { previewLayoutStyle } from './preview-layout'
+import { UsagePreviewHost } from './UsagePreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -307,7 +309,7 @@ function PreviewApp() {
     return (
       <div
         className="hbar-app-ui-canvas hbar-app-ui-isolated-canvas"
-        data-hbar-app-ui-theme={theme}
+        data-hbar-app-ui-theme={theme} style={previewLayoutStyle}
         data-hbar-app-ui-variant={selected.spec.id}
       >
         <HbarAppUiFileManagerProvider content={fileManagerContent}>
@@ -322,7 +324,7 @@ function PreviewApp() {
               <HbarAppUiToolCallsProvider content={toolCallsContent}>
                 <HbarAppUiNavbarProvider content={navbarContent}>
                   <HbarAppUiEditorProvider content={editorContent}>
-                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ConversationPreviewHost></ShellPreviewHost>
+                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
                   </HbarAppUiEditorProvider>
                 </HbarAppUiNavbarProvider>
               </HbarAppUiToolCallsProvider>
@@ -340,7 +342,7 @@ function PreviewApp() {
   }
 
   return (
-    <div className="hbar-app-ui-canvas hbar-app-ui-preview" data-hbar-app-ui-theme={theme} ref={previewRef}>
+    <div className="hbar-app-ui-canvas hbar-app-ui-preview" data-hbar-app-ui-theme={theme} style={previewLayoutStyle} ref={previewRef}>
       <header className="hbar-app-ui-preview-header">
         <div className="hbar-app-ui-preview-brand">
           <span className="hbar-app-ui-preview-mark">h</span>
@@ -409,7 +411,7 @@ function PreviewApp() {
                         <HbarAppUiToolCallsProvider content={toolCallsContent}>
                           <HbarAppUiNavbarProvider content={navbarContent}>
                             <HbarAppUiEditorProvider content={editorContent}>
-                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ConversationPreviewHost></ShellPreviewHost>
+                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
                             </HbarAppUiEditorProvider>
                           </HbarAppUiNavbarProvider>
                         </HbarAppUiToolCallsProvider>

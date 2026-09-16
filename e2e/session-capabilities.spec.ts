@@ -129,3 +129,51 @@ test('app-ui plan editor preserves typing, detects remote changes, and scrolls t
     fixture.api.disconnect()
   }
 })
+
+test('app-ui budget keeps failed input, detects remote limit changes and confirms saved values after refresh', async ({
+  page,
+  context,
+}) => {
+  const fixture = await login(context, page)
+  try {
+    const bootstrap = await fixture.api.call('system.bootstrap', {})
+    const session = await fixture.api.call('session.create', {
+      workspaceId: bootstrap.workspaces[0]!.id,
+      title: 'Budget recovery',
+    })
+    await fixture.api.call('budget.set', { sessionId: session.id, limit: 1000 })
+    await page.reload()
+    await page.locator('.session-select').filter({ hasText: 'Budget recovery' }).click()
+    async function openBudget() {
+      await page.getByRole('button', { name: '添加能力', exact: true }).filter({ visible: true }).click()
+      await page.getByRole('menuitem', { name: 'Budget 模式', exact: true }).click()
+    }
+    await openBudget()
+    const dialog = page.getByRole('dialog', { name: '会话能力', exact: true }),
+      limit = dialog.getByRole('spinbutton', { name: 'Token 上限', exact: true })
+    await expect(limit).toHaveValue('1000')
+    await limit.fill('500')
+    await dialog.getByRole('button', { name: '增加上限', exact: true }).click()
+    await expect(dialog.getByRole('alert')).toBeVisible()
+    await expect(limit).toHaveValue('500')
+    await limit.fill('2000')
+    await fixture.api.call('budget.set', { sessionId: session.id, limit: 3000 })
+    await expect(dialog).toContainText('输入已保留')
+    await expect(limit).toHaveValue('2000')
+    await expect(dialog.getByRole('button', { name: '增加上限', exact: true })).toBeDisabled()
+    await dialog.getByRole('button', { name: '载入最新预算', exact: true }).click()
+    await expect(limit).toHaveValue('3000')
+    await limit.fill('4000')
+    await dialog.getByRole('button', { name: '增加上限', exact: true }).click()
+    await expect.poll(async () => (await fixture.api.call('budget.get', { sessionId: session.id }))?.limit).toBe(4000)
+    await dialog.getByRole('button', { name: '关闭', exact: true }).click()
+    await page.reload()
+    await openBudget()
+    await expect(limit).toHaveValue('4000')
+    await page.setViewportSize({ width: 320, height: 740 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/app-ui-integration/budget-mobile.png' })
+  } finally {
+    fixture.api.disconnect()
+  }
+})

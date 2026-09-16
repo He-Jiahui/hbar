@@ -13,7 +13,7 @@ describe('app-ui production boundary', () => {
   test('bundling the public production entry does not traverse catalog or fixtures', async () => {
     const inputs = new Set<string>()
     const result = await Bun.build({
-      entrypoints: ['packages/hbar-app-ui/src/production.ts'],
+      entrypoints: ['packages/hbar-app-ui/src/production.ts', 'packages/hbar-app-ui/src/ai-usage.ts'],
       target: 'browser',
       external: ['react', 'react/jsx-runtime', 'lucide-react'],
       plugins: [

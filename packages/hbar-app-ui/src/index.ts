@@ -401,3 +401,5 @@ export type {
 
 export {HBAR_APP_UI_VARIANT_EXPORTS} from './variants'
 export * from './variants'
+
+export { HbarAppUiUsageProvider } from './components/ai-usage/UsageProvider'
