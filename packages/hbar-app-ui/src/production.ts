@@ -1,5 +1,6 @@
 /** Production entry: never import the variant registry or preview fixtures here. */
 export { HbarAppUiIcon, type HbarAppUiIconTier } from './icon'
+export { HbarAppUiDialog, type HbarAppUiDialogProps } from './components/app-dialog/NativeDialog'
 export { HbarAppUiEventLog } from './components/agent-activity/EventLog'
 export type { HbarAppUiEventLogProps, HbarAppUiEventLogItem } from './components/agent-activity/EventLog'
 export { HbarAppUiVirtualList } from './VirtualList'

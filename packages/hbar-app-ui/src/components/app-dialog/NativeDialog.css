@@ -1,0 +1,61 @@
+@import '../../tokens.css';
+
+dialog.hbar-app-ui-native-dialog {
+  padding: 0;
+  inline-size: min(var(--hbar-app-ui-dialog-width), calc(100vi - 2 * var(--hbar-app-ui-overlay-gap)));
+  max-block-size: calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap));
+  overflow: hidden;
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
+  border-radius: var(--hbar-app-ui-control-radius);
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-0);
+  box-shadow: var(--hbar-app-ui-shadow);
+}
+dialog.hbar-app-ui-native-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+dialog.hbar-app-ui-native-dialog:not([open]) {
+  display: none;
+}
+.hbar-app-ui-native-dialog::backdrop {
+  background: color-mix(in srgb, var(--hbar-app-ui-bg) 70%, transparent);
+}
+dialog.hbar-app-ui-native-dialog > header,
+dialog.hbar-app-ui-native-dialog > footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-lg);
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-0);
+}
+.hbar-app-ui-native-dialog > header {
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+.hbar-app-ui-native-dialog > header h2 {
+  margin: 0;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  font-size: inherit;
+}
+.hbar-app-ui-native-dialog > header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--hbar-app-ui-control-min);
+  min-block-size: var(--hbar-app-ui-control-min);
+  flex: 0 0 auto;
+}
+.hbar-app-ui-native-dialog-body {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: auto;
+}
+.hbar-app-ui-native-dialog > footer {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}

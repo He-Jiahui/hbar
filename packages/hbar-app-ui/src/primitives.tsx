@@ -3,7 +3,6 @@ import {
     type ElementType,
     type HTMLAttributes,
     type ReactNode,
-    useEffect,
     useState
 } from 'react'
 import type {HbarAppUiDataRow, HbarAppUiMetric, HbarAppUiOption, HbarAppUiTimelineStep} from './types'
@@ -186,29 +185,4 @@ export function HbarAppUiComposer({placeholder = 'Write a message', onSubmit}: {
     </form>
 }
 
-export function HbarAppUiDialog({open, title, children, onClose, footer}: {
-    readonly open: boolean;
-    readonly title: string;
-    readonly children: ReactNode;
-    readonly onClose: () => void;
-    readonly footer?: ReactNode
-}) {
-    useEffect(() => {
-        if (!open) return;
-        const handler = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') onClose()
-        };
-        document.addEventListener('keydown', handler);
-        return () => document.removeEventListener('keydown', handler)
-    }, [onClose, open])
-    if (!open) return null
-    return <div className="hbar-app-ui-dialog-backdrop" role="presentation" onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-    }}>
-        <section className="hbar-app-ui-dialog" role="dialog" aria-modal="true" aria-label={title}>
-            <header><strong>{title}</strong><HbarAppUiIconButton label="Close" onClick={onClose}>×</HbarAppUiIconButton>
-            </header>
-            <div className="hbar-app-ui-dialog-body">{children}</div>
-            {footer && <footer>{footer}</footer>}</section>
-    </div>
-}
+export { HbarAppUiDialog } from './components/app-dialog/NativeDialog'

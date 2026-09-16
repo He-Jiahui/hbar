@@ -37,6 +37,10 @@
   flex-direction: column;
   overflow: hidden;
 }
+.modal:has(.session-plan-pane) .hbar-app-ui-native-dialog-body {
+  display: flex;
+  overflow: hidden;
+}
 .modal:has(.session-plan-pane) > header,
 .session-capability-dialog:has(.session-plan-pane) > nav {
   flex: 0 0 auto;

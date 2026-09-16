@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ClipboardList, Gauge, LoaderCircle, Pause, Play, Save, Target, Trash2 } from 'lucide-react'
 import type { ThreadGoal } from '@hbar/contracts'
-import { Modal } from './Settings'
+import { Modal } from './Modal'
 import { PlanPane } from './PlanPane'
 import { BudgetPane } from './BudgetPane'
 import { client, report } from './stores'

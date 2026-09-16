@@ -10,7 +10,7 @@ import {
 } from 'hbar-app-ui'
 import { cancelSessionRun, useConnection, useSessions, useWorkbench, report } from './stores'
 import { useLocale, type LocaleMessageKey } from './locale'
-import { Modal } from './Settings'
+import { Modal } from './Modal'
 import { activityModel } from './activity-actions'
 import { getActivityCopy } from './activity-locale'
 import './activity-panel.css'

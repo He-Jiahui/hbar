@@ -39,7 +39,8 @@ import { platform } from './platform'
 import Chat from './Chat'
 import Sessions from './Sessions'
 import Files, { FileViewer } from './Files'
-import Settings, { Modal } from './Settings'
+import Settings from './Settings'
+import { Modal } from './Modal'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
@@ -202,6 +203,7 @@ function Diagnose() {
   )
 }
 export default function App() {
+  const workspaceInput = useRef<HTMLInputElement>(null)
   const status = useConnection((state) => state.status),
     data = useCatalog((state) => state.data),
     host = useConnection((state) => state.host)
@@ -1042,7 +1044,7 @@ export default function App() {
       <CapabilityDialogHost />
       <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
       {workspaceModal && (
-        <Modal title="添加工作区" onClose={() => setWorkspaceModal(false)}>
+        <Modal title="添加工作区" onClose={() => setWorkspaceModal(false)} initialFocus={workspaceInput}>
           <form
             className="settings-form"
             onSubmit={(event) => {
@@ -1062,6 +1064,7 @@ export default function App() {
               目录路径
               <input
                 autoFocus
+                ref={workspaceInput}
                 value={workspacePath}
                 onChange={(event) => setWorkspacePath(event.target.value)}
                 placeholder="D:\Projects\my-project"

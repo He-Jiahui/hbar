@@ -32,7 +32,7 @@
     "./empty-state": "./src/components/EmptyState.tsx",
     "./settings-form": "./src/components/SettingsForm.tsx",
     "./forms": "./src/components/Forms.tsx",
-    "./app-dialog": "./src/components/AppDialog.tsx",
+    "./app-dialog": "./src/app-dialog.ts",
     "./notifications": "./src/components/Notifications.tsx",
     "./onboarding": "./src/components/Onboarding.tsx",
     "./paywall": "./src/components/Paywall.tsx",

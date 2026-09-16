@@ -5,6 +5,7 @@ export type SupportedLocale = 'zh-CN' | 'en-US'
 
 const messages = {
   'zh-CN': {
+    dialogClose: '关闭',
     preview: '预览',
     source: '源码',
     copyCode: '复制代码',
@@ -997,6 +998,7 @@ const messages = {
     languageEnglish: 'English',
   },
   'en-US': {
+    dialogClose: 'Close',
     preview: 'Preview',
     source: 'Source',
     copyCode: 'Copy code',

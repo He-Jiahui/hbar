@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { Modal } from './Modal'
+import { useEffect, useState } from 'react'
 import {
   Check,
   ChevronRight,
@@ -17,7 +18,6 @@ import {
   Stethoscope,
   Sun,
   Trash2,
-  X,
 } from 'lucide-react'
 import { DEFAULT_THINKING_LEVELS, providerSchema } from '@hbar/contracts'
 import type { Device, ModelInfo, PluginInfo, ProviderConfig, ProviderModelConfig, ThinkingLevel } from '@hbar/contracts'
@@ -30,42 +30,7 @@ import PathSettings from './PathSettings'
 import { groupModelsByProvider, modelThinkingLabel } from './model-catalog'
 import { HbarAppUiSpotlight, HbarAppUiTabs } from 'hbar-app-ui'
 
-export function Modal({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = ref.current
-    dialog?.showModal()
-    return () => dialog?.close()
-  }, [])
-  return (
-    <dialog
-      ref={ref}
-      className="modal"
-      aria-label={title}
-      onCancel={onClose}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          const bounds = event.currentTarget.getBoundingClientRect()
-          if (
-            event.clientX < bounds.left ||
-            event.clientX > bounds.right ||
-            event.clientY < bounds.top ||
-            event.clientY > bounds.bottom
-          )
-            onClose()
-        }
-      }}
-    >
-      <header>
-        <h2>{title}</h2>
-        <button title="关闭" aria-label="关闭" onClick={onClose}>
-          <X size={17} />
-        </button>
-      </header>
-      {children}
-    </dialog>
-  )
-}
+export { Modal } from './Modal'
 const ALL_THINKING_LEVELS: readonly ThinkingLevel[] = [...DEFAULT_THINKING_LEVELS]
 
 function cloneProviderModel(model: ProviderModelConfig): ProviderModelConfig {
@@ -801,7 +766,11 @@ export default function Settings() {
             <HbarAppUiTabs
               label="模型状态"
               value={modelFilter}
-              options={[{ id: 'all', label: '全部' }, { id: 'connected', label: '已连接' }, { id: 'needs-key', label: '待配置' }]}
+              options={[
+                { id: 'all', label: '全部' },
+                { id: 'connected', label: '已连接' },
+                { id: 'needs-key', label: '待配置' },
+              ]}
               onChange={(value) => setModelFilter(value as 'all' | 'connected' | 'needs-key')}
             />
           </div>

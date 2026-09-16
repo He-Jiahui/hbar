@@ -20,4 +20,6 @@
   --hbar-app-ui-avatar-large: 2.75rem;
   --hbar-app-ui-control-radius: 0.375rem;
   --hbar-app-ui-divider: 0.0625rem;
+  --hbar-app-ui-dialog-width: 40rem;
+  --hbar-app-ui-overlay-gap: 1rem;
 }
