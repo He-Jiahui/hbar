@@ -120,6 +120,37 @@ export type {
     HbarAppUiFeedbackVolumePoint,
     HbarAppUiFeedbackWidgetContent,
 } from './components/Feedback'
+export {HbarAppUiAuthenticationProvider, selectHbarAppUiAuthItem, uniqueHbarAppUiAuthItems} from './components/Authentication'
+export type {
+    HbarAppUiAuthAccount,
+    HbarAppUiAuthAccountContent,
+    HbarAppUiAuthApprovalContent,
+    HbarAppUiAuthChoice,
+    HbarAppUiAuthCodeContent,
+    HbarAppUiAuthContent,
+    HbarAppUiAuthDevice,
+    HbarAppUiAuthEnterpriseContent,
+    HbarAppUiAuthInvitationContent,
+    HbarAppUiAuthListStrategy,
+    HbarAppUiAuthMagicLinkContent,
+    HbarAppUiAuthMember,
+    HbarAppUiAuthPasskey,
+    HbarAppUiAuthPasskeyContent,
+    HbarAppUiAuthPasswordResetContent,
+    HbarAppUiAuthProject,
+    HbarAppUiAuthProviderChoice,
+    HbarAppUiAuthProviderFirstContent,
+    HbarAppUiAuthProviderProps,
+    HbarAppUiAuthQuote,
+    HbarAppUiAuthQuoteContent,
+    HbarAppUiAuthRecentSignIn,
+    HbarAppUiAuthSignInContent,
+    HbarAppUiAuthSignUpContent,
+    HbarAppUiAuthTwoStepContent,
+    HbarAppUiAuthWorkspace,
+    HbarAppUiAuthWorkspaceContent,
+    HbarAppUiAuthenticationProps,
+} from './components/Authentication'
 export {HbarAppUiSettingsFormProvider, selectHbarAppUiSettingsItem, uniqueHbarAppUiSettingsItems} from './components/SettingsForm'
 export type {
     HbarAppUiSettingsApiKeysContent,
