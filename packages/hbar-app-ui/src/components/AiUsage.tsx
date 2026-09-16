@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {ArrowDown, ArrowUp, ChevronDown, Gauge, Search, SlidersHorizontal} from 'lucide-react'
 import {
@@ -59,15 +60,15 @@ function SpendByModel({spec, onAction}: UsageProps) {
         title="Spend by model" detail="Share bars · period deltas"/><HbarAppUiButton onClick={() => {
         setSort(sort === 'Spend' ? 'Delta' : 'Spend');
         onAction?.({variantId: spec.id, actionId: 'sort', value: sort})
-    }}><SlidersHorizontal size={13}/>Sort: {sort}</HbarAppUiButton>
+    }}><HbarAppUiIcon icon={SlidersHorizontal} tier="sm" />Sort: {sort}</HbarAppUiButton>
         <div className="hbar-app-ui-model-spend-table">
             <div className="hbar-app-ui-table-heading">
                 <span>Model</span><span>Share</span><span>Spend</span><span>Delta</span></div>
             {models.slice(0, Math.max(2, Math.min(models.length, spec.profile.itemCount + 1))).map((model, index) =>
                 <div className="hbar-app-ui-model-spend-row" key={model}><strong>{model}</strong><HbarAppUiProgress
                     value={72 - index * 13} label={`${model} share`}/><span>${(12.4 - index * 2.1).toFixed(2)}</span><b
-                    className={index === 2 ? 'is-down' : 'is-up'}>{index === 2 ? <ArrowDown size={12}/> :
-                    <ArrowUp size={12}/>} {index === 2 ? '4%' : `${8 - index}%`}</b></div>)}</div>
+                    className={index === 2 ? 'is-down' : 'is-up'}>{index === 2 ? <HbarAppUiIcon icon={ArrowDown} tier="xs" /> :
+                    <HbarAppUiIcon icon={ArrowUp} tier="xs" />} {index === 2 ? '4%' : `${8 - index}%`}</b></div>)}</div>
     </ActionSurfaceFrame>
 }
 
@@ -96,7 +97,7 @@ function RateLimits({spec, onAction}: UsageProps) {
             value: 78,
             reset: 'resets tomorrow'
         }].map((meter) => <HbarAppUiSpotlight key={meter.label}>
-            <div><Gauge size={15}/><strong>{meter.label}</strong><span>{meter.value}%</span></div>
+            <div><HbarAppUiIcon icon={Gauge} tier="sm" /><strong>{meter.label}</strong><span>{meter.value}%</span></div>
             <HbarAppUiProgress value={meter.value} label={`${meter.label} utilisation`}
                                tone={meter.value > 70 ? 'warning' : 'accent'}/><small>{meter.reset} · {tier} tier</small></HbarAppUiSpotlight>)}</div>
     </ActionSurfaceFrame>
@@ -107,7 +108,7 @@ function PerSeatUsage({spec, onAction}: UsageProps) {
     const people = ['Avery Chen', 'Mina Patel', 'Jon Bell', 'Sam Rivera', 'Lee Wong']
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-usage-variant-4"><HbarAppUiToolbar
         title="Per-seat usage" detail="Team filters and individual caps"/>
-        <div className="hbar-app-ui-inline-search"><Search size={13}/><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}
                                                                              placeholder="Search people"
                                                                              aria-label="Search people"/></div>
@@ -180,8 +181,8 @@ function RequestLog({spec, onAction}: UsageProps) {
         <div
             className="hbar-app-ui-request-log">{requests.slice(0, Math.max(2, Math.min(requests.length, spec.profile.itemCount))).map((request, index) =>
             <div className={`hbar-app-ui-request-row ${open === request ? 'is-open' : ''}`} key={request}>
-                <button type="button" onClick={() => setOpen(open === request ? undefined : request)}><ChevronDown
-                    size={13}/><code>{request}</code><span>{420 + index * 88} tokens</span><span>{180 + index * 34}ms</span><b>${(0.03 + index * 0.01).toFixed(2)}</b>
+                <button type="button" onClick={() => setOpen(open === request ? undefined : request)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
+                    /><code>{request}</code><span>{420 + index * 88} tokens</span><span>{180 + index * 34}ms</span><b>${(0.03 + index * 0.01).toFixed(2)}</b>
                 </button>
                 {open === request &&
                     <pre>{`model=balanced\ninput=${240 + index * 20}\noutput=${180 + index * 12}`}</pre>}</div>)}</div>

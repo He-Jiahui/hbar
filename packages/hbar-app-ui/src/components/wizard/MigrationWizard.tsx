@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {AlertTriangle, Check, Circle, LoaderCircle} from 'lucide-react'
 import {
@@ -20,10 +21,10 @@ const migrationSteps: readonly {readonly id: string; readonly label: string; rea
 ]
 
 function MigrationIcon({state}: {readonly state: MigrationState}) {
-    if (state === 'complete') return <Check size={14} strokeWidth={2}/>
-    if (state === 'active') return <LoaderCircle size={14} strokeWidth={1.7}/>
-    if (state === 'warning') return <AlertTriangle size={14} strokeWidth={1.7}/>
-    return <Circle size={10} strokeWidth={1.5}/>
+    if (state === 'complete') return <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={2}/>
+    if (state === 'active') return <HbarAppUiIcon icon={LoaderCircle} tier="sm"  strokeWidth={1.7}/>
+    if (state === 'warning') return <HbarAppUiIcon icon={AlertTriangle} tier="sm"  strokeWidth={1.7}/>
+    return <HbarAppUiIcon icon={Circle} tier="xs"  strokeWidth={1.5}/>
 }
 
 export function MigrationWizard({spec, onAction}: WizardSurfaceProps) {

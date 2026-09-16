@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import type {ReactNode} from 'react'
 import {X} from 'lucide-react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
@@ -33,7 +34,7 @@ export function DialogBackdrop({children, className = ''}: {readonly children: R
 }
 
 export function DialogCloseButton({onClose}: {readonly onClose: () => void}): ReactNode {
-    return <button type="button" className="hbar-app-ui-dialog-close" aria-label="Close dialog" onClick={onClose}><X size={16}/></button>
+    return <button type="button" className="hbar-app-ui-dialog-close" aria-label="Close dialog" onClick={onClose}><HbarAppUiIcon icon={X} tier="md" /></button>
 }
 
 export function DialogButton({

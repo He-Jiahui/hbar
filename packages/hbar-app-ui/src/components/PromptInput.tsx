@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {AtSign, Check, Command, FileText, Hash, Paperclip, Plus, Sparkles, Square, WandSparkles, X} from 'lucide-react'
 import {
@@ -22,8 +23,8 @@ function PromptInputOne({spec, onAction}: PromptProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-prompt-variant-1"><HbarAppUiToolbar title="Prompt composer"
                                                                                           detail="Slash commands · attachments · run state"/><HbarAppUiButton
-        onClick={() => setCommandsOpen((value) => !value)}><Command
-        size={14}/>Commands</HbarAppUiButton><HbarAppUiStatus value={running ? 'Running' : 'Ready'}
+        onClick={() => setCommandsOpen((value) => !value)}><HbarAppUiIcon icon={Command} tier="sm"
+        />Commands</HbarAppUiButton><HbarAppUiStatus value={running ? 'Running' : 'Ready'}
                                                               tone={running ? 'warning' : 'positive'}/>{commandsOpen &&
         <HbarAppUiSpotlight className="hbar-app-ui-slash-menu">
             <button type="button" onClick={() => onAction?.({
@@ -40,16 +41,16 @@ function PromptInputOne({spec, onAction}: PromptProps) {
         <div className="hbar-app-ui-composer-shell">
             <div className="hbar-app-ui-attachment-tray">{attachments.map((file) => <button type="button" key={file}
                                                                                             onClick={() => setAttachments((current) => current.filter((item) => item !== file))}>
-                <FileText size={13}/>{file}<X size={12}/></button>)}<HbarAppUiButton
-                onClick={() => setAttachments((current) => [...current, `context-${current.length + 1}.md`])}><Paperclip
-                size={13}/>Attach</HbarAppUiButton></div>
+                <HbarAppUiIcon icon={FileText} tier="sm" />{file}<HbarAppUiIcon icon={X} tier="xs" /></button>)}<HbarAppUiButton
+                onClick={() => setAttachments((current) => [...current, `context-${current.length + 1}.md`])}><HbarAppUiIcon icon={Paperclip} tier="sm"
+                />Attach</HbarAppUiButton></div>
             <HbarAppUiComposer placeholder="Type a prompt or /command" onSubmit={(value) => {
                 setRunning(true);
                 onAction?.({variantId: spec.id, actionId: 'send', value})
             }}/><HbarAppUiButton tone="danger" disabled={!running} onClick={() => {
             setRunning(false);
             onAction?.({variantId: spec.id, actionId: 'stop'})
-        }}><Square size={14}/>Stop</HbarAppUiButton></div>
+        }}><HbarAppUiIcon icon={Square} tier="sm" />Stop</HbarAppUiButton></div>
     </ActionSurfaceFrame>
 }
 
@@ -71,7 +72,7 @@ function PromptInputTwo({spec, onAction}: PromptProps) {
         <div className="hbar-app-ui-tool-toggles">{['Search', 'Browser', 'Files'].map((tool) => <HbarAppUiButton
             key={tool} className={tools.includes(tool) ? 'is-selected' : ''}
             onClick={() => setTools((current) => current.includes(tool) ? current.filter((item) => item !== tool) : [...current, tool])}>{tools.includes(tool) ?
-            <Check size={13}/> : <Plus size={13}/>}{tool}</HbarAppUiButton>)}</div>
+            <HbarAppUiIcon icon={Check} tier="sm" /> : <HbarAppUiIcon icon={Plus} tier="sm" />}{tool}</HbarAppUiButton>)}</div>
         <HbarAppUiComposer placeholder="Ask with tools enabled" onSubmit={(value) => onAction?.({
             variantId: spec.id,
             actionId: 'send',
@@ -82,7 +83,7 @@ function PromptInputTwo({spec, onAction}: PromptProps) {
 function PromptInputThree({spec, onAction}: PromptProps) {
     const suggestions = ['Plan a release', 'Summarise activity', 'Find risky changes', 'Draft a reply']
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-prompt-variant-3">
-        <div className="hbar-app-ui-prompt-hero"><Sparkles size={24}/><h2>Start with a prompt</h2><p>Turn a short
+        <div className="hbar-app-ui-prompt-hero"><HbarAppUiIcon icon={Sparkles} tier="xl" /><h2>Start with a prompt</h2><p>Turn a short
             request into a focused workspace action.</p>
             <div
                 className="hbar-app-ui-suggestion-grid">{suggestions.slice(0, Math.max(2, Math.min(suggestions.length, spec.profile.itemCount + 1))).map((suggestion) =>
@@ -90,7 +91,7 @@ function PromptInputThree({spec, onAction}: PromptProps) {
                     variantId: spec.id,
                     actionId: 'suggestion',
                     value: suggestion
-                })}>{suggestion}<WandSparkles size={13}/></HbarAppUiButton>)}</div>
+                })}>{suggestion}<HbarAppUiIcon icon={WandSparkles} tier="sm" /></HbarAppUiButton>)}</div>
             <HbarAppUiComposer placeholder="Describe what you need"
                                onSubmit={(value) => onAction?.({variantId: spec.id, actionId: 'send', value})}/>
             <div className="hbar-app-ui-recent-prompts"><strong>Recent prompts</strong>
@@ -109,13 +110,13 @@ function PromptInputFour({spec, onAction}: PromptProps) {
         tone="accent" onClick={() => {
         setValid(true);
         onAction?.({variantId: spec.id, actionId: 'save'})
-    }}><Check size={14}/>Save template</HbarAppUiButton>
+    }}><HbarAppUiIcon icon={Check} tier="sm" />Save template</HbarAppUiButton>
         <div className="hbar-app-ui-template-editor"><label>Template name<input defaultValue="Release summary"/></label><label>Prompt<textarea
             defaultValue="Summarise {{workspace}} for {{audience}} by {{deadline}}."
             onChange={(event) => setValid(event.target.value.includes('{{') && event.target.value.includes('}}'))}/></label>
             <div className="hbar-app-ui-variable-list">
-                <strong>Variables</strong>{['workspace', 'audience', 'deadline'].map((variable) => <span key={variable}><Hash
-                size={12}/>{variable}<HbarAppUiStatus value={valid ? 'Valid' : 'Needs value'}
+                <strong>Variables</strong>{['workspace', 'audience', 'deadline'].map((variable) => <span key={variable}><HbarAppUiIcon icon={Hash} tier="xs"
+                />{variable}<HbarAppUiStatus value={valid ? 'Valid' : 'Needs value'}
                                                       tone={valid ? 'positive' : 'warning'}/></span>)}</div>
         </div>
     </ActionSurfaceFrame>
@@ -127,19 +128,19 @@ function PromptInputFive({spec, onAction}: PromptProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-prompt-variant-5"><HbarAppUiToolbar
         title="Drop files into your prompt" detail="Each attachment reports its upload state"/><HbarAppUiButton
-        onClick={() => setProgress((value) => Math.min(100, value + 20))}><Plus size={14}/>Add file</HbarAppUiButton>
+        onClick={() => setProgress((value) => Math.min(100, value + 20))}><HbarAppUiIcon icon={Plus} tier="sm" />Add file</HbarAppUiButton>
         <div className={`hbar-app-ui-dropzone ${dragging ? 'is-dragging' : ''}`} onDragEnter={() => setDragging(true)}
              onDragLeave={() => setDragging(false)} onDrop={(event) => {
             event.preventDefault();
             setDragging(false);
             setProgress(100);
             onAction?.({variantId: spec.id, actionId: 'upload', value: 'drop'})
-        }} onDragOver={(event) => event.preventDefault()}><Paperclip
-            size={20}/><strong>{dragging ? 'Release to upload' : 'Drag files here'}</strong><small>or choose a file from
+        }} onDragOver={(event) => event.preventDefault()}><HbarAppUiIcon icon={Paperclip} tier="lg"
+            /><strong>{dragging ? 'Release to upload' : 'Drag files here'}</strong><small>or choose a file from
             this device</small></div>
         <HbarAppUiSpotlight className="hbar-app-ui-upload-row">
-            <div><FileText
-                size={15}/><span>requirements.pdf<small>2.1 MB · {progress === 100 ? 'Uploaded' : 'Uploading'}</small></span>
+            <div><HbarAppUiIcon icon={FileText} tier="sm"
+                /><span>requirements.pdf<small>2.1 MB · {progress === 100 ? 'Uploaded' : 'Uploading'}</small></span>
             </div>
             <HbarAppUiProgress value={progress} label="requirements upload"
                                tone={progress === 100 ? 'positive' : 'accent'}/><span>{progress}%</span></HbarAppUiSpotlight><HbarAppUiComposer
@@ -153,7 +154,7 @@ function PromptInputSix({spec, onAction}: PromptProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-prompt-variant-6"><HbarAppUiToolbar title="Scoped prompt bar"
                                                                                           detail="Mention a source to narrow context"/><HbarAppUiButton
-        onClick={() => setMentionOpen((value) => !value)}><AtSign size={14}/>Mention</HbarAppUiButton><select
+        onClick={() => setMentionOpen((value) => !value)}><HbarAppUiIcon icon={AtSign} tier="sm" />Mention</HbarAppUiButton><select
         aria-label="Context scope" value={scope} onChange={(event) => {
         setScope(event.target.value);
         onAction?.({variantId: spec.id, actionId: 'picker', value: event.target.value})
@@ -162,12 +163,12 @@ function PromptInputSix({spec, onAction}: PromptProps) {
         <option>Current file</option>
         <option>Selected run</option>
     </select>{mentionOpen && <HbarAppUiSpotlight className="hbar-app-ui-mention-menu">
-        <button type="button" onClick={() => setMentionOpen(false)}><AtSign size={13}/>activity.log</button>
-        <button type="button" onClick={() => setMentionOpen(false)}><AtSign size={13}/>README.md</button>
+        <button type="button" onClick={() => setMentionOpen(false)}><HbarAppUiIcon icon={AtSign} tier="sm" />activity.log</button>
+        <button type="button" onClick={() => setMentionOpen(false)}><HbarAppUiIcon icon={AtSign} tier="sm" />README.md</button>
     </HbarAppUiSpotlight>}
-        <div className="hbar-app-ui-source-pills"><span><FileText size={12}/>{scope}</span><span><FileText size={12}/>run-2026-09</span>
-            <button type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'clear-context'})}><X
-                size={12}/>Clear
+        <div className="hbar-app-ui-source-pills"><span><HbarAppUiIcon icon={FileText} tier="xs" />{scope}</span><span><HbarAppUiIcon icon={FileText} tier="xs" />run-2026-09</span>
+            <button type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'clear-context'})}><HbarAppUiIcon icon={X} tier="xs"
+                />Clear
             </button>
         </div>
         <HbarAppUiComposer placeholder="Ask with scoped context" onSubmit={(value) => onAction?.({

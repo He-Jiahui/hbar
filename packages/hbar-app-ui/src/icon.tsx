@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import type { LucideIcon, LucideProps } from 'lucide-react'
 
 export type HbarAppUiIconTier = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
@@ -6,16 +6,19 @@ export type HbarAppUiIconTier = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 export function HbarAppUiIcon({
   icon: Icon,
   tier = 'md',
+  style,
+  ...props
 }: {
   readonly icon: LucideIcon
   readonly tier?: HbarAppUiIconTier
-}) {
+} & Omit<LucideProps, 'size'>) {
   const dimension = `var(--hbar-app-ui-icon-${tier})`
   return (
     <Icon
-      aria-hidden="true"
+      aria-hidden={props['aria-label'] ? undefined : true}
       focusable="false"
-      style={{ inlineSize: dimension, blockSize: dimension, flex: '0 0 auto' }}
+      {...props}
+      style={{ ...style, inlineSize: dimension, blockSize: dimension, flex: '0 0 auto' }}
     />
   )
 }

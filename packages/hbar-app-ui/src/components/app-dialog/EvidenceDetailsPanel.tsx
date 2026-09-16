@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Archive, Download} from 'lucide-react'
 import {DialogBackdrop, DialogButton, DialogCloseButton, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
@@ -38,7 +39,7 @@ export function EvidenceDetailsPanel({spec, onAction}: AppDialogProps): React.JS
                     <section className="hbar-app-ui-evidence-controls"><h3>Controls covered</h3><div>{controls.map(([code, label]) => <span key={code}><strong>{code}</strong> {label}</span>)}</div></section>
                     <section className="hbar-app-ui-evidence-history"><h3>History</h3><p><time>Jun 18, 2024</time><span>Report uploaded by Priya Raman</span></p></section>
                 </div>
-                <footer className="hbar-app-ui-dialog-footer hbar-app-ui-side-panel-footer"><DialogButton onClick={() => reportDialogAction(onAction, spec, 'archive')}><Archive size={16}/>Archive</DialogButton><DialogButton tone="accent" onClick={() => reportDialogAction(onAction, spec, 'download')}><Download size={16}/>Download</DialogButton></footer>
+                <footer className="hbar-app-ui-dialog-footer hbar-app-ui-side-panel-footer"><DialogButton onClick={() => reportDialogAction(onAction, spec, 'archive')}><HbarAppUiIcon icon={Archive} tier="md" />Archive</DialogButton><DialogButton tone="accent" onClick={() => reportDialogAction(onAction, spec, 'download')}><HbarAppUiIcon icon={Download} tier="md" />Download</DialogButton></footer>
             </aside>
         </DialogBackdrop>}
     </DialogFrame>

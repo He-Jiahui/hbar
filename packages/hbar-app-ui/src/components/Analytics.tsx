@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {ArrowDown, ArrowUp, Crosshair, Info, MousePointer2, SlidersHorizontal} from 'lucide-react'
 import {
@@ -42,7 +43,7 @@ function AreaChart({spec, onAction}: AnalyticsProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-analytics-variant-2"><HbarAppUiToolbar title="Area chart"
                                                                                              detail="Crosshair and keyboard cursor"/><HbarAppUiButton
-        onClick={() => setCursor((value) => (value + 12) % 100)}><Crosshair size={13}/>Move cursor</HbarAppUiButton>
+        onClick={() => setCursor((value) => (value + 12) % 100)}><HbarAppUiIcon icon={Crosshair} tier="sm" />Move cursor</HbarAppUiButton>
         <div className="hbar-app-ui-area-chart hbar-app-ui-crosshair-chart">
             <svg viewBox="0 0 360 120" role="img" aria-label="Area chart">
                 <path d="M0 90 C40 30 60 80 100 58 S150 82 190 32 S250 70 290 42 S330 55 360 18 V120 H0Z"/>
@@ -142,8 +143,8 @@ function SparklineGrid({spec, onAction}: AnalyticsProps) {
             <button type="button" className={detail === metric ? 'is-selected' : ''} key={metric}
                     onClick={() => setDetail(metric)}>
                 <small>{metric}</small><strong>{index === 2 ? '1.8s' : `${24 + index * 15}`}</strong><span
-                className={index === 2 ? 'is-down' : 'is-up'}>{index === 2 ? <ArrowDown size={11}/> :
-                <ArrowUp size={11}/>} {index + 4}%</span></button>)}</div>
+                className={index === 2 ? 'is-down' : 'is-up'}>{index === 2 ? <HbarAppUiIcon icon={ArrowDown} tier="xs" /> :
+                <HbarAppUiIcon icon={ArrowUp} tier="xs" />} {index + 4}%</span></button>)}</div>
         <HbarAppUiSpotlight><strong>{detail} detail</strong><p>Selected metric is promoted into the detail panel.</p>
         </HbarAppUiSpotlight></ActionSurfaceFrame>
 }
@@ -171,7 +172,7 @@ function Heatmap({spec, onAction}: AnalyticsProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-analytics-variant-9"><HbarAppUiToolbar title="Activity heatmap"
                                                                                              detail="Keyboard cursor and day tooltips"/><HbarAppUiButton
-        onClick={() => setCursor(cursor === 'Wed 18' ? 'Fri 20' : 'Wed 18')}><MousePointer2 size={13}/>Cursor: {cursor}
+        onClick={() => setCursor(cursor === 'Wed 18' ? 'Fri 20' : 'Wed 18')}><HbarAppUiIcon icon={MousePointer2} tier="sm" />Cursor: {cursor}
     </HbarAppUiButton>
         <div className="hbar-app-ui-heatmap">{Array.from({length: 35}, (_, index) => <button type="button"
                                                                                              className={`heat-${(spec.profile.seed + index) % 5}`}
@@ -220,7 +221,7 @@ function HorizontalRanking({spec, onAction}: AnalyticsProps) {
         onClick={() => {
             setSort(sort === 'Value' ? 'Delta' : 'Value');
             onAction?.({variantId: spec.id, actionId: 'sort', value: sort})
-        }}><SlidersHorizontal size={13}/>Sort: {sort}</HbarAppUiButton>
+        }}><HbarAppUiIcon icon={SlidersHorizontal} tier="sm" />Sort: {sort}</HbarAppUiButton>
         <div
             className="hbar-app-ui-horizontal-ranking">{['Workspace', 'Automation', 'Review', 'Archive'].map((name, index) =>
             <div key={name}><strong>{name}</strong><span><i
@@ -232,7 +233,7 @@ function Candles({spec, onAction}: AnalyticsProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-analytics-variant-13"><HbarAppUiToolbar title="Candlestick chart"
                                                                                               detail="Volume histogram · OHLC tooltip"/><HbarAppUiButton
-        onClick={() => onAction?.({variantId: spec.id, actionId: 'tooltip', value: 'OHLC'})}><Info size={13}/>Show OHLC</HbarAppUiButton>
+        onClick={() => onAction?.({variantId: spec.id, actionId: 'tooltip', value: 'OHLC'})}><HbarAppUiIcon icon={Info} tier="sm" />Show OHLC</HbarAppUiButton>
         <div className="hbar-app-ui-candles">{values(spec.profile.seed, 10).map((value, index) => <div key={index}><i
             style={{height: `${value}px`}}/><b style={{height: `${18 + (value % 30)}px`}}/></div>)}</div>
         <div className="hbar-app-ui-volume-bars">{values(spec.profile.seed + 2, 10).map((value, index) => <i
@@ -248,7 +249,7 @@ function Scatter({spec, onAction}: AnalyticsProps) {
         onClick={() => {
             setPoint((value) => value === undefined ? 3 : undefined);
             onAction?.({variantId: spec.id, actionId: 'select', value: 'nearest-point'})
-        }}><MousePointer2 size={13}/>Nearest point</HbarAppUiButton>
+        }}><HbarAppUiIcon icon={MousePointer2} tier="sm" />Nearest point</HbarAppUiButton>
         <div className="hbar-app-ui-scatter-plot"><span className="hbar-app-ui-quadrant-v"/><span
             className="hbar-app-ui-quadrant-h"/>{values(spec.profile.seed, 12).map((value, index) => <button
             type="button" className={point === index ? 'is-selected' : ''} style={{

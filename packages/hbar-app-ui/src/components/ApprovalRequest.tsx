@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {Check, LoaderCircle, ShieldCheck, X} from 'lucide-react'
 import {useState} from 'react'
 import {HbarAppUiButton, HbarAppUiSpotlight, HbarAppUiStatus} from '../primitives'
@@ -61,7 +62,7 @@ export function HbarAppUiApprovalRequest({
     return <HbarAppUiSpotlight as="section" className="hbar-app-ui-approval-request" aria-label={resolvedTitle}
                                aria-busy={pendingDecision !== undefined}>
         <header className="hbar-app-ui-approval-request-heading">
-            <ShieldCheck size={16}/>
+            <HbarAppUiIcon icon={ShieldCheck} tier="md" />
             <div><strong>{resolvedTitle}</strong><code>{tool}</code></div>
             <HbarAppUiStatus value={completedDecision ? resolvedCompleteLabel : pendingDecision ? resolvedSavingLabel : resolvedStatusLabel}
                              tone={completedDecision ? 'positive' : pendingDecision ? 'warning' : 'warning'}/>
@@ -75,13 +76,13 @@ export function HbarAppUiApprovalRequest({
         </div>
         {error && <p className="hbar-app-ui-approval-request-feedback" role="alert">{error}</p>}
         <footer className="hbar-app-ui-approval-request-actions">
-            <HbarAppUiButton type="button" disabled={disabled} onClick={() => void decide('deny')}><X
-                size={14}/>{pendingDecision === 'deny' ? <LoaderCircle size={13} className="hbar-app-ui-spin"/> : resolvedDenyLabel}</HbarAppUiButton>
-            <HbarAppUiButton type="button" tone="accent" disabled={disabled} onClick={() => void decide('allow')}><Check
-                size={14}/>{pendingDecision === 'allow' ? <LoaderCircle size={13} className="hbar-app-ui-spin"/> : resolvedAllowLabel}</HbarAppUiButton>
+            <HbarAppUiButton type="button" disabled={disabled} onClick={() => void decide('deny')}><HbarAppUiIcon icon={X} tier="sm"
+                />{pendingDecision === 'deny' ? <HbarAppUiIcon icon={LoaderCircle} tier="sm"  className="hbar-app-ui-spin"/> : resolvedDenyLabel}</HbarAppUiButton>
+            <HbarAppUiButton type="button" tone="accent" disabled={disabled} onClick={() => void decide('allow')}><HbarAppUiIcon icon={Check} tier="sm"
+                />{pendingDecision === 'allow' ? <HbarAppUiIcon icon={LoaderCircle} tier="sm"  className="hbar-app-ui-spin"/> : resolvedAllowLabel}</HbarAppUiButton>
             {resolvedAllowAlwaysLabel && <HbarAppUiButton type="button" tone="positive" disabled={disabled}
-                                                   onClick={() => void decide('allow_always')}><ShieldCheck
-                size={14}/>{pendingDecision === 'allow_always' ? <LoaderCircle size={13}
+                                                   onClick={() => void decide('allow_always')}><HbarAppUiIcon icon={ShieldCheck} tier="sm"
+                />{pendingDecision === 'allow_always' ? <HbarAppUiIcon icon={LoaderCircle} tier="sm"
                                                                                  className="hbar-app-ui-spin"/> : resolvedAllowAlwaysLabel}</HbarAppUiButton>}
         </footer>
     </HbarAppUiSpotlight>

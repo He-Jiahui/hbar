@@ -1,3 +1,5 @@
+@import './tokens.css';
+
 :root {
     --hbar-app-ui-bg: #0a0a0a;
     --hbar-app-ui-surface-0: #111111;
@@ -147,7 +149,7 @@
 }
 
 .hbar-app-ui-icon-button {
-    width: 32px;
+    width: var(--hbar-app-ui-control-compact);
     padding: 0;
 }
 
@@ -321,8 +323,8 @@
 
 .hbar-app-ui-empty-icon {
     display: grid;
-    width: 44px;
-    height: 44px;
+    width: var(--hbar-app-ui-control-focal);
+    height: var(--hbar-app-ui-control-focal);
     place-items: center;
     border: 1px solid var(--hbar-app-ui-border);
     border-radius: var(--hbar-app-ui-radius-medium);
@@ -622,8 +624,8 @@
 
 .hbar-app-ui-avatar {
     display: grid;
-    width: 28px;
-    height: 28px;
+    width: var(--hbar-app-ui-avatar-medium);
+    height: var(--hbar-app-ui-avatar-medium);
     place-items: center;
     border: 1px solid var(--hbar-app-ui-border);
     border-radius: 50%;
@@ -2182,8 +2184,8 @@
 
 .hbar-app-ui-status-rail-icon {
     display: grid;
-    width: 34px;
-    height: 34px;
+    width: var(--hbar-app-ui-control-min);
+    height: var(--hbar-app-ui-control-min);
     place-items: center;
     border: 1px solid var(--hbar-app-ui-accent);
     border-radius: 50%;
@@ -4042,8 +4044,8 @@
 
 .hbar-app-ui-icon-rail button, .hbar-app-ui-sidebar-rail-demo button {
     display: grid;
-    width: 30px;
-    height: 30px;
+    width: var(--hbar-app-ui-control-compact);
+    height: var(--hbar-app-ui-control-compact);
     place-items: center;
     border-radius: var(--hbar-app-ui-radius-small);
 }
@@ -4230,8 +4232,8 @@
 }
 
 .hbar-app-ui-avatar-large {
-    width: 42px;
-    height: 42px;
+    width: var(--hbar-app-ui-avatar-large);
+    height: var(--hbar-app-ui-avatar-large);
     font-size: 15px;
 }
 
@@ -4242,8 +4244,8 @@
 
 .hbar-app-ui-avatar-stack span {
     display: grid;
-    width: 25px;
-    height: 25px;
+    width: var(--hbar-app-ui-avatar-small);
+    height: var(--hbar-app-ui-avatar-small);
     margin-left: -5px;
     place-items: center;
     border: 2px solid var(--hbar-app-ui-surface-0);

@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {AlertCircle, Bell, Check, ChevronDown, Filter, Pause, Play, RefreshCw, ShieldCheck} from 'lucide-react'
 import {
@@ -18,8 +19,8 @@ function HealthOverview({spec, onAction}: MonitoringProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-monitoring-variant-1"><HbarAppUiToolbar title="Platform health"
                                                                                               detail="KPI deltas · throughput · incidents"/><HbarAppUiButton
-        onClick={() => onAction?.({variantId: spec.id, actionId: 'refresh'})}><RefreshCw
-        size={13}/>Refresh</HbarAppUiButton><HbarAppUiMetricStrip
+        onClick={() => onAction?.({variantId: spec.id, actionId: 'refresh'})}><HbarAppUiIcon icon={RefreshCw} tier="sm"
+        />Refresh</HbarAppUiButton><HbarAppUiMetricStrip
         metrics={[{label: 'Availability', value: '99.98%', detail: '+0.02%', tone: 'positive'}, {
             label: 'Throughput',
             value: '1,240 / min',
@@ -32,8 +33,8 @@ function HealthOverview({spec, onAction}: MonitoringProps) {
         }]}/>
         <div className="hbar-app-ui-monitor-chart">{Array.from({length: 14}, (_, index) => <i
             style={{height: `${18 + ((spec.profile.seed + index * 9) % 56)}px`}} key={index}/>)}</div>
-        <div className="hbar-app-ui-incident-feed"><strong>Incident feed</strong><span><AlertCircle size={13}/>Queue latency elevated <small>8m ago</small></span><span><Check
-            size={13}/>Storage recovered <small>22m ago</small></span></div>
+        <div className="hbar-app-ui-incident-feed"><strong>Incident feed</strong><span><HbarAppUiIcon icon={AlertCircle} tier="sm" />Queue latency elevated <small>8m ago</small></span><span><HbarAppUiIcon icon={Check} tier="sm"
+            />Storage recovered <small>22m ago</small></span></div>
     </ActionSurfaceFrame>
 }
 
@@ -46,8 +47,8 @@ function LiveStream({spec, onAction}: MonitoringProps) {
         onClick={() => {
             setPaused((value) => !value);
             onAction?.({variantId: spec.id, actionId: paused ? 'resume' : 'pause'})
-        }}>{paused ? <Play size={13}/> :
-        <Pause size={13}/>}{paused ? 'Resume' : 'Pause'}</HbarAppUiButton><HbarAppUiButton
+        }}>{paused ? <HbarAppUiIcon icon={Play} tier="sm" /> :
+        <HbarAppUiIcon icon={Pause} tier="sm" />}{paused ? 'Resume' : 'Pause'}</HbarAppUiButton><HbarAppUiButton
         onClick={() => setThreshold(threshold === 70 ? 85 : 70)}>Threshold {threshold}</HbarAppUiButton>
         <div className="hbar-app-ui-live-chart"><span className="hbar-app-ui-threshold"
                                                       style={{bottom: `${threshold}%`}}/>{Array.from({length: 18}, (_, index) =>
@@ -72,7 +73,7 @@ function IncidentDetail({spec, onAction}: MonitoringProps) {
         <option>Identified</option>
         <option>Monitoring</option>
         <option>Resolved</option>
-    </select><HbarAppUiSpotlight className="hbar-app-ui-incident-summary"><AlertCircle size={18}/>
+    </select><HbarAppUiSpotlight className="hbar-app-ui-incident-summary"><HbarAppUiIcon icon={AlertCircle} tier="md" />
         <div><strong>Queue latency above threshold</strong><p>Started 10 minutes ago · 3 services affected.</p></div>
         <HbarAppUiStatus value={status} tone={status === 'Resolved' ? 'positive' : 'warning'}/></HbarAppUiSpotlight>
         <ol className="hbar-app-ui-response-timeline">
@@ -117,8 +118,8 @@ function LogTail({spec, onAction}: MonitoringProps) {
                                className="hbar-app-ui-monitoring-variant-5"><HbarAppUiToolbar title="Live log tail"
                                                                                               detail="Filters · follow mode · JSON context"/>
         <div className="hbar-app-ui-chip-row">{['INFO', 'WARN', 'ERROR'].map((item) => <HbarAppUiButton
-            className={level === item ? 'is-selected' : ''} key={item} onClick={() => setLevel(item)}><Filter
-            size={12}/>{item}</HbarAppUiButton>)}</div>
+            className={level === item ? 'is-selected' : ''} key={item} onClick={() => setLevel(item)}><HbarAppUiIcon icon={Filter} tier="xs"
+            />{item}</HbarAppUiButton>)}</div>
         <HbarAppUiButton onClick={() => {
             setPaused((value) => !value);
             onAction?.({variantId: spec.id, actionId: paused ? 'resume' : 'pause'})
@@ -130,7 +131,7 @@ function LogTail({spec, onAction}: MonitoringProps) {
                                                                                                      actionId: 'expand',
                                                                                                      value: String(index)
                                                                                                  })}>
-            <code>10:24:{18 + index}</code><b>{level}</b><span>request completed</span><ChevronDown size={12}/>
+            <code>10:24:{18 + index}</code><b>{level}</b><span>request completed</span><HbarAppUiIcon icon={ChevronDown} tier="xs" />
         </button>)}</div>
     </ActionSurfaceFrame>
 }
@@ -195,7 +196,7 @@ function RunQueue({spec, onAction}: MonitoringProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-monitoring-variant-9"><HbarAppUiToolbar title="Live run queue"
                                                                                               detail="Grouped by state · attention filter"/><HbarAppUiButton
-        onClick={() => onAction?.({variantId: spec.id, actionId: 'filter', value: 'attention'})}><Bell size={13}/>Attention
+        onClick={() => onAction?.({variantId: spec.id, actionId: 'filter', value: 'attention'})}><HbarAppUiIcon icon={Bell} tier="sm" />Attention
         only</HbarAppUiButton>
         <div className="hbar-app-ui-run-queue">{['Running', 'Queued', 'Needs attention'].map((state, group) => <section
             key={state}>
@@ -223,8 +224,8 @@ function SloBoard({spec, onAction}: MonitoringProps) {
                                                                                    onChange={(value) => setWindow(value)}/>
         <div className="hbar-app-ui-slo-list">{['Availability', 'Latency', 'Successful runs'].map((objective, index) =>
             <HbarAppUiSpotlight key={objective}>
-                <div><ShieldCheck
-                    size={15}/><strong>{objective}</strong><small>{window} target {index === 1 ? '99.5%' : '99.9%'}</small>
+                <div><HbarAppUiIcon icon={ShieldCheck} tier="sm"
+                    /><strong>{objective}</strong><small>{window} target {index === 1 ? '99.5%' : '99.9%'}</small>
                 </div>
                 <HbarAppUiProgress value={index === 1 ? 68 : 28 + index * 9} label={`${objective} budget`}
                                    tone={index === 1 ? 'warning' : 'positive'}/><span>{index === 1 ? '32% budget left' : '72% budget left'}</span></HbarAppUiSpotlight>)}</div>

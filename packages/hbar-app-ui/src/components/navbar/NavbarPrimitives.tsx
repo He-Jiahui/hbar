@@ -1,3 +1,4 @@
+import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon} from 'lucide-react'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import {HbarAppUiButton, HbarAppUiIconButton} from '../../primitives'
@@ -5,15 +6,9 @@ import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
 
 export type NavbarSurfaceProps = HbarAppUiVariantProps
-export type NavbarIconTier = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+export type NavbarIconTier = HbarAppUiIconTier
 
-const iconSizeByTier: Readonly<Record<NavbarIconTier, string>> = {
-    xs: 'var(--hbar-app-ui-icon-xs)',
-    sm: 'var(--hbar-app-ui-icon-sm)',
-    md: 'var(--hbar-app-ui-icon-md)',
-    lg: 'var(--hbar-app-ui-icon-lg)',
-    xl: 'var(--hbar-app-ui-icon-xl)',
-}
+
 
 export function reportNavbarAction(
     onAction: NavbarSurfaceProps['onAction'],
@@ -33,10 +28,7 @@ export function NavbarButton({children, type = 'button', ...props}: ButtonHTMLAt
     return <HbarAppUiButton {...props} type={type}>{children}</HbarAppUiButton>
 }
 
-export function NavbarGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: NavbarIconTier}) {
-    const size = iconSizeByTier[tier]
-    return <Icon aria-hidden="true" style={{inlineSize: size, blockSize: size}}/>
-}
+export function NavbarGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: NavbarIconTier}) { return <HbarAppUiIcon icon={Icon} tier={tier} /> }
 
 export function NavbarIconOnly({icon, tier = 'md', children, label, type = 'button', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
     readonly icon: LucideIcon

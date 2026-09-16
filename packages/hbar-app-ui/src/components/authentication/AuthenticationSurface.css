@@ -8,11 +8,6 @@
     --hbar-app-ui-auth-muted: oklch(.708 0 0);
     --hbar-app-ui-auth-subtle: oklch(.556 0 0);
     --hbar-app-ui-auth-danger: #ff4d4d;
-    --hbar-app-ui-icon-xs: .75rem;
-    --hbar-app-ui-icon-sm: .875rem;
-    --hbar-app-ui-icon-md: 1rem;
-    --hbar-app-ui-icon-lg: 1.25rem;
-    --hbar-app-ui-icon-xl: 1.5rem;
     display: flex !important;
     min-inline-size: 0;
     min-block-size: 100%;

@@ -1,3 +1,4 @@
+import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon} from 'lucide-react'
 import type {ButtonHTMLAttributes, CSSProperties, ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
@@ -5,15 +6,9 @@ import {ActionSurfaceFrame} from '../SurfaceFrame'
 import type {HbarAppUiAgentActivityState} from './AgentActivityContent'
 
 export type AgentActivitySurfaceProps = HbarAppUiVariantProps
-export type AgentActivityIconTier = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+export type AgentActivityIconTier = HbarAppUiIconTier
 
-const iconSizeByTier: Readonly<Record<AgentActivityIconTier, string>> = {
-    xs: 'var(--hbar-app-ui-icon-xs)',
-    sm: 'var(--hbar-app-ui-icon-sm)',
-    md: 'var(--hbar-app-ui-icon-md)',
-    lg: 'var(--hbar-app-ui-icon-lg)',
-    xl: 'var(--hbar-app-ui-icon-xl)',
-}
+
 
 export function reportAgentActivityAction(
     onAction: AgentActivitySurfaceProps['onAction'],
@@ -39,10 +34,7 @@ export function AgentActivityButton({children, className = '', type = 'button', 
     return <button {...props} className={`hbar-app-ui-agent-activity-button ${className}`} type={type}>{children}</button>
 }
 
-export function AgentActivityGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentActivityIconTier}) {
-    const size = iconSizeByTier[tier]
-    return <Icon aria-hidden="true" style={{inlineSize: size, blockSize: size}}/>
-}
+export function AgentActivityGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentActivityIconTier}) { return <HbarAppUiIcon icon={Icon} tier={tier} /> }
 
 export function AgentActivityStatus({state, label}: {readonly state: HbarAppUiAgentActivityState; readonly label: string}) {
     return <span className={`hbar-app-ui-agent-activity-status is-${state}`}><i aria-hidden="true"/><span>{label}</span></span>

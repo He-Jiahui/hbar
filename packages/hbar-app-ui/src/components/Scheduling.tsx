@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {CalendarDays, ChevronLeft, ChevronRight, Clock3, Filter, Paperclip, Plus, Users} from 'lucide-react'
 import {HbarAppUiButton, HbarAppUiSpotlight, HbarAppUiTabs, HbarAppUiToolbar} from '../primitives'
@@ -11,11 +12,11 @@ function MonthAgenda({spec, onAction}: SchedulingProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-scheduling-variant-1"><HbarAppUiToolbar title="Calendar"
                                                                                               detail="Month view beside day agenda"/><HbarAppUiButton
-        onClick={() => onAction?.({variantId: spec.id, actionId: 'filter'})}><Filter size={13}/>Filter
+        onClick={() => onAction?.({variantId: spec.id, actionId: 'filter'})}><HbarAppUiIcon icon={Filter} tier="sm" />Filter
         events</HbarAppUiButton>
         <div className="hbar-app-ui-month-agenda">
             <div className="hbar-app-ui-month-grid">
-                <header><ChevronLeft size={13}/><strong>September 2026</strong><ChevronRight size={13}/></header>
+                <header><HbarAppUiIcon icon={ChevronLeft} tier="sm" /><strong>September 2026</strong><HbarAppUiIcon icon={ChevronRight} tier="sm" /></header>
                 {Array.from({length: 30}, (_, index) => <button type="button"
                                                                 className={day === index + 1 ? 'is-selected' : ''}
                                                                 key={index}
@@ -23,8 +24,8 @@ function MonthAgenda({spec, onAction}: SchedulingProps) {
                     <i/>}</button>)}</div>
             <aside><strong>Thursday,
                 Sep {day}</strong>{['Workspace review · 09:00', 'Design sync · 11:30', 'Run handoff · 16:00'].map((event) =>
-                <HbarAppUiSpotlight key={event}><CalendarDays
-                    size={13}/><span>{event}<small>Project Atlas</small></span></HbarAppUiSpotlight>)}</aside>
+                <HbarAppUiSpotlight key={event}><HbarAppUiIcon icon={CalendarDays} tier="sm"
+                    /><span>{event}<small>Project Atlas</small></span></HbarAppUiSpotlight>)}</aside>
         </div>
     </ActionSurfaceFrame>
 }
@@ -62,12 +63,12 @@ function NewSchedule({spec, onAction}: SchedulingProps) {
         <div className="hbar-app-ui-attendee-chips">{attendees.map((attendee) => <span key={attendee}>{attendee}
             <button type="button"
                     onClick={() => setAttendees((current) => current.filter((item) => item !== attendee))}>×</button></span>)}<HbarAppUiButton
-            onClick={() => setAttendees((current) => [...current, 'Mina'])}><Users size={13}/>Add
+            onClick={() => setAttendees((current) => [...current, 'Mina'])}><HbarAppUiIcon icon={Users} tier="sm" />Add
             attendee</HbarAppUiButton></div>
         <div className="hbar-app-ui-two-column-form"><label>Start<input type="time"
                                                                         defaultValue="09:00"/></label><label>End<input
             type="time" defaultValue="10:00"/></label></div>
-        <label><Paperclip size={13}/>Attachments<input type="file"/></label><textarea
+        <label><HbarAppUiIcon icon={Paperclip} tier="sm" />Attachments<input type="file"/></label><textarea
             placeholder="Notes"/><HbarAppUiButton tone="accent" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'schedule',
@@ -89,8 +90,8 @@ function DeadlinePicker({spec, onAction}: SchedulingProps) {
                                                                              key={index}>{index + 17}</button>)}</div>
             <div className="hbar-app-ui-time-slots">{['09:00', '10:30', '13:00', '15:30'].map((time) => <button
                 type="button" key={time}
-                onClick={() => onAction?.({variantId: spec.id, actionId: 'select', value: `${preset}:${time}`})}><Clock3
-                size={13}/>{time}</button>)}</div>
+                onClick={() => onAction?.({variantId: spec.id, actionId: 'select', value: `${preset}:${time}`})}><HbarAppUiIcon icon={Clock3} tier="sm"
+                />{time}</button>)}</div>
         </div>
     </ActionSurfaceFrame>
 }
@@ -105,8 +106,8 @@ function Availability({spec, onAction}: SchedulingProps) {
                     className={`hbar-app-ui-switch ${enabled ? 'is-on' : ''}`}
                     onClick={() => setDays((current) => ({...current, [day]: !enabled}))}><i/></button>
             <strong>{day}</strong>{enabled ? <><input type="time" defaultValue="09:00"/><span>–</span><input type="time"
-                                                                                                             defaultValue="17:00"/><HbarAppUiButton><Plus
-            size={12}/></HbarAppUiButton></> : <em>Unavailable</em>}</div>)}</div>
+                                                                                                             defaultValue="17:00"/><HbarAppUiButton><HbarAppUiIcon icon={Plus} tier="xs"
+            /></HbarAppUiButton></> : <em>Unavailable</em>}</div>)}</div>
         <HbarAppUiButton tone="accent" onClick={() => onAction?.({variantId: spec.id, actionId: 'save'})}>Save
             availability</HbarAppUiButton></ActionSurfaceFrame>
 }

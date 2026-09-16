@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useMemo, useState} from 'react'
 import {Clock3, FileText, Grid2X2, KeyRound, Settings2, UserRound, UsersRound} from 'lucide-react'
 import {CommandBackdrop, CommandFrame, CommandHint, CommandSearch, CommandShortcut, reportCommandAction, type CommandMenuProps, useCommandEscape} from './CommandPrimitives'
@@ -38,7 +39,7 @@ export function GroupedCommandPalette({spec, onAction}: CommandMenuProps): React
             <section className="hbar-app-ui-command-dialog hbar-app-ui-command-dialog-list" role="dialog" aria-modal="true" aria-label="Search or run a command">
                 <header className="hbar-app-ui-command-dialog-header"><CommandSearch value={query} onChange={setQuery} placeholder="Search or run a command" ariaLabel="Search or run a command"/></header>
                 <div className="hbar-app-ui-command-list" role="listbox">
-                    {(['Recent', 'Navigation', 'Actions']).map((group) => <section className="hbar-app-ui-command-group" key={group}><h2>{group}</h2>{filtered.filter((item) => item.group === group).map((item, index) => {const Icon = item.icon; return <button type="button" role="option" className={index === 0 && group === 'Recent' ? 'is-selected' : ''} key={item.title} onClick={() => reportCommandAction(onAction, spec, 'open', item.title)}><Icon size={16}/><span><strong>{item.title}</strong>{item.detail && <small>{item.detail}</small>}</span><CommandHint>{item.shortcut}</CommandHint></button>})}</section>)}
+                    {(['Recent', 'Navigation', 'Actions']).map((group) => <section className="hbar-app-ui-command-group" key={group}><h2>{group}</h2>{filtered.filter((item) => item.group === group).map((item, index) => {const Icon = item.icon; return <button type="button" role="option" className={index === 0 && group === 'Recent' ? 'is-selected' : ''} key={item.title} onClick={() => reportCommandAction(onAction, spec, 'open', item.title)}><HbarAppUiIcon icon={Icon} tier="md" /><span><strong>{item.title}</strong>{item.detail && <small>{item.detail}</small>}</span><CommandHint>{item.shortcut}</CommandHint></button>})}</section>)}
                 </div>
                 <footer className="hbar-app-ui-command-footer"><CommandShortcut keys="↕" label="to navigate"/><CommandShortcut keys="↵" label="to open"/><CommandShortcut keys="esc" label="to close"/><span className="hbar-app-ui-command-result-count">{filtered.length} results</span></footer>
             </section>

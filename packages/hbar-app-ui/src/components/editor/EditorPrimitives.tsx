@@ -1,3 +1,4 @@
+import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon, LucideProps} from 'lucide-react'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
@@ -50,22 +51,16 @@ export function EditorIconButton({
                          title={props.title ?? label}>{children}</EditorButton>
 }
 
-export type EditorIconTier = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+export type EditorIconTier = HbarAppUiIconTier
 
-const editorIconSizeByTier: Readonly<Record<EditorIconTier, string>> = {
-    xs: 'var(--hbar-app-ui-icon-xs)',
-    sm: 'var(--hbar-app-ui-icon-sm)',
-    md: 'var(--hbar-app-ui-icon-md)',
-    lg: 'var(--hbar-app-ui-icon-lg)',
-    xl: 'var(--hbar-app-ui-icon-xl)',
-}
+
 
 /** Semantic icon tiers keep measured preview values out of public APIs. */
 export function EditorIcon({icon: Icon, tier = 'md', ...props}: Omit<LucideProps, 'size'> & {
     readonly icon: LucideIcon
     readonly tier?: EditorIconTier
 }) {
-    return <Icon {...props} size={editorIconSizeByTier[tier]}/>
+    return <HbarAppUiIcon icon={Icon} tier={tier} {...props}/>
 }
 
 export function EditorInlineText({

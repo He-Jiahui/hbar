@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useMemo, useState} from 'react'
 import {Check, ChevronRight, Columns3, Edit3, LoaderCircle, Search, SlidersHorizontal, X} from 'lucide-react'
 import {HbarAppUiButton, HbarAppUiDataTable, HbarAppUiSpotlight, HbarAppUiStatus, HbarAppUiToolbar} from '../primitives'
@@ -14,7 +15,7 @@ function FacetedTable({spec, onAction}: TableProps) {
     const rows = workspaceRows.filter((row) => (filter === 'All' || row.status === filter) && `${row.name} ${row.detail}`.toLowerCase().includes(query.toLowerCase()));
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-table-variant-1"><HbarAppUiToolbar
         title="Records" detail="Faceted filters and column visibility"/>
-        <div className="hbar-app-ui-inline-search"><Search size={13}/><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}
                                                                              placeholder="Search records"/></div>
         <select aria-label="Status filter" value={filter} onChange={(event) => setFilter(event.target.value)}>
@@ -22,8 +23,8 @@ function FacetedTable({spec, onAction}: TableProps) {
             <option>Healthy</option>
             <option>Running</option>
             <option>Blocked</option>
-        </select><HbarAppUiButton onClick={() => setColumns(columns === 'All' ? 'Compact' : 'All')}><Columns3
-            size={13}/>{columns} columns</HbarAppUiButton><HbarAppUiDataTable
+        </select><HbarAppUiButton onClick={() => setColumns(columns === 'All' ? 'Compact' : 'All')}><HbarAppUiIcon icon={Columns3} tier="sm"
+            />{columns} columns</HbarAppUiButton><HbarAppUiDataTable
             rows={columns === 'Compact' ? rows.map((row) => ({...row, detail: ''})) : rows}
             onSelect={(id) => onAction?.({variantId: spec.id, actionId: 'open', value: id})}/></ActionSurfaceFrame>
 }
@@ -39,7 +40,7 @@ function SelectableTable({spec, onAction}: TableProps) {
         page</label>{selected.length > 0 && <div className="hbar-app-ui-bulk-bar"><HbarAppUiButton onClick={() => {
         onAction?.({variantId: spec.id, actionId: 'archive', value: String(selected.length)});
         setSelected([])
-    }}>Archive</HbarAppUiButton><HbarAppUiButton onClick={() => setSelected([])}><X size={13}/>Clear</HbarAppUiButton>
+    }}>Archive</HbarAppUiButton><HbarAppUiButton onClick={() => setSelected([])}><HbarAppUiIcon icon={X} tier="sm" />Clear</HbarAppUiButton>
     </div>}
         <div className="hbar-app-ui-simple-table">{rows.map((row) => <label key={row.id}><input type="checkbox"
                                                                                                 checked={selected.includes(row.id)}
@@ -65,8 +66,8 @@ function InlineEditTable({spec, onAction}: TableProps) {
             setSaved((current) => [...current, row.id]);
             setEditing(undefined);
             onAction?.({variantId: spec.id, actionId: 'save', value: row.id})
-        }}><Check size={13}/>Save</HbarAppUiButton></> : <><b>{row.value}</b><HbarAppUiButton
-            onClick={() => setEditing(row.id)}><Edit3 size={13}/>Edit</HbarAppUiButton></>}</div>)}</div>
+        }}><HbarAppUiIcon icon={Check} tier="sm" />Save</HbarAppUiButton></> : <><b>{row.value}</b><HbarAppUiButton
+            onClick={() => setEditing(row.id)}><HbarAppUiIcon icon={Edit3} tier="sm" />Edit</HbarAppUiButton></>}</div>)}</div>
     </ActionSurfaceFrame>
 }
 
@@ -76,7 +77,7 @@ function ExpandableTable({spec, onAction}: TableProps) {
         title="Expandable records" detail="Details open in place"/><HbarAppUiButton onClick={() => setOpen(undefined)}>Collapse
         all</HbarAppUiButton>
         <div className="hbar-app-ui-expandable-table">{workspaceRows.slice(0, 5).map((row) => <div key={row.id}>
-            <button type="button" onClick={() => setOpen(open === row.id ? undefined : row.id)}><ChevronRight size={14}
+            <button type="button" onClick={() => setOpen(open === row.id ? undefined : row.id)}><HbarAppUiIcon icon={ChevronRight} tier="sm"
                                                                                                               className={open === row.id ? 'is-open' : ''}/><strong>{row.name}</strong><HbarAppUiStatus
                 value={row.status} tone={row.status === 'Healthy' ? 'positive' : 'warning'}/><span>{row.value}</span>
             </button>
@@ -92,8 +93,8 @@ function GroupedTable({spec, onAction}: TableProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className={`hbar-app-ui-table-variant-5 hbar-app-ui-table-density-${density}`}><HbarAppUiToolbar
         title="Grouped records" detail="Sticky header and density control"/><HbarAppUiButton
-        onClick={() => setDensity(density === 'compact' ? 'comfortable' : density === 'comfortable' ? 'spacious' : 'compact')}><SlidersHorizontal
-        size={13}/>{density}</HbarAppUiButton>
+        onClick={() => setDensity(density === 'compact' ? 'comfortable' : density === 'comfortable' ? 'spacious' : 'compact')}><HbarAppUiIcon icon={SlidersHorizontal} tier="sm"
+        />{density}</HbarAppUiButton>
         <div className="hbar-app-ui-grouped-table">
             <header><span>Name</span><span>Status</span><span>Value</span></header>
             {['Operations', 'Operations', 'Review', 'Review', 'Archive'].map((group, index) => <div
@@ -144,7 +145,7 @@ function StateTable({spec, onAction}: TableProps) {
                 value: 'create'
             })}>Create record</HbarAppUiButton></div>}{state === 'loading' &&
             <div className="hbar-app-ui-skeleton-table">{[1, 2, 3, 4].map((item) => <span
-                key={item}><i/><i/><i/></span>)}<LoaderCircle className="is-spinning" size={17}/>
+                key={item}><i/><i/><i/></span>)}<HbarAppUiIcon icon={LoaderCircle} tier="md" className="is-spinning" />
             </div>}{state === 'error' &&
             <div className="hbar-app-ui-error-table"><strong>Could not load records</strong><p>Request timed out while
                 reading the local projection.</p><HbarAppUiButton tone="accent" onClick={() => {
@@ -158,7 +159,7 @@ function WideTable({spec, onAction}: TableProps) {
     const rows = useMemo(() => workspaceRows.filter((row) => row.name.toLowerCase().includes(query.toLowerCase())), [query]);
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-table-variant-8"><HbarAppUiToolbar
         title="Wide data table" detail="Sticky first column · horizontal scroll"/>
-        <div className="hbar-app-ui-inline-search"><Search size={13}/><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}
                                                                              placeholder="Search"/></div>
         <HbarAppUiButton onClick={() => onAction?.({variantId: spec.id, actionId: 'scroll'})}>Show scroll

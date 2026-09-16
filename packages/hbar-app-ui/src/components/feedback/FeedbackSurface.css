@@ -1,9 +1,4 @@
 .hbar-app-ui-variant.hbar-app-ui-feedback-surface {
-    --hbar-app-ui-icon-xs: .75rem;
-    --hbar-app-ui-icon-sm: .875rem;
-    --hbar-app-ui-icon-md: 1rem;
-    --hbar-app-ui-icon-lg: 1.25rem;
-    --hbar-app-ui-icon-xl: 1.5rem;
     --hbar-app-ui-feedback-bg: oklch(.145 0 0);
     --hbar-app-ui-feedback-surface: oklch(.175 0 0);
     --hbar-app-ui-feedback-raised: oklch(.205 0 0);

@@ -1,9 +1,4 @@
 .hbar-app-ui-variant.hbar-app-ui-agent-plan-surface {
-    --hbar-app-ui-icon-xs: .75rem;
-    --hbar-app-ui-icon-sm: .875rem;
-    --hbar-app-ui-icon-md: 1rem;
-    --hbar-app-ui-icon-lg: 1.25rem;
-    --hbar-app-ui-icon-xl: 1.5rem;
     --hbar-app-ui-plan-surface-0: oklch(.145 0 0);
     --hbar-app-ui-plan-surface-1: oklch(.205 0 0);
     --hbar-app-ui-plan-surface-2: oklch(.269 0 0);

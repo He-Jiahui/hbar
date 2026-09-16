@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Archive, ArrowUpRight, BarChart3, CalendarDays, Home, Search} from 'lucide-react'
 import {MobileAvatar, MobileFrame, MobileIconButton, MobilePhone, reportMobileAction, type MobileSurfaceProps} from './MobilePrimitives'
@@ -30,10 +31,10 @@ export function HomeFeedMobile({spec, onAction}: MobileSurfaceProps): React.JSX.
 
     return <MobileFrame spec={spec} onAction={onAction} className="hbar-app-ui-mobile-home-surface"><MobilePhone className="hbar-app-ui-mobile-home-phone">
         <header className="hbar-app-ui-mobile-phone-header"><p className="hbar-app-ui-mobile-phone-title">Home</p><div className="hbar-app-ui-mobile-header-actions"><MobileAvatar>AR</MobileAvatar></div></header>
-        <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-home-content"><ul className="hbar-app-ui-mobile-home-list">{cards.map((card) => <li key={card.id}><button type="button" aria-label={`${card.title}, ${card.detail}`} onClick={() => reportMobileAction(onAction, spec, 'open', card.id)}><span className="hbar-app-ui-mobile-card-title"><strong>{card.title}</strong><ArrowUpRight size={16} strokeWidth={1.5} aria-hidden="true"/></span><span className="hbar-app-ui-mobile-card-description">{card.description}</span><small>{card.detail}</small></button></li>)}</ul></main>
+        <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-home-content"><ul className="hbar-app-ui-mobile-home-list">{cards.map((card) => <li key={card.id}><button type="button" aria-label={`${card.title}, ${card.detail}`} onClick={() => reportMobileAction(onAction, spec, 'open', card.id)}><span className="hbar-app-ui-mobile-card-title"><strong>{card.title}</strong><HbarAppUiIcon icon={ArrowUpRight} tier="md"  strokeWidth={1.5} aria-hidden="true"/></span><span className="hbar-app-ui-mobile-card-description">{card.description}</span><small>{card.detail}</small></button></li>)}</ul></main>
         <nav className="hbar-app-ui-mobile-home-dock" aria-label="Primary navigation">{tabs.map(({id, label, icon: Icon}) => <MobileIconButton key={id} label={label} pressed={activeTab === id} onClick={() => {
             setActiveTab(id)
             reportMobileAction(onAction, spec, 'tabs', id)
-        }}><Icon size={18} strokeWidth={1.7}/></MobileIconButton>)}</nav>
+        }}><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.7}/></MobileIconButton>)}</nav>
     </MobilePhone></MobileFrame>
 }

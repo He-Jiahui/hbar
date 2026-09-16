@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState, type ReactNode} from 'react'
 import {
     Bot,
@@ -46,29 +47,29 @@ function FullThread({spec, onAction}: ChatProps) {
     const [toolOpen, setToolOpen] = useState(false)
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-ai-chat-thread"><HbarAppUiToolbar
         title="Workspace assistant" detail="Streaming response · local context"/><HbarAppUiButton
-        onClick={() => setReasoningOpen((value) => !value)}><ChevronDown
-        size={14}/>Reasoning</HbarAppUiButton><HbarAppUiButton tone="accent" onClick={() => onAction?.({
+        onClick={() => setReasoningOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
+        />Reasoning</HbarAppUiButton><HbarAppUiButton tone="accent" onClick={() => onAction?.({
         variantId: spec.id,
         actionId: 'attach'
-    })}><Paperclip size={14}/>Attach</HbarAppUiButton>
+    })}><HbarAppUiIcon icon={Paperclip} tier="sm" />Attach</HbarAppUiButton>
         <div className="hbar-app-ui-chat-transcript"><ChatBubble author="You">Reconcile the October invoices and flag
             anything unusual.</ChatBubble><HbarAppUiSpotlight className="hbar-app-ui-chat-reasoning">
-            <div><Bot size={15}/><strong>Assistant reasoning</strong><HbarAppUiStatus value="Working" tone="warning"/>
+            <div><HbarAppUiIcon icon={Bot} tier="sm" /><strong>Assistant reasoning</strong><HbarAppUiStatus value="Working" tone="warning"/>
             </div>
             {reasoningOpen && <ol>
                 <li>Load the ledger and bank export.</li>
                 <li>Match references and currencies.</li>
                 <li>Prepare a concise exception list.</li>
             </ol>}</HbarAppUiSpotlight><HbarAppUiSpotlight className="hbar-app-ui-chat-tool">
-            <button type="button" onClick={() => setToolOpen((value) => !value)}><Play
-                size={14}/><span><strong>ledger.search</strong><small>Searching 1,284 transactions</small></span><ChevronDown
-                size={14}/></button>
+            <button type="button" onClick={() => setToolOpen((value) => !value)}><HbarAppUiIcon icon={Play} tier="sm"
+                /><span><strong>ledger.search</strong><small>Searching 1,284 transactions</small></span><HbarAppUiIcon icon={ChevronDown} tier="sm"
+                /></button>
             {toolOpen && <pre>{'{"matches": 1284, "status": "running"}'}</pre>}</HbarAppUiSpotlight><ChatBubble
             author="hbar" tone="positive">I found 12 unmatched entries. I’m grouping them by currency before showing the
             final report.</ChatBubble>
             <div className="hbar-app-ui-chat-sources"><strong>Sources</strong>
-                <button type="button"><FileText size={13}/>October ledger.csv</button>
-                <button type="button"><FileText size={13}/>Bank export.pdf</button>
+                <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" />October ledger.csv</button>
+                <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" />Bank export.pdf</button>
             </div>
         </div>
         <HbarAppUiComposer placeholder="Reply to the assistant" onSubmit={(value) => onAction?.({
@@ -98,12 +99,12 @@ function ArtifactThread({spec, onAction}: ChatProps) {
                                                                                    value
                                                                                })}/></div>
             <HbarAppUiSpotlight className="hbar-app-ui-artifact-panel">
-                <div className="hbar-app-ui-artifact-tabs"><FileCode2
-                    size={15}/><strong>handoff.ts</strong><span>{version}</span></div>
+                <div className="hbar-app-ui-artifact-tabs"><HbarAppUiIcon icon={FileCode2} tier="sm"
+                    /><strong>handoff.ts</strong><span>{version}</span></div>
                 <pre>{`export function handoff() {\n  return { status: '${version}', ready: true }\n}`}</pre>
                 <div className="hbar-app-ui-artifact-files">
-                    <button type="button"><FileCode2 size={13}/>Code</button>
-                    <button type="button"><FileText size={13}/>Document</button>
+                    <button type="button"><HbarAppUiIcon icon={FileCode2} tier="sm" />Code</button>
+                    <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" />Document</button>
                 </div>
             </HbarAppUiSpotlight></div>
     </ActionSurfaceFrame>
@@ -116,7 +117,7 @@ function EmbeddedAssistant({spec, onAction}: ChatProps) {
                                                                                           detail="Docked to the current panel"/><HbarAppUiStatus
         value="Ready" tone="positive"/>
         <div className="hbar-app-ui-embedded-empty">
-            <div className="hbar-app-ui-empty-icon"><Sparkles size={22}/></div>
+            <div className="hbar-app-ui-empty-icon"><HbarAppUiIcon icon={Sparkles} tier="lg" /></div>
             <strong>What would you like to explore?</strong><p>Ask about the selected workspace or choose a suggested
             prompt.</p>
             <div
@@ -125,7 +126,7 @@ function EmbeddedAssistant({spec, onAction}: ChatProps) {
                     variantId: spec.id,
                     actionId: 'send',
                     value: suggestion
-                })}>{suggestion}<Send size={13}/></HbarAppUiButton>)}</div>
+                })}>{suggestion}<HbarAppUiIcon icon={Send} tier="sm" /></HbarAppUiButton>)}</div>
         </div>
         <HbarAppUiComposer placeholder="Ask a quick question" onSubmit={(value) => onAction?.({
             variantId: spec.id,
@@ -140,7 +141,7 @@ function ContextChat({spec, onAction}: ChatProps) {
     const used = seededNumber(spec.profile.seed, 34, 42)
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-ai-chat-context"><HbarAppUiToolbar
         title="Context-aware chat" detail={`${model} · ${used}% context used`}/><HbarAppUiButton
-        onClick={() => setSettingsOpen((value) => !value)}><ChevronDown size={14}/>Settings</HbarAppUiButton><select
+        onClick={() => setSettingsOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm" />Settings</HbarAppUiButton><select
         aria-label="Model" value={model} onChange={(event) => {
         setModel(event.target.value);
         onAction?.({variantId: spec.id, actionId: 'picker', value: event.target.value})
@@ -171,7 +172,7 @@ function ApprovalChat({spec, onAction}: ChatProps) {
                                                                                           detail="A decision is required before the tool runs"/><HbarAppUiStatus
         value={approved ? 'Approved' : 'Awaiting approval'} tone={approved ? 'positive' : 'warning'}/>
         <div className="hbar-app-ui-chat-transcript"><ChatBubble author="You">Clean up the archived
-            workspace.</ChatBubble><HbarAppUiSpotlight className="hbar-app-ui-inline-approval"><ShieldCheck size={18}/>
+            workspace.</ChatBubble><HbarAppUiSpotlight className="hbar-app-ui-inline-approval"><HbarAppUiIcon icon={ShieldCheck} tier="md" />
             <div><strong>Delete 18 archived files?</strong><p>This action cannot be undone and will affect the shared
                 workspace.</p><small>Scope: archive/ · estimated 2.4s</small></div>
             <div><HbarAppUiButton disabled={approved} tone="accent" onClick={() => {
@@ -199,7 +200,7 @@ function MultiAgentChat({spec, onAction}: ChatProps) {
         title="Multi-agent room" detail="Three agents are coordinating"/><HbarAppUiButton onClick={() => {
         setAgent(agent === 'Planner' ? 'Builder' : agent === 'Builder' ? 'Reviewer' : 'Planner');
         onAction?.({variantId: spec.id, actionId: 'handoff', value: agent})
-    }}><GitBranch size={14}/>Handoff</HbarAppUiButton>
+    }}><HbarAppUiIcon icon={GitBranch} tier="sm" />Handoff</HbarAppUiButton>
         <div className="hbar-app-ui-multi-agent-grid">
             <aside><strong>Agents</strong>{['Planner', 'Builder', 'Reviewer'].map((name) => <button type="button"
                                                                                                     className={agent === name ? 'is-active' : ''}
@@ -223,11 +224,11 @@ function CitationChat({spec, onAction}: ChatProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-ai-chat-citations"><HbarAppUiToolbar title="Evidence-linked chat"
                                                                                            detail="Pinned context follows every answer"/><HbarAppUiButton
-        onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'context'})}><FileText size={14}/>Context</HbarAppUiButton>
+        onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'context'})}><HbarAppUiIcon icon={FileText} tier="sm" />Context</HbarAppUiButton>
         <div className="hbar-app-ui-pinned-context"><strong>Pinned sources</strong>{citations.map((citation) => <button
             type="button" key={citation}
-            onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: citation})}><FileText
-            size={13}/>{citation}</button>)}</div>
+            onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: citation})}><HbarAppUiIcon icon={FileText} tier="sm"
+            />{citation}</button>)}</div>
         <div className="hbar-app-ui-chat-transcript"><ChatBubble author="hbar" tone="positive">The run is ready for
             review <sup>[1]</sup>. The policy permits a retry <sup>[2]</sup> and the unmatched rows begin at line
             82 <sup>[3]</sup>.</ChatBubble></div>
@@ -245,18 +246,18 @@ function VoiceChat({spec, onAction}: ChatProps) {
         tone={recording ? 'danger' : 'accent'} onClick={() => {
         setRecording((value) => !value);
         onAction?.({variantId: spec.id, actionId: 'record', value: recording ? 'stop' : 'start'})
-    }}>{recording ? <X size={14}/> : <Mic size={14}/>}{recording ? 'Stop recording' : 'Record voice'}</HbarAppUiButton>
+    }}>{recording ? <HbarAppUiIcon icon={X} tier="sm" /> : <HbarAppUiIcon icon={Mic} tier="sm" />}{recording ? 'Stop recording' : 'Record voice'}</HbarAppUiButton>
         <div className="hbar-app-ui-waveform"
              aria-label={recording ? 'Recording waveform' : 'Idle waveform'}>{Array.from({length: 28}, (_, index) => <i
             className={recording ? 'is-live' : ''} style={{height: `${12 + ((spec.profile.seed + index * 13) % 34)}px`}}
             key={index}/>)}</div>
-        <div className="hbar-app-ui-transcript"><Volume2
-            size={14}/><span>{recording ? 'Listening…' : 'Transcript preview will appear here'}</span></div>
+        <div className="hbar-app-ui-transcript"><HbarAppUiIcon icon={Volume2} tier="sm"
+            /><span>{recording ? 'Listening…' : 'Transcript preview will appear here'}</span></div>
         <div className="hbar-app-ui-attachment-tray"><HbarAppUiButton
-            onClick={() => onAction?.({variantId: spec.id, actionId: 'attach', value: 'image.png'})}><Paperclip
-            size={14}/>image.png</HbarAppUiButton><HbarAppUiButton
-            onClick={() => onAction?.({variantId: spec.id, actionId: 'attach', value: 'notes.md'})}><FileText
-            size={14}/>notes.md</HbarAppUiButton></div>
+            onClick={() => onAction?.({variantId: spec.id, actionId: 'attach', value: 'image.png'})}><HbarAppUiIcon icon={Paperclip} tier="sm"
+            />image.png</HbarAppUiButton><HbarAppUiButton
+            onClick={() => onAction?.({variantId: spec.id, actionId: 'attach', value: 'notes.md'})}><HbarAppUiIcon icon={FileText} tier="sm"
+            />notes.md</HbarAppUiButton></div>
         <HbarAppUiComposer placeholder="Add a caption" onSubmit={(value) => onAction?.({
             variantId: spec.id,
             actionId: 'send',
@@ -273,16 +274,16 @@ function ModelPickerChat({spec, onAction}: ChatProps) {
                                                                                                          variantId: spec.id,
                                                                                                          actionId: 'send',
                                                                                                          value: 'select-model'
-                                                                                                     })}><Check
-        size={14}/>Use selection</HbarAppUiButton>
+                                                                                                     })}><HbarAppUiIcon icon={Check} tier="sm"
+        />Use selection</HbarAppUiButton>
         <div className="hbar-app-ui-provider-layout">
             <div className="hbar-app-ui-provider-list">
                 <strong>Providers</strong>{['Local provider', 'Cloud balanced', 'Cloud reasoning'].map((name) => <button
                 type="button" className={provider === name ? 'is-selected' : ''} key={name} onClick={() => {
                 setProvider(name);
                 onAction?.({variantId: spec.id, actionId: 'picker', value: name})
-            }}><Bot
-                size={14}/><span>{name}<small>{name === 'Local provider' ? 'Private · 0.0 credits' : 'Shared · metered'}</small></span>
+            }}><HbarAppUiIcon icon={Bot} tier="sm"
+                /><span>{name}<small>{name === 'Local provider' ? 'Private · 0.0 credits' : 'Shared · metered'}</small></span>
             </button>)}</div>
             <HbarAppUiSpotlight className="hbar-app-ui-provider-detail">
                 <div><strong>{provider}</strong><HbarAppUiStatus value="Available" tone="positive"/></div>

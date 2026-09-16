@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {Check, LoaderCircle} from 'lucide-react'
 import {useState} from 'react'
 import {HbarAppUiButton, HbarAppUiSpotlight, HbarAppUiStatus} from '../primitives'
@@ -123,7 +124,7 @@ export function HbarAppUiQuestionnaire({
         {error && <p className="hbar-app-ui-questionnaire-feedback" role="alert">{error}</p>}
         <footer className="hbar-app-ui-questionnaire-actions">
             <HbarAppUiButton type="button" tone="accent" disabled={saving || submitted} onClick={() => void submit()}>
-                {saving ? <LoaderCircle size={14} className="hbar-app-ui-spin"/> : <Check size={14}/>}
+                {saving ? <HbarAppUiIcon icon={LoaderCircle} tier="sm"  className="hbar-app-ui-spin"/> : <HbarAppUiIcon icon={Check} tier="sm" />}
                 {submitted ? resolvedSubmittedLabel : saving ? resolvedSubmittingLabel : resolvedSubmitLabel}
             </HbarAppUiButton>
         </footer>

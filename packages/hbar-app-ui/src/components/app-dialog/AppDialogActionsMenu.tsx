@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Archive, ChevronDown, ChevronRight, Copy, FileText, Link, Pencil, Trash2} from 'lucide-react'
 import {DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
@@ -28,14 +29,14 @@ export function AppDialogActionsMenu({spec, onAction}: AppDialogProps): React.JS
                 <button type="button" className="hbar-app-ui-dialog-trigger hbar-app-ui-menu-trigger" aria-expanded={open} aria-haspopup="menu" onClick={() => {
                     setOpen((current) => !current)
                     reportDialogAction(onAction, spec, 'toggle', open ? 'closed' : 'open')
-                }}>Report actions <ChevronDown size={14}/></button>
+                }}>Report actions <HbarAppUiIcon icon={ChevronDown} tier="sm" /></button>
                 {open && <div className="hbar-app-ui-dialog-menu" role="menu" aria-label="Report actions">
                     {menuItems.map((item, index) => {
                         const Icon = item.icon
                         return <div key={item.id}>
                             {index === 2 || index === 4 ? <hr/> : null}
                             <button type="button" className={`${index === 0 ? 'is-selected ' : ''}${item.danger ? 'is-danger' : ''}`.trim()} role="menuitem" onClick={() => reportDialogAction(onAction, spec, item.id)}>
-                                <Icon size={16}/><span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}{item.submenu && <ChevronRight className="hbar-app-ui-dialog-menu-chevron" size={15}/>}
+                                <HbarAppUiIcon icon={Icon} tier="md" /><span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}{item.submenu && <HbarAppUiIcon icon={ChevronRight} tier="sm" className="hbar-app-ui-dialog-menu-chevron" />}
                             </button>
                         </div>
                     })}

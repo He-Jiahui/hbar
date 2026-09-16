@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Bookmark, Check, Download, FileText, GitBranch} from 'lucide-react'
 import {
@@ -35,7 +36,7 @@ function IntegrationCard({spec, onAction}: CardProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-card-variant-2">
         <div
             className="hbar-app-ui-integration-rows">{['Git provider', 'Notifications', 'Issue tracker'].map((name, index) =>
-            <HbarAppUiSpotlight key={name}><GitBranch size={16}/>
+            <HbarAppUiSpotlight key={name}><HbarAppUiIcon icon={GitBranch} tier="md" />
                 <div>
                     <strong>{name}</strong><small>{connected && index === 0 ? 'Connected to Project Atlas' : 'Connect this service'}</small>
                 </div>
@@ -58,7 +59,7 @@ function OnboardingCards({spec, onAction}: CardProps) {
     }}>Reset</HbarAppUiButton>
         <div className="hbar-app-ui-onboarding-columns">{items.map((item, index) => <HbarAppUiSpotlight
             className={index < done ? 'is-complete' : ''} key={item}><span>{index < done ?
-            <Check size={14}/> : index + 1}</span><strong>{item}</strong>
+            <HbarAppUiIcon icon={Check} tier="sm" /> : index + 1}</span><strong>{item}</strong>
             <button type="button" onClick={() => {
                 setDone(Math.max(done, index + 1));
                 onAction?.({variantId: spec.id, actionId: 'step', value: item})
@@ -139,7 +140,7 @@ function ChangelogCard({spec, onAction}: CardProps) {
             label="Bookmark" onClick={() => {
             setSaved((value) => !value);
             onAction?.({variantId: spec.id, actionId: 'bookmark', value: String(!saved)})
-        }}><Bookmark size={14}/></HbarAppUiIconButton></div>
+        }}><HbarAppUiIcon icon={Bookmark} tier="sm" /></HbarAppUiIconButton></div>
     </HbarAppUiSpotlight></ActionSurfaceFrame>
 }
 
@@ -152,9 +153,9 @@ function FileTiles({spec, onAction}: CardProps) {
         <div
             className="hbar-app-ui-file-tile-grid">{['README.md', 'report.csv', 'design.fig', 'archive.zip'].map((file) =>
             <button type="button" className={selected === file ? 'is-selected' : ''} key={file}
-                    onClick={() => setSelected(file)}><FileText size={19}/><strong>{file}</strong><small>Updated
+                    onClick={() => setSelected(file)}><HbarAppUiIcon icon={FileText} tier="lg" /><strong>{file}</strong><small>Updated
                 today</small></button>)}</div>
-        <HbarAppUiSpotlight className="hbar-app-ui-file-preview"><FileText size={18}/>
+        <HbarAppUiSpotlight className="hbar-app-ui-file-preview"><HbarAppUiIcon icon={FileText} tier="md" />
             <div><strong>{selected}</strong><p>Preview and metadata appear here for the selected asset.</p></div>
         </HbarAppUiSpotlight></ActionSurfaceFrame>
 }
@@ -194,7 +195,7 @@ function InvoiceCard({spec, onAction}: CardProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-card-variant-11"><HbarAppUiSpotlight
         className="hbar-app-ui-invoice-card">
-        <div><FileText size={18}/><span><strong>INV-2026-09</strong><small>Issued Sep 01 · Workspace plan</small></span><HbarAppUiStatus
+        <div><HbarAppUiIcon icon={FileText} tier="md" /><span><strong>INV-2026-09</strong><small>Issued Sep 01 · Workspace plan</small></span><HbarAppUiStatus
             value="Paid" tone="positive"/></div>
         <dl>
             <div>
@@ -211,8 +212,8 @@ function InvoiceCard({spec, onAction}: CardProps) {
             </div>
         </dl>
         <HbarAppUiButton
-            onClick={() => onAction?.({variantId: spec.id, actionId: 'download', value: 'INV-2026-09'})}><Download
-            size={13}/>Download PDF</HbarAppUiButton></HbarAppUiSpotlight></ActionSurfaceFrame>
+            onClick={() => onAction?.({variantId: spec.id, actionId: 'download', value: 'INV-2026-09'})}><HbarAppUiIcon icon={Download} tier="sm"
+            />Download PDF</HbarAppUiButton></HbarAppUiSpotlight></ActionSurfaceFrame>
 }
 
 export function Card({spec, onAction}: CardProps) {

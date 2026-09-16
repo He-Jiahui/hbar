@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {HbarAppUiWorkbenchShell, useHbarAppUiShellContent} from './app-shell/WorkbenchShell'
 import {ChevronDown, FileText, LayoutDashboard, Search, Settings2, Sparkles} from 'lucide-react'
@@ -19,16 +20,16 @@ function ShellSidebar({spec, onAction}: ShellProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-shell-variant-1">
         <div className="hbar-app-ui-shell-layout">
             <aside>
-                <div className="hbar-app-ui-shell-brand"><Sparkles size={15}/><strong>hbar workspace</strong></div>
-                <button type="button" onClick={() => setOpen((value) => !value)}><ChevronDown size={13}
+                <div className="hbar-app-ui-shell-brand"><HbarAppUiIcon icon={Sparkles} tier="sm" /><strong>hbar workspace</strong></div>
+                <button type="button" onClick={() => setOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
                                                                                               className={open ? '' : 'is-collapsed'}/>Workspace
                 </button>
                 {open && <nav><span
                     className="is-active">Overview</span><span>Sessions <small>12</small></span><span>Files</span><span>Settings</span>
                 </nav>}</aside>
             <main><HbarAppUiToolbar title="Overview" detail="Workspace / October reconciliation"/><HbarAppUiButton
-                onClick={() => onAction?.({variantId: spec.id, actionId: 'search'})}><Search
-                size={13}/>Search</HbarAppUiButton><HbarAppUiMetricStrip
+                onClick={() => onAction?.({variantId: spec.id, actionId: 'search'})}><HbarAppUiIcon icon={Search} tier="sm"
+                />Search</HbarAppUiButton><HbarAppUiMetricStrip
                 metrics={[{label: 'Active tasks', value: '24'}, {
                     label: 'Reviews',
                     value: '04',
@@ -47,11 +48,11 @@ function ShellRails({spec, onAction}: ShellProps) {
         <div className="hbar-app-ui-three-pane">
             <nav className="hbar-app-ui-icon-rail">
                 <button type="button" aria-label="Overview" className={area === 'Overview' ? 'is-active' : ''}
-                        onClick={() => setArea('Overview')}><LayoutDashboard size={15}/></button>
+                        onClick={() => setArea('Overview')}><HbarAppUiIcon icon={LayoutDashboard} tier="sm" /></button>
                 <button type="button" aria-label="Sessions" className={area === 'Sessions' ? 'is-active' : ''}
-                        onClick={() => setArea('Sessions')}><FileText size={15}/></button>
+                        onClick={() => setArea('Sessions')}><HbarAppUiIcon icon={FileText} tier="sm" /></button>
                 <button type="button" aria-label="Settings" className={area === 'Settings' ? 'is-active' : ''}
-                        onClick={() => setArea('Settings')}><Settings2 size={15}/></button>
+                        onClick={() => setArea('Settings')}><HbarAppUiIcon icon={Settings2} tier="sm" /></button>
             </nav>
             <aside><strong>{area}</strong><span
                 className="is-active">Pinned workspace</span><span>Recent run</span><span>Shared files</span></aside>
@@ -94,11 +95,11 @@ function ShellTriage({spec, onAction}: ShellProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-shell-variant-5">
         <div className="hbar-app-ui-triage">
             <nav className="hbar-app-ui-icon-rail">
-                <button type="button" className="is-active"><LayoutDashboard size={15}/></button>
-                <button type="button"><FileText size={15}/></button>
+                <button type="button" className="is-active"><HbarAppUiIcon icon={LayoutDashboard} tier="sm" /></button>
+                <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" /></button>
             </nav>
             <aside>
-                <div className="hbar-app-ui-inline-search"><Search size={13}/><input placeholder="Filter records"
+                <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input placeholder="Filter records"
                                                                                      aria-label="Filter records"/></div>
                 {records.map((record) => <button type="button" className={selected === record ? 'is-selected' : ''}
                                                  key={record} onClick={() => {

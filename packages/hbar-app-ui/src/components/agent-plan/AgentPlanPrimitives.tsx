@@ -1,3 +1,4 @@
+import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon} from 'lucide-react'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
@@ -5,15 +6,9 @@ import {ActionSurfaceFrame} from '../SurfaceFrame'
 import type {HbarAppUiAgentPlanState} from './AgentPlanContent'
 
 export type AgentPlanSurfaceProps = HbarAppUiVariantProps
-export type AgentPlanIconTier = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+export type AgentPlanIconTier = HbarAppUiIconTier
 
-const iconSizeByTier: Readonly<Record<AgentPlanIconTier, string>> = {
-    xs: 'var(--hbar-app-ui-icon-xs)',
-    sm: 'var(--hbar-app-ui-icon-sm)',
-    md: 'var(--hbar-app-ui-icon-md)',
-    lg: 'var(--hbar-app-ui-icon-lg)',
-    xl: 'var(--hbar-app-ui-icon-xl)',
-}
+
 
 export function reportAgentPlanAction(
     onAction: AgentPlanSurfaceProps['onAction'],
@@ -39,10 +34,7 @@ export function AgentPlanButton({children, className = '', type = 'button', ...p
     return <button {...props} className={`hbar-app-ui-agent-plan-button ${className}`} type={type}>{children}</button>
 }
 
-export function AgentPlanIcon({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentPlanIconTier}) {
-    const size = iconSizeByTier[tier]
-    return <Icon aria-hidden="true" style={{inlineSize: size, blockSize: size}}/>
-}
+export function AgentPlanIcon({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentPlanIconTier}) { return <HbarAppUiIcon icon={Icon} tier={tier} /> }
 
 export function AgentPlanStateMark({state}: {readonly state: HbarAppUiAgentPlanState}) {
     return <i aria-hidden="true" className={`hbar-app-ui-agent-plan-state-mark is-${state}`}/>

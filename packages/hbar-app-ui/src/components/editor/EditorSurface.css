@@ -2,11 +2,6 @@
  * own alignment; dimensions below are rem-based component tokens rather than
  * screen-coordinate placements. */
 .hbar-app-ui-variant.hbar-app-ui-editor-surface {
-    --hbar-app-ui-icon-xs: .75rem;
-    --hbar-app-ui-icon-sm: .875rem;
-    --hbar-app-ui-icon-md: 1rem;
-    --hbar-app-ui-icon-lg: 1.25rem;
-    --hbar-app-ui-icon-xl: 1.5rem;
     display: flex !important;
     min-inline-size: 0;
     min-block-size: 100%;

@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {Fragment, useMemo, useState} from 'react'
 import {Bell, Mail, Smartphone} from 'lucide-react'
 import {
@@ -42,7 +43,7 @@ export function DeliveryPreferences({spec, onAction}: NotificationSurfaceProps) 
         <main className="hbar-app-ui-notifications-preferences-main"><div className="hbar-app-ui-notifications-preferences-scroll">
             <table aria-label="Notification delivery preferences"><thead><tr><th scope="col">Event</th>{deliveryChannels.map((channel) => {
                 const Icon = channel.Icon
-                return <th key={channel.id} scope="col"><Icon size={13} strokeWidth={1.5}/>{channel.label}</th>
+                return <th key={channel.id} scope="col"><HbarAppUiIcon icon={Icon} tier="sm"  strokeWidth={1.5}/>{channel.label}</th>
             })}</tr></thead><tbody>{deliveryGroups.map((group) => <Fragment key={group.id}>
                 <tr className="hbar-app-ui-notifications-preference-group"><th scope="row">{group.label}</th>{deliveryChannels.map((channel) => <td
                     key={channel.id}>{group.summaries[channel.id]}</td>)}</tr>{group.entries.map((entry) => <tr key={entry.id}>

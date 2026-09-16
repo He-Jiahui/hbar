@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {ArrowDown, ArrowUp, Check, ChevronRight, CircleAlert, MoreHorizontal, RefreshCw} from 'lucide-react'
 import {
@@ -35,8 +36,8 @@ function MetricGrid({spec, onAction}: DashboardProps) {
             up: false
         }, {label: 'Avg. latency', value: '1.8s', delta: '−18%', up: true}].map((metric) => <HbarAppUiSpotlight
             key={metric.label}><small>{metric.label}</small><strong>{metric.value}</strong><span
-            className={metric.up ? 'is-up' : 'is-down'}>{metric.up ? <ArrowUp size={12}/> :
-            <ArrowDown size={12}/>}{metric.delta}</span>
+            className={metric.up ? 'is-up' : 'is-down'}>{metric.up ? <HbarAppUiIcon icon={ArrowUp} tier="xs" /> :
+            <HbarAppUiIcon icon={ArrowDown} tier="xs" />}{metric.delta}</span>
             <div
                 className="hbar-app-ui-sparkline">{barValues(spec.profile.seed + String(metric.label).length, 7).map((value, index) =>
                 <i style={{height: `${value / 2}px`}} key={index}/>)}</div>
@@ -74,8 +75,8 @@ function WidgetGrid({spec, onAction}: DashboardProps) {
         <div className="hbar-app-ui-widget-grid">{['Runs', 'Queue', 'Usage', 'Health', 'Reviews'].map((name, index) =>
             <HbarAppUiSpotlight className={index === 0 ? 'is-wide' : ''} key={name}>
                 <header><strong>{name}</strong><HbarAppUiButton
-                    onClick={() => setMenu(menu === name ? undefined : name)}><MoreHorizontal
-                    size={13}/></HbarAppUiButton></header>
+                    onClick={() => setMenu(menu === name ? undefined : name)}><HbarAppUiIcon icon={MoreHorizontal} tier="sm"
+                    /></HbarAppUiButton></header>
                 <b>{[24, 8, '64%', '98%', 4][index]}</b>{menu === name && <div className="hbar-app-ui-widget-menu">
                 <button type="button"
                         onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: name})}>Open details
@@ -89,13 +90,13 @@ function OperationsBoard({spec, onAction}: DashboardProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-dashboard-variant-4"><HbarAppUiToolbar
         title="Operations dashboard" detail="Service board and incidents"/><HbarAppUiButton
-        onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'incidents'})}><CircleAlert size={13}/>Incidents</HbarAppUiButton>
+        onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'incidents'})}><HbarAppUiIcon icon={CircleAlert} tier="sm" />Incidents</HbarAppUiButton>
         <div
             className="hbar-app-ui-service-board">{['API gateway', 'Worker pool', 'Event stream', 'Storage'].map((service, index) =>
             <HbarAppUiSpotlight key={service}><HbarAppUiStatus value={index === 2 ? 'Degraded' : 'Healthy'}
                                                                tone={index === 2 ? 'warning' : 'positive'}/><strong>{service}</strong><small>{index === 2 ? '3 alerts' : `${120 + index * 18}ms`}</small></HbarAppUiSpotlight>)}</div>
-        <div className="hbar-app-ui-incident-feed"><strong>Incident feed</strong><span><CircleAlert size={13}/>Queue latency above threshold <small>8m ago</small></span><span><Check
-            size={13}/>Storage recovered <small>22m ago</small></span></div>
+        <div className="hbar-app-ui-incident-feed"><strong>Incident feed</strong><span><HbarAppUiIcon icon={CircleAlert} tier="sm" />Queue latency above threshold <small>8m ago</small></span><span><HbarAppUiIcon icon={Check} tier="sm"
+            />Storage recovered <small>22m ago</small></span></div>
     </ActionSurfaceFrame>
 }
 
@@ -149,7 +150,7 @@ function LoadingDashboard({spec, onAction}: DashboardProps) {
         onClick={() => {
             setLoaded(true);
             onAction?.({variantId: spec.id, actionId: 'load'})
-        }}><RefreshCw size={13}/>{loaded ? 'Refresh' : 'Load project'}</HbarAppUiButton>{loaded ? <HbarAppUiMetricStrip
+        }}><HbarAppUiIcon icon={RefreshCw} tier="sm" />{loaded ? 'Refresh' : 'Load project'}</HbarAppUiButton>{loaded ? <HbarAppUiMetricStrip
             metrics={[{label: 'Projects', value: '1'}, {label: 'Runs', value: '0'}, {label: 'Members', value: '1'}]}/> :
         <div className="hbar-app-ui-dashboard-empty">
             <div className="hbar-app-ui-skeleton-row"/>
@@ -275,7 +276,7 @@ function ServiceDetail({spec, onAction}: DashboardProps) {
                 <button type="button" className={service === item ? 'is-selected' : ''} key={item} onClick={() => {
                     setService(item);
                     onAction?.({variantId: spec.id, actionId: 'open', value: item})
-                }}>{item}<ChevronRight size={13}/></button>)}</aside>
+                }}>{item}<HbarAppUiIcon icon={ChevronRight} tier="sm" /></button>)}</aside>
             <main><HbarAppUiToolbar title={service} detail="Metrics, chart and activity"/><HbarAppUiStatus
                 value="Healthy" tone="positive"/><HbarAppUiMetricStrip
                 metrics={[{label: 'Requests', value: `${1_240 + service.length * 8}`}, {

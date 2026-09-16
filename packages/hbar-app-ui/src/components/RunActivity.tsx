@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import { Square } from 'lucide-react'
 import { HbarAppUiEmptyState, HbarAppUiIconButton, HbarAppUiStatus } from '../primitives'
 import type { HbarAppUiRunActivityItem, HbarAppUiRunActivityProps } from '../types'
@@ -67,7 +68,7 @@ export function HbarAppUiRunActivity({
       )}
       {runs.length === 0 ? (
         <HbarAppUiEmptyState
-          icon={<Square size={18} />}
+          icon={<HbarAppUiIcon icon={Square} tier="md"  />}
           title={resolvedEmptyTitle}
           description={resolvedEmptyDescription}
         />
@@ -115,7 +116,7 @@ export function HbarAppUiRunActivity({
                     disabled={isCancelling}
                     onClick={() => onCancelRun(run.id)}
                   >
-                    <Square size={13} />
+                    <HbarAppUiIcon icon={Square} tier="sm"  />
                   </HbarAppUiIconButton>
                 )}
               </li>

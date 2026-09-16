@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import {Check} from 'lucide-react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
@@ -59,7 +60,7 @@ export function WizardStepRail({
         const active = index === current
         return <div className={`hbar-app-ui-wizard-step${active ? ' is-active' : ''}${complete ? ' is-complete' : ''}`} key={step.id}>
             <button type="button" aria-current={active ? 'step' : undefined} aria-label={`${index + 1} ${step.label}`} disabled={!onSelect}
-                    onClick={() => onSelect?.(index)}><span className="hbar-app-ui-wizard-step-index">{complete ? <Check size={13} strokeWidth={2}/> : index + 1}</span><span className="hbar-app-ui-wizard-step-label">{step.label}</span></button>{index < steps.length - 1 &&
+                    onClick={() => onSelect?.(index)}><span className="hbar-app-ui-wizard-step-index">{complete ? <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={2}/> : index + 1}</span><span className="hbar-app-ui-wizard-step-label">{step.label}</span></button>{index < steps.length - 1 &&
                 <i aria-hidden="true"/>}
         </div>
     })}</nav>

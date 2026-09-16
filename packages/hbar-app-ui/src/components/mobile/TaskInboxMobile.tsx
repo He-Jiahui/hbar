@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useMemo, useState} from 'react'
 import {Plus, Search} from 'lucide-react'
 import {MobileFrame, MobileIconButton, MobilePhone, reportMobileAction, type MobileSurfaceProps} from './MobilePrimitives'
@@ -42,12 +43,12 @@ export function TaskInboxMobile({spec, onAction}: MobileSurfaceProps): React.JSX
         <header className="hbar-app-ui-mobile-phone-header"><p className="hbar-app-ui-mobile-phone-title">Inbox</p><div className="hbar-app-ui-mobile-header-actions"><MobileIconButton label={searchOpen ? 'Close task search' : 'Search tasks'} pressed={searchOpen} onClick={() => {
             setSearchOpen((value) => !value)
             reportMobileAction(onAction, spec, 'search')
-        }}><Search size={18} strokeWidth={1.7}/></MobileIconButton></div></header>
+        }}><HbarAppUiIcon icon={Search} tier="md"  strokeWidth={1.7}/></MobileIconButton></div></header>
         <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-task-content">
-            {searchOpen && <label className="hbar-app-ui-mobile-task-search"><Search size={15} aria-hidden="true"/><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" aria-label="Search tasks"/></label>}
+            {searchOpen && <label className="hbar-app-ui-mobile-task-search"><HbarAppUiIcon icon={Search} tier="sm"  aria-hidden="true"/><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" aria-label="Search tasks"/></label>}
             <p className="hbar-app-ui-mobile-eyebrow">{openTasks.length} OPEN</p>
             {visibleTasks.length ? <ul className="hbar-app-ui-mobile-task-list">{visibleTasks.map((task) => <li key={task.id}><button type="button" aria-pressed={task.complete} onClick={() => toggleTask(task.id)}><span className="hbar-app-ui-mobile-task-check" aria-hidden="true"/><span><strong>{task.title}</strong><small>{task.due}</small></span></button></li>)}</ul> : <p className="hbar-app-ui-mobile-no-results">No open tasks match this search.</p>}
         </main>
-        <footer className="hbar-app-ui-mobile-task-footer"><button type="button" className="hbar-app-ui-mobile-primary-round" aria-label="Add task" title="Add task" onClick={addTask}><Plus size={25} strokeWidth={1.6}/></button></footer>
+        <footer className="hbar-app-ui-mobile-task-footer"><button type="button" className="hbar-app-ui-mobile-primary-round" aria-label="Add task" title="Add task" onClick={addTask}><HbarAppUiIcon icon={Plus} tier="xl"  strokeWidth={1.6}/></button></footer>
     </MobilePhone></MobileFrame>
 }

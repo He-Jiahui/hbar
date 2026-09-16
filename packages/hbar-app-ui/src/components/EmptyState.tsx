@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Check, FileText, FolderOpen, HelpCircle, RefreshCw, Search, Upload, X} from 'lucide-react'
 import {HbarAppUiButton, HbarAppUiEmptyState, HbarAppUiSpotlight, HbarAppUiToolbar} from '../primitives'
@@ -15,12 +16,12 @@ function FirstRun({spec, onAction}: EmptyProps) {
             tone="accent" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'connect'
-        })}>Connect</HbarAppUiButton></HbarAppUiSpotlight><HbarAppUiSpotlight><FileText size={22}/><strong>Create a
+        })}>Connect</HbarAppUiButton></HbarAppUiSpotlight><HbarAppUiSpotlight><HbarAppUiIcon icon={FileText} tier="lg" /><strong>Create a
             project</strong><p>Start with a clean project and a guided setup.</p><HbarAppUiButton
             onClick={() => onAction?.({
                 variantId: spec.id,
                 actionId: 'create'
-            })}>Create</HbarAppUiButton></HbarAppUiSpotlight><HbarAppUiSpotlight><HelpCircle size={22}/><strong>View a
+            })}>Create</HbarAppUiButton></HbarAppUiSpotlight><HbarAppUiSpotlight><HbarAppUiIcon icon={HelpCircle} tier="lg" /><strong>View a
             tour</strong><p>Learn where activity, files and settings live.</p><HbarAppUiButton
             onClick={() => onAction?.({variantId: spec.id, actionId: 'tour'})}>Take
             tour</HbarAppUiButton></HbarAppUiSpotlight></div>
@@ -32,14 +33,14 @@ function NoResults({spec, onAction}: EmptyProps) {
     const [chips, setChips] = useState(['Status: blocked', 'Owner: me']);
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-empty-variant-2"><HbarAppUiToolbar
         title="No results" detail="The query is echoed below"/>
-        <div className="hbar-app-ui-inline-search"><Search size={13}/><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}/>
         </div>
-        <div className="hbar-app-ui-no-results"><Search size={24}/><strong>No matches for “{query}”</strong><p>Try a
+        <div className="hbar-app-ui-no-results"><HbarAppUiIcon icon={Search} tier="xl" /><strong>No matches for “{query}”</strong><p>Try a
             broader search or remove one of the filters.</p>
             <div className="hbar-app-ui-filter-chips">{chips.map((chip) => <button type="button" key={chip}
-                                                                                   onClick={() => setChips((current) => current.filter((item) => item !== chip))}>{chip}<X
-                size={11}/></button>)}</div>
+                                                                                   onClick={() => setChips((current) => current.filter((item) => item !== chip))}>{chip}<HbarAppUiIcon icon={X} tier="xs"
+                /></button>)}</div>
             <div className="hbar-app-ui-suggested-searches"><span>Suggested searches</span>
                 <button type="button" onClick={() => setQuery('workspace')}>workspace</button>
                 <button type="button" onClick={() => setQuery('review')}>review</button>
@@ -50,7 +51,7 @@ function NoResults({spec, onAction}: EmptyProps) {
 
 function CaughtUp({spec, onAction}: EmptyProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
-                               className="hbar-app-ui-empty-variant-3"><HbarAppUiEmptyState icon={<Check size={22}/>}
+                               className="hbar-app-ui-empty-variant-3"><HbarAppUiEmptyState icon={<HbarAppUiIcon icon={Check} tier="lg" />}
                                                                                             title="You're all caught up"
                                                                                             description="No new activity needs your attention today."
                                                                                             action={<div
@@ -75,12 +76,12 @@ function LoadFailure({spec, onAction}: EmptyProps) {
     const [retrying, setRetrying] = useState(false);
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-empty-variant-4"><HbarAppUiEmptyState
-        icon={<RefreshCw size={22}/>} title="Could not load this view"
+        icon={<HbarAppUiIcon icon={RefreshCw} tier="lg" />} title="Could not load this view"
         description="The local projection timed out while reading the workspace."
         action={<HbarAppUiButton tone="accent" onClick={() => {
             setRetrying(true);
             onAction?.({variantId: spec.id, actionId: 'retry'})
-        }}><RefreshCw size={14}/>{retrying ? 'Retrying…' : 'Retry'}</HbarAppUiButton>}/><HbarAppUiSpotlight
+        }}><HbarAppUiIcon icon={RefreshCw} tier="sm" />{retrying ? 'Retrying…' : 'Retry'}</HbarAppUiButton>}/><HbarAppUiSpotlight
         className="hbar-app-ui-request-details"><span>Request ID <code>req_91a2</code></span><span>Trace ID <code>trace_7f12</code></span><span>Last attempt <b>10:24:18</b></span></HbarAppUiSpotlight></ActionSurfaceFrame>
 }
 
@@ -94,12 +95,12 @@ function Dropzone({spec, onAction}: EmptyProps) {
             event.preventDefault();
             setDragging(false);
             onAction?.({variantId: spec.id, actionId: 'upload', value: 'drop'})
-        }}><FolderOpen size={28}/><strong>{dragging ? 'Release to upload' : 'Drop files here'}</strong><p>Supported:
+        }}><HbarAppUiIcon icon={FolderOpen} tier="xl" /><strong>{dragging ? 'Release to upload' : 'Drop files here'}</strong><p>Supported:
             PNG, JPG, PDF, CSV and Markdown</p><HbarAppUiButton tone="accent" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'upload',
             value: 'picker'
-        })}><Upload size={14}/>Choose files</HbarAppUiButton><small>Storage available · 8.4 GB</small></div>
+        })}><HbarAppUiIcon icon={Upload} tier="sm" />Choose files</HbarAppUiButton><small>Storage available · 8.4 GB</small></div>
     </ActionSurfaceFrame>
 }
 

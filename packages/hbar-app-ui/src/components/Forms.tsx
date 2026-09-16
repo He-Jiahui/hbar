@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Check, ChevronDown, CreditCard, FileText, Plus, RotateCcw, Send, Trash2} from 'lucide-react'
 import {
@@ -23,8 +24,8 @@ function TokenRecord({spec, onAction}: FormsProps) {
                                                                    onChange={(event) => setValue(event.target.value)}
                                                                    placeholder="Type a tag and press Enter"/></label><HbarAppUiProgress
         value={value ? 66 : 24} label="Form completion"/>
-        <div className="hbar-app-ui-form-actions"><HbarAppUiButton onClick={() => setValue('')}><RotateCcw size={13}/>Revert</HbarAppUiButton><HbarAppUiButton
-            tone="accent" onClick={() => onAction?.({variantId: spec.id, actionId: 'save', value})}><Check size={13}/>Save
+        <div className="hbar-app-ui-form-actions"><HbarAppUiButton onClick={() => setValue('')}><HbarAppUiIcon icon={RotateCcw} tier="sm" />Revert</HbarAppUiButton><HbarAppUiButton
+            tone="accent" onClick={() => onAction?.({variantId: spec.id, actionId: 'save', value})}><HbarAppUiIcon icon={Check} tier="sm" />Save
             record</HbarAppUiButton></div>
     </ActionSurfaceFrame>
 }
@@ -45,11 +46,11 @@ function Submission({spec, onAction}: FormsProps) {
                                                                                            checked={kind === option}
                                                                                            onChange={() => setKind(option)}/>{option}
                 </label>)}</fieldset>
-            <HbarAppUiSpotlight><strong>Checklist</strong><span><Check size={12}/>Title provided</span><span><Check
-                size={12}/>Type: {kind}</span><span>○ Details still needed</span></HbarAppUiSpotlight></div>
+            <HbarAppUiSpotlight><strong>Checklist</strong><span><HbarAppUiIcon icon={Check} tier="xs" />Title provided</span><span><HbarAppUiIcon icon={Check} tier="xs"
+                />Type: {kind}</span><span>○ Details still needed</span></HbarAppUiSpotlight></div>
         <HbarAppUiButton tone="accent"
-                         onClick={() => onAction?.({variantId: spec.id, actionId: 'submit', value: kind})}><Send
-            size={13}/>Submit</HbarAppUiButton></ActionSurfaceFrame>
+                         onClick={() => onAction?.({variantId: spec.id, actionId: 'submit', value: kind})}><HbarAppUiIcon icon={Send} tier="sm"
+            />Submit</HbarAppUiButton></ActionSurfaceFrame>
 }
 
 function Booking({spec, onAction}: FormsProps) {
@@ -61,8 +62,8 @@ function Booking({spec, onAction}: FormsProps) {
             {['Workspace review', 'Implementation session', 'Follow-up'].map((item, index) => <div key={item}>
                 <strong>{item}</strong><input type="number" defaultValue={index + 1} min="1"
                                               onChange={(event) => setTotal(240 + Number(event.target.value) * 20)}/><span>${80 + index * 40}</span>
-                <button type="button"><Trash2 size={13}/></button>
-            </div>)}<HbarAppUiButton onClick={() => setTotal((value) => value + 40)}><Plus size={13}/>Add
+                <button type="button"><HbarAppUiIcon icon={Trash2} tier="sm" /></button>
+            </div>)}<HbarAppUiButton onClick={() => setTotal((value) => value + 40)}><HbarAppUiIcon icon={Plus} tier="sm" />Add
             line</HbarAppUiButton></div>
         <HbarAppUiMetricStrip metrics={[{label: 'Subtotal', value: `$${total}`}, {label: 'Tax', value: '$19.20'}, {
             label: 'Total',
@@ -123,7 +124,7 @@ function Checkout({spec, onAction}: FormsProps) {
                 <option>CA</option>
                 <option>GB</option>
             </select></label><label>Card number
-                <div className="hbar-app-ui-input-icon"><CreditCard size={14}/><input
+                <div className="hbar-app-ui-input-icon"><HbarAppUiIcon icon={CreditCard} tier="sm" /><input
                     placeholder="4242 4242 4242 4242"/></div>
             </label>
                 <div className="hbar-app-ui-two-column-form"><label>Expiry<input placeholder="09 / 28"/></label><label>CVC<input
@@ -140,7 +141,7 @@ function ApplicationForm({spec, onAction}: FormsProps) {
     const [progress, setProgress] = useState(42);
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-forms-variant-7"><HbarAppUiToolbar
         title="Application" detail="Dropzone · radio cards · completion"/>
-        <div className="hbar-app-ui-dropzone"><FileText size={20}/><strong>Drop a resume here</strong><small>PDF or DOCX
+        <div className="hbar-app-ui-dropzone"><HbarAppUiIcon icon={FileText} tier="lg" /><strong>Drop a resume here</strong><small>PDF or DOCX
             · max 10 MB</small><HbarAppUiButton onClick={() => setProgress(72)}>Choose file</HbarAppUiButton></div>
         <fieldset>
             <legend>Work preference</legend>
@@ -248,7 +249,7 @@ function QuoteReview({spec, onAction}: FormsProps) {
             tone: 'positive'
         }]}/>
         <div className="hbar-app-ui-quote-sections">{['Plan', 'Seats', 'Support'].map((section) => <div key={section}>
-            <button type="button" onClick={() => setOpen(open === section ? '' : section)}><ChevronDown size={13}
+            <button type="button" onClick={() => setOpen(open === section ? '' : section)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
                                                                                                         className={open === section ? '' : 'is-collapsed'}/><strong>{section}</strong><span>{section === 'Plan' ? 'Team' : section === 'Seats' ? '12' : 'Priority'}</span>
             </button>
             {open === section &&

@@ -10,11 +10,6 @@
     --hbar-app-ui-billing-positive: oklch(.79 .19 153);
     --hbar-app-ui-billing-warning: oklch(.8 .16 82);
     --hbar-app-ui-billing-danger: oklch(.7 .22 28);
-    --hbar-app-ui-icon-xs: .75rem;
-    --hbar-app-ui-icon-sm: .875rem;
-    --hbar-app-ui-icon-md: 1rem;
-    --hbar-app-ui-icon-lg: 1.25rem;
-    --hbar-app-ui-icon-xl: 1.5rem;
     display: flex !important;
     min-inline-size: 0;
     min-block-size: 100%;

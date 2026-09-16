@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {
     AtSign,
@@ -35,15 +36,15 @@ function ThreadedDiscussion({spec, onAction}: CommentsProps) {
         onChange={setSort}/><HbarAppUiButton tone={resolved ? 'positive' : 'neutral'} onClick={() => {
         setResolved((value) => !value);
         onAction?.({variantId: spec.id, actionId: 'resolve', value: String(!resolved)})
-    }}>{resolved ? <Check size={13}/> : null}{resolved ? 'Resolved' : 'Resolve'}</HbarAppUiButton>
+    }}>{resolved ? <HbarAppUiIcon icon={Check} tier="sm" /> : null}{resolved ? 'Resolved' : 'Resolve'}</HbarAppUiButton>
         <div className="hbar-app-ui-comment-thread"><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">A</span>
             <div><strong>Avery</strong><p>Can we keep this state local to the session?</p><small>5m ago · <button
-                type="button"><Heart size={11}/> 2</button></small></div>
-            <MoreHorizontal size={13}/></HbarAppUiSpotlight>
+                type="button"><HbarAppUiIcon icon={Heart} tier="xs" /> 2</button></small></div>
+            <HbarAppUiIcon icon={MoreHorizontal} tier="sm" /></HbarAppUiSpotlight>
             <div className="hbar-app-ui-comment-replies"><HbarAppUiSpotlight><span
                 className="hbar-app-ui-avatar">M</span>
                 <div><strong>Mina</strong><p>Agreed — the action feedback is beside the row now.</p><small>2m ago
-                    · <button type="button"><Smile size={11}/> 1</button></small></div>
+                    · <button type="button"><HbarAppUiIcon icon={Smile} tier="xs" /> 1</button></small></div>
             </HbarAppUiSpotlight></div>
         </div>
         <textarea placeholder="Reply to this thread" onKeyDown={(event) => {
@@ -90,13 +91,13 @@ function CodeReview({spec, onAction}: CommentsProps) {
                 <pre className="hbar-app-ui-diff-code"><span>  const status = getStatus(run)</span><span
                     className="is-removed">− return status</span><span className="is-added">+ return formatStatus(status)</span></pre>
             </main>
-            <aside><HbarAppUiSpotlight><FileCode2 size={14}/><strong>Suggestion</strong><p>Use the shared formatter so
+            <aside><HbarAppUiSpotlight><HbarAppUiIcon icon={FileCode2} tier="sm" /><strong>Suggestion</strong><p>Use the shared formatter so
                 the status reads consistently.</p>
                 <div><HbarAppUiButton tone="accent"
-                                      onClick={() => onAction?.({variantId: spec.id, actionId: 'accept'})}><Check
-                    size={13}/>Accept</HbarAppUiButton><HbarAppUiButton
-                    onClick={() => onAction?.({variantId: spec.id, actionId: 'dismiss'})}><X
-                    size={13}/>Dismiss</HbarAppUiButton></div>
+                                      onClick={() => onAction?.({variantId: spec.id, actionId: 'accept'})}><HbarAppUiIcon icon={Check} tier="sm"
+                    />Accept</HbarAppUiButton><HbarAppUiButton
+                    onClick={() => onAction?.({variantId: spec.id, actionId: 'dismiss'})}><HbarAppUiIcon icon={X} tier="sm"
+                    />Dismiss</HbarAppUiButton></div>
             </HbarAppUiSpotlight></aside>
         </div>
     </ActionSurfaceFrame>
@@ -107,12 +108,12 @@ function MentionComposer({spec, onAction}: CommentsProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-comments-variant-4"><HbarAppUiToolbar title="Comment composer"
                                                                                             detail="Mentions, attachments and formatting"/>
-        <div className="hbar-app-ui-format-toolbar"><HbarAppUiIconButton label="Bold"><Bold
-            size={13}/></HbarAppUiIconButton><HbarAppUiIconButton label="Italic"><Italic
-            size={13}/></HbarAppUiIconButton><HbarAppUiIconButton label="Mention"
-                                                                  onClick={() => setMention((value) => !value)}><AtSign
-            size={13}/></HbarAppUiIconButton><HbarAppUiIconButton label="Attach"><Paperclip
-            size={13}/></HbarAppUiIconButton></div>
+        <div className="hbar-app-ui-format-toolbar"><HbarAppUiIconButton label="Bold"><HbarAppUiIcon icon={Bold} tier="sm"
+            /></HbarAppUiIconButton><HbarAppUiIconButton label="Italic"><HbarAppUiIcon icon={Italic} tier="sm"
+            /></HbarAppUiIconButton><HbarAppUiIconButton label="Mention"
+                                                                  onClick={() => setMention((value) => !value)}><HbarAppUiIcon icon={AtSign} tier="sm"
+            /></HbarAppUiIconButton><HbarAppUiIconButton label="Attach"><HbarAppUiIcon icon={Paperclip} tier="sm"
+            /></HbarAppUiIconButton></div>
         {mention && <HbarAppUiSpotlight className="hbar-app-ui-mention-menu">
             <button type="button" onClick={() => setMention(false)}>Avery Chen</button>
             <button type="button" onClick={() => setMention(false)}>Mina Patel</button>
@@ -135,7 +136,7 @@ function CommentInbox({spec, onAction}: CommentsProps) {
         onChange={setTab}/>
         <div
             className="hbar-app-ui-comment-inbox">{['Review API contract', 'Mentioned you in activity', 'Suggested change'].map((title, index) =>
-            <HbarAppUiSpotlight key={title}><MessageCircle size={14}/>
+            <HbarAppUiSpotlight key={title}><HbarAppUiIcon icon={MessageCircle} tier="sm" />
                 <div><strong>{title}</strong><small>{index + 2}m ago · {index === 1 ? '@you' : 'Avery'}</small></div>
                 <HbarAppUiStatus value={index === 0 ? 'Unresolved' : 'Resolved'}
                                  tone={index === 0 ? 'warning' : 'positive'}/><HbarAppUiButton

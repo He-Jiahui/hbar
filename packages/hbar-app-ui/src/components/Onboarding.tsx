@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Check, ChevronRight, Copy, Mail} from 'lucide-react'
 import {
@@ -45,11 +46,11 @@ function SixStep({spec, onAction}: OnboardingProps) {
                                                                                             className={index < step ? 'is-complete' : index === step ? 'is-active' : ''}
                                                                                             key={label}
                                                                                             onClick={() => setStep(index)}>
-            <span>{index < step ? <Check size={13}/> : index + 1}</span>
+            <span>{index < step ? <HbarAppUiIcon icon={Check} tier="sm" /> : index + 1}</span>
             <div>
                 <strong>{label}</strong><small>{index < step ? 'Complete' : index === step ? 'Current step' : 'Not started'}</small>
             </div>
-            <ChevronRight size={13}/></button>)}</div>
+            <HbarAppUiIcon icon={ChevronRight} tier="sm" /></button>)}</div>
         <HbarAppUiSpotlight><strong>{labels[step] ?? labels[0]}</strong><p>Complete this step to unlock the next part of
             your workspace.</p><HbarAppUiButton tone="accent" onClick={() => {
             setStep(Math.min(labels.length - 1, step + 1));
@@ -65,7 +66,7 @@ function GettingStarted({spec, onAction}: OnboardingProps) {
         title="Getting started checklist" detail={`${done} of ${tasks.length} complete`}/><HbarAppUiProgress
         value={done / tasks.length * 100} label="Onboarding completion"/>
         <div className="hbar-app-ui-start-checklist">{tasks.map((task, index) => <HbarAppUiSpotlight
-            key={task}><span>{index < done ? <Check size={13}/> : index + 1}</span>
+            key={task}><span>{index < done ? <HbarAppUiIcon icon={Check} tier="sm" /> : index + 1}</span>
             <div><strong>{task}</strong><small>{index < done ? 'Complete' : 'Action required'}</small></div>
             <HbarAppUiButton onClick={() => {
                 setDone(Math.max(done, index + 1));
@@ -103,7 +104,7 @@ function InviteTeam({spec, onAction}: OnboardingProps) {
             <option>Member</option>
             <option>Admin</option>
         </select><HbarAppUiButton tone="accent"
-                                  onClick={() => onAction?.({variantId: spec.id, actionId: 'invite'})}><Mail size={13}/>Send
+                                  onClick={() => onAction?.({variantId: spec.id, actionId: 'invite'})}><HbarAppUiIcon icon={Mail} tier="sm" />Send
             invite</HbarAppUiButton></div>
         <div className="hbar-app-ui-invite-list"><HbarAppUiSpotlight><span
             className="hbar-app-ui-avatar">A</span><strong>Avery Chen</strong><HbarAppUiStatus value="Joined"
@@ -114,7 +115,7 @@ function InviteTeam({spec, onAction}: OnboardingProps) {
             onClick={() => {
                 setCopied(true);
                 onAction?.({variantId: spec.id, actionId: 'copy'})
-            }}><Copy size={13}/>{copied ? 'Copied' : 'Copy link'}</HbarAppUiButton></div>
+            }}><HbarAppUiIcon icon={Copy} tier="sm" />{copied ? 'Copied' : 'Copy link'}</HbarAppUiButton></div>
     </ActionSurfaceFrame>
 }
 
@@ -123,7 +124,7 @@ function CompleteSummary({spec, onAction}: OnboardingProps) {
                                className="hbar-app-ui-onboarding-variant-6"><HbarAppUiToolbar title="Workspace ready"
                                                                                               detail="Everything is configured"/><HbarAppUiStatus
         value="Complete" tone="positive"/>
-        <div className="hbar-app-ui-complete-summary"><Check size={28}/><h2>You're ready to go</h2><p>Host connected,
+        <div className="hbar-app-ui-complete-summary"><HbarAppUiIcon icon={Check} tier="xl" /><h2>You're ready to go</h2><p>Host connected,
             workspace created and preferences saved.</p><HbarAppUiMetricStrip
             metrics={[{label: 'Host', value: 'Connected', tone: 'positive'}, {
                 label: 'Workspace',

@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Bell, Heart, Image, Paperclip, Users} from 'lucide-react'
 import {HbarAppUiButton, HbarAppUiComposer, HbarAppUiSpotlight, HbarAppUiTabs, HbarAppUiToolbar} from '../primitives'
@@ -19,7 +20,7 @@ function TeamChannel({spec, onAction}: ChatProps) {
             <main><HbarAppUiToolbar title={`# ${channel}`} detail="Threaded messages"/><HbarAppUiSpotlight><span
                 className="hbar-app-ui-avatar">A</span>
                 <div><strong>Avery</strong><p>Deployment is ready for review.</p><small>10:18 · <button type="button">
-                    <Heart size={11}/> 2</button></small></div>
+                    <HbarAppUiIcon icon={Heart} tier="xs" /> 2</button></small></div>
             </HbarAppUiSpotlight><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">M</span>
                 <div><strong>Mina</strong><p>I’ll check the activity panel and reply here.</p><small>10:22 · <button
                     type="button">Reply</button></small></div>
@@ -59,12 +60,12 @@ function SocialThread({spec, onAction}: ChatProps) {
         className="hbar-app-ui-lead-post"><span className="hbar-app-ui-avatar hbar-app-ui-avatar-large">A</span>
         <div><strong>Avery Chen</strong><small>10m ago</small><p>What should we improve in the next workspace
             release?</p>
-            <button type="button" onClick={() => setLikes((value) => value + 1)}><Heart size={13}/> {likes}</button>
+            <button type="button" onClick={() => setLikes((value) => value + 1)}><HbarAppUiIcon icon={Heart} tier="sm" /> {likes}</button>
         </div>
     </HbarAppUiSpotlight>
         <div className="hbar-app-ui-nested-replies"><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">M</span>
-            <div><strong>Mina</strong><p>Faster recovery feedback.</p><small>3m ago · <button type="button"><Heart
-                size={11}/> 2</button></small></div>
+            <div><strong>Mina</strong><p>Faster recovery feedback.</p><small>3m ago · <button type="button"><HbarAppUiIcon icon={Heart} tier="xs"
+                /> 2</button></small></div>
         </HbarAppUiSpotlight><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">J</span>
             <div><strong>Jon</strong><p>Keyboard navigation for queues.</p><small>1m ago</small></div>
         </HbarAppUiSpotlight></div>
@@ -88,8 +89,8 @@ function SupportWidget({spec, onAction}: ChatProps) {
             onClick={() => onAction?.({variantId: spec.id, actionId: 'quick-reply', value: 'billing'})}>Billing
             question</HbarAppUiButton></div>
         <div className="hbar-app-ui-chat-attachments"><HbarAppUiButton
-            onClick={() => onAction?.({variantId: spec.id, actionId: 'attach', value: 'screenshot.png'})}><Paperclip
-            size={13}/>Attach</HbarAppUiButton><span>screenshot.png</span></div>
+            onClick={() => onAction?.({variantId: spec.id, actionId: 'attach', value: 'screenshot.png'})}><HbarAppUiIcon icon={Paperclip} tier="sm"
+            />Attach</HbarAppUiButton><span>screenshot.png</span></div>
         <div className="hbar-app-ui-rating">{[1, 2, 3, 4, 5].map((value) => <button type="button"
                                                                                     className={rating >= value ? 'is-selected' : ''}
                                                                                     key={value}
@@ -107,14 +108,14 @@ function GroupChat({spec, onAction}: ChatProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-chat-variant-5"><HbarAppUiToolbar
         title="Group chat" detail="Attachments · reactions · thread counts"/>
         <div className="hbar-app-ui-avatar-stack"><span>A</span><span>M</span><span>J</span><span>+5</span></div>
-        <HbarAppUiButton onClick={() => onAction?.({variantId: spec.id, actionId: 'invite'})}><Users
-            size={13}/>Invite</HbarAppUiButton>
+        <HbarAppUiButton onClick={() => onAction?.({variantId: spec.id, actionId: 'invite'})}><HbarAppUiIcon icon={Users} tier="sm"
+            />Invite</HbarAppUiButton>
         <div className="hbar-app-ui-group-messages"><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">M</span>
             <div><strong>Mina</strong><p>Sharing the updated architecture diagram.</p>
-                <div className="hbar-app-ui-message-attachment"><Image size={15}/>architecture.png</div>
+                <div className="hbar-app-ui-message-attachment"><HbarAppUiIcon icon={Image} tier="sm" />architecture.png</div>
                 <small>
-                    <button type="button" onClick={() => setReaction((value) => value + 1)}><Heart
-                        size={11}/> {reaction}</button>
+                    <button type="button" onClick={() => setReaction((value) => value + 1)}><HbarAppUiIcon icon={Heart} tier="xs"
+                        /> {reaction}</button>
                     · 3 replies</small></div>
         </HbarAppUiSpotlight><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">J</span>
             <div><strong>Jon</strong><p>Looks good — I left a note in the thread.</p><small>2 replies</small></div>
@@ -134,7 +135,7 @@ function LiveStreamChat({spec, onAction}: ChatProps) {
         id: 'Chat',
         label: 'Chat'
     }, {id: 'Viewers', label: 'Viewers'}]} onChange={setTab}/>{tab === 'Chat' ?
-        <div className="hbar-app-ui-live-chat"><HbarAppUiSpotlight><Bell size={14}/><strong>Pinned: keep the discussion
+        <div className="hbar-app-ui-live-chat"><HbarAppUiSpotlight><HbarAppUiIcon icon={Bell} tier="sm" /><strong>Pinned: keep the discussion
             on topic.</strong></HbarAppUiSpotlight>{['Avery · host', 'Mina · moderator', 'Jon'].map((name, index) =>
             <div key={name}><span className="hbar-app-ui-avatar">{name[0]}</span><strong>{name}</strong>
                 <p>{index === 0 ? 'Welcome to the workspace stream!' : 'The latest run is now live.'}</p>

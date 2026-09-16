@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useMemo, useState} from 'react'
 import {AtSign, Check, CheckCheck, GitPullRequest, MessageSquare, ShieldCheck, UserRoundPlus, X} from 'lucide-react'
 import {
@@ -20,7 +21,7 @@ function EntryIcon({kind}: {readonly kind: NotificationKind}) {
                 : kind === 'member' ? UserRoundPlus
                     : kind === 'security' ? ShieldCheck
                         : Check
-    return <span className="hbar-app-ui-notifications-entry-icon" aria-hidden="true"><Icon size={16} strokeWidth={1.6}/></span>
+    return <span className="hbar-app-ui-notifications-entry-icon" aria-hidden="true"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.6}/></span>
 }
 
 function NotificationLine({entry}: {readonly entry: NotificationEntry}) {
@@ -72,7 +73,7 @@ export function NotificationCenter({spec, onAction}: NotificationSurfaceProps) {
             <button type="button" className="hbar-app-ui-notifications-mark-all" onClick={() => {
                 setReadIds(new Set(notificationGroups.flatMap((group) => group.entries.map((entry) => entry.id))))
                 reportNotificationAction(onAction, spec, 'read-all')
-            }}><CheckCheck size={15} strokeWidth={1.7}/>Mark all read</button>
+            }}><HbarAppUiIcon icon={CheckCheck} tier="sm"  strokeWidth={1.7}/>Mark all read</button>
         </header>
         <main className="hbar-app-ui-notifications-center-main">
             <NotificationTabs label="Notifications" value={filter} onChange={selectFilter} options={[
@@ -89,9 +90,9 @@ export function NotificationCenter({spec, onAction}: NotificationSurfaceProps) {
                             <small>{entry.detail}</small>}</div><time>{entry.time}</time><div
                             className="hbar-app-ui-notifications-entry-actions"><NotificationIconButton label={isRead ? 'Mark unread' : 'Mark as read'}
                                                                                                        onClick={() => setReadState(entry, !isRead)}>{isRead
-                                ? <AtSign size={14} strokeWidth={1.6}/>
-                                : <Check size={14} strokeWidth={1.6}/>}</NotificationIconButton><NotificationIconButton
-                                label="Dismiss notification" onClick={() => dismiss(entry.id)}><X size={14} strokeWidth={1.6}/></NotificationIconButton></div></li>
+                                ? <HbarAppUiIcon icon={AtSign} tier="sm"  strokeWidth={1.6}/>
+                                : <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={1.6}/>}</NotificationIconButton><NotificationIconButton
+                                label="Dismiss notification" onClick={() => dismiss(entry.id)}><HbarAppUiIcon icon={X} tier="sm"  strokeWidth={1.6}/></NotificationIconButton></div></li>
                 })}</ul>
             </section>)}</div>
         </main>

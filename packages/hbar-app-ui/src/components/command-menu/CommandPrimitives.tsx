@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useEffect} from 'react'
 import type {ReactNode} from 'react'
 import {ArrowLeft, Search} from 'lucide-react'
@@ -45,11 +46,11 @@ export function CommandSearch({
     readonly placeholder: string
     readonly ariaLabel: string
 }): React.JSX.Element {
-    return <label className="hbar-app-ui-command-search-field"><Search size={17} aria-hidden="true"/><input autoFocus value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-label={ariaLabel}/></label>
+    return <label className="hbar-app-ui-command-search-field"><HbarAppUiIcon icon={Search} tier="md"  aria-hidden="true"/><input autoFocus value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-label={ariaLabel}/></label>
 }
 
 export function CommandBack({onClick}: {readonly onClick: () => void}): React.JSX.Element {
-    return <button type="button" className="hbar-app-ui-command-back" aria-label="Back to actions" onClick={onClick}><ArrowLeft size={18}/></button>
+    return <button type="button" className="hbar-app-ui-command-back" aria-label="Back to actions" onClick={onClick}><HbarAppUiIcon icon={ArrowLeft} tier="md" /></button>
 }
 
 export function CommandHint({children}: {readonly children: ReactNode}): React.JSX.Element {

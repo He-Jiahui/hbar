@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import type {ReactNode} from 'react'
 import type {LucideIcon} from 'lucide-react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
@@ -74,7 +75,7 @@ export function MobileBottomTabs({
         key={id}
         onClick={() => onChange(id)}
     >
-        <span className="hbar-app-ui-mobile-tab-icon"><Icon size={18} strokeWidth={1.8} aria-hidden="true"/>{badge && <small>{badge}</small>}</span>
+        <span className="hbar-app-ui-mobile-tab-icon"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.8} aria-hidden="true"/>{badge && <small>{badge}</small>}</span>
         <span>{tabLabel}</span>
     </button>)}</nav>
 }

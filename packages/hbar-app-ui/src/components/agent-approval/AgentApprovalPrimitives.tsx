@@ -1,3 +1,4 @@
+import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon} from 'lucide-react'
 import type {ButtonHTMLAttributes, CSSProperties, ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
@@ -5,15 +6,9 @@ import {ActionSurfaceFrame} from '../SurfaceFrame'
 import type {HbarAppUiAgentApprovalState} from './AgentApprovalContent'
 
 export type AgentApprovalSurfaceProps = HbarAppUiVariantProps
-export type AgentApprovalIconTier = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+export type AgentApprovalIconTier = HbarAppUiIconTier
 
-const iconSizeByTier: Readonly<Record<AgentApprovalIconTier, string>> = {
-    xs: 'var(--hbar-app-ui-icon-xs)',
-    sm: 'var(--hbar-app-ui-icon-sm)',
-    md: 'var(--hbar-app-ui-icon-md)',
-    lg: 'var(--hbar-app-ui-icon-lg)',
-    xl: 'var(--hbar-app-ui-icon-xl)',
-}
+
 
 export function reportAgentApprovalAction(
     onAction: AgentApprovalSurfaceProps['onAction'],
@@ -39,10 +34,7 @@ export function AgentApprovalButton({children, className = '', type = 'button', 
     return <button {...props} className={`hbar-app-ui-agent-approval-button ${className}`} type={type}>{children}</button>
 }
 
-export function AgentApprovalGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentApprovalIconTier}) {
-    const size = iconSizeByTier[tier]
-    return <Icon aria-hidden="true" style={{inlineSize: size, blockSize: size}}/>
-}
+export function AgentApprovalGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentApprovalIconTier}) { return <HbarAppUiIcon icon={Icon} tier={tier} /> }
 
 export function AgentApprovalStateMark({state}: {readonly state: HbarAppUiAgentApprovalState}) {
     return <i aria-hidden="true" className={`hbar-app-ui-agent-approval-state-mark is-${state}`}/>

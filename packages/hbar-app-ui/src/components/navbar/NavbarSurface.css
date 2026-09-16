@@ -2,11 +2,6 @@
  * short collections and article bodies own their layout through flex/grid;
  * no variant is positioned against a screenshot coordinate. */
 .hbar-app-ui-variant.hbar-app-ui-navbar-surface {
-    --hbar-app-ui-icon-xs: .75rem;
-    --hbar-app-ui-icon-sm: .875rem;
-    --hbar-app-ui-icon-md: 1rem;
-    --hbar-app-ui-icon-lg: 1.25rem;
-    --hbar-app-ui-icon-xl: 1.5rem;
     display: flex !important;
     block-size: 100%;
     min-inline-size: 0;

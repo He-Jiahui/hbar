@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useEffect, useState} from 'react'
 import {CheckCircle2, CircleAlert, Info, LoaderCircle, X} from 'lucide-react'
 import {
@@ -20,10 +21,10 @@ const toastChoices: readonly {readonly tone: ToastTone; readonly label: string}[
 ]
 
 function ToastGlyph({tone}: {readonly tone: ToastTone}) {
-    if (tone === 'success') return <CheckCircle2 size={15} aria-hidden="true"/>
-    if (tone === 'error') return <CircleAlert size={15} aria-hidden="true"/>
-    if (tone === 'info') return <Info size={15} aria-hidden="true"/>
-    return <LoaderCircle size={15} aria-hidden="true"/>
+    if (tone === 'success') return <HbarAppUiIcon icon={CheckCircle2} tier="sm"  aria-hidden="true"/>
+    if (tone === 'error') return <HbarAppUiIcon icon={CircleAlert} tier="sm"  aria-hidden="true"/>
+    if (tone === 'info') return <HbarAppUiIcon icon={Info} tier="sm"  aria-hidden="true"/>
+    return <HbarAppUiIcon icon={LoaderCircle} tier="sm"  aria-hidden="true"/>
 }
 
 export function ToastStack({spec, onAction}: NotificationSurfaceProps) {
@@ -53,8 +54,8 @@ export function ToastStack({spec, onAction}: NotificationSurfaceProps) {
             }} onPointerLeave={() => setPaused(false)}>{toasts.length ? <ul>{toasts.map((toast) => <li key={toast.id}
                                                                                                            className={`is-${toast.tone}`}><ToastGlyph
                 tone={toast.tone}/><span><strong>{toast.label}</strong><small>{isPaused ? 'Timer paused' : 'Dismisses automatically'}</small></span><NotificationIconButton
-                label={`Dismiss ${toast.label}`} onClick={() => setToasts((current) => current.filter((entry) => entry.id !== toast.id))}><X
-                size={14}/></NotificationIconButton></li>)}</ul> : <div className="hbar-app-ui-notifications-no-toasts"><span>No active toasts</span><button
+                label={`Dismiss ${toast.label}`} onClick={() => setToasts((current) => current.filter((entry) => entry.id !== toast.id))}><HbarAppUiIcon icon={X} tier="sm"
+                /></NotificationIconButton></li>)}</ul> : <div className="hbar-app-ui-notifications-no-toasts"><span>No active toasts</span><button
                 type="button" disabled>Clear all</button></div>}</section>
         </main>
     </NotificationFrame>

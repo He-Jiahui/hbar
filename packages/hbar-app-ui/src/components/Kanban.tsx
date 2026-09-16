@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {ChevronDown, GripVertical, MessageCircle, MoreHorizontal, Palette, Paperclip, Plus, ShieldAlert} from 'lucide-react'
 import {
@@ -90,7 +91,7 @@ function StatusBoard({spec, onAction}: KanbanProps) {
         <main className="hbar-app-ui-kanban-board" aria-label="Platform board columns">
             {statusColumns.map((column) => <section className="hbar-app-ui-kanban-column" key={column}>
                 <header><h3>{column}</h3><span>{column === 'In progress' ? `${columns[column].length}/4` : column === 'In review' ? `${columns[column].length}/3` : columns[column].length}</span><button
-                    type="button" aria-label={`Add a card to ${column}`} onClick={() => addCard(column)}><Plus size={15}/></button></header>
+                    type="button" aria-label={`Add a card to ${column}`} onClick={() => addCard(column)}><HbarAppUiIcon icon={Plus} tier="sm" /></button></header>
                 <ul className="hbar-app-ui-kanban-cards">{columns[column].map((card, index) => <li key={card.id}>
                     <button type="button" draggable className={`hbar-app-ui-kanban-card${selected === card.id ? ' is-selected' : ''}`}
                             aria-label={`${card.id}: ${card.title}`} onClick={() => {
@@ -102,9 +103,9 @@ function StatusBoard({spec, onAction}: KanbanProps) {
                             moveCard(card.id, column)
                         }
                     }}>
-                        <span className="hbar-app-ui-kanban-card-top"><i className={index === 0 ? 'is-current' : ''}/><span>{card.id}</span><GripVertical size={14}/></span>
+                        <span className="hbar-app-ui-kanban-card-top"><i className={index === 0 ? 'is-current' : ''}/><span>{card.id}</span><HbarAppUiIcon icon={GripVertical} tier="sm" /></span>
                         <strong>{card.title}</strong>
-                        <footer><span>{card.tag}</span>{card.comments !== undefined && <small><MessageCircle size={12}/>{card.comments}</small>}{card.files !== undefined && <small><Paperclip size={12}/>{card.files}</small>}<i>{card.avatar}</i></footer>
+                        <footer><span>{card.tag}</span>{card.comments !== undefined && <small><HbarAppUiIcon icon={MessageCircle} tier="xs" />{card.comments}</small>}{card.files !== undefined && <small><HbarAppUiIcon icon={Paperclip} tier="xs" />{card.files}</small>}<i>{card.avatar}</i></footer>
                     </button>
                 </li>)}</ul>
             </section>)}
@@ -112,7 +113,7 @@ function StatusBoard({spec, onAction}: KanbanProps) {
         <button type="button" className="hbar-app-ui-kanban-theme" onClick={() => {
             setSubdued((value) => !value)
             onAction?.({variantId: spec.id, actionId: 'theme', value: subdued ? 'standard' : 'subdued'})
-        }}><Palette size={13}/>{subdued ? 'Standard' : 'Theme'}</button>
+        }}><HbarAppUiIcon icon={Palette} tier="sm" />{subdued ? 'Standard' : 'Theme'}</button>
     </ActionSurfaceFrame>
 }
 
@@ -126,7 +127,7 @@ function Swimlanes({spec, onAction}: KanbanProps) {
             <header><span>Workstream</span><span>Todo</span><span>Doing</span><span>Done</span></header>
             {Object.keys(open).map((lane) => <div className="hbar-app-ui-swimlane" key={lane}>
                 <button type="button" onClick={() => setOpen((current) => ({...current, [lane]: !current[lane]}))}>
-                    <ChevronDown size={13} className={open[lane] ? '' : 'is-collapsed'}/>{lane}</button>
+                    <HbarAppUiIcon icon={ChevronDown} tier="sm"  className={open[lane] ? '' : 'is-collapsed'}/>{lane}</button>
                 {open[lane] && <>
                     <HbarAppUiSpotlight><span>{lane} discovery</span></HbarAppUiSpotlight><HbarAppUiSpotlight><span>{lane} implementation</span></HbarAppUiSpotlight><HbarAppUiSpotlight><span>{lane} shipped</span></HbarAppUiSpotlight></>}
             </div>)}</div>
@@ -148,8 +149,8 @@ function Regroupable({spec, onAction}: KanbanProps) {
                 variantId: spec.id,
                 actionId: 'drop',
                 value: `${item}:${group}`
-            })}><GripVertical
-                size={13}/><strong>{item}</strong><span>{group === 'Status' ? ['Todo', 'Doing', 'Done'][index] : group === 'Assignee' ? ['Avery', 'Mina', 'Jon'][index] : ['High', 'Medium', 'Low'][index]}</span></HbarAppUiSpotlight>)}</div>
+            })}><HbarAppUiIcon icon={GripVertical} tier="sm"
+                /><strong>{item}</strong><span>{group === 'Status' ? ['Todo', 'Doing', 'Done'][index] : group === 'Assignee' ? ['Avery', 'Mina', 'Jon'][index] : ['High', 'Medium', 'Low'][index]}</span></HbarAppUiSpotlight>)}</div>
     </ActionSurfaceFrame>
 }
 
@@ -158,7 +159,7 @@ function DetailBoard({spec, onAction}: KanbanProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-kanban-variant-4">
         <div className="hbar-app-ui-kanban-detail">
             <main><HbarAppUiToolbar title="Work board" detail="Select a card for details"/><HbarAppUiButton
-                onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'new'})}><Plus size={13}/>Add
+                onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'new'})}><HbarAppUiIcon icon={Plus} tier="sm" />Add
                 card</HbarAppUiButton>{['Build activity panel', 'Validate response', 'Publish notes'].map((item) =>
                 <button type="button" className={selected === item ? 'is-selected' : ''} key={item}
                         onClick={() => setSelected(item)}><strong>{item}</strong><small>In progress</small></button>)}
@@ -201,7 +202,7 @@ function SprintBoard({spec, onAction}: KanbanProps) {
                 setMovedCard(item)
                 onAction?.({variantId: spec.id, actionId: 'drag', value: item})
             }}><strong>{item}</strong><small>{itemIndex === 0 && index === 0 ? <>
-                <ShieldAlert size={11}/> Blocked</> : `${itemIndex + 2} pts`}</small><HbarAppUiButton type="button"
+                <HbarAppUiIcon icon={ShieldAlert} tier="xs" /> Blocked</> : `${itemIndex + 2} pts`}</small><HbarAppUiButton type="button"
                                                                                                       onClick={() => {
                                                                                                           setMovedCard(item)
                                                                                                           onAction?.({
@@ -225,7 +226,7 @@ function CompactBoard({spec, onAction}: KanbanProps) {
             <HbarAppUiSpotlight><strong>{column === 'Todo' ? 'Review API contract' : column === 'Doing' ? 'Build activity panel' : 'Create workspace'}</strong><small>Step
                 controls · 3 steps</small>
                 <div><HbarAppUiButton onClick={() => onAction?.({variantId: spec.id, actionId: 'step', value: column})}>Next
-                    step</HbarAppUiButton><HbarAppUiButton><MoreHorizontal size={13}/></HbarAppUiButton></div>
+                    step</HbarAppUiButton><HbarAppUiButton><HbarAppUiIcon icon={MoreHorizontal} tier="sm" /></HbarAppUiButton></div>
             </HbarAppUiSpotlight></div>
     </ActionSurfaceFrame>
 }

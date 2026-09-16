@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {AlertCircle, CheckCircle2, ChevronDown, CircleAlert, Info, RotateCcw, X} from 'lucide-react'
 import {
@@ -30,7 +31,7 @@ const systemMessages: readonly SystemMessage[] = [
 
 function SystemMessageIcon({tone}: {readonly tone: SystemMessageTone}) {
     const Icon = tone === 'warning' ? AlertCircle : tone === 'danger' ? CircleAlert : tone === 'success' ? CheckCircle2 : Info
-    return <span className={`hbar-app-ui-notifications-system-icon is-${tone}`} aria-hidden="true"><Icon size={16} strokeWidth={1.7}/></span>
+    return <span className={`hbar-app-ui-notifications-system-icon is-${tone}`} aria-hidden="true"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.7}/></span>
 }
 
 export function SystemMessages({spec, onAction}: NotificationSurfaceProps) {
@@ -48,7 +49,7 @@ export function SystemMessages({spec, onAction}: NotificationSurfaceProps) {
                                                                                                                                                                       onClick={() => {
             setDismissed(new Set())
             reportNotificationAction(onAction, spec, 'restore-all')
-        }}><RotateCcw size={15}/>Restore all</NotificationButton></header>
+        }}><HbarAppUiIcon icon={RotateCcw} tier="sm" />Restore all</NotificationButton></header>
         <main className="hbar-app-ui-notifications-system-list">{visible.map((message) => <section key={message.id}
                                                                                                       className={`hbar-app-ui-notifications-system-message is-${message.tone}`}><div
             className="hbar-app-ui-notifications-system-message-main"><SystemMessageIcon tone={message.tone}/><div><h2>{message.title}</h2><p>{message.detail}</p>{message.expandable && <button
@@ -60,12 +61,12 @@ export function SystemMessages({spec, onAction}: NotificationSurfaceProps) {
                     return next
                 })
                 reportNotificationAction(onAction, spec, 'details', message.id)
-            }}>{expanded.has(message.id) ? 'Hide details' : 'Show details'} <ChevronDown size={14} aria-hidden="true"/></button>}{expanded.has(message.id) && <p
+            }}>{expanded.has(message.id) ? 'Hide details' : 'Show details'} <HbarAppUiIcon icon={ChevronDown} tier="sm"  aria-hidden="true"/></button>}{expanded.has(message.id) && <p
                 className="hbar-app-ui-notifications-expanded-copy">Three source files need a schema mapping before the next retry.</p>}<div
                 className="hbar-app-ui-notifications-system-actions"><NotificationButton tone={message.tone === 'warning' ? 'light' : 'neutral'}
                                                                                              onClick={() => reportNotificationAction(onAction, spec, 'action', message.id)}>{message.primary}</NotificationButton>{message.secondary &&
                 <NotificationButton onClick={() => reportNotificationAction(onAction, spec, 'secondary', message.id)}>{message.secondary}</NotificationButton>}</div>{message.tone === 'usage' && <div
                 className="hbar-app-ui-notifications-usage-meter"><span><i style={{inlineSize: '84%'}}/></span><small>4.2 of 5 M events</small></div>}</div></div><NotificationIconButton
-            label={`Dismiss: ${message.title}`} onClick={() => dismiss(message.id)}><X size={15}/></NotificationIconButton></section>)}</main>
+            label={`Dismiss: ${message.title}`} onClick={() => dismiss(message.id)}><HbarAppUiIcon icon={X} tier="sm" /></NotificationIconButton></section>)}</main>
     </NotificationFrame>
 }

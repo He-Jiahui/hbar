@@ -1,3 +1,4 @@
+import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Hash} from 'lucide-react'
 import {CommandBackdrop, CommandFrame, CommandHint, CommandSearch, CommandShortcut, reportCommandAction, type CommandMenuProps, useCommandEscape} from './CommandPrimitives'
@@ -24,7 +25,7 @@ export function RoomCommandPalette({spec, onAction}: CommandMenuProps): React.JS
         <button type="button" className="hbar-app-ui-command-trigger" onClick={() => {setOpen(true); reportCommandAction(onAction, spec, 'open')}}>Northwind</button>
         {open && <CommandBackdrop onClose={close}><section className="hbar-app-ui-command-dialog hbar-app-ui-command-dialog-room" role="dialog" aria-modal="true" aria-label="Switch room">
             <header className="hbar-app-ui-command-dialog-header"><CommandSearch value={query} onChange={setQuery} placeholder="Find a room" ariaLabel="Find a room"/></header>
-            <div className="hbar-app-ui-command-list" role="listbox">{filtered.map(([name, detail], index) => <button type="button" role="option" className={index === 0 ? 'is-selected' : ''} key={name} onClick={() => reportCommandAction(onAction, spec, 'switch', name)}><Hash size={16}/><span><strong>{name}</strong><small>{detail}</small></span><CommandHint>{index + 1}</CommandHint></button>)}</div>
+            <div className="hbar-app-ui-command-list" role="listbox">{filtered.map(([name, detail], index) => <button type="button" role="option" className={index === 0 ? 'is-selected' : ''} key={name} onClick={() => reportCommandAction(onAction, spec, 'switch', name)}><HbarAppUiIcon icon={Hash} tier="md" /><span><strong>{name}</strong><small>{detail}</small></span><CommandHint>{index + 1}</CommandHint></button>)}</div>
             <footer className="hbar-app-ui-command-footer"><CommandShortcut keys="↵" label="to switch"/><span className="hbar-app-ui-command-key-range"><CommandShortcut keys={<><CommandHint>1</CommandHint> – <CommandHint>6</CommandHint></>} label="to jump"/></span></footer>
         </section></CommandBackdrop>}
     </CommandFrame>
