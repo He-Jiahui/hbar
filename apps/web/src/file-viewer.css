@@ -1,0 +1,14 @@
+.hbar-app-ui-file-document .hbar-app-ui-file-document-body .code-editor {
+  display: flex;
+  flex-direction: column;
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow: hidden;
+}
+.hbar-app-ui-file-document .hbar-app-ui-file-document-body .cm-editor {
+  flex: 1 1 auto;
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+}

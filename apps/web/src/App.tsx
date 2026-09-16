@@ -1,12 +1,9 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
   FileSearch,
-  ChevronLeft,
-  ChevronRight,
   CircleHelp,
-  FileCode2,
   Folder,
   FolderOpen,
   Globe,
@@ -24,7 +21,7 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react'
-import type { FileEntry, Run, Session, SessionEvent } from '@hbar/contracts'
+import type { Run, Session, SessionEvent } from '@hbar/contracts'
 import {
   client,
   cancelSessionRun,
@@ -41,6 +38,7 @@ import {
 import { platform } from './platform'
 import Chat from './Chat'
 import Sessions from './Sessions'
+import Files, { FileViewer } from './Files'
 import Settings, { Modal } from './Settings'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
@@ -50,7 +48,6 @@ import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
 import {
-  HbarAppUiEmptyState,
   HbarAppUiMetricStrip,
   HbarAppUiRunActivity,
   HbarAppUiWorkbenchShell,
@@ -62,7 +59,6 @@ import { useLocale, type LocaleMessageKey } from './locale'
 import { getWorkbenchCopy } from './app-ui-locale'
 import './workbench/shell.css'
 import 'flexlayout-react/style/dark.css'
-const CodeEditor = lazy(() => import('./CodeEditor'))
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
 const SIDEBAR_MIN_WIDTH = 220
 const SIDEBAR_MAX_WIDTH = 360
@@ -194,107 +190,6 @@ function Pairing() {
     </main>
   )
 }
-function Files({ onOpen }: { onOpen(path: string): void }) {
-  const workspaceId = useWorkbench((state) => state.workspaceId)
-  const [path, setPath] = useState('.'),
-    [entries, setEntries] = useState<FileEntry[]>([]),
-    [error, setError] = useState('')
-  useEffect(() => {
-    setPath('.')
-  }, [workspaceId])
-  useEffect(() => {
-    if (!workspaceId) return
-    let alive = true
-    void client()
-      .call('file.list', { workspaceId, path })
-      .then((files) => {
-        if (alive) {
-          setEntries(files)
-          setError('')
-        }
-      })
-      .catch((failure) => {
-        if (alive) setError(failure instanceof Error ? failure.message : String(failure))
-      })
-    return () => {
-      alive = false
-    }
-  }, [workspaceId, path])
-  return (
-    <div className="file-nav">
-      <div className="sidebar-heading">
-        <strong>文件</strong>
-        <button
-          title="上级目录"
-          aria-label="上级目录"
-          disabled={path === '.'}
-          onClick={() => setPath(path.includes('/') ? path.split('/').slice(0, -1).join('/') : '.')}
-        >
-          <ChevronLeft size={15} />
-        </button>
-      </div>
-      <div className="file-breadcrumb">{path}</div>
-      {error ? (
-        <div className="inline-error">{error}</div>
-      ) : entries.length ? (
-        <div className="file-list">
-          {entries.map((entry) => (
-            <button
-              key={entry.path}
-              onClick={() => (entry.directory ? setPath(entry.path) : onOpen(entry.path))}
-              title={entry.path}
-            >
-              {entry.directory ? <Folder size={14} className="folder-icon" /> : <FileCode2 size={14} />}
-              <span>{entry.name}</span>
-              {entry.directory && <ChevronRight size={12} />}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <HbarAppUiEmptyState
-          icon={<Folder size={20} />}
-          title="目录为空"
-          description="当前工作区还没有可浏览的文件。"
-        />
-      )}
-    </div>
-  )
-}
-function FileViewer({ path, workspaceId }: { path: string; workspaceId: string }) {
-  const [text, setText] = useState(''),
-    [error, setError] = useState('')
-  useEffect(() => {
-    let current = true
-    void client()
-      .call('file.read', { workspaceId, path })
-      .then((result) => {
-        if (current) setText(result.text)
-      })
-      .catch((failure) => {
-        if (current) setError(failure instanceof Error ? failure.message : String(failure))
-      })
-    return () => {
-      current = false
-    }
-  }, [workspaceId, path])
-  return (
-    <div className="file-viewer">
-      <div className="file-viewer-header">
-        <FileCode2 size={14} />
-        <span>{path}</span>
-        <span>只读</span>
-      </div>
-      {error ? (
-        <p className="inline-error">{error}</p>
-      ) : (
-        <Suspense fallback={<pre>{text}</pre>}>
-          <CodeEditor value={text} {...(path.split('.').at(-1) ? { language: path.split('.').at(-1)! } : {})} />
-        </Suspense>
-      )}
-    </div>
-  )
-}
-
 const runStatusMessageKeys: Readonly<Record<Run['status'], LocaleMessageKey>> = {
   queued: 'queuedStatus',
   running: 'running',

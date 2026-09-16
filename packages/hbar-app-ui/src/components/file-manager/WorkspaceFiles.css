@@ -1,0 +1,55 @@
+@import '../../tokens.css';
+.hbar-app-ui-workspace-files,
+.hbar-app-ui-file-document {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+}
+.hbar-app-ui-workspace-files header,
+.hbar-app-ui-file-document header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-sm);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+.hbar-app-ui-workspace-files header strong,
+.hbar-app-ui-file-document header strong {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-workspace-files .file-list button {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+  inline-size: 100%;
+  min-block-size: var(--hbar-app-ui-control-min);
+  text-align: start;
+  padding: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-workspace-files .file-list span {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-file-path {
+  overflow-wrap: anywhere;
+  padding-inline: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-file-document-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: auto;
+}
+.hbar-app-ui-file-document-body > * {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}

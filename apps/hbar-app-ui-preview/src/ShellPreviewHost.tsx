@@ -4,6 +4,7 @@ import { HbarAppUiShellProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/
 import { SHELL_FIXTURE } from '../../../tests/fixtures/hbar-app-ui-shell-fixtures'
 import './shell-preview.css'
 import { SessionPreviewHost } from './SessionPreviewHost'
+import { FilePreviewHost } from './FilePreviewHost'
 
 /** The preview host, like Web, owns state and supplies all example records. */
 export function ShellPreviewHost({
@@ -53,6 +54,7 @@ export function ShellPreviewHost({
                 detail={SHELL_FIXTURE.detail}
               />
               {pageId === 'sessions' && <SessionPreviewHost />}
+              {pageId === 'files' && <FilePreviewHost />}
             </main>
           </div>
         ),

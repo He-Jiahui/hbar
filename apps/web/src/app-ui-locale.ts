@@ -1,4 +1,4 @@
-import type { HbarAppUiShellLabels, HbarAppUiSessionLabels } from 'hbar-app-ui'
+import type { HbarAppUiShellLabels, HbarAppUiSessionLabels, HbarAppUiWorkspaceFileLabels } from 'hbar-app-ui'
 import type { SupportedLocale } from './locale'
 
 interface WorkbenchCopy {
@@ -10,6 +10,30 @@ interface WorkbenchCopy {
   readonly reconnecting: string
   readonly host: string
   readonly windowsHost: string
+}
+
+const workspaceFileCopy: Readonly<Record<SupportedLocale, HbarAppUiWorkspaceFileLabels>> = {
+  'zh-CN': {
+    title: '文件',
+    parent: '上级目录',
+    refresh: '刷新文件',
+    loading: '正在读取…',
+    empty: '目录为空',
+    retry: '重试',
+    readOnly: '只读',
+  },
+  'en-US': {
+    title: 'Files',
+    parent: 'Parent directory',
+    refresh: 'Refresh files',
+    loading: 'Loading…',
+    empty: 'This directory is empty',
+    retry: 'Retry',
+    readOnly: 'Read only',
+  },
+}
+export function getWorkspaceFileCopy(locale: SupportedLocale): HbarAppUiWorkspaceFileLabels {
+  return workspaceFileCopy[locale]
 }
 
 const workbenchCopy: Readonly<Record<SupportedLocale, WorkbenchCopy>> = {
