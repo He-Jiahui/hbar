@@ -34,3 +34,15 @@
 交付验证：`bun run check` 通过 lint、typecheck、178 个测试（50 个文件）；新增门禁/清单测试 4 项通过。30 个相对文档链接有效。此里程碑未改 UI 或桌面行为，不运行 build/E2E/desktop smoke。原始日志位于忽略目录 `artifacts/command-first-a0-check.log`。
 
 后续里程碑：A1 命令包 → A2 runtime/会话选择 → A3 预算 Host/CLI 闭环 → A4 参数表单；剩余 A5–A15 与 B1–B7 继续按 [P6](06-migration-validation.md) 执行。
+
+## A1：独立命令包（完成）
+
+新增 `@hbar/commands` 与 `/protocol` 公开出口；使用独立 counter 测试领域验证，框架不导入 hbar contracts、React、Zustand、Host、数据库或平台 API。根 workspace 只增加该包的依赖，保留已有 integrations script 改动。
+
+已实现规范 camelCase ID、显式 alias、命名空间注册/注销、执行域检查、分类/分页目录与补全、可序列化并冻结的描述、typed client、结构化 invocation、输入/输出校验、稳定框架和领域错误。REPL/argv 区分解析，覆盖空串/Unicode/Windows 与 UNC 路径、重复/未知 flag、类型/范围和容量。
+
+内存执行有明确并发/超时限制及 authorize 端口；取消/注销传递 AbortSignal，未真正结束的 handler 不释放并发占用。已进入写 handler 后中断返回 RESULT_UNKNOWN。输入受 UTF-8 JSON 字节限制，循环数据先拒绝。
+
+持久/外部写与 required idempotency 在未安装 journal adapter 时明确不可用；A3 实现业务事务和回执后启用。长任务、动态可用性、跨域目录合并与旧 terminal/RPC 兼容仍按 A5/A6/A11 实施，A1 不代表 P1 全部完成。使用说明见 [commands README](../../packages/commands/README.md)。
+
+交付验证：最终 `bun run check` 通过 lint、typecheck、189 个测试（51 个文件、1490 个断言）；命令包新增 11 个行为/依赖测试。公开包及 protocol 子入口导入 smoke、31 个文档相对链接、变更格式和暂存差异检查通过。日志为 `artifacts/command-first-a1-final-check.log`。未改 UI/桌面行为，不运行其 E2E/smoke。

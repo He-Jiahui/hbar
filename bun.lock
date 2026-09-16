@@ -17,6 +17,7 @@
         "@hbar/browser-use": "workspace:*",
         "@hbar/budget": "workspace:*",
         "@hbar/client": "workspace:*",
+        "@hbar/commands": "workspace:*",
         "@hbar/computer-use": "workspace:*",
         "@hbar/contracts": "workspace:*",
         "@hbar/git": "workspace:*",
@@ -116,6 +117,13 @@
     "packages/client": {
       "name": "@hbar/client",
       "version": "0.1.0",
+    },
+    "packages/commands": {
+      "name": "@hbar/commands",
+      "version": "0.1.0",
+      "dependencies": {
+        "zod": "4.5.4",
+      },
     },
     "packages/contracts": {
       "name": "@hbar/contracts",
@@ -440,6 +448,8 @@
     "@hbar/cli": ["@hbar/cli@workspace:apps/cli"],
 
     "@hbar/client": ["@hbar/client@workspace:packages/client"],
+
+    "@hbar/commands": ["@hbar/commands@workspace:packages/commands"],
 
     "@hbar/computer-use": ["@hbar/computer-use@workspace:plugins/computer-use"],
 

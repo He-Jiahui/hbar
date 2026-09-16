@@ -60,6 +60,7 @@
     "@earendil-works/pi-agent-core": "0.85.1",
     "@earendil-works/pi-ai": "0.85.1",
     "@hbar/client": "workspace:*",
+    "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/budget": "workspace:*",
     "@hbar/browser-use": "workspace:*",

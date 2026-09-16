@@ -293,7 +293,8 @@
   "uiBaseline": "6ec3b46 structural shell; historical controls at 7ae9740",
   "gates": {
     "A0": "complete",
-    "A1-A15": "pending",
+    "A1": "complete",
+    "A2-A15": "pending",
     "B1-B7": "pending"
   }
 }
