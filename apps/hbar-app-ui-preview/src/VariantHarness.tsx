@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui'
-import type { HbarAppUiEvent, HbarAppUiProfileControl, HbarAppUiVariantSpec } from 'hbar-app-ui'
+import type { HbarAppUiEvent, HbarAppUiProfileControl, HbarAppUiVariantSpec } from 'hbar-app-ui/catalog'
 
 const controlLabels: Readonly<Record<HbarAppUiProfileControl, string>> = {
   search: 'Search',

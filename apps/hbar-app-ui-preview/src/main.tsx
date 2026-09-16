@@ -20,8 +20,8 @@ import {
   HbarAppUiIconButton,
   HbarAppUiStatus,
   listHbarAppUiVariants,
-} from 'hbar-app-ui'
-import type { HbarAppUiEvent, HbarAppUiRegistryEntry, HbarAppUiVariantComponent, HbarAppUiCategory } from 'hbar-app-ui'
+} from 'hbar-app-ui/catalog'
+import type { HbarAppUiEvent, HbarAppUiRegistryEntry, HbarAppUiVariantComponent, HbarAppUiCategory } from 'hbar-app-ui/catalog'
 import 'hbar-app-ui/theme.css'
 import './preview.css'
 import { VariantHarness } from './VariantHarness'

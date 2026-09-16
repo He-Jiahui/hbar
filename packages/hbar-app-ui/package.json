@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
+    ".": "./src/production.ts",
+    "./catalog": "./src/catalog.ts",
     "./theme.css": "./src/theme.css",
     "./ai-chat": "./src/components/AiChat.tsx",
     "./prompt-input": "./src/components/PromptInput.tsx",
