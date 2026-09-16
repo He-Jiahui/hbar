@@ -11,6 +11,7 @@ import {
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
   HbarAppUiFeedbackProvider,
+  HbarAppUiSettingsFormProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -67,6 +68,11 @@ import {
   createHbarAppUiFeedbackOverflowFixtures,
   HBAR_APP_UI_FEEDBACK_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-feedback-fixtures'
+import {
+  createHbarAppUiSettingsFormLocalizedFixtures,
+  createHbarAppUiSettingsFormOverflowFixtures,
+  HBAR_APP_UI_SETTINGS_FORM_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-settings-form-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -192,6 +198,17 @@ function PreviewApp() {
         return HBAR_APP_UI_FEEDBACK_FIXTURES
     }
   }, [])
+  const settingsFormContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('settingsFormFixture')) {
+      case 'overflow':
+        return createHbarAppUiSettingsFormOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiSettingsFormLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_SETTINGS_FORM_FIXTURES
+    }
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -259,6 +276,7 @@ function PreviewApp() {
       >
         <HbarAppUiFileManagerProvider content={fileManagerContent}>
         <HbarAppUiFeedbackProvider content={feedbackContent}>
+        <HbarAppUiSettingsFormProvider content={settingsFormContent}>
         <HbarAppUiPaywallProvider content={paywallContent}>
           <HbarAppUiAgentPlanProvider content={agentPlanContent}>
           <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -274,6 +292,7 @@ function PreviewApp() {
           </HbarAppUiAgentApprovalProvider>
           </HbarAppUiAgentPlanProvider>
         </HbarAppUiPaywallProvider>
+        </HbarAppUiSettingsFormProvider>
         </HbarAppUiFeedbackProvider>
         </HbarAppUiFileManagerProvider>
       </div>
@@ -340,6 +359,7 @@ function PreviewApp() {
                 >
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
                   <HbarAppUiFeedbackProvider content={feedbackContent}>
+                  <HbarAppUiSettingsFormProvider content={settingsFormContent}>
                   <HbarAppUiPaywallProvider content={paywallContent}>
                     <HbarAppUiAgentPlanProvider content={agentPlanContent}>
                     <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -355,6 +375,7 @@ function PreviewApp() {
                     </HbarAppUiAgentApprovalProvider>
                     </HbarAppUiAgentPlanProvider>
                   </HbarAppUiPaywallProvider>
+                  </HbarAppUiSettingsFormProvider>
                   </HbarAppUiFeedbackProvider>
                   </HbarAppUiFileManagerProvider>
                 </div>

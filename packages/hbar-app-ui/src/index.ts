@@ -120,6 +120,25 @@ export type {
     HbarAppUiFeedbackVolumePoint,
     HbarAppUiFeedbackWidgetContent,
 } from './components/Feedback'
+export {HbarAppUiSettingsFormProvider, selectHbarAppUiSettingsItem, uniqueHbarAppUiSettingsItems} from './components/SettingsForm'
+export type {
+    HbarAppUiSettingsApiKeysContent,
+    HbarAppUiSettingsChoice,
+    HbarAppUiSettingsDangerContent,
+    HbarAppUiSettingsField,
+    HbarAppUiSettingsFormContent,
+    HbarAppUiSettingsFormProviderProps,
+    HbarAppUiSettingsFormProps,
+    HbarAppUiSettingsIntegration,
+    HbarAppUiSettingsListStrategy,
+    HbarAppUiSettingsMember,
+    HbarAppUiSettingsMembersContent,
+    HbarAppUiSettingsPreferenceToggle,
+    HbarAppUiSettingsPreferencesContent,
+    HbarAppUiSettingsProfileContent,
+    HbarAppUiSettingsSecret,
+    HbarAppUiSettingsWorkspaceContent,
+} from './components/SettingsForm'
 export type {
     HbarAppUiAgentActivityAttempt,
     HbarAppUiAgentActivityContent,

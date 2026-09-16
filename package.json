@@ -30,6 +30,7 @@
     "app-ui:agent-plan:verify": "bun scripts/verify-hbar-app-ui-agent-plan.ts",
     "app-ui:file-manager:verify": "bun scripts/verify-hbar-app-ui-file-manager.ts",
     "app-ui:feedback:verify": "bun scripts/verify-hbar-app-ui-feedback.ts",
+    "app-ui:settings-form:verify": "bun scripts/verify-hbar-app-ui-settings-form.ts",
     "app-ui:visual-capture": "bun scripts/capture-hbar-app-ui-visual-baseline.ts",
     "build": "vite build --config apps/web/vite.config.ts",
     "build:cli": "bun build --compile apps/cli/src/main.ts --outfile dist/hbar.exe",
