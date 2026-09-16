@@ -74,3 +74,4 @@ export type {
 export * from './ai-usage'
 
 export * from './settings-form'
+export * from './authentication'

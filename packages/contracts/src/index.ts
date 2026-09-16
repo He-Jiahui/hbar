@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
+export const PAIRING_CODE_LENGTH = 8
+export const DEVICE_NAME_MAX_LENGTH = 100
 export const idSchema = z.string().min(1).max(160)
 export const artifactSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/),

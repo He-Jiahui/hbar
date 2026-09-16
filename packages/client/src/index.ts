@@ -165,15 +165,17 @@ export class HbarClient implements ClientTransport {
     this.follows.delete(sessionId)
     if (this.socket?.readyState === WebSocket.OPEN) await this.call('session.unfollow', { sessionId })
   }
-  async pair(code: string, name: string) {
+  async pair(code: string, name: string, signal?: AbortSignal) {
     const response = await fetch(new URL('/auth/pair', this.baseUrl), {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, name }),
+      ...(signal ? { signal } : {}),
     })
     const result = (await response.json()) as { token?: string; error?: string }
     if (!response.ok) throw new Error(result.error ?? 'Pairing failed')
+    signal?.throwIfAborted()
     this.token = result.token
     this.closed = false
     this.connectPromise = undefined

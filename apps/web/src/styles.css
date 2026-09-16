@@ -1936,57 +1936,6 @@ p {
 .toast button {
   padding: 2px;
 }
-.pairing-page {
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 20px;
-  background: #202125;
-}
-.pairing-brand {
-  display: flex;
-  gap: 5px;
-  font: 600 35px var(--mono);
-  margin-bottom: 35px;
-  color: #e4e6ec;
-}
-.pairing-form {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  width: min(330px, 100%);
-}
-.pairing-form h1 {
-  font-size: 17px;
-  font-weight: 500;
-  margin: 0;
-}
-.pairing-form input[aria-label='配对码'] {
-  font: 24px var(--mono);
-  height: 48px;
-}
-.host-chip {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #8396b4;
-  margin-bottom: 3px;
-}
-.host-chip code {
-  font-size: 11px;
-  overflow-wrap: anywhere;
-}
-.pair-submit {
-  height: 37px;
-  margin-top: 6px;
-}
-.pairing-footer {
-  font: 10px var(--mono);
-  color: #596274;
-  margin-top: 42px;
-}
 .mobile-nav {
   display: none;
 }

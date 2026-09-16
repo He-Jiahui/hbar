@@ -1,0 +1,72 @@
+.hbar-app-ui-code-verification {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-lg);
+  inline-size: 100%;
+  min-inline-size: 0;
+  color: var(--hbar-app-ui-text);
+}
+.hbar-app-ui-code-verification .hbar-app-ui-auth-code-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--hbar-app-ui-space-md);
+  inline-size: min(100%, var(--hbar-app-ui-auth-card-width));
+  min-inline-size: 0;
+  box-sizing: border-box;
+  padding: var(--hbar-app-ui-space-xl);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-0);
+}
+.hbar-app-ui-code-verification h1 {
+  margin: 0;
+  font-size: var(--hbar-app-ui-font-title);
+}
+.hbar-app-ui-code-verification p,
+.hbar-app-ui-code-verification small {
+  margin: 0;
+  color: var(--hbar-app-ui-muted);
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-code-verification label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+  color: var(--hbar-app-ui-text);
+}
+.hbar-app-ui-code-verification input {
+  min-inline-size: 0;
+  min-block-size: var(--hbar-app-ui-control-min);
+  color: var(--hbar-app-ui-text);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
+}
+.hbar-app-ui-verification-digits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+.hbar-app-ui-verification-digits legend {
+  margin-block-end: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-verification-digits input {
+  inline-size: var(--hbar-app-ui-control-min);
+  padding: 0;
+  text-align: center;
+}
+.hbar-app-ui-code-verification .hbar-app-ui-verification-error {
+  color: var(--hbar-app-ui-danger);
+}
+.hbar-app-ui-verification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-sm);
+}

@@ -51,7 +51,7 @@ Keep those changes intact and stage only the verified integration delta.
 ## Implemented increments
 
 - The production root is independent of catalog metadata and preview fixtures.
-  AiUsage, AppDialog and SettingsForm additionally have production category subentries; other legacy category
+  AiUsage, AppDialog, SettingsForm and Authentication additionally have production category subentries; other legacy category
   subentries still need migration before the package boundary is complete.
 - App Shell 03, session navigation, file listing/document viewing, chat message
   and prompt surfaces, approvals, questionnaires, plan editing, usage/budget
@@ -67,10 +67,14 @@ Keep those changes intact and stage only the verified integration delta.
   restoration. Web and SettingsForm 03 share a controlled preferences surface;
   Web persists supported themes/languages immediately, while preview owns its
   draft/save/cancel lifecycle. Unsupported preference groups are omitted.
+- Authentication 06 and real Host pairing share controlled code verification.
+  Pairing drafts survive failure, duplicate submits coalesce, and switching Host
+  aborts obsolete HTTP pairing before it can reconnect the old client. Code/name
+  limits come from shared protocol constants; preview owns the resend countdown.
 
-The latest full `bun run check` at the AiUsage increment passed 178 tests. Web and
+The latest full `bun run check` at the pairing increment passed 186 tests. Web and
 preview builds passed. Targeted Host E2E covers shell/session/file/chat/approval,
 questionnaire/plan/budget/activity flows; AiUsage has a 48-case viewport/theme
 check. These are incremental results, not final all-package or desktop acceptance.
-Desktop build/smoke, the complete E2E suite and the remaining 287 variant
+Desktop build/smoke, the complete E2E suite and the remaining 286 variant
 contracts are still outstanding at this checkpoint.

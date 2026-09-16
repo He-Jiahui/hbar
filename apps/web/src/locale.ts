@@ -6,6 +6,12 @@ export type SupportedLocale = 'zh-CN' | 'en-US'
 const messages = {
   'zh-CN': {
     dialogClose: '关闭',
+    pairingConnecting: '连接宿主',
+    pairingTitle: '设备配对',
+    pairingDescription: '连接你的 hbar Host，在多个设备上使用同一个工作台。',
+    pairingSubmit: '配对并连接',
+    pairingDevice: '设备名称',
+    pairingRetry: '重试连接',
     settingsRefresh: '刷新设置',
     settingsModelTab: '模型',
     settingsPermissions: '权限',
@@ -1015,6 +1021,12 @@ const messages = {
   },
   'en-US': {
     dialogClose: 'Close',
+    pairingConnecting: 'Connecting to Host',
+    pairingTitle: 'Pair this device',
+    pairingDescription: 'Connect to your hbar Host and use the same workbench across devices.',
+    pairingSubmit: 'Pair and connect',
+    pairingDevice: 'Device name',
+    pairingRetry: 'Retry connection',
     settingsRefresh: 'Refresh settings',
     settingsModelTab: 'Models',
     settingsPermissions: 'Permissions',

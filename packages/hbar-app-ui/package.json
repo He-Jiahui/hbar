@@ -36,7 +36,7 @@
     "./notifications": "./src/components/Notifications.tsx",
     "./onboarding": "./src/components/Onboarding.tsx",
     "./paywall": "./src/components/Paywall.tsx",
-    "./authentication": "./src/components/Authentication.tsx",
+    "./authentication": "./src/authentication.ts",
     "./kanban": "./src/components/Kanban.tsx",
     "./wizard": "./src/components/Wizard.tsx",
     "./comments": "./src/components/Comments.tsx",

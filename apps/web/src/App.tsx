@@ -10,7 +10,6 @@ import {
   Globe,
   LayoutGrid,
   ListChecks,
-  LoaderCircle,
   MessageSquare,
   Network,
   PanelLeftClose,
@@ -41,6 +40,7 @@ import Sessions from './Sessions'
 import Files, { FileViewer } from './Files'
 import Settings from './Settings'
 import { Modal } from './Modal'
+import Pairing from './Pairing'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
 import { permissionPreset } from './permissions'
@@ -120,70 +120,6 @@ function selectedLayoutTab(model: Model): TabNode | undefined {
   return first instanceof TabNode ? first : undefined
 }
 
-function Pairing() {
-  const [code, setCode] = useState(''),
-    [name, setName] = useState('Browser'),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState('')
-  const status = useConnection((state) => state.status),
-    url = useConnection((state) => state.url),
-    connectionError = useConnection((state) => state.error)
-  return (
-    <main className="pairing-page">
-      <div className="pairing-brand">
-        hbar
-        <span />
-      </div>
-      <form
-        className="pairing-form"
-        onSubmit={(event) => {
-          event.preventDefault()
-          setBusy(true)
-          setError('')
-          void client()
-            .pair(code, name)
-            .then((host) => {
-              useConnection.setState({ host })
-              return refreshCatalog()
-            })
-            .catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)))
-            .finally(() => setBusy(false))
-        }}
-      >
-        <h1>{status === 'connecting' ? '连接宿主' : '设备配对'}</h1>
-        <div className="host-chip">
-          <Network size={14} />
-          <code>{url}</code>
-        </div>
-        <label>
-          配对码
-          <input
-            autoFocus
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={8}
-            value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-            aria-label="配对码"
-          />
-        </label>
-        <label>
-          设备名称
-          <input value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        {(error || connectionError) && (
-          <p className="inline-error" role="alert">
-            {error || connectionError}
-          </p>
-        )}
-        <button className="button primary pair-submit" disabled={busy || code.length !== 8 || !name}>
-          {busy ? <LoaderCircle size={16} className="spinning" /> : <ShieldCheck size={16} />}配对并连接
-        </button>
-      </form>
-      <span className="pairing-footer">hbar / 0.1.0</span>
-    </main>
-  )
-}
 function Diagnose() {
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const refresh = () => {

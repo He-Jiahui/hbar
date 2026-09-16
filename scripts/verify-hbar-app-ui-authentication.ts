@@ -79,7 +79,7 @@ async function run(): Promise<void> {
         assert(await page.getByText('Matched account', {exact: true}).count() === 1, 'Two-step sign-in did not advance after a valid host email')
 
         await page.goto(previewUrl(6), {waitUntil: 'networkidle'})
-        const codeBoxes = page.locator('.hbar-app-ui-auth-code-boxes input')
+        const codeBoxes = page.locator('.hbar-app-ui-verification-digits input')
         for (let index = 0; index < 6; index += 1) await codeBoxes.nth(index).fill(String(index + 1))
         const verify = page.getByRole('button', {name: 'Verify and continue', exact: true})
         assert(!(await verify.isDisabled()), 'Six code boxes did not enable verification')

@@ -18,6 +18,7 @@ describe('app-ui production boundary', () => {
         'packages/hbar-app-ui/src/ai-usage.ts',
         'packages/hbar-app-ui/src/app-dialog.ts',
         'packages/hbar-app-ui/src/settings-form.ts',
+        'packages/hbar-app-ui/src/authentication.ts',
       ],
       target: 'browser',
       external: ['react', 'react/jsx-runtime', 'lucide-react'],

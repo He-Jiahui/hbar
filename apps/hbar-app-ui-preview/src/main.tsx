@@ -1,3 +1,4 @@
+import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
@@ -14,7 +15,6 @@ import {
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
   HbarAppUiFeedbackProvider,
-  HbarAppUiAuthenticationProvider,
   HbarAppUiBillingProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
@@ -315,7 +315,7 @@ function PreviewApp() {
         <HbarAppUiFileManagerProvider content={fileManagerContent}>
         <HbarAppUiFeedbackProvider content={feedbackContent}>
         <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
-        <HbarAppUiAuthenticationProvider content={authenticationContent}>
+        <AuthenticationPreviewHost content={authenticationContent} spec={selected.spec} onAction={handleAction}>
         <HbarAppUiBillingProvider content={billingContent}>
         <HbarAppUiPaywallProvider content={paywallContent}>
           <PlanPreviewHost content={agentPlanContent}>
@@ -333,7 +333,7 @@ function PreviewApp() {
         </PlanPreviewHost>
         </HbarAppUiPaywallProvider>
         </HbarAppUiBillingProvider>
-        </HbarAppUiAuthenticationProvider>
+        </AuthenticationPreviewHost>
         </SettingsPreviewHost>
         </HbarAppUiFeedbackProvider>
         </HbarAppUiFileManagerProvider>
@@ -402,7 +402,7 @@ function PreviewApp() {
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
                   <HbarAppUiFeedbackProvider content={feedbackContent}>
                   <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
-                  <HbarAppUiAuthenticationProvider content={authenticationContent}>
+                  <AuthenticationPreviewHost content={authenticationContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiBillingProvider content={billingContent}>
                   <HbarAppUiPaywallProvider content={paywallContent}>
                     <PlanPreviewHost content={agentPlanContent}>
@@ -420,7 +420,7 @@ function PreviewApp() {
                   </PlanPreviewHost>
                   </HbarAppUiPaywallProvider>
                   </HbarAppUiBillingProvider>
-                  </HbarAppUiAuthenticationProvider>
+                  </AuthenticationPreviewHost>
                   </SettingsPreviewHost>
                   </HbarAppUiFeedbackProvider>
                   </HbarAppUiFileManagerProvider>

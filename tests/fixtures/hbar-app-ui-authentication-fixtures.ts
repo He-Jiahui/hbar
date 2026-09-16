@@ -30,7 +30,7 @@ export const HBAR_APP_UI_AUTHENTICATION_FIXTURES: HbarAppUiAuthContent = {
     },
     code: {
         labels: {title: 'Verify it is you', description: 'We sent a six-digit code to the phone ending 4417.', codeLabel: 'Six-digit verification code', codeDigit: (index) => `Verification code digit ${index}`, helper: 'Paste the whole code and it fills every box.', verify: 'Verify and continue', resend: (seconds) => `Resend in 0:${String(seconds).padStart(2, '0')}`, recovery: 'Use a recovery code', back: 'Back to sign in'},
-        channel: 'phone', initialCode: '', resendAfterSeconds: 28,
+        code: '', codeLength: 6, busy: false, canVerify: false, error: undefined, onCodeChange() {}, onVerify() {}, resend: { seconds: 28, enabled: false, onResend() {} }, onRecovery() {}, onBack() {},
     },
     signUp: {
         labels: {brand: 'Northwind', title: 'Create your account', description: 'Free for 14 days. No card, no seat minimum.', nameLabel: 'Full name', namePlaceholder: 'Dana Whitfield', emailLabel: 'Work email', emailPlaceholder: 'you@company.com', emailHelper: 'We use this to match you to an existing workspace.', passwordLabel: 'Password', passwordPlaceholder: 'Choose a password', requirements: ['At least 10 characters', 'One uppercase letter', 'One number', 'One symbol'], agreementPrefix: 'I agree to the', terms: 'terms of service', agreementJoin: 'and the', privacy: 'privacy policy', createAccount: 'Create account', existingAccount: 'Already have an account?', signIn: 'Sign in', showPassword: 'Show password', hidePassword: 'Hide password'},
