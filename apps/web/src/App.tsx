@@ -1,5 +1,5 @@
 import { ActivityPanel } from './ActivityPanel'
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
@@ -12,8 +12,6 @@ import {
   ListChecks,
   MessageSquare,
   Network,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   RefreshCw,
   Settings2,
@@ -48,6 +46,8 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
+import { commandModel } from './command-model'
+import { workbenchCommands } from './workbench/command-descriptors'
 import { HbarAppUiWorkbenchShell, HbarAppUiNavigation } from 'hbar-app-ui'
 import { getWorkbenchCopy } from './app-ui-locale'
 import './workbench/shell.css'
@@ -168,9 +168,7 @@ export default function App() {
     [workspacePath, setWorkspacePath] = useState('')
   const [mobileFile, setMobileFile] = useState('')
   const [mobilePanel, setMobilePanel] = useState('')
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const sidebarDrag = useRef<{ startX: number; startWidth: number } | null>(null)
-  const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), [])
   const [model, setModel] = useState(() => {
     return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
   })
@@ -216,7 +214,7 @@ export default function App() {
         else openPanel('terminal', '终端', 'terminal', undefined, 'bottom')
       } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
         event.preventDefault()
-        setCommandPaletteOpen(true)
+        commandModel.open()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -488,71 +486,32 @@ export default function App() {
     openPanel(`file:${workspaceId}:${path}`, path.split('/').at(-1)!, 'file', { path, workspaceId })
   }
   const paletteCommands: readonly PaletteCommand[] = [
-    {
-      id: 'new-session',
-      label: '新建会话',
-      description: '在当前项目创建一个会话',
-      keywords: ['session', 'create'],
-      icon: Plus,
-      execute: () => void newSession(),
-    },
-    {
-      id: 'toggle-sidebar',
-      label: sidebar ? '收起项目与会话栏' : '展开项目与会话栏',
-      keywords: ['sidebar', 'navigation'],
-      icon: sidebar ? PanelLeftClose : PanelLeftOpen,
-      execute: () => {
+    ...workbenchCommands(locale, small ? mobileView === 'sessions' : sidebar, {
+      'new-session': newSession,
+      'toggle-sidebar': () => {
         if (small) setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions')
         else setSidebar((visible) => !visible)
       },
-    },
-    {
-      id: 'open-files',
-      label: '打开文件',
-      description: '浏览当前项目文件',
-      keywords: ['file', 'files'],
-      icon: Folder,
-      execute: () => {
+      'open-files': () => {
         useWorkbench.setState({ panel: 'files' })
         if (small) setMobileView('files')
         else setSidebar(true)
       },
-    },
-    {
-      id: 'open-terminal',
-      label: '打开命令控制台',
-      description: '在底部展开 AI 命令控制台',
-      keywords: ['terminal', 'console'],
-      icon: TerminalSquare,
-      execute: () => openPanel('terminal', '终端', 'terminal', undefined, 'bottom'),
-    },
-    {
-      id: 'open-settings',
-      label: '打开设置',
-      description: '模型、权限、外观与设备',
-      keywords: ['settings', 'preferences', 'theme'],
-      icon: Settings2,
-      execute: settings,
-    },
-    {
-      id: 'open-activity',
-      label: '打开运行与事件',
-      description: '查看当前会话运行状态',
-      keywords: ['activity', 'events', 'runs'],
-      icon: Activity,
-      execute: () => openPanel('activity', '运行', 'activity', undefined, 'right'),
-    },
-    {
-      id: 'restore-layout',
-      label: '恢复默认布局',
-      description: '重置工具区和标签位置',
-      keywords: ['layout', 'reset', 'restore'],
-      icon: LayoutGrid,
-      execute: () => {
+      'open-terminal': () => openPanel('terminal', shellCopy.terminal, 'terminal', undefined, 'bottom'),
+      'open-settings': settings,
+      'open-activity': () => openPanel('activity', shellCopy.runs, 'activity', undefined, 'right'),
+      'restore-layout': () => {
         useWorkbench.setState({ layout: null, toolPanel: '' })
         setModel(Model.fromJson(defaultLayout()))
       },
-    },
+    }),
+    ...[...(data?.panels ?? []), ...clientPanels].map((panel) => ({
+      id: 'plugin:' + panel.id,
+      label: panel.title,
+      group: shellCopy.plugins,
+      icon: LayoutGrid,
+      execute: () => openPanel('plugin:' + panel.id, panel.title, 'plugin', { panelId: panel.id }, panel.placement),
+    })),
   ]
   function factory(node: TabNode) {
     const config = node.getConfig() as { sessionId?: string; path?: string; workspaceId?: string; panelId?: string }
@@ -642,7 +601,7 @@ export default function App() {
       }
       onWorkspaceChange={selectWorkspace}
       onAddWorkspace={() => setWorkspaceModal(true)}
-      onOpenCommands={() => setCommandPaletteOpen(true)}
+      onOpenCommands={() => commandModel.open()}
     >
       <div
         className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
@@ -978,7 +937,7 @@ export default function App() {
         </div>
       )}
       <CapabilityDialogHost />
-      <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
+      <CommandPalette commands={paletteCommands} />
       {workspaceModal && (
         <Modal title="添加工作区" onClose={() => setWorkspaceModal(false)} initialFocus={workspaceInput}>
           <form

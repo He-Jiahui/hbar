@@ -18,7 +18,7 @@
     "./ai-usage": "./src/ai-usage.ts",
     "./app-shell": "./src/components/AppShell.tsx",
     "./app-sidebar": "./src/components/AppSidebar.tsx",
-    "./command-menu": "./src/components/CommandMenu.tsx",
+    "./command-menu": "./src/command-menu.ts",
     "./navbar": "./src/components/Navbar.tsx",
     "./mobile": "./src/components/Mobile.tsx",
     "./card": "./src/components/Card.tsx",

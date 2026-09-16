@@ -1,3 +1,4 @@
+import { CommandPreviewHost } from './CommandPreviewHost'
 import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { previewLayoutStyle } from './preview-layout'
@@ -324,7 +325,7 @@ function PreviewApp() {
               <HbarAppUiToolCallsProvider content={toolCallsContent}>
                 <HbarAppUiNavbarProvider content={navbarContent}>
                   <HbarAppUiEditorProvider content={editorContent}>
-                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
+                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><CommandPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></CommandPreviewHost></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
                   </HbarAppUiEditorProvider>
                 </HbarAppUiNavbarProvider>
               </HbarAppUiToolCallsProvider>
@@ -411,7 +412,7 @@ function PreviewApp() {
                         <HbarAppUiToolCallsProvider content={toolCallsContent}>
                           <HbarAppUiNavbarProvider content={navbarContent}>
                             <HbarAppUiEditorProvider content={editorContent}>
-                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
+                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><CommandPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></CommandPreviewHost></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
                             </HbarAppUiEditorProvider>
                           </HbarAppUiNavbarProvider>
                         </HbarAppUiToolCallsProvider>

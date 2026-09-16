@@ -76,10 +76,15 @@ Keep those changes intact and stage only the verified integration delta.
   remote objective changes, and owns the clear confirmation. Older Goal responses
   cannot replace newer notifications. Goal/Plan/Budget tabs use shared theme and
   spacing tokens; obsolete capability form styles were removed.
+- CommandMenu 01/02/06 share the production command list. Web command state uses
+  stable IDs, preserves selection through reordering, clears unavailable targets,
+  suppresses duplicate execution and ignores old workspace results. Workbench
+  command descriptors and current Host/client plugin panel contributions supply
+  the menu; large collections are virtualized.
 
 The latest full `bun run check` at the pairing increment passed 186 tests. Web and
 preview builds passed. Targeted Host E2E covers shell/session/file/chat/approval,
 questionnaire/plan/budget/activity flows; AiUsage has a 48-case viewport/theme
 check. These are incremental results, not final all-package or desktop acceptance.
-Desktop build/smoke, the complete E2E suite and the remaining 286 variant
+Desktop build/smoke, the complete E2E suite and the remaining 283 variant
 contracts are still outstanding at this checkpoint.

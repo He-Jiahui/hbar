@@ -27,5 +27,6 @@
   --hbar-app-ui-divider: 0.0625rem;
   --hbar-app-ui-dialog-width: 40rem;
   --hbar-app-ui-auth-card-width: 28rem;
+  --hbar-app-ui-command-viewport: 60dvh;
   --hbar-app-ui-overlay-gap: 1rem;
 }
