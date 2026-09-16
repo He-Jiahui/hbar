@@ -28,5 +28,8 @@
   --hbar-app-ui-dialog-width: 40rem;
   --hbar-app-ui-auth-card-width: 28rem;
   --hbar-app-ui-command-viewport: 60dvh;
+  --hbar-app-ui-command-list-width: 36rem;
+  --hbar-app-ui-command-search-width: 42rem;
+  --hbar-app-ui-command-room-width: 24rem;
   --hbar-app-ui-overlay-gap: 1rem;
 }

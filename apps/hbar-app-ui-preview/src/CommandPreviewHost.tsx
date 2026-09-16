@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { HbarAppUiButton } from 'hbar-app-ui'
 import { HbarAppUiCommandMenuProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
+import { useCommandWorkflowPreview } from './CommandWorkflowPreview'
 import {
   COMMAND_LABELS,
   COMMAND_PROJECT_LABELS,
@@ -15,6 +16,7 @@ export function CommandPreviewHost({
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
+  const workflows = useCommandWorkflowPreview({ spec, onAction })
   const overflow = new URLSearchParams(location.search).get('commandFixture') === 'overflow'
   const initialId = overflow
     ? 'command-0'
@@ -105,7 +107,7 @@ export function CommandPreviewHost({
     ),
   }
   return (
-    <HbarAppUiCommandMenuProvider content={{ grouped: content, quick: content, rooms: content }}>
+    <HbarAppUiCommandMenuProvider content={{ ...workflows, grouped: content, quick: content, rooms: content }}>
       {children}
     </HbarAppUiCommandMenuProvider>
   )

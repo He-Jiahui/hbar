@@ -1,5 +1,5 @@
 import type { HbarAppUiVariantProps } from '../../types'
-import { CommandBackdrop, CommandFrame } from './CommandPrimitives'
+import { CommandBackdrop, CommandFrame, useCommandEscape } from './CommandPrimitives'
 import { HbarAppUiCommandList } from './CommandList'
 import type { HbarAppUiCommandSurfaceContent } from './CommandContent'
 
@@ -8,6 +8,7 @@ export function CommandCatalogSurface({
   onAction,
   content,
 }: { readonly content: HbarAppUiCommandSurfaceContent | undefined } & HbarAppUiVariantProps) {
+  useCommandEscape(content?.open ?? false, () => content?.onClose())
   return (
     <CommandFrame spec={spec} onAction={onAction} className={`hbar-app-ui-command-variant-${spec.variant}`}>
       {content && (

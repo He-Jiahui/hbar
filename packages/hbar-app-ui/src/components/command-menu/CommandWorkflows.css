@@ -1,0 +1,131 @@
+.hbar-app-ui-search-commands,
+.hbar-app-ui-invite-command,
+.hbar-app-ui-assistant-commands {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-0);
+  flex: 1 1 auto;
+}
+.hbar-app-ui-search-commands nav,
+.hbar-app-ui-invite-command header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-md);
+}
+.hbar-app-ui-search-commands-body {
+  display: flex;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  flex: 1 1 auto;
+}
+.hbar-app-ui-search-commands-body > .hbar-app-ui-controlled-commands {
+  flex: 1 1 25ch;
+  min-inline-size: 0;
+}
+.hbar-app-ui-search-commands article {
+  flex: 1 1 25ch;
+  min-inline-size: 0;
+  padding: var(--hbar-app-ui-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-md);
+  border-inline-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-search-commands h2,
+.hbar-app-ui-search-commands p,
+.hbar-app-ui-search-commands dl,
+.hbar-app-ui-search-commands dd {
+  margin: 0;
+}
+.hbar-app-ui-search-commands dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-search-commands dt,
+.hbar-app-ui-search-commands small {
+  color: var(--hbar-app-ui-muted);
+}
+.hbar-app-ui-invite-command,
+.hbar-app-ui-assistant-commands {
+  gap: var(--hbar-app-ui-space-lg);
+}
+.hbar-app-ui-invite-command label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+  padding-inline: var(--hbar-app-ui-space-lg);
+}
+.hbar-app-ui-invite-command input,
+.hbar-app-ui-invite-command select,
+.hbar-app-ui-assistant-commands input {
+  inline-size: 100%;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: var(--hbar-app-ui-control-min);
+  padding: var(--hbar-app-ui-space-sm);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
+  color: var(--hbar-app-ui-text);
+}
+.hbar-app-ui-invite-command footer,
+.hbar-app-ui-assistant-commands footer {
+  display: flex;
+  flex-wrap: wrap;
+  padding: var(--hbar-app-ui-space-md);
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+.hbar-app-ui-assistant-commands > label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-md);
+}
+.hbar-app-ui-assistant-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-lg);
+  overflow-wrap: anywhere;
+  min-block-size: 0;
+  overflow: auto;
+  flex: 1 1 auto;
+}
+.hbar-app-ui-assistant-empty h2,
+.hbar-app-ui-assistant-empty p {
+  margin: 0;
+}
+.hbar-app-ui-assistant-empty h2,
+.hbar-app-ui-invite-command h2 {
+  margin: 0;
+  font-size: var(--hbar-app-ui-font-title);
+}
+.hbar-app-ui-assistant-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--hbar-app-ui-space-sm);
+}
+
+.hbar-app-ui-search-commands > nav,
+.hbar-app-ui-assistant-commands > label,
+.hbar-app-ui-assistant-commands > footer {
+  flex: 0 0 auto;
+}
+.hbar-app-ui-command-dialog:has(> .hbar-app-ui-search-commands),
+.hbar-app-ui-command-dialog:has(> .hbar-app-ui-assistant-commands) {
+  max-block-size: calc(100% - var(--hbar-app-ui-space-xl));
+}
