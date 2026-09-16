@@ -13,6 +13,7 @@ import {
   HbarAppUiFeedbackProvider,
   HbarAppUiSettingsFormProvider,
   HbarAppUiAuthenticationProvider,
+  HbarAppUiBillingProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -79,6 +80,11 @@ import {
   createHbarAppUiAuthenticationOverflowFixtures,
   HBAR_APP_UI_AUTHENTICATION_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-authentication-fixtures'
+import {
+  createHbarAppUiBillingLocalizedFixtures,
+  createHbarAppUiBillingOverflowFixtures,
+  HBAR_APP_UI_BILLING_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-billing-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -226,6 +232,17 @@ function PreviewApp() {
         return HBAR_APP_UI_AUTHENTICATION_FIXTURES
     }
   }, [])
+  const billingContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('billingFixture')) {
+      case 'overflow':
+        return createHbarAppUiBillingOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiBillingLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_BILLING_FIXTURES
+    }
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -295,6 +312,7 @@ function PreviewApp() {
         <HbarAppUiFeedbackProvider content={feedbackContent}>
         <HbarAppUiSettingsFormProvider content={settingsFormContent}>
         <HbarAppUiAuthenticationProvider content={authenticationContent}>
+        <HbarAppUiBillingProvider content={billingContent}>
         <HbarAppUiPaywallProvider content={paywallContent}>
           <HbarAppUiAgentPlanProvider content={agentPlanContent}>
           <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -310,6 +328,7 @@ function PreviewApp() {
           </HbarAppUiAgentApprovalProvider>
         </HbarAppUiAgentPlanProvider>
         </HbarAppUiPaywallProvider>
+        </HbarAppUiBillingProvider>
         </HbarAppUiAuthenticationProvider>
         </HbarAppUiSettingsFormProvider>
         </HbarAppUiFeedbackProvider>
@@ -380,6 +399,7 @@ function PreviewApp() {
                   <HbarAppUiFeedbackProvider content={feedbackContent}>
                   <HbarAppUiSettingsFormProvider content={settingsFormContent}>
                   <HbarAppUiAuthenticationProvider content={authenticationContent}>
+                  <HbarAppUiBillingProvider content={billingContent}>
                   <HbarAppUiPaywallProvider content={paywallContent}>
                     <HbarAppUiAgentPlanProvider content={agentPlanContent}>
                     <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -395,6 +415,7 @@ function PreviewApp() {
                     </HbarAppUiAgentApprovalProvider>
                   </HbarAppUiAgentPlanProvider>
                   </HbarAppUiPaywallProvider>
+                  </HbarAppUiBillingProvider>
                   </HbarAppUiAuthenticationProvider>
                   </HbarAppUiSettingsFormProvider>
                   </HbarAppUiFeedbackProvider>
