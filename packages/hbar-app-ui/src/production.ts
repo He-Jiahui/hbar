@@ -41,6 +41,7 @@ export {
 export { HbarAppUiRunActivity } from './components/RunActivity'
 export { HbarAppUiApprovalRequest } from './components/ApprovalRequest'
 export { HbarAppUiQuestionnaire } from './components/Questionnaire'
+export type { HbarAppUiDecisionState, HbarAppUiQuestionAnswer } from './decision-types'
 export type {
   HbarAppUiApprovalDecision,
   HbarAppUiApprovalRequestLabels,

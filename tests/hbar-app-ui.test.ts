@@ -1,3 +1,4 @@
+import { APPROVAL_LABELS, QUESTION_LABELS } from './fixtures/hbar-app-ui-decision-fixtures'
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -60,14 +61,18 @@ describe('hbar-app-ui registry', () => {
     expect(Object.keys(HBAR_APP_UI_VARIANT_EXPORTS)).toHaveLength(300)
     expect(new Set(Object.values(HBAR_APP_UI_VARIANT_EXPORTS)).size).toBe(300)
     expect(new Set(listHbarAppUiVariants().map((entry) => entry.component)).size).toBe(300)
-    expect(HBAR_APP_UI_CATEGORIES.reduce((total, category) => total + HBAR_APP_UI_CATEGORY_COUNTS[category], 0)).toBe(300)
+    expect(HBAR_APP_UI_CATEGORIES.reduce((total, category) => total + HBAR_APP_UI_CATEGORY_COUNTS[category], 0)).toBe(
+      300,
+    )
   })
 
   test('keeps IDs unique and category counts aligned with the registry', () => {
     const ids = new Set(HBAR_APP_UI_VARIANT_SPECS.map((spec) => spec.id))
     expect(ids.size).toBe(300)
     for (const category of HBAR_APP_UI_CATEGORIES) {
-      expect(HBAR_APP_UI_VARIANT_SPECS.filter((spec) => spec.category === category)).toHaveLength(HBAR_APP_UI_CATEGORY_COUNTS[category])
+      expect(HBAR_APP_UI_VARIANT_SPECS.filter((spec) => spec.category === category)).toHaveLength(
+        HBAR_APP_UI_CATEGORY_COUNTS[category],
+      )
     }
   })
 
@@ -292,6 +297,8 @@ describe('hbar-app-ui registry', () => {
         summary: 'workspace/plan.md',
         details: '{}',
         onDecision: () => undefined,
+        state: { status: 'idle' },
+        id: 'approval-test',
       }),
     )
     expect(approvalMarkup).toContain('Freigabe erforderlich')
@@ -315,8 +322,13 @@ describe('hbar-app-ui registry', () => {
           rejectedMessage: 'Anfrage abgelaufen',
           failureMessage: 'Senden fehlgeschlagen',
         },
-        questions: [{ id: 'scope', header: 'Bereich', prompt: 'Welche Zone?', options: [{ value: 'app', label: 'App' }] }],
-        onSubmit: () => ({ accepted: true }),
+        questions: [
+          { id: 'scope', header: 'Bereich', prompt: 'Welche Zone?', options: [{ value: 'app', label: 'App' }] },
+        ],
+        onSubmit: () => undefined,
+        state: { status: 'idle' },
+        answers: {},
+        onAnswer: () => undefined,
       }),
     )
     expect(questionnaireMarkup).toContain('Antwort erforderlich')
@@ -328,16 +340,21 @@ describe('hbar-app-ui registry', () => {
   test('renders a data-driven approval surface without application dependencies', () => {
     const markup = renderToStaticMarkup(
       createElement(HbarAppUiApprovalRequest, {
-        title: '批准工具调用',
         tool: 'file.write',
         summary: 'file.write · workspace/plan.md',
         details: '{\n  "path": "workspace/plan.md"\n}',
-        detailsLabel: '查看参数',
-        statusLabel: '需要决定',
-        denyLabel: '拒绝',
-        allowLabel: '批准',
-        allowAlwaysLabel: '允许并记住',
-        onDecision: async () => undefined,
+        onDecision: () => undefined,
+        labels: {
+          ...APPROVAL_LABELS,
+          title: '批准工具调用',
+          detailsLabel: '查看参数',
+          statusLabel: '需要决定',
+          denyLabel: '拒绝',
+          allowLabel: '批准',
+          allowAlwaysLabel: '允许并记住',
+        },
+        state: { status: 'idle' },
+        id: 'approval-test',
       }),
     )
     expect(markup).toContain('hbar-app-ui-approval-request')
@@ -351,20 +368,22 @@ describe('hbar-app-ui registry', () => {
     const markup = renderToStaticMarkup(
       createElement(HbarAppUiQuestionnaire, {
         requestId: 'request-1',
-        title: '需要你的回答',
-        submitLabel: '提交回答',
         questions: [
           {
             id: 'scope',
             header: '范围',
             prompt: '计划应覆盖哪个范围？',
             options: [
-              {value: 'app', label: '应用', description: '覆盖应用流程。'},
-              {value: 'api', label: '接口', description: '覆盖接口契约。'},
+              { value: 'app', label: '应用', description: '覆盖应用流程。' },
+              { value: 'api', label: '接口', description: '覆盖接口契约。' },
             ],
           },
         ],
-        onSubmit: async () => ({accepted: true}),
+        onSubmit: () => undefined,
+        labels: { ...QUESTION_LABELS, title: '需要你的回答', submitLabel: '提交回答' },
+        state: { status: 'idle' },
+        answers: {},
+        onAnswer: () => undefined,
       }),
     )
     expect(markup).toContain('hbar-app-ui-questionnaire')
@@ -379,7 +398,9 @@ describe('hbar-app-ui registry', () => {
       const entries = listHbarAppUiVariants().filter((entry) => entry.spec.category === category)
       expect(new Set(entries.map((entry) => entry.spec.profile.key)).size).toBe(entries.length)
       expect(new Set(entries.map((entry) => entry.spec.profile.scenario)).size).toBe(entries.length)
-      const markup = entries.map((entry) => renderToStaticMarkup(createElement(entry.component, { onAction: () => undefined })))
+      const markup = entries.map((entry) =>
+        renderToStaticMarkup(createElement(entry.component, { onAction: () => undefined })),
+      )
       expect(new Set(markup).size).toBe(entries.length)
     }
   })

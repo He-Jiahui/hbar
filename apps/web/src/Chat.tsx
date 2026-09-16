@@ -22,7 +22,6 @@ import {
   loadOlder,
   openSession,
   report,
-  setApprovalMode,
   useCatalog,
   useConnection,
   cancelSessionRun,
@@ -39,17 +38,12 @@ import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
-import {
-  HbarAppUiApprovalRequest,
-  HbarAppUiQuestionnaire,
-  HbarAppUiSpotlight,
-  HbarAppUiPromptComposer,
-  HbarAppUiMessage,
-} from 'hbar-app-ui'
+import { HbarAppUiSpotlight, HbarAppUiPromptComposer, HbarAppUiMessage } from 'hbar-app-ui'
 import { getPromptCopy, getMessageCopy } from './app-ui-locale'
 import { useComposerOperations, composerTarget, sendComposerInput, attachComposerFiles } from './composer-model'
 import { useLocale } from './locale'
 import { composerDraftKey } from './composer-draft'
+import { ApprovalDecision, QuestionDecision } from './DecisionPanels'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -90,11 +84,6 @@ function ToolResult({ block }: { block: Extract<ContentBlock, { type: 'tool_resu
       )}
     </HbarAppUiSpotlight>
   )
-}
-function approvalSummary(tool: string, args: Record<string, unknown>): string {
-  if (typeof args.path === 'string') return `${tool} · ${args.path}`
-  if (typeof args.command === 'string') return `${tool} · ${args.command}`
-  return tool
 }
 function MessageView({ message }: { message: Message }) {
   const { locale } = useLocale()
@@ -476,68 +465,10 @@ export default function Chat({
       )}
       <div className="composer-area">
         {(snapshot?.userInputs ?? []).map((request) => (
-          <HbarAppUiQuestionnaire
-            key={request.requestId}
-            requestId={request.requestId}
-            labels={{
-              title: t('chatUserInputRequired'),
-              countLabel: (count) => `${count} ${t('chatQuestionsCount')}`,
-              customAnswerLabel: t('chatOther'),
-              customAnswerPlaceholder: t('chatFillOtherAnswer'),
-              freeformLabel: t('chatFillAnswer'),
-              submitLabel: t('chatSubmitAnswers'),
-              submittingLabel: t('chatSubmitting'),
-              submittedLabel: t('chatSubmitted'),
-              incompleteMessage: t('chatAnswerAllQuestions'),
-              rejectedMessage: t('chatInputHandled'),
-              failureMessage: t('chatSubmitFailed'),
-            }}
-            questions={request.questions.map((question) => ({
-              id: question.id,
-              header: question.header,
-              prompt: question.question,
-              options: question.options?.map((option) => ({
-                value: option.label,
-                label: option.label,
-                description: option.description,
-              })),
-              acceptsCustomAnswer: question.isOther !== false,
-              secret: question.isSecret,
-            }))}
-            onSubmit={async (answers) => {
-              const result = await client().call('user_input.resolve', {
-                requestId: request.requestId,
-                answers: Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, { answers: [answer] }])),
-              })
-              return result.accepted ? { accepted: true } : { accepted: false, error: t('chatInputHandled') }
-            }}
-          />
+          <QuestionDecision key={request.requestId} request={request} sessionId={sessionId} />
         ))}
         {snapshot?.approvals.map((approval) => (
-          <HbarAppUiApprovalRequest
-            key={approval.id}
-            tool={approval.tool}
-            summary={approvalSummary(approval.tool, approval.args)}
-            details={JSON.stringify(approval.args, null, 2)}
-            labels={{
-              title: t('chatApproveTool'),
-              detailsLabel: t('chatViewRequest'),
-              statusLabel: t('chatDecisionRequired'),
-              denyLabel: t('chatDeny'),
-              allowLabel: t('chatApprove'),
-              allowAlwaysLabel: t('chatAllowRemember'),
-              savingLabel: t('chatDecisionSaving'),
-              completeLabel: t('chatDecisionSaved'),
-              failureMessage: t('approvalSubmitFailed'),
-            }}
-            onDecision={async (decision) => {
-              if (decision === 'allow_always' && !(await setApprovalMode('allow'))) throw new Error('无法保存允许规则')
-              await client().call('approval.resolve', {
-                approvalId: approval.id,
-                decision: decision === 'deny' ? 'denied' : 'allowed',
-              })
-            }}
-          />
+          <ApprovalDecision key={approval.id} approval={approval} sessionId={sessionId} />
         ))}
         {queued.length > 0 && (
           <div className="queue-strip">
