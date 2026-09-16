@@ -194,58 +194,7 @@ export interface HbarAppUiDataRow {
     readonly detail: string
 }
 
-/**
- * Product-neutral run state used by the data-driven activity surface. Hosts
- * map their own execution records into this stable presentation contract.
- */
-export type HbarAppUiRunActivityStatus =
-  | 'queued'
-  | 'running'
-  | 'waiting_approval'
-  | 'completed'
-  | 'cancelled'
-  | 'failed'
-  | 'interrupted'
-
-export interface HbarAppUiRunActivityItem {
-  readonly id: string
-  readonly label: string
-  readonly status: HbarAppUiRunActivityStatus
-  readonly statusLabel?: string | undefined
-  readonly detail?: string | undefined
-  readonly duration?: string | undefined
-}
-
-/**
- * Host-provided copy for the run activity surface.  The package deliberately
- * does not depend on a translation framework; a host can adapt any i18n
- * library to this small, typed bundle and keep pluralisation in its locale.
- */
-export interface HbarAppUiRunActivityLabels {
-  readonly title?: string | undefined
-  readonly emptyTitle?: string | undefined
-  readonly emptyDescription?: string | undefined
-  readonly cancelLabel?: string | undefined
-  readonly cancellingLabel?: string | undefined
-  readonly countLabel?: ((count: number) => string) | undefined
-  readonly statusLabel?: ((status: HbarAppUiRunActivityStatus) => string) | undefined
-}
-
-export interface HbarAppUiRunActivityProps {
-  readonly runs: readonly HbarAppUiRunActivityItem[]
-  readonly labels?: HbarAppUiRunActivityLabels | undefined
-  readonly title?: string | undefined
-  readonly emptyTitle?: string | undefined
-  readonly emptyDescription?: string | undefined
-  readonly selectedRunId?: string | undefined
-  readonly cancellingRunIds?: readonly string[] | undefined
-  readonly feedback?: string | undefined
-  readonly cancelLabel?: string | undefined
-  readonly cancellingLabel?: string | undefined
-  readonly countLabel?: ((count: number) => string) | undefined
-  readonly onSelectRun?: ((runId: string) => void) | undefined
-  readonly onCancelRun?: ((runId: string) => void) | undefined
-}
+export type { HbarAppUiRunActivityStatus, HbarAppUiRunActivityItem, HbarAppUiRunActivityLabels, HbarAppUiRunActivityProps } from './run-activity-types'
 
 export type { HbarAppUiApprovalDecision, HbarAppUiFailureMessage, HbarAppUiApprovalRequestLabels, HbarAppUiApprovalRequestProps, HbarAppUiQuestionnaireOption, HbarAppUiQuestionnaireQuestion, HbarAppUiQuestionnaireResult, HbarAppUiQuestionnaireLabels, HbarAppUiQuestionnaireProps } from './decision-types'
 

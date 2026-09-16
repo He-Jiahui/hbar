@@ -1,3 +1,4 @@
+import { RUN_LABELS } from './fixtures/hbar-app-ui-run-fixtures'
 import { APPROVAL_LABELS, QUESTION_LABELS } from './fixtures/hbar-app-ui-decision-fixtures'
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
@@ -221,10 +222,14 @@ describe('hbar-app-ui registry', () => {
   test('renders a data-driven run activity surface without coupling to preview state', () => {
     const markup = renderToStaticMarkup(
       createElement(HbarAppUiRunActivity, {
-        title: '运行记录',
-        countLabel: (count) => `${count} 个运行`,
-        cancelLabel: '停止此运行',
-        cancellingLabel: '正在停止',
+        listStrategy: 'content-grown',
+        labels: {
+          ...RUN_LABELS,
+          title: '运行记录',
+          countLabel: (count) => `${count} 个运行`,
+          cancelLabel: '停止此运行',
+          cancellingLabel: '正在停止',
+        },
         cancellingRunIds: ['run-active'],
         onCancelRun: () => undefined,
         runs: [
@@ -263,6 +268,7 @@ describe('hbar-app-ui registry', () => {
   test('accepts a host-owned localized bundle for every data-driven surface', () => {
     const runMarkup = renderToStaticMarkup(
       createElement(HbarAppUiRunActivity, {
+        listStrategy: 'content-grown',
         labels: {
           title: 'Aktivitäten',
           emptyTitle: 'Keine Läufe',

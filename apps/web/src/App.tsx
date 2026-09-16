@@ -1,3 +1,4 @@
+import { ActivityPanel } from './ActivityPanel'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
@@ -21,10 +22,9 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react'
-import type { Run, Session, SessionEvent } from '@hbar/contracts'
+import type { Session } from '@hbar/contracts'
 import {
   client,
-  cancelSessionRun,
   connectHost,
   openSession,
   refreshCatalog,
@@ -47,15 +47,7 @@ import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layou
 import TerminalPanel from './TerminalPanel'
 import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
 import CommandPalette, { type PaletteCommand } from './CommandPalette'
-import {
-  HbarAppUiMetricStrip,
-  HbarAppUiRunActivity,
-  HbarAppUiWorkbenchShell,
-  HbarAppUiNavigation,
-  HbarAppUiTabs,
-  type HbarAppUiRunActivityItem,
-} from 'hbar-app-ui'
-import { useLocale, type LocaleMessageKey } from './locale'
+import { HbarAppUiWorkbenchShell, HbarAppUiNavigation } from 'hbar-app-ui'
 import { getWorkbenchCopy } from './app-ui-locale'
 import './workbench/shell.css'
 import { navigationLayout } from './workbench/navigation-layout'
@@ -189,125 +181,6 @@ function Pairing() {
       </form>
       <span className="pairing-footer">hbar / 0.1.0</span>
     </main>
-  )
-}
-const runStatusMessageKeys: Readonly<Record<Run['status'], LocaleMessageKey>> = {
-  queued: 'queuedStatus',
-  running: 'running',
-  waiting_approval: 'waitingApprovalStatus',
-  completed: 'runCompletedStatus',
-  cancelled: 'cancelledStatus',
-  failed: 'failed',
-  interrupted: 'interruptedStatus',
-}
-
-function formatRunDuration(run: Run, locale: string): string | undefined {
-  if (run.startedAt === null || run.endedAt === null) return undefined
-  const seconds = Math.max(0, Math.round((run.endedAt - run.startedAt) / 1000))
-  if (locale.toLocaleLowerCase().startsWith('zh')) {
-    if (seconds < 60) return `${seconds} 秒`
-    return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
-  }
-  if (seconds < 60) return `${seconds}s`
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
-}
-
-function toRunActivityItem(run: Run, locale: string, t: (key: LocaleMessageKey) => string): HbarAppUiRunActivityItem {
-  const createdAt = new Date(run.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-  return {
-    id: run.id,
-    label: run.input.text.slice(0, 65) || t('imageMessage'),
-    status: run.status,
-    detail: run.error ? `${createdAt} · ${run.error}` : createdAt,
-    duration: formatRunDuration(run, locale),
-  }
-}
-
-function ActivityPanel() {
-  const sessionId = useWorkbench((state) => state.activeSession),
-    snapshot = useSessions((state) => state.snapshots[sessionId]),
-    cancellingRunIds = useSessions((state) => state.cancellingRunIds),
-    cancellationError = useSessions((state) => state.cancellationError)
-  const [mode, setMode] = useState<'activity' | 'trace'>('activity'),
-    [events, setEvents] = useState<SessionEvent[]>([]),
-    [detail, setDetail] = useState<SessionEvent | null>(null)
-  const { locale, t } = useLocale()
-  const cursor = snapshot?.cursor
-  useEffect(() => {
-    if (mode !== 'trace' || cursor === undefined) return
-    let alive = true
-    void client()
-      .call('session.follow', { sessionId, cursor: Math.max(0, cursor - 80) })
-      .then((result) => {
-        if (alive) setEvents(result.events)
-      })
-      .catch(report)
-    return () => {
-      alive = false
-    }
-  }, [mode, sessionId, cursor])
-  const usage = snapshot?.usage
-  return (
-    <div className="activity-panel">
-      <HbarAppUiTabs
-        label={t('activityViewLabel')}
-        value={mode}
-        options={[
-          { id: 'activity', label: t('run') },
-          { id: 'trace', label: t('events') },
-        ]}
-        onChange={(value) => setMode(value as 'activity' | 'trace')}
-      />
-      {mode === 'activity' ? (
-        <>
-          <div className="activity-heading">
-            <h2>{t('activityCurrentSession')}</h2>
-          </div>
-          <HbarAppUiMetricStrip
-            metrics={[
-              { label: t('inputTokens'), value: (usage?.input ?? 0).toLocaleString(locale) },
-              { label: t('outputTokens'), value: (usage?.output ?? 0).toLocaleString(locale) },
-              { label: t('cacheRead'), value: (usage?.cacheRead ?? 0).toLocaleString(locale) },
-              { label: t('cost'), value: `$${(usage?.cost ?? 0).toFixed(4)}` },
-            ]}
-          />
-          <HbarAppUiRunActivity
-            labels={{
-              title: t('runHistory'),
-              emptyTitle: t('noRunHistory'),
-              emptyDescription: t('runHistoryHint'),
-              cancelLabel: t('stopRun'),
-              cancellingLabel: t('stopping'),
-              countLabel: (count) => `${count} ${count === 1 ? t('activitySingleRun') : t('activityRunCount')}`,
-              statusLabel: (status) => t(runStatusMessageKeys[status]),
-            }}
-            runs={snapshot?.runs.map((run) => toRunActivityItem(run, locale, t)) ?? []}
-            cancellingRunIds={cancellingRunIds}
-            feedback={cancellationError?.sessionId === sessionId ? cancellationError.message : undefined}
-            onCancelRun={(runId) => {
-              void cancelSessionRun(sessionId, runId).catch(report)
-            }}
-          />
-        </>
-      ) : (
-        <>
-          <div className="event-list">
-            {events.map((event) => (
-              <button key={event.eventId} onClick={() => setDetail(event)}>
-                <span className="event-seq">{event.seq}</span>
-                <code>{event.type}</code>
-                <time>{new Date(event.time).toLocaleTimeString(locale)}</time>
-              </button>
-            ))}
-          </div>
-          {detail && (
-            <Modal title={detail.type} onClose={() => setDetail(null)}>
-              <pre className="event-detail">{JSON.stringify(detail, null, 2)}</pre>
-            </Modal>
-          )}
-        </>
-      )}
-    </div>
   )
 }
 function Diagnose() {

@@ -1,0 +1,88 @@
+.hbar-app-ui-run-activity {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-run-activity.is-virtual {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.hbar-app-ui-run-activity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+  flex: 0 0 auto;
+}
+.hbar-app-ui-run-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.hbar-app-ui-run-activity-item {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
+}
+.hbar-app-ui-run-activity-item > button:first-child,
+.hbar-app-ui-run-activity-static {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-sm);
+  text-align: start;
+  color: var(--hbar-app-ui-text);
+}
+.hbar-app-ui-run-activity-marker {
+  flex: 0 0 var(--hbar-app-ui-space-sm);
+  block-size: var(--hbar-app-ui-space-sm);
+  margin-block-start: var(--hbar-app-ui-space-xs);
+  border-radius: 50%;
+  background: var(--hbar-app-ui-subtle);
+}
+.hbar-app-ui-run-status-running .hbar-app-ui-run-activity-marker,
+.hbar-app-ui-run-status-queued .hbar-app-ui-run-activity-marker,
+.hbar-app-ui-run-status-waiting_approval .hbar-app-ui-run-activity-marker {
+  background: var(--hbar-app-ui-warning);
+}
+.hbar-app-ui-run-status-completed .hbar-app-ui-run-activity-marker {
+  background: var(--hbar-app-ui-positive);
+}
+.hbar-app-ui-run-status-failed .hbar-app-ui-run-activity-marker,
+.hbar-app-ui-run-status-interrupted .hbar-app-ui-run-activity-marker {
+  background: var(--hbar-app-ui-danger);
+}
+.hbar-app-ui-run-activity-copy {
+  flex: 1 1 12ch;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-run-activity-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
+  margin-inline-start: auto;
+}
+.hbar-app-ui-run-activity-cancel {
+  color: var(--hbar-app-ui-danger);
+  margin-inline-end: var(--hbar-app-ui-space-sm);
+  flex: 0 0 auto;
+}
+.hbar-app-ui-run-activity-feedback {
+  color: var(--hbar-app-ui-danger);
+  margin: 0;
+}
