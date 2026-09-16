@@ -58,10 +58,11 @@ import {
 import { useLocale, type LocaleMessageKey } from './locale'
 import { getWorkbenchCopy } from './app-ui-locale'
 import './workbench/shell.css'
+import { navigationLayout } from './workbench/navigation-layout'
 import 'flexlayout-react/style/dark.css'
 const DIAGNOSE_PANEL_ID = 'diagnose-right'
-const SIDEBAR_MIN_WIDTH = 220
-const SIDEBAR_MAX_WIDTH = 360
+const SIDEBAR_MIN_WIDTH = navigationLayout.sidebar.minimum
+const SIDEBAR_MAX_WIDTH = navigationLayout.sidebar.maximum
 const MOBILE_TOOLS = [
   { id: 'browser', title: '浏览器', icon: Globe },
   { id: 'inspector', title: '会话检查', icon: FileSearch },
@@ -349,7 +350,7 @@ export default function App() {
   const initialSelection = useRef(true)
   const switchingSession = useRef(false)
   const lastSessionSelection = useRef<string | undefined>(undefined)
-  const [small, setSmall] = useState(window.innerWidth < 900),
+  const [small, setSmall] = useState(window.innerWidth < navigationLayout.mobileViewportWidth),
     [sidebar, setSidebar] = useState(true),
     [mobileView, setMobileView] = useState('chat'),
     [workspaceModal, setWorkspaceModal] = useState(false),
@@ -370,7 +371,7 @@ export default function App() {
     document.documentElement.lang = locale
   }, [locale])
   useEffect(() => {
-    const onResize = () => setSmall(window.innerWidth < 900)
+    const onResize = () => setSmall(window.innerWidth < navigationLayout.mobileViewportWidth)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -883,7 +884,10 @@ export default function App() {
                   useWorkbench.setState({
                     sidebarWidth: Math.min(
                       SIDEBAR_MAX_WIDTH,
-                      Math.max(SIDEBAR_MIN_WIDTH, sidebarWidth + (event.key === 'ArrowRight' ? 8 : -8)),
+                      Math.max(
+                        SIDEBAR_MIN_WIDTH,
+                        sidebarWidth + (event.key === 'ArrowRight' ? 1 : -1) * navigationLayout.sidebar.keyboardStep,
+                      ),
                     ),
                   })
                 }

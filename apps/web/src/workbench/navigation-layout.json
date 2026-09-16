@@ -1,0 +1,4 @@
+{
+  "sidebar": { "minimum": 220, "maximum": 360, "initial": 272, "keyboardStep": 8 },
+  "mobileViewportWidth": 900
+}

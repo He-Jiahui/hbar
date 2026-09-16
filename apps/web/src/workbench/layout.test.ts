@@ -1,6 +1,7 @@
 import { Model } from 'flexlayout-react'
 import { expect, test } from 'bun:test'
 import { defaultLayout, restoreLayout, versionedLayout } from './layout'
+import { navigationLayout, normalizeSidebarWidth } from './navigation-layout'
 
 test('default layout is a valid, versioned workbench model', () => {
   const layout = defaultLayout()
@@ -67,4 +68,36 @@ test('layout snapshots retain the current descriptor version when persisted', ()
 
   expect(snapshot.schemaVersion).toBe(2)
   expect(restoreLayout(snapshot).layout.id).toBe('root')
+})
+
+test('unknown module types and incomplete file/plugin targets restore the default instead of rendering a broken pane', () => {
+  for (const tab of [
+    { type: 'tab', id: 'unsafe', component: 'arbitrary-module' },
+    { type: 'tab', id: 'unsafe', component: 'file', config: { path: 'README.md' } },
+    { type: 'tab', id: 'unsafe', component: 'plugin', config: {} },
+  ]) {
+    const restored = restoreLayout({
+      schemaVersion: 2,
+      layout: { type: 'row', id: 'root', children: [{ type: 'tabset', id: 'broken', children: [tab] }] },
+    })
+    expect(Model.fromJson(restored).getNodeById('welcome')).toBeDefined()
+    expect(Model.fromJson(restored).getNodeById('unsafe')).toBeUndefined()
+  }
+})
+
+test('duplicate IDs, invalid pane sizes and empty roots cannot restore an empty or invalid workbench', () => {
+  const invalid = [
+    { layout: { type: 'row', children: [] } },
+    { layout: { type: 'row', id: 'same', children: [{ type: 'tabset', id: 'same', children: [] }] } },
+    { layout: { type: 'row', children: [{ type: 'tabset', weight: -1, children: [] }] } },
+    { layout: { type: 'row', children: [{ type: 'tabset', size: Number.NaN, children: [] }] } },
+  ]
+  for (const value of invalid) expect(Model.fromJson(restoreLayout(value)).getNodeById('welcome')).toBeDefined()
+})
+
+test('sidebar range and keyboard sizing use the same validated descriptor', () => {
+  expect(normalizeSidebarWidth(undefined)).toBe(navigationLayout.sidebar.initial)
+  expect(normalizeSidebarWidth(Number.NaN)).toBe(navigationLayout.sidebar.initial)
+  expect(normalizeSidebarWidth(-1)).toBe(navigationLayout.sidebar.minimum)
+  expect(normalizeSidebarWidth(Number.MAX_SAFE_INTEGER)).toBe(navigationLayout.sidebar.maximum)
 })

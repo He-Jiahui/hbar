@@ -1,10 +1,30 @@
 import { Model } from 'flexlayout-react'
 import type { IJsonModel } from 'flexlayout-react'
 import rawDefaultLayout from './default-layout.json'
+import { z } from 'zod'
 
 export const CURRENT_LAYOUT_VERSION = 2
 const LEGACY_LAYOUT_VERSION = 1
 type UnknownRecord = Record<string, unknown>
+
+const moduleSchema = z.discriminatedUnion('component', [
+  z.object({
+    component: z.literal('conversation'),
+    config: z
+      .object({ sessionId: z.string().min(1).optional() })
+      .passthrough()
+      .optional(),
+  }),
+  z.object({
+    component: z.literal('file'),
+    config: z.object({ path: z.string().min(1), workspaceId: z.string().min(1) }).passthrough(),
+  }),
+  z.object({ component: z.literal('plugin'), config: z.object({ panelId: z.string().min(1) }).passthrough() }),
+  z.object({
+    component: z.enum(['settings', 'activity', 'browser', 'inspector', 'plan', 'insights', 'diagnose', 'terminal']),
+    config: z.record(z.string(), z.unknown()).optional(),
+  }),
+])
 
 // This is only an emergency escape hatch for a malformed bundled descriptor.
 // The normal default always comes from default-layout.json.
@@ -35,6 +55,8 @@ function hasModelRoot(value: unknown): value is IJsonModel {
 
 function collectNodeIds(value: unknown, ids: Set<string>): boolean {
   if (!isRecord(value)) return false
+  if (!['row', 'tabset', 'tab', 'border'].includes(String(value.type))) return false
+  if (value.type === 'tab' && !moduleSchema.safeParse(value).success) return false
   if (value.id !== undefined && (typeof value.id !== 'string' || value.id.length === 0)) return false
   if (typeof value.id === 'string') {
     if (ids.has(value.id)) return false
@@ -56,6 +78,7 @@ function validateNodes(model: IJsonModel): boolean {
   const ids = new Set<string>()
   if (!collectNodeIds(model.layout, ids)) return false
   if (model.borders && !model.borders.every((border) => collectNodeIds(border, ids))) return false
+  if (!model.layout.children?.length) return false
   return true
 }
 

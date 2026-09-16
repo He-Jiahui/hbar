@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { navigationLayout, normalizeSidebarWidth } from './workbench/navigation-layout'
 import { HbarClient } from '@hbar/client'
 import type { ConnectionStatus } from '@hbar/client'
 import type {
@@ -110,11 +111,7 @@ const defaultWorkbenchState: WorkbenchState = {
   theme: 'dark',
   locale: initialLocale(),
   layout: null,
-  sidebarWidth: 272,
-}
-
-function normalizeSidebarWidth(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.min(360, Math.max(220, Math.round(value))) : 272
+  sidebarWidth: navigationLayout.sidebar.initial,
 }
 
 export const useWorkbench = create(
