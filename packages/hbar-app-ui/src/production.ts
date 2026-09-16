@@ -1,6 +1,16 @@
 /** Production entry: never import the variant registry or preview fixtures here. */
 export { HbarAppUiIcon, type HbarAppUiIconTier } from './icon'
 export { HbarAppUiVirtualList } from './VirtualList'
+export { HbarAppUiPromptComposer } from './components/prompt-input/Composer'
+export type {
+  HbarAppUiPromptProps,
+  HbarAppUiPromptLabels,
+  HbarAppUiComposerAttachment,
+} from './components/prompt-input/Composer'
+export { HbarAppUiMessage } from './components/ai-chat/Message'
+export { HbarAppUiConversation } from './components/ai-chat/Conversation'
+export type { HbarAppUiConversationProps } from './components/ai-chat/Conversation'
+export type { HbarAppUiMessageProps } from './components/ai-chat/Message'
 export { HbarAppUiWorkspaceFiles, HbarAppUiFileDocument } from './components/file-manager/WorkspaceFiles'
 export type { HbarAppUiWorkspaceFile, HbarAppUiWorkspaceFileLabels } from './components/file-manager/WorkspaceFiles'
 export { HbarAppUiSessionNavigator } from './components/app-sidebar/SessionNavigator'

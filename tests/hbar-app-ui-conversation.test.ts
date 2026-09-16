@@ -1,0 +1,48 @@
+import { describe, expect, test } from 'bun:test'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { HbarAppUiPromptComposer, HbarAppUiMessage } from '../packages/hbar-app-ui/src/production'
+import { getPromptCopy, getMessageCopy } from '../apps/web/src/app-ui-locale'
+
+describe('host-controlled conversation components', () => {
+  test('renders host attachments, localized controls and a failure without clearing the draft', () => {
+    const markup = renderToStaticMarkup(
+      createElement(HbarAppUiPromptComposer, {
+        value: 'Keep this draft after a failed request',
+        labels: getPromptCopy('en-US', false, false),
+        attachments: [
+          { id: 'file-a', kind: 'file', name: 'An intentionally long file name for a translated attachment.txt' },
+        ],
+        submitting: false,
+        uploading: false,
+        canSubmit: true,
+        canStop: false,
+        error: 'Host unavailable',
+        onChange() {},
+        onRemoveAttachment() {},
+        onSubmit() {},
+        onStop() {},
+      }),
+    )
+    expect(markup).toContain('Keep this draft after a failed request')
+    expect(markup).toContain('Host unavailable')
+    expect(markup).toContain('Remove file An intentionally long file name')
+    expect(markup).not.toContain('brief.md')
+  })
+  test('renders system messages and names supplied by the current locale', () => {
+    const copy = getMessageCopy('en-US')
+    const markup = renderToStaticMarkup(
+      createElement(HbarAppUiMessage, {
+        id: 'notice',
+        role: 'system',
+        author: copy.assistant,
+        avatar: copy.assistantAvatar,
+        copyLabel: copy.copy,
+        children: 'Host message',
+      }),
+    )
+    expect(markup).toContain('message-system')
+    expect(markup).toContain('Host message')
+    expect(markup).not.toContain('<button')
+  })
+})

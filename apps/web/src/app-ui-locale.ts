@@ -1,4 +1,9 @@
-import type { HbarAppUiShellLabels, HbarAppUiSessionLabels, HbarAppUiWorkspaceFileLabels } from 'hbar-app-ui'
+import type {
+  HbarAppUiShellLabels,
+  HbarAppUiSessionLabels,
+  HbarAppUiWorkspaceFileLabels,
+  HbarAppUiPromptLabels,
+} from 'hbar-app-ui'
 import type { SupportedLocale } from './locale'
 
 interface WorkbenchCopy {
@@ -34,6 +39,40 @@ const workspaceFileCopy: Readonly<Record<SupportedLocale, HbarAppUiWorkspaceFile
 }
 export function getWorkspaceFileCopy(locale: SupportedLocale): HbarAppUiWorkspaceFileLabels {
   return workspaceFileCopy[locale]
+}
+
+export function getPromptCopy(locale: SupportedLocale, archived: boolean, running: boolean): HbarAppUiPromptLabels {
+  return locale === 'zh-CN'
+    ? {
+        input: '消息',
+        placeholder: archived ? '会话已归档' : '发送消息…',
+        send: '发送',
+        submitTitle: running ? '加入队列' : '发送',
+        stop: '停止运行',
+        uploading: '上传中',
+        removeAttachment: (attachment) => (attachment.kind === 'image' ? '移除图片' : `移除文件 ${attachment.name}`),
+      }
+    : {
+        input: 'Message',
+        placeholder: archived ? 'Session archived' : 'Send a message…',
+        send: 'Send',
+        submitTitle: running ? 'Add to queue' : 'Send',
+        stop: 'Stop run',
+        uploading: 'Uploading',
+        removeAttachment: (attachment) => `Remove ${attachment.kind} ${attachment.name}`,
+      }
+}
+export function getMessageCopy(locale: SupportedLocale) {
+  return locale === 'zh-CN'
+    ? { user: '你', assistant: 'hbar', userAvatar: 'U', assistantAvatar: 'h', copy: '复制消息', thinking: '思考过程' }
+    : {
+        user: 'You',
+        assistant: 'hbar',
+        userAvatar: 'U',
+        assistantAvatar: 'h',
+        copy: 'Copy message',
+        thinking: 'Thinking',
+      }
 }
 
 const workbenchCopy: Readonly<Record<SupportedLocale, WorkbenchCopy>> = {

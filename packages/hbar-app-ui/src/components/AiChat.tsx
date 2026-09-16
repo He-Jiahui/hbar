@@ -1,3 +1,4 @@
+import { HbarAppUiConversation, useHbarAppUiConversationContent } from './ai-chat/Conversation'
 import { HbarAppUiIcon } from '../icon'
 import {useState, type ReactNode} from 'react'
 import {
@@ -9,7 +10,6 @@ import {
     GitBranch,
     Mic,
     Paperclip,
-    Play,
     Send,
     ShieldCheck,
     Sparkles,
@@ -43,40 +43,8 @@ function ChatBubble({author, children, tone = 'neutral'}: {
 }
 
 function FullThread({spec, onAction}: ChatProps) {
-    const [reasoningOpen, setReasoningOpen] = useState(true)
-    const [toolOpen, setToolOpen] = useState(false)
-    return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-ai-chat-thread"><HbarAppUiToolbar
-        title="Workspace assistant" detail="Streaming response · local context"/><HbarAppUiButton
-        onClick={() => setReasoningOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
-        />Reasoning</HbarAppUiButton><HbarAppUiButton tone="accent" onClick={() => onAction?.({
-        variantId: spec.id,
-        actionId: 'attach'
-    })}><HbarAppUiIcon icon={Paperclip} tier="sm" />Attach</HbarAppUiButton>
-        <div className="hbar-app-ui-chat-transcript"><ChatBubble author="You">Reconcile the October invoices and flag
-            anything unusual.</ChatBubble><HbarAppUiSpotlight className="hbar-app-ui-chat-reasoning">
-            <div><HbarAppUiIcon icon={Bot} tier="sm" /><strong>Assistant reasoning</strong><HbarAppUiStatus value="Working" tone="warning"/>
-            </div>
-            {reasoningOpen && <ol>
-                <li>Load the ledger and bank export.</li>
-                <li>Match references and currencies.</li>
-                <li>Prepare a concise exception list.</li>
-            </ol>}</HbarAppUiSpotlight><HbarAppUiSpotlight className="hbar-app-ui-chat-tool">
-            <button type="button" onClick={() => setToolOpen((value) => !value)}><HbarAppUiIcon icon={Play} tier="sm"
-                /><span><strong>ledger.search</strong><small>Searching 1,284 transactions</small></span><HbarAppUiIcon icon={ChevronDown} tier="sm"
-                /></button>
-            {toolOpen && <pre>{'{"matches": 1284, "status": "running"}'}</pre>}</HbarAppUiSpotlight><ChatBubble
-            author="hbar" tone="positive">I found 12 unmatched entries. I’m grouping them by currency before showing the
-            final report.</ChatBubble>
-            <div className="hbar-app-ui-chat-sources"><strong>Sources</strong>
-                <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" />October ledger.csv</button>
-                <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" />Bank export.pdf</button>
-            </div>
-        </div>
-        <HbarAppUiComposer placeholder="Reply to the assistant" onSubmit={(value) => onAction?.({
-            variantId: spec.id,
-            actionId: 'send',
-            value
-        })}/></ActionSurfaceFrame>
+ const content=useHbarAppUiConversationContent()
+ return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-ai-chat-thread">{content && <HbarAppUiConversation {...content}/>}</ActionSurfaceFrame>
 }
 
 function ArtifactThread({spec, onAction}: ChatProps) {

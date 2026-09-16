@@ -1,6 +1,7 @@
+import { HbarAppUiPromptComposer, useHbarAppUiPromptContent } from './prompt-input/Composer'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
-import {AtSign, Check, Command, FileText, Hash, Paperclip, Plus, Sparkles, Square, WandSparkles, X} from 'lucide-react'
+import {AtSign, Check, FileText, Hash, Paperclip, Plus, Sparkles, WandSparkles, X} from 'lucide-react'
 import {
     HbarAppUiButton,
     HbarAppUiComposer,
@@ -17,41 +18,8 @@ import {seededNumber} from './helpers'
 type PromptProps = HbarAppUiVariantProps
 
 function PromptInputOne({spec, onAction}: PromptProps) {
-    const [running, setRunning] = useState(false)
-    const [attachments, setAttachments] = useState<string[]>(['brief.md'])
-    const [commandsOpen, setCommandsOpen] = useState(false)
-    return <ActionSurfaceFrame spec={spec} onAction={onAction}
-                               className="hbar-app-ui-prompt-variant-1"><HbarAppUiToolbar title="Prompt composer"
-                                                                                          detail="Slash commands · attachments · run state"/><HbarAppUiButton
-        onClick={() => setCommandsOpen((value) => !value)}><HbarAppUiIcon icon={Command} tier="sm"
-        />Commands</HbarAppUiButton><HbarAppUiStatus value={running ? 'Running' : 'Ready'}
-                                                              tone={running ? 'warning' : 'positive'}/>{commandsOpen &&
-        <HbarAppUiSpotlight className="hbar-app-ui-slash-menu">
-            <button type="button" onClick={() => onAction?.({
-                variantId: spec.id,
-                actionId: 'command',
-                value: '/summarize'
-            })}>/summarize <small>Summarise context</small></button>
-            <button type="button" onClick={() => onAction?.({
-                variantId: spec.id,
-                actionId: 'command',
-                value: '/review'
-            })}>/review <small>Review the current diff</small></button>
-        </HbarAppUiSpotlight>}
-        <div className="hbar-app-ui-composer-shell">
-            <div className="hbar-app-ui-attachment-tray">{attachments.map((file) => <button type="button" key={file}
-                                                                                            onClick={() => setAttachments((current) => current.filter((item) => item !== file))}>
-                <HbarAppUiIcon icon={FileText} tier="sm" />{file}<HbarAppUiIcon icon={X} tier="xs" /></button>)}<HbarAppUiButton
-                onClick={() => setAttachments((current) => [...current, `context-${current.length + 1}.md`])}><HbarAppUiIcon icon={Paperclip} tier="sm"
-                />Attach</HbarAppUiButton></div>
-            <HbarAppUiComposer placeholder="Type a prompt or /command" onSubmit={(value) => {
-                setRunning(true);
-                onAction?.({variantId: spec.id, actionId: 'send', value})
-            }}/><HbarAppUiButton tone="danger" disabled={!running} onClick={() => {
-            setRunning(false);
-            onAction?.({variantId: spec.id, actionId: 'stop'})
-        }}><HbarAppUiIcon icon={Square} tier="sm" />Stop</HbarAppUiButton></div>
-    </ActionSurfaceFrame>
+ const content=useHbarAppUiPromptContent()
+ return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-prompt-variant-1">{content && <HbarAppUiPromptComposer {...content}/>}</ActionSurfaceFrame>
 }
 
 function PromptInputTwo({spec, onAction}: PromptProps) {

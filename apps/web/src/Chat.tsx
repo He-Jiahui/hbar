@@ -2,13 +2,10 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowDown,
-  ArrowUp,
   Check,
   ChevronDown,
   ChevronRight,
-  Copy,
   FileCode2,
-  FileText,
   FolderOpen,
   GitBranch,
   LoaderCircle,
@@ -17,24 +14,23 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
-import type { ArtifactRef, ContentBlock, GitInfo, Message, UserInput } from '@hbar/contracts'
+import type { ArtifactRef, ContentBlock, GitInfo, Message } from '@hbar/contracts'
 import type { ComposerAction } from '@hbar/ui-sdk'
 import {
-  acknowledgeComposerDraft,
   client,
-  moveComposerDraft,
   updateComposerDraft,
   loadOlder,
   openSession,
-  refreshCatalog,
   report,
   setApprovalMode,
   useCatalog,
+  useConnection,
+  cancelSessionRun,
   useSessions,
   useWorkbench,
 } from './stores'
 import Markdown from './Markdown'
-import { copyText, newRequestId } from './browser-utils'
+import { copyText } from './browser-utils'
 import PermissionSelector from './PermissionSelector'
 import ModelPicker from './ModelPicker'
 import ComposerMenu from './ComposerMenu'
@@ -43,8 +39,17 @@ import { modelThinkingLabel } from './model-catalog'
 import { useUIPlugins } from './ui-plugins'
 import SessionCapabilityDialog from './SessionCapabilityDialog'
 import { useSessionCapabilities, type SessionCapabilityTab } from './session-capabilities'
-import { HbarAppUiApprovalRequest, HbarAppUiQuestionnaire, HbarAppUiSpotlight } from 'hbar-app-ui'
+import {
+  HbarAppUiApprovalRequest,
+  HbarAppUiQuestionnaire,
+  HbarAppUiSpotlight,
+  HbarAppUiPromptComposer,
+  HbarAppUiMessage,
+} from 'hbar-app-ui'
+import { getPromptCopy, getMessageCopy } from './app-ui-locale'
+import { useComposerOperations, composerTarget, sendComposerInput, attachComposerFiles } from './composer-model'
 import { useLocale } from './locale'
+import { composerDraftKey } from './composer-draft'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 const EMPTY_ARTIFACTS: ArtifactRef[] = []
 
@@ -92,86 +97,76 @@ function approvalSummary(tool: string, args: Record<string, unknown>): string {
   return tool
 }
 function MessageView({ message }: { message: Message }) {
+  const { locale } = useLocale()
+  const copy = getMessageCopy(locale)
   const [copied, setCopied] = useState(false)
   const text = message.content
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
     .join('\n')
   return (
-    <article className={`message message-${message.role}`} data-message-id={message.id}>
-      {message.role !== 'tool' && (
-        <div className="message-heading">
-          <span className={`avatar ${message.role === 'user' ? 'avatar-user' : ''}`}>
-            {message.role === 'user' ? 'U' : 'h'}
-          </span>
-          <span>{message.role === 'user' ? '你' : 'hbar'}</span>
-          <time>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-        </div>
-      )}
-      <div className="message-body">
-        {message.content.map((block, index) => {
-          if (block.type === 'text') return <Markdown key={index} text={block.text} />
-          if (block.type === 'thinking')
-            return (
-              <details className="thinking" key={index}>
-                <summary>思考过程</summary>
-                <Markdown text={block.text} />
-              </details>
-            )
-          if (block.type === 'image')
-            return (
-              <a key={index} href={client().artifactUrl(block.artifact.id)} target="_blank" rel="noreferrer">
-                <img
-                  className="attachment-image"
-                  src={client().artifactUrl(block.artifact.id)}
-                  alt={block.artifact.name}
-                  loading="lazy"
-                />
-              </a>
-            )
-          if (block.type === 'file')
-            return (
-              <a
-                className="attachment-file"
-                key={index}
-                href={client().artifactUrl(block.artifact.id)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <FileCode2 size={15} />
-                <span>{block.artifact.name}</span>
-              </a>
-            )
-          if (block.type === 'tool_call')
-            return (
-              <div className="tool-call" key={index}>
-                <Wrench size={13} />
-                <span>{block.name}</span>
-                <code>{String(block.args.path ?? block.args.command ?? '').slice(0, 160)}</code>
-              </div>
-            )
-          return <ToolResult key={index} block={block} />
-        })}
-      </div>
-      {text && message.role !== 'tool' && (
-        <div className="message-actions">
-          <button
-            title="复制消息"
-            aria-label="复制消息"
-            onClick={() => {
+    <HbarAppUiMessage
+      id={message.id}
+      role={message.role}
+      author={message.role === 'user' ? copy.user : copy.assistant}
+      avatar={message.role === 'user' ? copy.userAvatar : copy.assistantAvatar}
+      timestamp={new Date(message.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+      copyLabel={copy.copy}
+      copied={copied}
+      onCopy={
+        text && message.role !== 'tool'
+          ? () => {
               void copyText(text)
-                .then(() => {
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 1200)
-                })
+                .then(() => setCopied(true))
                 .catch(report)
-            }}
-          >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-          </button>
-        </div>
-      )}
-    </article>
+            }
+          : undefined
+      }
+    >
+      {message.content.map((block, index) => {
+        if (block.type === 'text') return <Markdown key={index} text={block.text} />
+        if (block.type === 'thinking')
+          return (
+            <details className="thinking" key={index}>
+              <summary>{copy.thinking}</summary>
+              <Markdown text={block.text} />
+            </details>
+          )
+        if (block.type === 'image')
+          return (
+            <a key={index} href={client().artifactUrl(block.artifact.id)} target="_blank" rel="noreferrer">
+              <img
+                className="attachment-image"
+                src={client().artifactUrl(block.artifact.id)}
+                alt={block.artifact.name}
+                loading="lazy"
+              />
+            </a>
+          )
+        if (block.type === 'file')
+          return (
+            <a
+              className="attachment-file"
+              key={index}
+              href={client().artifactUrl(block.artifact.id)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FileCode2 size={15} />
+              <span>{block.artifact.name}</span>
+            </a>
+          )
+        if (block.type === 'tool_call')
+          return (
+            <div className="tool-call" key={index}>
+              <Wrench size={13} />
+              <span>{block.name}</span>
+              <code>{String(block.args.path ?? block.args.command ?? '').slice(0, 160)}</code>
+            </div>
+          )
+        return <ToolResult key={index} block={block} />
+      })}
+    </HbarAppUiMessage>
   )
 }
 export default function Chat({
@@ -187,7 +182,7 @@ export default function Chat({
   const snapshot = useSessions((state) => state.snapshots[sessionId])
   const catalog = useCatalog((state) => state.data)
   const sessionInfo = catalog?.sessions.find((session) => session.id === sessionId) ?? snapshot?.session
-  const composerDraft = useWorkbench((state) => state.drafts[sessionId || 'new'])
+  const composerDraft = useWorkbench((state) => state.drafts[composerDraftKey(sessionId, state.workspaceId)])
   const draft = composerDraft?.text ?? ''
   const images = composerDraft?.images ?? EMPTY_ARTIFACTS
   const files = composerDraft?.files ?? EMPTY_ARTIFACTS
@@ -199,17 +194,20 @@ export default function Chat({
   const contributedActions = useUIPlugins((state) => state.composerActions)
   const capabilityState = useSessionCapabilities((state) => state.sessions[sessionId])
   const [capabilityDialog, setCapabilityDialog] = useState<SessionCapabilityTab | null>(null)
-  const [busy, setBusy] = useState(false),
-    [uploading, setUploading] = useState(false)
+  const composerConnection = useConnection((state) => state.client)
+  const operation = useComposerOperations((state) => {
+    const candidate = state.byTarget[composerTarget(workspaceId, sessionId)]
+    return candidate?.source === composerConnection ? candidate : undefined
+  })
+  const busy = operation?.sending ?? false
+  const uploading = operation?.uploading ?? false
   const [pickerAccept, setPickerAccept] = useState(IMAGE_ACCEPT)
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null)
   const [atBottom, setAtBottom] = useState(true)
   const scroll = useRef<HTMLDivElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
     pendingAttachmentKind = useRef<'image' | 'file'>('image'),
-    composing = useRef(false),
     stick = useRef(true)
-  const pendingRequest = useRef<{ key: string; requestId: string } | null>(null)
   const messages = snapshot?.messages ?? []
   useEffect(() => {
     if (!workspace?.path) {
@@ -285,62 +283,24 @@ export default function Chat({
       onSettings()
       return
     }
-    const sentDraft = { text: draft, images: [...images], files: [...files] }
-    setBusy(true)
-    try {
-      let target = sessionId
-      if (!target) {
-        const created = await client().call('session.create', { workspaceId })
-        target = created.id
-        moveComposerDraft(undefined, target)
-        await refreshCatalog()
-        await openSession(target)
-      }
-      const input: UserInput = { text: sentDraft.text, images: sentDraft.images, files: sentDraft.files, thinking: thinkingLevel, approval: approvalMode }
-      const key = JSON.stringify({ target, input, modelId, thinkingLevel })
-      if (pendingRequest.current?.key !== key) pendingRequest.current = { key, requestId: newRequestId() }
-      await client().call('run.start', {
-        sessionId: target,
-        requestId: pendingRequest.current.requestId,
-        input,
-        modelId,
-      })
-      pendingRequest.current = null
-      acknowledgeComposerDraft(target, sentDraft)
-      stick.current = true
-      if (!snapshot) await openSession(target)
-    } catch (error) {
-      report(error)
-    } finally {
-      setBusy(false)
-    }
+    const accepted = await sendComposerInput({
+      sessionId,
+      workspaceId,
+      modelId,
+      input: { text: draft, images: [...images], files: [...files], thinking: thinkingLevel, approval: approvalMode },
+    })
+    if (accepted) stick.current = true
   }
   async function attach(selected: FileList | null) {
     if (!selected) return
-    const capacity = 12 - images.length - files.length
-    if (capacity <= 0) {
-      report(new Error('一条消息最多附加 12 个文件'))
-      if (fileInput.current) fileInput.current.value = ''
-      return
-    }
-    setUploading(true)
-    const uploadedImages: ArtifactRef[] = []
-    const uploadedFiles: ArtifactRef[] = []
-    try {
-      for (const file of [...selected].slice(0, capacity)) {
-        const artifact = await client().upload(file)
-        if (pendingAttachmentKind.current === 'image' && artifact.mime.startsWith('image/'))
-          uploadedImages.push(artifact)
-        else uploadedFiles.push(artifact)
-      }
-    } catch (error) {
-      report(error)
-    } finally {
-      if (uploadedImages.length) updateComposerDraft(sessionId, (current) => ({ images: [...current.images, ...uploadedImages] }))
-      if (uploadedFiles.length) updateComposerDraft(sessionId, (current) => ({ files: [...current.files, ...uploadedFiles] }))
-      setUploading(false)
-      if (fileInput.current) fileInput.current.value = ''
-    }
+    await attachComposerFiles({
+      workspaceId,
+      sessionId,
+      files: [...selected],
+      kind: pendingAttachmentKind.current,
+      limitMessage: locale === 'zh-CN' ? '一条消息最多附加 12 个文件' : 'A message supports at most 12 attachments',
+    })
+    if (fileInput.current) fileInput.current.value = ''
   }
   function selectComposerAction(action: ComposerAction) {
     if (action.id === 'goal' || action.id === 'plan' || action.id === 'budget') {
@@ -380,13 +340,7 @@ export default function Chat({
           <button type="button" role="tab" aria-selected="true" className="selected">
             Chat
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected="false"
-            onClick={() => onTerminal?.()}
-            disabled={!onTerminal}
-          >
+          <button type="button" role="tab" aria-selected="false" onClick={() => onTerminal?.()} disabled={!onTerminal}>
             Terminal
           </button>
         </div>
@@ -553,9 +507,9 @@ export default function Chat({
             onSubmit={async (answers) => {
               const result = await client().call('user_input.resolve', {
                 requestId: request.requestId,
-                answers: Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, {answers: [answer]}])),
+                answers: Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, { answers: [answer] }])),
               })
-              return result.accepted ? {accepted: true} : {accepted: false, error: t('chatInputHandled')}
+              return result.accepted ? { accepted: true } : { accepted: false, error: t('chatInputHandled') }
             }}
           />
         ))}
@@ -577,8 +531,7 @@ export default function Chat({
               failureMessage: t('approvalSubmitFailed'),
             }}
             onDecision={async (decision) => {
-              if (decision === 'allow_always' && !(await setApprovalMode('allow')))
-                throw new Error('无法保存允许规则')
+              if (decision === 'allow_always' && !(await setApprovalMode('allow'))) throw new Error('无法保存允许规则')
               await client().call('approval.resolve', {
                 approvalId: approval.id,
                 decision: decision === 'deny' ? 'denied' : 'allowed',
@@ -601,82 +554,56 @@ export default function Chat({
             </button>
           </div>
         )}
-        <HbarAppUiSpotlight
-          as="form"
-          className="composer"
-          onSubmit={(event) => {
-            event.preventDefault()
+        <HbarAppUiPromptComposer
+          value={draft}
+          labels={getPromptCopy(locale, Boolean(sessionInfo?.archived), Boolean(activeRun))}
+          attachments={[
+            ...images.map((image) => ({
+              id: image.id,
+              name: image.name,
+              kind: 'image' as const,
+              previewUrl: client().artifactUrl(image.id),
+            })),
+            ...files.map((file) => ({ id: file.id, name: file.name, kind: 'file' as const })),
+          ]}
+          disabled={sessionInfo?.archived}
+          error={operation?.error}
+          submitting={busy}
+          uploading={uploading}
+          canSubmit={Boolean(workspaceId && (draft.trim() || images.length || files.length))}
+          canStop={Boolean(activeRun)}
+          onChange={setDraft}
+          onSubmit={() => {
             void send()
           }}
-        >
-          <div className="composer-context-strip" aria-label="会话上下文">
-            <span className="composer-context-location" title={workspace?.path ?? '未选择工作区'}>
-              <FolderOpen size={14} />
-              <span>{workspace?.name ?? 'Workspace'}</span>
-            </span>
-            <span className="composer-context-separator" aria-hidden="true" />
-            <span className="composer-context-mode">Local</span>
-            {gitInfo?.branch && (
-              <span className="composer-context-branch" title="当前 Git 分支">
-                <GitBranch size={13} />
-                <span>{gitInfo.branch}</span>
+          onRemoveAttachment={(id, kind) =>
+            updateComposerDraft(sessionId, (current) =>
+              kind === 'image'
+                ? { images: current.images.filter((item) => item.id !== id) }
+                : { files: current.files.filter((item) => item.id !== id) },
+            )
+          }
+          onStop={() => {
+            if (activeRun) void cancelSessionRun(sessionId, activeRun.id).catch(report)
+          }}
+          context={
+            <div className="composer-context-strip" aria-label="会话上下文">
+              <span className="composer-context-location" title={workspace?.path ?? '未选择工作区'}>
+                <FolderOpen size={14} />
+                <span>{workspace?.name ?? 'Workspace'}</span>
               </span>
-            )}
-          </div>
-            {(images.length > 0 || files.length > 0) && (
-              <div className="attachment-strip">
-              {images.map((image) => (
-                <div className="attachment-chip" key={image.id}>
-                  <img src={client().artifactUrl(image.id)} alt={image.name} />
-                  <span>{image.name}</span>
-                  <button
-                    type="button"
-                    title="移除图片"
-                    aria-label="移除图片"
-                    onClick={() => updateComposerDraft(sessionId, (current) => ({ images: current.images.filter((item) => item.id !== image.id) }))}
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-              {files.map((file) => (
-                <div className="attachment-chip attachment-chip-file" key={`file:${file.id}`}>
-                  <FileText size={18} className="attachment-chip-icon" aria-hidden="true" />
-                  <span title={file.name}>{file.name}</span>
-                  <button
-                    type="button"
-                    title={`移除文件 ${file.name}`}
-                    aria-label={`移除文件 ${file.name}`}
-                    onClick={() => updateComposerDraft(sessionId, (current) => ({ files: current.files.filter((item) => item.id !== file.id) }))}
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-              </div>
-            )}
-            <textarea
-            aria-label="消息"
-            placeholder={sessionInfo?.archived ? '会话已归档' : '发送消息…'}
-            disabled={sessionInfo?.archived}
-            rows={3}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onCompositionStart={() => {
-              composing.current = true
-            }}
-            onCompositionEnd={() => {
-              composing.current = false
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current) {
-                event.preventDefault()
-                void send()
-              }
-            }}
-            />
-            <div className="composer-toolbar">
-            <div className="composer-left">
+              <span className="composer-context-separator" aria-hidden="true" />
+              <span className="composer-context-mode">Local</span>
+              {gitInfo?.branch && (
+                <span className="composer-context-branch" title="当前 Git 分支">
+                  <GitBranch size={13} />
+                  <span>{gitInfo.branch}</span>
+                </span>
+              )}
+            </div>
+          }
+          controls={
+            <>
               <ComposerMenu actions={composerActions} onSelect={selectComposerAction} />
               <input
                 className="visually-hidden"
@@ -684,42 +611,15 @@ export default function Chat({
                 type="file"
                 accept={pickerAccept}
                 multiple
-                onChange={(event) => void attach(event.target.files)}
+                onChange={(event) => {
+                  void attach(event.target.files)
+                }}
               />
-              {uploading && <LoaderCircle size={15} className="spinning composer-uploading" aria-label="上传中" />}
               <PermissionSelector />
-            </div>
-            <div className="composer-right">
-              <ModelPicker onSettings={onSettings} />
-              {activeRun && (
-                <button
-                  type="button"
-                  className="stop-button"
-                  title="停止运行"
-                  aria-label="停止运行"
-                  onClick={() => void client().call('run.cancel', { runId: activeRun.id }).catch(report)}
-                >
-                  <Square size={14} fill="currentColor" />
-                </button>
-              )}
-              <button
-                className="send-button"
-                type="submit"
-                title={activeRun ? '加入队列' : '发送'}
-                aria-label="发送"
-                disabled={
-                  busy ||
-                  uploading ||
-                  sessionInfo?.archived ||
-                  (!draft.trim() && !images.length && !files.length) ||
-                  !workspaceId
-                }
-              >
-                {busy ? <LoaderCircle size={17} className="spinning" /> : <ArrowUp size={18} />}
-              </button>
-            </div>
-            </div>
-        </HbarAppUiSpotlight>
+            </>
+          }
+          modelPicker={<ModelPicker onSettings={onSettings} />}
+        />
         <div className="composer-footer">
           <span className="composer-footer-model">
             {capabilityState?.mode === 'plan' ? 'Plan 模式' : '默认模式'}

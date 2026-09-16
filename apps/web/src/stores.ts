@@ -114,18 +114,27 @@ const defaultWorkbenchState: WorkbenchState = {
   sidebarWidth: navigationLayout.sidebar.initial,
 }
 
+function migrateWorkspaceDrafts(drafts: Record<string, ComposerDraft>, workspaceId: string | undefined): Record<string, ComposerDraft> {
+  if (!workspaceId || !drafts.new) return drafts
+  const key = composerDraftKey(undefined, workspaceId)
+  if (drafts[key]) return drafts
+  const migrated = { ...drafts, [key]: drafts.new }
+  delete migrated.new
+  return migrated
+}
+
 export const useWorkbench = create(
   persist<WorkbenchState>(
     () => defaultWorkbenchState,
     {
       name: 'hbar.workbench.v1',
-      version: 5,
+      version: 6,
       migrate: (persisted): WorkbenchState => {
         const value = persisted && typeof persisted === 'object' ? (persisted as Partial<WorkbenchState>) : {}
         return {
           ...defaultWorkbenchState,
           ...value,
-          drafts: normalizeComposerDrafts(value.drafts),
+          drafts: migrateWorkspaceDrafts(normalizeComposerDrafts(value.drafts), value.workspaceId),
           thinkingLevel: isThinkingLevel(value.thinkingLevel) ? value.thinkingLevel : 'off',
           thinkingByModel: normalizeThinkingMap(value.thinkingByModel),
           approvalMode: isApprovalMode(value.approvalMode) ? value.approvalMode : 'ask',
@@ -141,16 +150,17 @@ export const useNotice = create<{ error: string; notice: string }>(() => ({ erro
 export const report = (error: unknown) =>
   useNotice.setState({ error: error instanceof Error ? error.message : String(error) })
 
-export function getComposerDraft(sessionId?: string): ComposerDraft {
-  const draft = useWorkbench.getState().drafts[composerDraftKey(sessionId)]
+export function getComposerDraft(sessionId?: string, workspaceId = useWorkbench.getState().workspaceId): ComposerDraft {
+  const draft = useWorkbench.getState().drafts[composerDraftKey(sessionId, workspaceId)]
   return draft ? normalizeComposerDraft(draft) : { ...EMPTY_COMPOSER_DRAFT }
 }
 
 export function updateComposerDraft(
   sessionId: string | undefined,
   patch: Partial<ComposerDraft> | ((current: ComposerDraft) => Partial<ComposerDraft>),
+  workspaceId = useWorkbench.getState().workspaceId,
 ): ComposerDraft {
-  const key = composerDraftKey(sessionId)
+  const key = composerDraftKey(sessionId, workspaceId)
   let nextDraft: ComposerDraft = { ...EMPTY_COMPOSER_DRAFT }
   useWorkbench.setState((state) => {
     const current = getDraftFromState(state, key)
@@ -161,8 +171,8 @@ export function updateComposerDraft(
   return nextDraft
 }
 
-export function clearComposerDraft(sessionId?: string): void {
-  const key = composerDraftKey(sessionId)
+export function clearComposerDraft(sessionId?: string, workspaceId = useWorkbench.getState().workspaceId): void {
+  const key = composerDraftKey(sessionId, workspaceId)
   useWorkbench.setState((state) => {
     if (!state.drafts[key]) return state
     const drafts = { ...state.drafts }
@@ -171,8 +181,8 @@ export function clearComposerDraft(sessionId?: string): void {
   })
 }
 
-export function acknowledgeComposerDraft(sessionId: string | undefined, sent: ComposerDraft): void {
-  const key = composerDraftKey(sessionId)
+export function acknowledgeComposerDraft(sessionId: string | undefined, sent: ComposerDraft, workspaceId = useWorkbench.getState().workspaceId): void {
+  const key = composerDraftKey(sessionId, workspaceId)
   useWorkbench.setState((state) => {
     const current = state.drafts[key]
     if (!current) return state
@@ -186,8 +196,8 @@ export function acknowledgeComposerDraft(sessionId: string | undefined, sent: Co
   })
 }
 
-export function moveComposerDraft(fromSessionId: string | undefined, toSessionId: string): void {
-  const from = composerDraftKey(fromSessionId)
+export function moveComposerDraft(fromSessionId: string | undefined, toSessionId: string, workspaceId = useWorkbench.getState().workspaceId): void {
+  const from = composerDraftKey(fromSessionId, workspaceId)
   if (!toSessionId || from === toSessionId) return
   useWorkbench.setState((state) => {
     const source = state.drafts[from]

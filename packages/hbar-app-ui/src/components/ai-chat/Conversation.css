@@ -1,0 +1,30 @@
+.hbar-app-ui-conversation {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  gap: var(--hbar-app-ui-space-md);
+}
+.hbar-app-ui-conversation header {
+  flex: 0 0 auto;
+}
+.hbar-app-ui-conversation-messages {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+}
+.hbar-app-ui-conversation .message {
+  padding: var(--hbar-app-ui-space-md);
+}
+.hbar-app-ui-conversation .message-body {
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-conversation .message-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-conversation .message-user {
+  align-self: flex-end;
+}

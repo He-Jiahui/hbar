@@ -26,6 +26,7 @@ import 'hbar-app-ui/theme.css'
 import './preview.css'
 import { VariantHarness } from './VariantHarness'
 import { ShellPreviewHost } from './ShellPreviewHost'
+import { ConversationPreviewHost } from './ConversationPreviewHost'
 import {
   createHbarAppUiAgentApprovalLocalizedFixtures,
   createHbarAppUiAgentApprovalOverflowFixtures,
@@ -321,7 +322,7 @@ function PreviewApp() {
               <HbarAppUiToolCallsProvider content={toolCallsContent}>
                 <HbarAppUiNavbarProvider content={navbarContent}>
                   <HbarAppUiEditorProvider content={editorContent}>
-                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ShellPreviewHost>
+                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ConversationPreviewHost></ShellPreviewHost>
                   </HbarAppUiEditorProvider>
                 </HbarAppUiNavbarProvider>
               </HbarAppUiToolCallsProvider>
@@ -408,7 +409,7 @@ function PreviewApp() {
                         <HbarAppUiToolCallsProvider content={toolCallsContent}>
                           <HbarAppUiNavbarProvider content={navbarContent}>
                             <HbarAppUiEditorProvider content={editorContent}>
-                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ShellPreviewHost>
+                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></ConversationPreviewHost></ShellPreviewHost>
                             </HbarAppUiEditorProvider>
                           </HbarAppUiNavbarProvider>
                         </HbarAppUiToolCallsProvider>

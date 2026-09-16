@@ -1,0 +1,57 @@
+@import '../../tokens.css';
+.hbar-app-ui-prompt-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+  min-inline-size: 0;
+  padding: var(--hbar-app-ui-space-md);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-0);
+}
+.hbar-app-ui-prompt-composer textarea {
+  inline-size: 100%;
+  min-inline-size: 0;
+  resize: vertical;
+}
+.hbar-app-ui-prompt-composer .attachment-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-prompt-composer .attachment-chip {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-prompt-composer .attachment-chip span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-prompt-composer .attachment-chip img {
+  inline-size: var(--hbar-app-ui-control-min);
+  block-size: var(--hbar-app-ui-control-min);
+  object-fit: cover;
+}
+.hbar-app-ui-prompt-composer .composer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-prompt-composer .composer-left,
+.hbar-app-ui-prompt-composer .composer-right {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+  min-inline-size: 0;
+}
+.hbar-app-ui-prompt-composer .composer-right {
+  margin-inline-start: auto;
+}
+.hbar-app-ui-composer-error {
+  color: var(--hbar-app-ui-danger);
+  overflow-wrap: anywhere;
+}

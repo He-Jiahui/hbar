@@ -10,7 +10,7 @@ export const EMPTY_COMPOSER_DRAFT: ComposerDraft = { text: '', images: [], files
 
 const MAX_DRAFTS = 200
 const MAX_TEXT_LENGTH = 200_000
-const MAX_ATTACHMENTS = 12
+export const MAX_COMPOSER_ATTACHMENTS = 12
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -33,7 +33,10 @@ function isArtifactRef(value: unknown): value is ArtifactRef {
 
 function attachments(value: unknown): ArtifactRef[] {
   if (!Array.isArray(value)) return []
-  return value.filter(isArtifactRef).slice(0, MAX_ATTACHMENTS).map((artifact) => ({ ...artifact }))
+  return value
+    .filter(isArtifactRef)
+    .slice(0, MAX_COMPOSER_ATTACHMENTS)
+    .map((artifact) => ({ ...artifact }))
 }
 
 function text(value: unknown): string {
@@ -48,12 +51,12 @@ export function normalizeComposerDraft(value: unknown): ComposerDraft {
   return {
     text: text(value.text),
     images,
-    files: attachments(value.files).slice(0, MAX_ATTACHMENTS - images.length),
+    files: attachments(value.files).slice(0, MAX_COMPOSER_ATTACHMENTS - images.length),
   }
 }
 
-export function composerDraftKey(sessionId: string | undefined): string {
-  return sessionId || 'new'
+export function composerDraftKey(sessionId: string | undefined, workspaceId?: string): string {
+  return sessionId || (workspaceId ? `new:${workspaceId}` : 'new')
 }
 
 export function normalizeComposerDrafts(value: unknown): Record<string, ComposerDraft> {
