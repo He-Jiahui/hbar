@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSPrope
 import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
   Activity,
-  Archive,
   FileSearch,
   ChevronLeft,
   ChevronRight,
@@ -11,7 +10,6 @@ import {
   Folder,
   FolderOpen,
   Globe,
-  GitBranch,
   LayoutGrid,
   ListChecks,
   LoaderCircle,
@@ -21,7 +19,6 @@ import {
   PanelLeftOpen,
   Plus,
   RefreshCw,
-  Search,
   Settings2,
   ShieldCheck,
   TerminalSquare,
@@ -43,6 +40,7 @@ import {
 } from './stores'
 import { platform } from './platform'
 import Chat from './Chat'
+import Sessions from './Sessions'
 import Settings, { Modal } from './Settings'
 import Markdown from './Markdown'
 import { syncUIPlugins, useUIPlugins } from './ui-plugins'
@@ -55,7 +53,6 @@ import {
   HbarAppUiEmptyState,
   HbarAppUiMetricStrip,
   HbarAppUiRunActivity,
-  HbarAppUiSpotlight,
   HbarAppUiWorkbenchShell,
   HbarAppUiNavigation,
   HbarAppUiTabs,
@@ -195,109 +192,6 @@ function Pairing() {
       </form>
       <span className="pairing-footer">hbar / 0.1.0</span>
     </main>
-  )
-}
-function Sessions({ onSelect, onNew }: { onSelect(id: string): void; onNew(): void }) {
-  const [search, setSearch] = useState('')
-  const data = useCatalog((state) => state.data),
-    workspaceId = useWorkbench((state) => state.workspaceId),
-    selected = useWorkbench((state) => state.activeSession),
-    archived = useWorkbench((state) => state.showArchived)
-  const sessions =
-    data?.sessions.filter(
-      (s) =>
-        s.workspaceId === workspaceId &&
-        s.archived === archived &&
-        s.title.toLowerCase().includes(search.toLowerCase()),
-    ) ?? []
-  async function fork(session: Session) {
-    try {
-      const child = await client().call('session.fork', { sessionId: session.id })
-      await refreshCatalog()
-      onSelect(child.id)
-    } catch (error) {
-      report(error)
-    }
-  }
-  return (
-    <div className="session-nav">
-      <div className="sidebar-heading">
-        <strong>{archived ? '已归档' : '会话'}</strong>
-        <div>
-          <button
-            title={archived ? '活动会话' : '已归档会话'}
-            aria-label={archived ? '活动会话' : '已归档会话'}
-            className={archived ? 'selected' : ''}
-            onClick={() => useWorkbench.setState({ showArchived: !archived })}
-          >
-            <Archive size={15} />
-          </button>
-          <button title="新建会话" aria-label="新建会话" onClick={onNew}>
-            <Plus size={17} />
-          </button>
-        </div>
-      </div>
-      <div className="search-field">
-        <Search size={13} />
-        <input
-          placeholder="搜索会话"
-          aria-label="搜索会话"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </div>
-      <div className="session-list">
-        {sessions.map((session) => (
-          <HbarAppUiSpotlight className={`session-item ${selected === session.id ? 'selected' : ''}`} key={session.id}>
-            <button
-              className="session-select"
-              onClick={() => onSelect(session.id)}
-              onDoubleClick={() => {
-                const title = window.prompt('会话名称', session.title)
-                if (title?.trim())
-                  void client()
-                    .call('session.rename', { sessionId: session.id, title })
-                    .then(refreshCatalog)
-                    .catch(report)
-              }}
-            >
-              <MessageSquare size={14} />
-              <div>
-                <span>{session.title}</span>
-                <small>
-                  {new Date(session.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                  {session.parentId && ' · 分支'}
-                </small>
-              </div>
-            </button>
-            <div className="session-row-actions">
-              <button title="创建分支" aria-label={`创建分支 ${session.title}`} onClick={() => void fork(session)}>
-                <GitBranch size={12} />
-              </button>
-              <button
-                title={archived ? '恢复会话' : '归档会话'}
-                aria-label={`${archived ? '恢复' : '归档'} ${session.title}`}
-                onClick={() =>
-                  void client()
-                    .call('session.archive', { sessionId: session.id, archived: !archived })
-                    .then(refreshCatalog)
-                    .catch(report)
-                }
-              >
-                <Archive size={12} />
-              </button>
-            </div>
-          </HbarAppUiSpotlight>
-        ))}
-        {!sessions.length && (
-          <div className="empty-nav">{search ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话'}</div>
-        )}
-      </div>
-      <button className="new-session" onClick={onNew}>
-        <Plus size={15} />
-        新建会话
-      </button>
-    </div>
   )
 }
 function Files({ onOpen }: { onOpen(path: string): void }) {

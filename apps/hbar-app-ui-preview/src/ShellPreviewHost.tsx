@@ -3,6 +3,7 @@ import { HbarAppUiNavigation, HbarAppUiToolbar } from 'hbar-app-ui'
 import { HbarAppUiShellProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { SHELL_FIXTURE } from '../../../tests/fixtures/hbar-app-ui-shell-fixtures'
 import './shell-preview.css'
+import { SessionPreviewHost } from './SessionPreviewHost'
 
 /** The preview host, like Web, owns state and supplies all example records. */
 export function ShellPreviewHost({
@@ -51,6 +52,7 @@ export function ShellPreviewHost({
                 title={SHELL_FIXTURE.navigation.find((item) => item.id === pageId)?.label ?? SHELL_FIXTURE.title}
                 detail={SHELL_FIXTURE.detail}
               />
+              {pageId === 'sessions' && <SessionPreviewHost />}
             </main>
           </div>
         ),

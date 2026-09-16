@@ -50,6 +50,7 @@
     "./run-activity": "./src/components/RunActivity.tsx"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "3.14.11",
     "lucide-react": "1.43.0"
   },
   "peerDependencies": {

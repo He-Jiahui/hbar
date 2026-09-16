@@ -1,5 +1,12 @@
 /** Production entry: never import the variant registry or preview fixtures here. */
 export { HbarAppUiIcon, type HbarAppUiIconTier } from './icon'
+export { HbarAppUiVirtualList } from './VirtualList'
+export { HbarAppUiSessionNavigator } from './components/app-sidebar/SessionNavigator'
+export type {
+  HbarAppUiSessionNavigatorProps,
+  HbarAppUiSessionLabels,
+  HbarAppUiSessionRow,
+} from './components/app-sidebar/SessionNavigator'
 export { HbarAppUiWorkbenchShell, HbarAppUiNavigation } from './components/app-shell/WorkbenchShell'
 export type {
   HbarAppUiShellProps,

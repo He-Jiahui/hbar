@@ -1,4 +1,4 @@
-import type { HbarAppUiShellLabels } from 'hbar-app-ui'
+import type { HbarAppUiShellLabels, HbarAppUiSessionLabels } from 'hbar-app-ui'
 import type { SupportedLocale } from './locale'
 
 interface WorkbenchCopy {
@@ -49,4 +49,47 @@ const workbenchCopy: Readonly<Record<SupportedLocale, WorkbenchCopy>> = {
 
 export function getWorkbenchCopy(locale: SupportedLocale): WorkbenchCopy {
   return workbenchCopy[locale]
+}
+
+export function getSessionNavigatorCopy(
+  locale: SupportedLocale,
+  archived: boolean,
+  searching: boolean,
+): {
+  readonly labels: HbarAppUiSessionLabels
+  readonly date: (timestamp: number, branch: boolean) => string
+} {
+  const chinese = locale === 'zh-CN'
+  return {
+    labels: chinese
+      ? {
+          title: archived ? '已归档' : '会话',
+          search: '搜索会话',
+          create: '新建会话',
+          empty: searching ? '没有匹配会话' : archived ? '没有归档会话' : '暂无会话',
+          archiveFilter: archived ? '活动会话' : '已归档会话',
+          fork: (title) => `创建分支 ${title}`,
+          archive: (title) => `${archived ? '恢复' : '归档'} ${title}`,
+          rename: (title) => `重命名 ${title}`,
+          name: '会话名称',
+          save: '保存',
+          cancel: '取消',
+        }
+      : {
+          title: archived ? 'Archived' : 'Sessions',
+          search: 'Search sessions',
+          create: 'New session',
+          empty: searching ? 'No matching sessions' : archived ? 'No archived sessions' : 'No sessions yet',
+          archiveFilter: archived ? 'Active sessions' : 'Archived sessions',
+          fork: (title) => `Fork ${title}`,
+          archive: (title) => `${archived ? 'Restore' : 'Archive'} ${title}`,
+          rename: (title) => `Rename ${title}`,
+          name: 'Session name',
+          save: 'Save',
+          cancel: 'Cancel',
+        },
+    date: (timestamp, branch) =>
+      new Date(timestamp).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) +
+      (branch ? (chinese ? ' · 分支' : ' · Branch') : ''),
+  }
 }

@@ -1,0 +1,10 @@
+.hbar-app-ui-virtual-list {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  overflow-anchor: none;
+}
+.hbar-app-ui-virtual-list [role='listitem'] {
+  min-inline-size: 0;
+}

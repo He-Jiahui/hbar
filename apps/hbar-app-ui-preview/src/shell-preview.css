@@ -5,6 +5,8 @@
   min-block-size: 0;
 }
 .hbar-app-ui-shell-preview-body main {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-inline-size: 0;
   padding: var(--hbar-app-ui-space-xl);
