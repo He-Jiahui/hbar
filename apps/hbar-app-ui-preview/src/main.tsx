@@ -10,6 +10,7 @@ import {
   HbarAppUiAgentPlanProvider,
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
+  HbarAppUiFeedbackProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -61,6 +62,11 @@ import {
   createHbarAppUiFileManagerOverflowFixtures,
   HBAR_APP_UI_FILE_MANAGER_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-file-manager-fixtures'
+import {
+  createHbarAppUiFeedbackLocalizedFixtures,
+  createHbarAppUiFeedbackOverflowFixtures,
+  HBAR_APP_UI_FEEDBACK_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-feedback-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -175,6 +181,17 @@ function PreviewApp() {
         return HBAR_APP_UI_FILE_MANAGER_FIXTURES
     }
   }, [])
+  const feedbackContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('feedbackFixture')) {
+      case 'overflow':
+        return createHbarAppUiFeedbackOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiFeedbackLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_FEEDBACK_FIXTURES
+    }
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -241,6 +258,7 @@ function PreviewApp() {
         data-hbar-app-ui-variant={selected.spec.id}
       >
         <HbarAppUiFileManagerProvider content={fileManagerContent}>
+        <HbarAppUiFeedbackProvider content={feedbackContent}>
         <HbarAppUiPaywallProvider content={paywallContent}>
           <HbarAppUiAgentPlanProvider content={agentPlanContent}>
           <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -256,6 +274,7 @@ function PreviewApp() {
           </HbarAppUiAgentApprovalProvider>
           </HbarAppUiAgentPlanProvider>
         </HbarAppUiPaywallProvider>
+        </HbarAppUiFeedbackProvider>
         </HbarAppUiFileManagerProvider>
       </div>
     )
@@ -320,6 +339,7 @@ function PreviewApp() {
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
+                  <HbarAppUiFeedbackProvider content={feedbackContent}>
                   <HbarAppUiPaywallProvider content={paywallContent}>
                     <HbarAppUiAgentPlanProvider content={agentPlanContent}>
                     <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -335,6 +355,7 @@ function PreviewApp() {
                     </HbarAppUiAgentApprovalProvider>
                     </HbarAppUiAgentPlanProvider>
                   </HbarAppUiPaywallProvider>
+                  </HbarAppUiFeedbackProvider>
                   </HbarAppUiFileManagerProvider>
                 </div>
               </div>

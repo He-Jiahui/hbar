@@ -93,6 +93,33 @@ export type {
     HbarAppUiFileManagerUploadItem,
     HbarAppUiFileManagerUploadState,
 } from './components/FileManager'
+export {HbarAppUiFeedbackProvider, selectHbarAppUiFeedbackItem, uniqueHbarAppUiFeedbackItems} from './components/Feedback'
+export type {
+    HbarAppUiFeedbackContent,
+    HbarAppUiFeedbackProps,
+    HbarAppUiFeedbackFeatureBoardContent,
+    HbarAppUiFeedbackInboxContent,
+    HbarAppUiFeedbackInboxDetail,
+    HbarAppUiFeedbackInboxMetric,
+    HbarAppUiFeedbackInboxThread,
+    HbarAppUiFeedbackInsightsContent,
+    HbarAppUiFeedbackListStrategy,
+    HbarAppUiFeedbackMetric,
+    HbarAppUiFeedbackPostResolutionContent,
+    HbarAppUiFeedbackProviderProps,
+    HbarAppUiFeedbackRatingOption,
+    HbarAppUiFeedbackRequest,
+    HbarAppUiFeedbackRequestStatus,
+    HbarAppUiFeedbackSentiment,
+    HbarAppUiFeedbackSurveyContent,
+    HbarAppUiFeedbackSurveyReason,
+    HbarAppUiFeedbackTicket,
+    HbarAppUiFeedbackTheme,
+    HbarAppUiFeedbackType,
+    HbarAppUiFeedbackTypeOption,
+    HbarAppUiFeedbackVolumePoint,
+    HbarAppUiFeedbackWidgetContent,
+} from './components/Feedback'
 export type {
     HbarAppUiAgentActivityAttempt,
     HbarAppUiAgentActivityContent,
