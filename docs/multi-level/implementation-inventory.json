@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-model-settings-workspace-files-agents-browser-computer-git-surfaces",
+      "status": "partial-budget-run-interaction-model-configuration-settings-workspace-files-agents-browser-computer-git-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -66,7 +66,7 @@
       "stateOwner": "Host layered settings; client form drafts",
       "category": "settings.providers",
       "milestone": "A8-A10",
-      "status": "complete-headless-framework-model-configuration",
+      "status": "complete-headless-framework-model-provider-permission-mode-configuration",
       "rpc": [
         "permission.get",
         "permission.set",
@@ -84,6 +84,7 @@
         "tests/plan.test.ts",
         "tests/model-catalog.test.ts",
         "tests/model-commands.test.ts",
+        "tests/configuration-commands.test.ts",
         "tests/schema-content.test.ts",
         "tests/schema-content-network.test.ts",
         "tests/settings-core.test.ts",
@@ -379,7 +380,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: workspace/session, interaction, goal/plan, model configuration, file/attachment, child-agent, browser, computer, and existing Git domains migrated through Host commands and CLI",
+    "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, and existing Git domains migrated through Host commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

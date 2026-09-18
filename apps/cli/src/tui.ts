@@ -15,6 +15,7 @@ import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLeve
 import {
   createInteractionCommandClient,
   createModelCommandClient,
+  createConfigurationCommandClient,
   createWorkspaceSessionCommandClient,
   exportSessionEvents,
 } from '@hbar/client'
@@ -425,11 +426,12 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       )
     }
     if (command === 'settings') {
+      const settings = createConfigurationCommandClient(runtime.client)
       if (args[0] === 'approval' && ['deny', 'ask', 'allow'].includes(args[1] ?? '')) {
-        await runtime.client.call('permission.set', { mode: args[1] as 'deny' | 'ask' | 'allow' })
+        await settings.execute('permission.set', { mode: args[1] as 'deny' | 'ask' | 'allow' })
         return render(`Default approval mode: \`${args[1]}\``)
       }
-      return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('permission.get', {}), null, 2)}\n\`\`\``)
+      return render(`\`\`\`json\n${JSON.stringify(await settings.execute('permission.get', {}), null, 2)}\n\`\`\``)
     }
     if (command === 'paths')
       return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('system.paths.get', {}), null, 2)}\n\`\`\``)

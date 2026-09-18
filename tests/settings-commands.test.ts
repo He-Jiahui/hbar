@@ -47,6 +47,8 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
 
   const catalog = await client.call('command.catalog', { category: 'settings.providers', limit: 20 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
+    'provider.delete',
+    'provider.save',
     'settings.apply',
     'settings.get',
     'settings.set',

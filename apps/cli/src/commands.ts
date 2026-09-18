@@ -9,6 +9,7 @@ import {
   createAgentCommandClient,
   createBrowserCommandClient,
   createComputerCommandClient,
+  createConfigurationCommandClient,
   createGitCommandClient,
   createDirectoryQueryAdapter,
   createFileCommandClient,
@@ -26,6 +27,7 @@ import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { agentCommands } from '@hbar/contracts/commands/agents'
 import { browserCommands } from '@hbar/contracts/commands/browser'
 import { computerCommands } from '@hbar/contracts/commands/computer'
+import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { gitCommands } from '@hbar/contracts/commands/git'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
@@ -184,6 +186,51 @@ export function isBrowserCommand(value: string | undefined): value is keyof type
 
 export function isComputerCommand(value: string | undefined): value is keyof typeof computerCommands {
   return Boolean(value && Object.hasOwn(computerCommands, value))
+}
+
+export function isConfigurationCommand(value: string | undefined): value is keyof typeof configurationCommands {
+  return Boolean(value && Object.hasOwn(configurationCommands, value))
+}
+
+export async function runConfigurationCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isConfigurationCommand(action))
+    throw new CommandError('COMMAND_NOT_FOUND', 'Unknown provider or session configuration command')
+  const commands = createConfigurationCommandClient(runtime.client)
+  if (action === 'provider.save') {
+    const parsed = configurationCommands[action].input.safeParse(jsonOption(args.inputJson, '--input-json'))
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+    return
+  }
+  const argv = [...args.commandArgs.slice(1)]
+  if (action === 'mode.get' || action === 'mode.set') argv.push('--session', runtime.session.id)
+  const input = parseArguments(configurationCommands[action].metadata, argv)
+  if (action === 'permission.get') {
+    const parsed = configurationCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'permission.set') {
+    const parsed = configurationCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'mode.get') {
+    const parsed = configurationCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'mode.set') {
+    const parsed = configurationCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else {
+    const parsed = configurationCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  }
 }
 
 export function isGitCommand(value: string | undefined): value is keyof typeof gitCommands {
@@ -708,6 +755,10 @@ export async function runCliCommand(
     }
     if (isComputerCommand(action)) {
       await runComputerCommand(args, runtime, output)
+      return true
+    }
+    if (isConfigurationCommand(action)) {
+      await runConfigurationCommand(args, runtime, output)
       return true
     }
     if (isBrowserCommand(action)) {

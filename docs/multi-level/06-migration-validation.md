@@ -106,6 +106,8 @@ A11i2 发布 workspace/session typed commands，并把既有四个 directory que
 
 A11j 补齐预算域的收敛清除命令 `session.clearBudget`。命令复用 BudgetService 的串行账本写入和 Session 存在性检查；首次清除追加规范事件并返回 `cleared: true`，后续调用返回 `false`。Host catalog、typed Client 和 CLI 的点分入口使用同一契约，旧 `budget.clear` 仅作为兼容 adapter。
 
+A11k 迁移供应商、默认审批权限和 Session 运行模式。六个 typed commands 只调用现有 Kernel/ModeService 用例；重复设置模式不追加事件，供应商删除收敛返回是否实际删除。Provider API key 只进入 secrets 写端口，command 输出与测试日志只包含 `hasKey`。CLI/REPL/TUI 的设置入口改用 typed Client，旧 RPC 继续作为同用例兼容入口。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

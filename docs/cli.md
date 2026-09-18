@@ -12,6 +12,12 @@ hbar session list
 hbar exec session.setBudget 120000 --session <Session ID|名称> --idempotency-key <稳定键> --expected-revision null
 hbar exec session.getBudget --session <Session ID|名称>
 hbar exec session.clearBudget --session <Session ID|名称>
+hbar exec permission.get
+hbar exec permission.set allow
+hbar exec mode.get --session <Session ID|名称>
+hbar exec mode.set plan --session <Session ID|名称>
+hbar exec provider.save --input-json '{"provider":{"id":"openai","name":"OpenAI","protocol":"openai-responses","baseUrl":"https://api.openai.com/v1","model":"gpt-5"},"apiKey":"..."}'
+hbar exec provider.delete openai
 hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar exec settings.get provider.model --scope session --session <Session ID>
 hbar exec settings.set provider.model --scope session --session <Session ID> --value-json '"gpt-5"' --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>

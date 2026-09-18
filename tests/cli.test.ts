@@ -609,6 +609,40 @@ test('exec model commands persist session defaults through layered settings', as
   }
 })
 
+test('exec configuration commands manage permission, mode, and provider facts through the Host catalog', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const sessionId = (JSON.parse(created.stdout) as { id: string }).id
+  const target = ['--session', sessionId]
+
+  const permission = await run([...common, ...target, 'exec', 'permission.set', 'allow'])
+  expect(permission.code).toBe(0)
+  expect(JSON.parse(permission.stdout)).toEqual({ mode: 'allow' })
+  expect(JSON.parse((await run([...common, ...target, 'exec', 'permission.get'])).stdout)).toEqual({ mode: 'allow' })
+
+  const mode = await run([...common, ...target, 'exec', 'mode.set', 'plan'])
+  expect(mode.code).toBe(0)
+  expect(JSON.parse(mode.stdout)).toEqual({ mode: 'plan' })
+  expect(JSON.parse((await run([...common, ...target, 'exec', 'mode.get'])).stdout)).toEqual({ mode: 'plan' })
+
+  const provider = {
+    provider: {
+      id: 'cli-provider',
+      name: 'CLI provider',
+      protocol: 'openai-responses',
+      baseUrl: 'https://example.invalid/v1',
+      model: 'cli-model',
+    },
+  }
+  const saved = await run([...common, ...target, 'exec', 'provider.save', '--input-json', JSON.stringify(provider)])
+  expect(saved.code).toBe(0)
+  expect(JSON.parse(saved.stdout)).toMatchObject({ providerId: 'cli-provider', modelId: 'cli-model' })
+  const deleted = await run([...common, ...target, 'exec', 'provider.delete', 'cli-provider'])
+  expect(deleted.code).toBe(0)
+  expect(JSON.parse(deleted.stdout)).toEqual({ deleted: true })
+})
+
 test('exec questionnaire answers use the selected session command without requiring a model', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])
@@ -681,7 +715,15 @@ test('classified command catalog and Run operations are usable without a GUI', a
   expect(catalog.code).toBe(0)
   expect(
     (JSON.parse(catalog.stdout) as { items: { metadata: { id: string } }[] }).items.map((item) => item.metadata.id),
-  ).toEqual(['approval.resolve', 'operation.cancel', 'operation.get', 'questionnaire.answer', 'run.submit'])
+  ).toEqual([
+    'approval.resolve',
+    'operation.cancel',
+    'operation.get',
+    'permission.get',
+    'permission.set',
+    'questionnaire.answer',
+    'run.submit',
+  ])
   const description = await run([...common, 'commands', 'describe', 'run.submit'])
   expect(description.code).toBe(0)
   expect(JSON.parse(description.stdout)).toMatchObject({ metadata: { id: 'run.submit', category: 'run.approval' } })

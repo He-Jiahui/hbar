@@ -11,6 +11,7 @@ import {
   createAgentCommands,
   createBrowserCommands,
   createComputerCommands,
+  createConfigurationCommands,
   createGitCommands,
   createWorkspaceSessionCommands,
   createBudgetCommands,
@@ -26,6 +27,7 @@ import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/bu
 import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
 import { browserCommands as browserDefinitions } from '@hbar/contracts/commands/browser'
 import { computerCommands as computerDefinitions } from '@hbar/contracts/commands/computer'
+import { configurationCommands as configurationDefinitions } from '@hbar/contracts/commands/configuration'
 import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
 import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
@@ -78,6 +80,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
+  const configurationCommands = createConfigurationCommands(kernel, kernel.plugins.get<ModeService>('mode'))
   const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'))
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
@@ -95,6 +98,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: agentDefinitions, service: agentCommands },
     { definitions: browserDefinitions, service: browserCommands },
     { definitions: computerDefinitions, service: computerCommands },
+    { definitions: configurationDefinitions, service: configurationCommands },
     { definitions: gitDefinitions, service: gitCommands },
     { definitions: directoryDefinitions, service: kernel.directoryQueries },
     { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
@@ -993,6 +997,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       agentCommands.dispose()
       browserCommands.dispose()
       computerCommands.dispose()
+      configurationCommands.dispose()
       gitCommands.dispose()
       workspaceSessionCommands.dispose()
       budgetCommands.dispose()

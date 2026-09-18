@@ -92,6 +92,8 @@ test('agent commands create one budgeted child session per actor key and recover
     'goal.get',
     'goal.set',
     'goal.update',
+    'mode.get',
+    'mode.set',
     'plan.clear',
     'plan.get',
     'plan.update',

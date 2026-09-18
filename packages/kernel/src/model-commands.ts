@@ -13,7 +13,7 @@ const THINKING_PATH = field('provider.thinkingLevel')
 const MODEL_KEY = encodePath(MODEL_PATH)
 const THINKING_KEY = encodePath(THINKING_PATH)
 
-function descriptor(model: Awaited<ReturnType<Kernel['models']>>[number]): ModelDescriptor {
+export function toModelDescriptor(model: Awaited<ReturnType<Kernel['models']>>[number]): ModelDescriptor {
   return {
     id: model.id,
     providerId: model.providerId,
@@ -75,14 +75,14 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
       sessionId,
       status: modelId === null ? ('unset' as const) : selected ? ('configured' as const) : ('unavailable' as const),
       modelId,
-      model: selected ? descriptor(selected) : null,
+      model: selected ? toModelDescriptor(selected) : null,
       thinkingLevel,
       revisions: { ...snapshot.revisions },
       sources: { model: modelReport.sourceLayer, thinkingLevel: thinkingReport.sourceLayer },
     }
   }
 
-  registry.register(modelCommands['model.list'], async () => (await kernel.models()).map(descriptor))
+  registry.register(modelCommands['model.list'], async () => (await kernel.models()).map(toModelDescriptor))
   registry.register(modelCommands['session.getModel'], ({ sessionId }) => translate(() => configuration(sessionId)))
   registry.register(
     modelCommands['session.setModel'],

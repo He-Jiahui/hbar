@@ -83,6 +83,9 @@ Usage:
   hbar exec plan.get|plan.update|plan.clear --session <id|name>
   hbar exec model.list
   hbar exec session.getModel|session.setModel|session.setThinkingLevel --session <id|name>
+  hbar exec permission.get|permission.set
+  hbar exec mode.get|mode.set --session <id|name>
+  hbar exec provider.save --input-json <configuration>|provider.delete <id>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]

@@ -53,6 +53,8 @@ A11i 已将 `workspace.list/get/create` 与 `session.list/get/create/rename/arch
 
 A11j 补齐 `session.clearBudget`，并把旧 `budget.clear` 映射到同一 BudgetService 用例。clear 是收敛的持久命令：有活动账本时追加一次 `budget.cleared`，重复执行返回 `cleared: false`，不重放已经删除的预算事实。Host catalog、typed Client、CLI/REPL/TUI 共用定义；预算域至此不再需要写 RPC 作为主入口。
 
+A11k 将 `permission.get/set`、`mode.get/set` 与 `provider.save/delete` 纳入 Host command catalog。权限偏好仍由 Kernel 设置事实持有，Session 模式继续写入 Plan 插件的 `mode.changed` 事件，供应商配置和凭据分别落入 storage 与 secrets 端口。保存响应只返回无凭据模型描述，删除返回可重复核对的 `deleted` 状态；CLI 的供应商保存通过结构化 `--input-json` 输入，密钥不进入 Session 事件或命令输出。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。

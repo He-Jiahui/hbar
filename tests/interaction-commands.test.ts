@@ -54,6 +54,8 @@ test('approval and questionnaire commands validate session targets and converge 
     'approval.resolve',
     'operation.cancel',
     'operation.get',
+    'permission.get',
+    'permission.set',
     'questionnaire.answer',
     'run.submit',
   ])

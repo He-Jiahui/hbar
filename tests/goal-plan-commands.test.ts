@@ -48,6 +48,8 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'goal.get',
     'goal.set',
     'goal.update',
+    'mode.get',
+    'mode.set',
     'plan.clear',
     'plan.get',
     'plan.update',

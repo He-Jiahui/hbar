@@ -460,7 +460,7 @@ export interface ProviderConfig {
   supportedReasoningEfforts: ThinkingLevel[]
 }
 
-const providerInputSchema = z
+export const providerInputSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
     name: z.string().min(1).max(100),

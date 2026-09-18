@@ -12,6 +12,7 @@ export { createModelCommandClient } from './models'
 export { createAgentCommandClient } from './agents'
 export { createBrowserCommandClient } from './browser'
 export { createComputerCommandClient } from './computer'
+export { createConfigurationCommandClient } from './configuration'
 export { createGitCommandClient } from './git'
 export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
 export {
