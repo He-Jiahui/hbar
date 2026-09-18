@@ -36,6 +36,7 @@ import { interactionCommands as interactionDefinitions } from '@hbar/contracts/c
 import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
+import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import {
   directoryCommands as directoryDefinitions,
   surfaceCommands as surfaceDefinitions,
@@ -53,6 +54,7 @@ import type {
   PlanService,
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
+import { createSystemCommands } from './system-commands.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 
 interface SocketData {
@@ -204,6 +206,38 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     }
     socket.send(JSON.stringify(value))
   }
+  const systemCommands = createSystemCommands({
+    hostInfo,
+    async diagnose() {
+      return {
+        database: await kernel.storage.call('stats'),
+        recoveredRuns: kernel.recovered,
+        plugins: kernel.plugins.list(),
+        tools: kernel.tools.list().map((tool) => tool.name),
+        streams: kernel.streams.size,
+      }
+    },
+    paths: () => kernel.paths(),
+    validatePaths: (dataRoot, cacheRoot) => kernel.validatePaths(dataRoot, cacheRoot),
+    setPaths: (dataRoot, cacheRoot) => kernel.setPaths(dataRoot, cacheRoot),
+    devices: () => kernel.storage.call('devices'),
+    async revokeDevice(id) {
+      const revoked = (await kernel.storage.call('devices')).some((device) => device.id === id)
+      if (!revoked) return { revoked: false }
+      await kernel.storage.call('revokeDevice', id)
+      for (const peer of sockets)
+        if (peer.data.deviceId === id) {
+          send(peer, { jsonrpc: '2.0', method: 'auth.revoked', params: { reason: 'Device access revoked' } })
+          peer.close(4001, 'Revoked')
+        }
+      return { revoked: true }
+    },
+    createPairing: () => auth.createPairing(),
+  })
+  for (const id of Object.keys(systemDefinitions)) {
+    commandDispatchers.set(id, systemCommands.dispatch)
+    commandDescribers.set(id, () => systemCommands.describe(id))
+  }
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
     if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
     clearTimeout(pending.timer)
@@ -229,7 +263,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'command.catalog': {
         const filter = rpcSchemas[method].parse(raw)
-        const catalogs = commandServices.map(({ service }) => service.list())
+        const catalogs = [...commandServices.map(({ service }) => service.list()), systemCommands.list()]
         const descriptors = catalogs
           .flatMap(({ items }) => items)
           .filter(
@@ -458,26 +492,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'system.bootstrap':
         return kernel.bootstrap(hostInfo())
       case 'system.diagnose':
-        return {
-          host: hostInfo(),
-          database: await kernel.storage.call('stats'),
-          recoveredRuns: kernel.recovered,
-          plugins: kernel.plugins.list(),
-          tools: kernel.tools.list().map((tool) => tool.name),
-          streams: kernel.streams.size,
-        }
+        return systemCommands.execute('system.diagnose', {})
       case 'system.paths.get':
-        return kernel.paths()
+        return systemCommands.execute('system.paths.get', {})
       case 'system.paths.validate': {
-        const p = z.object({ dataRoot: z.string().min(1), cacheRoot: z.string().min(1) }).parse(raw)
-        return kernel.validatePaths(p.dataRoot, p.cacheRoot)
+        const p = rpcSchemas[method].parse(raw)
+        return systemCommands.execute('system.paths.validate', p, { actorId: socket.data.deviceId! })
       }
       case 'system.paths.set': {
-        const p = z.object({ dataRoot: z.string().min(1), cacheRoot: z.string().min(1) }).parse(raw)
-        return kernel.setPaths(p.dataRoot, p.cacheRoot)
+        const p = rpcSchemas[method].parse(raw)
+        return systemCommands.execute('system.paths.set', p, { actorId: socket.data.deviceId! })
       }
       case 'system.restart':
-        return { accepted: false, restartRequired: true }
+        return systemCommands.execute('system.restart', {})
       case 'permission.get':
         return { mode: kernel.permissionMode() }
       case 'permission.set': {
@@ -780,19 +807,14 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return kernel.plugins.get<ComputerUseService>('computer').launch(p.sessionId, p.appId)
       }
       case 'device.list':
-        return kernel.storage.call('devices')
+        return systemCommands.execute('device.list', {})
       case 'device.revoke': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.storage.call('revokeDevice', p.id)
-        for (const peer of sockets)
-          if (peer.data.deviceId === p.id) {
-            send(peer, { jsonrpc: '2.0', method: 'auth.revoked', params: { reason: 'Device access revoked' } })
-            peer.close(4001, 'Revoked')
-          }
+        await systemCommands.execute('device.revoke', p, { actorId: socket.data.deviceId! })
         return null
       }
       case 'pairing.create':
-        return auth.createPairing()
+        return systemCommands.execute('pairing.create', {}, { actorId: socket.data.deviceId! })
       case 'file.read': {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
@@ -1007,6 +1029,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       modelCommands.dispose()
       runCommands.dispose()
       settingsCommands.dispose()
+      systemCommands.dispose()
       unsubscribe()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })

@@ -8,6 +8,7 @@ import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
 import {
   isSurfaceCommand,
+  isSystemCommand,
   isFileCommand,
   isSettingsCommand,
   runModelListCommand,
@@ -17,6 +18,7 @@ import {
   runFileCommand,
   runOperationCommand,
   runSurfaceRelayCommand,
+  runSystemCommand,
   runSettingsCommand,
 } from './commands.ts'
 import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, waitForRun } from './runtime.ts'
@@ -119,6 +121,25 @@ try {
     const { client } = await openCatalogClient(args)
     try {
       await runCatalogCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (
+    (args.command === 'exec' && isSystemCommand(args.commandArgs[0])) ||
+    args.command === 'diagnose' ||
+    (args.command === 'config' && (!args.commandArgs[0] || ['show', 'paths'].includes(args.commandArgs[0])))
+  ) {
+    const { client } = await openCatalogClient(args)
+    try {
+      const commandArgs =
+        args.command === 'diagnose'
+          ? ['system.diagnose']
+          : args.command === 'config'
+            ? ['system.paths.get']
+            : args.commandArgs
+      await runSystemCommand({ ...args, commandArgs }, client)
     } finally {
       client.disconnect()
     }

@@ -108,6 +108,8 @@ A11j 补齐预算域的收敛清除命令 `session.clearBudget`。命令复用 B
 
 A11k 迁移供应商、默认审批权限和 Session 运行模式。六个 typed commands 只调用现有 Kernel/ModeService 用例；重复设置模式不追加事件，供应商删除收敛返回是否实际删除。Provider API key 只进入 secrets 写端口，command 输出与测试日志只包含 `hasKey`。CLI/REPL/TUI 的设置入口改用 typed Client，旧 RPC 继续作为同用例兼容入口。
 
+A11l 迁移 Host 系统控制面：诊断、路径查询/验证/切换、重启能力报告、设备列表/撤销和新配对码进入认证 command catalog。Host adapter 以窄依赖接口组合 Kernel、Auth 和连接关闭回调；CLI 的这些命令不创建 Session，也不要求配置模型。测试使用临时 pointer 文件验证路径写入，覆盖重复设备撤销、配对码期限、无凭据诊断和 `system.restart` 未接入进程监管时的诚实结果。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

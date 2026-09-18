@@ -18,6 +18,14 @@ hbar exec mode.get --session <Session ID|名称>
 hbar exec mode.set plan --session <Session ID|名称>
 hbar exec provider.save --input-json '{"provider":{"id":"openai","name":"OpenAI","protocol":"openai-responses","baseUrl":"https://api.openai.com/v1","model":"gpt-5"},"apiKey":"..."}'
 hbar exec provider.delete openai
+hbar exec system.diagnose
+hbar exec system.paths.get
+hbar exec system.paths.validate <dataRoot> <cacheRoot>
+hbar exec system.paths.set <dataRoot> <cacheRoot>
+hbar exec device.list
+hbar exec device.revoke <deviceId>
+hbar exec pairing.create
+hbar exec system.restart
 hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar exec settings.get provider.model --scope session --session <Session ID>
 hbar exec settings.set provider.model --scope session --session <Session ID> --value-json '"gpt-5"' --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>

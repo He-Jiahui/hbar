@@ -86,6 +86,9 @@ Usage:
   hbar exec permission.get|permission.set
   hbar exec mode.get|mode.set --session <id|name>
   hbar exec provider.save --input-json <configuration>|provider.delete <id>
+  hbar exec system.diagnose|system.paths.get|device.list|pairing.create
+  hbar exec system.paths.validate|system.paths.set <dataRoot> <cacheRoot>
+  hbar exec device.revoke <deviceId>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]

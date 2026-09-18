@@ -55,6 +55,8 @@ A11j 补齐 `session.clearBudget`，并把旧 `budget.clear` 映射到同一 Bud
 
 A11k 将 `permission.get/set`、`mode.get/set` 与 `provider.save/delete` 纳入 Host command catalog。权限偏好仍由 Kernel 设置事实持有，Session 模式继续写入 Plan 插件的 `mode.changed` 事件，供应商配置和凭据分别落入 storage 与 secrets 端口。保存响应只返回无凭据模型描述，删除返回可重复核对的 `deleted` 状态；CLI 的供应商保存通过结构化 `--input-json` 输入，密钥不进入 Session 事件或命令输出。
 
+A11l 将诊断、路径、设备和配对管理发布为 `system.diagnose`、`system.paths.*`、`device.*` 与 `pairing.create`。契约包只保存可序列化 schema，Host adapter 通过注入端口组合 Kernel、Auth 与 socket 撤销通知；Client/CLI/TUI 不直接访问这些实现。路径 set 只写下一次启动使用的 pointer 并明确返回 `restartRequired: true`；当前 `system.restart` 如实返回 `accepted: false`，不声称已重启进程。设备撤销和配对码刷新均为可重复收敛操作。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。

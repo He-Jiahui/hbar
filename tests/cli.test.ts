@@ -643,6 +643,40 @@ test('exec configuration commands manage permission, mode, and provider facts th
   expect(JSON.parse(deleted.stdout)).toEqual({ deleted: true })
 })
 
+test('exec system commands query diagnostics, validate roots, and manage pairing without a session or model', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const diagnose = await run([...common, 'exec', 'system.diagnose'])
+  expect(diagnose.code).toBe(0)
+  expect(JSON.parse(diagnose.stdout)).toMatchObject({ host: { demo: true }, streams: 0 })
+  const paths = await run([...common, 'exec', 'system.paths.get'])
+  expect(paths.code).toBe(0)
+  expect(JSON.parse(paths.stdout)).toMatchObject({ dataRoot, cacheRoot, restartRequired: false })
+  const validatedData = join(root, 'validated-data')
+  const validatedCache = join(root, 'validated-cache')
+  const validated = await run([
+    ...common,
+    'exec',
+    'system.paths.validate',
+    validatedData,
+    validatedCache,
+  ])
+  expect(validated.code).toBe(0)
+  expect(JSON.parse(validated.stdout)).toMatchObject({
+    dataRoot: validatedData,
+    cacheRoot: validatedCache,
+    valid: true,
+  })
+  const devices = await run([...common, 'exec', 'device.list'])
+  expect(devices.code).toBe(0)
+  expect(JSON.parse(devices.stdout)).toBeArray()
+  const pairing = await run([...common, 'exec', 'pairing.create'])
+  expect(pairing.code).toBe(0)
+  expect((JSON.parse(pairing.stdout) as { code: string }).code).toHaveLength(8)
+  const restart = await run([...common, 'exec', 'system.restart'])
+  expect(restart.code).toBe(0)
+  expect(JSON.parse(restart.stdout)).toEqual({ accepted: false, restartRequired: true })
+})
+
 test('exec questionnaire answers use the selected session command without requiring a model', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

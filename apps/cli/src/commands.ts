@@ -18,6 +18,7 @@ import {
   createModelCommandClient,
   createRunCommandClient,
   createSettingsCommandClient,
+  createSystemCommandClient,
   createWorkspaceSessionCommandClient,
   exportSessionEvents,
   allWorkspaceSessionCommands,
@@ -36,6 +37,7 @@ import { modelCommands } from '@hbar/contracts/commands/models'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
+import { systemCommands } from '@hbar/contracts/commands/system'
 import { decodePath } from '@hbar/schema-core'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
@@ -162,6 +164,54 @@ export async function runSurfaceRelayCommand(
 
 export function isSettingsCommand(value: string | undefined): value is keyof typeof settingsCommands {
   return Boolean(value && Object.hasOwn(settingsCommands, value))
+}
+
+export function isSystemCommand(value: string | undefined): value is keyof typeof systemCommands {
+  return Boolean(value && Object.hasOwn(systemCommands, value))
+}
+
+export async function runSystemCommand(
+  args: CliArgs,
+  client: HbarClient,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isSystemCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown system command')
+  const input = parseArguments(systemCommands[action].metadata, args.commandArgs.slice(1))
+  const commands = createSystemCommandClient(client)
+  if (action === 'system.diagnose') {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'system.paths.get') {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'system.paths.validate') {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'system.paths.set') {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'system.restart') {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'device.list') {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'device.revoke') {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else {
+    const parsed = systemCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  }
 }
 
 export function isInteractionCommand(value: string | undefined): value is keyof typeof interactionCommands {
@@ -745,6 +795,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isSystemCommand(action)) {
+      await runSystemCommand(args, runtime.client, output)
+      return true
+    }
     if (isWorkspaceSessionCommand(action)) {
       await runWorkspaceSessionCommand(args, runtime, output)
       return true
@@ -877,11 +931,12 @@ export async function runCliCommand(
     return true
   }
   if (args.command === 'diagnose') {
-    output(await runtime.client.call('system.diagnose', {}))
+    output(await createSystemCommandClient(runtime.client).execute('system.diagnose', {}))
     return true
   }
   if (args.command === 'config') {
-    if (!action || action === 'show' || action === 'paths') output(await runtime.client.call('system.paths.get', {}))
+    if (!action || action === 'show' || action === 'paths')
+      output(await createSystemCommandClient(runtime.client).execute('system.paths.get', {}))
     else throw new Error('Usage: hbar config paths|show')
     return true
   }

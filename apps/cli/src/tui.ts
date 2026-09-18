@@ -16,6 +16,7 @@ import {
   createInteractionCommandClient,
   createModelCommandClient,
   createConfigurationCommandClient,
+  createSystemCommandClient,
   createWorkspaceSessionCommandClient,
   exportSessionEvents,
 } from '@hbar/client'
@@ -434,9 +435,13 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       return render(`\`\`\`json\n${JSON.stringify(await settings.execute('permission.get', {}), null, 2)}\n\`\`\``)
     }
     if (command === 'paths')
-      return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('system.paths.get', {}), null, 2)}\n\`\`\``)
+      return render(
+        `\`\`\`json\n${JSON.stringify(await createSystemCommandClient(runtime.client).execute('system.paths.get', {}), null, 2)}\n\`\`\``,
+      )
     if (command === 'diagnose')
-      return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('system.diagnose', {}), null, 2)}\n\`\`\``)
+      return render(
+        `\`\`\`json\n${JSON.stringify(await createSystemCommandClient(runtime.client).execute('system.diagnose', {}), null, 2)}\n\`\`\``,
+      )
     throw new Error(`Unknown command: /${command}`)
   }
   const submit = async () => {
