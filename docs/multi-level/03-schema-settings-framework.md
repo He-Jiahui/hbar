@@ -1,6 +1,6 @@
 # P3：Schema 描述、动态表单与分层设置框架
 
-状态：实施中；A4 已交付无 UI schema-core，A8 已交付 settings-core 分层解析，A9 已交付动态 callback query bridge，A10a 已交付 Host 设置 repository、版本向量 CAS、幂等原子 apply 与迁移注册；设置 commands/CLI 和 GUI renderer 尚未完成。上级：[总计划](command-first-architecture-plan.md)。依赖：[命令契约](01-command-framework.md)、[runtime 表单宿主](02-state-runtime-cli.md)。交付两个无 UI 框架包；React 渲染适配在 P5 交付。
+状态：第一阶段框架已完成；A4 已交付无 UI schema-core，A8 已交付 settings-core 分层解析，A9 已交付动态 callback query bridge，A10 已交付 Host 设置 repository、版本向量 CAS、幂等原子 apply、迁移注册、类型化 commands 与 CLI。GUI renderer 仍在 P5/B3 实施。上级：[总计划](command-first-architecture-plan.md)。依赖：[命令契约](01-command-framework.md)、[runtime 表单宿主](02-state-runtime-cli.md)。交付两个无 UI 框架包；React 渲染适配在 P5 交付。
 
 ## 1. 为什么分成两个 package
 
@@ -158,6 +158,8 @@ Schema default → global override → workspace override → session override
 ## 8. 保存、并发与副作用
 
 `settings.set/unset` 是单变更语法，最终进入与 `settings.apply` 相同用例。apply 输入为 schemaVersion、作用域、set/unset/明确集合操作、受影响层级的 baseline revisions 和 idempotencyKey。
+
+首批 Host adapter 已把 `settings.get/set/unset/apply` 注册到统一命令目录。SDK 与 CLI 只通过 `command.execute` 调用这些定义；`set/unset` 的 CLI 便捷入口可先读取版本向量，也允许自动化显式传入 `--baseline-json`。需要可靠重试时保存首次使用的版本向量，并以相同输入和幂等键重试；`apply` 接受包含 scope、ChangeSet 与完整版本向量的输入 JSON，因此能够原子提交多字段。按路径查询只裁剪返回报告，不改变同一 scope 的版本向量。
 
 流程：读取层级快照 → 合并变更集 → 解析候选 effective → Schema/跨字段/领域验证 → compare-and-commit → 记录事件/回执 → 安排生效。保存的是本层 patch，不是整个 effective 对象，否则会冻结继承。
 

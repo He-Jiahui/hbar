@@ -28,6 +28,9 @@ export interface CliArgs {
   section?: string | undefined
   path?: string | undefined
   page?: string | undefined
+  valueJson?: string | undefined
+  baselineJson?: string | undefined
+  schemaVersion?: string | undefined
   category?: string | undefined
   after?: string | undefined
   limit?: string | undefined
@@ -52,6 +55,7 @@ Usage:
   hbar commands describe <commandId>
   hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
   hbar exec app.openPanel <panel> --client <clientId> [--session <id>]
+  hbar exec settings.get|settings.set|settings.unset <path> --scope <scope>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
 
@@ -114,6 +118,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       section: { type: 'string' },
       path: { type: 'string' },
       page: { type: 'string' },
+      'value-json': { type: 'string' },
+      'baseline-json': { type: 'string' },
+      'schema-version': { type: 'string' },
       category: { type: 'string' },
       after: { type: 'string' },
       limit: { type: 'string' },
@@ -178,6 +185,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     section: values.section as string | undefined,
     path: values.path as string | undefined,
     page: values.page as string | undefined,
+    valueJson: values['value-json'] as string | undefined,
+    baselineJson: values['baseline-json'] as string | undefined,
+    schemaVersion: values['schema-version'] as string | undefined,
     category: values.category as string | undefined,
     after: values.after as string | undefined,
     limit: values.limit as string | undefined,

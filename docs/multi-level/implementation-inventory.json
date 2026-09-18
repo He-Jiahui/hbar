@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget",
+      "status": "partial-budget-run-settings-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -21,7 +21,13 @@
         "surface.unregister"
       ],
       "additionalCommands": [],
-      "tests": ["tests/budget.test.ts", "tests/cli.test.ts", "tests/surface-relay.test.ts"]
+      "tests": [
+        "tests/budget.test.ts",
+        "tests/cli.test.ts",
+        "tests/run-commands.test.ts",
+        "tests/settings-commands.test.ts",
+        "tests/surface-relay.test.ts"
+      ]
     },
     {
       "id": "connection",
@@ -51,7 +57,7 @@
       "stateOwner": "Host layered settings; client form drafts",
       "category": "settings.providers",
       "milestone": "A8-A10",
-      "status": "partial-dynamic-content",
+      "status": "complete-headless-framework",
       "rpc": [
         "permission.get",
         "permission.set",
@@ -63,10 +69,6 @@
         "schema.content.query"
       ],
       "additionalCommands": [
-        "settings.get",
-        "settings.set",
-        "settings.unset",
-        "settings.apply",
         "settings.getThinkingLevels",
         "session.setModel",
         "session.setThinkingLevel",
@@ -77,7 +79,11 @@
         "tests/server.test.ts",
         "tests/plan.test.ts",
         "tests/schema-content.test.ts",
-        "tests/schema-content-network.test.ts"
+        "tests/schema-content-network.test.ts",
+        "tests/settings-core.test.ts",
+        "tests/settings-service.test.ts",
+        "tests/settings-commands.test.ts",
+        "tests/cli.test.ts"
       ]
     },
     {
@@ -360,7 +366,7 @@
     "A7": "complete: logical surfaces, PlatformPort and generation-bound directed client relay",
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
-    "A10": "partial: atomic settings repository, vector CAS, idempotent receipts and migration registry; commands/CLI pending",
+    "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
     "A11-A15": "pending",
     "B1-B7": "pending"
   }

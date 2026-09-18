@@ -207,6 +207,102 @@ test('exec budget uses the same Host command, returns a receipt, and reconciles 
   expect(conflict.stderr).toContain('Key was already used')
 })
 
+test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const session = JSON.parse(created.stdout) as { id: string; workspaceId: string }
+  const scope = ['--scope', 'session', '--session', session.id]
+  const queried = await run([...common, 'exec', 'settings.get', 'provider.model', ...scope])
+  expect(queried.code).toBe(0)
+  const before = JSON.parse(queried.stdout) as {
+    revisions: Record<string, number>
+    resolution: { reports: Record<string, { effectiveValue: unknown; localPresence: boolean }> }
+  }
+  expect(Object.values(before.resolution.reports)[0]).toMatchObject({ effectiveValue: null, localPresence: false })
+  const baseline = JSON.stringify(before.revisions)
+  const setArgs = [
+    ...common,
+    'exec',
+    'settings.set',
+    'provider.model',
+    ...scope,
+    '--value-json',
+    '"gpt-test"',
+    '--baseline-json',
+    baseline,
+    '--idempotency-key',
+    'cli-settings-set',
+  ]
+  const set = await run(setArgs)
+  expect(set.code).toBe(0)
+  const receipt = JSON.parse(set.stdout) as { commitId: string; revision: number }
+  expect(receipt.revision).toBe(1)
+  const retried = await run(setArgs)
+  expect(retried.code).toBe(0)
+  expect(JSON.parse(retried.stdout)).toEqual(receipt)
+  const readSet = await run([...common, 'exec', 'settings.get', 'provider.model', ...scope])
+  expect(readSet.code).toBe(0)
+  expect(Object.values((JSON.parse(readSet.stdout) as typeof before).resolution.reports)[0]).toMatchObject({
+    effectiveValue: 'gpt-test',
+    localPresence: true,
+  })
+
+  const current = JSON.parse(readSet.stdout) as typeof before
+  const unset = await run([
+    ...common,
+    'exec',
+    'settings.unset',
+    'provider.model',
+    ...scope,
+    '--baseline-json',
+    JSON.stringify(current.revisions),
+    '--idempotency-key',
+    'cli-settings-unset',
+  ])
+  expect(unset.code).toBe(0)
+  expect(
+    Object.values((JSON.parse(unset.stdout) as { resolution: typeof before.resolution }).resolution.reports)[0],
+  ).toMatchObject({
+    effectiveValue: null,
+    localPresence: false,
+  })
+
+  const workspaceGet = await run([
+    ...common,
+    'exec',
+    'settings.get',
+    '--scope',
+    'workspace',
+    '--workspace',
+    session.workspaceId,
+  ])
+  expect(workspaceGet.code).toBe(0)
+  const workspaceSnapshot = JSON.parse(workspaceGet.stdout) as typeof before
+  const applied = await run([
+    ...common,
+    'exec',
+    'settings.apply',
+    '--input-json',
+    JSON.stringify({
+      schemaVersion: 1,
+      scope: { kind: 'workspace', targetId: session.workspaceId },
+      changes: [
+        { op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: 'workspace-model' },
+        { op: 'set', path: [{ kind: 'field', name: 'provider.thinkingLevel' }], value: 'high' },
+      ],
+      baselineRevisions: workspaceSnapshot.revisions,
+    }),
+    '--idempotency-key',
+    'cli-settings-apply',
+  ])
+  expect(applied.code).toBe(0)
+  expect(JSON.parse(applied.stdout)).toMatchObject({
+    layerId: `settings:workspace:${session.workspaceId}`,
+    revision: 1,
+  })
+})
+
 test('classified command catalog and Run operations are usable without a GUI', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

@@ -8,11 +8,13 @@ import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
 import {
   isSurfaceCommand,
+  isSettingsCommand,
   runApplicationCommand,
   runCatalogCommand,
   runCliCommand,
   runOperationCommand,
   runSurfaceRelayCommand,
+  runSettingsCommand,
 } from './commands.ts'
 import { openAttachedRuntime, openCatalogClient, openRuntime, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
@@ -141,6 +143,15 @@ try {
     const { client } = await openCatalogClient(args)
     try {
       await runSurfaceRelayCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isSettingsCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runSettingsCommand(args, client)
     } finally {
       client.disconnect()
     }

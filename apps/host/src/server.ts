@@ -5,9 +5,10 @@ import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
-import { Kernel, createBudgetCommands, createRunCommands } from '@hbar/kernel'
+import { Kernel, SettingsService, createBudgetCommands, createRunCommands, createSettingsCommands } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
+import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
 import type {
@@ -47,9 +48,11 @@ export interface ServerOptions {
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
   const runCommands = createRunCommands(kernel)
+  const settingsCommands = createSettingsCommands(new SettingsService(kernel.storage))
   const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>([
     ...Object.keys(budgetDefinitions).map((id) => [id, budgetCommands.dispatch] as const),
     ...Object.keys(runDefinitions).map((id) => [id, runCommands.dispatch] as const),
+    ...Object.keys(settingsDefinitions).map((id) => [id, settingsCommands.dispatch] as const),
   ])
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage)
@@ -160,7 +163,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'command.catalog': {
         const filter = rpcSchemas[method].parse(raw)
-        const descriptors = [...budgetCommands.list().items, ...runCommands.list().items]
+        const descriptors = [
+          ...budgetCommands.list().items,
+          ...runCommands.list().items,
+          ...settingsCommands.list().items,
+        ]
           .filter(
             ({ metadata }) =>
               !filter.category ||
@@ -171,7 +178,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           .sort((a, b) => a.metadata.id.localeCompare(b.metadata.id))
         const items = descriptors.slice(0, filter.limit)
         return {
-          revision: budgetCommands.list().revision + runCommands.list().revision,
+          revision: budgetCommands.list().revision + runCommands.list().revision + settingsCommands.list().revision,
           items,
           ...(descriptors.length > filter.limit ? { nextCursor: items.at(-1)!.metadata.id } : {}),
         }
@@ -180,9 +187,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const input = rpcSchemas[method].parse(raw)
         const dispatch = commandDispatchers.get(input.commandId)
         if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
-        return Object.hasOwn(budgetDefinitions, input.commandId)
-          ? budgetCommands.describe(input.commandId)
-          : runCommands.describe(input.commandId)
+        if (Object.hasOwn(budgetDefinitions, input.commandId)) return budgetCommands.describe(input.commandId)
+        if (Object.hasOwn(runDefinitions, input.commandId)) return runCommands.describe(input.commandId)
+        return settingsCommands.describe(input.commandId)
       }
       case 'command.getReceipt': {
         const input = rpcSchemas[method].parse(raw)
@@ -927,6 +934,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     async close() {
       budgetCommands.dispose()
       runCommands.dispose()
+      settingsCommands.dispose()
       unsubscribe()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })

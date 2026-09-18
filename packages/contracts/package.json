@@ -9,6 +9,7 @@
     "./commands/budget": "./src/commands/budget.ts",
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
     "./commands/run": "./src/commands/run.ts",
+    "./commands/settings": "./src/commands/settings.ts",
     "./directory": "./src/state/directory.ts"
   },
   "dependencies": {

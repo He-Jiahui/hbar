@@ -2,11 +2,18 @@ import { readdir, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 import { describeCommand, parseArguments, CommandError, validationError, type CommandDescriptor } from '@hbar/commands'
-import { createBudgetCommandClient, createDirectoryQueryAdapter, createRunCommandClient } from '@hbar/client'
+import {
+  createBudgetCommandClient,
+  createDirectoryQueryAdapter,
+  createRunCommandClient,
+  createSettingsCommandClient,
+} from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
+import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
+import { decodePath } from '@hbar/schema-core'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
 import type { HbarClient } from '@hbar/client'
@@ -122,6 +129,84 @@ export async function runSurfaceRelayCommand(
       timeoutMs,
     }),
   )
+}
+
+export function isSettingsCommand(value: string | undefined): value is keyof typeof settingsCommands {
+  return Boolean(value && Object.hasOwn(settingsCommands, value))
+}
+function settingsPath(value: string | undefined): ({ kind: 'field'; name: string } | { kind: 'item'; id: string })[] {
+  if (!value) throw new CommandError('INVALID_INPUT', 'A settings path is required')
+  return value.startsWith('f:')
+    ? decodePath(value).map((segment) => ({ ...segment }))
+    : [{ kind: 'field', name: value }]
+}
+function settingsScope(args: CliArgs) {
+  const kind = args.scope
+  const raw =
+    kind === 'workspace'
+      ? { kind, targetId: args.target ?? args.workspace }
+      : kind === 'session'
+        ? { kind, targetId: args.target ?? args.session }
+        : { kind }
+  const parsed = settingsScopeSchema.safeParse(raw)
+  if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+  return parsed.data
+}
+function jsonOption(source: string | undefined, name: string): unknown {
+  if (source === undefined) throw new CommandError('INVALID_INPUT', `${name} is required`)
+  try {
+    return JSON.parse(source) as unknown
+  } catch {
+    throw new CommandError('INVALID_INPUT', `${name} must contain JSON`)
+  }
+}
+export async function runSettingsCommand(
+  args: CliArgs,
+  client: HbarClient,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isSettingsCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown settings command')
+  const commands = createSettingsCommandClient(client)
+  if (action === 'settings.apply') {
+    if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
+    const input = settingsCommands[action].input.safeParse(jsonOption(args.inputJson, '--input-json'))
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    output(await commands.execute(action, input.data, { idempotencyKey: args.idempotencyKey }))
+    return
+  }
+  const scope = settingsScope(args)
+  if (action === 'settings.get') {
+    output(
+      await commands.execute(action, {
+        scope,
+        ...(args.commandArgs[1] || args.path ? { path: settingsPath(args.commandArgs[1] ?? args.path) } : {}),
+      }),
+    )
+    return
+  }
+  if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
+  const schemaVersion = args.schemaVersion === undefined ? 1 : Number(args.schemaVersion)
+  if (!Number.isSafeInteger(schemaVersion) || schemaVersion < 1)
+    throw new CommandError('INVALID_INPUT', '--schema-version must be a positive integer')
+  let baselineRevisions: Record<string, number>
+  if (args.baselineJson !== undefined) {
+    const raw = jsonOption(args.baselineJson, '--baseline-json')
+    if (
+      !raw ||
+      typeof raw !== 'object' ||
+      Array.isArray(raw) ||
+      Object.values(raw).some((value) => !Number.isSafeInteger(value) || (value as number) < 0)
+    )
+      throw new CommandError('INVALID_INPUT', '--baseline-json must map layer IDs to nonnegative revisions')
+    baselineRevisions = raw as Record<string, number>
+  } else baselineRevisions = (await commands.execute('settings.get', { scope })).revisions
+  const path = settingsPath(args.commandArgs[1] ?? args.path)
+  const commandInput =
+    action === 'settings.set'
+      ? { schemaVersion, scope, path, value: jsonOption(args.valueJson, '--value-json'), baselineRevisions }
+      : { schemaVersion, scope, path, baselineRevisions }
+  output(await commands.execute(action, commandInput, { idempotencyKey: args.idempotencyKey }))
 }
 
 export async function runOperationCommand(
