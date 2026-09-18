@@ -13,6 +13,7 @@ const summarySchema = z.strictObject({
   unsets: z.array(z.string()),
   issues: z.array(z.strictObject({ field: z.string(), code: z.enum(['required', 'invalid']) })),
   error: z.string().nullable(),
+  selectedGroup: z.string().nullable(),
 })
 const metadata = (id: string) => ({
   id,
@@ -30,6 +31,11 @@ const metadata = (id: string) => ({
 })
 
 export const settingsEditorCommands = {
+  'settingsForm.selectGroup': defineCommand(
+    metadata('settingsForm.selectGroup'),
+    z.strictObject({ formId: formIdSchema, groupId: z.string().min(1).max(128) }),
+    summarySchema,
+  ),
   'settingsForm.refresh': defineCommand(
     metadata('settingsForm.refresh'),
     z.strictObject({ formId: formIdSchema }),

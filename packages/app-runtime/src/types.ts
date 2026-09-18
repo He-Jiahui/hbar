@@ -60,6 +60,7 @@ export interface RuntimeOptions {
 export interface SettingsFormEntry {
   readonly formId: string
   readonly scope: SettingsSnapshot['scope']
+  readonly selectedGroup: string | null
   readonly status: 'loading' | 'ready' | 'error'
   readonly description: Readonly<SettingsDescription> | null
   readonly schema: Readonly<CompiledForm> | null

@@ -135,6 +135,40 @@ async function waitFor<Value>(read: () => Value | undefined): Promise<Value> {
   throw new Error('Timed out waiting for settings state')
 }
 
+test('settings group selection is command-owned and isolated per scoped form', async () => {
+  const settings = settingsFixture()
+  const runtime = createAppRuntime({
+    instanceId: 'settings-groups',
+    hostId: 'host',
+    directory,
+    settings: settings.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+  await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+  const global = await waitFor(() => {
+    const state = runtime.view.state.settings.getSnapshot()
+    const entry = state.activeFormId ? state.forms[state.activeFormId] : undefined
+    return entry?.status === 'ready' ? entry : undefined
+  })
+  expect(global.selectedGroup).toBe('model')
+  await runtime.view.commands.execute('settingsForm.selectGroup', { formId: global.formId, groupId: 'session' })
+  expect(runtime.view.state.settings.getSnapshot().forms[global.formId]?.selectedGroup).toBe('session')
+  await expect(
+    runtime.view.commands.execute('settingsForm.selectGroup', { formId: global.formId, groupId: 'missing' }),
+  ).rejects.toMatchObject({ code: 'GROUP_NOT_FOUND' })
+
+  await runtime.view.commands.execute('app.openSettings', { scope: 'workspace', targetId: workspace.id })
+  const scoped = await waitFor(() => {
+    const state = runtime.view.state.settings.getSnapshot()
+    const entry = state.activeFormId ? state.forms[state.activeFormId] : undefined
+    return entry?.status === 'ready' && entry.scope.kind === 'workspace' ? entry : undefined
+  })
+  expect(scoped.selectedGroup).toBe('model')
+  expect(runtime.view.state.settings.getSnapshot().forms[global.formId]?.selectedGroup).toBe('session')
+  runtime.dispose()
+})
+
 test('layered settings forms preserve per-scope drafts, concurrent edits and explicit inheritance', async () => {
   const settings = settingsFixture()
   const runtime = createAppRuntime({

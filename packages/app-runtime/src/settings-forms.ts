@@ -139,13 +139,19 @@ function summary(entry: SettingsFormEntry) {
     unsets: Object.keys(entry.unsets),
     issues: [...(entry.form?.issues ?? [])],
     error: entry.error,
+    selectedGroup: entry.selectedGroup,
   }
 }
 
-function loading(formId: string, scope: SettingsSnapshot['scope']): SettingsFormEntry {
+function loading(
+  formId: string,
+  scope: SettingsSnapshot['scope'],
+  selectedGroup: string | null = null,
+): SettingsFormEntry {
   return {
     formId,
     scope,
+    selectedGroup,
     status: 'loading',
     description: null,
     schema: null,
@@ -371,7 +377,7 @@ export function createSettingsForms(
       throw new CommandError('DIRTY_FORM', 'Reset pending settings edits before refreshing')
     const generation = (generations.get(formId) ?? 0) + 1
     generations.set(formId, generation)
-    replaceEntry(formId, loading(formId, scope))
+    replaceEntry(formId, loading(formId, scope, existing?.selectedGroup))
     try {
       description ??= await describe()
       const parent = parentScope(scope, panel)
@@ -388,9 +394,16 @@ export function createSettingsForms(
           .filter((field) => field.content)
           .map((field) => [encodePath(field.path), { status: 'idle' as const }]),
       )
+      const groups = [...description.groups].sort(
+        (left, right) => left.order - right.order || left.id.localeCompare(right.id),
+      )
+      const selectedGroup = groups.some((group) => group.id === existing?.selectedGroup)
+        ? existing!.selectedGroup
+        : (groups[0]?.id ?? null)
       const next: SettingsFormEntry = {
         formId,
         scope,
+        selectedGroup,
         status: 'ready',
         description,
         schema,
@@ -409,7 +422,11 @@ export function createSettingsForms(
       return next
     } catch (error) {
       if (generations.get(formId) !== generation) throw error
-      const failed = { ...loading(formId, scope), status: 'error' as const, error: errorCode(error) }
+      const failed = {
+        ...loading(formId, scope, existing?.selectedGroup),
+        status: 'error' as const,
+        error: errorCode(error),
+      }
       replaceEntry(formId, failed)
       throw error
     }
@@ -520,6 +537,18 @@ export function createSettingsForms(
     }
   }
 
+  local.register(settingsEditorCommands['settingsForm.selectGroup'], ({ formId, groupId }) => {
+    try {
+      const current = ready(formId)
+      if (!current.description.groups.some((group) => group.id === groupId))
+        throw new CommandError('GROUP_NOT_FOUND', 'Settings group is not registered')
+      const next = { ...current, selectedGroup: groupId }
+      replaceEntry(formId, next)
+      return summary(next)
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
   local.register(settingsEditorCommands['settingsForm.refresh'], async ({ formId }) => {
     try {
       const panel = currentSettingsPanel()
