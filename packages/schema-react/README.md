@@ -7,3 +7,5 @@
 调用方可以用有序 `fieldNames` 投影单个可见分组，并在通用控件旁渲染宿主提供的字段上下文与操作。插槽本身不修改表单状态；其事件处理仍须派发 application command。
 
 EditorRegistry 用于 `ProviderDialog` 一类高度定制的子编辑器。它只管理描述、renderer 与卸载生命周期；打开、关闭、保存和查询仍由应用 command/runtime 负责。
+
+`HbarSchemaList` 受控渲染 schema-core 的 keyed List，只发出 add/open/remove/move/reset intent。条目内容、标签和操作文案由宿主提供；保存命令与定制 editor 仍由应用组合根绑定。

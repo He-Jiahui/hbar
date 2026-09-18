@@ -20,3 +20,5 @@ export {
   type SchemaInteractionMode,
 } from './registry'
 export { registerStandardSchemaComponents } from './standard'
+export { HbarSchemaList } from './list'
+export type { HbarSchemaListLabels, HbarSchemaListProps, SchemaListIntent } from './list'
