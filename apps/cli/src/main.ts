@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises'
 import { CommandError } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
-import { runCatalogCommand, runCliCommand, runOperationCommand } from './commands.ts'
+import { runApplicationCommand, runCatalogCommand, runCliCommand, runOperationCommand } from './commands.ts'
 import { openAttachedRuntime, openCatalogClient, openRuntime, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
 
@@ -115,6 +115,15 @@ try {
     const { client } = await openCatalogClient(args)
     try {
       await runOperationCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && args.commandArgs[0] === 'app.setSession') {
+    const { client, layout } = await openCatalogClient(args)
+    try {
+      await runApplicationCommand(args, client, layout.dataRoot)
     } finally {
       client.disconnect()
     }

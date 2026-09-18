@@ -1,13 +1,15 @@
 import { readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { parseArguments, CommandError, validationError } from '@hbar/commands'
-import { createBudgetCommandClient, createRunCommandClient } from '@hbar/client'
+import { createBudgetCommandClient, createDirectoryQueryAdapter, createRunCommandClient } from '@hbar/client'
+import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { runCommands } from '@hbar/contracts/commands/run'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
 import type { HbarClient } from '@hbar/client'
 import { selectModel, selectSession } from './runtime.ts'
+import { NamedContextStore } from './context.ts'
 
 function print(value: unknown) {
   process.stdout.write(`${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}\n`)
@@ -41,6 +43,56 @@ export async function runOperationCommand(args: CliArgs, client: HbarClient): Pr
   const parsed = runCommands[action].input.safeParse(raw)
   if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
   print(JSON.stringify(await createRunCommandClient(client).execute(action, parsed.data)))
+}
+
+export async function runApplicationCommand(args: CliArgs, client: HbarClient, dataRoot: string): Promise<void> {
+  const [action, selector] = args.commandArgs
+  if (action !== 'app.setSession' || !selector || args.commandArgs.length !== 2)
+    throw new CommandError('INVALID_SYNTAX', 'Usage: hbar exec app.setSession <id|name> --workspace <id|name>')
+  const bootstrap = await client.call('system.bootstrap', {})
+  const workspaceSelector = args.workspace ?? args.project
+  const workspace = workspaceSelector
+    ? bootstrap.workspaces.find(
+        (item) =>
+          item.id === workspaceSelector ||
+          item.name === workspaceSelector ||
+          resolve(item.path) === resolve(workspaceSelector),
+      )
+    : bootstrap.workspaces[0]
+  if (!workspace) throw new CommandError('WORKSPACE_NOT_FOUND', 'Workspace is required or was not found')
+  const runtime = createAppRuntime({
+    instanceId: `cli-${process.pid}`,
+    hostId: bootstrap.host.instanceId,
+    directory: createDirectoryQueryAdapter(client),
+  })
+  try {
+    const selection = await runtime.view.commands.execute('app.setSession', {
+      session: selector,
+      workspaceId: workspace.id,
+    })
+    if (!selection.workspaceId || !selection.sessionId)
+      throw new CommandError('SESSION_NOT_FOUND', 'Session was not selected')
+    if (!args.context) {
+      print(JSON.stringify({ ...selection, persisted: false }))
+      return
+    }
+    const store = new NamedContextStore(dataRoot)
+    const current = await store.get(args.context)
+    let expected = current?.revision ?? null
+    if (args.contextRevision !== undefined) {
+      const parsed = Number(args.contextRevision)
+      if (!Number.isSafeInteger(parsed) || parsed < 1)
+        throw new CommandError('INVALID_INPUT', '--context-revision must be a positive integer')
+      expected = parsed
+    }
+    print(
+      JSON.stringify(
+        await store.set(args.context, { workspaceId: selection.workspaceId, sessionId: selection.sessionId }, expected),
+      ),
+    )
+  } finally {
+    runtime.dispose()
+  }
 }
 
 export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise<boolean> {

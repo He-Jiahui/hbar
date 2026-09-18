@@ -10,7 +10,10 @@ export interface CliArgs {
   dataRoot?: string | undefined
   cacheRoot?: string | undefined
   project?: string | undefined
+  workspace?: string | undefined
   session?: string | undefined
+  context?: string | undefined
+  contextRevision?: string | undefined
   idempotencyKey?: string | undefined
   requestId?: string | undefined
   expectedRevision?: string | undefined
@@ -36,6 +39,7 @@ Usage:
   hbar exec receipt <idempotency-key> --session <id|name>
   hbar commands list [--category <category>] [--limit <1-200>]
   hbar commands describe <commandId>
+  hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
 
@@ -45,7 +49,10 @@ Headless options:
   --thinking <level>               off|minimal|low|medium|high|xhigh|max
   --approval <mode>                deny|allow|ask (default: deny)
   --project <path|name>             Project (default: current directory)
+  --workspace <id|name>             Workspace for an application command
   --session <id|name>               Session to resume
+  --context <name>                  Load/save a named local selection context
+  --context-revision <revision>     Require this context revision when saving
   --output-format <text|jsonl>      Output format (default: text)
 
 Paths:
@@ -76,7 +83,10 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       thinking: { type: 'string' },
       approval: { type: 'string' },
       project: { type: 'string' },
+      workspace: { type: 'string' },
       session: { type: 'string' },
+      context: { type: 'string' },
+      'context-revision': { type: 'string' },
       'idempotency-key': { type: 'string' },
       'request-id': { type: 'string' },
       'expected-revision': { type: 'string' },
@@ -126,7 +136,10 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     dataRoot: values['data-root'] as string | undefined,
     cacheRoot: values['cache-root'] as string | undefined,
     project: values.project as string | undefined,
+    workspace: values.workspace as string | undefined,
     session: values.session as string | undefined,
+    context: values.context as string | undefined,
+    contextRevision: values['context-revision'] as string | undefined,
     idempotencyKey: values['idempotency-key'] as string | undefined,
     requestId: values['request-id'] as string | undefined,
     expectedRevision: values['expected-revision'] as string | undefined,

@@ -3,6 +3,7 @@ import { mkdir, readFile, stat } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { HbarClient } from '@hbar/client'
+import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
 import type {
   ApprovalMode,
@@ -198,6 +199,7 @@ export function selectModel(bootstrap: Bootstrap, selector?: string) {
 
 export async function openRuntime(options: {
   project?: string | undefined
+  context?: string | undefined
   session?: string | undefined
   model?: string | undefined
   dataRoot?: string | undefined
@@ -210,9 +212,16 @@ export async function openRuntime(options: {
 }): Promise<CliRuntime> {
   const { client, layout } = await openCatalogClient(options)
   let bootstrap = await client.call('system.bootstrap', {})
-  const project = await selectProject(client, bootstrap, options.project)
+  const saved = options.context ? await new NamedContextStore(layout.dataRoot).get(options.context) : null
+  const project = await selectProject(client, bootstrap, options.project ?? saved?.workspaceId)
   bootstrap = await client.call('system.bootstrap', {})
-  const session = await selectSession(client, bootstrap, project.id, options.session, options.createSession !== false)
+  const session = await selectSession(
+    client,
+    bootstrap,
+    project.id,
+    options.session ?? (options.project ? undefined : saved?.sessionId),
+    options.createSession !== false,
+  )
   const modelId = options.modelRequired === false ? '' : selectModel(bootstrap, options.model)
   return { client, layout, bootstrap, project, session, modelId, close: () => client.disconnect() }
 }

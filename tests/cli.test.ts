@@ -256,6 +256,70 @@ test('classified command catalog and Run operations are usable without a GUI', a
   expect(missing.code).toBe(2)
 })
 
+test('named contexts persist app.setSession with revision conflicts and supply later command targets', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const session = JSON.parse(created.stdout) as { id: string; workspaceId: string }
+  const selected = await run([
+    ...common,
+    '--workspace',
+    session.workspaceId,
+    '--context',
+    'review',
+    'exec',
+    'app.setSession',
+    session.id,
+  ])
+  expect(selected.code).toBe(0)
+  expect(JSON.parse(selected.stdout)).toMatchObject({
+    revision: 1,
+    workspaceId: session.workspaceId,
+    sessionId: session.id,
+  })
+  const budget = await run([
+    '--demo',
+    '--data-root',
+    dataRoot,
+    '--cache-root',
+    cacheRoot,
+    '--context',
+    'review',
+    'exec',
+    'session.getBudget',
+  ])
+  expect(budget.code).toBe(0)
+  expect(JSON.parse(budget.stdout)).toBeNull()
+  const updated = await run([
+    ...common,
+    '--workspace',
+    session.workspaceId,
+    '--context',
+    'review',
+    '--context-revision',
+    '1',
+    'exec',
+    'app.setSession',
+    session.id,
+  ])
+  expect(updated.code).toBe(0)
+  expect(JSON.parse(updated.stdout)).toMatchObject({ revision: 2 })
+  const stale = await run([
+    ...common,
+    '--workspace',
+    session.workspaceId,
+    '--context',
+    'review',
+    '--context-revision',
+    '1',
+    'exec',
+    'app.setSession',
+    session.id,
+  ])
+  expect(stale.code).toBe(9)
+  expect(stale.stderr).toContain('changed')
+})
+
 test('headless approval modes deny, allow, and reject non-interactive ask', async () => {
   const common = [
     '--headless',

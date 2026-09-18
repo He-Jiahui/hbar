@@ -79,6 +79,7 @@
         "hbar": "./src/main.ts",
       },
       "dependencies": {
+        "@hbar/app-runtime": "workspace:*",
         "@hbar/client": "workspace:*",
         "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",

@@ -330,7 +330,7 @@
     "A3": "complete",
     "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
     "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
-    "A6": "partial: classified Host catalog and budget/Run CLI; context and TUI pending",
+    "A6": "partial: classified Host catalog, budget/Run CLI and revisioned named context; TUI/REPL unification pending",
     "A7-A15": "pending",
     "B1-B7": "pending"
   }

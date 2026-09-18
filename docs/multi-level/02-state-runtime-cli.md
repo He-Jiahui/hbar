@@ -1,6 +1,6 @@
 # P2：只读状态、独立应用运行时与 CLI
 
-状态：实施中，A2 只读运行时、A4 预算表单 ViewModel 和 A6a Host 命令目录/Run CLI 已交付；通用草稿、命名 context、完整 TUI、surfaces 与增量同步仍在后续里程碑。上级：[总计划](command-first-architecture-plan.md)。依赖 P0 与 P1 最小命令契约。交付 `packages/app-runtime` 及 CLI/Client adapters；React 只读 hooks 随 P5 进入 `packages/app-react`。
+状态：实施中，A2 只读运行时、A4 预算表单 ViewModel、A6a Host 命令目录/Run CLI 与 A6b 命名 context 已交付；通用草稿、完整 TUI/REPL、surfaces 与增量同步仍在后续里程碑。上级：[总计划](command-first-architecture-plan.md)。依赖 P0 与 P1 最小命令契约。交付 `packages/app-runtime` 及 CLI/Client adapters；React 只读 hooks 随 P5 进入 `packages/app-react`。
 
 ## 1. 状态所有权和写入边界
 
