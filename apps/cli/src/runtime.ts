@@ -2,7 +2,7 @@ import { openSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { HbarClient, createInteractionCommandClient } from '@hbar/client'
+import { HbarClient, createInteractionCommandClient, createModelCommandClient } from '@hbar/client'
 import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
 import type {
@@ -24,6 +24,7 @@ export interface CliRuntime {
   project: Bootstrap['workspaces'][number]
   session: Session
   modelId: string
+  thinkingLevel: ThinkingLevel
   close(): void
 }
 
@@ -153,13 +154,15 @@ export async function openAttachedRuntime(
     : bootstrap.workspaces[0]
   if (!project) throw new Error('The attached Host has no projects')
   const session = await selectSession(client, bootstrap, project.id, options.session)
+  const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
   return {
     client,
     layout,
     bootstrap,
     project,
     session,
-    modelId: selectModel(bootstrap, options.model),
+    modelId: options.model ? selectModel(bootstrap, options.model) : (configured.modelId ?? selectModel(bootstrap)),
+    thinkingLevel: configured.thinkingLevel ?? 'off',
     close: () => client.disconnect(),
   }
 }
@@ -206,6 +209,7 @@ export async function openRuntime(options: {
   cacheRoot?: string | undefined
   demo?: boolean | undefined
   thinking?: ThinkingLevel | undefined
+  thinkingExplicit?: boolean | undefined
   approval?: ApprovalMode | undefined
   modelRequired?: boolean | undefined
   createSession?: boolean | undefined
@@ -222,8 +226,17 @@ export async function openRuntime(options: {
     options.session ?? (options.project ? undefined : saved?.sessionId),
     options.createSession !== false,
   )
-  const modelId = options.modelRequired === false ? '' : selectModel(bootstrap, options.model)
-  return { client, layout, bootstrap, project, session, modelId, close: () => client.disconnect() }
+  const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
+  const modelId =
+    options.modelRequired === false
+      ? (configured.modelId ?? '')
+      : options.model
+        ? selectModel(bootstrap, options.model)
+        : (configured.modelId ?? selectModel(bootstrap))
+  const thinkingLevel = options.thinkingExplicit
+    ? (options.thinking ?? 'off')
+    : (configured.thinkingLevel ?? options.thinking ?? 'off')
+  return { client, layout, bootstrap, project, session, modelId, thinkingLevel, close: () => client.disconnect() }
 }
 
 export async function openCatalogClient(options: {

@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-settings-surfaces",
+      "status": "partial-budget-run-interaction-model-settings-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -26,6 +26,7 @@
         "tests/cli.test.ts",
         "tests/goal-plan-commands.test.ts",
         "tests/interaction-commands.test.ts",
+        "tests/model-commands.test.ts",
         "tests/run-commands.test.ts",
         "tests/settings-commands.test.ts",
         "tests/surface-relay.test.ts"
@@ -37,7 +38,7 @@
       "stateOwner": "Client SDK connection; Host device records",
       "category": "system.extensions",
       "milestone": "A11",
-      "status": "complete-headless-commands",
+      "status": "pending",
       "rpc": ["system.hello", "system.bootstrap", "system.diagnose", "device.list", "device.revoke", "pairing.create"],
       "additionalCommands": ["connection.connect", "connection.disconnect", "connection.reconnect", "pairing.accept"],
       "tests": ["tests/server.test.ts", "tests/server.test.ts", "tests/cli.test.ts"]
@@ -59,7 +60,7 @@
       "stateOwner": "Host layered settings; client form drafts",
       "category": "settings.providers",
       "milestone": "A8-A10",
-      "status": "complete-headless-framework",
+      "status": "complete-headless-framework-model-configuration",
       "rpc": [
         "permission.get",
         "permission.set",
@@ -70,16 +71,13 @@
         "schema.content.cancel",
         "schema.content.query"
       ],
-      "additionalCommands": [
-        "settings.getThinkingLevels",
-        "session.setModel",
-        "session.setThinkingLevel",
-        "model.list"
-      ],
+      "additionalCommands": ["settings.getThinkingLevels"],
       "tests": [
         "tests/provider.test.ts",
         "tests/server.test.ts",
         "tests/plan.test.ts",
+        "tests/model-catalog.test.ts",
+        "tests/model-commands.test.ts",
         "tests/schema-content.test.ts",
         "tests/schema-content-network.test.ts",
         "tests/settings-core.test.ts",
@@ -94,7 +92,7 @@
       "stateOwner": "Host plugin state; client edit drafts",
       "category": "agent.goal.plan",
       "milestone": "A11",
-      "status": "pending",
+      "status": "complete-headless-commands",
       "rpc": [
         "goal.get",
         "goal.create",
@@ -370,7 +368,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: interaction and goal/plan domains migrated through Host commands and CLI",
+    "A11": "in progress: interaction, goal/plan and model configuration domains migrated through Host commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

@@ -9,6 +9,7 @@ import { parseCli, HELP, type CliArgs } from './args.ts'
 import {
   isSurfaceCommand,
   isSettingsCommand,
+  runModelListCommand,
   runApplicationCommand,
   runCatalogCommand,
   runCliCommand,
@@ -121,6 +122,18 @@ try {
     }
     process.exit(0)
   }
+  if (
+    (args.command === 'exec' && args.commandArgs[0] === 'model.list') ||
+    (args.command === 'model' && (!args.commandArgs[0] || args.commandArgs[0] === 'list'))
+  ) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runModelListCommand(client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
   if (args.command === 'exec' && ['operation.get', 'operation.cancel'].includes(args.commandArgs[0] ?? '')) {
     const { client } = await openCatalogClient(args)
     try {
@@ -167,7 +180,7 @@ try {
     throw new Error('--approval ask requires an interactive terminal')
   const runtime = await openRuntime({
     ...args,
-    modelRequired: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
+    modelRequired: (args.command !== 'exec' && args.command !== 'model') || args.commandArgs[0] === 'run.submit',
     createSession: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
   })
   try {
@@ -190,7 +203,7 @@ try {
           input: {
             text: args.message!,
             images: [],
-            thinking: args.thinking,
+            thinking: args.thinkingExplicit ? args.thinking : runtime.thinkingLevel,
             approval: args.approval,
           },
           modelId: runtime.modelId,

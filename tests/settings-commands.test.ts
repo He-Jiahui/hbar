@@ -64,7 +64,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     schemaVersion: 1,
     scope: sessionScope,
     path: model,
-    value: 'gpt-test',
+    value: 'local-fixture',
     baselineRevisions: before.revisions,
   }
   const first = await commands.execute('settings.set', input, { idempotencyKey: 'set-model' })
@@ -73,7 +73,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     revision: 1,
   })
   expect(first.resolution.reports[modelKey]).toMatchObject({
-    effectiveValue: 'gpt-test',
+    effectiveValue: 'local-fixture',
     localPresence: true,
     applyMode: 'nextRun',
     applyState: 'pending',
@@ -90,7 +90,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
       schemaVersion: 1,
       scope: workspaceScope,
       changes: [
-        { op: 'set', path: model, value: 'workspace-model' },
+        { op: 'set', path: model, value: 'local-fixture' },
         { op: 'set', path: field('provider.thinkingLevel'), value: 'high' },
       ],
       baselineRevisions: workspaceBefore.revisions,
@@ -106,7 +106,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     { idempotencyKey: 'unset-model' },
   )
   expect(unset.resolution.reports[modelKey]).toMatchObject({
-    effectiveValue: 'workspace-model',
+    effectiveValue: 'local-fixture',
     localPresence: false,
     inherited: true,
   })

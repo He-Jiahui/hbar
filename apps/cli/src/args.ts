@@ -37,6 +37,7 @@ export interface CliArgs {
   limit?: string | undefined
   model?: string | undefined
   thinking: ThinkingLevel
+  thinkingExplicit: boolean
   approval: ApprovalMode
   outputFormat: 'text' | 'jsonl'
   demo: boolean
@@ -61,6 +62,8 @@ Usage:
   hbar exec questionnaire.answer <requestId> --input-json <answers> --session <id|name>
   hbar exec goal.get|goal.create|goal.set|goal.update|goal.clear --session <id|name>
   hbar exec plan.get|plan.update|plan.clear --session <id|name>
+  hbar exec model.list
+  hbar exec session.getModel|session.setModel|session.setThinkingLevel --session <id|name>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
 
@@ -202,6 +205,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     limit: values.limit as string | undefined,
     model: values.model as string | undefined,
     thinking,
+    thinkingExplicit: values.thinking !== undefined,
     approval,
     outputFormat,
     demo: Boolean(values.demo),

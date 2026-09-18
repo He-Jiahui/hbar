@@ -7,6 +7,7 @@ import {
   createDirectoryQueryAdapter,
   createGoalPlanCommandClient,
   createInteractionCommandClient,
+  createModelCommandClient,
   createRunCommandClient,
   createSettingsCommandClient,
 } from '@hbar/client'
@@ -14,6 +15,7 @@ import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
+import { modelCommands } from '@hbar/contracts/commands/models'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
@@ -145,6 +147,51 @@ export function isInteractionCommand(value: string | undefined): value is keyof 
 
 export function isGoalPlanCommand(value: string | undefined): value is keyof typeof goalPlanCommands {
   return Boolean(value && Object.hasOwn(goalPlanCommands, value))
+}
+
+export function isModelCommand(value: string | undefined): value is keyof typeof modelCommands {
+  return Boolean(value && Object.hasOwn(modelCommands, value))
+}
+
+export async function runModelListCommand(client: HbarClient, output: CommandOutput = writeStdout): Promise<void> {
+  output(await createModelCommandClient(client).execute('model.list', {}))
+}
+
+export async function runSessionModelCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (action !== 'session.getModel' && action !== 'session.setModel' && action !== 'session.setThinkingLevel')
+    throw new CommandError('COMMAND_NOT_FOUND', 'Unknown session model command')
+  const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
+  const input = parseArguments(modelCommands[action].metadata, argv)
+  if (action === 'session.getModel') {
+    const parsed = modelCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await createModelCommandClient(runtime.client).execute(action, parsed.data))
+    return
+  }
+  if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
+  input.baselineRevisions =
+    args.baselineJson !== undefined
+      ? objectOption(args.baselineJson, '--baseline-json')
+      : (await createModelCommandClient(runtime.client).execute('session.getModel', { sessionId: runtime.session.id }))
+          .revisions
+  const options = {
+    idempotencyKey: args.idempotencyKey,
+    ...(args.requestId ? { requestId: args.requestId } : {}),
+  }
+  if (action === 'session.setModel') {
+    const parsed = modelCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await createModelCommandClient(runtime.client).execute(action, parsed.data, options))
+  } else {
+    const parsed = modelCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await createModelCommandClient(runtime.client).execute(action, parsed.data, options))
+  }
 }
 
 function objectOption(source: string | undefined, name: string): Record<string, unknown> {
@@ -376,6 +423,14 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (action === 'model.list') {
+      await runModelListCommand(runtime.client, output)
+      return true
+    }
+    if (action === 'session.getModel' || action === 'session.setModel' || action === 'session.setThinkingLevel') {
+      await runSessionModelCommand(args, runtime, output)
+      return true
+    }
     if (isGoalPlanCommand(action)) {
       await runGoalPlanCommand(args, runtime, output)
       return true
@@ -409,7 +464,12 @@ export async function runCliCommand(
       try {
         input = args.inputJson
           ? (JSON.parse(args.inputJson) as unknown)
-          : { text: args.message!, images: [], thinking: args.thinking, approval: args.approval }
+          : {
+              text: args.message!,
+              images: [],
+              thinking: args.thinkingExplicit ? args.thinking : runtime.thinkingLevel,
+              approval: args.approval,
+            }
       } catch {
         throw new CommandError('INVALID_INPUT', '--input-json must contain JSON')
       }
@@ -493,11 +553,25 @@ export async function runCliCommand(
     return true
   }
   if (args.command === 'model') {
-    const catalog = await runtime.client.call('system.bootstrap', {})
-    if (!action || action === 'list') output(catalog.models)
+    if (!action || action === 'list') output(await createModelCommandClient(runtime.client).execute('model.list', {}))
     else if (action === 'use') {
       if (!selector) throw new Error('Usage: hbar model use <provider/model|id|name>')
-      output({ modelId: selectModel(catalog, selector) })
+      const modelId = selectModel(runtime.bootstrap, selector)
+      if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required for model use')
+      const before = await createModelCommandClient(runtime.client).execute('session.getModel', {
+        sessionId: runtime.session.id,
+      })
+      const result = await createModelCommandClient(runtime.client).execute(
+        'session.setModel',
+        { sessionId: runtime.session.id, modelId, baselineRevisions: before.revisions },
+        {
+          idempotencyKey: args.idempotencyKey,
+          ...(args.requestId ? { requestId: args.requestId } : {}),
+        },
+      )
+      runtime.modelId = result.modelId ?? modelId
+      runtime.thinkingLevel = result.thinkingLevel ?? runtime.thinkingLevel
+      output(result)
     } else throw new Error('Usage: hbar model list|use')
     return true
   }

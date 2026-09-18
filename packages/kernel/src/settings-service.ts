@@ -58,6 +58,12 @@ export interface ApplySettingsInput {
 export interface ApplySettingsReceipt extends Omit<SettingsCommitReceipt, 'resolution'> {
   readonly resolution: SettingsResolution
 }
+export interface SettingsCandidate {
+  readonly scope: SettingsScope
+  readonly changes: readonly SettingsChange[]
+  readonly resolution: SettingsResolution
+}
+export type SettingsCandidateValidator = (candidate: SettingsCandidate) => void | Promise<void>
 
 function stable(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(stable).join(',') + ']'
@@ -80,7 +86,10 @@ function translate(error: unknown): never {
 }
 
 export class SettingsService {
-  constructor(private readonly storage: StoragePort) {}
+  constructor(
+    private readonly storage: StoragePort,
+    private readonly validateCandidate?: SettingsCandidateValidator,
+  ) {}
 
   private async chain(scope: SettingsScope) {
     if (scope.kind === 'global') return [{ id: 'settings:global', kind: 'global', targetId: null }]
@@ -160,6 +169,7 @@ export class SettingsService {
     } catch (error) {
       translate(error)
     }
+    await this.validateCandidate?.({ scope: input.scope, changes: input.changes, resolution })
     const receipt = await this.storage.call('commitSettings', {
       actorId: input.actorId,
       idempotencyKey: input.idempotencyKey,

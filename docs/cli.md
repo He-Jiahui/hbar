@@ -26,6 +26,10 @@ hbar exec goal.clear --session <Session ID|名称>
 hbar exec plan.update --session <Session ID|名称> --input-json '{"explanation":"先验证","plan":[{"step":"检查","status":"in_progress"}]}'
 hbar exec plan.get --session <Session ID|名称>
 hbar exec plan.clear --session <Session ID|名称>
+hbar exec model.list
+hbar exec session.getModel --session <Session ID|名称>
+hbar exec session.setModel <Model ID> --session <Session ID|名称> --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>
+hbar exec session.setThinkingLevel high --session <Session ID|名称> --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>
 hbar commands list --category run.approval --limit 100
 hbar commands describe run.submit
 hbar exec app.setSession "审查会话" --workspace <Workspace ID|名称> --context review
@@ -69,6 +73,8 @@ hbar --headless \
 `approval.resolve` 只接受 `allowed` 或 `denied`，并核对 Approval 的真实 Session 归属；首次决定持久化后，重复或相反决定只返回已存在的终态。`questionnaire.answer` 的 `--input-json` 是 question ID 到 `{ "answers": [...] }` 的对象，答案仍由原请求约束验证。只有当前仍在等待且属于所选 Session 的 request 会返回 `accepted: true`；过期、重复或错误 Session 返回 `false`，不会回答另一个会话。两者都走统一 Host command，TUI `/approve`、`/deny` 与无头自动审批使用相同 handler。
 
 Goal 与 Plan 命令直接调用 Host 中已有的 goal/plan 插件，不在 CLI 保存第二份状态。`goal.create` 的 objective 是位置参数，可选 `--token-budget`；已有未完成 Goal 时会拒绝创建。`goal.set` 用 `--input-json` 修改 objective、status 或 tokenBudget，自动化应传查询返回的 `goalId` 作为 `expectedGoalId`，防止把较新的 Goal 当成旧目标修改。`goal.update` 只接受领域状态机允许的 `complete` 或 `blocked`，暂停、恢复和编辑使用 `goal.set`。`plan.update` 的 JSON 含 `plan` 数组及可选 explanation/turnId，并由同一 Plan schema 验证。此类写入没有独立重放键；若连接在响应前中断，先用对应 `.get` 查询持久状态，再决定是否重试，避免生成重复事件。clear 是收敛操作，重复执行返回 `cleared: false`。
+
+`model.list` 返回已归一的 provider/model ID、能力、思考等级和 `hasKey`，不返回凭据。Session 的模型与思考等级保存在 settings-core 的 `provider.model` / `provider.thinkingLevel` 路径；`session.getModel` 同时返回有效值、来源和完整版本向量。`session.setModel` 会验证 Model ID；切换到不支持当前显式思考等级的模型时，在同一原子 ChangeSet 中改为目标模型默认等级。`session.setThinkingLevel` 校验所选模型能力。两种写入均要求幂等键；自动化重试还应复用第一次查询所得的 `--baseline-json`。CLI/TUI 和无头 Run 在未显式传 `--model` / `--thinking` 时读取该 Session 配置；显式参数只覆盖本次 Run，不另写设置。`hbar model use` 是 `session.setModel` 的兼容语法，也要求 `--idempotency-key`。
 
 `app.setSession` 通过独立 app-runtime 解析明确 ID，或在 `--workspace` 限定范围内解析精确名称，不修改 Host 的 Session 事实。未传 `--context` 时选择只存在于该 CLI 进程；传入名称后，选择以 Host 数据根和本机用户为边界原子保存，后续 `hbar exec ... --context review` 可复用目标。保存结果带单调 revision；自动化可传 `--context-revision <revision>` 做显式 CAS，版本已经变化时返回冲突退出码 9，不静默覆盖另一个进程的选择。显式 `--project` / `--session` 优先于 context，适合自动化脚本固定目标。
 

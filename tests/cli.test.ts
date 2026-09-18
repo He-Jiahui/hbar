@@ -228,7 +228,7 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
     'provider.model',
     ...scope,
     '--value-json',
-    '"gpt-test"',
+    '"local-fixture"',
     '--baseline-json',
     baseline,
     '--idempotency-key',
@@ -244,7 +244,7 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
   const readSet = await run([...common, 'exec', 'settings.get', 'provider.model', ...scope])
   expect(readSet.code).toBe(0)
   expect(Object.values((JSON.parse(readSet.stdout) as typeof before).resolution.reports)[0]).toMatchObject({
-    effectiveValue: 'gpt-test',
+    effectiveValue: 'local-fixture',
     localPresence: true,
   })
 
@@ -288,7 +288,7 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
       schemaVersion: 1,
       scope: { kind: 'workspace', targetId: session.workspaceId },
       changes: [
-        { op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: 'workspace-model' },
+        { op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: 'local-fixture' },
         { op: 'set', path: [{ kind: 'field', name: 'provider.thinkingLevel' }], value: 'high' },
       ],
       baselineRevisions: workspaceSnapshot.revisions,
@@ -301,6 +301,99 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
     layerId: `settings:workspace:${session.workspaceId}`,
     revision: 1,
   })
+})
+
+test('exec model commands persist session defaults through layered settings', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const models = await run([...common, 'exec', 'model.list'])
+  expect(models.code).toBe(0)
+  expect((JSON.parse(models.stdout) as { id: string }[]).some((model) => model.id === 'local-fixture')).toBeTrue()
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const sessionId = (JSON.parse(created.stdout) as { id: string }).id
+  const target = ['--session', sessionId]
+  const queried = await run([...common, 'exec', 'session.getModel', ...target])
+  expect(queried.code).toBe(0)
+  const before = JSON.parse(queried.stdout) as { revisions: Record<string, number> }
+  const baseline = JSON.stringify(before.revisions)
+  const setArgs = [
+    ...common,
+    'exec',
+    'session.setModel',
+    'local-fixture',
+    ...target,
+    '--baseline-json',
+    baseline,
+    '--idempotency-key',
+    'cli-model-set',
+  ]
+  const selected = await run(setArgs)
+  expect(selected.code).toBe(0)
+  const selection = JSON.parse(selected.stdout) as {
+    commitId: string
+    revision: number
+    revisions: Record<string, number>
+    modelId: string
+    thinkingLevel: string
+  }
+  expect(selection).toMatchObject({ modelId: 'local-fixture', thinkingLevel: 'high', revision: 1 })
+  const retried = await run(setArgs)
+  expect(retried.code).toBe(0)
+  expect(JSON.parse(retried.stdout)).toEqual(selection)
+  const thinking = await run([
+    ...common,
+    'exec',
+    'session.setThinkingLevel',
+    'high',
+    ...target,
+    '--baseline-json',
+    JSON.stringify(selection.revisions),
+    '--idempotency-key',
+    'cli-thinking-set',
+  ])
+  expect(thinking.code).toBe(0)
+  expect(JSON.parse(thinking.stdout)).toMatchObject({ modelId: 'local-fixture', thinkingLevel: 'high', revision: 2 })
+  const readBack = await run([...common, 'exec', 'session.getModel', ...target])
+  expect(readBack.code).toBe(0)
+  expect(JSON.parse(readBack.stdout)).toMatchObject({
+    status: 'configured',
+    modelId: 'local-fixture',
+    thinkingLevel: 'high',
+  })
+  const inherited = await run([
+    ...common,
+    '--headless',
+    ...target,
+    '--message',
+    'use configured thinking',
+    '--output-format',
+    'jsonl',
+  ])
+  expect(inherited.code).toBe(0)
+  const explicit = await run([
+    ...common,
+    '--headless',
+    ...target,
+    '--thinking',
+    'off',
+    '--message',
+    'override configured thinking',
+    '--output-format',
+    'jsonl',
+  ])
+  expect(explicit.code).toBe(0)
+  const db = new Database(join(dataRoot, 'databases', 'hbar.sqlite'), { readonly: true })
+  try {
+    const inputs = db.query('SELECT input FROM runs WHERE sessionId=? ORDER BY rowid').all(sessionId) as {
+      input: string
+    }[]
+    expect(inputs.slice(-2).map((row) => (JSON.parse(row.input) as { thinking?: string }).thinking)).toEqual([
+      'high',
+      'off',
+    ])
+  } finally {
+    db.close()
+  }
 })
 
 test('exec questionnaire answers use the selected session command without requiring a model', async () => {

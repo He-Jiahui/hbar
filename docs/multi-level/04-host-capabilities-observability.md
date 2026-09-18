@@ -1,6 +1,6 @@
 # P4：Host 业务命令化与监控数据能力
 
-状态：实施中；预算命令、Run 持久受理/查询/取消/watch、审批问卷与目标计划命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
+状态：实施中；预算、Run、审批问卷、目标计划与 Session 模型配置命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
 
 ## 1. Host 模块保持 MVC 与领域边界
 
@@ -32,6 +32,8 @@
 A11a 已将 `approval.resolve` 与 `questionnaire.answer` 注册为 session scope 的 Host commands。二者都显式携带 `sessionId` 并在领域 handler 核对原请求归属；审批返回权威终态，重复或相反决定不会改写首次结果，问卷只接受仍在内存中等待的原 request，过期、错误 Session 和重复回答返回 `accepted: false`。CLI、REPL、TUI 与无头审批路径共用 typed Client adapter；旧 `approval.resolve` / `user_input.resolve` RPC 暂作兼容入口并调用相同 Kernel 用例。
 
 A11b 已将 `goal.get/create/set/update/clear` 与 `plan.get/update/clear` 注册到 `agent.goal.plan` 分类。Command adapter 只依赖公开 GoalService/PlanService，继续使用插件已有的事件持久化、目标状态机、token 结算、expectedGoalId 冲突检查、Plan 约束和通知；Host、typed Client、CLI/REPL/TUI 共用定义。非幂等写在响应未知时通过 `.get` 核对权威状态后再决定是否重试，clear 保持收敛返回。
+
+A11c 已将 `model.list`、`session.getModel`、`session.setModel` 与 `session.setThinkingLevel` 注册到 `model.configuration`。Session 命令与通用 settings command 共用 SettingsService；模型存在性与 thinking capability 作为注入的候选验证器作用于两个入口。切换模型时，不兼容的显式 thinking override 与模型值原子更新。CLI/TUI 使用持久配置作为 Run 缺省值，Run 的显式 model/thinking 仍只影响该次执行。
 
 ## 3. 预算切片保持现有业务语义
 

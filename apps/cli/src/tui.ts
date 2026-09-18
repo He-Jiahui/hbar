@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto'
 import { readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
-import { createInteractionCommandClient } from '@hbar/client'
+import { createInteractionCommandClient, createModelCommandClient } from '@hbar/client'
 import { BUILTIN_TERMINAL_COMMANDS, parseTerminalInput } from '@hbar/terminal'
 import type { CliRuntime } from './runtime.ts'
 import { selectModel, waitForRun } from './runtime.ts'
@@ -146,7 +146,8 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
 
   let session = runtime.session
   let modelId = runtime.modelId
-  let thinking: ThinkingLevel = 'off'
+  let thinking: ThinkingLevel = runtime.thinkingLevel
+  const modelCommands = createModelCommandClient(runtime.client)
   const runs = new Map<string, Run>()
   const lastInputs = new Map<string, string>()
   const streams = new Map<string, { text: string; thinking: string }>()
@@ -176,7 +177,12 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
   }
   const load = async (next: Session) => {
     session = next
-    const snapshot = await runtime.client.call('session.snapshot', { sessionId: session.id })
+    const [snapshot, modelConfiguration] = await Promise.all([
+      runtime.client.call('session.snapshot', { sessionId: session.id }),
+      modelCommands.execute('session.getModel', { sessionId: session.id }),
+    ])
+    modelId = modelConfiguration.modelId ?? selectModel(runtime.bootstrap)
+    thinking = modelConfiguration.thinkingLevel ?? 'off'
     base = transcript(snapshot)
     const activeRun = runs.get(session.id)
     const live = activeRun ? snapshot.streams.find((stream) => stream.runId === activeRun.id) : snapshot.streams.at(-1)
@@ -277,6 +283,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
           headless: false,
           help: false,
           thinking: 'off',
+          thinkingExplicit: false,
           approval: 'ask',
           outputFormat: 'text',
           demo: false,
@@ -314,17 +321,40 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     }
     if (command === 'model') {
       await refreshCatalog()
-      if (!argument)
+      if (!argument) {
+        const models = await modelCommands.execute('model.list', {})
         return render(
-          `### Models\n\n${runtime.bootstrap.models.map((item) => `- \`${item.id}\` · ${item.name} · ${item.model}`).join('\n')}`,
+          `### Models\n\n${models.map((item) => `- \`${item.id}\` · ${item.providerName} · ${item.modelName}`).join('\n')}`,
         )
-      modelId = selectModel(runtime.bootstrap, argument)
+      }
+      const before = await modelCommands.execute('session.getModel', { sessionId: session.id })
+      const result = await modelCommands.execute(
+        'session.setModel',
+        {
+          sessionId: session.id,
+          modelId: selectModel(runtime.bootstrap, argument),
+          baselineRevisions: before.revisions,
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      modelId = result.modelId ?? modelId
+      thinking = result.thinkingLevel ?? thinking
       return updateHeader()
     }
     if (command === 'thinking') {
       if (!['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(argument))
         throw new Error('Thinking must be off|minimal|low|medium|high|xhigh|max')
-      thinking = argument as ThinkingLevel
+      const before = await modelCommands.execute('session.getModel', { sessionId: session.id })
+      const result = await modelCommands.execute(
+        'session.setThinkingLevel',
+        {
+          sessionId: session.id,
+          thinkingLevel: argument as ThinkingLevel,
+          baselineRevisions: before.revisions,
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      thinking = result.thinkingLevel ?? thinking
       return updateHeader()
     }
     if (command === 'compact') {

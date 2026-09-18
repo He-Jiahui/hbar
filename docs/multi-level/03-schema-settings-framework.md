@@ -171,6 +171,8 @@ Schema default → global override → workspace override → session override
 
 活动预算是领域账本，不作为任意 settings.set 路径写入。预算编辑器提交 `session.setBudget`；新 Session 默认预算可以是设置，由创建用例读取。模型的 Session 命令与对应设置字段最终调用同一模型配置用例，不保留互相冲突的两份值。
 
+A11c 已落实模型配置的共享事实：`session.setModel` / `session.setThinkingLevel` 与通用 `settings.apply` 共用同一 SettingsService、层级、版本向量、事务和回执表。Host 注入模型候选验证器，因此通用设置入口也不能写入不存在的 Model 或不受支持的思考等级；切换模型所需的兼容等级修正和模型值在一个 ChangeSet 内提交。CLI/TUI 读取 `session.getModel`，仅在本次 Run 显式参数缺省时采用持久有效值。
+
 ## 9. 路径、凭据、迁移与组件扩展
 
 - FilePicker/DirectoryPicker 声明位置为 client-local、Host 或 workspace；远程 Host 路径通过其查询能力选择。浏览器文件上传得到 artifact 引用，不能将客户端路径写成 Host 路径。

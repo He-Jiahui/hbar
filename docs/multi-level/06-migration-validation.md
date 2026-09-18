@@ -86,6 +86,8 @@ A11a 迁移审批与问卷写入口：`approval.resolve` 和 `questionnaire.answ
 
 A11b 迁移目标与计划：八个 `goal.*` / `plan.*` command 通过公开 GoalService/PlanService 调用原插件状态机，保留事件持久化、token/时间结算、expectedGoalId 冲突和 Plan schema。CLI 可在无模型环境创建、查询、CAS 编辑、改变状态及清除 Goal，并更新、查询和清除 Plan。真实 Host 测试覆盖重复创建、过期 Goal ID、跨 Session 隔离、Plan 空/清除收敛和查询核对；响应未知的非幂等写要求先查询再重试。旧 RPC 继续调用相同服务。
 
+A11c 迁移模型选择与思考等级：`model.list` 暴露无凭据能力目录，Session get/set 命令把选择写入 A10 的分层设置事实。Host 在 SettingsService 候选提交前验证 Model 和 thinking capability；不兼容模型切换以单一 ChangeSet 修正等级。写命令使用 settings 原子回执、完整版本向量和 actor 幂等键。CLI/TUI/无头 Run 在没有显式覆盖时读取 Session 有效配置。测试覆盖通用 settings 绕过、无模型拒绝、能力拒绝、原子切换、同键重试/异参冲突、CLI 持久缺省与单次显式覆盖。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

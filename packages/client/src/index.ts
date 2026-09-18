@@ -8,6 +8,7 @@ export { createSchemaCallbackClient } from './schema-content'
 export { createSettingsCommandClient } from './settings'
 export { createInteractionCommandClient } from './interaction'
 export { createGoalPlanCommandClient } from './goals'
+export { createModelCommandClient } from './models'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'

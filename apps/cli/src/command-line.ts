@@ -23,6 +23,8 @@ function withDefaults(parsed: CliArgs, defaults: CliArgs, runtime: CliRuntime): 
     session: parsed.session ?? runtime.session.id,
     context: parsed.context ?? defaults.context,
     model: parsed.model ?? defaults.model,
+    thinking: parsed.thinkingExplicit ? parsed.thinking : defaults.thinking,
+    thinkingExplicit: parsed.thinkingExplicit || defaults.thinkingExplicit,
     demo: parsed.demo || defaults.demo,
   }
 }

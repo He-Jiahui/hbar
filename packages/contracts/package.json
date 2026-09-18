@@ -10,6 +10,7 @@
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/interaction": "./src/commands/interaction.ts",
+    "./commands/models": "./src/commands/models.ts",
     "./commands/run": "./src/commands/run.ts",
     "./commands/settings": "./src/commands/settings.ts",
     "./directory": "./src/state/directory.ts"

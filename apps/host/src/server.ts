@@ -11,12 +11,15 @@ import {
   createBudgetCommands,
   createGoalPlanCommands,
   createInteractionCommands,
+  createModelCommands,
+  createModelSettingsValidator,
   createRunCommands,
   createSettingsCommands,
 } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
+import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
@@ -62,12 +65,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     kernel.plugins.get<PlanService>('plan'),
   )
   const interactionCommands = createInteractionCommands(kernel)
+  const settingsService = new SettingsService(kernel.storage, createModelSettingsValidator(kernel))
+  const modelCommands = createModelCommands(kernel, settingsService)
   const runCommands = createRunCommands(kernel)
-  const settingsCommands = createSettingsCommands(new SettingsService(kernel.storage))
+  const settingsCommands = createSettingsCommands(settingsService)
   const commandServices = [
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
     { definitions: interactionDefinitions, service: interactionCommands },
+    { definitions: modelDefinitions, service: modelCommands },
     { definitions: runDefinitions, service: runCommands },
     { definitions: settingsDefinitions, service: settingsCommands },
   ]
@@ -958,6 +964,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       budgetCommands.dispose()
       goalPlanCommands.dispose()
       interactionCommands.dispose()
+      modelCommands.dispose()
       runCommands.dispose()
       settingsCommands.dispose()
       unsubscribe()
