@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto'
 import { readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
+import { createInteractionCommandClient } from '@hbar/client'
 import { BUILTIN_TERMINAL_COMMANDS, parseTerminalInput } from '@hbar/terminal'
 import type { CliRuntime } from './runtime.ts'
 import { selectModel, waitForRun } from './runtime.ts'
@@ -203,7 +204,11 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       ? snapshot.approvals.find((item) => item.id === id)
       : snapshot.approvals.find((item) => item.status === 'pending')
     if (!approval) throw new Error('No pending approval found')
-    await runtime.client.call('approval.resolve', { approvalId: approval.id, decision })
+    await createInteractionCommandClient(runtime.client).execute('approval.resolve', {
+      sessionId: session.id,
+      approvalId: approval.id,
+      decision,
+    })
     status.content = decision === 'allowed' ? 'Approved' : 'Denied'
   }
   const send = async (text: string) => {

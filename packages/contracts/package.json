@@ -8,6 +8,7 @@
     "./commands": "./src/commands/index.ts",
     "./commands/budget": "./src/commands/budget.ts",
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
+    "./commands/interaction": "./src/commands/interaction.ts",
     "./commands/run": "./src/commands/run.ts",
     "./commands/settings": "./src/commands/settings.ts",
     "./directory": "./src/state/directory.ts"

@@ -5,8 +5,16 @@ import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
-import { Kernel, SettingsService, createBudgetCommands, createRunCommands, createSettingsCommands } from '@hbar/kernel'
+import {
+  Kernel,
+  SettingsService,
+  createBudgetCommands,
+  createInteractionCommands,
+  createRunCommands,
+  createSettingsCommands,
+} from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
+import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
@@ -47,13 +55,25 @@ export interface ServerOptions {
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
+  const interactionCommands = createInteractionCommands(kernel)
   const runCommands = createRunCommands(kernel)
   const settingsCommands = createSettingsCommands(new SettingsService(kernel.storage))
-  const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>([
-    ...Object.keys(budgetDefinitions).map((id) => [id, budgetCommands.dispatch] as const),
-    ...Object.keys(runDefinitions).map((id) => [id, runCommands.dispatch] as const),
-    ...Object.keys(settingsDefinitions).map((id) => [id, settingsCommands.dispatch] as const),
-  ])
+  const commandServices = [
+    { definitions: budgetDefinitions, service: budgetCommands },
+    { definitions: interactionDefinitions, service: interactionCommands },
+    { definitions: runDefinitions, service: runCommands },
+    { definitions: settingsDefinitions, service: settingsCommands },
+  ]
+  const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
+    commandServices.flatMap(({ definitions, service }) =>
+      Object.keys(definitions).map((id) => [id, service.dispatch] as const),
+    ),
+  )
+  const commandDescribers = new Map(
+    commandServices.flatMap(({ definitions, service }) =>
+      Object.keys(definitions).map((id) => [id, () => service.describe(id)] as const),
+    ),
+  )
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
@@ -163,11 +183,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'command.catalog': {
         const filter = rpcSchemas[method].parse(raw)
-        const descriptors = [
-          ...budgetCommands.list().items,
-          ...runCommands.list().items,
-          ...settingsCommands.list().items,
-        ]
+        const catalogs = commandServices.map(({ service }) => service.list())
+        const descriptors = catalogs
+          .flatMap(({ items }) => items)
           .filter(
             ({ metadata }) =>
               !filter.category ||
@@ -178,18 +196,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           .sort((a, b) => a.metadata.id.localeCompare(b.metadata.id))
         const items = descriptors.slice(0, filter.limit)
         return {
-          revision: budgetCommands.list().revision + runCommands.list().revision + settingsCommands.list().revision,
+          revision: catalogs.reduce((total, catalog) => total + catalog.revision, 0),
           items,
           ...(descriptors.length > filter.limit ? { nextCursor: items.at(-1)!.metadata.id } : {}),
         }
       }
       case 'command.describe': {
         const input = rpcSchemas[method].parse(raw)
-        const dispatch = commandDispatchers.get(input.commandId)
-        if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
-        if (Object.hasOwn(budgetDefinitions, input.commandId)) return budgetCommands.describe(input.commandId)
-        if (Object.hasOwn(runDefinitions, input.commandId)) return runCommands.describe(input.commandId)
-        return settingsCommands.describe(input.commandId)
+        const describe = commandDescribers.get(input.commandId)
+        if (!describe) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
+        return describe()
       }
       case 'command.getReceipt': {
         const input = rpcSchemas[method].parse(raw)
@@ -933,6 +949,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     info: hostInfo,
     async close() {
       budgetCommands.dispose()
+      interactionCommands.dispose()
       runCommands.dispose()
       settingsCommands.dispose()
       unsubscribe()

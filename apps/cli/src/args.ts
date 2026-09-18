@@ -56,6 +56,8 @@ Usage:
   hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
   hbar exec app.openPanel <panel> --client <clientId> [--session <id>]
   hbar exec settings.get|settings.set|settings.unset <path> --scope <scope>
+  hbar exec approval.resolve <approvalId> <allowed|denied> --session <id|name>
+  hbar exec questionnaire.answer <requestId> --input-json <answers> --session <id|name>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
 
@@ -78,7 +80,7 @@ Paths:
 Commands:
   repl
   session list|new|resume|fork|archive|export
-  exec session.setBudget|session.getBudget|receipt
+  exec session.setBudget|session.getBudget|approval.resolve|questionnaire.answer|receipt
   commands list|describe
   model list|use
   plugins list|install|enable|disable|remove|inspect|doctor|lock

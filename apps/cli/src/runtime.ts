@@ -2,7 +2,7 @@ import { openSync } from 'node:fs'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { HbarClient } from '@hbar/client'
+import { HbarClient, createInteractionCommandClient } from '@hbar/client'
 import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
 import type {
@@ -273,6 +273,7 @@ export async function waitForRun(
   approval: ApprovalMode | 'defer',
   observer: RunObserver = {},
 ): Promise<RunResult> {
+  const interactions = createInteractionCommandClient(client)
   const events: SessionEvent[] = []
   const seen = new Set<string>()
   const approvals = new Set<string>()
@@ -322,8 +323,9 @@ export async function waitForRun(
         if (approvals.has(item.id)) return
         approvals.add(item.id)
         if (approval === 'allow' || approval === 'deny')
-          void client
-            .call('approval.resolve', {
+          void interactions
+            .execute('approval.resolve', {
+              sessionId: run.sessionId,
               approvalId: item.id,
               decision: approval === 'allow' ? 'allowed' : 'denied',
             })
@@ -334,8 +336,9 @@ export async function waitForRun(
         else {
           process.stderr.write(`\nApprove ${item.tool ?? 'tool'}? [y/N] `)
           process.stdin.once('data', (answer) => {
-            void client
-              .call('approval.resolve', {
+            void interactions
+              .execute('approval.resolve', {
+                sessionId: run.sessionId,
                 approvalId: item.id,
                 decision: String(answer).trim().toLowerCase().startsWith('y') ? 'allowed' : 'denied',
               })

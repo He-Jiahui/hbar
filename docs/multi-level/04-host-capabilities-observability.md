@@ -1,6 +1,6 @@
 # P4：Host 业务命令化与监控数据能力
 
-状态：实施中；预算命令与 Run 持久受理/查询/取消/watch 已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
+状态：实施中；预算命令、Run 持久受理/查询/取消/watch、审批与问卷命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
 
 ## 1. Host 模块保持 MVC 与领域边界
 
@@ -28,6 +28,8 @@
 | 状态查询         | metrics.query/watch；usage.query/export；git.status/log/stats              | 监控服务/领域插件；真实数据、过滤、容量与口径          |
 
 这些为目标语义，具体旧 ID 映射由 P6 逐项记录。某个子 Agent/统计能力如果仅在旧文档中列为后续扩展，登记为“本次新建能力”，不能标为已经迁移。既有且不在主界面示意图上的配对、设备、路径、插件、浏览器等功能仍必须可访问。
+
+A11a 已将 `approval.resolve` 与 `questionnaire.answer` 注册为 session scope 的 Host commands。二者都显式携带 `sessionId` 并在领域 handler 核对原请求归属；审批返回权威终态，重复或相反决定不会改写首次结果，问卷只接受仍在内存中等待的原 request，过期、错误 Session 和重复回答返回 `accepted: false`。CLI、REPL、TUI 与无头审批路径共用 typed Client adapter；旧 `approval.resolve` / `user_input.resolve` RPC 暂作兼容入口并调用相同 Kernel 用例。
 
 ## 3. 预算切片保持现有业务语义
 

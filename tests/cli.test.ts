@@ -303,6 +303,26 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
   })
 })
 
+test('exec questionnaire answers use the selected session command without requiring a model', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const sessionId = (JSON.parse(created.stdout) as { id: string }).id
+  const requestId = crypto.randomUUID()
+  const result = await run([
+    ...common,
+    'exec',
+    'questionnaire.answer',
+    requestId,
+    '--session',
+    sessionId,
+    '--input-json',
+    JSON.stringify({ scope: { answers: ['App'] } }),
+  ])
+  expect(result.code).toBe(0)
+  expect(JSON.parse(result.stdout)).toEqual({ sessionId, requestId, accepted: false })
+})
+
 test('classified command catalog and Run operations are usable without a GUI', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])
@@ -312,7 +332,7 @@ test('classified command catalog and Run operations are usable without a GUI', a
   expect(catalog.code).toBe(0)
   expect(
     (JSON.parse(catalog.stdout) as { items: { metadata: { id: string } }[] }).items.map((item) => item.metadata.id),
-  ).toEqual(['operation.cancel', 'operation.get', 'run.submit'])
+  ).toEqual(['approval.resolve', 'operation.cancel', 'operation.get', 'questionnaire.answer', 'run.submit'])
   const description = await run([...common, 'commands', 'describe', 'run.submit'])
   expect(description.code).toBe(0)
   expect(JSON.parse(description.stdout)).toMatchObject({ metadata: { id: 'run.submit', category: 'run.approval' } })

@@ -1,6 +1,6 @@
 # P6：迁移顺序、验收矩阵与交付纪律
 
-状态：实施中；A0–A10 已完成，A11 起的领域迁移和第二阶段 UI 尚待实施。上级：[总计划](command-first-architecture-plan.md)。本计划将 P0–P5 转为可执行切片，所有代码切片均按[质量与交付](../../.agents/skills/hbar-engineering/references/quality.md)验证后立即独立提交。
+状态：实施中；A0–A10 已完成，A11 已开始逐领域迁移，第二阶段 UI 尚待实施。上级：[总计划](command-first-architecture-plan.md)。本计划将 P0–P5 转为可执行切片，所有代码切片均按[质量与交付](../../.agents/skills/hbar-engineering/references/quality.md)验证后立即独立提交。
 
 ## 1. 基线证据与迁移记录
 
@@ -81,6 +81,8 @@ A8 在 `fd3c953` 提交。A9 扩展 schema-core 的动态内容模块：编译�
 A9 在 `0f93778` 提交。A10a 将设置层与 actor/idempotency receipt 持久化到独立表，并在一个 SQLite 事务中核对完整父层版本向量、写目标层和回执。Kernel SettingsService 验证 scope 实体、精确 baseline、schemaVersion、ChangeSet 与候选 effective；重复同载荷返回原回执，异载荷冲突，父层并发不会产生半写入。测试覆盖 null/unset、原子多字段、不允许层、重启恢复，以及有序迁移注册；commands/CLI 在 A10b 交付。
 
 A10b 将 `settings.get/set/unset/apply` 定义接入统一 Host 目录、认证 dispatcher、typed Client adapter 和共享 CLI/REPL/TUI 分派。CLI 的单字段写入支持显式版本向量，批量 apply 直接提交带 scope 的完整 ChangeSet；真实 Host 测试覆盖目录发现、按路径读取、继承、原子批量、幂等重试/异参冲突与禁止层，CLI 集成覆盖 set/unset/apply 且不要求模型或 GUI。至此 A10 的无界面设置闭环完成；Schema React renderer 仍属于 B3。
+
+A11a 迁移审批与问卷写入口：`approval.resolve` 和 `questionnaire.answer` 使用类型化 session target，经认证 Host dispatcher 执行现有 Kernel 用例；CLI、REPL、TUI 和无头审批不再直接调用写 RPC。审批重复或相反决定收敛到首个持久终态，问卷拒绝错误 Session、过期和重复回答。真实 Host 测试覆盖目录、跨 Session 拒绝、拒绝工具写入、问卷恢复运行和重复提交；旧 RPC 保留为同用例兼容 adapter。A11 的其他领域继续分别提交。
 
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 

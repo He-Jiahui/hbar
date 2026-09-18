@@ -16,6 +16,8 @@ hbar exec settings.get provider.model --scope session --session <Session ID>
 hbar exec settings.set provider.model --scope session --session <Session ID> --value-json '"gpt-5"' --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>
 hbar exec settings.unset provider.model --scope session --session <Session ID> --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>
 hbar exec settings.apply --input-json '<含 scope、changes、baselineRevisions 的 JSON>' --idempotency-key <稳定键>
+hbar exec approval.resolve <Approval ID> allowed --session <Session ID|名称>
+hbar exec questionnaire.answer <Request ID> --session <Session ID|名称> --input-json '{"scope":{"answers":["App"]}}'
 hbar commands list --category run.approval --limit 100
 hbar commands describe run.submit
 hbar exec app.setSession "审查会话" --workspace <Workspace ID|名称> --context review
@@ -54,7 +56,9 @@ hbar --headless \
 
 分层设置使用 `global`、`workspace` 或 `session` scope。工作区和会话 scope 分别传 `--workspace/--target` 与 `--session/--target`；路径可写字段名（如 `provider.model`）或 schema-core 编码路径。`settings.get` 返回参与解析的完整版本向量以及来源、继承、本层 presence 和生效状态报告。`settings.set/unset` 默认先读取当前版本向量，适合交互式使用；自动化和断线重试应保存读取结果中的 `revisions`，通过 `--baseline-json` 在首次调用和后续同键重试中使用完全相同的向量。`--value-json` 区分字符串、数字、布尔值和显式 `null`。`settings.apply` 的 `--input-json` 自带 scope，可在一次事务中提交多个 set/unset，并对完整父层版本向量执行 CAS。活动 Session 预算仍由 `session.setBudget` 管理，不能通过任意设置路径改写。
 
-`hbar commands list/describe` 从已认证 Host 读取按 `category` 分类的可序列化定义，查询不需要配置模型或选择会话。`hbar exec run.submit` 可用 `--message` 或 `--input-json <JSON 对象>` 传入输入，必须给稳定幂等键；立即返回受理回执和 operationId，不把受理当完成。`operation.get` 查询当前状态，`operation.cancel` 对排队任务返回 cancelled、对活动任务先返回 cancelRequested，随后用 get 确认终态。断线后用同一设备身份、Session 和键运行 `hbar exec receipt run.submit <键>`，再决定是否重试。当前 CLI 命令目录、命名 context 和这些业务入口已可用；通用 REPL/TUI 分派及其余领域迁移仍在 A6 后续切片。
+`hbar commands list/describe` 从已认证 Host 读取按 `category` 分类的可序列化定义，查询不需要配置模型或选择会话。`hbar exec run.submit` 可用 `--message` 或 `--input-json <JSON 对象>` 传入输入，必须给稳定幂等键；立即返回受理回执和 operationId，不把受理当完成。`operation.get` 查询当前状态，`operation.cancel` 对排队任务返回 cancelled、对活动任务先返回 cancelRequested，随后用 get 确认终态。断线后用同一设备身份、Session 和键运行 `hbar exec receipt run.submit <键>`，再决定是否重试。当前 CLI 命令目录、命名 context 和共享 REPL/TUI 分派已可用；其余业务领域按 A11 独立迁移。
+
+`approval.resolve` 只接受 `allowed` 或 `denied`，并核对 Approval 的真实 Session 归属；首次决定持久化后，重复或相反决定只返回已存在的终态。`questionnaire.answer` 的 `--input-json` 是 question ID 到 `{ "answers": [...] }` 的对象，答案仍由原请求约束验证。只有当前仍在等待且属于所选 Session 的 request 会返回 `accepted: true`；过期、重复或错误 Session 返回 `false`，不会回答另一个会话。两者都走统一 Host command，TUI `/approve`、`/deny` 与无头自动审批使用相同 handler。
 
 `app.setSession` 通过独立 app-runtime 解析明确 ID，或在 `--workspace` 限定范围内解析精确名称，不修改 Host 的 Session 事实。未传 `--context` 时选择只存在于该 CLI 进程；传入名称后，选择以 Host 数据根和本机用户为边界原子保存，后续 `hbar exec ... --context review` 可复用目标。保存结果带单调 revision；自动化可传 `--context-revision <revision>` 做显式 CAS，版本已经变化时返回冲突退出码 9，不静默覆盖另一个进程的选择。显式 `--project` / `--session` 优先于 context，适合自动化脚本固定目标。
 

@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-settings-surfaces",
+      "status": "partial-budget-run-interaction-settings-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -24,6 +24,7 @@
       "tests": [
         "tests/budget.test.ts",
         "tests/cli.test.ts",
+        "tests/interaction-commands.test.ts",
         "tests/run-commands.test.ts",
         "tests/settings-commands.test.ts",
         "tests/surface-relay.test.ts"
@@ -148,7 +149,7 @@
       "stateOwner": "Host Run/Attempt/intent; client prompt drafts",
       "category": "run.approval",
       "milestone": "A5/A11",
-      "status": "partial-run-operation",
+      "status": "partial-run-operation-interaction",
       "rpc": [
         "run.start",
         "run.cancel",
@@ -158,11 +159,12 @@
         "user_input.resolve",
         "context.compact"
       ],
-      "additionalCommands": ["run.retry", "operation.get", "operation.watch", "operation.cancel"],
+      "additionalCommands": ["run.retry", "operation.watch"],
       "tests": [
         "tests/kernel.test.ts",
         "tests/crash.test.ts",
         "tests/capabilities.test.ts",
+        "tests/interaction-commands.test.ts",
         "tests/run-commands.test.ts"
       ]
     },
@@ -367,7 +369,8 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11-A15": "pending",
+    "A11": "in progress: approval.resolve and questionnaire.answer migrated through Host commands and CLI",
+    "A12-A15": "pending",
     "B1-B7": "pending"
   }
 }

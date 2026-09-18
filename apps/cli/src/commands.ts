@@ -5,11 +5,13 @@ import { describeCommand, parseArguments, CommandError, validationError, type Co
 import {
   createBudgetCommandClient,
   createDirectoryQueryAdapter,
+  createInteractionCommandClient,
   createRunCommandClient,
   createSettingsCommandClient,
 } from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
+import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
@@ -133,6 +135,28 @@ export async function runSurfaceRelayCommand(
 
 export function isSettingsCommand(value: string | undefined): value is keyof typeof settingsCommands {
   return Boolean(value && Object.hasOwn(settingsCommands, value))
+}
+
+export function isInteractionCommand(value: string | undefined): value is keyof typeof interactionCommands {
+  return Boolean(value && Object.hasOwn(interactionCommands, value))
+}
+
+export async function runInteractionCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isInteractionCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown interaction command')
+  const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
+  if (action === 'questionnaire.answer') {
+    if (!args.inputJson) throw new CommandError('INVALID_INPUT', '--input-json must contain the answers object')
+    argv.push('--answers', args.inputJson)
+  }
+  const input = parseArguments(interactionCommands[action].metadata, argv)
+  const parsed = interactionCommands[action].input.safeParse(input)
+  if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+  output(await createInteractionCommandClient(runtime.client).execute(action, parsed.data))
 }
 function settingsPath(value: string | undefined): ({ kind: 'field'; name: string } | { kind: 'item'; id: string })[] {
   if (!value) throw new CommandError('INVALID_INPUT', 'A settings path is required')
@@ -283,6 +307,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isInteractionCommand(action)) {
+      await runInteractionCommand(args, runtime, output)
+      return true
+    }
     const commands = createBudgetCommandClient(runtime.client)
     const runs = createRunCommandClient(runtime.client)
     if (action === 'receipt') {
