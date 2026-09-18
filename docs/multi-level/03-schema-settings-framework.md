@@ -1,6 +1,6 @@
 # P3：Schema 描述、动态表单与分层设置框架
 
-状态：待实施。上级：[总计划](command-first-architecture-plan.md)。依赖：[命令契约](01-command-framework.md)、[runtime 表单宿主](02-state-runtime-cli.md)。交付两个无 UI 框架包；React 渲染适配在 P5 交付。
+状态：实施中；A4a 已交付无 UI schema-core 最小严格描述、组件能力、路径与表单状态，预算 adapter、动态内容和 settings-core 尚未完成。上级：[总计划](command-first-architecture-plan.md)。依赖：[命令契约](01-command-framework.md)、[runtime 表单宿主](02-state-runtime-cli.md)。交付两个无 UI 框架包；React 渲染适配在 P5 交付。
 
 ## 1. 为什么分成两个 package
 

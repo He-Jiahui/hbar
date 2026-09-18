@@ -73,6 +73,7 @@
     "@hbar/pi-driver": "workspace:*",
     "@hbar/plugin-sdk": "workspace:*",
     "@hbar/plan": "workspace:*",
+    "@hbar/schema-core": "workspace:*",
     "@hbar/storage": "workspace:*",
     "@hbar/ui-sdk": "workspace:*",
     "@opentui/core": "0.4.5",
