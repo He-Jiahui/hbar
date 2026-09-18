@@ -68,6 +68,8 @@ A5b 在 `58f0ee4` 提交。A6a 将 Host 命令目录与描述公开给 CLI，并
 
 A6a 在 `a235f76` 提交。A6b 让 `app.setSession` 使用无 React app-runtime 解析目标，并按显式 `--context` 将选择原子保存到当前 Host 数据根；记录本机用户、Host 根和单调 revision，以 CAS 冲突阻止并发静默覆盖。读取 context 不要求模型，显式目标优先。通用 TUI/REPL 分派随更多领域命令继续迁移。
 
+A6b 在 `0e729d1` 提交。A6c 组合 Host 与 client command 描述，增加行式 `hbar repl`，并让 REPL 与 TUI `/exec` 复用一次性 CLI 的 tokenizer、参数校验和执行函数。非 TTY REPL、直接点分 command ID、client `app.setSession` 描述和旧终端入口均有回归覆盖；旧短命令在 A11 各领域迁移时只保留语法映射。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

@@ -32,6 +32,7 @@ export const HELP = `hbar - Pi harness + Cordis workbench
 
 Usage:
   hbar [message...]                 Open the current project TUI
+  hbar repl                         Open the line-oriented command REPL
   hbar --headless --message <text> Run one request without a UI
   hbar serve                        Start a background Host
   hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
@@ -60,6 +61,7 @@ Paths:
   --cache-root <path>               Cache root override for this process
 
 Commands:
+  repl
   session list|new|resume|fork|archive|export
   exec session.setBudget|session.getBudget|receipt
   commands list|describe
@@ -113,6 +115,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     'skills',
     'config',
     'completion',
+    'repl',
     'tui',
     'exec',
     'commands',

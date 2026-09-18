@@ -1,51 +1,94 @@
 import { readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { parseArguments, CommandError, validationError } from '@hbar/commands'
+import { describeCommand, parseArguments, CommandError, validationError, type CommandDescriptor } from '@hbar/commands'
 import { createBudgetCommandClient, createDirectoryQueryAdapter, createRunCommandClient } from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { runCommands } from '@hbar/contracts/commands/run'
+import { navigationCommands } from '@hbar/contracts/commands'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
 import type { HbarClient } from '@hbar/client'
 import { selectModel, selectSession } from './runtime.ts'
 import { NamedContextStore } from './context.ts'
 
-function print(value: unknown) {
+export type CommandOutput = (value: unknown) => void
+
+function writeStdout(value: unknown) {
   process.stdout.write(`${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}\n`)
 }
 
-export async function runCatalogCommand(args: CliArgs, client: HbarClient): Promise<void> {
+export async function runCatalogCommand(
+  args: CliArgs,
+  client: HbarClient,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
   const [action, selector] = args.commandArgs
   if (!action || action === 'list') {
     const limit = args.limit === undefined ? 100 : Number(args.limit)
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200)
       throw new CommandError('INVALID_INPUT', '--limit must be an integer from 1 to 200')
-    print(
-      JSON.stringify(
-        await client.call('command.catalog', {
-          limit,
-          ...(args.category ? { category: args.category } : {}),
-          ...(args.after ? { after: args.after } : {}),
-        }),
-      ),
+    const remote: CommandDescriptor[] = []
+    let cursor = args.after
+    let revision: number
+    do {
+      const page = await client.call('command.catalog', {
+        limit: 200,
+        ...(args.category ? { category: args.category } : {}),
+        ...(cursor ? { after: cursor } : {}),
+      })
+      revision = page.revision
+      remote.push(...page.items)
+      cursor = page.nextCursor
+    } while (cursor && remote.length < 10_000)
+    const local = [navigationCommands['app.setSession']]
+      .map(describeCommand)
+      .filter(
+        ({ metadata }) =>
+          (!args.category ||
+            metadata.category === args.category ||
+            metadata.category.startsWith(`${args.category}.`)) &&
+          (!args.after || metadata.id > args.after),
+      )
+    const descriptors = [...new Map([...remote, ...local].map((item) => [item.metadata.id, item])).values()].sort(
+      (a, b) => a.metadata.id.localeCompare(b.metadata.id),
     )
-  } else if (action === 'describe' && selector && args.commandArgs.length === 2)
-    print(JSON.stringify(await client.call('command.describe', { commandId: selector })))
-  else throw new CommandError('INVALID_SYNTAX', 'Usage: hbar commands list|describe <commandId>')
+    const items = descriptors.slice(0, limit)
+    output(
+      JSON.stringify({
+        revision: revision + local.length,
+        items,
+        ...(descriptors.length > limit ? { nextCursor: items.at(-1)!.metadata.id } : {}),
+      }),
+    )
+  } else if (action === 'describe' && selector && args.commandArgs.length === 2) {
+    const local = [navigationCommands['app.setSession']].find((definition) => definition.metadata.id === selector)
+    output(
+      JSON.stringify(local ? describeCommand(local) : await client.call('command.describe', { commandId: selector })),
+    )
+  } else throw new CommandError('INVALID_SYNTAX', 'Usage: hbar commands list|describe <commandId>')
 }
 
-export async function runOperationCommand(args: CliArgs, client: HbarClient): Promise<void> {
+export async function runOperationCommand(
+  args: CliArgs,
+  client: HbarClient,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
   const action = args.commandArgs[0]
   if (action !== 'operation.get' && action !== 'operation.cancel')
     throw new CommandError('COMMAND_NOT_FOUND', 'Unknown operation command')
   const raw = parseArguments(runCommands[action].metadata, args.commandArgs.slice(1))
   const parsed = runCommands[action].input.safeParse(raw)
   if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
-  print(JSON.stringify(await createRunCommandClient(client).execute(action, parsed.data)))
+  output(JSON.stringify(await createRunCommandClient(client).execute(action, parsed.data)))
 }
 
-export async function runApplicationCommand(args: CliArgs, client: HbarClient, dataRoot: string): Promise<void> {
+export async function runApplicationCommand(
+  args: CliArgs,
+  client: HbarClient,
+  dataRoot: string,
+  output: CommandOutput = writeStdout,
+): Promise<{ workspaceId: string; sessionId: string }> {
   const [action, selector] = args.commandArgs
   if (action !== 'app.setSession' || !selector || args.commandArgs.length !== 2)
     throw new CommandError('INVALID_SYNTAX', 'Usage: hbar exec app.setSession <id|name> --workspace <id|name>')
@@ -72,9 +115,10 @@ export async function runApplicationCommand(args: CliArgs, client: HbarClient, d
     })
     if (!selection.workspaceId || !selection.sessionId)
       throw new CommandError('SESSION_NOT_FOUND', 'Session was not selected')
+    const selected = { workspaceId: selection.workspaceId, sessionId: selection.sessionId }
     if (!args.context) {
-      print(JSON.stringify({ ...selection, persisted: false }))
-      return
+      output(JSON.stringify({ ...selected, persisted: false }))
+      return selected
     }
     const store = new NamedContextStore(dataRoot)
     const current = await store.get(args.context)
@@ -85,17 +129,18 @@ export async function runApplicationCommand(args: CliArgs, client: HbarClient, d
         throw new CommandError('INVALID_INPUT', '--context-revision must be a positive integer')
       expected = parsed
     }
-    print(
-      JSON.stringify(
-        await store.set(args.context, { workspaceId: selection.workspaceId, sessionId: selection.sessionId }, expected),
-      ),
-    )
+    output(JSON.stringify(await store.set(args.context, selected, expected)))
+    return selected
   } finally {
     runtime.dispose()
   }
 }
 
-export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise<boolean> {
+export async function runCliCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
     const commands = createBudgetCommandClient(runtime.client)
@@ -105,7 +150,7 @@ export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise
       const key = runReceipt ? args.commandArgs[2] : selector
       if (!key || args.commandArgs.length !== (runReceipt ? 3 : 2))
         throw new CommandError('INVALID_SYNTAX', 'Usage: hbar exec receipt [run.submit] <key> --session <id|name>')
-      print(
+      output(
         JSON.stringify(
           runReceipt
             ? await runs.getReceipt(runtime.session.id, key)
@@ -137,7 +182,7 @@ export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise
       ])
       const parsed = runCommands[action].input.safeParse(raw)
       if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
-      print(
+      output(
         JSON.stringify(
           await runs.execute(action, parsed.data, {
             idempotencyKey: args.idempotencyKey,
@@ -161,7 +206,7 @@ export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise
         throw new CommandError('INVALID_INPUT', '--idempotency-key is required for session.setBudget')
       const parsed = budgetCommands[action].input.safeParse(input)
       if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
-      print(
+      output(
         JSON.stringify(
           await commands.execute(action, parsed.data, {
             idempotencyKey: args.idempotencyKey,
@@ -172,65 +217,67 @@ export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise
     } else {
       const parsed = budgetCommands[action].input.safeParse(input)
       if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
-      print(JSON.stringify(await commands.execute(action, parsed.data)))
+      output(JSON.stringify(await commands.execute(action, parsed.data)))
     }
     return true
   }
   if (args.command === 'diagnose') {
-    print(await runtime.client.call('system.diagnose', {}))
+    output(await runtime.client.call('system.diagnose', {}))
     return true
   }
   if (args.command === 'config') {
-    if (!action || action === 'show' || action === 'paths') print(await runtime.client.call('system.paths.get', {}))
+    if (!action || action === 'show' || action === 'paths') output(await runtime.client.call('system.paths.get', {}))
     else throw new Error('Usage: hbar config paths|show')
     return true
   }
   if (args.command === 'session') {
     const catalog = await runtime.client.call('system.bootstrap', {})
     const sessions = catalog.sessions.filter((session) => session.workspaceId === runtime.project.id)
-    if (!action || action === 'list') print(sessions)
-    else if (action === 'new') print(await runtime.client.call('session.create', { workspaceId: runtime.project.id }))
-    else if (action === 'resume') print(await selectSession(runtime.client, catalog, runtime.project.id, selector))
+    if (!action || action === 'list') output(sessions)
+    else if (action === 'new') output(await runtime.client.call('session.create', { workspaceId: runtime.project.id }))
+    else if (action === 'resume') output(await selectSession(runtime.client, catalog, runtime.project.id, selector))
     else if (action === 'fork')
-      print(await runtime.client.call('session.fork', { sessionId: selector ?? runtime.session.id }))
+      output(await runtime.client.call('session.fork', { sessionId: selector ?? runtime.session.id }))
     else if (action === 'archive')
-      print(await runtime.client.call('session.archive', { sessionId: selector ?? runtime.session.id, archived: true }))
+      output(
+        await runtime.client.call('session.archive', { sessionId: selector ?? runtime.session.id, archived: true }),
+      )
     else if (action === 'export') {
       const target = selector ?? runtime.session.id
       const events = await runtime.client.call('session.export', { sessionId: target })
       const path = resolve(args.commandArgs[2] ?? `hbar-${target}.jsonl`)
       await writeFile(path, `${events.map((event) => JSON.stringify(event)).join('\n')}\n`, 'utf8')
-      print(path)
+      output(path)
     } else throw new Error('Usage: hbar session list|new|resume|fork|archive|export')
     return true
   }
   if (args.command === 'model') {
     const catalog = await runtime.client.call('system.bootstrap', {})
-    if (!action || action === 'list') print(catalog.models)
+    if (!action || action === 'list') output(catalog.models)
     else if (action === 'use') {
       if (!selector) throw new Error('Usage: hbar model use <provider/model|id|name>')
-      print({ modelId: selectModel(catalog, selector) })
+      output({ modelId: selectModel(catalog, selector) })
     } else throw new Error('Usage: hbar model list|use')
     return true
   }
   if (args.command === 'plugins') {
-    if (!action || action === 'list') print((await runtime.client.call('system.bootstrap', {})).plugins)
+    if (!action || action === 'list') output((await runtime.client.call('system.bootstrap', {})).plugins)
     else if (action === 'install') {
       if (!selector) throw new Error('Usage: hbar plugins install <directory|archive>')
-      print(await runtime.client.call('plugin.install', { path: selector, projectId: runtime.project.id }))
+      output(await runtime.client.call('plugin.install', { path: selector, projectId: runtime.project.id }))
     } else if (action === 'enable' || action === 'disable') {
       if (!selector) throw new Error(`Usage: hbar plugins ${action} <package-name>`)
-      print(await runtime.client.call(action === 'enable' ? 'plugin.enable' : 'plugin.disable', { id: selector }))
+      output(await runtime.client.call(action === 'enable' ? 'plugin.enable' : 'plugin.disable', { id: selector }))
     } else if (action === 'remove') {
       if (!selector) throw new Error('Usage: hbar plugins remove <package-name>')
-      print(await runtime.client.call('plugin.remove', { id: selector }))
+      output(await runtime.client.call('plugin.remove', { id: selector }))
     } else if (action === 'inspect') {
       if (!selector) throw new Error('Usage: hbar plugins inspect <package-name>')
       const plugin = (await runtime.client.call('system.bootstrap', {})).plugins.find((item) => item.id === selector)
       if (!plugin) throw new Error(`Plugin not found: ${selector}`)
-      print(plugin)
-    } else if (action === 'doctor') print(await runtime.client.call('plugin.doctor', {}))
-    else if (action === 'lock') print(await runtime.client.call('plugin.lock', {}))
+      output(plugin)
+    } else if (action === 'doctor') output(await runtime.client.call('plugin.doctor', {}))
+    else if (action === 'lock') output(await runtime.client.call('plugin.lock', {}))
     else throw new Error('Usage: hbar plugins list|install|enable|disable|remove|inspect|doctor|lock')
     return true
   }
@@ -238,7 +285,7 @@ export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise
     if (action && action !== 'list') throw new Error('Usage: hbar skills list')
     const root = resolve(runtime.layout.skills, 'global')
     const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
-    print(
+    output(
       entries
         .filter((entry) => entry.isDirectory())
         .map((entry) => ({ id: entry.name, path: resolve(root, entry.name) })),

@@ -9,6 +9,7 @@ import { parseCli, HELP, type CliArgs } from './args.ts'
 import { runApplicationCommand, runCatalogCommand, runCliCommand, runOperationCommand } from './commands.ts'
 import { openAttachedRuntime, openCatalogClient, openRuntime, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
+import { runRepl } from './repl.ts'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
@@ -32,9 +33,9 @@ function exitCode(error: unknown, usage = false) {
 
 function completion(shell: string | undefined) {
   if (shell === 'powershell')
-    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'commands','exec','session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
+    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'commands','exec','repl','session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
   if (shell === 'bash' || shell === 'zsh')
-    return `complete -W "commands exec session model plugins skills config diagnose version" hbar`
+    return `complete -W "commands exec repl session model plugins skills config diagnose version" hbar`
   throw new Error('Usage: hbar completion <powershell|bash|zsh>')
 }
 
@@ -72,7 +73,7 @@ async function attached(args: CliArgs) {
       prompt.close()
     }
   }
-  await runTui(runtime, args.message)
+  await runTui(runtime, args.message, args)
 }
 
 let parsed: CliArgs | undefined
@@ -143,6 +144,11 @@ try {
     createSession: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
   })
   try {
+    if (args.command === 'repl') {
+      await runRepl(runtime, args)
+      runtime.close()
+      process.exit(0)
+    }
     const handled = await runCliCommand(args, runtime)
     if (!handled && args.headless) {
       let activeRunId = ''
@@ -167,7 +173,7 @@ try {
       } finally {
         process.off('SIGINT', interrupt)
       }
-    } else if (!handled) await runTui(runtime, args.message)
+    } else if (!handled) await runTui(runtime, args.message, args)
   } finally {
     runtime.close()
   }

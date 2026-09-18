@@ -15,6 +15,7 @@ hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar commands list --category run.approval --limit 100
 hbar commands describe run.submit
 hbar exec app.setSession "审查会话" --workspace <Workspace ID|名称> --context review
+hbar repl
 hbar exec run.submit --message "检查变更" --session <Session ID|名称> --idempotency-key <稳定键>
 hbar exec operation.get <operationId>
 hbar exec operation.cancel <operationId>
@@ -49,6 +50,8 @@ hbar --headless \
 `hbar commands list/describe` 从已认证 Host 读取按 `category` 分类的可序列化定义，查询不需要配置模型或选择会话。`hbar exec run.submit` 可用 `--message` 或 `--input-json <JSON 对象>` 传入输入，必须给稳定幂等键；立即返回受理回执和 operationId，不把受理当完成。`operation.get` 查询当前状态，`operation.cancel` 对排队任务返回 cancelled、对活动任务先返回 cancelRequested，随后用 get 确认终态。断线后用同一设备身份、Session 和键运行 `hbar exec receipt run.submit <键>`，再决定是否重试。当前 CLI 命令目录、命名 context 和这些业务入口已可用；通用 REPL/TUI 分派及其余领域迁移仍在 A6 后续切片。
 
 `app.setSession` 通过独立 app-runtime 解析明确 ID，或在 `--workspace` 限定范围内解析精确名称，不修改 Host 的 Session 事实。未传 `--context` 时选择只存在于该 CLI 进程；传入名称后，选择以 Host 数据根和本机用户为边界原子保存，后续 `hbar exec ... --context review` 可复用目标。保存结果带单调 revision；自动化可传 `--context-revision <revision>` 做显式 CAS，版本已经变化时返回冲突退出码 9，不静默覆盖另一个进程的选择。显式 `--project` / `--session` 优先于 context，适合自动化脚本固定目标。
+
+`hbar repl` 使用与一次性 CLI 相同的 tokenizer、参数校验和 command handler。REPL 可省略 `exec` 前缀直接输入 `session.getBudget` 等点分命令；非 TTY 输入按行执行，错误沿用 CLI 退出码且不会等待表单交互。TUI 的 `/exec <command> [arguments]` 也调用这条执行路径，并把结果留在当前终端界面；现有短命令继续作为兼容别名，在相应领域迁移时改为同一 command 的语法映射。
 
 ## TUI 快捷键
 

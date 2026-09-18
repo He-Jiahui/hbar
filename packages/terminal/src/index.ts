@@ -126,6 +126,13 @@ export function parseTerminalInput(source: string): TerminalInput {
 }
 
 export const BUILTIN_TERMINAL_COMMANDS = [
+  {
+    id: 'exec',
+    title: 'Execute command',
+    description: 'Execute a registered command with the shared parser',
+    usage: '/exec <command> [arguments]',
+    group: 'system',
+  },
   { id: 'help', title: 'Help', description: 'List keyboard and slash commands', usage: '/help', group: 'system' },
   { id: 'new', title: 'New session', description: 'Create and select a session', usage: '/new', group: 'session' },
   { id: 'sessions', title: 'Sessions', description: 'List project sessions', usage: '/sessions', group: 'session' },

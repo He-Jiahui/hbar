@@ -262,6 +262,7 @@
     "git.diff_to_remote": "git.diffToRemote"
   },
   "terminalAliases": {
+    "exec": "shared command parser and executor",
     "help": "command.list",
     "new": "session.create + app.setSession",
     "sessions": "session.list",
@@ -330,7 +331,7 @@
     "A3": "complete",
     "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
     "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
-    "A6": "partial: classified Host catalog, budget/Run CLI and revisioned named context; TUI/REPL unification pending",
+    "A6": "complete: combined catalog, CLI, revisioned named context, line REPL and TUI shared execution path",
     "A7-A15": "pending",
     "B1-B7": "pending"
   }

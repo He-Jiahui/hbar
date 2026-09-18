@@ -15,6 +15,8 @@ import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLeve
 import { BUILTIN_TERMINAL_COMMANDS, parseTerminalInput } from '@hbar/terminal'
 import type { CliRuntime } from './runtime.ts'
 import { selectModel, waitForRun } from './runtime.ts'
+import { executeCommandLine } from './command-line.ts'
+import type { CliArgs } from './args.ts'
 
 export const SLASH_COMMANDS = BUILTIN_TERMINAL_COMMANDS.map((command) => command.usage)
 
@@ -50,7 +52,7 @@ function eventStatus(event: SessionEvent) {
   return event.type
 }
 
-export async function runTui(runtime: CliRuntime, prefill?: string) {
+export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: CliArgs) {
   const renderer = await createCliRenderer({
     targetFps: 30,
     maxFps: 60,
@@ -255,10 +257,35 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     if (!next) throw new Error(`Session not found: ${selector}`)
     await load(next)
   }
-  const slash = async (command: string, args: string[]) => {
+  const slash = async (command: string, args: string[], source: string) => {
     const argument = args.join(' ')
     if (command === 'quit' || command === 'q') return close()
     if (command === 'help') return render(`### Commands\n\n${SLASH_COMMANDS.map((item) => `- \`${item}\``).join('\n')}`)
+    if (command === 'exec') {
+      const output: unknown[] = []
+      const previous = session.id
+      await executeCommandLine(
+        source,
+        runtime,
+        defaults ?? {
+          commandArgs: [],
+          headless: false,
+          help: false,
+          thinking: 'off',
+          approval: 'ask',
+          outputFormat: 'text',
+          demo: false,
+        },
+        (value) => output.push(value),
+      )
+      await refreshCatalog()
+      if (runtime.session.id !== previous) return load(runtime.session)
+      return render(
+        `### Command result\n\n\`\`\`json\n${output
+          .map((value) => (typeof value === 'string' ? value : JSON.stringify(value, null, 2)))
+          .join('\n')}\n\`\`\``,
+      )
+    }
     if (command === 'clear') {
       base = ''
       return render()
@@ -364,7 +391,8 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     input.value = ''
     try {
       const parsed = parseTerminalInput(value)
-      if (parsed.kind === 'command') await slash(parsed.invocation.command, parsed.invocation.args)
+      if (parsed.kind === 'command')
+        await slash(parsed.invocation.command, parsed.invocation.args, parsed.invocation.source)
       else await send(parsed.text)
     } catch (error) {
       status.content = error instanceof Error ? error.message : String(error)

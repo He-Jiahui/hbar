@@ -220,6 +220,11 @@ test('classified command catalog and Run operations are usable without a GUI', a
   const description = await run([...common, 'commands', 'describe', 'run.submit'])
   expect(description.code).toBe(0)
   expect(JSON.parse(description.stdout)).toMatchObject({ metadata: { id: 'run.submit', category: 'run.approval' } })
+  const clientDescription = await run([...common, 'commands', 'describe', 'app.setSession'])
+  expect(clientDescription.code).toBe(0)
+  expect(JSON.parse(clientDescription.stdout)).toMatchObject({
+    metadata: { id: 'app.setSession', category: 'app.navigation', execution: 'client' },
+  })
   const accepted = await run([
     ...common,
     'exec',
@@ -318,6 +323,22 @@ test('named contexts persist app.setSession with revision conflicts and supply l
   ])
   expect(stale.code).toBe(9)
   expect(stale.stderr).toContain('changed')
+})
+
+test('line REPL accepts direct command IDs and shares the CLI command dispatcher', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const sessionId = (JSON.parse(created.stdout) as { id: string }).id
+  const repl = await run(
+    [...common, '--session', sessionId, 'repl'],
+    'session.getBudget\ncommands describe session.getBudget\nquit\n',
+  )
+  expect(repl.code).toBe(0)
+  const lines = repl.stdout.trim().split('\n')
+  expect(lines[0]).toBe('null')
+  expect(JSON.parse(lines.slice(1).join('\n'))).toMatchObject({ metadata: { id: 'session.getBudget' } })
+  expect(repl.stderr).toBe('')
 })
 
 test('headless approval modes deny, allow, and reject non-interactive ask', async () => {
