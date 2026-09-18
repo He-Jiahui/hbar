@@ -13,6 +13,7 @@ export { createModelCommandClient } from './models'
 export { createAgentCommandClient } from './agents'
 export { createBrowserCommandClient } from './browser'
 export { createComputerCommandClient } from './computer'
+export { createConnectionCommands, type ConnectionCommandPort } from './connection'
 export { createConfigurationCommandClient } from './configuration'
 export { createGitCommandClient } from './git'
 export { createExtensionCommandClient } from './extensions'
@@ -30,7 +31,7 @@ import type { ClientTransport } from './transport'
 export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
 export class HbarClient implements ClientTransport {
-  private socket?: WebSocket
+  private socket: WebSocket | undefined
   private pending = new Map<
     number,
     { resolve(value: unknown): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }
@@ -42,6 +43,8 @@ export class HbarClient implements ClientTransport {
   private retry = 0
   private retryTimer?: ReturnType<typeof setTimeout>
   private connectPromise?: Promise<HostInfo> | undefined
+  private currentStatus: ConnectionStatus = 'disconnected'
+  private currentHost: HostInfo | null = null
   private follows = new Map<string, number>()
   constructor(
     readonly baseUrl: string,
@@ -60,7 +63,15 @@ export class HbarClient implements ClientTransport {
     }
   }
   private status(status: ConnectionStatus) {
+    this.currentStatus = status
     for (const listener of this.statuses) listener(status)
+  }
+  private rejectPending(error: HbarError) {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(error)
+    }
+    this.pending.clear()
   }
   connect(): Promise<HostInfo> {
     if (this.connectPromise) return this.connectPromise
@@ -72,15 +83,18 @@ export class HbarClient implements ClientTransport {
       const socket = new WebSocket(url)
       this.socket = socket
       socket.onopen = async () => {
+        if (this.socket !== socket) return socket.close()
         try {
           const host = await this.call('system.hello', { protocol: PROTOCOL_VERSION, token: this.token })
           this.retry = 0
+          this.currentHost = host
           this.status('connected')
           resolve(host)
           for (const [sessionId, cursor] of this.follows) await this.follow(sessionId, cursor)
         } catch (error) {
           if (error instanceof HbarError && error.code === 'UNAUTHORIZED') {
             this.closed = true
+            this.currentHost = null
             this.status('pairing')
           }
           reject(error)
@@ -88,6 +102,7 @@ export class HbarClient implements ClientTransport {
         }
       }
       socket.onmessage = (event) => {
+        if (this.socket !== socket) return
         try {
           const message = JSON.parse(String(event.data)) as {
             id?: number
@@ -112,6 +127,7 @@ export class HbarClient implements ClientTransport {
               )
             if (notification.method === 'auth.revoked') {
               this.closed = true
+              this.currentHost = null
               this.status('pairing')
             }
             for (const listener of this.events) listener(notification)
@@ -122,12 +138,11 @@ export class HbarClient implements ClientTransport {
       }
       socket.onerror = () => reject(new Error('Cannot connect to hbar host'))
       socket.onclose = () => {
+        if (this.socket !== socket) return
+        this.socket = undefined
         this.connectPromise = undefined
-        for (const pending of this.pending.values()) {
-          clearTimeout(pending.timer)
-          pending.reject(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
-        }
-        this.pending.clear()
+        this.currentHost = null
+        this.rejectPending(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
         if (!this.closed) {
           this.status('disconnected')
           this.retryTimer = setTimeout(
@@ -244,7 +259,18 @@ export class HbarClient implements ClientTransport {
   disconnect() {
     this.closed = true
     clearTimeout(this.retryTimer)
-    this.socket?.close()
+    const socket = this.socket
+    this.socket = undefined
+    socket?.close()
     this.connectPromise = undefined
+    this.currentHost = null
+    this.rejectPending(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
+    this.status('disconnected')
+  }
+  connectionStatus() {
+    return this.currentStatus
+  }
+  connectionHost() {
+    return this.currentHost
   }
 }

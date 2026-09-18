@@ -34,6 +34,9 @@ hbar exec plugin.resolve|plugin.graph|plugin.lock|plugin.doctor
 hbar exec plugin.set --input-json '{"id":"my-plugin","enabled":true,"config":{}}'
 hbar exec skill.list
 hbar exec context.compact --session <Session ID|名称> --model <provider/model|id|name>
+hbar exec connection.status
+hbar exec connection.reconnect
+hbar exec connection.disconnect
 hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar exec settings.get provider.model --scope session --session <Session ID>
 hbar exec settings.set provider.model --scope session --session <Session ID> --value-json '"gpt-5"' --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>

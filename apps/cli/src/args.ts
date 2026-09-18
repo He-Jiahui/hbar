@@ -92,6 +92,8 @@ Usage:
   hbar exec plugin.list|plugin.inspect|plugin.graph|plugin.lock|plugin.doctor
   hbar exec plugin.install|plugin.remove|plugin.enable|plugin.disable
   hbar exec skill.list
+  hbar exec connection.status|connection.connect|connection.disconnect|connection.reconnect
+  hbar exec pairing.accept <code> <deviceName>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec context.compact --session <id|name> --model <provider/model|id|name>
   hbar exec operation.get|operation.cancel <operationId>

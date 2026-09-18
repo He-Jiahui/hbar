@@ -9,6 +9,7 @@ import {
   createAgentCommandClient,
   createBrowserCommandClient,
   createComputerCommandClient,
+  createConnectionCommands,
   createConfigurationCommandClient,
   createGitCommandClient,
   createDirectoryQueryAdapter,
@@ -30,6 +31,7 @@ import { agentCommands } from '@hbar/contracts/commands/agents'
 import { browserCommands } from '@hbar/contracts/commands/browser'
 import { computerCommands } from '@hbar/contracts/commands/computer'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import { connectionCommands } from '@hbar/contracts/commands/connection'
 import { gitCommands } from '@hbar/contracts/commands/git'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { extensionCommands } from '@hbar/contracts/commands/extensions'
@@ -78,6 +80,7 @@ export async function runCatalogCommand(
     } while (cursor && remote.length < 10_000)
     const local = [
       navigationCommands['app.setSession'],
+      ...Object.values(connectionCommands),
       ...Object.values(surfaceCommands),
       ...Object.values(attachmentCommands),
     ]
@@ -103,6 +106,7 @@ export async function runCatalogCommand(
   } else if (action === 'describe' && selector && args.commandArgs.length === 2) {
     const local = [
       navigationCommands['app.setSession'],
+      ...Object.values(connectionCommands),
       ...Object.values(surfaceCommands),
       ...Object.values(attachmentCommands),
     ].find((definition) => definition.metadata.id === selector)
@@ -166,6 +170,46 @@ export async function runSurfaceRelayCommand(
 
 export function isSettingsCommand(value: string | undefined): value is keyof typeof settingsCommands {
   return Boolean(value && Object.hasOwn(settingsCommands, value))
+}
+
+export function isConnectionCommand(value: string | undefined): value is keyof typeof connectionCommands {
+  return Boolean(value && Object.hasOwn(connectionCommands, value))
+}
+
+export async function runConnectionCommand(
+  args: CliArgs,
+  client: HbarClient,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isConnectionCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown connection command')
+  const input = parseArguments(connectionCommands[action].metadata, args.commandArgs.slice(1))
+  const commands = createConnectionCommands(client)
+  try {
+    if (action === 'connection.status') {
+      const parsed = connectionCommands[action].input.safeParse(input)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      output(await commands.execute(action, parsed.data))
+    } else if (action === 'connection.connect') {
+      const parsed = connectionCommands[action].input.safeParse(input)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      output(await commands.execute(action, parsed.data))
+    } else if (action === 'connection.disconnect') {
+      const parsed = connectionCommands[action].input.safeParse(input)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      output(await commands.execute(action, parsed.data))
+    } else if (action === 'connection.reconnect') {
+      const parsed = connectionCommands[action].input.safeParse(input)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      output(await commands.execute(action, parsed.data))
+    } else {
+      const parsed = connectionCommands[action].input.safeParse(input)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      output(await commands.execute(action, parsed.data))
+    }
+  } finally {
+    commands.dispose()
+  }
 }
 
 export function isSystemCommand(value: string | undefined): value is keyof typeof systemCommands {
@@ -870,6 +914,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isConnectionCommand(action)) {
+      await runConnectionCommand(args, runtime.client, output)
+      return true
+    }
     if (isExtensionCommand(action)) {
       await runExtensionCommand(args, runtime.client, runtime.project.id, output)
       return true

@@ -10,6 +10,7 @@ import {
   isSurfaceCommand,
   isSystemCommand,
   isExtensionCommand,
+  isConnectionCommand,
   isFileCommand,
   isSettingsCommand,
   runModelListCommand,
@@ -21,6 +22,7 @@ import {
   runSurfaceRelayCommand,
   runSystemCommand,
   runExtensionCommand,
+  runConnectionCommand,
   runSettingsCommand,
 } from './commands.ts'
 import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, waitForRun } from './runtime.ts'
@@ -125,6 +127,15 @@ try {
       await runCatalogCommand(args, client)
     } finally {
       client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isConnectionCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runConnectionCommand(args, client)
+    } finally {
+      if (client.connectionStatus() !== 'disconnected') client.disconnect()
     }
     process.exit(0)
   }

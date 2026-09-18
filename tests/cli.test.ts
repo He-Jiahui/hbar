@@ -92,6 +92,21 @@ test('command catalog opens without a configured model or a selected session', a
     expect(
       (JSON.parse(result.stdout) as { items: { metadata: { id: string } }[] }).items.map((item) => item.metadata.id),
     ).toEqual(['session.clearBudget', 'session.getBudget', 'session.setBudget'])
+    const connection = await run([
+      '--data-root',
+      isolatedData,
+      '--cache-root',
+      isolatedCache,
+      '--project',
+      isolatedProject,
+      'commands',
+      'describe',
+      'connection.reconnect',
+    ])
+    expect(connection.code).toBe(0)
+    expect(JSON.parse(connection.stdout)).toMatchObject({
+      metadata: { id: 'connection.reconnect', execution: 'client', stateEffect: 'application' },
+    })
     const missing = await run([
       '--data-root',
       isolatedData,
@@ -675,6 +690,16 @@ test('exec system commands query diagnostics, validate roots, and manage pairing
   const restart = await run([...common, 'exec', 'system.restart'])
   expect(restart.code).toBe(0)
   expect(JSON.parse(restart.stdout)).toEqual({ accepted: false, restartRequired: true })
+})
+
+test('exec client connection commands expose status and disconnect without Host-side registration', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const status = await run([...common, 'exec', 'connection.status'])
+  expect(status.code).toBe(0)
+  expect(JSON.parse(status.stdout)).toMatchObject({ status: 'connected', host: { demo: true } })
+  const disconnected = await run([...common, 'exec', 'connection.disconnect'])
+  expect(disconnected.code).toBe(0)
+  expect(JSON.parse(disconnected.stdout)).toEqual({ status: 'disconnected', host: null })
 })
 
 test('exec extension commands and legacy aliases use the Host catalog without a session or model', async () => {

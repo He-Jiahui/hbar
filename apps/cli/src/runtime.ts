@@ -5,6 +5,7 @@ import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
 import {
   HbarClient,
+  createConnectionCommands,
   createInteractionCommandClient,
   createModelCommandClient,
   createWorkspaceSessionCommandClient,
@@ -148,11 +149,16 @@ export async function openAttachedRuntime(
 ): Promise<CliRuntime> {
   const layout = await resolvePathLayout()
   const client = new HbarClient(url, token)
+  const connection = createConnectionCommands(client)
   try {
-    await client.connect()
-  } catch (error) {
-    if (!pairingCode) throw error
-    await client.pair(pairingCode, 'hbar CLI')
+    try {
+      await connection.execute('connection.connect', {})
+    } catch (error) {
+      if (!pairingCode) throw error
+      await connection.execute('pairing.accept', { code: pairingCode, name: 'hbar CLI' })
+    }
+  } finally {
+    connection.dispose()
   }
   const bootstrap = await client.call('system.bootstrap', {})
   const project = options.project

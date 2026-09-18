@@ -114,6 +114,8 @@ A11m 迁移扩展管理。`plugin.list/inspect/set/install/scan/remove/enable/di
 
 A11n 迁移上下文压缩：`context.compact` 进入 run command catalog，CLI/TUI 与旧 RPC 调用同一 adapter。Kernel 接受 command cancellation signal 并与领域 120 秒超时组合；typed Client 为 command transport 保留 300 秒响应窗口。真实 Host 测试先形成足够对话，再验证压缩投影缩短、原始历史不删除、规范事件只由领域用例提交；丢失响应报告未知结果。
 
+A11o 完成客户端连接命令：连接状态、连接、断开、重连和接受配对码在 Client registry 中执行，Host 仅保留认证握手和配对 HTTP 边界。HbarClient 记录当前 Host 快照，旧 socket 的迟到事件不得覆盖新连接；disconnect 同步拒绝 pending 调用。真实 Host 测试覆盖未授权进入 pairing、接受一次性 code、连接态拒绝换绑、断开后凭据重连和显式 reconnect；CLI catalog 可描述 client command。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

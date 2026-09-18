@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-model-configuration-settings-workspace-files-agents-browser-computer-git-system-extension-surfaces",
+      "status": "partial-budget-run-interaction-model-configuration-settings-workspace-files-agents-browser-computer-git-system-extension-client-connection-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -28,6 +28,7 @@
         "tests/agent-commands.test.ts",
         "tests/browser-commands.test.ts",
         "tests/computer-commands.test.ts",
+        "tests/connection-commands.test.ts",
         "tests/git-commands.test.ts",
         "tests/workspace-session-commands.test.ts",
         "tests/file-commands.test.ts",
@@ -46,10 +47,10 @@
       "stateOwner": "Client SDK connection; Host device records",
       "category": "system.extensions",
       "milestone": "A11",
-      "status": "partial-host-system-device-pairing-commands-client-connection-pending",
+      "status": "complete-host-and-client-commands",
       "rpc": ["system.hello", "system.bootstrap", "system.diagnose", "device.list", "device.revoke", "pairing.create"],
       "additionalCommands": ["connection.connect", "connection.disconnect", "connection.reconnect", "pairing.accept"],
-      "tests": ["tests/server.test.ts", "tests/system-commands.test.ts", "tests/cli.test.ts"]
+      "tests": ["tests/server.test.ts", "tests/system-commands.test.ts", "tests/connection-commands.test.ts", "tests/cli.test.ts"]
     },
     {
       "id": "paths",

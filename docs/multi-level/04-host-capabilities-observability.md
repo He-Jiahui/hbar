@@ -61,6 +61,8 @@ A11m 将插件安装、配置、启停、卸载、扫描、依赖解析、图、
 
 A11n 将 `context.compact` 纳入 `run.approval` 命令域。命令复用 Kernel 的空闲门禁、模型解析、120 秒 provider 超时、usage 事实和 `context.compacted` 规范事件，并把 command cancellation signal 合入 provider signal。因为模型请求和持久提交可能已发生，执行中取消、超时或断线统一返回 `RESULT_UNKNOWN`，调用者必须检查 Session 的 compaction 事件或上下文投影后再尝试。
 
+A11o 将 `connection.status/connect/disconnect/reconnect` 与 `pairing.accept` 定义为 client-execution commands。它们由 `@hbar/client` registry 执行，不进入需要认证的 Host catalog；因此未配对客户端可以用同一命令接受 pairing code。HbarClient 公开只读连接快照，并用 socket identity 隔离旧连接的迟到 close/message，显式断开会立即终止该连接的 pending 请求。远程 attach、命令描述和 CLI 连接入口共用这套契约。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。
