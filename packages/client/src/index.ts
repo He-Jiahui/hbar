@@ -1,9 +1,9 @@
 import { artifactSchema, HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
+export { createDirectoryQueryAdapter } from './directory'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
-export interface ClientTransport {
-  call<M extends RpcMethod>(method: M, params: RpcParams<M>): Promise<RpcResults[M]>
-}
+import type { ClientTransport } from './transport'
+export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
 export class HbarClient implements ClientTransport {
   private socket?: WebSocket

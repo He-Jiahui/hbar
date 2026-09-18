@@ -6,6 +6,7 @@ import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas 
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 import { Kernel } from '@hbar/kernel'
+import { CommandError } from '@hbar/commands/protocol'
 import type {
   BrowserUseService,
   BudgetService,
@@ -116,6 +117,14 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         clearTimeout(socket.data.timer)
         return hostInfo()
       }
+      case 'workspace.list':
+        return kernel.directoryQueries.execute('workspace.list', rpcSchemas['workspace.list'].parse(raw))
+      case 'workspace.get':
+        return kernel.directoryQueries.execute('workspace.get', rpcSchemas['workspace.get'].parse(raw))
+      case 'session.list':
+        return kernel.directoryQueries.execute('session.list', rpcSchemas['session.list'].parse(raw))
+      case 'session.get':
+        return kernel.directoryQueries.execute('session.get', rpcSchemas['session.get'].parse(raw))
       case 'system.bootstrap':
         return kernel.bootstrap(hostInfo())
       case 'system.diagnose':
@@ -598,7 +607,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             id,
             error: {
               code: -32000,
-              data: error instanceof HbarError ? error.code : 'INVALID_REQUEST',
+              data: error instanceof HbarError || error instanceof CommandError ? error.code : 'INVALID_REQUEST',
               message: error instanceof Error ? error.message : String(error),
             },
           })

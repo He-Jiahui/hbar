@@ -14,6 +14,7 @@
         "@codemirror/view": "6.43.11",
         "@earendil-works/pi-agent-core": "0.85.1",
         "@earendil-works/pi-ai": "0.85.1",
+        "@hbar/app-runtime": "workspace:*",
         "@hbar/browser-use": "workspace:*",
         "@hbar/budget": "workspace:*",
         "@hbar/client": "workspace:*",
@@ -105,6 +106,9 @@
     "apps/host": {
       "name": "@hbar/host",
       "version": "0.1.0",
+      "dependencies": {
+        "@hbar/commands": "workspace:*",
+      },
     },
     "apps/web": {
       "name": "@hbar/web",
@@ -112,6 +116,16 @@
       "dependencies": {
         "hbar-app-ui": "workspace:*",
         "zod": "4.5.4",
+      },
+    },
+    "packages/app-runtime": {
+      "name": "@hbar/app-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/commands": "workspace:*",
+        "@hbar/contracts": "workspace:*",
+        "zod": "4.5.4",
+        "zustand": "5.0.15",
       },
     },
     "packages/client": {
@@ -128,6 +142,10 @@
     "packages/contracts": {
       "name": "@hbar/contracts",
       "version": "0.1.0",
+      "dependencies": {
+        "@hbar/commands": "workspace:*",
+        "zod": "4.5.4",
+      },
     },
     "packages/hbar-app-ui": {
       "name": "hbar-app-ui",
@@ -144,6 +162,9 @@
     "packages/kernel": {
       "name": "@hbar/kernel",
       "version": "0.1.0",
+      "dependencies": {
+        "@hbar/commands": "workspace:*",
+      },
     },
     "packages/plugin-sdk": {
       "name": "@hbar/plugin-sdk",
@@ -438,6 +459,8 @@
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.3", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q=="],
 
     "@google/genai": ["@google/genai@1.52.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q=="],
+
+    "@hbar/app-runtime": ["@hbar/app-runtime@workspace:packages/app-runtime"],
 
     "@hbar/app-ui-preview": ["@hbar/app-ui-preview@workspace:apps/hbar-app-ui-preview"],
 

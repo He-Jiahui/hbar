@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { HbarError, contentBlockSchema, emptyUsage, inputSchema, providerSchema, sessionEventSchema } from '@hbar/contracts'
 import { z } from 'zod'
+import { workspaceSchema, sessionSchema, workspaceListInputSchema, sessionListInputSchema } from '@hbar/contracts/directory'
 import type {
   Approval,
   ArtifactRef,
@@ -178,6 +179,32 @@ const methods: StorageMethods = {
     return workspace
   },
   workspaces: () => db.query('SELECT * FROM workspaces ORDER BY createdAt').all() as Workspace[],
+  workspacePage(input) {
+    const { after, limit } = workspaceListInputSchema.parse(input)
+    const rows = z.array(workspaceSchema).parse(db.query('SELECT * FROM workspaces WHERE (? IS NULL OR id > ?) ORDER BY id LIMIT ?').all(after ?? null, after ?? null, limit + 1))
+    const items = rows.slice(0, limit)
+    return { items, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null }
+  },
+  sessionPage(input) {
+    const { workspaceId, after, title, includeArchived, limit } = sessionListInputSchema.parse(input)
+    methods.workspace(workspaceId)
+    const rows = z.array(z.record(z.string(), z.unknown())).parse(db.query(`SELECT * FROM sessions
+      WHERE workspaceId = ? AND (? IS NULL OR id > ?) AND (? IS NULL OR title = ?)
+      AND (? = 1 OR archived = 0) ORDER BY id LIMIT ?`).all(workspaceId, after ?? null, after ?? null, title ?? null, title ?? null, Number(includeArchived), limit + 1))
+      .map((row) => sessionSchema.parse({ ...row, archived: Boolean(row.archived) }))
+    const items = rows.slice(0, limit)
+    return { items, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null }
+  },
+  findWorkspace(id) {
+    const row = db.query('SELECT * FROM workspaces WHERE id=?').get(id)
+    return row === null ? null : workspaceSchema.parse(row)
+  },
+  findSession(id) {
+    const row = db.query('SELECT * FROM sessions WHERE id=?').get(id)
+    if (row === null) return null
+    const data = z.record(z.string(), z.unknown()).parse(row)
+    return sessionSchema.parse({ ...data, archived: Boolean(data.archived) })
+  },
   workspace: (id) => required(db.query('SELECT * FROM workspaces WHERE id=?').get(id), 'Workspace') as Workspace,
   createSession(workspaceId, title = 'New session', parentId) {
     return db.transaction(() => {

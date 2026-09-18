@@ -12,12 +12,20 @@ import type {
   SessionSnapshot,
   UserInput,
   Workspace,
+  WorkspaceListInput,
+  SessionListInput,
+  WorkspacePage,
+  SessionPage,
 } from '@hbar/contracts'
 
 export interface StorageMethods {
   ready(): { version: number }
   createWorkspace(path: string, name: string): Workspace
   workspaces(): Workspace[]
+  workspacePage(input: WorkspaceListInput): WorkspacePage
+  sessionPage(input: SessionListInput): SessionPage
+  findWorkspace(id: string): Workspace | null
+  findSession(id: string): Session | null
   workspace(id: string): Workspace
   createSession(workspaceId: string, title?: string, parentId?: string): Session
   sessions(): Session[]

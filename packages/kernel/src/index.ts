@@ -58,6 +58,7 @@ import computerPlugin from '@hbar/computer-use'
 import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
+import { createDirectoryQueries } from './directory-queries'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -173,6 +174,7 @@ interface ActiveRun {
 }
 
 export class Kernel {
+  readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
   readonly tools = new Tools()
   readonly hooks = new Hooks()
@@ -202,6 +204,12 @@ export class Kernel {
     storage?: StoragePort,
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.directoryQueries = createDirectoryQueries({
+      workspacePage: (input) => this.storage.call('workspacePage', input),
+      sessionPage: (input) => this.storage.call('sessionPage', input),
+      findWorkspace: (id) => this.storage.call('findWorkspace', id),
+      findSession: (id) => this.storage.call('findSession', id),
+    })
     this.secrets =
       options.secrets ??
       new NativeSecrets(`hbar.${createHash('sha256').update(options.home).digest('hex').slice(0, 20)}`)
@@ -1149,6 +1157,7 @@ export class Kernel {
   }
   async close() {
     this.closing = true
+    this.directoryQueries.dispose()
     for (const active of this.active.values()) active.controller.abort(new Error('Host shutting down'))
     await this.waitForIdle()
     for (const pending of this.userInputs.values())

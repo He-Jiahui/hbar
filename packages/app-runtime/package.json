@@ -1,0 +1,15 @@
+{
+  "name": "@hbar/app-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@hbar/commands": "workspace:*",
+    "@hbar/contracts": "workspace:*",
+    "zustand": "5.0.15",
+    "zod": "4.5.4"
+  }
+}

@@ -91,9 +91,13 @@
         "session.rename",
         "session.archive",
         "session.fork",
-        "session.export"
+        "session.export",
+        "workspace.list",
+        "workspace.get",
+        "session.list",
+        "session.get"
       ],
-      "additionalCommands": ["workspace.list", "workspace.open", "session.list"],
+      "additionalCommands": ["workspace.open"],
       "tests": ["tests/kernel.test.ts", "tests/server.test.ts", "tests/cli.test.ts"]
     },
     {
@@ -294,7 +298,8 @@
   "gates": {
     "A0": "complete",
     "A1": "complete",
-    "A2-A15": "pending",
+    "A2": "complete",
+    "A3-A15": "pending",
     "B1-B7": "pending"
   }
 }

@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { workspaceListInputSchema, workspaceGetInputSchema, sessionListInputSchema, sessionGetInputSchema } from './state/directory'
+import type { Workspace, Session, WorkspacePage, SessionPage } from './state/directory'
+export * from './state/directory'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
@@ -317,26 +320,10 @@ export const usageSchema = z.object({
 })
 export type Usage = z.infer<typeof usageSchema>
 export const emptyUsage = (): Usage => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 })
-export interface Workspace {
-  id: string
-  path: string
-  name: string
-  createdAt: number
-}
 export interface FileEntry {
   name: string
   path: string
   directory: boolean
-}
-export interface Session {
-  id: string
-  workspaceId: string
-  title: string
-  archived: boolean
-  parentId: string | null
-  createdAt: number
-  updatedAt: number
-  seq: number
 }
 export type RunStatus = 'queued' | 'running' | 'waiting_approval' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
 export interface Run {
@@ -807,6 +794,10 @@ export type WireNotification =
   | { method: 'auth.revoked'; params: { reason: string } }
 
 export const rpcSchemas = {
+  'workspace.list': workspaceListInputSchema,
+  'workspace.get': workspaceGetInputSchema,
+  'session.list': sessionListInputSchema,
+  'session.get': sessionGetInputSchema,
   'system.hello': z.object({ protocol: z.literal(PROTOCOL_VERSION), token: z.string().max(512).optional() }),
   'system.bootstrap': z.object({}),
   'system.diagnose': z.object({}),
@@ -1003,6 +994,10 @@ export const rpcSchemas = {
 export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
+  'workspace.list': WorkspacePage
+  'workspace.get': Workspace | null
+  'session.list': SessionPage
+  'session.get': Session | null
   'system.hello': HostInfo
   'system.bootstrap': Bootstrap
   'system.diagnose': Record<string, unknown>

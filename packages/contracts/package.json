@@ -3,5 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": {
+    ".": "./src/index.ts",
+    "./commands": "./src/commands/index.ts",
+    "./directory": "./src/state/directory.ts"
+  },
+  "dependencies": {
+    "@hbar/commands": "workspace:*",
+    "zod": "4.5.4"
+  }
 }

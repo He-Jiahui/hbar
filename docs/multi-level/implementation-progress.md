@@ -33,7 +33,7 @@
 
 交付验证：`bun run check` 通过 lint、typecheck、178 个测试（50 个文件）；新增门禁/清单测试 4 项通过。30 个相对文档链接有效。此里程碑未改 UI 或桌面行为，不运行 build/E2E/desktop smoke。原始日志位于忽略目录 `artifacts/command-first-a0-check.log`。
 
-后续里程碑：A1 命令包 → A2 runtime/会话选择 → A3 预算 Host/CLI 闭环 → A4 参数表单；剩余 A5–A15 与 B1–B7 继续按 [P6](06-migration-validation.md) 执行。
+实施顺序：A1 命令包 → A2 runtime/会话选择 → A3 预算 Host/CLI 闭环 → A4 参数表单；A5–A15 与 B1–B7 继续按 [P6](06-migration-validation.md) 执行。
 
 ## A1：独立命令包（完成）
 
@@ -46,3 +46,19 @@
 持久/外部写与 required idempotency 在未安装 journal adapter 时明确不可用；A3 实现业务事务和回执后启用。长任务、动态可用性、跨域目录合并与旧 terminal/RPC 兼容仍按 A5/A6/A11 实施，A1 不代表 P1 全部完成。使用说明见 [commands README](../../packages/commands/README.md)。
 
 交付验证：最终 `bun run check` 通过 lint、typecheck、189 个测试（51 个文件、1490 个断言）；命令包新增 11 个行为/依赖测试。公开包及 protocol 子入口导入 smoke、31 个文档相对链接、变更格式和暂存差异检查通过。日志为 `artifacts/command-first-a1-final-check.log`。未改 UI/桌面行为，不运行其 E2E/smoke。
+
+## A2：只读运行时与真实 Host 目录查询（完成）
+
+新增 `@hbar/app-runtime`，按目录查询投影、导航命令、私有 Zustand 与组合根拆模块。View handle 只读状态并执行命令；生命周期归组合根。已贯通 app.setWorkspace、app.setSession 及 workspace/session list/get，支持明确 ID、当前工程内名称、歧义候选、归档/缺失/跨工程错误、较新导航优先、失效选择清除与订阅释放。
+
+Host 使用同源 command 定义注册目录查询服务，Controller 只做 RPC 适配；Storage Worker 直接进行稳定 ID 分页，最大 200 项，不依赖 bootstrap 的 2,000 条总列表限制。Client 的目录适配器仅允许四种读取，runtime 不依赖 Client 实现。实体 DTO 改由独立 Schema 推导，现有 contracts 根导出兼容。
+
+测试覆盖同一真实 Host 上两个 runtime 的选择隔离、分页/过滤/归档刷新、查询 SQL 参数绑定；无 React 测试覆盖嵌套不可写快照、迟到与 dispose、错误观察者隔离、相同查询的独立消费者及 1,001 条记录下的 1,000 条缓存上限/选中项保留。包导入图包含 Zustand vanilla，不包含 React/Client/Host/存储实现。
+
+运行时当前是有界目录查询投影；完整业务流、事件游标恢复、持续订阅与跨连接 generation 在 A11/P2.5 完成，CLI 命名上下文与正式 exec/REPL 在 A6 完成。使用说明见 [runtime README](../../packages/app-runtime/README.md)。
+
+交付验证：最终 `bun run check` 通过 lint、typecheck、198 个测试（52 个文件、1544 个断言），补充的并发查询和基准脚本也通过定向 lint。新增代码/文档格式与差异检查通过；未修改 Web 呈现或原生桌面，不运行相关 E2E/desktop smoke。日志为 `artifacts/command-first-a2-final-check.log`。
+
+可重复基准：`bun scripts/benchmark-app-runtime.ts` 创建临时 Host/数据目录，20 次预热后各采样 200 次，零模型请求。本机 Windows、Bun 1.4.0、Ryzen 7 7700X/16 逻辑处理器，已认证回环 WebSocket + Storage Worker：会话选择 p50/p95/max = 0.52/0.71/0.92 ms，分页查询 = 0.39/0.55/1.88 ms，均低于本切片 p95 100 ms 预算。报告为 `artifacts/app-runtime-benchmark.json`；这是本机两个 Session 的基线，不是所有网络/数据规模的延迟保证。
+
+下一里程碑为 A3：session.setBudget/getBudget 的持久短命令回执、预算事务、幂等/CAS 和 CLI 适配；完整目标仍包括 A3–A15、B1–B7。
