@@ -70,6 +70,8 @@ A6a 在 `a235f76` 提交。A6b 让 `app.setSession` 使用无 React app-runtime 
 
 A6b 在 `0e729d1` 提交。A6c 组合 Host 与 client command 描述，增加行式 `hbar repl`，并让 REPL 与 TUI `/exec` 复用一次性 CLI 的 tokenizer、参数校验和执行函数。非 TTY REPL、直接点分 command ID、client `app.setSession` 描述和旧终端入口均有回归覆盖；旧短命令在 A11 各领域迁移时只保留语法映射。
 
+A6c 在 `8dd58e2` 提交。A7a 在 app-runtime 内建立只读 surface 投影，panel 与 window 只能由类型化 `app.open*` / `app.close*` 命令改变。跟随面板在选择切换后更新目标，固定面板保留原目标；window 操作按 windowId 串行调用注入的 PlatformPort，失败不发布状态。无 renderer/platform 的 runtime 返回 `CAPABILITY_UNAVAILABLE`。Host 定向转发与客户端 capability/generation 属于 A7b。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

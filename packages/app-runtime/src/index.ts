@@ -1,11 +1,12 @@
 import { CommandRegistry, CommandError, createCommandClient, type ExecuteOptions } from '@hbar/commands'
-import { applicationCommands, navigationCommands } from '@hbar/contracts/commands'
+import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
 import { createBudgetForms } from './budget-forms'
-import type { NavigationState, RuntimeOptions } from './types'
+import { registerSurfaceCommands } from './surfaces'
+import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
   BudgetCommandPort,
@@ -14,6 +15,11 @@ export type {
   DirectoryState,
   NavigationState,
   RuntimeOptions,
+  SurfaceCapabilityPort,
+  PlatformPort,
+  PanelSurface,
+  WindowSurface,
+  SurfaceState,
 } from './types'
 export { SessionSelectionError } from './navigation'
 
@@ -31,8 +37,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     { workspaceId: null, sessionId: null, status: 'idle', error: null },
     onSubscriberError,
   )
+  const surfaces = createState<SurfaceState>(
+    { panels: {}, windows: {}, focusedPanelId: null, focusedWindowId: null },
+    onSubscriberError,
+  )
 
   const local = new CommandRegistry({ execution: 'client' })
+  const platform = new CommandRegistry({ execution: 'platform' })
   let disposed = false
   const directory = createDirectoryModule(
     options,
@@ -45,10 +56,18 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const remote = directory.registry
   registerNavigationCommands(local, directory.queries, navigation, () => disposed)
+  const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
-      return Object.hasOwn(navigationCommands, name) || Object.hasOwn(budgetEditorCommands, name)
+      if (
+        Object.hasOwn(surfaceCommands, name) &&
+        surfaceCommands[name as keyof typeof surfaceCommands].metadata.execution === 'platform'
+      )
+        return platform.execute(name, input, execution)
+      return Object.hasOwn(navigationCommands, name) ||
+        Object.hasOwn(budgetEditorCommands, name) ||
+        Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
     },
@@ -56,11 +75,23 @@ export function createAppRuntime(options: RuntimeOptions) {
   const view = Object.freeze({
     instanceId: options.instanceId,
     hostId: options.hostId,
-    state: Object.freeze({ navigation: navigation.reader, directory: directory.reader, forms: forms.reader }),
+    state: Object.freeze({
+      navigation: navigation.reader,
+      directory: directory.reader,
+      forms: forms.reader,
+      surfaces: surfaces.reader,
+    }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const name = source.trim().split(/\s/, 1)[0] ?? ''
-      return Object.hasOwn(navigationCommands, name) || Object.hasOwn(budgetEditorCommands, name)
+      if (
+        Object.hasOwn(surfaceCommands, name) &&
+        surfaceCommands[name as keyof typeof surfaceCommands].metadata.execution === 'platform'
+      )
+        return platform.executeText(source, execution)
+      return Object.hasOwn(navigationCommands, name) ||
+        Object.hasOwn(budgetEditorCommands, name) ||
+        Object.hasOwn(surfaceCommands, name)
         ? local.executeText(source, execution)
         : remote.executeText(source, execution)
     },
@@ -72,8 +103,11 @@ export function createAppRuntime(options: RuntimeOptions) {
       disposed = true
 
       local.dispose()
+      platform.dispose()
       directory.dispose()
       forms.dispose()
+      disposeSurfaces()
+      surfaces.dispose()
       navigation.dispose()
     },
   }

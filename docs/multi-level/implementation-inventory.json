@@ -332,7 +332,8 @@
     "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
     "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
     "A6": "complete: combined catalog, CLI, revisioned named context, line REPL and TUI shared execution path",
-    "A7-A15": "pending",
+    "A7": "partial: local logical surfaces and PlatformPort; directed client relay pending",
+    "A8-A15": "pending",
     "B1-B7": "pending"
   }
 }

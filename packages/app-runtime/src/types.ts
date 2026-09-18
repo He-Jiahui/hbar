@@ -29,7 +29,34 @@ export interface RuntimeOptions {
   readonly hostId: string
   readonly directory: CommandExecutor
   readonly budget?: BudgetCommandPort
+  readonly surfaces?: SurfaceCapabilityPort
+  readonly platform?: PlatformPort
   readonly onSubscriberError?: (error: unknown) => void
+}
+export interface SurfaceCapabilityPort {
+  canRender(panelId: string): boolean
+}
+export interface PlatformPort {
+  openWindow(window: WindowSurface): Promise<void>
+  closeWindow(windowId: string): Promise<void>
+}
+export interface PanelSurface {
+  readonly instanceId: string
+  readonly panelId: string
+  readonly workspaceId: string | null
+  readonly sessionId: string | null
+  readonly binding: 'followActive' | 'pinned'
+  readonly params: Readonly<Record<string, unknown>>
+}
+export interface WindowSurface {
+  readonly windowId: string
+  readonly page: { readonly kind: string; readonly params: Readonly<Record<string, unknown>> }
+}
+export interface SurfaceState {
+  readonly panels: Readonly<Record<string, PanelSurface>>
+  readonly windows: Readonly<Record<string, WindowSurface>>
+  readonly focusedPanelId: string | null
+  readonly focusedWindowId: string | null
 }
 export interface NavigationState {
   readonly workspaceId: string | null
