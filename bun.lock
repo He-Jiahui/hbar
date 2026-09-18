@@ -157,6 +157,7 @@
       "name": "@hbar/client",
       "version": "0.1.0",
       "dependencies": {
+        "@hbar/contracts": "workspace:*",
         "@hbar/schema-core": "workspace:*",
       },
     },

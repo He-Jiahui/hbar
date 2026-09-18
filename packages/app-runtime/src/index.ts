@@ -6,6 +6,7 @@ import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
 import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
+import { createSessionTimeline } from './session-timeline'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
@@ -15,6 +16,9 @@ export type {
   DirectoryState,
   NavigationState,
   RuntimeOptions,
+  SessionTimelinePort,
+  SessionTimelineState,
+  SessionTimelineUpdate,
   SurfaceCapabilityPort,
   PlatformPort,
   PanelSurface,
@@ -58,6 +62,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   registerNavigationCommands(local, directory.queries, navigation, () => disposed)
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
+  const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -80,6 +85,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       directory: directory.reader,
       forms: forms.reader,
       surfaces: surfaces.reader,
+      timeline: timeline.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
@@ -106,6 +112,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       platform.dispose()
       directory.dispose()
       forms.dispose()
+      timeline.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()

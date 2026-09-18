@@ -6,6 +6,7 @@ import {
   createBudgetCommandClient,
   createConnectionCommands,
   createDirectoryQueryAdapter,
+  createSessionTimelineClient,
 } from '@hbar/client'
 import type { ConnectionStatus } from '@hbar/client'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
@@ -19,6 +20,7 @@ function createRuntime(client: HbarClient, hostId: string) {
     instanceId: crypto.randomUUID(),
     hostId,
     directory: createDirectoryQueryAdapter(client),
+    timeline: createSessionTimelineClient(client),
     budget: createBudgetCommandClient(client),
     surfaces: { canRender: (panelId) => panels.has(panelId) },
   })

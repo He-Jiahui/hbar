@@ -76,3 +76,13 @@ A15 将无头 CLI 的最后一条 Run 写路径迁到 typed command，随后把�
 Web 组合根现在拥有 Client、Host generation、runtime 生命周期、版本化布局和类型化中英文内容。它不读取或清除旧 workbench localStorage，损坏旧数据不影响安全默认布局。生产构建及 Playwright 覆盖无 Host 降级、Ctrl+K 命令入口、设置入口、中英文、桌面/窄屏、无横向溢出、刷新和遗留数据隔离；目录与两个 runtime 的状态隔离继续由 app-runtime/Host 集成测试覆盖。
 
 交付验证：`bun run check` 通过 lint、typecheck、300 个测试（82 个文件、2375 个断言）；`bun run build` 完成 188 个模块的生产构建；`bunx playwright test e2e/web-shell.spec.ts --reporter=line` 的 4 个中英文桌面/窄屏场景通过。无 Host E2E 中 Vite 代理记录预期的 `ECONNREFUSED 127.0.0.1:4317`，应用稳定显示未连接并停止自动重试。
+
+## B2：会话工作区（实施中）
+
+### B2a：只读 Session timeline 与可靠增量恢复（完成）
+
+app-runtime 新增每实例独立的 timeline 投影。选中 Session 后先读取最多 60 条消息的 Host 快照，再从确切 cursor follow；只读状态包含有界 messages、runs、approvals、userInputs、legacy usage、live streams 和最近事件。事件按稳定 ID 合并，stream 按独立 text/thinking offset 与连续 version 应用；缺帧、Host resync、跨 Session 迟到结果或返回错误 Session 的快照会触发恢复或拒绝，不能静默拼接错误正文。切换 Session 和 dispose 释放原 follow，不停止 Host 上仍在运行的任务。
+
+Client adapter 将现有 `session.snapshot/follow/unfollow` 和 reconnect 通知转换为 timeline port；Web 组合根只注入该 port，React View 仍不获得 Client。定向测试覆盖快照、增量正文、消息提交清理 stream、畸形事件、Session 切换、重同步、通知过滤和精确释放。草稿、发送/取消、审批和可靠 Usage 投影继续按 B2b–B2d 独立交付。
+
+交付验证：`bun run check` 通过 lint、typecheck、302 个测试（83 个文件、2390 个断言）；定向的 timeline、app-runtime 与真实 Host 测试 15 项通过，workspace/Web 依赖边界 4 项通过。此切片只接数据投影，未新增可见会话页面，因此不重复运行 B1 的视觉 E2E。

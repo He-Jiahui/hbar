@@ -1,7 +1,18 @@
 import type { CommandExecutor } from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import type { SessionBudget } from '@hbar/contracts'
+import type {
+  Approval,
+  LiveStream,
+  Message,
+  Run,
+  SessionBudget,
+  SessionEvent,
+  SessionSnapshot,
+  StreamDelta,
+  Usage,
+  UserInputRequest,
+} from '@hbar/contracts'
 import type { FormState } from '@hbar/schema-core'
 
 export interface BudgetCommandPort {
@@ -28,10 +39,39 @@ export interface RuntimeOptions {
   readonly instanceId: string
   readonly hostId: string
   readonly directory: CommandExecutor
+  readonly timeline?: SessionTimelinePort
   readonly budget?: BudgetCommandPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly onSubscriberError?: (error: unknown) => void
+}
+export type SessionTimelineUpdate =
+  | { readonly kind: 'event'; readonly event: SessionEvent }
+  | { readonly kind: 'stream'; readonly stream: StreamDelta }
+  | { readonly kind: 'reset' }
+
+export interface SessionTimelinePort {
+  snapshot(sessionId: string, before?: number, limit?: number): Promise<SessionSnapshot>
+  watch(
+    sessionId: string,
+    cursor: number,
+    onUpdate: (update: SessionTimelineUpdate) => void,
+  ): Promise<() => void | Promise<void>>
+}
+
+export interface SessionTimelineState {
+  readonly sessionId: string | null
+  readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly messages: readonly Readonly<Message>[]
+  readonly runs: readonly Readonly<Run>[]
+  readonly approvals: readonly Readonly<Approval>[]
+  readonly userInputs: readonly Readonly<UserInputRequest>[]
+  readonly usage: Readonly<Usage>
+  readonly streams: Readonly<Record<string, Readonly<LiveStream>>>
+  readonly events: readonly Readonly<SessionEvent>[]
+  readonly cursor: number
+  readonly hasOlder: boolean
+  readonly error: string | null
 }
 export interface SurfaceCapabilityPort {
   canRender(panelId: string): boolean

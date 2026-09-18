@@ -407,6 +407,7 @@
     "A14": "complete: durable explicit provenance, bounded first-parent statistics, incremental cache and rewrite reindex",
     "A15": "complete: consumer write paths and Host compatibility adapters sealed; real no-GUI integrated acceptance passes",
     "B1": "complete: read-only app-react bindings, production AppShell, paged workspace/session sidebar, command navigation, versioned layout and responsive offline E2E",
-    "B2-B7": "pending"
+    "B2": "in progress: B2a read-only bounded session timeline, cursor follow and resync complete; draft, run, interaction and usage slices pending",
+    "B3-B7": "pending"
   }
 }
