@@ -8,6 +8,10 @@ export const submitRunInputSchema = z.strictObject({
   modelId: idSchema,
   input: inputSchema,
 })
+export const retryRunInputSchema = z.strictObject({
+  sessionId: idSchema,
+  operationId: idSchema,
+})
 export const runCommandRecordSchema = z.strictObject({
   actorId: idSchema,
   idempotencyKey: z.string().min(1).max(128),
@@ -85,6 +89,30 @@ export const runCommands = {
       },
     },
     submitRunInputSchema,
+    runAcceptedSchema,
+  ),
+  'run.retry': defineCommand(
+    {
+      id: 'run.retry',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'persistent',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.run.retry.title',
+      descriptionKey: 'commands.run.retry.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      idempotency: 'required',
+      cli: {
+        arguments: [
+          { field: 'operationId', type: 'string', position: 0, flag: 'operation' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+        ],
+      },
+    },
+    retryRunInputSchema,
     runAcceptedSchema,
   ),
   'operation.get': defineCommand(

@@ -117,7 +117,7 @@ test('run.submit stores an acceptance fact once, exposes operation state, and re
       secrets: new MemorySecrets(),
     })
     const restoredCommands = createRunCommands(kernel)
-    expect(await restoredCommands.getReceipt(session.id, firstActorId, 'one')).toEqual(first)
+    expect(await restoredCommands.getReceipt('run.submit', session.id, firstActorId, 'one')).toEqual(first)
     expect(
       await restoredCommands.execute('run.submit', input, {
         actorId: firstActorId,
@@ -168,13 +168,103 @@ test('lost admission acknowledgement recovers the committed operation rather tha
       requestId: 'first',
     })
     expect(receipt).toMatchObject({ status: 'accepted', sessionId: session.id })
-    expect(await commands.getReceipt(session.id, 'test-device', 'lost-ack')).toEqual(receipt)
+    expect(await commands.getReceipt('run.submit', session.id, 'test-device', 'lost-ack')).toEqual(receipt)
     expect(
       (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'run.queued'),
     ).toHaveLength(1)
     await kernel.waitForIdle()
     commands.dispose()
   } finally {
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('run.retry replays a settled operation through durable run submission', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-run-retry-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    const workspace = (await kernel.storage.call('workspaces'))[0]!
+    const session = await kernel.createSession(workspace.id)
+    const other = await kernel.createSession(workspace.id)
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'retry actor')
+    const commands = createRunCommandClient(client)
+    const original = await commands.execute(
+      'run.submit',
+      {
+        sessionId: session.id,
+        modelId: 'local-fixture',
+        input: { text: 'retry this input', images: [], thinking: 'high', approval: 'deny' },
+      },
+      { idempotencyKey: 'original' },
+    )
+    await kernel.waitForIdle()
+    const [retried, repeated] = await Promise.all([
+      commands.execute(
+        'run.retry',
+        { sessionId: session.id, operationId: original.operationId },
+        { idempotencyKey: 'retry', requestId: 'retry-first' },
+      ),
+      commands.execute(
+        'run.retry',
+        { sessionId: session.id, operationId: original.operationId },
+        { idempotencyKey: 'retry', requestId: 'retry-second' },
+      ),
+    ])
+    expect(retried).toMatchObject({
+      status: 'accepted',
+      commandId: 'run.submit',
+      sessionId: session.id,
+    })
+    expect(['retry-first', 'retry-second']).toContain(retried.requestId)
+    expect(repeated).toEqual(retried)
+    expect(retried.operationId).not.toBe(original.operationId)
+    expect(await commands.getReceipt(session.id, 'retry', 'run.retry')).toEqual(retried)
+    expect(await commands.getReceipt(session.id, 'retry')).toBeNull()
+    await kernel.waitForIdle()
+    const snapshot = await kernel.snapshot(session.id)
+    const replay = snapshot.runs.find((run) => run.id === retried.operationId)
+    expect(replay).toMatchObject({
+      modelId: 'local-fixture',
+      input: { text: 'retry this input', thinking: 'high', approval: 'deny' },
+      status: 'completed',
+    })
+    expect(snapshot.runs).toHaveLength(2)
+    expect(
+      (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'run.queued'),
+    ).toHaveLength(2)
+    await commands
+      .execute('run.retry', { sessionId: session.id, operationId: retried.operationId }, { idempotencyKey: 'retry' })
+      .then(
+        () => expect.unreachable('One retry key must not identify two source operations'),
+        (error) => expect(error).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' }),
+      )
+    await commands
+      .execute(
+        'run.retry',
+        { sessionId: other.id, operationId: original.operationId },
+        { idempotencyKey: 'wrong-session' },
+      )
+      .then(
+        () => expect.unreachable('Cross-session retry must be rejected'),
+        (error) => expect(error).toMatchObject({ code: 'COMMAND_NOT_FOUND' }),
+      )
+    await commands.execute('run.retry', { sessionId: session.id, operationId: original.operationId }).then(
+      () => expect.unreachable('Retry without an idempotency key must be rejected'),
+      (error) => expect(error).toMatchObject({ code: 'INVALID_INPUT' }),
+    )
+  } finally {
+    client?.disconnect()
+    await host?.close()
     await kernel.close()
     await rm(root, { recursive: true, force: true })
   }

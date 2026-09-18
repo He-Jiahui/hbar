@@ -159,7 +159,6 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
   const modelCommands = createModelCommandClient(runtime.client)
   const entityCommands = createWorkspaceSessionCommandClient(runtime.client)
   const runs = new Map<string, Run>()
-  const lastInputs = new Map<string, string>()
   const streams = new Map<string, { text: string; thinking: string }>()
   let base = ''
   let closed = false
@@ -227,19 +226,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     })
     status.content = decision === 'allowed' ? 'Approved' : 'Denied'
   }
-  const send = async (text: string) => {
-    const target = session
-    if (runs.has(target.id)) throw new Error('This session already has an active run; use /stop or switch sessions')
-    lastInputs.set(target.id, text)
-    base = `${base}${base ? '\n\n---\n\n' : ''}### You\n\n${text}`
-    streams.set(target.id, { text: '', thinking: '' })
-    render()
-    const run = await runtime.client.call('run.start', {
-      sessionId: target.id,
-      requestId: randomUUID(),
-      input: { text, images: [], thinking, approval: 'ask' },
-      modelId,
-    })
+  const watchRun = async (target: Session, run: Run) => {
     runs.set(target.id, run)
     status.content = 'Running · Ctrl+C to stop'
     try {
@@ -269,6 +256,26 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       streams.delete(target.id)
       input.focus()
     }
+  }
+  const send = async (text: string) => {
+    const target = session
+    if (runs.has(target.id)) throw new Error('This session already has an active run; use /stop or switch sessions')
+    base = `${base}${base ? '\n\n---\n\n' : ''}### You\n\n${text}`
+    streams.set(target.id, { text: '', thinking: '' })
+    render()
+    const accepted = await createRunCommandClient(runtime.client).execute(
+      'run.submit',
+      {
+        sessionId: target.id,
+        input: { text, images: [], thinking, approval: 'ask' },
+        modelId,
+      },
+      { idempotencyKey: randomUUID() },
+    )
+    const snapshot = await runtime.client.call('session.snapshot', { sessionId: target.id })
+    const run = snapshot.runs.find((item) => item.id === accepted.operationId)
+    if (!run) throw new Error('Accepted run is unavailable from the session snapshot')
+    return watchRun(target, run)
   }
   const switchSession = async (selector: string) => {
     await refreshCatalog()
@@ -392,13 +399,27 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     if (command === 'stop') {
       const run = runs.get(session.id)
       if (!run) throw new Error('No active run in this session')
-      await runtime.client.call('run.cancel', { runId: run.id })
+      await createRunCommandClient(runtime.client).execute('operation.cancel', { operationId: run.id })
       return
     }
     if (command === 'retry') {
-      const lastInput = lastInputs.get(session.id)
-      if (!lastInput) throw new Error('No prior input to retry')
-      return send(lastInput)
+      if (runs.has(session.id)) throw new Error('This session already has an active run; use /stop first')
+      const target = session
+      const before = await runtime.client.call('session.snapshot', { sessionId: target.id })
+      const prior = before.runs[0]
+      if (!prior) throw new Error('No prior operation to retry')
+      if (['queued', 'running', 'waiting_approval'].includes(prior.status))
+        throw new Error('Wait for the prior operation to settle before retrying')
+      streams.set(target.id, { text: '', thinking: '' })
+      const accepted = await createRunCommandClient(runtime.client).execute(
+        'run.retry',
+        { sessionId: target.id, operationId: prior.id },
+        { idempotencyKey: randomUUID() },
+      )
+      const after = await runtime.client.call('session.snapshot', { sessionId: target.id })
+      const run = after.runs.find((item) => item.id === accepted.operationId)
+      if (!run) throw new Error('Accepted retry is unavailable from the session snapshot')
+      return watchRun(target, run)
     }
     if (command === 'export') {
       const events = await exportSessionEvents(runtime.client, session.id)
@@ -470,7 +491,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     if (key.ctrl && key.name === 'c') {
       key.preventDefault()
       const run = runs.get(session.id)
-      if (run) void runtime.client.call('run.cancel', { runId: run.id })
+      if (run) void createRunCommandClient(runtime.client).execute('operation.cancel', { operationId: run.id })
       else if (input.value) input.value = ''
       else void close()
     } else if (key.ctrl && key.name === 'l') {

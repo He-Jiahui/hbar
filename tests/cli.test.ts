@@ -668,13 +668,7 @@ test('exec system commands query diagnostics, validate roots, and manage pairing
   expect(JSON.parse(paths.stdout)).toMatchObject({ dataRoot, cacheRoot, restartRequired: false })
   const validatedData = join(root, 'validated-data')
   const validatedCache = join(root, 'validated-cache')
-  const validated = await run([
-    ...common,
-    'exec',
-    'system.paths.validate',
-    validatedData,
-    validatedCache,
-  ])
+  const validated = await run([...common, 'exec', 'system.paths.validate', validatedData, validatedCache])
   expect(validated.code).toBe(0)
   expect(JSON.parse(validated.stdout)).toMatchObject({
     dataRoot: validatedData,
@@ -795,6 +789,7 @@ test('classified command catalog and Run operations are usable without a GUI', a
     'permission.get',
     'permission.set',
     'questionnaire.answer',
+    'run.retry',
     'run.submit',
   ])
   const description = await run([...common, 'commands', 'describe', 'run.submit'])
@@ -837,8 +832,40 @@ test('classified command catalog and Run operations are usable without a GUI', a
   const cancelled = await run([...common, 'exec', 'operation.cancel', receipt.operationId])
   expect(cancelled.code).toBe(0)
   expect(JSON.parse(cancelled.stdout)).toMatchObject({ operationId: receipt.operationId })
+  let settled = false
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const inspected = await run([...common, 'exec', 'operation.get', receipt.operationId])
+    expect(inspected.code).toBe(0)
+    const operation = JSON.parse(inspected.stdout) as { status: string }
+    if (!['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(operation.status)) {
+      settled = true
+      break
+    }
+    await Bun.sleep(10)
+  }
+  expect(settled).toBe(true)
+  const retried = await run([...common, 'exec', 'run.retry', receipt.operationId, '--idempotency-key', 'cli-retry'])
+  expect(retried.code).toBe(0)
+  const retryReceipt = JSON.parse(retried.stdout) as { operationId: string; status: string }
+  expect(retryReceipt).toMatchObject({ status: 'accepted' })
+  expect(retryReceipt.operationId).not.toBe(receipt.operationId)
+  const repeatedRetry = await run([
+    ...common,
+    'exec',
+    'run.retry',
+    receipt.operationId,
+    '--idempotency-key',
+    'cli-retry',
+  ])
+  expect(repeatedRetry.code).toBe(0)
+  expect(JSON.parse(repeatedRetry.stdout)).toEqual(retryReceipt)
+  const retryRecovered = await run([...common, 'exec', 'receipt', 'run.retry', 'cli-retry'])
+  expect(retryRecovered.code).toBe(0)
+  expect(JSON.parse(retryRecovered.stdout)).toEqual(retryReceipt)
   const missing = await run([...common, 'exec', 'run.submit', '--idempotency-key', 'missing'])
   expect(missing.code).toBe(2)
+  const missingRetryKey = await run([...common, 'exec', 'run.retry', receipt.operationId])
+  expect(missingRetryKey.code).toBe(2)
 })
 
 test('named contexts persist app.setSession with revision conflicts and supply later command targets', async () => {

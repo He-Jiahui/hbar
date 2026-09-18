@@ -63,6 +63,8 @@ A11n 将 `context.compact` 纳入 `run.approval` 命令域。命令复用 Kernel
 
 A11o 将 `connection.status/connect/disconnect/reconnect` 与 `pairing.accept` 定义为 client-execution commands。它们由 `@hbar/client` registry 执行，不进入需要认证的 Host catalog；因此未配对客户端可以用同一命令接受 pairing code。HbarClient 公开只读连接快照，并用 socket identity 隔离旧连接的迟到 close/message，显式断开会立即终止该连接的 pending 请求。远程 attach、命令描述和 CLI 连接入口共用这套契约。
 
+A11p 补齐持久 `run.retry`。调用方只提交原 operation ID 与 Session；Host 从规范 Run 记录读取原 `modelId` 和完整输入，拒绝跨 Session 目标与尚未结束的 Run，再组合调用 `run.submit`。因此重试沿用唯一的受理、队列、预算、事件和 actor/idempotency 回执链，不复制运行逻辑。CLI 可显式重试；TUI `/retry` 从 Session 快照选择最近 Run，进程重启后仍可用，并且普通发送、停止和 Ctrl+C 也改走 typed run commands。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。

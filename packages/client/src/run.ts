@@ -9,8 +9,8 @@ import type { ClientTransport } from './transport'
 export function createRunCommandClient(client: ClientTransport) {
   const commands = createCommandClient(runCommands, {
     async execute(id, input, options) {
-      if (id === 'run.submit' && !options?.idempotencyKey)
-        throw new CommandError('INVALID_INPUT', 'An idempotency key is required for run.submit')
+      if ((id === 'run.submit' || id === 'run.retry') && !options?.idempotencyKey)
+        throw new CommandError('INVALID_INPUT', `An idempotency key is required for ${id}`)
       try {
         return await client.call('command.execute', {
           protocol: COMMAND_PROTOCOL_VERSION,
@@ -29,8 +29,12 @@ export function createRunCommandClient(client: ClientTransport) {
   })
   return {
     ...commands,
-    async getReceipt(sessionId: string, idempotencyKey: string): Promise<RunAccepted | null> {
-      const result = await client.call('command.getReceipt', { commandId: 'run.submit', sessionId, idempotencyKey })
+    async getReceipt(
+      sessionId: string,
+      idempotencyKey: string,
+      commandId: 'run.submit' | 'run.retry' = 'run.submit',
+    ): Promise<RunAccepted | null> {
+      const result = await client.call('command.getReceipt', { commandId, sessionId, idempotencyKey })
       const parsed = runAcceptedSchema.nullable().safeParse(result)
       if (!parsed.success) throw new CommandError('INVALID_OUTPUT', 'Invalid run acceptance receipt')
       return parsed.data

@@ -973,14 +973,17 @@ export async function runCliCommand(
     const commands = createBudgetCommandClient(runtime.client)
     const runs = createRunCommandClient(runtime.client)
     if (action === 'receipt') {
-      const runReceipt = selector === 'run.submit'
+      const runReceipt = selector === 'run.submit' || selector === 'run.retry'
       const key = runReceipt ? args.commandArgs[2] : selector
       if (!key || args.commandArgs.length !== (runReceipt ? 3 : 2))
-        throw new CommandError('INVALID_SYNTAX', 'Usage: hbar exec receipt [run.submit] <key> --session <id|name>')
+        throw new CommandError(
+          'INVALID_SYNTAX',
+          'Usage: hbar exec receipt [run.submit|run.retry] <key> --session <id|name>',
+        )
       output(
         JSON.stringify(
           runReceipt
-            ? await runs.getReceipt(runtime.session.id, key)
+            ? await runs.getReceipt(runtime.session.id, key, selector)
             : await commands.getReceipt(runtime.session.id, key),
         ),
       )
@@ -1011,6 +1014,25 @@ export async function runCliCommand(
         runtime.modelId,
         '--input',
         JSON.stringify(input),
+      ])
+      const parsed = runCommands[action].input.safeParse(raw)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      output(
+        JSON.stringify(
+          await runs.execute(action, parsed.data, {
+            idempotencyKey: args.idempotencyKey,
+            ...(args.requestId ? { requestId: args.requestId } : {}),
+          }),
+        ),
+      )
+      return true
+    }
+    if (action === 'run.retry') {
+      if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required for run.retry')
+      const raw = parseArguments(runCommands[action].metadata, [
+        ...args.commandArgs.slice(1),
+        '--session',
+        runtime.session.id,
       ])
       const parsed = runCommands[action].input.safeParse(raw)
       if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)

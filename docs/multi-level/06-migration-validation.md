@@ -116,6 +116,8 @@ A11n 迁移上下文压缩：`context.compact` 进入 run command catalog，CLI/
 
 A11o 完成客户端连接命令：连接状态、连接、断开、重连和接受配对码在 Client registry 中执行，Host 仅保留认证握手和配对 HTTP 边界。HbarClient 记录当前 Host 快照，旧 socket 的迟到事件不得覆盖新连接；disconnect 同步拒绝 pending 调用。真实 Host 测试覆盖未授权进入 pairing、接受一次性 code、连接态拒绝换绑、断开后凭据重连和显式 reconnect；CLI catalog 可描述 client command。
 
+A11p 交付 `run.retry`：命令按 operation ID 读取已经持久化的原模型与输入，校验 Session 归属及原 Run 已结束，然后嵌套执行规范 `run.submit`。同 actor/key 的并发重试只产生一个新 Run，返回可恢复的 `run.submit` 受理回执；不同 Session 和活动 Run 明确拒绝。CLI 提供带幂等键的显式入口，TUI 不再用进程内最后输入模拟重试，并将普通发送与取消一并切换到 typed run commands。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

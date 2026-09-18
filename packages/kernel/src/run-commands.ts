@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
+import { CommandError, CommandRegistry, createCommandClient, type CommandContext } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { runCommands, runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import type { RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
@@ -50,66 +50,108 @@ export function createRunCommands(kernel: Kernel) {
       throw new CommandError('IDEMPOTENCY_CONFLICT', 'Run key was used with different input')
     return accepted(found.run, found.command)
   }
+  function receiptScope(
+    commandId: 'run.submit' | 'run.retry',
+    sessionId: string,
+    actorId: string,
+    idempotencyKey: string,
+  ) {
+    return JSON.stringify(
+      commandId === 'run.submit'
+        ? [sessionId, actorId, idempotencyKey]
+        : [sessionId, actorId, commandId, idempotencyKey],
+    )
+  }
+  async function submit(
+    input: SubmitRunInput,
+    context: CommandContext,
+    identity: { readonly id: 'run.submit' | 'run.retry'; readonly input: unknown },
+  ) {
+    const actorId = context.actorId,
+      idempotencyKey = context.idempotencyKey
+    if (!actorId || !idempotencyKey)
+      throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+    const scope = receiptScope(identity.id, input.sessionId, actorId, idempotencyKey)
+    const requestId = `command-${createHash('sha256').update(scope).digest('hex')}`
+    const command = runCommandRecordSchema.parse({
+      actorId,
+      idempotencyKey,
+      requestId: context.requestId,
+      inputHash: createHash('sha256')
+        .update(JSON.stringify({ id: identity.id, version: 1, input: identity.input }))
+        .digest('hex'),
+    })
+    return serial(scope, async () => {
+      if (uncertainSessions.has(input.sessionId))
+        throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
+      let prior: RunAccepted | null
+      try {
+        prior = await lookup(input, command, requestId)
+      } catch (error) {
+        if (error instanceof CommandError) throw error
+        throw new CommandError('RESULT_UNKNOWN', 'Run journal is unavailable')
+      }
+      if (prior) return prior
+      try {
+        const run = await kernel.submit(input.sessionId, requestId, input.input, input.modelId, command)
+        return accepted(run, command)
+      } catch (error) {
+        // Admission may have committed before the response was lost. Inspect the canonical queued fact.
+        let recovered: RunAccepted | null
+        try {
+          recovered = await lookup(input, command, requestId)
+        } catch (lookupError) {
+          if (lookupError instanceof CommandError) throw lookupError
+          uncertainSessions.add(input.sessionId)
+          throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
+        }
+        if (recovered) return recovered
+        if (
+          error instanceof HbarError &&
+          [
+            'FILE_LIMIT',
+            'EMPTY_INPUT',
+            'MODEL_NOT_FOUND',
+            'DEMO_DISABLED',
+            'UNSUPPORTED_IMAGE',
+            'ARCHIVED',
+            'NOT_FOUND',
+            'INVALID_INPUT',
+            'IDEMPOTENCY_CONFLICT',
+          ].includes(error.code)
+        )
+          throw new CommandError(error.code, error.message)
+        uncertainSessions.add(input.sessionId)
+        throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
+      }
+    })
+  }
   registry.register(
     runCommands['run.submit'],
-    async (input, context) => {
+    (input, context) => submit(input, context, { id: 'run.submit', input }),
+    { durable: true },
+  )
+  registry.register(
+    runCommands['run.retry'],
+    async ({ sessionId, operationId }, context) => {
       const actorId = context.actorId,
         idempotencyKey = context.idempotencyKey
       if (!actorId || !idempotencyKey)
         throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
-      const scope = JSON.stringify([input.sessionId, actorId, idempotencyKey])
-      const requestId = `command-${createHash('sha256').update(scope).digest('hex')}`
-      const command = runCommandRecordSchema.parse({
-        actorId,
-        idempotencyKey,
-        requestId: context.requestId,
-        inputHash: createHash('sha256')
-          .update(JSON.stringify({ id: 'run.submit', version: 1, input }))
-          .digest('hex'),
-      })
-      return serial(scope, async () => {
-        if (uncertainSessions.has(input.sessionId))
-          throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
-        let prior: RunAccepted | null
-        try {
-          prior = await lookup(input, command, requestId)
-        } catch (error) {
-          if (error instanceof CommandError) throw error
-          throw new CommandError('RESULT_UNKNOWN', 'Run journal is unavailable')
-        }
-        if (prior) return prior
-        try {
-          const run = await kernel.submit(input.sessionId, requestId, input.input, input.modelId, command)
-          return accepted(run, command)
-        } catch (error) {
-          // Admission may have committed before the response was lost. Inspect the canonical queued fact.
-          let recovered: RunAccepted | null
-          try {
-            recovered = await lookup(input, command, requestId)
-          } catch (lookupError) {
-            if (lookupError instanceof CommandError) throw lookupError
-            uncertainSessions.add(input.sessionId)
-            throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
-          }
-          if (recovered) return recovered
-          if (
-            error instanceof HbarError &&
-            [
-              'FILE_LIMIT',
-              'EMPTY_INPUT',
-              'MODEL_NOT_FOUND',
-              'DEMO_DISABLED',
-              'UNSUPPORTED_IMAGE',
-              'ARCHIVED',
-              'NOT_FOUND',
-              'INVALID_INPUT',
-              'IDEMPOTENCY_CONFLICT',
-            ].includes(error.code)
-          )
-            throw new CommandError(error.code, error.message)
-          uncertainSessions.add(input.sessionId)
-          throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
-        }
+      let prior: Run
+      try {
+        prior = await kernel.storage.call('run', operationId)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
+      if (prior.sessionId !== sessionId)
+        throw new CommandError('COMMAND_NOT_FOUND', 'Operation does not belong to the selected session')
+      if (['queued', 'running', 'waiting_approval'].includes(prior.status))
+        throw new CommandError('BUSY', 'Wait for the original operation to settle before retrying')
+      return submit({ sessionId, modelId: prior.modelId, input: prior.input }, context, {
+        id: 'run.retry',
+        input: { sessionId, operationId },
       })
     },
     { durable: true },
@@ -170,10 +212,15 @@ export function createRunCommands(kernel: Kernel) {
     },
     describe: (id: string) => registry.describe(id),
     list: () => registry.list({ limit: 500 }),
-    async getReceipt(sessionId: string, actorId: string, idempotencyKey: string): Promise<RunAccepted | null> {
+    async getReceipt(
+      commandId: 'run.submit' | 'run.retry',
+      sessionId: string,
+      actorId: string,
+      idempotencyKey: string,
+    ): Promise<RunAccepted | null> {
       if (uncertainSessions.has(sessionId))
         throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
-      const scope = JSON.stringify([sessionId, actorId, idempotencyKey])
+      const scope = receiptScope(commandId, sessionId, actorId, idempotencyKey)
       const requestId = `command-${createHash('sha256').update(scope).digest('hex')}`
       let found
       try {

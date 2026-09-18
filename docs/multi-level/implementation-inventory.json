@@ -163,7 +163,7 @@
       "stateOwner": "Host Run/Attempt/intent; client prompt drafts",
       "category": "run.approval",
       "milestone": "A5/A11",
-      "status": "complete-headless-commands-sync-watch-retained-client-retry-pending",
+      "status": "complete-headless-commands-sync-watch-retained",
       "rpc": [
         "run.start",
         "run.cancel",

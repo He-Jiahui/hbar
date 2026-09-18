@@ -71,7 +71,7 @@ Usage:
   hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
   hbar exec session.getBudget --session <id|name>
   hbar exec session.clearBudget --session <id|name>
-  hbar exec receipt <idempotency-key> --session <id|name>
+  hbar exec receipt [run.submit|run.retry] <idempotency-key> --session <id|name>
   hbar commands list [--category <category>] [--limit <1-200>]
   hbar commands describe <commandId>
   hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
@@ -95,6 +95,7 @@ Usage:
   hbar exec connection.status|connection.connect|connection.disconnect|connection.reconnect
   hbar exec pairing.accept <code> <deviceName>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
+  hbar exec run.retry <operationId> --session <id|name> --idempotency-key <key>
   hbar exec context.compact --session <id|name> --model <provider/model|id|name>
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
