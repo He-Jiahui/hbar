@@ -94,3 +94,11 @@ contracts 新增内部客户端命令 `draft.setText`、`draft.setAttachments` �
 Client 将 `run.submit` / `run.retry` 的断线或超时统一映射为 `RESULT_UNKNOWN`，避免 UI 误报失败后用新键重复执行。定向测试覆盖在途编辑、unknown 后继续输入、回执核对、附件去重、失败保留、两个 runtime 隔离、取消委托、传输丢失和真实 Host 完整提交。B2c 继续接模型/交互/Usage ViewModel，B2d 再组合可见 AIChat、PromptInput 与 AIUsage。
 
 交付验证：`bun run check` 通过 lint、typecheck、306 个测试（84 个文件、2407 个断言）；草稿/Run/真实 Host 定向测试 19 项及命令/依赖边界 16 项通过。Web 仅增加 Run port 注入，没有改变可见布局；生产构建通过，视觉 E2E 留到 B2d 可见会话工作区一起执行。
+
+### B2c1：审批与问卷交互 ViewModel（完成）
+
+app-runtime 将 `approval.resolve` 与 `questionnaire.answer` 纳入同一个 application command facade，并按原 approvalId/requestId 保存有界操作状态。提交成功、明确失败与传输未知分别呈现；未知审批在 timeline 出现终态、未知问卷从待答请求中移除后，自动收敛到成功。100 项容量只淘汰已结束反馈，全部仍在途时拒绝新操作，避免静默丢失原位结果。Client 对断线/超时返回 `RESULT_UNKNOWN`，Web 组合根只注入 typed interaction port。
+
+定向测试覆盖未知审批的 timeline 收敛、问卷失败与重试、目标绑定、Client 超时映射，并复用真实 Host interaction 测试验证跨 Session、重复和相反决定规则。B2c2 接入模型、预算与可靠 Usage 投影。
+
+交付验证：`bun run check` 通过 lint、typecheck、308 个测试（85 个文件、2415 个断言）；interaction/timeline/真实 Host 定向测试 5 项及依赖边界 4 项通过，193 模块 Web 生产构建通过。可见交互卡片与浏览器 E2E 随 B2d 一起交付。

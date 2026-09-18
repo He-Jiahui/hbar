@@ -43,6 +43,7 @@ export interface RuntimeOptions {
   readonly directory: CommandExecutor
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
+  readonly interactions?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
@@ -66,6 +67,16 @@ export interface SessionDraftState {
   readonly lastOperationId: string | null
 }
 export type DraftsState = Readonly<Record<string, SessionDraftState>>
+
+export interface InteractionActionState {
+  readonly id: string
+  readonly kind: 'approval' | 'questionnaire'
+  readonly sessionId: string
+  readonly targetId: string
+  readonly status: 'submitting' | 'unknown' | 'failed' | 'succeeded'
+  readonly error: string | null
+}
+export type InteractionState = Readonly<Record<string, InteractionActionState>>
 export type SessionTimelineUpdate =
   | { readonly kind: 'event'; readonly event: SessionEvent }
   | { readonly kind: 'stream'; readonly stream: StreamDelta }

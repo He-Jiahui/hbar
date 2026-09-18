@@ -3,6 +3,7 @@ import { budgetEditorCommands } from './budget-editor'
 import { surfaceCommands } from './surfaces'
 import { draftCommands } from './draft'
 import { runCommands } from './run'
+import { interactionCommands } from './interaction'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -132,6 +133,7 @@ export const navigationCommands = {
 export { surfaceCommands } from './surfaces'
 export { draftCommands } from './draft'
 export { runCommands } from './run'
+export { interactionCommands } from './interaction'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -139,4 +141,5 @@ export const applicationCommands = {
   ...surfaceCommands,
   ...draftCommands,
   ...runCommands,
+  ...interactionCommands,
 }

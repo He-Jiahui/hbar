@@ -10,6 +10,7 @@ import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
 import { runCommands } from '@hbar/contracts/commands/run'
+import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -17,6 +18,7 @@ import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
 import { createDrafts } from './drafts'
+import { createInteractions } from './interactions'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
@@ -25,6 +27,8 @@ export type {
   BudgetFormsState,
   DraftsState,
   DirectoryState,
+  InteractionActionState,
+  InteractionState,
   NavigationState,
   RuntimeOptions,
   RunCommandPort,
@@ -77,6 +81,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const drafts = createDrafts(local, options.run, onSubscriberError, () => disposed)
+  const interactions = createInteractions(options.interactions, timeline.reader, onSubscriberError, () => disposed)
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -85,6 +90,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       )
         return platform.execute(name, input, execution)
       if (Object.hasOwn(runCommands, name)) return drafts.executeRun(name, input, execution)
+      if (Object.hasOwn(interactionCommands, name)) return interactions.execute(name, input, execution)
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
@@ -103,6 +109,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       surfaces: surfaces.reader,
       timeline: timeline.reader,
       drafts: drafts.reader,
+      interactions: interactions.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
@@ -124,6 +131,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       forms.dispose()
       timeline.dispose()
       drafts.dispose()
+      interactions.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()

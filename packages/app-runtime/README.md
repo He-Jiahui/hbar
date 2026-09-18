@@ -36,4 +36,6 @@ runtime.dispose()
 
 提示词草稿按 Session 保存在 `view.state.drafts`，只能经内部应用命令 `draft.setText` 与 `draft.setAttachments` 修改。`run.submit` 捕获原 Session、草稿 revision、附件和单次幂等键；等待回执时允许继续编辑，成功只清除未变化的原草稿，失败保留内容。断线或超时进入 unknown，`draft.reconcileSubmission` 用原键查询权威受理回执，不能以新键盲目重发。`operation.cancel` 和其余 Run 命令继续委托同一个 Host command port。
 
+审批与问卷分别调用 `approval.resolve` 和 `questionnaire.answer`。`view.state.interactions` 按原 approvalId/requestId 显示 submitting、unknown、failed 或 succeeded；断线未知结果不会冒充失败，后续 timeline 中的审批终态或问卷移除会把原操作收敛为成功。容量达到上限时只淘汰已结束反馈，不能丢掉仍在提交或等待核对的动作。
+
 当前适配是无 React 的 ViewModel/命令入口；GUI renderer 和逻辑窗口绑定按 B1/B4 与 A7 交付。命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板继续由对应模块承担。此包不包含业务执行器或 UI renderer。
