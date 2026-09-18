@@ -8,17 +8,23 @@ import type { ClientTransport } from './transport'
 
 export function createRunCommandClient(client: ClientTransport) {
   const commands = createCommandClient(runCommands, {
-    execute(id, input, options) {
+    async execute(id, input, options) {
       if (id === 'run.submit' && !options?.idempotencyKey)
         throw new CommandError('INVALID_INPUT', 'An idempotency key is required for run.submit')
-      return client.call('command.execute', {
-        protocol: COMMAND_PROTOCOL_VERSION,
-        requestId: options?.requestId ?? crypto.randomUUID(),
-        commandId: id,
-        commandVersion: options?.version ?? 1,
-        ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
-        input,
-      })
+      try {
+        return await client.call('command.execute', {
+          protocol: COMMAND_PROTOCOL_VERSION,
+          requestId: options?.requestId ?? crypto.randomUUID(),
+          commandId: id,
+          commandVersion: options?.version ?? 1,
+          ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
+          input,
+        })
+      } catch (error) {
+        if (id === 'context.compact' && error instanceof HbarError && ['DISCONNECTED', 'TIMEOUT'].includes(error.code))
+          throw new CommandError('RESULT_UNKNOWN', 'Compaction response was lost; inspect the session before retrying')
+        throw error
+      }
     },
   })
   return {

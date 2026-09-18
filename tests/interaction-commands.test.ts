@@ -52,6 +52,7 @@ test('approval and questionnaire commands validate session targets and converge 
   const catalog = await client.call('command.catalog', { category: 'run.approval', limit: 20 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'approval.resolve',
+    'context.compact',
     'operation.cancel',
     'operation.get',
     'permission.get',

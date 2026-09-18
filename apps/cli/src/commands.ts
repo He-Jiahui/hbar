@@ -976,6 +976,15 @@ export async function runCliCommand(
       )
       return true
     }
+    if (action === 'context.compact') {
+      const input = runCommands[action].input.safeParse({
+        sessionId: runtime.session.id,
+        modelId: runtime.modelId,
+      })
+      if (!input.success) throw validationError('INVALID_INPUT', input.error)
+      output(JSON.stringify(await runs.execute(action, input.data)))
+      return true
+    }
     if (
       action !== 'session.setBudget' &&
       action !== 'session.getBudget' &&

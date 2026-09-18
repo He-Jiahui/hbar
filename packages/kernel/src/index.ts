@@ -1028,14 +1028,14 @@ export class Kernel {
         if (active.run.id === runId) active.controller.abort(new Error('Cancelled by user'))
     } else this.cancelled.delete(runId)
   }
-  async compact(sessionId: string, modelId: string) {
+  async compact(sessionId: string, modelId: string, signal?: AbortSignal) {
     this.assertIdle()
     this.maintenance = true
     try {
       return await this.compactInternal(
         sessionId,
         await this.plugins.get<ModelRegistry>('models').get(modelId),
-        AbortSignal.timeout(120_000),
+        signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
       )
     } finally {
       this.maintenance = false

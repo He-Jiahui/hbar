@@ -123,4 +123,30 @@ export const runCommands = {
     z.strictObject({ operationId: idSchema }),
     operationCancelResultSchema,
   ),
+  'context.compact': defineCommand(
+    {
+      id: 'context.compact',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'external',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.context.compact.title',
+      descriptionKey: 'commands.context.compact.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      cancelMode: 'cooperative',
+      timeoutMs: 125_000,
+      maxConcurrent: 1,
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'modelId', type: 'string', flag: 'model' },
+        ],
+      },
+    },
+    z.strictObject({ sessionId: idSchema, modelId: idSchema }),
+    z.strictObject({ summary: z.string().max(1_000_000) }),
+  ),
 }

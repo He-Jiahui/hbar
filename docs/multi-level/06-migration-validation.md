@@ -112,6 +112,8 @@ A11l 迁移 Host 系统控制面：诊断、路径查询/验证/切换、重启�
 
 A11m 迁移扩展管理。`plugin.list/inspect/set/install/scan/remove/enable/disable/resolve/graph/lock/doctor` 和 `skill.list` 使用可序列化契约、Host 依赖端口与 typed Client；CLI 的 `plugins`/`skills` 别名不再读取 bootstrap 或本地目录。真实临时插件包测试覆盖安装、配置、停启、依赖报告、lock、doctor、全局技能发现和停用后卸载；transport 测试区分 mutation 的未知结果与 query 的原始断线错误。
 
+A11n 迁移上下文压缩：`context.compact` 进入 run command catalog，CLI/TUI 与旧 RPC 调用同一 adapter。Kernel 接受 command cancellation signal 并与领域 120 秒超时组合；typed Client 为 command transport 保留 300 秒响应窗口。真实 Host 测试先形成足够对话，再验证压缩投影缩短、原始历史不删除、规范事件只由领域用例提交；丢失响应报告未知结果。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

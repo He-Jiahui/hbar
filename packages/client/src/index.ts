@@ -146,12 +146,19 @@ export class HbarClient implements ClientTransport {
       return Promise.reject(new HbarError('DISCONNECTED', 'Host is not connected'))
     return new Promise((resolve, reject) => {
       const id = ++this.nextId
+      const longRunning =
+        method === 'context.compact' ||
+        (method === 'command.execute' &&
+          typeof params === 'object' &&
+          params !== null &&
+          'commandId' in params &&
+          params.commandId === 'context.compact')
       const timer = setTimeout(
         () => {
           this.pending.delete(id)
           reject(new HbarError('TIMEOUT', 'Request timed out'))
         },
-        method === 'context.compact' ? 300_000 : 30_000,
+        longRunning ? 300_000 : 30_000,
       )
       this.pending.set(id, { resolve: (value) => resolve(value as RpcResults[M]), reject, timer })
       this.socket!.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }))

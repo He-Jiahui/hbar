@@ -15,6 +15,7 @@ import type { Message, PluginInfo, Run, Session, SessionEvent, SessionSnapshot, 
 import {
   createInteractionCommandClient,
   createModelCommandClient,
+  createRunCommandClient,
   createConfigurationCommandClient,
   createExtensionCommandClient,
   createSystemCommandClient,
@@ -379,7 +380,10 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     }
     if (command === 'compact') {
       status.content = 'Compacting context...'
-      const result = await runtime.client.call('context.compact', { sessionId: session.id, modelId })
+      const result = await createRunCommandClient(runtime.client).execute('context.compact', {
+        sessionId: session.id,
+        modelId,
+      })
       status.content = 'Context compacted'
       return render(`### Context summary\n\n${result.summary}`)
     }

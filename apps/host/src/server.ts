@@ -698,7 +698,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'context.compact': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.compact(p.sessionId, p.modelId)
+        return runCommands.execute('context.compact', p, { actorId: socket.data.deviceId! })
       }
       case 'provider.save': {
         const p = rpcSchemas[method].parse(raw)

@@ -764,6 +764,7 @@ test('classified command catalog and Run operations are usable without a GUI', a
     (JSON.parse(catalog.stdout) as { items: { metadata: { id: string } }[] }).items.map((item) => item.metadata.id),
   ).toEqual([
     'approval.resolve',
+    'context.compact',
     'operation.cancel',
     'operation.get',
     'permission.get',

@@ -149,6 +149,20 @@ export function createRunCommands(kernel: Kernel) {
     },
     { durable: true },
   )
+  registry.register(
+    runCommands['context.compact'],
+    async ({ sessionId, modelId }, context) => {
+      try {
+        return await kernel.compact(sessionId, modelId, context.signal)
+      } catch (error) {
+        if (error instanceof HbarError && ['NOTHING_TO_COMPACT', 'MODEL_NOT_FOUND', 'DEMO_DISABLED', 'BUSY'].includes(error.code))
+          throw new CommandError(error.code, error.message)
+        if (error instanceof CommandError) throw error
+        throw new CommandError('RESULT_UNKNOWN', 'Compaction outcome requires session reconciliation')
+      }
+    },
+    { durable: true },
+  )
   return {
     ...createCommandClient(runCommands, registry),
     dispatch(value: unknown, actorId: string) {

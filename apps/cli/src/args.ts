@@ -93,6 +93,7 @@ Usage:
   hbar exec plugin.install|plugin.remove|plugin.enable|plugin.disable
   hbar exec skill.list
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
+  hbar exec context.compact --session <id|name> --model <provider/model|id|name>
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>

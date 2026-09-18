@@ -59,6 +59,8 @@ A11l 将诊断、路径、设备和配对管理发布为 `system.diagnose`、`sy
 
 A11m 将插件安装、配置、启停、卸载、扫描、依赖解析、图、lock、doctor、列表/详情和全局技能发现纳入 `system.extensions` command catalog。Host adapter 仅通过注入端口调用 Kernel/PluginManager 和 skills 根目录；包校验、受管路径、依赖回滚、scope 释放与 lock 完整性仍由原插件领域实现。安装及生命周期 mutation 声明为 external，连接丢失时 Client 返回 `RESULT_UNKNOWN` 并要求先用 `plugin.list` 核对；CLI/REPL/TUI 和旧短命令共用 typed Client。
 
+A11n 将 `context.compact` 纳入 `run.approval` 命令域。命令复用 Kernel 的空闲门禁、模型解析、120 秒 provider 超时、usage 事实和 `context.compacted` 规范事件，并把 command cancellation signal 合入 provider signal。因为模型请求和持久提交可能已发生，执行中取消、超时或断线统一返回 `RESULT_UNKNOWN`，调用者必须检查 Session 的 compaction 事件或上下文投影后再尝试。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。

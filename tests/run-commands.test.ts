@@ -3,8 +3,60 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarClient, createRunCommandClient, createOperationWatcher } from '@hbar/client'
+import { HbarError } from '@hbar/contracts'
 import { Kernel, MemorySecrets, createRunCommands } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
+
+test('context compaction uses the run command path and preserves canonical history', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-compact-command-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    const workspace = (await kernel.storage.call('workspaces'))[0]!
+    const session = await kernel.createSession(workspace.id)
+    for (let index = 0; index < 7; index++) {
+      await kernel.submit(session.id, `compact-${index}`, { text: `Message ${index}`, images: [] }, 'local-fixture')
+      await kernel.waitForIdle()
+    }
+    const before = await kernel.snapshot(session.id)
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'compaction command test')
+    const result = await createRunCommandClient(client).execute('context.compact', {
+      sessionId: session.id,
+      modelId: 'local-fixture',
+    })
+    expect(result.summary).toContain('Summary:')
+    expect((await kernel.storage.call('context', session.id)).messages.length).toBeLessThan(before.messages.length)
+    expect((await kernel.snapshot(session.id)).messages).toHaveLength(before.messages.length)
+    expect((await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'context.compacted')).toHaveLength(1)
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('run client reports a lost compaction response as unknown without masking queries', async () => {
+  const commands = createRunCommandClient({
+    call: async () => {
+      throw new HbarError('DISCONNECTED', 'lost')
+    },
+  })
+  await expect(
+    commands.execute('context.compact', { sessionId: 'session', modelId: 'model' }),
+  ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+  await expect(commands.execute('operation.get', { operationId: 'operation' })).rejects.toMatchObject({
+    code: 'DISCONNECTED',
+  })
+})
 
 test('run.submit stores an acceptance fact once, exposes operation state, and restores actor-scoped receipt', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-run-command-'))
