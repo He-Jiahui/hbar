@@ -2,6 +2,7 @@ import { Database } from 'bun:sqlite'
 import { workerData, parentPort } from 'node:worker_threads'
 import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import {
   HbarError,
   contentBlockSchema,
@@ -40,7 +41,7 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 3) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 4) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -65,7 +66,8 @@ if (schemaVersion === 0)
     CREATE TABLE path_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE settings_layers(id TEXT PRIMARY KEY, kind TEXT NOT NULL, targetId TEXT, schemaVersion INTEGER NOT NULL, revision INTEGER NOT NULL, valuesJson TEXT NOT NULL, updatedAt INTEGER NOT NULL);
     CREATE TABLE settings_receipts(actorId TEXT NOT NULL, idempotencyKey TEXT NOT NULL, payloadHash TEXT NOT NULL, receiptJson TEXT NOT NULL, PRIMARY KEY(actorId,idempotencyKey));
-    PRAGMA user_version=3;
+    CREATE TABLE entity_command_receipts(actorId TEXT NOT NULL, idempotencyKey TEXT NOT NULL, commandId TEXT NOT NULL, payloadHash TEXT NOT NULL, resultJson TEXT NOT NULL, PRIMARY KEY(actorId,idempotencyKey));
+    PRAGMA user_version=4;
   `)
   })()
 if (schemaVersion === 1)
@@ -88,6 +90,13 @@ if (schemaVersion > 0 && schemaVersion <= 2)
       PRAGMA user_version=3;
     `)
   })()
+if (schemaVersion > 0 && schemaVersion <= 3)
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE entity_command_receipts(actorId TEXT NOT NULL, idempotencyKey TEXT NOT NULL, commandId TEXT NOT NULL, payloadHash TEXT NOT NULL, resultJson TEXT NOT NULL, PRIMARY KEY(actorId,idempotencyKey));
+      PRAGMA user_version=4;
+    `)
+  })()
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 
 type Row = Record<string, unknown>
@@ -102,6 +111,40 @@ function stableJson(value: unknown): string {
       .join(',')}}`
   }
   return JSON.stringify(value)
+}
+function entityPayloadHash(commandId: string, input: unknown): string {
+  return createHash('sha256')
+    .update(stableJson({ commandId, version: 1, input }))
+    .digest('hex')
+}
+function entityCommandReceipt(
+  actorId: string,
+  idempotencyKey: string,
+  commandId: string,
+  payloadHash: string,
+): Session | null {
+  const row = db
+    .query('SELECT commandId,payloadHash,resultJson FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?')
+    .get(actorId, idempotencyKey) as { commandId: string; payloadHash: string; resultJson: string } | null
+  if (!row) return null
+  if (row.commandId !== commandId || row.payloadHash !== payloadHash)
+    throw new HbarError('IDEMPOTENCY_CONFLICT', 'Entity command key was already used with different input')
+  return sessionSchema.parse(parseJson(row.resultJson))
+}
+function storeEntityCommandReceipt(
+  actorId: string,
+  idempotencyKey: string,
+  commandId: string,
+  payloadHash: string,
+  result: Session,
+) {
+  db.query('INSERT INTO entity_command_receipts VALUES(?,?,?,?,?)').run(
+    actorId,
+    idempotencyKey,
+    commandId,
+    payloadHash,
+    stableJson(result),
+  )
 }
 function required<T>(row: T | null, kind: string): T {
   if (!row) throw new HbarError('NOT_FOUND', `${kind} not found`)
@@ -209,7 +252,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 3 }),
+  ready: () => ({ version: 4 }),
   createWorkspace(path, name) {
     const existing = db.query('SELECT * FROM workspaces WHERE path=?').get(path)
     if (existing) return existing as Workspace
@@ -293,6 +336,17 @@ const methods: StorageMethods = {
       )
       appendEvent(session.id, 'session.created', { session, workspace })
       return methods.session(session.id)
+    })()
+  },
+  createSessionCommand(input) {
+    return db.transaction(() => {
+      const commandId = 'session.create'
+      const payloadHash = entityPayloadHash(commandId, { workspaceId: input.workspaceId, title: input.title ?? null })
+      const prior = entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
+      if (prior) return prior
+      const session = methods.createSession(input.workspaceId, input.title)
+      storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
+      return session
     })()
   },
   sessions: () =>
@@ -429,6 +483,17 @@ const methods: StorageMethods = {
       }
       return methods.session(child.id)
     })(),
+  forkSessionCommand(input) {
+    return db.transaction(() => {
+      const commandId = 'session.fork'
+      const payloadHash = entityPayloadHash(commandId, { sessionId: input.sessionId, atSeq: input.atSeq ?? null })
+      const prior = entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
+      if (prior) return prior
+      const session = methods.fork(input.sessionId, input.atSeq)
+      storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
+      return session
+    })()
+  },
   enqueue: (sessionId, requestId, input, modelId, command) =>
     db.transaction(() => {
       const existing = db

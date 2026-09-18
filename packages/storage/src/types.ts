@@ -44,6 +44,20 @@ export interface SettingsCommitInput {
   receipt: Omit<SettingsCommitReceipt, 'revision' | 'values'>
 }
 
+export interface CreateSessionCommandInput {
+  actorId: string
+  idempotencyKey: string
+  workspaceId: string
+  title?: string | undefined
+}
+
+export interface ForkSessionCommandInput {
+  actorId: string
+  idempotencyKey: string
+  sessionId: string
+  atSeq?: number | undefined
+}
+
 export interface StorageMethods {
   ready(): { version: number }
   createWorkspace(path: string, name: string): Workspace
@@ -54,6 +68,7 @@ export interface StorageMethods {
   findSession(id: string): Session | null
   workspace(id: string): Workspace
   createSession(workspaceId: string, title?: string, parentId?: string): Session
+  createSessionCommand(input: CreateSessionCommandInput): Session
   sessions(): Session[]
   childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
@@ -72,6 +87,7 @@ export interface StorageMethods {
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
   compact(sessionId: string, throughSeq: number, summary: string, modelId: string): SessionEvent
   fork(sessionId: string, atSeq?: number): Session
+  forkSessionCommand(input: ForkSessionCommandInput): Session
   enqueue(
     sessionId: string,
     requestId: string,

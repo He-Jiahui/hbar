@@ -18,7 +18,7 @@ async function fixture() {
   await store.call('ready')
   const workspace = await store.call('createWorkspace', root, 'test')
   const session = await store.call('createSession', workspace.id)
-  return { root, store, session }
+  return { root, store, workspace, session }
 }
 test('committed messages, events, and pagination share a monotonic cursor', async () => {
   const { store, session } = await fixture()
@@ -60,4 +60,39 @@ test('recovery preserves an unknown tool outcome without replaying it', async ()
     callId: 'call',
   })
   expect(await store.call('recover')).toBe(0)
+})
+
+test('entity command receipts make session creation and forks durable across retries and restart', async () => {
+  const resource = await fixture()
+  const { root, workspace, session } = resource
+  const createInput = {
+    actorId: 'device-1',
+    idempotencyKey: 'create-session',
+    workspaceId: workspace.id,
+    title: 'Idempotent session',
+  }
+  const created = await resource.store.call('createSessionCommand', createInput)
+  expect(await resource.store.call('createSessionCommand', createInput)).toEqual(created)
+  let conflict: unknown
+  try {
+    await resource.store.call('createSessionCommand', { ...createInput, title: 'Different session' })
+  } catch (error) {
+    conflict = error
+  }
+  expect(conflict).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+  const forkInput = {
+    actorId: 'device-1',
+    idempotencyKey: 'fork-session',
+    sessionId: session.id,
+  }
+  const forked = await resource.store.call('forkSessionCommand', forkInput)
+  expect(await resource.store.call('forkSessionCommand', forkInput)).toEqual(forked)
+  expect((await resource.store.call('childSessions', session.id)).map((item) => item.id)).toEqual([forked.id])
+
+  await resource.store.close()
+  resource.store = new Storage(join(root, 'test.sqlite'))
+  resources.find((item) => item.root === root)!.store = resource.store
+  await resource.store.call('ready')
+  expect(await resource.store.call('createSessionCommand', createInput)).toEqual(created)
+  expect(await resource.store.call('forkSessionCommand', forkInput)).toEqual(forked)
 })
