@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "@hbar/app-runtime": "workspace:*",
+    "@hbar/schema-core": "workspace:*",
+    "@hbar/schema-react": "workspace:*",
     "hbar-app-ui": "workspace:*",
     "react-markdown": "10.1.0",
     "rehype-sanitize": "6.0.0",

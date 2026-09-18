@@ -5,4 +5,9 @@ export {
   type HbarSessionWorkspaceLabels,
   type HbarSessionWorkspaceProps,
 } from './session-workspace'
+export {
+  HbarSettingsWorkspace,
+  type HbarSettingsWorkspaceLabels,
+  type HbarSettingsWorkspaceProps,
+} from './settings-workspace'
 export type { HbarRuntimeView } from './runtime'

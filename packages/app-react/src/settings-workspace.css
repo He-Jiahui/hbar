@@ -1,0 +1,144 @@
+.hbar-app-react-settings-workspace {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-settings-header {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-lg);
+  border-block-end: 1px solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-settings-header h1,
+.hbar-app-react-settings-header p,
+.hbar-app-react-settings-state p {
+  margin: 0;
+}
+
+.hbar-app-react-settings-header p {
+  margin-block-start: var(--hbar-app-ui-space-xs);
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-react-settings-scopes,
+.hbar-app-react-settings-footer,
+.hbar-app-react-settings-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-react-settings-scopes button[aria-pressed='true'],
+.hbar-app-react-settings-groups button[aria-current='page'] {
+  border-color: var(--hbar-app-ui-accent);
+  background: var(--hbar-app-ui-surface-raised);
+}
+
+.hbar-app-react-settings-layout {
+  display: grid;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.hbar-app-react-settings-groups {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
+  overflow: auto;
+  padding: var(--hbar-app-ui-space-md);
+  border-inline-end: 1px solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-settings-groups button {
+  inline-size: 100%;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-app-react-settings-main {
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--hbar-app-ui-space-lg);
+}
+
+.hbar-app-react-settings-main > .hbar-schema-form {
+  inline-size: min(100%, 58rem);
+  margin-inline: auto;
+}
+
+.hbar-app-react-settings-footer {
+  inline-size: min(100%, 58rem);
+  justify-content: space-between;
+  margin-inline: auto;
+  padding-block-start: var(--hbar-app-ui-space-lg);
+}
+
+.hbar-app-react-settings-footer > span {
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-react-settings-state {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-lg);
+  text-align: center;
+}
+
+.hbar-app-react-settings-workspace > [role='alert'] {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
+  border-block-start: 1px solid var(--hbar-app-ui-border);
+  color: var(--hbar-app-ui-danger);
+}
+
+@media (max-width: 42rem) {
+  .hbar-app-react-settings-workspace {
+    overflow: auto;
+  }
+
+  .hbar-app-react-settings-layout {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .hbar-app-react-settings-groups {
+    flex: 0 0 auto;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-block: var(--hbar-app-ui-space-sm);
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--hbar-app-ui-border);
+  }
+
+  .hbar-app-react-settings-groups button {
+    inline-size: auto;
+    flex: 0 0 auto;
+  }
+
+  .hbar-app-react-settings-main {
+    overflow: visible;
+    padding: var(--hbar-app-ui-space-md);
+  }
+}
