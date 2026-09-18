@@ -1,0 +1,50 @@
+.hbar-schema-form {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.hbar-schema-form-field {
+  display: grid;
+  grid-template-columns: minmax(10rem, 2fr) minmax(12rem, 3fr);
+  align-items: start;
+  gap: 1rem;
+  padding-block: 0.875rem;
+  border-block-end: 1px solid var(--hbar-app-ui-border, currentColor);
+}
+
+.hbar-schema-form-copy,
+.hbar-schema-form-control {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0.375rem;
+}
+
+.hbar-schema-form-copy label {
+  font-weight: 600;
+}
+
+.hbar-schema-form-copy small,
+.hbar-schema-form-control small,
+.hbar-schema-form-control p {
+  margin: 0;
+  color: var(--hbar-app-ui-muted, inherit);
+  overflow-wrap: anywhere;
+}
+
+.hbar-schema-form-control input,
+.hbar-schema-form-control select {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.hbar-schema-form-control button {
+  align-self: flex-start;
+}
+
+@media (max-width: 42rem) {
+  .hbar-schema-form-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

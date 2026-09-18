@@ -126,3 +126,13 @@ app-runtime 新增当前 Session controls 投影，并行读取 `session.getMode
 草稿、附件删除、发送、取消、审批决定及问卷填写/提交均执行规范 command；问卷提交前要求每个请求项都有非空答案。发送沿用捕获原 Session/revision 的 B2b 语义，取消与交互结果在原操作位置显示。AIUsage 只消费 A12 的可靠 Host 报表及预算，不按正文估算；token、费用和速率不可用时保持明确 unavailable。页面使用正常 flex 流和 pane-owned scroll，在桌面与窄屏不依赖截图坐标或固定正文高度。
 
 交付验证：`bun run check` 通过 lint、typecheck、311 个测试（87 个文件、2433 个断言）；`bun run build` 完成 2335 个模块的生产构建；`bunx playwright test e2e/web-shell.spec.ts --reporter=line` 的 5 个场景通过。四个无 Host 场景覆盖中英文、桌面/窄屏、键盘和断线降级；真实临时 Host 场景完成 Session 选择、发送、可靠 Usage、审批、取消和溢出检查。人工检查 `artifacts/web-b2/session-workspace.png` 确认正常内容流、独立滚动和无横向溢出。
+
+## B3：Schema renderer 与分层设置工作台（实施中）
+
+### B3a：独立 React Schema registry 与标量 renderer（完成）
+
+新增独立 `@hbar/schema-react`。ComponentRegistry 一次注册版本、字段类型、multiple、动态内容 kind、交互模式和 React renderer，同时向 schema-core 暴露兼容性注册表；卸载或整体 dispose 会同步撤销两边能力。EditorRegistry 以相同的版本和生命周期规则承载 `ProviderDialog` 一类 dialog/panel 子编辑器，但不拥有打开、保存或传输行为。
+
+`HbarSchemaForm` 只消费编译后的 Schema、不可变 FormState、动态内容报告、宿主 labels 和 `onIntent`。标准 TextField、NumberField、CheckBox、ComboBox 保留数字输入中间态，并明确显示 loading、ready-empty、unavailable、error 和 selected-invalid；组件缺失时显示宿主诊断，不静默遗漏字段。所有可见文案与动态 i18n/literal 转换由宿主传入，新包不依赖 app-runtime、Client、Host、Storage、Zustand 或 hbar 领域定义。当前 schema-core 仍只编译标量字段，因此 multiple 注册会明确拒绝；List/keyed item 与 ProviderDialog 数据契约在后续 B3 切片扩展。
+
+交付验证：`bun run check` 通过 lint、typecheck、314 个测试（88 个文件、2450 个断言）；新增 registry、标量渲染、动态选择状态和 Editor 生命周期 3 项测试，workspace 依赖门禁同步覆盖新包。

@@ -21,9 +21,10 @@ export interface BoundaryViolation {
 const allowedFrameworkDependencies: Readonly<Record<string, readonly string[]>> = {
   '@hbar/commands': [],
   '@hbar/schema-core': [],
+  '@hbar/schema-react': ['@hbar/schema-core'],
   '@hbar/settings-core': ['@hbar/schema-core'],
   '@hbar/app-runtime': ['@hbar/commands', '@hbar/schema-core', '@hbar/settings-core', '@hbar/contracts'],
-  '@hbar/app-react': ['@hbar/app-runtime', '@hbar/schema-core', 'hbar-app-ui'],
+  '@hbar/app-react': ['@hbar/app-runtime', '@hbar/schema-core', '@hbar/schema-react', 'hbar-app-ui'],
 }
 
 function owner(path: string, workspaces: readonly WorkspaceModule[]): WorkspaceModule | undefined {
@@ -76,7 +77,9 @@ export function checkWorkspaceBoundaries(
         ? owner(targetPath, workspaces)
         : workspaces.find((workspace) => dependency === workspace.name || dependency.startsWith(`${workspace.name}/`))
       if (allowed && /^(?:node:|bun:|@tauri-apps\/|react(?:-dom)?(?:\/|$))/.test(dependency)) {
-        if (!(from.name === '@hbar/app-react' && /^react(?:-dom)?(?:\/|$)/.test(dependency)))
+        if (!(
+          ['@hbar/app-react', '@hbar/schema-react'].includes(from.name) && /^react(?:-dom)?(?:\/|$)/.test(dependency)
+        ))
           violations.push({ path, dependency, reason: 'forbidden-dependency' })
       }
       if (from.name === '@hbar/app-runtime' && /^zustand(?:\/|$)/.test(dependency) && dependency !== 'zustand/vanilla')

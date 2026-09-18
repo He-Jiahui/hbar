@@ -31,6 +31,7 @@
         "@hbar/plan": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
         "@hbar/schema-core": "workspace:*",
+        "@hbar/schema-react": "workspace:*",
         "@hbar/settings-core": "workspace:*",
         "@hbar/storage": "workspace:*",
         "@hbar/ui-sdk": "workspace:*",
@@ -217,6 +218,16 @@
     "packages/schema-core": {
       "name": "@hbar/schema-core",
       "version": "0.1.0",
+    },
+    "packages/schema-react": {
+      "name": "@hbar/schema-react",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/schema-core": "workspace:*",
+      },
+      "peerDependencies": {
+        "react": "^19.0.0",
+      },
     },
     "packages/settings-core": {
       "name": "@hbar/settings-core",
@@ -580,6 +591,8 @@
     "@hbar/plugin-sdk": ["@hbar/plugin-sdk@workspace:packages/plugin-sdk"],
 
     "@hbar/schema-core": ["@hbar/schema-core@workspace:packages/schema-core"],
+
+    "@hbar/schema-react": ["@hbar/schema-react@workspace:packages/schema-react"],
 
     "@hbar/settings-core": ["@hbar/settings-core@workspace:packages/settings-core"],
 

@@ -76,6 +76,7 @@
     "@hbar/plugin-sdk": "workspace:*",
     "@hbar/plan": "workspace:*",
     "@hbar/schema-core": "workspace:*",
+    "@hbar/schema-react": "workspace:*",
     "@hbar/settings-core": "workspace:*",
     "@hbar/storage": "workspace:*",
     "@hbar/usage": "workspace:*",
