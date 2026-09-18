@@ -1,13 +1,125 @@
-import type { HbarSessionWorkspaceLabels, HbarWorkspaceShellLabels } from '@hbar/app-react'
+import type { HbarSessionWorkspaceLabels, HbarSettingsWorkspaceLabels, HbarWorkspaceShellLabels } from '@hbar/app-react'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 interface ShellCopy {
   readonly shell: HbarWorkspaceShellLabels
   readonly empty: { readonly title: string; readonly description: string }
   readonly session: HbarSessionWorkspaceLabels
+  readonly settings: HbarSettingsWorkspaceLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
+}
+
+function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const messages: Readonly<Record<string, string>> = zh
+    ? {
+        'i18n:settings.groups.model': '模型',
+        'i18n:settings.groups.session': '会话默认值',
+        'i18n:settings.provider.model.label': '模型',
+        'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
+        'i18n:settings.provider.thinkingLevel.label': '思考等级',
+        'i18n:settings.provider.thinkingLevel.help': '可用等级会随当前模型变化。',
+        'i18n:settings.session.defaultBudget.label': '默认 Token 预算',
+        'i18n:settings.session.defaultBudget.help': '设置新会话运行采用的默认 Token 上限。',
+      }
+    : {
+        'i18n:settings.groups.model': 'Model',
+        'i18n:settings.groups.session': 'Session defaults',
+        'i18n:settings.provider.model.label': 'Model',
+        'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
+        'i18n:settings.provider.thinkingLevel.label': 'Thinking level',
+        'i18n:settings.provider.thinkingLevel.help': 'Available levels follow the selected model.',
+        'i18n:settings.session.defaultBudget.label': 'Default token budget',
+        'i18n:settings.session.defaultBudget.help': 'Set the default token limit for new session runs.',
+      }
+  const option = (value: unknown) => {
+    const key = String(value)
+    const translated: Readonly<Record<string, string>> = zh
+      ? {
+          off: '关闭',
+          minimal: '最少',
+          low: '低',
+          medium: '中',
+          high: '高',
+          xhigh: '超高',
+          max: '最大',
+        }
+      : {
+          off: 'Off',
+          minimal: 'Minimal',
+          low: 'Low',
+          medium: 'Medium',
+          high: 'High',
+          xhigh: 'Extra high',
+          max: 'Maximum',
+        }
+    return translated[key] ?? key
+  }
+  const source = (value: string) => {
+    if (value.includes(':session:')) return choose('会话层', 'session scope')
+    if (value.includes(':workspace:')) return choose('工作区层', 'workspace scope')
+    if (value.includes(':global')) return choose('全局层', 'global scope')
+    if (value === 'default') return choose('默认值', 'defaults')
+    return choose('上一级', 'parent scope')
+  }
+  return {
+    title: (scope, target) =>
+      scope === 'global'
+        ? choose('全局设置', 'Global settings')
+        : scope === 'workspace'
+          ? choose(`工作区设置${target ? ` · ${target}` : ''}`, `Workspace settings${target ? ` · ${target}` : ''}`)
+          : choose(`会话设置${target ? ` · ${target}` : ''}`, `Session settings${target ? ` · ${target}` : ''}`),
+    description: choose('更改按全局、工作区和会话层级覆盖。', 'Values override global, workspace, and session scopes.'),
+    scopes: choose('设置作用域', 'Settings scope'),
+    global: choose('全局', 'Global'),
+    workspace: choose('工作区', 'Workspace'),
+    session: choose('会话', 'Session'),
+    groups: choose('设置分组', 'Settings groups'),
+    loading: choose('正在加载设置…', 'Loading settings…'),
+    refresh: choose('刷新', 'Refresh'),
+    save: choose('保存更改', 'Save changes'),
+    reconcile: choose('核对保存结果', 'Reconcile save'),
+    saved: choose('设置已保存。', 'Settings saved.'),
+    unsaved: (count) => choose(`${count} 项更改尚未保存`, `${count} unsaved ${count === 1 ? 'change' : 'changes'}`),
+    restoreInheritance: choose('恢复继承', 'Restore inheritance'),
+    localOverride: choose('当前层覆盖', 'Local override'),
+    pendingInheritance: choose('保存后恢复继承', 'Inheritance pending save'),
+    inheritedFrom: (value) => choose(`继承自${source(value)}`, `Inherited from ${source(value)}`),
+    readOnly: choose('当前作用域只读', 'Read-only in this scope'),
+    applyMode: (mode) => {
+      const modes = zh
+        ? { immediate: '立即生效', nextRequest: '下次请求生效', nextRun: '下次运行生效', restart: '重启后生效' }
+        : {
+            immediate: 'Applies immediately',
+            nextRequest: 'Applies on the next request',
+            nextRun: 'Applies on the next run',
+            restart: 'Applies after restart',
+          }
+      return modes[mode]
+    },
+    error: (code) => choose(`设置操作失败：${code}`, `Settings action failed: ${code}`),
+    resolve: (key) => messages[key] ?? key,
+    form: {
+      reset: choose('恢复已保存值', 'Restore saved value'),
+      loading: choose('正在加载选项…', 'Loading options…'),
+      empty: choose('没有可用选项', 'No options available'),
+      unavailable: (code) => choose(`选项当前不可用：${code}`, `Options unavailable: ${code}`),
+      contentError: (code) => choose(`选项加载失败：${code}`, `Option loading failed: ${code}`),
+      selectedInvalid: (value) =>
+        choose(`当前值不可用：${option(value)}`, `Current value unavailable: ${option(value)}`),
+      issue: (issue) =>
+        issue.code === 'required'
+          ? choose('此字段必填。', 'This field is required.')
+          : choose('字段值不符合约束。', 'The value does not satisfy this field.'),
+      option: (_field, value) => option(value),
+      contentText: (text) => (text.kind === 'literal' ? text.text : (messages[text.key] ?? text.key)),
+      componentUnavailable: (component) =>
+        choose(`缺少设置组件：${component}`, `Settings component unavailable: ${component}`),
+    },
+  }
 }
 
 function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
@@ -178,6 +290,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     },
     empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
     session: createSessionLabels('zh-CN'),
+    settings: createSettingsLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -207,6 +320,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     },
     empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
     session: createSessionLabels('en-US'),
+    settings: createSettingsLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },

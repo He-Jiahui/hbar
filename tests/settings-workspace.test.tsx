@@ -160,3 +160,32 @@ test('settings workspace renders Host schema, scoped source state, and command-o
     runtime.dispose()
   }
 })
+
+test('settings workspace presents one bounded failure when the Host is unavailable', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-react-offline',
+    hostId: 'host',
+    directory,
+    settings: { execute: () => Promise.reject(new Error('offline')) },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const state = runtime.view.state.settings.getSnapshot()
+      const entry = state.activeFormId ? state.forms[state.activeFormId] : undefined
+      if (entry?.status === 'error') break
+      await Bun.sleep(2)
+    }
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace labels={labels} connected={false} />
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain('设置 global')
+    expect(html.match(/role="alert"/g)).toHaveLength(1)
+    expect(html).toContain('错误 EXECUTION_FAILED')
+  } finally {
+    runtime.dispose()
+  }
+})

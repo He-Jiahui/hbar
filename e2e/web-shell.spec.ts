@@ -91,7 +91,10 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await page.keyboard.press('Control+K')
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale === 'zh-CN' ? '命令' : 'Commands')
         await page.getByRole('button', { name: locale === 'zh-CN' ? '设置' : 'Settings' }).click()
-        await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale === 'zh-CN' ? '设置' : 'Settings')
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+          locale === 'zh-CN' ? '全局设置' : 'Global settings',
+        )
+        await expect(page.getByText(locale === 'zh-CN' ? /设置操作失败/ : /Settings action failed/)).toBeVisible()
         await expect(page.getByText(locale === 'zh-CN' ? '尚无工程' : 'No projects yet')).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
         await page.screenshot({ path: `artifacts/web-b1/shell-${locale}-${viewport.width}.png`, fullPage: true })
@@ -150,8 +153,20 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('/slow')).toBeVisible()
     await page.getByRole('button', { name: 'Stop the current run' }).click()
     await expect(page.getByText('Cancelled', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Global settings' })).toBeVisible()
+    await page.getByRole('button', { name: 'Session', exact: true }).click()
+    await expect(
+      page.getByRole('heading', { level: 1, name: `Session settings · ${fixture.ready.sessionTitle}` }),
+    ).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Model' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Thinking level' })).toBeVisible()
+    await page.getByRole('button', { name: 'Restore inheritance' }).click()
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.getByText('Settings saved.')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    await page.screenshot({ path: 'artifacts/web-b2/session-workspace.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/web-b3/settings-workspace.png', fullPage: true })
     expect(errors).toEqual([])
   } finally {
     await context.close()

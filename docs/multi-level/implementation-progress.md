@@ -160,3 +160,11 @@ app-runtime 现在从 Host 设置描述编译 callback DAG，并通过注入的 
 每次请求绑定 Host、runtime identity、scope、formId、form revision、Schema version 和依赖 fingerprint。依赖改变时 resolver 取消旧 generation；即使旧 callback 忽略取消并迟到返回，runtime 也核对最新 revision，不允许覆盖当前内容。提交回执重新基线化后会刷新动态能力，dispose 取消并释放全部查询与缓存。
 
 交付验证：`bun run check` 通过 lint、typecheck、319 个测试（89 个文件、2472 个断言）；动态设置定向测试覆盖初始模型 options、缺模型 unavailable、依赖切换、忽略取消的迟到旧结果，以及最终内容仍对应最新模型。该切片只新增运行时只读投影，没有新增可见页面。
+
+### B3d：可见标量设置工作台（完成）
+
+app-runtime 为每个 scope/target 表单增加命令拥有的当前分组；`settingsForm.selectGroup` 只接受 Host 描述中的稳定 group ID，切换 global/workspace/session 后分别保留草稿与分组。`@hbar/schema-react` 支持按有序字段集合投影一个分组，并为宿主提供只读来源和操作插槽；renderer 仍不取得 runtime、Host 或可写 store。
+
+`@hbar/app-react` 新增 `HbarSettingsWorkspace`，在正常 flex/grid 流中组合 scope 切换、可滚动分组栏、Schema 表单、动态模型/思考等级、来源与 applyMode、只读层级、恢复继承、刷新、保存和 unknown 核对。字段、分组和约束全部来自 Host 描述；中英文文案、选项格式和错误说明由 Web 组合根提供。scope、group、field、inheritance、submit/reconcile 全部执行 application command，React 只订阅读取状态。
+
+交付验证：`bun run check` 通过 lint、typecheck、322 个测试（90 个文件、2491 个断言）；生产构建包含 2344 个模块。Playwright 的 5 个场景通过，四个断线场景验证中英文桌面/窄屏的单一失败状态，真实临时 Host 场景加载 Session 设置动态内容、恢复继承并成功保存；截图保存到 `artifacts/web-b3/settings-workspace.png`。

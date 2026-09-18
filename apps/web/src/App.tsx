@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   HbarRuntimeProvider,
   HbarSessionWorkspace,
+  HbarSettingsWorkspace,
   HbarWorkspaceShell,
   useHbarRuntime,
   useHbarRuntimeState,
@@ -52,6 +53,7 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const panel = surfaces.focusedPanelId ? surfaces.panels[surfaces.focusedPanelId] : undefined
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
+  if (panel?.panelId === 'settings') return <HbarSettingsWorkspace labels={copy.settings} connected={connected} />
   if (panel) {
     const content = copy.panels[panel.panelId as keyof typeof copy.panels] ?? copy.panels.commands
     return <HbarAppUiWorkbenchNotice title={content.title} description={content.description} />

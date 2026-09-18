@@ -270,7 +270,7 @@ export function HbarSettingsWorkspace({
           </main>
         </div>
       )}
-      {(actionError || entry?.error) && (
+      {(actionError || (entry?.status === 'ready' && entry.error)) && (
         <p role="alert">{labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}</p>
       )}
     </HbarAppUiSurface>
