@@ -40,6 +40,7 @@ import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
+import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
 import {
   directoryCommands as directoryDefinitions,
   surfaceCommands as surfaceDefinitions,
@@ -61,6 +62,9 @@ import { createSystemCommands } from './system-commands.ts'
 import { createExtensionCommands } from './extension-commands.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 import { UsageService } from '@hbar/usage'
+import { PerformanceCollector } from '@hbar/metrics'
+import { createHostPerformanceProvider } from './performance-provider.ts'
+import { createMetricsCommands } from './metrics-commands.ts'
 
 interface SocketData {
   token?: string | undefined
@@ -84,6 +88,15 @@ export interface ServerOptions {
   key?: string
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
+  const performance = new PerformanceCollector(
+    createHostPerformanceProvider(async () => ({
+      activeRuns: kernel.active.size,
+      queuedRuns: (await kernel.storage.call('queuedSessions')).length,
+      managedChildProcesses: null,
+    })),
+  )
+  await performance.start()
+  const metricsCommands = createMetricsCommands(performance)
   const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
@@ -141,6 +154,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
     { definitions: interactionDefinitions, service: interactionCommands },
     { definitions: modelDefinitions, service: modelCommands },
+    { definitions: metricsDefinitions, service: metricsCommands },
     { definitions: runDefinitions, service: runCommands },
     { definitions: settingsDefinitions, service: settingsCommands },
     { definitions: usageDefinitions, service: usageCommands },
@@ -1058,6 +1072,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       goalPlanCommands.dispose()
       interactionCommands.dispose()
       modelCommands.dispose()
+      metricsCommands.dispose()
+      performance.stop()
       runCommands.dispose()
       settingsCommands.dispose()
       usageCommands.dispose()

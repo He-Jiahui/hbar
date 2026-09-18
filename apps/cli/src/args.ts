@@ -51,6 +51,7 @@ export interface CliArgs {
   bucketMs?: string | undefined
   maxBuckets?: string | undefined
   maxSamples?: string | undefined
+  maxPoints?: string | undefined
   provider?: string | undefined
   source?: string | undefined
   valueJson?: string | undefined
@@ -107,6 +108,7 @@ Usage:
   hbar exec context.compact --session <id|name> --model <provider/model|id|name>
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec usage.query|usage.export --scope global|workspace|session|run [target]
+  hbar exec metrics.current|metrics.query [--from <ms> --to <ms> --bucket-ms <ms>]
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>
   hbar exec agent.create|agent.list|agent.cancel --session <id|name>
@@ -198,6 +200,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'bucket-ms': { type: 'string' },
       'max-buckets': { type: 'string' },
       'max-samples': { type: 'string' },
+      'max-points': { type: 'string' },
       provider: { type: 'string' },
       source: { type: 'string' },
       'value-json': { type: 'string' },
@@ -292,6 +295,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     bucketMs: values['bucket-ms'] as string | undefined,
     maxBuckets: values['max-buckets'] as string | undefined,
     maxSamples: values['max-samples'] as string | undefined,
+    maxPoints: values['max-points'] as string | undefined,
     provider: values.provider as string | undefined,
     source: values.source as string | undefined,
     valueJson: values['value-json'] as string | undefined,

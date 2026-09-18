@@ -18,6 +18,7 @@
     "./commands/extensions": "./src/commands/extensions.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/interaction": "./src/commands/interaction.ts",
+    "./commands/metrics": "./src/commands/metrics.ts",
     "./commands/models": "./src/commands/models.ts",
     "./commands/run": "./src/commands/run.ts",
     "./commands/settings": "./src/commands/settings.ts",

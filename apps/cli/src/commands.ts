@@ -18,6 +18,7 @@ import {
   createGoalPlanCommandClient,
   createInteractionCommandClient,
   createModelCommandClient,
+  createMetricsCommandClient,
   createRunCommandClient,
   createSettingsCommandClient,
   createSystemCommandClient,
@@ -39,6 +40,7 @@ import { extensionCommands } from '@hbar/contracts/commands/extensions'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
+import { metricsCommands } from '@hbar/contracts/commands/metrics'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
@@ -127,6 +129,41 @@ async function runUsageCommand(args: CliArgs, runtime: CliRuntime, output: Comma
             : {}),
         }
   const parsed = usageCommands[action].input.safeParse(raw)
+  if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+  output(await commands.execute(action, parsed.data))
+  return true
+}
+
+async function runMetricsCommand(args: CliArgs, runtime: CliRuntime, output: CommandOutput) {
+  const [action] = args.commandArgs
+  if (action !== 'metrics.current' && action !== 'metrics.query') return false
+  const commands = createMetricsCommandClient(runtime.client)
+  if (action === 'metrics.current') {
+    output(await commands.execute(action, {}))
+    return true
+  }
+  if (args.inputJson) {
+    let raw: unknown
+    try {
+      raw = JSON.parse(args.inputJson) as unknown
+    } catch {
+      throw new CommandError('INVALID_INPUT', '--input-json must contain JSON')
+    }
+    const parsed = metricsCommands[action].input.safeParse(raw)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+    return true
+  }
+  const parsed = metricsCommands[action].input.safeParse({
+    ...(optionalInteger(args.from, '--from') !== undefined ? { from: optionalInteger(args.from, '--from') } : {}),
+    ...(optionalInteger(args.to, '--to', 1) !== undefined ? { to: optionalInteger(args.to, '--to', 1) } : {}),
+    ...(optionalInteger(args.bucketMs, '--bucket-ms', 100) !== undefined
+      ? { bucketMs: optionalInteger(args.bucketMs, '--bucket-ms', 100) }
+      : {}),
+    ...(optionalInteger(args.maxPoints, '--max-points', 1) !== undefined
+      ? { maxPoints: optionalInteger(args.maxPoints, '--max-points', 1) }
+      : {}),
+  })
   if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
   output(await commands.execute(action, parsed.data))
   return true
@@ -1048,6 +1085,7 @@ export async function runCliCommand(
       return true
     }
     if (await runUsageCommand(args, runtime, output)) return true
+    if (await runMetricsCommand(args, runtime, output)) return true
     const commands = createBudgetCommandClient(runtime.client)
     const runs = createRunCommandClient(runtime.client)
     if (action === 'receipt') {

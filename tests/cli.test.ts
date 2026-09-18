@@ -937,6 +937,31 @@ test('usage query and export expose settled attempt facts without a GUI', async 
   })
 })
 
+test('performance metrics are queryable from the CLI without a GUI', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  common.push('--session', (JSON.parse(created.stdout) as { id: string }).id)
+  const current = await run([...common, 'exec', 'metrics.current'])
+  expect(current.code).toBe(0)
+  expect(JSON.parse(current.stdout)).toMatchObject({
+    process: { platform: process.platform },
+    current: { readings: { hostRssBytes: { availability: 'available', unit: 'bytes' } } },
+  })
+  const queried = await run([
+    ...common,
+    'exec',
+    'metrics.query',
+    '--bucket-ms',
+    '100',
+    '--max-points',
+    '10',
+  ])
+  expect(queried.code).toBe(0)
+  expect(JSON.parse(queried.stdout)).toMatchObject({ intervalMs: 1000, retentionSamples: 3600 })
+  expect((JSON.parse(queried.stdout) as { points: unknown[] }).points.length).toBeGreaterThan(0)
+})
+
 test('named contexts persist app.setSession with revision conflicts and supply later command targets', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

@@ -124,6 +124,8 @@ A12b 完成 Usage 查询和导出闭环。Storage 用固定事件类型、时间
 
 A13a 建立 `@hbar/metrics` 有界 collector 与 Host OS adapter。collector 对共享采样做容量、重入、跳样和时间桶管理；adapter 区分 system、Host 和尚不可归属的 managed child 数据。Windows 无可靠线程/磁盘/网络来源时明确 unavailable；Linux procfs 路径提供真实计数并在首个差分样本报告 warming up。纯 fake 测试验证平均聚合和保留 gap，真实进程 smoke 验证来源与平台差异。
 
+A13b 发布 `metrics.current/query` Host commands。每个 Host 只启动一个 collector，关闭时释放 timer；命令输出包含动态进程 uptime、当前样本、有界桶、跳样数和保留 gap。真实认证 Host 与 CLI 测试验证目录、进程归属、当前内存、Run 队列和点数上限；视图不接触 OS adapter。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

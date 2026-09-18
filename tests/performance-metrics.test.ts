@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { HbarClient, createMetricsCommandClient } from '@hbar/client'
+import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { available, PerformanceCollector, unavailable, type PerformanceProvider } from '@hbar/metrics'
 import { createHostPerformanceProvider } from '../apps/host/src/performance-provider.ts'
+import { startServer } from '../apps/host/src/server.ts'
 
 function readings(value: number) {
   return {
@@ -89,4 +95,37 @@ test('host performance provider reports real process facts and explicit platform
       reason: 'PLATFORM_UNSUPPORTED',
     })
   } else expect(second.systemCpuPercent.availability).toBe('available')
+})
+
+test('authenticated metrics commands expose one shared Host collector', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-performance-command-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'metrics command actor')
+    const commands = createMetricsCommandClient(client)
+    const catalog = await client.call('command.catalog', { category: 'monitoring.performance', limit: 20 })
+    expect(catalog.items.map((item) => item.metadata.id)).toEqual(['metrics.current', 'metrics.query'])
+    const current = await commands.execute('metrics.current', {})
+    expect(current.process).toMatchObject({ pid: process.pid, platform: process.platform })
+    expect(current.current?.readings.hostRssBytes.availability).toBe('available')
+    expect(current.current?.readings.queuedRuns.value).toBe(0)
+    const query = await commands.execute('metrics.query', { bucketMs: 100, maxPoints: 10 })
+    expect(query.points.length).toBeGreaterThan(0)
+    expect(query.points.length).toBeLessThanOrEqual(10)
+    expect(query.points.at(-1)?.readings.activeRuns).toMatchObject({ availability: 'available', value: 0 })
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
 })

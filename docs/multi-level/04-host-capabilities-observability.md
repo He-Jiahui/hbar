@@ -71,6 +71,8 @@ A12b 由同一包提供 UsageService，以 Storage 的有界事件页为读取�
 
 A13a 新增独立 `@hbar/metrics` 采样库和注入式 PerformanceProvider。共享 collector 立即采样并按固定周期更新，限制间隔、样本数和输出点数；慢采样跳过而不重叠，淘汰或跳样在查询中形成 gap。Host OS adapter 用单调差值采集系统/Host CPU、系统/Host 内存和事件循环延迟，并注入活动/排队 Run；Linux 额外读取 procfs 线程、Host 磁盘和系统网络计数。平台没有可靠来源、计数器尚未预热或 managed child registry 尚未建立时返回 null 与具体 reason。
 
+A13b 将 Host 唯一 PerformanceCollector 接入 `metrics.current` 与 `metrics.query`。Host 启动时立即取样，所有认证客户端读取同一个环；查询限制时间窗、桶宽与点数，返回进程身份、采样间隔、保留容量、当前值、聚合点和 gap/skipped。typed Client、CLI 和 command catalog 共用契约，不允许 CLI 或 View 直接读取本机 OS，远程连接因此自然展示远程 Host 数据。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。
