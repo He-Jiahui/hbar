@@ -40,6 +40,9 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
   const commands = createGoalPlanCommandClient(client)
   const catalog = await client.call('command.catalog', { category: 'agent.goal.plan', limit: 20 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
+    'agent.cancel',
+    'agent.create',
+    'agent.list',
     'goal.clear',
     'goal.create',
     'goal.get',

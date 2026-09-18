@@ -297,6 +297,14 @@ const methods: StorageMethods = {
   },
   sessions: () =>
     (db.query('SELECT * FROM sessions ORDER BY updatedAt DESC LIMIT 2000').all() as Row[]).map(sessionRow),
+  childSessions(parentId, after, limit = 200) {
+    methods.session(parentId)
+    return (
+      db
+        .query('SELECT * FROM sessions WHERE parentId=? AND (? IS NULL OR id>?) ORDER BY id LIMIT ?')
+        .all(parentId, after ?? null, after ?? null, Math.min(Math.max(limit, 1), 200)) as Row[]
+    ).map(sessionRow)
+  },
   session: (id) => sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null),
   updateSession(id, update) {
     return db.transaction(() => {

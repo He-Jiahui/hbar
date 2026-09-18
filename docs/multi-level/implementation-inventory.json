@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-model-settings-files-surfaces",
+      "status": "partial-budget-run-interaction-model-settings-files-agents-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -25,6 +25,7 @@
         "tests/budget.test.ts",
         "tests/cli.test.ts",
         "tests/goal-plan-commands.test.ts",
+        "tests/agent-commands.test.ts",
         "tests/file-commands.test.ts",
         "tests/interaction-commands.test.ts",
         "tests/model-commands.test.ts",
@@ -271,7 +272,7 @@
       "stateOwner": "Host parent-child sessions, usage ledger, bounded metrics",
       "category": "monitoring.git",
       "milestone": "A11-A13",
-      "status": "new-capability",
+      "status": "partial-agent-complete-metrics-pending",
       "rpc": [],
       "additionalCommands": [
         "agent.create",
@@ -282,7 +283,7 @@
         "usage.query",
         "usage.export"
       ],
-      "tests": []
+      "tests": ["tests/agent-commands.test.ts", "tests/cli.test.ts"]
     }
   ],
   "renames": {
@@ -369,7 +370,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: interaction, goal/plan, model configuration, and file/attachment domains migrated through Host commands and CLI",
+    "A11": "in progress: interaction, goal/plan, model configuration, file/attachment, and child-agent domains migrated through Host commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

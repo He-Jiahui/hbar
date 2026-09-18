@@ -9,6 +9,7 @@ export { createSettingsCommandClient } from './settings'
 export { createInteractionCommandClient } from './interaction'
 export { createGoalPlanCommandClient } from './goals'
 export { createModelCommandClient } from './models'
+export { createAgentCommandClient } from './agents'
 export {
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,

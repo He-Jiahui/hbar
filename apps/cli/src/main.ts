@@ -193,7 +193,9 @@ try {
     throw new Error('--approval ask requires an interactive terminal')
   const runtime = await openRuntime({
     ...args,
-    modelRequired: (args.command !== 'exec' && args.command !== 'model') || args.commandArgs[0] === 'run.submit',
+    modelRequired:
+      (args.command !== 'exec' && args.command !== 'model') ||
+      ['run.submit', 'agent.create'].includes(args.commandArgs[0] ?? ''),
     createSession: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
   })
   try {

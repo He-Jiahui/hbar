@@ -11,7 +11,8 @@ export interface SessionLogLocation {
   hash: string
 }
 
-const durableEvent = /^(message\.committed|run\.|tool\.started|tool\.unknown|approval\.|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.|user_input\.)/
+const durableEvent =
+  /^(message\.committed|run\.|tool\.started|tool\.unknown|approval\.|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.|agent\.|user_input\.)/
 
 /** Events whose acknowledgement must include the canonical log on disk. */
 export function isDurableSessionEvent(type: string) {

@@ -55,6 +55,7 @@ export interface StorageMethods {
   workspace(id: string): Workspace
   createSession(workspaceId: string, title?: string, parentId?: string): Session
   sessions(): Session[]
+  childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
   updateSession(id: string, update: { title?: string; archived?: boolean }): { session: Session; event: SessionEvent }
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent

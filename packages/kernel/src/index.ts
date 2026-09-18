@@ -56,6 +56,7 @@ import budgetPlugin from '@hbar/budget'
 import gitPlugin from '@hbar/git'
 import browserPlugin from '@hbar/browser-use'
 import computerPlugin from '@hbar/computer-use'
+import agentPlugin from '@hbar/agent'
 import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
@@ -65,6 +66,7 @@ export { createInteractionCommands } from './interaction-commands'
 export { createGoalPlanCommands } from './goal-plan-commands'
 export { createModelCommands, createModelSettingsValidator } from './model-commands'
 export { createFileCommands } from './file-commands'
+export { createAgentCommands } from './agent-commands'
 export { createSettingsCommands } from './settings-commands'
 export { SettingsService, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_SCHEMA_VERSION } from './settings-service'
 import { createDirectoryQueries } from './directory-queries'
@@ -236,7 +238,8 @@ export class Kernel {
             return workspaceId ? sessions.filter((session) => session.workspaceId === workspaceId) : sessions
           },
           events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
-          create: (id, title) => this.createSession(id, title),
+          children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
+          create: (id, title, parentId) => this.createSession(id, title, parentId),
           submit: (...args) => this.submit(...args),
           cancel: (id) => this.cancel(id),
           snapshot: (id) => this.snapshot(id),
@@ -407,6 +410,7 @@ export class Kernel {
     this.plugins.add(goalPlugin)
     this.plugins.add(planPlugin)
     this.plugins.add(budgetPlugin)
+    this.plugins.add(agentPlugin)
     this.plugins.add(gitPlugin)
     this.plugins.add(browserPlugin)
     this.plugins.add(computerPlugin)
@@ -445,8 +449,8 @@ export class Kernel {
     this.changed('workspaces')
     return workspace
   }
-  async createSession(workspaceId: string, title?: string) {
-    const session = await this.storage.call('createSession', workspaceId, title)
+  async createSession(workspaceId: string, title?: string, parentId?: string) {
+    const session = await this.storage.call('createSession', workspaceId, title, parentId)
     this.changed('sessions')
     return session
   }

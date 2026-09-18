@@ -35,6 +35,7 @@ export interface CliArgs {
   baselineJson?: string | undefined
   schemaVersion?: string | undefined
   tokenBudget?: string | undefined
+  title?: string | undefined
   category?: string | undefined
   after?: string | undefined
   limit?: string | undefined
@@ -71,6 +72,7 @@ Usage:
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>
+  hbar exec agent.create|agent.list|agent.cancel --session <id|name>
 
 Headless options:
   --message <text>                 Message (or read one message from stdin)
@@ -140,6 +142,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'baseline-json': { type: 'string' },
       'schema-version': { type: 'string' },
       'token-budget': { type: 'string' },
+      title: { type: 'string' },
       category: { type: 'string' },
       after: { type: 'string' },
       limit: { type: 'string' },
@@ -211,6 +214,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     baselineJson: values['baseline-json'] as string | undefined,
     schemaVersion: values['schema-version'] as string | undefined,
     tokenBudget: values['token-budget'] as string | undefined,
+    title: values.title as string | undefined,
     category: values.category as string | undefined,
     after: values.after as string | undefined,
     limit: values.limit as string | undefined,

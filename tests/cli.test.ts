@@ -260,6 +260,49 @@ test('exec file commands read and compare-and-write workspace files without requ
   ).toContain('attachment.upload')
 })
 
+test('exec agent commands create and list child sessions through the shared command path', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const parent = JSON.parse(created.stdout) as { id: string }
+  const child = await run([
+    ...common,
+    '--session',
+    parent.id,
+    'exec',
+    'agent.create',
+    'CLI child task',
+    '--idempotency-key',
+    'cli-agent',
+    '--model',
+    'local-fixture',
+    '--token-budget',
+    '400',
+  ])
+  expect(child.code).toBe(0)
+  const agent = JSON.parse(child.stdout) as { agentId: string; parentSessionId: string }
+  expect(agent.parentSessionId).toBe(parent.id)
+  const listed = await run([...common, '--session', parent.id, 'exec', 'agent.list'])
+  expect(listed.code).toBe(0)
+  expect(JSON.parse(listed.stdout)).toMatchObject({ items: [{ agentId: agent.agentId, tokenBudget: 400 }] })
+  const duplicate = await run([
+    ...common,
+    '--session',
+    parent.id,
+    'exec',
+    'agent.create',
+    'CLI child task',
+    '--idempotency-key',
+    'cli-agent',
+    '--model',
+    'local-fixture',
+    '--token-budget',
+    '400',
+  ])
+  expect(duplicate.code).toBe(0)
+  expect((JSON.parse(duplicate.stdout) as { agentId: string }).agentId).toBe(agent.agentId)
+})
+
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

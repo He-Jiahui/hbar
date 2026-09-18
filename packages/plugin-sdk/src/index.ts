@@ -36,6 +36,7 @@ import type {
   Workspace,
 } from '@hbar/contracts'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
+import type { AgentCreateInput, AgentPage, AgentRecord } from '@hbar/contracts/commands/agents'
 
 export { Context }
 export type Disposer = () => void | Promise<void>
@@ -131,8 +132,9 @@ export interface HarnessDriver {
 export interface SessionService {
   get(id: string): Promise<Session>
   list(workspaceId?: string): Promise<Session[]>
+  children(parentId: string, after?: string, limit?: number): Promise<Session[]>
   events(id: string, after?: number, limit?: number): Promise<SessionEvent[]>
-  create(workspaceId: string, title?: string): Promise<Session>
+  create(workspaceId: string, title?: string, parentId?: string): Promise<Session>
   submit(sessionId: string, requestId: string, input: UserInput, modelId: string): Promise<Run>
   cancel(runId: string): Promise<void>
   snapshot(sessionId: string): Promise<SessionSnapshot>
@@ -175,6 +177,14 @@ export interface BudgetService {
   ): Promise<BudgetReceipt>
   getCommandReceipt(sessionId: string, actorId: string, idempotencyKey: string): Promise<BudgetReceipt | null>
   clear(sessionId: string): Promise<{ cleared: boolean }>
+}
+export interface AgentService {
+  create(
+    input: AgentCreateInput,
+    context: { actorId: string; idempotencyKey: string; requestId: string },
+  ): Promise<AgentRecord>
+  list(parentSessionId: string, after?: string, limit?: number): Promise<AgentPage>
+  cancel(parentSessionId: string, agentId: string): Promise<AgentRecord>
 }
 export interface GitDiffOptions {
   cached?: boolean | undefined

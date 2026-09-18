@@ -172,6 +172,7 @@
       "name": "@hbar/kernel",
       "version": "0.1.0",
       "dependencies": {
+        "@hbar/agent": "workspace:*",
         "@hbar/commands": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
@@ -213,6 +214,15 @@
       },
       "peerDependencies": {
         "react": "^19.0.0",
+      },
+    },
+    "plugins/agent": {
+      "name": "@hbar/agent",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "zod": "^4.5.4",
       },
     },
     "plugins/browser-use": {
@@ -481,6 +491,8 @@
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.3", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q=="],
 
     "@google/genai": ["@google/genai@1.52.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q=="],
+
+    "@hbar/agent": ["@hbar/agent@workspace:plugins/agent"],
 
     "@hbar/app-runtime": ["@hbar/app-runtime@workspace:packages/app-runtime"],
 

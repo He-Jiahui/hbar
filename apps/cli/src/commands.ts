@@ -6,6 +6,7 @@ import {
   createBudgetCommandClient,
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,
+  createAgentCommandClient,
   createDirectoryQueryAdapter,
   createFileCommandClient,
   createGoalPlanCommandClient,
@@ -16,6 +17,7 @@ import {
 } from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
+import { agentCommands } from '@hbar/contracts/commands/agents'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
@@ -161,6 +163,49 @@ export function isGoalPlanCommand(value: string | undefined): value is keyof typ
 
 export function isModelCommand(value: string | undefined): value is keyof typeof modelCommands {
   return Boolean(value && Object.hasOwn(modelCommands, value))
+}
+
+export function isAgentCommand(value: string | undefined): value is keyof typeof agentCommands {
+  return Boolean(value && Object.hasOwn(agentCommands, value))
+}
+
+export async function runAgentCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isAgentCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown agent command')
+  const commands = createAgentCommandClient(runtime.client)
+  const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
+  if (action === 'agent.create') {
+    if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
+    argv.push('--model', args.model ? selectModel(runtime.bootstrap, args.model) : runtime.modelId)
+    if (args.title !== undefined) argv.push('--title', args.title)
+    if (args.tokenBudget !== undefined) argv.push('--token-budget', args.tokenBudget)
+    if (args.thinkingExplicit) argv.push('--thinking', args.thinking)
+    argv.push('--approval', args.approval)
+    const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    output(
+      await commands.execute(action, input.data, {
+        idempotencyKey: args.idempotencyKey,
+        ...(args.requestId ? { requestId: args.requestId } : {}),
+      }),
+    )
+    return
+  }
+  if (action === 'agent.list') {
+    if (args.after !== undefined) argv.push('--after', args.after)
+    if (args.limit !== undefined) argv.push('--limit', args.limit)
+    const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    output(await commands.execute(action, input.data))
+    return
+  }
+  const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
+  if (!input.success) throw validationError('INVALID_INPUT', input.error)
+  output(await commands.execute(action, input.data))
 }
 
 export function isFileCommand(
@@ -524,6 +569,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isAgentCommand(action)) {
+      await runAgentCommand(args, runtime, output)
+      return true
+    }
     if (isFileCommand(action)) {
       await runFileCommand(args, runtime, output)
       return true

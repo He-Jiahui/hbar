@@ -35,6 +35,10 @@ A11b 已将 `goal.get/create/set/update/clear` 与 `plan.get/update/clear` 注�
 
 A11c 已将 `model.list`、`session.getModel`、`session.setModel` 与 `session.setThinkingLevel` 注册到 `model.configuration`。Session 命令与通用 settings command 共用 SettingsService；模型存在性与 thinking capability 作为注入的候选验证器作用于两个入口。切换模型时，不兼容的显式 thinking override 与模型值原子更新。CLI/TUI 使用持久配置作为 Run 缺省值，Run 的显式 model/thinking 仍只影响该次执行。
 
+A11d 已完成文件与附件无界面闭环：workspace 文本文件通过 Host command 读取、分页和 SHA-256 baseline 写入；附件由 client command 绑定短生命周期 `File` source，二进制经认证 HTTP transport 上传，持久状态只保留内容寻址 artifact。共享 artifact 不提供破坏性删除；草稿移除由客户端草稿命令负责。
+
+A11e 新增 `@hbar/agent` 领域插件。`agent.create/list/cancel` 将每个子 Agent 建模为同工程内独立子 Session，父子关系使用既有 `parentId`，创建事实和 actor 幂等键写入规范事件；可选预算落到子 Session 的 BudgetService，Run 用量由原预算钩子结算。取消按有界后代树由叶到根传播，列表和响应未知恢复从 Session、Run 与 agent 事件重建，不依赖 UI 生命周期。
+
 ## 3. 预算切片保持现有业务语义
 
 依据核对的 `plugins/budget/src/index.ts`：`session.setBudget <tokens>` 表示当前预算账本的总上限，不是追加 token，也不清零已用量。现有规则限制降低上限，并拒绝修改 completed/stopped 账本；重构先保留规则，领域错误明确返回。

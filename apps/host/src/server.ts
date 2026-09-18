@@ -8,6 +8,7 @@ import type { ServerWebSocket } from 'bun'
 import {
   Kernel,
   SettingsService,
+  createAgentCommands,
   createBudgetCommands,
   createFileCommands,
   createGoalPlanCommands,
@@ -18,6 +19,7 @@ import {
   createSettingsCommands,
 } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
+import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
@@ -28,6 +30,7 @@ import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
 import type {
   BrowserUseService,
+  AgentService,
   BudgetService,
   ComputerUseService,
   ExecutionProvider,
@@ -61,6 +64,7 @@ export interface ServerOptions {
   key?: string
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
+  const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
   const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'))
   const goalPlanCommands = createGoalPlanCommands(
@@ -73,6 +77,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const runCommands = createRunCommands(kernel)
   const settingsCommands = createSettingsCommands(settingsService)
   const commandServices = [
+    { definitions: agentDefinitions, service: agentCommands },
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: fileDefinitions, service: fileCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
@@ -965,7 +970,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     pairing,
     info: hostInfo,
     async close() {
+      agentCommands.dispose()
       budgetCommands.dispose()
+      fileCommands.dispose()
       goalPlanCommands.dispose()
       interactionCommands.dispose()
       modelCommands.dispose()
