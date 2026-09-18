@@ -8,6 +8,7 @@ import {
   createAttachmentSourceDescriptor,
   createAgentCommandClient,
   createBrowserCommandClient,
+  createComputerCommandClient,
   createDirectoryQueryAdapter,
   createFileCommandClient,
   createGoalPlanCommandClient,
@@ -20,6 +21,7 @@ import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { agentCommands } from '@hbar/contracts/commands/agents'
 import { browserCommands } from '@hbar/contracts/commands/browser'
+import { computerCommands } from '@hbar/contracts/commands/computer'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
@@ -173,6 +175,26 @@ export function isAgentCommand(value: string | undefined): value is keyof typeof
 
 export function isBrowserCommand(value: string | undefined): value is keyof typeof browserCommands {
   return Boolean(value && Object.hasOwn(browserCommands, value))
+}
+
+export function isComputerCommand(value: string | undefined): value is keyof typeof computerCommands {
+  return Boolean(value && Object.hasOwn(computerCommands, value))
+}
+
+export async function runComputerCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isComputerCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown computer command')
+  const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
+  if (args.app !== undefined && computerCommands[action].metadata.cli.arguments.some((item) => item.flag === 'app'))
+    argv.push('--app', args.app)
+  if (args.deltaX !== undefined && action === 'computer.scroll') argv.push('--delta-x', args.deltaX)
+  const input = computerCommands[action].input.safeParse(parseArguments(computerCommands[action].metadata, argv))
+  if (!input.success) throw validationError('INVALID_INPUT', input.error)
+  output(await createComputerCommandClient(runtime.client).execute(action, input.data))
 }
 
 export async function runBrowserCommand(
@@ -592,6 +614,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isComputerCommand(action)) {
+      await runComputerCommand(args, runtime, output)
+      return true
+    }
     if (isBrowserCommand(action)) {
       await runBrowserCommand(args, runtime, output)
       return true

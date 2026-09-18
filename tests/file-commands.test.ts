@@ -43,7 +43,7 @@ test('file commands page, read, and compare-and-write within the workspace bound
   await writeFile(join(root, 'alpha.txt'), 'alpha', 'utf8')
   await writeFile(join(root, 'beta.txt'), 'beta', 'utf8')
 
-  const catalog = await client.call('command.catalog', { category: 'files.tools', limit: 20 })
+  const catalog = await client.call('command.catalog', { category: 'files.tools', limit: 40 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'attachment.query',
     'browser.click',
@@ -56,6 +56,16 @@ test('file commands page, read, and compare-and-write within the workspace bound
     'browser.snapshot',
     'browser.status',
     'browser.type',
+    'computer.click',
+    'computer.doubleClick',
+    'computer.key',
+    'computer.launch',
+    'computer.move',
+    'computer.screenshot',
+    'computer.scroll',
+    'computer.status',
+    'computer.type',
+    'computer.wait',
     'file.list',
     'file.read',
     'file.write',

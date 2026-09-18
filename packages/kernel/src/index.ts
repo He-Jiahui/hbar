@@ -68,6 +68,7 @@ export { createModelCommands, createModelSettingsValidator } from './model-comma
 export { createFileCommands } from './file-commands'
 export { createAgentCommands } from './agent-commands'
 export { createBrowserCommands } from './browser-commands'
+export { createComputerCommands } from './computer-commands'
 export { createSettingsCommands } from './settings-commands'
 export { SettingsService, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_SCHEMA_VERSION } from './settings-service'
 import { createDirectoryQueries } from './directory-queries'

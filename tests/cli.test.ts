@@ -355,6 +355,17 @@ test('exec browser commands navigate, inspect, and close the selected session pa
   }
 })
 
+test('exec computer status uses the selected session through the shared command path', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const session = JSON.parse(created.stdout) as { id: string }
+  const status = await run([...common, '--session', session.id, 'exec', 'computer.status'])
+  expect(status.code).toBe(0)
+  expect(JSON.parse(status.stdout)).toMatchObject({ appId: null })
+  expect((JSON.parse(status.stdout) as { platform: string }).platform).toBeString()
+})
+
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

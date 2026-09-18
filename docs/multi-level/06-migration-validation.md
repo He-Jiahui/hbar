@@ -96,6 +96,8 @@ A11e 新增子 Agent 领域插件与 `agent.create/list/cancel` Host commands。
 
 A11f 迁移 browser-use 的十个已有入口：契约包发布同源的 command descriptor 与 CLI 参数，Kernel adapter 仅依赖 BrowserUseService，Host 目录、typed Client、CLI/REPL/TUI 走统一执行路径。导航、点击、输入、按键和脚本求值声明为外部副作用，命令层允许这类 authenticated durable handler，并在 handler 已进入后把取消或超时报告为 `RESULT_UNKNOWN`；BrowserUseService 同时收到 AbortSignal，调用者用 status/snapshot/history 核对结果。测试覆盖完整目录与 effect 元数据、查询和释放、执行前取消、执行中取消传播、真实 Host 下的 CLI 导航/快照/关闭；原有 backend policy/timeout 测试继续验证浏览器能力本身。
 
+A11g 迁移 computer-use 的十个已有入口，并按命名映射把 `computer.double_click` 提升为 `computer.doubleClick` command。Host adapter 通过 ComputerUseService 复用应用访问策略、锁屏门禁、容量限制和 native backend；typed Client 在 desktop external action 丢失回执时返回 `RESULT_UNKNOWN`，查询仍返回原始连接错误。CLI/REPL/TUI 从同一 descriptor 生成数字、文本、app target 和 scroll 参数。测试使用 fake service 覆盖全部动作映射、effect 元数据、执行前/执行中取消、backend/transport timeout；真实 Host CLI smoke 只读取 status，不在测试机器上触发点击、输入或应用启动。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

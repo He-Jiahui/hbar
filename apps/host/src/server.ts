@@ -10,6 +10,7 @@ import {
   SettingsService,
   createAgentCommands,
   createBrowserCommands,
+  createComputerCommands,
   createBudgetCommands,
   createFileCommands,
   createGoalPlanCommands,
@@ -22,6 +23,7 @@ import {
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
 import { browserCommands as browserDefinitions } from '@hbar/contracts/commands/browser'
+import { computerCommands as computerDefinitions } from '@hbar/contracts/commands/computer'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
@@ -68,6 +70,7 @@ export interface ServerOptions {
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
+  const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
   const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'))
   const goalPlanCommands = createGoalPlanCommands(
@@ -82,6 +85,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const commandServices = [
     { definitions: agentDefinitions, service: agentCommands },
     { definitions: browserDefinitions, service: browserCommands },
+    { definitions: computerDefinitions, service: computerCommands },
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: fileDefinitions, service: fileCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
@@ -976,6 +980,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     async close() {
       agentCommands.dispose()
       browserCommands.dispose()
+      computerCommands.dispose()
       budgetCommands.dispose()
       fileCommands.dispose()
       goalPlanCommands.dispose()

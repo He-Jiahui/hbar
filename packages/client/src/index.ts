@@ -11,6 +11,7 @@ export { createGoalPlanCommandClient } from './goals'
 export { createModelCommandClient } from './models'
 export { createAgentCommandClient } from './agents'
 export { createBrowserCommandClient } from './browser'
+export { createComputerCommandClient } from './computer'
 export {
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,

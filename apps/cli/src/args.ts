@@ -32,6 +32,8 @@ export interface CliArgs {
   path?: string | undefined
   page?: string | undefined
   browserContext?: string | undefined
+  app?: string | undefined
+  deltaX?: string | undefined
   selector?: string | undefined
   fullPage: boolean
   valueJson?: string | undefined
@@ -77,6 +79,7 @@ Usage:
   hbar exec attachment.query <artifactId>
   hbar exec agent.create|agent.list|agent.cancel --session <id|name>
   hbar exec browser.status|browser.navigate|browser.snapshot|browser.close --session <id|name>
+  hbar exec computer.status|computer.screenshot|computer.click|computer.type --session <id|name>
 
 Headless options:
   --message <text>                 Message (or read one message from stdin)
@@ -143,6 +146,8 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       path: { type: 'string' },
       page: { type: 'string' },
       'browser-context': { type: 'string' },
+      app: { type: 'string' },
+      'delta-x': { type: 'string' },
       selector: { type: 'string' },
       'full-page': { type: 'boolean' },
       'value-json': { type: 'string' },
@@ -218,6 +223,8 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     path: values.path as string | undefined,
     page: values.page as string | undefined,
     browserContext: values['browser-context'] as string | undefined,
+    app: values.app as string | undefined,
+    deltaX: values['delta-x'] as string | undefined,
     selector: values.selector as string | undefined,
     fullPage: Boolean(values['full-page']),
     valueJson: values['value-json'] as string | undefined,
