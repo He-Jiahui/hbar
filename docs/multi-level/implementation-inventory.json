@@ -260,9 +260,9 @@
       "stateOwner": "Host files/artifacts; client upload/edit drafts",
       "category": "files.tools",
       "milestone": "A11",
-      "status": "partial-host-commands-cli-attachment-transport-pending",
+      "status": "complete-headless-commands-and-transfer",
       "rpc": ["file.read", "file.list"],
-      "additionalCommands": ["file.write", "attachment.upload", "attachment.remove", "attachment.query"],
+      "additionalCommands": ["file.write", "attachment.upload", "attachment.query"],
       "tests": ["tests/file-attachment.test.ts", "tests/file-commands.test.ts", "tests/cli.test.ts"]
     },
     {
@@ -369,7 +369,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: interaction, goal/plan, model configuration, and workspace file/query domains migrated through Host commands and CLI",
+    "A11": "in progress: interaction, goal/plan, model configuration, and file/attachment domains migrated through Host commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

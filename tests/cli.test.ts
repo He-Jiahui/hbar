@@ -246,6 +246,18 @@ test('exec file commands read and compare-and-write workspace files without requ
   expect(
     (JSON.parse(listed.stdout) as { items: { path: string }[] }).items.some((item) => item.path === 'command-file.txt'),
   ).toBe(true)
+  const uploaded = await run([...common, 'exec', 'attachment.upload', source])
+  expect(uploaded.code).toBe(0)
+  const artifact = JSON.parse(uploaded.stdout) as { id: string; name: string; size: number }
+  expect(artifact).toMatchObject({ name: 'replacement.txt', size: 5 })
+  const queried = await run([...common, 'exec', 'attachment.query', artifact.id])
+  expect(queried.code).toBe(0)
+  expect(JSON.parse(queried.stdout)).toEqual(artifact)
+  const catalog = await run([...common, 'commands', 'list', '--category', 'files.tools'])
+  expect(catalog.code).toBe(0)
+  expect(
+    (JSON.parse(catalog.stdout) as { items: { metadata: { id: string } }[] }).items.map((item) => item.metadata.id),
+  ).toContain('attachment.upload')
 })
 
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {

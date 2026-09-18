@@ -2,7 +2,12 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarClient, createFileCommandClient } from '@hbar/client'
+import {
+  HbarClient,
+  createAttachmentCommandClient,
+  createAttachmentSourceDescriptor,
+  createFileCommandClient,
+} from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -113,4 +118,69 @@ test('attachment query resolves immutable artifact metadata by content id', asyn
   await expect(commands.execute('attachment.query', { artifactId: '0'.repeat(64) })).rejects.toMatchObject({
     code: 'NOT_FOUND',
   })
+})
+
+test('attachment upload commands keep binary sources client-local and reconcile by content id', async () => {
+  const { client, commands } = await fixture()
+  const bytes = new TextEncoder().encode('client-local attachment')
+  const file = new File([bytes], 'upload.txt', { type: 'text/plain' })
+  const sourceId = 'selected-file'
+  const input = await createAttachmentSourceDescriptor(sourceId, file)
+  const uploads = createAttachmentCommandClient(client, {
+    resolve(id) {
+      if (id !== sourceId) throw new Error('source expired')
+      return file
+    },
+  })
+  try {
+    const uploaded = await uploads.execute('attachment.upload', input)
+    expect(uploaded).toMatchObject({ id: input.sha256, name: 'upload.txt', mime: 'text/plain', size: bytes.length })
+    expect(await uploads.execute('attachment.upload', input)).toEqual(uploaded)
+    expect(await commands.execute('attachment.query', { artifactId: input.sha256 })).toEqual(uploaded)
+    await expect(uploads.execute('attachment.upload', { ...input, sha256: '0'.repeat(64) })).rejects.toMatchObject({
+      code: 'SOURCE_CHANGED',
+    })
+    const controller = new AbortController()
+    controller.abort()
+    await expect(uploads.execute('attachment.upload', input, { signal: controller.signal })).rejects.toMatchObject({
+      code: 'CANCELLED',
+    })
+  } finally {
+    uploads.dispose()
+  }
+
+  let enteredUpload = (): void => {}
+  let transportAborted = false
+  const entered = new Promise<void>((resolve) => {
+    enteredUpload = resolve
+  })
+  const cancellable = createAttachmentCommandClient(
+    {
+      upload(_file, signal) {
+        enteredUpload()
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              transportAborted = true
+              reject(signal.reason)
+            },
+            { once: true },
+          )
+        })
+      },
+    },
+    { resolve: () => file },
+  )
+  try {
+    const controller = new AbortController()
+    const pending = cancellable.execute('attachment.upload', input, { signal: controller.signal })
+    await entered
+    controller.abort()
+    await expect(pending).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    await Bun.sleep(0)
+    expect(transportAborted).toBe(true)
+  } finally {
+    cancellable.dispose()
+  }
 })

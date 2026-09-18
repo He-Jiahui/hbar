@@ -1,9 +1,11 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import { resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
 import { describeCommand, parseArguments, CommandError, validationError, type CommandDescriptor } from '@hbar/commands'
 import {
   createBudgetCommandClient,
+  createAttachmentCommandClient,
+  createAttachmentSourceDescriptor,
   createDirectoryQueryAdapter,
   createFileCommandClient,
   createGoalPlanCommandClient,
@@ -15,7 +17,7 @@ import {
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
-import { fileCommands } from '@hbar/contracts/commands/files'
+import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { runCommands } from '@hbar/contracts/commands/run'
@@ -57,7 +59,11 @@ export async function runCatalogCommand(
       remote.push(...page.items)
       cursor = page.nextCursor
     } while (cursor && remote.length < 10_000)
-    const local = [navigationCommands['app.setSession'], ...Object.values(surfaceCommands)]
+    const local = [
+      navigationCommands['app.setSession'],
+      ...Object.values(surfaceCommands),
+      ...Object.values(attachmentCommands),
+    ]
       .map(describeCommand)
       .filter(
         ({ metadata }) =>
@@ -78,9 +84,11 @@ export async function runCatalogCommand(
       }),
     )
   } else if (action === 'describe' && selector && args.commandArgs.length === 2) {
-    const local = [navigationCommands['app.setSession'], ...Object.values(surfaceCommands)].find(
-      (definition) => definition.metadata.id === selector,
-    )
+    const local = [
+      navigationCommands['app.setSession'],
+      ...Object.values(surfaceCommands),
+      ...Object.values(attachmentCommands),
+    ].find((definition) => definition.metadata.id === selector)
     output(
       JSON.stringify(local ? describeCommand(local) : await client.call('command.describe', { commandId: selector })),
     )
@@ -155,8 +163,10 @@ export function isModelCommand(value: string | undefined): value is keyof typeof
   return Boolean(value && Object.hasOwn(modelCommands, value))
 }
 
-export function isFileCommand(value: string | undefined): value is keyof typeof fileCommands {
-  return Boolean(value && Object.hasOwn(fileCommands, value))
+export function isFileCommand(
+  value: string | undefined,
+): value is keyof typeof fileCommands | keyof typeof attachmentCommands {
+  return Boolean(value && (Object.hasOwn(fileCommands, value) || Object.hasOwn(attachmentCommands, value)))
 }
 
 export async function runFileCommand(
@@ -166,6 +176,32 @@ export async function runFileCommand(
 ): Promise<void> {
   const action = args.commandArgs[0]
   if (!isFileCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown file command')
+  if (action === 'attachment.upload') {
+    const localPath = args.commandArgs[1]
+    if (!localPath) throw new CommandError('INVALID_INPUT', 'A local attachment path is required')
+    const absolute = resolve(localPath)
+    const blob = Bun.file(absolute)
+    if (!(await blob.exists())) throw new CommandError('SOURCE_NOT_FOUND', 'Attachment source was not found')
+    if (blob.size < 1 || blob.size > 10 * 1024 * 1024)
+      throw new CommandError('FILE_LIMIT', 'Attachment size must be between 1 byte and 10 MiB')
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    const name = basename(absolute)
+    const mime = blob.type.trim().split(';', 1)[0]!.toLowerCase() || 'application/octet-stream'
+    const sourceId = randomUUID()
+    const file = new File([bytes], name, { type: mime })
+    const uploads = createAttachmentCommandClient(runtime.client, {
+      resolve(id) {
+        if (id !== sourceId) throw new CommandError('SOURCE_NOT_FOUND', 'Attachment source expired')
+        return file
+      },
+    })
+    try {
+      output(await uploads.execute('attachment.upload', await createAttachmentSourceDescriptor(sourceId, file)))
+    } finally {
+      uploads.dispose()
+    }
+    return
+  }
   const commands = createFileCommandClient(runtime.client)
   if (action === 'attachment.query') {
     const input = fileCommands[action].input.safeParse(

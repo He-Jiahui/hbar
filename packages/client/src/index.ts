@@ -9,7 +9,13 @@ export { createSettingsCommandClient } from './settings'
 export { createInteractionCommandClient } from './interaction'
 export { createGoalPlanCommandClient } from './goals'
 export { createModelCommandClient } from './models'
-export { createFileCommandClient } from './files'
+export {
+  createAttachmentCommandClient,
+  createAttachmentSourceDescriptor,
+  createFileCommandClient,
+  type AttachmentSourcePort,
+  type AttachmentUploadTransport,
+} from './files'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'
@@ -191,7 +197,8 @@ export class HbarClient implements ClientTransport {
     this.connectPromise = undefined
     return this.connect()
   }
-  async upload(file: File): Promise<ArtifactRef> {
+  async upload(file: File, signal?: AbortSignal): Promise<ArtifactRef> {
+    signal?.throwIfAborted()
     const response = await fetch(new URL('/api/artifacts', this.baseUrl), {
       method: 'POST',
       credentials: 'include',
@@ -201,10 +208,15 @@ export class HbarClient implements ClientTransport {
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
       body: file,
+      ...(signal ? { signal } : {}),
     })
     const data: unknown = await response.json()
+    signal?.throwIfAborted()
     if (!response.ok)
-      throw new Error(
+      throw new HbarError(
+        typeof data === 'object' && data && 'code' in data && typeof data.code === 'string'
+          ? data.code
+          : 'UPLOAD_FAILED',
         typeof data === 'object' && data && 'error' in data && typeof data.error === 'string'
           ? data.error
           : 'Artifact upload failed',

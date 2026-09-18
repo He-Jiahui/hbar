@@ -35,6 +35,17 @@ export const workspaceFileWriteSchema = z.strictObject({
     .nonnegative()
     .max(2 * 1024 * 1024),
 })
+export const attachmentUploadInputSchema = z.strictObject({
+  sourceId: z.string().min(1).max(256),
+  sha256: sha256Schema,
+  name: z.string().min(1).max(240),
+  mime: z.string().min(1).max(120),
+  size: z
+    .number()
+    .int()
+    .min(1)
+    .max(10 * 1024 * 1024),
+})
 
 const metadata = (id: string, kind: 'command' | 'query', scope: 'workspace' | 'global') => ({
   id,
@@ -114,5 +125,30 @@ export const fileCommands = {
   ),
 }
 
+export const attachmentCommands = {
+  'attachment.upload': defineCommand(
+    {
+      id: 'attachment.upload',
+      version: 1,
+      owner: 'hbar.attachments',
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'persistent',
+      category: 'files.tools',
+      scope: 'client',
+      titleKey: 'commands.attachment.upload.title',
+      descriptionKey: 'commands.attachment.upload.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      cancelMode: 'cooperative',
+      timeoutMs: 120_000,
+      maxConcurrent: 4,
+      cli: { arguments: [{ field: 'sourceId', type: 'string', position: 0 }] },
+    },
+    attachmentUploadInputSchema,
+    artifactSchema,
+  ),
+}
+
 export type WorkspaceTextFile = z.output<typeof workspaceTextFileSchema>
 export type WorkspaceFileWrite = z.output<typeof workspaceFileWriteSchema>
+export type AttachmentUploadInput = z.output<typeof attachmentUploadInputSchema>

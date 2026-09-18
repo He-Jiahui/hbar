@@ -90,6 +90,8 @@ A11c 迁移模型选择与思考等级：`model.list` 暴露无凭据能力目�
 
 A11d1 迁移 workspace 文本文件和 artifact 元数据读取：`file.list/read/write` 与 `attachment.query` 进入 `files.tools` Host 目录、类型化 Client 和 CLI。文件操作继续复用 ExecutionProvider 的 workspace/符号链接边界及 2 MiB 限制；读取返回内容哈希，写入要求 SHA-256 baseline（`null` 表示必须新建），同目标命令写串行化，陈旧保存返回 `FILE_CONFLICT`，相同目标内容的未知响应重试收敛。CLI 可用 `--text` 或 `--input-file`，不需要先创建 Session。大二进制仍走已认证 artifact HTTP 传输，不进入 256 KiB command envelope；`attachment.upload` 的客户端命令适配、上传取消与草稿引用移除留在 A11d2，内容寻址共享对象不把“从草稿移除”误实现成物理删除。
 
+A11d2 增加 client execution 的 `attachment.upload`：结构化调用只携带临时 source ID、文件元数据和预计算 SHA-256，`AttachmentSourcePort` 在客户端短生命周期内解析原始 `File`，上传字节仍走带认证和 AbortSignal 的 HTTP transport。handler 在传输前复核名称、类型、大小与内容哈希，Host 回执也必须匹配预期内容 ID；重复上传收敛到同一 artifact，响应未知可用该 ID 调 `attachment.query` 核对。CLI 将本地路径显式绑定为一次性 source，统一命令目录也发布上传描述。传输前取消返回 `CANCELLED`；传输开始后的取消返回 `RESULT_UNKNOWN` 并中止 fetch。artifact 是可能被多个消息引用的不可变共享对象，因此不提供破坏性的 `attachment.remove`；从提示词草稿移除附件属于后续 `draft.setAttachments` 的客户端应用状态命令。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收
