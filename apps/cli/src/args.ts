@@ -34,6 +34,13 @@ export interface CliArgs {
   browserContext?: string | undefined
   app?: string | undefined
   deltaX?: string | undefined
+  cwd?: string | undefined
+  pathsJson?: string | undefined
+  branch?: string | undefined
+  cached?: boolean | undefined
+  stage?: boolean | undefined
+  force?: boolean | undefined
+  createBranch?: boolean | undefined
   selector?: string | undefined
   fullPage: boolean
   valueJson?: string | undefined
@@ -80,6 +87,7 @@ Usage:
   hbar exec agent.create|agent.list|agent.cancel --session <id|name>
   hbar exec browser.status|browser.navigate|browser.snapshot|browser.close --session <id|name>
   hbar exec computer.status|computer.screenshot|computer.click|computer.type --session <id|name>
+  hbar exec git.info|git.status|git.diff|git.log|git.diffToRemote [--cwd <path>]
 
 Headless options:
   --message <text>                 Message (or read one message from stdin)
@@ -148,6 +156,13 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'browser-context': { type: 'string' },
       app: { type: 'string' },
       'delta-x': { type: 'string' },
+      cwd: { type: 'string' },
+      'paths-json': { type: 'string' },
+      branch: { type: 'string' },
+      cached: { type: 'boolean' },
+      stage: { type: 'boolean' },
+      force: { type: 'boolean' },
+      'create-branch': { type: 'boolean' },
       selector: { type: 'string' },
       'full-page': { type: 'boolean' },
       'value-json': { type: 'string' },
@@ -225,6 +240,13 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     browserContext: values['browser-context'] as string | undefined,
     app: values.app as string | undefined,
     deltaX: values['delta-x'] as string | undefined,
+    cwd: values.cwd as string | undefined,
+    pathsJson: values['paths-json'] as string | undefined,
+    branch: values.branch as string | undefined,
+    cached: Boolean(values.cached),
+    stage: Boolean(values.stage),
+    force: Boolean(values.force),
+    createBranch: Boolean(values['create-branch']),
     selector: values.selector as string | undefined,
     fullPage: Boolean(values['full-page']),
     valueJson: values['value-json'] as string | undefined,

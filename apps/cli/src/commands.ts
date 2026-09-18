@@ -9,6 +9,7 @@ import {
   createAgentCommandClient,
   createBrowserCommandClient,
   createComputerCommandClient,
+  createGitCommandClient,
   createDirectoryQueryAdapter,
   createFileCommandClient,
   createGoalPlanCommandClient,
@@ -22,6 +23,7 @@ import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { agentCommands } from '@hbar/contracts/commands/agents'
 import { browserCommands } from '@hbar/contracts/commands/browser'
 import { computerCommands } from '@hbar/contracts/commands/computer'
+import { gitCommands } from '@hbar/contracts/commands/git'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
@@ -179,6 +181,39 @@ export function isBrowserCommand(value: string | undefined): value is keyof type
 
 export function isComputerCommand(value: string | undefined): value is keyof typeof computerCommands {
   return Boolean(value && Object.hasOwn(computerCommands, value))
+}
+
+export function isGitCommand(value: string | undefined): value is keyof typeof gitCommands {
+  return Boolean(value && Object.hasOwn(gitCommands, value))
+}
+
+export async function runGitCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isGitCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown Git command')
+  const argv = [...args.commandArgs.slice(1)]
+  const definition = gitCommands[action]
+  const flags = new Set(definition.metadata.cli.arguments.map((item) => item.flag).filter(Boolean))
+  for (const [flag, value] of [
+    ['cwd', args.cwd],
+    ['paths-json', args.pathsJson],
+    ['branch', args.branch],
+    ['limit', args.limit],
+  ] as const)
+    if (value !== undefined && flags.has(flag)) argv.push(`--${flag}`, value)
+  for (const [flag, enabled] of [
+    ['cached', args.cached],
+    ['stage', args.stage],
+    ['force', args.force],
+    ['create-branch', args.createBranch],
+  ] as const)
+    if (enabled && flags.has(flag)) argv.push(`--${flag}`)
+  const input = definition.input.safeParse(parseArguments(definition.metadata, argv))
+  if (!input.success) throw validationError('INVALID_INPUT', input.error)
+  output(await createGitCommandClient(runtime.client).execute(action, input.data))
 }
 
 export async function runComputerCommand(
@@ -614,6 +649,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isGitCommand(action)) {
+      await runGitCommand(args, runtime, output)
+      return true
+    }
     if (isComputerCommand(action)) {
       await runComputerCommand(args, runtime, output)
       return true

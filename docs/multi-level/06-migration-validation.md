@@ -98,6 +98,8 @@ A11f 迁移 browser-use 的十个已有入口：契约包发布同源的 command
 
 A11g 迁移 computer-use 的十个已有入口，并按命名映射把 `computer.double_click` 提升为 `computer.doubleClick` command。Host adapter 通过 ComputerUseService 复用应用访问策略、锁屏门禁、容量限制和 native backend；typed Client 在 desktop external action 丢失回执时返回 `RESULT_UNKNOWN`，查询仍返回原始连接错误。CLI/REPL/TUI 从同一 descriptor 生成数字、文本、app target 和 scroll 参数。测试使用 fake service 覆盖全部动作映射、effect 元数据、执行前/执行中取消、backend/transport timeout；真实 Host CLI smoke 只读取 status，不在测试机器上触发点击、输入或应用启动。
 
+A11h 迁移 Git 已有的八个入口，并把 `git.diff_to_remote` 规范为 `git.diffToRemote`。查询和 mutation 共用 GitService 的受限 cwd、pathspec、branch/worktree 校验、无 shell 参数执行、超时与输出容量；commit/branch/worktree 声明 external effect，断线或超时后的调用者通过 status/log/branch/worktree 查询核对，不自动重放。测试在临时真实仓库覆盖 status/log/diff、提交和列表，在 fake service 覆盖取消与 transport unknown；CLI smoke 验证无仓库时仍返回有界空状态。Git 来源记录、时间桶和 `git.stats` 保持为 A14 独立能力，未在迁移 adapter 中伪造。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

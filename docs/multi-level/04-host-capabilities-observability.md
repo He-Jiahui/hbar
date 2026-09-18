@@ -1,6 +1,6 @@
 # P4：Host 业务命令化与监控数据能力
 
-状态：实施中；预算、Run、审批问卷、目标计划、Session 模型配置、文件附件、子 Agent、browser 与 computer 命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
+状态：实施中；预算、Run、审批问卷、目标计划、Session 模型配置、文件附件、子 Agent、browser、computer 与现有 Git 命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
 
 ## 1. Host 模块保持 MVC 与领域边界
 
@@ -42,6 +42,8 @@ A11e 新增 `@hbar/agent` 领域插件。`agent.create/list/cancel` 将每个子
 A11f 已将 `browser.status/navigate/snapshot/click/type/press/screenshot/evaluate/close/history` 注册为 session scope 的 Host commands。所有定义、CLI 参数和 typed Client 共用一份契约，adapter 只通过公开 BrowserUseService 调用原有 origin/CDP policy、容量限制、超时与受管 backend。会触发浏览器外部副作用的动作标记为 `external`：进入 handler 前取消返回 `CANCELLED`，进入后取消或丢失响应返回 `RESULT_UNKNOWN`，调用者用 status、snapshot 或 history 核对页面事实后再决定后续操作；查询和 page/context 释放按实际状态影响单独分类。旧 browser RPC 暂作兼容入口并调用同一服务。
 
 A11g 已将 `computer.status/screenshot/click/doubleClick/type/key/scroll/move/wait/launch` 注册为 session scope 的 Host commands，并把旧 `computer.double_click` 明确映射为新 command ID `computer.doubleClick`。adapter 只依赖 ComputerUseService，继续执行原有应用授权、锁屏策略、坐标/文本边界、截图容量、超时与受管 native backend。点击、输入、按键、滚动、移动、等待和启动均声明为 `external`；动作开始后的取消、backend 超时、传输超时或断线返回 `RESULT_UNKNOWN`，status/screenshot 查询保留其原始失败码。CLI、REPL、TUI 和 typed Client 共用契约，旧 computer RPC 暂作同服务兼容入口。
+
+A11h 已将 `git.info/status/diff/log/commit/branch/worktree/diffToRemote` 注册为 workspace scope 的 Host commands，旧 `git.diff_to_remote` 映射为 `git.diffToRemote`。adapter 只依赖 GitService，复用 workspace realpath/symlink 边界、pathspec/branch 校验、参数数组进程执行、输出上限、超时和成功后的观察通知。只读入口是 query；commit、branch 与 worktree 统一按 `external` 处理，动作进入后的取消、Git timeout 或丢失回执要求先查询 repository 状态。CLI 用 descriptor 解析 cwd、paths JSON、分页和 mutation 参数；A14 另行增加来源事实与 `git.stats`，本切片不把现有 log 推断成统计账本。
 
 ## 3. 预算切片保持现有业务语义
 

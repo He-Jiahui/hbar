@@ -12,6 +12,7 @@ export { createModelCommandClient } from './models'
 export { createAgentCommandClient } from './agents'
 export { createBrowserCommandClient } from './browser'
 export { createComputerCommandClient } from './computer'
+export { createGitCommandClient } from './git'
 export {
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,

@@ -366,6 +366,16 @@ test('exec computer status uses the selected session through the shared command 
   expect((JSON.parse(status.stdout) as { platform: string }).platform).toBeString()
 })
 
+test('exec Git queries use the workspace service through the shared command path', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const status = await run([...common, 'exec', 'git.status'])
+  expect(status.code).toBe(0)
+  expect(JSON.parse(status.stdout)).toMatchObject({ root: null, dirty: false, entries: [] })
+  const history = await run([...common, 'exec', 'git.log', '--limit', '1'])
+  expect(history.code).toBe(0)
+  expect(JSON.parse(history.stdout)).toEqual([])
+})
+
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])
