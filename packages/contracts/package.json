@@ -19,6 +19,7 @@
     "./commands/extensions": "./src/commands/extensions.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/interaction": "./src/commands/interaction.ts",
+    "./commands/interaction-draft": "./src/commands/interaction-draft.ts",
     "./commands/metrics": "./src/commands/metrics.ts",
     "./commands/models": "./src/commands/models.ts",
     "./commands/run": "./src/commands/run.ts",

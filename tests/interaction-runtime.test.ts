@@ -131,6 +131,16 @@ test('interaction actions stay bound to their targets and unknown replies conver
     expect(runtime.view.state.interactions.getSnapshot()['approval:approval']?.status).toBe('succeeded')
 
     mode = 'failed'
+    await runtime.view.commands.execute('questionnaire.setAnswer', {
+      sessionId: session.id,
+      requestId: request.requestId,
+      questionId: 'choice',
+      answer: { kind: 'custom', value: 'No' },
+    })
+    expect(runtime.view.state.questionnaires.getSnapshot()[request.requestId]?.answers.choice).toEqual({
+      kind: 'custom',
+      value: 'No',
+    })
     await expect(
       runtime.view.commands.execute('questionnaire.answer', {
         sessionId: session.id,
@@ -151,6 +161,21 @@ test('interaction actions stay bound to their targets and unknown replies conver
     })
     expect(answer.accepted).toBeTrue()
     expect(runtime.view.state.interactions.getSnapshot()['questionnaire:questionnaire']?.status).toBe('succeeded')
+    update!({
+      kind: 'event',
+      event: {
+        eventId: 'questionnaire-resolved',
+        sessionId: session.id,
+        seq: 3,
+        runId: request.runId,
+        stepId: null,
+        type: 'user_input.resolved',
+        data: { requestId: request.requestId },
+        time: 6,
+        version: 1,
+      },
+    })
+    expect(runtime.view.state.questionnaires.getSnapshot()[request.requestId]).toBeUndefined()
   } finally {
     runtime.dispose()
   }

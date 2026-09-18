@@ -82,6 +82,21 @@ export interface InteractionActionState {
 }
 export type InteractionState = Readonly<Record<string, InteractionActionState>>
 
+export interface QuestionnaireDraftState {
+  readonly sessionId: string
+  readonly requestId: string
+  readonly revision: number
+  readonly answers: Readonly<Record<string, { readonly kind: 'option' | 'custom'; readonly value: string }>>
+}
+export type QuestionnaireDraftsState = Readonly<Record<string, QuestionnaireDraftState>>
+
+export interface RunActionState {
+  readonly operationId: string
+  readonly status: 'submitting' | 'unknown' | 'failed' | 'succeeded'
+  readonly error: string | null
+}
+export type RunActionsState = Readonly<Record<string, RunActionState>>
+
 export interface SessionControlsState {
   readonly sessionId: string | null
   readonly status: 'idle' | 'loading' | 'ready' | 'partial'

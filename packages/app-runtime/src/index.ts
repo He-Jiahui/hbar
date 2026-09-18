@@ -13,6 +13,7 @@ import { runCommands } from '@hbar/contracts/commands/run'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { usageCommands } from '@hbar/contracts/commands/usage'
+import { interactionDraftCommands } from '@hbar/contracts/commands/interaction-draft'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -32,6 +33,10 @@ export type {
   DirectoryState,
   InteractionActionState,
   InteractionState,
+  QuestionnaireDraftState,
+  QuestionnaireDraftsState,
+  RunActionState,
+  RunActionsState,
   NavigationState,
   RuntimeOptions,
   RunCommandPort,
@@ -85,7 +90,13 @@ export function createAppRuntime(options: RuntimeOptions) {
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const drafts = createDrafts(local, options.run, onSubscriberError, () => disposed)
-  const interactions = createInteractions(options.interactions, timeline.reader, onSubscriberError, () => disposed)
+  const interactions = createInteractions(
+    local,
+    options.interactions,
+    timeline.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const controls = createSessionControls(
     options.models,
     options.usage,
@@ -109,6 +120,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
+        Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -124,7 +136,9 @@ export function createAppRuntime(options: RuntimeOptions) {
       surfaces: surfaces.reader,
       timeline: timeline.reader,
       drafts: drafts.reader,
+      runActions: drafts.actions,
       interactions: interactions.reader,
+      questionnaires: interactions.questionnaires,
       controls: controls.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),

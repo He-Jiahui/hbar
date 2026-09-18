@@ -6,6 +6,7 @@ import { runCommands } from './run'
 import { interactionCommands } from './interaction'
 import { modelCommands } from './models'
 import { usageCommands } from './usage'
+import { interactionDraftCommands } from './interaction-draft'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -138,6 +139,7 @@ export { runCommands } from './run'
 export { interactionCommands } from './interaction'
 export { modelCommands } from './models'
 export { usageCommands } from './usage'
+export { interactionDraftCommands } from './interaction-draft'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -148,4 +150,5 @@ export const applicationCommands = {
   ...interactionCommands,
   ...modelCommands,
   ...usageCommands,
+  ...interactionDraftCommands,
 }

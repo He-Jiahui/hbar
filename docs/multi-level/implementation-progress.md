@@ -110,3 +110,11 @@ app-runtime 新增当前 Session controls 投影，并行读取 `session.getMode
 `session.setModel` 与 `session.setThinkingLevel` 仍经 Host command，runtime 为 UI 调用生成单次幂等键并在成功后刷新权威配置。Client 将模型写入的断线/超时映射为 `RESULT_UNKNOWN`；runtime 立即尝试查询核对，同时保留未知错误供断线界面显示。定向测试覆盖旧 Session 迟到、模型/Usage/预算组合、事实触发刷新、写入幂等键和未知传输映射。B2d 只需把这些只读 ViewModel 映射到受控组件。
 
 交付验证：`bun run check` 通过 lint、typecheck、310 个测试（86 个文件、2419 个断言）；模型/Usage/预算定向与现有领域测试 10 项、依赖边界 4 项通过，194 模块 Web 生产构建通过。B2d 将执行会话页面的浏览器交互与截图验收。
+
+### B2d1：问卷草稿与取消反馈（完成）
+
+为保证可见组件仍然只有命令写入口，新增内部客户端命令 `questionnaire.setAnswer` 与 `questionnaire.resetAnswers`。app-runtime 验证原 Session、requestId、questionId 与可选 revision，按最多 40 个请求保存只读答案；timeline 的 resolved 事实自动释放对应草稿。`operation.cancel` 现在另有按 operationId 的 submitting/unknown/failed/succeeded 投影，同一目标的在途或未知取消不能被重复触发，容量满时也不会淘汰未核对动作。
+
+定向测试覆盖问卷答案命令、resolved 清理、取消反馈及既有草稿/窗口隔离。B2d2 将这些状态映射到 hbar-app-ui 的受控会话组件，不再需要 React useState 保存业务表单或取消状态。
+
+交付验证：`bun run check` 通过 lint、typecheck、310 个测试（86 个文件、2422 个断言）；交互/草稿/runtime 定向测试 14 项及命令/依赖边界 14 项通过。该切片无可见布局变化，浏览器验收随 B2d2 执行。

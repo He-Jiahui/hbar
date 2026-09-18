@@ -2,7 +2,7 @@ import { CommandError, type CommandRegistry, type ExecuteOptions } from '@hbar/c
 import { draftCommands, type PromptAttachment } from '@hbar/contracts/commands/draft'
 import { runAcceptedSchema, type RunAccepted, type SubmitRunInput } from '@hbar/contracts/commands/run'
 import { createState } from './state'
-import type { DraftsState, RunCommandPort, SessionDraftState } from './types'
+import type { DraftsState, RunActionsState, RunActionState, RunCommandPort, SessionDraftState } from './types'
 
 const MAX_DRAFTS = 100
 
@@ -52,7 +52,21 @@ export function createDrafts(
   isDisposed: () => boolean,
 ) {
   const state = createState<DraftsState>({}, onSubscriberError)
+  const actions = createState<RunActionsState>({}, onSubscriberError)
   const pending = new Map<string, PendingSubmission>()
+
+  const replaceAction = (operationId: string, action: RunActionState) => {
+    if (isDisposed()) return
+    const current = actions.reader.getSnapshot()
+    const next: Record<string, RunActionState> = { ...current }
+    if (!next[operationId] && Object.keys(next).length >= 100) {
+      const settled = Object.entries(next).find(([, item]) => ['failed', 'succeeded'].includes(item.status))
+      if (!settled) throw new CommandError('BUSY', 'Too many run actions are pending')
+      delete next[settled[0]]
+    }
+    next[operationId] = action
+    actions.replace(next)
+  }
 
   const entry = (sessionId: string): SessionDraftState => state.reader.getSnapshot()[sessionId] ?? initial(sessionId)
   const replace = (sessionId: string, value: SessionDraftState): void => {
@@ -118,8 +132,30 @@ export function createDrafts(
 
   return {
     reader: state.reader,
+    actions: actions.reader,
     async executeRun(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
       if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Run commands are unavailable in this runtime')
+      if (name === 'operation.cancel') {
+        const operationId = (input as { operationId: string }).operationId
+        const current = actions.reader.getSnapshot()[operationId]
+        if (current && ['submitting', 'unknown'].includes(current.status))
+          throw new CommandError('BUSY', 'Run cancellation is already pending')
+        const action: RunActionState = { operationId, status: 'submitting', error: null }
+        replaceAction(operationId, action)
+        try {
+          const result = await run.execute(name, input, options)
+          replaceAction(operationId, { ...action, status: 'succeeded' })
+          return result
+        } catch (error) {
+          const value = errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED')
+          replaceAction(operationId, {
+            ...action,
+            status: value === 'RESULT_UNKNOWN' ? 'unknown' : 'failed',
+            error: value,
+          })
+          throw error
+        }
+      }
       if (name !== 'run.submit') return run.execute(name, input, options)
       const submit = input as SubmitRunInput
       const current = entry(submit.sessionId)
@@ -155,6 +191,7 @@ export function createDrafts(
     dispose() {
       pending.clear()
       state.dispose()
+      actions.dispose()
     },
   }
 }

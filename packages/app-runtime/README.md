@@ -38,6 +38,8 @@ runtime.dispose()
 
 审批与问卷分别调用 `approval.resolve` 和 `questionnaire.answer`。`view.state.interactions` 按原 approvalId/requestId 显示 submitting、unknown、failed 或 succeeded；断线未知结果不会冒充失败，后续 timeline 中的审批终态或问卷移除会把原操作收敛为成功。容量达到上限时只淘汰已结束反馈，不能丢掉仍在提交或等待核对的动作。
 
+问卷字段同样不由 React 私有业务状态保存。`questionnaire.setAnswer` / `questionnaire.resetAnswers` 修改 `view.state.questionnaires`，验证 requestId、questionId、原 Session 和可选 revision；请求终结后 timeline 自动释放草稿。`view.state.runActions` 记录 `operation.cancel` 的提交、未知、失败与成功，阻止同一 operation 的重复在途取消。
+
 `view.state.controls` 按当前 Session 组合 `session.getModel`、`usage.query` 与 `session.getBudget` 的权威结果，保留各来源独立错误及 available/empty/unavailable 语义。选择和 Host 重同步会刷新全部控制数据；usage、run 结算或 budget 事实只触发有界刷新，普通 stream delta 不发查询。模型和思考等级修改仍执行 Host command，自动生成单次幂等键，迟到的旧 Session 查询不能覆盖新选择。
 
 当前适配是无 React 的 ViewModel/命令入口；GUI renderer 和逻辑窗口绑定按 B1/B4 与 A7 交付。命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板继续由对应模块承担。此包不包含业务执行器或 UI renderer。

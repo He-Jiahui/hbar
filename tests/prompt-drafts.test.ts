@@ -119,6 +119,7 @@ test('draft submission captures its session and revision while newer edits survi
 
     const cancel = await runtime.view.commands.execute('operation.cancel', { operationId: receipt!.operationId })
     expect(cancel.status).toBe('cancelRequested')
+    expect(runtime.view.state.runActions.getSnapshot()[receipt!.operationId]?.status).toBe('succeeded')
   } finally {
     runtime.dispose()
   }
