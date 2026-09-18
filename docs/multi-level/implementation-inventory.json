@@ -360,7 +360,8 @@
     "A7": "complete: logical surfaces, PlatformPort and generation-bound directed client relay",
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
-    "A10-A15": "pending",
+    "A10": "partial: atomic settings repository, vector CAS, idempotent receipts and migration registry; commands/CLI pending",
+    "A11-A15": "pending",
     "B1-B7": "pending"
   }
 }

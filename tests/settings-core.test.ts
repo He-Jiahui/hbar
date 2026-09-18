@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
 import { encodePath, type SchemaPath } from '@hbar/schema-core'
-import { resolveSettings, SettingsError, type SettingDefinition, type SettingsLayer } from '@hbar/settings-core'
+import {
+  createSettingsMigrationRegistry,
+  resolveSettings,
+  SettingsError,
+  type SettingDefinition,
+  type SettingsLayer,
+} from '@hbar/settings-core'
 
 const path = (name: string): SchemaPath => [{ kind: 'field', name }]
 const modelPath = encodePath(path('model'))
@@ -182,4 +188,20 @@ test('settings-core bundles without Host, React, Zustand, commands, contracts or
   const text = await output.outputs[0]!.text()
   for (const forbidden of ['@hbar/kernel', '@hbar/contracts', '@hbar/commands', 'react', 'zustand', 'bun:sqlite'])
     expect(text).not.toContain(forbidden)
+})
+
+test('settings migrations are ordered, bounded and lifecycle registered', () => {
+  const migrations = createSettingsMigrationRegistry()
+  const disposeFirst = migrations.register(1, (values) => ({ ...values, second: values.first }))
+  migrations.register(2, (values) => ({ ...values, third: true }))
+  expect(migrations.migrate(1, 3, { first: 'value' })).toEqual({
+    version: 3,
+    values: { first: 'value', second: 'value', third: true },
+  })
+  expect(Object.isFrozen(migrations.migrate(3, 3, {}).values)).toBe(true)
+  expect(() => migrations.register(1, () => ({}))).toThrow('unique')
+  disposeFirst()
+  expect(() => migrations.migrate(1, 2, {})).toThrow('Missing')
+  migrations.dispose()
+  expect(() => migrations.migrate(1, 1, {})).toThrow('disposed')
 })

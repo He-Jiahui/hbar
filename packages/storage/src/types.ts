@@ -19,6 +19,31 @@ import type {
 } from '@hbar/contracts'
 import type { RunCommandRecord } from '@hbar/contracts/commands/run'
 
+export interface StoredSettingsLayer {
+  id: string
+  kind: string
+  targetId: string | null
+  schemaVersion: number
+  revision: number
+  values: Record<string, unknown>
+}
+export interface SettingsCommitReceipt {
+  commitId: string
+  layerId: string
+  revision: number
+  schemaVersion: number
+  values: Record<string, unknown>
+  resolution: unknown
+}
+export interface SettingsCommitInput {
+  actorId: string
+  idempotencyKey: string
+  payloadHash: string
+  layer: Omit<StoredSettingsLayer, 'revision'>
+  expectedRevisions: Record<string, number>
+  receipt: Omit<SettingsCommitReceipt, 'revision' | 'values'>
+}
+
 export interface StorageMethods {
   ready(): { version: number }
   createWorkspace(path: string, name: string): Workspace
@@ -84,6 +109,12 @@ export interface StorageMethods {
   stats(): Record<string, number>
   getSetting(key: string): string | null
   setSetting(key: string, value: string): void
+  settingsLayers(ids: string[]): StoredSettingsLayer[]
+  settingsReceipt(
+    actorId: string,
+    idempotencyKey: string,
+  ): { payloadHash: string; receipt: SettingsCommitReceipt } | null
+  commitSettings(input: SettingsCommitInput): SettingsCommitReceipt
   close(): void
 }
 export type StorageCall = {

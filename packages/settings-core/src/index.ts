@@ -29,6 +29,7 @@ interface DefinitionBase {
   readonly path: SchemaPath
   readonly allowedLayers: readonly string[]
   readonly sensitive?: boolean
+  readonly applyMode?: 'immediate' | 'nextRequest' | 'nextRun' | 'restart'
 }
 export type SettingDefinition =
   | (DefinitionBase & {
@@ -69,12 +70,94 @@ export interface SettingReport {
   readonly sourceRevision: number | null
   readonly inherited: boolean
   readonly validation: 'valid'
-  readonly applyState: 'applied'
+  readonly applyMode: 'immediate' | 'nextRequest' | 'nextRun' | 'restart'
+  readonly applyState: 'applied' | 'pending'
   readonly provenance: Readonly<Record<string, ValueSource>>
 }
 export interface SettingsResolution {
   readonly layers: readonly { readonly id: string; readonly kind: string; readonly revision: number }[]
   readonly reports: Readonly<Record<string, SettingReport>>
+}
+export type SettingsChange =
+  | { readonly op: 'set'; readonly path: SchemaPath; readonly value: unknown }
+  | { readonly op: 'unset'; readonly path: SchemaPath }
+
+export function applySettingsChanges(
+  definitions: readonly SettingDefinition[],
+  layerKind: string,
+  current: Readonly<Record<string, unknown>>,
+  changes: readonly SettingsChange[],
+): Readonly<Record<string, unknown>> {
+  if (!changes.length || changes.length > 1_000)
+    throw new SettingsError('INVALID_CHANGESET', 'Settings changes must be nonempty and bounded')
+  const byPath = new Map(definitions.map((definition) => [encodePath(definition.path), definition] as const))
+  const encoded = changes.map((change) => encodePath(change.path))
+  if (new Set(encoded).size !== encoded.length)
+    throw new SettingsError('INVALID_CHANGESET', 'A settings path may be changed only once per apply')
+  const next = clone(current) as Record<string, unknown>
+  for (let index = 0; index < changes.length; index++) {
+    const change = changes[index]!
+    const path = encoded[index]!
+    const definition = byPath.get(path)
+    if (!definition) throw new SettingsError('UNKNOWN_SETTING', `Unknown setting path: ${path}`)
+    if (!definition.allowedLayers.includes(layerKind))
+      throw new SettingsError('LAYER_FORBIDDEN', `${path} cannot be overridden by ${layerKind}`)
+    if (change.op === 'unset') delete next[path]
+    else next[path] = clone(change.value)
+  }
+  resolveSettings(definitions, [{ id: 'candidate', kind: layerKind, revision: 1, values: next }])
+  return freeze(next)
+}
+
+export interface SettingsMigrationRegistry {
+  register(
+    fromVersion: number,
+    migrate: (values: Readonly<Record<string, unknown>>) => Record<string, unknown>,
+  ): () => void
+  migrate(
+    fromVersion: number,
+    toVersion: number,
+    values: Readonly<Record<string, unknown>>,
+  ): { readonly version: number; readonly values: Readonly<Record<string, unknown>> }
+  dispose(): void
+}
+export function createSettingsMigrationRegistry(): SettingsMigrationRegistry {
+  const steps = new Map<number, (values: Readonly<Record<string, unknown>>) => Record<string, unknown>>()
+  let disposed = false
+  return {
+    register(fromVersion, migrate) {
+      if (disposed) throw new SettingsError('DISPOSED', 'Migration registry is disposed')
+      if (!Number.isSafeInteger(fromVersion) || fromVersion < 1 || steps.has(fromVersion))
+        throw new SettingsError('MIGRATION_CONFLICT', 'Migration source version must be unique and positive')
+      steps.set(fromVersion, migrate)
+      return () => {
+        if (steps.get(fromVersion) === migrate) steps.delete(fromVersion)
+      }
+    },
+    migrate(fromVersion, toVersion, values) {
+      if (disposed) throw new SettingsError('DISPOSED', 'Migration registry is disposed')
+      if (
+        !Number.isSafeInteger(fromVersion) ||
+        !Number.isSafeInteger(toVersion) ||
+        fromVersion < 1 ||
+        toVersion < fromVersion
+      )
+        throw new SettingsError('INVALID_MIGRATION', 'Migration version range is invalid')
+      let current = clone(values)
+      bounded(current, 'Migration input')
+      for (let version = fromVersion; version < toVersion; version++) {
+        const step = steps.get(version)
+        if (!step) throw new SettingsError('MIGRATION_MISSING', `Missing settings migration from version ${version}`)
+        current = step(freeze(clone(current)))
+        bounded(current, `Migration result ${version + 1}`)
+      }
+      return freeze({ version: toVersion, values: current })
+    },
+    dispose() {
+      disposed = true
+      steps.clear()
+    },
+  }
 }
 
 export class SettingsError extends Error {
@@ -391,7 +474,9 @@ export function resolveSettings(
       sourceRevision: resolvedSource.revision,
       inherited: !localPresence,
       validation: 'valid' as const,
-      applyState: 'applied' as const,
+      applyMode: definition.applyMode ?? 'immediate',
+      applyState:
+        definition.applyMode && definition.applyMode !== 'immediate' ? ('pending' as const) : ('applied' as const),
       provenance: clone(provenance),
     })
   }

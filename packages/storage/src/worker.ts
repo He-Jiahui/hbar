@@ -29,7 +29,7 @@ import type {
   Usage,
   Workspace,
 } from '@hbar/contracts'
-import type { StorageCall, StorageMethods, StorageReply } from './types.ts'
+import type { StorageCall, StorageMethods, StorageReply, StoredSettingsLayer } from './types.ts'
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 
@@ -40,7 +40,7 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 2) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 3) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -63,7 +63,9 @@ if (schemaVersion === 0)
     CREATE TABLE session_event_index(eventId TEXT PRIMARY KEY, sessionId TEXT NOT NULL, seq INTEGER NOT NULL, logPath TEXT NOT NULL REFERENCES session_log_files(path), byteOffset INTEGER NOT NULL, byteLength INTEGER NOT NULL, contentHash TEXT NOT NULL, UNIQUE(sessionId,seq));
     CREATE INDEX session_event_index_session_seq ON session_event_index(sessionId,seq);
     CREATE TABLE path_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    PRAGMA user_version=2;
+    CREATE TABLE settings_layers(id TEXT PRIMARY KEY, kind TEXT NOT NULL, targetId TEXT, schemaVersion INTEGER NOT NULL, revision INTEGER NOT NULL, valuesJson TEXT NOT NULL, updatedAt INTEGER NOT NULL);
+    CREATE TABLE settings_receipts(actorId TEXT NOT NULL, idempotencyKey TEXT NOT NULL, payloadHash TEXT NOT NULL, receiptJson TEXT NOT NULL, PRIMARY KEY(actorId,idempotencyKey));
+    PRAGMA user_version=3;
   `)
   })()
 if (schemaVersion === 1)
@@ -76,6 +78,14 @@ if (schemaVersion === 1)
       CREATE INDEX session_event_index_session_seq ON session_event_index(sessionId,seq);
       CREATE TABLE path_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
       PRAGMA user_version=2;
+    `)
+  })()
+if (schemaVersion > 0 && schemaVersion <= 2)
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE settings_layers(id TEXT PRIMARY KEY, kind TEXT NOT NULL, targetId TEXT, schemaVersion INTEGER NOT NULL, revision INTEGER NOT NULL, valuesJson TEXT NOT NULL, updatedAt INTEGER NOT NULL);
+      CREATE TABLE settings_receipts(actorId TEXT NOT NULL, idempotencyKey TEXT NOT NULL, payloadHash TEXT NOT NULL, receiptJson TEXT NOT NULL, PRIMARY KEY(actorId,idempotencyKey));
+      PRAGMA user_version=3;
     `)
   })()
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
@@ -121,6 +131,16 @@ function approvalRow(row: Row | null): Approval {
     ...value,
     args: z.record(z.string(), z.unknown()).parse(parseJson(value.args as string)),
   } as unknown as Approval
+}
+function settingsLayerRow(row: Row): StoredSettingsLayer {
+  return {
+    id: row.id as string,
+    kind: row.kind as string,
+    targetId: (row.targetId as string | null) ?? null,
+    schemaVersion: row.schemaVersion as number,
+    revision: row.revision as number,
+    values: z.record(z.string(), z.unknown()).parse(parseJson(row.valuesJson as string)),
+  }
 }
 function indexEvent(projectId: string, event: SessionEvent, location: ReturnType<SessionLogWriter['append']>) {
   db.query(
@@ -189,7 +209,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 2 }),
+  ready: () => ({ version: 3 }),
   createWorkspace(path, name) {
     const existing = db.query('SELECT * FROM workspaces WHERE path=?').get(path)
     if (existing) return existing as Workspace
@@ -680,6 +700,64 @@ const methods: StorageMethods = {
     db.query(
       'INSERT INTO path_metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
     ).run(key, value)
+  },
+  settingsLayers(ids) {
+    if (ids.length > 16) throw new HbarError('INVALID_INPUT', 'Settings layer chain is too deep')
+    const query = db.query('SELECT * FROM settings_layers WHERE id=?')
+    return ids.flatMap((id) => {
+      const row = query.get(id) as Row | null
+      return row ? [settingsLayerRow(row)] : []
+    })
+  },
+  settingsReceipt(actorId, idempotencyKey) {
+    const row = db
+      .query('SELECT payloadHash,receiptJson FROM settings_receipts WHERE actorId=? AND idempotencyKey=?')
+      .get(actorId, idempotencyKey) as { payloadHash: string; receiptJson: string } | null
+    return row
+      ? {
+          payloadHash: row.payloadHash,
+          receipt: JSON.parse(row.receiptJson) as ReturnType<StorageMethods['commitSettings']>,
+        }
+      : null
+  },
+  commitSettings(input) {
+    return db.transaction(() => {
+      const prior = methods.settingsReceipt(input.actorId, input.idempotencyKey)
+      if (prior) {
+        if (prior.payloadHash !== input.payloadHash)
+          throw new HbarError('IDEMPOTENCY_CONFLICT', 'Settings idempotency key was already used')
+        return prior.receipt
+      }
+      for (const [id, expected] of Object.entries(input.expectedRevisions)) {
+        const row = db.query('SELECT revision FROM settings_layers WHERE id=?').get(id) as { revision: number } | null
+        if ((row?.revision ?? 0) !== expected) throw new HbarError('REVISION_CONFLICT', `Settings layer changed: ${id}`)
+      }
+      const current = db.query('SELECT revision FROM settings_layers WHERE id=?').get(input.layer.id) as {
+        revision: number
+      } | null
+      const revision = (current?.revision ?? 0) + 1
+      db.query(
+        `INSERT INTO settings_layers(id,kind,targetId,schemaVersion,revision,valuesJson,updatedAt)
+         VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,targetId=excluded.targetId,
+         schemaVersion=excluded.schemaVersion,revision=excluded.revision,valuesJson=excluded.valuesJson,updatedAt=excluded.updatedAt`,
+      ).run(
+        input.layer.id,
+        input.layer.kind,
+        input.layer.targetId,
+        input.layer.schemaVersion,
+        revision,
+        stableJson(input.layer.values),
+        Date.now(),
+      )
+      const receipt = { ...input.receipt, revision, values: input.layer.values }
+      db.query('INSERT INTO settings_receipts VALUES(?,?,?,?)').run(
+        input.actorId,
+        input.idempotencyKey,
+        input.payloadHash,
+        stableJson(receipt),
+      )
+      return receipt
+    })()
   },
   close() {
     db.close()

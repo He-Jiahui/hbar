@@ -61,6 +61,7 @@ import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
 export { createBudgetCommands } from './budget-commands'
 export { createRunCommands } from './run-commands'
+export { SettingsService, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_SCHEMA_VERSION } from './settings-service'
 import { createDirectoryQueries } from './directory-queries'
 import { createSchemaCallbackRegistry } from '@hbar/schema-core'
 

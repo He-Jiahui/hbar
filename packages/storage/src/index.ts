@@ -1,7 +1,7 @@
 import { HbarError } from '@hbar/contracts'
 import { Worker } from 'node:worker_threads'
 import type { StorageMethods, StorageReply } from './types.ts'
-export type { StorageMethods } from './types.ts'
+export type { SettingsCommitInput, SettingsCommitReceipt, StoredSettingsLayer, StorageMethods } from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'

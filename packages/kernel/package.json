@@ -6,6 +6,7 @@
   "exports": "./src/index.ts",
   "dependencies": {
     "@hbar/commands": "workspace:*",
-    "@hbar/schema-core": "workspace:*"
+    "@hbar/schema-core": "workspace:*",
+    "@hbar/settings-core": "workspace:*"
   }
 }
