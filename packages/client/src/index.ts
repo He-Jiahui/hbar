@@ -7,6 +7,7 @@ export { registerSurfaceClient, type SurfaceClientOptions } from './surfaces'
 export { createSchemaCallbackClient } from './schema-content'
 export { createSettingsCommandClient } from './settings'
 export { createInteractionCommandClient } from './interaction'
+export { createGoalPlanCommandClient } from './goals'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'

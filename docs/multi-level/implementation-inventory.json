@@ -24,6 +24,7 @@
       "tests": [
         "tests/budget.test.ts",
         "tests/cli.test.ts",
+        "tests/goal-plan-commands.test.ts",
         "tests/interaction-commands.test.ts",
         "tests/run-commands.test.ts",
         "tests/settings-commands.test.ts",
@@ -36,7 +37,7 @@
       "stateOwner": "Client SDK connection; Host device records",
       "category": "system.extensions",
       "milestone": "A11",
-      "status": "pending",
+      "status": "complete-headless-commands",
       "rpc": ["system.hello", "system.bootstrap", "system.diagnose", "device.list", "device.revoke", "pairing.create"],
       "additionalCommands": ["connection.connect", "connection.disconnect", "connection.reconnect", "pairing.accept"],
       "tests": ["tests/server.test.ts", "tests/server.test.ts", "tests/cli.test.ts"]
@@ -105,7 +106,7 @@
         "plan.clear"
       ],
       "additionalCommands": [],
-      "tests": ["tests/goal.test.ts", "tests/plan.test.ts"]
+      "tests": ["tests/goal.test.ts", "tests/goal-plan-commands.test.ts", "tests/plan.test.ts", "tests/cli.test.ts"]
     },
     {
       "id": "budget",
@@ -369,7 +370,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: approval.resolve and questionnaire.answer migrated through Host commands and CLI",
+    "A11": "in progress: interaction and goal/plan domains migrated through Host commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

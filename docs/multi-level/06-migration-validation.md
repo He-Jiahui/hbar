@@ -84,6 +84,8 @@ A10b 将 `settings.get/set/unset/apply` 定义接入统一 Host 目录、认证 
 
 A11a 迁移审批与问卷写入口：`approval.resolve` 和 `questionnaire.answer` 使用类型化 session target，经认证 Host dispatcher 执行现有 Kernel 用例；CLI、REPL、TUI 和无头审批不再直接调用写 RPC。审批重复或相反决定收敛到首个持久终态，问卷拒绝错误 Session、过期和重复回答。真实 Host 测试覆盖目录、跨 Session 拒绝、拒绝工具写入、问卷恢复运行和重复提交；旧 RPC 保留为同用例兼容 adapter。A11 的其他领域继续分别提交。
 
+A11b 迁移目标与计划：八个 `goal.*` / `plan.*` command 通过公开 GoalService/PlanService 调用原插件状态机，保留事件持久化、token/时间结算、expectedGoalId 冲突和 Plan schema。CLI 可在无模型环境创建、查询、CAS 编辑、改变状态及清除 Goal，并更新、查询和清除 Plan。真实 Host 测试覆盖重复创建、过期 Goal ID、跨 Session 隔离、Plan 空/清除收敛和查询核对；响应未知的非幂等写要求先查询再重试。旧 RPC 继续调用相同服务。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

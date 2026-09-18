@@ -5,12 +5,14 @@ import { describeCommand, parseArguments, CommandError, validationError, type Co
 import {
   createBudgetCommandClient,
   createDirectoryQueryAdapter,
+  createGoalPlanCommandClient,
   createInteractionCommandClient,
   createRunCommandClient,
   createSettingsCommandClient,
 } from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
+import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
@@ -139,6 +141,73 @@ export function isSettingsCommand(value: string | undefined): value is keyof typ
 
 export function isInteractionCommand(value: string | undefined): value is keyof typeof interactionCommands {
   return Boolean(value && Object.hasOwn(interactionCommands, value))
+}
+
+export function isGoalPlanCommand(value: string | undefined): value is keyof typeof goalPlanCommands {
+  return Boolean(value && Object.hasOwn(goalPlanCommands, value))
+}
+
+function objectOption(source: string | undefined, name: string): Record<string, unknown> {
+  const value = jsonOption(source, name)
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new CommandError('INVALID_INPUT', `${name} must contain a JSON object`)
+  return value as Record<string, unknown>
+}
+
+export async function runGoalPlanCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isGoalPlanCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown goal or plan command')
+  const commands = createGoalPlanCommandClient(runtime.client)
+  if (action === 'goal.set') {
+    const parsed = goalPlanCommands[action].input.safeParse({
+      ...objectOption(args.inputJson, '--input-json'),
+      sessionId: runtime.session.id,
+    })
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+    return
+  }
+  if (action === 'plan.update') {
+    const parsed = goalPlanCommands[action].input.safeParse({
+      ...objectOption(args.inputJson, '--input-json'),
+      sessionId: runtime.session.id,
+    })
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+    return
+  }
+  const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
+  if (action === 'goal.create' && args.tokenBudget !== undefined) argv.push('--token-budget', args.tokenBudget)
+  const input = parseArguments(goalPlanCommands[action].metadata, argv)
+  if (action === 'goal.get') {
+    const parsed = goalPlanCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'goal.create') {
+    const parsed = goalPlanCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'goal.update') {
+    const parsed = goalPlanCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'goal.clear') {
+    const parsed = goalPlanCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plan.get') {
+    const parsed = goalPlanCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else {
+    const parsed = goalPlanCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  }
 }
 
 export async function runInteractionCommand(
@@ -307,6 +376,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isGoalPlanCommand(action)) {
+      await runGoalPlanCommand(args, runtime, output)
+      return true
+    }
     if (isInteractionCommand(action)) {
       await runInteractionCommand(args, runtime, output)
       return true

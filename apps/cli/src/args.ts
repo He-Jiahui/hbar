@@ -31,6 +31,7 @@ export interface CliArgs {
   valueJson?: string | undefined
   baselineJson?: string | undefined
   schemaVersion?: string | undefined
+  tokenBudget?: string | undefined
   category?: string | undefined
   after?: string | undefined
   limit?: string | undefined
@@ -58,6 +59,8 @@ Usage:
   hbar exec settings.get|settings.set|settings.unset <path> --scope <scope>
   hbar exec approval.resolve <approvalId> <allowed|denied> --session <id|name>
   hbar exec questionnaire.answer <requestId> --input-json <answers> --session <id|name>
+  hbar exec goal.get|goal.create|goal.set|goal.update|goal.clear --session <id|name>
+  hbar exec plan.get|plan.update|plan.clear --session <id|name>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
 
@@ -81,6 +84,8 @@ Commands:
   repl
   session list|new|resume|fork|archive|export
   exec session.setBudget|session.getBudget|approval.resolve|questionnaire.answer|receipt
+  exec goal.get|goal.create|goal.set|goal.update|goal.clear
+  exec plan.get|plan.update|plan.clear
   commands list|describe
   model list|use
   plugins list|install|enable|disable|remove|inspect|doctor|lock
@@ -123,6 +128,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'value-json': { type: 'string' },
       'baseline-json': { type: 'string' },
       'schema-version': { type: 'string' },
+      'token-budget': { type: 'string' },
       category: { type: 'string' },
       after: { type: 'string' },
       limit: { type: 'string' },
@@ -190,6 +196,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     valueJson: values['value-json'] as string | undefined,
     baselineJson: values['baseline-json'] as string | undefined,
     schemaVersion: values['schema-version'] as string | undefined,
+    tokenBudget: values['token-budget'] as string | undefined,
     category: values.category as string | undefined,
     after: values.after as string | undefined,
     limit: values.limit as string | undefined,

@@ -9,11 +9,13 @@ import {
   Kernel,
   SettingsService,
   createBudgetCommands,
+  createGoalPlanCommands,
   createInteractionCommands,
   createRunCommands,
   createSettingsCommands,
 } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
+import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
@@ -55,11 +57,16 @@ export interface ServerOptions {
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
+  const goalPlanCommands = createGoalPlanCommands(
+    kernel.plugins.get<GoalService>('goal'),
+    kernel.plugins.get<PlanService>('plan'),
+  )
   const interactionCommands = createInteractionCommands(kernel)
   const runCommands = createRunCommands(kernel)
   const settingsCommands = createSettingsCommands(new SettingsService(kernel.storage))
   const commandServices = [
     { definitions: budgetDefinitions, service: budgetCommands },
+    { definitions: goalPlanDefinitions, service: goalPlanCommands },
     { definitions: interactionDefinitions, service: interactionCommands },
     { definitions: runDefinitions, service: runCommands },
     { definitions: settingsDefinitions, service: settingsCommands },
@@ -949,6 +956,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     info: hostInfo,
     async close() {
       budgetCommands.dispose()
+      goalPlanCommands.dispose()
       interactionCommands.dispose()
       runCommands.dispose()
       settingsCommands.dispose()

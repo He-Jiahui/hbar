@@ -323,6 +323,49 @@ test('exec questionnaire answers use the selected session command without requir
   expect(JSON.parse(result.stdout)).toEqual({ sessionId, requestId, accepted: false })
 })
 
+test('exec goal and plan commands use plugin state without requiring a model', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const createdSession = await run([...common, 'session', 'new'])
+  expect(createdSession.code).toBe(0)
+  const sessionId = (JSON.parse(createdSession.stdout) as { id: string }).id
+  const target = ['--session', sessionId]
+  const empty = await run([...common, 'exec', 'goal.get', ...target])
+  expect(empty.code).toBe(0)
+  expect(JSON.parse(empty.stdout)).toEqual({ goal: null, remainingTokens: null })
+
+  const created = await run([...common, 'exec', 'goal.create', 'CLI goal', ...target, '--token-budget', '1000'])
+  expect(created.code).toBe(0)
+  const goal = JSON.parse(created.stdout) as { goal: { goalId: string; objective: string; tokenBudget: number } }
+  expect(goal.goal).toMatchObject({ objective: 'CLI goal', tokenBudget: 1_000 })
+  const changed = await run([
+    ...common,
+    'exec',
+    'goal.set',
+    ...target,
+    '--input-json',
+    JSON.stringify({ objective: 'CLI goal updated', expectedGoalId: goal.goal.goalId }),
+  ])
+  expect(changed.code).toBe(0)
+  expect((JSON.parse(changed.stdout) as typeof goal).goal.objective).toBe('CLI goal updated')
+
+  const planInput = {
+    explanation: 'CLI plan',
+    plan: [
+      { step: 'inspect', status: 'completed' },
+      { step: 'ship', status: 'in_progress' },
+    ],
+  }
+  const updated = await run([...common, 'exec', 'plan.update', ...target, '--input-json', JSON.stringify(planInput)])
+  expect(updated.code).toBe(0)
+  expect(JSON.parse(updated.stdout)).toMatchObject({ sessionId, ...planInput })
+  const queried = await run([...common, 'exec', 'plan.get', ...target])
+  expect(queried.code).toBe(0)
+  expect(JSON.parse(queried.stdout)).toEqual(JSON.parse(updated.stdout))
+  const cleared = await run([...common, 'exec', 'plan.clear', ...target])
+  expect(cleared.code).toBe(0)
+  expect(JSON.parse(cleared.stdout)).toEqual({ cleared: true })
+})
+
 test('classified command catalog and Run operations are usable without a GUI', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])
