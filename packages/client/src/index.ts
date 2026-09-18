@@ -9,6 +9,7 @@ export { createSettingsCommandClient } from './settings'
 export { createInteractionCommandClient } from './interaction'
 export { createGoalPlanCommandClient } from './goals'
 export { createModelCommandClient } from './models'
+export { createFileCommandClient } from './files'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'

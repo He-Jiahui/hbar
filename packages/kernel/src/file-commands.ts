@@ -1,0 +1,126 @@
+import { createHash } from 'node:crypto'
+import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
+import { HbarError } from '@hbar/contracts'
+import { fileCommands } from '@hbar/contracts/commands/files'
+import type { ExecutionProvider } from '@hbar/plugin-sdk'
+import type { StoragePort } from '@hbar/storage'
+
+const digest = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
+
+function decodeText(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    throw new HbarError('UNSUPPORTED_TYPE', 'File is not valid UTF-8 text')
+  }
+}
+
+export function createFileCommands(storage: StoragePort, execution: ExecutionProvider) {
+  const registry = new CommandRegistry({ execution: 'host' })
+  const writes = new Map<string, Promise<void>>()
+  const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
+    try {
+      return await operation()
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  }
+  const workspace = async (workspaceId: string) => storage.call('workspace', workspaceId)
+  const read = async (workspaceId: string, path: string) => {
+    const target = await workspace(workspaceId)
+    const bytes = await execution.readBytes(target.path, path)
+    return {
+      workspaceId,
+      path,
+      text: decodeText(bytes),
+      size: bytes.byteLength,
+      sha256: digest(bytes),
+    }
+  }
+  const serialized = async <Value>(key: string, operation: () => Promise<Value>): Promise<Value> => {
+    const previous = writes.get(key) ?? Promise.resolve()
+    let release = (): void => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const tail = previous.catch(() => {}).then(() => gate)
+    writes.set(key, tail)
+    await previous.catch(() => {})
+    try {
+      return await operation()
+    } finally {
+      release()
+      if (writes.get(key) === tail) writes.delete(key)
+    }
+  }
+
+  registry.register(fileCommands['file.list'], (input) =>
+    translate(async () => {
+      const target = await workspace(input.workspaceId)
+      const entries = await execution.list(target.path, input.path)
+      const filtered = input.after ? entries.filter((entry) => entry.path > input.after!) : entries
+      const items = filtered.slice(0, input.limit)
+      return {
+        items,
+        ...(filtered.length > input.limit && items.length ? { nextCursor: items.at(-1)!.path } : {}),
+      }
+    }),
+  )
+  registry.register(fileCommands['file.read'], (input) => translate(() => read(input.workspaceId, input.path)))
+  registry.register(
+    fileCommands['file.write'],
+    (input, context) =>
+      translate(async () => {
+        if (!context.actorId) throw new HbarError('INVALID_INPUT', 'Authenticated actor is required')
+        const target = await workspace(input.workspaceId)
+        const key = `${target.id}\u0000${input.path}`
+        return serialized(key, async () => {
+          context.signal.throwIfAborted()
+          let before: Awaited<ReturnType<typeof read>> | null = null
+          try {
+            before = await read(input.workspaceId, input.path)
+          } catch (error) {
+            if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
+          }
+          const bytes = new TextEncoder().encode(input.text)
+          const afterSha256 = digest(bytes)
+          if (before?.sha256 === afterSha256)
+            return {
+              workspaceId: input.workspaceId,
+              path: input.path,
+              created: false,
+              beforeSha256: input.expectedSha256,
+              afterSha256,
+              size: bytes.byteLength,
+            }
+          if ((before?.sha256 ?? null) !== input.expectedSha256)
+            throw new HbarError('FILE_CONFLICT', 'File changed since the supplied baseline')
+          context.signal.throwIfAborted()
+          await execution.write(target.path, input.path, input.text)
+          return {
+            workspaceId: input.workspaceId,
+            path: input.path,
+            created: before === null,
+            beforeSha256: before?.sha256 ?? null,
+            afterSha256,
+            size: bytes.byteLength,
+          }
+        })
+      }),
+    { durable: true },
+  )
+  registry.register(fileCommands['attachment.query'], ({ artifactId }) =>
+    translate(() => storage.call('artifact', artifactId)),
+  )
+
+  return {
+    ...createCommandClient(fileCommands, registry),
+    dispatch(value: unknown, actorId: string) {
+      return registry.dispatch(value, { actorId })
+    },
+    describe: (id: string) => registry.describe(id),
+    list: () => registry.list({ limit: 500 }),
+    dispose: () => registry.dispose(),
+  }
+}

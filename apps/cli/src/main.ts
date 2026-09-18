@@ -8,16 +8,18 @@ import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
 import {
   isSurfaceCommand,
+  isFileCommand,
   isSettingsCommand,
   runModelListCommand,
   runApplicationCommand,
   runCatalogCommand,
   runCliCommand,
+  runFileCommand,
   runOperationCommand,
   runSurfaceRelayCommand,
   runSettingsCommand,
 } from './commands.ts'
-import { openAttachedRuntime, openCatalogClient, openRuntime, waitForRun } from './runtime.ts'
+import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
 import { runRepl } from './repl.ts'
 
@@ -26,12 +28,12 @@ function exitCode(error: unknown, usage = false) {
   if (error instanceof CommandError) {
     if (['INVALID_SYNTAX', 'INVALID_INPUT', 'COMMAND_NOT_FOUND'].includes(error.code)) return 2
     if (error.code === 'RESULT_UNKNOWN') return 8
-    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT'].includes(error.code)) return 9
+    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT', 'FILE_CONFLICT'].includes(error.code)) return 9
   }
   if (error instanceof HbarError) {
     if (['INVALID_SYNTAX', 'INVALID_INPUT', 'COMMAND_NOT_FOUND'].includes(error.code)) return 2
     if (['RESULT_UNKNOWN', 'DISCONNECTED', 'TIMEOUT'].includes(error.code)) return 8
-    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT'].includes(error.code)) return 9
+    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT', 'FILE_CONFLICT'].includes(error.code)) return 9
   }
   const message = error instanceof Error ? error.message : String(error)
   if (/approval|denied/i.test(message)) return 3
@@ -165,6 +167,17 @@ try {
     const { client } = await openCatalogClient(args)
     try {
       await runSettingsCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isFileCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      const bootstrap = await client.call('system.bootstrap', {})
+      const project = await selectProject(client, bootstrap, args.workspace ?? args.project)
+      await runFileCommand(args, { client, project })
     } finally {
       client.disconnect()
     }

@@ -88,6 +88,8 @@ A11b 迁移目标与计划：八个 `goal.*` / `plan.*` command 通过公开 Goa
 
 A11c 迁移模型选择与思考等级：`model.list` 暴露无凭据能力目录，Session get/set 命令把选择写入 A10 的分层设置事实。Host 在 SettingsService 候选提交前验证 Model 和 thinking capability；不兼容模型切换以单一 ChangeSet 修正等级。写命令使用 settings 原子回执、完整版本向量和 actor 幂等键。CLI/TUI/无头 Run 在没有显式覆盖时读取 Session 有效配置。测试覆盖通用 settings 绕过、无模型拒绝、能力拒绝、原子切换、同键重试/异参冲突、CLI 持久缺省与单次显式覆盖。
 
+A11d1 迁移 workspace 文本文件和 artifact 元数据读取：`file.list/read/write` 与 `attachment.query` 进入 `files.tools` Host 目录、类型化 Client 和 CLI。文件操作继续复用 ExecutionProvider 的 workspace/符号链接边界及 2 MiB 限制；读取返回内容哈希，写入要求 SHA-256 baseline（`null` 表示必须新建），同目标命令写串行化，陈旧保存返回 `FILE_CONFLICT`，相同目标内容的未知响应重试收敛。CLI 可用 `--text` 或 `--input-file`，不需要先创建 Session。大二进制仍走已认证 artifact HTTP 传输，不进入 256 KiB command envelope；`attachment.upload` 的客户端命令适配、上传取消与草稿引用移除留在 A11d2，内容寻址共享对象不把“从草稿移除”误实现成物理删除。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

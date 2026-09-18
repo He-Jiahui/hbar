@@ -8,6 +8,7 @@
     "./commands": "./src/commands/index.ts",
     "./commands/budget": "./src/commands/budget.ts",
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
+    "./commands/files": "./src/commands/files.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/interaction": "./src/commands/interaction.ts",
     "./commands/models": "./src/commands/models.ts",

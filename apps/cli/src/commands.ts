@@ -1,10 +1,11 @@
-import { readdir, writeFile } from 'node:fs/promises'
+import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 import { describeCommand, parseArguments, CommandError, validationError, type CommandDescriptor } from '@hbar/commands'
 import {
   createBudgetCommandClient,
   createDirectoryQueryAdapter,
+  createFileCommandClient,
   createGoalPlanCommandClient,
   createInteractionCommandClient,
   createModelCommandClient,
@@ -14,6 +15,7 @@ import {
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
+import { fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { runCommands } from '@hbar/contracts/commands/run'
@@ -151,6 +153,69 @@ export function isGoalPlanCommand(value: string | undefined): value is keyof typ
 
 export function isModelCommand(value: string | undefined): value is keyof typeof modelCommands {
   return Boolean(value && Object.hasOwn(modelCommands, value))
+}
+
+export function isFileCommand(value: string | undefined): value is keyof typeof fileCommands {
+  return Boolean(value && Object.hasOwn(fileCommands, value))
+}
+
+export async function runFileCommand(
+  args: CliArgs,
+  runtime: Pick<CliRuntime, 'client' | 'project'>,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isFileCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown file command')
+  const commands = createFileCommandClient(runtime.client)
+  if (action === 'attachment.query') {
+    const input = fileCommands[action].input.safeParse(
+      parseArguments(fileCommands[action].metadata, args.commandArgs.slice(1)),
+    )
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    output(await commands.execute(action, input.data))
+    return
+  }
+  const path = args.commandArgs[1] ?? (action === 'file.list' ? '.' : undefined)
+  if (!path) throw new CommandError('INVALID_INPUT', 'A workspace-relative path is required')
+  if (action === 'file.list') {
+    const input = fileCommands[action].input.safeParse({
+      workspaceId: runtime.project.id,
+      path,
+      ...(args.after ? { after: args.after } : {}),
+      ...(args.limit === undefined ? {} : { limit: Number(args.limit) }),
+    })
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    output(await commands.execute(action, input.data))
+    return
+  }
+  if (action === 'file.read') {
+    const input = fileCommands[action].input.safeParse({ workspaceId: runtime.project.id, path })
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    output(await commands.execute(action, input.data))
+    return
+  }
+  if ((args.text === undefined) === (args.inputFile === undefined))
+    throw new CommandError('INVALID_INPUT', 'Provide exactly one of --text or --input-file')
+  const text = args.inputFile === undefined ? args.text! : await readFile(resolve(args.inputFile), 'utf8')
+  let expectedSha256: string | null
+  if (args.expectedSha256 === 'null') expectedSha256 = null
+  else if (args.expectedSha256 !== undefined) expectedSha256 = args.expectedSha256
+  else {
+    try {
+      expectedSha256 = (await commands.execute('file.read', { workspaceId: runtime.project.id, path })).sha256
+    } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
+      expectedSha256 = null
+    }
+  }
+  const input = fileCommands[action].input.safeParse({
+    workspaceId: runtime.project.id,
+    path,
+    text,
+    expectedSha256,
+  })
+  if (!input.success) throw validationError('INVALID_INPUT', input.error)
+  output(await commands.execute(action, input.data))
 }
 
 export async function runModelListCommand(client: HbarClient, output: CommandOutput = writeStdout): Promise<void> {
@@ -423,6 +488,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isFileCommand(action)) {
+      await runFileCommand(args, runtime, output)
+      return true
+    }
     if (action === 'model.list') {
       await runModelListCommand(runtime.client, output)
       return true

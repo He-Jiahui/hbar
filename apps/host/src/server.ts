@@ -9,6 +9,7 @@ import {
   Kernel,
   SettingsService,
   createBudgetCommands,
+  createFileCommands,
   createGoalPlanCommands,
   createInteractionCommands,
   createModelCommands,
@@ -17,6 +18,7 @@ import {
   createSettingsCommands,
 } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
+import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
 import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
@@ -60,6 +62,7 @@ export interface ServerOptions {
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
+  const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'))
   const goalPlanCommands = createGoalPlanCommands(
     kernel.plugins.get<GoalService>('goal'),
     kernel.plugins.get<PlanService>('plan'),
@@ -71,6 +74,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const settingsCommands = createSettingsCommands(settingsService)
   const commandServices = [
     { definitions: budgetDefinitions, service: budgetCommands },
+    { definitions: fileDefinitions, service: fileCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
     { definitions: interactionDefinitions, service: interactionCommands },
     { definitions: modelDefinitions, service: modelCommands },

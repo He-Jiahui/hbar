@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-model-settings-surfaces",
+      "status": "partial-budget-run-interaction-model-settings-files-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -25,6 +25,7 @@
         "tests/budget.test.ts",
         "tests/cli.test.ts",
         "tests/goal-plan-commands.test.ts",
+        "tests/file-commands.test.ts",
         "tests/interaction-commands.test.ts",
         "tests/model-commands.test.ts",
         "tests/run-commands.test.ts",
@@ -259,10 +260,10 @@
       "stateOwner": "Host files/artifacts; client upload/edit drafts",
       "category": "files.tools",
       "milestone": "A11",
-      "status": "pending",
+      "status": "partial-host-commands-cli-attachment-transport-pending",
       "rpc": ["file.read", "file.list"],
       "additionalCommands": ["file.write", "attachment.upload", "attachment.remove", "attachment.query"],
-      "tests": ["tests/file-attachment.test.ts"]
+      "tests": ["tests/file-attachment.test.ts", "tests/file-commands.test.ts", "tests/cli.test.ts"]
     },
     {
       "id": "agents-metrics",
@@ -368,7 +369,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: interaction, goal/plan and model configuration domains migrated through Host commands and CLI",
+    "A11": "in progress: interaction, goal/plan, model configuration, and workspace file/query domains migrated through Host commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

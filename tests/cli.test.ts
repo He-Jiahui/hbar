@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Database } from 'bun:sqlite'
@@ -205,6 +205,47 @@ test('exec budget uses the same Host command, returns a receipt, and reconciles 
   const conflict = await run([...common, 'exec', 'session.setBudget', '600', '--idempotency-key', 'cli-budget'])
   expect(conflict.code).toBe(9)
   expect(conflict.stderr).toContain('Key was already used')
+})
+
+test('exec file commands read and compare-and-write workspace files without requiring a session', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const source = join(root, 'replacement.txt')
+  await writeFile(join(project, 'command-file.txt'), 'before', 'utf8')
+  await writeFile(source, 'after', 'utf8')
+  const read = await run([...common, 'exec', 'file.read', 'command-file.txt'])
+  expect(read.code).toBe(0)
+  const baseline = JSON.parse(read.stdout) as { sha256: string; text: string }
+  expect(baseline.text).toBe('before')
+  const write = await run([
+    ...common,
+    'exec',
+    'file.write',
+    'command-file.txt',
+    '--input-file',
+    source,
+    '--expected-sha256',
+    baseline.sha256,
+  ])
+  expect(write.code).toBe(0)
+  expect(JSON.parse(write.stdout)).toMatchObject({ beforeSha256: baseline.sha256, created: false })
+  expect(await readFile(join(project, 'command-file.txt'), 'utf8')).toBe('after')
+  const stale = await run([
+    ...common,
+    'exec',
+    'file.write',
+    'command-file.txt',
+    '--text',
+    'stale',
+    '--expected-sha256',
+    baseline.sha256,
+  ])
+  expect(stale.code).toBe(9)
+  expect(stale.stderr).toContain('changed')
+  const listed = await run([...common, 'exec', 'file.list', '.'])
+  expect(listed.code).toBe(0)
+  expect(
+    (JSON.parse(listed.stdout) as { items: { path: string }[] }).items.some((item) => item.path === 'command-file.txt'),
+  ).toBe(true)
 })
 
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {

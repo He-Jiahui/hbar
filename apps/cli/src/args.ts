@@ -18,6 +18,9 @@ export interface CliArgs {
   requestId?: string | undefined
   expectedRevision?: string | undefined
   inputJson?: string | undefined
+  inputFile?: string | undefined
+  text?: string | undefined
+  expectedSha256?: string | undefined
   client?: string | undefined
   invocationId?: string | undefined
   timeout?: string | undefined
@@ -66,6 +69,8 @@ Usage:
   hbar exec session.getModel|session.setModel|session.setThinkingLevel --session <id|name>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
+  hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
+  hbar exec attachment.query <artifactId>
 
 Headless options:
   --message <text>                 Message (or read one message from stdin)
@@ -118,6 +123,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'request-id': { type: 'string' },
       'expected-revision': { type: 'string' },
       'input-json': { type: 'string' },
+      'input-file': { type: 'string' },
+      text: { type: 'string' },
+      'expected-sha256': { type: 'string' },
       client: { type: 'string' },
       'invocation-id': { type: 'string' },
       timeout: { type: 'string' },
@@ -186,6 +194,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     requestId: values['request-id'] as string | undefined,
     expectedRevision: values['expected-revision'] as string | undefined,
     inputJson: values['input-json'] as string | undefined,
+    inputFile: values['input-file'] as string | undefined,
+    text: values.text as string | undefined,
+    expectedSha256: values['expected-sha256'] as string | undefined,
     client: values.client as string | undefined,
     invocationId: values['invocation-id'] as string | undefined,
     timeout: values.timeout as string | undefined,

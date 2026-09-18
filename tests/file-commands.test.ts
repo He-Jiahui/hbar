@@ -1,0 +1,116 @@
+import { afterEach, expect, test } from 'bun:test'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { HbarClient, createFileCommandClient } from '@hbar/client'
+import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { startServer } from '../apps/host/src/server.ts'
+
+const cleanups: (() => Promise<void>)[] = []
+
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0)) await cleanup()
+})
+
+async function fixture() {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-file-commands-'))
+  const kernel = await Kernel.create({
+    home: join(root, '.hbar-data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  const workspace = (await kernel.storage.call('workspaces'))[0]!
+  const host = await startServer(kernel, { port: 0 })
+  const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+  cleanups.push(async () => {
+    client.disconnect()
+    await host.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  })
+  await client.pair(host.pairing.code, 'file command test')
+  return { root, kernel, workspace, client, commands: createFileCommandClient(client) }
+}
+
+test('file commands page, read, and compare-and-write within the workspace boundary', async () => {
+  const { root, workspace, client, commands } = await fixture()
+  await writeFile(join(root, 'alpha.txt'), 'alpha', 'utf8')
+  await writeFile(join(root, 'beta.txt'), 'beta', 'utf8')
+
+  const catalog = await client.call('command.catalog', { category: 'files.tools', limit: 20 })
+  expect(catalog.items.map((item) => item.metadata.id)).toEqual([
+    'attachment.query',
+    'file.list',
+    'file.read',
+    'file.write',
+  ])
+  const firstPage = await commands.execute('file.list', { workspaceId: workspace.id, path: '.', limit: 1 })
+  expect(firstPage.items).toHaveLength(1)
+  expect(firstPage.nextCursor).toBeString()
+  const secondPage = await commands.execute('file.list', {
+    workspaceId: workspace.id,
+    path: '.',
+    after: firstPage.nextCursor,
+    limit: 10,
+  })
+  expect(secondPage.items.every((entry) => entry.path > firstPage.nextCursor!)).toBe(true)
+
+  const before = await commands.execute('file.read', { workspaceId: workspace.id, path: 'alpha.txt' })
+  expect(before).toMatchObject({ text: 'alpha', size: 5 })
+  const changed = await commands.execute('file.write', {
+    workspaceId: workspace.id,
+    path: 'alpha.txt',
+    text: 'changed',
+    expectedSha256: before.sha256,
+  })
+  expect(changed).toMatchObject({ created: false, beforeSha256: before.sha256, size: 7 })
+  expect(
+    await commands.execute('file.write', {
+      workspaceId: workspace.id,
+      path: 'alpha.txt',
+      text: 'changed',
+      expectedSha256: before.sha256,
+    }),
+  ).toEqual(changed)
+  await expect(
+    commands.execute('file.write', {
+      workspaceId: workspace.id,
+      path: 'alpha.txt',
+      text: 'stale overwrite',
+      expectedSha256: before.sha256,
+    }),
+  ).rejects.toMatchObject({ code: 'FILE_CONFLICT' })
+  const concurrentBaseline = await commands.execute('file.read', { workspaceId: workspace.id, path: 'beta.txt' })
+  const concurrent = await Promise.allSettled([
+    commands.execute('file.write', {
+      workspaceId: workspace.id,
+      path: 'beta.txt',
+      text: 'first writer',
+      expectedSha256: concurrentBaseline.sha256,
+    }),
+    commands.execute('file.write', {
+      workspaceId: workspace.id,
+      path: 'beta.txt',
+      text: 'second writer',
+      expectedSha256: concurrentBaseline.sha256,
+    }),
+  ])
+  expect(concurrent.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+  expect(concurrent.filter((result) => result.status === 'rejected')).toHaveLength(1)
+  expect(concurrent.find((result) => result.status === 'rejected')).toMatchObject({
+    reason: { code: 'FILE_CONFLICT' },
+  })
+  await expect(
+    commands.execute('file.read', { workspaceId: workspace.id, path: '../outside.txt' }),
+  ).rejects.toMatchObject({ code: 'PATH_DENIED' })
+})
+
+test('attachment query resolves immutable artifact metadata by content id', async () => {
+  const { kernel, commands } = await fixture()
+  const artifact = await kernel.upload('notes.txt', 'text/plain', new TextEncoder().encode('notes'))
+  expect(await commands.execute('attachment.query', { artifactId: artifact.id })).toEqual(artifact)
+  await expect(commands.execute('attachment.query', { artifactId: '0'.repeat(64) })).rejects.toMatchObject({
+    code: 'NOT_FOUND',
+  })
+})
