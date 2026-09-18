@@ -162,6 +162,8 @@ A15c 通过真实临时 Host 完成第一阶段无 GUI 综合验收。单一场�
 
 若同一切片暴露缺失数据/业务接口，先回到 P1–P4 完成并独立验证该能力，再接视图，不能在组件内部补一段临时业务实现。
 
+B1 已完成：`@hbar/app-react` 以 `useSyncExternalStore` 订阅只读 runtime view，并将生产 `hbar-app-ui/workbench` 外壳绑定到分页 Workspace/Session 目录与应用命令。Web 只在组合根持有 Client，按 Host instance 建立 runtime，连接失败稳定回到显式可重连状态。Ctrl/Cmd+K、命令、状态、设置和会话选择均走规范命令；树展开仍是局部 UI 行为。版本化布局描述、错误旧 localStorage、中英文、桌面/窄屏和无 Host 降级已由构建及真实浏览器验证。B2 从同一 runtime 接入会话时间线、提示词和可靠 Usage 投影。
+
 ## 5. 验收矩阵
 
 | 维度       | 必须验证的可观察结果                                                               |

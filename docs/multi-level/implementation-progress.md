@@ -68,3 +68,11 @@ A3–A10 交付预算持久回执、Schema/Form、可恢复 Run operation、CLI/
 A15 将无头 CLI 的最后一条 Run 写路径迁到 typed command，随后把全部 deprecated mutation RPC 收敛为 canonical command 的输入/输出 adapter，并增加消费者禁用旧写 RPC 的架构守卫。真实无 GUI 综合测试贯通 runtime 会话选择、模型/思考等级、预算、设置、文件、目标计划、审批工具、取消/重试、子 Agent、Usage、Performance、Git、系统/扩展与重连事实核对；无 GUI 的 surface 操作返回明确 capability unavailable。
 
 第一阶段完成后，View 可见业务修改只经 command；状态同步保留 session/operation/metrics follow/watch 端口，组件内部 hover、IME、拖拽与普通展开保持 renderer 本地。完整 React Schema renderer、新工作台视觉组合和最终删除兼容 RPC 属于 B1–B7。
+
+## B1：React 绑定与生产工作台外壳（完成）
+
+新增独立 `@hbar/app-react`，提供 runtime provider、基于 `useSyncExternalStore` 的只读状态订阅和 `HbarWorkspaceShell`。该包只依赖 app-runtime、受控 hbar-app-ui 与 React，不包含 Client、Host、Storage、catalog 或 preview fixture；schema-core 将随 B3 的真实 renderer 接入。工作台的 Workspace → Session 树从真实目录 adapter 分页加载；展开属于局部 UI，选择会话及命令、状态、设置入口只执行应用命令。Host 状态只读，断线后由明确的重连操作重新连接。
+
+Web 组合根现在拥有 Client、Host generation、runtime 生命周期、版本化布局和类型化中英文内容。它不读取或清除旧 workbench localStorage，损坏旧数据不影响安全默认布局。生产构建及 Playwright 覆盖无 Host 降级、Ctrl+K 命令入口、设置入口、中英文、桌面/窄屏、无横向溢出、刷新和遗留数据隔离；目录与两个 runtime 的状态隔离继续由 app-runtime/Host 集成测试覆盖。
+
+交付验证：`bun run check` 通过 lint、typecheck、300 个测试（82 个文件、2375 个断言）；`bun run build` 完成 188 个模块的生产构建；`bunx playwright test e2e/web-shell.spec.ts --reporter=line` 的 4 个中英文桌面/窄屏场景通过。无 Host E2E 中 Vite 代理记录预期的 `ECONNREFUSED 127.0.0.1:4317`，应用稳定显示未连接并停止自动重试。

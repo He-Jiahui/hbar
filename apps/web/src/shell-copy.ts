@@ -1,40 +1,72 @@
-import type { HbarAppUiAppSidebarProps, HbarAppUiWorkbenchNoticeProps } from 'hbar-app-ui/workbench'
+import type { HbarWorkspaceShellLabels } from '@hbar/app-react'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 interface ShellCopy {
-  readonly main: string
-  readonly sidebar: Pick<HbarAppUiAppSidebarProps, 'brand' | 'title' | 'emptyLabel' | 'status'>
-  readonly notice: HbarAppUiWorkbenchNoticeProps
+  readonly shell: HbarWorkspaceShellLabels
+  readonly empty: { readonly title: string; readonly description: string }
+  readonly selectedSession: (title: string) => string
+  readonly panels: Readonly<
+    Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
+  >
 }
 
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
-    main: '工作台',
-    sidebar: {
+    shell: {
+      main: '工作台',
       brand: 'hbar',
-      title: '工程与会话',
-      emptyLabel: '会话列表暂不可用',
-      status: { label: '服务端', value: '未连接' },
+      projectsAndSessions: '工程与会话',
+      noWorkspaces: '尚无工程',
+      noSessions: '尚无会话',
+      loading: '正在加载',
+      loadMore: '加载更多',
+      commands: '命令',
+      status: '状态中心',
+      settings: '设置',
+      server: '服务端',
+      connected: '已连接',
+      disconnected: '未连接',
+      reconnect: '重新连接',
+      expandWorkspace: (name) => `展开工程 ${name}`,
+      collapseWorkspace: (name) => `折叠工程 ${name}`,
+      openSession: (name) => `打开会话 ${name}`,
+      error: (code) => `加载失败：${code}`,
     },
-    notice: {
-      title: '工作台正在重建',
-      description: '当前网页暂不提供会话操作。已有数据保留，可继续使用 CLI。',
-      command: { label: '在项目目录打开 CLI', value: 'bun run cli' },
+    empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
+    selectedSession: (title) => `当前会话：${title}`,
+    panels: {
+      commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
+      status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
+      settings: { title: '设置', description: 'Schema 设置工作台将在此区域打开。' },
     },
   },
   'en-US': {
-    main: 'Workspace',
-    sidebar: {
+    shell: {
+      main: 'Workspace',
       brand: 'hbar',
-      title: 'Projects and sessions',
-      emptyLabel: 'The session list is temporarily unavailable',
-      status: { label: 'Server', value: 'Not connected' },
+      projectsAndSessions: 'Projects and sessions',
+      noWorkspaces: 'No projects yet',
+      noSessions: 'No sessions yet',
+      loading: 'Loading',
+      loadMore: 'Load more',
+      commands: 'Commands',
+      status: 'Status center',
+      settings: 'Settings',
+      server: 'Server',
+      connected: 'Connected',
+      disconnected: 'Disconnected',
+      reconnect: 'Reconnect',
+      expandWorkspace: (name) => `Expand project ${name}`,
+      collapseWorkspace: (name) => `Collapse project ${name}`,
+      openSession: (name) => `Open session ${name}`,
+      error: (code) => `Loading failed: ${code}`,
     },
-    notice: {
-      title: 'The workspace is being rebuilt',
-      description:
-        'Session controls are temporarily unavailable on the web. Your data is retained; use the CLI to continue.',
-      command: { label: 'Open the CLI from the project directory', value: 'bun run cli' },
+    empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
+    selectedSession: (title) => `Current session: ${title}`,
+    panels: {
+      commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
+      status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },
+      settings: { title: 'Settings', description: 'The schema settings workspace opens in this region.' },
     },
   },
 }

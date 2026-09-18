@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@hbar/app-react": "workspace:*",
+    "@hbar/app-runtime": "workspace:*",
+    "@hbar/client": "workspace:*",
     "hbar-app-ui": "workspace:*",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "zod": "4.5.4"
   }
 }

@@ -27,6 +27,7 @@
     "plugins/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
+    "tests/**/*.tsx",
     "e2e/**/*.ts",
     "examples/**/*.ts",
     "playwright.config.ts"

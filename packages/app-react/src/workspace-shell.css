@@ -1,0 +1,81 @@
+.hbar-app-react-project-tree,
+.hbar-app-react-project-tree section,
+.hbar-app-react-session-list,
+.hbar-app-react-sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.hbar-app-react-project-tree {
+  gap: var(--hbar-app-ui-space-sm);
+  padding-block-end: var(--hbar-app-ui-space-lg);
+}
+
+.hbar-app-react-project-tree button,
+.hbar-app-react-sidebar-actions button {
+  min-block-size: 2.25rem;
+  border: 0;
+  border-radius: var(--hbar-app-ui-control-radius);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.hbar-app-react-project-tree button:hover,
+.hbar-app-react-project-tree button:focus-visible,
+.hbar-app-react-sidebar-actions button:hover,
+.hbar-app-react-sidebar-actions button:focus-visible {
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-1);
+  outline: none;
+}
+
+.hbar-app-react-workspace-row {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+  padding-inline: var(--hbar-app-ui-space-sm);
+}
+
+.hbar-app-react-workspace-row strong,
+.hbar-app-react-session-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-session-list {
+  gap: 0.125rem;
+  padding-inline-start: var(--hbar-app-ui-space-xl);
+}
+
+.hbar-app-react-session-list > button {
+  padding-inline: var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-react-session-list > button[aria-current='page'] {
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-accent-soft);
+}
+
+.hbar-app-react-session-list p {
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  font-size: 0.8125rem;
+}
+
+.hbar-app-react-sidebar-actions {
+  gap: var(--hbar-app-ui-space-sm);
+  padding-block-start: var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-react-sidebar-actions button {
+  padding-inline: var(--hbar-app-ui-space-md);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-load-more {
+  color: var(--hbar-app-ui-accent) !important;
+}

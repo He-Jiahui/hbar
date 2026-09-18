@@ -61,6 +61,7 @@
     "@earendil-works/pi-ai": "0.85.1",
     "@hbar/client": "workspace:*",
     "@hbar/commands": "workspace:*",
+    "@hbar/app-react": "workspace:*",
     "@hbar/app-runtime": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/budget": "workspace:*",

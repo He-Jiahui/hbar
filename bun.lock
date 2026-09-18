@@ -14,6 +14,7 @@
         "@codemirror/view": "6.43.11",
         "@earendil-works/pi-agent-core": "0.85.1",
         "@earendil-works/pi-ai": "0.85.1",
+        "@hbar/app-react": "workspace:*",
         "@hbar/app-runtime": "workspace:*",
         "@hbar/browser-use": "workspace:*",
         "@hbar/budget": "workspace:*",
@@ -120,8 +121,25 @@
       "name": "@hbar/web",
       "version": "0.1.0",
       "dependencies": {
+        "@hbar/app-react": "workspace:*",
+        "@hbar/app-runtime": "workspace:*",
+        "@hbar/client": "workspace:*",
         "hbar-app-ui": "workspace:*",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
         "zod": "4.5.4",
+      },
+    },
+    "packages/app-react": {
+      "name": "@hbar/app-react",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/app-runtime": "workspace:*",
+        "hbar-app-ui": "workspace:*",
+      },
+      "peerDependencies": {
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
       },
     },
     "packages/app-runtime": {
@@ -516,6 +534,8 @@
     "@google/genai": ["@google/genai@1.52.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q=="],
 
     "@hbar/agent": ["@hbar/agent@workspace:plugins/agent"],
+
+    "@hbar/app-react": ["@hbar/app-react@workspace:packages/app-react"],
 
     "@hbar/app-runtime": ["@hbar/app-runtime@workspace:packages/app-runtime"],
 

@@ -406,6 +406,7 @@
     "A13": "complete: bounded collector, OS adapter, Host/Client/CLI query and reconnecting watch",
     "A14": "complete: durable explicit provenance, bounded first-parent statistics, incremental cache and rewrite reindex",
     "A15": "complete: consumer write paths and Host compatibility adapters sealed; real no-GUI integrated acceptance passes",
-    "B1-B7": "pending"
+    "B1": "complete: read-only app-react bindings, production AppShell, paged workspace/session sidebar, command navigation, versioned layout and responsive offline E2E",
+    "B2-B7": "pending"
   }
 }

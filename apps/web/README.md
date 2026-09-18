@@ -1,13 +1,13 @@
 # Web 组件宿主
 
-旧 Web 工作台已按命令优先重构的清理要求移除。当前应用只挂载
-`hbar-app-ui/workbench` 中的 AppShell、AppSidebar 和维护提示，暂不连接 Host，
-也不提供会话、设置、审批、命令面板或文件操作。业务运行仍由现有 Host、CLI/TUI
-和 Client SDK 提供；本轮没有完成新的命令运行时。
+Web 组合根现在通过 `@hbar/app-react` 将真实 Client、只读 `@hbar/app-runtime`
+与 `hbar-app-ui/workbench` 连接。AppShell/AppSidebar 显示 Host 连接状态、分页的
+Workspace → Session 树，并且会话选择、命令入口、状态中心和设置入口全部执行应用命令。
+没有 Host 时保留可操作外壳和明确的重连状态，不填充演示会话。
 
-`src/App.tsx` 仅组装组件，`shell-copy.ts` 提供中英文内容，`shell-layout.json`
-描述外壳尺寸和可见性，`shell-layout.ts` 校验描述。`document.css` 只处理挂载文档尺寸，
-组件布局和样式属于 `packages/hbar-app-ui`。旧 localStorage 数据不会读取或删除。
+`src/App.tsx` 是平台/传输组合根，`shell-copy.ts` 提供类型化中英文内容，
+`shell-layout.json` 描述并恢复外壳尺寸，`shell-layout.ts` 校验描述。
+`@hbar/app-react` 只订阅读状态并把交互转换为命令；旧 localStorage 数据不会读取或删除。
 
 ```powershell
 bun run web
@@ -15,9 +15,9 @@ bun run build
 bun run test:e2e
 ```
 
-E2E 使用 Vite preview 和真实浏览器，验证无 Host 启动、中英文、桌面/窄屏、刷新、
-无业务请求和无假操作按钮。旧 Web 页面和 store 专属测试已随实现删除；组件库、Host、
-CLI 与协议测试保留。组件预览仍使用 `bun run app-ui:preview`。
+E2E 使用 Vite preview 和真实浏览器验证无 Host 降级、中英文、桌面/窄屏、键盘命令入口、
+侧栏滚动和刷新。真实 Host/目录/命令行为由集成测试验证。组件预览仍使用
+`bun run app-ui:preview`。
 
-后续依照命令优先计划先实现独立命令运行时和只读状态，再接入受控组件。不要将旧
-store、页面 CSS、业务 RPC 回调或预览数据重新引入 Web View。
+后续 B2–B7 在相同 runtime/command backend 上接入会话、设置、工具与监控页面。
+不要将旧 store、业务 RPC 回调或预览数据重新引入 Web View。
