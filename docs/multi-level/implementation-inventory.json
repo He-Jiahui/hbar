@@ -343,7 +343,8 @@
     "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
     "A6": "complete: combined catalog, CLI, revisioned named context, line REPL and TUI shared execution path",
     "A7": "complete: logical surfaces, PlatformPort and generation-bound directed client relay",
-    "A8-A15": "pending",
+    "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
+    "A9-A15": "pending",
     "B1-B7": "pending"
   }
 }

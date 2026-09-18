@@ -74,6 +74,7 @@
     "@hbar/plugin-sdk": "workspace:*",
     "@hbar/plan": "workspace:*",
     "@hbar/schema-core": "workspace:*",
+    "@hbar/settings-core": "workspace:*",
     "@hbar/storage": "workspace:*",
     "@hbar/ui-sdk": "workspace:*",
     "@opentui/core": "0.4.5",

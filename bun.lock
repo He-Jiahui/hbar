@@ -29,6 +29,7 @@
         "@hbar/plan": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
         "@hbar/schema-core": "workspace:*",
+        "@hbar/settings-core": "workspace:*",
         "@hbar/storage": "workspace:*",
         "@hbar/ui-sdk": "workspace:*",
         "@opentui/core": "0.4.5",
@@ -177,6 +178,13 @@
     "packages/schema-core": {
       "name": "@hbar/schema-core",
       "version": "0.1.0",
+    },
+    "packages/settings-core": {
+      "name": "@hbar/settings-core",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/schema-core": "workspace:*",
+      },
     },
     "packages/storage": {
       "name": "@hbar/storage",
@@ -505,6 +513,8 @@
     "@hbar/plugin-sdk": ["@hbar/plugin-sdk@workspace:packages/plugin-sdk"],
 
     "@hbar/schema-core": ["@hbar/schema-core@workspace:packages/schema-core"],
+
+    "@hbar/settings-core": ["@hbar/settings-core@workspace:packages/settings-core"],
 
     "@hbar/storage": ["@hbar/storage@workspace:packages/storage"],
 

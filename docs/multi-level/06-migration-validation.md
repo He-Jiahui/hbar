@@ -74,6 +74,8 @@ A6c 在 `8dd58e2` 提交。A7a 在 app-runtime 内建立只读 surface 投影，
 
 A7a 在 `0f7cb83` 提交。A7b 增加已鉴权的 surface client 注册与定向 relay；Host 绑定 clientId、连接 generation 与白名单能力，以调用 ID 缓存短期结果并拒绝异参重用。替换、注销、断线、目标过载和超时均结束对应调用，Client adapter 只执行目标 generation 的通知。真实双客户端测试覆盖 CLI adapter、重复调用、能力拒绝、换代旧回调、注销与超时。
 
+A7b 在 `dec53d9` 提交。A8 新增独立 `@hbar/settings-core`：以传入的有序 layer chain 解析设置，不硬编码 hbar 三层实体；缺省继承、显式 null、对象字段合并、普通数组整体替换、keyed tombstone/排序和允许层级均由纯函数验证。报告包含本层 presence/value、effective、整体及逐叶来源 revision、继承和 apply 状态；敏感定义只允许 secretRef 形态。包边界构建证明其不依赖 Host、React、Zustand、commands、contracts 或数据库。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收
