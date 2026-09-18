@@ -194,6 +194,12 @@ export interface GitCommitOptions {
   message: string
   paths?: string[] | undefined
   stage?: boolean | undefined
+  provenance: {
+    source: 'auto' | 'manual'
+    sessionId?: string | undefined
+    runId?: string | undefined
+    operationId?: string | undefined
+  }
 }
 export type GitBranchOperation =
   | { operation?: 'list' | undefined }

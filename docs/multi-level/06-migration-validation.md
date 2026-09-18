@@ -128,6 +128,8 @@ A13b 发布 `metrics.current/query` Host commands。每个 Host 只启动一个 
 
 A13c 完成性能增量同步。`metrics.watch/unwatch` 复用 collector 环而不为每个面板创建采集器，只向订阅 socket 推送；Client 对初始响应与并发推送去重，并在连接换代后从最后游标补取。测试覆盖实时样本、断线期间继续采集、重连补取、无重复和关闭后停止通知。
 
+A14a 完成 Git 来源事实。hbar 创建提交后向专用 notes ref 写入带版本前缀的 `auto | manual` 记录，AI 工具从真实 ToolContext 绑定 session/run/call，命令从 command request 绑定 operation；既有或其他客户端提交以缺少 hbar note 的事实返回 `external`。真实仓库测试覆盖三类来源、重启读取与关联字段，禁止用 subject、author 或时间推断来源。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

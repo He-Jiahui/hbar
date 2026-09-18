@@ -5,6 +5,7 @@ import {
   HbarError,
   gitBranchInfoSchema,
   gitCommitInfoSchema,
+  gitCommitProvenanceSchema,
   gitDiffSchema,
   gitInfoSchema,
   gitStatusSchema,
@@ -13,6 +14,7 @@ import {
 import type {
   GitBranchInfo,
   GitCommitInfo,
+  GitCommitProvenance,
   GitDiff,
   GitInfo,
   GitStatus,
@@ -33,6 +35,8 @@ const MAX_OUTPUT = 512_000
 const MAX_LOG = 100
 const MAX_WORKTREES = 100
 const MAX_UNTRACKED_FILES = 1_000
+const PROVENANCE_NOTES_REF = 'refs/notes/hbar-provenance'
+const PROVENANCE_PREFIX = 'hbar-provenance-v1:'
 
 export const gitConfigSchema = z.object({
   timeoutMs: z.number().int().positive().max(120_000).default(30_000),
@@ -240,13 +244,41 @@ function parseStatus(output: string, cwd: string): GitStatus {
   })
 }
 
+function externalProvenance(): GitCommitProvenance {
+  return { source: 'external', recordedAt: null, sessionId: null, runId: null, operationId: null }
+}
+
+function parseProvenance(note: string): GitCommitProvenance {
+  if (!note) return externalProvenance()
+  if (!note.startsWith(PROVENANCE_PREFIX))
+    throw new HbarError('GIT_PROVENANCE_INVALID', 'Git commit has an unrecognized hbar provenance note')
+  try {
+    const parsed = gitCommitProvenanceSchema.parse(JSON.parse(note.slice(PROVENANCE_PREFIX.length)))
+    if (parsed.source === 'external' || parsed.recordedAt === null)
+      throw new HbarError('GIT_PROVENANCE_INVALID', 'Recorded Git provenance must identify an hbar commit source')
+    return parsed
+  } catch (error) {
+    if (error instanceof HbarError) throw error
+    throw new HbarError('GIT_PROVENANCE_INVALID', 'Git commit has an invalid hbar provenance note')
+  }
+}
+
 function parseLog(output: string): GitCommitInfo[] {
-  const fields = output.split('\0')
   const commits: GitCommitInfo[] = []
-  for (let index = 0; index + 4 < fields.length; index += 5) {
-    const [sha, shortSha, author, authoredAt, subject] = fields.slice(index, index + 5)
+  for (const record of output.split('\x1e')) {
+    if (!record) continue
+    const [sha, shortSha, author, authoredAt, subject, note = ''] = record.split('\0')
     if (!sha || !shortSha) continue
-    commits.push(gitCommitInfoSchema.parse({ sha, shortSha, author: author ?? '', authoredAt: authoredAt ?? '', subject: subject ?? '' }))
+    commits.push(
+      gitCommitInfoSchema.parse({
+        sha,
+        shortSha,
+        author: author ?? '',
+        authoredAt: authoredAt ?? '',
+        subject: subject ?? '',
+        provenance: parseProvenance(note.trim()),
+      }),
+    )
   }
   return commits
 }
@@ -436,7 +468,14 @@ export class GitRuntime implements GitService {
     const bounded = Math.min(MAX_LOG, Math.max(1, Math.trunc(limit)))
     const result = await this.tryRun(
       path,
-      ['log', '-n', String(bounded), '--date=iso-strict', '--pretty=format:%H%x00%h%x00%an%x00%aI%x00%s%x00'],
+      [
+        'log',
+        '-n',
+        String(bounded),
+        '--date=iso-strict',
+        `--show-notes=${PROVENANCE_NOTES_REF}`,
+        '--pretty=format:%x1e%H%x00%h%x00%an%x00%aI%x00%s%x00%N',
+      ],
       signal,
     )
     return result ? parseLog(result.stdout) : []
@@ -452,8 +491,29 @@ export class GitRuntime implements GitService {
     if (paths.length) args.push('--', ...paths)
     await this.run(path, args, signal)
     const head = (await this.run(path, ['rev-parse', 'HEAD'], signal)).stdout.trim()
+    const provenance = gitCommitProvenanceSchema.parse({
+      source: options.provenance.source,
+      recordedAt: Date.now(),
+      sessionId: options.provenance.sessionId ?? null,
+      runId: options.provenance.runId ?? null,
+      operationId: options.provenance.operationId ?? null,
+    })
+    await this.run(
+      path,
+      ['notes', `--ref=${PROVENANCE_NOTES_REF}`, 'add', '-f', '-m', `${PROVENANCE_PREFIX}${JSON.stringify(provenance)}`, head],
+      signal,
+    )
     const commits = await this.log(path, 1, signal)
-    const result = gitCommitInfoSchema.parse(commits[0] ?? { sha: head, shortSha: head.slice(0, 7), author: '', authoredAt: '', subject: message.split(/\r?\n/, 1)[0] })
+    const result = gitCommitInfoSchema.parse(
+      commits[0] ?? {
+        sha: head,
+        shortSha: head.slice(0, 7),
+        author: '',
+        authoredAt: '',
+        subject: message.split(/\r?\n/, 1)[0],
+        provenance,
+      },
+    )
     await this.notifyChanged(path)
     return result
   }
@@ -560,7 +620,7 @@ export function gitTools(runtime: GitRuntime): ToolDefinition[] {
     { name: 'git_diff', description: 'Read a bounded Git diff for the workspace. Paths are relative to the workspace.', inputSchema: diffArgs, effect: 'read', execute: async (args, context) => { const parsed = diffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diff(parsed.cwd, parsed, context.signal)) } },
     { name: 'git_log', description: 'Read recent Git commits from the workspace.', inputSchema: logArgs, effect: 'read', execute: async (args, context) => { const parsed = logArgs.parse(args); return toolResult(await scopedTool(runtime, context).log(parsed.cwd, parsed.limit, context.signal)) } },
     { name: 'git_diff_to_remote', description: 'Read the diff from the current HEAD to its configured upstream branch.', inputSchema: cwdSchema, effect: 'read', execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).diffToRemote(parsed.cwd, context.signal)) } },
-    { name: 'git_commit', description: 'Create a Git commit. This is a write operation and requires approval.', inputSchema: commitArgs, effect: 'write', execute: async (args, context) => { const parsed = commitArgs.parse(args); return toolResult(await scopedTool(runtime, context).commit(parsed.cwd, parsed, context.signal)) } },
+    { name: 'git_commit', description: 'Create a Git commit. This is a write operation and requires approval.', inputSchema: commitArgs, effect: 'write', execute: async (args, context) => { const parsed = commitArgs.parse(args); return toolResult(await scopedTool(runtime, context).commit(parsed.cwd, { ...parsed, provenance: { source: 'auto', sessionId: context.session.id, runId: context.run.id, operationId: context.callId } }, context.signal)) } },
     { name: 'git_branch', description: 'List or mutate Git branches. Mutations require approval.', inputSchema: branchArgs, effect: 'write', execute: async (args, context) => { const parsed = branchArgs.parse(args); if (parsed.operation !== 'list' && !parsed.name) throw new HbarError('GIT_INVALID_BRANCH', 'name is required for branch mutations'); return toolResult(await scopedTool(runtime, context).branch(parsed.cwd, parsed.operation === 'list' ? {} : { operation: parsed.operation, name: parsed.name!, force: parsed.force }, context.signal)) } },
     { name: 'git_worktree', description: 'List, create, or remove bounded Git worktrees. Mutations require approval.', inputSchema: worktreeArgs, effect: 'write', execute: async (args, context) => { const parsed = worktreeArgs.parse(args); if (parsed.operation !== 'list' && !parsed.path) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations'); const operation = parsed.operation === 'list' ? {} : parsed.operation === 'add' ? { operation: 'add' as const, path: parsed.path!, branch: parsed.branch, createBranch: parsed.createBranch } : { operation: 'remove' as const, path: parsed.path!, force: parsed.force }; return toolResult(await scopedTool(runtime, context).worktree(parsed.cwd, operation, context.signal)) } },
   ]

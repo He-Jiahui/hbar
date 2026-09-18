@@ -641,7 +641,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.commit': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').commit(p.cwd, p)
+        return kernel.plugins.get<GitService>('git').commit(p.cwd, {
+          ...p,
+          provenance: { source: 'manual', sessionId: p.sessionId, runId: p.runId },
+        })
       }
       case 'git.branch': {
         const p = rpcSchemas[method].parse(raw)

@@ -50,6 +50,13 @@ function service(overrides: Partial<GitService> = {}): GitService {
     author: 'test',
     authoredAt: '2026-01-01T00:00:00Z',
     subject: 'test',
+    provenance: {
+      source: 'manual' as const,
+      recordedAt: 1,
+      sessionId: null,
+      runId: null,
+      operationId: 'operation-1',
+    },
   }
   return {
     info: async () => ({ sha: commit.sha, branch: 'main', originUrl: null }),
@@ -102,10 +109,16 @@ test('git command adapter queries and mutates one validated repository service',
     expect((await commands.execute('git.diff', {})).diff).not.toContain('change.txt')
     const committed = await commands.execute(
       'git.commit',
-      { message: 'command commit', paths: ['change.txt'], stage: true },
-      { actorId: 'paired-device' },
+      { message: 'command commit', paths: ['change.txt'], stage: true, sessionId: 'session-1', runId: 'run-1' },
+      { actorId: 'paired-device', requestId: 'manual-operation-1' },
     )
     expect(committed.subject).toBe('command commit')
+    expect(committed.provenance).toMatchObject({
+      source: 'manual',
+      sessionId: 'session-1',
+      runId: 'run-1',
+      operationId: 'manual-operation-1',
+    })
     expect((await commands.execute('git.log', { limit: 1 }))[0]?.sha).toBe(committed.sha)
     const branches = await commands.execute('git.branch', { operation: 'list' }, { actorId: 'paired-device' })
     expect(Array.isArray(branches)).toBe(true)

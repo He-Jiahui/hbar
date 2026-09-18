@@ -106,6 +106,8 @@ export const gitCommands = {
       message: z.string().trim().min(1).max(4_000),
       paths: z.array(pathSchema).max(100).default([]),
       stage: z.boolean().default(false),
+      sessionId: z.string().min(1).max(128).optional(),
+      runId: z.string().min(1).max(128).optional(),
     }),
     gitCommitInfoSchema,
   ),

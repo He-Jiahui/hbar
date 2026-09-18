@@ -2,7 +2,9 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { GitRuntime, gitConfigSchema } from '../plugins/git/src/index.ts'
+import type { GitCommitInfo } from '@hbar/contracts'
+import type { ToolContext } from '@hbar/plugin-sdk'
+import { GitRuntime, gitConfigSchema, gitTools } from '../plugins/git/src/index.ts'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -52,7 +54,10 @@ test('Git status, history, and remote metadata are bounded and sanitized', async
     branch: status.branch,
     originUrl: status.originUrl,
   })
-  expect((await runtime.log(root, 1))[0]?.subject).toBe('initial')
+  expect((await runtime.log(root, 1))[0]).toMatchObject({
+    subject: 'initial',
+    provenance: { source: 'external', recordedAt: null },
+  })
 })
 
 test('Git mutations emit an observational change notification after success', async () => {
@@ -62,7 +67,12 @@ test('Git mutations emit an observational change notification after success', as
     changed.push(cwd)
   })
   await writeFile(join(root, 'notify.txt'), 'change\n')
-  await runtime.commit(root, { message: 'notify', paths: ['notify.txt'], stage: true })
+  await runtime.commit(root, {
+    message: 'notify',
+    paths: ['notify.txt'],
+    stage: true,
+    provenance: { source: 'manual', operationId: 'notify-operation' },
+  })
   expect(changed).toHaveLength(1)
   expect(changed[0]?.replaceAll('\\', '/')).toBe(root.replaceAll('\\', '/'))
 })
@@ -70,8 +80,25 @@ test('Git mutations emit an observational change notification after success', as
 test('Git commit, branch, and worktree operations use validated paths', async () => {
   const { root, runtime } = await fixture()
   await writeFile(join(root, 'change.txt'), 'change\n')
-  const commit = await runtime.commit(root, { message: 'add change', paths: ['change.txt'], stage: true })
+  const commit = await runtime.commit(root, {
+    message: 'add change',
+    paths: ['change.txt'],
+    stage: true,
+    provenance: {
+      source: 'auto',
+      sessionId: 'session-1',
+      runId: 'run-1',
+      operationId: 'tool-call-1',
+    },
+  })
   expect(commit.subject).toBe('add change')
+  expect(commit.provenance).toMatchObject({
+    source: 'auto',
+    sessionId: 'session-1',
+    runId: 'run-1',
+    operationId: 'tool-call-1',
+  })
+  expect((await runtime.log(root, 2)).map((entry) => entry.provenance.source)).toEqual(['auto', 'external'])
   const baseBranch = await runGit(root, ['branch', '--show-current'])
   const created = await runtime.branch(root, { operation: 'create', name: 'feature/hbar' })
   expect(Array.isArray(created)).toBeFalse()
@@ -86,6 +113,30 @@ test('Git commit, branch, and worktree operations use validated paths', async ()
   } catch (error) {
     expect(error instanceof Error ? error.message : String(error)).toContain('escape')
   }
+})
+
+test('AI Git commits persist tool-owned session, run, and operation provenance', async () => {
+  const { root, runtime } = await fixture()
+  await writeFile(join(root, 'automatic.txt'), 'automatic\n')
+  const tool = gitTools(runtime).find((candidate) => candidate.name === 'git_commit')
+  expect(tool).toBeDefined()
+  const result = await tool!.execute(
+    { message: 'automatic commit', paths: ['automatic.txt'], stage: true },
+    {
+      session: { id: 'session-tool' },
+      workspace: { id: 'workspace-tool', path: root },
+      run: { id: 'run-tool' },
+      signal: new AbortController().signal,
+      callId: 'call-tool',
+    } as ToolContext,
+  )
+  expect((result.details as GitCommitInfo).provenance).toMatchObject({
+    source: 'auto',
+    sessionId: 'session-tool',
+    runId: 'run-tool',
+    operationId: 'call-tool',
+  })
+  expect((await runtime.log(root, 1))[0]?.provenance.source).toBe('auto')
 })
 
 test('Git command runner never turns a path into shell syntax', async () => {

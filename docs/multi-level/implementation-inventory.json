@@ -188,7 +188,7 @@
       "stateOwner": "Host repository state and commit provenance",
       "category": "monitoring.usage",
       "milestone": "A11/A14",
-      "status": "complete-headless-commands-statistics-pending",
+      "status": "complete-headless-commands-and-provenance-statistics-pending",
       "rpc": [
         "git.info",
         "git.status",
@@ -392,7 +392,8 @@
     "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, Host system/path/device/pairing, and extension domains migrated through commands and CLI",
     "A12": "complete: versioned usage and attempt facts, bounded query/export, typed Client and CLI",
     "A13": "complete: bounded collector, OS adapter, Host/Client/CLI query and reconnecting watch",
-    "A14-A15": "pending",
+    "A14": "in progress: durable explicit commit provenance complete; bounded statistics pending",
+    "A15": "pending",
     "B1-B7": "pending"
   }
 }

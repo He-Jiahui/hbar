@@ -61,7 +61,21 @@ export function createGitCommands(service: GitService) {
     gitCommands['git.commit'],
     (input, context) =>
       translateExternal(() =>
-        service.commit(input.cwd, { message: input.message, paths: input.paths, stage: input.stage }, context.signal),
+        service.commit(
+          input.cwd,
+          {
+            message: input.message,
+            paths: input.paths,
+            stage: input.stage,
+            provenance: {
+              source: 'manual',
+              sessionId: input.sessionId,
+              runId: input.runId,
+              operationId: context.requestId,
+            },
+          },
+          context.signal,
+        ),
       ),
     { durable: true },
   )

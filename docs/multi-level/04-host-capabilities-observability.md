@@ -75,6 +75,8 @@ A13b 将 Host 唯一 PerformanceCollector 接入 `metrics.current` 与 `metrics.
 
 A13c 增加 `metrics.watch/unwatch` 状态同步端口。只有显式订阅的已认证 socket 接收 `metrics.sample`；collector 以单调观测时间作为游标，最多补取 200 个样本，保留窗口越界或慢消费者溢出返回 reset。typed Client 在订阅应答前缓冲推送、按游标去重，重连后重新 watch 并补取断线样本；close 同时释放本地 listener 与 Host 订阅。
 
+A14a 为提交来源建立规范事实。`@hbar/git` 在专用 `refs/notes/hbar-provenance` 中保存版本化 JSON，普通 Host command 明确记录为 `manual`，AI `git_commit` 工具根据真实 ToolContext 记录为 `auto`，并保存 session/run/operation 关联；没有该 note 的提交明确返回 `external`。读取不分析提交 message，损坏或未知版本的 hbar note 直接报错，避免把不可解释记录猜成外部提交。note 独立于工作树并在重启后保留，为后续统计与 rebase 可达性刷新提供审计来源。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。

@@ -184,12 +184,23 @@ export const gitDiffSchema = z.object({
   truncated: z.boolean(),
 })
 export type GitDiff = z.infer<typeof gitDiffSchema>
+export const gitCommitSourceSchema = z.enum(['auto', 'manual', 'external'])
+export type GitCommitSource = z.infer<typeof gitCommitSourceSchema>
+export const gitCommitProvenanceSchema = z.object({
+  source: gitCommitSourceSchema,
+  recordedAt: z.number().int().nonnegative().nullable(),
+  sessionId: z.string().min(1).max(128).nullable(),
+  runId: z.string().min(1).max(128).nullable(),
+  operationId: z.string().min(1).max(128).nullable(),
+})
+export type GitCommitProvenance = z.infer<typeof gitCommitProvenanceSchema>
 export const gitCommitInfoSchema = z.object({
   sha: z.string().regex(/^[0-9a-f]{7,64}$/i),
   shortSha: z.string().regex(/^[0-9a-f]{7,64}$/i),
   author: z.string().max(1_000),
   authoredAt: z.string().max(100),
   subject: z.string().max(4_000),
+  provenance: gitCommitProvenanceSchema,
 })
 export type GitCommitInfo = z.infer<typeof gitCommitInfoSchema>
 export const gitBranchInfoSchema = z.object({
@@ -937,6 +948,8 @@ export const rpcSchemas = {
     message: z.string().trim().min(1).max(4_000),
     paths: z.array(z.string().min(1).max(4_000)).max(100).default([]),
     stage: z.boolean().default(false),
+    sessionId: idSchema.optional(),
+    runId: idSchema.optional(),
   }),
   'git.branch': z.object({
     cwd: z.string().min(1).max(4_000).optional(),
