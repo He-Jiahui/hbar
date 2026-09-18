@@ -39,6 +39,7 @@
         "tests/settings-commands.test.ts",
         "tests/system-commands.test.ts",
         "tests/surface-relay.test.ts",
+        "tests/command-first-acceptance.test.ts",
         "tests/write-path-boundaries.test.ts"
       ]
     },
@@ -51,7 +52,12 @@
       "status": "complete-host-and-client-commands",
       "rpc": ["system.hello", "system.bootstrap", "system.diagnose", "device.list", "device.revoke", "pairing.create"],
       "additionalCommands": ["connection.connect", "connection.disconnect", "connection.reconnect", "pairing.accept"],
-      "tests": ["tests/server.test.ts", "tests/system-commands.test.ts", "tests/connection-commands.test.ts", "tests/cli.test.ts"]
+      "tests": [
+        "tests/server.test.ts",
+        "tests/system-commands.test.ts",
+        "tests/connection-commands.test.ts",
+        "tests/cli.test.ts"
+      ]
     },
     {
       "id": "paths",
@@ -267,7 +273,12 @@
         "plugin.doctor"
       ],
       "additionalCommands": ["plugin.list", "plugin.inspect", "skill.list"],
-      "tests": ["tests/extensions.test.ts", "tests/plugin-packages.test.ts", "tests/extension-commands.test.ts", "tests/cli.test.ts"]
+      "tests": [
+        "tests/extensions.test.ts",
+        "tests/plugin-packages.test.ts",
+        "tests/extension-commands.test.ts",
+        "tests/cli.test.ts"
+      ]
     },
     {
       "id": "files-attachments",
@@ -383,18 +394,18 @@
     "A1": "complete",
     "A2": "complete",
     "A3": "complete",
-    "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
+    "A4": "complete for first stage: schema-core and headless budget form adapter; GUI renderer belongs to B3/B4",
     "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
     "A6": "complete: combined catalog, CLI, revisioned named context, line REPL and TUI shared execution path",
     "A7": "complete: logical surfaces, PlatformPort and generation-bound directed client relay",
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, Host system/path/device/pairing, and extension domains migrated through commands and CLI",
+    "A11": "complete: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, Host system/path/device/pairing, and extension domains migrated through commands and CLI",
     "A12": "complete: versioned usage and attempt facts, bounded query/export, typed Client and CLI",
     "A13": "complete: bounded collector, OS adapter, Host/Client/CLI query and reconnecting watch",
     "A14": "complete: durable explicit provenance, bounded first-parent statistics, incremental cache and rewrite reindex",
-    "A15": "in progress: consumer write paths and legacy Host adapters sealed; no-GUI integrated acceptance pending",
+    "A15": "complete: consumer write paths and Host compatibility adapters sealed; real no-GUI integrated acceptance passes",
     "B1-B7": "pending"
   }
 }

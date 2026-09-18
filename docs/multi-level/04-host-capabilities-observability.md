@@ -1,6 +1,6 @@
 # P4：Host 业务命令化与监控数据能力
 
-状态：实施中；工作区/会话、预算、Run、审批问卷、目标计划、Session 模型配置、文件附件、子 Agent、browser、computer 与现有 Git 命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
+状态：第一阶段 Host 业务、Usage、Performance 与 Git 数据闭环已完成；图表和完整工作台在 P5/B1–B7 接入。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
 
 ## 1. Host 模块保持 MVC 与领域边界
 

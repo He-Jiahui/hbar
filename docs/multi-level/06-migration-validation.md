@@ -1,6 +1,6 @@
 # P6：迁移顺序、验收矩阵与交付纪律
 
-状态：实施中；A0–A10 已完成，A11 已开始逐领域迁移，第二阶段 UI 尚待实施。上级：[总计划](command-first-architecture-plan.md)。本计划将 P0–P5 转为可执行切片，所有代码切片均按[质量与交付](../../.agents/skills/hbar-engineering/references/quality.md)验证后立即独立提交。
+状态：第一阶段 A0–A15 已完成，第二阶段 B1–B7 实施中。上级：[总计划](command-first-architecture-plan.md)。本计划将 P0–P5 转为可执行切片，所有代码切片均按[质量与交付](../../.agents/skills/hbar-engineering/references/quality.md)验证后立即独立提交。
 
 ## 1. 基线证据与迁移记录
 
@@ -135,6 +135,8 @@ A14b 完成 Git 统计查询。`git.stats` 由 Host command、typed Client、CLI
 A15a 将最后一个 CLI 业务写入口迁出旧 Run RPC。无头模式现在通过 typed `run.submit` 获得持久 operation 受理回执，再从只读 Session snapshot 取得 Run；SIGINT 通过 `operation.cancel` 传播取消。CLI/TUI/REPL 因此不再调用 `run.start/run.cancel`，重复受理、actor/idempotency、取消事实和未知结果均走 A5 的同一命令链。
 
 A15b 封口 Host 兼容写 RPC。保留的方法只负责旧输入/输出转换，所有 workspace/session、Run、交互、配置、预算、Git、browser/computer、插件和系统 mutation 都调用已注册的 canonical command handler；需要幂等的旧入口从认证设备和 JSON-RPC 身份生成稳定有界 request/key。问卷与审批只读解析原 Session 后调用类型化交互命令。契约包显式列出 deprecated write RPC，架构测试禁止 CLI/Web/Desktop/app-runtime/app-react/ui-sdk 调用它们，并逐项确认 Host adapter 包含 command execute。旧 `run.start` 重复 requestId 的真实 Host 测试验证只返回同一个持久 Run。
+
+A15c 通过真实临时 Host 完成第一阶段无 GUI 综合验收。单一场景经公开 command/runtime 端口完成 workspace/session、runtime 选择、模型与思考等级、预算、设置解析、文件写读、目标计划、审批后的工具写入、取消/重试、子 Agent、Usage、Performance、Git、系统/扩展查询，并在断线重连后核对 Session、预算、模型与目标事实；无 renderer 时 `app.openPanel` 明确返回 capability unavailable。该测试不导入 React、浏览器或 Tauri，并与写路径架构守卫共同作为进入 B1 的门禁。
 
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 

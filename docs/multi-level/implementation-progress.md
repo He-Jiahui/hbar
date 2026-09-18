@@ -1,6 +1,6 @@
 # 命令优先重构实施记录
 
-本文件只记录已核验的实施进度，不替代总计划的完整目标。起始代码为 `857206a`；旧 Web 行为从 `7ae9740` 查证，当前外壳由 `6ec3b46` 提供。2026-09-17 起逐里程碑实施。
+本文件只记录已核验的实施进度，不替代总计划的完整目标。起始代码为 `857206a`；旧 Web 行为从 `7ae9740` 查证，当前外壳由 `6ec3b46` 提供。2026-09-17 起逐里程碑实施。第一阶段 A0–A15 已完成，当前进入 B1–B7 工作台重建。
 
 ## A0：基线、功能映射与包依赖门禁（完成）
 
@@ -61,4 +61,10 @@ Host 使用同源 command 定义注册目录查询服务，Controller 只做 RPC
 
 可重复基准：`bun scripts/benchmark-app-runtime.ts` 创建临时 Host/数据目录，20 次预热后各采样 200 次，零模型请求。本机 Windows、Bun 1.4.0、Ryzen 7 7700X/16 逻辑处理器，已认证回环 WebSocket + Storage Worker：会话选择 p50/p95/max = 0.52/0.71/0.92 ms，分页查询 = 0.39/0.55/1.88 ms，均低于本切片 p95 100 ms 预算。报告为 `artifacts/app-runtime-benchmark.json`；这是本机两个 Session 的基线，不是所有网络/数据规模的延迟保证。
 
-下一里程碑为 A3：session.setBudget/getBudget 的持久短命令回执、预算事务、幂等/CAS 和 CLI 适配；完整目标仍包括 A3–A15、B1–B7。
+## A3–A15：命令、设置、Host 能力与无 GUI 封口（完成）
+
+A3–A10 交付预算持久回执、Schema/Form、可恢复 Run operation、CLI/TUI/REPL、逻辑 surface、分层 settings、动态 callback 和 Host 原子设置服务。A11 按领域迁移 workspace/session、审批问卷、目标计划、模型配置、文件附件、子 Agent、browser/computer、系统/插件/设备/路径与 Git；A12–A14 完成 Usage、Performance 和 Git 来源/统计数据闭环。
+
+A15 将无头 CLI 的最后一条 Run 写路径迁到 typed command，随后把全部 deprecated mutation RPC 收敛为 canonical command 的输入/输出 adapter，并增加消费者禁用旧写 RPC 的架构守卫。真实无 GUI 综合测试贯通 runtime 会话选择、模型/思考等级、预算、设置、文件、目标计划、审批工具、取消/重试、子 Agent、Usage、Performance、Git、系统/扩展与重连事实核对；无 GUI 的 surface 操作返回明确 capability unavailable。
+
+第一阶段完成后，View 可见业务修改只经 command；状态同步保留 session/operation/metrics follow/watch 端口，组件内部 hover、IME、拖拽与普通展开保持 renderer 本地。完整 React Schema renderer、新工作台视觉组合和最终删除兼容 RPC 属于 B1–B7。
