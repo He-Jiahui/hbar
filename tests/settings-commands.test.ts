@@ -2,9 +2,10 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarClient, createSettingsCommandClient } from '@hbar/client'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
-import { encodePath } from '@hbar/schema-core'
+import { HbarClient, createSchemaCallbackClient, createSettingsCommandClient } from '@hbar/client'
+import { HBAR_SETTINGS_DESCRIPTION, Kernel, MemorySecrets } from '@hbar/kernel'
+import { settingsDescriptionSchema } from '@hbar/contracts/commands/settings'
+import { compileContentGraph, createContentResolver, encodePath } from '@hbar/schema-core'
 import { startServer } from '../apps/host/src/server.ts'
 
 const cleanups: (() => Promise<void>)[] = []
@@ -37,6 +38,27 @@ async function fixture() {
 
 const field = (name: string) => [{ kind: 'field' as const, name }]
 
+test('settings description rejects type drift, duplicate paths and dynamic dependency cycles', () => {
+  expect(Object.isFrozen(HBAR_SETTINGS_DESCRIPTION)).toBe(true)
+  expect(
+    settingsDescriptionSchema.safeParse({
+      ...structuredClone(HBAR_SETTINGS_DESCRIPTION),
+      fields: [
+        ...structuredClone(HBAR_SETTINGS_DESCRIPTION.fields),
+        { ...structuredClone(HBAR_SETTINGS_DESCRIPTION.fields[0]!), defaultValue: 42 },
+      ],
+    }).success,
+  ).toBe(false)
+  const cyclic = structuredClone(HBAR_SETTINGS_DESCRIPTION)
+  cyclic.fields[0]!.content = {
+    kind: 'options',
+    callbackId: 'settings.getModels',
+    callbackVersion: 1,
+    dependsOn: [cyclic.fields[1]!.path],
+  }
+  expect(settingsDescriptionSchema.safeParse(cyclic).success).toBe(false)
+})
+
 test('typed settings commands share catalog, layered CAS and actor-scoped idempotency', async () => {
   const { client, workspace, session } = await fixture()
   const commands = createSettingsCommandClient(client)
@@ -50,6 +72,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     'provider.delete',
     'provider.save',
     'settings.apply',
+    'settings.describe',
     'settings.get',
     'settings.set',
     'settings.unset',
@@ -57,6 +80,63 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
   expect(await client.call('command.describe', { commandId: 'settings.apply' })).toMatchObject({
     metadata: { id: 'settings.apply', execution: 'host', stateEffect: 'persistent' },
   })
+
+  const description = await commands.execute('settings.describe', {})
+  expect(description).toMatchObject({
+    id: 'hbar.settings',
+    schemaVersion: 1,
+    groups: [{ id: 'model' }, { id: 'session' }],
+  })
+  expect(description.fields.map((item) => encodePath(item.path))).toEqual([
+    encodePath(field('provider.model')),
+    encodePath(field('provider.thinkingLevel')),
+    encodePath(field('session.defaultBudget')),
+  ])
+
+  const graph = compileContentGraph(
+    description.fields.map((item) => ({
+      path: item.path,
+      valueType: item.type === 'integer' ? ('number' as const) : item.type,
+      ...(item.content
+        ? {
+            callback: {
+              id: item.content.callbackId,
+              version: item.content.callbackVersion,
+              dependsOn: item.content.dependsOn,
+            },
+          }
+        : {}),
+    })),
+  )
+  const resolver = createContentResolver({
+    graph,
+    port: createSchemaCallbackClient(client),
+    hostId: 'test-host',
+    identityId: 'settings-command-test',
+  })
+  const modelContent = await resolver.resolve({
+    schemaId: description.id,
+    schemaVersion: description.schemaVersion,
+    scope: { kind: 'session', id: session.id },
+    formId: 'settings-form',
+    formRevision: 0,
+    path: field('provider.model'),
+    data: {},
+  })
+  expect(modelContent.status === 'ready' ? modelContent.options.map((option) => option.value) : []).toContain(
+    'local-fixture',
+  )
+  const thinkingContent = await resolver.resolve({
+    schemaId: description.id,
+    schemaVersion: description.schemaVersion,
+    scope: { kind: 'session', id: session.id },
+    formId: 'settings-form',
+    formRevision: 0,
+    path: field('provider.thinkingLevel'),
+    data: { [modelKey]: 'local-fixture' },
+  })
+  expect(thinkingContent.status === 'ready' ? thinkingContent.options.length : 0).toBeGreaterThan(0)
+  resolver.dispose()
 
   const before = await commands.execute('settings.get', { scope: sessionScope, path: model })
   expect(Object.keys(before.resolution.reports)).toEqual([modelKey])

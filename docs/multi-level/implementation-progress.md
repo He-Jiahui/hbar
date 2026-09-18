@@ -136,3 +136,11 @@ app-runtime 新增当前 Session controls 投影，并行读取 `session.getMode
 `HbarSchemaForm` 只消费编译后的 Schema、不可变 FormState、动态内容报告、宿主 labels 和 `onIntent`。标准 TextField、NumberField、CheckBox、ComboBox 保留数字输入中间态，并明确显示 loading、ready-empty、unavailable、error 和 selected-invalid；组件缺失时显示宿主诊断，不静默遗漏字段。所有可见文案与动态 i18n/literal 转换由宿主传入，新包不依赖 app-runtime、Client、Host、Storage、Zustand 或 hbar 领域定义。当前 schema-core 仍只编译标量字段，因此 multiple 注册会明确拒绝；List/keyed item 与 ProviderDialog 数据契约在后续 B3 切片扩展。
 
 交付验证：`bun run check` 通过 lint、typecheck、314 个测试（88 个文件、2450 个断言）；新增 registry、标量渲染、动态选择状态和 Editor 生命周期 3 项测试，workspace 依赖门禁同步覆盖新包。
+
+### B3b：版本化设置描述与真实动态 callback（完成）
+
+Host 新增只读 `settings.describe` command，发布 `hbar.settings@1` 的分组、稳定 SchemaPath、标量类型、nullable/default、数值范围、允许层级、applyMode、i18n key、component 和动态内容元数据。SettingsService 由这份描述生成 settings-core definitions，避免 UI 描述与 Host 校验分别维护。描述在注册时拒绝类型不匹配的默认值/选项、重复层级或路径、未知分组/依赖及动态依赖环，并以深冻结对象公开。
+
+Kernel 正式注册 `settings.getModels` 与 `settings.getThinkingLevels`。模型候选来自真实 provider/model 目录，按 stable ID 排序，支持搜索与 200 项游标分页；思考等级只按当前模型能力返回。两者都带依赖 fingerprint 和基于实际能力的 revision，缺失或失效模型分别报告 unavailable，不生成伪选项。schema-react ComboBox 在 ready 时采用动态报告覆盖静态允许域，因此模型能力缩小时能显示 selected-invalid，而不会自动替换用户值。
+
+交付验证：`bun run check` 通过 lint、typecheck、315 个测试（88 个文件、2457 个断言）。真实认证 Host 测试通过 `settings.describe` 编译内容图，经 schema callback 网络 bridge 查询 fixture 模型与思考等级；既有 callback 取消测试改用独立测试 ID，验证内置注册和插件生命周期不会互相覆盖。

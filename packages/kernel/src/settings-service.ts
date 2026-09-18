@@ -1,41 +1,126 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import {
+  settingsDescriptionSchema,
+  type SettingsDescription,
+  type SettingsFieldDescription,
+} from '@hbar/contracts/commands/settings'
+import {
   applySettingsChanges,
   resolveSettings,
   SettingsError,
   type SettingDefinition,
   type SettingsChange,
   type SettingsResolution,
+  type ValueSchema,
 } from '@hbar/settings-core'
 import type { SchemaPath } from '@hbar/schema-core'
 import type { SettingsCommitReceipt, StoredSettingsLayer, StoragePort } from '@hbar/storage'
 
 export const HBAR_SETTINGS_SCHEMA_VERSION = 1
 const path = (name: string): SchemaPath => [{ kind: 'field', name }]
-export const HBAR_SETTINGS_DEFINITIONS: readonly SettingDefinition[] = [
-  {
-    path: path('provider.model'),
-    allowedLayers: ['global', 'workspace', 'session'],
-    schema: { kind: 'string', nullable: true },
-    defaultValue: null,
-    applyMode: 'nextRun',
-  },
-  {
-    path: path('provider.thinkingLevel'),
-    allowedLayers: ['global', 'workspace', 'session'],
-    schema: { kind: 'string', nullable: true, enum: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] },
-    defaultValue: null,
-    applyMode: 'nextRun',
-  },
-  {
-    path: path('session.defaultBudget'),
-    allowedLayers: ['global', 'workspace'],
-    schema: { kind: 'integer', nullable: true, minimum: 1 },
-    defaultValue: null,
-    applyMode: 'nextRun',
-  },
-]
+function freeze<Value>(value: Value): Value {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const child of Object.values(value)) freeze(child)
+    Object.freeze(value)
+  }
+  return value
+}
+
+export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
+  settingsDescriptionSchema.parse({
+    id: 'hbar.settings',
+    schemaVersion: HBAR_SETTINGS_SCHEMA_VERSION,
+    groups: [
+      { id: 'model', labelKey: 'i18n:settings.groups.model', order: 10 },
+      { id: 'session', labelKey: 'i18n:settings.groups.session', order: 20 },
+    ],
+    fields: [
+      {
+        path: path('provider.model'),
+        type: 'string',
+        nullable: true,
+        defaultValue: null,
+        allowedScopes: ['global', 'workspace', 'session'],
+        applyMode: 'nextRun',
+        labelKey: 'i18n:settings.provider.model.label',
+        helpKey: 'i18n:settings.provider.model.help',
+        group: 'model',
+        order: 10,
+        component: 'ComboBox',
+        multiple: false,
+        content: {
+          kind: 'options',
+          callbackId: 'settings.getModels',
+          callbackVersion: 1,
+          dependsOn: [],
+        },
+      },
+      {
+        path: path('provider.thinkingLevel'),
+        type: 'string',
+        nullable: true,
+        defaultValue: null,
+        choices: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+        allowedScopes: ['global', 'workspace', 'session'],
+        applyMode: 'nextRun',
+        labelKey: 'i18n:settings.provider.thinkingLevel.label',
+        helpKey: 'i18n:settings.provider.thinkingLevel.help',
+        group: 'model',
+        order: 20,
+        component: 'ComboBox',
+        multiple: false,
+        content: {
+          kind: 'options',
+          callbackId: 'settings.getThinkingLevels',
+          callbackVersion: 1,
+          dependsOn: [path('provider.model')],
+        },
+      },
+      {
+        path: path('session.defaultBudget'),
+        type: 'integer',
+        nullable: true,
+        defaultValue: null,
+        minimum: 1,
+        allowedScopes: ['global', 'workspace'],
+        applyMode: 'nextRun',
+        labelKey: 'i18n:settings.session.defaultBudget.label',
+        helpKey: 'i18n:settings.session.defaultBudget.help',
+        group: 'session',
+        order: 10,
+        component: 'NumberField',
+        multiple: false,
+      },
+    ],
+  }),
+)
+
+function definition(field: SettingsFieldDescription): SettingDefinition {
+  const common = { nullable: field.nullable }
+  const schema: ValueSchema =
+    field.type === 'string'
+      ? { ...common, kind: 'string' as const, ...(field.choices ? { enum: field.choices as readonly string[] } : {}) }
+      : field.type === 'boolean'
+        ? { ...common, kind: 'boolean' as const }
+        : {
+            ...common,
+            kind: field.type,
+            ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
+            ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
+          }
+  return {
+    path: field.path,
+    allowedLayers: field.allowedScopes,
+    schema,
+    defaultValue: field.defaultValue,
+    applyMode: field.applyMode,
+  }
+}
+
+export const HBAR_SETTINGS_DEFINITIONS: readonly SettingDefinition[] = Object.freeze(
+  HBAR_SETTINGS_DESCRIPTION.fields.map((field) => Object.freeze(definition(field))),
+)
 
 export type SettingsScope =
   | { readonly kind: 'global' }
@@ -90,6 +175,10 @@ export class SettingsService {
     private readonly storage: StoragePort,
     private readonly validateCandidate?: SettingsCandidateValidator,
   ) {}
+
+  describe(): SettingsDescription {
+    return HBAR_SETTINGS_DESCRIPTION
+  }
 
   private async chain(scope: SettingsScope) {
     if (scope.kind === 'global') return [{ id: 'settings:global', kind: 'global', targetId: null }]

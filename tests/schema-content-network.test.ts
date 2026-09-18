@@ -42,7 +42,7 @@ async function fixture() {
 test('schema callback bridge uses authenticated Host queries and cancels superseded generations', async () => {
   const { kernel, client } = await fixture()
   let cancellations = 0
-  kernel.schemaCallbacks.registerQuery('settings.getThinkingLevels', {
+  kernel.schemaCallbacks.registerQuery('settings.testThinkingLevels', {
     version: 1,
     valueType: 'string',
     async execute(request, context) {
@@ -73,7 +73,7 @@ test('schema callback bridge uses authenticated Host queries and cancels superse
     {
       path: choices,
       valueType: 'string',
-      callback: { id: 'settings.getThinkingLevels', version: 1, dependsOn: [provider, model] },
+      callback: { id: 'settings.testThinkingLevels', version: 1, dependsOn: [provider, model] },
     },
   ])
   const resolver = createContentResolver({

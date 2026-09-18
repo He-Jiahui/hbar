@@ -74,9 +74,14 @@ export { createGitCommands } from './git-commands'
 export { createWorkspaceSessionCommands } from './workspace-session-commands'
 export { createSettingsCommands } from './settings-commands'
 export { createUsageCommands } from './usage-commands'
-export { SettingsService, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_SCHEMA_VERSION } from './settings-service'
+export {
+  SettingsService,
+  HBAR_SETTINGS_DEFINITIONS,
+  HBAR_SETTINGS_DESCRIPTION,
+  HBAR_SETTINGS_SCHEMA_VERSION,
+} from './settings-service'
 import { createDirectoryQueries } from './directory-queries'
-import { createSchemaCallbackRegistry } from '@hbar/schema-core'
+import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
@@ -264,6 +269,71 @@ export class Kernel {
         pluginExtract: options.layout.cache.pluginExtract,
       },
     )
+    this.registerSettingsSchemaCallbacks()
+  }
+
+  private registerSettingsSchemaCallbacks(): void {
+    const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
+    const revision = (value: unknown): string =>
+      `models:${createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16)}`
+    this.schemaCallbacks.registerQuery('settings.getModels', {
+      version: 1,
+      valueType: 'string',
+      execute: async (request) => {
+        const models = (await this.models()).sort((left, right) => left.id.localeCompare(right.id))
+        const search = request.search?.trim().toLocaleLowerCase()
+        const filtered = search
+          ? models.filter((model) =>
+              `${model.providerName}\n${model.modelName}\n${model.id}`.toLocaleLowerCase().includes(search),
+            )
+          : models
+        const offset = request.cursor === undefined ? 0 : Number(request.cursor)
+        if (!Number.isSafeInteger(offset) || offset < 0 || offset > filtered.length)
+          throw new HbarError('INVALID_CURSOR', 'Model option cursor is invalid')
+        const page = filtered.slice(offset, offset + 200)
+        return {
+          kind: 'options',
+          status: 'ready',
+          options: page.map((model) => ({
+            value: model.id,
+            label: { kind: 'literal' as const, text: `${model.providerName} · ${model.modelName}` },
+            disabled: false,
+          })),
+          dependencyFingerprint: request.dependencyFingerprint,
+          capabilityRevision: revision(
+            models.map(({ id, providerId, modelId, thinkingLevels }) => ({
+              id,
+              providerId,
+              modelId,
+              thinkingLevels,
+            })),
+          ),
+          ...(offset + page.length < filtered.length ? { nextCursor: String(offset + page.length) } : {}),
+        }
+      },
+    })
+    this.schemaCallbacks.registerQuery('settings.getThinkingLevels', {
+      version: 1,
+      valueType: 'string',
+      execute: async (request) => {
+        const modelId = request.dependencies[modelPath]
+        if (typeof modelId !== 'string' || !modelId)
+          return { kind: 'options', status: 'unavailable', reasonCode: 'missing_model' }
+        const model = (await this.models()).find((candidate) => candidate.id === modelId)
+        if (!model) return { kind: 'options', status: 'unavailable', reasonCode: 'model_unavailable' }
+        return {
+          kind: 'options',
+          status: 'ready',
+          options: model.thinkingLevels.map((level) => ({
+            value: level,
+            label: { kind: 'i18n' as const, key: `settings.thinkingLevels.${level}` },
+            disabled: false,
+          })),
+          dependencyFingerprint: request.dependencyFingerprint,
+          capabilityRevision: revision({ id: model.id, levels: model.thinkingLevels }),
+        }
+      },
+    })
   }
   static async create(options: KernelOptions): Promise<Kernel> {
     const layout =

@@ -60,16 +60,17 @@ function parseOption(props: SchemaFieldRendererProps, source: string): string | 
 function ComboBox(props: SchemaFieldRendererProps) {
   const dynamic = props.content.status === 'ready' ? props.content.report.options : []
   const options =
-    props.field.choices?.map((item) => ({
-      value: item,
-      disabled: false,
-      label: props.labels.option(props.field, item),
-    })) ??
-    dynamic.map((item) => ({
-      value: item.value,
-      disabled: item.disabled,
-      label: props.labels.contentText(item.label),
-    }))
+    props.content.status === 'ready'
+      ? dynamic.map((item) => ({
+          value: item.value,
+          disabled: item.disabled,
+          label: props.labels.contentText(item.label),
+        }))
+      : (props.field.choices?.map((item) => ({
+          value: item,
+          disabled: false,
+          label: props.labels.option(props.field, item),
+        })) ?? [])
   const selected = props.value
   const selectedValid = selected === undefined || options.some((item) => item.value === selected)
   const onChange = (event: ChangeEvent<HTMLSelectElement>) =>

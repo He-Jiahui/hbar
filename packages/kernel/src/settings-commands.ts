@@ -14,6 +14,7 @@ export function createSettingsCommands(service: SettingsService) {
       throw error
     }
   }
+  registry.register(settingsCommands['settings.describe'], () => service.describe())
   registry.register(settingsCommands['settings.get'], async ({ scope, path }) => {
     const snapshot = await translate(() => service.get(scope))
     if (!path) return settingsCommands['settings.get'].output.parse(snapshot)
