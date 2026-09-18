@@ -57,6 +57,21 @@ export function createGitCommands(service: GitService) {
   registry.register(gitCommands['git.log'], (input, context) =>
     translate(() => service.log(input.cwd, input.limit, context.signal)),
   )
+  registry.register(gitCommands['git.stats'], (input, context) =>
+    translate(() =>
+      service.stats(
+        input.cwd,
+        {
+          from: input.from,
+          to: input.to,
+          bucketMs: input.bucketMs,
+          maxBuckets: input.maxBuckets,
+          sources: input.sources,
+        },
+        context.signal,
+      ),
+    ),
+  )
   registry.register(
     gitCommands['git.commit'],
     (input, context) =>

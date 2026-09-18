@@ -398,6 +398,9 @@ test('exec Git queries use the workspace service through the shared command path
   const history = await run([...common, 'exec', 'git.log', '--limit', '1'])
   expect(history.code).toBe(0)
   expect(JSON.parse(history.stdout)).toEqual([])
+  const statistics = await run([...common, 'exec', 'git.stats', '--max-buckets', '1'])
+  expect(statistics.code).toBe(0)
+  expect(JSON.parse(statistics.stdout)).toMatchObject({ head: null, indexMode: 'empty', gap: false })
 })
 
 test('exec workspace and session commands create, retry, rename, list, and export through one catalog', async () => {

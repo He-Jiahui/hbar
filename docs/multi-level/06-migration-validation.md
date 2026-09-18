@@ -130,6 +130,8 @@ A13c 完成性能增量同步。`metrics.watch/unwatch` 复用 collector 环而�
 
 A14a 完成 Git 来源事实。hbar 创建提交后向专用 notes ref 写入带版本前缀的 `auto | manual` 记录，AI 工具从真实 ToolContext 绑定 session/run/call，命令从 command request 绑定 operation；既有或其他客户端提交以缺少 hbar note 的事实返回 `external`。真实仓库测试覆盖三类来源、重启读取与关联字段，禁止用 subject、author 或时间推断来源。
 
+A14b 完成 Git 统计查询。`git.stats` 由 Host command、typed Client、CLI 与 AI read tool 共享同一契约；真实临时仓库验证 first-parent merge、rename、binary、来源过滤、UTC 时间桶、缓存命中、fast-forward 增量更新以及 amend/rebase 类非快进后的可达历史重建。扫描由可取消 Git 子进程承担并限制提交数与输出字节，聚合限制 1000 桶；超出保留范围必须报告 gap。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

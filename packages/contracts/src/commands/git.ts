@@ -5,6 +5,7 @@ import {
   gitCommitInfoSchema,
   gitDiffSchema,
   gitInfoSchema,
+  gitStatsReportSchema,
   gitStatusSchema,
   gitWorktreeInfoSchema,
 } from '../index'
@@ -14,6 +15,7 @@ const branchNameSchema = z.string().min(1).max(1_000)
 const cwdSchema = pathSchema.optional()
 const cwdArgument = { field: 'cwd', type: 'string' as const, flag: 'cwd' }
 const pathsArgument = { field: 'paths', type: 'json' as const, flag: 'paths-json' }
+const statsSourcesArgument = { field: 'sources', type: 'json' as const, flag: 'sources-json' }
 const metadata = (id: string, kind: 'command' | 'query', stateEffect: 'none' | 'external') => ({
   id,
   version: 1,
@@ -88,6 +90,30 @@ export const gitCommands = {
     },
     z.strictObject({ cwd: cwdSchema, limit: z.number().int().min(1).max(100).default(20) }),
     z.array(gitCommitInfoSchema).max(100),
+  ),
+  'git.stats': defineCommand(
+    {
+      ...metadata('git.stats', 'query', 'none'),
+      cli: {
+        arguments: [
+          cwdArgument,
+          { field: 'from', type: 'number', flag: 'from' },
+          { field: 'to', type: 'number', flag: 'to' },
+          { field: 'bucketMs', type: 'number', flag: 'bucket-ms' },
+          { field: 'maxBuckets', type: 'number', flag: 'max-buckets' },
+          statsSourcesArgument,
+        ],
+      },
+    },
+    z.strictObject({
+      cwd: cwdSchema,
+      from: z.number().int().nonnegative().optional(),
+      to: z.number().int().positive().optional(),
+      bucketMs: z.number().int().min(60_000).max(2_592_000_000).default(86_400_000),
+      maxBuckets: z.number().int().min(1).max(1_000).default(120),
+      sources: z.array(z.enum(['auto', 'manual', 'external'])).min(1).max(3).default(['auto', 'manual', 'external']),
+    }),
+    gitStatsReportSchema,
   ),
   'git.commit': defineCommand(
     {

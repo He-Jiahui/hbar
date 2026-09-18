@@ -203,6 +203,49 @@ export const gitCommitInfoSchema = z.object({
   provenance: gitCommitProvenanceSchema,
 })
 export type GitCommitInfo = z.infer<typeof gitCommitInfoSchema>
+export const gitStatsCountSchema = z.object({
+  commits: z.number().int().nonnegative(),
+  autoCommits: z.number().int().nonnegative(),
+  manualCommits: z.number().int().nonnegative(),
+  externalCommits: z.number().int().nonnegative(),
+  filesChanged: z.number().int().nonnegative(),
+  additions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  renames: z.number().int().nonnegative(),
+  binaryFiles: z.number().int().nonnegative(),
+})
+export type GitStatsCount = z.infer<typeof gitStatsCountSchema>
+export const gitStatsBucketSchema = gitStatsCountSchema.extend({
+  start: z.number().int().nonnegative(),
+  end: z.number().int().positive(),
+})
+export type GitStatsBucket = z.infer<typeof gitStatsBucketSchema>
+export const gitStatsReportSchema = z.object({
+  accountingVersion: z.literal('git-stats-v1'),
+  repoId: z.string().min(1).max(4_000),
+  head: z.string().regex(/^[0-9a-f]{40}$/i).nullable(),
+  observedAt: z.number().int().nonnegative(),
+  from: z.number().int().nonnegative(),
+  to: z.number().int().positive(),
+  bucketMs: z.number().int().positive(),
+  sources: z.array(gitCommitSourceSchema).min(1).max(3),
+  timeBasis: z.literal('committer'),
+  timezone: z.literal('UTC'),
+  historyPolicy: z.literal('first-parent'),
+  renamePolicy: z.literal('separate'),
+  binaryLineChanges: z.object({
+    value: z.literal(0).nullable(),
+    availability: z.enum(['available', 'unavailable']),
+    reason: z.literal('BINARY_CONTENT').nullable(),
+  }),
+  totals: gitStatsCountSchema,
+  points: z.array(gitStatsBucketSchema).max(1_000),
+  scannedCommits: z.number().int().nonnegative(),
+  indexMode: z.enum(['empty', 'full', 'incremental', 'hit', 'reindexed']),
+  indexComplete: z.boolean(),
+  gap: z.boolean(),
+})
+export type GitStatsReport = z.infer<typeof gitStatsReportSchema>
 export const gitBranchInfoSchema = z.object({
   name: z.string().min(1).max(1_000),
   current: z.boolean(),

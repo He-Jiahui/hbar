@@ -74,6 +74,37 @@ function service(overrides: Partial<GitService> = {}): GitService {
     }),
     diff: async () => ({ cwd: 'C:/repo', diff: '', cached: false, truncated: false }),
     log: async () => [commit],
+    stats: async () => ({
+      accountingVersion: 'git-stats-v1',
+      repoId: 'C:/repo/.git',
+      head: commit.sha,
+      observedAt: 1,
+      from: 0,
+      to: 1,
+      bucketMs: 60_000,
+      sources: ['auto', 'manual', 'external'],
+      timeBasis: 'committer',
+      timezone: 'UTC',
+      historyPolicy: 'first-parent',
+      renamePolicy: 'separate',
+      binaryLineChanges: { value: 0, availability: 'available', reason: null },
+      totals: {
+        commits: 0,
+        autoCommits: 0,
+        manualCommits: 0,
+        externalCommits: 0,
+        filesChanged: 0,
+        additions: 0,
+        deletions: 0,
+        renames: 0,
+        binaryFiles: 0,
+      },
+      points: [],
+      scannedCommits: 0,
+      indexMode: 'empty',
+      indexComplete: true,
+      gap: false,
+    }),
     commit: async () => commit,
     branch: async () => [],
     worktree: async () => [],
@@ -92,6 +123,7 @@ test('git command adapter queries and mutates one validated repository service',
       'git.diffToRemote',
       'git.info',
       'git.log',
+      'git.stats',
       'git.status',
       'git.worktree',
     ])
@@ -119,6 +151,15 @@ test('git command adapter queries and mutates one validated repository service',
       runId: 'run-1',
       operationId: 'manual-operation-1',
     })
+    const now = Date.now()
+    const statistics = await commands.execute('git.stats', {
+      from: now - 86_400_000,
+      to: now + 86_400_000,
+      bucketMs: 86_400_000,
+      maxBuckets: 2,
+      sources: ['manual', 'external'],
+    })
+    expect(statistics.totals).toMatchObject({ commits: 2, manualCommits: 1, externalCommits: 1 })
     expect((await commands.execute('git.log', { limit: 1 }))[0]?.sha).toBe(committed.sha)
     const branches = await commands.execute('git.branch', { operation: 'list' }, { actorId: 'paired-device' })
     expect(Array.isArray(branches)).toBe(true)

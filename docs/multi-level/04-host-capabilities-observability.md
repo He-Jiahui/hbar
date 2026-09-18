@@ -77,6 +77,8 @@ A13c 增加 `metrics.watch/unwatch` 状态同步端口。只有显式订阅的�
 
 A14a 为提交来源建立规范事实。`@hbar/git` 在专用 `refs/notes/hbar-provenance` 中保存版本化 JSON，普通 Host command 明确记录为 `manual`，AI `git_commit` 工具根据真实 ToolContext 记录为 `auto`，并保存 session/run/operation 关联；没有该 note 的提交明确返回 `external`。读取不分析提交 message，损坏或未知版本的 hbar note 直接报错，避免把不可解释记录猜成外部提交。note 独立于工作树并在重启后保留，为后续统计与 rebase 可达性刷新提供审计来源。
 
+A14b 发布 `git.stats`。`@hbar/git` 由受管 Git 子进程扫描有界 first-parent 历史，以 committer time/UTC 分桶，按 commit ID 去重，并分别累计 auto/manual/external、文件数、增删行、rename 与 binary 文件；merge 只计算相对第一 parent 的差异，binary 增删行返回不可用。索引按 repo/common-dir 与 HEAD 缓存：HEAD 未变时命中，fast-forward 只扫描新范围，rebase、amend 或分支回退时重扫当前可达历史，notes 中不可达提交的来源审计仍保留。提交数、输出字节、桶数和时间窗均有上限，进程接受取消；截断且查询触及未保留历史时返回 gap。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。

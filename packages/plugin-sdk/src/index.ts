@@ -18,6 +18,7 @@ import type {
   PlanStep,
   SessionBudget,
   GitStatus,
+  GitStatsReport,
   GitDiff,
   GitInfo,
   GitCommitInfo,
@@ -201,6 +202,13 @@ export interface GitCommitOptions {
     operationId?: string | undefined
   }
 }
+export interface GitStatsOptions {
+  from?: number | undefined
+  to?: number | undefined
+  bucketMs: number
+  maxBuckets: number
+  sources: ('auto' | 'manual' | 'external')[]
+}
 export type GitBranchOperation =
   | { operation?: 'list' | undefined }
   | { operation: 'create' | 'switch' | 'delete'; name: string; force?: boolean | undefined }
@@ -213,6 +221,7 @@ export interface GitService {
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
   diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>
   log(cwd?: string, limit?: number, signal?: AbortSignal): Promise<GitCommitInfo[]>
+  stats(cwd: string | undefined, options: GitStatsOptions, signal?: AbortSignal): Promise<GitStatsReport>
   commit(cwd: string | undefined, options: GitCommitOptions, signal?: AbortSignal): Promise<GitCommitInfo>
   branch(
     cwd: string | undefined,
