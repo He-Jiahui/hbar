@@ -25,6 +25,7 @@
         "@hbar/goal": "workspace:*",
         "@hbar/kernel": "workspace:*",
         "@hbar/local-tools": "workspace:*",
+        "@hbar/metrics": "workspace:*",
         "@hbar/pi-driver": "workspace:*",
         "@hbar/plan": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
@@ -178,6 +179,13 @@
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
         "@hbar/usage": "workspace:*",
+      },
+    },
+    "packages/metrics": {
+      "name": "@hbar/metrics",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
       },
     },
     "packages/plugin-sdk": {
@@ -538,6 +546,8 @@
     "@hbar/kernel": ["@hbar/kernel@workspace:packages/kernel"],
 
     "@hbar/local-tools": ["@hbar/local-tools@workspace:plugins/local-tools"],
+
+    "@hbar/metrics": ["@hbar/metrics@workspace:packages/metrics"],
 
     "@hbar/pi-driver": ["@hbar/pi-driver@workspace:plugins/pi-driver"],
 

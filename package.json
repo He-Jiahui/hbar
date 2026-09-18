@@ -70,6 +70,7 @@
     "@hbar/goal": "workspace:*",
     "@hbar/kernel": "workspace:*",
     "@hbar/local-tools": "workspace:*",
+    "@hbar/metrics": "workspace:*",
     "@hbar/pi-driver": "workspace:*",
     "@hbar/plugin-sdk": "workspace:*",
     "@hbar/plan": "workspace:*",

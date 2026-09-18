@@ -285,7 +285,7 @@
       "stateOwner": "Host parent-child sessions, usage ledger, bounded metrics",
       "category": "monitoring.git",
       "milestone": "A11-A13",
-      "status": "complete-agent-and-usage-commands-performance-metrics-pending",
+      "status": "partial-agent-usage-and-performance-collector-complete-metrics-command-pending",
       "rpc": [],
       "additionalCommands": [
         "agent.create",
@@ -385,7 +385,7 @@
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
     "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, Host system/path/device/pairing, and extension domains migrated through commands and CLI",
     "A12": "complete: versioned usage and attempt facts, bounded query/export, typed Client and CLI",
-    "A13-A15": "pending",
+    "A13-A15": "A13 in progress: bounded performance collector and OS adapter complete; command query pending",
     "B1-B7": "pending"
   }
 }

@@ -69,6 +69,8 @@ A12a 新增独立 `@hbar/usage` 事实库。每次模型请求以 step ID 作为
 
 A12b 由同一包提供 UsageService，以 Storage 的有界事件页为读取端口，发布 `usage.query` 与 `usage.export`。查询支持 global/workspace/session（可含后代）/run scope、时间窗、模型/供应商/source 过滤、桶宽与最大样本；返回 token、按模型和时间桶聚合、窗口速率、p50/p95 attempt 时序、价格与缓存命中可用性及截断 gap。usage ID 去重后再聚合；未知或部分价格、缺少 cache eligible input 和历史缺少首事件均返回 null 与明确 reason。导出按稳定的结束时间/usage ID 游标分页。CLI、typed Client 与 Host catalog 共用契约。
 
+A13a 新增独立 `@hbar/metrics` 采样库和注入式 PerformanceProvider。共享 collector 立即采样并按固定周期更新，限制间隔、样本数和输出点数；慢采样跳过而不重叠，淘汰或跳样在查询中形成 gap。Host OS adapter 用单调差值采集系统/Host CPU、系统/Host 内存和事件循环延迟，并注入活动/排队 Run；Linux 额外读取 procfs 线程、Host 磁盘和系统网络计数。平台没有可靠来源、计数器尚未预热或 managed child registry 尚未建立时返回 null 与具体 reason。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。

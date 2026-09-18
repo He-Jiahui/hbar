@@ -122,6 +122,8 @@ A12a 建立可查询前的 Usage/Attempt 规范事实：`@hbar/usage` 根据实�
 
 A12b 完成 Usage 查询和导出闭环。Storage 用固定事件类型、时间范围、scope 与稳定游标执行有界 SQL；`@hbar/usage` 负责旧/新事实归一、usage ID 去重、后代聚合、价格覆盖、缓存资格、速率、模型分组、时间桶和 p50/p95。Host commands、typed Client、CLI 与 API 返回同一报告；超过事件/样本上限显式 `gap: true`。真实父子 Session、Run scope、过滤、分页导出和 CLI 场景均由 fixture provider 验证。
 
+A13a 建立 `@hbar/metrics` 有界 collector 与 Host OS adapter。collector 对共享采样做容量、重入、跳样和时间桶管理；adapter 区分 system、Host 和尚不可归属的 managed child 数据。Windows 无可靠线程/磁盘/网络来源时明确 unavailable；Linux procfs 路径提供真实计数并在首个差分样本报告 warming up。纯 fake 测试验证平均聚合和保留 gap，真实进程 smoke 验证来源与平台差异。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

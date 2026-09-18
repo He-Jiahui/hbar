@@ -25,6 +25,7 @@
     "./commands/usage": "./src/commands/usage.ts",
     "./commands/workspaces": "./src/commands/workspaces.ts",
     "./directory": "./src/state/directory.ts",
+    "./metrics": "./src/metrics.ts",
     "./usage": "./src/usage.ts"
   },
   "dependencies": {
