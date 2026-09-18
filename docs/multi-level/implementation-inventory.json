@@ -7,8 +7,8 @@
       "owner": "Host command dispatcher / authenticated client adapter",
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
-      "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-model-configuration-settings-workspace-files-agents-browser-computer-git-system-extension-client-connection-surfaces",
+      "milestone": "A3-A15",
+      "status": "complete-command-dispatch-and-legacy-write-adapter-seal",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -38,7 +38,8 @@
         "tests/run-commands.test.ts",
         "tests/settings-commands.test.ts",
         "tests/system-commands.test.ts",
-        "tests/surface-relay.test.ts"
+        "tests/surface-relay.test.ts",
+        "tests/write-path-boundaries.test.ts"
       ]
     },
     {
@@ -393,7 +394,7 @@
     "A12": "complete: versioned usage and attempt facts, bounded query/export, typed Client and CLI",
     "A13": "complete: bounded collector, OS adapter, Host/Client/CLI query and reconnecting watch",
     "A14": "complete: durable explicit provenance, bounded first-parent statistics, incremental cache and rewrite reindex",
-    "A15": "in progress: headless CLI write paths sealed; legacy Host adapter and full command audit pending",
+    "A15": "in progress: consumer write paths and legacy Host adapters sealed; no-GUI integrated acceptance pending",
     "B1-B7": "pending"
   }
 }

@@ -36,12 +36,15 @@ test('paired SDK performs session flow and resumes event following without Tauri
   const bootstrap = await client.call('system.bootstrap', {})
   const session = await client.call('session.create', { workspaceId: bootstrap.workspaces[0]!.id })
   await client.follow(session.id, 0)
-  await client.call('run.start', {
+  const submitted = {
     sessionId: session.id,
     requestId: 'network',
     input: { text: 'network run' },
     modelId: 'local-fixture',
-  })
+  }
+  const firstRun = await client.call('run.start', submitted)
+  const repeatedRun = await client.call('run.start', submitted)
+  expect(repeatedRun.id).toBe(firstRun.id)
   await kernel.waitForIdle()
   const snapshot = await client.call('session.snapshot', { sessionId: session.id })
   expect(snapshot.messages).toHaveLength(2)

@@ -1,4 +1,6 @@
 import { z } from 'zod'
+
+export { LEGACY_WRITE_RPC_METHODS, type LegacyWriteRpcMethod } from './legacy-rpc'
 import { invocationSchema } from '@hbar/commands/protocol'
 import {
   workspaceListInputSchema,

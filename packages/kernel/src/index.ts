@@ -1010,6 +1010,10 @@ export class Kernel {
     return true
   }
 
+  pendingUserInput(requestId: string) {
+    return this.userInputs.get(requestId)?.request ?? null
+  }
+
   private async clearPendingUserInputs(sessionId: string, reason: unknown) {
     const pending = [...this.userInputs.values()].filter(({ request }) => request.sessionId === sessionId)
     for (const entry of pending) await entry.settle(undefined, reason)

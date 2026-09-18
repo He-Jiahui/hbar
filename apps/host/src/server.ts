@@ -1,6 +1,7 @@
 import { networkInterfaces } from 'node:os'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile, readdir } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
@@ -302,7 +303,26 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       if (pending.targetId === clientId && pending.generation === generation)
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message })
   }
-  async function invoke(method: RpcMethod, raw: unknown, socket: ServerWebSocket<SocketData>): Promise<unknown> {
+  function legacyCommandOptions(
+    method: RpcMethod,
+    rpcId: string | number,
+    socket: ServerWebSocket<SocketData>,
+    idempotent = false,
+  ) {
+    const requestId = `legacy-${createHash('sha256').update(`${method}:${String(rpcId)}`).digest('hex').slice(0, 32)}`
+    return {
+      actorId: socket.data.deviceId!,
+      requestId,
+      ...(idempotent ? { idempotencyKey: requestId } : {}),
+    }
+  }
+
+  async function invoke(
+    method: RpcMethod,
+    raw: unknown,
+    socket: ServerWebSocket<SocketData>,
+    rpcId: string | number,
+  ): Promise<unknown> {
     switch (method) {
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
@@ -569,7 +589,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return { mode: kernel.permissionMode() }
       case 'permission.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.setPermissionMode(p.mode)
+        return configurationCommands.execute(
+          'permission.set',
+          p,
+          legacyCommandOptions(method, rpcId, socket),
+        )
       }
       case 'goal.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -577,19 +601,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'goal.create': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').create(p.sessionId, p.objective, p.tokenBudget)
+        return goalPlanCommands.execute('goal.create', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'goal.update': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').update(p.sessionId, p.status)
+        return goalPlanCommands.execute('goal.update', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'goal.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').set(p.sessionId, p)
+        return goalPlanCommands.execute('goal.set', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'goal.clear': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').clear(p.sessionId)
+        return goalPlanCommands.execute('goal.clear', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'plan.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -597,11 +621,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plan.update': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<PlanService>('plan').update(p.sessionId, p.plan, p.explanation, p.turnId)
+        return goalPlanCommands.execute('plan.update', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'plan.clear': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<PlanService>('plan').clear(p.sessionId)
+        return goalPlanCommands.execute('plan.clear', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'mode.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -609,7 +633,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'mode.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ModeService>('mode').set(p.sessionId, p.mode)
+        return configurationCommands.execute('mode.set', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'budget.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -617,11 +641,20 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'budget.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BudgetService>('budget').set(p.sessionId, p.limit)
+        const receipt = await budgetCommands.execute(
+          'session.setBudget',
+          { sessionId: p.sessionId, tokens: p.limit },
+          legacyCommandOptions(method, rpcId, socket, true),
+        )
+        return receipt.budget
       }
       case 'budget.clear': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BudgetService>('budget').clear(p.sessionId)
+        return budgetCommands.execute(
+          'session.clearBudget',
+          p,
+          legacyCommandOptions(method, rpcId, socket),
+        )
       }
       case 'git.status': {
         const p = rpcSchemas[method].parse(raw)
@@ -641,25 +674,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.commit': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').commit(p.cwd, {
-          ...p,
-          provenance: { source: 'manual', sessionId: p.sessionId, runId: p.runId },
-        })
+        return gitCommands.execute('git.commit', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.branch': {
         const p = rpcSchemas[method].parse(raw)
-        const operation = p.operation === 'list' ? {} : { operation: p.operation, name: p.name!, force: p.force }
-        return kernel.plugins.get<GitService>('git').branch(p.cwd, operation)
+        return gitCommands.execute('git.branch', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.worktree': {
         const p = rpcSchemas[method].parse(raw)
-        const operation =
-          p.operation === 'list'
-            ? {}
-            : p.operation === 'add'
-              ? { operation: 'add' as const, path: p.path!, branch: p.branch, createBranch: p.createBranch }
-              : { operation: 'remove' as const, path: p.path!, force: p.force }
-        return kernel.plugins.get<GitService>('git').worktree(p.cwd, operation)
+        return gitCommands.execute('git.worktree', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.diff_to_remote': {
         const p = rpcSchemas[method].parse(raw)
@@ -667,11 +690,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.createWorkspace(p.path)
+        return workspaceSessionCommands.execute(
+          'workspace.create',
+          p,
+          legacyCommandOptions(method, rpcId, socket),
+        )
       }
       case 'session.create': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.createSession(p.workspaceId, p.title)
+        return workspaceSessionCommands.execute(
+          'session.create',
+          p,
+          legacyCommandOptions(method, rpcId, socket, true),
+        )
       }
       case 'session.snapshot': {
         const p = rpcSchemas[method].parse(raw)
@@ -698,18 +729,27 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'session.rename': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.updateSession(p.sessionId, { title: p.title })
+        return workspaceSessionCommands.execute(
+          'session.rename',
+          p,
+          legacyCommandOptions(method, rpcId, socket),
+        )
       }
       case 'session.archive': {
         const p = rpcSchemas[method].parse(raw)
-        if (kernel.active.has(p.sessionId)) throw new HbarError('BUSY', 'Stop the active run before archiving')
-        return kernel.updateSession(p.sessionId, { archived: p.archived })
+        return workspaceSessionCommands.execute(
+          'session.archive',
+          p,
+          legacyCommandOptions(method, rpcId, socket),
+        )
       }
       case 'session.fork': {
         const p = rpcSchemas[method].parse(raw)
-        const session = await kernel.storage.call('fork', p.sessionId, p.atSeq)
-        kernel.changed('sessions')
-        return session
+        return workspaceSessionCommands.execute(
+          'session.fork',
+          p,
+          legacyCommandOptions(method, rpcId, socket, true),
+        )
       }
       case 'session.export': {
         const p = rpcSchemas[method].parse(raw)
@@ -717,21 +757,45 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'run.start': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.submit(p.sessionId, p.requestId, p.input, p.modelId)
+        const accepted = await runCommands.execute(
+          'run.submit',
+          { sessionId: p.sessionId, input: p.input, modelId: p.modelId },
+          {
+            ...legacyCommandOptions(method, rpcId, socket),
+            idempotencyKey: p.requestId,
+          },
+        )
+        return kernel.storage.call('run', accepted.operationId)
       }
       case 'run.cancel': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.cancel(p.runId)
+        await runCommands.execute(
+          'operation.cancel',
+          { operationId: p.runId },
+          legacyCommandOptions(method, rpcId, socket),
+        )
         return null
       }
       case 'approval.resolve': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.resolveApproval(p.approvalId, p.decision)
+        const approval = await kernel.storage.call('approval', p.approvalId)
+        await interactionCommands.execute(
+          'approval.resolve',
+          { sessionId: approval.sessionId, approvalId: p.approvalId, decision: p.decision },
+          legacyCommandOptions(method, rpcId, socket),
+        )
         return null
       }
       case 'user_input.resolve': {
         const p = rpcSchemas[method].parse(raw)
-        return { accepted: await kernel.resolveUserInput(p.requestId, p.answers) }
+        const request = kernel.pendingUserInput(p.requestId)
+        if (!request) return { accepted: false }
+        const result = await interactionCommands.execute(
+          'questionnaire.answer',
+          { sessionId: request.sessionId, requestId: p.requestId, answers: p.answers },
+          legacyCommandOptions(method, rpcId, socket),
+        )
+        return { accepted: result.accepted }
       }
       case 'context.compact': {
         const p = rpcSchemas[method].parse(raw)
@@ -739,11 +803,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'provider.save': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.saveProvider(p.provider, p.apiKey)
+        return configurationCommands.execute(
+          'provider.save',
+          p,
+          legacyCommandOptions(method, rpcId, socket),
+        )
       }
       case 'provider.delete': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.deleteProvider(p.id)
+        await configurationCommands.execute(
+          'provider.delete',
+          p,
+          legacyCommandOptions(method, rpcId, socket),
+        )
         return null
       }
       case 'plugin.set': {
@@ -784,7 +856,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.navigate': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').navigate(p.sessionId, p.url, p.contextId, p.pageId)
+        return browserCommands.execute('browser.navigate', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.snapshot': {
         const p = rpcSchemas[method].parse(raw)
@@ -792,19 +864,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.click': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').click(p.sessionId, p.selector, p.contextId, p.pageId)
+        return browserCommands.execute('browser.click', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.type': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get<BrowserUseService>('browser')
-          .type(p.sessionId, p.selector, p.text, p.contextId, p.pageId)
+        return browserCommands.execute('browser.type', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.press': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get<BrowserUseService>('browser')
-          .press(p.sessionId, p.key, p.selector, p.contextId, p.pageId)
+        return browserCommands.execute('browser.press', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.screenshot': {
         const p = rpcSchemas[method].parse(raw)
@@ -814,13 +882,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.evaluate': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get<BrowserUseService>('browser')
-          .evaluate(p.sessionId, p.expression, p.contextId, p.pageId)
+        return browserCommands.execute('browser.evaluate', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.close': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').close(p.sessionId, p.contextId, p.pageId)
+        return browserCommands.execute('browser.close', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.history': {
         const p = rpcSchemas[method].parse(raw)
@@ -836,35 +902,35 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'computer.click': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').click(p.sessionId, p.x, p.y, p.appId)
+        return computerCommands.execute('computer.click', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.double_click': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').doubleClick(p.sessionId, p.x, p.y, p.appId)
+        return computerCommands.execute('computer.doubleClick', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.type': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').type(p.sessionId, p.text, p.appId)
+        return computerCommands.execute('computer.type', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.key': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').key(p.sessionId, p.key, p.appId)
+        return computerCommands.execute('computer.key', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.scroll': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').scroll(p.sessionId, p.deltaX, p.deltaY, p.appId)
+        return computerCommands.execute('computer.scroll', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.move': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').move(p.sessionId, p.x, p.y, p.appId)
+        return computerCommands.execute('computer.move', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.wait': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').wait(p.sessionId, p.milliseconds, p.appId)
+        return computerCommands.execute('computer.wait', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.launch': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').launch(p.sessionId, p.appId)
+        return computerCommands.execute('computer.launch', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'device.list':
         return systemCommands.execute('device.list', {})
@@ -1023,7 +1089,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             }
             const method = request.method as RpcMethod
             const params = rpcSchemas[method].parse(request.params)
-            send(socket, { jsonrpc: '2.0', id, result: await invoke(method, params, socket) })
+            send(socket, { jsonrpc: '2.0', id, result: await invoke(method, params, socket, request.id) })
           } catch (error) {
             send(socket, {
               jsonrpc: '2.0',

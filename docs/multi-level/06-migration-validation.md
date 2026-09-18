@@ -134,6 +134,8 @@ A14b 完成 Git 统计查询。`git.stats` 由 Host command、typed Client、CLI
 
 A15a 将最后一个 CLI 业务写入口迁出旧 Run RPC。无头模式现在通过 typed `run.submit` 获得持久 operation 受理回执，再从只读 Session snapshot 取得 Run；SIGINT 通过 `operation.cancel` 传播取消。CLI/TUI/REPL 因此不再调用 `run.start/run.cancel`，重复受理、actor/idempotency、取消事实和未知结果均走 A5 的同一命令链。
 
+A15b 封口 Host 兼容写 RPC。保留的方法只负责旧输入/输出转换，所有 workspace/session、Run、交互、配置、预算、Git、browser/computer、插件和系统 mutation 都调用已注册的 canonical command handler；需要幂等的旧入口从认证设备和 JSON-RPC 身份生成稳定有界 request/key。问卷与审批只读解析原 Session 后调用类型化交互命令。契约包显式列出 deprecated write RPC，架构测试禁止 CLI/Web/Desktop/app-runtime/app-react/ui-sdk 调用它们，并逐项确认 Host adapter 包含 command execute。旧 `run.start` 重复 requestId 的真实 Host 测试验证只返回同一个持久 Run。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收
