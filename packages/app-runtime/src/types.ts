@@ -17,7 +17,7 @@ import type {
   Usage,
   UserInputRequest,
 } from '@hbar/contracts'
-import type { CompiledForm, FormState, SchemaCallbackPort } from '@hbar/schema-core'
+import type { CompiledForm, FormState, OptionContentReport, SchemaCallbackPort } from '@hbar/schema-core'
 import type { SettingsDescription, SettingsReceipt, SettingsSnapshot } from '@hbar/contracts/commands/settings'
 
 export interface BudgetCommandPort {
@@ -65,6 +65,7 @@ export interface SettingsFormEntry {
   readonly schema: Readonly<CompiledForm> | null
   readonly form: Readonly<FormState> | null
   readonly reports: SettingsSnapshot['resolution']['reports']
+  readonly content: Readonly<Record<string, Readonly<SettingsFieldContentState>>>
   readonly inheritedValues: Readonly<Record<string, unknown>>
   readonly unsets: Readonly<Record<string, number>>
   readonly revisions: Readonly<Record<string, number>>
@@ -72,6 +73,15 @@ export interface SettingsFormEntry {
   readonly pendingKey: string | null
   readonly error: string | null
 }
+
+export type SettingsFieldContentState =
+  | { readonly status: 'idle' | 'loading' }
+  | { readonly status: 'ready'; readonly report: Extract<OptionContentReport, { readonly status: 'ready' }> }
+  | {
+      readonly status: 'unavailable'
+      readonly report: Extract<OptionContentReport, { readonly status: 'unavailable' }>
+    }
+  | { readonly status: 'error'; readonly errorCode: string }
 
 export interface SettingsWorkspaceState {
   readonly activeFormId: string | null

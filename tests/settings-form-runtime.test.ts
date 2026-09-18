@@ -6,7 +6,7 @@ import { HbarError } from '@hbar/contracts'
 import { settingsCommands, type SettingsApplyInput, type SettingsReceipt } from '@hbar/contracts/commands/settings'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
-import { encodePath } from '@hbar/schema-core'
+import { createSchemaCallbackRegistry, encodePath, type OptionContentReport } from '@hbar/schema-core'
 import { applySettingsChanges, resolveSettings } from '@hbar/settings-core'
 
 const workspace: Workspace = { id: 'w1', name: 'workspace', path: 'D:/workspace', createdAt: 1 }
@@ -280,4 +280,88 @@ test('settings client maps a lost persistent response to unknown and requires th
   await expect(client.execute('settings.apply', input, { idempotencyKey: 'settings-key' })).rejects.toMatchObject({
     code: 'RESULT_UNKNOWN',
   })
+})
+
+test('settings runtime projects dynamic content and rejects superseded dependency results', async () => {
+  const settings = settingsFixture()
+  const callbacks = createSchemaCallbackRegistry()
+  const model = encodePath([{ kind: 'field', name: 'provider.model' }])
+  const thinking = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
+  let oldStarted = false
+  const pendingOld: { resolve?: (report: OptionContentReport) => void } = {}
+  callbacks.registerQuery('settings.getModels', {
+    version: 1,
+    valueType: 'string',
+    async execute(request) {
+      return {
+        kind: 'options',
+        status: 'ready',
+        options: [
+          { value: 'old', label: { kind: 'literal', text: 'Old model' }, disabled: false },
+          { value: 'new', label: { kind: 'literal', text: 'New model' }, disabled: false },
+        ],
+        dependencyFingerprint: request.dependencyFingerprint,
+        capabilityRevision: 'models:1',
+      }
+    },
+  })
+  callbacks.registerQuery('settings.getThinkingLevels', {
+    version: 1,
+    valueType: 'string',
+    execute(request) {
+      const selected = request.dependencies[model]
+      if (selected === null)
+        return Promise.resolve({ kind: 'options', status: 'unavailable', reasonCode: 'missing_model' })
+      if (selected === 'old') {
+        oldStarted = true
+        return new Promise<OptionContentReport>((resolve) => {
+          pendingOld.resolve = resolve
+        })
+      }
+      return Promise.resolve({
+        kind: 'options',
+        status: 'ready',
+        options: [{ value: 'high', label: { kind: 'literal', text: 'High' }, disabled: false }],
+        dependencyFingerprint: request.dependencyFingerprint,
+        capabilityRevision: 'thinking:new',
+      })
+    },
+  })
+  const runtime = createAppRuntime({
+    instanceId: 'settings-content',
+    hostId: 'host',
+    directory,
+    settings: settings.port,
+    schemaContent: callbacks,
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+  const form = await waitFor(() => {
+    const state = runtime.view.state.settings.getSnapshot()
+    const entry = state.activeFormId ? state.forms[state.activeFormId] : undefined
+    return entry?.content[model]?.status === 'ready' && entry.content[thinking]?.status === 'unavailable'
+      ? entry
+      : undefined
+  })
+  await runtime.view.commands.execute('settingsForm.setField', { formId: form.formId, field: model, value: 'old' })
+  await waitFor(() => (oldStarted ? true : undefined))
+  await runtime.view.commands.execute('settingsForm.setField', { formId: form.formId, field: model, value: 'new' })
+  await waitFor(() => {
+    const content = runtime.view.state.settings.getSnapshot().forms[form.formId]?.content[thinking]
+    return content?.status === 'ready' && content.report.options[0]?.value === 'high' ? true : undefined
+  })
+  const stale = pendingOld.resolve
+  if (!stale) throw new Error('Old dynamic request did not start')
+  stale({
+    kind: 'options',
+    status: 'ready',
+    options: [{ value: 'low', label: { kind: 'literal', text: 'Low' }, disabled: false }],
+    dependencyFingerprint: 'stale',
+    capabilityRevision: 'thinking:old',
+  })
+  await Bun.sleep(5)
+  const content = runtime.view.state.settings.getSnapshot().forms[form.formId]?.content[thinking]
+  expect(content?.status === 'ready' ? content.report.options.map((option) => option.value) : []).toEqual(['high'])
+  runtime.dispose()
+  callbacks.dispose()
 })

@@ -53,6 +53,7 @@ export type {
   WindowSurface,
   SurfaceState,
   SettingsFormEntry,
+  SettingsFieldContentState,
   SettingsWorkspaceState,
 } from './types'
 export { SessionSelectionError } from './navigation'

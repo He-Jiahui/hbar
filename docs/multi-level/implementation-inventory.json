@@ -408,7 +408,7 @@
     "A15": "complete: consumer write paths and Host compatibility adapters sealed; real no-GUI integrated acceptance passes",
     "B1": "complete: read-only app-react bindings, production AppShell, paged workspace/session sidebar, command navigation, versioned layout and responsive offline E2E",
     "B2": "complete: recoverable timeline, command-owned drafts/run/interactions, model/budget/usage projections and controlled React session workspace verified against a real Host",
-    "B3": "in progress: schema-react registries, Host description/callbacks and command-owned layered settings FormState complete; dynamic content projection, visible workspace, List and ProviderDialog pending",
+    "B3": "in progress: schema-react registries, Host description/callbacks, command-owned layered FormState and cancellable dynamic content projection complete; visible workspace, List and ProviderDialog pending",
     "B4-B7": "pending"
   }
 }

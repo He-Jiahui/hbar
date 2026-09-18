@@ -10,14 +10,17 @@ import {
 } from '@hbar/contracts/commands/settings'
 import {
   beginSubmit,
+  compileContentGraph,
   compileForm,
   createComponentRegistry,
+  createContentResolver,
   createForm,
   decodePath,
   encodePath,
   rebaseForm,
   resetField,
   SchemaError,
+  SchemaContentError,
   setField,
   settleSubmit,
   type FormState,
@@ -30,6 +33,7 @@ import type {
   PanelSurface,
   RuntimeOptions,
   SettingsFormEntry,
+  SettingsFieldContentState,
   SettingsWorkspaceState,
   SurfaceState,
 } from './types'
@@ -44,7 +48,8 @@ interface PendingSubmission {
 }
 
 function errorCode(error: unknown): string {
-  if (error instanceof CommandError || error instanceof SchemaError) return error.code
+  if (error instanceof CommandError || error instanceof SchemaError || error instanceof SchemaContentError)
+    return error.code
   return 'EXECUTION_FAILED'
 }
 
@@ -146,6 +151,7 @@ function loading(formId: string, scope: SettingsSnapshot['scope']): SettingsForm
     schema: null,
     form: null,
     reports: {},
+    content: {},
     inheritedValues: {},
     unsets: {},
     revisions: {},
@@ -178,6 +184,7 @@ export function createSettingsForms(
   const touched: string[] = []
   const pending = new Map<string, PendingSubmission>()
   let description: SettingsDescription | null = null
+  let contentResolver: ReturnType<typeof createContentResolver> | null = null
 
   const touch = (formId: string): void => {
     const index = touched.indexOf(formId)
@@ -223,6 +230,30 @@ export function createSettingsForms(
     settingsCommands['settings.apply'].output.parse(
       await port().execute('settings.apply', input, { idempotencyKey: key }),
     )
+  const resolver = (current: SettingsDescription) => {
+    if (!options.schemaContent) return null
+    contentResolver ??= createContentResolver({
+      graph: compileContentGraph(
+        current.fields.map((field) => ({
+          path: field.path,
+          valueType: field.type === 'integer' ? ('number' as const) : field.type,
+          ...(field.content
+            ? {
+                callback: {
+                  id: field.content.callbackId,
+                  version: field.content.callbackVersion,
+                  dependsOn: field.content.dependsOn,
+                },
+              }
+            : {}),
+        })),
+      ),
+      port: options.schemaContent,
+      hostId: options.hostId,
+      identityId: options.instanceId,
+    })
+    return contentResolver
+  }
   const parentScope = (scope: SettingsSnapshot['scope'], panel: PanelSurface): SettingsSnapshot['scope'] | null => {
     if (scope.kind === 'global') return null
     if (scope.kind === 'workspace') return { kind: 'global' }
@@ -251,6 +282,82 @@ export function createSettingsForms(
     touched.splice(touched.indexOf(evict), 1)
     state.replace({ ...current, forms })
   }
+  const refreshContent = (formId: string, changedField?: string): void => {
+    let current: ReturnType<typeof ready>
+    try {
+      current = ready(formId)
+    } catch {
+      return
+    }
+    const dynamic = current.description.fields.filter(
+      (field) =>
+        field.content &&
+        (changedField === undefined || field.content.dependsOn.some((path) => encodePath(path) === changedField)),
+    )
+    if (!dynamic.length) return
+    const activeResolver = resolver(current.description)
+    if (!activeResolver) {
+      const content = { ...current.content }
+      for (const field of dynamic) {
+        const key = encodePath(field.path)
+        content[key] = {
+          status: 'unavailable',
+          report: { kind: 'options', status: 'unavailable', reasonCode: 'CAPABILITY_UNAVAILABLE' },
+        }
+      }
+      replaceEntry(formId, { ...current, content })
+      return
+    }
+    const content = { ...current.content }
+    const data = { ...current.form.draft }
+    for (const field of Object.keys(current.form.raw)) delete data[field]
+    for (const field of dynamic) content[encodePath(field.path)] = { status: 'loading' }
+    replaceEntry(formId, { ...current, content })
+    for (const field of dynamic) {
+      const key = encodePath(field.path)
+      void activeResolver
+        .resolve({
+          schemaId: current.description.id,
+          schemaVersion: current.description.schemaVersion,
+          scope:
+            current.scope.kind === 'global'
+              ? { kind: 'global' }
+              : { kind: current.scope.kind, id: current.scope.targetId },
+          formId,
+          formRevision: current.form.revision,
+          path: field.path,
+          data,
+        })
+        .then((report) => {
+          let latest: ReturnType<typeof ready>
+          try {
+            latest = ready(formId)
+          } catch {
+            return
+          }
+          if (latest.form.revision !== current.form.revision) return
+          replaceEntry(formId, {
+            ...latest,
+            content: {
+              ...latest.content,
+              [key]: report.status === 'ready' ? { status: 'ready', report } : { status: 'unavailable', report },
+            },
+          })
+        })
+        .catch((error: unknown) => {
+          if (error instanceof SchemaContentError && ['CONTENT_SUPERSEDED', 'CANCELLED'].includes(error.code)) return
+          let latest: ReturnType<typeof ready>
+          try {
+            latest = ready(formId)
+          } catch {
+            return
+          }
+          if (latest.form.revision !== current.form.revision) return
+          const failed: SettingsFieldContentState = { status: 'error', errorCode: errorCode(error) }
+          replaceEntry(formId, { ...latest, content: { ...latest.content, [key]: failed } })
+        })
+    }
+  }
   const load = async (panel: PanelSurface, force = false): Promise<SettingsFormEntry> => {
     const scope = panelScope(panel)
     const formId = formKey(panel, scope)
@@ -276,6 +383,11 @@ export function createSettingsForms(
       const inheritedValues = inherited
         ? values(description, inherited)
         : Object.fromEntries(description.fields.map((field) => [encodePath(field.path), field.defaultValue]))
+      const content: Record<string, SettingsFieldContentState> = Object.fromEntries(
+        description.fields
+          .filter((field) => field.content)
+          .map((field) => [encodePath(field.path), { status: 'idle' as const }]),
+      )
       const next: SettingsFormEntry = {
         formId,
         scope,
@@ -284,6 +396,7 @@ export function createSettingsForms(
         schema,
         form: createForm(schema, baseline),
         reports: snapshot.resolution.reports,
+        content,
         inheritedValues,
         unsets: {},
         revisions: snapshot.revisions,
@@ -292,6 +405,7 @@ export function createSettingsForms(
         error: null,
       }
       replaceEntry(formId, next)
+      refreshContent(formId)
       return next
     } catch (error) {
       if (generations.get(formId) !== generation) throw error
@@ -349,6 +463,7 @@ export function createSettingsForms(
     }
     pending.delete(formId)
     replaceEntry(formId, next)
+    refreshContent(formId)
     return next
   }
   const submit = async (formId: string, retry: boolean): Promise<SettingsFormEntry> => {
@@ -423,6 +538,7 @@ export function createSettingsForms(
       delete unsets[field]
       const next = { ...current, form, unsets, receipt: null, error: null }
       replaceEntry(formId, next)
+      refreshContent(formId, field)
       return summary(next)
     } catch (error) {
       throw commandError(error)
@@ -436,6 +552,7 @@ export function createSettingsForms(
       delete unsets[field]
       const next = { ...current, form, unsets, receipt: null, error: null }
       replaceEntry(formId, next)
+      refreshContent(formId, field)
       return summary(next)
     } catch (error) {
       throw commandError(error)
@@ -451,12 +568,14 @@ export function createSettingsForms(
         delete unsets[field]
         const next = { ...current, form: resetField(current.schema, current.form, field), unsets, error: null }
         replaceEntry(formId, next)
+        refreshContent(formId, field)
         return summary(next)
       }
       const form = setField(current.schema, current.form, field, inputValue(current.inheritedValues[field]))
       const unsets = { ...current.unsets, [field]: form.revision }
       const next = { ...current, form, unsets, receipt: null, error: null }
       replaceEntry(formId, next)
+      refreshContent(formId, field)
       return summary(next)
     } catch (error) {
       throw commandError(error)
@@ -485,6 +604,7 @@ export function createSettingsForms(
       unsubscribe()
       generations.clear()
       pending.clear()
+      contentResolver?.dispose()
       touched.splice(0)
       state.dispose()
     },

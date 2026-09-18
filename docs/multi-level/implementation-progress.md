@@ -152,3 +152,11 @@ app-runtime 新增设置工作区只读投影。`app.openSettings` 的逻辑 pan
 字段编辑、重置、恢复继承、刷新、提交和核对分别使用 internal `settingsForm.*` application commands。恢复继承生成 `unset` 并预览父级 effective/default；不允许覆盖的 scope 编译为只读字段。提交只包含 dirty/unset 路径，捕获原 scope、版本向量、revision 与幂等键；提交期间的新编辑继续保留。断线未知只能用原 input/key 核对，成功回执仅确认原提交。Client 将 settings 持久命令的断线/超时统一映射为 `RESULT_UNKNOWN`。
 
 交付验证：`bun run check` 通过 lint、typecheck、318 个测试（89 个文件、2471 个断言）；分层 runtime 定向测试覆盖三层草稿、在途编辑、显式继承、scope 只读、未知核对及 Client 丢失响应映射。`bun run build` 完成 2337 个模块的生产构建。该切片只注入 settings/schema content ports，没有新增可见页面。
+
+### B3c2：动态内容只读投影（完成）
+
+app-runtime 现在从 Host 设置描述编译 callback DAG，并通过注入的 `SchemaCallbackPort` 建立有界 resolver。每个动态字段在 `view.state.settings.forms[formId].content` 中公开 idle/loading/ready/unavailable/error；初次加载查询全部动态字段，后续只刷新依赖于本次变更路径的节点。依赖原始输入无效时不会继续使用旧已解析值，缺少 callback capability 显式报告 unavailable。
+
+每次请求绑定 Host、runtime identity、scope、formId、form revision、Schema version 和依赖 fingerprint。依赖改变时 resolver 取消旧 generation；即使旧 callback 忽略取消并迟到返回，runtime 也核对最新 revision，不允许覆盖当前内容。提交回执重新基线化后会刷新动态能力，dispose 取消并释放全部查询与缓存。
+
+交付验证：`bun run check` 通过 lint、typecheck、319 个测试（89 个文件、2472 个断言）；动态设置定向测试覆盖初始模型 options、缺模型 unavailable、依赖切换、忽略取消的迟到旧结果，以及最终内容仍对应最新模型。该切片只新增运行时只读投影，没有新增可见页面。
