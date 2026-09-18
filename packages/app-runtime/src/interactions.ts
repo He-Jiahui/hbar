@@ -133,6 +133,26 @@ export function createInteractions(
       }
       replace(id, action)
       try {
+        if (name === 'questionnaire.answer') {
+          const request = timeline
+            .getSnapshot()
+            .userInputs.find((item) => item.sessionId === value.sessionId && item.requestId === value.requestId)
+          const answers =
+            input &&
+            typeof input === 'object' &&
+            'answers' in input &&
+            input.answers &&
+            typeof input.answers === 'object'
+              ? (input.answers as Record<string, { answers?: readonly string[] }>)
+              : {}
+          if (
+            !request ||
+            request.questions.some(
+              (question) => !answers[question.id]?.answers?.some((answer) => answer.trim().length > 0),
+            )
+          )
+            throw new CommandError('QUESTIONNAIRE_INCOMPLETE', 'Every questionnaire item requires an answer')
+        }
         const result = await port.execute(name, input, options)
         replace(id, { ...action, status: 'succeeded' })
         return result

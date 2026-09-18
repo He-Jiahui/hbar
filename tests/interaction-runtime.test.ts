@@ -131,6 +131,13 @@ test('interaction actions stay bound to their targets and unknown replies conver
     expect(runtime.view.state.interactions.getSnapshot()['approval:approval']?.status).toBe('succeeded')
 
     mode = 'failed'
+    await expect(
+      runtime.view.commands.execute('questionnaire.answer', {
+        sessionId: session.id,
+        requestId: request.requestId,
+        answers: {},
+      }),
+    ).rejects.toMatchObject({ code: 'QUESTIONNAIRE_INCOMPLETE' })
     await runtime.view.commands.execute('questionnaire.setAnswer', {
       sessionId: session.id,
       requestId: request.requestId,

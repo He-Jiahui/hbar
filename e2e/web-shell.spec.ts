@@ -1,4 +1,63 @@
 import { expect, test } from '@playwright/test'
+import { existsSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { delimiter, join } from 'node:path'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { createInterface } from 'node:readline'
+
+async function startSessionHost(root: string) {
+  const bun =
+    process.platform === 'win32'
+      ? (process.env.PATH ?? '')
+          .split(delimiter)
+          .flatMap((directory) => [
+            join(directory, 'bun.exe'),
+            join(directory, 'node_modules', 'bun', 'bin', 'bun.exe'),
+          ])
+          .find(existsSync)
+      : 'bun'
+  if (!bun) throw new Error('Bun executable is unavailable for the E2E Host fixture')
+  const child = spawn(bun, ['scripts/e2e-session-host.ts'], {
+    cwd: process.cwd(),
+    env: { ...process.env, HBAR_E2E_DATA_ROOT: root, HBAR_E2E_HOST_PORT: '4317' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  let errors = ''
+  child.stderr!.on('data', (chunk) => {
+    errors += String(chunk)
+  })
+  const output = createInterface({ input: child.stdout! })
+  const ready = await new Promise<{ token: string; sessionId: string; sessionTitle: string }>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`E2E Host did not start: ${errors}`)), 20_000)
+    output.on('line', (line) => {
+      try {
+        const value = JSON.parse(line) as { token?: string; sessionId?: string; sessionTitle?: string }
+        if (value.token && value.sessionId && value.sessionTitle) {
+          clearTimeout(timer)
+          resolve(value as { token: string; sessionId: string; sessionTitle: string })
+        }
+      } catch {
+        // Ignore non-protocol diagnostics; stderr is included in startup failures.
+      }
+    })
+    child.once('exit', (code) => {
+      clearTimeout(timer)
+      reject(new Error(`E2E Host exited with ${code}: ${errors}`))
+    })
+  })
+  output.close()
+  return { child, ready }
+}
+
+async function stopSessionHost(child: ChildProcess) {
+  if (child.exitCode !== null) return
+  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()))
+  child.kill()
+  await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, 5_000))])
+  if (child.exitCode === null) child.kill('SIGKILL')
+}
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
   for (const viewport of [
@@ -47,3 +106,56 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     })
   }
 }
+
+test('connected session workspace sends, approves, cancels, and updates usage', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-session-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      {
+        data: { token: fixture.ready.token },
+      },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await expect(prompt).toBeEnabled()
+
+    await prompt.fill('hello from browser')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.getByText('hello from browser')).toBeVisible()
+    await expect(page.getByText('Completed').first()).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'AI usage' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'AI usage' }).getByText(/^[1-9][\d,.]* tokens$/)).toBeVisible()
+
+    await prompt.fill('/tool write_file {"path":"browser-e2e.txt","text":"approved"}')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.getByText('Agent approval')).toBeVisible()
+    await page.getByRole('button', { name: 'Allow' }).click()
+    await expect(page.getByText('Resolved')).toBeVisible()
+
+    await prompt.fill('/slow')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.getByText('/slow')).toBeVisible()
+    await page.getByRole('button', { name: 'Stop the current run' }).click()
+    await expect(page.getByText('Cancelled', { exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/web-b2/session-workspace.png', fullPage: true })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})

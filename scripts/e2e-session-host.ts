@@ -1,0 +1,47 @@
+import { HbarClient, createBudgetCommandClient, createModelCommandClient } from '@hbar/client'
+import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { startServer } from '../apps/host/src/server.ts'
+
+const root = process.env.HBAR_E2E_DATA_ROOT
+const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
+if (!root || !Number.isInteger(port)) throw new Error('E2E Host root and port are required')
+
+const kernel = await Kernel.create({ home: `${root}/data`, workspace: root, demo: true, secrets: new MemorySecrets() })
+const workspace = (await kernel.storage.call('workspaces'))[0]!
+const session = await kernel.createSession(workspace.id)
+const host = await startServer(kernel, { port })
+const response = await fetch(`http://127.0.0.1:${port}/auth/pair`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ code: host.pairing.code, name: 'Web session E2E fixture' }),
+})
+if (!response.ok) throw new Error(`E2E Host pairing failed: ${response.status}`)
+const { token } = (await response.json()) as { token: string }
+const client = new HbarClient(`http://127.0.0.1:${port}`, token)
+await client.connect()
+const models = createModelCommandClient(client)
+const configuration = await models.execute('session.getModel', { sessionId: session.id })
+await models.execute(
+  'session.setModel',
+  { sessionId: session.id, modelId: 'local-fixture', baselineRevisions: configuration.revisions },
+  { idempotencyKey: 'web-e2e-model' },
+)
+await createBudgetCommandClient(client).execute(
+  'session.setBudget',
+  { sessionId: session.id, tokens: 100_000 },
+  { idempotencyKey: 'web-e2e-budget' },
+)
+client.disconnect()
+process.stdout.write(`${JSON.stringify({ token, sessionId: session.id, sessionTitle: session.title })}\n`)
+
+let closing = false
+const close = async () => {
+  if (closing) return
+  closing = true
+  await host.close()
+  await kernel.close()
+  process.exit(0)
+}
+process.on('SIGINT', () => void close())
+process.on('SIGTERM', () => void close())
+await new Promise(() => {})

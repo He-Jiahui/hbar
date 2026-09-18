@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { HbarRuntimeProvider, HbarWorkspaceShell, useHbarRuntime, useHbarRuntimeState } from '@hbar/app-react'
+import {
+  HbarRuntimeProvider,
+  HbarSessionWorkspace,
+  HbarWorkspaceShell,
+  useHbarRuntime,
+  useHbarRuntimeState,
+} from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import {
   HbarClient,
@@ -34,7 +40,7 @@ function createRuntime(client: HbarClient, hostId: string) {
   })
 }
 
-function WorkspaceBody({ locale }: { readonly locale: ShellLocale }) {
+function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
   const copy = getShellCopy(locale)
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -42,12 +48,12 @@ function WorkspaceBody({ locale }: { readonly locale: ShellLocale }) {
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const panel = surfaces.focusedPanelId ? surfaces.panels[surfaces.focusedPanelId] : undefined
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
-  const content = panel
-    ? (copy.panels[panel.panelId as keyof typeof copy.panels] ?? copy.panels.commands)
-    : session
-      ? { title: session.title, description: copy.selectedSession(session.title) }
-      : copy.empty
-  return <HbarAppUiWorkbenchNotice title={content.title} description={content.description} />
+  if (panel) {
+    const content = copy.panels[panel.panelId as keyof typeof copy.panels] ?? copy.panels.commands
+    return <HbarAppUiWorkbenchNotice title={content.title} description={content.description} />
+  }
+  if (session) return <HbarSessionWorkspace sessionTitle={session.title} labels={copy.session} connected={connected} />
+  return <HbarAppUiWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
 }
 
 export default function App({ locale }: { readonly locale: ShellLocale }) {
@@ -102,7 +108,7 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
         connection={connection}
         onReconnect={reconnect}
       >
-        <WorkspaceBody locale={locale} />
+        <WorkspaceBody locale={locale} connected={connection === 'connected'} />
       </HbarWorkspaceShell>
     </HbarRuntimeProvider>
   )

@@ -164,6 +164,8 @@ A15c 通过真实临时 Host 完成第一阶段无 GUI 综合验收。单一场�
 
 B1 已完成：`@hbar/app-react` 以 `useSyncExternalStore` 订阅只读 runtime view，并将生产 `hbar-app-ui/workbench` 外壳绑定到分页 Workspace/Session 目录与应用命令。Web 只在组合根持有 Client，按 Host instance 建立 runtime，连接失败稳定回到显式可重连状态。Ctrl/Cmd+K、命令、状态、设置和会话选择均走规范命令；树展开仍是局部 UI 行为。版本化布局描述、错误旧 localStorage、中英文、桌面/窄屏和无 Host 降级已由构建及真实浏览器验证。B2 从同一 runtime 接入会话时间线、提示词和可靠 Usage 投影。
 
+B2 已完成：app-runtime 从 Session snapshot/follow 建立可恢复、有界且拒绝迟到数据的 timeline，并为草稿、提交、取消、审批、问卷、模型、预算和可靠 Usage 提供只读操作投影。`@hbar/app-react` 将这些投影映射到受控 AIChat、PromptInput、活动卡与 AIUsage；所有业务修改经 command，Markdown 经过 GFM 与 sanitize，费用/速率缺失保持 unavailable。真实 Host 浏览器场景完成选择、发送、用量更新、审批、取消和滚动容量验收；B3 在相同边界上接入 Schema renderer 与分层设置工作台。
+
 ## 5. 验收矩阵
 
 | 维度       | 必须验证的可观察结果                                                               |

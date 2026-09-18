@@ -77,7 +77,7 @@ Web 组合根现在拥有 Client、Host generation、runtime 生命周期、版�
 
 交付验证：`bun run check` 通过 lint、typecheck、300 个测试（82 个文件、2375 个断言）；`bun run build` 完成 188 个模块的生产构建；`bunx playwright test e2e/web-shell.spec.ts --reporter=line` 的 4 个中英文桌面/窄屏场景通过。无 Host E2E 中 Vite 代理记录预期的 `ECONNREFUSED 127.0.0.1:4317`，应用稳定显示未连接并停止自动重试。
 
-## B2：会话工作区（实施中）
+## B2：会话工作区（完成）
 
 ### B2a：只读 Session timeline 与可靠增量恢复（完成）
 
@@ -118,3 +118,11 @@ app-runtime 新增当前 Session controls 投影，并行读取 `session.getMode
 定向测试覆盖问卷答案命令、resolved 清理、取消反馈及既有草稿/窗口隔离。B2d2 将这些状态映射到 hbar-app-ui 的受控会话组件，不再需要 React useState 保存业务表单或取消状态。
 
 交付验证：`bun run check` 通过 lint、typecheck、310 个测试（86 个文件、2422 个断言）；交互/草稿/runtime 定向测试 14 项及命令/依赖边界 14 项通过。该切片无可见布局变化，浏览器验收随 B2d2 执行。
+
+### B2d2：受控会话工作区与真实浏览器闭环（完成）
+
+`@hbar/app-react` 新增 `HbarSessionWorkspace`，将选中 Session 的消息、流式正文、thinking、工具调用与结果、附件、Run 活动、审批、问卷、PromptInput 和紧凑 AIUsage 组合进生产工作台。Markdown 使用 GFM 并在渲染前按安全策略清洗；全部可见文案、格式化器和状态说明由 Web 宿主的类型化中英文 bundle 提供。会话组件只依赖 app-runtime 的只读状态与 command facade，不导入 Client、Host、Storage 或领域写入服务。
+
+草稿、附件删除、发送、取消、审批决定及问卷填写/提交均执行规范 command；问卷提交前要求每个请求项都有非空答案。发送沿用捕获原 Session/revision 的 B2b 语义，取消与交互结果在原操作位置显示。AIUsage 只消费 A12 的可靠 Host 报表及预算，不按正文估算；token、费用和速率不可用时保持明确 unavailable。页面使用正常 flex 流和 pane-owned scroll，在桌面与窄屏不依赖截图坐标或固定正文高度。
+
+交付验证：`bun run check` 通过 lint、typecheck、311 个测试（87 个文件、2433 个断言）；`bun run build` 完成 2335 个模块的生产构建；`bunx playwright test e2e/web-shell.spec.ts --reporter=line` 的 5 个场景通过。四个无 Host 场景覆盖中英文、桌面/窄屏、键盘和断线降级；真实临时 Host 场景完成 Session 选择、发送、可靠 Usage、审批、取消和溢出检查。人工检查 `artifacts/web-b2/session-workspace.png` 确认正常内容流、独立滚动和无横向溢出。
