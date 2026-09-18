@@ -18,6 +18,16 @@ export interface CliArgs {
   requestId?: string | undefined
   expectedRevision?: string | undefined
   inputJson?: string | undefined
+  client?: string | undefined
+  invocationId?: string | undefined
+  timeout?: string | undefined
+  instance?: string | undefined
+  binding?: string | undefined
+  scope?: string | undefined
+  target?: string | undefined
+  section?: string | undefined
+  path?: string | undefined
+  page?: string | undefined
   category?: string | undefined
   after?: string | undefined
   limit?: string | undefined
@@ -41,6 +51,7 @@ Usage:
   hbar commands list [--category <category>] [--limit <1-200>]
   hbar commands describe <commandId>
   hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
+  hbar exec app.openPanel <panel> --client <clientId> [--session <id>]
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
 
@@ -93,6 +104,16 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'request-id': { type: 'string' },
       'expected-revision': { type: 'string' },
       'input-json': { type: 'string' },
+      client: { type: 'string' },
+      'invocation-id': { type: 'string' },
+      timeout: { type: 'string' },
+      instance: { type: 'string' },
+      binding: { type: 'string' },
+      scope: { type: 'string' },
+      target: { type: 'string' },
+      section: { type: 'string' },
+      path: { type: 'string' },
+      page: { type: 'string' },
       category: { type: 'string' },
       after: { type: 'string' },
       limit: { type: 'string' },
@@ -147,6 +168,16 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     requestId: values['request-id'] as string | undefined,
     expectedRevision: values['expected-revision'] as string | undefined,
     inputJson: values['input-json'] as string | undefined,
+    client: values.client as string | undefined,
+    invocationId: values['invocation-id'] as string | undefined,
+    timeout: values.timeout as string | undefined,
+    instance: values.instance as string | undefined,
+    binding: values.binding as string | undefined,
+    scope: values.scope as string | undefined,
+    target: values.target as string | undefined,
+    section: values.section as string | undefined,
+    path: values.path as string | undefined,
+    page: values.page as string | undefined,
     category: values.category as string | undefined,
     after: values.after as string | undefined,
     limit: values.limit as string | undefined,

@@ -5,6 +5,8 @@ import {
   runCatalogCommand,
   runCliCommand,
   runOperationCommand,
+  runSurfaceRelayCommand,
+  isSurfaceCommand,
   type CommandOutput,
 } from './commands.ts'
 import type { CliRuntime } from './runtime.ts'
@@ -52,6 +54,8 @@ export async function executeCommandLine(
     runtime.session = session
     return
   }
+  if (args.command === 'exec' && isSurfaceCommand(args.commandArgs[0]))
+    return runSurfaceRelayCommand(args, runtime.client, output)
   if (!(await runCliCommand(args, runtime, output)))
     throw new CommandError('COMMAND_NOT_FOUND', 'Command is not available in this runtime')
 }

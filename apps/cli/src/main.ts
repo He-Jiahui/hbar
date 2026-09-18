@@ -6,7 +6,14 @@ import { createInterface } from 'node:readline/promises'
 import { CommandError } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
-import { runApplicationCommand, runCatalogCommand, runCliCommand, runOperationCommand } from './commands.ts'
+import {
+  isSurfaceCommand,
+  runApplicationCommand,
+  runCatalogCommand,
+  runCliCommand,
+  runOperationCommand,
+  runSurfaceRelayCommand,
+} from './commands.ts'
 import { openAttachedRuntime, openCatalogClient, openRuntime, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
 import { runRepl } from './repl.ts'
@@ -125,6 +132,15 @@ try {
     const { client, layout } = await openCatalogClient(args)
     try {
       await runApplicationCommand(args, client, layout.dataRoot)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isSurfaceCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runSurfaceRelayCommand(args, client)
     } finally {
       client.disconnect()
     }

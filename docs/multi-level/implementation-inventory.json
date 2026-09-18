@@ -9,9 +9,19 @@
       "category": "system.extensions",
       "milestone": "A3-A11",
       "status": "partial-budget",
-      "rpc": ["command.catalog", "command.describe", "command.execute", "command.getReceipt"],
+      "rpc": [
+        "command.catalog",
+        "command.describe",
+        "command.execute",
+        "command.getReceipt",
+        "surface.invoke",
+        "surface.list",
+        "surface.register",
+        "surface.resolve",
+        "surface.unregister"
+      ],
       "additionalCommands": [],
-      "tests": ["tests/budget.test.ts", "tests/cli.test.ts"]
+      "tests": ["tests/budget.test.ts", "tests/cli.test.ts", "tests/surface-relay.test.ts"]
     },
     {
       "id": "connection",
@@ -332,7 +342,7 @@
     "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
     "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
     "A6": "complete: combined catalog, CLI, revisioned named context, line REPL and TUI shared execution path",
-    "A7": "partial: local logical surfaces and PlatformPort; directed client relay pending",
+    "A7": "complete: logical surfaces, PlatformPort and generation-bound directed client relay",
     "A8-A15": "pending",
     "B1-B7": "pending"
   }

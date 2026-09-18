@@ -72,6 +72,8 @@ A6b 在 `0e729d1` 提交。A6c 组合 Host 与 client command 描述，增加行
 
 A6c 在 `8dd58e2` 提交。A7a 在 app-runtime 内建立只读 surface 投影，panel 与 window 只能由类型化 `app.open*` / `app.close*` 命令改变。跟随面板在选择切换后更新目标，固定面板保留原目标；window 操作按 windowId 串行调用注入的 PlatformPort，失败不发布状态。无 renderer/platform 的 runtime 返回 `CAPABILITY_UNAVAILABLE`。Host 定向转发与客户端 capability/generation 属于 A7b。
 
+A7a 在 `0f7cb83` 提交。A7b 增加已鉴权的 surface client 注册与定向 relay；Host 绑定 clientId、连接 generation 与白名单能力，以调用 ID 缓存短期结果并拒绝异参重用。替换、注销、断线、目标过载和超时均结束对应调用，Client adapter 只执行目标 generation 的通知。真实双客户端测试覆盖 CLI adapter、重复调用、能力拒绝、换代旧回调、注销与超时。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

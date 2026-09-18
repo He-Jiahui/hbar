@@ -15,6 +15,7 @@ hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar commands list --category run.approval --limit 100
 hbar commands describe run.submit
 hbar exec app.setSession "审查会话" --workspace <Workspace ID|名称> --context review
+hbar exec app.openPanel files --client <GUI clientId> --session <Session ID> --invocation-id <stable ID>
 hbar repl
 hbar exec run.submit --message "检查变更" --session <Session ID|名称> --idempotency-key <稳定键>
 hbar exec operation.get <operationId>
@@ -52,6 +53,8 @@ hbar --headless \
 `app.setSession` 通过独立 app-runtime 解析明确 ID，或在 `--workspace` 限定范围内解析精确名称，不修改 Host 的 Session 事实。未传 `--context` 时选择只存在于该 CLI 进程；传入名称后，选择以 Host 数据根和本机用户为边界原子保存，后续 `hbar exec ... --context review` 可复用目标。保存结果带单调 revision；自动化可传 `--context-revision <revision>` 做显式 CAS，版本已经变化时返回冲突退出码 9，不静默覆盖另一个进程的选择。显式 `--project` / `--session` 优先于 context，适合自动化脚本固定目标。
 
 `hbar repl` 使用与一次性 CLI 相同的 tokenizer、参数校验和 command handler。REPL 可省略 `exec` 前缀直接输入 `session.getBudget` 等点分命令；非 TTY 输入按行执行，错误沿用 CLI 退出码且不会等待表单交互。TUI 的 `/exec <command> [arguments]` 也调用这条执行路径，并把结果留在当前终端界面；现有短命令继续作为兼容别名，在相应领域迁移时改为同一 command 的语法映射。
+
+GUI runtime 只有显式注册 clientId、连接 generation 和允许的 surface command 后才会接收定向界面命令。CLI 的 `app.openPanel`、`app.closePanel`、`app.openSettings`、`app.openStatus`、`app.openSettingsEditor`、`app.openWindow` 与 `app.closeWindow` 必须传 `--client`，Host 不广播也不猜测目标。`--invocation-id` 可让断线重试核对同一次调用；同 ID 改变目标、命令或输入返回冲突。目标未连接、未声明能力、已经换代及超时分别作为结构化错误返回；`--timeout` 的范围为 100–30000 毫秒。复杂输入可用 `--input-json`，窗口 page 也可用 `--page <JSON>`。
 
 ## TUI 快捷键
 

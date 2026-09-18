@@ -8,6 +8,7 @@ import type { ServerWebSocket } from 'bun'
 import { Kernel, createBudgetCommands, createRunCommands } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
+import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
 import type {
   BrowserUseService,
@@ -31,6 +32,8 @@ interface SocketData {
   pending: number
   timer?: ReturnType<typeof setTimeout> | undefined
   scope?: RuntimeScope | undefined
+  surfaceClientId?: string | undefined
+  surfaceGeneration?: number | undefined
 }
 export interface ServerOptions {
   hostname?: string
@@ -51,6 +54,25 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
+  const surfaceClients = new Map<
+    string,
+    { socket: ServerWebSocket<SocketData>; generation: number; commands: Set<string> }
+  >()
+  type SurfaceOutcome = { ok: true; result: unknown } | { ok: false; code: string; message: string }
+  interface PendingSurfaceInvocation {
+    key: string
+    signature: string
+    relayId: string
+    targetId: string
+    generation: number
+    promise: Promise<SurfaceOutcome>
+    resolve(outcome: SurfaceOutcome): void
+    timer?: ReturnType<typeof setTimeout>
+  }
+  const pendingSurfaceByRelay = new Map<string, PendingSurfaceInvocation>()
+  const pendingSurfaceByKey = new Map<string, PendingSurfaceInvocation>()
+  const completedSurfaces = new Map<string, { signature: string; outcome: SurfaceOutcome; expiresAt: number }>()
+  const allowedSurfaceCommands = new Set(Object.keys(surfaceDefinitions))
   const addresses = [
     ...new Set(
       Object.values(networkInterfaces()).flatMap((list) =>
@@ -111,6 +133,20 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       return
     }
     socket.send(JSON.stringify(value))
+  }
+  function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
+    if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
+    clearTimeout(pending.timer)
+    pendingSurfaceByRelay.delete(pending.relayId)
+    pendingSurfaceByKey.delete(pending.key)
+    completedSurfaces.set(pending.key, { signature: pending.signature, outcome, expiresAt: Date.now() + 60_000 })
+    while (completedSurfaces.size > 1000) completedSurfaces.delete(completedSurfaces.keys().next().value!)
+    pending.resolve(outcome)
+  }
+  function rejectSurfaceTarget(clientId: string, generation: number, message: string) {
+    for (const pending of [...pendingSurfaceByRelay.values()])
+      if (pending.targetId === clientId && pending.generation === generation)
+        finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message })
   }
   async function invoke(method: RpcMethod, raw: unknown, socket: ServerWebSocket<SocketData>): Promise<unknown> {
     switch (method) {
@@ -173,6 +209,135 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'operation.unwatch': {
         const input = rpcSchemas[method].parse(raw)
         socket.data.operationFollows.delete(input.operationId)
+        return null
+      }
+      case 'surface.register': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        const commands = new Set(input.commands)
+        if ([...commands].some((command) => !allowedSurfaceCommands.has(command)))
+          throw new HbarError('INVALID_INPUT', 'Client published an unknown surface command')
+        const previous = surfaceClients.get(input.clientId)
+        if (!previous || previous.socket !== socket || previous.generation !== input.generation)
+          for (const pending of [...pendingSurfaceByRelay.values()])
+            if (pending.targetId === input.clientId)
+              finishSurface(pending, {
+                ok: false,
+                code: 'CAPABILITY_UNAVAILABLE',
+                message: 'Target client generation was replaced',
+              })
+        if (socket.data.surfaceClientId && socket.data.surfaceClientId !== input.clientId)
+          throw new HbarError('COMMAND_CONFLICT', 'Connection already registered another surface client')
+        socket.data.surfaceClientId = input.clientId
+        socket.data.surfaceGeneration = input.generation
+        surfaceClients.set(input.clientId, { socket, generation: input.generation, commands })
+        return { clientId: input.clientId, generation: input.generation, commands: [...commands].sort() }
+      }
+      case 'surface.unregister': {
+        const input = rpcSchemas[method].parse(raw)
+        const target = surfaceClients.get(input.clientId)
+        if (target?.socket === socket && target.generation === input.generation) {
+          surfaceClients.delete(input.clientId)
+          socket.data.surfaceClientId = undefined
+          socket.data.surfaceGeneration = undefined
+          rejectSurfaceTarget(input.clientId, input.generation, 'Target client unregistered')
+        }
+        return null
+      }
+      case 'surface.list':
+        return {
+          items: [...surfaceClients.entries()]
+            .map(([clientId, target]) => ({
+              clientId,
+              generation: target.generation,
+              commands: [...target.commands].sort(),
+            }))
+            .sort((a, b) => a.clientId.localeCompare(b.clientId)),
+        }
+      case 'surface.invoke': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        if (!allowedSurfaceCommands.has(input.commandId))
+          throw new HbarError('COMMAND_NOT_FOUND', 'Surface command is not registered')
+        const key = `${socket.data.deviceId}:${input.invocationId}`
+        const signature = JSON.stringify([input.clientId, input.commandId, input.input])
+        const completed = completedSurfaces.get(key)
+        if (completed && completed.expiresAt <= Date.now()) completedSurfaces.delete(key)
+        else if (completed) {
+          if (completed.signature !== signature)
+            throw new HbarError('IDEMPOTENCY_CONFLICT', 'Invocation ID was already used with another target or input')
+          if (!completed.outcome.ok) throw new HbarError(completed.outcome.code, completed.outcome.message)
+          return completed.outcome.result
+        }
+        const existing = pendingSurfaceByKey.get(key)
+        if (existing) {
+          if (existing.signature !== signature)
+            throw new HbarError('IDEMPOTENCY_CONFLICT', 'Invocation ID is active with another target or input')
+          const outcome = await existing.promise
+          if (!outcome.ok) throw new HbarError(outcome.code, outcome.message)
+          return outcome.result
+        }
+        const target = surfaceClients.get(input.clientId)
+        if (!target || target.socket.readyState !== 1)
+          throw new HbarError('CAPABILITY_UNAVAILABLE', 'Target GUI client is not connected')
+        if (!target.commands.has(input.commandId))
+          throw new HbarError('CAPABILITY_UNAVAILABLE', 'Target GUI client did not publish this capability')
+        if ([...pendingSurfaceByRelay.values()].filter((pending) => pending.targetId === input.clientId).length >= 32)
+          throw new HbarError('BUSY', 'Target GUI client has too many pending commands')
+        const relayId = crypto.randomUUID()
+        let resolveOutcome: (outcome: SurfaceOutcome) => void = () => undefined
+        const promise = new Promise<SurfaceOutcome>((resolve) => {
+          resolveOutcome = resolve
+        })
+        const pending: PendingSurfaceInvocation = {
+          key,
+          signature,
+          relayId,
+          targetId: input.clientId,
+          generation: target.generation,
+          promise,
+          resolve: resolveOutcome,
+        }
+        pending.timer = setTimeout(
+          () => finishSurface(pending, { ok: false, code: 'TIMED_OUT', message: 'Target GUI client timed out' }),
+          input.timeoutMs,
+        )
+        pendingSurfaceByRelay.set(relayId, pending)
+        pendingSurfaceByKey.set(key, pending)
+        send(target.socket, {
+          jsonrpc: '2.0',
+          method: 'surface.invoke',
+          params: {
+            relayId,
+            invocationId: input.invocationId,
+            commandId: input.commandId,
+            input: input.input,
+            generation: target.generation,
+          },
+        })
+        const outcome = await promise
+        if (!outcome.ok) throw new HbarError(outcome.code, outcome.message)
+        return outcome.result
+      }
+      case 'surface.resolve': {
+        const input = rpcSchemas[method].parse(raw)
+        const target = surfaceClients.get(input.clientId)
+        const pending = pendingSurfaceByRelay.get(input.relayId)
+        if (
+          !target ||
+          target.socket !== socket ||
+          target.generation !== input.generation ||
+          !pending ||
+          pending.targetId !== input.clientId ||
+          pending.generation !== input.generation
+        )
+          throw new HbarError('FORBIDDEN', 'Surface result does not belong to this client generation')
+        finishSurface(
+          pending,
+          input.ok
+            ? { ok: true, result: input.result }
+            : { ok: false, code: input.error.code, message: input.error.message },
+        )
         return null
       }
       case 'system.hello': {
@@ -660,40 +825,55 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           if (!socket.data.initialized) socket.close(4001, 'Handshake required')
         }, 10_000)
       },
-      async message(socket, payload) {
-        let id: string | number | null = null
-        let admitted = false
-        try {
-          if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
-          socket.data.pending++
-          admitted = true
-          const request = rpcRequestSchema.parse(JSON.parse(typeof payload === 'string' ? payload : payload.toString()))
-          id = request.id
-          if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
-          if (request.method !== 'system.hello') {
-            if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-            await auth.authenticate(socket.data.token)
+      message(socket, payload) {
+        void (async () => {
+          let id: string | number | null = null
+          let admitted = false
+          try {
+            if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
+            socket.data.pending++
+            admitted = true
+            const request = rpcRequestSchema.parse(
+              JSON.parse(typeof payload === 'string' ? payload : payload.toString()),
+            )
+            id = request.id
+            if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
+            if (request.method !== 'system.hello') {
+              if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+              await auth.authenticate(socket.data.token)
+            }
+            const method = request.method as RpcMethod
+            const params = rpcSchemas[method].parse(request.params)
+            send(socket, { jsonrpc: '2.0', id, result: await invoke(method, params, socket) })
+          } catch (error) {
+            send(socket, {
+              jsonrpc: '2.0',
+              id,
+              error: {
+                code: -32000,
+                data: error instanceof HbarError || error instanceof CommandError ? error.code : 'INVALID_REQUEST',
+                message: error instanceof Error ? error.message : String(error),
+              },
+            })
+          } finally {
+            if (admitted) socket.data.pending--
           }
-          const method = request.method as RpcMethod
-          const params = rpcSchemas[method].parse(request.params)
-          send(socket, { jsonrpc: '2.0', id, result: await invoke(method, params, socket) })
-        } catch (error) {
-          send(socket, {
-            jsonrpc: '2.0',
-            id,
-            error: {
-              code: -32000,
-              data: error instanceof HbarError || error instanceof CommandError ? error.code : 'INVALID_REQUEST',
-              message: error instanceof Error ? error.message : String(error),
-            },
-          })
-        } finally {
-          if (admitted) socket.data.pending--
-        }
+        })()
       },
       close(socket) {
         clearTimeout(socket.data.timer)
         sockets.delete(socket)
+        if (socket.data.surfaceClientId && socket.data.surfaceGeneration) {
+          const target = surfaceClients.get(socket.data.surfaceClientId)
+          if (target?.socket === socket && target.generation === socket.data.surfaceGeneration) {
+            surfaceClients.delete(socket.data.surfaceClientId)
+            rejectSurfaceTarget(
+              socket.data.surfaceClientId,
+              socket.data.surfaceGeneration,
+              'Target GUI client disconnected',
+            )
+          }
+        }
         void socket.data.scope?.dispose().catch(console.error)
       },
     },
@@ -718,6 +898,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       budgetCommands.dispose()
       runCommands.dispose()
       unsubscribe()
+      for (const pending of [...pendingSurfaceByRelay.values()])
+        finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })
+      surfaceClients.clear()
       for (const socket of sockets) socket.close()
       await server.stop(true)
     },

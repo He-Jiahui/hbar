@@ -55,12 +55,25 @@ export const surfaceCommands = {
     panelSummarySchema,
   ),
   'app.closePanel': defineCommand(
-    metadata('app.closePanel'),
+    { ...metadata('app.closePanel'), cli: { arguments: [{ field: 'instanceId', type: 'string', position: 0 }] } },
     z.strictObject({ instanceId: instanceIdSchema }),
     z.strictObject({ instanceId: instanceIdSchema, closed: z.boolean() }),
   ),
   'app.openSettings': defineCommand(
-    metadata('app.openSettings'),
+    {
+      ...metadata('app.openSettings'),
+      cli: {
+        arguments: [
+          { field: 'scope', type: 'string', position: 0 },
+          { field: 'targetId', type: 'string', flag: 'target' },
+          { field: 'section', type: 'string', flag: 'section' },
+          { field: 'instanceId', type: 'string', flag: 'instance' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'binding', type: 'string', flag: 'binding' },
+        ],
+      },
+    },
     z.strictObject({
       scope: z.enum(['global', 'workspace', 'session']),
       targetId: idSchema.optional(),
@@ -70,12 +83,36 @@ export const surfaceCommands = {
     panelSummarySchema,
   ),
   'app.openStatus': defineCommand(
-    metadata('app.openStatus'),
+    {
+      ...metadata('app.openStatus'),
+      cli: {
+        arguments: [
+          { field: 'section', type: 'string', position: 0 },
+          { field: 'instanceId', type: 'string', flag: 'instance' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'binding', type: 'string', flag: 'binding' },
+        ],
+      },
+    },
     z.strictObject({ section: z.enum(['dashboard', 'usage', 'git']).default('dashboard'), ...panelTarget }),
     panelSummarySchema,
   ),
   'app.openSettingsEditor': defineCommand(
-    metadata('app.openSettingsEditor'),
+    {
+      ...metadata('app.openSettingsEditor'),
+      cli: {
+        arguments: [
+          { field: 'path', type: 'string', position: 0 },
+          { field: 'scope', type: 'string', flag: 'scope' },
+          { field: 'targetId', type: 'string', flag: 'target' },
+          { field: 'instanceId', type: 'string', flag: 'instance' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'binding', type: 'string', flag: 'binding' },
+        ],
+      },
+    },
     z.strictObject({
       scope: z.enum(['global', 'workspace', 'session']),
       targetId: idSchema.optional(),
@@ -85,7 +122,15 @@ export const surfaceCommands = {
     panelSummarySchema,
   ),
   'app.openWindow': defineCommand(
-    metadata('app.openWindow', 'platform'),
+    {
+      ...metadata('app.openWindow', 'platform'),
+      cli: {
+        arguments: [
+          { field: 'windowId', type: 'string', position: 0 },
+          { field: 'page', type: 'json', flag: 'page' },
+        ],
+      },
+    },
     z.strictObject({
       windowId: instanceIdSchema,
       page: z.strictObject({ kind: z.string().min(1).max(128), params: z.record(z.string(), z.unknown()).default({}) }),
@@ -93,7 +138,10 @@ export const surfaceCommands = {
     windowSummarySchema,
   ),
   'app.closeWindow': defineCommand(
-    metadata('app.closeWindow', 'platform'),
+    {
+      ...metadata('app.closeWindow', 'platform'),
+      cli: { arguments: [{ field: 'windowId', type: 'string', position: 0 }] },
+    },
     z.strictObject({ windowId: instanceIdSchema }),
     z.strictObject({ windowId: instanceIdSchema, closed: z.boolean() }),
   ),

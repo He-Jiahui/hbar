@@ -1,11 +1,12 @@
 import { readdir, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 import { describeCommand, parseArguments, CommandError, validationError, type CommandDescriptor } from '@hbar/commands'
 import { createBudgetCommandClient, createDirectoryQueryAdapter, createRunCommandClient } from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { runCommands } from '@hbar/contracts/commands/run'
-import { navigationCommands } from '@hbar/contracts/commands'
+import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
 import type { HbarClient } from '@hbar/client'
@@ -41,7 +42,7 @@ export async function runCatalogCommand(
       remote.push(...page.items)
       cursor = page.nextCursor
     } while (cursor && remote.length < 10_000)
-    const local = [navigationCommands['app.setSession']]
+    const local = [navigationCommands['app.setSession'], ...Object.values(surfaceCommands)]
       .map(describeCommand)
       .filter(
         ({ metadata }) =>
@@ -62,11 +63,65 @@ export async function runCatalogCommand(
       }),
     )
   } else if (action === 'describe' && selector && args.commandArgs.length === 2) {
-    const local = [navigationCommands['app.setSession']].find((definition) => definition.metadata.id === selector)
+    const local = [navigationCommands['app.setSession'], ...Object.values(surfaceCommands)].find(
+      (definition) => definition.metadata.id === selector,
+    )
     output(
       JSON.stringify(local ? describeCommand(local) : await client.call('command.describe', { commandId: selector })),
     )
   } else throw new CommandError('INVALID_SYNTAX', 'Usage: hbar commands list|describe <commandId>')
+}
+
+export function isSurfaceCommand(value: string | undefined): value is keyof typeof surfaceCommands {
+  return Boolean(value && Object.hasOwn(surfaceCommands, value))
+}
+
+export async function runSurfaceRelayCommand(
+  args: CliArgs,
+  client: HbarClient,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isSurfaceCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown surface command')
+  if (!args.client) throw new CommandError('INVALID_INPUT', '--client is required for a remote surface command')
+  let input: unknown
+  if (args.inputJson) {
+    try {
+      input = JSON.parse(args.inputJson) as unknown
+    } catch {
+      throw new CommandError('INVALID_INPUT', '--input-json must contain JSON')
+    }
+  } else {
+    const argv = [...args.commandArgs.slice(1)]
+    for (const [flag, value] of [
+      ['instance', args.instance],
+      ['workspace', args.workspace],
+      ['session', args.session],
+      ['binding', args.binding],
+      ['scope', args.scope],
+      ['target', args.target],
+      ['section', args.section],
+      ['path', args.path],
+      ['page', args.page],
+    ] as const)
+      if (value !== undefined && surfaceCommands[action].metadata.cli.arguments.some((item) => item.flag === flag))
+        argv.push(`--${flag}`, value)
+    input = parseArguments(surfaceCommands[action].metadata, argv)
+  }
+  const parsed = surfaceCommands[action].input.safeParse(input)
+  if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+  const timeoutMs = args.timeout === undefined ? 5_000 : Number(args.timeout)
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30_000)
+    throw new CommandError('INVALID_INPUT', '--timeout must be an integer from 100 to 30000 milliseconds')
+  output(
+    await client.call('surface.invoke', {
+      clientId: args.client,
+      invocationId: args.invocationId ?? randomUUID(),
+      commandId: action,
+      input: parsed.data,
+      timeoutMs,
+    }),
+  )
 }
 
 export async function runOperationCommand(

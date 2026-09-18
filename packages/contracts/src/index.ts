@@ -798,6 +798,16 @@ export type WireNotification =
       params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse }
     }
   | { method: 'auth.revoked'; params: { reason: string } }
+  | {
+      method: 'surface.invoke'
+      params: {
+        relayId: string
+        invocationId: string
+        commandId: string
+        input: unknown
+        generation: number
+      }
+    }
 
 export const rpcSchemas = {
   'command.execute': invocationSchema,
@@ -817,6 +827,36 @@ export const rpcSchemas = {
     cursor: z.number().int().nonnegative().default(0),
   }),
   'operation.unwatch': z.strictObject({ operationId: idSchema }),
+  'surface.register': z.strictObject({
+    clientId: idSchema,
+    generation: z.number().int().positive(),
+    commands: z.array(z.string().min(1).max(128)).max(64),
+  }),
+  'surface.unregister': z.strictObject({ clientId: idSchema, generation: z.number().int().positive() }),
+  'surface.list': z.strictObject({}),
+  'surface.invoke': z.strictObject({
+    clientId: idSchema,
+    invocationId: z.string().min(1).max(128),
+    commandId: z.string().min(1).max(128),
+    input: z.unknown(),
+    timeoutMs: z.number().int().min(100).max(30_000).default(5_000),
+  }),
+  'surface.resolve': z.discriminatedUnion('ok', [
+    z.strictObject({
+      clientId: idSchema,
+      generation: z.number().int().positive(),
+      relayId: idSchema,
+      ok: z.literal(true),
+      result: z.unknown(),
+    }),
+    z.strictObject({
+      clientId: idSchema,
+      generation: z.number().int().positive(),
+      relayId: idSchema,
+      ok: z.literal(false),
+      error: z.strictObject({ code: z.string().min(1).max(128), message: z.string().max(2000) }),
+    }),
+  ]),
   'workspace.list': workspaceListInputSchema,
   'workspace.get': workspaceGetInputSchema,
   'session.list': sessionListInputSchema,
@@ -1027,6 +1067,11 @@ export interface RpcResults {
   'command.getReceipt': import('./commands/budget').BudgetReceipt | import('./commands/run').RunAccepted | null
   'operation.watch': import('./commands/run').OperationWatchResult
   'operation.unwatch': null
+  'surface.register': { clientId: string; generation: number; commands: string[] }
+  'surface.unregister': null
+  'surface.list': { items: { clientId: string; generation: number; commands: string[] }[] }
+  'surface.invoke': unknown
+  'surface.resolve': null
   'workspace.list': WorkspacePage
   'workspace.get': Workspace | null
   'session.list': SessionPage
