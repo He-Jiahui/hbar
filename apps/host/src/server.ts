@@ -121,6 +121,32 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
         return dispatch(invocation, socket.data.deviceId)
       }
+      case 'command.catalog': {
+        const filter = rpcSchemas[method].parse(raw)
+        const descriptors = [...budgetCommands.list().items, ...runCommands.list().items]
+          .filter(
+            ({ metadata }) =>
+              !filter.category ||
+              metadata.category === filter.category ||
+              metadata.category.startsWith(`${filter.category}.`),
+          )
+          .filter(({ metadata }) => !filter.after || metadata.id > filter.after)
+          .sort((a, b) => a.metadata.id.localeCompare(b.metadata.id))
+        const items = descriptors.slice(0, filter.limit)
+        return {
+          revision: budgetCommands.list().revision + runCommands.list().revision,
+          items,
+          ...(descriptors.length > filter.limit ? { nextCursor: items.at(-1)!.metadata.id } : {}),
+        }
+      }
+      case 'command.describe': {
+        const input = rpcSchemas[method].parse(raw)
+        const dispatch = commandDispatchers.get(input.commandId)
+        if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
+        return Object.hasOwn(budgetDefinitions, input.commandId)
+          ? budgetCommands.describe(input.commandId)
+          : runCommands.describe(input.commandId)
+      }
       case 'command.getReceipt': {
         const input = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')

@@ -42,6 +42,7 @@ export function createBudgetCommands(service: BudgetService) {
       return translate(() => service.getCommandReceipt(sessionId, actorId, idempotencyKey))
     },
     describe: (id: string) => registry.describe(id),
+    list: () => registry.list({ limit: 500 }),
     dispose: () => registry.dispose(),
   }
 }

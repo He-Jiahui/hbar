@@ -801,6 +801,12 @@ export type WireNotification =
 
 export const rpcSchemas = {
   'command.execute': invocationSchema,
+  'command.catalog': z.strictObject({
+    category: z.string().min(1).max(128).optional(),
+    after: z.string().max(128).optional(),
+    limit: z.number().int().min(1).max(200).default(100),
+  }),
+  'command.describe': z.strictObject({ commandId: z.string().min(1).max(128) }),
   'command.getReceipt': z.strictObject({
     commandId: z.enum(['session.setBudget', 'run.submit']),
     sessionId: idSchema,
@@ -1012,6 +1018,12 @@ export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
   'command.execute': unknown
+  'command.catalog': {
+    revision: number
+    items: import('@hbar/commands/protocol').CommandDescriptor[]
+    nextCursor?: string
+  }
+  'command.describe': import('@hbar/commands/protocol').CommandDescriptor
   'command.getReceipt': import('./commands/budget').BudgetReceipt | import('./commands/run').RunAccepted | null
   'operation.watch': import('./commands/run').OperationWatchResult
   'operation.unwatch': null

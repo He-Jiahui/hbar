@@ -9,7 +9,7 @@
       "category": "system.extensions",
       "milestone": "A3-A11",
       "status": "partial-budget",
-      "rpc": ["command.execute", "command.getReceipt"],
+      "rpc": ["command.catalog", "command.describe", "command.execute", "command.getReceipt"],
       "additionalCommands": [],
       "tests": ["tests/budget.test.ts", "tests/cli.test.ts"]
     },
@@ -330,7 +330,8 @@
     "A3": "complete",
     "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
     "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
-    "A6-A15": "pending",
+    "A6": "partial: classified Host catalog and budget/Run CLI; context and TUI pending",
+    "A7-A15": "pending",
     "B1-B7": "pending"
   }
 }

@@ -6,8 +6,8 @@ import { createInterface } from 'node:readline/promises'
 import { CommandError } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
-import { runCliCommand } from './commands.ts'
-import { openAttachedRuntime, openRuntime, waitForRun } from './runtime.ts'
+import { runCatalogCommand, runCliCommand, runOperationCommand } from './commands.ts'
+import { openAttachedRuntime, openCatalogClient, openRuntime, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
 
 function exitCode(error: unknown, usage = false) {
@@ -32,9 +32,9 @@ function exitCode(error: unknown, usage = false) {
 
 function completion(shell: string | undefined) {
   if (shell === 'powershell')
-    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'exec','session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
+    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'commands','exec','session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
   if (shell === 'bash' || shell === 'zsh')
-    return `complete -W "exec session model plugins skills config diagnose version" hbar`
+    return `complete -W "commands exec session model plugins skills config diagnose version" hbar`
   throw new Error('Usage: hbar completion <powershell|bash|zsh>')
 }
 
@@ -102,6 +102,24 @@ try {
     await attached(args)
     process.exit(0)
   }
+  if (args.command === 'commands') {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runCatalogCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && ['operation.get', 'operation.cancel'].includes(args.commandArgs[0] ?? '')) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runOperationCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
   if (args.headless && !args.command && !args.message && !process.stdin.isTTY)
     args.message = (await Bun.stdin.text()).trim()
   if (args.headless && !args.command && !args.message) {
@@ -110,7 +128,11 @@ try {
   }
   if (args.headless && args.approval === 'ask' && (!process.stdin.isTTY || !process.stdout.isTTY))
     throw new Error('--approval ask requires an interactive terminal')
-  const runtime = await openRuntime(args)
+  const runtime = await openRuntime({
+    ...args,
+    modelRequired: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
+    createSession: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
+  })
   try {
     const handled = await runCliCommand(args, runtime)
     if (!handled && args.headless) {

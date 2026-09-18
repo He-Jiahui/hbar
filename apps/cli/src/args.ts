@@ -14,6 +14,10 @@ export interface CliArgs {
   idempotencyKey?: string | undefined
   requestId?: string | undefined
   expectedRevision?: string | undefined
+  inputJson?: string | undefined
+  category?: string | undefined
+  after?: string | undefined
+  limit?: string | undefined
   model?: string | undefined
   thinking: ThinkingLevel
   approval: ApprovalMode
@@ -30,6 +34,10 @@ Usage:
   hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
   hbar exec session.getBudget --session <id|name>
   hbar exec receipt <idempotency-key> --session <id|name>
+  hbar commands list [--category <category>] [--limit <1-200>]
+  hbar commands describe <commandId>
+  hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
+  hbar exec operation.get|operation.cancel <operationId>
 
 Headless options:
   --message <text>                 Message (or read one message from stdin)
@@ -47,6 +55,7 @@ Paths:
 Commands:
   session list|new|resume|fork|archive|export
   exec session.setBudget|session.getBudget|receipt
+  commands list|describe
   model list|use
   plugins list|install|enable|disable|remove|inspect|doctor|lock
   skills list
@@ -71,6 +80,10 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'idempotency-key': { type: 'string' },
       'request-id': { type: 'string' },
       'expected-revision': { type: 'string' },
+      'input-json': { type: 'string' },
+      category: { type: 'string' },
+      after: { type: 'string' },
+      limit: { type: 'string' },
       'output-format': { type: 'string' },
       'data-root': { type: 'string' },
       'cache-root': { type: 'string' },
@@ -92,6 +105,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     'completion',
     'tui',
     'exec',
+    'commands',
   ])
   const command = positionals[0] && known.has(positionals[0]) ? positionals[0] : undefined
   const commandArgs = command ? positionals.slice(1) : []
@@ -99,7 +113,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
   const thinking = (values.thinking ?? 'off') as ThinkingLevel
   if (!['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(thinking))
     throw new Error(`Invalid --thinking: ${thinking}`)
-  const approval = (values.approval ?? (values.headless ? 'deny' : 'ask')) as ApprovalMode
+  const approval = (values.approval ?? (values.headless || command === 'exec' ? 'deny' : 'ask')) as ApprovalMode
   if (!['deny', 'allow', 'ask'].includes(approval)) throw new Error(`Invalid --approval: ${approval}`)
   const outputFormat = (values['output-format'] ?? 'text') as 'text' | 'jsonl'
   if (!['text', 'jsonl'].includes(outputFormat)) throw new Error(`Invalid --output-format: ${outputFormat}`)
@@ -116,6 +130,10 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     idempotencyKey: values['idempotency-key'] as string | undefined,
     requestId: values['request-id'] as string | undefined,
     expectedRevision: values['expected-revision'] as string | undefined,
+    inputJson: values['input-json'] as string | undefined,
+    category: values.category as string | undefined,
+    after: values.after as string | undefined,
+    limit: values.limit as string | undefined,
     model: values.model as string | undefined,
     thinking,
     approval,

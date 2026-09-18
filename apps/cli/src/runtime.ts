@@ -168,11 +168,17 @@ export async function selectSession(
   bootstrap: Bootstrap,
   projectId: string,
   selector?: string,
+  allowCreate = true,
 ) {
   const candidates = bootstrap.sessions.filter((session) => session.workspaceId === projectId)
-  const chosen = selector ? candidates.find((session) => session.id === selector || session.title === selector) : undefined
+  const chosen = selector
+    ? candidates.find((session) => session.id === selector || session.title === selector)
+    : undefined
   if (selector && !chosen) throw new Error(`Session not found in this project: ${selector}`)
-  return chosen ?? candidates.find((session) => !session.archived) ?? client.call('session.create', { workspaceId: projectId })
+  const selected = chosen ?? candidates.find((session) => !session.archived)
+  if (selected) return selected
+  if (!allowCreate) throw new Error('Session not found in this project')
+  return client.call('session.create', { workspaceId: projectId })
 }
 
 export function selectModel(bootstrap: Bootstrap, selector?: string) {
@@ -199,7 +205,24 @@ export async function openRuntime(options: {
   demo?: boolean | undefined
   thinking?: ThinkingLevel | undefined
   approval?: ApprovalMode | undefined
+  modelRequired?: boolean | undefined
+  createSession?: boolean | undefined
 }): Promise<CliRuntime> {
+  const { client, layout } = await openCatalogClient(options)
+  let bootstrap = await client.call('system.bootstrap', {})
+  const project = await selectProject(client, bootstrap, options.project)
+  bootstrap = await client.call('system.bootstrap', {})
+  const session = await selectSession(client, bootstrap, project.id, options.session, options.createSession !== false)
+  const modelId = options.modelRequired === false ? '' : selectModel(bootstrap, options.model)
+  return { client, layout, bootstrap, project, session, modelId, close: () => client.disconnect() }
+}
+
+export async function openCatalogClient(options: {
+  project?: string | undefined
+  dataRoot?: string | undefined
+  cacheRoot?: string | undefined
+  demo?: boolean | undefined
+}) {
   const initialProject = resolve(options.project ?? process.cwd())
   const layout = await resolvePathLayout({ dataRoot: options.dataRoot, cacheRoot: options.cacheRoot })
   if (!(await connection(layout)))
@@ -208,12 +231,7 @@ export async function openRuntime(options: {
   if (!file) throw new Error('Host connection is unavailable')
   const client = new HbarClient(file.url, file.token)
   await client.connect()
-  let bootstrap = await client.call('system.bootstrap', {})
-  const project = await selectProject(client, bootstrap, options.project)
-  bootstrap = await client.call('system.bootstrap', {})
-  const session = await selectSession(client, bootstrap, project.id, options.session)
-  const modelId = selectModel(bootstrap, options.model)
-  return { client, layout, bootstrap, project, session, modelId, close: () => client.disconnect() }
+  return { client, layout }
 }
 
 function jsonLine(value: unknown) {

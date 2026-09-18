@@ -117,10 +117,13 @@ export function createRunCommands(kernel: Kernel) {
   registry.register(runCommands['operation.get'], async ({ operationId }) => {
     try {
       const run = await kernel.storage.call('run', operationId)
+      const cancelRequested =
+        ['running', 'waiting_approval'].includes(run.status) &&
+        (await kernel.storage.call('cancelRequested', operationId))
       return {
         operationId: run.id,
         sessionId: run.sessionId,
-        status: run.status,
+        status: cancelRequested ? ('cancelRequested' as const) : run.status,
         startedAt: run.startedAt,
         endedAt: run.endedAt,
         error: run.error,
@@ -130,11 +133,29 @@ export function createRunCommands(kernel: Kernel) {
       throw error
     }
   })
+  registry.register(
+    runCommands['operation.cancel'],
+    async ({ operationId }) => {
+      try {
+        await kernel.cancel(operationId)
+        const run = await kernel.storage.call('run', operationId)
+        if (run.status === 'queued' || run.status === 'running' || run.status === 'waiting_approval')
+          return { operationId, status: 'cancelRequested' as const }
+        return { operationId, status: run.status }
+      } catch (error) {
+        if (error instanceof HbarError && error.code === 'NOT_FOUND') throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Cancellation requires operation reconciliation')
+      }
+    },
+    { durable: true },
+  )
   return {
     ...createCommandClient(runCommands, registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },
+    describe: (id: string) => registry.describe(id),
+    list: () => registry.list({ limit: 500 }),
     async getReceipt(sessionId: string, actorId: string, idempotencyKey: string): Promise<RunAccepted | null> {
       if (uncertainSessions.has(sessionId))
         throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
