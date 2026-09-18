@@ -21,6 +21,7 @@ import {
   createRunCommandClient,
   createSettingsCommandClient,
   createSystemCommandClient,
+  createUsageCommandClient,
   createWorkspaceSessionCommandClient,
   exportSessionEvents,
   allWorkspaceSessionCommands,
@@ -42,6 +43,7 @@ import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
 import { systemCommands } from '@hbar/contracts/commands/system'
+import { usageCommands, type UsageScope } from '@hbar/contracts/commands/usage'
 import { decodePath } from '@hbar/schema-core'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
@@ -53,6 +55,81 @@ export type CommandOutput = (value: unknown) => void
 
 function writeStdout(value: unknown) {
   process.stdout.write(`${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}\n`)
+}
+
+function optionalInteger(value: string | undefined, name: string, minimum = 0): number | undefined {
+  if (value === undefined) return undefined
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed < minimum)
+    throw new CommandError('INVALID_INPUT', `${name} must be an integer of at least ${minimum}`)
+  return parsed
+}
+
+function usageScope(args: CliArgs, runtime: CliRuntime, selector: string | undefined): UsageScope {
+  const kind = args.scope ?? 'session'
+  if (kind === 'global') return { kind }
+  if (kind === 'workspace') return { kind, workspaceId: runtime.project.id }
+  if (kind === 'session') return { kind, sessionId: runtime.session.id, includeDescendants: args.includeDescendants }
+  if (kind === 'run') {
+    if (!selector) throw new CommandError('INVALID_INPUT', 'Run scope requires an operation ID')
+    return { kind, runId: selector }
+  }
+  throw new CommandError('INVALID_INPUT', '--scope must be global|workspace|session|run')
+}
+
+async function runUsageCommand(args: CliArgs, runtime: CliRuntime, output: CommandOutput) {
+  const [action, selector] = args.commandArgs
+  if (action !== 'usage.query' && action !== 'usage.export') return false
+  const commands = createUsageCommandClient(runtime.client)
+  if (args.inputJson) {
+    let raw: unknown
+    try {
+      raw = JSON.parse(args.inputJson) as unknown
+    } catch {
+      throw new CommandError('INVALID_INPUT', '--input-json must contain JSON')
+    }
+    const parsed = usageCommands[action].input.safeParse(raw)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+    return true
+  }
+  const scope = usageScope(args, runtime, selector)
+  const filters = {
+    ...(args.provider ? { providerId: args.provider } : {}),
+    ...(args.model ? { modelId: args.model } : {}),
+    ...(args.source ? { source: args.source } : {}),
+  }
+  const common = {
+    scope,
+    ...(optionalInteger(args.from, '--from') !== undefined ? { from: optionalInteger(args.from, '--from') } : {}),
+    ...(optionalInteger(args.to, '--to', 1) !== undefined ? { to: optionalInteger(args.to, '--to', 1) } : {}),
+    filters,
+  }
+  const raw =
+    action === 'usage.query'
+      ? {
+          ...common,
+          ...(optionalInteger(args.bucketMs, '--bucket-ms', 1_000) !== undefined
+            ? { bucketMs: optionalInteger(args.bucketMs, '--bucket-ms', 1_000) }
+            : {}),
+          ...(optionalInteger(args.maxBuckets, '--max-buckets', 1) !== undefined
+            ? { maxBuckets: optionalInteger(args.maxBuckets, '--max-buckets', 1) }
+            : {}),
+          ...(optionalInteger(args.maxSamples, '--max-samples', 1) !== undefined
+            ? { maxSamples: optionalInteger(args.maxSamples, '--max-samples', 1) }
+            : {}),
+        }
+      : {
+          ...common,
+          ...(args.after ? { after: args.after } : {}),
+          ...(optionalInteger(args.limit, '--limit', 1) !== undefined
+            ? { limit: optionalInteger(args.limit, '--limit', 1) }
+            : {}),
+        }
+  const parsed = usageCommands[action].input.safeParse(raw)
+  if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+  output(await commands.execute(action, parsed.data))
+  return true
 }
 
 export async function runCatalogCommand(
@@ -970,6 +1047,7 @@ export async function runCliCommand(
       await runInteractionCommand(args, runtime, output)
       return true
     }
+    if (await runUsageCommand(args, runtime, output)) return true
     const commands = createBudgetCommandClient(runtime.client)
     const runs = createRunCommandClient(runtime.client)
     if (action === 'receipt') {
@@ -1055,11 +1133,7 @@ export async function runCliCommand(
       output(JSON.stringify(await runs.execute(action, input.data)))
       return true
     }
-    if (
-      action !== 'session.setBudget' &&
-      action !== 'session.getBudget' &&
-      action !== 'session.clearBudget'
-    )
+    if (action !== 'session.setBudget' && action !== 'session.getBudget' && action !== 'session.clearBudget')
       throw new CommandError('COMMAND_NOT_FOUND', 'Command is not available from this CLI')
     const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
     if (args.expectedRevision !== undefined && args.expectedRevision !== 'null')

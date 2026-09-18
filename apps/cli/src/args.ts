@@ -45,6 +45,14 @@ export interface CliArgs {
   atSeq?: string | undefined
   selector?: string | undefined
   fullPage: boolean
+  includeDescendants: boolean
+  from?: string | undefined
+  to?: string | undefined
+  bucketMs?: string | undefined
+  maxBuckets?: string | undefined
+  maxSamples?: string | undefined
+  provider?: string | undefined
+  source?: string | undefined
   valueJson?: string | undefined
   baselineJson?: string | undefined
   schemaVersion?: string | undefined
@@ -98,6 +106,7 @@ Usage:
   hbar exec run.retry <operationId> --session <id|name> --idempotency-key <key>
   hbar exec context.compact --session <id|name> --model <provider/model|id|name>
   hbar exec operation.get|operation.cancel <operationId>
+  hbar exec usage.query|usage.export --scope global|workspace|session|run [target]
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>
   hbar exec agent.create|agent.list|agent.cancel --session <id|name>
@@ -183,6 +192,14 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'at-seq': { type: 'string' },
       selector: { type: 'string' },
       'full-page': { type: 'boolean' },
+      'include-descendants': { type: 'boolean' },
+      from: { type: 'string' },
+      to: { type: 'string' },
+      'bucket-ms': { type: 'string' },
+      'max-buckets': { type: 'string' },
+      'max-samples': { type: 'string' },
+      provider: { type: 'string' },
+      source: { type: 'string' },
       'value-json': { type: 'string' },
       'baseline-json': { type: 'string' },
       'schema-version': { type: 'string' },
@@ -269,6 +286,14 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     atSeq: values['at-seq'] as string | undefined,
     selector: values.selector as string | undefined,
     fullPage: Boolean(values['full-page']),
+    includeDescendants: Boolean(values['include-descendants']),
+    from: values.from as string | undefined,
+    to: values.to as string | undefined,
+    bucketMs: values['bucket-ms'] as string | undefined,
+    maxBuckets: values['max-buckets'] as string | undefined,
+    maxSamples: values['max-samples'] as string | undefined,
+    provider: values.provider as string | undefined,
+    source: values.source as string | undefined,
     valueJson: values['value-json'] as string | undefined,
     baselineJson: values['baseline-json'] as string | undefined,
     schemaVersion: values['schema-version'] as string | undefined,

@@ -22,6 +22,7 @@ import {
   createModelSettingsValidator,
   createRunCommands,
   createSettingsCommands,
+  createUsageCommands,
 } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
@@ -38,6 +39,7 @@ import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/mode
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
+import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
 import {
   directoryCommands as directoryDefinitions,
   surfaceCommands as surfaceDefinitions,
@@ -58,6 +60,7 @@ import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
 import { createExtensionCommands } from './extension-commands.ts'
 import type { RuntimeScope } from '@hbar/kernel'
+import { UsageService } from '@hbar/usage'
 
 interface SocketData {
   token?: string | undefined
@@ -121,6 +124,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const modelCommands = createModelCommands(kernel, settingsService)
   const runCommands = createRunCommands(kernel)
   const settingsCommands = createSettingsCommands(settingsService)
+  const usageCommands = createUsageCommands(
+    new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
+  )
   const commandServices = [
     { definitions: agentDefinitions, service: agentCommands },
     { definitions: browserDefinitions, service: browserCommands },
@@ -137,6 +143,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: modelDefinitions, service: modelCommands },
     { definitions: runDefinitions, service: runCommands },
     { definitions: settingsDefinitions, service: settingsCommands },
+    { definitions: usageDefinitions, service: usageCommands },
   ]
   const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
     commandServices.flatMap(({ definitions, service }) =>
@@ -1053,6 +1060,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       modelCommands.dispose()
       runCommands.dispose()
       settingsCommands.dispose()
+      usageCommands.dispose()
       systemCommands.dispose()
       unsubscribe()
       for (const pending of [...pendingSurfaceByRelay.values()])

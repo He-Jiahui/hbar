@@ -9,6 +9,8 @@ import {
 } from '@hbar/contracts/usage'
 import type { ProviderConfig, Usage } from '@hbar/contracts'
 
+export * from './service'
+
 function pricing(model: ProviderConfig): UsageAttemptDescriptor['pricing'] {
   const fixture = model.protocol === 'mock'
   return {

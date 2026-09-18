@@ -305,6 +305,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
           outputFormat: 'text',
           demo: false,
           fullPage: false,
+          includeDescendants: false,
         },
         (value) => output.push(value),
       )

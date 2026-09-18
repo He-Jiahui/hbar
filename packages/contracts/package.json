@@ -22,6 +22,7 @@
     "./commands/run": "./src/commands/run.ts",
     "./commands/settings": "./src/commands/settings.ts",
     "./commands/system": "./src/commands/system.ts",
+    "./commands/usage": "./src/commands/usage.ts",
     "./commands/workspaces": "./src/commands/workspaces.ts",
     "./directory": "./src/state/directory.ts",
     "./usage": "./src/usage.ts"

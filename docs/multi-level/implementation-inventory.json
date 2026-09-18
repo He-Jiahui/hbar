@@ -186,7 +186,7 @@
       "id": "git",
       "owner": "git plugin / Git statistics provider",
       "stateOwner": "Host repository state and commit provenance",
-      "category": "monitoring.git",
+      "category": "monitoring.usage",
       "milestone": "A11/A14",
       "status": "complete-headless-commands-statistics-pending",
       "rpc": [
@@ -285,7 +285,7 @@
       "stateOwner": "Host parent-child sessions, usage ledger, bounded metrics",
       "category": "monitoring.git",
       "milestone": "A11-A13",
-      "status": "partial-agent-and-usage-facts-complete-usage-query-and-metrics-pending",
+      "status": "complete-agent-and-usage-commands-performance-metrics-pending",
       "rpc": [],
       "additionalCommands": [
         "agent.create",
@@ -296,7 +296,7 @@
         "usage.query",
         "usage.export"
       ],
-      "tests": ["tests/agent-commands.test.ts", "tests/cli.test.ts"]
+      "tests": ["tests/agent-commands.test.ts", "tests/usage-facts.test.ts", "tests/usage-commands.test.ts", "tests/cli.test.ts"]
     }
   ],
   "renames": {
@@ -384,7 +384,8 @@
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
     "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, Host system/path/device/pairing, and extension domains migrated through commands and CLI",
-    "A12-A15": "A12 in progress: versioned usage and attempt facts complete; query/export pending",
+    "A12": "complete: versioned usage and attempt facts, bounded query/export, typed Client and CLI",
+    "A13-A15": "pending",
     "B1-B7": "pending"
   }
 }

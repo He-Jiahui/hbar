@@ -19,6 +19,8 @@ import {
   sessionListInputSchema,
 } from '@hbar/contracts/directory'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
+import { USAGE_EVENT_TYPES } from '@hbar/usage'
+import type { UsageReadInput, UsageReadRow } from '@hbar/usage'
 import type {
   Approval,
   ArtifactRef,
@@ -167,6 +169,39 @@ function messageRow(row: Row): Message {
 }
 function eventRow(row: Row): SessionEvent {
   return sessionEventSchema.parse({ ...row, data: parseJson(row.data as string) })
+}
+function usageReadRow(row: Row): UsageReadRow {
+  const event = eventRow({
+    eventId: row.eventId,
+    sessionId: row.sessionId,
+    seq: row.seq,
+    runId: row.runId,
+    stepId: row.stepId,
+    type: row.type,
+    data: row.data,
+    time: row.time,
+    version: row.version,
+  })
+  const run = row.r_id
+    ? runRow({
+        id: row.r_id,
+        sessionId: row.r_sessionId,
+        requestId: row.r_requestId,
+        input: row.r_input,
+        modelId: row.r_modelId,
+        status: row.r_status,
+        createdAt: row.r_createdAt,
+        startedAt: row.r_startedAt,
+        endedAt: row.r_endedAt,
+        error: row.r_error,
+      })
+    : null
+  return {
+    event,
+    workspaceId: String(row.workspaceId),
+    parentSessionId: row.parentSessionId ? String(row.parentSessionId) : null,
+    run,
+  }
 }
 function approvalRow(row: Row | null): Approval {
   const value = required(row, 'Approval')
@@ -386,6 +421,59 @@ const methods: StorageMethods = {
         .query('SELECT * FROM events WHERE sessionId=? AND seq>? ORDER BY seq LIMIT ?')
         .all(sessionId, after, limit) as Row[]
     ).map(eventRow)
+  },
+  usageEvents(input: UsageReadInput) {
+    const limit = Math.min(Math.max(input.limit, 1), 2_000)
+    const params: (string | number | null)[] = [...USAGE_EVENT_TYPES, input.from, input.to]
+    let scope = ''
+    if (input.scope.kind === 'workspace') {
+      methods.workspace(input.scope.workspaceId)
+      scope = 'AND s.workspaceId=?'
+      params.push(input.scope.workspaceId)
+    } else if (input.scope.kind === 'session') {
+      methods.session(input.scope.sessionId)
+      if (input.scope.includeDescendants) {
+        scope = `AND e.sessionId IN (
+          WITH RECURSIVE tree(id) AS (
+            SELECT ? UNION ALL SELECT child.id FROM sessions child JOIN tree parent ON child.parentId=parent.id
+          ) SELECT id FROM tree
+        )`
+      } else scope = 'AND e.sessionId=?'
+      params.push(input.scope.sessionId)
+    } else if (input.scope.kind === 'run') {
+      methods.run(input.scope.runId)
+      scope = 'AND e.runId=?'
+      params.push(input.scope.runId)
+    }
+    let cursor = ''
+    if (input.after) {
+      cursor = 'AND (e.time>? OR (e.time=? AND e.eventId>?))'
+      params.push(input.after.time, input.after.time, input.after.eventId)
+    }
+    params.push(limit + 1)
+    const placeholders = USAGE_EVENT_TYPES.map(() => '?').join(',')
+    const rows = db
+      .query(
+        `SELECT
+          e.eventId,e.sessionId,e.seq,e.runId,e.stepId,e.type,e.data,e.time,e.version,
+          s.workspaceId,s.parentId AS parentSessionId,
+          r.id AS r_id,r.sessionId AS r_sessionId,r.requestId AS r_requestId,r.input AS r_input,
+          r.modelId AS r_modelId,r.status AS r_status,r.createdAt AS r_createdAt,
+          r.startedAt AS r_startedAt,r.endedAt AS r_endedAt,r.error AS r_error
+        FROM events e
+        JOIN sessions s ON s.id=e.sessionId
+        LEFT JOIN runs r ON r.id=e.runId
+        WHERE e.type IN (${placeholders}) AND e.time>=? AND e.time<? ${scope} ${cursor}
+        ORDER BY e.time,e.eventId LIMIT ?`,
+      )
+      .all(...params) as Row[]
+    const items = rows.slice(0, limit).map(usageReadRow)
+    const last = items.at(-1)?.event
+    return {
+      items,
+      hasMore: rows.length > limit,
+      ...(rows.length > limit && last ? { next: { time: last.time, eventId: last.eventId } } : {}),
+    }
   },
   commit: (...args) =>
     db.transaction(() => {

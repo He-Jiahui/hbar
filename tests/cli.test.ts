@@ -868,6 +868,75 @@ test('classified command catalog and Run operations are usable without a GUI', a
   expect(missingRetryKey.code).toBe(2)
 })
 
+test('usage query and export expose settled attempt facts without a GUI', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const sessionId = (JSON.parse(created.stdout) as { id: string }).id
+  const submitted = await run([
+    ...common,
+    '--session',
+    sessionId,
+    'exec',
+    'run.submit',
+    '--message',
+    'usage from CLI',
+    '--idempotency-key',
+    'usage-cli-run',
+  ])
+  expect(submitted.code).toBe(0)
+  const operationId = (JSON.parse(submitted.stdout) as { operationId: string }).operationId
+  let settled = false
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const inspected = await run([...common, '--session', sessionId, 'exec', 'operation.get', operationId])
+    const operation = JSON.parse(inspected.stdout) as { status: string }
+    if (!['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(operation.status)) {
+      settled = true
+      break
+    }
+    await Bun.sleep(10)
+  }
+  expect(settled).toBe(true)
+  const queried = await run([
+    ...common,
+    '--session',
+    sessionId,
+    'exec',
+    'usage.query',
+    '--scope',
+    'session',
+    '--bucket-ms',
+    '1000',
+    '--max-buckets',
+    '10',
+  ])
+  expect(queried.code).toBe(0)
+  expect(JSON.parse(queried.stdout)).toMatchObject({
+    accountingVersion: 1,
+    gap: false,
+    totals: { attempts: 1, runs: 1 },
+    cost: { availability: 'available', value: 0 },
+  })
+  const exported = await run([
+    ...common,
+    '--session',
+    sessionId,
+    'exec',
+    'usage.export',
+    operationId,
+    '--scope',
+    'run',
+    '--limit',
+    '1',
+  ])
+  expect(exported.code).toBe(0)
+  expect(JSON.parse(exported.stdout)).toMatchObject({
+    accountingVersion: 1,
+    gap: false,
+    items: [{ runId: operationId, source: 'model' }],
+  })
+})
+
 test('named contexts persist app.setSession with revision conflicts and supply later command targets', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

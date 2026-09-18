@@ -120,6 +120,8 @@ A11p 交付 `run.retry`：命令按 operation ID 读取已经持久化的原模�
 
 A12a 建立可查询前的 Usage/Attempt 规范事实：`@hbar/usage` 根据实际请求模型生成带稳定 usage/attempt ID、计价快照与 accounting version 的记录；Pi driver 只在真实观察到首供应商、首思考和首正文时写时间标记。普通运行和 compaction 都写同一 usage 结构，旧预算与目标解析保持兼容。测试验证标记顺序、模型归属、去重身份、压缩用量以及未知价格不会被宣称为可计价。
 
+A12b 完成 Usage 查询和导出闭环。Storage 用固定事件类型、时间范围、scope 与稳定游标执行有界 SQL；`@hbar/usage` 负责旧/新事实归一、usage ID 去重、后代聚合、价格覆盖、缓存资格、速率、模型分组、时间桶和 p50/p95。Host commands、typed Client、CLI 与 API 返回同一报告；超过事件/样本上限显式 `gap: true`。真实父子 Session、Run scope、过滤、分页导出和 CLI 场景均由 fixture provider 验证。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

@@ -18,6 +18,7 @@ import type {
   SessionPage,
 } from '@hbar/contracts'
 import type { RunCommandRecord } from '@hbar/contracts/commands/run'
+import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 
 export interface StoredSettingsLayer {
   id: string
@@ -75,6 +76,7 @@ export interface StorageMethods {
   updateSession(id: string, update: { title?: string; archived?: boolean }): { session: Session; event: SessionEvent }
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
+  usageEvents(input: UsageReadInput): UsageReadPage
   commit(
     sessionId: string,
     runId: string,

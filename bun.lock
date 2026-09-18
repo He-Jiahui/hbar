@@ -198,6 +198,9 @@
     "packages/storage": {
       "name": "@hbar/storage",
       "version": "0.1.0",
+      "dependencies": {
+        "@hbar/usage": "workspace:*",
+      },
     },
     "packages/terminal": {
       "name": "@hbar/terminal",

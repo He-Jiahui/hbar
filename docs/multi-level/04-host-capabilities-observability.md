@@ -67,6 +67,8 @@ A11p 补齐持久 `run.retry`。调用方只提交原 operation ID 与 Session�
 
 A12a 新增独立 `@hbar/usage` 事实库。每次模型请求以 step ID 作为稳定 attempt ID，持久记录请求开始、首供应商事件、首思考、首可见正文和最终 usage；usage ID 由 Run/Attempt/source 确定，可跨重建去重。事实同时冻结 provider/model、价格来源和版本、成本估算属性及缓存资格可用性。上下文压缩使用独立 compaction attempt；驱动无法观察其首事件时不补造 TTFT。顶层 input/output/cache/cost 字段保持兼容，预算和目标继续读取同一事实。
 
+A12b 由同一包提供 UsageService，以 Storage 的有界事件页为读取端口，发布 `usage.query` 与 `usage.export`。查询支持 global/workspace/session（可含后代）/run scope、时间窗、模型/供应商/source 过滤、桶宽与最大样本；返回 token、按模型和时间桶聚合、窗口速率、p50/p95 attempt 时序、价格与缓存命中可用性及截断 gap。usage ID 去重后再聚合；未知或部分价格、缺少 cache eligible input 和历史缺少首事件均返回 null 与明确 reason。导出按稳定的结束时间/usage ID 游标分页。CLI、typed Client 与 Host catalog 共用契约。
+
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 
 预算耗尽限制发生在已有执行检查点，在途供应商消耗可能超出剩余额度；记录与说明实际检查时机，不因名称叫上限便保证绝不超额。降低上限、重置账本、改变消耗口径另立明确命令和迁移，不混在本次 adapter 中改变。
