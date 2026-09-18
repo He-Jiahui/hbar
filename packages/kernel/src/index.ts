@@ -557,6 +557,15 @@ export class Kernel {
       }),
     )).flat()
   }
+  async providerProfiles() {
+    const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
+    return Promise.all(
+      providers.map(async (provider) => ({
+        provider,
+        hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
+      })),
+    )
+  }
   async saveProvider(config: ProviderInput, apiKey?: string) {
     this.assertIdle()
     this.maintenance = true

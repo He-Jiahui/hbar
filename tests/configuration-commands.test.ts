@@ -33,6 +33,12 @@ test('configuration commands share provider, permission, and session mode facts 
   await client.pair(host.pairing.code, 'configuration test')
   const commands = createConfigurationCommandClient(client)
 
+  const providerDescription = await commands.execute('provider.describe', {})
+  expect(providerDescription).toMatchObject({ id: 'hbar.provider', version: 1 })
+  expect(providerDescription.fields.some((field) => field.name === 'apiKey' && field.sensitive)).toBeTrue()
+  const initialProfiles = await commands.execute('provider.list', {})
+  expect(initialProfiles.every((profile) => !JSON.stringify(profile).includes('apiKey'))).toBeTrue()
+
   expect(await commands.execute('permission.get', {})).toEqual({ mode: 'ask' })
   expect(await commands.execute('permission.set', { mode: 'allow' })).toEqual({ mode: 'allow' })
   expect(await commands.execute('permission.get', {})).toEqual({ mode: 'allow' })
@@ -64,10 +70,21 @@ test('configuration commands share provider, permission, and session mode facts 
   })
   expect(JSON.stringify(saved)).not.toContain(apiKey)
   expect(await secrets.get('command-provider')).toBe(apiKey)
-  expect((await createModelCommandClient(client).execute('model.list', {})).some((model) => model.id === saved.id)).toBeTrue()
+  expect(
+    (await createModelCommandClient(client).execute('model.list', {})).some((model) => model.id === saved.id),
+  ).toBeTrue()
+  const profiles = await commands.execute('provider.list', {})
+  expect(profiles).toHaveLength(initialProfiles.length + 1)
+  expect(profiles.find((profile) => profile.provider.id === 'command-provider')).toMatchObject({
+    provider: { id: 'command-provider' },
+    hasKey: true,
+  })
+  expect(JSON.stringify(profiles)).not.toContain(apiKey)
 
   expect(await commands.execute('provider.delete', { id: 'command-provider' })).toEqual({ deleted: true })
   expect(await commands.execute('provider.delete', { id: 'command-provider' })).toEqual({ deleted: false })
   expect(await secrets.get('command-provider')).toBeNull()
-  expect((await createModelCommandClient(client).execute('model.list', {})).some((model) => model.id === saved.id)).toBeFalse()
+  expect(
+    (await createModelCommandClient(client).execute('model.list', {})).some((model) => model.id === saved.id),
+  ).toBeFalse()
 })

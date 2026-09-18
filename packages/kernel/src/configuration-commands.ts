@@ -1,9 +1,173 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import type { ProviderEditorDescription } from '@hbar/contracts/commands/configuration'
 import type { ModeService } from '@hbar/plugin-sdk'
 import type { Kernel } from './index'
 import { toModelDescriptor } from './model-commands'
+
+export const HBAR_PROVIDER_EDITOR_DESCRIPTION: ProviderEditorDescription = Object.freeze({
+  id: 'hbar.provider',
+  version: 1,
+  fields: [
+    {
+      name: 'id',
+      type: 'string' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.id.label',
+      helpKey: 'i18n:settings.providers.id.help',
+      component: 'TextField',
+      order: 10,
+      readOnlyOnEdit: true,
+      sensitive: false,
+      minLength: 1,
+      maxLength: 64,
+    },
+    {
+      name: 'name',
+      type: 'string' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.name.label',
+      component: 'TextField',
+      order: 20,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      minLength: 1,
+      maxLength: 100,
+    },
+    {
+      name: 'protocol',
+      type: 'string' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.protocol.label',
+      component: 'ComboBox',
+      order: 30,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      choices: ['openai-completions', 'openai-responses', 'anthropic-messages', 'mock'],
+    },
+    {
+      name: 'baseUrl',
+      type: 'string' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.baseUrl.label',
+      component: 'TextField',
+      order: 40,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      minLength: 1,
+      maxLength: 2_048,
+    },
+    {
+      name: 'model',
+      type: 'string' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.model.label',
+      component: 'TextField',
+      order: 50,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      minLength: 1,
+      maxLength: 160,
+    },
+    {
+      name: 'contextWindow',
+      type: 'integer' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.contextWindow.label',
+      component: 'NumberField',
+      order: 60,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      minimum: 1_024,
+      maximum: 10_000_000,
+      defaultValue: 128_000,
+    },
+    {
+      name: 'maxOutput',
+      type: 'integer' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.maxOutput.label',
+      component: 'NumberField',
+      order: 70,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      minimum: 64,
+      maximum: 1_000_000,
+      defaultValue: 8_192,
+    },
+    {
+      name: 'imageInput',
+      type: 'boolean' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.imageInput.label',
+      component: 'CheckBox',
+      order: 80,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      defaultValue: false,
+    },
+    {
+      name: 'reasoning',
+      type: 'boolean' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.reasoning.label',
+      component: 'CheckBox',
+      order: 90,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      defaultValue: false,
+    },
+    {
+      name: 'inputPrice',
+      type: 'number' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.inputPrice.label',
+      component: 'NumberField',
+      order: 100,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      minimum: 0,
+      defaultValue: 0,
+    },
+    {
+      name: 'outputPrice',
+      type: 'number' as const,
+      required: true,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.outputPrice.label',
+      component: 'NumberField',
+      order: 110,
+      readOnlyOnEdit: false,
+      sensitive: false,
+      minimum: 0,
+      defaultValue: 0,
+    },
+    {
+      name: 'apiKey',
+      type: 'string' as const,
+      required: false,
+      nullable: false,
+      labelKey: 'i18n:settings.providers.apiKey.label',
+      helpKey: 'i18n:settings.providers.apiKey.help',
+      component: 'SecretField',
+      order: 120,
+      readOnlyOnEdit: false,
+      sensitive: true,
+      maxLength: 8_192,
+    },
+  ],
+})
 
 export function createConfigurationCommands(kernel: Kernel, modes: ModeService) {
   const registry = new CommandRegistry({ execution: 'host' })
@@ -15,6 +179,9 @@ export function createConfigurationCommands(kernel: Kernel, modes: ModeService) 
       throw error
     }
   }
+
+  registry.register(configurationCommands['provider.describe'], () => HBAR_PROVIDER_EDITOR_DESCRIPTION)
+  registry.register(configurationCommands['provider.list'], () => translate(() => kernel.providerProfiles()))
 
   registry.register(configurationCommands['permission.get'], () => ({ mode: kernel.permissionMode() }))
   registry.register(

@@ -7,6 +7,37 @@ const permissionResultSchema = z.strictObject({ mode: approvalModeSchema })
 const modeResultSchema = z.strictObject({ mode: runModeSchema })
 const providerIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
 const deleteResultSchema = z.strictObject({ deleted: z.boolean() })
+const providerProfileSchema = z.strictObject({ provider: providerInputSchema, hasKey: z.boolean() })
+const providerEditorDescriptionSchema = z.strictObject({
+  id: z.string().min(1).max(160),
+  version: z.number().int().positive(),
+  fields: z
+    .array(
+      z.strictObject({
+        name: z.string().min(1).max(128),
+        type: z.enum(['string', 'integer', 'number', 'boolean']),
+        required: z.boolean(),
+        nullable: z.boolean(),
+        labelKey: z.string().startsWith('i18n:').max(256),
+        helpKey: z.string().startsWith('i18n:').max(256).optional(),
+        component: z.string().regex(/^[A-Z][A-Za-z0-9.]{0,127}$/),
+        order: z.number().int().nonnegative(),
+        readOnlyOnEdit: z.boolean(),
+        sensitive: z.boolean(),
+        minimum: z.number().finite().optional(),
+        maximum: z.number().finite().optional(),
+        minLength: z.number().int().nonnegative().optional(),
+        maxLength: z.number().int().positive().optional(),
+        choices: z
+          .array(z.union([z.string(), z.number(), z.boolean()]))
+          .max(64)
+          .optional(),
+        defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+      }),
+    )
+    .min(1)
+    .max(64),
+})
 
 function metadata(
   id: string,
@@ -31,6 +62,16 @@ function metadata(
 }
 
 export const configurationCommands = {
+  'provider.describe': defineCommand(
+    metadata('provider.describe', 'query', 'global', 'settings.providers', 'hbar.providers'),
+    z.strictObject({}),
+    providerEditorDescriptionSchema,
+  ),
+  'provider.list': defineCommand(
+    metadata('provider.list', 'query', 'global', 'settings.providers', 'hbar.providers'),
+    z.strictObject({}),
+    z.array(providerProfileSchema).max(256),
+  ),
   'permission.get': defineCommand(
     metadata('permission.get', 'query', 'global', 'run.approval', 'hbar.permissions'),
     z.strictObject({}),
@@ -79,3 +120,6 @@ export const configurationCommands = {
     deleteResultSchema,
   ),
 }
+
+export type ProviderProfile = z.output<typeof providerProfileSchema>
+export type ProviderEditorDescription = z.output<typeof providerEditorDescriptionSchema>
