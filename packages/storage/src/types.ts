@@ -56,6 +56,8 @@ export interface StorageMethods {
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   claim(sessionId: string): Run | null
   run(id: string): Run
+  requestCancel(id: string): { run: Run; event: SessionEvent | null }
+  cancelRequested(id: string): boolean
   setRun(id: string, status: RunStatus, error?: string): SessionEvent
   queuedSessions(): string[]
   createApproval(approval: Approval): SessionEvent

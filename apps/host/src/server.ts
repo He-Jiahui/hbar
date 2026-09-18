@@ -27,6 +27,7 @@ interface SocketData {
   deviceId?: string | undefined
   initialized: boolean
   follows: Set<string>
+  operationFollows: Set<string>
   pending: number
   timer?: ReturnType<typeof setTimeout> | undefined
   scope?: RuntimeScope | undefined
@@ -126,6 +127,27 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return input.commandId === 'run.submit'
           ? runCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
           : budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+      }
+      case 'operation.watch': {
+        const input = rpcSchemas[method].parse(raw)
+        const snapshot = await runCommands.execute('operation.get', { operationId: input.operationId })
+        const session = await kernel.storage.call('session', snapshot.sessionId)
+        if (!socket.data.operationFollows.has(input.operationId) && socket.data.operationFollows.size >= 128)
+          throw new HbarError('BUSY', 'Too many watched operations')
+        socket.data.operationFollows.add(input.operationId)
+        const events = await kernel.storage.call('events', snapshot.sessionId, input.cursor, 201)
+        const reset = events.length > 200 || input.cursor > session.seq
+        return {
+          snapshot,
+          events: reset ? [] : events.filter((event) => event.runId === input.operationId),
+          cursor: session.seq,
+          reset,
+        }
+      }
+      case 'operation.unwatch': {
+        const input = rpcSchemas[method].parse(raw)
+        socket.data.operationFollows.delete(input.operationId)
+        return null
       }
       case 'system.hello': {
         const params = rpcSchemas[method].parse(raw)
@@ -539,7 +561,13 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         if (url.pathname === '/rpc') {
           if (
             host.upgrade(request, {
-              data: { token: requestToken(request), initialized: false, follows: new Set(), pending: 0 },
+              data: {
+                token: requestToken(request),
+                initialized: false,
+                follows: new Set(),
+                operationFollows: new Set(),
+                pending: 0,
+              },
             })
           )
             return undefined
@@ -647,11 +675,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const unsubscribe = kernel.subscribe((event: WireNotification) => {
     for (const socket of sockets) {
       if (!socket.data.initialized) continue
-      if (
-        (event.method === 'session.event' || event.method === 'stream.update') &&
-        !socket.data.follows.has(event.params.sessionId)
-      )
-        continue
+      if (event.method === 'session.event' || event.method === 'stream.update') {
+        const bySession = socket.data.follows.has(event.params.sessionId)
+        const byOperation = Boolean(event.params.runId && socket.data.operationFollows.has(event.params.runId))
+        if (!bySession && !byOperation) continue
+      }
       send(socket, { jsonrpc: '2.0', ...event })
     }
   })

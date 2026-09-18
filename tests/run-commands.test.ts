@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarClient, createRunCommandClient } from '@hbar/client'
+import { HbarClient, createRunCommandClient, createOperationWatcher } from '@hbar/client'
 import { Kernel, MemorySecrets, createRunCommands } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -123,6 +123,134 @@ test('lost admission acknowledgement recovers the committed operation rather tha
     await kernel.waitForIdle()
     commands.dispose()
   } finally {
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('operation.cancel settles queued work atomically and running work after cancellation reaches its driver', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-operation-cancel-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'cancel actor')
+    const commands = createRunCommandClient(client)
+    const queued = await kernel.storage.call(
+      'enqueue',
+      session.id,
+      'queued-cancel',
+      { text: 'queued', images: [] },
+      'local-fixture',
+    )
+    expect(await commands.execute('operation.cancel', { operationId: queued.id })).toEqual({
+      operationId: queued.id,
+      status: 'cancelled',
+    })
+    expect(await commands.execute('operation.cancel', { operationId: queued.id })).toEqual({
+      operationId: queued.id,
+      status: 'cancelled',
+    })
+    expect(
+      (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'run.settled'),
+    ).toHaveLength(1)
+    const accepted = await commands.execute(
+      'run.submit',
+      {
+        sessionId: session.id,
+        modelId: 'local-fixture',
+        input: { text: '/slow', images: [] },
+      },
+      { idempotencyKey: 'slow' },
+    )
+    for (let i = 0; i < 100 && !kernel.streams.size; i++) await Bun.sleep(10)
+    expect(kernel.streams.size).toBeGreaterThan(0)
+    const result = await commands.execute('operation.cancel', { operationId: accepted.operationId })
+    expect(['cancelRequested', 'cancelled']).toContain(result.status)
+    await kernel.waitForIdle()
+    expect(await commands.execute('operation.get', { operationId: accepted.operationId })).toMatchObject({
+      status: 'cancelled',
+    })
+    expect(
+      (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'run.cancelRequested'),
+    ).toHaveLength(1)
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('operation watch resumes from a cursor after reconnect and stops after unwatch', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-operation-watch-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'watch actor')
+    const accepted = await createRunCommandClient(client).execute(
+      'run.submit',
+      {
+        sessionId: session.id,
+        modelId: 'local-fixture',
+        input: { text: 'hello', images: [] },
+      },
+      { idempotencyKey: 'watch' },
+    )
+    await kernel.waitForIdle()
+    const observed: string[] = []
+    const watcher = await createOperationWatcher(client).watch(accepted.operationId, 0, (update) => {
+      if (update.kind === 'event') observed.push(update.event.type)
+    })
+    expect(watcher.initial.snapshot.operationId).toBe(accepted.operationId)
+    expect(watcher.initial.events.some((event) => event.type === 'run.queued')).toBe(true)
+    const reset = await client.call('operation.watch', { operationId: accepted.operationId, cursor: 9_999_999 })
+    expect(reset).toMatchObject({ reset: true, events: [] })
+    await kernel.append(session.id, 'test.marker.one', {}, accepted.operationId)
+    for (let i = 0; i < 30 && !observed.includes('test.marker.one'); i++) await Bun.sleep(10)
+    expect(observed).toContain('test.marker.one')
+    const unrelated = await kernel.storage.call(
+      'enqueue',
+      session.id,
+      'unrelated-watch',
+      { text: 'not followed', images: [] },
+      'local-fixture',
+    )
+    const beforeUnrelated = observed.length
+    await kernel.append(session.id, 'test.unrelated', {}, unrelated.id)
+    await Bun.sleep(20)
+    expect(observed).toHaveLength(beforeUnrelated)
+    client.disconnect()
+    await Bun.sleep(20)
+    await kernel.append(session.id, 'test.marker.two', {}, accepted.operationId)
+    await client.connect()
+    for (let i = 0; i < 50 && !observed.includes('test.marker.two'); i++) await Bun.sleep(10)
+    expect(observed).toContain('test.marker.two')
+    await watcher.close()
+    const count = observed.length
+    await kernel.append(session.id, 'test.marker.three', {}, accepted.operationId)
+    await Bun.sleep(20)
+    expect(observed).toHaveLength(count)
+  } finally {
+    client?.disconnect()
+    await host?.close()
     await kernel.close()
     await rm(root, { recursive: true, force: true })
   }

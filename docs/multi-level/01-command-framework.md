@@ -1,6 +1,6 @@
 # P1：命令框架、分类目录与参数执行
 
-状态：实施中，A1 命令包、A3 预算持久回执与 A5a Run 受理/查询已交付；长任务取消与其余入口迁移继续按 A5b/A6/A11 完成。上级：[总计划](command-first-architecture-plan.md)。依赖：[P0 包边界](00-framework-boundaries.md)。交付包：`packages/commands`，配套 hbar contracts、Host adapter 和 terminal adapter。
+状态：实施中，A1 命令包、A3 预算持久回执与 A5 Run 受理/查询/取消/watch 已交付；CLI/TUI 与其余领域入口迁移继续按 A6/A11 完成。上级：[总计划](command-first-architecture-plan.md)。依赖：[P0 包边界](00-framework-boundaries.md)。交付包：`packages/commands`，配套 hbar contracts、Host adapter 和 terminal adapter。
 
 ## 1. 对用户和代码统一的调用模型
 

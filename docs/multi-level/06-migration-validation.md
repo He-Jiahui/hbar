@@ -60,7 +60,9 @@ A11 至少按“审批问卷、目标计划、模型配置、文件附件、子 
 
 A3 在 `c24ad92` 提交，A4 的无 UI schema-core 在 `3d5e9af` 独立提交。预算表单 runtime adapter 已实现原目标绑定、只读 Zustand 草稿、本地字段命令、Host 提交及未知结果回执核对，并用真实 Host 检查同一预算事实；GUI renderer 与逻辑窗口仍属于后续 A7/B1/B4，A4 不标记完整退出。
 
-A4b 的预算表单 runtime adapter 在 `67a1867` 提交。A5a 以已有 Run 队列作为 operation，`run.submit` 的命令身份与受理回执随 `run.queued` 规范事实原子写入，`operation.get` 读取权威状态，按认证 actor + key 核对首次受理；取消、watch 与无 GUI CLI 入口继续在 A5b/A6，A5 尚未完整退出。
+A4b 的预算表单 runtime adapter 在 `67a1867` 提交。A5a 以已有 Run 队列作为 operation，`run.submit` 的命令身份与受理回执随 `run.queued` 规范事实原子写入，`operation.get` 读取权威状态，按认证 actor + key 核对首次受理；取消与 watch 在 A5b、无 GUI CLI 入口在 A6 交付。
+
+A5a 在 `187c991` 提交。A5b 为取消请求增加原子队列终态/活动态意图事实，Host 将取消传播到执行端；operation watch 从有界游标读取并在断线后重订阅。真实 Host 验证排队、运行中、重复取消、重连、无关事件过滤和 unwatch。CLI/TUI 路由仍由 A6 交付。
 
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 

@@ -463,6 +463,25 @@ const methods: StorageMethods = {
       return methods.run(row.id as string)
     })(),
   run: (id) => runRow(db.query('SELECT * FROM runs WHERE id=?').get(id) as Row | null),
+  requestCancel: (id) =>
+    db.transaction(() => {
+      const run = methods.run(id)
+      if (['completed', 'cancelled', 'failed', 'interrupted'].includes(run.status)) return { run, event: null }
+      if (run.status === 'queued') {
+        db.query("UPDATE runs SET status='cancelled',endedAt=? WHERE id=?").run(Date.now(), id)
+        const cancelled = methods.run(id)
+        return { run: cancelled, event: appendEvent(run.sessionId, 'run.settled', { run: cancelled }, id) }
+      }
+      const already = db
+        .query("SELECT eventId FROM events WHERE runId=? AND type='run.cancelRequested' LIMIT 1")
+        .get(id)
+      return {
+        run,
+        event: already ? null : appendEvent(run.sessionId, 'run.cancelRequested', { runId: id }, id),
+      }
+    })(),
+  cancelRequested: (id) =>
+    Boolean(db.query("SELECT eventId FROM events WHERE runId=? AND type='run.cancelRequested' LIMIT 1").get(id)),
   setRun: (id, status, error) =>
     db.transaction(() => {
       const run = methods.run(id)

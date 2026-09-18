@@ -117,10 +117,23 @@
       "stateOwner": "Host Run/Attempt/intent; client prompt drafts",
       "category": "run.approval",
       "milestone": "A5/A11",
-      "status": "pending",
-      "rpc": ["run.start", "run.cancel", "approval.resolve", "user_input.resolve", "context.compact"],
+      "status": "partial-run-operation",
+      "rpc": [
+        "run.start",
+        "run.cancel",
+        "operation.watch",
+        "operation.unwatch",
+        "approval.resolve",
+        "user_input.resolve",
+        "context.compact"
+      ],
       "additionalCommands": ["run.retry", "operation.get", "operation.watch", "operation.cancel"],
-      "tests": ["tests/kernel.test.ts", "tests/crash.test.ts", "tests/capabilities.test.ts"]
+      "tests": [
+        "tests/kernel.test.ts",
+        "tests/crash.test.ts",
+        "tests/capabilities.test.ts",
+        "tests/run-commands.test.ts"
+      ]
     },
     {
       "id": "git",
@@ -316,7 +329,7 @@
     "A2": "complete",
     "A3": "complete",
     "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
-    "A5": "partial: run.submit durable acceptance and operation.get; cancel/watch pending",
+    "A5": "complete: durable Run acceptance, cancellation, operation query and watch recovery",
     "A6-A15": "pending",
     "B1-B7": "pending"
   }

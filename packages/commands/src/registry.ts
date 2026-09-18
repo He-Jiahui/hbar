@@ -91,13 +91,8 @@ export class CommandRegistry {
     const descriptor = describeCommand(definition)
     if (descriptor.metadata.execution !== this.#execution)
       throw new CommandError('INVALID_DEFINITION', 'Command execution domain does not match this registry')
-    if (
-      options.durable &&
-      (descriptor.metadata.kind !== 'command' ||
-        descriptor.metadata.stateEffect !== 'persistent' ||
-        descriptor.metadata.idempotency !== 'required')
-    )
-      throw new CommandError('INVALID_DEFINITION', 'Durable handler requires a persistent, idempotent command')
+    if (options.durable && (descriptor.metadata.kind !== 'command' || descriptor.metadata.stateEffect !== 'persistent'))
+      throw new CommandError('INVALID_DEFINITION', 'Durable handler requires a persistent command')
     const names = [descriptor.metadata.id, ...descriptor.metadata.aliases]
     if (names.some((name) => this.#names.has(name)))
       throw new CommandError('COMMAND_CONFLICT', 'Command name is already registered')
@@ -269,8 +264,10 @@ export class CommandRegistry {
       !registration.durable
     )
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Durable execution requires a journal adapter')
-    if (registration.durable && (!options.idempotencyKey || !options.actorId))
-      throw new CommandError('INVALID_INPUT', 'Durable command requires an authenticated actor and idempotency key')
+    if (registration.durable && !options.actorId)
+      throw new CommandError('INVALID_INPUT', 'Durable command requires an authenticated actor')
+    if (registration.durable && metadata.idempotency === 'required' && !options.idempotencyKey)
+      throw new CommandError('INVALID_INPUT', 'Durable command requires an idempotency key')
     if (options.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
     const input = registration.parseInput(value)
     if (this.#active.size >= this.#maxConcurrent || registration.active.size >= metadata.maxConcurrent)

@@ -806,6 +806,11 @@ export const rpcSchemas = {
     sessionId: idSchema,
     idempotencyKey: z.string().min(1).max(128),
   }),
+  'operation.watch': z.strictObject({
+    operationId: idSchema,
+    cursor: z.number().int().nonnegative().default(0),
+  }),
+  'operation.unwatch': z.strictObject({ operationId: idSchema }),
   'workspace.list': workspaceListInputSchema,
   'workspace.get': workspaceGetInputSchema,
   'session.list': sessionListInputSchema,
@@ -1008,6 +1013,8 @@ export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
   'command.execute': unknown
   'command.getReceipt': import('./commands/budget').BudgetReceipt | import('./commands/run').RunAccepted | null
+  'operation.watch': import('./commands/run').OperationWatchResult
+  'operation.unwatch': null
   'workspace.list': WorkspacePage
   'workspace.get': Workspace | null
   'session.list': SessionPage

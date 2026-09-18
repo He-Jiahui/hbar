@@ -1003,12 +1003,13 @@ export class Kernel {
     }
   }
   async cancel(runId: string) {
-    this.cancelled.add(runId)
-    for (const active of this.active.values())
-      if (active.run.id === runId) active.controller.abort(new Error('Cancelled by user'))
-    const run = await this.storage.call('run', runId)
-    if (run.status === 'queued') this.publishEvent(await this.storage.call('setRun', runId, 'cancelled'))
-    else if (!['running', 'waiting_approval'].includes(run.status)) this.cancelled.delete(runId)
+    const { run, event } = await this.storage.call('requestCancel', runId)
+    if (event) this.publishEvent(event)
+    if (['running', 'waiting_approval'].includes(run.status)) {
+      this.cancelled.add(runId)
+      for (const active of this.active.values())
+        if (active.run.id === runId) active.controller.abort(new Error('Cancelled by user'))
+    } else this.cancelled.delete(runId)
   }
   async compact(sessionId: string, modelId: string) {
     this.assertIdle()

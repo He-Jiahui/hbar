@@ -302,6 +302,22 @@ test('timeout retains capacity until an uncooperative handler settles; writes re
   registry.dispose()
 })
 
+test('a convergent durable command requires an actor but does not require a replay key', async () => {
+  const registry = new CommandRegistry()
+  const cancel = defineCommand(
+    { ...metadata, id: 'operation.cancel', aliases: [], stateEffect: 'persistent' },
+    inputSchema,
+    outputSchema,
+  )
+  registry.register(cancel, ({ value }) => ({ value, doubled: value * 2 }), { durable: true })
+  await expect(registry.execute('operation.cancel', { value: 2 })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+  expect(await registry.execute('operation.cancel', { value: 2 }, { actorId: 'paired-device' })).toEqual({
+    value: 2,
+    doubled: 4,
+  })
+  registry.dispose()
+})
+
 test('pre-cancel never enters a handler; unregister cancels work and removes completion', async () => {
   const registry = new CommandRegistry()
   let calls = 0
