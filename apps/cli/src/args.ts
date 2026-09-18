@@ -89,6 +89,9 @@ Usage:
   hbar exec system.diagnose|system.paths.get|device.list|pairing.create
   hbar exec system.paths.validate|system.paths.set <dataRoot> <cacheRoot>
   hbar exec device.revoke <deviceId>
+  hbar exec plugin.list|plugin.inspect|plugin.graph|plugin.lock|plugin.doctor
+  hbar exec plugin.install|plugin.remove|plugin.enable|plugin.disable
+  hbar exec skill.list
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]

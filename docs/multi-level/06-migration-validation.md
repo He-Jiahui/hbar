@@ -110,6 +110,8 @@ A11k 迁移供应商、默认审批权限和 Session 运行模式。六个 typed
 
 A11l 迁移 Host 系统控制面：诊断、路径查询/验证/切换、重启能力报告、设备列表/撤销和新配对码进入认证 command catalog。Host adapter 以窄依赖接口组合 Kernel、Auth 和连接关闭回调；CLI 的这些命令不创建 Session，也不要求配置模型。测试使用临时 pointer 文件验证路径写入，覆盖重复设备撤销、配对码期限、无凭据诊断和 `system.restart` 未接入进程监管时的诚实结果。
 
+A11m 迁移扩展管理。`plugin.list/inspect/set/install/scan/remove/enable/disable/resolve/graph/lock/doctor` 和 `skill.list` 使用可序列化契约、Host 依赖端口与 typed Client；CLI 的 `plugins`/`skills` 别名不再读取 bootstrap 或本地目录。真实临时插件包测试覆盖安装、配置、停启、依赖报告、lock、doctor、全局技能发现和停用后卸载；transport 测试区分 mutation 的未知结果与 query 的原始断线错误。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

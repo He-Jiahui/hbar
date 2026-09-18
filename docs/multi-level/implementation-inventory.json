@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-model-configuration-settings-workspace-files-agents-browser-computer-git-system-surfaces",
+      "status": "partial-budget-run-interaction-model-configuration-settings-workspace-files-agents-browser-computer-git-system-extension-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -31,6 +31,7 @@
         "tests/git-commands.test.ts",
         "tests/workspace-session-commands.test.ts",
         "tests/file-commands.test.ts",
+        "tests/extension-commands.test.ts",
         "tests/interaction-commands.test.ts",
         "tests/model-commands.test.ts",
         "tests/run-commands.test.ts",
@@ -250,7 +251,7 @@
       "stateOwner": "Host managed plugin composition",
       "category": "system.extensions",
       "milestone": "A11",
-      "status": "pending",
+      "status": "complete-headless-commands",
       "rpc": [
         "plugin.set",
         "plugin.install",
@@ -264,7 +265,7 @@
         "plugin.doctor"
       ],
       "additionalCommands": ["plugin.list", "plugin.inspect", "skill.list"],
-      "tests": ["tests/extensions.test.ts", "tests/plugin-packages.test.ts", "tests/extensions.test.ts"]
+      "tests": ["tests/extensions.test.ts", "tests/plugin-packages.test.ts", "tests/extension-commands.test.ts", "tests/cli.test.ts"]
     },
     {
       "id": "files-attachments",
@@ -381,7 +382,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, and Host system/path/device/pairing domains migrated through commands and CLI",
+    "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, Host system/path/device/pairing, and extension domains migrated through commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

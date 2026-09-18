@@ -1,4 +1,4 @@
-import { readFile, readdir, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { basename, resolve } from 'node:path'
 import { describeCommand, parseArguments, CommandError, validationError, type CommandDescriptor } from '@hbar/commands'
@@ -12,6 +12,7 @@ import {
   createConfigurationCommandClient,
   createGitCommandClient,
   createDirectoryQueryAdapter,
+  createExtensionCommandClient,
   createFileCommandClient,
   createGoalPlanCommandClient,
   createInteractionCommandClient,
@@ -31,6 +32,7 @@ import { computerCommands } from '@hbar/contracts/commands/computer'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { gitCommands } from '@hbar/contracts/commands/git'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
+import { extensionCommands } from '@hbar/contracts/commands/extensions'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
@@ -168,6 +170,79 @@ export function isSettingsCommand(value: string | undefined): value is keyof typ
 
 export function isSystemCommand(value: string | undefined): value is keyof typeof systemCommands {
   return Boolean(value && Object.hasOwn(systemCommands, value))
+}
+
+export function isExtensionCommand(value: string | undefined): value is keyof typeof extensionCommands {
+  return Boolean(value && Object.hasOwn(extensionCommands, value))
+}
+
+export async function runExtensionCommand(
+  args: CliArgs,
+  client: HbarClient,
+  projectId?: string,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isExtensionCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown extension command')
+  const commands = createExtensionCommandClient(client)
+  if (action === 'plugin.set') {
+    const parsed = extensionCommands[action].input.safeParse(jsonOption(args.inputJson, '--input-json'))
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+    return
+  }
+  const argv = [...args.commandArgs.slice(1)]
+  if (action === 'plugin.install' && projectId) argv.push('--workspace', projectId)
+  const input = parseArguments(extensionCommands[action].metadata, argv)
+  if (action === 'plugin.list') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.inspect') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.install') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.scan') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.remove') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.enable') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.disable') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.resolve') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.graph') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.lock') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else if (action === 'plugin.doctor') {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  } else {
+    const parsed = extensionCommands[action].input.safeParse(input)
+    if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+    output(await commands.execute(action, parsed.data))
+  }
 }
 
 export async function runSystemCommand(
@@ -795,6 +870,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isExtensionCommand(action)) {
+      await runExtensionCommand(args, runtime.client, runtime.project.id, output)
+      return true
+    }
     if (isSystemCommand(action)) {
       await runSystemCommand(args, runtime.client, output)
       return true
@@ -997,35 +1076,32 @@ export async function runCliCommand(
     return true
   }
   if (args.command === 'plugins') {
-    if (!action || action === 'list') output((await runtime.client.call('system.bootstrap', {})).plugins)
-    else if (action === 'install') {
-      if (!selector) throw new Error('Usage: hbar plugins install <directory|archive>')
-      output(await runtime.client.call('plugin.install', { path: selector, projectId: runtime.project.id }))
-    } else if (action === 'enable' || action === 'disable') {
-      if (!selector) throw new Error(`Usage: hbar plugins ${action} <package-name>`)
-      output(await runtime.client.call(action === 'enable' ? 'plugin.enable' : 'plugin.disable', { id: selector }))
-    } else if (action === 'remove') {
-      if (!selector) throw new Error('Usage: hbar plugins remove <package-name>')
-      output(await runtime.client.call('plugin.remove', { id: selector }))
-    } else if (action === 'inspect') {
-      if (!selector) throw new Error('Usage: hbar plugins inspect <package-name>')
-      const plugin = (await runtime.client.call('system.bootstrap', {})).plugins.find((item) => item.id === selector)
-      if (!plugin) throw new Error(`Plugin not found: ${selector}`)
-      output(plugin)
-    } else if (action === 'doctor') output(await runtime.client.call('plugin.doctor', {}))
-    else if (action === 'lock') output(await runtime.client.call('plugin.lock', {}))
-    else throw new Error('Usage: hbar plugins list|install|enable|disable|remove|inspect|doctor|lock')
+    const command =
+      !action || action === 'list'
+        ? 'plugin.list'
+        : (
+            {
+              install: 'plugin.install',
+              enable: 'plugin.enable',
+              disable: 'plugin.disable',
+              remove: 'plugin.remove',
+              inspect: 'plugin.inspect',
+              doctor: 'plugin.doctor',
+              lock: 'plugin.lock',
+            } as const
+          )[action]
+    if (!command) throw new Error('Usage: hbar plugins list|install|enable|disable|remove|inspect|doctor|lock')
+    await runExtensionCommand(
+      { ...args, commandArgs: [command, ...args.commandArgs.slice(1)] },
+      runtime.client,
+      runtime.project.id,
+      output,
+    )
     return true
   }
   if (args.command === 'skills') {
     if (action && action !== 'list') throw new Error('Usage: hbar skills list')
-    const root = resolve(runtime.layout.skills, 'global')
-    const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
-    output(
-      entries
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => ({ id: entry.name, path: resolve(root, entry.name) })),
-    )
+    output(await createExtensionCommandClient(runtime.client).execute('skill.list', {}))
     return true
   }
   return false

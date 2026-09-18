@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import { idSchema, PAIRING_CODE_LENGTH } from '../index'
+import { pluginInfoSchema } from './extensions'
 
 export const hostInfoSchema = z.strictObject({
   version: z.string().min(1).max(64),
@@ -35,30 +36,6 @@ const deviceSchema = z.strictObject({
   name: z.string().min(1).max(160),
   createdAt: z.number().int().nonnegative(),
   lastSeenAt: z.number().int().nonnegative(),
-})
-const pluginInfoSchema = z.object({
-  id: idSchema,
-  packageName: z.string().optional(),
-  name: z.string(),
-  version: z.string(),
-  required: z.boolean(),
-  status: z.enum(['active', 'disabled', 'failed']),
-  provides: z.array(z.string()),
-  requires: z.array(z.string()),
-  description: z.string(),
-  config: z.record(z.string(), z.unknown()),
-  installScope: z.enum(['global', 'project']).optional(),
-  runtimeScope: z.enum(['host', 'workspace', 'session', 'run', 'client']).optional(),
-  dependencies: z.record(z.string(), z.string()).optional(),
-  peerDependencies: z.record(z.string(), z.string()).optional(),
-  optionalDependencies: z.record(z.string(), z.string()).optional(),
-  activationEvents: z.array(z.string()).optional(),
-  contributes: z.unknown().optional(),
-  terminalCommands: z.array(z.unknown()).optional(),
-  path: z.string().optional(),
-  projectId: z.string().optional(),
-  error: z.string().optional(),
-  clientEntry: z.string().optional(),
 })
 const diagnoseSchema = z.strictObject({
   host: hostInfoSchema,

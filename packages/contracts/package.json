@@ -14,6 +14,7 @@
     "./commands/configuration": "./src/commands/configuration.ts",
     "./commands/git": "./src/commands/git.ts",
     "./commands/files": "./src/commands/files.ts",
+    "./commands/extensions": "./src/commands/extensions.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/interaction": "./src/commands/interaction.ts",
     "./commands/models": "./src/commands/models.ts",

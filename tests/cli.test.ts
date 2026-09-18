@@ -677,6 +677,19 @@ test('exec system commands query diagnostics, validate roots, and manage pairing
   expect(JSON.parse(restart.stdout)).toEqual({ accepted: false, restartRequired: true })
 })
 
+test('exec extension commands and legacy aliases use the Host catalog without a session or model', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const list = await run([...common, 'exec', 'plugin.list'])
+  expect(list.code).toBe(0)
+  expect(JSON.parse(list.stdout)).toBeArray()
+  const legacy = await run([...common, 'plugins', 'doctor'])
+  expect(legacy.code).toBe(0)
+  expect(JSON.parse(legacy.stdout)).toMatchObject({ ok: true })
+  const skills = await run([...common, 'skills', 'list'])
+  expect(skills.code).toBe(0)
+  expect(JSON.parse(skills.stdout)).toBeArray()
+})
+
 test('exec questionnaire answers use the selected session command without requiring a model', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

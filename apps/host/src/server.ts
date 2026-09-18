@@ -1,6 +1,6 @@
 import { networkInterfaces } from 'node:os'
 import { resolve, relative, isAbsolute, join } from 'node:path'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
@@ -31,6 +31,7 @@ import { configurationCommands as configurationDefinitions } from '@hbar/contrac
 import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
 import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
+import { extensionCommands as extensionDefinitions } from '@hbar/contracts/commands/extensions'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
 import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
@@ -55,6 +56,7 @@ import type {
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
+import { createExtensionCommands } from './extension-commands.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 
 interface SocketData {
@@ -83,6 +85,29 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
   const configurationCommands = createConfigurationCommands(kernel, kernel.plugins.get<ModeService>('mode'))
+  const extensionCommands = createExtensionCommands({
+    list: () => kernel.plugins.list(),
+    set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
+    install: (path, projectId) => kernel.installPlugin(path, projectId),
+    async remove(id) {
+      kernel.assertIdle()
+      const result = await kernel.plugins.remove(id)
+      kernel.changed('plugins')
+      return result
+    },
+    resolve: (id) => kernel.plugins.resolve(id),
+    graph: () => kernel.plugins.graph(),
+    lock: () => kernel.plugins.lock(),
+    doctor: () => kernel.plugins.doctor(),
+    async skills() {
+      const root = resolve(kernel.options.layout.skills, 'global')
+      const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
+      return entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => ({ id: entry.name, path: resolve(root, entry.name), scope: 'global' as const }))
+        .sort((left, right) => left.id.localeCompare(right.id))
+    },
+  })
   const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'))
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
@@ -101,6 +126,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: browserDefinitions, service: browserCommands },
     { definitions: computerDefinitions, service: computerCommands },
     { definitions: configurationDefinitions, service: configurationCommands },
+    { definitions: extensionDefinitions, service: extensionCommands },
     { definitions: gitDefinitions, service: gitCommands },
     { definitions: directoryDefinitions, service: kernel.directoryQueries },
     { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
@@ -685,39 +711,36 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plugin.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, p.enabled, p.config)
+        return extensionCommands.execute('plugin.set', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.install': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.installPlugin(p.path, p.projectId)
+        return extensionCommands.execute('plugin.install', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.scan':
-        return kernel.plugins.list()
+        return extensionCommands.execute('plugin.scan', {})
       case 'plugin.remove': {
         const p = rpcSchemas[method].parse(raw)
-        kernel.assertIdle()
-        const result = await kernel.plugins.remove(p.id)
-        kernel.changed('plugins')
-        return result
+        return extensionCommands.execute('plugin.remove', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.enable': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, true)
+        return extensionCommands.execute('plugin.enable', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.disable': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, false)
+        return extensionCommands.execute('plugin.disable', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.resolve': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.resolve(p.id)
+        return extensionCommands.execute('plugin.resolve', p)
       }
       case 'plugin.graph':
-        return kernel.plugins.graph()
+        return extensionCommands.execute('plugin.graph', {})
       case 'plugin.lock':
-        return kernel.plugins.lock()
+        return extensionCommands.execute('plugin.lock', {})
       case 'plugin.doctor':
-        return kernel.plugins.doctor()
+        return extensionCommands.execute('plugin.doctor', {})
       case 'browser.status': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<BrowserUseService>('browser').status(p.sessionId)
@@ -1020,6 +1043,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       browserCommands.dispose()
       computerCommands.dispose()
       configurationCommands.dispose()
+      extensionCommands.dispose()
       gitCommands.dispose()
       workspaceSessionCommands.dispose()
       budgetCommands.dispose()

@@ -15,6 +15,7 @@ export { createBrowserCommandClient } from './browser'
 export { createComputerCommandClient } from './computer'
 export { createConfigurationCommandClient } from './configuration'
 export { createGitCommandClient } from './git'
+export { createExtensionCommandClient } from './extensions'
 export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
 export {
   createAttachmentCommandClient,

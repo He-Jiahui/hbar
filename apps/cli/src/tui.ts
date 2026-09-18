@@ -9,13 +9,14 @@ import {
   type KeyEvent,
 } from '@opentui/core'
 import { randomUUID } from 'node:crypto'
-import { readdir, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
+import type { Message, PluginInfo, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
 import {
   createInteractionCommandClient,
   createModelCommandClient,
   createConfigurationCommandClient,
+  createExtensionCommandClient,
   createSystemCommandClient,
   createWorkspaceSessionCommandClient,
   exportSessionEvents,
@@ -403,26 +404,26 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     }
     if (command === 'plugins') {
       const [action = 'list', idOrPath] = args
+      const extensions = createExtensionCommandClient(runtime.client)
+      let plugins: PluginInfo[]
       if (action === 'install' && idOrPath)
-        await runtime.client.call('plugin.install', { path: idOrPath, projectId: runtime.project.id })
-      else if (action === 'enable' && idOrPath) await runtime.client.call('plugin.enable', { id: idOrPath })
-      else if (action === 'disable' && idOrPath) await runtime.client.call('plugin.disable', { id: idOrPath })
+        plugins = await extensions.execute('plugin.install', { path: idOrPath, projectId: runtime.project.id })
+      else if (action === 'enable' && idOrPath) plugins = await extensions.execute('plugin.enable', { id: idOrPath })
+      else if (action === 'disable' && idOrPath) plugins = await extensions.execute('plugin.disable', { id: idOrPath })
       else if (action === 'doctor')
-        return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('plugin.doctor', {}), null, 2)}\n\`\`\``)
+        return render(`\`\`\`json\n${JSON.stringify(await extensions.execute('plugin.doctor', {}), null, 2)}\n\`\`\``)
       else if (action !== 'list') throw new Error('Use /plugins list|install|enable|disable|doctor')
+      else plugins = await extensions.execute('plugin.list', {})
       await refreshCatalog()
       return render(
-        `### Plugins\n\n${runtime.bootstrap.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n')}`,
+        `### Plugins\n\n${plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n')}`,
       )
     }
     if (command === 'skills') {
-      const skills = await readdir(resolve(runtime.layout.skills, 'global'), { withFileTypes: true }).catch(() => [])
+      const skills = await createExtensionCommandClient(runtime.client).execute('skill.list', {})
       return render(
         `### Global skills\n\n${
-          skills
-            .filter((item) => item.isDirectory())
-            .map((item) => `- ${item.name}`)
-            .join('\n') || 'No skills installed.'
+          skills.map((item) => `- ${item.id}`).join('\n') || 'No skills installed.'
         }`,
       )
     }

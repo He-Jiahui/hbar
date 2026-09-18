@@ -26,6 +26,13 @@ hbar exec device.list
 hbar exec device.revoke <deviceId>
 hbar exec pairing.create
 hbar exec system.restart
+hbar exec plugin.list
+hbar exec plugin.inspect <package-name>
+hbar exec plugin.install <directory-or-archive>
+hbar exec plugin.enable|plugin.disable|plugin.remove <package-name>
+hbar exec plugin.resolve|plugin.graph|plugin.lock|plugin.doctor
+hbar exec plugin.set --input-json '{"id":"my-plugin","enabled":true,"config":{}}'
+hbar exec skill.list
 hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar exec settings.get provider.model --scope session --session <Session ID>
 hbar exec settings.set provider.model --scope session --session <Session ID> --value-json '"gpt-5"' --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>

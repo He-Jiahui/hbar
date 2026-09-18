@@ -9,6 +9,7 @@ import { parseCli, HELP, type CliArgs } from './args.ts'
 import {
   isSurfaceCommand,
   isSystemCommand,
+  isExtensionCommand,
   isFileCommand,
   isSettingsCommand,
   runModelListCommand,
@@ -19,6 +20,7 @@ import {
   runOperationCommand,
   runSurfaceRelayCommand,
   runSystemCommand,
+  runExtensionCommand,
   runSettingsCommand,
 } from './commands.ts'
 import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, waitForRun } from './runtime.ts'
@@ -121,6 +123,51 @@ try {
     const { client } = await openCatalogClient(args)
     try {
       await runCatalogCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (
+    (args.command === 'exec' && isExtensionCommand(args.commandArgs[0])) ||
+    args.command === 'plugins' ||
+    args.command === 'skills'
+  ) {
+    const { client } = await openCatalogClient(args)
+    try {
+      const action = args.commandArgs[0]
+      let commandArgs: string[]
+      if (args.command === 'skills') {
+        if (action && action !== 'list') throw new Error('Usage: hbar skills list')
+        commandArgs = ['skill.list']
+      } else if (args.command === 'plugins') {
+        const command =
+          !action || action === 'list'
+            ? 'plugin.list'
+            : action === 'install'
+              ? 'plugin.install'
+              : action === 'enable'
+                ? 'plugin.enable'
+                : action === 'disable'
+                  ? 'plugin.disable'
+                  : action === 'remove'
+                    ? 'plugin.remove'
+                    : action === 'inspect'
+                      ? 'plugin.inspect'
+                      : action === 'doctor'
+                        ? 'plugin.doctor'
+                        : action === 'lock'
+                          ? 'plugin.lock'
+                          : undefined
+        if (!command) throw new Error('Usage: hbar plugins list|install|enable|disable|remove|inspect|doctor|lock')
+        commandArgs = [command, ...args.commandArgs.slice(1)]
+      } else commandArgs = args.commandArgs
+      let projectId: string | undefined
+      if (commandArgs[0] === 'plugin.install') {
+        const bootstrap = await client.call('system.bootstrap', {})
+        projectId = (await selectProject(client, bootstrap, args.workspace ?? args.project)).id
+      }
+      await runExtensionCommand({ ...args, commandArgs }, client, projectId)
     } finally {
       client.disconnect()
     }
