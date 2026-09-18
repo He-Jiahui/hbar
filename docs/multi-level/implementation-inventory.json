@@ -118,7 +118,7 @@
       "stateOwner": "Host budget ledger; client edit drafts",
       "category": "model.budget",
       "milestone": "A3-A4",
-      "status": "pending",
+      "status": "complete-headless-commands",
       "rpc": ["budget.get", "budget.set", "budget.clear"],
       "additionalCommands": [],
       "tests": ["tests/budget.test.ts"]

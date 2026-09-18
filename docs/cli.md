@@ -11,6 +11,7 @@ hbar --headless --message "总结变更" --output-format jsonl
 hbar session list
 hbar exec session.setBudget 120000 --session <Session ID|名称> --idempotency-key <稳定键> --expected-revision null
 hbar exec session.getBudget --session <Session ID|名称>
+hbar exec session.clearBudget --session <Session ID|名称>
 hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar exec settings.get provider.model --scope session --session <Session ID>
 hbar exec settings.set provider.model --scope session --session <Session ID> --value-json '"gpt-5"' --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>
@@ -64,7 +65,7 @@ hbar --headless \
 
 `jsonl` stdout 每行都是一个 JSON 对象，包含 `run.started`、有独立偏移的 `message.delta`、工具与审批事件、`message.committed` 和 `run.completed`。错误也以 `{ "type": "error", "code": ... }` 输出，不混入 ANSI 或 Host 日志。退出码为 `0` 成功、`2` 参数错误、`3` 审批失败、`4` 模型/供应商错误、`5` 插件错误、`6` Session/存储恢复错误、`7` 其他内部错误；命令执行的未知结果为 `8`，版本或幂等冲突为 `9`。
 
-`hbar exec` 是无界面命令入口，单行输出 JSON。`session.setBudget` 的 `tokens` 是正整数；`--expected-revision null` 表示仅允许尚无预算的会话，已有预算时传上一回读到的正整数版本。持久写入必须传 `--idempotency-key`；如果请求断线或返回未知结果，以相同 Session、设备身份和键运行 `hbar exec receipt <键>`，查到成功回执后不要换新键重复提交。同键同参数重试返回首次回执，同键不同参数返回冲突。回执含事件 ID、预算版本与提交时的预算快照；预算后续用量变化请用 `session.getBudget` 读取。CLI 与 Host 预算服务共享同一命令定义，旧 `budget.set/get` 仍走同一预算规则。
+`hbar exec` 是无界面命令入口，单行输出 JSON。`session.setBudget` 的 `tokens` 是正整数；`--expected-revision null` 表示仅允许尚无预算的会话，已有预算时传上一回读到的正整数版本。持久写入必须传 `--idempotency-key`；如果请求断线或返回未知结果，以相同 Session、设备身份和键运行 `hbar exec receipt <键>`，查到成功回执后不要换新键重复提交。同键同参数重试返回首次回执，同键不同参数返回冲突。回执含事件 ID、预算版本与提交时的预算快照；预算后续用量变化请用 `session.getBudget` 读取。`session.clearBudget` 是收敛清除：首次删除已有账本返回 `cleared: true`，重复调用返回 `false`。CLI 与 Host 预算服务共享同一命令定义，旧 `budget.set/get/clear` 仍走同一预算规则。
 
 分层设置使用 `global`、`workspace` 或 `session` scope。工作区和会话 scope 分别传 `--workspace/--target` 与 `--session/--target`；路径可写字段名（如 `provider.model`）或 schema-core 编码路径。`settings.get` 返回参与解析的完整版本向量以及来源、继承、本层 presence 和生效状态报告。`settings.set/unset` 默认先读取当前版本向量，适合交互式使用；自动化和断线重试应保存读取结果中的 `revisions`，通过 `--baseline-json` 在首次调用和后续同键重试中使用完全相同的向量。`--value-json` 区分字符串、数字、布尔值和显式 `null`。`settings.apply` 的 `--input-json` 自带 scope，可在一次事务中提交多个 set/unset，并对完整父层版本向量执行 CAS。活动 Session 预算仍由 `session.setBudget` 管理，不能通过任意设置路径改写。
 

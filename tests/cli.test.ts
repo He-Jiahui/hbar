@@ -91,7 +91,7 @@ test('command catalog opens without a configured model or a selected session', a
     expect(result.code).toBe(0)
     expect(
       (JSON.parse(result.stdout) as { items: { metadata: { id: string } }[] }).items.map((item) => item.metadata.id),
-    ).toEqual(['session.getBudget', 'session.setBudget'])
+    ).toEqual(['session.clearBudget', 'session.getBudget', 'session.setBudget'])
     const missing = await run([
       '--data-root',
       isolatedData,
@@ -205,6 +205,15 @@ test('exec budget uses the same Host command, returns a receipt, and reconciles 
   const conflict = await run([...common, 'exec', 'session.setBudget', '600', '--idempotency-key', 'cli-budget'])
   expect(conflict.code).toBe(9)
   expect(conflict.stderr).toContain('Key was already used')
+  const cleared = await run([...common, 'exec', 'session.clearBudget'])
+  expect(cleared.code).toBe(0)
+  expect(JSON.parse(cleared.stdout)).toEqual({ cleared: true })
+  const clearedAgain = await run([...common, 'exec', 'session.clearBudget'])
+  expect(clearedAgain.code).toBe(0)
+  expect(JSON.parse(clearedAgain.stdout)).toEqual({ cleared: false })
+  const afterClear = await run([...common, 'exec', 'session.getBudget'])
+  expect(afterClear.code).toBe(0)
+  expect(JSON.parse(afterClear.stdout)).toBeNull()
 })
 
 test('exec file commands read and compare-and-write workspace files without requiring a session', async () => {

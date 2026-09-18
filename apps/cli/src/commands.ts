@@ -792,7 +792,11 @@ export async function runCliCommand(
       )
       return true
     }
-    if (action !== 'session.setBudget' && action !== 'session.getBudget')
+    if (
+      action !== 'session.setBudget' &&
+      action !== 'session.getBudget' &&
+      action !== 'session.clearBudget'
+    )
       throw new CommandError('COMMAND_NOT_FOUND', 'Command is not available from this CLI')
     const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
     if (args.expectedRevision !== undefined && args.expectedRevision !== 'null')

@@ -18,7 +18,7 @@
 | ---------------- | -------------------------------------------------------------------------- | ------------------------------------------------------ |
 | 工作区/会话      | workspace.create/open/list；session.create/list/rename/archive/fork/export | kernel 会话用例；目标权限、分页、历史/分支保真         |
 | 运行/交互        | run.submit/cancel/retry；approval.resolve；questionnaire.answer            | 运行与审批服务；受理、队列、流、取消、结算、重连       |
-| 模型/预算        | session.setModel/setThinkingLevel/setBudget/getBudget                      | 模型配置用例及 budget 插件；有效值、版本、限制一致     |
+| 模型/预算        | session.setModel/setThinkingLevel/setBudget/getBudget/clearBudget          | 模型配置用例及 budget 插件；有效值、版本、限制一致     |
 | 目标/计划        | goal.create/update/clear；plan.update/clear/query                          | goal/plan 插件；保留已有运行钩子与约束                 |
 | 子 Agent         | agent.create/list/cancel、父子关系查询                                     | 领域插件；独立子 Session、取消传播、预算归属           |
 | 文件/附件        | file.list/read/write；attachment.upload/query                              | 文件/附件服务；路径限制、分页、artifact 鉴权、写入审批 |
@@ -50,6 +50,8 @@ A11i 已将 `workspace.list/get/create` 与 `session.list/get/create/rename/arch
 ## 3. 预算切片保持现有业务语义
 
 依据核对的 `plugins/budget/src/index.ts`：`session.setBudget <tokens>` 表示当前预算账本的总上限，不是追加 token，也不清零已用量。现有规则限制降低上限，并拒绝修改 completed/stopped 账本；重构先保留规则，领域错误明确返回。
+
+A11j 补齐 `session.clearBudget`，并把旧 `budget.clear` 映射到同一 BudgetService 用例。clear 是收敛的持久命令：有活动账本时追加一次 `budget.cleared`，重复执行返回 `cleared: false`，不重放已经删除的预算事实。Host catalog、typed Client、CLI/REPL/TUI 共用定义；预算域至此不再需要写 RPC 作为主入口。
 
 返回 limit、used、remaining、phase、revision 和 accountingVersion。当前用量结算为 `max(input - cacheRead, 0) + output`；重构核对供应商归一的缓存包含关系并版本化口径，不能把预算数字当作普通设置值。
 

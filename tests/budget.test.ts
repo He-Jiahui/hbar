@@ -66,7 +66,7 @@ test('budget accounts completed runs, blocks exhausted runs, and restores after 
   expect((await restarted.plugins.get<BudgetService>('budget').get(session.id))?.budgetId).toBe(created.budgetId)
 })
 
-test('budget RPC exposes set, get, and clear through the authenticated client', async () => {
+test('budget command clears an existing ledger and converges when repeated', async () => {
   const { kernel, session } = await fixture()
   const host = await startServer(kernel, { port: 0 })
   const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
@@ -77,9 +77,12 @@ test('budget RPC exposes set, get, and clear through the authenticated client', 
   await client.pair(host.pairing.code, 'budget test')
   const created = await client.call('budget.set', { sessionId: session.id, limit: 500 })
   expect(created.limit).toBe(500)
-  expect((await client.call('budget.get', { sessionId: session.id }))?.budgetId).toBe(created.budgetId)
-  expect(await client.call('budget.clear', { sessionId: session.id })).toEqual({ cleared: true })
-  expect(await client.call('budget.get', { sessionId: session.id })).toBeNull()
+  const commands = createBudgetCommandClient(client)
+  expect((await commands.execute('session.getBudget', { sessionId: session.id }))?.budgetId).toBe(created.budgetId)
+  expect(await commands.execute('session.clearBudget', { sessionId: session.id })).toEqual({ cleared: true })
+  expect(await commands.execute('session.clearBudget', { sessionId: session.id })).toEqual({ cleared: false })
+  expect(await commands.execute('session.getBudget', { sessionId: session.id })).toBeNull()
+  expect((await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'budget.cleared')).toHaveLength(1)
 })
 
 test('typed command persists one budget fact and receipt across retries, conflicts and restart', async () => {

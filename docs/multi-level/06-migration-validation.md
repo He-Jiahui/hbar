@@ -104,6 +104,8 @@ A11i1 将数据库升级到 v4，增加 actor/key、command ID、payload hash �
 
 A11i2 发布 workspace/session typed commands，并把既有四个 directory queries 纳入认证 Host catalog。create/fork 强制 idempotency key；rename/archive 走 Kernel 用例并保留 active-run 门禁；export 使用 500 条事件分页和单调 cursor。AppRuntime DirectoryPort 改经 command transport 读取，CLI/TUI 的 new/fork/archive/export 不再调用写 RPC。测试覆盖完整目录、workspace path 收敛、create 并发/冲突、rename/archive 过滤、分页 export、同 actor 重启回执，以及显式 `hbar exec session.*`。snapshot/follow/unfollow 继续作为状态同步协议，`workspace.open` 留给 B1 客户端导航。
 
+A11j 补齐预算域的收敛清除命令 `session.clearBudget`。命令复用 BudgetService 的串行账本写入和 Session 存在性检查；首次清除追加规范事件并返回 `cleared: true`，后续调用返回 `false`。Host catalog、typed Client 和 CLI 的点分入口使用同一契约，旧 `budget.clear` 仅作为兼容 adapter。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

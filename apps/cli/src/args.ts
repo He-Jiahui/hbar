@@ -70,6 +70,7 @@ Usage:
   hbar serve                        Start a background Host
   hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
   hbar exec session.getBudget --session <id|name>
+  hbar exec session.clearBudget --session <id|name>
   hbar exec receipt <idempotency-key> --session <id|name>
   hbar commands list [--category <category>] [--limit <1-200>]
   hbar commands describe <commandId>
@@ -110,7 +111,7 @@ Paths:
 Commands:
   repl
   session list|new|resume|fork|archive|export
-  exec session.setBudget|session.getBudget|approval.resolve|questionnaire.answer|receipt
+  exec session.setBudget|session.getBudget|session.clearBudget|approval.resolve|questionnaire.answer|receipt
   exec goal.get|goal.create|goal.set|goal.update|goal.clear
   exec plan.get|plan.update|plan.clear
   commands list|describe

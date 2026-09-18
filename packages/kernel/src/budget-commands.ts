@@ -16,6 +16,11 @@ export function createBudgetCommands(service: BudgetService) {
   }
   registry.register(budgetCommands['session.getBudget'], ({ sessionId }) => translate(() => service.get(sessionId)))
   registry.register(
+    budgetCommands['session.clearBudget'],
+    ({ sessionId }) => translate(() => service.clear(sessionId)),
+    { durable: true },
+  )
+  registry.register(
     budgetCommands['session.setBudget'],
     (input, context) => {
       const actorId = context.actorId,

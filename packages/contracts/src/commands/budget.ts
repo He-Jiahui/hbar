@@ -20,6 +20,7 @@ export const budgetReceiptSchema = z.strictObject({
   budget: sessionBudgetSchema,
   accountingVersion: z.literal(1),
 })
+const budgetClearResultSchema = z.strictObject({ cleared: z.boolean() })
 
 export type SetBudgetInput = z.output<typeof setBudgetInputSchema>
 export type BudgetReceipt = z.output<typeof budgetReceiptSchema>
@@ -67,5 +68,23 @@ export const budgetCommands = {
     },
     z.strictObject({ sessionId: idSchema }),
     sessionBudgetSchema.nullable(),
+  ),
+  'session.clearBudget': defineCommand(
+    {
+      id: 'session.clearBudget',
+      version: 1,
+      owner: 'budget.codex',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'persistent',
+      category: 'model.budget',
+      scope: 'session',
+      titleKey: 'commands.session.clearBudget.title',
+      descriptionKey: 'commands.session.clearBudget.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      cli: { arguments: [{ field: 'sessionId', type: 'string', position: 0, flag: 'session' }] },
+    },
+    z.strictObject({ sessionId: idSchema }),
+    budgetClearResultSchema,
   ),
 }
