@@ -94,6 +94,8 @@ A11d2 增加 client execution 的 `attachment.upload`：结构化调用只携带
 
 A11e 新增子 Agent 领域插件与 `agent.create/list/cancel` Host commands。每个 Agent 是带 `parentId` 的独立 Session，创建事件保存 objective、model、子预算、request ID 和认证 actor 的幂等摘要；同 key 并发只创建一个子 Session，异参复用返回冲突，重启后从规范事件与 Run 投影恢复。子预算由 BudgetService 设置并独立结算；取消以最多 128 个 Agent 的有界后代树从叶到根传播。CLI/REPL/TUI 共用 typed adapter，测试覆盖并发重试、独立预算、错误父目标、重启恢复和父 Agent 对嵌套 Agent 的取消传播。
 
+A11f 迁移 browser-use 的十个已有入口：契约包发布同源的 command descriptor 与 CLI 参数，Kernel adapter 仅依赖 BrowserUseService，Host 目录、typed Client、CLI/REPL/TUI 走统一执行路径。导航、点击、输入、按键和脚本求值声明为外部副作用，命令层允许这类 authenticated durable handler，并在 handler 已进入后把取消或超时报告为 `RESULT_UNKNOWN`；BrowserUseService 同时收到 AbortSignal，调用者用 status/snapshot/history 核对结果。测试覆盖完整目录与 effect 元数据、查询和释放、执行前取消、执行中取消传播、真实 Host 下的 CLI 导航/快照/关闭；原有 backend policy/timeout 测试继续验证浏览器能力本身。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

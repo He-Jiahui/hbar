@@ -1,6 +1,6 @@
 # P4：Host 业务命令化与监控数据能力
 
-状态：实施中；预算、Run、审批问卷、目标计划与 Session 模型配置命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
+状态：实施中；预算、Run、审批问卷、目标计划、Session 模型配置、文件附件、子 Agent 与 browser 命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
 
 ## 1. Host 模块保持 MVC 与领域边界
 
@@ -21,7 +21,7 @@
 | 模型/预算        | session.setModel/setThinkingLevel/setBudget/getBudget                      | 模型配置用例及 budget 插件；有效值、版本、限制一致     |
 | 目标/计划        | goal.create/update/clear；plan.update/clear/query                          | goal/plan 插件；保留已有运行钩子与约束                 |
 | 子 Agent         | agent.create/list/cancel、父子关系查询                                     | 领域插件；独立子 Session、取消传播、预算归属           |
-| 文件/附件        | file.list/read/write；attachment.upload/remove/query                       | 文件/附件服务；路径限制、分页、artifact 鉴权、写入审批 |
+| 文件/附件        | file.list/read/write；attachment.upload/query                              | 文件/附件服务；路径限制、分页、artifact 鉴权、写入审批 |
 | browser/computer | 已交付的会话启动、状态、动作、释放命令                                     | 原能力插件；输入/截图等走受管端口与权限                |
 | 供应商/设置      | provider/model 查询与配置；settings.get/set/unset/apply/content            | 设置用例/能力服务；三层覆盖、凭据端口、动态校验        |
 | 系统/扩展        | connection、pairing、device、plugin、paths、diagnose                       | Host/客户端各自所有者；依赖验证、撤销、卸载释放        |
@@ -38,6 +38,8 @@ A11c 已将 `model.list`、`session.getModel`、`session.setModel` 与 `session.
 A11d 已完成文件与附件无界面闭环：workspace 文本文件通过 Host command 读取、分页和 SHA-256 baseline 写入；附件由 client command 绑定短生命周期 `File` source，二进制经认证 HTTP transport 上传，持久状态只保留内容寻址 artifact。共享 artifact 不提供破坏性删除；草稿移除由客户端草稿命令负责。
 
 A11e 新增 `@hbar/agent` 领域插件。`agent.create/list/cancel` 将每个子 Agent 建模为同工程内独立子 Session，父子关系使用既有 `parentId`，创建事实和 actor 幂等键写入规范事件；可选预算落到子 Session 的 BudgetService，Run 用量由原预算钩子结算。取消按有界后代树由叶到根传播，列表和响应未知恢复从 Session、Run 与 agent 事件重建，不依赖 UI 生命周期。
+
+A11f 已将 `browser.status/navigate/snapshot/click/type/press/screenshot/evaluate/close/history` 注册为 session scope 的 Host commands。所有定义、CLI 参数和 typed Client 共用一份契约，adapter 只通过公开 BrowserUseService 调用原有 origin/CDP policy、容量限制、超时与受管 backend。会触发浏览器外部副作用的动作标记为 `external`：进入 handler 前取消返回 `CANCELLED`，进入后取消或丢失响应返回 `RESULT_UNKNOWN`，调用者用 status、snapshot 或 history 核对页面事实后再决定后续操作；查询和 page/context 释放按实际状态影响单独分类。旧 browser RPC 暂作兼容入口并调用同一服务。
 
 ## 3. 预算切片保持现有业务语义
 

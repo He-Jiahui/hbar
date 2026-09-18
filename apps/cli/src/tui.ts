@@ -287,6 +287,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
           approval: 'ask',
           outputFormat: 'text',
           demo: false,
+          fullPage: false,
         },
         (value) => output.push(value),
       )

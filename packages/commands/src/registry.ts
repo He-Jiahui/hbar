@@ -91,8 +91,11 @@ export class CommandRegistry {
     const descriptor = describeCommand(definition)
     if (descriptor.metadata.execution !== this.#execution)
       throw new CommandError('INVALID_DEFINITION', 'Command execution domain does not match this registry')
-    if (options.durable && (descriptor.metadata.kind !== 'command' || descriptor.metadata.stateEffect !== 'persistent'))
-      throw new CommandError('INVALID_DEFINITION', 'Durable handler requires a persistent command')
+    if (
+      options.durable &&
+      (descriptor.metadata.kind !== 'command' || !['persistent', 'external'].includes(descriptor.metadata.stateEffect))
+    )
+      throw new CommandError('INVALID_DEFINITION', 'Durable handler requires a persistent or external command')
     const names = [descriptor.metadata.id, ...descriptor.metadata.aliases]
     if (names.some((name) => this.#names.has(name)))
       throw new CommandError('COMMAND_CONFLICT', 'Command name is already registered')

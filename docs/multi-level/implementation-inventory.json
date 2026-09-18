@@ -8,7 +8,7 @@
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
       "milestone": "A3-A11",
-      "status": "partial-budget-run-interaction-model-settings-files-agents-surfaces",
+      "status": "partial-budget-run-interaction-model-settings-files-agents-browser-surfaces",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -26,6 +26,7 @@
         "tests/cli.test.ts",
         "tests/goal-plan-commands.test.ts",
         "tests/agent-commands.test.ts",
+        "tests/browser-commands.test.ts",
         "tests/file-commands.test.ts",
         "tests/interaction-commands.test.ts",
         "tests/model-commands.test.ts",
@@ -195,7 +196,7 @@
       "stateOwner": "Host managed browser/context/page",
       "category": "files.tools",
       "milestone": "A11",
-      "status": "pending",
+      "status": "complete-headless-commands",
       "rpc": [
         "browser.status",
         "browser.navigate",
@@ -209,7 +210,7 @@
         "browser.history"
       ],
       "additionalCommands": [],
-      "tests": ["tests/browser-use.test.ts"]
+      "tests": ["tests/browser-use.test.ts", "tests/browser-commands.test.ts", "tests/cli.test.ts"]
     },
     {
       "id": "computer",
@@ -370,7 +371,7 @@
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
     "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
-    "A11": "in progress: interaction, goal/plan, model configuration, file/attachment, and child-agent domains migrated through Host commands and CLI",
+    "A11": "in progress: interaction, goal/plan, model configuration, file/attachment, child-agent, and browser domains migrated through Host commands and CLI",
     "A12-A15": "pending",
     "B1-B7": "pending"
   }

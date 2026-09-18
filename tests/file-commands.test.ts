@@ -46,6 +46,16 @@ test('file commands page, read, and compare-and-write within the workspace bound
   const catalog = await client.call('command.catalog', { category: 'files.tools', limit: 20 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'attachment.query',
+    'browser.click',
+    'browser.close',
+    'browser.evaluate',
+    'browser.history',
+    'browser.navigate',
+    'browser.press',
+    'browser.screenshot',
+    'browser.snapshot',
+    'browser.status',
+    'browser.type',
     'file.list',
     'file.read',
     'file.write',

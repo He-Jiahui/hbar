@@ -303,6 +303,58 @@ test('exec agent commands create and list child sessions through the shared comm
   expect((JSON.parse(duplicate.stdout) as { agentId: string }).agentId).toBe(agent.agentId)
 })
 
+test('exec browser commands navigate, inspect, and close the selected session page', async () => {
+  const page = Bun.serve({
+    port: 0,
+    fetch: () => new Response('<html><head><title>CLI Browser</title></head><body>command page</body></html>'),
+  })
+  try {
+    const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+    const created = await run([...common, 'session', 'new'])
+    expect(created.code).toBe(0)
+    const session = JSON.parse(created.stdout) as { id: string }
+    const navigated = await run([
+      ...common,
+      '--session',
+      session.id,
+      'exec',
+      'browser.navigate',
+      `http://127.0.0.1:${page.port}/`,
+    ])
+    expect(navigated.code).toBe(0)
+    const target = JSON.parse(navigated.stdout) as { contextId: string; pageId: string; title: string }
+    expect(target.title).toBe('CLI Browser')
+    const inspected = await run([
+      ...common,
+      '--session',
+      session.id,
+      '--browser-context',
+      target.contextId,
+      '--page',
+      target.pageId,
+      'exec',
+      'browser.snapshot',
+    ])
+    expect(inspected.code).toBe(0)
+    expect((JSON.parse(inspected.stdout) as { text: string }).text).toContain('command page')
+    const closed = await run([
+      ...common,
+      '--session',
+      session.id,
+      '--browser-context',
+      target.contextId,
+      '--page',
+      target.pageId,
+      'exec',
+      'browser.close',
+    ])
+    expect(closed.code).toBe(0)
+    expect(JSON.parse(closed.stdout)).toEqual({ closed: true })
+  } finally {
+    await page.stop(true)
+  }
+})
+
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

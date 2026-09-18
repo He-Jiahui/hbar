@@ -9,6 +9,7 @@
     "./commands/agents": "./src/commands/agents.ts",
     "./commands/budget": "./src/commands/budget.ts",
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
+    "./commands/browser": "./src/commands/browser.ts",
     "./commands/files": "./src/commands/files.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/interaction": "./src/commands/interaction.ts",

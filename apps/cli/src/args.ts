@@ -31,6 +31,9 @@ export interface CliArgs {
   section?: string | undefined
   path?: string | undefined
   page?: string | undefined
+  browserContext?: string | undefined
+  selector?: string | undefined
+  fullPage: boolean
   valueJson?: string | undefined
   baselineJson?: string | undefined
   schemaVersion?: string | undefined
@@ -73,6 +76,7 @@ Usage:
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>
   hbar exec agent.create|agent.list|agent.cancel --session <id|name>
+  hbar exec browser.status|browser.navigate|browser.snapshot|browser.close --session <id|name>
 
 Headless options:
   --message <text>                 Message (or read one message from stdin)
@@ -138,6 +142,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       section: { type: 'string' },
       path: { type: 'string' },
       page: { type: 'string' },
+      'browser-context': { type: 'string' },
+      selector: { type: 'string' },
+      'full-page': { type: 'boolean' },
       'value-json': { type: 'string' },
       'baseline-json': { type: 'string' },
       'schema-version': { type: 'string' },
@@ -210,6 +217,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     section: values.section as string | undefined,
     path: values.path as string | undefined,
     page: values.page as string | undefined,
+    browserContext: values['browser-context'] as string | undefined,
+    selector: values.selector as string | undefined,
+    fullPage: Boolean(values['full-page']),
     valueJson: values['value-json'] as string | undefined,
     baselineJson: values['baseline-json'] as string | undefined,
     schemaVersion: values['schema-version'] as string | undefined,

@@ -7,6 +7,7 @@ import {
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,
   createAgentCommandClient,
+  createBrowserCommandClient,
   createDirectoryQueryAdapter,
   createFileCommandClient,
   createGoalPlanCommandClient,
@@ -18,6 +19,7 @@ import {
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { agentCommands } from '@hbar/contracts/commands/agents'
+import { browserCommands } from '@hbar/contracts/commands/browser'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
@@ -167,6 +169,27 @@ export function isModelCommand(value: string | undefined): value is keyof typeof
 
 export function isAgentCommand(value: string | undefined): value is keyof typeof agentCommands {
   return Boolean(value && Object.hasOwn(agentCommands, value))
+}
+
+export function isBrowserCommand(value: string | undefined): value is keyof typeof browserCommands {
+  return Boolean(value && Object.hasOwn(browserCommands, value))
+}
+
+export async function runBrowserCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isBrowserCommand(action)) throw new CommandError('COMMAND_NOT_FOUND', 'Unknown browser command')
+  const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
+  if (args.browserContext !== undefined) argv.push('--browser-context', args.browserContext)
+  if (args.page !== undefined) argv.push('--page', args.page)
+  if (args.selector !== undefined) argv.push('--selector', args.selector)
+  if (args.fullPage) argv.push('--full-page')
+  const input = browserCommands[action].input.safeParse(parseArguments(browserCommands[action].metadata, argv))
+  if (!input.success) throw validationError('INVALID_INPUT', input.error)
+  output(await createBrowserCommandClient(runtime.client).execute(action, input.data))
 }
 
 export async function runAgentCommand(
@@ -569,6 +592,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isBrowserCommand(action)) {
+      await runBrowserCommand(args, runtime, output)
+      return true
+    }
     if (isAgentCommand(action)) {
       await runAgentCommand(args, runtime, output)
       return true
