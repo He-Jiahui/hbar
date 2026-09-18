@@ -9,6 +9,8 @@ import {
   createRunCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
+  createModelCommandClient,
+  createUsageCommandClient,
 } from '@hbar/client'
 import type { ConnectionStatus } from '@hbar/client'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
@@ -25,6 +27,8 @@ function createRuntime(client: HbarClient, hostId: string) {
     timeline: createSessionTimelineClient(client),
     run: createRunCommandClient(client),
     interactions: createInteractionCommandClient(client),
+    models: createModelCommandClient(client),
+    usage: createUsageCommandClient(client),
     budget: createBudgetCommandClient(client),
     surfaces: { canRender: (panelId) => panels.has(panelId) },
   })

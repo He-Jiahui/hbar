@@ -4,6 +4,8 @@ import { surfaceCommands } from './surfaces'
 import { draftCommands } from './draft'
 import { runCommands } from './run'
 import { interactionCommands } from './interaction'
+import { modelCommands } from './models'
+import { usageCommands } from './usage'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -134,6 +136,8 @@ export { surfaceCommands } from './surfaces'
 export { draftCommands } from './draft'
 export { runCommands } from './run'
 export { interactionCommands } from './interaction'
+export { modelCommands } from './models'
+export { usageCommands } from './usage'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -142,4 +146,6 @@ export const applicationCommands = {
   ...draftCommands,
   ...runCommands,
   ...interactionCommands,
+  ...modelCommands,
+  ...usageCommands,
 }

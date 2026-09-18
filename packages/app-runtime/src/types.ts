@@ -3,6 +3,8 @@ import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { RunAccepted } from '@hbar/contracts/commands/run'
+import type { ModelConfiguration } from '@hbar/contracts/commands/models'
+import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type {
   Approval,
   LiveStream,
@@ -44,6 +46,8 @@ export interface RuntimeOptions {
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
   readonly interactions?: CommandExecutor
+  readonly models?: CommandExecutor
+  readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
@@ -77,6 +81,19 @@ export interface InteractionActionState {
   readonly error: string | null
 }
 export type InteractionState = Readonly<Record<string, InteractionActionState>>
+
+export interface SessionControlsState {
+  readonly sessionId: string | null
+  readonly status: 'idle' | 'loading' | 'ready' | 'partial'
+  readonly model: Readonly<ModelConfiguration> | null
+  readonly usage: Readonly<UsageQueryResult> | null
+  readonly budget: Readonly<SessionBudget> | null
+  readonly errors: {
+    readonly model: string | null
+    readonly usage: string | null
+    readonly budget: string | null
+  }
+}
 export type SessionTimelineUpdate =
   | { readonly kind: 'event'; readonly event: SessionEvent }
   | { readonly kind: 'stream'; readonly stream: StreamDelta }

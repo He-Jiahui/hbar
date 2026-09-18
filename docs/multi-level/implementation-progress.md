@@ -102,3 +102,11 @@ app-runtime 将 `approval.resolve` 与 `questionnaire.answer` 纳入同一个 ap
 定向测试覆盖未知审批的 timeline 收敛、问卷失败与重试、目标绑定、Client 超时映射，并复用真实 Host interaction 测试验证跨 Session、重复和相反决定规则。B2c2 接入模型、预算与可靠 Usage 投影。
 
 交付验证：`bun run check` 通过 lint、typecheck、308 个测试（85 个文件、2415 个断言）；interaction/timeline/真实 Host 定向测试 5 项及依赖边界 4 项通过，193 模块 Web 生产构建通过。可见交互卡片与浏览器 E2E 随 B2d 一起交付。
+
+### B2c2：模型、预算与可靠 Usage 投影（完成）
+
+app-runtime 新增当前 Session controls 投影，并行读取 `session.getModel`、`usage.query` 与 `session.getBudget`。状态保留模型能力、思考等级、来源 revision、预算余额，以及 A12 的 token、价格、缓存、速率、延时、模型分布、时间序列、gap 与 availability；任一来源失败只形成 partial 状态，不把 null/unavailable 画成零。选择切换使用 generation 拒绝迟到结果，timeline 重同步和 usage/run/budget 事实触发有界刷新，stream delta 不会产生遥测查询风暴。
+
+`session.setModel` 与 `session.setThinkingLevel` 仍经 Host command，runtime 为 UI 调用生成单次幂等键并在成功后刷新权威配置。Client 将模型写入的断线/超时映射为 `RESULT_UNKNOWN`；runtime 立即尝试查询核对，同时保留未知错误供断线界面显示。定向测试覆盖旧 Session 迟到、模型/Usage/预算组合、事实触发刷新、写入幂等键和未知传输映射。B2d 只需把这些只读 ViewModel 映射到受控组件。
+
+交付验证：`bun run check` 通过 lint、typecheck、310 个测试（86 个文件、2419 个断言）；模型/Usage/预算定向与现有领域测试 10 项、依赖边界 4 项通过，194 模块 Web 生产构建通过。B2d 将执行会话页面的浏览器交互与截图验收。

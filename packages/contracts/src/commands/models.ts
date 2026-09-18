@@ -16,7 +16,7 @@ export const modelDescriptorSchema = z.strictObject({
   defaultThinkingLevel: thinkingLevelSchema,
   hasKey: z.boolean(),
 })
-const configurationSchema = z.strictObject({
+export const modelConfigurationSchema = z.strictObject({
   sessionId: idSchema,
   status: z.enum(['unset', 'configured', 'unavailable']),
   modelId: idSchema.nullable(),
@@ -25,7 +25,7 @@ const configurationSchema = z.strictObject({
   revisions: z.record(z.string(), z.number().int().nonnegative()),
   sources: z.strictObject({ model: z.string(), thinkingLevel: z.string() }),
 })
-const writeResultSchema = configurationSchema.extend({
+export const modelWriteResultSchema = modelConfigurationSchema.extend({
   commitId: idSchema,
   revision: z.number().int().positive(),
 })
@@ -56,7 +56,7 @@ export const modelCommands = {
       cli: { arguments: [{ field: 'sessionId', type: 'string' as const, flag: 'session' }] },
     },
     z.strictObject({ sessionId: idSchema }),
-    configurationSchema,
+    modelConfigurationSchema,
   ),
   'session.setModel': defineCommand(
     {
@@ -73,7 +73,7 @@ export const modelCommands = {
       modelId: idSchema,
       baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
     }),
-    writeResultSchema,
+    modelWriteResultSchema,
   ),
   'session.setThinkingLevel': defineCommand(
     {
@@ -90,8 +90,10 @@ export const modelCommands = {
       thinkingLevel: thinkingLevelSchema,
       baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
     }),
-    writeResultSchema,
+    modelWriteResultSchema,
   ),
 }
 
 export type ModelDescriptor = z.output<typeof modelDescriptorSchema>
+export type ModelConfiguration = z.output<typeof modelConfigurationSchema>
+export type ModelWriteResult = z.output<typeof modelWriteResultSchema>

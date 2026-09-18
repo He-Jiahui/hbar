@@ -11,6 +11,8 @@ import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
+import { modelCommands } from '@hbar/contracts/commands/models'
+import { usageCommands } from '@hbar/contracts/commands/usage'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -19,6 +21,7 @@ import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
 import { createDrafts } from './drafts'
 import { createInteractions } from './interactions'
+import { createSessionControls } from './session-controls'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
@@ -33,6 +36,7 @@ export type {
   RuntimeOptions,
   RunCommandPort,
   SessionDraftState,
+  SessionControlsState,
   SessionTimelinePort,
   SessionTimelineState,
   SessionTimelineUpdate,
@@ -82,6 +86,15 @@ export function createAppRuntime(options: RuntimeOptions) {
   const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const drafts = createDrafts(local, options.run, onSubscriberError, () => disposed)
   const interactions = createInteractions(options.interactions, timeline.reader, onSubscriberError, () => disposed)
+  const controls = createSessionControls(
+    options.models,
+    options.usage,
+    options.budget,
+    navigation.reader,
+    timeline.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -91,6 +104,8 @@ export function createAppRuntime(options: RuntimeOptions) {
         return platform.execute(name, input, execution)
       if (Object.hasOwn(runCommands, name)) return drafts.executeRun(name, input, execution)
       if (Object.hasOwn(interactionCommands, name)) return interactions.execute(name, input, execution)
+      if (Object.hasOwn(modelCommands, name)) return controls.executeModel(name, input, execution)
+      if (Object.hasOwn(usageCommands, name)) return controls.executeUsage(name, input, execution)
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
@@ -110,6 +125,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       timeline: timeline.reader,
       drafts: drafts.reader,
       interactions: interactions.reader,
+      controls: controls.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
@@ -132,6 +148,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       timeline.dispose()
       drafts.dispose()
       interactions.dispose()
+      controls.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()
