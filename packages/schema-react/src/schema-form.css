@@ -33,6 +33,15 @@
   overflow-wrap: anywhere;
 }
 
+.hbar-schema-form-context,
+.hbar-schema-form-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .hbar-schema-form-control input,
 .hbar-schema-form-control select {
   min-inline-size: 0;

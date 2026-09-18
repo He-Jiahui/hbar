@@ -117,15 +117,20 @@ test('schema form renders host-owned copy, raw numeric input and dynamic option 
           },
         },
       }}
+      fieldNames={['count', 'mode']}
+      renderFieldContext={(field) => <small className="hbar-schema-form-context">Source for {field.name}</small>}
+      renderFieldActions={(field) => <button className="hbar-schema-form-actions">Action for {field.name}</button>}
       onIntent={() => undefined}
     />,
   )
-  expect(html).toContain('Display name')
+  expect(html).not.toContain('Display name')
   expect(html).toContain('value="-"')
   expect(html).toContain('count: invalid')
   expect(html).toContain('Unavailable selection: retired')
   expect(html).toContain('Fast mode')
   expect(html).toContain('Use saved value')
+  expect(html).toContain('Source for mode')
+  expect(html).toContain('Action for count')
   expect(html).not.toContain('settings.get')
 })
 
