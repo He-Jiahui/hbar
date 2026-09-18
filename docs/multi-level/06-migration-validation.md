@@ -132,6 +132,8 @@ A14a 完成 Git 来源事实。hbar 创建提交后向专用 notes ref 写入带
 
 A14b 完成 Git 统计查询。`git.stats` 由 Host command、typed Client、CLI 与 AI read tool 共享同一契约；真实临时仓库验证 first-parent merge、rename、binary、来源过滤、UTC 时间桶、缓存命中、fast-forward 增量更新以及 amend/rebase 类非快进后的可达历史重建。扫描由可取消 Git 子进程承担并限制提交数与输出字节，聚合限制 1000 桶；超出保留范围必须报告 gap。
 
+A15a 将最后一个 CLI 业务写入口迁出旧 Run RPC。无头模式现在通过 typed `run.submit` 获得持久 operation 受理回执，再从只读 Session snapshot 取得 Run；SIGINT 通过 `operation.cancel` 传播取消。CLI/TUI/REPL 因此不再调用 `run.start/run.cancel`，重复受理、actor/idempotency、取消事实和未知结果均走 A5 的同一命令链。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

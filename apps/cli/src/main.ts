@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { CommandError } from '@hbar/commands'
+import { createRunCommandClient } from '@hbar/client'
 import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
 import {
@@ -285,24 +286,32 @@ try {
     }
     const handled = await runCliCommand(args, runtime)
     if (!handled && args.headless) {
-      let activeRunId = ''
+      const runs = createRunCommandClient(runtime.client)
+      let activeOperationId = ''
       const interrupt = () => {
-        if (activeRunId) void runtime.client.call('run.cancel', { runId: activeRunId })
+        if (activeOperationId)
+          void runs.execute('operation.cancel', { operationId: activeOperationId }).catch(() => {})
       }
       process.once('SIGINT', interrupt)
       try {
-        const run = await runtime.client.call('run.start', {
-          sessionId: runtime.session.id,
-          requestId: randomUUID(),
-          input: {
-            text: args.message!,
-            images: [],
-            thinking: args.thinkingExplicit ? args.thinking : runtime.thinkingLevel,
-            approval: args.approval,
+        const accepted = await runs.execute(
+          'run.submit',
+          {
+            sessionId: runtime.session.id,
+            input: {
+              text: args.message!,
+              images: [],
+              thinking: args.thinkingExplicit ? args.thinking : runtime.thinkingLevel,
+              approval: args.approval,
+            },
+            modelId: runtime.modelId,
           },
-          modelId: runtime.modelId,
-        })
-        activeRunId = run.id
+          { idempotencyKey: randomUUID() },
+        )
+        activeOperationId = accepted.operationId
+        const snapshot = await runtime.client.call('session.snapshot', { sessionId: runtime.session.id })
+        const run = snapshot.runs.find((item) => item.id === accepted.operationId)
+        if (!run) throw new Error('Accepted run is unavailable from the session snapshot')
         await waitForRun(runtime.client, runtime.session, run, args.outputFormat, args.approval)
       } finally {
         process.off('SIGINT', interrupt)

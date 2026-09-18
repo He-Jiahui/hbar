@@ -393,7 +393,7 @@
     "A12": "complete: versioned usage and attempt facts, bounded query/export, typed Client and CLI",
     "A13": "complete: bounded collector, OS adapter, Host/Client/CLI query and reconnecting watch",
     "A14": "complete: durable explicit provenance, bounded first-parent statistics, incremental cache and rewrite reindex",
-    "A15": "pending",
+    "A15": "in progress: headless CLI write paths sealed; legacy Host adapter and full command audit pending",
     "B1-B7": "pending"
   }
 }
