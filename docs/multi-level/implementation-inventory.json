@@ -285,8 +285,8 @@
       "stateOwner": "Host parent-child sessions, usage ledger, bounded metrics",
       "category": "monitoring.git",
       "milestone": "A11-A13",
-      "status": "complete-agent-usage-and-performance-query-metrics-watch-pending",
-      "rpc": [],
+      "status": "complete-agent-usage-and-performance-query-watch",
+      "rpc": ["metrics.watch", "metrics.unwatch"],
       "additionalCommands": [
         "agent.create",
         "agent.list",
@@ -296,7 +296,13 @@
         "usage.query",
         "usage.export"
       ],
-      "tests": ["tests/agent-commands.test.ts", "tests/usage-facts.test.ts", "tests/usage-commands.test.ts", "tests/cli.test.ts"]
+      "tests": [
+        "tests/agent-commands.test.ts",
+        "tests/usage-facts.test.ts",
+        "tests/usage-commands.test.ts",
+        "tests/performance-metrics.test.ts",
+        "tests/cli.test.ts"
+      ]
     }
   ],
   "renames": {
@@ -385,7 +391,8 @@
     "A10": "complete: layered repository, vector CAS, idempotent atomic apply, migrations, Host commands, typed client and CLI",
     "A11": "in progress: workspace/session, interaction, goal/plan, model/provider/permission/mode configuration, budget, file/attachment, child-agent, browser, computer, Git, Host system/path/device/pairing, and extension domains migrated through commands and CLI",
     "A12": "complete: versioned usage and attempt facts, bounded query/export, typed Client and CLI",
-    "A13-A15": "A13 in progress: bounded performance collector, OS adapter, Host/Client/CLI query complete; reconnecting watch pending",
+    "A13": "complete: bounded collector, OS adapter, Host/Client/CLI query and reconnecting watch",
+    "A14-A15": "pending",
     "B1-B7": "pending"
   }
 }

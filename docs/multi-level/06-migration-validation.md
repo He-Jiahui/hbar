@@ -126,6 +126,8 @@ A13a 建立 `@hbar/metrics` 有界 collector 与 Host OS adapter。collector 对
 
 A13b 发布 `metrics.current/query` Host commands。每个 Host 只启动一个 collector，关闭时释放 timer；命令输出包含动态进程 uptime、当前样本、有界桶、跳样数和保留 gap。真实认证 Host 与 CLI 测试验证目录、进程归属、当前内存、Run 队列和点数上限；视图不接触 OS adapter。
 
+A13c 完成性能增量同步。`metrics.watch/unwatch` 复用 collector 环而不为每个面板创建采集器，只向订阅 socket 推送；Client 对初始响应与并发推送去重，并在连接换代后从最后游标补取。测试覆盖实时样本、断线期间继续采集、重连补取、无重复和关闭后停止通知。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

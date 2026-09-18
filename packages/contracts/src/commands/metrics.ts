@@ -25,6 +25,11 @@ export const metricsCurrentResultSchema = z.strictObject({
   process: hostProcessInfoSchema,
   current: performanceSampleSchema.nullable(),
 })
+export const metricsWatchResultSchema = z.strictObject({
+  samples: z.array(performanceSampleSchema).max(200),
+  cursor: z.number().int().nonnegative(),
+  reset: z.boolean(),
+})
 
 const metadata = (id: 'metrics.query' | 'metrics.current') => ({
   id,
@@ -48,3 +53,4 @@ export const metricsCommands = {
 export type MetricsQueryInput = z.output<typeof metricsQueryInputSchema>
 export type MetricsQueryResult = z.output<typeof metricsQueryResultSchema>
 export type MetricsCurrentResult = z.output<typeof metricsCurrentResultSchema>
+export type MetricsWatchResult = z.output<typeof metricsWatchResultSchema>

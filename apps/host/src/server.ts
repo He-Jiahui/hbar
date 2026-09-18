@@ -72,6 +72,7 @@ interface SocketData {
   initialized: boolean
   follows: Set<string>
   operationFollows: Set<string>
+  metricsFollowing: boolean
   pending: number
   timer?: ReturnType<typeof setTimeout> | undefined
   scope?: RuntimeScope | undefined
@@ -86,6 +87,7 @@ export interface ServerOptions {
   staticRoot?: string
   cert?: string
   key?: string
+  metricsIntervalMs?: number
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
@@ -94,6 +96,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       queuedRuns: (await kernel.storage.call('queuedSessions')).length,
       managedChildProcesses: null,
     })),
+    { intervalMs: options.metricsIntervalMs },
   )
   await performance.start()
   const metricsCommands = createMetricsCommands(performance)
@@ -360,6 +363,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'operation.unwatch': {
         const input = rpcSchemas[method].parse(raw)
         socket.data.operationFollows.delete(input.operationId)
+        return null
+      }
+      case 'metrics.watch': {
+        const input = rpcSchemas[method].parse(raw)
+        socket.data.metricsFollowing = true
+        return performance.samplesAfter(input.cursor)
+      }
+      case 'metrics.unwatch': {
+        rpcSchemas[method].parse(raw)
+        socket.data.metricsFollowing = false
         return null
       }
       case 'surface.register': {
@@ -918,6 +931,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
                 initialized: false,
                 follows: new Set(),
                 operationFollows: new Set(),
+                metricsFollowing: false,
                 schemaQueries: new Map(),
                 pending: 0,
               },
@@ -1054,6 +1068,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       send(socket, { jsonrpc: '2.0', ...event })
     }
   })
+  const unsubscribeMetrics = performance.subscribe((sample) => {
+    for (const socket of sockets)
+      if (socket.data.initialized && socket.data.metricsFollowing)
+        send(socket, { jsonrpc: '2.0', method: 'metrics.sample', params: sample })
+  })
   return {
     server,
     auth,
@@ -1079,6 +1098,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       usageCommands.dispose()
       systemCommands.dispose()
       unsubscribe()
+      unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })
       surfaceClients.clear()

@@ -84,6 +84,7 @@ export class PerformanceCollector {
   private sampling = false
   private droppedBefore: number | null = null
   private skipped = 0
+  private readonly listeners = new Set<(sample: PerformanceSample) => void>()
 
   constructor(
     private readonly provider: PerformanceProvider,
@@ -109,7 +110,7 @@ export class PerformanceCollector {
       return null
     }
     this.sampling = true
-    const observedAt = this.now()
+    const observedAt = Math.max(this.now(), (this.lastObservedAt ?? -1) + 1)
     const elapsedMs = Math.max(0.001, observedAt - (this.lastObservedAt ?? observedAt - this.intervalMs))
     try {
       const readings = await this.provider.sample(elapsedMs)
@@ -129,6 +130,13 @@ export class PerformanceCollector {
       this.samples.push(sample)
       while (this.samples.length > this.maxSamples) {
         this.droppedBefore = this.samples.shift()!.observedAt
+      }
+      for (const listener of this.listeners) {
+        try {
+          listener(sample)
+        } catch {
+          // One observer cannot interrupt the shared collector.
+        }
       }
       return sample
     } finally {
@@ -150,6 +158,27 @@ export class PerformanceCollector {
 
   current(): PerformanceSample | null {
     return this.samples.at(-1) ?? null
+  }
+
+  subscribe(listener: (sample: PerformanceSample) => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  samplesAfter(cursor: number, limit = 200): {
+    readonly samples: readonly PerformanceSample[]
+    readonly cursor: number
+    readonly reset: boolean
+  } {
+    const boundedLimit = Math.min(Math.max(limit, 1), 200)
+    const available = this.samples.filter((sample) => sample.observedAt > cursor)
+    const overflow = available.length > boundedLimit
+    const samples = overflow ? available.slice(-boundedLimit) : available
+    return {
+      samples,
+      cursor: this.samples.at(-1)?.observedAt ?? cursor,
+      reset: overflow || (this.droppedBefore !== null && cursor <= this.droppedBefore),
+    }
   }
 
   query(input: { readonly from: number; readonly to: number; readonly bucketMs: number; readonly maxPoints: number }): {

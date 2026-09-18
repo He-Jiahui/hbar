@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarClient, createMetricsCommandClient } from '@hbar/client'
+import { HbarClient, createMetricsCommandClient, createMetricsWatcher } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { available, PerformanceCollector, unavailable, type PerformanceProvider } from '@hbar/metrics'
 import { createHostPerformanceProvider } from '../apps/host/src/performance-provider.ts'
@@ -67,6 +67,7 @@ test('performance collector shares bounded samples, aggregates buckets, and repo
     availability: 'unavailable',
     reason: 'PLATFORM_UNSUPPORTED',
   })
+  expect(collector.samplesAfter(0, 1)).toMatchObject({ reset: true, samples: [{ observedAt: 1_200 }] })
 })
 
 test('host performance provider reports real process facts and explicit platform gaps', async () => {
@@ -122,6 +123,49 @@ test('authenticated metrics commands expose one shared Host collector', async ()
     expect(query.points.length).toBeGreaterThan(0)
     expect(query.points.length).toBeLessThanOrEqual(10)
     expect(query.points.at(-1)?.readings.activeRuns).toMatchObject({ availability: 'available', value: 0 })
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('metrics watch resumes from its cursor after reconnect and releases the socket subscription', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-performance-watch-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    host = await startServer(kernel, { port: 0, metricsIntervalMs: 100 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'metrics watch actor')
+    const samples: number[] = []
+    let resets = 0
+    const watcher = await createMetricsWatcher(client).watch(0, (update) => {
+      if (update.kind === 'sample') samples.push(update.sample.observedAt)
+      else if (update.kind === 'reset') resets++
+    })
+    expect(watcher.initial.samples.length).toBeGreaterThan(0)
+    for (let attempt = 0; attempt < 30 && samples.length < 2; attempt++) await Bun.sleep(20)
+    expect(samples.length).toBeGreaterThanOrEqual(2)
+    const beforeDisconnect = samples.at(-1)!
+    client.disconnect()
+    await Bun.sleep(250)
+    await client.connect()
+    for (let attempt = 0; attempt < 30 && (samples.at(-1) ?? 0) <= beforeDisconnect; attempt++) await Bun.sleep(20)
+    expect(samples.at(-1)).toBeGreaterThan(beforeDisconnect)
+    expect(new Set(samples).size).toBe(samples.length)
+    expect(resets).toBe(0)
+    await watcher.close()
+    const count = samples.length
+    await Bun.sleep(150)
+    expect(samples).toHaveLength(count)
   } finally {
     client?.disconnect()
     await host?.close()

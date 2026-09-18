@@ -781,6 +781,7 @@ export interface Bootstrap {
 export type WireNotification =
   | { method: 'session.event'; params: SessionEvent }
   | { method: 'stream.update'; params: StreamDelta }
+  | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
   | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal } }
   | { method: 'goal.cleared'; params: { sessionId: string } }
@@ -827,6 +828,8 @@ export const rpcSchemas = {
     cursor: z.number().int().nonnegative().default(0),
   }),
   'operation.unwatch': z.strictObject({ operationId: idSchema }),
+  'metrics.watch': z.strictObject({ cursor: z.number().int().nonnegative().default(0) }),
+  'metrics.unwatch': z.strictObject({}),
   'surface.register': z.strictObject({
     clientId: idSchema,
     generation: z.number().int().positive(),
@@ -1086,6 +1089,8 @@ export interface RpcResults {
   'command.getReceipt': import('./commands/budget').BudgetReceipt | import('./commands/run').RunAccepted | null
   'operation.watch': import('./commands/run').OperationWatchResult
   'operation.unwatch': null
+  'metrics.watch': import('./commands/metrics').MetricsWatchResult
+  'metrics.unwatch': null
   'surface.register': { clientId: string; generation: number; commands: string[] }
   'surface.unregister': null
   'surface.list': { items: { clientId: string; generation: number; commands: string[] }[] }
