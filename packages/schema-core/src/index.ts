@@ -4,3 +4,17 @@ export { createForm, setField, resetField, beginSubmit, settleSubmit, rebaseForm
 export type { FormState, FieldIssue, Submission, SubmitOutcome } from './form'
 export { encodePath, decodePath } from './path'
 export type { SchemaPath, SchemaPathSegment } from './path'
+export { compileContentGraph, createContentResolver, createSchemaCallbackRegistry, SchemaContentError } from './content'
+export type {
+  CallbackRegistration,
+  CompiledContentGraph,
+  CompiledContentNode,
+  ContentResolverOptions,
+  DynamicFieldDescription,
+  LocalizedText,
+  OptionContentReport,
+  OptionValue,
+  ResolveContentInput,
+  SchemaCallbackPort,
+  SchemaContentRequest,
+} from './content'

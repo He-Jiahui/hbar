@@ -76,6 +76,8 @@ A7a 在 `0f7cb83` 提交。A7b 增加已鉴权的 surface client 注册与定向
 
 A7b 在 `dec53d9` 提交。A8 新增独立 `@hbar/settings-core`：以传入的有序 layer chain 解析设置，不硬编码 hbar 三层实体；缺省继承、显式 null、对象字段合并、普通数组整体替换、keyed tombstone/排序和允许层级均由纯函数验证。报告包含本层 presence/value、effective、整体及逐叶来源 revision、继承和 apply 状态；敏感定义只允许 secretRef 形态。包边界构建证明其不依赖 Host、React、Zustand、commands、contracts 或数据库。
 
+A8 在 `fd3c953` 提交。A9 扩展 schema-core 的动态内容模块：编译具名 callback 与依赖 DAG，只向 callback 传声明依赖，以 Host/身份/作用域/Schema/依赖/搜索和游标隔离有界缓存。resolver 取消同表单旧 generation、限制并发并验证 options 的值类型、文本、去重、指纹、能力 revision 和容量；ready 空列表、unavailable 与失败保持不同语义。Kernel 注册表通过已鉴权 `schema.content.query/cancel` 暴露，Client port 将 AbortSignal 映射到 Host 取消；真实网络测试验证旧请求不能覆盖新依赖结果。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

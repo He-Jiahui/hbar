@@ -4,6 +4,7 @@ export { createBudgetCommandClient } from './budget'
 export { createRunCommandClient } from './run'
 export { createOperationWatcher } from './run'
 export { registerSurfaceClient, type SurfaceClientOptions } from './surfaces'
+export { createSchemaCallbackClient } from './schema-content'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'

@@ -136,6 +136,9 @@
     "packages/client": {
       "name": "@hbar/client",
       "version": "0.1.0",
+      "dependencies": {
+        "@hbar/schema-core": "workspace:*",
+      },
     },
     "packages/commands": {
       "name": "@hbar/commands",
@@ -149,6 +152,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hbar/commands": "workspace:*",
+        "@hbar/schema-core": "workspace:*",
         "zod": "4.5.4",
       },
     },
@@ -169,6 +173,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hbar/commands": "workspace:*",
+        "@hbar/schema-core": "workspace:*",
       },
     },
     "packages/plugin-sdk": {

@@ -857,6 +857,25 @@ export const rpcSchemas = {
       error: z.strictObject({ code: z.string().min(1).max(128), message: z.string().max(2000) }),
     }),
   ]),
+  'schema.content.query': z.strictObject({
+    queryId: idSchema,
+    callbackId: z.string().min(1).max(128),
+    request: z.strictObject({
+      schemaId: z.string().min(1).max(128),
+      schemaVersion: z.number().int().positive(),
+      scope: z.strictObject({ kind: z.string().min(1).max(64), id: idSchema.optional() }),
+      formId: idSchema,
+      formRevision: z.number().int().nonnegative(),
+      path: z.string().min(1).max(12_000),
+      callbackVersion: z.number().int().positive(),
+      valueType: z.enum(['string', 'number', 'boolean']),
+      dependencies: z.record(z.string().min(1).max(12_000), z.unknown()),
+      dependencyFingerprint: z.string().min(1).max(128),
+      search: z.string().max(500).optional(),
+      cursor: z.string().max(500).optional(),
+    }),
+  }),
+  'schema.content.cancel': z.strictObject({ queryId: idSchema }),
   'workspace.list': workspaceListInputSchema,
   'workspace.get': workspaceGetInputSchema,
   'session.list': sessionListInputSchema,
@@ -1072,6 +1091,8 @@ export interface RpcResults {
   'surface.list': { items: { clientId: string; generation: number; commands: string[] }[] }
   'surface.invoke': unknown
   'surface.resolve': null
+  'schema.content.query': import('@hbar/schema-core').OptionContentReport
+  'schema.content.cancel': { cancelled: boolean }
   'workspace.list': WorkspacePage
   'workspace.get': Workspace | null
   'session.list': SessionPage

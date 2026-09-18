@@ -62,6 +62,7 @@ export type { RuntimeScope } from './plugins.ts'
 export { createBudgetCommands } from './budget-commands'
 export { createRunCommands } from './run-commands'
 import { createDirectoryQueries } from './directory-queries'
+import { createSchemaCallbackRegistry } from '@hbar/schema-core'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -181,6 +182,7 @@ export class Kernel {
   readonly storage: StoragePort
   readonly tools = new Tools()
   readonly hooks = new Hooks()
+  readonly schemaCallbacks = createSchemaCallbackRegistry()
   readonly plugins: PluginManager
   readonly instanceId = crypto.randomUUID()
   readonly secrets: SecretStore
@@ -1162,6 +1164,7 @@ export class Kernel {
   }
   async close() {
     this.closing = true
+    this.schemaCallbacks.dispose()
     this.directoryQueries.dispose()
     for (const active of this.active.values()) active.controller.abort(new Error('Host shutting down'))
     await this.waitForIdle()

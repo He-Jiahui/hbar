@@ -5,6 +5,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@hbar/commands": "workspace:*"
+    "@hbar/commands": "workspace:*",
+    "@hbar/schema-core": "workspace:*"
   }
 }

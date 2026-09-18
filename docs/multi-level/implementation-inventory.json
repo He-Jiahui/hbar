@@ -51,8 +51,17 @@
       "stateOwner": "Host layered settings; client form drafts",
       "category": "settings.providers",
       "milestone": "A8-A10",
-      "status": "pending",
-      "rpc": ["permission.get", "permission.set", "provider.save", "provider.delete", "mode.get", "mode.set"],
+      "status": "partial-dynamic-content",
+      "rpc": [
+        "permission.get",
+        "permission.set",
+        "provider.save",
+        "provider.delete",
+        "mode.get",
+        "mode.set",
+        "schema.content.cancel",
+        "schema.content.query"
+      ],
       "additionalCommands": [
         "settings.get",
         "settings.set",
@@ -63,7 +72,13 @@
         "session.setThinkingLevel",
         "model.list"
       ],
-      "tests": ["tests/provider.test.ts", "tests/server.test.ts", "tests/plan.test.ts"]
+      "tests": [
+        "tests/provider.test.ts",
+        "tests/server.test.ts",
+        "tests/plan.test.ts",
+        "tests/schema-content.test.ts",
+        "tests/schema-content-network.test.ts"
+      ]
     },
     {
       "id": "goals-plans",
@@ -344,7 +359,8 @@
     "A6": "complete: combined catalog, CLI, revisioned named context, line REPL and TUI shared execution path",
     "A7": "complete: logical surfaces, PlatformPort and generation-bound directed client relay",
     "A8": "complete: bounded layered resolution, provenance, null/unset, replace and keyed merge",
-    "A9-A15": "pending",
+    "A9": "complete: typed callback DAG, bounded resolver cache and cancellable authenticated query bridge",
+    "A10-A15": "pending",
     "B1-B7": "pending"
   }
 }

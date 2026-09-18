@@ -34,6 +34,7 @@ interface SocketData {
   scope?: RuntimeScope | undefined
   surfaceClientId?: string | undefined
   surfaceGeneration?: number | undefined
+  schemaQueries: Map<string, AbortController>
 }
 export interface ServerOptions {
   hostname?: string
@@ -339,6 +340,31 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             : { ok: false, code: input.error.code, message: input.error.message },
         )
         return null
+      }
+      case 'schema.content.query': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        if (socket.data.schemaQueries.has(input.queryId))
+          throw new HbarError('COMMAND_CONFLICT', 'Schema content query ID is already active')
+        if (socket.data.schemaQueries.size >= 16) throw new HbarError('BUSY', 'Too many active schema content queries')
+        const controller = new AbortController()
+        socket.data.schemaQueries.set(input.queryId, controller)
+        try {
+          return await kernel.schemaCallbacks.query(input.callbackId, input.request, { signal: controller.signal })
+        } catch (error) {
+          if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string')
+            throw new HbarError(error.code, error instanceof Error ? error.message : String(error))
+          throw error
+        } finally {
+          if (socket.data.schemaQueries.get(input.queryId) === controller)
+            socket.data.schemaQueries.delete(input.queryId)
+        }
+      }
+      case 'schema.content.cancel': {
+        const input = rpcSchemas[method].parse(raw)
+        const controller = socket.data.schemaQueries.get(input.queryId)
+        controller?.abort(new HbarError('CANCELLED', 'Schema content query was cancelled'))
+        return { cancelled: Boolean(controller) }
       }
       case 'system.hello': {
         const params = rpcSchemas[method].parse(raw)
@@ -757,6 +783,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
                 initialized: false,
                 follows: new Set(),
                 operationFollows: new Set(),
+                schemaQueries: new Map(),
                 pending: 0,
               },
             })
@@ -863,6 +890,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       close(socket) {
         clearTimeout(socket.data.timer)
         sockets.delete(socket)
+        for (const controller of socket.data.schemaQueries.values())
+          controller.abort(new HbarError('CANCELLED', 'Schema content client disconnected'))
+        socket.data.schemaQueries.clear()
         if (socket.data.surfaceClientId && socket.data.surfaceGeneration) {
           const target = surfaceClients.get(socket.data.surfaceClientId)
           if (target?.socket === socket && target.generation === socket.data.surfaceGeneration) {
