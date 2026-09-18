@@ -35,6 +35,7 @@ import type {
   Usage,
   Workspace,
 } from '@hbar/contracts'
+import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 
 export { Context }
 export type Disposer = () => void | Promise<void>
@@ -168,6 +169,11 @@ export interface ModeService {
 export interface BudgetService {
   get(sessionId: string): Promise<SessionBudget | null>
   set(sessionId: string, limit: number): Promise<SessionBudget>
+  setCommand(
+    input: SetBudgetInput,
+    context: { actorId: string; idempotencyKey: string; requestId: string },
+  ): Promise<BudgetReceipt>
+  getCommandReceipt(sessionId: string, actorId: string, idempotencyKey: string): Promise<BudgetReceipt | null>
   clear(sessionId: string): Promise<{ cleared: boolean }>
 }
 export interface GitDiffOptions {

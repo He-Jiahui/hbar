@@ -15,6 +15,9 @@ import {
 export interface CommandContext {
   readonly requestId: string
   readonly signal: AbortSignal
+  /** Supplied by the authenticated execution boundary, never from caller input. */
+  readonly actorId?: string
+  readonly idempotencyKey?: string
 }
 
 export type CommandHandler<Input extends z.ZodType, Output extends z.ZodType> = (
@@ -33,6 +36,8 @@ export interface ExecuteOptions {
   readonly requestId?: string
   readonly signal?: AbortSignal
   readonly version?: number
+  readonly actorId?: string
+  readonly idempotencyKey?: string
 }
 
 interface Registration {
@@ -40,6 +45,7 @@ interface Registration {
   readonly parseInput: (value: unknown) => unknown
   readonly run: (input: unknown, context: CommandContext) => Promise<unknown>
   readonly active: Set<AbortController>
+  readonly durable: boolean
 }
 
 function checkedLimit(value: number, maximum: number): number {
@@ -79,11 +85,19 @@ export class CommandRegistry {
   register<Input extends z.ZodType, Output extends z.ZodType>(
     definition: CommandDefinition<Input, Output>,
     handler: CommandHandler<Input, Output>,
+    options: { readonly durable?: boolean } = {},
   ): () => void {
     this.#assertActive()
     const descriptor = describeCommand(definition)
     if (descriptor.metadata.execution !== this.#execution)
       throw new CommandError('INVALID_DEFINITION', 'Command execution domain does not match this registry')
+    if (
+      options.durable &&
+      (descriptor.metadata.kind !== 'command' ||
+        descriptor.metadata.stateEffect !== 'persistent' ||
+        descriptor.metadata.idempotency !== 'required')
+    )
+      throw new CommandError('INVALID_DEFINITION', 'Durable handler requires a persistent, idempotent command')
     const names = [descriptor.metadata.id, ...descriptor.metadata.aliases]
     if (names.some((name) => this.#names.has(name)))
       throw new CommandError('COMMAND_CONFLICT', 'Command name is already registered')
@@ -100,6 +114,7 @@ export class CommandRegistry {
       descriptor,
       parseInput,
       active: new Set(),
+      durable: options.durable ?? false,
       async run(value, context) {
         const result = await handler(parseInput(value), context)
         const parsed = outputSchema.safeParse(result)
@@ -229,13 +244,15 @@ export class CommandRegistry {
     return this.execute(invocation.commandId, invocation.input, options)
   }
 
-  async dispatch(value: unknown, options: Pick<ExecuteOptions, 'signal'> = {}): Promise<unknown> {
+  async dispatch(value: unknown, options: Pick<ExecuteOptions, 'signal' | 'actorId'> = {}): Promise<unknown> {
     const parsed = invocationSchema.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     return this.execute(parsed.data.commandId, parsed.data.input, {
       ...options,
       requestId: parsed.data.requestId,
       version: parsed.data.commandVersion,
+      ...(parsed.data.idempotencyKey ? { idempotencyKey: parsed.data.idempotencyKey } : {}),
+      ...(options.actorId ? { actorId: options.actorId } : {}),
     })
   }
 
@@ -246,11 +263,14 @@ export class CommandRegistry {
       throw new CommandError('VERSION_MISMATCH', 'Command version is incompatible')
     // Persistent/external execution is enabled with the journal adapter in A3, never silently memory-only.
     if (
-      metadata.idempotency === 'required' ||
-      metadata.stateEffect === 'persistent' ||
-      metadata.stateEffect === 'external'
+      (metadata.idempotency === 'required' ||
+        metadata.stateEffect === 'persistent' ||
+        metadata.stateEffect === 'external') &&
+      !registration.durable
     )
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Durable execution requires a journal adapter')
+    if (registration.durable && (!options.idempotencyKey || !options.actorId))
+      throw new CommandError('INVALID_INPUT', 'Durable command requires an authenticated actor and idempotency key')
     if (options.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
     const input = registration.parseInput(value)
     if (this.#active.size >= this.#maxConcurrent || registration.active.size >= metadata.maxConcurrent)
@@ -262,6 +282,7 @@ export class CommandRegistry {
       commandId: metadata.id,
       commandVersion: metadata.version,
       input,
+      ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
     })
     if (!invocation.success) throw validationError('INVALID_INPUT', invocation.error)
     const controller = new AbortController()
@@ -294,7 +315,12 @@ export class CommandRegistry {
         this.#active.delete(controller)
       }
       const run = async (): Promise<unknown> => {
-        const context = { requestId, signal: controller.signal }
+        const context = {
+          requestId,
+          signal: controller.signal,
+          ...(options.actorId ? { actorId: options.actorId } : {}),
+          ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
+        }
         if (metadata.capabilities.length && !(await this.#authorize?.(metadata, context)))
           throw new CommandError('FORBIDDEN', 'Command capability is not authorized')
         if (controller.signal.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')

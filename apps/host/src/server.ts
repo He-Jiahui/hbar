@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
-import { Kernel } from '@hbar/kernel'
+import { Kernel, createBudgetCommands } from '@hbar/kernel'
 import { CommandError } from '@hbar/commands/protocol'
 import type {
   BrowserUseService,
@@ -38,6 +38,7 @@ export interface ServerOptions {
   key?: string
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
+  const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
@@ -105,6 +106,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   }
   async function invoke(method: RpcMethod, raw: unknown, socket: ServerWebSocket<SocketData>): Promise<unknown> {
     switch (method) {
+      case 'command.execute': {
+        const invocation = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        return budgetCommands.dispatch(invocation, socket.data.deviceId)
+      }
+      case 'command.getReceipt': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        return budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+      }
       case 'system.hello': {
         const params = rpcSchemas[method].parse(raw)
         if (socket.data.initialized) throw new HbarError('ALREADY_INITIALIZED', 'Connection already initialized')
@@ -639,6 +650,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     pairing,
     info: hostInfo,
     async close() {
+      budgetCommands.dispose()
       unsubscribe()
       for (const socket of sockets) socket.close()
       await server.stop(true)

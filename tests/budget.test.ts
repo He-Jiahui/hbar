@@ -2,9 +2,11 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarClient } from '@hbar/client'
+import { HbarClient, createBudgetCommandClient } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import type { BudgetService } from '@hbar/plugin-sdk'
+import { BudgetRuntime } from '../plugins/budget/src/index.ts'
+import type { SessionEvent } from '@hbar/contracts'
+import type { BudgetService, HbarAPI } from '@hbar/plugin-sdk'
 import { startServer } from '../apps/host/src/server.ts'
 
 const resources: Array<{ root: string; kernel: Kernel; close?: () => Promise<void> }> = []
@@ -78,4 +80,154 @@ test('budget RPC exposes set, get, and clear through the authenticated client', 
   expect((await client.call('budget.get', { sessionId: session.id }))?.budgetId).toBe(created.budgetId)
   expect(await client.call('budget.clear', { sessionId: session.id })).toEqual({ cleared: true })
   expect(await client.call('budget.get', { sessionId: session.id })).toBeNull()
+})
+
+test('typed command persists one budget fact and receipt across retries, conflicts and restart', async () => {
+  const { root, kernel, session } = await fixture()
+  const host = await startServer(kernel, { port: 0 })
+  const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+  resources[0]!.close = async () => {
+    client.disconnect()
+    await host.close()
+  }
+  await client.pair(host.pairing.code, 'budget command test')
+  const firstActorId = (await kernel.storage.call('devices')).find(
+    (device) => device.name === 'budget command test',
+  )?.id
+  if (!firstActorId) throw new Error('Authenticated device was not recorded')
+  const commands = createBudgetCommandClient(client)
+  const input = { sessionId: session.id, tokens: 500, expectedRevision: null }
+  const first = await commands.execute('session.setBudget', input, { idempotencyKey: 'first', requestId: 'submit-1' })
+  expect(first).toMatchObject({
+    status: 'succeeded',
+    commandId: 'session.setBudget',
+    commandVersion: 1,
+    revision: 1,
+    accountingVersion: 1,
+    budget: { limit: 500, usedTokens: 0 },
+  })
+  expect(first.requestId).toBe('submit-1')
+  expect(await commands.getReceipt(session.id, 'first')).toEqual(first)
+  expect(await commands.getReceipt(session.id, 'unused')).toBeNull()
+  const duplicate = await commands.execute('session.setBudget', input, {
+    idempotencyKey: 'first',
+    requestId: 'submit-2',
+  })
+  expect(duplicate).toEqual(first)
+  await expect(
+    commands.execute('session.setBudget', { ...input, tokens: 600 }, { idempotencyKey: 'first' }),
+  ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+  await expect(
+    commands.execute('session.setBudget', { ...input, tokens: 600 }, { idempotencyKey: 'stale' }),
+  ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' })
+  const next = await commands.execute(
+    'session.setBudget',
+    { sessionId: session.id, tokens: 600, expectedRevision: 1 },
+    { idempotencyKey: 'next' },
+  )
+  expect(next).toMatchObject({ revision: 2, budget: { limit: 600, usedTokens: 0 } })
+  expect((await commands.execute('session.getBudget', { sessionId: session.id }))?.revision).toBe(2)
+  expect(
+    (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type.startsWith('budget.')),
+  ).toHaveLength(2)
+
+  await resources[0]!.close?.()
+  await kernel.close()
+  resources.splice(0, 1)
+  const restarted = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  resources.push({ root, kernel: restarted })
+  const againHost = await startServer(restarted, { port: 0 })
+  const againClient = new HbarClient(`http://127.0.0.1:${againHost.server.port}`)
+  resources[0]!.close = async () => {
+    againClient.disconnect()
+    await againHost.close()
+  }
+  await againClient.pair(againHost.pairing.code, 'new device')
+  // A new actor cannot query the previous actor’s receipt.
+  expect(await createBudgetCommandClient(againClient).getReceipt(session.id, 'first')).toBeNull()
+  const restored = await restarted.plugins
+    .get<BudgetService>('budget')
+    .getCommandReceipt(session.id, firstActorId, 'first')
+  expect(restored).toEqual(first)
+  const otherActor = await createBudgetCommandClient(againClient).execute(
+    'session.setBudget',
+    {
+      sessionId: session.id,
+      tokens: 700,
+      expectedRevision: 2,
+    },
+    { idempotencyKey: 'first' },
+  )
+  expect(otherActor.budget.revision).toBe(3)
+})
+
+test('concurrent retries with one key commit exactly one fact', async () => {
+  const { kernel, session } = await fixture()
+  const budget = kernel.plugins.get<BudgetService>('budget')
+  const context = { actorId: 'test-device', idempotencyKey: 'concurrent', requestId: 'one' }
+  const input = { sessionId: session.id, tokens: 400, expectedRevision: null }
+  const [first, second] = await Promise.all([
+    budget.setCommand(input, context),
+    budget.setCommand(input, { ...context, requestId: 'two' }),
+  ])
+  expect(second).toEqual(first)
+  expect(
+    (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type.startsWith('budget.')),
+  ).toHaveLength(1)
+})
+
+test('an ACK lost after append is unknown until restart, then the original receipt is recovered', async () => {
+  const sessionId = crypto.randomUUID()
+  const events: SessionEvent[] = []
+  let loseAck = true
+  const api = {
+    sessions: {
+      get: async (id: string) => {
+        if (id !== sessionId) throw new Error('Session not found')
+        return { id }
+      },
+      list: async () => [{ id: sessionId }],
+      events: async (id: string) => (id === sessionId ? [...events] : []),
+      append: async (id: string, type: string, data: unknown, runId?: string) => {
+        const event: SessionEvent = {
+          eventId: crypto.randomUUID(),
+          sessionId: id,
+          seq: events.length + 1,
+          runId: runId ?? null,
+          stepId: null,
+          type,
+          data,
+          time: Date.now(),
+          version: 1,
+        }
+        events.push(event)
+        if (loseAck) throw new Error('simulated lost append acknowledgement')
+        return event
+      },
+    },
+    notify: () => {},
+    changed: () => {},
+  } as unknown as HbarAPI
+  const budget = new BudgetRuntime(api, 10_000_000)
+  await budget.restore()
+  const input = { sessionId, tokens: 500, expectedRevision: null }
+  const context = { actorId: 'test-device', idempotencyKey: 'lost-ack', requestId: 'submit' }
+  await expect(budget.setCommand(input, context)).rejects.toThrow('simulated lost append')
+  await expect(budget.getCommandReceipt(sessionId, context.actorId, context.idempotencyKey)).rejects.toMatchObject({
+    code: 'RESULT_UNKNOWN',
+  })
+  await expect(budget.setCommand(input, context)).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+  loseAck = false
+  const recovered = new BudgetRuntime(api, 10_000_000)
+  await recovered.restore()
+  const receipt = await recovered.getCommandReceipt(sessionId, context.actorId, context.idempotencyKey)
+  expect(receipt).toMatchObject({ status: 'succeeded', revision: 1, budget: { limit: 500 } })
+  if (!receipt) throw new Error('Recovered receipt was missing')
+  expect(await recovered.setCommand(input, context)).toEqual(receipt)
+  expect(events).toHaveLength(1)
 })

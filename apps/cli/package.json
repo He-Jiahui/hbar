@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": { "hbar": "./src/main.ts" },
+  "bin": {
+    "hbar": "./src/main.ts"
+  },
   "exports": "./src/main.ts",
   "dependencies": {
     "@hbar/client": "workspace:*",
+    "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/storage": "workspace:*",
     "@hbar/terminal": "workspace:*",

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./commands": "./src/commands/index.ts",
+    "./commands/budget": "./src/commands/budget.ts",
     "./directory": "./src/state/directory.ts"
   },
   "dependencies": {

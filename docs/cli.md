@@ -9,6 +9,9 @@ hbar --help
 hbar --headless --message "总结变更" --output-format text
 hbar --headless --message "总结变更" --output-format jsonl
 hbar session list
+hbar exec session.setBudget 120000 --session <Session ID|名称> --idempotency-key <稳定键> --expected-revision null
+hbar exec session.getBudget --session <Session ID|名称>
+hbar exec receipt <原幂等键> --session <Session ID|名称>
 hbar plugins doctor
 hbar config paths
 hbar serve
@@ -32,7 +35,9 @@ hbar --headless \
 
 `--message` 省略时从 stdin 读取一条消息。默认审批为 `deny`，默认输出为 `text`。`ask` 只能在 stdin/stdout 都是 TTY 时使用；管道模式返回结构化错误。`allow` 必须显式传入，仍经过执行服务、资源限制、调用意图和用量审计。
 
-`jsonl` stdout 每行都是一个 JSON 对象，包含 `run.started`、有独立偏移的 `message.delta`、工具与审批事件、`message.committed` 和 `run.completed`。错误也以 `{ "type": "error", "code": ... }` 输出，不混入 ANSI 或 Host 日志。退出码为 `0` 成功、`2` 参数错误、`3` 审批失败、`4` 模型/供应商错误、`5` 插件错误、`6` Session/存储恢复错误、`7` 其他内部错误。
+`jsonl` stdout 每行都是一个 JSON 对象，包含 `run.started`、有独立偏移的 `message.delta`、工具与审批事件、`message.committed` 和 `run.completed`。错误也以 `{ "type": "error", "code": ... }` 输出，不混入 ANSI 或 Host 日志。退出码为 `0` 成功、`2` 参数错误、`3` 审批失败、`4` 模型/供应商错误、`5` 插件错误、`6` Session/存储恢复错误、`7` 其他内部错误；命令执行的未知结果为 `8`，版本或幂等冲突为 `9`。
+
+`hbar exec` 是无界面命令入口，单行输出 JSON。`session.setBudget` 的 `tokens` 是正整数；`--expected-revision null` 表示仅允许尚无预算的会话，已有预算时传上一回读到的正整数版本。持久写入必须传 `--idempotency-key`；如果请求断线或返回未知结果，以相同 Session、设备身份和键运行 `hbar exec receipt <键>`，查到成功回执后不要换新键重复提交。同键同参数重试返回首次回执，同键不同参数返回冲突。回执含事件 ID、预算版本与提交时的预算快照；预算后续用量变化请用 `session.getBudget` 读取。CLI 与 Host 预算服务共享同一命令定义，旧 `budget.set/get` 仍走同一预算规则。
 
 ## TUI 快捷键
 

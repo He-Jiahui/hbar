@@ -1,5 +1,11 @@
 import { z } from 'zod'
-import { workspaceListInputSchema, workspaceGetInputSchema, sessionListInputSchema, sessionGetInputSchema } from './state/directory'
+import { invocationSchema } from '@hbar/commands/protocol'
+import {
+  workspaceListInputSchema,
+  workspaceGetInputSchema,
+  sessionListInputSchema,
+  sessionGetInputSchema,
+} from './state/directory'
 import type { Workspace, Session, WorkspacePage, SessionPage } from './state/directory'
 export * from './state/directory'
 
@@ -794,6 +800,12 @@ export type WireNotification =
   | { method: 'auth.revoked'; params: { reason: string } }
 
 export const rpcSchemas = {
+  'command.execute': invocationSchema,
+  'command.getReceipt': z.strictObject({
+    commandId: z.literal('session.setBudget'),
+    sessionId: idSchema,
+    idempotencyKey: z.string().min(1).max(128),
+  }),
   'workspace.list': workspaceListInputSchema,
   'workspace.get': workspaceGetInputSchema,
   'session.list': sessionListInputSchema,
@@ -994,6 +1006,8 @@ export const rpcSchemas = {
 export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
+  'command.execute': unknown
+  'command.getReceipt': import('./commands/budget').BudgetReceipt | null
   'workspace.list': WorkspacePage
   'workspace.get': Workspace | null
   'session.list': SessionPage

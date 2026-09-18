@@ -50,10 +50,14 @@ export function describeCommand(definition: CommandDefinition): CommandDescripto
       throw new CommandError('INVALID_DEFINITION', 'CLI argument needs a flag or position')
     const rawProperty = properties[argument.field]
     const property = typeof rawProperty === 'object' ? rawProperty : undefined
+    const variants = property?.anyOf ?? (property ? [property] : [])
+    const typedVariants = variants.filter((variant) => typeof variant === 'object' && variant.type !== 'null')
     if (
       argument.type !== 'json' &&
-      property?.type !== argument.type &&
-      !(argument.type === 'number' && property?.type === 'integer')
+      (!typedVariants.length ||
+        typedVariants.some(
+          (variant) => variant.type !== argument.type && !(argument.type === 'number' && variant.type === 'integer'),
+        ))
     )
       throw new CommandError('INVALID_DEFINITION', 'CLI argument type must match its input field')
     if (argument.flag !== undefined) {

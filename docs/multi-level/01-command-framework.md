@@ -1,6 +1,6 @@
 # P1：命令框架、分类目录与参数执行
 
-状态：实施中，A1 命令包已交付；持久回执、长任务与入口迁移继续按 A3/A5/A6/A11 完成。上级：[总计划](command-first-architecture-plan.md)。依赖：[P0 包边界](00-framework-boundaries.md)。交付包：`packages/commands`，配套 hbar contracts、Host adapter 和 terminal adapter。
+状态：实施中，A1 命令包及 A3 预算持久回执已交付；长任务与其余入口迁移继续按 A5/A6/A11 完成。上级：[总计划](command-first-architecture-plan.md)。依赖：[P0 包边界](00-framework-boundaries.md)。交付包：`packages/commands`，配套 hbar contracts、Host adapter 和 terminal adapter。
 
 ## 1. 对用户和代码统一的调用模型
 
@@ -10,11 +10,15 @@ app.setSession "审查会话" --workspace workspace_1
 ```
 
 ```ts
-// 目标 API 示意，尚未实现。
-await commands.execute('session.setBudget', {
-  sessionId: 'session_123',
-  tokens: 120000,
-})
+// A3 已实现的类型化入口；持久写入必须有稳定幂等键。
+await commands.execute(
+  'session.setBudget',
+  {
+    sessionId: 'session_123',
+    tokens: 120000,
+  },
+  { idempotencyKey: 'budget-request-1' },
+)
 ```
 
 字符串是稳定的操作标识。UI 不拼接待解析的命令行，避免表单值含引号、空格或路径时改变命令含义。字符串 parser、typed API 与网络入口最终得到同一种 invocation。

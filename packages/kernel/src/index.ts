@@ -58,6 +58,7 @@ import computerPlugin from '@hbar/computer-use'
 import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
+export { createBudgetCommands } from './budget-commands'
 import { createDirectoryQueries } from './directory-queries'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024

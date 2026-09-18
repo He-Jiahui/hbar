@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
+import { CommandError } from '@hbar/commands'
+import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
 import { runCliCommand } from './commands.ts'
 import { openAttachedRuntime, openRuntime, waitForRun } from './runtime.ts'
@@ -10,6 +12,16 @@ import { runTui } from './tui.ts'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
+  if (error instanceof CommandError) {
+    if (['INVALID_SYNTAX', 'INVALID_INPUT', 'COMMAND_NOT_FOUND'].includes(error.code)) return 2
+    if (error.code === 'RESULT_UNKNOWN') return 8
+    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT'].includes(error.code)) return 9
+  }
+  if (error instanceof HbarError) {
+    if (['INVALID_SYNTAX', 'INVALID_INPUT', 'COMMAND_NOT_FOUND'].includes(error.code)) return 2
+    if (['RESULT_UNKNOWN', 'DISCONNECTED', 'TIMEOUT'].includes(error.code)) return 8
+    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT'].includes(error.code)) return 9
+  }
   const message = error instanceof Error ? error.message : String(error)
   if (/approval|denied/i.test(message)) return 3
   if (/model|provider|configured/i.test(message)) return 4
@@ -20,9 +32,9 @@ function exitCode(error: unknown, usage = false) {
 
 function completion(shell: string | undefined) {
   if (shell === 'powershell')
-    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
+    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'exec','session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
   if (shell === 'bash' || shell === 'zsh')
-    return `complete -W "session model plugins skills config diagnose version" hbar`
+    return `complete -W "exec session model plugins skills config diagnose version" hbar`
   throw new Error('Usage: hbar completion <powershell|bash|zsh>')
 }
 
@@ -90,8 +102,9 @@ try {
     await attached(args)
     process.exit(0)
   }
-  if (args.headless && !args.message && !process.stdin.isTTY) args.message = (await Bun.stdin.text()).trim()
-  if (args.headless && !args.message) {
+  if (args.headless && !args.command && !args.message && !process.stdin.isTTY)
+    args.message = (await Bun.stdin.text()).trim()
+  if (args.headless && !args.command && !args.message) {
     usageError = true
     throw new Error('--message is required (or pipe one message on stdin)')
   }

@@ -1,5 +1,8 @@
 import { readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { parseArguments, CommandError } from '@hbar/commands'
+import { createBudgetCommandClient } from '@hbar/client'
+import { budgetCommands } from '@hbar/contracts/commands/budget'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
 import { selectModel, selectSession } from './runtime.ts'
@@ -10,6 +13,37 @@ function print(value: unknown) {
 
 export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise<boolean> {
   const [action, selector] = args.commandArgs
+  if (args.command === 'exec') {
+    const commands = createBudgetCommandClient(runtime.client)
+    if (action === 'receipt') {
+      if (!selector || args.commandArgs.length !== 2)
+        throw new CommandError('INVALID_SYNTAX', 'Usage: hbar exec receipt <idempotency-key> --session <id|name>')
+      print(JSON.stringify(await commands.getReceipt(runtime.session.id, selector)))
+      return true
+    }
+    if (action !== 'session.setBudget' && action !== 'session.getBudget')
+      throw new CommandError('COMMAND_NOT_FOUND', 'Usage: hbar exec session.setBudget|session.getBudget|receipt')
+    const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
+    if (args.expectedRevision !== undefined && args.expectedRevision !== 'null')
+      argv.push('--expected-revision', args.expectedRevision)
+    else if (args.expectedRevision === 'null' && action !== 'session.setBudget')
+      throw new CommandError('INVALID_SYNTAX', '--expected-revision is only valid for session.setBudget')
+    const input = parseArguments(budgetCommands[action].metadata, argv)
+    if (args.expectedRevision === 'null') input.expectedRevision = null
+    if (action === 'session.setBudget') {
+      if (!args.idempotencyKey)
+        throw new CommandError('INVALID_INPUT', '--idempotency-key is required for session.setBudget')
+      print(
+        JSON.stringify(
+          await commands.execute(action, budgetCommands[action].input.parse(input), {
+            idempotencyKey: args.idempotencyKey,
+            ...(args.requestId ? { requestId: args.requestId } : {}),
+          }),
+        ),
+      )
+    } else print(JSON.stringify(await commands.execute(action, budgetCommands[action].input.parse(input))))
+    return true
+  }
   if (args.command === 'diagnose') {
     print(await runtime.client.call('system.diagnose', {}))
     return true
@@ -72,7 +106,11 @@ export async function runCliCommand(args: CliArgs, runtime: CliRuntime): Promise
     if (action && action !== 'list') throw new Error('Usage: hbar skills list')
     const root = resolve(runtime.layout.skills, 'global')
     const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
-    print(entries.filter((entry) => entry.isDirectory()).map((entry) => ({ id: entry.name, path: resolve(root, entry.name) })))
+    print(
+      entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => ({ id: entry.name, path: resolve(root, entry.name) })),
+    )
     return true
   }
   return false

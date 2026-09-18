@@ -42,7 +42,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try {
-    const connection = JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as { pid?: number }
+    const connection = JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as {
+      pid?: number
+    }
     hostPid = connection.pid ?? hostPid
   } catch {
     // The help and argument tests do not create a Host.
@@ -66,11 +68,25 @@ test('help is available without starting a Host', async () => {
 })
 
 test('headless JSONL streams parseable records and reuses its Host', async () => {
-  const common = ['--headless', '--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project, '--output-format', 'jsonl']
+  const common = [
+    '--headless',
+    '--demo',
+    '--data-root',
+    dataRoot,
+    '--cache-root',
+    cacheRoot,
+    '--project',
+    project,
+    '--output-format',
+    'jsonl',
+  ]
   const first = await run([...common, '--message', 'first'])
   expect(first.code).toBe(0)
   expect(first.stdout).not.toContain('\u001b')
-  const lines = first.stdout.trim().split('\n').map((line) => JSON.parse(line) as { type: string; sessionId?: string })
+  const lines = first.stdout
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line) as { type: string; sessionId?: string })
   expect(lines[0]?.type).toBe('run.started')
   expect(lines.some((line) => line.type === 'run.completed')).toBe(true)
   const sessionId = lines[0]?.sessionId
@@ -83,11 +99,69 @@ test('headless JSONL streams parseable records and reuses its Host', async () =>
   expect(second.code).toBe(0)
   const after = JSON.parse(await readFile(connectionPath, 'utf8')) as { pid: number }
   expect(after.pid).toBe(hostPid)
-  expect(second.stdout.trim().split('\n').every((line) => Boolean(JSON.parse(line)))).toBe(true)
+  expect(
+    second.stdout
+      .trim()
+      .split('\n')
+      .every((line) => Boolean(JSON.parse(line))),
+  ).toBe(true)
+})
+
+test('exec budget uses the same Host command, returns a receipt, and reconciles retries', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const sessionId = (JSON.parse(created.stdout) as { id: string }).id
+  common.push('--session', sessionId)
+  const first = await run([
+    ...common,
+    'exec',
+    'session.setBudget',
+    '500',
+    '--idempotency-key',
+    'cli-budget',
+    '--expected-revision',
+    'null',
+  ])
+  expect(first.code).toBe(0)
+  const receipt = JSON.parse(first.stdout) as { revision: number; eventId: string; budget: { limit: number } }
+  expect(receipt).toMatchObject({ revision: 1, budget: { limit: 500 } })
+  const again = await run([
+    ...common,
+    'exec',
+    'session.setBudget',
+    '500',
+    '--idempotency-key',
+    'cli-budget',
+    '--expected-revision',
+    'null',
+  ])
+  expect(again.code).toBe(0)
+  expect(JSON.parse(again.stdout)).toEqual(receipt)
+  const queried = await run([...common, 'exec', 'session.getBudget'])
+  expect(queried.code).toBe(0)
+  expect(JSON.parse(queried.stdout)).toMatchObject({ limit: 500, revision: 1 })
+  const recovered = await run([...common, 'exec', 'receipt', 'cli-budget'])
+  expect(recovered.code).toBe(0)
+  expect(JSON.parse(recovered.stdout)).toEqual(receipt)
+  const conflict = await run([...common, 'exec', 'session.setBudget', '600', '--idempotency-key', 'cli-budget'])
+  expect(conflict.code).toBe(9)
+  expect(conflict.stderr).toContain('Key was already used')
 })
 
 test('headless approval modes deny, allow, and reject non-interactive ask', async () => {
-  const common = ['--headless', '--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project, '--output-format', 'jsonl']
+  const common = [
+    '--headless',
+    '--demo',
+    '--data-root',
+    dataRoot,
+    '--cache-root',
+    cacheRoot,
+    '--project',
+    project,
+    '--output-format',
+    'jsonl',
+  ]
   const denied = await run([
     ...common,
     '--approval',

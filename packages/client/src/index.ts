@@ -1,5 +1,6 @@
 import { artifactSchema, HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
 export { createDirectoryQueryAdapter } from './directory'
+export { createBudgetCommandClient } from './budget'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'

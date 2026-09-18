@@ -11,6 +11,9 @@ export interface CliArgs {
   cacheRoot?: string | undefined
   project?: string | undefined
   session?: string | undefined
+  idempotencyKey?: string | undefined
+  requestId?: string | undefined
+  expectedRevision?: string | undefined
   model?: string | undefined
   thinking: ThinkingLevel
   approval: ApprovalMode
@@ -24,6 +27,9 @@ Usage:
   hbar [message...]                 Open the current project TUI
   hbar --headless --message <text> Run one request without a UI
   hbar serve                        Start a background Host
+  hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
+  hbar exec session.getBudget --session <id|name>
+  hbar exec receipt <idempotency-key> --session <id|name>
 
 Headless options:
   --message <text>                 Message (or read one message from stdin)
@@ -40,6 +46,7 @@ Paths:
 
 Commands:
   session list|new|resume|fork|archive|export
+  exec session.setBudget|session.getBudget|receipt
   model list|use
   plugins list|install|enable|disable|remove|inspect|doctor|lock
   skills list
@@ -61,6 +68,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       approval: { type: 'string' },
       project: { type: 'string' },
       session: { type: 'string' },
+      'idempotency-key': { type: 'string' },
+      'request-id': { type: 'string' },
+      'expected-revision': { type: 'string' },
       'output-format': { type: 'string' },
       'data-root': { type: 'string' },
       'cache-root': { type: 'string' },
@@ -69,12 +79,26 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
   })
   const values = parsed.values as Record<string, string | boolean | undefined>
   const positionals = parsed.positionals
-  const known = new Set(['diagnose', 'version', 'serve', 'attach', 'session', 'model', 'plugins', 'skills', 'config', 'completion', 'tui'])
+  const known = new Set([
+    'diagnose',
+    'version',
+    'serve',
+    'attach',
+    'session',
+    'model',
+    'plugins',
+    'skills',
+    'config',
+    'completion',
+    'tui',
+    'exec',
+  ])
   const command = positionals[0] && known.has(positionals[0]) ? positionals[0] : undefined
   const commandArgs = command ? positionals.slice(1) : []
   const freeMessage = command ? undefined : positionals.length ? positionals.join(' ') : undefined
   const thinking = (values.thinking ?? 'off') as ThinkingLevel
-  if (!['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(thinking)) throw new Error(`Invalid --thinking: ${thinking}`)
+  if (!['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(thinking))
+    throw new Error(`Invalid --thinking: ${thinking}`)
   const approval = (values.approval ?? (values.headless ? 'deny' : 'ask')) as ApprovalMode
   if (!['deny', 'allow', 'ask'].includes(approval)) throw new Error(`Invalid --approval: ${approval}`)
   const outputFormat = (values['output-format'] ?? 'text') as 'text' | 'jsonl'
@@ -89,6 +113,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     cacheRoot: values['cache-root'] as string | undefined,
     project: values.project as string | undefined,
     session: values.session as string | undefined,
+    idempotencyKey: values['idempotency-key'] as string | undefined,
+    requestId: values['request-id'] as string | undefined,
+    expectedRevision: values['expected-revision'] as string | undefined,
     model: values.model as string | undefined,
     thinking,
     approval,

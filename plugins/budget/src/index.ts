@@ -1,6 +1,9 @@
 import { z } from 'zod'
+import { createHash } from 'node:crypto'
 import { HbarError, idSchema, usageSchema } from '@hbar/contracts'
 import type { SessionEvent, Usage } from '@hbar/contracts'
+import { budgetReceiptSchema, setBudgetInputSchema } from '@hbar/contracts/commands/budget'
+import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
 
@@ -28,7 +31,15 @@ const persistedBudgetSchema = sessionBudgetSchema.extend({
 })
 type PersistedBudget = z.infer<typeof persistedBudgetSchema>
 
-const budgetEventSchema = z.object({ budget: persistedBudgetSchema })
+const commandRecordSchema = z.strictObject({
+  actorId: idSchema,
+  idempotencyKey: z.string().min(1).max(128),
+  inputHash: z.string().regex(/^[a-f0-9]{64}$/),
+  requestId: z.string().min(1).max(128),
+})
+type CommandRecord = z.infer<typeof commandRecordSchema>
+type StoredCommandReceipt = { hash: string; receipt: BudgetReceipt }
+const budgetEventSchema = z.object({ budget: persistedBudgetSchema, command: commandRecordSchema.optional() })
 const budgetClearedEventSchema = z.object({ sessionId: idSchema })
 const createBudgetArgs = z.object({ limit: z.number().int().positive() })
 const getBudgetArgs = z.object({})
@@ -51,9 +62,12 @@ function tokenDelta(events: SessionEvent[], runId: string): number {
 }
 
 function withPhase(budget: PersistedBudget): PersistedBudget {
-  const phase: BudgetPhase = budget.phase === 'active' || budget.phase === 'exhausted'
-    ? budget.usedTokens >= budget.limit ? 'exhausted' : 'active'
-    : budget.phase
+  const phase: BudgetPhase =
+    budget.phase === 'active' || budget.phase === 'exhausted'
+      ? budget.usedTokens >= budget.limit
+        ? 'exhausted'
+        : 'active'
+      : budget.phase
   return {
     ...budget,
     phase,
@@ -63,6 +77,8 @@ function withPhase(budget: PersistedBudget): PersistedBudget {
 
 export class BudgetRuntime {
   private budgets = new Map<string, PersistedBudget>()
+  private commandReceipts = new Map<string, Map<string, StoredCommandReceipt>>()
+  private uncertainSessions = new Set<string>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
 
@@ -82,7 +98,10 @@ export class BudgetRuntime {
   private async restoreSession(sessionId: string) {
     const events = await this.api.sessions.events(sessionId, 0, MAX_RESTORE_EVENTS + 1)
     if (events.length > MAX_RESTORE_EVENTS)
-      throw new HbarError('BUDGET_RESTORE_LIMIT', `Budget replay for ${sessionId} exceeded ${MAX_RESTORE_EVENTS} events`)
+      throw new HbarError(
+        'BUDGET_RESTORE_LIMIT',
+        `Budget replay for ${sessionId} exceeded ${MAX_RESTORE_EVENTS} events`,
+      )
     for (const event of events) {
       if (event.type === 'budget.cleared') {
         const parsed = budgetClearedEventSchema.safeParse(event.data)
@@ -96,6 +115,22 @@ export class BudgetRuntime {
       if (!parsed.success || parsed.data.budget.sessionId !== sessionId)
         throw new HbarError('BUDGET_REPLAY', `Invalid ${event.type} event in ${sessionId}`)
       this.budgets.set(sessionId, withPhase(parsed.data.budget))
+      if (parsed.data.command) {
+        const command = parsed.data.command
+        const receipt = budgetReceiptSchema.parse({
+          status: 'succeeded',
+          commandId: 'session.setBudget',
+          commandVersion: 1,
+          requestId: command.requestId,
+          idempotencyKey: command.idempotencyKey,
+          eventId: event.eventId,
+          revision: parsed.data.budget.revision,
+          committedAt: event.time,
+          budget: publicBudget(parsed.data.budget),
+          accountingVersion: 1,
+        })
+        this.rememberCommand(sessionId, command, receipt)
+      }
     }
   }
 
@@ -114,6 +149,8 @@ export class BudgetRuntime {
     try {
       await this.ready()
       await this.api.sessions.get(sessionId)
+      if (this.uncertainSessions.has(sessionId))
+        throw new HbarError('RESULT_UNKNOWN', 'Budget state requires Host recovery')
       return await operation()
     } finally {
       release()
@@ -124,35 +161,93 @@ export class BudgetRuntime {
   async get(sessionId: string): Promise<SessionBudget | null> {
     await this.ready()
     await this.api.sessions.get(sessionId)
+    if (this.uncertainSessions.has(sessionId))
+      throw new HbarError('RESULT_UNKNOWN', 'Budget state requires Host recovery')
     const budget = this.budgets.get(sessionId)
     return budget ? publicBudget(budget) : null
   }
 
   async set(sessionId: string, requestedLimit: number): Promise<SessionBudget> {
-    return this.serial(sessionId, async () => {
-      if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > this.maxLimit)
-        throw new HbarError('BUDGET_INVALID', `Budget limit must be an integer between 1 and ${this.maxLimit}`)
-      const prior = this.budgets.get(sessionId)
-      if (prior && prior.phase === 'completed') throw new HbarError('BUDGET_COMPLETED', 'Completed budgets cannot be changed')
-      if (prior && prior.phase === 'stopped') throw new HbarError('BUDGET_STOPPED', 'Stopped budgets cannot be changed')
-      if (prior && requestedLimit < prior.limit)
-        throw new HbarError('BUDGET_DECREASE', 'An active budget can only be increased')
-      const now = Date.now()
-      const next: PersistedBudget = withPhase({
-        sessionId,
-        budgetId: prior?.budgetId ?? crypto.randomUUID(),
-        limit: requestedLimit,
-        phase: prior?.phase ?? 'active',
-        usedTokens: prior?.usedTokens ?? 0,
-        remainingTokens: Math.max(0, requestedLimit - (prior?.usedTokens ?? 0)),
-        revision: (prior?.revision ?? 0) + 1,
-        createdAt: prior?.createdAt ?? now,
-        updatedAt: now,
-        accountedRuns: prior?.accountedRuns ?? [],
-      })
-      await this.persist(sessionId, next, prior ? 'budget.updated' : 'budget.created')
-      return publicBudget(next)
+    return this.serial(sessionId, () => this.setLocked(sessionId, requestedLimit))
+  }
+
+  private receiptKey(actorId: string, idempotencyKey: string): string {
+    return JSON.stringify([actorId, idempotencyKey])
+  }
+
+  private rememberCommand(sessionId: string, command: CommandRecord, receipt: BudgetReceipt): void {
+    const receipts = this.commandReceipts.get(sessionId) ?? new Map<string, StoredCommandReceipt>()
+    const key = this.receiptKey(command.actorId, command.idempotencyKey)
+    if (receipts.has(key)) throw new HbarError('BUDGET_REPLAY', 'Duplicate budget command key in durable history')
+    receipts.set(key, { hash: command.inputHash, receipt })
+    this.commandReceipts.set(sessionId, receipts)
+  }
+
+  async getCommandReceipt(sessionId: string, actorId: string, idempotencyKey: string): Promise<BudgetReceipt | null> {
+    await this.ready()
+    await this.api.sessions.get(sessionId)
+    if (this.uncertainSessions.has(sessionId))
+      throw new HbarError('RESULT_UNKNOWN', 'Budget receipt requires Host recovery')
+    return this.commandReceipts.get(sessionId)?.get(this.receiptKey(actorId, idempotencyKey))?.receipt ?? null
+  }
+
+  async setCommand(
+    input: SetBudgetInput,
+    context: { actorId: string; idempotencyKey: string; requestId: string },
+  ): Promise<BudgetReceipt> {
+    const parsed = setBudgetInputSchema.parse(input)
+    const command = commandRecordSchema.parse({
+      ...context,
+      inputHash: createHash('sha256')
+        .update(JSON.stringify({ commandId: 'session.setBudget', version: 1, input: parsed }))
+        .digest('hex'),
     })
+    return this.serial(parsed.sessionId, async () => {
+      const priorReceipt = this.commandReceipts
+        .get(parsed.sessionId)
+        ?.get(this.receiptKey(command.actorId, command.idempotencyKey))
+      if (priorReceipt) {
+        if (priorReceipt.hash !== command.inputHash)
+          throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key was already used with different budget input')
+        return priorReceipt.receipt
+      }
+      const prior = this.budgets.get(parsed.sessionId)
+      if (parsed.expectedRevision !== undefined && parsed.expectedRevision !== (prior?.revision ?? null))
+        throw new HbarError('REVISION_CONFLICT', 'Budget revision changed; refresh before saving')
+      const budget = await this.setLocked(parsed.sessionId, parsed.tokens, command)
+      const receipt = this.commandReceipts
+        .get(parsed.sessionId)
+        ?.get(this.receiptKey(command.actorId, command.idempotencyKey))?.receipt
+      if (!receipt || receipt.budget.revision !== budget.revision)
+        throw new HbarError('RESULT_UNKNOWN', 'Budget was committed but its receipt is unavailable')
+      return receipt
+    })
+  }
+
+  private async setLocked(sessionId: string, requestedLimit: number, command?: CommandRecord): Promise<SessionBudget> {
+    if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > this.maxLimit)
+      throw new HbarError('BUDGET_INVALID', `Budget limit must be an integer between 1 and ${this.maxLimit}`)
+    const prior = this.budgets.get(sessionId)
+    if (prior && prior.phase === 'completed')
+      throw new HbarError('BUDGET_COMPLETED', 'Completed budgets cannot be changed')
+    if (prior && prior.phase === 'stopped') throw new HbarError('BUDGET_STOPPED', 'Stopped budgets cannot be changed')
+    if (prior && requestedLimit < prior.limit)
+      throw new HbarError('BUDGET_DECREASE', 'An active budget can only be increased')
+    const now = Date.now()
+    const next: PersistedBudget = withPhase({
+      sessionId,
+      budgetId: prior?.budgetId ?? crypto.randomUUID(),
+      limit: requestedLimit,
+      phase: prior?.phase ?? 'active',
+      usedTokens: prior?.usedTokens ?? 0,
+      remainingTokens: Math.max(0, requestedLimit - (prior?.usedTokens ?? 0)),
+      revision: (prior?.revision ?? 0) + 1,
+      createdAt: prior?.createdAt ?? now,
+      updatedAt: now,
+      accountedRuns: prior?.accountedRuns ?? [],
+    })
+    await this.persist(sessionId, next, prior ? 'budget.updated' : 'budget.created', undefined, command)
+    return publicBudget(next)
   }
 
   async clear(sessionId: string): Promise<{ cleared: boolean }> {
@@ -203,10 +298,44 @@ export class BudgetRuntime {
     return { ...request, system: `${request.system}\n\n${prompt}` }
   }
 
-  private async persist(sessionId: string, budget: PersistedBudget, type: string, runId?: string) {
-    const event = await this.api.sessions.append(sessionId, type, { budget }, runId)
+  private async persist(
+    sessionId: string,
+    budget: PersistedBudget,
+    type: string,
+    runId?: string,
+    command?: CommandRecord,
+  ) {
+    let event: SessionEvent
+    try {
+      event = await this.api.sessions.append(sessionId, type, { budget, ...(command ? { command } : {}) }, runId)
+    } catch (error) {
+      // Canonical JSONL may have been appended before the SQLite projection failed.
+      // Do not replay this key in-process until startup has reconciled the log.
+      if (command) this.uncertainSessions.add(sessionId)
+      throw error
+    }
     this.budgets.set(sessionId, budget)
-    this.api.notify({ method: 'budget.updated', params: { sessionId, budget: publicBudget(budget), runId: event.runId } })
+    if (command)
+      this.rememberCommand(
+        sessionId,
+        command,
+        budgetReceiptSchema.parse({
+          status: 'succeeded',
+          commandId: 'session.setBudget',
+          commandVersion: 1,
+          requestId: command.requestId,
+          idempotencyKey: command.idempotencyKey,
+          eventId: event.eventId,
+          revision: budget.revision,
+          committedAt: event.time,
+          budget: publicBudget(budget),
+          accountingVersion: 1,
+        }),
+      )
+    this.api.notify({
+      method: 'budget.updated',
+      params: { sessionId, budget: publicBudget(budget), runId: event.runId },
+    })
     this.api.changed('budgets')
   }
 }

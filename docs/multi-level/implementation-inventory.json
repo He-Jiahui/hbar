@@ -3,6 +3,17 @@
   "baseline": "857206a",
   "domains": [
     {
+      "id": "command-transport",
+      "owner": "Host command dispatcher / authenticated client adapter",
+      "stateOwner": "Domain handlers; budget event contains its durable receipt",
+      "category": "system.extensions",
+      "milestone": "A3-A11",
+      "status": "partial-budget",
+      "rpc": ["command.execute", "command.getReceipt"],
+      "additionalCommands": [],
+      "tests": ["tests/budget.test.ts", "tests/cli.test.ts"]
+    },
+    {
       "id": "connection",
       "owner": "Host authentication / Client adapter",
       "stateOwner": "Client SDK connection; Host device records",

@@ -75,6 +75,7 @@ export const invocationSchema = z.strictObject({
   requestId: z.string().min(1).max(128),
   commandId: commandIdSchema,
   commandVersion: z.number().int().positive(),
+  idempotencyKey: z.string().min(1).max(128).optional(),
   input: z.unknown(),
 })
 export type CommandInvocation = z.output<typeof invocationSchema>
