@@ -56,7 +56,9 @@ canonical command/query / scope / target / 输入输出 Schema
 
 A11 至少按“审批问卷、目标计划、模型配置、文件附件、子 Agent、browser/computer、系统/插件/设备/路径”拆独立提交；不是一个大提交。A12–A14 都是新增数据闭环，不能以静态数据或仅有图表组件替代。
 
-实施记录：A0 `664002a` 固定现状与边界门禁，A1 `b8d3029` 交付独立 commands 包，A2 `5931f46` 交付 runtime 选择与 Host 目录查询。A3 已接入预算命令定义、Host/SDK/CLI adapter 和预算事件内的持久回执；同一 actor + key 的请求按规范输入摘要去重，CAS 校验预算修订，丢失追加确认时会话进入 unknown 并要求重启后从规范事件重放回执。真实 Host/CLI 的重试、冲突、重启和故障注入均有测试；其余 A4–B7 尚未实现。
+实施记录：A0 `664002a` 固定现状与边界门禁，A1 `b8d3029` 交付独立 commands 包，A2 `5931f46` 交付 runtime 选择与 Host 目录查询。A3 已接入预算命令定义、Host/SDK/CLI adapter 和预算事件内的持久回执；同一 actor + key 的请求按规范输入摘要去重，CAS 校验预算修订，丢失追加确认时会话进入 unknown 并要求重启后从规范事件重放回执。真实 Host/CLI 的重试、冲突、重启和故障注入均有测试。
+
+A3 在 `c24ad92` 提交，A4 的无 UI schema-core 在 `3d5e9af` 独立提交。预算表单 runtime adapter 已实现原目标绑定、只读 Zustand 草稿、本地字段命令、Host 提交及未知结果回执核对，并用真实 Host 检查同一预算事实；GUI renderer 与逻辑窗口仍属于后续 A7/B1/B4，A4 不标记完整退出。A5–B7 仍待实施。
 
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 

@@ -279,6 +279,7 @@
     "app.openSettings",
     "app.openStatus",
     "app.openCommandForm",
+    "app.closeCommandForm",
     "app.openSettingsEditor",
     "app.openWindow",
     "app.closeWindow",
@@ -290,6 +291,9 @@
     "draft.setText",
     "draft.setAttachments",
     "form.setField",
+    "form.resetField",
+    "form.submit",
+    "form.reconcile",
     "form.addItem",
     "form.removeItem",
     "form.moveItem",
@@ -310,7 +314,9 @@
     "A0": "complete",
     "A1": "complete",
     "A2": "complete",
-    "A3-A15": "pending",
+    "A3": "complete",
+    "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
+    "A5-A15": "pending",
     "B1-B7": "pending"
   }
 }

@@ -7,6 +7,7 @@ import {
   resetField,
   setField,
   settleSubmit,
+  rebaseForm,
   validateForm,
   encodePath,
   decodePath,
@@ -73,6 +74,13 @@ test('submit confirms captured input while edits during submission remain dirty;
   expect(settled.baseline.tokens).toBe(200)
   expect(settled.draft.tokens).toBe(300)
   expect(settled.dirty).toEqual(['tokens'])
+  const rebased = rebaseForm(form, settled, { sessionId: 'target', tokens: 200, expectedRevision: 2 })
+  expect(rebased).toMatchObject({
+    revision: state.revision,
+    baseline: { tokens: 200, expectedRevision: 2 },
+    draft: { tokens: 300, expectedRevision: 2 },
+    dirty: ['tokens'],
+  })
   const next = beginSubmit(form, settled)
   const failed = settleSubmit(form, next.state, next.submission, 'failed', 'DISCONNECTED')
   expect(failed.draft.tokens).toBe(300)

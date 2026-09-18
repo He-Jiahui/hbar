@@ -206,3 +206,16 @@ export function settleSubmit(
     errorCode,
   })
 }
+
+/** Apply a confirmed server baseline without discarding edits made after submission. */
+export function rebaseForm(form: CompiledForm, state: FormState, input: Readonly<Record<string, unknown>>): FormState {
+  checkForm(form, state)
+  const baseline = createForm(form, input).baseline
+  const draft = { ...state.draft }
+  for (const field of form.fields) {
+    if (!field.readOnly && state.dirty.includes(field.name)) continue
+    if (Object.hasOwn(baseline, field.name)) draft[field.name] = baseline[field.name]!
+    else delete draft[field.name]
+  }
+  return updated(form, state, { baseline, draft })
+}

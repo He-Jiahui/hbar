@@ -1,11 +1,20 @@
 import { CommandRegistry, CommandError, createCommandClient, type ExecuteOptions } from '@hbar/commands'
 import { applicationCommands, navigationCommands } from '@hbar/contracts/commands'
+import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
+import { createBudgetForms } from './budget-forms'
 import type { NavigationState, RuntimeOptions } from './types'
 export type { StateReader } from './state'
-export type { DirectoryState, NavigationState, RuntimeOptions } from './types'
+export type {
+  BudgetCommandPort,
+  BudgetFormState,
+  BudgetFormsState,
+  DirectoryState,
+  NavigationState,
+  RuntimeOptions,
+} from './types'
 export { SessionSelectionError } from './navigation'
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -36,9 +45,10 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const remote = directory.registry
   registerNavigationCommands(local, directory.queries, navigation, () => disposed)
+  const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
-      return Object.hasOwn(navigationCommands, name)
+      return Object.hasOwn(navigationCommands, name) || Object.hasOwn(budgetEditorCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
     },
@@ -46,11 +56,11 @@ export function createAppRuntime(options: RuntimeOptions) {
   const view = Object.freeze({
     instanceId: options.instanceId,
     hostId: options.hostId,
-    state: Object.freeze({ navigation: navigation.reader, directory: directory.reader }),
+    state: Object.freeze({ navigation: navigation.reader, directory: directory.reader, forms: forms.reader }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const name = source.trim().split(/\s/, 1)[0] ?? ''
-      return Object.hasOwn(navigationCommands, name)
+      return Object.hasOwn(navigationCommands, name) || Object.hasOwn(budgetEditorCommands, name)
         ? local.executeText(source, execution)
         : remote.executeText(source, execution)
     },
@@ -63,6 +73,7 @@ export function createAppRuntime(options: RuntimeOptions) {
 
       local.dispose()
       directory.dispose()
+      forms.dispose()
       navigation.dispose()
     },
   }

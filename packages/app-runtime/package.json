@@ -9,6 +9,7 @@
   "dependencies": {
     "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
+    "@hbar/schema-core": "workspace:*",
     "zustand": "5.0.15",
     "zod": "4.5.4"
   }

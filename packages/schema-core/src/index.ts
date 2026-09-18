@@ -1,6 +1,6 @@
 export { compileForm, createComponentRegistry, SchemaError } from './schema'
 export type { CompiledField, CompiledForm, ComponentRegistry, FormDescription, FieldType, FieldValue } from './schema'
-export { createForm, setField, resetField, beginSubmit, settleSubmit, validateForm } from './form'
+export { createForm, setField, resetField, beginSubmit, settleSubmit, rebaseForm, validateForm } from './form'
 export type { FormState, FieldIssue, Submission, SubmitOutcome } from './form'
 export { encodePath, decodePath } from './path'
 export type { SchemaPath, SchemaPathSegment } from './path'

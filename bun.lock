@@ -126,6 +126,7 @@
       "dependencies": {
         "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",
+        "@hbar/schema-core": "workspace:*",
         "zod": "4.5.4",
         "zustand": "5.0.15",
       },

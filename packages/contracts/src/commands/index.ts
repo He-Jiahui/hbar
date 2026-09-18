@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { budgetEditorCommands } from './budget-editor'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -125,4 +126,4 @@ export const navigationCommands = {
     selectionSchema,
   ),
 }
-export const applicationCommands = { ...directoryCommands, ...navigationCommands }
+export const applicationCommands = { ...directoryCommands, ...navigationCommands, ...budgetEditorCommands }

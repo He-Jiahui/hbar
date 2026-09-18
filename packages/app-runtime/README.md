@@ -1,6 +1,6 @@
 # @hbar/app-runtime
 
-A2 提供无 React 的客户端运行时：每实例独立的当前工作区/会话、私有 Zustand vanilla 目录投影、只读订阅和具名调用。目录、导航、状态封装与装配入口分别维护。
+A2 提供无 React 的客户端运行时：每实例独立的当前工作区/会话、私有 Zustand vanilla 目录投影、只读订阅和具名调用。A4 另提供预算命令的参数表单状态与本地命令。目录、导航、表单、状态封装与装配入口分别维护。
 
 ```ts
 import { createAppRuntime } from '@hbar/app-runtime'
@@ -32,4 +32,6 @@ runtime.dispose()
 
 当前为 A2 的分页查询投影；事件游标、增量订阅/恢复、跨连接 generation 切换和消费者引用计数在 A11/P2.5 扩展。Host 或身份换代时组合根销毁旧 runtime 后创建新实例；dispose 拒绝迟到结果并清理订阅，不停止 Host Run。查询 port 的底层 I/O 是否可取消取决于适配器，既有 SDK 仍以请求超时收尾。
 
-草稿、预算、参数表单、命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板按 A3–A7 后续里程碑交付。此包不包含业务执行器或 UI renderer。
+预算参数表单由组合根可选地注入 `createBudgetCommandClient(client)`。`app.openCommandForm({ commandId: 'session.setBudget', sessionId, formId })` 从 Host 读取当前预算并固定原 Session 目标；`form.setField` 只改本实例的草稿，`form.submit` 使用 A3 的持久命令和独立幂等键。View 通过 `view.state.forms` 只读订阅原文、字段问题、dirty、状态与回执。断线/超时进入 unknown，`form.reconcile` 使用同一 actor、Session、键查询回执；查不到时保持 unknown，不用新键重发。成功后修订版本更新而在途的新编辑仍为 dirty；失败保留草稿。`app.closeCommandForm` 关闭实例，不取消已送出的 Host 写入。
+
+当前适配是无 React 的 ViewModel/命令入口；GUI renderer 和逻辑窗口绑定仍按 B1/B4 与 A7 交付。提示词草稿、命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板也仍在后续里程碑。此包不包含业务执行器或 UI renderer。
