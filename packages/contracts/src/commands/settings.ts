@@ -128,22 +128,40 @@ export const settingsDescriptionSchema = z
     if (paths.some((path) => !visit(path)))
       context.addIssue({ code: 'custom', message: 'Dynamic setting dependencies cannot contain cycles' })
   })
-const snapshotSchema = z.strictObject({
+const valueSourceSchema = z.strictObject({
+  layerId: z.string().min(1),
+  layerKind: z.string().min(1),
+  revision: z.number().int().nonnegative().nullable(),
+})
+const settingReportSchema = z.strictObject({
+  path: z.string().min(1),
+  localPresence: z.boolean(),
+  localValue: z.unknown().optional(),
+  effectiveValue: z.unknown(),
+  sourceLayer: z.string().min(1),
+  sourceRevision: z.number().int().nonnegative().nullable(),
+  inherited: z.boolean(),
+  validation: z.literal('valid'),
+  applyMode: z.enum(['immediate', 'nextRequest', 'nextRun', 'restart']),
+  applyState: z.enum(['applied', 'pending']),
+  provenance: z.record(z.string(), valueSourceSchema),
+})
+export const settingsSnapshotSchema = z.strictObject({
   schemaVersion: z.number().int().positive(),
   scope: settingsScopeSchema,
   revisions: z.record(z.string(), z.number().int().nonnegative()),
   resolution: z.strictObject({
     layers: z.array(z.strictObject({ id: z.string(), kind: z.string(), revision: z.number().int().nonnegative() })),
-    reports: z.record(z.string(), z.unknown()),
+    reports: z.record(z.string(), settingReportSchema),
   }),
 })
-const receiptSchema = z.strictObject({
+export const settingsReceiptSchema = z.strictObject({
   commitId: z.string().min(1),
   layerId: z.string().min(1),
   revision: z.number().int().positive(),
   schemaVersion: z.number().int().positive(),
   values: z.record(z.string(), z.unknown()),
-  resolution: snapshotSchema.shape.resolution,
+  resolution: settingsSnapshotSchema.shape.resolution,
 })
 const queryMetadata = (id: string) => ({
   id,
@@ -176,9 +194,9 @@ export const settingsCommands = {
   'settings.get': defineCommand(
     queryMetadata('settings.get'),
     z.strictObject({ scope: settingsScopeSchema, path: schemaPathSchema.optional() }),
-    snapshotSchema,
+    settingsSnapshotSchema,
   ),
-  'settings.apply': defineCommand(commandMetadata('settings.apply'), applyInput, receiptSchema),
+  'settings.apply': defineCommand(commandMetadata('settings.apply'), applyInput, settingsReceiptSchema),
   'settings.set': defineCommand(
     commandMetadata('settings.set'),
     z.strictObject({
@@ -188,7 +206,7 @@ export const settingsCommands = {
       value: z.unknown(),
       baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
     }),
-    receiptSchema,
+    settingsReceiptSchema,
   ),
   'settings.unset': defineCommand(
     commandMetadata('settings.unset'),
@@ -198,7 +216,7 @@ export const settingsCommands = {
       path: schemaPathSchema,
       baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
     }),
-    receiptSchema,
+    settingsReceiptSchema,
   ),
 }
 
@@ -206,3 +224,5 @@ export type SettingsGetInput = z.input<(typeof settingsCommands)['settings.get']
 export type SettingsApplyInput = z.input<(typeof settingsCommands)['settings.apply']['input']>
 export type SettingsDescription = z.output<typeof settingsDescriptionSchema>
 export type SettingsFieldDescription = z.output<typeof settingsFieldSchema>
+export type SettingsSnapshot = z.output<typeof settingsSnapshotSchema>
+export type SettingsReceipt = z.output<typeof settingsReceiptSchema>

@@ -16,6 +16,8 @@ import {
   createSessionTimelineClient,
   createInteractionCommandClient,
   createModelCommandClient,
+  createSchemaCallbackClient,
+  createSettingsCommandClient,
   createUsageCommandClient,
 } from '@hbar/client'
 import type { ConnectionStatus } from '@hbar/client'
@@ -36,6 +38,8 @@ function createRuntime(client: HbarClient, hostId: string) {
     models: createModelCommandClient(client),
     usage: createUsageCommandClient(client),
     budget: createBudgetCommandClient(client),
+    settings: createSettingsCommandClient(client),
+    schemaContent: createSchemaCallbackClient(client),
     surfaces: { canRender: (panelId) => panels.has(panelId) },
   })
 }

@@ -166,7 +166,7 @@ B1 已完成：`@hbar/app-react` 以 `useSyncExternalStore` 订阅只读 runtime
 
 B2 已完成：app-runtime 从 Session snapshot/follow 建立可恢复、有界且拒绝迟到数据的 timeline，并为草稿、提交、取消、审批、问卷、模型、预算和可靠 Usage 提供只读操作投影。`@hbar/app-react` 将这些投影映射到受控 AIChat、PromptInput、活动卡与 AIUsage；所有业务修改经 command，Markdown 经过 GFM 与 sanitize，费用/速率缺失保持 unavailable。真实 Host 浏览器场景完成选择、发送、用量更新、审批、取消和滚动容量验收；B3 在相同边界上接入 Schema renderer 与分层设置工作台。
 
-B3a–B3b 已完成：独立 `@hbar/schema-react` 提供同步 schema-core 能力登记的 ComponentRegistry、定制子页面 EditorRegistry、标量受控 renderer 和宿主文案/动态内容契约。Host 通过 `settings.describe` 发布同一份设置数据约束、范围、层级、组件和 callback 元数据，并注册可分页模型列表与模型相关思考等级查询。框架包没有设置领域、runtime、Host 或传输依赖；后续 B3 切片在此基础上接入分层设置 runtime、List 数据与 ProviderDialog。
+B3a–B3c1 已完成：独立 `@hbar/schema-react` 提供同步 schema-core 能力登记的 ComponentRegistry、定制子页面 EditorRegistry、标量受控 renderer 和宿主文案/动态内容契约。Host 通过 `settings.describe` 发布同一份设置数据约束、范围、层级、组件和 callback 元数据，并注册可分页模型列表与模型相关思考等级查询。app-runtime 从 `app.openSettings` 的逻辑 surface 建立各作用域独立的命令表单，保存、恢复继承和未知结果核对均绑定原目标。框架包没有设置领域、runtime、Host 或传输依赖；后续 B3 切片接入动态内容状态、可见工作台、List 数据与 ProviderDialog。
 
 ## 5. 验收矩阵
 

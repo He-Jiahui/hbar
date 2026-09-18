@@ -144,3 +144,11 @@ Host 新增只读 `settings.describe` command，发布 `hbar.settings@1` 的分�
 Kernel 正式注册 `settings.getModels` 与 `settings.getThinkingLevels`。模型候选来自真实 provider/model 目录，按 stable ID 排序，支持搜索与 200 项游标分页；思考等级只按当前模型能力返回。两者都带依赖 fingerprint 和基于实际能力的 revision，缺失或失效模型分别报告 unavailable，不生成伪选项。schema-react ComboBox 在 ready 时采用动态报告覆盖静态允许域，因此模型能力缩小时能显示 selected-invalid，而不会自动替换用户值。
 
 交付验证：`bun run check` 通过 lint、typecheck、315 个测试（88 个文件、2457 个断言）。真实认证 Host 测试通过 `settings.describe` 编译内容图，经 schema callback 网络 bridge 查询 fixture 模型与思考等级；既有 callback 取消测试改用独立测试 ID，验证内置注册和插件生命周期不会互相覆盖。
+
+### B3c1：分层设置 FormState 与命令保存（完成）
+
+app-runtime 新增设置工作区只读投影。`app.openSettings` 的逻辑 panel 决定 global/workspace/session 和确切 target；runtime 自动加载 `settings.describe`、目标快照与父级快照，再编译 scope 相关的标量 Schema。每个 scope/target 保存独立草稿，切换后不会互相覆盖；最多保留 32 个表单，只淘汰无编辑、无未知提交的非活动项，容量内全部受稳定 formId 约束。
+
+字段编辑、重置、恢复继承、刷新、提交和核对分别使用 internal `settingsForm.*` application commands。恢复继承生成 `unset` 并预览父级 effective/default；不允许覆盖的 scope 编译为只读字段。提交只包含 dirty/unset 路径，捕获原 scope、版本向量、revision 与幂等键；提交期间的新编辑继续保留。断线未知只能用原 input/key 核对，成功回执仅确认原提交。Client 将 settings 持久命令的断线/超时统一映射为 `RESULT_UNKNOWN`。
+
+交付验证：`bun run check` 通过 lint、typecheck、318 个测试（89 个文件、2471 个断言）；分层 runtime 定向测试覆盖三层草稿、在途编辑、显式继承、scope 只读、未知核对及 Client 丢失响应映射。`bun run build` 完成 2337 个模块的生产构建。该切片只注入 settings/schema content ports，没有新增可见页面。

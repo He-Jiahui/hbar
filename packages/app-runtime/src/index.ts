@@ -14,6 +14,7 @@ import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { usageCommands } from '@hbar/contracts/commands/usage'
 import { interactionDraftCommands } from '@hbar/contracts/commands/interaction-draft'
+import { settingsEditorCommands } from '@hbar/contracts/commands/settings-editor'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -23,6 +24,7 @@ import { createSessionTimeline } from './session-timeline'
 import { createDrafts } from './drafts'
 import { createInteractions } from './interactions'
 import { createSessionControls } from './session-controls'
+import { createSettingsForms } from './settings-forms'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
@@ -50,6 +52,8 @@ export type {
   PanelSurface,
   WindowSurface,
   SurfaceState,
+  SettingsFormEntry,
+  SettingsWorkspaceState,
 } from './types'
 export { SessionSelectionError } from './navigation'
 
@@ -106,6 +110,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const settingsForms = createSettingsForms(
+    local,
+    options,
+    surfaces.reader,
+    directory.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -121,6 +133,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
+        Object.hasOwn(settingsEditorCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -140,6 +153,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       interactions: interactions.reader,
       questionnaires: interactions.questionnaires,
       controls: controls.reader,
+      settings: settingsForms.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
@@ -163,6 +177,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       drafts.dispose()
       interactions.dispose()
       controls.dispose()
+      settingsForms.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()

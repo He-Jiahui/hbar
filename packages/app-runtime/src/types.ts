@@ -17,7 +17,8 @@ import type {
   Usage,
   UserInputRequest,
 } from '@hbar/contracts'
-import type { FormState } from '@hbar/schema-core'
+import type { CompiledForm, FormState, SchemaCallbackPort } from '@hbar/schema-core'
+import type { SettingsDescription, SettingsReceipt, SettingsSnapshot } from '@hbar/contracts/commands/settings'
 
 export interface BudgetCommandPort {
   execute(id: 'session.getBudget', input: { sessionId: string }): Promise<SessionBudget | null>
@@ -49,9 +50,32 @@ export interface RuntimeOptions {
   readonly models?: CommandExecutor
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
+  readonly settings?: CommandExecutor
+  readonly schemaContent?: SchemaCallbackPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly onSubscriberError?: (error: unknown) => void
+}
+
+export interface SettingsFormEntry {
+  readonly formId: string
+  readonly scope: SettingsSnapshot['scope']
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly description: Readonly<SettingsDescription> | null
+  readonly schema: Readonly<CompiledForm> | null
+  readonly form: Readonly<FormState> | null
+  readonly reports: SettingsSnapshot['resolution']['reports']
+  readonly inheritedValues: Readonly<Record<string, unknown>>
+  readonly unsets: Readonly<Record<string, number>>
+  readonly revisions: Readonly<Record<string, number>>
+  readonly receipt: Readonly<SettingsReceipt> | null
+  readonly pendingKey: string | null
+  readonly error: string | null
+}
+
+export interface SettingsWorkspaceState {
+  readonly activeFormId: string | null
+  readonly forms: Readonly<Record<string, Readonly<SettingsFormEntry>>>
 }
 export interface RunCommandPort extends CommandExecutor {
   getReceipt(

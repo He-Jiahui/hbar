@@ -42,4 +42,6 @@ runtime.dispose()
 
 `view.state.controls` 按当前 Session 组合 `session.getModel`、`usage.query` 与 `session.getBudget` 的权威结果，保留各来源独立错误及 available/empty/unavailable 语义。选择和 Host 重同步会刷新全部控制数据；usage、run 结算或 budget 事实只触发有界刷新，普通 stream delta 不发查询。模型和思考等级修改仍执行 Host command，自动生成单次幂等键，迟到的旧 Session 查询不能覆盖新选择。
 
-当前适配是无 React 的 ViewModel/命令入口；GUI renderer 和逻辑窗口绑定按 B1/B4 与 A7 交付。命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板继续由对应模块承担。此包不包含业务执行器或 UI renderer。
+`view.state.settings` 由 `app.openSettings` 的逻辑 panel 驱动，按 global/workspace/session 与 target 保存最多 32 个独立表单。字段写入、重置、恢复继承、提交与未知核对均使用 internal `settingsForm.*` command；提交捕获原 scope、版本向量、revision 和幂等键。恢复继承发送 unset，在途新编辑不会被旧回执覆盖。组合根只需注入 Host settings command port，View 不取得 Client。
+
+当前包提供无 React 的 ViewModel/命令入口；React 绑定在 `@hbar/app-react`，Schema renderer 在 `@hbar/schema-react`。命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板由对应模块承担。此包不包含业务执行器或 UI renderer。

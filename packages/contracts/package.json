@@ -24,6 +24,7 @@
     "./commands/models": "./src/commands/models.ts",
     "./commands/run": "./src/commands/run.ts",
     "./commands/settings": "./src/commands/settings.ts",
+    "./commands/settings-editor": "./src/commands/settings-editor.ts",
     "./commands/system": "./src/commands/system.ts",
     "./commands/usage": "./src/commands/usage.ts",
     "./commands/workspaces": "./src/commands/workspaces.ts",
