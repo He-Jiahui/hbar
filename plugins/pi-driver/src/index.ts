@@ -16,6 +16,7 @@ import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/opena
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { createUsageFact } from '@hbar/usage'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 
@@ -303,7 +304,10 @@ export class PiDriver implements HarnessDriver {
     let stepId = '',
       streamId = '',
       stepCount = 0,
-      failure: string | undefined
+      failure: string | undefined,
+      attemptModel = input.request.model,
+      firstThinking = false,
+      firstText = false
     const completedTools = new Set<string>()
     const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
@@ -323,13 +327,24 @@ export class PiDriver implements HarnessDriver {
     const emit = async (event: AgentEvent) => {
       if (event.type === 'turn_start') {
         stepId = crypto.randomUUID()
+        firstThinking = false
+        firstText = false
         stepCount++
         if (stepCount > 64) throw new Error('Run reached the 64-step limit')
         await input.emit('step.started', { step: stepCount }, stepId)
       } else if (event.type === 'message_start' && event.message.role === 'assistant') {
         streamId = crypto.randomUUID()
+        await input.emit('attempt.providerStarted', { attemptId: stepId }, stepId)
       } else if (event.type === 'message_update' && event.message.role === 'assistant') {
         const content = event.message.content
+        if (!firstThinking && content.some((block) => block.type === 'thinking' && block.thinking.length > 0)) {
+          firstThinking = true
+          await input.emit('attempt.firstThinking', { attemptId: stepId }, stepId)
+        }
+        if (!firstText && content.some((block) => block.type === 'text' && block.text.length > 0)) {
+          firstText = true
+          await input.emit('attempt.firstText', { attemptId: stepId }, stepId)
+        }
         input.stream(
           streamId,
           content
@@ -344,7 +359,17 @@ export class PiDriver implements HarnessDriver {
       } else if (event.type === 'message_end') {
         if (event.message.role === 'assistant') {
           const message = event.message
-          await input.emit('usage.recorded', normalizeUsage(message.usage), stepId)
+          await input.emit(
+            'usage.recorded',
+            createUsageFact({
+              usage: normalizeUsage(message.usage),
+              runId: input.run.id,
+              attemptId: stepId,
+              source: 'model',
+              model: attemptModel,
+            }),
+            stepId,
+          )
           if (message.stopReason === 'error' || message.stopReason === 'aborted') {
             failure = message.errorMessage ?? message.stopReason
             await input.emit(
@@ -376,6 +401,7 @@ export class PiDriver implements HarnessDriver {
     const streamFn: StreamFn = async () => {
       try {
         const request = await input.beforeRequest(input.request, stepId)
+        attemptModel = request.model
         return streamProvider(
           request.model,
           {

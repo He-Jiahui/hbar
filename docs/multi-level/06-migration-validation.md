@@ -118,6 +118,8 @@ A11o 完成客户端连接命令：连接状态、连接、断开、重连和接
 
 A11p 交付 `run.retry`：命令按 operation ID 读取已经持久化的原模型与输入，校验 Session 归属及原 Run 已结束，然后嵌套执行规范 `run.submit`。同 actor/key 的并发重试只产生一个新 Run，返回可恢复的 `run.submit` 受理回执；不同 Session 和活动 Run 明确拒绝。CLI 提供带幂等键的显式入口，TUI 不再用进程内最后输入模拟重试，并将普通发送与取消一并切换到 typed run commands。
 
+A12a 建立可查询前的 Usage/Attempt 规范事实：`@hbar/usage` 根据实际请求模型生成带稳定 usage/attempt ID、计价快照与 accounting version 的记录；Pi driver 只在真实观察到首供应商、首思考和首正文时写时间标记。普通运行和 compaction 都写同一 usage 结构，旧预算与目标解析保持兼容。测试验证标记顺序、模型归属、去重身份、压缩用量以及未知价格不会被宣称为可计价。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收

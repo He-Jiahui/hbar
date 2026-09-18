@@ -76,6 +76,7 @@ export { createSettingsCommands } from './settings-commands'
 export { SettingsService, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_SCHEMA_VERSION } from './settings-service'
 import { createDirectoryQueries } from './directory-queries'
 import { createSchemaCallbackRegistry } from '@hbar/schema-core'
+import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -744,7 +745,7 @@ export class Kernel {
               sessionId,
               'request.started',
               {
-                attemptId: crypto.randomUUID(),
+                ...describeUsageAttempt(stepId, 'model', request.model),
                 request,
                 tools: input.tools.map((tool) => ({
                   name: tool.name,
@@ -1056,11 +1057,24 @@ export class Kernel {
       system: `Summarize the conversation faithfully. Preserve objectives, files, tool outcomes, constraints, and unresolved work. Do not execute tools.\n${request.system}`,
       messages: older,
     }
-    await this.append(sessionId, 'compaction.request', { request: summarization }, runId)
+    const attemptId = crypto.randomUUID()
+    await this.append(
+      sessionId,
+      'compaction.request',
+      { ...describeUsageAttempt(attemptId, 'compaction', model), request: summarization },
+      runId,
+      attemptId,
+    )
     const result = await this.plugins
       .get<HarnessDriver>('driver')
       .summarize(summarization, model.protocol === 'mock' ? null : await this.secrets.get(model.id), signal)
-    await this.append(sessionId, 'usage.recorded', result.usage, runId)
+    await this.append(
+      sessionId,
+      'usage.recorded',
+      createUsageFact({ usage: result.usage, runId, attemptId, source: 'compaction', model }),
+      runId,
+      attemptId,
+    )
     signal.throwIfAborted()
     if (!result.text.trim()) throw new HbarError('COMPACTION_FAILED', 'Provider returned an empty summary')
     this.publishEvent(await this.storage.call('compact', sessionId, older.at(-1)!.seq, result.text, model.id))

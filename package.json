@@ -76,6 +76,7 @@
     "@hbar/schema-core": "workspace:*",
     "@hbar/settings-core": "workspace:*",
     "@hbar/storage": "workspace:*",
+    "@hbar/usage": "workspace:*",
     "@hbar/ui-sdk": "workspace:*",
     "@opentui/core": "0.4.5",
     "@opentui/keymap": "0.4.5",

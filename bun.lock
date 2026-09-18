@@ -32,6 +32,7 @@
         "@hbar/settings-core": "workspace:*",
         "@hbar/storage": "workspace:*",
         "@hbar/ui-sdk": "workspace:*",
+        "@hbar/usage": "workspace:*",
         "@opentui/core": "0.4.5",
         "@opentui/keymap": "0.4.5",
         "@tanstack/react-virtual": "3.14.11",
@@ -176,6 +177,7 @@
         "@hbar/commands": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
+        "@hbar/usage": "workspace:*",
       },
     },
     "packages/plugin-sdk": {
@@ -214,6 +216,13 @@
       },
       "peerDependencies": {
         "react": "^19.0.0",
+      },
+    },
+    "packages/usage": {
+      "name": "@hbar/usage",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
       },
     },
     "plugins/agent": {
@@ -278,6 +287,9 @@
     "plugins/pi-driver": {
       "name": "@hbar/pi-driver",
       "version": "0.1.0",
+      "dependencies": {
+        "@hbar/usage": "workspace:*",
+      },
     },
     "plugins/plan": {
       "name": "@hbar/plan",
@@ -539,6 +551,8 @@
     "@hbar/terminal": ["@hbar/terminal@workspace:packages/terminal"],
 
     "@hbar/ui-sdk": ["@hbar/ui-sdk@workspace:packages/ui-sdk"],
+
+    "@hbar/usage": ["@hbar/usage@workspace:packages/usage"],
 
     "@hbar/web": ["@hbar/web@workspace:apps/web"],
 
