@@ -13,6 +13,7 @@ export { createAgentCommandClient } from './agents'
 export { createBrowserCommandClient } from './browser'
 export { createComputerCommandClient } from './computer'
 export { createGitCommandClient } from './git'
+export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
 export {
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,

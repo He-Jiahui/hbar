@@ -41,6 +41,8 @@ export interface CliArgs {
   stage?: boolean | undefined
   force?: boolean | undefined
   createBranch?: boolean | undefined
+  archived?: boolean | undefined
+  atSeq?: string | undefined
   selector?: string | undefined
   fullPage: boolean
   valueJson?: string | undefined
@@ -163,6 +165,8 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       stage: { type: 'boolean' },
       force: { type: 'boolean' },
       'create-branch': { type: 'boolean' },
+      archived: { type: 'boolean' },
+      'at-seq': { type: 'string' },
       selector: { type: 'string' },
       'full-page': { type: 'boolean' },
       'value-json': { type: 'string' },
@@ -247,6 +251,8 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     stage: Boolean(values.stage),
     force: Boolean(values.force),
     createBranch: Boolean(values['create-branch']),
+    archived: Boolean(values.archived),
+    atSeq: values['at-seq'] as string | undefined,
     selector: values.selector as string | undefined,
     fullPage: Boolean(values['full-page']),
     valueJson: values['value-json'] as string | undefined,

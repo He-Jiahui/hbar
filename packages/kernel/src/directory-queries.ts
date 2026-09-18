@@ -26,5 +26,13 @@ export function createDirectoryQueries(repository: DirectoryRepository) {
       throw new CommandError('WORKSPACE_NOT_FOUND', 'Workspace not found')
     return repository.sessionPage(input)
   })
-  return { ...createCommandClient(directoryCommands, registry), dispose: () => registry.dispose() }
+  return {
+    ...createCommandClient(directoryCommands, registry),
+    dispatch(value: unknown, actorId: string) {
+      return registry.dispatch(value, { actorId })
+    },
+    describe: (id: string) => registry.describe(id),
+    list: () => registry.list({ limit: 500 }),
+    dispose: () => registry.dispose(),
+  }
 }

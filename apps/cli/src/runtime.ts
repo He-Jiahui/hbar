@@ -1,8 +1,14 @@
 import { openSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { HbarClient, createInteractionCommandClient, createModelCommandClient } from '@hbar/client'
+import {
+  HbarClient,
+  createInteractionCommandClient,
+  createModelCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
 import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
 import type {
@@ -131,7 +137,7 @@ export async function selectProject(
   if (existing) return existing
   if (!allowCreate) throw new Error(`Project not found on the attached Host: ${selector ?? 'default'}`)
   if (!(await isDirectory(path))) throw new Error(`Project not found by path, id, or name: ${selector}`)
-  return client.call('workspace.create', { path })
+  return createWorkspaceSessionCommandClient(client).execute('workspace.create', { path })
 }
 
 export async function openAttachedRuntime(
@@ -182,7 +188,11 @@ export async function selectSession(
   const selected = chosen ?? candidates.find((session) => !session.archived)
   if (selected) return selected
   if (!allowCreate) throw new Error('Session not found in this project')
-  return client.call('session.create', { workspaceId: projectId })
+  return createWorkspaceSessionCommandClient(client).execute(
+    'session.create',
+    { workspaceId: projectId },
+    { idempotencyKey: randomUUID() },
+  )
 }
 
 export function selectModel(bootstrap: Bootstrap, selector?: string) {

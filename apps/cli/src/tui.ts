@@ -12,7 +12,12 @@ import { randomUUID } from 'node:crypto'
 import { readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
-import { createInteractionCommandClient, createModelCommandClient } from '@hbar/client'
+import {
+  createInteractionCommandClient,
+  createModelCommandClient,
+  createWorkspaceSessionCommandClient,
+  exportSessionEvents,
+} from '@hbar/client'
 import { BUILTIN_TERMINAL_COMMANDS, parseTerminalInput } from '@hbar/terminal'
 import type { CliRuntime } from './runtime.ts'
 import { selectModel, waitForRun } from './runtime.ts'
@@ -148,6 +153,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
   let modelId = runtime.modelId
   let thinking: ThinkingLevel = runtime.thinkingLevel
   const modelCommands = createModelCommandClient(runtime.client)
+  const entityCommands = createWorkspaceSessionCommandClient(runtime.client)
   const runs = new Map<string, Run>()
   const lastInputs = new Map<string, string>()
   const streams = new Map<string, { text: string; thinking: string }>()
@@ -303,7 +309,14 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       base = ''
       return render()
     }
-    if (command === 'new') return load(await runtime.client.call('session.create', { workspaceId: runtime.project.id }))
+    if (command === 'new')
+      return load(
+        await entityCommands.execute(
+          'session.create',
+          { workspaceId: runtime.project.id },
+          { idempotencyKey: randomUUID() },
+        ),
+      )
     if (command === 'sessions') {
       await refreshCatalog()
       const rows = runtime.bootstrap.sessions
@@ -314,9 +327,12 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       return render(`### Sessions\n\n| ID | Title | State |\n| --- | --- | --- |\n${rows.join('\n')}`)
     }
     if (command === 'switch' || command === 'resume') return switchSession(argument)
-    if (command === 'fork') return load(await runtime.client.call('session.fork', { sessionId: session.id }))
+    if (command === 'fork')
+      return load(
+        await entityCommands.execute('session.fork', { sessionId: session.id }, { idempotencyKey: randomUUID() }),
+      )
     if (command === 'archive') {
-      session = await runtime.client.call('session.archive', { sessionId: session.id, archived: true })
+      session = await entityCommands.execute('session.archive', { sessionId: session.id, archived: true })
       status.content = 'Session archived'
       return refreshCatalog()
     }
@@ -378,7 +394,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       return send(lastInput)
     }
     if (command === 'export') {
-      const events = await runtime.client.call('session.export', { sessionId: session.id })
+      const events = await exportSessionEvents(runtime.client, session.id)
       const path = resolve(argument || `hbar-${session.id}.jsonl`)
       await writeFile(path, `${events.map((event) => JSON.stringify(event)).join('\n')}\n`, 'utf8')
       return render(`Exported to \`${path}\``)

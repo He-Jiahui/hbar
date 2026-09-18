@@ -17,6 +17,9 @@ import {
   createModelCommandClient,
   createRunCommandClient,
   createSettingsCommandClient,
+  createWorkspaceSessionCommandClient,
+  exportSessionEvents,
+  allWorkspaceSessionCommands,
 } from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
@@ -185,6 +188,52 @@ export function isComputerCommand(value: string | undefined): value is keyof typ
 
 export function isGitCommand(value: string | undefined): value is keyof typeof gitCommands {
   return Boolean(value && Object.hasOwn(gitCommands, value))
+}
+
+export function isWorkspaceSessionCommand(
+  value: string | undefined,
+): value is keyof typeof allWorkspaceSessionCommands {
+  return Boolean(value && Object.hasOwn(allWorkspaceSessionCommands, value))
+}
+
+export async function runWorkspaceSessionCommand(
+  args: CliArgs,
+  runtime: CliRuntime,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const action = args.commandArgs[0]
+  if (!isWorkspaceSessionCommand(action))
+    throw new CommandError('COMMAND_NOT_FOUND', 'Unknown workspace or session command')
+  const definition = allWorkspaceSessionCommands[action]
+  const argv = [...args.commandArgs.slice(1)]
+  const add = (field: string, value: string | undefined): void => {
+    if (value === undefined) return
+    const argument = definition.metadata.cli.arguments.find((item) => item.field === field)
+    if (!argument || (argument.position !== undefined && argv[argument.position] !== undefined)) return
+    if (argument.flag) argv.push(`--${argument.flag}`, value)
+  }
+  add('workspaceId', runtime.project.id)
+  add('sessionId', runtime.session.id)
+  add('title', args.title)
+  add('after', args.after)
+  add('limit', args.limit)
+  add('atSeq', args.atSeq)
+  if (args.archived && definition.metadata.cli.arguments.some((item) => item.field === 'includeArchived'))
+    argv.push('--archived')
+  const input = definition.input.safeParse(parseArguments(definition.metadata, argv))
+  if (!input.success) throw validationError('INVALID_INPUT', input.error)
+  const commands = createWorkspaceSessionCommandClient(runtime.client)
+  if (action === 'session.create' || action === 'session.fork') {
+    if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
+    output(
+      await commands.execute(action, input.data as never, {
+        idempotencyKey: args.idempotencyKey,
+        ...(args.requestId ? { requestId: args.requestId } : {}),
+      }),
+    )
+    return
+  }
+  output(await commands.execute(action, input.data as never))
 }
 
 export async function runGitCommand(
@@ -649,6 +698,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isWorkspaceSessionCommand(action)) {
+      await runWorkspaceSessionCommand(args, runtime, output)
+      return true
+    }
     if (isGitCommand(action)) {
       await runGitCommand(args, runtime, output)
       return true
@@ -778,20 +831,32 @@ export async function runCliCommand(
     return true
   }
   if (args.command === 'session') {
+    const entities = createWorkspaceSessionCommandClient(runtime.client)
     const catalog = await runtime.client.call('system.bootstrap', {})
-    const sessions = catalog.sessions.filter((session) => session.workspaceId === runtime.project.id)
-    if (!action || action === 'list') output(sessions)
-    else if (action === 'new') output(await runtime.client.call('session.create', { workspaceId: runtime.project.id }))
+    if (!action || action === 'list')
+      output((await entities.execute('session.list', { workspaceId: runtime.project.id, limit: 200 })).items)
+    else if (action === 'new')
+      output(
+        await entities.execute(
+          'session.create',
+          { workspaceId: runtime.project.id, ...(args.title ? { title: args.title } : {}) },
+          { idempotencyKey: args.idempotencyKey ?? randomUUID() },
+        ),
+      )
     else if (action === 'resume') output(await selectSession(runtime.client, catalog, runtime.project.id, selector))
     else if (action === 'fork')
-      output(await runtime.client.call('session.fork', { sessionId: selector ?? runtime.session.id }))
-    else if (action === 'archive')
       output(
-        await runtime.client.call('session.archive', { sessionId: selector ?? runtime.session.id, archived: true }),
+        await entities.execute(
+          'session.fork',
+          { sessionId: selector ?? runtime.session.id },
+          { idempotencyKey: args.idempotencyKey ?? randomUUID() },
+        ),
       )
+    else if (action === 'archive')
+      output(await entities.execute('session.archive', { sessionId: selector ?? runtime.session.id, archived: true }))
     else if (action === 'export') {
       const target = selector ?? runtime.session.id
-      const events = await runtime.client.call('session.export', { sessionId: target })
+      const events = await exportSessionEvents(runtime.client, target)
       const path = resolve(args.commandArgs[2] ?? `hbar-${target}.jsonl`)
       await writeFile(path, `${events.map((event) => JSON.stringify(event)).join('\n')}\n`, 'utf8')
       output(path)

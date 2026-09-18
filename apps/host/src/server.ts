@@ -12,6 +12,7 @@ import {
   createBrowserCommands,
   createComputerCommands,
   createGitCommands,
+  createWorkspaceSessionCommands,
   createBudgetCommands,
   createFileCommands,
   createGoalPlanCommands,
@@ -26,13 +27,17 @@ import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agen
 import { browserCommands as browserDefinitions } from '@hbar/contracts/commands/browser'
 import { computerCommands as computerDefinitions } from '@hbar/contracts/commands/computer'
 import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
+import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
 import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
 import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
-import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
+import {
+  directoryCommands as directoryDefinitions,
+  surfaceCommands as surfaceDefinitions,
+} from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
 import type {
   BrowserUseService,
@@ -74,6 +79,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
   const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'))
+  const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
   const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'))
   const goalPlanCommands = createGoalPlanCommands(
@@ -90,6 +96,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: browserDefinitions, service: browserCommands },
     { definitions: computerDefinitions, service: computerCommands },
     { definitions: gitDefinitions, service: gitCommands },
+    { definitions: directoryDefinitions, service: kernel.directoryQueries },
+    { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: fileDefinitions, service: fileCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
@@ -986,6 +994,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       browserCommands.dispose()
       computerCommands.dispose()
       gitCommands.dispose()
+      workspaceSessionCommands.dispose()
       budgetCommands.dispose()
       fileCommands.dispose()
       goalPlanCommands.dispose()

@@ -1,6 +1,6 @@
 # P4：Host 业务命令化与监控数据能力
 
-状态：实施中；预算、Run、审批问卷、目标计划、Session 模型配置、文件附件、子 Agent、browser、computer 与现有 Git 命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
+状态：实施中；工作区/会话、预算、Run、审批问卷、目标计划、Session 模型配置、文件附件、子 Agent、browser、computer 与现有 Git 命令已交付，其余业务迁移和监控数据仍待实施。上级：[总计划](command-first-architecture-plan.md)。依赖 P1 调用契约、P2 消费端口与 P3 设置应用服务。本计划交付 CLI 可验证的数据/业务闭环；图表在 P5 接入。
 
 ## 1. Host 模块保持 MVC 与领域边界
 
@@ -44,6 +44,8 @@ A11f 已将 `browser.status/navigate/snapshot/click/type/press/screenshot/evalua
 A11g 已将 `computer.status/screenshot/click/doubleClick/type/key/scroll/move/wait/launch` 注册为 session scope 的 Host commands，并把旧 `computer.double_click` 明确映射为新 command ID `computer.doubleClick`。adapter 只依赖 ComputerUseService，继续执行原有应用授权、锁屏策略、坐标/文本边界、截图容量、超时与受管 native backend。点击、输入、按键、滚动、移动、等待和启动均声明为 `external`；动作开始后的取消、backend 超时、传输超时或断线返回 `RESULT_UNKNOWN`，status/screenshot 查询保留其原始失败码。CLI、REPL、TUI 和 typed Client 共用契约，旧 computer RPC 暂作同服务兼容入口。
 
 A11h 已将 `git.info/status/diff/log/commit/branch/worktree/diffToRemote` 注册为 workspace scope 的 Host commands，旧 `git.diff_to_remote` 映射为 `git.diffToRemote`。adapter 只依赖 GitService，复用 workspace realpath/symlink 边界、pathspec/branch 校验、参数数组进程执行、输出上限、超时和成功后的观察通知。只读入口是 query；commit、branch 与 worktree 统一按 `external` 处理，动作进入后的取消、Git timeout 或丢失回执要求先查询 repository 状态。CLI 用 descriptor 解析 cwd、paths JSON、分页和 mutation 参数；A14 另行增加来源事实与 `git.stats`，本切片不把现有 log 推断成统计账本。
+
+A11i 已将 `workspace.list/get/create` 与 `session.list/get/create/rename/archive/fork/export` 注册到 Host command catalog。create/fork 使用数据库 v4 的 actor-scoped 事务回执：同 key 同载荷在并发和重启后返回原 Session，异载荷或跨命令复用冲突；workspace.create 依靠规范 realpath 唯一键收敛。export 改为每页最多 500 个规范事件并要求游标前进，CLI/TUI helper 最多汇总 100000 条。AppRuntime 的 read-only DirectoryPort、CLI、REPL、TUI 与 typed Client 已切到统一命令入口。`session.snapshot/follow/unfollow` 保留为有界状态快照和连接订阅端口，它们不代表用户业务动作；`workspace.open` 在 B1 由客户端导航命令接入。
 
 ## 3. 预算切片保持现有业务语义
 

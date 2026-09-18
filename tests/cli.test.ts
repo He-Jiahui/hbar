@@ -376,6 +376,41 @@ test('exec Git queries use the workspace service through the shared command path
   expect(JSON.parse(history.stdout)).toEqual([])
 })
 
+test('exec workspace and session commands create, retry, rename, list, and export through one catalog', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const base = await run([...common, 'session', 'new'])
+  expect(base.code).toBe(0)
+  const created = await run([
+    ...common,
+    'exec',
+    'session.create',
+    'CLI entity',
+    '--idempotency-key',
+    'cli-session-create',
+  ])
+  expect(created.code).toBe(0)
+  const session = JSON.parse(created.stdout) as { id: string }
+  const duplicate = await run([
+    ...common,
+    'exec',
+    'session.create',
+    'CLI entity',
+    '--idempotency-key',
+    'cli-session-create',
+  ])
+  expect(duplicate.code).toBe(0)
+  expect(JSON.parse(duplicate.stdout)).toEqual(session)
+  const renamed = await run([...common, '--session', session.id, 'exec', 'session.rename', 'CLI renamed'])
+  expect(renamed.code).toBe(0)
+  expect(JSON.parse(renamed.stdout)).toMatchObject({ id: session.id, title: 'CLI renamed' })
+  const listed = await run([...common, 'exec', 'session.list', '--title', 'CLI renamed'])
+  expect(listed.code).toBe(0)
+  expect(JSON.parse(listed.stdout)).toMatchObject({ items: [{ id: session.id }] })
+  const exported = await run([...common, '--session', session.id, 'exec', 'session.export', '--limit', '1'])
+  expect(exported.code).toBe(0)
+  expect(JSON.parse(exported.stdout)).toMatchObject({ events: [{ type: 'session.created' }] })
+})
+
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])

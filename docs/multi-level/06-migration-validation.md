@@ -100,6 +100,10 @@ A11g 迁移 computer-use 的十个已有入口，并按命名映射把 `computer
 
 A11h 迁移 Git 已有的八个入口，并把 `git.diff_to_remote` 规范为 `git.diffToRemote`。查询和 mutation 共用 GitService 的受限 cwd、pathspec、branch/worktree 校验、无 shell 参数执行、超时与输出容量；commit/branch/worktree 声明 external effect，断线或超时后的调用者通过 status/log/branch/worktree 查询核对，不自动重放。测试在临时真实仓库覆盖 status/log/diff、提交和列表，在 fake service 覆盖取消与 transport unknown；CLI smoke 验证无仓库时仍返回有界空状态。Git 来源记录、时间桶和 `git.stats` 保持为 A14 独立能力，未在迁移 adapter 中伪造。
 
+A11i1 将数据库升级到 v4，增加 actor/key、command ID、payload hash 和原 Session 结果组成的实体命令回执，并把 create/fork 的业务事务与回执写入绑定。同 key 同载荷重放返回原对象，跨命令或异载荷返回 `IDEMPOTENCY_CONFLICT`；存储测试覆盖并发顺序、唯一子 Session 和进程重开恢复。
+
+A11i2 发布 workspace/session typed commands，并把既有四个 directory queries 纳入认证 Host catalog。create/fork 强制 idempotency key；rename/archive 走 Kernel 用例并保留 active-run 门禁；export 使用 500 条事件分页和单调 cursor。AppRuntime DirectoryPort 改经 command transport 读取，CLI/TUI 的 new/fork/archive/export 不再调用写 RPC。测试覆盖完整目录、workspace path 收敛、create 并发/冲突、rename/archive 过滤、分页 export、同 actor 重启回执，以及显式 `hbar exec session.*`。snapshot/follow/unfollow 继续作为状态同步协议，`workspace.open` 留给 B1 客户端导航。
+
 命令并发、限流、幂等和依赖检查从首次涉及的切片实现，后续只扩充覆盖；不能延期到 A15 才第一次检查。A3 的短命令持久回执随业务事务落地，A5 再扩展长任务，不先提供误导性的“可恢复”空 API。
 
 ## 3. 第一阶段退出验收
