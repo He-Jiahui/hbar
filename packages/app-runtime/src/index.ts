@@ -1,21 +1,34 @@
-import { CommandRegistry, CommandError, createCommandClient, type ExecuteOptions } from '@hbar/commands'
+import {
+  CommandRegistry,
+  CommandError,
+  createCommandClient,
+  parseArguments,
+  tokenizeCommand,
+  type ExecuteOptions,
+} from '@hbar/commands'
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
+import { draftCommands } from '@hbar/contracts/commands/draft'
+import { runCommands } from '@hbar/contracts/commands/run'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
 import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
+import { createDrafts } from './drafts'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
   BudgetCommandPort,
   BudgetFormState,
   BudgetFormsState,
+  DraftsState,
   DirectoryState,
   NavigationState,
   RuntimeOptions,
+  RunCommandPort,
+  SessionDraftState,
   SessionTimelinePort,
   SessionTimelineState,
   SessionTimelineUpdate,
@@ -63,6 +76,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const drafts = createDrafts(local, options.run, onSubscriberError, () => disposed)
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -70,8 +84,10 @@ export function createAppRuntime(options: RuntimeOptions) {
         surfaceCommands[name as keyof typeof surfaceCommands].metadata.execution === 'platform'
       )
         return platform.execute(name, input, execution)
+      if (Object.hasOwn(runCommands, name)) return drafts.executeRun(name, input, execution)
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
+        Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -86,20 +102,14 @@ export function createAppRuntime(options: RuntimeOptions) {
       forms: forms.reader,
       surfaces: surfaces.reader,
       timeline: timeline.reader,
+      drafts: drafts.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
-      const name = source.trim().split(/\s/, 1)[0] ?? ''
-      if (
-        Object.hasOwn(surfaceCommands, name) &&
-        surfaceCommands[name as keyof typeof surfaceCommands].metadata.execution === 'platform'
-      )
-        return platform.executeText(source, execution)
-      return Object.hasOwn(navigationCommands, name) ||
-        Object.hasOwn(budgetEditorCommands, name) ||
-        Object.hasOwn(surfaceCommands, name)
-        ? local.executeText(source, execution)
-        : remote.executeText(source, execution)
+      const [name, ...arguments_] = tokenizeCommand(source)
+      const definition = applicationCommands[name as keyof typeof applicationCommands]
+      if (!definition) throw new CommandError('COMMAND_NOT_FOUND', 'Command definition not found')
+      return executor.execute(name!, parseArguments(definition.metadata, arguments_), execution)
     },
   })
   return {
@@ -113,6 +123,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       directory.dispose()
       forms.dispose()
       timeline.dispose()
+      drafts.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()

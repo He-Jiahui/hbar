@@ -21,8 +21,15 @@ export function createRunCommandClient(client: ClientTransport) {
           input,
         })
       } catch (error) {
-        if (id === 'context.compact' && error instanceof HbarError && ['DISCONNECTED', 'TIMEOUT'].includes(error.code))
-          throw new CommandError('RESULT_UNKNOWN', 'Compaction response was lost; inspect the session before retrying')
+        if (
+          ['run.submit', 'run.retry', 'context.compact'].includes(id) &&
+          error instanceof HbarError &&
+          ['DISCONNECTED', 'TIMEOUT'].includes(error.code)
+        )
+          throw new CommandError(
+            'RESULT_UNKNOWN',
+            `${id} response was lost; inspect its receipt or session state before retrying`,
+          )
         throw error
       }
     },

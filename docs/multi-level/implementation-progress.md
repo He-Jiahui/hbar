@@ -86,3 +86,11 @@ app-runtime 新增每实例独立的 timeline 投影。选中 Session 后先读�
 Client adapter 将现有 `session.snapshot/follow/unfollow` 和 reconnect 通知转换为 timeline port；Web 组合根只注入该 port，React View 仍不获得 Client。定向测试覆盖快照、增量正文、消息提交清理 stream、畸形事件、Session 切换、重同步、通知过滤和精确释放。草稿、发送/取消、审批和可靠 Usage 投影继续按 B2b–B2d 独立交付。
 
 交付验证：`bun run check` 通过 lint、typecheck、302 个测试（83 个文件、2390 个断言）；定向的 timeline、app-runtime 与真实 Host 测试 15 项通过，workspace/Web 依赖边界 4 项通过。此切片只接数据投影，未新增可见会话页面，因此不重复运行 B1 的视觉 E2E。
+
+### B2b：Session 草稿、发送与取消命令（完成）
+
+contracts 新增内部客户端命令 `draft.setText`、`draft.setAttachments` 与 `draft.reconcileSubmission`，app-runtime 为最多 100 个 Session 保存互相隔离且只读的草稿投影。`run.submit` 仍是规范 Host 命令；runtime adapter 在调用前捕获原 Session、草稿 revision、附件与幂等键，提交期间允许继续输入。成功回执只清除完全未变化的已提交草稿，新输入保持；普通失败保留原文和附件，断线/超时进入 unknown 并只能以原键查询受理回执。`operation.cancel`、retry、operation query 和 compact 继续委托同一个 Run command port。
+
+Client 将 `run.submit` / `run.retry` 的断线或超时统一映射为 `RESULT_UNKNOWN`，避免 UI 误报失败后用新键重复执行。定向测试覆盖在途编辑、unknown 后继续输入、回执核对、附件去重、失败保留、两个 runtime 隔离、取消委托、传输丢失和真实 Host 完整提交。B2c 继续接模型/交互/Usage ViewModel，B2d 再组合可见 AIChat、PromptInput 与 AIUsage。
+
+交付验证：`bun run check` 通过 lint、typecheck、306 个测试（84 个文件、2407 个断言）；草稿/Run/真实 Host 定向测试 19 项及命令/依赖边界 16 项通过。Web 仅增加 Run port 注入，没有改变可见布局；生产构建通过，视觉 E2E 留到 B2d 可见会话工作区一起执行。

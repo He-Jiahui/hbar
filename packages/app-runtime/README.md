@@ -34,4 +34,6 @@ runtime.dispose()
 
 预算参数表单由组合根可选地注入 `createBudgetCommandClient(client)`。`app.openCommandForm({ commandId: 'session.setBudget', sessionId, formId })` 从 Host 读取当前预算并固定原 Session 目标；`form.setField` 只改本实例的草稿，`form.submit` 使用 A3 的持久命令和独立幂等键。View 通过 `view.state.forms` 只读订阅原文、字段问题、dirty、状态与回执。断线/超时进入 unknown，`form.reconcile` 使用同一 actor、Session、键查询回执；查不到时保持 unknown，不用新键重发。成功后修订版本更新而在途的新编辑仍为 dirty；失败保留草稿。`app.closeCommandForm` 关闭实例，不取消已送出的 Host 写入。
 
-当前适配是无 React 的 ViewModel/命令入口；GUI renderer 和逻辑窗口绑定仍按 B1/B4 与 A7 交付。提示词草稿、命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板也仍在后续里程碑。此包不包含业务执行器或 UI renderer。
+提示词草稿按 Session 保存在 `view.state.drafts`，只能经内部应用命令 `draft.setText` 与 `draft.setAttachments` 修改。`run.submit` 捕获原 Session、草稿 revision、附件和单次幂等键；等待回执时允许继续编辑，成功只清除未变化的原草稿，失败保留内容。断线或超时进入 unknown，`draft.reconcileSubmission` 用原键查询权威受理回执，不能以新键盲目重发。`operation.cancel` 和其余 Run 命令继续委托同一个 Host command port。
+
+当前适配是无 React 的 ViewModel/命令入口；GUI renderer 和逻辑窗口绑定按 B1/B4 与 A7 交付。命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板继续由对应模块承担。此包不包含业务执行器或 UI renderer。

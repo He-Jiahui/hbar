@@ -1,6 +1,8 @@
 import type { CommandExecutor } from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
+import type { PromptAttachment } from '@hbar/contracts/commands/draft'
+import type { RunAccepted } from '@hbar/contracts/commands/run'
 import type {
   Approval,
   LiveStream,
@@ -40,11 +42,30 @@ export interface RuntimeOptions {
   readonly hostId: string
   readonly directory: CommandExecutor
   readonly timeline?: SessionTimelinePort
+  readonly run?: RunCommandPort
   readonly budget?: BudgetCommandPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly onSubscriberError?: (error: unknown) => void
 }
+export interface RunCommandPort extends CommandExecutor {
+  getReceipt(
+    sessionId: string,
+    idempotencyKey: string,
+    commandId?: 'run.submit' | 'run.retry',
+  ): Promise<RunAccepted | null>
+}
+
+export interface SessionDraftState {
+  readonly sessionId: string
+  readonly text: string
+  readonly attachments: readonly Readonly<PromptAttachment>[]
+  readonly revision: number
+  readonly status: 'idle' | 'submitting' | 'unknown' | 'failed'
+  readonly error: string | null
+  readonly lastOperationId: string | null
+}
+export type DraftsState = Readonly<Record<string, SessionDraftState>>
 export type SessionTimelineUpdate =
   | { readonly kind: 'event'; readonly event: SessionEvent }
   | { readonly kind: 'stream'; readonly stream: StreamDelta }
