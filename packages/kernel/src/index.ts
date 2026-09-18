@@ -47,6 +47,7 @@ import type {
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
+import type { RunCommandRecord } from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
 import localTools, { executionPlugin, LocalExecution } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
@@ -59,6 +60,7 @@ import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
 export { createBudgetCommands } from './budget-commands'
+export { createRunCommands } from './run-commands'
 import { createDirectoryQueries } from './directory-queries'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
@@ -537,7 +539,7 @@ export class Kernel {
       .map(({ request }) => request)
     return snapshot
   }
-  async submit(sessionId: string, requestId: string, input: UserInput, modelId: string) {
+  async submit(sessionId: string, requestId: string, input: UserInput, modelId: string, command?: RunCommandRecord) {
     input = inputSchema.parse(input)
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
@@ -566,12 +568,13 @@ export class Kernel {
         images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
-      // A new turn clears unresolved interactive requests, matching Codex's
-      // turn-start lifecycle and preventing stale prompts from blocking work.
-      await this.clearPendingUserInputs(sessionId, new HbarError('USER_INPUT_CANCELLED', 'A new turn started'))
-      const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId)
+      const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId, command)
       if (run.status === 'queued') {
-        if (run.queuedEvent) this.publishEvent(run.queuedEvent)
+        if (run.queuedEvent) {
+          // Only a newly accepted turn clears unresolved interactive requests.
+          await this.clearPendingUserInputs(sessionId, new HbarError('USER_INPUT_CANCELLED', 'A new turn started'))
+          this.publishEvent(run.queuedEvent)
+        }
         this.kick(sessionId)
       }
       this.changed('sessions')

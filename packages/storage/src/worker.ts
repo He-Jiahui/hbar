@@ -2,9 +2,22 @@ import { Database } from 'bun:sqlite'
 import { workerData, parentPort } from 'node:worker_threads'
 import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
-import { HbarError, contentBlockSchema, emptyUsage, inputSchema, providerSchema, sessionEventSchema } from '@hbar/contracts'
+import {
+  HbarError,
+  contentBlockSchema,
+  emptyUsage,
+  inputSchema,
+  providerSchema,
+  sessionEventSchema,
+} from '@hbar/contracts'
 import { z } from 'zod'
-import { workspaceSchema, sessionSchema, workspaceListInputSchema, sessionListInputSchema } from '@hbar/contracts/directory'
+import {
+  workspaceSchema,
+  sessionSchema,
+  workspaceListInputSchema,
+  sessionListInputSchema,
+} from '@hbar/contracts/directory'
+import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import type {
   Approval,
   ArtifactRef,
@@ -65,6 +78,7 @@ if (schemaVersion === 1)
       PRAGMA user_version=2;
     `)
   })()
+db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 
 type Row = Record<string, unknown>
 const parseJson = (value: string): unknown => JSON.parse(value) as unknown
@@ -109,12 +123,14 @@ function approvalRow(row: Row | null): Approval {
   } as unknown as Approval
 }
 function indexEvent(projectId: string, event: SessionEvent, location: ReturnType<SessionLogWriter['append']>) {
-  db.query(`
+  db.query(
+    `
     INSERT INTO session_log_files VALUES(?,?,?,?,?,?,?)
     ON CONFLICT(path) DO UPDATE SET
       firstSeq=MIN(firstSeq,excluded.firstSeq),lastSeq=MAX(lastSeq,excluded.lastSeq),
       size=MAX(size,excluded.size),updatedAt=excluded.updatedAt
-  `).run(
+  `,
+  ).run(
     location.relativePath,
     projectId,
     event.sessionId,
@@ -137,7 +153,11 @@ function indexEvent(projectId: string, event: SessionEvent, location: ReturnType
 // JSONL is committed first. SQLite is a query projection and can be rebuilt from it.
 function appendEvent(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent {
   const row = required(
-    db.query('SELECT sessions.*,workspaces.id AS projectId FROM sessions JOIN workspaces ON workspaces.id=sessions.workspaceId WHERE sessions.id=?').get(sessionId) as Row | null,
+    db
+      .query(
+        'SELECT sessions.*,workspaces.id AS projectId FROM sessions JOIN workspaces ON workspaces.id=sessions.workspaceId WHERE sessions.id=?',
+      )
+      .get(sessionId) as Row | null,
     'Session',
   )
   const s = sessionRow(row)
@@ -181,19 +201,41 @@ const methods: StorageMethods = {
   workspaces: () => db.query('SELECT * FROM workspaces ORDER BY createdAt').all() as Workspace[],
   workspacePage(input) {
     const { after, limit } = workspaceListInputSchema.parse(input)
-    const rows = z.array(workspaceSchema).parse(db.query('SELECT * FROM workspaces WHERE (? IS NULL OR id > ?) ORDER BY id LIMIT ?').all(after ?? null, after ?? null, limit + 1))
+    const rows = z
+      .array(workspaceSchema)
+      .parse(
+        db
+          .query('SELECT * FROM workspaces WHERE (? IS NULL OR id > ?) ORDER BY id LIMIT ?')
+          .all(after ?? null, after ?? null, limit + 1),
+      )
     const items = rows.slice(0, limit)
-    return { items, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null }
+    return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null }
   },
   sessionPage(input) {
     const { workspaceId, after, title, includeArchived, limit } = sessionListInputSchema.parse(input)
     methods.workspace(workspaceId)
-    const rows = z.array(z.record(z.string(), z.unknown())).parse(db.query(`SELECT * FROM sessions
+    const rows = z
+      .array(z.record(z.string(), z.unknown()))
+      .parse(
+        db
+          .query(
+            `SELECT * FROM sessions
       WHERE workspaceId = ? AND (? IS NULL OR id > ?) AND (? IS NULL OR title = ?)
-      AND (? = 1 OR archived = 0) ORDER BY id LIMIT ?`).all(workspaceId, after ?? null, after ?? null, title ?? null, title ?? null, Number(includeArchived), limit + 1))
+      AND (? = 1 OR archived = 0) ORDER BY id LIMIT ?`,
+          )
+          .all(
+            workspaceId,
+            after ?? null,
+            after ?? null,
+            title ?? null,
+            title ?? null,
+            Number(includeArchived),
+            limit + 1,
+          ),
+      )
       .map((row) => sessionSchema.parse({ ...row, archived: Boolean(row.archived) }))
     const items = rows.slice(0, limit)
-    return { items, nextCursor: rows.length > limit ? items.at(-1)?.id ?? null : null }
+    return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null }
   },
   findWorkspace(id) {
     const row = db.query('SELECT * FROM workspaces WHERE id=?').get(id)
@@ -359,7 +401,7 @@ const methods: StorageMethods = {
       }
       return methods.session(child.id)
     })(),
-  enqueue: (sessionId, requestId, input, modelId) =>
+  enqueue: (sessionId, requestId, input, modelId, command) =>
     db.transaction(() => {
       const existing = db
         .query('SELECT * FROM runs WHERE sessionId=? AND requestId=?')
@@ -395,9 +437,20 @@ const methods: StorageMethods = {
         null,
         null,
       )
-      const queuedEvent = appendEvent(sessionId, 'run.queued', { run }, run.id)
+      const queuedEvent = appendEvent(sessionId, 'run.queued', { run, ...(command ? { command } : {}) }, run.id)
       return { ...run, queuedEvent }
     })(),
+  runByRequest(sessionId, requestId) {
+    const row = db.query('SELECT * FROM runs WHERE sessionId=? AND requestId=?').get(sessionId, requestId) as Row | null
+    if (!row) return null
+    const run = runRow(row)
+    const event = db.query("SELECT data FROM events WHERE runId=? AND type='run.queued' LIMIT 1").get(run.id) as {
+      data: string
+    } | null
+    if (!event) throw new HbarError('RUN_JOURNAL_MISSING', 'Run acceptance event is unavailable')
+    const data = JSON.parse(event.data) as { command?: unknown }
+    return { run, command: data.command ? runCommandRecordSchema.parse(data.command) : null }
+  },
   claim: (sessionId) =>
     db.transaction(() => {
       if (db.query("SELECT id FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval')").get(sessionId))
@@ -605,10 +658,9 @@ const methods: StorageMethods = {
     return row?.value ?? null
   },
   setSetting(key, value) {
-    db.query('INSERT INTO path_metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(
-      key,
-      value,
-    )
+    db.query(
+      'INSERT INTO path_metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+    ).run(key, value)
   },
   close() {
     db.close()
@@ -685,10 +737,12 @@ function restoreProjection(event: SessionEvent) {
     )
   } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type)) {
     const run = data.run as Run
-    db.query(`
+    db.query(
+      `
       INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(id) DO UPDATE SET status=excluded.status,startedAt=excluded.startedAt,endedAt=excluded.endedAt,error=excluded.error
-    `).run(
+    `,
+    ).run(
       run.id,
       run.sessionId,
       run.requestId,
@@ -764,12 +818,14 @@ function reconcileSessionLogs() {
     if (db.query('SELECT eventId FROM session_event_index WHERE eventId=?').get(item.event.eventId)) continue
     db.transaction(() => {
       const projectId = item.relativePath.split('/')[0]!
-      db.query(`
+      db.query(
+        `
         INSERT INTO session_log_files VALUES(?,?,?,?,?,?,?)
         ON CONFLICT(path) DO UPDATE SET
           firstSeq=MIN(firstSeq,excluded.firstSeq),lastSeq=MAX(lastSeq,excluded.lastSeq),
           size=MAX(size,excluded.size),updatedAt=excluded.updatedAt
-      `).run(
+      `,
+      ).run(
         item.relativePath,
         projectId,
         item.event.sessionId,

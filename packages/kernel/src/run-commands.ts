@@ -1,0 +1,156 @@
+import { createHash } from 'node:crypto'
+import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
+import { HbarError } from '@hbar/contracts'
+import { runCommands, runCommandRecordSchema } from '@hbar/contracts/commands/run'
+import type { RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
+import type { Run } from '@hbar/contracts'
+import type { Kernel } from './index'
+
+function accepted(run: Run, command: RunCommandRecord): RunAccepted {
+  return {
+    status: 'accepted',
+    commandId: 'run.submit',
+    commandVersion: 1,
+    requestId: command.requestId,
+    idempotencyKey: command.idempotencyKey,
+    operationId: run.id,
+    sessionId: run.sessionId,
+    acceptedAt: run.createdAt,
+  }
+}
+
+export function createRunCommands(kernel: Kernel) {
+  const registry = new CommandRegistry({ execution: 'host' })
+  const locks = new Map<string, Promise<void>>()
+  const uncertainSessions = new Set<string>()
+  async function serial<T>(key: string, action: () => Promise<T>): Promise<T> {
+    const previous = locks.get(key) ?? Promise.resolve()
+    let release!: () => void
+    const current = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    locks.set(key, current)
+    await previous
+    try {
+      return await action()
+    } finally {
+      release()
+      if (locks.get(key) === current) locks.delete(key)
+    }
+  }
+  async function lookup(input: SubmitRunInput, command: RunCommandRecord, requestId: string) {
+    const found = await kernel.storage.call('runByRequest', input.sessionId, requestId)
+    if (!found) return null
+    if (
+      !found.command ||
+      found.command.actorId !== command.actorId ||
+      found.command.idempotencyKey !== command.idempotencyKey ||
+      found.command.inputHash !== command.inputHash
+    )
+      throw new CommandError('IDEMPOTENCY_CONFLICT', 'Run key was used with different input')
+    return accepted(found.run, found.command)
+  }
+  registry.register(
+    runCommands['run.submit'],
+    async (input, context) => {
+      const actorId = context.actorId,
+        idempotencyKey = context.idempotencyKey
+      if (!actorId || !idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+      const scope = JSON.stringify([input.sessionId, actorId, idempotencyKey])
+      const requestId = `command-${createHash('sha256').update(scope).digest('hex')}`
+      const command = runCommandRecordSchema.parse({
+        actorId,
+        idempotencyKey,
+        requestId: context.requestId,
+        inputHash: createHash('sha256')
+          .update(JSON.stringify({ id: 'run.submit', version: 1, input }))
+          .digest('hex'),
+      })
+      return serial(scope, async () => {
+        if (uncertainSessions.has(input.sessionId))
+          throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
+        let prior: RunAccepted | null
+        try {
+          prior = await lookup(input, command, requestId)
+        } catch (error) {
+          if (error instanceof CommandError) throw error
+          throw new CommandError('RESULT_UNKNOWN', 'Run journal is unavailable')
+        }
+        if (prior) return prior
+        try {
+          const run = await kernel.submit(input.sessionId, requestId, input.input, input.modelId, command)
+          return accepted(run, command)
+        } catch (error) {
+          // Admission may have committed before the response was lost. Inspect the canonical queued fact.
+          let recovered: RunAccepted | null
+          try {
+            recovered = await lookup(input, command, requestId)
+          } catch (lookupError) {
+            if (lookupError instanceof CommandError) throw lookupError
+            uncertainSessions.add(input.sessionId)
+            throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
+          }
+          if (recovered) return recovered
+          if (
+            error instanceof HbarError &&
+            [
+              'FILE_LIMIT',
+              'EMPTY_INPUT',
+              'MODEL_NOT_FOUND',
+              'DEMO_DISABLED',
+              'UNSUPPORTED_IMAGE',
+              'ARCHIVED',
+              'NOT_FOUND',
+              'INVALID_INPUT',
+              'IDEMPOTENCY_CONFLICT',
+            ].includes(error.code)
+          )
+            throw new CommandError(error.code, error.message)
+          uncertainSessions.add(input.sessionId)
+          throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
+        }
+      })
+    },
+    { durable: true },
+  )
+  registry.register(runCommands['operation.get'], async ({ operationId }) => {
+    try {
+      const run = await kernel.storage.call('run', operationId)
+      return {
+        operationId: run.id,
+        sessionId: run.sessionId,
+        status: run.status,
+        startedAt: run.startedAt,
+        endedAt: run.endedAt,
+        error: run.error,
+      }
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  return {
+    ...createCommandClient(runCommands, registry),
+    dispatch(value: unknown, actorId: string) {
+      return registry.dispatch(value, { actorId })
+    },
+    async getReceipt(sessionId: string, actorId: string, idempotencyKey: string): Promise<RunAccepted | null> {
+      if (uncertainSessions.has(sessionId))
+        throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
+      const scope = JSON.stringify([sessionId, actorId, idempotencyKey])
+      const requestId = `command-${createHash('sha256').update(scope).digest('hex')}`
+      let found
+      try {
+        found = await kernel.storage.call('runByRequest', sessionId, requestId)
+      } catch {
+        throw new CommandError('RESULT_UNKNOWN', 'Run journal is unavailable')
+      }
+      if (!found) return null
+      if (!found.command || found.command.actorId !== actorId || found.command.idempotencyKey !== idempotencyKey)
+        throw new CommandError('IDEMPOTENCY_CONFLICT', 'Run key belongs to another actor')
+      return accepted(found.run, found.command)
+    },
+    dispose: () => registry.dispose(),
+  }
+}

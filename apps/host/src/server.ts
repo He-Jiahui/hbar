@@ -5,7 +5,9 @@ import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
-import { Kernel, createBudgetCommands } from '@hbar/kernel'
+import { Kernel, createBudgetCommands, createRunCommands } from '@hbar/kernel'
+import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
+import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { CommandError } from '@hbar/commands/protocol'
 import type {
   BrowserUseService,
@@ -39,6 +41,11 @@ export interface ServerOptions {
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
+  const runCommands = createRunCommands(kernel)
+  const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>([
+    ...Object.keys(budgetDefinitions).map((id) => [id, budgetCommands.dispatch] as const),
+    ...Object.keys(runDefinitions).map((id) => [id, runCommands.dispatch] as const),
+  ])
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
@@ -109,12 +116,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-        return budgetCommands.dispatch(invocation, socket.data.deviceId)
+        const dispatch = commandDispatchers.get(invocation.commandId)
+        if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
+        return dispatch(invocation, socket.data.deviceId)
       }
       case 'command.getReceipt': {
         const input = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-        return budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        return input.commandId === 'run.submit'
+          ? runCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+          : budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
       }
       case 'system.hello': {
         const params = rpcSchemas[method].parse(raw)
@@ -651,6 +662,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     info: hostInfo,
     async close() {
       budgetCommands.dispose()
+      runCommands.dispose()
       unsubscribe()
       for (const socket of sockets) socket.close()
       await server.stop(true)

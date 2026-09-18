@@ -17,6 +17,7 @@ import type {
   WorkspacePage,
   SessionPage,
 } from '@hbar/contracts'
+import type { RunCommandRecord } from '@hbar/contracts/commands/run'
 
 export interface StorageMethods {
   ready(): { version: number }
@@ -50,7 +51,9 @@ export interface StorageMethods {
     requestId: string,
     input: UserInput,
     modelId: string,
+    command?: RunCommandRecord,
   ): Run & { queuedEvent?: SessionEvent | undefined }
+  runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   claim(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string): SessionEvent
@@ -71,7 +74,9 @@ export interface StorageMethods {
   devices(): Device[]
   revokeDevice(id: string): void
   setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string): void
-  setPlugins(plugins: { id: string; enabled: boolean; config: Record<string, unknown>; path?: string | undefined }[]): void
+  setPlugins(
+    plugins: { id: string; enabled: boolean; config: Record<string, unknown>; path?: string | undefined }[],
+  ): void
   removePlugin(id: string): void
   plugins(): { id: string; enabled: boolean; config: Record<string, unknown>; path: string | null }[]
   stats(): Record<string, number>

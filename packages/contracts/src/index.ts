@@ -802,7 +802,7 @@ export type WireNotification =
 export const rpcSchemas = {
   'command.execute': invocationSchema,
   'command.getReceipt': z.strictObject({
-    commandId: z.literal('session.setBudget'),
+    commandId: z.enum(['session.setBudget', 'run.submit']),
     sessionId: idSchema,
     idempotencyKey: z.string().min(1).max(128),
   }),
@@ -1007,7 +1007,7 @@ export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
   'command.execute': unknown
-  'command.getReceipt': import('./commands/budget').BudgetReceipt | null
+  'command.getReceipt': import('./commands/budget').BudgetReceipt | import('./commands/run').RunAccepted | null
   'workspace.list': WorkspacePage
   'workspace.get': Workspace | null
   'session.list': SessionPage

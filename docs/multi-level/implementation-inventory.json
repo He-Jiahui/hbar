@@ -316,7 +316,8 @@
     "A2": "complete",
     "A3": "complete",
     "A4": "partial: schema-core and headless budget form adapter; GUI renderer pending",
-    "A5-A15": "pending",
+    "A5": "partial: run.submit durable acceptance and operation.get; cancel/watch pending",
+    "A6-A15": "pending",
     "B1-B7": "pending"
   }
 }
