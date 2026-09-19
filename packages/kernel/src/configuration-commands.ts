@@ -215,7 +215,7 @@ export function createConfigurationCommands(kernel: Kernel, modes: ModeService) 
     configurationCommands['provider.delete'],
     ({ id }) =>
       translate(async () => {
-        const deleted = (await kernel.models()).some((model) => model.providerId === id)
+        const deleted = (await kernel.models({ includeHidden: true })).some((model) => model.providerId === id)
         if (deleted) await kernel.deleteProvider(id)
         return { deleted }
       }),

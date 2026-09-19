@@ -537,21 +537,27 @@ export class Kernel {
     this.changed('sessions')
     return session
   }
-  async models(): Promise<ModelInfo[]> {
-    const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
+  async models(options: { includeHidden?: boolean } = {}): Promise<ModelInfo[]> {
+    const providers = (await this.storage.call('providers')).filter(
+      (provider) =>
+        (provider.protocol !== 'mock' || this.options.demo) && (options.includeHidden || provider.visible),
+    )
     return (await Promise.all(
       providers.map(async (provider) => {
         const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
-        return provider.models.map((model) => ({
+        return provider.models.filter((model) => options.includeHidden || model.visible).map((model) => ({
           ...provider,
           ...model,
           id: modelSelectionId(provider.id, model.id, provider.models.length),
           name: provider.name,
+          visible: provider.visible,
           model: model.id,
           providerId: provider.id,
           providerName: provider.name,
+          providerVisible: provider.visible,
           modelId: model.id,
           modelName: model.name,
+          modelVisible: model.visible,
           hasKey,
         }))
       }),
@@ -587,11 +593,14 @@ export class Kernel {
         ...selected,
         id: modelSelectionId(provider.id, selected.id, provider.models.length),
         name: provider.name,
+        visible: provider.visible,
         model: selected.id,
         providerId: provider.id,
         providerName: provider.name,
+        providerVisible: provider.visible,
         modelId: selected.id,
         modelName: selected.name,
+        modelVisible: selected.visible,
         hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
       }
     } finally {

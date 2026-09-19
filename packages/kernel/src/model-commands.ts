@@ -40,7 +40,8 @@ export function createModelSettingsValidator(kernel: Kernel): SettingsCandidateV
     const selected = value(resolution.reports[MODEL_KEY])
     const thinking = value(resolution.reports[THINKING_KEY])
     if (selected === null && thinking === null) return
-    const model = (await kernel.models()).find((item) => item.id === selected)
+    const includesModelSelection = changes.some((change) => encodePath(change.path) === MODEL_KEY)
+    const model = (await kernel.models({ includeHidden: !includesModelSelection })).find((item) => item.id === selected)
     if (!model) throw new HbarError('MODEL_NOT_FOUND', `Configured model ${String(selected)} was not found`)
     const parsedThinking = thinkingLevelSchema.safeParse(thinking)
     if (thinking !== null && (!parsedThinking.success || !model.thinkingLevels.includes(parsedThinking.data)))
@@ -63,7 +64,9 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
     const modelReport = snapshot.resolution.reports[MODEL_KEY]!
     const thinkingReport = snapshot.resolution.reports[THINKING_KEY]!
     const modelId = typeof modelReport.effectiveValue === 'string' ? modelReport.effectiveValue : null
-    const selected = modelId ? (await kernel.models()).find((model) => model.id === modelId) : undefined
+    const selected = modelId
+      ? (await kernel.models({ includeHidden: true })).find((model) => model.id === modelId)
+      : undefined
     const parsedThinking = thinkingLevelSchema.safeParse(thinkingReport.effectiveValue)
     const rawThinking = parsedThinking.success ? parsedThinking.data : null
     const thinkingLevel = selected
@@ -122,7 +125,7 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
           throw new HbarError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
         const before = await settings.get({ kind: 'session', targetId: input.sessionId })
         const modelId = value(before.resolution.reports[MODEL_KEY])
-        const selected = (await kernel.models()).find((model) => model.id === modelId)
+        const selected = (await kernel.models({ includeHidden: true })).find((model) => model.id === modelId)
         if (!selected) throw new HbarError('MODEL_NOT_FOUND', 'Select an available model before setting thinking')
         if (!selected.thinkingLevels.includes(input.thinkingLevel))
           throw new HbarError('THINKING_LEVEL_UNSUPPORTED', `${input.thinkingLevel} is unavailable for ${selected.id}`)

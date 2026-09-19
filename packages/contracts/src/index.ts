@@ -467,6 +467,7 @@ export interface SessionSnapshot {
 const providerModelInputSchema = z.object({
   id: z.string().min(1).max(160),
   name: z.string().min(1).max(160).optional(),
+  visible: z.boolean().optional(),
   contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
   maxOutput: z.number().int().min(64).max(10_000_000).optional(),
   imageInput: z.boolean().optional(),
@@ -483,6 +484,7 @@ const providerModelInputSchema = z.object({
 export interface ProviderModelConfig {
   id: string
   name: string
+  visible: boolean
   contextWindow: number
   maxOutput: number
   imageInput: boolean
@@ -499,6 +501,7 @@ export interface ProviderModelConfig {
 export interface ProviderConfig {
   id: string
   name: string
+  visible: boolean
   protocol: 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'mock'
   baseUrl: string
   /** The model used when a legacy model-only selection names this provider. */
@@ -521,6 +524,7 @@ export const providerInputSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
     name: z.string().min(1).max(100),
+    visible: z.boolean().optional(),
     protocol: z.enum(['openai-completions', 'openai-responses', 'anthropic-messages', 'mock']),
     baseUrl: z.string().url(),
     model: z.string().min(1).max(160).optional(),
@@ -585,6 +589,7 @@ function normalizeProviderModel(
   return {
     id: value.id,
     name: value.name ?? value.id,
+    visible: value.visible ?? true,
     contextWindow: value.contextWindow ?? fallback.contextWindow,
     maxOutput: value.maxOutput ?? fallback.maxOutput,
     imageInput: value.imageInput ?? fallback.imageInput,
@@ -642,6 +647,7 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
   return {
     id: value.id,
     name: value.name,
+    visible: value.visible ?? true,
     protocol: value.protocol,
     baseUrl: value.baseUrl,
     model: selected.id,
@@ -714,8 +720,10 @@ export interface ModelInfo extends ProviderConfig {
   hasKey: boolean
   providerId: string
   providerName: string
+  providerVisible: boolean
   modelId: string
   modelName: string
+  modelVisible: boolean
 }
 export interface Device {
   id: string

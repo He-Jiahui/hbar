@@ -26,6 +26,8 @@ test('provider schema expands legacy single-model configs and preserves model ca
   })
   expect(legacy.models).toHaveLength(1)
   expect(legacy.models[0]?.id).toBe('legacy-model')
+  expect(legacy.visible).toBeTrue()
+  expect(legacy.models[0]?.visible).toBeTrue()
   expect(legacy.models[0]?.thinkingLevels).toEqual(['off'])
   expect(legacy.defaultThinkingLevel).toBe('off')
 
@@ -43,13 +45,14 @@ test('provider schema expands legacy single-model configs and preserves model ca
         thinkingLevels: DEFAULT_THINKING_LEVELS,
         defaultThinkingLevel: 'high',
       },
-      { id: 'plain', thinkingLevels: ['off'] },
+      { id: 'plain', visible: false, thinkingLevels: ['off'] },
     ],
   })
   expect(multi.models.map((model) => model.id)).toEqual(['fast', 'reasoning', 'plain'])
   expect(multi.models[0]?.defaultThinkingLevel).toBe('low')
   expect(multi.models[1]?.defaultThinkingLevel).toBe('high')
   expect(multi.models[2]?.reasoning).toBeFalse()
+  expect(multi.models[2]?.visible).toBeFalse()
   expect(multi.thinkingLevels).toEqual([...DEFAULT_THINKING_LEVELS])
 })
 
@@ -65,17 +68,36 @@ test('kernel exposes provider groups with independent model and thinking metadat
     model: 'deep',
     models: [
       { id: 'fast', thinkingLevels: ['off', 'low'], defaultThinkingLevel: 'low' },
-      { id: 'deep', thinkingLevels: ['off', 'medium', 'high'], defaultThinkingLevel: 'high' },
+      {
+        id: 'deep',
+        visible: false,
+        thinkingLevels: ['off', 'medium', 'high'],
+        defaultThinkingLevel: 'high',
+      },
     ],
+  })
+  await kernel.saveProvider({
+    id: 'hidden-provider',
+    name: 'Hidden provider',
+    visible: false,
+    protocol: 'mock',
+    baseUrl: 'http://127.0.0.1',
+    model: 'fixture',
   })
 
   const catalog = await kernel.models()
+  expect(catalog.some((model) => model.providerId === 'hidden-provider')).toBeFalse()
   const grouped = catalog.filter((model) => model.providerId === 'multi')
-  expect(grouped.map((model) => model.id)).toEqual(['multi/fast', 'multi/deep'])
-  expect(grouped.map((model) => model.providerName)).toEqual(['Multi', 'Multi'])
-  expect(grouped.map((model) => model.modelName)).toEqual(['fast', 'deep'])
+  expect(grouped.map((model) => model.id)).toEqual(['multi/fast'])
+  expect(grouped.map((model) => model.providerName)).toEqual(['Multi'])
+  expect(grouped.map((model) => model.modelName)).toEqual(['fast'])
   expect(grouped[0]?.thinkingLevels).toEqual(['off', 'low'])
-  expect(grouped[1]?.thinkingLevels).toEqual(['off', 'medium', 'high'])
+  const completeCatalog = await kernel.models({ includeHidden: true })
+  expect(completeCatalog.some((model) => model.providerId === 'hidden-provider')).toBeTrue()
+  const hidden = completeCatalog.find((model) => model.id === 'multi/deep')
+  expect(hidden?.thinkingLevels).toEqual(['off', 'medium', 'high'])
+  expect(hidden?.providerVisible).toBeTrue()
+  expect(hidden?.modelVisible).toBeFalse()
   expect(modelSelectionId('multi', 'deep', 2)).toBe('multi/deep')
 
   const workspace = (await kernel.storage.call('workspaces'))[0]!

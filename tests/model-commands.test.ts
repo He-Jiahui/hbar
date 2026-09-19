@@ -42,13 +42,13 @@ async function fixture() {
     await rm(root, { recursive: true, force: true })
   })
   await client.pair(host.pairing.code, 'model command test')
-  return { client, session }
+  return { client, kernel, session }
 }
 
 const field = (name: string) => [{ kind: 'field' as const, name }]
 
 test('model commands use layered settings with capability validation and atomic switching', async () => {
-  const { client, session } = await fixture()
+  const { client, kernel, session } = await fixture()
   const commands = createModelCommandClient(client)
   const settings = createSettingsCommandClient(client)
   const catalog = await client.call('command.catalog', { category: 'model.configuration', limit: 20 })
@@ -129,4 +129,38 @@ test('model commands use layered settings with capability validation and atomic 
       thinkingLevel: `settings:session:${session.id}`,
     },
   })
+
+  await kernel.saveProvider({
+    id: 'multi',
+    name: 'Multi',
+    protocol: 'mock',
+    baseUrl: 'http://127.0.0.1',
+    model: 'deep',
+    models: [
+      { id: 'fast', thinkingLevels: ['off', 'low'], defaultThinkingLevel: 'low' },
+      {
+        id: 'deep',
+        visible: false,
+        thinkingLevels: ['off', 'medium', 'high'],
+        defaultThinkingLevel: 'high',
+      },
+    ],
+  })
+  expect((await commands.execute('model.list', {})).some((model) => model.id === 'multi/deep')).toBeFalse()
+  const hidden = await commands.execute('session.getModel', { sessionId: session.id })
+  expect(hidden).toMatchObject({ status: 'configured', modelId: 'multi/deep', thinkingLevel: 'high' })
+  expect(
+    await commands.execute(
+      'session.setThinkingLevel',
+      { sessionId: session.id, thinkingLevel: 'medium', baselineRevisions: hidden.revisions },
+      { idempotencyKey: 'set-hidden-thinking' },
+    ),
+  ).toMatchObject({ status: 'configured', modelId: 'multi/deep', thinkingLevel: 'medium' })
+  await expect(
+    commands.execute(
+      'session.setModel',
+      { sessionId: session.id, modelId: 'multi/deep', baselineRevisions: hidden.revisions },
+      { idempotencyKey: 'select-hidden-model' },
+    ),
+  ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
 })
