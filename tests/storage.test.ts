@@ -62,6 +62,22 @@ test('recovery preserves an unknown tool outcome without replaying it', async ()
   expect(await store.call('recover')).toBe(0)
 })
 
+test('settled tools append one durable execution timing fact', async () => {
+  const { store, session } = await fixture()
+  const run = await store.call('enqueue', session.id, 'tool-timing', { text: 'tool', images: [] }, 'test')
+  await store.call('claim', session.id)
+  await store.call('toolStart', session.id, run.id, 'timed-call', 'read_file', { path: 'input.txt' })
+  const settled = await store.call('toolEnd', session.id, run.id, 'timed-call', false)
+  expect(settled).toMatchObject({
+    sessionId: session.id,
+    runId: run.id,
+    type: 'tool.settled',
+    data: { callId: 'timed-call', failed: false },
+  })
+  expect(await store.call('toolEnd', session.id, run.id, 'timed-call', true)).toBeNull()
+  expect((await store.call('events', session.id, 0)).filter((event) => event.type === 'tool.settled')).toHaveLength(1)
+})
+
 test('entity command receipts make session creation and forks durable across retries and restart', async () => {
   const resource = await fixture()
   const { root, workspace, session } = resource

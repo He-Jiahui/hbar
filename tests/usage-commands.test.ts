@@ -30,6 +30,18 @@ test('usage commands query session descendants, run scope, filters, and paged ex
     )
     await kernel.submit(child.id, 'child-usage', { text: 'child usage', images: [] }, 'local-fixture')
     await kernel.waitForIdle()
+    const toolSession = await kernel.createSession(workspace.id, 'tool execution')
+    await kernel.setPermissionMode('allow')
+    const toolRun = await kernel.submit(
+      toolSession.id,
+      'tool-usage',
+      { text: '/tool write_file {"path":"usage-tool.txt","text":"recorded"}', images: [] },
+      'local-fixture',
+    )
+    await kernel.waitForIdle()
+    expect(
+      (await kernel.storage.call('events', toolSession.id, 0)).some((event) => event.type === 'tool.settled'),
+    ).toBe(true)
     host = await startServer(kernel, { port: 0 })
     client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
     await client.pair(host.pairing.code, 'usage command actor')
@@ -59,6 +71,15 @@ test('usage commands query session descendants, run scope, filters, and paged ex
 
     const run = await commands.execute('usage.query', { scope: { kind: 'run', runId: parentRun.id } })
     expect(run.totals).toMatchObject({ attempts: 1, runs: 1 })
+    const toolExecution = await commands.execute('usage.query', { scope: { kind: 'run', runId: toolRun.id } })
+    expect(toolExecution.execution).toMatchObject({
+      toolCalls: { total: 1, succeeded: 1, failed: 0, unknown: 0 },
+      requestConcurrency: { value: 1, availability: 'available' },
+      toolConcurrency: { value: 1, availability: 'available' },
+      totalRunDuration: { availability: 'available', sampleCount: 1 },
+      runDuration: { availability: 'available', sampleCount: 1 },
+      toolDuration: { availability: 'available', sampleCount: 1 },
+    })
     const filtered = await commands.execute('usage.query', {
       scope: { kind: 'workspace', workspaceId: workspace.id },
       filters: { providerId: 'missing-provider' },
@@ -176,4 +197,12 @@ test('usage aggregation deduplicates usage IDs and reports incomplete price cove
   })
   expect(result.totals).toMatchObject({ attempts: 2, runs: 2, input: 150, output: 30, billableTokens: 180 })
   expect(result.cost).toMatchObject({ value: null, availability: 'unavailable', reason: 'PRICE_COVERAGE_INCOMPLETE' })
+  expect(result.execution).toMatchObject({
+    toolCalls: { total: 0, succeeded: 0, failed: 0, unknown: 0 },
+    requestConcurrency: { value: 2, availability: 'available' },
+    toolConcurrency: { value: 0, availability: 'empty' },
+    totalRunDuration: { value: 1_800, availability: 'available', sampleCount: 2 },
+    runDuration: { p50: 900, p95: 900, availability: 'available', sampleCount: 2 },
+    toolDuration: { availability: 'empty', sampleCount: 0 },
+  })
 })

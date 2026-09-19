@@ -11,6 +11,8 @@ import {
   usageExportResultSchema,
   usageQueryResultSchema,
   type UsageAttemptExport,
+  type ExecutionMetric,
+  type ExecutionSummary,
   type UsageExportInput,
   type UsageExportResult,
   type UsageMetric,
@@ -20,6 +22,12 @@ import {
 } from '@hbar/contracts/commands/usage'
 
 export const USAGE_EVENT_TYPES = [
+  'run.queued',
+  'run.status',
+  'run.settled',
+  'tool.started',
+  'tool.settled',
+  'tool.unknown',
   'request.started',
   'compaction.request',
   'attempt.providerStarted',
@@ -308,6 +316,164 @@ function latency(items: readonly UsageAttemptExport[], select: (item: UsageAttem
   }
 }
 
+function durationLatency(values: readonly number[], unavailableReason: string) {
+  return {
+    p50: percentile(values, 0.5),
+    p95: percentile(values, 0.95),
+    unit: 'milliseconds' as const,
+    availability: values.length ? ('available' as const) : ('unavailable' as const),
+    reason: values.length ? null : unavailableReason,
+    sampleCount: values.length,
+  }
+}
+
+function executionMetric(
+  value: number | null,
+  unit: ExecutionMetric['unit'],
+  source: string,
+  sampleCount: number,
+  reason: string | null = null,
+): ExecutionMetric {
+  return {
+    value,
+    unit,
+    availability: value === null ? 'unavailable' : sampleCount === 0 ? 'empty' : 'available',
+    reason,
+    source,
+    sampleCount,
+  }
+}
+
+function maximumConcurrency(
+  intervals: readonly { readonly start: number; readonly end: number }[],
+  source: string,
+  unavailableReason: string,
+): ExecutionMetric {
+  if (!intervals.length) return executionMetric(null, 'count', source, 0, unavailableReason)
+  const markers = intervals.flatMap((interval) => {
+    const end = interval.end <= interval.start ? interval.start + 1 : interval.end
+    return [
+      { time: interval.start, change: 1 },
+      { time: end, change: -1 },
+    ]
+  })
+  markers.sort((left, right) => left.time - right.time || left.change - right.change)
+  let active = 0
+  let maximum = 0
+  for (const marker of markers) {
+    active += marker.change
+    maximum = Math.max(maximum, active)
+  }
+  return executionMetric(maximum, 'count', source, intervals.length)
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+function executionSummary(
+  rows: readonly UsageReadRow[],
+  attempts: readonly UsageAttemptExport[],
+  input: UsageQueryInput,
+  window: { readonly from: number; readonly to: number; readonly observedAt: number },
+): { readonly summary: ExecutionSummary; readonly gap: boolean } {
+  const filtered = Boolean(input.filters.providerId || input.filters.modelId || input.filters.source)
+  const includedRunIds = new Set(attempts.flatMap((attempt) => (attempt.runId ? [attempt.runId] : [])))
+  const includesRun = (runId: string | null) => !filtered || (runId !== null && includedRunIds.has(runId))
+  const runs = new Map<string, Run>()
+  for (const row of rows) if (row.run && includesRun(row.run.id)) runs.set(row.run.id, row.run)
+  const boundedRuns = [...runs.values()].slice(0, input.maxSamples)
+
+  const toolCalls = new Map<
+    string,
+    {
+      readonly runId: string | null
+      startedAt: number | null
+      endedAt: number | null
+      outcome: 'succeeded' | 'failed' | 'unknown' | null
+    }
+  >()
+  for (const row of rows) {
+    const event = row.event
+    if (!['tool.started', 'tool.settled', 'tool.unknown'].includes(event.type) || !includesRun(event.runId)) continue
+    const data = record(event.data)
+    const callId = typeof data?.callId === 'string' ? data.callId : null
+    if (!callId) continue
+    const key = `${event.runId ?? event.sessionId}:${callId}`
+    const current = toolCalls.get(key) ?? {
+      runId: event.runId,
+      startedAt: null,
+      endedAt: null,
+      outcome: null,
+    }
+    if (event.type === 'tool.started') current.startedAt ??= event.time
+    else {
+      current.endedAt ??= event.time
+      current.outcome = event.type === 'tool.unknown' ? 'unknown' : data?.failed === true ? 'failed' : 'succeeded'
+    }
+    toolCalls.set(key, current)
+  }
+  const boundedTools = [...toolCalls.values()].slice(0, input.maxSamples)
+  const endOfWindow = Math.min(window.to, window.observedAt + 1)
+  const clip = (start: number, end: number) => ({
+    start: Math.max(window.from, start),
+    end: Math.min(window.to, Math.max(start, end)),
+  })
+  const attemptIntervals = attempts.flatMap((attempt) =>
+    attempt.startedAt === null ? [] : [clip(attempt.startedAt, attempt.endedAt)],
+  )
+  const toolIntervals = boundedTools.flatMap((tool) =>
+    tool.startedAt === null
+      ? []
+      : [clip(tool.startedAt, tool.endedAt ?? (tool.runId ? runs.get(tool.runId)?.endedAt : null) ?? endOfWindow)],
+  )
+  const runIntervals = boundedRuns.flatMap((run) =>
+    run.startedAt === null ? [] : [clip(run.startedAt, run.endedAt ?? endOfWindow)],
+  )
+  const settledRunDurations = boundedRuns.flatMap((run) =>
+    run.startedAt === null || run.endedAt === null ? [] : [Math.max(0, run.endedAt - run.startedAt)],
+  )
+  const settledToolDurations = boundedTools.flatMap((tool) =>
+    tool.startedAt === null || tool.endedAt === null || tool.outcome === 'unknown'
+      ? []
+      : [Math.max(0, tool.endedAt - tool.startedAt)],
+  )
+  const totalRunDuration = runIntervals.reduce((sum, interval) => sum + Math.max(0, interval.end - interval.start), 0)
+  const totalTools = boundedTools.length
+  return {
+    summary: {
+      toolCalls: {
+        total: totalTools,
+        succeeded: boundedTools.filter((tool) => tool.outcome === 'succeeded').length,
+        failed: boundedTools.filter((tool) => tool.outcome === 'failed').length,
+        unknown: boundedTools.filter((tool) => tool.outcome === 'unknown' || tool.outcome === null).length,
+      },
+      requestConcurrency: attempts.length
+        ? maximumConcurrency(attemptIntervals, 'attempt-timeline', 'ATTEMPT_START_NOT_RECORDED')
+        : executionMetric(0, 'count', 'attempt-timeline', 0),
+      toolConcurrency: totalTools
+        ? maximumConcurrency(toolIntervals, 'tool-timeline', 'TOOL_START_NOT_RECORDED')
+        : executionMetric(0, 'count', 'tool-timeline', 0),
+      totalRunDuration: boundedRuns.length
+        ? executionMetric(
+            runIntervals.length ? totalRunDuration : null,
+            'milliseconds',
+            'run-projection',
+            runIntervals.length,
+            runIntervals.length ? null : 'RUN_START_NOT_RECORDED',
+          )
+        : executionMetric(0, 'milliseconds', 'run-projection', 0),
+      runDuration: boundedRuns.length
+        ? durationLatency(settledRunDurations, 'SETTLED_RUN_DURATION_UNAVAILABLE')
+        : { ...durationLatency([], 'NO_RUNS'), availability: 'empty' },
+      toolDuration: totalTools
+        ? durationLatency(settledToolDurations, 'SETTLED_TOOL_DURATION_UNAVAILABLE')
+        : { ...durationLatency([], 'NO_TOOL_CALLS'), availability: 'empty' },
+    },
+    gap: runs.size > boundedRuns.length || toolCalls.size > boundedTools.length,
+  }
+}
+
 function tokenRate(value: number, seconds: number, attempts: number): UsageMetric {
   if (!attempts) return emptyMetric('tokens_per_second', 'settled-window')
   return {
@@ -376,11 +542,12 @@ export class UsageService {
 
   async query(input: UsageQueryInput): Promise<UsageQueryResult> {
     const { from, to, observedAt } = this.window(input)
-    const collected = await this.collect(input.scope, from, to, Math.min(60_000, input.maxSamples * 8 + 32))
+    const collected = await this.collect(input.scope, from, to, Math.min(60_000, input.maxSamples * 16 + 64))
     const normalized = normalize(collected.rows).filter(({ item }) => matches(item, input.filters))
     const limited = normalized.slice(0, input.maxSamples)
-    const gap = collected.gap || normalized.length > limited.length
     const items = limited.map(({ item }) => item)
+    const execution = executionSummary(collected.rows, items, input, { from, to, observedAt })
+    const gap = collected.gap || normalized.length > limited.length || execution.gap
     const totals = total(items)
     const seconds = Math.max(0.001, (to - from) / 1_000)
     const eligible = limited.filter((item) => item.cacheEligibleInput !== null)
@@ -434,6 +601,7 @@ export class UsageService {
         firstText: latency(items, (item) => item.firstTextAt),
         response: latency(items, (item) => item.endedAt),
       },
+      execution: execution.summary,
       models: [...modelGroups.values()]
         .map((group) => ({
           providerId: group[0]!.providerId,

@@ -57,6 +57,27 @@ export const usageLatencySchema = z.strictObject({
   reason: z.string().max(160).nullable(),
   sampleCount: z.number().int().nonnegative(),
 })
+export const executionMetricSchema = z.strictObject({
+  value: z.number().finite().nonnegative().nullable(),
+  unit: z.enum(['count', 'milliseconds']),
+  availability: usageAvailabilitySchema,
+  reason: z.string().max(160).nullable(),
+  source: z.string().min(1).max(80),
+  sampleCount: z.number().int().nonnegative(),
+})
+export const executionSummarySchema = z.strictObject({
+  toolCalls: z.strictObject({
+    total: z.number().int().nonnegative(),
+    succeeded: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    unknown: z.number().int().nonnegative(),
+  }),
+  requestConcurrency: executionMetricSchema,
+  toolConcurrency: executionMetricSchema,
+  totalRunDuration: executionMetricSchema,
+  runDuration: usageLatencySchema,
+  toolDuration: usageLatencySchema,
+})
 export const usageTotalsSchema = z.strictObject({
   attempts: z.number().int().nonnegative(),
   runs: z.number().int().nonnegative(),
@@ -128,6 +149,7 @@ export const usageQueryResultSchema = z.strictObject({
     firstText: usageLatencySchema,
     response: usageLatencySchema,
   }),
+  execution: executionSummarySchema.optional(),
   models: z.array(usageModelSummarySchema).max(1_024),
   series: z.array(usageBucketSchema).max(500),
 })
@@ -169,3 +191,5 @@ export type UsageExportResult = z.output<typeof usageExportResultSchema>
 export type UsageAttemptExport = z.output<typeof usageAttemptExportSchema>
 export type UsageMetric = z.output<typeof usageMetricSchema>
 export type UsageLatency = z.output<typeof usageLatencySchema>
+export type ExecutionMetric = z.output<typeof executionMetricSchema>
+export type ExecutionSummary = z.output<typeof executionSummarySchema>

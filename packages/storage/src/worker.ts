@@ -714,8 +714,11 @@ const methods: StorageMethods = {
       )
       return appendEvent(sessionId, 'tool.started', { callId, name, args }, runId)
     })(),
-  toolEnd(_sessionId, runId, callId) {
-    db.query("UPDATE tool_intents SET status='settled' WHERE id=?").run(`${runId}:${callId}`)
+  toolEnd(sessionId, runId, callId, failed = false) {
+    const result = db
+      .query("UPDATE tool_intents SET status='settled' WHERE id=? AND status='started'")
+      .run(`${runId}:${callId}`)
+    return result.changes ? appendEvent(sessionId, 'tool.settled', { callId, failed }, runId) : null
   },
   recover: () =>
     db.transaction(() => {

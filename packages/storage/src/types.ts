@@ -108,7 +108,7 @@ export interface StorageMethods {
   resolveApproval(id: string, status: Approval['status']): { approval: Approval; event: SessionEvent } | null
   approval(id: string): Approval
   toolStart(sessionId: string, runId: string, callId: string, name: string, args: unknown): SessionEvent
-  toolEnd(sessionId: string, runId: string, callId: string): void
+  toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
   recover(): number
   saveProvider(provider: ProviderConfig): void
   providers(): ProviderConfig[]
