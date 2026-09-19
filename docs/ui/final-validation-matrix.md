@@ -1,0 +1,42 @@
+# Web/Host 最终视觉与行为矩阵
+
+上级：[UI 总计划](index.md)。本文件记录 R6.3 的最终 Web/Host 证据；Tauri 实窗单列在 R6.4，不以浏览器截图代替。
+
+## 1. 证据范围
+
+`artifacts/ui-redesign` 当前包含 17 个页面/组件族、154 张 PNG。所有核心页面图均由生产 Web 组合根与真实 Host fixture 生成；Prompt 和基础表单的独立矩阵使用同一生产组件，只由 fixture 提供受控状态。最终代码在清除旧 WorkbenchShell 样式入口后重新执行完整 Playwright 流程，截图不是清理前遗留产物。
+
+参考布局再次目视对照 `D:/Git/cc-haha/docs/images/app/en/session-dark.webp` 与 `settings-general.webp`。hbar 保留其稳定的侧栏→主工作区→按需工具空间、设置分类栏、紧凑页头和就近操作关系；按既定产品决定使用更高信息密度的 JetBrains 风格，不迁入 Scheduled、Skills Market、Pet、顶部多标签等无关业务。
+
+## 2. 页面矩阵
+
+| 页面族                | 桌面 / 中宽 / 窄屏证据                                                                                                                                                                                                                                                                                                   | 状态与行为证据                                                            | 人工复核结论                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| AppShell 与工程会话树 | [1440](../../artifacts/ui-redesign/shell/connected-sidebar-1440.png)、[1024](../../artifacts/ui-redesign/shell/connected-sidebar-1024.png)、[390 正文](../../artifacts/ui-redesign/shell/connected-content-390.png)、[390 抽屉](../../artifacts/ui-redesign/shell/connected-drawer-390.png)                              | 中英文离线/连接态、窄屏显隐、工程→会话选择                                | 只有工程会话树滚动；底部状态和设置固定；窄屏抽屉不挤压正文             |
+| 会话与输入            | [1440 空态](../../artifacts/ui-redesign/session/after/desktop-1440-empty.png)、[1440 回合](../../artifacts/ui-redesign/session/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/session/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/session/after/mobile-390.png)                               | 真实发送、fixture 模型响应、Run 完成、Usage 更新；Prompt 另有 45 图矩阵   | 聊天和输入同宽；活动留在时间线；输入与 Usage 不形成第二张大卡片        |
+| PromptComposer        | [contact sheet](../../artifacts/ui-redesign/prompt/after-contact-sheet.png)、[对比](../../artifacts/ui-redesign/prompt/comparison.png)                                                                                                                                                                                   | 1440/1024/390/320，中英文、light/dark，空/长文/附件/上传/错误/禁用/运行   | 组件自包含；长输入有上限；按钮、附件、IME/发送/停止边界已验证          |
+| 文件工具              | [列表 1440](../../artifacts/ui-redesign/file-tool/after/list-1440.png)、[文档 1440](../../artifacts/ui-redesign/file-tool/after/document-1440.png)、[1024](../../artifacts/ui-redesign/file-tool/after/document-1024.png)、[390](../../artifacts/ui-redesign/file-tool/after/document-390.png)                           | 列表→详情、编辑保存、返回、冲突保留草稿由 runtime/React 测试覆盖          | 唯一工具标题；文档滚动不覆盖操作；窄屏保持可编辑                       |
+| 会话 Monitoring       | [1440](../../artifacts/ui-redesign/monitoring/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/monitoring/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/monitoring/after/mobile-390.png)                                                                                                          | 展开明细、gap/unavailable、真实会话 Usage                                 | 指标、趋势和详情在工具宽度内自然流动，没有伪造 CPU 归因                |
+| 子 Agent              | [列表](../../artifacts/ui-redesign/agents/after/desktop-1440-list.png)、[创建](../../artifacts/ui-redesign/agents/after/desktop-1440-create.png)、[详情](../../artifacts/ui-redesign/agents/after/desktop-1440-detail.png)、[390 创建](../../artifacts/ui-redesign/agents/after/mobile-390-create.png)                   | 空态、创建、取消、打开子会话、unknown 核对                                | list/create/detail 子视图归属明确，操作绑定当前父会话                  |
+| Goal / Plan           | [总览](../../artifacts/ui-redesign/goals/after/desktop-1440-overview.png)、[Goal](../../artifacts/ui-redesign/goals/after/desktop-1440-goal.png)、[Plan](../../artifacts/ui-redesign/goals/after/desktop-1440-plan.png)、[390 Plan](../../artifacts/ui-redesign/goals/after/mobile-390-plan.png)                         | 空态、草稿、保存/清除、步骤增删移动与核对                                 | 摘要和编辑分离；工具内只有一层返回和关闭                               |
+| Settings / Schema     | [模型](../../artifacts/ui-redesign/settings/after/desktop-1440-model.png)、[Providers](../../artifacts/ui-redesign/settings/after/desktop-1440-providers.png)、[1024](../../artifacts/ui-redesign/settings/after/tablet-1024-model.png)、[320](../../artifacts/ui-redesign/settings/after/mobile-320-model.png)          | global/workspace/session、dirty/error、动态 ComboBox、多选、inherit/unset | 分类栏、表单和保存区各自职责清楚；320 操作仍可达                       |
+| Provider editor       | [1440](../../artifacts/ui-redesign/provider-editor/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/provider-editor/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/provider-editor/after/mobile-390.png)                                                                                           | 预设搜索、多模型、secret、删除确认、两层 Escape 与焦点恢复                | 背后设置上下文保留；长表单 body 滚动；footer 固定可达                  |
+| Extensions / Skills   | [1440](../../artifacts/ui-redesign/extensions/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/extensions/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/extensions/after/mobile-390.png)                                                                                                          | 插件生命周期、诊断命令、技能空态                                          | 已归入设置分组，不再占用第三个全局入口或独立模态                       |
+| Performance           | [1440](../../artifacts/ui-redesign/performance/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/performance/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/performance/after/mobile-390.png)                                                                                                       | 进程详情、固定 0–100% CPU 尺度、gap/unavailable                           | 首屏先给当前值和真实趋势；技术事实按需展开                             |
+| Usage                 | [1440](../../artifacts/ui-redesign/usage/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/usage/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/usage/after/mobile-390.png)                                                                                                                         | 更多筛选、导出菜单、执行详情、真实工具调用统计                            | 常用筛选留在首行；指标、趋势、模型和执行按阅读顺序排列                 |
+| Git                   | [1440](../../artifacts/ui-redesign/git/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/git/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/git/after/mobile-390.png)                                                                                                                               | 来源筛选、三趋势、时间桶选择、提交详情、非仓库空态                        | 仓库事实紧凑；三图受控选择一致；长路径进入技术详情                     |
+| 命令目录              | [搜索](../../artifacts/ui-redesign/commands/after/desktop-1440-search.png)、[参数](../../artifacts/ui-redesign/commands/after/desktop-1440-parameters.png)、[结果](../../artifacts/ui-redesign/commands/after/desktop-1440-result.png)、[390 参数](../../artifacts/ui-redesign/commands/after/mobile-390-parameters.png) | 分类/虚拟列表、参数校验、执行、技术回执、结果→参数→搜索→关闭              | 三步只显示当前任务；旧滚动偏移和全局按钮样式污染均已通过截图定位并修复 |
+
+## 3. 行为门禁
+
+- 全仓 `bun run check`：388 个测试、3091 个断言、零失败，覆盖 123 个文件。
+- Web production build：2390 modules；CSS 214.06 kB。构建边界确认旧 WorkbenchShell、catalog、fixtures、Kernel、Storage 和 TUI 不进入 Web 生产图。
+- Playwright：5/5。四个离线 locale/viewport 场景与一个真实 Host 场景；真实流程遍历会话、四类工具、设置、Provider、Extensions、状态三分区、命令三步流、发送/审批/取消/Usage 更新。
+- 每个实质样式切片均运行 flow guard；用户可见 TSX 按范围运行 content-contract 与 icon-scale guard。最终生产截图在各切片修复后重新生成并人工查看。
+- 参考差异属于产品决定：hbar 使用工程→会话二级树、状态中心、命令目录和会话工具；不复制 cc-haha 的额外业务入口或顶部工作区标签。
+
+## 4. 不纳入 R6.3 完成声明的事项
+
+- Tauri 实窗、系统 DPI、标题栏、原生文件选择和窄窗属于 R6.4。2026-09-20 已用当前代码成功编译并启动 debug 窗口，但 Windows 会话处于 LockApp/LogonUI 锁屏，Computer Use 按强制规则停止，未取得有效实窗截图。
+- 主应用当前显式使用 dark 主题；Prompt 与表单控件已有 light 独立验证，但不能据此宣称整页 system/light 主题完成。该差距仍归 R1.1。
+- 100/101 会话树容量、直接新建流程、布局 v2 迁移、长历史滚动/断线恢复分别仍归 R2.4、R2.5、R2.7、R3.5，不因核心页面视觉重建而提前关闭。
