@@ -226,3 +226,13 @@ AppShell 固定底区新增 Extensions 入口，不占用 Session 右侧五个�
 扩展卡片展示插件 ID、版本、状态、能力、command/panel 贡献与说明；Open related commands 打开 B4 共享命令目录并以贡献 command/capability 预填搜索，使 browser、computer、terminal 及其他注册能力仍可达。System and diagnostic commands 提供 `system.*` 目录入口；Skill 列表保留 Host 路径事实。
 
 交付验证：runtime/React/AppShell/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2374 个模块。真实临时 Host 的 Playwright 场景从固定侧栏打开扩展页，核对 plugin/skill 分区与诊断命令入口；人工检查 `artifacts/web-b5/extensions.png` 确认 14 个 Host 插件的双列有界布局和滚动。至此 B5 的 Files、Monitoring、子 Agent、目标计划、Session Settings 五个主工具与扩展入口已闭合。
+
+## B6：全局状态中心（实施中）
+
+### B6a：Performance Dashboard（完成）
+
+app-runtime 新增 status workspace 投影，按 `app.openStatus` 面板的 dashboard/usage/git params 绑定原分区。Performance 分区调用 Host `metrics.query`，窗口最多 120 个 1 秒聚合点，保留 process 事实、current sample、gap、skipped sample 与每个读数的 availability/reason/source/estimated/sampleCount。请求 generation 阻止过期分区响应回写。
+
+Status Center 的 Performance 页显示 Host PID/平台/架构/运行时间/逻辑处理器，整机与 Host CPU、负载、内存/RSS/堆、线程、事件循环、活动/排队运行、受管子进程、磁盘读写、网络收发与有界 CPU 时序。Windows 无法观测的整机 CPU/负载/线程/I/O 显示确切 reason，不补 0；字节使用稳定 B/KB/MB/GB 格式，无双重单位。分区标签和刷新/关闭均是命令入口。
+
+交付验证：performance runtime/React/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2378 个模块。真实临时 Host 的 Playwright 场景从侧栏打开 Performance，核对选中分区、Host process 与关闭回路；人工检查 `artifacts/web-b6/performance.png` 后将长 unavailable reason 移到 detail，并修正字节单位显示。

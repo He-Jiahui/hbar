@@ -333,6 +333,8 @@
         "tests/usage-facts.test.ts",
         "tests/usage-commands.test.ts",
         "tests/performance-metrics.test.ts",
+        "tests/status-performance-runtime.test.ts",
+        "tests/status-performance-react.test.tsx",
         "tests/session-monitoring.test.tsx",
         "tests/cli.test.ts"
       ]
@@ -418,6 +420,7 @@
     "goalPlanWorkspace.clearPlan",
     "extensionWorkspace.refresh",
     "extensionWorkspace.setEnabled",
+    "statusWorkspace.refresh",
     "layout.commit",
     "layout.restore",
     "preferences.set",
@@ -465,6 +468,7 @@
     "B3": "complete: schema-react scalar and keyed List renderers, Host descriptions/callbacks, layered FormState, cancellable content, command-owned grouping, private credential drafts, ProviderDialog and real Web save/create flows",
     "B4": "complete: bounded merged catalog, descriptor parameter forms, private sensitive drafts, controlled categorized Web palette and real Host execution",
     "B5": "complete: Files, session Monitoring, child Agent, goal/plan, Session Settings, and extensions entry use command-owned state with responsive real-Host E2E",
-    "B6-B7": "pending"
+    "B6": "in progress: Performance Dashboard complete with bounded Host metrics, explicit gaps and platform unavailability, and real Host E2E",
+    "B7": "pending"
   }
 }
