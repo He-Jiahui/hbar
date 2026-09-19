@@ -23,6 +23,7 @@ import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
 import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-workspace'
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
+import { clientPersistenceCommands } from '@hbar/contracts/commands/client-persistence'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -40,6 +41,7 @@ import { createAgentWorkspace } from './agent-workspace'
 import { createGoalPlanWorkspace } from './goal-plan-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
 import { createStatusWorkspace } from './status-workspace'
+import { createClientPersistence } from './client-persistence'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
@@ -96,6 +98,11 @@ export type {
   ExtensionWorkspaceState,
   StatusWorkspaceEntryState,
   StatusWorkspaceState,
+  ClientJsonValue,
+  ClientJsonObject,
+  ClientPersistencePort,
+  ClientLayoutState,
+  ClientPreferencesState,
 } from './types'
 export { SessionSelectionError } from './navigation'
 
@@ -121,6 +128,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const local = new CommandRegistry({ execution: 'client' })
   const platform = new CommandRegistry({ execution: 'platform' })
   let disposed = false
+  const clientPersistence = createClientPersistence(local, options, onSubscriberError, () => disposed)
   const directory = createDirectoryModule(
     options,
     navigation.reader,
@@ -214,6 +222,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(goalPlanWorkspaceCommands, name) ||
         Object.hasOwn(extensionWorkspaceCommands, name) ||
         Object.hasOwn(statusWorkspaceCommands, name) ||
+        Object.hasOwn(clientPersistenceCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -249,6 +258,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       goals: goalPlanWorkspace.reader,
       extensions: extensionWorkspace.reader,
       status: statusWorkspace.reader,
+      layout: clientPersistence.layout,
+      preferences: clientPersistence.preferences,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
@@ -260,6 +271,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   })
   return {
     view,
+    ready: clientPersistence.ready,
     dispose() {
       if (disposed) return
       disposed = true
@@ -280,6 +292,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       goalPlanWorkspace.dispose()
       extensionWorkspace.dispose()
       statusWorkspace.dispose()
+      clientPersistence.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()

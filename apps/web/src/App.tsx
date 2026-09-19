@@ -16,7 +16,7 @@ import {
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
-import { createAppRuntime } from '@hbar/app-runtime'
+import { createAppRuntime, type ClientJsonValue } from '@hbar/app-runtime'
 import {
   HbarClient,
   createAgentCommandClient,
@@ -42,6 +42,7 @@ import type { ConnectionStatus } from '@hbar/client'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
+import { createBrowserClientPersistence } from './client-persistence'
 
 const panels = new Set([
   'commands',
@@ -54,6 +55,17 @@ const panels = new Set([
   'settings',
   'settings-editor',
 ])
+
+function isJsonObject(value: ClientJsonValue | undefined): value is Readonly<Record<string, ClientJsonValue>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function layoutSidebarWidth(layout: Readonly<Record<string, ClientJsonValue>>): number {
+  const sidebar = layout.sidebar
+  if (!isJsonObject(sidebar) || !Object.hasOwn(sidebar, 'widthRem')) return shellLayout.sidebar.widthRem
+  const width = sidebar.widthRem
+  return typeof width === 'number' ? Math.min(24, Math.max(12, width)) : shellLayout.sidebar.widthRem
+}
 
 function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) {
   const copy = getShellCopy(locale)
@@ -79,6 +91,8 @@ function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) 
     commandText: { resolve: copy.commandPalette.resolve },
     schemaContent: createSchemaCallbackClient(client),
     surfaces: { canRender: (panelId) => panels.has(panelId) },
+    defaultLayout: shellLayout,
+    persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web'),
   })
 }
 
@@ -119,6 +133,8 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [hostId, setHostId] = useState(() => `pending:${window.location.origin}`)
   const runtime = useMemo(() => createRuntime(client, hostId, locale), [client, hostId, locale])
+  const layout = useHbarRuntimeState(runtime.view.state.layout)
+  const sidebarWidth = layoutSidebarWidth(layout.description)
 
   useEffect(() => {
     const offStatus = client.onStatus(setConnection)
@@ -161,7 +177,7 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
     <HbarRuntimeProvider view={runtime.view}>
       <HbarWorkspaceShell
         labels={copy.shell}
-        sidebarWidthRem={shellLayout.sidebar.widthRem}
+        sidebarWidthRem={sidebarWidth}
         connection={connection}
         onReconnect={reconnect}
       >

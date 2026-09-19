@@ -80,7 +80,37 @@ export interface RuntimeOptions {
   readonly schemaContent?: SchemaCallbackPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
+  readonly persistence?: ClientPersistencePort
+  readonly defaultLayout?: Readonly<Record<string, ClientJsonValue>>
   readonly onSubscriberError?: (error: unknown) => void
+}
+
+export type ClientJsonValue = null | boolean | number | string | readonly ClientJsonValue[] | ClientJsonObject
+export interface ClientJsonObject {
+  readonly [key: string]: ClientJsonValue
+}
+
+export interface ClientPersistencePort {
+  read(key: string): Promise<unknown>
+  write(key: string, value: ClientJsonValue): Promise<void>
+  remove(key: string): Promise<void>
+}
+
+export interface ClientLayoutState {
+  readonly status: 'loading' | 'ready'
+  readonly revision: number
+  readonly source: 'default' | 'saved' | 'current'
+  readonly persisted: boolean
+  readonly description: ClientJsonObject
+  readonly restoreError: string | null
+}
+
+export interface ClientPreferencesState {
+  readonly status: 'loading' | 'ready'
+  readonly revision: number
+  readonly persisted: boolean
+  readonly values: ClientJsonObject
+  readonly restoreError: string | null
 }
 
 export interface AgentWorkspaceDraftState {
