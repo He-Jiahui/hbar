@@ -1,6 +1,6 @@
 # UI 总体架构与状态设计
 
-上级：[UI 总计划](index.md)。执行顺序与完成状态见[任务清单](execution-plan.md)。本文描述目标架构，不代表已经实现。
+上级：[UI 总计划](index.md)。执行顺序与完成状态见[任务清单](execution-plan.md)。本文同时记录已经落地的核心架构和仍待完成的布局/恢复边界；最终证据见[验证矩阵](final-validation-matrix.md)。
 
 ## 1. 固定产品结构
 
@@ -36,13 +36,10 @@ UI callback 表达意图；app-react 将意图转换为 command。打开页面�
 
 ## 3. 展示状态模型
 
-保留现有 `PanelSurface` 的 instanceId、target、binding；在 app-runtime 内增加统一 presentation slice。以下是待实现的契约草案，类型应引用现有 ID / scope 定义：
+现有 `PanelSurface` 继续持有 instanceId、target、binding；app-runtime 已实现统一 presentation slice。当前契约的核心形态如下，实际类型引用现有 ID / scope 定义：
 
 ```ts
-type MainPage =
-  | { kind: 'session' }
-  | { kind: 'settings'; scope: SettingsScope; groupId: string | null }
-  | { kind: 'status'; section: 'performance' | 'usage' | 'git' }
+type MainPage = { kind: 'session' } | { kind: 'settings'; instanceId: string } | { kind: 'status'; instanceId: string }
 
 interface PresentationState {
   readonly page: MainPage
@@ -53,7 +50,7 @@ interface PresentationState {
 }
 ```
 
-`SessionViewContext` 只保存 workspaceId、sessionId、toolInstanceId 和滚动锚点等稳定标识。消息、草稿、表单与请求不复制进 presentation。焦点恢复使用触发控件 ID，由 app-react 的焦点适配器定位实际 DOM；DOM ref 不进入持久化状态。
+`SessionViewContext` 当前只保存 workspaceId、sessionId 和 toolInstanceId。页面 scope、section 和表单目标继续存放在对应 `PanelSurface.params` 与模块投影中；消息、草稿、表单与请求不复制进 presentation。滚动锚点和通用触发焦点恢复尚未进入该 slice，仍分别属于 R3.5 与组件/NativeDialog 的局部行为；DOM ref 不进入持久化状态。
 
 现有 surfaces 是实例和目标的事实源；presentation 是落点和活动关系的事实源。`focusedPanelId` 在迁移期只作为兼容派生值，不能再独立决定整个主页面。移除 `App.tsx` 中由一个 focusedPanelId 决定所有页面的串行分支。
 
@@ -71,7 +68,7 @@ interface PresentationState {
 | 新增 `app.back`                                | 先处理模态内部返回，再关闭工具单页，最后退出管理页            | 已有草稿；无会话则回到空会话页 |
 | 新增 `app.setSidebarVisible`                   | 仅改变侧栏/抽屉可见性                                         | 主页面、工具、会话选择         |
 
-后两项需要注册公开应用命令和分类文案，并保持 CLI 可调用。现有业务命令参数、幂等、回执语义不因布局改变。
+`app.back` 与 `app.setSidebarVisible` 已注册为公开应用命令、进入分类文案并保持 CLI 可调用。现有业务命令参数、幂等、回执语义不因布局改变。
 
 `followActive` 工具跟随会话切换，读取结果必须校验 generation 和 target；`pinned` 工具继续显示固定目标，在标题显示目标名称。写操作捕获执行时目标，后到回执归原目标。会话被删除/归档时转为明确空态，不静默选择另一个工程。
 

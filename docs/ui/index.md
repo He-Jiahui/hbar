@@ -1,6 +1,6 @@
 # hbar UI 重设计：参考 cc-haha 的视觉与空间组织，采用单页面导航
 
-> 更新：2026-09-19。本文保留已确认的总设计；下列子计划将其细化到页面、组件、状态和可验收任务。**整体 UI 重设计尚未实现**，本轮已完成文档展开及 PromptComposer 的独立视觉修复（`8408735`）。
+> 更新：2026-09-20。本文保留已确认的总设计；下列子计划将其细化到页面、组件、状态和可验收任务。核心 AppShell、会话页、四类工具、设置、Provider、状态三分区和命令三步流已经完成 Web/Host 重建与视觉验收；容量/恢复边界、整页 system/light 主题和 Tauri 实窗仍按[任务清单](execution-plan.md)保持未完成。
 
 ## 子计划阅读入口
 
@@ -25,7 +25,7 @@
 
 **整体视觉贴近 cc-haha，保留单页面导航。** 重做 hbar 的外壳、页面层级、工具区、设置和交互反馈；现有命令框架、Schema 设置框架、业务状态与服务器交互继续复用。
 
-总计划编写时已目视对照 **8 张 cc-haha 产品截图和 8 张 hbar 视觉产物**，涵盖会话、文件、设置、供应商编辑、命令面板、子 Agent、深色和窄屏。主要参考包括 [cc-haha 会话界面](/D:/Git/cc-haha/docs/images/app/zh-CN/session-main.webp)与[设置界面](/D:/Git/cc-haha/docs/images/app/zh-CN/settings-general.webp)。当时实时浏览器工具遇到认证兼容错误，这批证据属于已有截图。2026-09-19 的计划展开已通过项目 Playwright 流程补充 Prompt 修复前后各 21 张真实渲染图及生产会话截图，详见本轮审计；cc-haha 当前运行版本和整页重设计的实时验收仍待完成。
+总计划编写时已目视对照 **8 张 cc-haha 产品截图和 8 张 hbar 视觉产物**，涵盖会话、文件、设置、供应商编辑、命令面板、子 Agent、深色和窄屏。主要参考包括 [cc-haha 会话界面](/D:/Git/cc-haha/docs/images/app/zh-CN/session-main.webp)与[设置界面](/D:/Git/cc-haha/docs/images/app/zh-CN/settings-general.webp)。重建期间持续以真实 production preview 看图修正，当前 `artifacts/ui-redesign` 包含 17 个页面/组件族、154 张 PNG；最终又对照 cc-haha 的 `session-dark.webp` 与 `settings-general.webp` 核对空间关系。完整范围、结果和未覆盖项见[最终验证矩阵](final-validation-matrix.md)。
 
 新设计明确替换以下布局：
 

@@ -55,7 +55,7 @@ Performance | Usage | Git
 
 ## 5. 分类命令面板
 
-生产改用 `HbarAppUiCommandDialog` 与 `HbarAppUiCommandList`，从整页双列 catalog 转为单个临时模态。底层 catalog、descriptor、参数草稿、执行回执继续复用。
+生产以 `HbarAppUiDialog` 承载 `HbarAppUiCommandList` 和参数/结果子视图，从整页双列 catalog 转为单个临时模态。底层 catalog、descriptor、参数草稿、执行回执继续复用；三步状态由 runtime 持有，NativeDialog 只负责顶层、焦点和 Escape 出口。
 
 ```text
 搜索模式： 搜索框 → 分类结果 → 键盘帮助

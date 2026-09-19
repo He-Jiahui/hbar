@@ -4,25 +4,25 @@
 
 ## 1. 当前盘点与取舍
 
-下表基于当前公开导出、生产调用及截图检查；“待修复/改造”不是已经完成的能力。
+下表基于当前公开导出、生产调用及最终截图检查；已完成项只描述已有提交和验证，仍列出的缺口继续进入后续任务。
 
-| 组件族 / 现有实现                                             | 已有能力                                   | 新页面使用方式                        | 必须处理的缺口                                                                           |
-| ------------------------------------------------------------- | ------------------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `HbarAppUiAppShell` / `HbarAppUiAppSidebar`（workbench 入口） | 受控左右结构、树和底部 slots               | 新外壳主实现                          | 大内边距、窄屏上下堆叠；增加 header/tool/modal slots 和受控 drawer                       |
-| `HbarAppUiWorkbenchShell` / `HbarAppUiNavigation`             | 旧全局顶栏、工作区选择、导航               | 复用其中图标/导航行为，兼容旧预览     | 不与 AppShell 嵌套形成双顶栏；迁移后停止作为新应用根                                     |
-| `HbarAppUiSessionNavigator`                                   | 受控会话列表                               | 复用行显示与交互语义                  | 外层仍需工程分组、分页和空态；核对重复/失效 ID                                           |
-| `HbarAppUiToolPane`                                           | header / toolbar / status / children slots | 四种会话工具共同容器                  | 当前是用户未提交新增文件；集成前核对，不直接夹带提交；补 footer 和窄屏返回契约           |
-| `HbarAppUiConversation` / `HbarAppUiMessage`                  | 受控消息和 composer slot                   | Timeline 容器与消息                   | 重复标题、消息元信息密度；增加可选 header slot，长历史用已有有界 timeline                |
-| `HbarAppUiPromptComposer`                                     | 草稿、附件、IME、发送/停止回调             | 唯一生产输入组件                      | 本轮已修输入/按钮自包含样式，后续仍需自动高度、完整页面布局验收                          |
-| `HbarAppUiRunActivity` / ApprovalRequest / Questionnaire      | 实际运行、审批、问卷                       | 插入所属消息/当前交互区域             | 核对薄条、裁切、待处理可达性；禁止裸图标按钮和空标题                                     |
-| AgentPlan / `HbarAppUiPlanEditor`                             | 计划展示与受控编辑                         | 时间线计划摘要、目标工具详情          | 编辑与摘要分离，取消多层大标题和永久展开表单                                             |
-| `HbarAppUiCompactUsage`                                       | 用量、进度、sparkline、metrics             | 增加 `density='inline'`，详细模式保留 | 现有 Frame/图表把“compact”变成大卡片；不能靠页面 CSS 隐藏内部节点                        |
-| `HbarAppUiWorkspaceFiles` / FileDocument                      | 受控虚拟列表、文件文档容器                 | 文件工具的列表与详情                  | 原生灰按钮、重复标题、长路径；增加嵌入模式、选中状态、列表→文档返回                      |
-| `HbarAppUiDialog`（NativeDialog）                             | 原生 top layer、焦点圈定、Escape、初始焦点 | Provider、命令、业务参数表单          | 关闭按钮视觉、底部操作；主题从父宿主继承，长内容滚动与焦点回归                           |
-| `HbarAppUiCommandList` / CommandDialog                        | 分类、键盘、虚拟列表、对话框               | 搜索→参数→回执的单模态                | 生产仍使用整页目录；需要参数/回执 slots 与分步返回                                       |
-| `HbarAppUiPreferencesSettings` / SettingsField                | 受控偏好与设置行                           | 复用行外观/开关，抽出独立字段能力     | SettingsField 尚非完整公开 Schema renderer；不要直接把 demo WorkspaceSettings 当生产设置 |
-| MetricStrip / UsageSurfaces / Monitoring / Dashboard          | 指标与部分图表展示                         | 受控指标、趋势、明细                  | 部分变体仍依赖 spec 或 demo 结构；先抽受控能力，再接真实统计                             |
-| Button / IconButton / Status / EmptyState                     | 公共基础组件                               | 全部页面共享                          | tone-hover 对比度、键盘焦点、长标签、禁用态与透明背景需要系统检查                        |
+| 组件族 / 现有实现                                             | 已有能力                                     | 新页面使用方式                                   | 必须处理的缺口                                                                           |
+| ------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `HbarAppUiAppShell` / `HbarAppUiAppSidebar`（workbench 入口） | 受控左右结构、树和底部 slots                 | 唯一生产外壳，已完成 header/tool/modal 与 drawer | 可调整分区和布局 v2 迁移仍归 R2.7                                                        |
+| `HbarAppUiWorkbenchShell` / `HbarAppUiNavigation`             | 旧全局顶栏、工作区选择、导航                 | 只保留 catalog/preview 兼容                      | 已从 Web 生产构建输入移除；有明确旧调用者，不能直接删除                                  |
+| `HbarAppUiSessionNavigator`                                   | 受控会话列表                                 | 复用行显示与交互语义                             | 外层仍需工程分组、分页和空态；核对重复/失效 ID                                           |
+| `HbarAppUiToolPane`                                           | header / toolbar / status / children slots   | 四种会话工具共同容器                             | 当前是用户未提交新增文件；集成前核对，不直接夹带提交；补 footer 和窄屏返回契约           |
+| `HbarAppUiConversation` / `HbarAppUiMessage`                  | 受控消息、composer/afterMessages/header slot | 已作为会话 Timeline 容器与消息                   | 长历史虚拟化、滚动锚点和快速切换恢复仍归 R3.5                                            |
+| `HbarAppUiPromptComposer`                                     | 草稿、附件、IME、发送/停止回调               | 唯一生产输入组件，页面组合已验收                 | 模型选择仍由状态/设置提供；整应用 light/system 主题仍归 R1.1                             |
+| `HbarAppUiRunActivity` / ApprovalRequest / Questionnaire      | 实际运行、审批、问卷                         | 插入所属消息/当前交互区域                        | 核对薄条、裁切、待处理可达性；禁止裸图标按钮和空标题                                     |
+| AgentPlan / `HbarAppUiPlanEditor`                             | 计划展示与受控编辑                           | Goal/Plan 工具的摘要与编辑子视图                 | 时间线内 Plan 归属和长计划容量仍需随 R3.2/R3.5 继续核对                                  |
+| `HbarAppUiCompactUsage`                                       | 用量、预算、速率与 inline 密度               | 会话输入下方紧凑摘要                             | 已移除大卡片依赖；完整统计进入 Monitoring/Usage                                          |
+| `HbarAppUiWorkspaceFiles` / FileDocument                      | 受控虚拟列表、嵌入文档容器                   | 文件工具的列表→详情                              | 已完成返回、编辑保存和冲突保留草稿；超大目录容量继续由分页/虚拟化契约约束                |
+| `HbarAppUiDialog`（NativeDialog）                             | 原生 top layer、焦点圈定、Escape、初始焦点   | Provider 与命令三步流                            | Provider 删除确认和命令分层 Escape 已实测；Tauri 标题栏/DPI 仍归 R6.4                    |
+| `HbarAppUiCommandList` / CommandDialog                        | 分类、键盘、虚拟列表、对话框                 | CommandList 组合搜索→参数→回执单模态             | 已修行样式、查询滚动复位和紧凑帮助；失败/unknown 继续由 runtime 回执表达                 |
+| `HbarAppUiPreferencesSettings` / SettingsField                | 受控偏好与设置行                             | 复用行外观/开关，抽出独立字段能力                | SettingsField 尚非完整公开 Schema renderer；不要直接把 demo WorkspaceSettings 当生产设置 |
+| CompactMetrics / BarSeries / UsageSurfaces                    | 受控指标、趋势、用量与明细                   | Monitoring、Performance、Usage、Git 共享         | 固定百分比上限和可选时间桶已完成；复杂科学图表不在本轮范围                               |
+| Button / IconButton / Status / EmptyState                     | 公共基础组件                                 | 全部页面共享，使用语义图标尺寸                   | 生产已改用窄入口避免旧 CSS 污染；整应用浅色与系统主题仍需完成                            |
 
 `AppShell`、`PromptInput`、`FileManager` 等带 `spec/onAction` 的目录变体是展示入口，不等于生产接口。它们可以展示同一受控组件，但业务页面不能依赖 catalog 注册和演示数据。
 
@@ -67,4 +67,4 @@
 5. 在实际应用页面再次采集，确认无父容器/旧 CSS 冲突。
 6. 通过相关 guards、lint、typecheck、tests、build 后独立提交。
 
-首个实例见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)。完成 Prompt 修复不代表输入区整体重排或其他组件已通过。
+逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。组件表中的已完成状态不覆盖仍单列的主题、容量、恢复和 Tauri 验收。
