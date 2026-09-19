@@ -82,14 +82,14 @@ R4.1 的 page/tool/modal 出口、实例目标和断点容器已经完成；R4.2
 | ---- | ---------------------------------- | ---------------- | ---------------------------------------------------------- |
 | R5.1 | hbar Schema ComponentRegistry 适配 | R1.3             | **已完成**：core/renderer 分离；单/多选、路径、secret 契约 |
 | R5.2 | Settings 分类/作用域/表单/保存条   | R2.2、R5.1       | **已完成**：三层 override、来源、unset、dirty、未知结果    |
-| R5.3 | Provider 列表及 NativeDialog       | R1.4、R5.2       | 动态报告、保存/取消、敏感值、返回原分组                    |
+| R5.3 | Provider 列表及 NativeDialog       | R1.4、R5.2       | **已完成**：结构化列表、二级删除、焦点恢复、三档实测       |
 | R5.4 | 扩展和技能归入设置                 | R5.2             | 旧 extensions 命令兼容，功能与诊断入口不丢                 |
 | R5.5 | Performance 页面重排               | R2.3、R1.5       | 指标/图表/明细、范围、单位、gap、窄屏                      |
 | R5.6 | Usage 共享指标/曲线/日志与全局页面 | R2.3、R1.5       | 账本口径、筛选、模型、TTFT、缓存、导出                     |
 | R5.7 | Git 页面重排                       | R2.3、R1.5       | 仓库/来源/窗口、趋势与提交详情、无仓库                     |
 | R5.8 | 命令对话框搜索→参数→结果           | R1.4、R5.1、R2.1 | 分类/键盘、参数校验、可读回执、关闭恢复                    |
 
-R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型的数组字段，ComponentRegistry 明确区分单值和多值能力；`schema-react` 保留无视觉库依赖的标准 renderer，`app-react` 通过 `createHbarSchemaComponents` 将相同契约映射到 `hbar-app-ui` 的受控控件。多选值已经贯通设置描述、`settingsForm.setField`、分层设置解析与提交；secret renderer 不回显状态值，文件/目录仍只产生选择命令。R5.2 也已完成：设置页使用统一 PageHeader、目标明确的单个作用域选择器、桌面分类栏/窄屏分类选择、独立内容滚动区和固定保存条；三层草稿、继承恢复、未知回执核对继续由运行时命令持有。R5.3 接着修复 Provider 列表；既有查询和命令逻辑继续复用。
+R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型的数组字段，ComponentRegistry 明确区分单值和多值能力；`schema-react` 保留无视觉库依赖的标准 renderer，`app-react` 通过 `createHbarSchemaComponents` 将相同契约映射到 `hbar-app-ui` 的受控控件。多选值已经贯通设置描述、`settingsForm.setField`、分层设置解析与提交；secret renderer 不回显状态值，文件/目录仍只产生选择命令。R5.2 也已完成：设置页使用统一 PageHeader、目标明确的单个作用域选择器、桌面分类栏/窄屏分类选择、独立内容滚动区和固定保存条；三层草稿、继承恢复、未知回执核对继续由运行时命令持有。R5.3 已完成：Provider 分组使用 `hbar-app-ui` 的受控设置列表显示协议、默认模型、模型数、可见性和凭据状态；编辑保持原设置上下文，删除移入二级菜单并由 NativeDialog 确认，Escape 关闭后恢复触发焦点。ProviderEditor 的结构化连接、凭据、模型和敏感值契约继续复用既有命令实现。
 
 ## 8. R6：替换、回归与交付
 

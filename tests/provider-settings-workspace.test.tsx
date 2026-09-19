@@ -55,9 +55,15 @@ test('provider list and dialog render Host descriptions without exposing a crede
       </HbarRuntimeProvider>,
     )
     expect(list).toContain('Provider configurations')
+    expect(list).toContain('Manage model connections, defaults, and credentials.')
     expect(list).toContain('Visible provider')
-    expect(list).toContain('credential configured')
+    expect(list).toContain('OpenAI Responses')
+    expect(list).toContain('Default: visible-model')
+    expect(list).toContain('1 model')
+    expect(list).toContain('Credential configured')
     expect(list).toContain('Edit Visible provider')
+    expect(list).toContain('Actions for Visible provider')
+    expect(list).toContain('role="menuitem"')
 
     await runtime.view.commands.execute('app.openSettingsEditor', {
       scope: 'global',

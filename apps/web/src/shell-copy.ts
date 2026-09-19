@@ -408,62 +408,38 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   const number = new Intl.NumberFormat(locale)
-  const messages: Readonly<Record<string, string>> = zh
-    ? {
-        'i18n:settings.providers.list.label': '供应商配置',
-        'i18n:settings.providers.id.label': '供应商 ID',
-        'i18n:settings.providers.id.help': '保存后不可修改，用于模型选择和凭据引用。',
-        'i18n:settings.providers.name.label': '显示名称',
-        'i18n:settings.providers.protocol.label': '协议',
-        'i18n:settings.providers.baseUrl.label': 'API 地址',
-        'i18n:settings.providers.model.label': '默认模型 ID',
-        'i18n:settings.providers.contextWindow.label': '上下文窗口',
-        'i18n:settings.providers.maxOutput.label': '最大输出 Token',
-        'i18n:settings.providers.imageInput.label': '支持图片输入',
-        'i18n:settings.providers.reasoning.label': '支持推理',
-        'i18n:settings.providers.inputPrice.label': '输入价格（每百万 Token）',
-        'i18n:settings.providers.outputPrice.label': '输出价格（每百万 Token）',
-        'i18n:settings.providers.apiKey.label': 'API Key',
-        'i18n:settings.providers.apiKey.help': '留空会保留已有凭据；输入空字符串并保存会清除凭据。',
-      }
-    : {
-        'i18n:settings.providers.list.label': 'Provider configurations',
-        'i18n:settings.providers.id.label': 'Provider ID',
-        'i18n:settings.providers.id.help': 'Immutable after save; used by model selections and credential references.',
-        'i18n:settings.providers.name.label': 'Display name',
-        'i18n:settings.providers.protocol.label': 'Protocol',
-        'i18n:settings.providers.baseUrl.label': 'API URL',
-        'i18n:settings.providers.model.label': 'Default model ID',
-        'i18n:settings.providers.contextWindow.label': 'Context window',
-        'i18n:settings.providers.maxOutput.label': 'Maximum output tokens',
-        'i18n:settings.providers.imageInput.label': 'Supports image input',
-        'i18n:settings.providers.reasoning.label': 'Supports reasoning',
-        'i18n:settings.providers.inputPrice.label': 'Input price per million tokens',
-        'i18n:settings.providers.outputPrice.label': 'Output price per million tokens',
-        'i18n:settings.providers.apiKey.label': 'API key',
-        'i18n:settings.providers.apiKey.help':
-          'Leave blank to retain the stored credential; submit an empty value to remove it.',
-      }
-  const itemName = (item: Readonly<Record<string, unknown>>) => String(item.name ?? item.providerId)
+  const protocolNames: Readonly<Record<string, string>> = {
+    'openai-completions': 'OpenAI Chat Completions',
+    'openai-responses': 'OpenAI Responses',
+    'anthropic-messages': 'Anthropic Messages',
+    mock: choose('本地 Mock', 'Local mock'),
+  }
   const list: HbarProviderSettingsLabels = {
     loading: choose('正在加载供应商…', 'Loading providers…'),
     refresh: choose('刷新供应商', 'Refresh providers'),
     error: (code) => choose(`供应商操作失败：${code}`, `Provider action failed: ${code}`),
-    list: {
-      resolve: (key) => messages[key] ?? key,
-      empty: choose('尚未配置供应商。', 'No providers configured.'),
-      add: choose('添加供应商', 'Add provider'),
-      edit: (item) => choose(`编辑 ${itemName(item)}`, `Edit ${itemName(item)}`),
-      remove: (item) => choose(`删除 ${itemName(item)}`, `Delete ${itemName(item)}`),
-      moveUp: (item) => choose(`上移 ${itemName(item)}`, `Move ${itemName(item)} up`),
-      moveDown: (item) => choose(`下移 ${itemName(item)}`, `Move ${itemName(item)} down`),
-      reset: (item) => choose(`重置 ${itemName(item)}`, `Reset ${itemName(item)}`),
-      itemLabel: (item) =>
-        choose(
-          `${itemName(item)} · ${String(item.protocol)} · ${String(item.model)} · ${item.hasKey ? '已配置凭据' : '无凭据'}`,
-          `${itemName(item)} · ${String(item.protocol)} · ${String(item.model)} · ${item.hasKey ? 'credential configured' : 'no credential'}`,
-        ),
-    },
+    title: choose('供应商配置', 'Provider configurations'),
+    description: choose('管理模型连接、默认模型与安全凭据。', 'Manage model connections, defaults, and credentials.'),
+    empty: choose('尚未配置供应商。', 'No providers configured.'),
+    add: choose('添加供应商', 'Add provider'),
+    edit: (name) => choose(`编辑 ${name}`, `Edit ${name}`),
+    actions: (name) => choose(`${name} 的操作`, `Actions for ${name}`),
+    remove: (name) => choose(`删除 ${name}`, `Delete ${name}`),
+    protocol: (value) => protocolNames[value] ?? value,
+    defaultModel: (model) => choose(`默认模型：${model}`, `Default: ${model}`),
+    modelCount: (count) =>
+      choose(`${number.format(count)} 个模型`, `${number.format(count)} ${count === 1 ? 'model' : 'models'}`),
+    hidden: choose('已隐藏', 'Hidden'),
+    configured: choose('已配置凭据', 'Credential configured'),
+    notConfigured: choose('无凭据', 'No credential'),
+    deleteConfirmTitle: (name) => choose(`删除供应商“${name}”？`, `Delete provider “${name}”?`),
+    deleteConfirmDescription: (name) =>
+      choose(
+        `将删除“${name}”的配置和凭据引用。此操作无法从当前界面撤销。`,
+        `This removes the configuration and credential reference for “${name}”. This action cannot be undone here.`,
+      ),
+    cancel: choose('取消', 'Cancel'),
+    confirmRemove: choose('删除供应商', 'Delete provider'),
   }
   const dialog: HbarProviderDialogLabels = {
     addTitle: choose('添加供应商', 'Add provider'),

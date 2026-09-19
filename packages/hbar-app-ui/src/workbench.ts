@@ -16,6 +16,11 @@ export {
   type HbarAppUiPageHeaderProps,
 } from './components/app-shell/PageHeader'
 export {
+  HbarAppUiSettingsList,
+  type HbarAppUiSettingsListItem,
+  type HbarAppUiSettingsListProps,
+} from './components/app-shell/SettingsList'
+export {
   HbarAppUiBarSeries,
   HbarAppUiCompactMetrics,
   type HbarAppUiBarPoint,

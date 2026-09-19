@@ -686,6 +686,29 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await settingsScope.selectOption('global')
     await page.getByRole('button', { name: 'Providers', exact: true }).click()
     await expect(page.getByRole('heading', { level: 2, name: 'Provider configurations' })).toBeVisible()
+    await expect(page.getByText('Local mock', { exact: true })).toBeVisible()
+    await expect(page.getByText('Default: fixture', { exact: true })).toBeVisible()
+    await expect(page.getByText('No credential', { exact: true })).toBeVisible()
+    const providerActions = page.getByTitle('Actions for Local fixture', { exact: true })
+    await providerActions.click()
+    const providerMenu = page.getByRole('menu', { name: 'Actions for Local fixture' })
+    await expect(providerMenu).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-provider-menu.png',
+      fullPage: true,
+    })
+    await page.getByRole('menuitem', { name: 'Delete Local fixture' }).click()
+    const listDeleteDialog = page.getByRole('dialog', { name: 'Delete provider “Local fixture”?' })
+    await expect(listDeleteDialog).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-provider-delete.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
+    await expect(listDeleteDialog).toBeHidden()
+    await page.keyboard.press('Escape')
+    await expect(providerMenu).toBeHidden()
+    await expect(providerActions).toBeFocused()
     await page.getByRole('button', { name: 'Add provider', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Add provider' })).toBeVisible()
     await expect(page.getByRole('dialog', { name: 'Add provider' })).toBeVisible()
@@ -770,6 +793,24 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       path: 'artifacts/ui-redesign/settings/after/desktop-1440-providers.png',
       fullPage: true,
     })
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/tablet-1024-providers.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    const hideProviderNavigation = page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first()
+    if (await hideProviderNavigation.isVisible()) await hideProviderNavigation.click()
+    await expect(page.getByRole('combobox', { name: 'Settings groups' })).toHaveValue('providers')
+    await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/mobile-390-providers.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: 'Back to session' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     expect(errors).toEqual([])

@@ -1,14 +1,14 @@
 .hbar-app-react-provider-list {
-  display: flex;
   inline-size: min(100%, 58rem);
   min-inline-size: 0;
-  flex-direction: column;
-  gap: var(--hbar-app-ui-space-md);
   margin-inline: auto;
+  padding-block: var(--hbar-app-ui-space-lg);
 }
 
-.hbar-app-react-provider-list > .hbar-app-ui-button {
-  align-self: flex-end;
+.hbar-app-react-provider-list > [role='alert'] {
+  margin: var(--hbar-app-ui-space-sm) 0 0;
+  color: var(--hbar-app-ui-danger);
+  font-size: 0.75rem;
 }
 
 .hbar-app-react-provider-state {

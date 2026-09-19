@@ -8,6 +8,7 @@ import {
   HbarAppUiCompactMetrics,
   HbarAppUiPageAction,
   HbarAppUiPageHeader,
+  HbarAppUiSettingsList,
   HbarAppUiWorkbenchNotice,
 } from '../packages/hbar-app-ui/src/workbench'
 
@@ -129,4 +130,36 @@ test('compact monitoring primitives render finite host metrics without fallback 
   )
   expect(emptySeries).toContain('Localized empty series')
   expect(emptySeries).not.toContain('hbar-app-ui-bar-series')
+})
+
+test('settings list keeps host metadata structured and secondary removal inside an action menu', () => {
+  const html = renderToStaticMarkup(
+    createElement(HbarAppUiSettingsList, {
+      label: 'Localized provider configurations',
+      description: 'Localized provider list description',
+      empty: 'Localized empty providers',
+      addLabel: 'Localized add provider',
+      refreshLabel: 'Localized refresh providers',
+      items: [
+        {
+          id: 'provider-id',
+          title: 'Localized provider name',
+          metadata: ['Localized protocol', 'Localized default model', '3 localized models'],
+          status: { label: 'Localized credential status', tone: 'positive' },
+          editLabel: 'Localized edit provider',
+          menuLabel: 'Localized provider actions',
+          removeLabel: 'Localized remove provider',
+        },
+      ],
+      onAdd: () => undefined,
+      onRefresh: () => undefined,
+      onOpen: () => undefined,
+      onRemove: () => undefined,
+    }),
+  )
+  expect(html).toContain('Localized provider name')
+  expect(html).toContain('Localized default model')
+  expect(html).toContain('Localized credential status')
+  expect(html).toContain('role="menu" aria-label="Localized provider actions"')
+  expect(html).toContain('role="menuitem"')
 })

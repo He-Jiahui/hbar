@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HbarSchemaList, type HbarSchemaListLabels, type SchemaListIntent } from '@hbar/schema-react'
-import { HbarAppUiButton } from 'hbar-app-ui'
+import { HbarAppUiButton, HbarAppUiDialog } from 'hbar-app-ui'
+import { HbarAppUiSettingsList } from 'hbar-app-ui/workbench'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarProviderEditorView, type HbarProviderDialogLabels, type HbarProviderEditorIntent } from './provider-editor'
 import './provider-settings.css'
@@ -17,7 +17,23 @@ export interface HbarProviderSettingsLabels {
   readonly loading: string
   readonly refresh: string
   readonly error: (code: string) => string
-  readonly list: HbarSchemaListLabels
+  readonly title: string
+  readonly description: string
+  readonly empty: string
+  readonly add: string
+  readonly edit: (name: string) => string
+  readonly actions: (name: string) => string
+  readonly remove: (name: string) => string
+  readonly protocol: (value: string) => string
+  readonly defaultModel: (model: string) => string
+  readonly modelCount: (count: number) => string
+  readonly hidden: string
+  readonly configured: string
+  readonly notConfigured: string
+  readonly deleteConfirmTitle: (name: string) => string
+  readonly deleteConfirmDescription: (name: string) => string
+  readonly cancel: string
+  readonly confirmRemove: string
 }
 
 export function HbarProviderSettings({
@@ -30,28 +46,22 @@ export function HbarProviderSettings({
   const runtime = useHbarRuntime()
   const providers = useHbarRuntimeState(runtime.state.providers)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<{ readonly id: string; readonly name: string } | null>(null)
+  const [removing, setRemoving] = useState(false)
   useEffect(() => {
     if (providers.status !== 'idle') return
     void runtime.commands.execute('providerEditor.refresh', {}).catch((reason) => setActionError(reasonCode(reason)))
   }, [providers.status, runtime.commands])
-  const execute = (intent: SchemaListIntent) => {
+  const open = (itemId?: string) => {
     setActionError(null)
-    if (intent.kind === 'add' || intent.kind === 'open') {
-      const itemId = intent.kind === 'open' ? intent.itemId : undefined
-      void runtime.commands
-        .execute('app.openSettingsEditor', {
-          scope: 'global',
-          path: 'providers',
-          ...(itemId ? { entryId: itemId } : {}),
-          instanceId: `settings-editor:providers:${itemId ?? 'new'}`,
-        })
-        .catch((reason) => setActionError(reasonCode(reason)))
-      return
-    }
-    if (intent.kind === 'remove')
-      void runtime.commands
-        .execute('providerEditor.delete', { providerId: intent.itemId })
-        .catch((reason) => setActionError(reasonCode(reason)))
+    void runtime.commands
+      .execute('app.openSettingsEditor', {
+        scope: 'global',
+        path: 'providers',
+        ...(itemId ? { entryId: itemId } : {}),
+        instanceId: `settings-editor:providers:${itemId ?? 'new'}`,
+      })
+      .catch((reason) => setActionError(reasonCode(reason)))
   }
   const refresh = () => {
     setActionError(null)
@@ -72,21 +82,77 @@ export function HbarProviderSettings({
         </HbarAppUiButton>
       </div>
     )
+  const items = providers.list.draft.map((item) => {
+    const id = String(item.providerId)
+    const name = String(item.name || item.providerId)
+    return {
+      id,
+      title: name,
+      metadata: [
+        labels.protocol(String(item.protocol)),
+        labels.defaultModel(String(item.model)),
+        labels.modelCount(Number(item.modelCount)),
+        ...(item.visible === false ? [labels.hidden] : []),
+      ],
+      status: {
+        label: item.hasKey ? labels.configured : labels.notConfigured,
+        tone: item.hasKey ? ('positive' as const) : ('neutral' as const),
+      },
+      editLabel: labels.edit(name),
+      menuLabel: labels.actions(name),
+      removeLabel: labels.remove(name),
+    }
+  })
+  const confirmRemove = () => {
+    if (!removeTarget) return
+    setActionError(null)
+    setRemoving(true)
+    void runtime.commands
+      .execute('providerEditor.delete', { providerId: removeTarget.id })
+      .then(() => setRemoveTarget(null))
+      .catch((reason) => setActionError(reasonCode(reason)))
+      .finally(() => setRemoving(false))
+  }
   return (
     <div className="hbar-app-react-provider-list">
-      <HbarSchemaList
-        schema={providers.listSchema}
-        state={providers.list}
-        labels={labels.list}
+      <HbarAppUiSettingsList
+        label={labels.title}
+        description={labels.description}
+        empty={labels.empty}
+        addLabel={labels.add}
+        refreshLabel={labels.refresh}
+        items={items}
         disabled={!connected}
-        reorderable={false}
-        resettable={false}
-        onIntent={execute}
+        busy={removing}
+        onAdd={() => open()}
+        onRefresh={refresh}
+        onOpen={open}
+        onRemove={(id) => {
+          const item = items.find((candidate) => candidate.id === id)
+          if (item) setRemoveTarget({ id, name: item.title })
+        }}
       />
-      <HbarAppUiButton disabled={!connected} onClick={refresh}>
-        {labels.refresh}
-      </HbarAppUiButton>
       {actionError && <p role="alert">{labels.error(actionError)}</p>}
+      <HbarAppUiDialog
+        open={Boolean(removeTarget)}
+        title={labels.deleteConfirmTitle(removeTarget?.name ?? '')}
+        closeLabel={labels.cancel}
+        onClose={() => !removing && setRemoveTarget(null)}
+        footer={
+          <>
+            <HbarAppUiButton disabled={removing} onClick={() => setRemoveTarget(null)}>
+              {labels.cancel}
+            </HbarAppUiButton>
+            <HbarAppUiButton tone="danger" disabled={removing} onClick={confirmRemove}>
+              {labels.confirmRemove}
+            </HbarAppUiButton>
+          </>
+        }
+      >
+        <p className="hbar-app-react-provider-delete-copy">
+          {labels.deleteConfirmDescription(removeTarget?.name ?? '')}
+        </p>
+      </HbarAppUiDialog>
     </div>
   )
 }

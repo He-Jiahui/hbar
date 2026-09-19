@@ -272,3 +272,22 @@ R5.1 的生产截图仍保留旧设置结构：约 110px 高的大标题区同�
 Playwright 在 1440、1024、390 和 320 四档宽度读取真实几何：设置根没有内部横向溢出，footer 下边界与页面下边界误差不超过 1 CSS px；前两档显示分类 sidebar，390/320 显示分类 select。第一轮 320 截图发现单行页头将作用域截成 “Session · N” 且隐藏目标上下文；最终在 480px 以下把页头改为两行，让全宽作用域选择器完整显示 “Session · New session”。真实 Host 流程从全局切到会话，打开动态 Model 列表，恢复继承并保存，再返回全局 Provider 分组、打开/保存 ProviderDialog，最后通过 `app.back` 返回原会话。以上截图均来自重新构建的 production preview 并逐张人工查看。
 
 验证结果：定向 React、Schema 与 PageHeader 测试、全仓 TypeScript、Web production build（2397 modules）和 5 项 Playwright 场景通过；flow/content/icon guards、完整 Bun 与全仓 ESLint 在提交前再次执行。本切片没有执行 Tauri 实窗；Provider 列表视觉和扩展分组分别归属 R5.3、R5.4。
+
+## 18. R5.3 Provider 列表与 NativeDialog
+
+R5.2 完成后，Provider 分组仍由旧 `SchemaList` 把每个实体渲染成整行灰色按钮，协议、默认模型、模型数量、可见性和凭据状态没有稳定层级；删除动作也与编辑处在同一优先级。页面结构已经紧凑，但列表本身仍像一个临时表单控件，无法承担管理页面的扫描和危险操作。
+
+`hbar-app-ui/workbench` 现在提供受控 `HbarAppUiSettingsList`。组件只接收宿主提供的标题、元数据、状态和动作文案，不嵌入 Provider 示例或业务文案。Provider 分组把运行时事实映射为名称、协议、默认模型、模型数量、隐藏状态和凭据状态；整行主操作继续执行编辑命令，删除进入省略号二级菜单。删除确认使用原生 NativeDialog，明确显示目标和后果；Escape 只关闭顶层确认，随后可关闭菜单并把焦点恢复到原操作按钮。列表状态不包含 API Key，ProviderEditor 仍由结构化命令草稿处理敏感输入和保存。
+
+| 场景           | 截图与人工观察                                                                                                                                                                                                                                                                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面列表       | [1440](../../artifacts/ui-redesign/settings/after/desktop-1440-providers.png)：两条 Provider 按统一阅读顺序显示事实和凭据状态，主操作与二级操作不再混在灰色整行按钮中                                                                                                                                                   |
+| 操作菜单       | [1440](../../artifacts/ui-redesign/settings/after/desktop-1440-provider-menu.png)：菜单锚定对应行的省略号按钮，危险动作独立着色且不改变底层选择                                                                                                                                                                         |
+| 删除确认       | [1440](../../artifacts/ui-redesign/settings/after/desktop-1440-provider-delete.png)：原生模态使背景 inert，标题、后果、取消和删除动作都指向明确 Provider                                                                                                                                                                |
+| 中等宽度       | [1024](../../artifacts/ui-redesign/settings/after/tablet-1024-providers.png)：应用侧栏、设置分类栏和列表仍保持正常流，元数据及状态没有越出内容区                                                                                                                                                                        |
+| 窄屏           | [390](../../artifacts/ui-redesign/settings/after/mobile-390-providers.png)：分类改为选择器，列表头动作和每行事实自然换行，状态移到独立行且无水平溢出                                                                                                                                                                    |
+| ProviderEditor | [1440](../../artifacts/ui-redesign/provider-editor/after/desktop-1440.png)、[1024](../../artifacts/ui-redesign/provider-editor/after/tablet-1024.png)、[390](../../artifacts/ui-redesign/provider-editor/after/mobile-390.png)：从新列表进入后继续复用已验证的连接、凭据、多模型和固定操作区，返回仍落在 Providers 分组 |
+
+Playwright 在真实 Host 流程中先展开现有 Provider 的二级菜单，打开删除确认并验证两层 Escape 与焦点恢复，再通过新增入口完成预设选择、模型编辑和保存。返回列表后在 1440、1024 和 390 三档宽度检查 Browser provider 可编辑、页面没有水平溢出，并重新生成以上截图。截图已逐张人工查看；旧灰色整行按钮、直接暴露的删除动作和窄屏状态挤压均已消失。
+
+验证结果：flow/content/icon guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3039 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景完成列表菜单、确认弹窗、ProviderEditor 返回和三档响应式验证；以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
