@@ -3,6 +3,8 @@ import { defineCommand } from '@hbar/commands/protocol'
 
 const instanceId = z.string().min(1).max(160)
 const section = z.enum(['dashboard', 'usage', 'git'])
+export const performanceWindowSchema = z.enum(['2m', '15m', '1h'])
+export const performanceTargetSchema = z.enum(['all', 'system', 'host'])
 const summary = z.strictObject({
   instanceId,
   section,
@@ -30,4 +32,12 @@ export const statusWorkspaceCommands = {
     z.strictObject({ instanceId }),
     summary,
   ),
+  'statusWorkspace.setPerformanceQuery': defineCommand(
+    metadata('statusWorkspace.setPerformanceQuery'),
+    z.strictObject({ instanceId, window: performanceWindowSchema, target: performanceTargetSchema }),
+    summary,
+  ),
 }
+
+export type PerformanceWindow = z.output<typeof performanceWindowSchema>
+export type PerformanceTarget = z.output<typeof performanceTargetSchema>

@@ -924,6 +924,21 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     loading: choose('正在加载状态数据…', 'Loading status data…'),
     tabs: choose('状态分区', 'Status sections'),
     sections: { dashboard: choose('性能', 'Performance'), usage: choose('使用情况', 'Usage'), git: 'Git' },
+    performanceFilters: {
+      label: choose('性能查询条件', 'Performance query filters'),
+      timeWindow: choose('时间窗', 'Time window'),
+      target: choose('指标范围', 'Metric scope'),
+      windows: {
+        '2m': choose('最近 2 分钟', 'Last 2 minutes'),
+        '15m': choose('最近 15 分钟', 'Last 15 minutes'),
+        '1h': choose('最近 1 小时', 'Last hour'),
+      },
+      targets: {
+        all: choose('整机与 Host', 'System and Host'),
+        system: choose('仅整机', 'System only'),
+        host: choose('仅 Host 进程', 'Host process only'),
+      },
+    },
     gap: (skipped) =>
       choose(
         `当前窗口存在数据缺口，已跳过 ${number.format(skipped)} 个样本。`,

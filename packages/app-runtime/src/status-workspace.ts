@@ -13,6 +13,8 @@ import type {
 } from './types'
 
 const MAX_PANELS = 4
+const DEFAULT_PERFORMANCE_QUERY = { window: '1h', target: 'all' } as const
+const PERFORMANCE_WINDOWS = { '2m': 120_000, '15m': 900_000, '1h': 3_600_000 } as const
 
 function code(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -75,6 +77,7 @@ export function createStatusWorkspace(
       section: target.section,
       status: 'loading',
       performance: previous?.performance ?? null,
+      performanceQuery: previous?.performanceQuery ?? DEFAULT_PERFORMANCE_QUERY,
       usage: previous?.usage ?? null,
       git: previous?.git ?? null,
       gitWorkspaceId: previous?.gitWorkspaceId ?? null,
@@ -88,7 +91,14 @@ export function createStatusWorkspace(
       let gitWorkspaceId = loading.gitWorkspaceId
       if (target.section === 'dashboard') {
         if (!metrics) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Performance metrics are unavailable')
-        performance = await metrics.execute('metrics.query', { bucketMs: 1_000, maxPoints: 120 })
+        const duration = PERFORMANCE_WINDOWS[loading.performanceQuery.window]
+        const to = Date.now() + 1
+        performance = await metrics.execute('metrics.query', {
+          from: Math.max(0, to - duration),
+          to,
+          bucketMs: Math.max(100, Math.ceil(duration / 120)),
+          maxPoints: 120,
+        })
       } else if (target.section === 'usage') {
         if (!usage) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Usage metrics are unavailable')
         usageReport = await usage.execute('usage.query', {
@@ -118,6 +128,7 @@ export function createStatusWorkspace(
         section: target.section,
         status: 'ready',
         performance,
+        performanceQuery: loading.performanceQuery,
         usage: usageReport,
         git: gitReport,
         gitWorkspaceId,
@@ -134,6 +145,25 @@ export function createStatusWorkspace(
   }
 
   local.register(statusWorkspaceCommands['statusWorkspace.refresh'], ({ instanceId }) => load(instanceId))
+  local.register(statusWorkspaceCommands['statusWorkspace.setPerformanceQuery'], ({ instanceId, window, target }) => {
+    const targetPanel = panel(instanceId)
+    if (targetPanel.section !== 'dashboard')
+      throw new CommandError('INVALID_INPUT', 'Performance query belongs to the dashboard section')
+    const current = state.reader.getSnapshot().entries[instanceId]
+    const base: StatusWorkspaceEntryState = current ?? {
+      instanceId,
+      section: 'dashboard',
+      status: 'loading',
+      performance: null,
+      performanceQuery: DEFAULT_PERFORMANCE_QUERY,
+      usage: null,
+      git: null,
+      gitWorkspaceId: null,
+      error: null,
+    }
+    replace({ ...base, section: 'dashboard', performanceQuery: { window, target }, error: null })
+    return load(instanceId)
+  })
   return {
     reader: state.reader,
     dispose() {

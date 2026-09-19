@@ -24,6 +24,21 @@
   gap: var(--hbar-app-ui-space-sm);
 }
 
+.hbar-app-react-status-controls {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
+  border-block-end: 1px solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-status-controls label {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
 .hbar-app-react-status-workspace > nav {
   flex: 0 0 auto;
   padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);

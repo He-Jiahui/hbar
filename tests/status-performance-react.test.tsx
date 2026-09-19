@@ -73,6 +73,21 @@ test('performance dashboard renders bounded Host process and availability facts'
     expect(html).toContain('PLATFORM_UNSUPPORTED')
     expect(html).toContain('The current window has a data gap; 2 samples were skipped.')
     expect(html).toContain('CPU timeline')
+    expect(html).toContain('Performance query filters')
+    expect(html).toContain('Last hour')
+    expect(html).toContain('System and Host')
+    await runtime.view.commands.execute('statusWorkspace.setPerformanceQuery', {
+      instanceId: panel.instanceId,
+      window: '2m',
+      target: 'host',
+    })
+    const filtered = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarStatusWorkspace labels={getShellCopy('en-US').status} />
+      </HbarRuntimeProvider>,
+    )
+    expect(filtered).toContain('<dt>Host CPU</dt>')
+    expect(filtered).not.toContain('<dt>System CPU</dt>')
   } finally {
     runtime.dispose()
   }

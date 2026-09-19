@@ -32,6 +32,7 @@ const readings: PerformanceReadings = {
 }
 
 test('status performance workspace loads bounded Host metrics and preserves unavailable readings', async () => {
+  const inputs: unknown[] = []
   const runtime = createAppRuntime({
     instanceId: 'status-performance',
     hostId: 'host',
@@ -41,8 +42,9 @@ test('status performance workspace loads bounded Host metrics and preserves unav
       },
     },
     metrics: {
-      async execute(name: string) {
+      async execute(name: string, input: unknown) {
         if (name !== 'metrics.query') throw new Error(`Unsupported metrics command: ${name}`)
+        inputs.push(input)
         return {
           observedAt: 2_000,
           intervalMs: 1_000,
@@ -77,6 +79,23 @@ test('status performance workspace loads bounded Host metrics and preserves unav
       reason: 'PLATFORM_UNSUPPORTED',
       value: null,
     })
+    expect(entry.performanceQuery).toEqual({ window: '1h', target: 'all' })
+    expect(inputs[0]).toMatchObject({ bucketMs: 30_000, maxPoints: 120 })
+    const initial = inputs[0] as { from: number; to: number }
+    expect(initial.to - initial.from).toBe(3_600_000)
+
+    await runtime.view.commands.execute('statusWorkspace.setPerformanceQuery', {
+      instanceId: panel.instanceId,
+      window: '15m',
+      target: 'host',
+    })
+    expect(runtime.view.state.status.getSnapshot().entries[panel.instanceId]?.performanceQuery).toEqual({
+      window: '15m',
+      target: 'host',
+    })
+    expect(inputs[1]).toMatchObject({ bucketMs: 7_500, maxPoints: 120 })
+    const filtered = inputs[1] as { from: number; to: number }
+    expect(filtered.to - filtered.from).toBe(900_000)
   } finally {
     runtime.dispose()
   }

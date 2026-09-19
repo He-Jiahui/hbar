@@ -41,6 +41,7 @@ import type {
   SchemaCallbackPort,
 } from '@hbar/schema-core'
 import type { SettingsDescription, SettingsReceipt, SettingsSnapshot } from '@hbar/contracts/commands/settings'
+import type { PerformanceTarget, PerformanceWindow } from '@hbar/contracts/commands/status-workspace'
 import type { ProviderEditorDescription, ProviderProfile } from '@hbar/contracts/commands/configuration'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
 
@@ -229,6 +230,10 @@ export interface StatusWorkspaceEntryState {
   readonly section: 'dashboard' | 'usage' | 'git'
   readonly status: 'loading' | 'ready' | 'error'
   readonly performance: Readonly<MetricsQueryResult> | null
+  readonly performanceQuery: {
+    readonly window: PerformanceWindow
+    readonly target: PerformanceTarget
+  }
   readonly usage: Readonly<UsageQueryResult> | null
   readonly git: Readonly<GitStatsReport> | null
   readonly gitWorkspaceId: string | null

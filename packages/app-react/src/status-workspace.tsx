@@ -22,6 +22,13 @@ export interface HbarStatusWorkspaceLabels {
   readonly loading: string
   readonly tabs: string
   readonly sections: Readonly<Record<'dashboard' | 'usage' | 'git', string>>
+  readonly performanceFilters: {
+    readonly label: string
+    readonly timeWindow: string
+    readonly target: string
+    readonly windows: Readonly<Record<'2m' | '15m' | '1h', string>>
+    readonly targets: Readonly<Record<'all' | 'system' | 'host', string>>
+  }
   readonly gap: (skipped: number) => string
   readonly process: string
   readonly resources: string
@@ -156,6 +163,9 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
   const usageReport = entry?.usage
   const gitReport = entry?.git
   const readings = report?.current?.readings
+  const performanceQuery = entry?.performanceQuery
+  const includeSystem = performanceQuery?.target !== 'host'
+  const includeHost = performanceQuery?.target !== 'system'
   const metrics = (keys: readonly ReadingKey[]) =>
     keys.map((key) => {
       const metric = readings?.[key]
@@ -245,6 +255,50 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
           </HbarAppUiButton>
         ))}
       </nav>
+      {section === 'dashboard' && performanceQuery && (
+        <div className="hbar-app-react-status-controls" role="group" aria-label={labels.performanceFilters.label}>
+          <label>
+            <span>{labels.performanceFilters.timeWindow}</span>
+            <select
+              value={performanceQuery.window}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) =>
+                invoke('statusWorkspace.setPerformanceQuery', {
+                  instanceId,
+                  window: event.currentTarget.value,
+                  target: performanceQuery.target,
+                })
+              }
+            >
+              {(['2m', '15m', '1h'] as const).map((window) => (
+                <option key={window} value={window}>
+                  {labels.performanceFilters.windows[window]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{labels.performanceFilters.target}</span>
+            <select
+              value={performanceQuery.target}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) =>
+                invoke('statusWorkspace.setPerformanceQuery', {
+                  instanceId,
+                  window: performanceQuery.window,
+                  target: event.currentTarget.value,
+                })
+              }
+            >
+              {(['all', 'system', 'host'] as const).map((target) => (
+                <option key={target} value={target}>
+                  {labels.performanceFilters.targets[target]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
       {!entry || entry.status === 'loading' ? (
         <p className="hbar-app-react-status-loading">{labels.loading}</p>
       ) : entry.error ||
@@ -257,66 +311,71 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
       ) : section === 'dashboard' && report ? (
         <main>
           {report.gap && <p role="status">{labels.gap(report.skippedSamples)}</p>}
-          <section>
-            <h2>{labels.process}</h2>
-            <HbarAppUiMetricStrip
-              metrics={[
-                { label: labels.processLabels.pid, value: labels.number(report.process.pid) },
-                { label: labels.processLabels.platform, value: report.process.platform },
-                { label: labels.processLabels.architecture, value: report.process.arch },
-                { label: labels.processLabels.uptime, value: labels.duration(report.process.uptimeMs) },
-                { label: labels.processLabels.processors, value: labels.number(report.process.logicalProcessors) },
-              ]}
-            />
-          </section>
+          {includeHost && (
+            <section>
+              <h2>{labels.process}</h2>
+              <HbarAppUiMetricStrip
+                metrics={[
+                  { label: labels.processLabels.pid, value: labels.number(report.process.pid) },
+                  { label: labels.processLabels.platform, value: report.process.platform },
+                  { label: labels.processLabels.architecture, value: report.process.arch },
+                  { label: labels.processLabels.uptime, value: labels.duration(report.process.uptimeMs) },
+                  { label: labels.processLabels.processors, value: labels.number(report.process.logicalProcessors) },
+                ]}
+              />
+            </section>
+          )}
           <section>
             <h2>{labels.resources}</h2>
             <HbarAppUiMetricStrip
               metrics={metrics([
-                'systemCpuPercent',
-                'hostCpuPercent',
-                'systemLoad1',
-                'systemMemoryUsedBytes',
-                'systemMemoryTotalBytes',
-                'hostRssBytes',
-                'hostHeapUsedBytes',
+                ...(includeSystem
+                  ? (['systemCpuPercent', 'systemLoad1', 'systemMemoryUsedBytes', 'systemMemoryTotalBytes'] as const)
+                  : []),
+                ...(includeHost ? (['hostCpuPercent', 'hostRssBytes', 'hostHeapUsedBytes'] as const) : []),
               ])}
             />
           </section>
-          <section>
-            <h2>{labels.runtime}</h2>
-            <HbarAppUiMetricStrip
-              metrics={metrics([
-                'hostThreadCount',
-                'eventLoopLagMs',
-                'activeRuns',
-                'queuedRuns',
-                'managedChildProcesses',
-              ])}
-            />
-          </section>
+          {includeHost && (
+            <section>
+              <h2>{labels.runtime}</h2>
+              <HbarAppUiMetricStrip
+                metrics={metrics([
+                  'hostThreadCount',
+                  'eventLoopLagMs',
+                  'activeRuns',
+                  'queuedRuns',
+                  'managedChildProcesses',
+                ])}
+              />
+            </section>
+          )}
           <section>
             <h2>{labels.io}</h2>
             <HbarAppUiMetricStrip
               metrics={metrics([
-                'hostDiskReadBytesPerSecond',
-                'hostDiskWriteBytesPerSecond',
-                'systemNetworkReceiveBytesPerSecond',
-                'systemNetworkTransmitBytesPerSecond',
+                ...(includeHost ? (['hostDiskReadBytesPerSecond', 'hostDiskWriteBytesPerSecond'] as const) : []),
+                ...(includeSystem
+                  ? (['systemNetworkReceiveBytesPerSecond', 'systemNetworkTransmitBytesPerSecond'] as const)
+                  : []),
               ])}
             />
           </section>
           <section>
             <h2>{labels.trends}</h2>
             <div className="hbar-app-react-performance-charts">
-              <article>
-                <h3>{labels.readings.systemCpuPercent}</h3>
-                {chart('systemCpuPercent')}
-              </article>
-              <article>
-                <h3>{labels.readings.hostCpuPercent}</h3>
-                {chart('hostCpuPercent')}
-              </article>
+              {includeSystem && (
+                <article>
+                  <h3>{labels.readings.systemCpuPercent}</h3>
+                  {chart('systemCpuPercent')}
+                </article>
+              )}
+              {includeHost && (
+                <article>
+                  <h3>{labels.readings.hostCpuPercent}</h3>
+                  {chart('hostCpuPercent')}
+                </article>
+              )}
             </div>
           </section>
         </main>
