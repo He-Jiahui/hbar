@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CommandParameterField, CommandParameterIssue } from '@hbar/commands'
+import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
 import { HbarAppUiButton, HbarAppUiCommandList, HbarAppUiSurface } from 'hbar-app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './command-palette.css'
+
+type CommandParameterField = CommandPaletteItem['form']['fields'][number]
+type CommandParameterIssue = NonNullable<CommandPaletteState['draft']>['issues'][number]
 
 export interface HbarCommandPaletteLabels {
   readonly title: string
