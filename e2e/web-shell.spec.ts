@@ -297,9 +297,41 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const expectMonitoringLayout = async () =>
+      page
+        .evaluate(() => {
+          const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
+          const monitoring = document.querySelector<HTMLElement>('.hbar-app-react-session-monitoring')
+          const bars = [...document.querySelectorAll<HTMLElement>('.hbar-app-ui-bar-series i')]
+          if (!drawer || !monitoring || !bars.length) return null
+          const drawerRect = drawer.getBoundingClientRect()
+          const monitoringRect = monitoring.getBoundingClientRect()
+          const barRects = bars.map((bar) => bar.getBoundingClientRect())
+          return {
+            fillsDrawer:
+              Math.abs(drawerRect.left - monitoringRect.left) <= 1 &&
+              Math.abs(drawerRect.right - monitoringRect.right) <= 1 &&
+              Math.abs(drawerRect.height - monitoringRect.height) <= 1,
+            noOverflow: monitoring.scrollWidth <= monitoring.clientWidth,
+            barCount: bars.length,
+            minimumBarWidth: Math.min(...barRects.map((rect) => rect.width)),
+            maximumBarHeight: Math.max(...barRects.map((rect) => rect.height)),
+          }
+        })
+        .then((geometry) => {
+          expect(geometry).not.toBeNull()
+          expect(geometry).toMatchObject({ fillsDrawer: true, noOverflow: true })
+          if (geometry!.minimumBarWidth < 1 || geometry!.maximumBarHeight < 8)
+            throw new Error(`Monitoring bar geometry: ${JSON.stringify(geometry)}`)
+        })
+    await expectMonitoringLayout()
     await expect(page.getByText('Total tokens')).toBeVisible()
     await expect(page.getByText('Token timeline')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/desktop-1440.png', fullPage: true })
+    await page.locator('.hbar-app-react-session-monitoring summary').filter({ hasText: 'Execution statistics' }).click()
+    await expect(page.getByText('Peak request concurrency')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/desktop-1440-expanded.png', fullPage: true })
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
@@ -365,6 +397,10 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/document-1024.png', fullPage: true })
     await page.getByRole('button', { name: 'Back to files' }).click()
     await page.getByRole('button', { name: 'Close file manager' }).click()
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
+    await expectMonitoringLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/tablet-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close session monitoring' }).click()
     await page.setViewportSize({ width: 390, height: 844 })
     const expectNoHorizontalOverflow = async () =>
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -404,7 +440,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
+    await expectMonitoringLayout()
     await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/mobile-390.png', fullPage: true })
+    await page.locator('.hbar-app-react-session-monitoring summary').filter({ hasText: 'Execution statistics' }).click()
+    await expect(page.getByText('Peak request concurrency')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/mobile-390-expanded.png', fullPage: true })
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
 
     await page.getByRole('button', { name: 'Child agents', exact: true }).click()

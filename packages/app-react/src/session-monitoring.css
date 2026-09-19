@@ -1,71 +1,129 @@
-.hbar-app-react-session-monitoring {
+.hbar-app-ui-surface.hbar-app-react-session-monitoring {
   display: flex;
-  flex-direction: column;
+  inline-size: 100%;
   min-inline-size: 0;
   min-block-size: 0;
   block-size: 100%;
+  flex: 1 1 auto;
+  flex-direction: column;
   overflow: hidden;
+  border: 0;
+  border-radius: 0;
 }
+
 .hbar-app-react-session-monitoring > header {
   display: flex;
+  min-inline-size: 0;
   flex: 0 0 auto;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--hbar-app-ui-space-md);
-  padding: var(--hbar-app-ui-space-lg);
-  border-block-end: 1px solid var(--hbar-app-ui-border);
+  padding: var(--hbar-app-ui-space-md);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
+
+.hbar-app-react-session-monitoring > header > div {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
 .hbar-app-react-session-monitoring h1,
 .hbar-app-react-session-monitoring h2,
 .hbar-app-react-session-monitoring p {
   margin: 0;
 }
-.hbar-app-react-session-monitoring header p {
-  color: var(--hbar-app-ui-muted);
+
+.hbar-app-react-session-monitoring h1 {
+  font-size: var(--hbar-app-ui-font-title);
+  line-height: 1.25;
 }
+
+.hbar-app-react-session-monitoring h2,
+.hbar-app-react-session-monitoring summary {
+  font-size: var(--hbar-app-ui-font-section);
+  font-weight: 650;
+}
+
+.hbar-app-react-session-monitoring header p {
+  overflow: hidden;
+  color: var(--hbar-app-ui-subtle);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hbar-app-react-session-monitoring main {
   display: flex;
-  flex: 1 1 auto;
+  min-inline-size: 0;
   min-block-size: 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-lg);
   overflow: auto;
-  padding: var(--hbar-app-ui-space-lg);
+  padding: var(--hbar-app-ui-space-md);
 }
-.hbar-app-react-session-monitoring section {
+
+.hbar-app-react-session-monitoring section,
+.hbar-app-react-session-monitoring details {
   display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-sm);
 }
-.hbar-app-react-monitoring-series {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--hbar-app-ui-space-xs);
-  min-block-size: 8rem;
-  padding: var(--hbar-app-ui-space-sm);
-  border: 1px solid var(--hbar-app-ui-border);
+
+.hbar-app-react-session-monitoring summary {
+  padding-block: var(--hbar-app-ui-space-sm);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  color: var(--hbar-app-ui-text);
+  cursor: pointer;
 }
-.hbar-app-react-monitoring-series i {
-  flex: 1 1 0;
-  min-inline-size: 0.125rem;
-  max-inline-size: 2rem;
-  background: var(--hbar-app-ui-accent);
+
+.hbar-app-react-session-monitoring details[open] summary {
+  margin-block-end: var(--hbar-app-ui-space-xs);
 }
+
 .hbar-app-react-session-monitoring ul {
   display: flex;
+  min-inline-size: 0;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-xs);
   margin: 0;
   padding: 0;
   list-style: none;
 }
+
 .hbar-app-react-session-monitoring li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: var(--hbar-app-ui-space-md);
-  padding: var(--hbar-app-ui-space-sm);
-  border-block-end: 1px solid var(--hbar-app-ui-border);
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-md);
+  padding-block: var(--hbar-app-ui-space-sm);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
+
+.hbar-app-react-session-monitoring li strong {
+  inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-session-monitoring li span {
+  color: var(--hbar-app-ui-subtle);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-monitoring-gap {
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  border-inline-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-warning);
+  color: var(--hbar-app-ui-warning);
+  background: var(--hbar-app-ui-surface-1);
+  font-size: 0.75rem;
+}
+
 .hbar-app-react-monitoring-empty {
   display: flex;
   flex: 1 1 auto;
@@ -73,10 +131,11 @@
   justify-content: center;
   padding: var(--hbar-app-ui-space-lg);
   color: var(--hbar-app-ui-muted);
+  text-align: center;
 }
-@media (max-width: 42rem) {
-  .hbar-app-react-session-monitoring li {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--hbar-app-ui-space-xs);
+
+@media (max-width: 35rem) {
+  .hbar-app-react-session-monitoring > header {
+    padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
   }
 }

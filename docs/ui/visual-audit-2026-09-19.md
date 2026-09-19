@@ -178,3 +178,23 @@ WorkspaceFiles 的 embedded 形态移除重复标题与路径，文件行使用�
 Playwright 在三档宽度分别断言工具 workspace 与 AppShell drawer 的四条边误差不超过 1 CSS px、没有内部横向溢出，并逐次检查 `data-view` 只能为 browser 或 document。真实 Host 流程打开、编辑、保存、返回列表后再次在 1024/390 打开相同文件；运行时测试验证保存期间的新编辑不会被旧回执覆盖、冲突保留草稿、返回列表不清除草稿。R4.2 关闭；二进制/过大文件由现有 Host 读取错误进入明确不可编辑状态，当前没有虚构二进制预览器。
 
 验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；379 个 Bun 测试、2968 个断言通过；Web production build、File Manager 独立预览的滚动/窄屏/本地化验证、flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过并重新生成、逐张查看以上真实 Host 截图。本节结果取代第 10、11 节中“文件工具内部仍待 R4.2 修复”的旧状态记录。
+
+## 13. R4.3 当前会话 Monitoring
+
+旧 Monitoring 使用通用 MetricStrip 大卡片一次展开 6 项摘要、2 项延迟和 6 项执行指标；24rem 工具中的 unavailable 说明被放大并折成多行，标题和文字关闭按钮也占用大量首屏。数据虽然来自可靠的 Usage 投影，信息层级却让所有数字同时抢占注意力。
+
+`hbar-app-ui/workbench` 现在提供宿主数据驱动的 CompactMetrics 与 BarSeries。前者用普通 flex 流显示标签、值和可选 detail，不包含页面业务文案；后者根据有限数值自行归一化，忽略非有限值并呈现宿主标签。Session Monitoring 默认只展开总 token、费用、速率、运行/尝试、缓存以及 token 时间线；延迟、执行统计和模型用量使用原生 `details` 按需展开。空报告与单项 unavailable 分为长空态和短值，不再把说明句塞入每个指标。
+
+页面标题、说明和图标关闭动作缩成工具头，内容明确占满 drawer。Usage gap 继续以就近状态条显示。组件只读取 `controls.usage`，没有按 Session 推算无法证实的 CPU，也没有创建第二份统计状态。
+
+| 场景       | 截图与人工观察                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面默认态 | [1440](../../artifacts/ui-redesign/monitoring/after/desktop-1440.png)：摘要和 token 时间线位于首屏，三组次级详情保持收起              |
+| 桌面展开态 | [1440](../../artifacts/ui-redesign/monitoring/after/desktop-1440-expanded.png)：执行统计在原位置展开，页面继续由一个工具滚动区承载    |
+| 中等宽度   | [1024](../../artifacts/ui-redesign/monitoring/after/tablet-1024.png)：24rem drawer 被内容填满，指标保持双列紧凑排列                   |
+| 窄屏默认态 | [390](../../artifacts/ui-redesign/monitoring/after/mobile-390.png)：全宽工具没有横向溢出，标题、摘要、时间线和折叠入口均可见          |
+| 窄屏展开态 | [390](../../artifacts/ui-redesign/monitoring/after/mobile-390-expanded.png)：执行统计在单列阅读顺序中展开，值与标签没有被压成逐字换行 |
+
+Playwright 在 1440、1024 和 390 三档宽度断言 Monitoring 工作区与 AppShell drawer 四条边对齐且无横向溢出，并读取每个时间桶的真实几何。当前 Host fixture 返回大量零值桶和最后一个非零桶，所以视觉上只有最右侧细柱；实测每桶宽度仍至少 1 CSS px，非零柱高度至少 8 CSS px。这是实际数据分布，不是用假数据填充的图形，也不是 CSS 收缩故障。
+
+验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；380 个 Bun 测试、2980 个断言通过；Web production build 通过（2395 modules）；flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过。真实场景在三档宽度检查工具边界、溢出与时间桶几何，重新生成并人工查看默认态和展开态截图。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在后续集中验收中补齐。

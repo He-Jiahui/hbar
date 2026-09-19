@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
   HbarAppUiAppShell,
   HbarAppUiAppSidebar,
+  HbarAppUiBarSeries,
+  HbarAppUiCompactMetrics,
   HbarAppUiPageAction,
   HbarAppUiPageHeader,
   HbarAppUiWorkbenchNotice,
@@ -91,4 +93,38 @@ test('page header preserves long host copy and icon actions expose names and sel
   expect(html).toContain('role="group" aria-label="Session tools"')
   expect(html).toContain('aria-label="Open localized workspace files"')
   expect(html).toContain('aria-pressed="true"')
+})
+
+test('compact monitoring primitives render finite host metrics without fallback copy', () => {
+  const metrics = renderToStaticMarkup(
+    createElement(HbarAppUiCompactMetrics, {
+      label: 'Localized usage summary',
+      metrics: [{ id: 'rate', label: 'Localized rate', value: '14 tokens/s', detail: 'Measured by Host' }],
+    }),
+  )
+  const series = renderToStaticMarkup(
+    createElement(HbarAppUiBarSeries, {
+      label: 'Localized token timeline',
+      points: [
+        { id: 'invalid', value: Number.NaN, label: 'Unavailable sample' },
+        { id: 'valid', value: 20, label: '20 localized tokens' },
+      ],
+      empty: 'Localized empty series',
+    }),
+  )
+  expect(metrics).toContain('Localized usage summary')
+  expect(metrics).toContain('Measured by Host')
+  expect(series).toContain('Localized token timeline')
+  expect(series).toContain('20 localized tokens')
+  expect(series).not.toContain('NaN')
+  expect(series).not.toContain('Localized empty series')
+  const emptySeries = renderToStaticMarkup(
+    createElement(HbarAppUiBarSeries, {
+      label: 'Localized empty timeline',
+      points: [],
+      empty: 'Localized empty series',
+    }),
+  )
+  expect(emptySeries).toContain('Localized empty series')
+  expect(emptySeries).not.toContain('hbar-app-ui-bar-series')
 })

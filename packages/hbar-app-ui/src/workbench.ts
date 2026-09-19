@@ -15,3 +15,9 @@ export {
   HbarAppUiPageHeader,
   type HbarAppUiPageHeaderProps,
 } from './components/app-shell/PageHeader'
+export {
+  HbarAppUiBarSeries,
+  HbarAppUiCompactMetrics,
+  type HbarAppUiBarPoint,
+  type HbarAppUiCompactMetric,
+} from './components/monitoring/CompactMonitoring'

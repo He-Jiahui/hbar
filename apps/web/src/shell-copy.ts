@@ -828,7 +828,8 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
       'Inspect Host-recorded tokens, cost, latency, and model usage.',
     ),
     close: choose('关闭用量监控', 'Close session monitoring'),
-    unavailable: choose('当前没有可靠的用量数据。', 'Reliable usage data is not available.'),
+    empty: choose('当前会话还没有可靠的用量数据。', 'This session does not have reliable usage data yet.'),
+    unavailable: choose('不可用', 'Unavailable'),
     gap: choose('当前时间窗口包含数据缺口。', 'The current time window contains a data gap.'),
     totals: {
       tokens: choose('Token 总数', 'Total tokens'),
@@ -860,6 +861,7 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
     models: choose('模型用量', 'Model usage'),
     series: choose('Token 时间序列', 'Token timeline'),
     number: (value) => number.format(value),
+    tokens: (value) => `${number.format(value)} tokens`,
     currency: (value) => currency.format(value),
     percent: (value) => percent.format(value),
     duration: (value) => `${number.format(value)} ms`,
