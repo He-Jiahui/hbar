@@ -241,9 +241,9 @@ Status Center 的 Performance 页显示 Host PID/平台/架构/运行时间/逻�
 
 status workspace 在 usage 分区查询 Host 全局持久 usage/attempt 账本，使用 60 秒桶、最多 120 桶和 10,000 个样本的有界聚合。投影保留 accounting version、scope/window、gap、attempt/run 总数、input/output/cache read/cache write/billable Token、估算金额、缓存命中率、输入/输出/总速率、四类 p50/p95 延迟、模型分布和时间序列。切换 Performance/Usage 保留已读投影，只为当前 params 分区发起新查询。
 
-Usage 页按 Host i18n formatter 显示 Token、USD、比率、tokens/s 和毫秒；预计金额保留 estimated 说明，无样本/无价格/无时间点保留 reason。当前账本尚未记录可靠的工具调用统计、请求并发和总计耗时，页面显式显示为 unavailable/Not recorded，不从 message/run 数量或重叠延迟伪造。
+Usage 页按 Host i18n formatter 显示 Token、USD、比率、tokens/s 和毫秒；预计金额保留 estimated 说明，无样本/无价格/无时间点保留 reason。执行统计由持久 Run/Attempt/ToolCall 事实聚合：工具结算与 `tool.settled` 原子写入，报表给出工具成功/失败/未知、请求/工具最大并发、Run 总耗时与 Run/工具 p50/p95；旧事实缺失结算时间则显示具体 unavailable reason。
 
-交付验证：usage runtime/React 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。真实 Host Playwright 在产生用量事实后切换 Usage，核对持久账本与未记录指标。人工检查 `artifacts/web-b6/usage.png` 与 `usage-details.png`，并将长 cache/timing reason 改为 metric detail。
+交付验证：usage/runtime/React 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。真实 Host Playwright 在产生用量事实和一次审批后的 `write_file` 调用后切换 Usage，核对持久 token 账本、1 次成功工具调用、并发与耗时。人工检查 `artifacts/web-b6/usage.png`、`usage-details.png` 与 `execution-usage.png`。
 
 ### B6c：Git Statistics（完成）
 
@@ -259,4 +259,4 @@ Git 页显示 repo ID、HEAD、扫描数与索引模式，分别统计自动/手
 
 连接真实 Host 的 Playwright 场景在 390×844 下依次重开 Files、Monitoring、子 Agent、目标/计划、扩展、Usage 和 Git，检查页面无水平溢出且 AppSidebar 与 Main 几何不重叠。该回归暴露并修复了窄屏侧栏因 flex shrink 被主区覆盖的问题；人工检查 `artifacts/web-b7/connected-status-narrow.png` 确认两个 pane 保持正常上下流。
 
-最终验证：`bun run check` 通过 lint、typecheck 与 348 个测试（111 个文件、2702 个断言）；`bun run build` 完成 2378 个模块；`bun run test:e2e` 的 5 个场景通过。使用 Visual Studio x64 环境完成 debug Tauri 构建，`bun scripts/desktop-smoke.ts` 确认原生 WebView 外壳渲染、关闭窗口隐藏、桌面退出后 Host 存活与独立 SDK 取消 Run。完整检查日志保留在忽略目录 `artifacts/command-first-b7-check.log`。
+最终验证：`bun run check` 通过 lint、typecheck 与 349 个测试（111 个文件、2713 个断言）；`bun run build` 完成 2378 个模块；`bun run test:e2e` 的 5 个场景通过。使用 Visual Studio x64 环境完成 debug Tauri 构建，`bun scripts/desktop-smoke.ts` 确认原生 WebView 外壳渲染、关闭窗口隐藏、桌面退出后 Host 存活与独立 SDK 取消 Run。完整检查日志保留在忽略目录 `artifacts/command-first-b7-check.log`。

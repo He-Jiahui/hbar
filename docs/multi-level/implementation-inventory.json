@@ -476,7 +476,7 @@
     "B3": "complete: schema-react scalar and keyed List renderers, Host descriptions/callbacks, layered FormState, cancellable content, command-owned grouping, private credential drafts, ProviderDialog and real Web save/create flows",
     "B4": "complete: bounded merged catalog, descriptor parameter forms, private sensitive drafts, controlled categorized Web palette and real Host execution",
     "B5": "complete: Files, session Monitoring, child Agent, goal/plan, Session Settings, and extensions entry use command-owned state with responsive real-Host E2E",
-    "B6": "complete: Performance, global Usage, and workspace Git dashboards use bounded Host facts, explicit gaps and unavailable metrics, and real Host E2E",
+    "B6": "complete: Performance, global Usage/execution telemetry, and workspace Git dashboards use bounded Host facts, explicit gaps and unavailable metrics, and real Host E2E",
     "B7": "complete: retired Web placeholders removed, writable-store and deprecated-write guards pass, app-react dependency direction restored, responsive full E2E and native desktop smoke pass"
   }
 }

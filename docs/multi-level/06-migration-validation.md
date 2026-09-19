@@ -122,6 +122,8 @@ A12a 建立可查询前的 Usage/Attempt 规范事实：`@hbar/usage` 根据实�
 
 A12b 完成 Usage 查询和导出闭环。Storage 用固定事件类型、时间范围、scope 与稳定游标执行有界 SQL；`@hbar/usage` 负责旧/新事实归一、usage ID 去重、后代聚合、价格覆盖、缓存资格、速率、模型分组、时间桶和 p50/p95。Host commands、typed Client、CLI 与 API 返回同一报告；超过事件/样本上限显式 `gap: true`。真实父子 Session、Run scope、过滤、分页导出和 CLI 场景均由 fixture provider 验证。
 
+A12c 补齐执行统计。Storage 在同一 SQLite 事务中将 tool intent 收敛为 settled 并追加唯一 `tool.settled` 事实；Usage 查询按相同 scope、时间窗与模型过滤聚合工具成功/失败/未知、请求/工具最大并发、Run 总耗时与 Run/工具耗时 p50/p95。旧数据缺少 settlement/start 时间时返回具体 unavailable reason，不把未完整区间当作精确耗时。
+
 A13a 建立 `@hbar/metrics` 有界 collector 与 Host OS adapter。collector 对共享采样做容量、重入、跳样和时间桶管理；adapter 区分 system、Host 和尚不可归属的 managed child 数据。Windows 无可靠线程/磁盘/网络来源时明确 unavailable；Linux procfs 路径提供真实计数并在首个差分样本报告 warming up。纯 fake 测试验证平均聚合和保留 gap，真实进程 smoke 验证来源与平台差异。
 
 A13b 发布 `metrics.current/query` Host commands。每个 Host 只启动一个 collector，关闭时释放 timer；命令输出包含动态进程 uptime、当前样本、有界桶、跳样数和保留 gap。真实认证 Host 与 CLI 测试验证目录、进程归属、当前内存、Run 队列和点数上限；视图不接触 OS adapter。
@@ -172,9 +174,9 @@ B4 已完成：`@hbar/commands` 从统一 descriptor 编译无 React 参数表�
 
 B5 已完成：Files 使用 workspace 边界内的 compare-and-write；Session Monitoring 复用可靠 Usage 投影；子 Agent 保持独立 Session/预算/取消事实；目标与计划保持 Host 状态机与草稿边界；Session Settings 复用三层 Schema 工作台。扩展页查询 Host plugin/skill 并转到共享命令目录。每个可见写入只执行 command，打开/关闭由 surface command 管理。
 
-B6 已完成：Performance 显示 Host 进程和有界资源采样，Usage 显示全局账本、token/费用/速率/延时/模型分布，Git 显示选中工作区的一方历史、来源与行数变化。缺少采样、gap、估算与未记录指标保持明确状态，不由 UI 伪造数据。
+B6 已完成：Performance 显示 Host 进程和有界资源采样，Usage 显示全局账本、token/费用/速率/延时/模型分布以及工具结果、请求/工具并发、Run/工具耗时，Git 显示选中工作区的一方历史、来源与行数变化。缺少采样、gap、估算与旧事实不完整保持明确状态，不由 UI 伪造数据。
 
-B7 已完成：旧 Web 业务页面和共享可写 store 保持删除，最后不可达的占位面板文案已清理；消费端不直达 deprecated write RPC，Host 兼容入口仍委托 canonical handler。app-react 只经 app-runtime 公开读模型取得业务类型。连接 Host 的 390px 场景验证全部工具和状态分区无水平溢出或侧栏/主区重叠。最终通过 348 个 Bun 测试、5 个 Playwright 场景、2378 模块生产构建、Windows debug Tauri 构建和原生 desktop smoke。
+B7 已完成：旧 Web 业务页面和共享可写 store 保持删除，最后不可达的占位面板文案已清理；消费端不直达 deprecated write RPC，Host 兼容入口仍委托 canonical handler。app-react 只经 app-runtime 公开读模型取得业务类型。连接 Host 的 390px 场景验证全部工具和状态分区无水平溢出或侧栏/主区重叠。最终通过 349 个 Bun 测试、5 个 Playwright 场景、2378 模块生产构建、Windows debug Tauri 构建和原生 desktop smoke。
 
 ## 5. 验收矩阵
 
