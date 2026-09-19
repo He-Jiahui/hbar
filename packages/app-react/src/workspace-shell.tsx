@@ -13,6 +13,7 @@ export interface HbarWorkspaceShellLabels {
   readonly loadMore: string
   readonly commands: string
   readonly status: string
+  readonly extensions: string
   readonly settings: string
   readonly server: string
   readonly connected: string
@@ -160,6 +161,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 onClick={() => void execute('app.openStatus', { section: 'dashboard' }).catch(recordError)}
               >
                 {props.labels.status}
+              </button>
+              <button type="button" onClick={() => openPanel('extensions')}>
+                {props.labels.extensions}
               </button>
               <button
                 type="button"

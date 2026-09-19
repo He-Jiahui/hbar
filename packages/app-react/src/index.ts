@@ -21,4 +21,5 @@ export { HbarFileWorkspace, type HbarFileWorkspaceLabels } from './file-workspac
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
 export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './agent-workspace'
 export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'
+export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
 export type { HbarRuntimeView } from './runtime'

@@ -25,6 +25,7 @@ const labels: HbarWorkspaceShellLabels = {
   loadMore: '加载下一页',
   commands: '打开命令目录',
   status: '打开状态中心',
+  extensions: '打开扩展',
   settings: '打开设置',
   server: '服务端连接',
   connected: '已经连接',

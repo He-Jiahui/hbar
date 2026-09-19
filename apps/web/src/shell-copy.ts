@@ -1,6 +1,7 @@
 import type {
   HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
+  HbarExtensionWorkspaceLabels,
   HbarFileWorkspaceLabels,
   HbarGoalPlanWorkspaceLabels,
   HbarProviderDialogLabels,
@@ -26,6 +27,7 @@ interface ShellCopy {
   readonly monitoring: HbarSessionMonitoringLabels
   readonly agents: HbarAgentWorkspaceLabels
   readonly goals: HbarGoalPlanWorkspaceLabels
+  readonly extensions: HbarExtensionWorkspaceLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
@@ -826,6 +828,46 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
   }
 }
 
+function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorkspaceLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale)
+  return {
+    title: choose('扩展与技能', 'Extensions and skills'),
+    description: choose(
+      '查看 Host 已注册能力，管理可选插件，并进入同一命令目录。',
+      'Inspect Host capabilities, manage optional plugins, and open their shared command catalog.',
+    ),
+    close: choose('关闭扩展与技能', 'Close extensions and skills'),
+    refresh: choose('刷新', 'Refresh'),
+    loading: choose('正在加载扩展与技能…', 'Loading extensions and skills…'),
+    plugins: choose('插件', 'Plugins'),
+    skills: choose('技能', 'Skills'),
+    noPlugins: choose('当前 Host 没有注册插件。', 'No plugins are registered on this Host.'),
+    noSkills: choose('当前 Host 没有发现技能。', 'No skills were discovered on this Host.'),
+    status: {
+      active: choose('已启用', 'Active'),
+      disabled: choose('已禁用', 'Disabled'),
+      failed: choose('失败', 'Failed'),
+    },
+    required: choose('必需插件', 'Required plugin'),
+    provides: choose('能力', 'Capabilities'),
+    commands: choose('命令数', 'Commands'),
+    panels: choose('面板数', 'Panels'),
+    openCommands: choose('打开相关命令', 'Open related commands'),
+    openSystemCommands: choose('打开系统与诊断命令', 'Open system and diagnostic commands'),
+    enable: choose('启用', 'Enable'),
+    disable: choose('禁用', 'Disable'),
+    changing: choose('正在更新…', 'Updating…'),
+    reconcile: choose('核对插件状态', 'Reconcile plugin state'),
+    pluginCount: (count) =>
+      choose(`${number.format(count)} 个插件`, `${number.format(count)} ${count === 1 ? 'plugin' : 'plugins'}`),
+    skillCount: (count) =>
+      choose(`${number.format(count)} 个技能`, `${number.format(count)} ${count === 1 ? 'skill' : 'skills'}`),
+    error: (code) => choose(`扩展操作失败：${code}`, `Extension operation failed: ${code}`),
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     shell: {
@@ -838,6 +880,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       loadMore: '加载更多',
       commands: '命令',
       status: '状态中心',
+      extensions: '扩展',
       settings: '设置',
       server: '服务端',
       connected: '已连接',
@@ -857,6 +900,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     monitoring: createSessionMonitoringLabels('zh-CN'),
     agents: createAgentWorkspaceLabels('zh-CN'),
     goals: createGoalPlanWorkspaceLabels('zh-CN'),
+    extensions: createExtensionWorkspaceLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -874,6 +918,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       loadMore: 'Load more',
       commands: 'Commands',
       status: 'Status center',
+      extensions: 'Extensions',
       settings: 'Settings',
       server: 'Server',
       connected: 'Connected',
@@ -893,6 +938,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     monitoring: createSessionMonitoringLabels('en-US'),
     agents: createAgentWorkspaceLabels('en-US'),
     goals: createGoalPlanWorkspaceLabels('en-US'),
+    extensions: createExtensionWorkspaceLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },
