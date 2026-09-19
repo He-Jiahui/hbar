@@ -219,7 +219,13 @@
         "git.diff_to_remote"
       ],
       "additionalCommands": ["git.stats"],
-      "tests": ["tests/git.test.ts", "tests/git-commands.test.ts", "tests/cli.test.ts"]
+      "tests": [
+        "tests/git.test.ts",
+        "tests/git-commands.test.ts",
+        "tests/status-git-runtime.test.ts",
+        "tests/status-git-react.test.tsx",
+        "tests/cli.test.ts"
+      ]
     },
     {
       "id": "browser",
@@ -470,7 +476,7 @@
     "B3": "complete: schema-react scalar and keyed List renderers, Host descriptions/callbacks, layered FormState, cancellable content, command-owned grouping, private credential drafts, ProviderDialog and real Web save/create flows",
     "B4": "complete: bounded merged catalog, descriptor parameter forms, private sensitive drafts, controlled categorized Web palette and real Host execution",
     "B5": "complete: Files, session Monitoring, child Agent, goal/plan, Session Settings, and extensions entry use command-owned state with responsive real-Host E2E",
-    "B6": "in progress: Performance and global Usage dashboards complete with bounded Host facts, explicit gaps and unavailable metrics, and real Host E2E",
+    "B6": "complete: Performance, global Usage, and workspace Git dashboards use bounded Host facts, explicit gaps and unavailable metrics, and real Host E2E",
     "B7": "pending"
   }
 }

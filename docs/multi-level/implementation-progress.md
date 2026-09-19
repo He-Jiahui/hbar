@@ -227,7 +227,7 @@ AppShell 固定底区新增 Extensions 入口，不占用 Session 右侧五个�
 
 交付验证：runtime/React/AppShell/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2374 个模块。真实临时 Host 的 Playwright 场景从固定侧栏打开扩展页，核对 plugin/skill 分区与诊断命令入口；人工检查 `artifacts/web-b5/extensions.png` 确认 14 个 Host 插件的双列有界布局和滚动。至此 B5 的 Files、Monitoring、子 Agent、目标计划、Session Settings 五个主工具与扩展入口已闭合。
 
-## B6：全局状态中心（实施中）
+## B6：全局状态中心（完成）
 
 ### B6a：Performance Dashboard（完成）
 
@@ -244,3 +244,11 @@ status workspace 在 usage 分区查询 Host 全局持久 usage/attempt 账本�
 Usage 页按 Host i18n formatter 显示 Token、USD、比率、tokens/s 和毫秒；预计金额保留 estimated 说明，无样本/无价格/无时间点保留 reason。当前账本尚未记录可靠的工具调用统计、请求并发和总计耗时，页面显式显示为 unavailable/Not recorded，不从 message/run 数量或重叠延迟伪造。
 
 交付验证：usage runtime/React 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。真实 Host Playwright 在产生用量事实后切换 Usage，核对持久账本与未记录指标。人工检查 `artifacts/web-b6/usage.png` 与 `usage-details.png`，并将长 cache/timing reason 改为 metric detail。
+
+### B6c：Git Statistics（完成）
+
+Git 分区使用 status panel 当前绑定的 workspaceId 从只读 directory 投影解析确切 Host 路径，再查询 `git.stats`；没有工作区、目标已失效或不是仓库时返回明确错误，不默认到 Host 其他目录。查询使用 UTC committer time、24 小时桶、最多 120 桶和 auto/manual/external 全来源，保留 first-parent history、rename separate、binary availability、index mode/completeness 与 gap。
+
+Git 页显示 repo ID、HEAD、扫描数与索引模式，分别统计自动/手动/外部提交，展示文件数、增删行、rename 和 binary file，并绘制提交来源及增删行两组有界时序。Binary line changes 按 Host availability 显示，不估算二进制行数。Web 组合根注入 typed Git client。
+
+交付验证：Git runtime/React/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。Playwright 临时工作区初始化为真实 Git 仓库并产生外部提交，核对仓库分区与来源指标；人工检查 `artifacts/web-b6/git.png` 确认仓库事实、提交来源、行数变化和图表布局。至此 B6 Performance、Usage 与 Git 三个分区已闭合。
