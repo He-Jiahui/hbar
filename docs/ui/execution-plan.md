@@ -26,15 +26,15 @@ R1 中能独立复现、修复的组件可以先完成，之后进入页面组�
 
 ## 3. R1：hbar-app-ui 组件整治
 
-| ID    | 独立交付                                                    | 验收重点                                        | 当前状态            |
-| ----- | ----------------------------------------------------------- | ----------------------------------------------- | ------------------- |
-| R1.1  | 整理主题 token 与基础样式入口，支持 system/light/dark       | 不硬编码 dark；组件与页面同主题；不污染 catalog | 待实施              |
-| R1.2  | 统一 Button/IconButton 的尺寸、tone、hover/focus/disabled   | 对比度、长文本、最小操作面积、无默认原生外观    | 待实施              |
-| R1.2a | PromptComposer 自包含输入/按钮/附件样式及独立视觉入口       | 21 场景截图、IME/发送/停止/附件、生产会话截图   | **已完成：8408735** |
-| R1.3  | 抽取公开 Field/Input/Textarea/Select/CheckBox/ComboBox 控件 | typed labels、错误关联、动态与多选能力真实匹配  | 待实施              |
-| R1.4  | 修复 NativeDialog 与 ToolPane 容器，补 footer/返回/目标契约 | 长内容滚动、焦点圈定与恢复、窄屏操作不裁切      | 待实施              |
-| R1.5  | 为 Conversation/FileDocument/Usage 提供 embedded/density    | 没有重复标题/套壳；不靠调用端隐藏内部 DOM       | 待实施              |
-| R1.6  | 建立完整页面 fixture 组合入口，复用生产组件                 | fixture 只提供数据，不额外补生产缺失的控件样式  | 待实施              |
+| ID    | 独立交付                                                    | 验收重点                                        | 当前状态               |
+| ----- | ----------------------------------------------------------- | ----------------------------------------------- | ---------------------- |
+| R1.1  | 整理主题 token 与基础样式入口，支持 system/light/dark       | 不硬编码 dark；组件与页面同主题；不污染 catalog | 待实施                 |
+| R1.2  | 统一 Button/IconButton 的尺寸、tone、hover/focus/disabled   | 对比度、长文本、最小操作面积、无默认原生外观    | 待实施                 |
+| R1.2a | PromptComposer 自包含输入/按钮/附件样式及独立视觉入口       | 21 场景截图、IME/发送/停止/附件、生产会话截图   | **已完成：8408735**    |
+| R1.3  | 抽取公开 Field/Input/Textarea/Select/CheckBox/ComboBox 控件 | typed labels、错误关联、动态与多选能力真实匹配  | **已完成，见视觉记录** |
+| R1.4  | 修复 NativeDialog 与 ToolPane 容器，补 footer/返回/目标契约 | 长内容滚动、焦点圈定与恢复、窄屏操作不裁切      | 待实施                 |
+| R1.5  | 为 Conversation/FileDocument/Usage 提供 embedded/density    | 没有重复标题/套壳；不靠调用端隐藏内部 DOM       | 待实施                 |
+| R1.6  | 建立完整页面 fixture 组合入口，复用生产组件                 | fixture 只提供数据，不额外补生产缺失的控件样式  | 待实施                 |
 
 R1.2a 只修复组件外观与容量边界，自动高度、输入区整体布局和新主题仍由后续任务完成。
 
