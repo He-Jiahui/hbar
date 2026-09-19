@@ -183,6 +183,18 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
     await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
+    await page.getByRole('button', { name: 'Child agents', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
+    await page.getByRole('textbox', { name: 'Objective' }).fill('Verify the browser workflow')
+    await expect(page.getByRole('textbox', { name: 'Model' })).toHaveValue('local-fixture')
+    await page.getByRole('spinbutton', { name: 'Token budget' }).fill('5000')
+    await page.getByRole('button', { name: 'Create and run' }).click()
+    await expect(page.getByText('Child agent created.')).toBeVisible()
+    await expect(page.getByText('Verify the browser workflow')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b5/child-agents.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close child agent management' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+
     await prompt.fill('/tool write_file {"path":"browser-e2e.txt","text":"approved"}')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByText('Agent approval')).toBeVisible()

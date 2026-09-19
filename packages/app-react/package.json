@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@hbar/app-runtime": "workspace:*",
+    "@hbar/contracts": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/schema-react": "workspace:*",
     "hbar-app-ui": "workspace:*",

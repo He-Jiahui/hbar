@@ -1,4 +1,5 @@
 import type {
+  HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
   HbarFileWorkspaceLabels,
   HbarProviderDialogLabels,
@@ -22,6 +23,7 @@ interface ShellCopy {
   readonly commandPalette: HbarCommandPaletteLabels
   readonly files: HbarFileWorkspaceLabels
   readonly monitoring: HbarSessionMonitoringLabels
+  readonly agents: HbarAgentWorkspaceLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
@@ -529,6 +531,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       label: choose('会话工具', 'Session tools'),
       files: choose('文件', 'Files'),
       monitoring: choose('用量监控', 'Monitoring'),
+      agents: choose('子 Agent', 'Child agents'),
       settings: choose('会话设置', 'Session settings'),
     },
     runs: {
@@ -667,6 +670,80 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   }
 }
 
+function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale)
+  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
+  const statuses: Readonly<Record<Parameters<HbarAgentWorkspaceLabels['status']>[0], string>> = zh
+    ? {
+        created: '已创建',
+        queued: '排队中',
+        running: '运行中',
+        waiting_approval: '等待审批',
+        cancelRequested: '取消中',
+        completed: '已完成',
+        cancelled: '已取消',
+        failed: '失败',
+        interrupted: '已中断',
+      }
+    : {
+        created: 'Created',
+        queued: 'Queued',
+        running: 'Running',
+        waiting_approval: 'Waiting for approval',
+        cancelRequested: 'Cancelling',
+        completed: 'Completed',
+        cancelled: 'Cancelled',
+        failed: 'Failed',
+        interrupted: 'Interrupted',
+      }
+  return {
+    title: choose('子 Agent 管理', 'Child agent management'),
+    description: choose(
+      '创建独立子会话，查看运行状态、预算并管理取消。',
+      'Create independent child sessions and inspect their status, budget, and cancellation.',
+    ),
+    close: choose('关闭子 Agent 管理', 'Close child agent management'),
+    refresh: choose('刷新', 'Refresh'),
+    loading: choose('正在加载子 Agent…', 'Loading child agents…'),
+    empty: choose('当前会话尚无子 Agent。', 'This session has no child agents.'),
+    loadMore: choose('加载更多', 'Load more'),
+    createTitle: choose('创建子 Agent', 'Create child agent'),
+    objective: choose('目标', 'Objective'),
+    objectivePlaceholder: choose('描述子 Agent 需要完成的任务', 'Describe the task for the child agent'),
+    childTitle: choose('会话标题', 'Session title'),
+    childTitlePlaceholder: choose('可选会话标题', 'Optional session title'),
+    createdAt: choose('创建时间', 'Created'),
+    model: choose('模型', 'Model'),
+    tokenBudget: choose('Token 预算', 'Token budget'),
+    thinkingLevel: choose('思考等级', 'Thinking level'),
+    approval: choose('工具审批', 'Tool approval'),
+    approvalOptions: {
+      deny: choose('拒绝', 'Deny'),
+      ask: choose('询问', 'Ask'),
+      allow: choose('允许', 'Allow'),
+    },
+    create: choose('创建并运行', 'Create and run'),
+    creating: choose('正在创建…', 'Creating…'),
+    retryCreate: choose('重试并核对创建结果', 'Retry and reconcile creation'),
+    created: choose('子 Agent 已创建。', 'Child agent created.'),
+    openSession: choose('打开会话', 'Open session'),
+    cancel: choose('取消 Agent', 'Cancel agent'),
+    cancelling: choose('正在取消…', 'Cancelling…'),
+    retryCancel: choose('重试取消', 'Retry cancellation'),
+    count: (count) =>
+      choose(`${number.format(count)} 个子 Agent`, `${number.format(count)} child ${count === 1 ? 'agent' : 'agents'}`),
+    status: (status) => statuses[status],
+    budget: (tokens) =>
+      tokens === null ? choose('继承 / 未限定', 'Inherited / unlimited') : `${number.format(tokens)} tokens`,
+    modelValue: (modelId) => modelId,
+    timestamp: (value) => date.format(value),
+    issue: () => choose('请填写符合约束的值。', 'Enter a value that satisfies the field constraints.'),
+    error: (code) => choose(`子 Agent 操作失败：${code}`, `Child agent operation failed: ${code}`),
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     shell: {
@@ -696,6 +773,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     commandPalette: createCommandPaletteLabels('zh-CN'),
     files: createFileLabels('zh-CN'),
     monitoring: createSessionMonitoringLabels('zh-CN'),
+    agents: createAgentWorkspaceLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -730,6 +808,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     commandPalette: createCommandPaletteLabels('en-US'),
     files: createFileLabels('en-US'),
     monitoring: createSessionMonitoringLabels('en-US'),
+    agents: createAgentWorkspaceLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },
