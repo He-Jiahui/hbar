@@ -249,8 +249,8 @@ export class Kernel {
             const sessions = await this.storage.call('sessions')
             return workspaceId ? sessions.filter((session) => session.workspaceId === workspaceId) : sessions
           },
-          children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
+          children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           create: (id, title, parentId) => this.createSession(id, title, parentId),
           submit: (...args) => this.submit(...args),
           cancel: (id) => this.cancel(id),
@@ -388,11 +388,7 @@ export class Kernel {
         if (!provider) throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
         if (provider.protocol === 'mock' && !this.options.demo)
           throw new HbarError('DEMO_DISABLED', 'Fixture models are disabled')
-        if (
-          !direct &&
-          provider.models.length > 1 &&
-          !provider.models.some((model) => `${provider.id}/${model.id}` === id)
-        )
+        if (!direct && provider.models.length > 1 && !provider.models.some((model) => `${provider.id}/${model.id}` === id))
           throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
         return resolveProviderModel(provider, id)
       },
@@ -543,25 +539,23 @@ export class Kernel {
   }
   async models(): Promise<ModelInfo[]> {
     const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
-    return (
-      await Promise.all(
-        providers.map(async (provider) => {
-          const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
-          return provider.models.map((model) => ({
-            ...provider,
-            ...model,
-            id: modelSelectionId(provider.id, model.id, provider.models.length),
-            name: provider.name,
-            model: model.id,
-            providerId: provider.id,
-            providerName: provider.name,
-            modelId: model.id,
-            modelName: model.name,
-            hasKey,
-          }))
-        }),
-      )
-    ).flat()
+    return (await Promise.all(
+      providers.map(async (provider) => {
+        const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
+        return provider.models.map((model) => ({
+          ...provider,
+          ...model,
+          id: modelSelectionId(provider.id, model.id, provider.models.length),
+          name: provider.name,
+          model: model.id,
+          providerId: provider.id,
+          providerName: provider.name,
+          modelId: model.id,
+          modelName: model.name,
+          hasKey,
+        }))
+      }),
+    )).flat()
   }
   async providerProfiles() {
     const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
@@ -1031,18 +1025,12 @@ export class Kernel {
     const run = await this.storage.call('run', request.runId)
     if (run.sessionId !== request.sessionId)
       throw new HbarError('USER_INPUT_INVALID', 'User input request does not belong to the current session')
-    if (
-      request.questions.some(
-        (question, index) => request.questions.findIndex((item) => item.id === question.id) !== index,
-      )
-    )
+    if (request.questions.some((question, index) => request.questions.findIndex((item) => item.id === question.id) !== index))
       throw new HbarError('USER_INPUT_INVALID', 'Question ids must be unique')
-    if (
-      request.questions.some((question) => {
-        const labels = (question.options ?? []).map((option) => option.label.toLocaleLowerCase())
-        return new Set(labels).size !== labels.length
-      })
-    )
+    if (request.questions.some((question) => {
+      const labels = (question.options ?? []).map((option) => option.label.toLocaleLowerCase())
+      return new Set(labels).size !== labels.length
+    }))
       throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
     if (this.userInputs.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
@@ -1071,8 +1059,7 @@ export class Kernel {
         console.error('Failed to persist user input resolution:', appendError)
       }
       this.publish({ method: 'user_input.resolved', params: data })
-      if (response === undefined)
-        reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+      if (response === undefined) reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
       else resolve(response)
       return true
     }
