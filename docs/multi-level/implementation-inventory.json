@@ -7,8 +7,8 @@
       "owner": "Host command dispatcher / authenticated client adapter",
       "stateOwner": "Domain handlers; budget event contains its durable receipt",
       "category": "system.extensions",
-      "milestone": "A3-A15",
-      "status": "complete-command-dispatch-and-legacy-write-adapter-seal",
+      "milestone": "A3-A15/B4",
+      "status": "complete-command-dispatch-catalog-palette-and-legacy-write-adapter-seal",
       "rpc": [
         "command.catalog",
         "command.describe",
@@ -39,6 +39,9 @@
         "tests/settings-commands.test.ts",
         "tests/system-commands.test.ts",
         "tests/surface-relay.test.ts",
+        "tests/command-catalog-client.test.ts",
+        "tests/command-palette-runtime.test.ts",
+        "tests/command-palette-react.test.tsx",
         "tests/command-first-acceptance.test.ts",
         "tests/write-path-boundaries.test.ts"
       ]
@@ -364,6 +367,14 @@
     "app.closeWindow",
     "app.clearTranscript",
     "app.closeTerminal",
+    "commandPalette.refresh",
+    "commandPalette.setQuery",
+    "commandPalette.select",
+    "commandPalette.move",
+    "commandPalette.setParameter",
+    "commandPalette.unsetParameter",
+    "commandPalette.resetParameters",
+    "commandPalette.execute",
     "layout.commit",
     "layout.restore",
     "preferences.set",
@@ -409,6 +420,7 @@
     "B1": "complete: read-only app-react bindings, production AppShell, paged workspace/session sidebar, command navigation, versioned layout and responsive offline E2E",
     "B2": "complete: recoverable timeline, command-owned drafts/run/interactions, model/budget/usage projections and controlled React session workspace verified against a real Host",
     "B3": "complete: schema-react scalar and keyed List renderers, Host descriptions/callbacks, layered FormState, cancellable content, command-owned grouping, private credential drafts, ProviderDialog and real Web save/create flows",
-    "B4-B7": "pending"
+    "B4": "complete: bounded merged catalog, descriptor parameter forms, private sensitive drafts, controlled categorized Web palette and real Host execution",
+    "B5-B7": "pending"
   }
 }

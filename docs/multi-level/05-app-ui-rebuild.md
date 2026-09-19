@@ -1,10 +1,12 @@
 # P5：hbar-app-ui 工作台与 Schema 渲染
 
-状态：第二阶段实施中；P5.1、P5.2 与 P5.4 已完成，P5.3、P5.5–P5.7 待实施。Schema 设置工作台现已覆盖三层 override、动态内容、稳定 List 与 ProviderDialog。上级：[总计划](command-first-architecture-plan.md)。完整 UI 实施依赖第一阶段退出门禁；P1–P3 可以提前使用最小 UI adapter 验证框架。
+状态：第二阶段实施中；P5.1、P5.2、P5.4 与 P5.5 已完成，P5.3、P5.6–P5.7 待实施。Schema 设置工作台现已覆盖三层 override、动态内容、稳定 List 与 ProviderDialog；分类命令目录已复用统一 descriptor、上下文参数和执行回执。上级：[总计划](command-first-architecture-plan.md)。完整 UI 实施依赖第一阶段退出门禁；P1–P3 可以提前使用最小 UI adapter 验证框架。
 
 P5.1 新增独立 `@hbar/app-react`，只公开 runtime context、只读订阅 hook 和工作台组合组件。Web 组合根负责 Client、runtime、Host generation、平台布局与 i18n；组件没有获得 Client、Host、Storage 或可写 store。生产 AppShell 现从 Host 目录按最多 100 项分页展示 Workspace → Session，展开保持为局部 UI 状态，选择与公开页面入口分别执行 `app.setSession`、`app.openPanel`、`app.openStatus` 和 `app.openSettings`。版本化布局描述经 Schema 校验；旧损坏 localStorage 不参与新状态，也不会被删除。无 Host 时显示只读断开状态并允许显式重连。
 
 P5.2 已将选中 Session 的有界 timeline、流式 Markdown/GFM、安全渲染、Run 活动、审批、问卷、PromptInput 与可靠 AIUsage 接入同一个只读 runtime。草稿、附件、发送、取消、审批和问卷答案全部执行 command；React 不保存业务草稿或写共享状态。真实 Host 浏览器场景验证发送、用量结算、审批与取消，断线外壳继续使用相同受控组件显示明确状态。
+
+P5.5 已将 Host 与 client/platform 命令合并为有界分类目录。`@hbar/commands` 从公开 descriptor 编译通用参数字段、默认值、枚举和约束；app-runtime 只通过 internal `commandPalette.*` 命令修改搜索、选择、草稿与执行状态，敏感值不进入只读快照。`@hbar/app-react` 复用 `hbar-app-ui` 受控命令列表，Web 宿主提供中英文名称、分类、字段、格式化和错误文案。真实 Host 浏览器已从当前 Session 执行 `session.setBudget`，并核对上下文预填、幂等执行、原位回执、关闭命令和窄屏流。
 
 ## 1. 界面组合边界
 

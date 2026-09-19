@@ -168,6 +168,8 @@ B2 已完成：app-runtime 从 Session snapshot/follow 建立可恢复、有界�
 
 B3 已完成：独立 `@hbar/schema-react` 提供同步 schema-core 能力登记的 ComponentRegistry、EditorRegistry、受控标量表单与 keyed List renderer。Host 发布设置及 ProviderDialog 描述、动态模型/思考等级 callback 和不含凭据的 Provider List；app-runtime 拥有三层设置草稿、动态 generation、稳定 provider 列表、ProviderDialog FormState、私有密钥缓冲与未知结果核对。Web 在 AppShell 内显示 scope/sidebar/form/List/Dialog，全部字段、分组、来源、动态选项和文案来自类型化宿主契约，真实 Host 浏览器完成继承保存与供应商创建。框架包没有设置领域、runtime、Host 或传输依赖；B4 接着实现分类命令面板与通用参数表单。
 
+B4 已完成：`@hbar/commands` 从统一 descriptor 编译无 React 参数表单和结构化 input；app-runtime 合并有界 Host/client/platform 目录，并只通过 `commandPalette.*` command 修改搜索、选择、参数和执行投影。敏感值不进入公开 Zustand，普通参数与成功回执保持同一 invocation。`@hbar/client` 提供通用 Host catalog adapter，`@hbar/app-react` 复用受控命令列表，Web 提供类型化中英文内容。真实 Host 浏览器从 Ctrl+K 搜索并执行 `session.setBudget`，验证 Session 目标预填、typed 参数、必需幂等键、成功回执、窄屏关闭与离线本地命令；B5 接着逐项实现会话右侧工具与已有扩展入口。
+
 ## 5. 验收矩阵
 
 | 维度       | 必须验证的可观察结果                                                               |

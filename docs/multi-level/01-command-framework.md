@@ -1,6 +1,6 @@
 # P1：命令框架、分类目录与参数执行
 
-状态：实施中，A1 命令包、A3 预算持久回执与 A5 Run 受理/查询/取消/watch 已交付；CLI/TUI 与其余领域入口迁移继续按 A6/A11 完成。上级：[总计划](command-first-architecture-plan.md)。依赖：[P0 包边界](00-framework-boundaries.md)。交付包：`packages/commands`，配套 hbar contracts、Host adapter 和 terminal adapter。
+状态：完成。A1–A15 已交付无 GUI 命令框架、分类 Host 目录、CLI/TUI/REPL、持久回执与全部领域迁移；B4 已交付共享 descriptor 参数表单、只读 palette runtime、通用 Client adapter 和分类 Web 命令目录。上级：[总计划](command-first-architecture-plan.md)。依赖：[P0 包边界](00-framework-boundaries.md)。交付包：`packages/commands`，配套 hbar contracts、Host/Client/terminal adapter、app-runtime 与 app-react 受控消费者。
 
 ## 1. 对用户和代码统一的调用模型
 

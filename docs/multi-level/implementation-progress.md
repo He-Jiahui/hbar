@@ -127,7 +127,7 @@ app-runtime 新增当前 Session controls 投影，并行读取 `session.getMode
 
 交付验证：`bun run check` 通过 lint、typecheck、311 个测试（87 个文件、2433 个断言）；`bun run build` 完成 2335 个模块的生产构建；`bunx playwright test e2e/web-shell.spec.ts --reporter=line` 的 5 个场景通过。四个无 Host 场景覆盖中英文、桌面/窄屏、键盘和断线降级；真实临时 Host 场景完成 Session 选择、发送、可靠 Usage、审批、取消和溢出检查。人工检查 `artifacts/web-b2/session-workspace.png` 确认正常内容流、独立滚动和无横向溢出。
 
-## B3：Schema renderer 与分层设置工作台（实施中）
+## B3：Schema renderer 与分层设置工作台（完成）
 
 ### B3a：独立 React Schema registry 与标量 renderer（完成）
 
@@ -176,3 +176,13 @@ schema-core 新增独立 keyed List 描述与不可变状态转换，按稳定�
 Host 新增 `provider.describe` 与 `provider.list`，前者发布版本化字段/component 描述，后者返回完整非敏感配置和 `hasKey`。app-runtime 以 `app.openSettingsEditor` 的确切 entry/instance 建立 ProviderDialog FormState；列表刷新、字段、保存、删除和 unknown 核对均经 command。Web 设置页由 Host 的 providers group 组合稳定 List 和定制 Dialog，返回后用 section command 恢复原分组；中英文长文案与协议选项均由宿主 bundle 提供。
 
 交付验证：`bun run check` 通过 lint、typecheck、326 个测试（93 个文件、2530 个断言）；生产构建包含 2350 个模块。Playwright 5 个场景通过，真实临时 Host 场景从全局设置进入 Providers、新建含凭据的供应商、确认保存事实并返回列表；截图保存到 `artifacts/web-b3/provider-dialog.png`。
+
+## B4：分类命令目录与通用参数表单（完成）
+
+`@hbar/commands` 新增 UI/TUI-neutral descriptor 参数编译器。它从同一 input JSON Schema 与 CLI argument metadata 产生有序字段、类型、必填、默认值、枚举、数值/长度约束和 `writeOnly` 敏感标记；不可变草稿将 string/number/integer/boolean/JSON 恢复为结构化 input，并在 Host 最终校验前给出稳定 field issue。框架仍不依赖 hbar 领域、React、Zustand、传输或平台；敏感字段禁止发布默认值。
+
+app-runtime 新增只读 command palette 投影，将 Host 分页目录与本地 client/platform descriptor 合并到最多 1,000 项，拒绝冲突、畸形页、循环 cursor、过期 refresh 和不可用执行域。搜索、选择、键盘移动、参数设置/清除/重置及执行全部通过 internal `commandPalette.*` command；当前 workspace/session 以可见参数预填。持久命令自动生成 request/idempotency key；结果文本有界，unknown 与 failure 分开。敏感参数只保存在私有草稿，公开 Zustand 仅报告已填写字段，成功后清空敏感值并保留本次普通参数。`@hbar/client` 的通用 catalog adapter 只执行 Host descriptor，并核对执行域、版本和必需幂等键。
+
+`@hbar/app-react` 复用 `hbar-app-ui` 的受控、可虚拟化命令列表，按正常 grid/flex 流组合分类搜索和 descriptor 参数区；React 只保存搜索焦点与密码 DOM 值。Web 组合根注入 catalog transport 和类型化中英文命令/分类/字段文案。Ctrl/Cmd+K、刷新、选择、参数、执行、Escape/关闭都映射到应用 command；断线时仍可浏览本地命令，Host 命令明确不可用。
+
+交付验证：`bun run check` 通过 lint、typecheck、332 个测试（96 个文件、2596 个断言）；生产构建包含 2356 个模块。Playwright 5 个场景通过，覆盖中英文桌面/390px、离线本地目录、关闭后继续导航，以及真实临时 Host 上搜索 `session.setBudget`、预填 Session ID、填写 120000 Token、持久执行并显示回执。人工检查 `artifacts/web-b4/command-palette.png` 后修正成功回执旁参数被异步目录活动重置的问题；最终截图保留确切提交参数且无必填伪错误。
