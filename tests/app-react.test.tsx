@@ -111,6 +111,10 @@ test('separate React runtime providers keep each window selection private', asyn
 })
 
 test('app-react production entry excludes transport, Host, storage, catalog, and preview fixtures', async () => {
+  const manifest = (await Bun.file('packages/app-react/package.json').json()) as {
+    dependencies?: Record<string, string>
+  }
+  expect(manifest.dependencies).not.toHaveProperty('@hbar/contracts')
   const inputs: string[] = []
   const result = await Bun.build({
     entrypoints: ['packages/app-react/src/index.ts'],
