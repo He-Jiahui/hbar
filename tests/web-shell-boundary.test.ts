@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { resolveShellLocale } from '../apps/web/src/shell-copy'
+import { canRenderWebSurface, webSurfaceOutlets } from '../apps/web/src/surface-manifest'
 
 test('Web composition root imports runtime and transport without server or preview implementations', async () => {
   const inputs = new Set<string>()
@@ -46,4 +47,20 @@ test('Web composition does not restore the retired writable store or placeholder
   expect(app).toContain('presentation.toolInstanceId')
   expect(app).toContain('presentation.modalInstanceId')
   expect(copy).not.toContain('readonly panels:')
+})
+
+test('Web surface manifest assigns every production surface to one outlet', () => {
+  expect(webSurfaceOutlets).toEqual({
+    settings: 'page',
+    status: 'page',
+    files: 'tool',
+    monitoring: 'tool',
+    agents: 'tool',
+    goals: 'tool',
+    commands: 'modal',
+    'settings-editor': 'modal',
+  })
+  expect(canRenderWebSurface('files')).toBe(true)
+  expect(canRenderWebSurface('extensions')).toBe(false)
+  expect(canRenderWebSurface('unknown')).toBe(false)
 })

@@ -48,9 +48,8 @@ import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
+import { canRenderWebSurface } from './surface-manifest'
 import './App.css'
-
-const panels = new Set(['commands', 'files', 'monitoring', 'agents', 'goals', 'status', 'settings', 'settings-editor'])
 
 function isJsonObject(value: ClientJsonValue | undefined): value is Readonly<Record<string, ClientJsonValue>> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -95,7 +94,7 @@ function createRuntime(
     commandCatalog: createCommandCatalogClient(client),
     commandText: { resolve: copy.commandPalette.resolve },
     schemaContent: createSchemaCallbackClient(client),
-    surfaces: { canRender: (panelId) => panels.has(panelId) },
+    surfaces: { canRender: canRenderWebSurface },
     defaultLayout: shellLayout,
     persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web'),
     exporter: createBrowserClientExport(),

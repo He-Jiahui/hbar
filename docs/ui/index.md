@@ -13,6 +13,7 @@
 | [四类会话工具](pages-session-tools.md)               | 文件、Monitoring、子 Agent、Goal/Plan 的页面和操作闭环   |
 | [Schema 设置与供应商](pages-settings.md)             | 字段适配、三层 override、动态内容、供应商弹窗、扩展      |
 | [状态中心与命令面板](pages-status-commands.md)       | Performance/Usage/Git、命令搜索→参数→结果                |
+| [入口、命令与渲染出口](navigation-command-map.md)    | 生产入口、公开命令、page/tool/modal 和迁移别名对照       |
 | [可执行子任务与状态](execution-plan.md)              | R0–R6 的逐项交付、依赖、验收、实际完成状态               |
 | [视觉与回归验证规范](visual-validation.md)           | 三层证据、视口/状态矩阵、人工看图、自动门禁              |
 | [本轮视觉审计与修复证据](visual-audit-2026-09-19.md) | 修复前后截图、复现与根因、验证结果、未关闭问题           |
