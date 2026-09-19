@@ -5,6 +5,10 @@ const instanceId = z.string().min(1).max(160)
 const section = z.enum(['dashboard', 'usage', 'git'])
 export const performanceWindowSchema = z.enum(['2m', '15m', '1h'])
 export const performanceTargetSchema = z.enum(['all', 'system', 'host'])
+export const statusUsageScopeSchema = z.enum(['global', 'workspace', 'session'])
+export const statusUsageWindowSchema = z.enum(['1h', '24h', '7d', '30d'])
+export const statusUsageAggregationSchema = z.enum(['minute', 'hour', 'day'])
+export const statusExportFormatSchema = z.enum(['json', 'csv'])
 const summary = z.strictObject({
   instanceId,
   section,
@@ -37,7 +41,34 @@ export const statusWorkspaceCommands = {
     z.strictObject({ instanceId, window: performanceWindowSchema, target: performanceTargetSchema }),
     summary,
   ),
+  'statusWorkspace.setUsageQuery': defineCommand(
+    metadata('statusWorkspace.setUsageQuery'),
+    z.strictObject({
+      instanceId,
+      scope: statusUsageScopeSchema,
+      includeDescendants: z.boolean(),
+      window: statusUsageWindowSchema,
+      aggregation: statusUsageAggregationSchema,
+      providerId: z.string().min(1).max(160).nullable(),
+      modelId: z.string().min(1).max(160).nullable(),
+    }),
+    summary,
+  ),
+  'statusWorkspace.exportUsage': defineCommand(
+    {
+      ...metadata('statusWorkspace.exportUsage'),
+      cancelMode: 'cooperative',
+      timeoutMs: 120_000,
+      maxConcurrent: 1,
+    },
+    z.strictObject({ instanceId, format: statusExportFormatSchema }),
+    summary,
+  ),
 }
 
 export type PerformanceWindow = z.output<typeof performanceWindowSchema>
 export type PerformanceTarget = z.output<typeof performanceTargetSchema>
+export type StatusUsageScope = z.output<typeof statusUsageScopeSchema>
+export type StatusUsageWindow = z.output<typeof statusUsageWindowSchema>
+export type StatusUsageAggregation = z.output<typeof statusUsageAggregationSchema>
+export type StatusExportFormat = z.output<typeof statusExportFormatSchema>

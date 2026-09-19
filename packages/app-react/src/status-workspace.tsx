@@ -45,6 +45,23 @@ export interface HbarStatusWorkspaceLabels {
   }
   readonly usage: {
     readonly title: string
+    readonly filters: string
+    readonly scope: string
+    readonly timeWindow: string
+    readonly aggregation: string
+    readonly provider: string
+    readonly modelFilter: string
+    readonly allProviders: string
+    readonly allModels: string
+    readonly scopes: Readonly<Record<'global' | 'workspace' | 'session', string>>
+    readonly windows: Readonly<Record<'1h' | '24h' | '7d' | '30d', string>>
+    readonly aggregations: Readonly<Record<'minute' | 'hour' | 'day', string>>
+    readonly includeDescendants: string
+    readonly exportJson: string
+    readonly exportCsv: string
+    readonly exporting: string
+    readonly exported: (rows: number, fileName: string) => string
+    readonly incompleteExport: string
     readonly gap: string
     readonly totals: string
     readonly tokens: string
@@ -161,6 +178,8 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
 
   const report = entry?.performance
   const usageReport = entry?.usage
+  const usageQuery = entry?.usageQuery
+  const usageExport = entry?.usageExport
   const gitReport = entry?.git
   const readings = report?.current?.readings
   const performanceQuery = entry?.performanceQuery
@@ -226,6 +245,24 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
           value: labels.unavailable(metric.reason),
           ...(metric.reason ? { detail: metric.reason } : {}),
         }
+  const usageProviders = Array.from(
+    new Set([
+      ...(usageReport?.models.map((model) => model.providerId) ?? []),
+      ...(usageQuery?.providerId ? [usageQuery.providerId] : []),
+    ]),
+  ).sort()
+  const usageModels = Array.from(
+    new Set([
+      ...(usageReport?.models
+        .filter((model) => !usageQuery?.providerId || model.providerId === usageQuery.providerId)
+        .map((model) => model.modelId) ?? []),
+      ...(usageQuery?.modelId ? [usageQuery.modelId] : []),
+    ]),
+  ).sort()
+  const setUsageQuery = (patch: Partial<StatusWorkspaceEntryState['usageQuery']>) => {
+    if (!usageQuery) return
+    invoke('statusWorkspace.setUsageQuery', { instanceId, ...usageQuery, ...patch })
+  }
 
   return (
     <HbarAppUiSurface className="hbar-app-react-status-workspace">
@@ -297,6 +334,122 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
               ))}
             </select>
           </label>
+        </div>
+      )}
+      {section === 'usage' && usageQuery && (
+        <div className="hbar-app-react-status-controls" role="group" aria-label={labels.usage.filters}>
+          <label>
+            <span>{labels.usage.scope}</span>
+            <select
+              value={usageQuery.scope}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) => setUsageQuery({ scope: event.currentTarget.value as typeof usageQuery.scope })}
+            >
+              {(['global', 'workspace', 'session'] as const).map((scope) => (
+                <option
+                  key={scope}
+                  value={scope}
+                  disabled={(scope === 'workspace' && !panel.workspaceId) || (scope === 'session' && !panel.sessionId)}
+                >
+                  {labels.usage.scopes[scope]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {usageQuery.scope === 'session' && (
+            <label>
+              <input
+                type="checkbox"
+                checked={usageQuery.includeDescendants}
+                disabled={entry?.status === 'loading'}
+                onChange={(event) => setUsageQuery({ includeDescendants: event.currentTarget.checked })}
+              />
+              <span>{labels.usage.includeDescendants}</span>
+            </label>
+          )}
+          <label>
+            <span>{labels.usage.timeWindow}</span>
+            <select
+              value={usageQuery.window}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) => setUsageQuery({ window: event.currentTarget.value as typeof usageQuery.window })}
+            >
+              {(['1h', '24h', '7d', '30d'] as const).map((window) => (
+                <option key={window} value={window}>
+                  {labels.usage.windows[window]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{labels.usage.aggregation}</span>
+            <select
+              value={usageQuery.aggregation}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) =>
+                setUsageQuery({ aggregation: event.currentTarget.value as typeof usageQuery.aggregation })
+              }
+            >
+              {(['minute', 'hour', 'day'] as const).map((aggregation) => (
+                <option key={aggregation} value={aggregation}>
+                  {labels.usage.aggregations[aggregation]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{labels.usage.provider}</span>
+            <select
+              value={usageQuery.providerId ?? ''}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) => setUsageQuery({ providerId: event.currentTarget.value || null, modelId: null })}
+            >
+              <option value="">{labels.usage.allProviders}</option>
+              {usageProviders.map((providerId) => (
+                <option key={providerId} value={providerId}>
+                  {providerId}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{labels.usage.modelFilter}</span>
+            <select
+              value={usageQuery.modelId ?? ''}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) => setUsageQuery({ modelId: event.currentTarget.value || null })}
+            >
+              <option value="">{labels.usage.allModels}</option>
+              {usageModels.map((modelId) => (
+                <option key={modelId} value={modelId}>
+                  {modelId}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="hbar-app-react-status-export-actions">
+            <HbarAppUiButton
+              disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
+              onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'json' })}
+            >
+              {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportJson}
+            </HbarAppUiButton>
+            <HbarAppUiButton
+              disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
+              onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'csv' })}
+            >
+              {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportCsv}
+            </HbarAppUiButton>
+          </div>
+          {usageExport?.status === 'succeeded' && usageExport.fileName && (
+            <p role="status">
+              {labels.usage.exported(usageExport.rowCount, usageExport.fileName)}
+              {usageExport.incomplete ? ` ${labels.usage.incompleteExport}` : ''}
+            </p>
+          )}
+          {usageExport?.status === 'failed' && usageExport.error && (
+            <p role="alert">{labels.error(usageExport.error)}</p>
+          )}
         </div>
       )}
       {!entry || entry.status === 'loading' ? (

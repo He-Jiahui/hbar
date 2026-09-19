@@ -39,6 +39,20 @@
   gap: var(--hbar-app-ui-space-xs);
 }
 
+.hbar-app-react-status-controls select {
+  max-inline-size: 14rem;
+}
+
+.hbar-app-react-status-controls > p {
+  align-self: center;
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-react-status-export-actions {
+  display: flex;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
 .hbar-app-react-status-workspace > nav {
   flex: 0 0 auto;
   padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);

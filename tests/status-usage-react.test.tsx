@@ -81,7 +81,7 @@ function usage(): UsageQueryResult {
   }
 }
 
-test('global usage status renders ledger and execution facts', async () => {
+test('usage status renders command-owned filters, exports, ledger, and execution facts', async () => {
   const runtime = createAppRuntime({
     instanceId: 'status-usage-react',
     hostId: 'host',
@@ -105,7 +105,12 @@ test('global usage status renders ledger and execution facts', async () => {
         <HbarStatusWorkspace labels={getShellCopy('en-US').status} />
       </HbarRuntimeProvider>,
     )
-    expect(html).toContain('Global AI usage')
+    expect(html).toContain('AI usage')
+    expect(html).toContain('Usage query filters and exports')
+    expect(html).toContain('Last 24 hours')
+    expect(html).toContain('All providers')
+    expect(html).toContain('Export JSON')
+    expect(html).toContain('Export CSV')
     expect(html).toContain('280 tokens')
     expect(html).toContain('$0.25')
     expect(html).toContain('p50 40 ms · p95 80 ms')

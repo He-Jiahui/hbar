@@ -105,6 +105,7 @@ export type {
   ClientPersistencePort,
   ClientLayoutState,
   ClientPreferencesState,
+  ClientExportPort,
 } from './types'
 export { SessionSelectionError } from './navigation'
 

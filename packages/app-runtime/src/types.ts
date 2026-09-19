@@ -41,7 +41,14 @@ import type {
   SchemaCallbackPort,
 } from '@hbar/schema-core'
 import type { SettingsDescription, SettingsReceipt, SettingsSnapshot } from '@hbar/contracts/commands/settings'
-import type { PerformanceTarget, PerformanceWindow } from '@hbar/contracts/commands/status-workspace'
+import type {
+  PerformanceTarget,
+  PerformanceWindow,
+  StatusExportFormat,
+  StatusUsageAggregation,
+  StatusUsageScope,
+  StatusUsageWindow,
+} from '@hbar/contracts/commands/status-workspace'
 import type { ProviderEditorDescription, ProviderProfile } from '@hbar/contracts/commands/configuration'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
 
@@ -92,6 +99,7 @@ export interface RuntimeOptions {
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly persistence?: ClientPersistencePort
+  readonly exporter?: ClientExportPort
   readonly defaultLayout?: Readonly<Record<string, ClientJsonValue>>
   readonly onSubscriberError?: (error: unknown) => void
 }
@@ -122,6 +130,13 @@ export interface ClientPreferencesState {
   readonly persisted: boolean
   readonly values: ClientJsonObject
   readonly restoreError: string | null
+}
+
+export interface ClientExportPort {
+  save(
+    file: { readonly name: string; readonly mime: string; readonly content: string },
+    signal: AbortSignal,
+  ): Promise<void>
 }
 
 export interface AgentWorkspaceDraftState {
@@ -235,6 +250,22 @@ export interface StatusWorkspaceEntryState {
     readonly target: PerformanceTarget
   }
   readonly usage: Readonly<UsageQueryResult> | null
+  readonly usageQuery: {
+    readonly scope: StatusUsageScope
+    readonly includeDescendants: boolean
+    readonly window: StatusUsageWindow
+    readonly aggregation: StatusUsageAggregation
+    readonly providerId: string | null
+    readonly modelId: string | null
+  }
+  readonly usageExport: {
+    readonly status: 'idle' | 'exporting' | 'succeeded' | 'failed'
+    readonly format: StatusExportFormat | null
+    readonly fileName: string | null
+    readonly rowCount: number
+    readonly incomplete: boolean
+    readonly error: string | null
+  }
   readonly git: Readonly<GitStatsReport> | null
   readonly gitWorkspaceId: string | null
   readonly error: string | null

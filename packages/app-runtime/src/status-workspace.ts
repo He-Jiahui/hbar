@@ -2,8 +2,9 @@ import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/c
 import { metricsCommands } from '@hbar/contracts/commands/metrics'
 import { gitCommands } from '@hbar/contracts/commands/git'
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
-import { usageCommands } from '@hbar/contracts/commands/usage'
+import { usageCommands, type UsageAttemptExport } from '@hbar/contracts/commands/usage'
 import { createState, type StateReader } from './state'
+import { serializeUsageExport } from './status-export'
 import type {
   DirectoryState,
   RuntimeOptions,
@@ -15,6 +16,24 @@ import type {
 const MAX_PANELS = 4
 const DEFAULT_PERFORMANCE_QUERY = { window: '1h', target: 'all' } as const
 const PERFORMANCE_WINDOWS = { '2m': 120_000, '15m': 900_000, '1h': 3_600_000 } as const
+const DEFAULT_USAGE_QUERY = {
+  scope: 'global',
+  includeDescendants: false,
+  window: '24h',
+  aggregation: 'hour',
+  providerId: null,
+  modelId: null,
+} as const
+const DEFAULT_USAGE_EXPORT = {
+  status: 'idle',
+  format: null,
+  fileName: null,
+  rowCount: 0,
+  incomplete: false,
+  error: null,
+} as const
+const USAGE_WINDOWS = { '1h': 3_600_000, '24h': 86_400_000, '7d': 604_800_000, '30d': 2_592_000_000 } as const
+const USAGE_BUCKETS = { minute: 60_000, hour: 3_600_000, day: 86_400_000 } as const
 
 function code(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -67,6 +86,34 @@ export function createStatusWorkspace(
     status: entry.status,
     error: entry.error,
   })
+  const usageInput = (target: ReturnType<typeof panel>, query: StatusWorkspaceEntryState['usageQuery']) => {
+    const scope =
+      query.scope === 'global'
+        ? { kind: 'global' as const }
+        : query.scope === 'workspace'
+          ? target.workspaceId
+            ? { kind: 'workspace' as const, workspaceId: target.workspaceId }
+            : null
+          : target.sessionId
+            ? {
+                kind: 'session' as const,
+                sessionId: target.sessionId,
+                includeDescendants: query.includeDescendants,
+              }
+            : null
+    if (!scope) throw new CommandError('INVALID_INPUT', `Usage ${query.scope} scope target is unavailable`)
+    const duration = USAGE_WINDOWS[query.window]
+    const to = Date.now() + 1
+    return {
+      scope,
+      from: Math.max(0, to - duration),
+      to,
+      filters: {
+        ...(query.providerId ? { providerId: query.providerId } : {}),
+        ...(query.modelId ? { modelId: query.modelId } : {}),
+      },
+    }
+  }
   const load = async (instanceId: string) => {
     const target = panel(instanceId)
     const previous = state.reader.getSnapshot().entries[instanceId]
@@ -79,6 +126,8 @@ export function createStatusWorkspace(
       performance: previous?.performance ?? null,
       performanceQuery: previous?.performanceQuery ?? DEFAULT_PERFORMANCE_QUERY,
       usage: previous?.usage ?? null,
+      usageQuery: previous?.usageQuery ?? DEFAULT_USAGE_QUERY,
+      usageExport: previous?.usageExport ?? DEFAULT_USAGE_EXPORT,
       git: previous?.git ?? null,
       gitWorkspaceId: previous?.gitWorkspaceId ?? null,
       error: null,
@@ -101,12 +150,14 @@ export function createStatusWorkspace(
         })
       } else if (target.section === 'usage') {
         if (!usage) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Usage metrics are unavailable')
+        const query = usageInput(target, loading.usageQuery)
+        const duration = USAGE_WINDOWS[loading.usageQuery.window]
+        const bucketMs = USAGE_BUCKETS[loading.usageQuery.aggregation]
         usageReport = await usage.execute('usage.query', {
-          scope: { kind: 'global' },
-          bucketMs: 60_000,
-          maxBuckets: 120,
+          ...query,
+          bucketMs,
+          maxBuckets: Math.min(500, Math.max(1, Math.ceil(duration / bucketMs))),
           maxSamples: 10_000,
-          filters: {},
         })
       } else {
         if (!git) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git statistics are unavailable')
@@ -130,6 +181,8 @@ export function createStatusWorkspace(
         performance,
         performanceQuery: loading.performanceQuery,
         usage: usageReport,
+        usageQuery: loading.usageQuery,
+        usageExport: loading.usageExport,
         git: gitReport,
         gitWorkspaceId,
         error: null,
@@ -157,12 +210,115 @@ export function createStatusWorkspace(
       performance: null,
       performanceQuery: DEFAULT_PERFORMANCE_QUERY,
       usage: null,
+      usageQuery: DEFAULT_USAGE_QUERY,
+      usageExport: DEFAULT_USAGE_EXPORT,
       git: null,
       gitWorkspaceId: null,
       error: null,
     }
     replace({ ...base, section: 'dashboard', performanceQuery: { window, target }, error: null })
     return load(instanceId)
+  })
+  local.register(
+    statusWorkspaceCommands['statusWorkspace.setUsageQuery'],
+    ({ instanceId, scope, includeDescendants, window, aggregation, providerId, modelId }) => {
+      const targetPanel = panel(instanceId)
+      if (targetPanel.section !== 'usage')
+        throw new CommandError('INVALID_INPUT', 'Usage query belongs to the usage section')
+      const current = state.reader.getSnapshot().entries[instanceId]
+      const query = { scope, includeDescendants, window, aggregation, providerId, modelId }
+      usageInput(targetPanel, query)
+      const base: StatusWorkspaceEntryState = current ?? {
+        instanceId,
+        section: 'usage',
+        status: 'loading',
+        performance: null,
+        performanceQuery: DEFAULT_PERFORMANCE_QUERY,
+        usage: null,
+        usageQuery: DEFAULT_USAGE_QUERY,
+        usageExport: DEFAULT_USAGE_EXPORT,
+        git: null,
+        gitWorkspaceId: null,
+        error: null,
+      }
+      replace({ ...base, section: 'usage', usageQuery: query, usageExport: DEFAULT_USAGE_EXPORT, error: null })
+      return load(instanceId)
+    },
+  )
+  local.register(statusWorkspaceCommands['statusWorkspace.exportUsage'], async ({ instanceId, format }, context) => {
+    const targetPanel = panel(instanceId)
+    if (targetPanel.section !== 'usage')
+      throw new CommandError('INVALID_INPUT', 'Usage export belongs to the usage section')
+    if (!usage) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Usage exports are unavailable')
+    if (!options.exporter)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'File exports are unavailable in this client')
+    const current = state.reader.getSnapshot().entries[instanceId]
+    if (!current) throw new CommandError('COMMAND_NOT_FOUND', 'Usage status is not loaded')
+    if (current.usageExport.status === 'exporting') throw new CommandError('BUSY', 'A usage export is already running')
+    replace({
+      ...current,
+      usageExport: { status: 'exporting', format, fileName: null, rowCount: 0, incomplete: false, error: null },
+    })
+    try {
+      const query = usageInput(targetPanel, current.usageQuery)
+      const items: UsageAttemptExport[] = []
+      const seen = new Set<string>()
+      let after: string | undefined
+      let gap = false
+      for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
+        context.signal.throwIfAborted()
+        const page = await usage.execute('usage.export', { ...query, ...(after ? { after } : {}), limit: 500 }, context)
+        items.push(...page.items)
+        gap ||= page.gap
+        if (!page.nextCursor) {
+          after = undefined
+          break
+        }
+        if (seen.has(page.nextCursor)) throw new CommandError('INVALID_OUTPUT', 'Usage export cursor did not advance')
+        seen.add(page.nextCursor)
+        after = page.nextCursor
+      }
+      const incomplete = after !== undefined
+      const fileName = `hbar-usage-${Date.now()}.${format}`
+      await options.exporter.save(
+        {
+          name: fileName,
+          mime: format === 'json' ? 'application/json' : 'text/csv;charset=utf-8',
+          content: serializeUsageExport(items, format, { gap, truncated: incomplete }),
+        },
+        context.signal,
+      )
+      const latest = state.reader.getSnapshot().entries[instanceId]
+      if (!latest) throw new CommandError('COMMAND_NOT_FOUND', 'Usage status was closed during export')
+      const ready: StatusWorkspaceEntryState = {
+        ...latest,
+        usageExport: {
+          status: 'succeeded',
+          format,
+          fileName,
+          rowCount: items.length,
+          incomplete,
+          error: null,
+        },
+      }
+      replace(ready)
+      return summary(ready)
+    } catch (reason) {
+      const latest = state.reader.getSnapshot().entries[instanceId]
+      if (latest)
+        replace({
+          ...latest,
+          usageExport: {
+            status: 'failed',
+            format,
+            fileName: null,
+            rowCount: 0,
+            incomplete: false,
+            error: code(reason),
+          },
+        })
+      throw failure(reason)
+    }
   })
   return {
     reader: state.reader,

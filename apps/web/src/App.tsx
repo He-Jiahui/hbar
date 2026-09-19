@@ -46,6 +46,7 @@ import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
+import { createBrowserClientExport } from './client-export'
 
 const panels = new Set([
   'commands',
@@ -105,6 +106,7 @@ function createRuntime(
     surfaces: { canRender: (panelId) => panels.has(panelId) },
     defaultLayout: shellLayout,
     persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web'),
+    exporter: createBrowserClientExport(),
   })
 }
 
