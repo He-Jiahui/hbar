@@ -201,6 +201,7 @@
       "dependencies": {
         "@hbar/agent": "workspace:*",
         "@hbar/commands": "workspace:*",
+        "@hbar/provider-catalog": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
         "@hbar/usage": "workspace:*",
@@ -216,6 +217,14 @@
     "packages/plugin-sdk": {
       "name": "@hbar/plugin-sdk",
       "version": "0.1.0",
+    },
+    "packages/provider-catalog": {
+      "name": "@hbar/provider-catalog",
+      "version": "0.1.0",
+      "dependencies": {
+        "@earendil-works/pi-ai": "0.85.1",
+        "@hbar/contracts": "workspace:*",
+      },
     },
     "packages/schema-core": {
       "name": "@hbar/schema-core",
@@ -591,6 +600,8 @@
     "@hbar/plan": ["@hbar/plan@workspace:plugins/plan"],
 
     "@hbar/plugin-sdk": ["@hbar/plugin-sdk@workspace:packages/plugin-sdk"],
+
+    "@hbar/provider-catalog": ["@hbar/provider-catalog@workspace:packages/provider-catalog"],
 
     "@hbar/schema-core": ["@hbar/schema-core@workspace:packages/schema-core"],
 

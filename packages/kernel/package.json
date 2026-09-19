@@ -7,6 +7,7 @@
   "dependencies": {
     "@hbar/agent": "workspace:*",
     "@hbar/commands": "workspace:*",
+    "@hbar/provider-catalog": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/settings-core": "workspace:*",
     "@hbar/usage": "workspace:*"

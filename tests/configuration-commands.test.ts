@@ -39,6 +39,27 @@ test('configuration commands share provider, permission, and session mode facts 
   const initialProfiles = await commands.execute('provider.list', {})
   expect(initialProfiles.every((profile) => !JSON.stringify(profile).includes('apiKey'))).toBeTrue()
 
+  const presets = await commands.execute('provider.preset.list', { query: 'api.openai.com', limit: 10 })
+  const openAiPreset = presets.items.find(
+    (preset) => preset.providerId === 'openai' && preset.protocol === 'openai-responses',
+  )
+  expect(openAiPreset).toMatchObject({
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    requiresBaseUrlConfiguration: false,
+  })
+  expect(openAiPreset?.modelCount).toBeGreaterThan(1)
+  const presetModels = await commands.execute('provider.preset.models', {
+    presetId: openAiPreset!.id,
+    query: 'gpt',
+    limit: 5,
+  })
+  expect(presetModels.preset).toEqual(openAiPreset!)
+  expect(presetModels.items).toHaveLength(5)
+  expect(presetModels.items.every((model) => model.id.includes('gpt'))).toBeTrue()
+  expect(presetModels.items.every((model) => model.thinkingLevels.length > 0)).toBeTrue()
+  expect(presetModels.nextCursor).not.toBeNull()
+
   expect(await commands.execute('permission.get', {})).toEqual({ mode: 'ask' })
   expect(await commands.execute('permission.set', { mode: 'allow' })).toEqual({ mode: 'allow' })
   expect(await commands.execute('permission.get', {})).toEqual({ mode: 'allow' })

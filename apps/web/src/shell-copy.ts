@@ -90,6 +90,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.workspace.open.description': '按目录路径在 Host 注册工作区并切换当前工作台。',
         'commands.session.list.title': '列出会话',
         'commands.session.list.description': '分页查询指定工作区的会话。',
+        'commands.provider.preset.list.title': '列出供应商预设',
+        'commands.provider.preset.list.description': '按名称、协议或 API 地址分页查询内置供应商预设。',
+        'commands.provider.preset.models.title': '列出预设模型',
+        'commands.provider.preset.models.description': '分页查询供应商预设中的模型、能力与思考等级。',
       }
     : {
         'commands.app.openPanel.title': 'Open panel',
@@ -116,6 +120,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.workspace.open.description': 'Register a Host workspace by directory path and select it here.',
         'commands.session.list.title': 'List sessions',
         'commands.session.list.description': 'Query sessions in a workspace by page.',
+        'commands.provider.preset.list.title': 'List provider presets',
+        'commands.provider.preset.list.description': 'Query built-in provider presets by name, protocol, or API URL.',
+        'commands.provider.preset.models.title': 'List preset models',
+        'commands.provider.preset.models.description': 'Query models, capabilities, and thinking levels in a provider preset.',
       }
   const fields: Readonly<Record<string, string>> = zh
     ? {
@@ -141,6 +149,9 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         input: '输入',
         modelId: '模型 ID',
         operationId: '操作 ID',
+        presetId: '供应商预设 ID',
+        query: '搜索关键词',
+        cursor: '分页游标',
       }
     : {
         sessionId: 'Session ID',
@@ -165,6 +176,9 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         input: 'Input',
         modelId: 'Model ID',
         operationId: 'Operation ID',
+        presetId: 'Provider preset ID',
+        query: 'Search query',
+        cursor: 'Page cursor',
       }
   const resolve = (key: string) => {
     if (messages[key]) return messages[key]

@@ -3,6 +3,7 @@ import { HbarError } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import type { ProviderEditorDescription } from '@hbar/contracts/commands/configuration'
 import type { ModeService } from '@hbar/plugin-sdk'
+import { createPiProviderPresetCatalog, ProviderPresetNotFoundError } from '@hbar/provider-catalog'
 import type { Kernel } from './index'
 import { toModelDescriptor } from './model-commands'
 
@@ -171,6 +172,7 @@ export const HBAR_PROVIDER_EDITOR_DESCRIPTION: ProviderEditorDescription = Objec
 
 export function createConfigurationCommands(kernel: Kernel, modes: ModeService) {
   const registry = new CommandRegistry({ execution: 'host' })
+  const providerPresets = createPiProviderPresetCatalog()
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
       return await operation()
@@ -182,6 +184,15 @@ export function createConfigurationCommands(kernel: Kernel, modes: ModeService) 
 
   registry.register(configurationCommands['provider.describe'], () => HBAR_PROVIDER_EDITOR_DESCRIPTION)
   registry.register(configurationCommands['provider.list'], () => translate(() => kernel.providerProfiles()))
+  registry.register(configurationCommands['provider.preset.list'], (input) => providerPresets.list(input))
+  registry.register(configurationCommands['provider.preset.models'], (input) => {
+    try {
+      return providerPresets.models(input)
+    } catch (error) {
+      if (error instanceof ProviderPresetNotFoundError) throw new CommandError('NOT_FOUND', error.message)
+      throw error
+    }
+  })
 
   registry.register(configurationCommands['permission.get'], () => ({ mode: kernel.permissionMode() }))
   registry.register(

@@ -72,6 +72,8 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     'provider.delete',
     'provider.describe',
     'provider.list',
+    'provider.preset.list',
+    'provider.preset.models',
     'provider.save',
     'settings.apply',
     'settings.describe',
