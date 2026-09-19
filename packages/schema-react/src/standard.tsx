@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import type { FieldValue } from '@hbar/schema-core'
 import type { SchemaComponentRegistry, SchemaFieldRendererProps } from './registry'
 
@@ -27,6 +27,28 @@ function TextField(props: SchemaFieldRendererProps) {
       aria-invalid={Boolean(props.issue)}
       aria-describedby={describedBy(props)}
       onChange={(event) => props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.value })}
+    />
+  )
+}
+
+function SecretField(props: SchemaFieldRendererProps) {
+  const [draft, setDraft] = useState('')
+  useEffect(() => setDraft(''), [props.controlRevision])
+  return (
+    <input
+      id={`hbar-schema-field-${props.field.name}`}
+      name={props.field.name}
+      type="password"
+      autoComplete="new-password"
+      value={draft}
+      readOnly={props.field.readOnly}
+      disabled={props.disabled}
+      aria-invalid={Boolean(props.issue)}
+      aria-describedby={describedBy(props)}
+      onChange={(event) => {
+        setDraft(event.currentTarget.value)
+        props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.value })
+      }}
     />
   )
 }
@@ -121,6 +143,11 @@ export function registerStandardSchemaComponents(registry: SchemaComponentRegist
         interaction: 'inline',
       },
       TextField,
+    ),
+    registry.register(
+      'SecretField',
+      { version: 1, fieldTypes: ['string'], multiple: false, contentKinds: [], interaction: 'inline' },
+      SecretField,
     ),
     registry.register(
       'CheckBox',

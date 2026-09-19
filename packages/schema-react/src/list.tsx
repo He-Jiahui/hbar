@@ -25,10 +25,22 @@ export interface HbarSchemaListProps {
   readonly state: KeyedListState
   readonly labels: HbarSchemaListLabels
   readonly disabled?: boolean
+  readonly reorderable?: boolean
+  readonly removable?: boolean
+  readonly resettable?: boolean
   readonly onIntent: (intent: SchemaListIntent) => void
 }
 
-export function HbarSchemaList({ schema, state, labels, disabled = false, onIntent }: HbarSchemaListProps) {
+export function HbarSchemaList({
+  schema,
+  state,
+  labels,
+  disabled = false,
+  reorderable = true,
+  removable = true,
+  resettable = true,
+  onIntent,
+}: HbarSchemaListProps) {
   const dirty = new Set([...state.dirtyItems, ...state.removedItems])
   return (
     <section className="hbar-schema-list" aria-label={labels.resolve(schema.labelKey)}>
@@ -59,30 +71,36 @@ export function HbarSchemaList({ schema, state, labels, disabled = false, onInte
                   {labels.itemLabel(item, index)}
                 </button>
                 <span className="hbar-schema-list-actions">
-                  <button
-                    type="button"
-                    aria-label={labels.moveUp(item, index)}
-                    disabled={disabled || index === 0}
-                    onClick={() => onIntent({ kind: 'move', itemId, beforeId: state.order[index - 1] ?? null })}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={labels.moveDown(item, index)}
-                    disabled={disabled || index === state.draft.length - 1}
-                    onClick={() => onIntent({ kind: 'move', itemId, beforeId: state.order[index + 2] ?? null })}
-                  >
-                    ↓
-                  </button>
-                  {dirty.has(itemId) && (
+                  {reorderable && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label={labels.moveUp(item, index)}
+                        disabled={disabled || index === 0}
+                        onClick={() => onIntent({ kind: 'move', itemId, beforeId: state.order[index - 1] ?? null })}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={labels.moveDown(item, index)}
+                        disabled={disabled || index === state.draft.length - 1}
+                        onClick={() => onIntent({ kind: 'move', itemId, beforeId: state.order[index + 2] ?? null })}
+                      >
+                        ↓
+                      </button>
+                    </>
+                  )}
+                  {resettable && dirty.has(itemId) && (
                     <button type="button" disabled={disabled} onClick={() => onIntent({ kind: 'reset', itemId })}>
                       {labels.reset(item, index)}
                     </button>
                   )}
-                  <button type="button" disabled={disabled} onClick={() => onIntent({ kind: 'remove', itemId })}>
-                    {labels.remove(item, index)}
-                  </button>
+                  {removable && (
+                    <button type="button" disabled={disabled} onClick={() => onIntent({ kind: 'remove', itemId })}>
+                      {labels.remove(item, index)}
+                    </button>
+                  )}
                 </span>
               </li>
             )

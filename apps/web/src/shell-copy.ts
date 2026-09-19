@@ -1,4 +1,10 @@
-import type { HbarSessionWorkspaceLabels, HbarSettingsWorkspaceLabels, HbarWorkspaceShellLabels } from '@hbar/app-react'
+import type {
+  HbarProviderDialogLabels,
+  HbarProviderSettingsLabels,
+  HbarSessionWorkspaceLabels,
+  HbarSettingsWorkspaceLabels,
+  HbarWorkspaceShellLabels,
+} from '@hbar/app-react'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 interface ShellCopy {
@@ -6,6 +12,10 @@ interface ShellCopy {
   readonly empty: { readonly title: string; readonly description: string }
   readonly session: HbarSessionWorkspaceLabels
   readonly settings: HbarSettingsWorkspaceLabels
+  readonly providers: {
+    readonly list: HbarProviderSettingsLabels
+    readonly dialog: HbarProviderDialogLabels
+  }
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
@@ -18,6 +28,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     ? {
         'i18n:settings.groups.model': '模型',
         'i18n:settings.groups.session': '会话默认值',
+        'i18n:settings.groups.providers': '供应商',
         'i18n:settings.provider.model.label': '模型',
         'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
         'i18n:settings.provider.thinkingLevel.label': '思考等级',
@@ -28,6 +39,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     : {
         'i18n:settings.groups.model': 'Model',
         'i18n:settings.groups.session': 'Session defaults',
+        'i18n:settings.groups.providers': 'Providers',
         'i18n:settings.provider.model.label': 'Model',
         'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
         'i18n:settings.provider.thinkingLevel.label': 'Thinking level',
@@ -120,6 +132,104 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         choose(`缺少设置组件：${component}`, `Settings component unavailable: ${component}`),
     },
   }
+}
+
+function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const messages: Readonly<Record<string, string>> = zh
+    ? {
+        'i18n:settings.providers.list.label': '供应商配置',
+        'i18n:settings.providers.id.label': '供应商 ID',
+        'i18n:settings.providers.id.help': '保存后不可修改，用于模型选择和凭据引用。',
+        'i18n:settings.providers.name.label': '显示名称',
+        'i18n:settings.providers.protocol.label': '协议',
+        'i18n:settings.providers.baseUrl.label': 'API 地址',
+        'i18n:settings.providers.model.label': '默认模型 ID',
+        'i18n:settings.providers.contextWindow.label': '上下文窗口',
+        'i18n:settings.providers.maxOutput.label': '最大输出 Token',
+        'i18n:settings.providers.imageInput.label': '支持图片输入',
+        'i18n:settings.providers.reasoning.label': '支持推理',
+        'i18n:settings.providers.inputPrice.label': '输入价格（每百万 Token）',
+        'i18n:settings.providers.outputPrice.label': '输出价格（每百万 Token）',
+        'i18n:settings.providers.apiKey.label': 'API Key',
+        'i18n:settings.providers.apiKey.help': '留空会保留已有凭据；输入空字符串并保存会清除凭据。',
+      }
+    : {
+        'i18n:settings.providers.list.label': 'Provider configurations',
+        'i18n:settings.providers.id.label': 'Provider ID',
+        'i18n:settings.providers.id.help': 'Immutable after save; used by model selections and credential references.',
+        'i18n:settings.providers.name.label': 'Display name',
+        'i18n:settings.providers.protocol.label': 'Protocol',
+        'i18n:settings.providers.baseUrl.label': 'API URL',
+        'i18n:settings.providers.model.label': 'Default model ID',
+        'i18n:settings.providers.contextWindow.label': 'Context window',
+        'i18n:settings.providers.maxOutput.label': 'Maximum output tokens',
+        'i18n:settings.providers.imageInput.label': 'Supports image input',
+        'i18n:settings.providers.reasoning.label': 'Supports reasoning',
+        'i18n:settings.providers.inputPrice.label': 'Input price per million tokens',
+        'i18n:settings.providers.outputPrice.label': 'Output price per million tokens',
+        'i18n:settings.providers.apiKey.label': 'API key',
+        'i18n:settings.providers.apiKey.help':
+          'Leave blank to retain the stored credential; submit an empty value to remove it.',
+      }
+  const itemName = (item: Readonly<Record<string, unknown>>) => String(item.name ?? item.providerId)
+  const list: HbarProviderSettingsLabels = {
+    loading: choose('正在加载供应商…', 'Loading providers…'),
+    refresh: choose('刷新供应商', 'Refresh providers'),
+    error: (code) => choose(`供应商操作失败：${code}`, `Provider action failed: ${code}`),
+    list: {
+      resolve: (key) => messages[key] ?? key,
+      empty: choose('尚未配置供应商。', 'No providers configured.'),
+      add: choose('添加供应商', 'Add provider'),
+      edit: (item) => choose(`编辑 ${itemName(item)}`, `Edit ${itemName(item)}`),
+      remove: (item) => choose(`删除 ${itemName(item)}`, `Delete ${itemName(item)}`),
+      moveUp: (item) => choose(`上移 ${itemName(item)}`, `Move ${itemName(item)} up`),
+      moveDown: (item) => choose(`下移 ${itemName(item)}`, `Move ${itemName(item)} down`),
+      reset: (item) => choose(`重置 ${itemName(item)}`, `Reset ${itemName(item)}`),
+      itemLabel: (item) =>
+        choose(
+          `${itemName(item)} · ${String(item.protocol)} · ${String(item.model)} · ${item.hasKey ? '已配置凭据' : '无凭据'}`,
+          `${itemName(item)} · ${String(item.protocol)} · ${String(item.model)} · ${item.hasKey ? 'credential configured' : 'no credential'}`,
+        ),
+    },
+  }
+  const dialog: HbarProviderDialogLabels = {
+    addTitle: choose('添加供应商', 'Add provider'),
+    editTitle: (name) => choose(`编辑供应商 · ${name}`, `Edit provider · ${name}`),
+    description: choose(
+      '配置协议、模型能力、价格和凭据引用。',
+      'Configure protocol, model capability, pricing, and credentials.',
+    ),
+    loading: choose('正在加载供应商编辑器…', 'Loading provider editor…'),
+    back: choose('返回设置', 'Back to settings'),
+    save: choose('保存供应商', 'Save provider'),
+    reconcile: choose('核对保存结果', 'Reconcile save'),
+    remove: choose('删除供应商', 'Delete provider'),
+    saved: choose('供应商已保存。', 'Provider saved.'),
+    unsaved: (count) => choose(`${count} 项更改尚未保存`, `${count} unsaved ${count === 1 ? 'change' : 'changes'}`),
+    configured: choose('已安全保存凭据', 'Credential is stored securely'),
+    notConfigured: choose('尚未保存凭据', 'No stored credential'),
+    error: (code) => choose(`供应商操作失败：${code}`, `Provider action failed: ${code}`),
+    resolve: (key) => messages[key] ?? key,
+    form: {
+      reset: choose('恢复已保存值', 'Restore saved value'),
+      loading: choose('正在加载选项…', 'Loading options…'),
+      empty: choose('没有可用选项', 'No options available'),
+      unavailable: (code) => choose(`选项当前不可用：${code}`, `Options unavailable: ${code}`),
+      contentError: (code) => choose(`选项加载失败：${code}`, `Option loading failed: ${code}`),
+      selectedInvalid: (value) =>
+        choose(`当前值不可用：${String(value)}`, `Current value unavailable: ${String(value)}`),
+      issue: (issue) =>
+        issue.code === 'required'
+          ? choose('此字段必填。', 'This field is required.')
+          : choose('字段值不符合约束。', 'The value does not satisfy this field.'),
+      option: (_field, value) => String(value),
+      contentText: (text) => (text.kind === 'literal' ? text.text : (messages[text.key] ?? text.key)),
+      componentUnavailable: (component) => choose(`缺少组件：${component}`, `Component unavailable: ${component}`),
+    },
+  }
+  return { list, dialog }
 }
 
 function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
@@ -291,6 +401,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
     session: createSessionLabels('zh-CN'),
     settings: createSettingsLabels('zh-CN'),
+    providers: createProviderLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -321,6 +432,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
     session: createSessionLabels('en-US'),
     settings: createSettingsLabels('en-US'),
+    providers: createProviderLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },

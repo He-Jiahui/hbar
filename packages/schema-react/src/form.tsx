@@ -24,6 +24,7 @@ export interface HbarSchemaFormProps {
   readonly components: SchemaComponentRegistry
   readonly labels: HbarSchemaFormLabels
   readonly content?: Readonly<Record<string, SchemaFieldContent>>
+  readonly controlRevisions?: Readonly<Record<string, number>>
   readonly fieldNames?: readonly string[]
   readonly disabled?: boolean
   readonly renderFieldContext?: (field: CompiledField) => ReactNode
@@ -41,6 +42,7 @@ export function HbarSchemaForm({
   components,
   labels,
   content = {},
+  controlRevisions = {},
   fieldNames,
   disabled = false,
   renderFieldContext,
@@ -93,6 +95,9 @@ export function HbarSchemaForm({
                     content={fieldContent}
                     labels={fieldLabels}
                     disabled={disabled}
+                    {...(controlRevisions[field.name] === undefined
+                      ? {}
+                      : { controlRevision: controlRevisions[field.name] })}
                     onIntent={onIntent}
                   />
                 )}

@@ -61,6 +61,7 @@ export interface SchemaFieldRendererProps {
   readonly content: SchemaFieldContent
   readonly labels: SchemaFieldLabels
   readonly disabled: boolean
+  readonly controlRevision?: number
   readonly onIntent: (intent: SchemaFieldIntent) => void
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { encodePath, type CompiledField } from '@hbar/schema-core'
 import {
   HbarSchemaForm,
@@ -47,6 +47,7 @@ export interface HbarSettingsWorkspaceProps {
   readonly labels: HbarSettingsWorkspaceLabels
   readonly connected: boolean
   readonly components?: SchemaComponentRegistry
+  readonly renderGroup?: (groupId: string) => ReactNode
 }
 
 function reasonCode(reason: unknown): string {
@@ -59,6 +60,7 @@ export function HbarSettingsWorkspace({
   labels,
   connected,
   components = standardComponents,
+  renderGroup,
 }: HbarSettingsWorkspaceProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -145,6 +147,7 @@ export function HbarSettingsWorkspace({
   const invalid = Boolean(entry?.form?.issues.length)
   const canRefresh = connected && Boolean(entry) && !busy && !unknown && dirtyCount === 0
   const canSave = connected && Boolean(entry) && !busy && !unknown && !invalid && dirtyCount > 0
+  const customGroup = entry?.selectedGroup ? renderGroup?.(entry.selectedGroup) : null
 
   const fieldContext = (field: CompiledField) => {
     if (!entry) return null
@@ -230,43 +233,47 @@ export function HbarSettingsWorkspace({
             ))}
           </nav>
           <main className="hbar-app-react-settings-main">
-            <HbarSchemaForm
-              schema={entry.schema}
-              state={entry.form}
-              components={components}
-              labels={{
-                ...labels.form,
-                resolve: labels.resolve,
-                help: (field) => {
-                  const key = definitions.get(field.name)?.helpKey
-                  return key ? labels.resolve(key) : undefined
-                },
-              }}
-              content={entry.content}
-              fieldNames={fieldNames}
-              renderFieldContext={fieldContext}
-              renderFieldActions={fieldActions}
-              onIntent={dispatchIntent}
-            />
-            <footer className="hbar-app-react-settings-footer">
-              <span role="status">
-                {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
-              </span>
-              <div>
-                <HbarAppUiButton disabled={!canRefresh} onClick={() => runFormCommand('refresh')}>
-                  {labels.refresh}
-                </HbarAppUiButton>
-                {unknown ? (
-                  <HbarAppUiButton tone="warning" disabled={!connected} onClick={() => runFormCommand('reconcile')}>
-                    {labels.reconcile}
-                  </HbarAppUiButton>
-                ) : (
-                  <HbarAppUiButton tone="accent" disabled={!canSave} onClick={() => runFormCommand('submit')}>
-                    {labels.save}
-                  </HbarAppUiButton>
-                )}
-              </div>
-            </footer>
+            {customGroup ?? (
+              <>
+                <HbarSchemaForm
+                  schema={entry.schema}
+                  state={entry.form}
+                  components={components}
+                  labels={{
+                    ...labels.form,
+                    resolve: labels.resolve,
+                    help: (field) => {
+                      const key = definitions.get(field.name)?.helpKey
+                      return key ? labels.resolve(key) : undefined
+                    },
+                  }}
+                  content={entry.content}
+                  fieldNames={fieldNames}
+                  renderFieldContext={fieldContext}
+                  renderFieldActions={fieldActions}
+                  onIntent={dispatchIntent}
+                />
+                <footer className="hbar-app-react-settings-footer">
+                  <span role="status">
+                    {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
+                  </span>
+                  <div>
+                    <HbarAppUiButton disabled={!canRefresh} onClick={() => runFormCommand('refresh')}>
+                      {labels.refresh}
+                    </HbarAppUiButton>
+                    {unknown ? (
+                      <HbarAppUiButton tone="warning" disabled={!connected} onClick={() => runFormCommand('reconcile')}>
+                        {labels.reconcile}
+                      </HbarAppUiButton>
+                    ) : (
+                      <HbarAppUiButton tone="accent" disabled={!canSave} onClick={() => runFormCommand('submit')}>
+                        {labels.save}
+                      </HbarAppUiButton>
+                    )}
+                  </div>
+                </footer>
+              </>
+            )}
           </main>
         </div>
       )}

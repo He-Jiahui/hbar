@@ -1,0 +1,96 @@
+.hbar-app-react-provider-list {
+  display: flex;
+  inline-size: min(100%, 58rem);
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-md);
+  margin-inline: auto;
+}
+
+.hbar-app-react-provider-list > .hbar-app-ui-button {
+  align-self: flex-end;
+}
+
+.hbar-app-react-provider-state {
+  display: flex;
+  min-block-size: 12rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hbar-app-ui-space-md);
+  margin: 0;
+  text-align: center;
+}
+
+.hbar-app-react-provider-dialog {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-provider-dialog > header,
+.hbar-app-react-provider-dialog > footer,
+.hbar-app-react-provider-dialog > footer > div {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-react-provider-dialog > header,
+.hbar-app-react-provider-dialog > footer {
+  padding: var(--hbar-app-ui-space-lg);
+  border-block-end: 1px solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-provider-dialog > footer {
+  border-block-start: 1px solid var(--hbar-app-ui-border);
+  border-block-end: 0;
+}
+
+.hbar-app-react-provider-dialog h1,
+.hbar-app-react-provider-dialog p {
+  margin: 0;
+}
+
+.hbar-app-react-provider-dialog header p,
+.hbar-app-react-provider-dialog footer > span {
+  margin-block-start: var(--hbar-app-ui-space-xs);
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-react-provider-dialog > main {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--hbar-app-ui-space-lg);
+}
+
+.hbar-app-react-provider-dialog > main > .hbar-schema-form {
+  inline-size: min(100%, 58rem);
+  margin-inline: auto;
+}
+
+.hbar-app-react-provider-dialog > [role='alert'] {
+  margin: 0;
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
+  border-block-start: 1px solid var(--hbar-app-ui-border);
+  color: var(--hbar-app-ui-danger);
+}
+
+@media (max-width: 42rem) {
+  .hbar-app-react-provider-dialog {
+    overflow: auto;
+  }
+
+  .hbar-app-react-provider-dialog > main {
+    overflow: visible;
+    padding: var(--hbar-app-ui-space-md);
+  }
+}

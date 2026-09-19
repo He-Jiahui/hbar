@@ -70,6 +70,8 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
   const catalog = await client.call('command.catalog', { category: 'settings.providers', limit: 20 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'provider.delete',
+    'provider.describe',
+    'provider.list',
     'provider.save',
     'settings.apply',
     'settings.describe',
@@ -85,7 +87,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
   expect(description).toMatchObject({
     id: 'hbar.settings',
     schemaVersion: 1,
-    groups: [{ id: 'model' }, { id: 'session' }],
+    groups: [{ id: 'model' }, { id: 'session' }, { id: 'providers' }],
   })
   expect(description.fields.map((item) => encodePath(item.path))).toEqual([
     encodePath(field('provider.model')),

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  HbarProviderDialog,
+  HbarProviderSettings,
   HbarRuntimeProvider,
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
@@ -12,6 +14,7 @@ import {
   HbarClient,
   createBudgetCommandClient,
   createConnectionCommands,
+  createConfigurationCommandClient,
   createDirectoryQueryAdapter,
   createRunCommandClient,
   createSessionTimelineClient,
@@ -26,7 +29,7 @@ import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
 
-const panels = new Set(['commands', 'status', 'settings'])
+const panels = new Set(['commands', 'status', 'settings', 'settings-editor'])
 
 function createRuntime(client: HbarClient, hostId: string) {
   return createAppRuntime({
@@ -40,6 +43,7 @@ function createRuntime(client: HbarClient, hostId: string) {
     usage: createUsageCommandClient(client),
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
+    configuration: createConfigurationCommandClient(client),
     schemaContent: createSchemaCallbackClient(client),
     surfaces: { canRender: (panelId) => panels.has(panelId) },
   })
@@ -53,7 +57,18 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const panel = surfaces.focusedPanelId ? surfaces.panels[surfaces.focusedPanelId] : undefined
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
-  if (panel?.panelId === 'settings') return <HbarSettingsWorkspace labels={copy.settings} connected={connected} />
+  if (panel?.panelId === 'settings-editor')
+    return <HbarProviderDialog labels={copy.providers.dialog} connected={connected} />
+  if (panel?.panelId === 'settings')
+    return (
+      <HbarSettingsWorkspace
+        labels={copy.settings}
+        connected={connected}
+        renderGroup={(groupId) =>
+          groupId === 'providers' ? <HbarProviderSettings labels={copy.providers.list} connected={connected} /> : null
+        }
+      />
+    )
   if (panel) {
     const content = copy.panels[panel.panelId as keyof typeof copy.panels] ?? copy.panels.commands
     return <HbarAppUiWorkbenchNotice title={content.title} description={content.description} />

@@ -1,6 +1,6 @@
 # P5：hbar-app-ui 工作台与 Schema 渲染
 
-状态：第二阶段实施中；P5.1–P5.2 已完成，P5.4 的 Schema React registry/renderer 基础已完成，P5.3–P5.7 其余内容待实施。上级：[总计划](command-first-architecture-plan.md)。完整 UI 实施依赖第一阶段退出门禁；P1–P3 可以提前使用最小 UI adapter 验证框架。
+状态：第二阶段实施中；P5.1、P5.2 与 P5.4 已完成，P5.3、P5.5–P5.7 待实施。Schema 设置工作台现已覆盖三层 override、动态内容、稳定 List 与 ProviderDialog。上级：[总计划](command-first-architecture-plan.md)。完整 UI 实施依赖第一阶段退出门禁；P1–P3 可以提前使用最小 UI adapter 验证框架。
 
 P5.1 新增独立 `@hbar/app-react`，只公开 runtime context、只读订阅 hook 和工作台组合组件。Web 组合根负责 Client、runtime、Host generation、平台布局与 i18n；组件没有获得 Client、Host、Storage 或可写 store。生产 AppShell 现从 Host 目录按最多 100 项分页展示 Workspace → Session，展开保持为局部 UI 状态，选择与公开页面入口分别执行 `app.setSession`、`app.openPanel`、`app.openStatus` 和 `app.openSettings`。版本化布局描述经 Schema 校验；旧损坏 localStorage 不参与新状态，也不会被删除。无 Host 时显示只读断开状态并允许显式重连。
 

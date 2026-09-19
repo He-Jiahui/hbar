@@ -168,3 +168,11 @@ app-runtime 为每个 scope/target 表单增加命令拥有的当前分组；`se
 `@hbar/app-react` 新增 `HbarSettingsWorkspace`，在正常 flex/grid 流中组合 scope 切换、可滚动分组栏、Schema 表单、动态模型/思考等级、来源与 applyMode、只读层级、恢复继承、刷新、保存和 unknown 核对。字段、分组和约束全部来自 Host 描述；中英文文案、选项格式和错误说明由 Web 组合根提供。scope、group、field、inheritance、submit/reconcile 全部执行 application command，React 只订阅读取状态。
 
 交付验证：`bun run check` 通过 lint、typecheck、322 个测试（90 个文件、2491 个断言）；生产构建包含 2344 个模块。Playwright 的 5 个场景通过，四个断线场景验证中英文桌面/窄屏的单一失败状态，真实临时 Host 场景加载 Session 设置动态内容、恢复继承并成功保存；截图保存到 `artifacts/web-b3/settings-workspace.png`。
+
+### B3e：稳定 List 与 ProviderDialog（完成）
+
+schema-core 新增独立 keyed List 描述与不可变状态转换，按稳定条目 ID 处理容量、增改、删除、重排和重置；schema-react 的 `HbarSchemaList` 只发出窄 intent，Provider、命令和保存知识不进入框架包。标量 renderer 新增受 host revision 控制清空的 SecretField；密钥正文只存在 DOM 临时值和 app-runtime 私有缓冲，任何公开状态、Provider query 或测试快照都不包含明文。
+
+Host 新增 `provider.describe` 与 `provider.list`，前者发布版本化字段/component 描述，后者返回完整非敏感配置和 `hasKey`。app-runtime 以 `app.openSettingsEditor` 的确切 entry/instance 建立 ProviderDialog FormState；列表刷新、字段、保存、删除和 unknown 核对均经 command。Web 设置页由 Host 的 providers group 组合稳定 List 和定制 Dialog，返回后用 section command 恢复原分组；中英文长文案与协议选项均由宿主 bundle 提供。
+
+交付验证：`bun run check` 通过 lint、typecheck、326 个测试（93 个文件、2530 个断言）；生产构建包含 2350 个模块。Playwright 5 个场景通过，真实临时 Host 场景从全局设置进入 Providers、新建含凭据的供应商、确认保存事实并返回列表；截图保存到 `artifacts/web-b3/provider-dialog.png`。

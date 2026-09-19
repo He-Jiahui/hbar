@@ -372,7 +372,19 @@ export function createSettingsForms(
     const existing = workspace.forms[formId]
     state.replace({ ...workspace, activeFormId: formId })
     touch(formId)
-    if (existing && !force) return existing
+    const requestedGroup = typeof panel.params.section === 'string' ? panel.params.section : null
+    if (existing && !force) {
+      if (
+        requestedGroup &&
+        existing.description?.groups.some((group) => group.id === requestedGroup) &&
+        existing.selectedGroup !== requestedGroup
+      ) {
+        const selected = { ...existing, selectedGroup: requestedGroup }
+        replaceEntry(formId, selected)
+        return selected
+      }
+      return existing
+    }
     if (existing?.form && (existing.form.dirty.length || Object.keys(existing.unsets).length))
       throw new CommandError('DIRTY_FORM', 'Reset pending settings edits before refreshing')
     const generation = (generations.get(formId) ?? 0) + 1
@@ -397,9 +409,11 @@ export function createSettingsForms(
       const groups = [...description.groups].sort(
         (left, right) => left.order - right.order || left.id.localeCompare(right.id),
       )
-      const selectedGroup = groups.some((group) => group.id === existing?.selectedGroup)
-        ? existing!.selectedGroup
-        : (groups[0]?.id ?? null)
+      const selectedGroup = groups.some((group) => group.id === requestedGroup)
+        ? requestedGroup
+        : groups.some((group) => group.id === existing?.selectedGroup)
+          ? existing!.selectedGroup
+          : (groups[0]?.id ?? null)
       const next: SettingsFormEntry = {
         formId,
         scope,

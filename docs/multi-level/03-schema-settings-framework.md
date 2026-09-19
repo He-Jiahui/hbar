@@ -1,6 +1,6 @@
 # P3：Schema 描述、动态表单与分层设置框架
 
-状态：第一阶段框架已完成；A4 已交付无 UI schema-core，A8 已交付 settings-core 分层解析，A9 已交付动态 callback query bridge，A10 已交付 Host 设置 repository、版本向量 CAS、幂等原子 apply、迁移注册、类型化 commands 与 CLI。P3.5/B3 已交付独立 `@hbar/schema-react` 的标量 ComponentRegistry、EditorRegistry 与受控 renderer 基础，以及 Host `settings.describe` 和真实模型/思考等级 callback；分层设置工作台和 List/ProviderDialog 仍在实施。上级：[总计划](command-first-architecture-plan.md)。依赖：[命令契约](01-command-framework.md)、[runtime 表单宿主](02-state-runtime-cli.md)。无 UI 框架与 React 适配保持独立 package。
+状态：P3.1–P3.5/B3 已完成。A4 交付无 UI schema-core，A8 交付 settings-core 分层解析，A9 交付动态 callback query bridge，A10 交付 Host 设置 repository、版本向量 CAS、幂等原子 apply、迁移注册、类型化 commands 与 CLI；B3 交付 `@hbar/schema-react`、三层设置工作台、稳定 keyed List 与 ProviderDialog。上级：[总计划](command-first-architecture-plan.md)。依赖：[命令契约](01-command-framework.md)、[runtime 表单宿主](02-state-runtime-cli.md)。无 UI 框架与 React 适配保持独立 package。
 
 ## 1. 为什么分成两个 package
 

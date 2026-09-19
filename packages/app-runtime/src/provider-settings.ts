@@ -282,6 +282,7 @@ export function createProviderSettings(
       hasKey: profile?.hasKey ?? false,
       sensitiveDirty: false,
       secretRevision: 0,
+      secretResetRevision: 0,
       error: null,
     }
     secretDrafts.delete(panel.instanceId)
@@ -312,6 +313,10 @@ export function createProviderSettings(
       hasKey: profile?.hasKey ?? (operation.apiKeyPresent ? Boolean(operation.apiKey) : current.hasKey),
       sensitiveDirty:
         current.secretRevision === operation.secretRevision && operation.apiKeyPresent ? false : current.sensitiveDirty,
+      secretResetRevision:
+        current.secretRevision === operation.secretRevision && operation.apiKeyPresent
+          ? current.secretResetRevision + 1
+          : current.secretResetRevision,
       error: null,
     }
     if (current.secretRevision === operation.secretRevision && operation.apiKeyPresent) secretDrafts.delete(editorId)
@@ -380,6 +385,7 @@ export function createProviderSettings(
           ...current,
           sensitiveDirty: true,
           secretRevision: current.secretRevision + 1,
+          secretResetRevision: current.secretResetRevision,
           error: null,
         }
         replaceEditor(next)
@@ -403,6 +409,7 @@ export function createProviderSettings(
           ...current,
           sensitiveDirty: false,
           secretRevision: current.secretRevision + 1,
+          secretResetRevision: current.secretResetRevision + 1,
           error: null,
         }
         replaceEditor(next)

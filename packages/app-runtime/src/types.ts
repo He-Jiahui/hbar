@@ -102,6 +102,7 @@ export interface ProviderEditorState {
   readonly hasKey: boolean
   readonly sensitiveDirty: boolean
   readonly secretRevision: number
+  readonly secretResetRevision: number
   readonly error: string | null
 }
 
