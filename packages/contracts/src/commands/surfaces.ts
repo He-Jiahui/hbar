@@ -104,6 +104,7 @@ export const surfaceCommands = {
       cli: {
         arguments: [
           { field: 'path', type: 'string', position: 0 },
+          { field: 'entryId', type: 'string', flag: 'entry' },
           { field: 'scope', type: 'string', flag: 'scope' },
           { field: 'targetId', type: 'string', flag: 'target' },
           { field: 'instanceId', type: 'string', flag: 'instance' },
@@ -117,6 +118,7 @@ export const surfaceCommands = {
       scope: z.enum(['global', 'workspace', 'session']),
       targetId: idSchema.optional(),
       path: z.string().min(1).max(512),
+      entryId: z.string().min(1).max(256).optional(),
       ...panelTarget,
     }),
     panelSummarySchema,

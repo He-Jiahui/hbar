@@ -82,7 +82,12 @@ export function registerSurfaceCommands(
   )
   local.register(surfaceCommands['app.openStatus'], (input) => openPanel('status', input, { section: input.section }))
   local.register(surfaceCommands['app.openSettingsEditor'], (input) =>
-    openPanel('settings-editor', input, { scope: input.scope, targetId: input.targetId, path: input.path }),
+    openPanel('settings-editor', input, {
+      scope: input.scope,
+      targetId: input.targetId,
+      path: input.path,
+      entryId: input.entryId,
+    }),
   )
   platform.register(surfaceCommands['app.openWindow'], ({ windowId, page }) =>
     serializeWindow(windowId, async () => {

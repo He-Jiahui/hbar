@@ -8,6 +8,8 @@ import { modelCommands } from './models'
 import { usageCommands } from './usage'
 import { interactionDraftCommands } from './interaction-draft'
 import { settingsEditorCommands } from './settings-editor'
+import { providerEditorCommands } from './provider-editor'
+import { configurationCommands } from './configuration'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -142,6 +144,7 @@ export { modelCommands } from './models'
 export { usageCommands } from './usage'
 export { interactionDraftCommands } from './interaction-draft'
 export { settingsEditorCommands } from './settings-editor'
+export { providerEditorCommands } from './provider-editor'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -154,4 +157,6 @@ export const applicationCommands = {
   ...usageCommands,
   ...interactionDraftCommands,
   ...settingsEditorCommands,
+  ...providerEditorCommands,
+  ...configurationCommands,
 }

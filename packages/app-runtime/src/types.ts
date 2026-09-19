@@ -19,6 +19,8 @@ import type {
 } from '@hbar/contracts'
 import type { CompiledForm, FormState, OptionContentReport, SchemaCallbackPort } from '@hbar/schema-core'
 import type { SettingsDescription, SettingsReceipt, SettingsSnapshot } from '@hbar/contracts/commands/settings'
+import type { ProviderEditorDescription, ProviderProfile } from '@hbar/contracts/commands/configuration'
+import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
 
 export interface BudgetCommandPort {
   execute(id: 'session.getBudget', input: { sessionId: string }): Promise<SessionBudget | null>
@@ -51,6 +53,7 @@ export interface RuntimeOptions {
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
+  readonly configuration?: CommandExecutor
   readonly schemaContent?: SchemaCallbackPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
@@ -87,6 +90,29 @@ export type SettingsFieldContentState =
 export interface SettingsWorkspaceState {
   readonly activeFormId: string | null
   readonly forms: Readonly<Record<string, Readonly<SettingsFormEntry>>>
+}
+
+export interface ProviderEditorState {
+  readonly editorId: string
+  readonly providerId: string | null
+  readonly description: Readonly<ProviderEditorDescription>
+  readonly schema: Readonly<CompiledForm>
+  readonly form: Readonly<FormState>
+  readonly original: Readonly<ProviderProfile['provider']> | null
+  readonly hasKey: boolean
+  readonly sensitiveDirty: boolean
+  readonly secretRevision: number
+  readonly error: string | null
+}
+
+export interface ProviderSettingsState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly description: Readonly<ProviderEditorDescription> | null
+  readonly listSchema: Readonly<CompiledKeyedList> | null
+  readonly list: Readonly<KeyedListState> | null
+  readonly profiles: Readonly<Record<string, Readonly<ProviderProfile>>>
+  readonly editor: Readonly<ProviderEditorState> | null
+  readonly error: string | null
 }
 export interface RunCommandPort extends CommandExecutor {
   getReceipt(

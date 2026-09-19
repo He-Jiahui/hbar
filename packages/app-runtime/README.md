@@ -44,4 +44,6 @@ runtime.dispose()
 
 `view.state.settings` 由 `app.openSettings` 的逻辑 panel 驱动，按 global/workspace/session 与 target 保存最多 32 个独立表单。分组选择、字段写入、重置、恢复继承、提交与未知核对均使用 internal `settingsForm.*` command；每个 scope/target 草稿独立保留当前分组。提交捕获原 scope、版本向量、revision 和幂等键。恢复继承发送 unset，在途新编辑不会被旧回执覆盖。组合根注入 Host settings command port 与 schema callback port；runtime 按描述的依赖图发布每字段 loading/ready/unavailable/error 内容状态，依赖改变会取消旧 generation，View 不取得 Client。
 
+`view.state.providers` 通过注入的 configuration command port 投影 Host 的 Provider List 与当前 ProviderDialog FormState。打开 editor、字段修改、保存、删除和未知核对都经 command；公开状态只含配置与 `hasKey`，密钥草稿保存在 runtime 私有缓冲区，任何只读快照都不暴露明文。
+
 当前包提供无 React 的 ViewModel/命令入口；React 绑定在 `@hbar/app-react`，Schema renderer 在 `@hbar/schema-react`。命名 CLI context、完整 CLI/TUI 路由、窗口与工具面板由对应模块承担。此包不包含业务执行器或 UI renderer。

@@ -15,6 +15,8 @@ import { modelCommands } from '@hbar/contracts/commands/models'
 import { usageCommands } from '@hbar/contracts/commands/usage'
 import { interactionDraftCommands } from '@hbar/contracts/commands/interaction-draft'
 import { settingsEditorCommands } from '@hbar/contracts/commands/settings-editor'
+import { providerEditorCommands } from '@hbar/contracts/commands/provider-editor'
+import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -25,6 +27,7 @@ import { createDrafts } from './drafts'
 import { createInteractions } from './interactions'
 import { createSessionControls } from './session-controls'
 import { createSettingsForms } from './settings-forms'
+import { createProviderSettings } from './provider-settings'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
@@ -55,6 +58,8 @@ export type {
   SettingsFormEntry,
   SettingsFieldContentState,
   SettingsWorkspaceState,
+  ProviderEditorState,
+  ProviderSettingsState,
 } from './types'
 export { SessionSelectionError } from './navigation'
 
@@ -119,6 +124,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const providerSettings = createProviderSettings(local, options, surfaces.reader, onSubscriberError, () => disposed)
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -130,11 +136,17 @@ export function createAppRuntime(options: RuntimeOptions) {
       if (Object.hasOwn(interactionCommands, name)) return interactions.execute(name, input, execution)
       if (Object.hasOwn(modelCommands, name)) return controls.executeModel(name, input, execution)
       if (Object.hasOwn(usageCommands, name)) return controls.executeUsage(name, input, execution)
+      if (Object.hasOwn(configurationCommands, name)) {
+        if (!options.configuration)
+          return Promise.reject(new CommandError('CAPABILITY_UNAVAILABLE', 'Configuration commands are unavailable'))
+        return options.configuration.execute(name, input, execution)
+      }
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(settingsEditorCommands, name) ||
+        Object.hasOwn(providerEditorCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -155,6 +167,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       questionnaires: interactions.questionnaires,
       controls: controls.reader,
       settings: settingsForms.reader,
+      providers: providerSettings.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
@@ -179,6 +192,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       interactions.dispose()
       controls.dispose()
       settingsForms.dispose()
+      providerSettings.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()

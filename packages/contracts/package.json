@@ -22,6 +22,7 @@
     "./commands/interaction-draft": "./src/commands/interaction-draft.ts",
     "./commands/metrics": "./src/commands/metrics.ts",
     "./commands/models": "./src/commands/models.ts",
+    "./commands/provider-editor": "./src/commands/provider-editor.ts",
     "./commands/run": "./src/commands/run.ts",
     "./commands/settings": "./src/commands/settings.ts",
     "./commands/settings-editor": "./src/commands/settings-editor.ts",
