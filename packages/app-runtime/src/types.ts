@@ -213,6 +213,7 @@ export interface GoalPlanPlanDraftState {
 export interface GoalPlanWorkspaceEntryState {
   readonly instanceId: string
   readonly sessionId: string
+  readonly view: 'overview' | 'goal' | 'plan'
   readonly status: 'loading' | 'ready' | 'error'
   readonly goal: Readonly<ThreadGoal> | null
   readonly remainingTokens: number | null

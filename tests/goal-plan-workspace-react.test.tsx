@@ -75,7 +75,27 @@ test('goal and plan panel renders authoritative Host state through controlled ed
     expect(html).toContain('Keep every slice reviewable.')
     expect(html).toContain('Build the runtime')
     expect(html).toContain('Connect the renderer')
-    expect(html).toContain('Save 2 steps')
+    expect(html).toContain('Edit goal')
+    expect(html).toContain('Edit plan')
+    expect(html).not.toContain('Save 2 steps')
+
+    await runtime.view.commands.execute('goalPlanWorkspace.showGoalEditor', { instanceId: panel.instanceId })
+    const goalEditor = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarGoalPlanWorkspace labels={getShellCopy('en-US').goals} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(goalEditor).toContain('Save goal')
+    expect(goalEditor).not.toContain('Build the runtime')
+
+    await runtime.view.commands.execute('goalPlanWorkspace.showPlanEditor', { instanceId: panel.instanceId })
+    const planEditor = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarGoalPlanWorkspace labels={getShellCopy('en-US').goals} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(planEditor).toContain('Save 2 steps')
+    expect(planEditor).toContain('Keep every slice reviewable.')
   } finally {
     runtime.dispose()
   }

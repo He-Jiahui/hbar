@@ -6,6 +6,7 @@ const instanceId = z.string().min(1).max(160)
 const summary = z.strictObject({
   instanceId,
   sessionId: idSchema,
+  view: z.enum(['overview', 'goal', 'plan']),
   status: z.enum(['loading', 'ready', 'error']),
   goalStatus: z.enum(['idle', 'submitting', 'succeeded', 'failed', 'unknown']),
   planStatus: z.enum(['idle', 'submitting', 'succeeded', 'failed', 'unknown']),
@@ -31,6 +32,21 @@ const metadata = (id: string) => ({
 export const goalPlanWorkspaceCommands = {
   'goalPlanWorkspace.refresh': defineCommand(
     metadata('goalPlanWorkspace.refresh'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
+  'goalPlanWorkspace.showOverview': defineCommand(
+    metadata('goalPlanWorkspace.showOverview'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
+  'goalPlanWorkspace.showGoalEditor': defineCommand(
+    metadata('goalPlanWorkspace.showGoalEditor'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
+  'goalPlanWorkspace.showPlanEditor': defineCommand(
+    metadata('goalPlanWorkspace.showPlanEditor'),
     z.strictObject({ instanceId }),
     summary,
   ),

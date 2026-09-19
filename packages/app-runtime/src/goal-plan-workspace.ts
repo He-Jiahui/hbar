@@ -106,6 +106,7 @@ export function createGoalPlanWorkspace(
   const summary = (entry: GoalPlanWorkspaceEntryState) => ({
     instanceId: entry.instanceId,
     sessionId: entry.sessionId,
+    view: entry.view,
     status: entry.status,
     goalStatus: entry.goalAction.status,
     planStatus: entry.planAction.status,
@@ -122,6 +123,7 @@ export function createGoalPlanWorkspace(
     const loading: GoalPlanWorkspaceEntryState = {
       instanceId,
       sessionId: target.sessionId,
+      view: sameTarget ? previous.view : 'overview',
       status: 'loading',
       goal: sameTarget ? previous.goal : null,
       remainingTokens: sameTarget ? previous.remainingTokens : null,
@@ -176,8 +178,15 @@ export function createGoalPlanWorkspace(
       throw new CommandError('RESULT_UNKNOWN', 'Refresh goal and plan panel target')
     return entry
   }
+  const show = (instanceId: string, view: GoalPlanWorkspaceEntryState['view']) => {
+    const entry = current(instanceId)
+    const next = { ...entry, view }
+    replace(next)
+    return summary(next)
+  }
   const setGoalField = (instanceId: string, field: 'objective' | 'tokenBudget' | 'status', value: string) => {
     const entry = current(instanceId)
+    if (entry.view !== 'goal') throw new CommandError('INVALID_INPUT', 'Open the goal editor before editing it')
     available(entry.goalAction)
     const normalized = field === 'status' ? goalStatusSchema.safeParse(value) : null
     if (normalized && !normalized.success) throw new CommandError('INVALID_INPUT', 'Goal status is invalid')
@@ -200,6 +209,7 @@ export function createGoalPlanWorkspace(
   }
   const saveGoal = async (instanceId: string) => {
     const entry = current(instanceId)
+    if (entry.view !== 'goal') throw new CommandError('INVALID_INPUT', 'Open the goal editor before saving it')
     available(entry.goalAction)
     const tokenText = entry.goalDraft.tokenBudget.trim()
     const tokenBudget = tokenText ? Number(tokenText) : null
@@ -299,6 +309,7 @@ export function createGoalPlanWorkspace(
   }
   const setExplanation = (instanceId: string, value: string) => {
     const entry = current(instanceId)
+    if (entry.view !== 'plan') throw new CommandError('INVALID_INPUT', 'Open the plan editor before editing it')
     available(entry.planAction)
     return updatePlanDraft(entry, {
       ...entry.planDraft,
@@ -308,11 +319,13 @@ export function createGoalPlanWorkspace(
   }
   const setNewStep = (instanceId: string, value: string) => {
     const entry = current(instanceId)
+    if (entry.view !== 'plan') throw new CommandError('INVALID_INPUT', 'Open the plan editor before editing it')
     available(entry.planAction)
     return updatePlanDraft(entry, { ...entry.planDraft, newStep: value, revision: entry.planDraft.revision + 1 })
   }
   const addStep = (instanceId: string) => {
     const entry = current(instanceId)
+    if (entry.view !== 'plan') throw new CommandError('INVALID_INPUT', 'Open the plan editor before editing it')
     available(entry.planAction)
     const step = entry.planDraft.newStep.trim()
     if (!step) throw new CommandError('INVALID_INPUT', 'Plan step cannot be empty')
@@ -327,6 +340,7 @@ export function createGoalPlanWorkspace(
   }
   const setStep = (instanceId: string, stepId: string, step?: string, status?: PlanStepStatus) => {
     const entry = current(instanceId)
+    if (entry.view !== 'plan') throw new CommandError('INVALID_INPUT', 'Open the plan editor before editing it')
     available(entry.planAction)
     if (step === undefined && status === undefined) throw new CommandError('INVALID_INPUT', 'Plan step change is empty')
     const steps = entry.planDraft.steps.map((item) =>
@@ -337,6 +351,7 @@ export function createGoalPlanWorkspace(
   }
   const moveStep = (instanceId: string, stepId: string, direction: -1 | 1) => {
     const entry = current(instanceId)
+    if (entry.view !== 'plan') throw new CommandError('INVALID_INPUT', 'Open the plan editor before editing it')
     available(entry.planAction)
     const index = entry.planDraft.steps.findIndex((item) => item.id === stepId)
     const destination = index + direction
@@ -349,6 +364,7 @@ export function createGoalPlanWorkspace(
   }
   const removeStep = (instanceId: string, stepId: string) => {
     const entry = current(instanceId)
+    if (entry.view !== 'plan') throw new CommandError('INVALID_INPUT', 'Open the plan editor before editing it')
     available(entry.planAction)
     if (!entry.planDraft.steps.some((item) => item.id === stepId))
       throw new CommandError('COMMAND_NOT_FOUND', 'Plan step not found')
@@ -360,6 +376,7 @@ export function createGoalPlanWorkspace(
   }
   const savePlan = async (instanceId: string) => {
     const entry = current(instanceId)
+    if (entry.view !== 'plan') throw new CommandError('INVALID_INPUT', 'Open the plan editor before saving it')
     available(entry.planAction)
     const input = {
       sessionId: entry.sessionId,
@@ -429,6 +446,15 @@ export function createGoalPlanWorkspace(
   }
 
   local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.refresh'], ({ instanceId }) => load(instanceId))
+  local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.showOverview'], ({ instanceId }) =>
+    show(instanceId, 'overview'),
+  )
+  local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.showGoalEditor'], ({ instanceId }) =>
+    show(instanceId, 'goal'),
+  )
+  local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.showPlanEditor'], ({ instanceId }) =>
+    show(instanceId, 'plan'),
+  )
   local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.setGoalField'], ({ instanceId, field, value }) =>
     setGoalField(instanceId, field, value),
   )

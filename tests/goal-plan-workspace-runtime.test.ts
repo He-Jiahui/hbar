@@ -81,6 +81,8 @@ test('goal and plan workspace owns drafts and reconciles an unknown plan save fr
     await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
     const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
     await runtime.view.commands.execute('goalPlanWorkspace.refresh', { instanceId: panel.instanceId })
+    expect(runtime.view.state.goals.getSnapshot().entries[panel.instanceId]!.view).toBe('overview')
+    await runtime.view.commands.execute('goalPlanWorkspace.showGoalEditor', { instanceId: panel.instanceId })
 
     await runtime.view.commands.execute('goalPlanWorkspace.setGoalField', {
       instanceId: panel.instanceId,
@@ -98,6 +100,7 @@ test('goal and plan workspace owns drafts and reconciles an unknown plan save fr
       tokenBudget: 24_000,
     })
 
+    await runtime.view.commands.execute('goalPlanWorkspace.showPlanEditor', { instanceId: panel.instanceId })
     await runtime.view.commands.execute('goalPlanWorkspace.setExplanation', {
       instanceId: panel.instanceId,
       value: 'Keep each slice reviewable.',
@@ -124,6 +127,8 @@ test('goal and plan workspace owns drafts and reconciles an unknown plan save fr
     expect(reconciled.planDirty).toBe(false)
     expect(reconciled.plan?.plan).toEqual([{ step: 'Implement the runtime', status: 'pending' }])
 
+    await runtime.view.commands.execute('goalPlanWorkspace.showOverview', { instanceId: panel.instanceId })
+    expect(runtime.view.state.goals.getSnapshot().entries[panel.instanceId]!.view).toBe('overview')
     await runtime.view.commands.execute('goalPlanWorkspace.clearPlan', { instanceId: panel.instanceId })
     await runtime.view.commands.execute('goalPlanWorkspace.clearGoal', { instanceId: panel.instanceId })
     expect(runtime.view.state.goals.getSnapshot().entries[panel.instanceId]).toMatchObject({ goal: null, plan: null })

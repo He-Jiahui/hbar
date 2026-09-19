@@ -1,12 +1,17 @@
 import { useCallback, useEffect } from 'react'
+import { ArrowLeft, RefreshCw, X } from 'lucide-react'
 import {
   HbarAppUiButton,
-  HbarAppUiMetricStrip,
+  HbarAppUiIcon,
+  HbarAppUiIconButton,
   HbarAppUiPlanEditor,
+  HbarAppUiStatus,
   HbarAppUiSurface,
   type HbarAppUiAgentPlanEditableContent,
   type HbarAppUiAgentPlanState,
 } from 'hbar-app-ui'
+import { HbarAppUiField, HbarAppUiInput, HbarAppUiSelect, HbarAppUiTextarea } from 'hbar-app-ui/forms'
+import { HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './goal-plan-workspace.css'
@@ -20,6 +25,8 @@ export interface HbarGoalPlanWorkspaceLabels {
   readonly close: string
   readonly refresh: string
   readonly loading: string
+  readonly back: string
+  readonly unavailable: string
   readonly goal: {
     readonly title: string
     readonly objective: string
@@ -27,11 +34,15 @@ export interface HbarGoalPlanWorkspaceLabels {
     readonly tokenBudget: string
     readonly status: string
     readonly statuses: Readonly<Record<GoalStatus, string>>
+    readonly create: string
+    readonly edit: string
+    readonly empty: string
     readonly save: string
     readonly saving: string
     readonly clear: string
     readonly reconcile: string
     readonly saved: string
+    readonly cleared: string
     readonly remaining: string
     readonly used: string
     readonly elapsed: string
@@ -39,9 +50,12 @@ export interface HbarGoalPlanWorkspaceLabels {
   readonly plan: HbarAppUiAgentPlanEditableContent['labels'] & {
     readonly explanation: string
     readonly explanationPlaceholder: string
+    readonly edit: string
     readonly clear: string
     readonly reconcile: string
     readonly saved: string
+    readonly cleared: string
+    readonly count: (count: number) => string
     readonly stepTitle: (index: number) => string
     readonly stepStatus: (index: number) => string
     readonly statuses: Readonly<Record<PlanStepStatus, string>>
@@ -61,6 +75,18 @@ const fromUiState: Readonly<Partial<Record<HbarAppUiAgentPlanState, PlanStepStat
   queued: 'pending',
   running: 'in_progress',
   done: 'completed',
+}
+
+function goalTone(status: GoalStatus): 'neutral' | 'positive' | 'warning' | 'danger' {
+  if (status === 'complete') return 'positive'
+  if (status === 'blocked' || status === 'budget_limited' || status === 'usage_limited') return 'warning'
+  return 'neutral'
+}
+
+function stepTone(status: PlanStepStatus): 'neutral' | 'positive' | 'warning' {
+  if (status === 'completed') return 'positive'
+  if (status === 'in_progress') return 'warning'
+  return 'neutral'
 }
 
 export function HbarGoalPlanWorkspace({
@@ -94,6 +120,7 @@ export function HbarGoalPlanWorkspace({
 
   const goalBusy = entry?.goalAction.status === 'submitting' || entry?.goalAction.status === 'unknown'
   const planBusy = entry?.planAction.status === 'submitting' || entry?.planAction.status === 'unknown'
+  const view = entry?.view ?? 'overview'
   const setGoalField = (field: string, value: string) =>
     invoke('goalPlanWorkspace.setGoalField', { instanceId, field, value })
   const steps =
@@ -103,6 +130,7 @@ export function HbarGoalPlanWorkspace({
       state: toUiState[step.status],
       stateLabel: labels.plan.statuses[step.status],
     })) ?? []
+  const back = () => invoke('goalPlanWorkspace.showOverview', { instanceId })
 
   return (
     <HbarAppUiSurface className="hbar-app-react-goal-plan-workspace">
@@ -111,14 +139,17 @@ export function HbarGoalPlanWorkspace({
           <h1>{labels.title}</h1>
           <p>{labels.description}</p>
         </div>
-        <div>
-          <HbarAppUiButton
+        <div className="hbar-app-react-goal-plan-header-actions">
+          <HbarAppUiIconButton
+            label={labels.refresh}
             disabled={!connected || entry?.status === 'loading'}
             onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}
           >
-            {labels.refresh}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => invoke('app.closePanel', { instanceId })}>{labels.close}</HbarAppUiButton>
+            <HbarAppUiIcon icon={RefreshCw} tier="sm" />
+          </HbarAppUiIconButton>
+          <HbarAppUiIconButton label={labels.close} onClick={() => invoke('app.closePanel', { instanceId })}>
+            <HbarAppUiIcon icon={X} tier="sm" />
+          </HbarAppUiIconButton>
         </div>
       </header>
       {!entry || entry.status === 'loading' ? (
@@ -127,8 +158,12 @@ export function HbarGoalPlanWorkspace({
         <p className="hbar-app-react-goal-plan-loading" role="alert">
           {labels.error(entry.error)}
         </p>
-      ) : (
-        <main>
+      ) : view === 'goal' ? (
+        <main className="hbar-app-react-goal-editor-view">
+          <HbarAppUiButton className="hbar-app-react-goal-plan-back" onClick={back}>
+            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
+            <span>{labels.back}</span>
+          </HbarAppUiButton>
           <form
             className="hbar-app-react-goal-editor"
             onSubmit={(event) => {
@@ -138,34 +173,39 @@ export function HbarGoalPlanWorkspace({
           >
             <h2>{labels.goal.title}</h2>
             <fieldset disabled={!connected || goalBusy}>
-              <label>
-                <span>{labels.goal.objective}</span>
-                <textarea
+              <HbarAppUiField
+                controlId={`${instanceId}-goal-objective`}
+                label={labels.goal.objective}
+                required
+                {...(entry.goalDraft.issues.objective ? { error: labels.issue('objective') } : {})}
+              >
+                <HbarAppUiTextarea
+                  id={`${instanceId}-goal-objective`}
                   required
                   value={entry.goalDraft.objective}
                   placeholder={labels.goal.objectivePlaceholder}
-                  aria-invalid={Boolean(entry.goalDraft.issues.objective)}
                   onChange={(event) => setGoalField('objective', event.currentTarget.value)}
                 />
-                {entry.goalDraft.issues.objective && <small>{labels.issue('objective')}</small>}
-              </label>
-              <label>
-                <span>{labels.goal.tokenBudget}</span>
-                <input
+              </HbarAppUiField>
+              <HbarAppUiField
+                controlId={`${instanceId}-goal-budget`}
+                label={labels.goal.tokenBudget}
+                {...(entry.goalDraft.issues.tokenBudget ? { error: labels.issue('tokenBudget') } : {})}
+              >
+                <HbarAppUiInput
+                  id={`${instanceId}-goal-budget`}
                   type="number"
                   inputMode="numeric"
                   min={1}
                   max={1_000_000_000}
                   value={entry.goalDraft.tokenBudget}
-                  aria-invalid={Boolean(entry.goalDraft.issues.tokenBudget)}
                   onChange={(event) => setGoalField('tokenBudget', event.currentTarget.value)}
                 />
-                {entry.goalDraft.issues.tokenBudget && <small>{labels.issue('tokenBudget')}</small>}
-              </label>
+              </HbarAppUiField>
               {entry.goal && (
-                <label>
-                  <span>{labels.goal.status}</span>
-                  <select
+                <HbarAppUiField controlId={`${instanceId}-goal-status`} label={labels.goal.status}>
+                  <HbarAppUiSelect
+                    id={`${instanceId}-goal-status`}
                     value={entry.goalDraft.status}
                     onChange={(event) => setGoalField('status', event.currentTarget.value)}
                   >
@@ -174,22 +214,10 @@ export function HbarGoalPlanWorkspace({
                         {labels.goal.statuses[status]}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </HbarAppUiSelect>
+                </HbarAppUiField>
               )}
             </fieldset>
-            {entry.goal && (
-              <HbarAppUiMetricStrip
-                metrics={[
-                  {
-                    label: labels.goal.remaining,
-                    value: entry.remainingTokens === null ? '—' : labels.number(entry.remainingTokens),
-                  },
-                  { label: labels.goal.used, value: labels.number(entry.goal.tokensUsed) },
-                  { label: labels.goal.elapsed, value: labels.duration(entry.goal.timeUsedSeconds) },
-                ]}
-              />
-            )}
             {entry.goalAction.error && <p role="alert">{labels.error(entry.goalAction.error)}</p>}
             {entry.goalAction.status === 'succeeded' && <p role="status">{labels.goal.saved}</p>}
             <footer>
@@ -206,17 +234,15 @@ export function HbarGoalPlanWorkspace({
                   {entry.goalAction.status === 'submitting' ? labels.goal.saving : labels.goal.save}
                 </HbarAppUiButton>
               )}
-              {entry.goal && (
-                <HbarAppUiButton
-                  disabled={!connected || goalBusy}
-                  tone="warning"
-                  onClick={() => invoke('goalPlanWorkspace.clearGoal', { instanceId })}
-                >
-                  {labels.goal.clear}
-                </HbarAppUiButton>
-              )}
             </footer>
           </form>
+        </main>
+      ) : view === 'plan' ? (
+        <main className="hbar-app-react-plan-editor-view">
+          <HbarAppUiButton className="hbar-app-react-goal-plan-back" onClick={back}>
+            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
+            <span>{labels.back}</span>
+          </HbarAppUiButton>
           <HbarAppUiPlanEditor
             labels={labels.plan}
             steps={steps}
@@ -227,9 +253,9 @@ export function HbarGoalPlanWorkspace({
             canSubmit={entry.planDirty && entry.planDraft.steps.every((step) => step.step.trim().length > 0)}
             error={entry.planAction.error ? labels.error(entry.planAction.error) : undefined}
             before={
-              <label className="hbar-app-react-plan-explanation">
-                <span>{labels.plan.explanation}</span>
-                <textarea
+              <HbarAppUiField controlId={`${instanceId}-plan-explanation`} label={labels.plan.explanation}>
+                <HbarAppUiTextarea
+                  id={`${instanceId}-plan-explanation`}
                   value={entry.planDraft.explanation}
                   placeholder={labels.plan.explanationPlaceholder}
                   disabled={!connected || planBusy}
@@ -237,26 +263,15 @@ export function HbarGoalPlanWorkspace({
                     invoke('goalPlanWorkspace.setExplanation', { instanceId, value: event.currentTarget.value })
                   }
                 />
-              </label>
+              </HbarAppUiField>
             }
             after={entry.planAction.status === 'succeeded' ? <p role="status">{labels.plan.saved}</p> : undefined}
             actions={
-              <>
-                {entry.planAction.status === 'unknown' && (
-                  <HbarAppUiButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
-                    {labels.plan.reconcile}
-                  </HbarAppUiButton>
-                )}
-                {entry.plan && (
-                  <HbarAppUiButton
-                    disabled={!connected || planBusy}
-                    tone="warning"
-                    onClick={() => invoke('goalPlanWorkspace.clearPlan', { instanceId })}
-                  >
-                    {labels.plan.clear}
-                  </HbarAppUiButton>
-                )}
-              </>
+              entry.planAction.status === 'unknown' ? (
+                <HbarAppUiButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
+                  {labels.plan.reconcile}
+                </HbarAppUiButton>
+              ) : undefined
             }
             onDraftChange={(value) => invoke('goalPlanWorkspace.setNewStep', { instanceId, value })}
             onAdd={() => invoke('goalPlanWorkspace.addStep', { instanceId })}
@@ -282,6 +297,106 @@ export function HbarGoalPlanWorkspace({
               },
             }}
           />
+        </main>
+      ) : (
+        <main className="hbar-app-react-goal-plan-overview">
+          <section>
+            <header>
+              <h2>{labels.goal.title}</h2>
+              {entry.goal && (
+                <HbarAppUiStatus value={labels.goal.statuses[entry.goal.status]} tone={goalTone(entry.goal.status)} />
+              )}
+            </header>
+            {entry.goal ? (
+              <>
+                <p className="hbar-app-react-goal-objective">{entry.goal.objective}</p>
+                <HbarAppUiCompactMetrics
+                  label={labels.goal.title}
+                  metrics={[
+                    {
+                      id: 'remaining',
+                      label: labels.goal.remaining,
+                      value: entry.remainingTokens === null ? labels.unavailable : labels.number(entry.remainingTokens),
+                    },
+                    { id: 'used', label: labels.goal.used, value: labels.number(entry.goal.tokensUsed) },
+                    { id: 'elapsed', label: labels.goal.elapsed, value: labels.duration(entry.goal.timeUsedSeconds) },
+                    {
+                      id: 'budget',
+                      label: labels.goal.tokenBudget,
+                      value:
+                        entry.goal.tokenBudget === null ? labels.unavailable : labels.number(entry.goal.tokenBudget),
+                    },
+                  ]}
+                />
+              </>
+            ) : (
+              <p className="hbar-app-react-goal-plan-empty">{labels.goal.empty}</p>
+            )}
+            {entry.goalAction.status === 'succeeded' && (
+              <p role="status">{entry.goal ? labels.goal.saved : labels.goal.cleared}</p>
+            )}
+            {entry.goalAction.error && <p role="alert">{labels.error(entry.goalAction.error)}</p>}
+            <footer>
+              <HbarAppUiButton
+                tone={entry.goal ? 'neutral' : 'accent'}
+                onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}
+              >
+                {entry.goal ? labels.goal.edit : labels.goal.create}
+              </HbarAppUiButton>
+              {entry.goal && (
+                <HbarAppUiButton
+                  disabled={!connected || goalBusy}
+                  tone="warning"
+                  onClick={() => invoke('goalPlanWorkspace.clearGoal', { instanceId })}
+                >
+                  {labels.goal.clear}
+                </HbarAppUiButton>
+              )}
+            </footer>
+          </section>
+          <section>
+            <header>
+              <h2>{labels.plan.title}</h2>
+              <span>{labels.plan.count(entry.plan?.plan.length ?? 0)}</span>
+            </header>
+            {entry.plan ? (
+              <>
+                {entry.plan.explanation && <p className="hbar-app-react-plan-explanation">{entry.plan.explanation}</p>}
+                <ol className="hbar-app-react-plan-summary">
+                  {entry.plan.plan.map((step, index) => (
+                    <li key={`${index}-${step.step}`}>
+                      <span aria-hidden="true">{index + 1}</span>
+                      <strong>{step.step}</strong>
+                      <HbarAppUiStatus value={labels.plan.statuses[step.status]} tone={stepTone(step.status)} />
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <p className="hbar-app-react-goal-plan-empty">{labels.plan.empty}</p>
+            )}
+            {entry.planAction.status === 'succeeded' && (
+              <p role="status">{entry.plan ? labels.plan.saved : labels.plan.cleared}</p>
+            )}
+            {entry.planAction.error && <p role="alert">{labels.error(entry.planAction.error)}</p>}
+            <footer>
+              <HbarAppUiButton
+                tone={entry.plan ? 'neutral' : 'accent'}
+                onClick={() => invoke('goalPlanWorkspace.showPlanEditor', { instanceId })}
+              >
+                {labels.plan.edit}
+              </HbarAppUiButton>
+              {entry.plan && (
+                <HbarAppUiButton
+                  disabled={!connected || planBusy}
+                  tone="warning"
+                  onClick={() => invoke('goalPlanWorkspace.clearPlan', { instanceId })}
+                >
+                  {labels.plan.clear}
+                </HbarAppUiButton>
+              )}
+            </footer>
+          </section>
         </main>
       )}
     </HbarAppUiSurface>

@@ -221,3 +221,26 @@ Agent 工具现在由 `agentWorkspace.showList`、`agentWorkspace.showCreate` �
 Playwright 在 list/create/detail 每次切换后检查只存在一个对应主视图，并在 1440、1024 和 390 三档宽度断言 Agent 工作区与 AppShell drawer 四条边对齐且无横向溢出。真实 Host 流程创建预算为 5,000 tokens 的子 Agent，验证返回详情、返回列表、跨断点重开详情和重开创建表单。截图均来自重新构建的 production preview 并逐张人工查看；第一次视觉回归误读了旧 `dist/web`，在重建后重新执行并用新截图取代，未把旧产物作为结论。
 
 验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；380 个 Bun 测试、2991 个断言通过；Web production build 通过（2395 modules）；flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过。真实 Host 场景完成创建、详情、返回列表和跨三档宽度重开子视图，以上八张截图均在最终产物上重新生成并人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在后续集中验收中补齐。
+
+## 15. R4.5 Goal 摘要、编辑与 PlanEditor
+
+旧 Goal/Plan 页面和旧 Agent 工具具有相同结构故障：24rem 工具列中永久并排最小 18rem 的 Goal 表单与 PlanEditor。真实截图里计划区只剩约一个单词宽，说明、步骤、状态和按钮逐字折行；三个大指标卡又占满 Goal 表单下方。页面无论用户是查看状态、编辑目标还是维护计划，都同时展开两套高密度编辑器。
+
+运行时现在通过 `goalPlanWorkspace.showOverview`、`showGoalEditor` 和 `showPlanEditor` 持有 `overview/goal/plan` 子视图。overview 只展示 Host 返回的目标、预算使用、耗时、计划说明和步骤状态；Goal 与 Plan 编辑器按需独占工具宽度。返回 overview 保留未保存草稿，重新进入相应编辑器可以继续；切换会话仍按 panel instance 和 sessionId 隔离。所有字段、步骤移动/删除、保存、清除与未知结果核对继续经过既有命令，不在 React 内复制业务状态。
+
+Goal 编辑复用 `hbar-app-ui/forms` 的 Field、Input、Textarea 和 Select；摘要复用 CompactMetrics 与 Status；Plan 编辑继续复用完整的 `HbarAppUiPlanEditor`，保留最多 100 步、稳定 stepId、状态编辑和 pane-scroll 契约。overview 的计划列表只读权威 `entry.plan`，不会把未保存草稿伪装成已提交计划。保存反馈留在所属编辑器，返回摘要后仍可确认；清除成功后分别显示目标/计划已清除，错误和未知状态继续就近呈现并允许刷新核对。
+
+| 场景       | 截图与人工观察                                                                                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面空摘要 | [1440](../../artifacts/ui-redesign/goals/after/desktop-1440-empty.png)：无目标与无计划分别给出一个入口，不再常驻两套空编辑器                                         |
+| 桌面 Goal  | [1440](../../artifacts/ui-redesign/goals/after/desktop-1440-goal.png)：目标、预算、状态和保存反馈独占完整工具宽度                                                    |
+| 桌面 Plan  | [1440](../../artifacts/ui-redesign/goals/after/desktop-1440-plan.png)：计划说明、步骤字段、移动/删除、添加和保存保持在正常横向流中                                   |
+| 桌面摘要   | [1440](../../artifacts/ui-redesign/goals/after/desktop-1440-overview.png)：目标指标使用紧凑两列，计划说明与步骤按阅读顺序排列，编辑与清除动作就近                    |
+| 中等宽度   | [1024](../../artifacts/ui-redesign/goals/after/tablet-1024-overview.png)：24rem drawer 被完整填充，摘要没有恢复旧双栏                                                |
+| 窄屏摘要   | [390](../../artifacts/ui-redesign/goals/after/mobile-390-overview.png)：目标、四项指标、计划步骤和两组动作在一个滚动流中完整可见                                     |
+| 窄屏 Goal  | [390](../../artifacts/ui-redesign/goals/after/mobile-390-goal.png)：统一字段控件使用全宽单列，状态与保存反馈不会越界                                                 |
+| 窄屏 Plan  | [390](../../artifacts/ui-redesign/goals/after/mobile-390-plan.png)：PlanEditor 的步骤标题/状态、三个行操作、添加行和保存动作均保留且可达，没有用隐藏功能换取截图整齐 |
+
+Playwright 在 overview/goal/plan 每次切换后检查只存在一个对应主视图，并在 1440、1024 和 390 三档宽度断言 Goal/Plan 工作区与 AppShell drawer 四条边对齐且无横向溢出。真实 Host 流程创建 16,000 tokens 目标，保存一条带说明的计划，跨断点重开两类编辑器，最后清除计划和目标并验证反馈。八张截图均来自 production preview 并逐张人工查看。
+
+验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；380 个 Bun 测试、2999 个断言通过；Web production build 通过（2395 modules）；flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过。真实 Host 场景完成空摘要、目标保存、计划保存、三档宽度重开编辑器、返回摘要以及清除目标/计划，以上八张截图均在最终 production preview 上重新生成并人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在后续集中验收中补齐。
