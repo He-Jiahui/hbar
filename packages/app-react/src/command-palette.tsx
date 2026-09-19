@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, RefreshCw, X } from 'lucide-react'
 import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
-import { HbarAppUiButton, HbarAppUiCommandList, HbarAppUiSurface } from 'hbar-app-ui'
+import {
+  HbarAppUiButton,
+  HbarAppUiCommandList,
+  HbarAppUiIcon,
+  HbarAppUiIconButton,
+  HbarAppUiSurface,
+} from 'hbar-app-ui'
+import {
+  HbarAppUiCheckBox,
+  HbarAppUiField,
+  HbarAppUiInput,
+  HbarAppUiSelect,
+  HbarAppUiTextarea,
+} from 'hbar-app-ui/forms'
+import { HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './command-palette.css'
 
@@ -16,6 +31,9 @@ export interface HbarCommandPaletteLabels {
   readonly unavailable: string
   readonly choose: string
   readonly close: string
+  readonly actions: string
+  readonly backToCommands: string
+  readonly backToParameters: string
   readonly count: (count: number) => string
   readonly navigateKeys: string
   readonly executeKey: string
@@ -41,6 +59,8 @@ export interface HbarCommandPaletteLabels {
   readonly executing: string
   readonly succeeded: string
   readonly result: string
+  readonly resultSummary: (command: string) => string
+  readonly technicalDetails: string
   readonly loading: string
   readonly truncated: string
   readonly unavailableReason: (code: string) => string
@@ -62,11 +82,13 @@ function reasonCode(reason: unknown): string {
 }
 
 function SensitiveParameter({
+  id,
   field,
   resetRevision,
   disabled,
   onChange,
 }: {
+  readonly id: string
   readonly field: CommandParameterField
   readonly resetRevision: number
   readonly disabled: boolean
@@ -75,7 +97,8 @@ function SensitiveParameter({
   const [value, setValue] = useState('')
   useEffect(() => setValue(''), [resetRevision])
   return (
-    <input
+    <HbarAppUiInput
+      id={id}
       type="password"
       autoComplete="new-password"
       required={field.required}
@@ -95,8 +118,8 @@ function SensitiveParameter({
 export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProps) {
   const runtime = useHbarRuntime()
   const palette = useHbarRuntimeState(runtime.state.commandPalette)
-  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const search = useRef<HTMLInputElement>(null)
+  const initialized = useRef(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const selected = palette.selectedId ? palette.items[palette.selectedId] : undefined
   const busy = palette.execution.status === 'submitting'
@@ -116,11 +139,15 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
     void promise.catch((reason) => setActionError(reasonCode(reason)))
   }, [])
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+    dispatch(runtime.commands.execute('commandPalette.setQuery', { query: '' }))
     if (palette.status === 'idle') dispatch(runtime.commands.execute('commandPalette.refresh', {}))
-  }, [dispatch, palette.status, runtime.commands])
+  }, [dispatch, palette.query, palette.status, runtime.commands])
   useEffect(() => {
-    if (palette.status === 'ready') search.current?.focus()
-  }, [palette.status])
+    if (palette.status === 'ready' && palette.view === 'search') search.current?.focus()
+  }, [palette.status, palette.view])
+
   const listItems = useMemo(
     () =>
       palette.visibleIds.flatMap((id) => {
@@ -143,23 +170,48 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
     [connected, labels, palette.items, palette.visibleIds],
   )
 
+  const commandTitle = selected
+    ? labels.resolve(selected.descriptor.metadata.titleKey) === selected.descriptor.metadata.titleKey
+      ? labels.commandFallback(selected.descriptor.metadata.id)
+      : labels.resolve(selected.descriptor.metadata.titleKey)
+    : labels.title
+  const commandDescription = selected
+    ? labels.resolve(selected.descriptor.metadata.descriptionKey) === selected.descriptor.metadata.descriptionKey
+      ? labels.descriptionFallback(selected.descriptor.metadata.id)
+      : labels.resolve(selected.descriptor.metadata.descriptionKey)
+    : labels.description
   const select = (id: string) => dispatch(runtime.commands.execute('commandPalette.select', { commandId: id }))
+  const openCommand = (id: string) =>
+    dispatch(runtime.commands.execute('commandPalette.openCommand', { commandId: id }))
+  const goBack = () => dispatch(runtime.commands.execute('commandPalette.back', {}))
   const setParameter = (field: string, value: string | boolean) =>
     dispatch(runtime.commands.execute('commandPalette.setParameter', { field, value }))
   const unsetParameter = (field: string) =>
     dispatch(runtime.commands.execute('commandPalette.unsetParameter', { field }))
   const closePanel = () => {
-    if (presentation.modalInstanceId)
-      dispatch(runtime.commands.execute('app.closePanel', { instanceId: presentation.modalInstanceId }))
+    const instanceId = runtime.state.presentation.getSnapshot().modalInstanceId
+    if (instanceId) dispatch(runtime.commands.execute('app.closePanel', { instanceId }))
+  }
+  const executeCommand = () => {
+    setActionError(null)
+    void runtime.commands
+      .execute('commandPalette.execute', {})
+      .then(async () => {
+        if (selected?.descriptor.metadata.category !== 'app.navigation') return
+        const instanceId = runtime.state.presentation.getSnapshot().modalInstanceId
+        if (instanceId) await runtime.commands.execute('app.closePanel', { instanceId })
+      })
+      .catch(() => {})
   }
   const fieldIssue = (field: string) => palette.draft?.issues.find((issue) => issue.field === field)
 
-  const fieldControl = (field: CommandParameterField) => {
+  const fieldControl = (field: CommandParameterField, controlId: string) => {
     const value = palette.draft?.values[field.name]
     if (field.sensitive)
       return (
         <SensitiveParameter
           key={`${palette.selectedId}:${field.name}`}
+          id={controlId}
           field={field}
           resetRevision={palette.sensitiveResetRevision}
           disabled={busy}
@@ -169,7 +221,8 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
     if (field.kind === 'boolean') {
       if (!field.required && field.defaultValue === undefined)
         return (
-          <select
+          <HbarAppUiSelect
+            id={controlId}
             value={typeof value === 'boolean' ? String(value) : ''}
             disabled={busy}
             onChange={(event) => {
@@ -181,11 +234,12 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
             <option value="">{labels.unset}</option>
             <option value="true">{labels.trueValue}</option>
             <option value="false">{labels.falseValue}</option>
-          </select>
+          </HbarAppUiSelect>
         )
       return (
-        <input
-          type="checkbox"
+        <HbarAppUiCheckBox
+          id={controlId}
+          label={labels.trueValue}
           checked={value === true}
           disabled={busy}
           onChange={(event) => setParameter(field.name, event.currentTarget.checked)}
@@ -194,7 +248,8 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
     }
     if (field.choices.length)
       return (
-        <select
+        <HbarAppUiSelect
+          id={controlId}
           value={typeof value === 'string' ? value : ''}
           required={field.required}
           disabled={busy}
@@ -215,11 +270,12 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
               {labels.option(field, choice)}
             </option>
           ))}
-        </select>
+        </HbarAppUiSelect>
       )
     if (field.kind === 'json')
       return (
-        <textarea
+        <HbarAppUiTextarea
+          id={controlId}
           value={typeof value === 'string' ? value : ''}
           required={field.required}
           disabled={busy}
@@ -228,7 +284,8 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
         />
       )
     return (
-      <input
+      <HbarAppUiInput
+        id={controlId}
         type={field.kind === 'number' || field.kind === 'integer' ? 'number' : 'text'}
         step={field.kind === 'integer' ? 1 : field.kind === 'number' ? 'any' : undefined}
         min={field.minimum}
@@ -243,151 +300,195 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
     )
   }
 
-  return (
-    <HbarAppUiSurface className="hbar-app-react-command-palette">
-      <header className="hbar-app-react-command-header">
-        <div>
-          <h1>{labels.title}</h1>
-          <p>{labels.description}</p>
-        </div>
-        <div>
-          <HbarAppUiButton
-            disabled={palette.status === 'loading' || busy}
-            onClick={() => dispatch(runtime.commands.execute('commandPalette.refresh', {}))}
+  const header = (
+    <HbarAppUiPageHeader
+      title={palette.view === 'result' ? labels.result : palette.view === 'parameters' ? commandTitle : labels.title}
+      context={palette.view === 'search' ? labels.description : commandDescription}
+      leading={
+        palette.view === 'search' ? undefined : (
+          <HbarAppUiIconButton
+            label={palette.view === 'result' ? labels.backToParameters : labels.backToCommands}
+            onClick={goBack}
           >
-            {palette.status === 'loading' ? labels.loading : labels.refresh}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={closePanel}>{labels.close}</HbarAppUiButton>
-        </div>
-      </header>
-      <div className="hbar-app-react-command-layout">
-        <HbarAppUiCommandList
-          inputRef={search}
-          labels={{
-            search: labels.search,
-            available: labels.available,
-            empty: labels.empty,
-            unavailable: labels.unavailable,
-            navigate: labels.choose,
-            execute: labels.choose,
-            close: labels.close,
-            count: labels.count,
-            navigateKeys: labels.navigateKeys,
-            executeKey: labels.executeKey,
-            closeKey: labels.closeKey,
-          }}
-          items={listItems}
-          query={palette.query}
-          selectedId={palette.selectedId ?? undefined}
-          selectionLost={palette.selectionLost}
-          onQueryChange={(query) => dispatch(runtime.commands.execute('commandPalette.setQuery', { query }))}
-          onSelect={select}
-          onMove={(direction) => dispatch(runtime.commands.execute('commandPalette.move', { direction }))}
-          onExecute={select}
-          listStrategy={listItems.length > 40 ? 'virtual' : 'content-grown'}
-          error={palette.status === 'error' && palette.error ? labels.error(palette.error) : undefined}
-        />
-        <main className="hbar-app-react-command-detail">
-          {!selected || !palette.draft ? (
-            <p role="status">{labels.empty}</p>
-          ) : (
-            <>
-              <header>
-                <small>{labels.category(selected.descriptor.metadata.category)}</small>
-                <h2>
-                  {labels.resolve(selected.descriptor.metadata.titleKey) === selected.descriptor.metadata.titleKey
-                    ? labels.commandFallback(selected.descriptor.metadata.id)
-                    : labels.resolve(selected.descriptor.metadata.titleKey)}
-                </h2>
-                <p>
-                  {labels.resolve(selected.descriptor.metadata.descriptionKey) ===
-                  selected.descriptor.metadata.descriptionKey
-                    ? labels.descriptionFallback(selected.descriptor.metadata.id)
-                    : labels.resolve(selected.descriptor.metadata.descriptionKey)}
-                </p>
-                <dl>
-                  <div>
-                    <dt>{labels.kind(selected.descriptor.metadata.kind)}</dt>
-                    <dd>{selected.descriptor.metadata.id}</dd>
-                  </div>
-                  <div>
-                    <dt>{labels.execution(selected.descriptor.metadata.execution)}</dt>
-                    <dd>{labels.scope(selected.descriptor.metadata.scope)}</dd>
-                  </div>
-                </dl>
-              </header>
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  if (canExecute) dispatch(runtime.commands.execute('commandPalette.execute', {}))
-                }}
-              >
-                <fieldset disabled={busy}>
-                  <legend>{labels.parameters}</legend>
-                  {selected.form.fields.length === 0 ? (
-                    <p>{labels.noParameters}</p>
-                  ) : (
-                    selected.form.fields.map((field) => {
-                      const issue = fieldIssue(field.name)
-                      const resolved = labels.resolve(field.labelKey)
-                      const isSet =
-                        Object.hasOwn(palette.draft?.values ?? {}, field.name) ||
-                        palette.draft?.sensitiveFields.includes(field.name)
-                      return (
-                        <div key={field.name} className={`hbar-app-react-command-field${issue ? ' has-error' : ''}`}>
-                          <label>
-                            <span>
-                              <strong>
-                                {resolved === field.labelKey ? labels.fieldFallback(field.name) : resolved}
-                              </strong>
-                              <small>{field.required ? labels.required : labels.optional}</small>
-                            </span>
-                            {fieldControl(field)}
-                            {issue && <small role="alert">{labels.issue(issue)}</small>}
-                          </label>
-                          {!field.required && isSet && (
-                            <HbarAppUiButton type="button" disabled={busy} onClick={() => unsetParameter(field.name)}>
-                              {labels.unset}
-                            </HbarAppUiButton>
-                          )}
-                        </div>
-                      )
-                    })
-                  )}
-                </fieldset>
-                {(!selected.available || hostDisconnected) && (
-                  <p role="status">
-                    {labels.unavailableReason(
-                      hostDisconnected ? 'HOST_DISCONNECTED' : (selected.unavailableReason ?? 'CAPABILITY_UNAVAILABLE'),
-                    )}
-                  </p>
-                )}
-                {palette.execution.status === 'succeeded' && (
-                  <section className="hbar-app-react-command-result" aria-label={labels.result}>
-                    <strong>{labels.succeeded}</strong>
-                    {palette.execution.result && <pre>{palette.execution.result}</pre>}
-                  </section>
-                )}
-                {palette.execution.error && <p role="alert">{labels.error(palette.execution.error)}</p>}
-                {actionError && <p role="alert">{labels.error(actionError)}</p>}
-                <footer>
-                  <HbarAppUiButton
-                    type="button"
-                    disabled={busy}
-                    onClick={() => dispatch(runtime.commands.execute('commandPalette.resetParameters', {}))}
-                  >
-                    {labels.reset}
-                  </HbarAppUiButton>
-                  <HbarAppUiButton type="submit" tone="accent" disabled={!canExecute}>
-                    {busy ? labels.executing : labels.execute}
-                  </HbarAppUiButton>
-                </footer>
-              </form>
-            </>
+            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
+          </HbarAppUiIconButton>
+        )
+      }
+      actionsLabel={labels.actions}
+      actions={
+        <>
+          {palette.view === 'search' && (
+            <HbarAppUiIconButton
+              label={labels.refresh}
+              disabled={palette.status === 'loading' || busy}
+              onClick={() => dispatch(runtime.commands.execute('commandPalette.refresh', {}))}
+            >
+              <HbarAppUiIcon icon={RefreshCw} tier="sm" />
+            </HbarAppUiIconButton>
           )}
+          <HbarAppUiIconButton label={labels.close} onClick={closePanel}>
+            <HbarAppUiIcon icon={X} tier="sm" />
+          </HbarAppUiIconButton>
+        </>
+      }
+    />
+  )
+
+  return (
+    <HbarAppUiSurface className="hbar-app-react-command-palette" data-view={palette.view}>
+      {header}
+      {palette.view === 'search' ? (
+        <div className="hbar-app-react-command-search">
+          <HbarAppUiCommandList
+            inputRef={search}
+            labels={{
+              search: labels.search,
+              available: labels.available,
+              empty: labels.empty,
+              unavailable: labels.unavailable,
+              navigate: labels.choose,
+              execute: labels.choose,
+              close: labels.close,
+              count: labels.count,
+              navigateKeys: labels.navigateKeys,
+              executeKey: labels.executeKey,
+              closeKey: labels.closeKey,
+            }}
+            items={listItems}
+            query={palette.query}
+            selectedId={palette.selectedId ?? undefined}
+            selectionLost={palette.selectionLost}
+            onQueryChange={(query) => dispatch(runtime.commands.execute('commandPalette.setQuery', { query }))}
+            onSelect={select}
+            onMove={(direction) => dispatch(runtime.commands.execute('commandPalette.move', { direction }))}
+            onExecute={openCommand}
+            listStrategy={listItems.length > 40 ? 'virtual' : 'content-grown'}
+            error={palette.status === 'error' && palette.error ? labels.error(palette.error) : undefined}
+          />
+          {palette.truncated && <p className="hbar-app-react-command-truncated">{labels.truncated}</p>}
+          {actionError && (
+            <p className="hbar-app-react-command-action-error" role="alert">
+              {labels.error(actionError)}
+            </p>
+          )}
+        </div>
+      ) : palette.view === 'parameters' && selected && palette.draft ? (
+        <main className="hbar-app-react-command-parameters">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (canExecute) executeCommand()
+            }}
+          >
+            <div className="hbar-app-react-command-form-body">
+              <dl className="hbar-app-react-command-metadata">
+                <div>
+                  <dt>{labels.kind(selected.descriptor.metadata.kind)}</dt>
+                  <dd>{selected.descriptor.metadata.id}</dd>
+                </div>
+                <div>
+                  <dt>{labels.execution(selected.descriptor.metadata.execution)}</dt>
+                  <dd>{labels.scope(selected.descriptor.metadata.scope)}</dd>
+                </div>
+              </dl>
+              <fieldset disabled={busy}>
+                <legend>{labels.parameters}</legend>
+                {selected.form.fields.length === 0 ? (
+                  <p>{labels.noParameters}</p>
+                ) : (
+                  selected.form.fields.map((field) => {
+                    const issue = fieldIssue(field.name)
+                    const resolved = labels.resolve(field.labelKey)
+                    const label = resolved === field.labelKey ? labels.fieldFallback(field.name) : resolved
+                    const isSet =
+                      Object.hasOwn(palette.draft?.values ?? {}, field.name) ||
+                      palette.draft?.sensitiveFields.includes(field.name)
+                    const controlId = `hbar-command-${field.name}`
+                    return (
+                      <div key={field.name} className="hbar-app-react-command-field">
+                        <HbarAppUiField
+                          controlId={controlId}
+                          label={label}
+                          hint={field.required ? labels.required : labels.optional}
+                          {...(issue ? { error: labels.issue(issue) } : {})}
+                          required={field.required}
+                        >
+                          {fieldControl(field, controlId)}
+                        </HbarAppUiField>
+                        {!field.required && isSet && (
+                          <HbarAppUiButton type="button" disabled={busy} onClick={() => unsetParameter(field.name)}>
+                            {labels.unset}
+                          </HbarAppUiButton>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </fieldset>
+              {(!selected.available || hostDisconnected) && (
+                <p role="status">
+                  {labels.unavailableReason(
+                    hostDisconnected ? 'HOST_DISCONNECTED' : (selected.unavailableReason ?? 'CAPABILITY_UNAVAILABLE'),
+                  )}
+                </p>
+              )}
+              {actionError && <p role="alert">{labels.error(actionError)}</p>}
+            </div>
+            <footer>
+              <HbarAppUiButton
+                type="button"
+                disabled={busy}
+                onClick={() => dispatch(runtime.commands.execute('commandPalette.resetParameters', {}))}
+              >
+                {labels.reset}
+              </HbarAppUiButton>
+              <HbarAppUiButton type="submit" tone="accent" disabled={!canExecute}>
+                {busy ? labels.executing : labels.execute}
+              </HbarAppUiButton>
+            </footer>
+          </form>
         </main>
-      </div>
-      {palette.truncated && <p className="hbar-app-react-command-truncated">{labels.truncated}</p>}
+      ) : palette.view === 'result' && selected ? (
+        <main className="hbar-app-react-command-result-view">
+          <section
+            className="hbar-app-react-command-result-summary"
+            data-tone={palette.execution.status === 'succeeded' ? 'positive' : 'danger'}
+            role={palette.execution.status === 'succeeded' ? 'status' : 'alert'}
+          >
+            <strong>
+              {palette.execution.status === 'succeeded'
+                ? labels.succeeded
+                : labels.error(palette.execution.error ?? 'EXECUTION_FAILED')}
+            </strong>
+            <p>{labels.resultSummary(commandTitle)}</p>
+          </section>
+          <dl className="hbar-app-react-command-metadata">
+            <div>
+              <dt>{labels.kind(selected.descriptor.metadata.kind)}</dt>
+              <dd>{selected.descriptor.metadata.id}</dd>
+            </div>
+            <div>
+              <dt>{labels.execution(selected.descriptor.metadata.execution)}</dt>
+              <dd>{labels.scope(selected.descriptor.metadata.scope)}</dd>
+            </div>
+          </dl>
+          <details className="hbar-app-react-command-result-details">
+            <summary>{labels.technicalDetails}</summary>
+            <pre>{palette.execution.result ?? palette.execution.error}</pre>
+          </details>
+          <footer>
+            <HbarAppUiButton onClick={goBack}>{labels.backToParameters}</HbarAppUiButton>
+            <HbarAppUiButton tone="accent" onClick={closePanel}>
+              {labels.close}
+            </HbarAppUiButton>
+          </footer>
+        </main>
+      ) : (
+        <main className="hbar-app-react-command-missing">
+          <p role="status">{labels.empty}</p>
+          <HbarAppUiButton onClick={goBack}>{labels.backToCommands}</HbarAppUiButton>
+        </main>
+      )}
     </HbarAppUiSurface>
   )
 }

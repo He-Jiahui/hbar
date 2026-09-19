@@ -13,6 +13,9 @@ const labels: HbarCommandPaletteLabels = {
   unavailable: 'The previous selection is unavailable.',
   choose: 'Choose',
   close: 'Close',
+  actions: 'Command actions',
+  backToCommands: 'Back to commands',
+  backToParameters: 'Back to parameters',
   count: (count) => `${count} commands`,
   navigateKeys: 'Arrows',
   executeKey: 'Enter',
@@ -38,6 +41,8 @@ const labels: HbarCommandPaletteLabels = {
   executing: 'Executing',
   succeeded: 'Command succeeded',
   result: 'Command result',
+  resultSummary: (command) => `${command} completed.`,
+  technicalDetails: 'Technical details',
   loading: 'Loading commands',
   truncated: 'More commands are available.',
   unavailableReason: (code) => `Unavailable ${code}`,
@@ -65,6 +70,15 @@ test('app-react renders the controlled catalog and descriptor parameter form wit
     expect(html).toContain('Command catalog')
     expect(html).toContain('app.openPanel')
     expect(html).toContain('Category app.navigation')
+    expect(html).toContain('hbar-app-ui-controlled-commands')
+    expect(html).not.toContain('Field panelId')
+
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: 'app.openPanel' })
+    html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarCommandPalette labels={labels} connected />
+      </HbarRuntimeProvider>,
+    )
     expect(html).toContain('Field panelId')
     expect(html).toContain('Issue panelId required')
     expect(html).toContain('Execute command')
@@ -78,6 +92,8 @@ test('app-react renders the controlled catalog and descriptor parameter form wit
       </HbarRuntimeProvider>,
     )
     expect(html).toContain('Command succeeded')
+    expect(html).toContain('app.openPanel completed.')
+    expect(html).toContain('Technical details')
     expect(html).toContain('&quot;panelId&quot;: &quot;status&quot;')
   } finally {
     runtime.dispose()

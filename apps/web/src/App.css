@@ -8,6 +8,24 @@ dialog.hbar-app-react-provider-modal {
   --hbar-app-ui-dialog-width: 80rem;
 }
 
+dialog.hbar-app-react-command-modal {
+  --hbar-app-ui-dialog-width: 42rem;
+
+  block-size: min(42rem, calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap)));
+}
+
+dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-view='parameters']) {
+  block-size: min(36rem, calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap)));
+}
+
+dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-view='result']) {
+  block-size: min(30rem, calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap)));
+}
+
+dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[open]) {
+  block-size: min(42rem, calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap)));
+}
+
 .hbar-app-react-workspace-modal > .hbar-app-ui-native-dialog-body > * {
   min-inline-size: 0;
   min-block-size: 0;
@@ -16,6 +34,10 @@ dialog.hbar-app-react-provider-modal {
 
 @media (max-width: 48rem) {
   dialog.hbar-app-react-workspace-modal {
+    block-size: calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap));
+  }
+
+  dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette) {
     block-size: calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap));
   }
 }

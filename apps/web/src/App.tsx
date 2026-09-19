@@ -189,7 +189,13 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
         title={copy.commandPalette.title}
         closeLabel={copy.commandPalette.close}
         className="hbar-app-react-workspace-modal hbar-app-react-command-modal"
-        onClose={() => close(modalInstanceId)}
+        onClose={() => {
+          if (runtime.state.commandPalette.getSnapshot().view !== 'search') {
+            void runtime.commands.execute('commandPalette.back', {}).catch(() => {})
+            return
+          }
+          close(modalInstanceId)
+        }}
       >
         <HbarCommandPalette labels={copy.commandPalette} connected={connected} />
       </HbarAppUiDialog>

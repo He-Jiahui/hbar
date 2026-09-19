@@ -7,200 +7,232 @@
   overflow: hidden;
 }
 
-.hbar-app-react-command-header {
+.hbar-app-react-command-palette > .hbar-app-ui-page-header {
+  min-block-size: 3.75rem;
+}
+
+.hbar-app-react-command-search,
+.hbar-app-react-command-parameters,
+.hbar-app-react-command-parameters > form {
   display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--hbar-app-ui-space-md);
-  padding: var(--hbar-app-ui-space-lg);
-  border-block-end: 1px solid var(--hbar-app-ui-border);
-}
-
-.hbar-app-react-command-header h1,
-.hbar-app-react-command-header p,
-.hbar-app-react-command-detail h2,
-.hbar-app-react-command-detail p,
-.hbar-app-react-command-detail dl,
-.hbar-app-react-command-detail fieldset {
-  margin: 0;
-}
-
-.hbar-app-react-command-header p,
-.hbar-app-react-command-detail > header > p {
-  margin-block-start: var(--hbar-app-ui-space-xs);
-  color: var(--hbar-app-ui-muted);
-}
-
-.hbar-app-react-command-header > div:last-child,
-.hbar-app-react-command-detail form > footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hbar-app-ui-space-sm);
-}
-
-.hbar-app-react-command-layout {
-  display: grid;
   min-inline-size: 0;
   min-block-size: 0;
   flex: 1 1 auto;
-  grid-template-columns: minmax(19rem, 2fr) minmax(22rem, 3fr);
-  overflow: hidden;
+  flex-direction: column;
 }
 
-.hbar-app-react-command-layout > .hbar-app-ui-controlled-commands {
+.hbar-app-react-command-search > .hbar-app-ui-controlled-commands {
   min-block-size: 0;
   block-size: 100%;
-  border-inline-end: 1px solid var(--hbar-app-ui-border);
+  flex: 1 1 auto;
 }
 
-.hbar-app-react-command-detail {
+.hbar-app-react-command-form-body {
+  display: flex;
   min-inline-size: 0;
   min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-lg);
   overflow: auto;
   padding: var(--hbar-app-ui-space-lg);
 }
 
-.hbar-app-react-command-detail > header,
-.hbar-app-react-command-detail form,
-.hbar-app-react-command-detail fieldset,
-.hbar-app-react-command-field,
-.hbar-app-react-command-field > label {
-  display: flex;
-  flex-direction: column;
-  min-inline-size: 0;
-}
-
-.hbar-app-react-command-detail > header,
-.hbar-app-react-command-detail form {
-  gap: var(--hbar-app-ui-space-lg);
-}
-
-.hbar-app-react-command-detail dl {
+.hbar-app-react-command-metadata {
   display: flex;
   flex-wrap: wrap;
   gap: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-xl);
+  margin: 0;
+  padding-block-end: var(--hbar-app-ui-space-md);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
-.hbar-app-react-command-detail dl > div {
+.hbar-app-react-command-metadata > div {
   display: flex;
-  gap: var(--hbar-app-ui-space-sm);
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-md);
 }
 
-.hbar-app-react-command-detail dt,
-.hbar-app-react-command-detail > header > small,
-.hbar-app-react-command-field small {
+.hbar-app-react-command-metadata dt {
   color: var(--hbar-app-ui-muted);
 }
 
-.hbar-app-react-command-detail fieldset {
+.hbar-app-react-command-metadata dd {
+  min-inline-size: 0;
+  margin: 0;
+  font-family: var(--hbar-app-ui-mono);
+  font-weight: 600;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-command-parameters fieldset {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
   gap: var(--hbar-app-ui-space-md);
+  margin: 0;
   padding: 0;
   border: 0;
 }
 
-.hbar-app-react-command-detail legend {
+.hbar-app-react-command-parameters legend {
   margin-block-end: var(--hbar-app-ui-space-md);
-  font-weight: 600;
+  font-size: var(--hbar-app-ui-font-section);
+  font-weight: 650;
 }
 
-.hbar-app-react-command-field,
-.hbar-app-react-command-field > label {
-  gap: var(--hbar-app-ui-space-xs);
+.hbar-app-react-command-parameters p,
+.hbar-app-react-command-result-view p,
+.hbar-app-react-command-missing p {
+  margin: 0;
 }
 
-.hbar-app-react-command-field > label > span {
+.hbar-app-react-command-field {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
+  min-inline-size: 0;
+  align-items: flex-end;
   gap: var(--hbar-app-ui-space-sm);
 }
 
-.hbar-app-react-command-detail input:not([type='checkbox']),
-.hbar-app-react-command-detail select,
-.hbar-app-react-command-detail textarea {
-  inline-size: 100%;
-  min-inline-size: 0;
-  min-block-size: var(--hbar-app-ui-control-min);
-  padding: var(--hbar-app-ui-space-sm);
-  border: 1px solid var(--hbar-app-ui-border);
-  border-radius: var(--hbar-app-ui-control-radius);
-  color: var(--hbar-app-ui-text);
-  background: var(--hbar-app-ui-surface-1);
-  box-sizing: border-box;
-  font: inherit;
+.hbar-app-react-command-field > .hbar-app-ui-field {
+  flex: 1 1 auto;
 }
 
-.hbar-app-react-command-detail textarea {
+.hbar-app-react-command-field > .hbar-app-ui-button {
+  flex: 0 0 auto;
+}
+
+.hbar-app-react-command-parameters textarea {
   min-block-size: 8rem;
-  resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--hbar-app-ui-mono);
 }
 
-.hbar-app-react-command-field.has-error input,
-.hbar-app-react-command-field.has-error select,
-.hbar-app-react-command-field.has-error textarea {
-  border-color: var(--hbar-app-ui-danger);
-}
-
-.hbar-app-react-command-field [role='alert'],
-.hbar-app-react-command-detail form > [role='alert'] {
+.hbar-app-react-command-parameters [role='alert'],
+.hbar-app-react-command-action-error,
+.hbar-app-react-command-result-summary[data-tone='danger'] {
   color: var(--hbar-app-ui-danger);
 }
 
-.hbar-app-react-command-result {
+.hbar-app-react-command-parameters form > footer,
+.hbar-app-react-command-result-view > footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-md) var(--hbar-app-ui-space-lg);
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-command-truncated,
+.hbar-app-react-command-action-error {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-command-truncated {
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-react-command-result-view {
   display: flex;
   min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--hbar-app-ui-space-sm);
+  gap: var(--hbar-app-ui-space-lg);
+  overflow: auto;
+  padding-block-start: var(--hbar-app-ui-space-lg);
+}
+
+.hbar-app-react-command-result-view > :not(footer) {
+  margin-inline: var(--hbar-app-ui-space-lg);
+}
+
+.hbar-app-react-command-result-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
   padding: var(--hbar-app-ui-space-md);
-  border: 1px solid var(--hbar-app-ui-border);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
   border-radius: var(--hbar-app-ui-control-radius);
   background: var(--hbar-app-ui-surface-1);
 }
 
-.hbar-app-react-command-result pre {
-  max-block-size: 16rem;
+.hbar-app-react-command-result-summary[data-tone='positive'] strong {
+  color: var(--hbar-app-ui-positive);
+}
+
+.hbar-app-react-command-result-details {
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-command-result-details > summary {
+  padding-block: var(--hbar-app-ui-space-md);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.hbar-app-react-command-result-details pre {
+  max-block-size: 20rem;
   overflow: auto;
   margin: 0;
+  padding: var(--hbar-app-ui-space-md);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.hbar-app-react-command-detail form > footer {
-  justify-content: flex-end;
+.hbar-app-react-command-result-view > footer {
+  margin-block-start: auto;
+  margin-inline: 0;
 }
 
-.hbar-app-react-command-truncated {
-  flex: 0 0 auto;
-  margin: 0;
-  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
-  border-block-start: 1px solid var(--hbar-app-ui-border);
-  color: var(--hbar-app-ui-muted);
+.hbar-app-react-command-missing {
+  display: flex;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-lg);
 }
 
-@media (max-width: 48rem) {
-  .hbar-app-react-command-palette {
-    overflow: auto;
+@media (max-width: 35rem) {
+  .hbar-app-react-command-form-body,
+  .hbar-app-react-command-result-view {
+    gap: var(--hbar-app-ui-space-md);
   }
 
-  .hbar-app-react-command-layout {
-    display: flex;
-    flex-direction: column;
-    overflow: visible;
-  }
-
-  .hbar-app-react-command-layout > .hbar-app-ui-controlled-commands {
-    block-size: min(26rem, 60dvh);
-    flex: 0 0 auto;
-    border-inline-end: 0;
-    border-block-end: 1px solid var(--hbar-app-ui-border);
-  }
-
-  .hbar-app-react-command-detail {
-    overflow: visible;
+  .hbar-app-react-command-form-body {
     padding: var(--hbar-app-ui-space-md);
+  }
+
+  .hbar-app-react-command-field {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hbar-app-react-command-field > .hbar-app-ui-button {
+    align-self: flex-start;
+  }
+
+  .hbar-app-react-command-parameters form > footer,
+  .hbar-app-react-command-result-view > footer {
+    padding-inline: var(--hbar-app-ui-space-md);
+  }
+
+  .hbar-app-react-command-result-view > :not(footer) {
+    margin-inline: var(--hbar-app-ui-space-md);
   }
 }

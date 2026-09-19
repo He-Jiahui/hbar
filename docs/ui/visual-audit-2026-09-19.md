@@ -375,3 +375,25 @@ Git 页现在把仓库和时间窗保留为常用筛选，提交来源进入“�
 第一轮真实页面截图发现桌面 Time window 标签被控件宽度压成两行；最终给常用 Git 标签保留单行，并重新 production build 后生成全部截图。技术详情第一版又让仓库路径与所有事实等宽，最终为首项提供更宽 flex basis，把路径从四行缩短到两行。Playwright 实际点击最后一个非零提交桶、断言三个图表的受控选择状态和一条提交结果，再恢复全部提交。非 Git 工作区使用独立 React/Host 投影测试验证明确空态；空历史继续由 `head: null` 与零统计区分，读取失败使用原错误边界。
 
 验证结果：Git runtime、React、非仓库空态与共享 BarSeries 定向测试通过；flow/content/icon guards、全仓 ESLint、TypeScript、387 个 Bun 测试（3077 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景完成来源筛选、三条趋势、命令化时间桶选择与恢复、提交行、仓库技术详情以及 1440/1024/390 三档无水平溢出验证；以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
+
+## 23. R5.8 命令对话框三步流
+
+旧命令对话框把搜索目录、参数表单和原始 JSON 结果同时塞进左右两栏：未选择命令时右侧仍占空间，选择后目录与表单争夺宽度，执行回执直接以大段技术文本覆盖主要阅读区。弹窗本身没有稳定的返回层级，参数页和结果页关闭后也难以判断会回到目录还是退出整个流程。它虽然复用了命令 descriptor，却在视觉和交互上仍像调试器，而不是工作台的主要操作入口。
+
+现在命令目录使用 runtime 的 `search`、`parameters`、`result` 三步投影，每一步只呈现当前任务。搜索页保留单个查询框、分类列表、键盘提示与条目总数；点击或 Enter 执行 `commandPalette.openCommand`。参数页使用统一 PageHeader 和 `hbar-app-ui/forms` 的 Field/Input/Select/Textarea/CheckBox，根据 descriptor 显示命令、执行位置、作用域、默认值、必填和验证错误；重置与执行位于正常流的底部操作区。结果页先给出可读成功或失败摘要，命令事实保持紧凑，原始 JSON 进入默认折叠的 Technical details。
+
+返回与关闭也成为明确的命令层级。页头返回按钮和 NativeDialog 的 Escape 都按结果→参数→搜索→关闭移动；从结果返回参数时保留已提交的非敏感值，敏感值仍按运行时规则清除。导航类命令成功后关闭目录，让新页面成为焦点。每次打开会清空旧查询；每次查询变化会选择第一个结果并把虚拟列表复位到顶部，避免旧的滚动偏移把首项裁成一条灰边或隐藏分类标题。
+
+| 场景         | 截图与人工观察                                                                                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面搜索     | [1440](../../artifacts/ui-redesign/commands/after/desktop-1440-search.png)：空查询从第一个分类和第一条选中命令开始，130 条命令在单一滚动区中呈现；非选中行没有继承全局按钮底色，底部键盘提示紧凑可读 |
+| 桌面参数     | [1440](../../artifacts/ui-redesign/commands/after/desktop-1440-parameters.png)：会话目标、Token 上限和可选版本按字段顺序排列，验证、重置和执行就近，参数页不再保留目录空栏                           |
+| 桌面结果     | [1440](../../artifacts/ui-redesign/commands/after/desktop-1440-result.png)：成功状态和自然语言摘要先出现，技术回执默认折叠，返回参数与关闭目录是两个明确动作                                         |
+| 桌面技术回执 | [1440](../../artifacts/ui-redesign/commands/after/desktop-1440-details.png)：原始 JSON 在有界滚动区中展开，弹窗增高但不越过视口，底部操作仍可达                                                      |
+| 中等宽度搜索 | [1024](../../artifacts/ui-redesign/commands/after/tablet-1024-search.png)：筛选后的分类、命令标题和说明保留完整横向层级，目录与应用侧栏没有发生水平溢出                                              |
+| 窄屏搜索     | [390](../../artifacts/ui-redesign/commands/after/mobile-390-search.png)：弹窗占用可用高度，标题操作、查询、分类结果和两行紧凑键盘提示均可达，条目数量靠右形成独立尾行                                |
+| 窄屏参数     | [390](../../artifacts/ui-redesign/commands/after/mobile-390-parameters.png)：命令与作用域事实自然换行，三个字段保持单列；必填错误就近显示，底部两个动作不被表单滚动遮挡                              |
+
+第一轮真实截图发现三个代码检查无法证明的问题：重新打开目录会保留扩展页留下的 `system.` 查询；普通命令行继承了应用全局按钮的灰色背景；参数和结果沿用搜索页固定高度，产生大片空白。修正后第二轮又发现虚拟列表仍保留旧选中项的滚动偏移，首项只露出一条灰边且分类标题消失。最终运行时让查询变化重置选择，共享 CommandList 让按钮样式自包含并在查询变化时复位虚拟滚动，弹窗按三种状态使用不同桌面高度；所有 production 截图重新生成并逐张人工复核。
+
+验证结果：命令目录 runtime 与 React 定向测试通过；flow/content/icon guards、全仓 ESLint、TypeScript、387 个 Bun 测试（3086 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景实际搜索 `session.setBudget`、填写并执行 Token 上限、查看折叠与展开回执、按两次 Escape 返回搜索，在 1440/1024/390 三档检查无水平溢出；E2E 还断言空查询首个分类可见，防止虚拟滚动回归。以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。

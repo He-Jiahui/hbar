@@ -209,6 +209,9 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
     unavailable: choose('先前选择的命令已不可用。', 'The previous command selection is unavailable.'),
     choose: choose('选择', 'Choose'),
     close: choose('关闭命令目录', 'Close command catalog'),
+    actions: choose('命令目录操作', 'Command catalog actions'),
+    backToCommands: choose('返回命令列表', 'Back to commands'),
+    backToParameters: choose('返回命令参数', 'Back to command parameters'),
     count: (count) => choose(`${count} 个命令`, `${count} ${count === 1 ? 'command' : 'commands'}`),
     navigateKeys: '↑↓',
     executeKey: 'Enter',
@@ -251,6 +254,8 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
     executing: choose('正在执行…', 'Executing…'),
     succeeded: choose('命令执行成功', 'Command succeeded'),
     result: choose('命令结果', 'Command result'),
+    resultSummary: (command) => choose(`${command} 已完成。`, `${command} completed.`),
+    technicalDetails: choose('技术详情', 'Technical details'),
     loading: choose('正在加载命令…', 'Loading commands…'),
     truncated: choose(
       '目录已达到显示上限，请用搜索缩小范围。',
