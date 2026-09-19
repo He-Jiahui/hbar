@@ -17,8 +17,10 @@ describe('host-controlled conversation components', () => {
         uploading: false,
         canSubmit: true,
         canStop: false,
+        canAddAttachments: true,
         error: 'Host unavailable',
         onChange() {},
+        onAddAttachments() {},
         onRemoveAttachment() {},
         onSubmit() {},
         onStop() {},
@@ -27,6 +29,7 @@ describe('host-controlled conversation components', () => {
     expect(markup).toContain('Keep this draft after a failed request')
     expect(markup).toContain('Host unavailable')
     expect(markup).toContain('Remove file An intentionally long file name')
+    expect(markup).toContain('aria-label="Add attachment"')
     expect(markup).not.toContain('brief.md')
   })
   test('renders system messages and names supplied by the current locale', () => {

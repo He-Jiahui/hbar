@@ -55,6 +55,7 @@ export function getPromptCopy(locale: SupportedLocale, archived: boolean, runnin
         submitTitle: running ? '加入队列' : '发送',
         stop: '停止运行',
         uploading: '上传中',
+        addAttachment: '添加附件',
         removeAttachment: (attachment) => (attachment.kind === 'image' ? '移除图片' : `移除文件 ${attachment.name}`),
       }
     : {
@@ -64,6 +65,7 @@ export function getPromptCopy(locale: SupportedLocale, archived: boolean, runnin
         submitTitle: running ? 'Add to queue' : 'Send',
         stop: 'Stop run',
         uploading: 'Uploading',
+        addAttachment: 'Add attachment',
         removeAttachment: (attachment) => `Remove ${attachment.kind} ${attachment.name}`,
       }
 }

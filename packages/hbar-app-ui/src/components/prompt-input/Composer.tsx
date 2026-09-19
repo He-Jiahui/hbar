@@ -1,4 +1,4 @@
-import { ArrowUp, FileText, LoaderCircle, Square, X } from 'lucide-react'
+import { ArrowUp, FileText, LoaderCircle, Paperclip, Square, X } from 'lucide-react'
 import { createContext, useContext, useRef, type ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
 import './Composer.css'
@@ -16,6 +16,7 @@ export interface HbarAppUiPromptLabels {
   readonly submitTitle: string
   readonly stop: string
   readonly uploading: string
+  readonly addAttachment: string
   readonly removeAttachment: (attachment: HbarAppUiComposerAttachment) => string
 }
 export interface HbarAppUiPromptProps {
@@ -28,12 +29,14 @@ export interface HbarAppUiPromptProps {
   readonly uploading: boolean
   readonly canSubmit: boolean
   readonly canStop: boolean
+  readonly canAddAttachments?: boolean | undefined
   readonly stopping?: boolean | undefined
   readonly error?: string | undefined
   readonly context?: ReactNode
   readonly controls?: ReactNode
   readonly modelPicker?: ReactNode
   readonly onChange: (value: string) => void
+  readonly onAddAttachments?: ((files: readonly File[]) => void) | undefined
   readonly onRemoveAttachment: (id: string, kind: 'image' | 'file') => void
   readonly onSubmit: () => void
   readonly onStop: () => void
@@ -56,12 +59,13 @@ export function useHbarAppUiPromptContent() {
 /** Prompt Input 01, controlled by either the production or preview ViewModel. */
 export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
   const composing = useRef(false)
+  const fileInput = useRef<HTMLInputElement>(null)
   const attachments = [...new Map(props.attachments.map((item) => [`${item.kind}:${item.id}`, item])).values()]
   const blocked = props.disabled || props.submitting || props.uploading || !props.canSubmit
   return (
     <form
       className="hbar-app-ui-prompt-composer composer"
-      aria-busy={props.submitting}
+      aria-busy={props.submitting || props.uploading}
       onSubmit={(event) => {
         event.preventDefault()
         if (!blocked) props.onSubmit()
@@ -121,6 +125,32 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
       )}
       <div className="composer-toolbar">
         <div className="composer-left">
+          {props.onAddAttachments && (
+            <>
+              <input
+                ref={fileInput}
+                className="attachment-input"
+                type="file"
+                multiple
+                disabled={!props.canAddAttachments}
+                onChange={(event) => {
+                  const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : []
+                  event.currentTarget.value = ''
+                  if (files.length > 0) props.onAddAttachments?.(files)
+                }}
+              />
+              <button
+                type="button"
+                className="attachment-button"
+                title={props.labels.addAttachment}
+                aria-label={props.labels.addAttachment}
+                disabled={!props.canAddAttachments}
+                onClick={() => fileInput.current?.click()}
+              >
+                <HbarAppUiIcon icon={Paperclip} tier="sm" />
+              </button>
+            </>
+          )}
           {props.controls}
           {props.uploading && (
             <span role="status" aria-label={props.labels.uploading}>

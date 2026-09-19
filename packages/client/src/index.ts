@@ -29,6 +29,11 @@ export {
   type AttachmentSourcePort,
   type AttachmentUploadTransport,
 } from './files'
+export {
+  createBrowserAttachmentController,
+  type BrowserAttachmentControllerOptions,
+  type BrowserAttachmentSelection,
+} from './browser-attachments'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'

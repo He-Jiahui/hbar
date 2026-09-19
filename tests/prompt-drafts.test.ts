@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CommandError } from '@hbar/commands'
 import { createAppRuntime, type RunCommandPort } from '@hbar/app-runtime'
-import { HbarClient, createDirectoryQueryAdapter, createRunCommandClient } from '@hbar/client'
+import {
+  HbarClient,
+  createBrowserAttachmentController,
+  createDirectoryQueryAdapter,
+  createRunCommandClient,
+} from '@hbar/client'
 import { HbarError } from '@hbar/contracts'
 import type { RunAccepted } from '@hbar/contracts/commands/run'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
@@ -171,6 +176,96 @@ test('draft validation retains failed input and keeps runtime instances private'
   }
 })
 
+test('attachment commands reserve draft slots and merge uploaded artifacts with newer text', async () => {
+  let finishUpload!: () => void
+  const held = new Promise<void>((resolve) => {
+    finishUpload = resolve
+  })
+  let fail = false
+  const attachments = {
+    async execute(_name: string, input: unknown) {
+      await held
+      if (fail) throw new CommandError('UPLOAD_FAILED', 'Upload rejected')
+      const upload = input as { sha256: string; name: string; mime: string; size: number }
+      return { id: upload.sha256, name: upload.name, mime: upload.mime, size: upload.size }
+    },
+  }
+  const runtime = createAppRuntime({
+    instanceId: 'attachment-drafts',
+    hostId: 'host',
+    directory: directory(),
+    attachments,
+  })
+  const artifact = (index: number) => ({
+    kind: 'file' as const,
+    artifact: {
+      id: index.toString(16).padStart(64, '0'),
+      name: `existing-${index}.txt`,
+      mime: 'text/plain',
+      size: index + 1,
+    },
+  })
+  const upload = {
+    sourceId: 'browser-source',
+    sha256: 'f'.repeat(64),
+    name: 'selected.png',
+    mime: 'image/png',
+    size: 42,
+  }
+  try {
+    await runtime.view.commands.execute('draft.setText', { sessionId: 'session', text: 'before upload' })
+    await runtime.view.commands.execute('draft.setAttachments', {
+      sessionId: 'session',
+      attachments: Array.from({ length: 11 }, (_, index) => artifact(index + 1)),
+    })
+    const pending = runtime.view.commands.execute('draft.addAttachment', {
+      sessionId: 'session',
+      kind: 'image',
+      upload,
+    })
+    expect(runtime.view.state.drafts.getSnapshot().session).toMatchObject({ uploading: 1, uploadError: null })
+    await runtime.view.commands.execute('draft.setText', { sessionId: 'session', text: 'edited during upload' })
+    await expect(
+      runtime.view.commands.execute('draft.addAttachment', {
+        sessionId: 'session',
+        kind: 'image',
+        upload: { ...upload, sourceId: 'second-source' },
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await expect(
+      runtime.view.commands.execute('draft.setAttachments', {
+        sessionId: 'session',
+        attachments: [...Array.from({ length: 11 }, (_, index) => artifact(index + 1)), artifact(12)],
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    finishUpload()
+    const result = await pending
+    expect(result.attachment).toEqual({
+      kind: 'image',
+      artifact: { id: upload.sha256, name: upload.name, mime: upload.mime, size: upload.size },
+    })
+    expect(runtime.view.state.drafts.getSnapshot().session).toMatchObject({
+      text: 'edited during upload',
+      uploading: 0,
+      uploadError: null,
+    })
+    expect(runtime.view.state.drafts.getSnapshot().session!.attachments).toHaveLength(12)
+
+    await runtime.view.commands.execute('draft.setAttachments', { sessionId: 'failed', attachments: [] })
+    fail = true
+    await expect(
+      runtime.view.commands.execute('draft.addAttachment', { sessionId: 'failed', kind: 'image', upload }),
+    ).rejects.toMatchObject({ code: 'UPLOAD_FAILED' })
+    expect(runtime.view.state.drafts.getSnapshot().failed).toMatchObject({
+      attachments: [],
+      uploading: 0,
+      uploadError: 'UPLOAD_FAILED',
+    })
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('run client treats a lost submit response as unknown', async () => {
   const commands = createRunCommandClient({
     call: async () => {
@@ -197,31 +292,43 @@ test('real Host accepts the runtime draft through the canonical run command', as
   let host: Awaited<ReturnType<typeof startServer>> | undefined
   let client: HbarClient | undefined
   let runtime: ReturnType<typeof createAppRuntime> | undefined
+  let attachments: ReturnType<typeof createBrowserAttachmentController> | undefined
   try {
     const workspace = (await kernel.storage.call('workspaces'))[0]!
     const session = await kernel.createSession(workspace.id)
     host = await startServer(kernel, { port: 0 })
     client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
     const info = await client.pair(host.pairing.code, 'prompt draft test')
+    attachments = createBrowserAttachmentController(client)
     runtime = createAppRuntime({
       instanceId: 'prompt-draft-test',
       hostId: info.instanceId,
       directory: createDirectoryQueryAdapter(client),
       run: createRunCommandClient(client),
+      attachments: attachments.commands,
     })
     await runtime.view.commands.execute('draft.setText', { sessionId: session.id, text: 'hello from draft' })
+    const selected = await attachments.prepare(new File(['attached'], 'notes.txt', { type: 'text/plain' }))
+    const uploaded = await runtime.view.commands.execute('draft.addAttachment', {
+      sessionId: session.id,
+      kind: selected.kind,
+      upload: selected.upload,
+    })
+    selected.release()
     const result = await runtime.view.commands.execute('run.submit', {
       sessionId: session.id,
       modelId: 'local-fixture',
-      input: { text: 'hello from draft', images: [], files: [] },
+      input: { text: 'hello from draft', images: [], files: [uploaded.attachment.artifact] },
     })
     expect(result.status).toBe('accepted')
     expect(runtime.view.state.drafts.getSnapshot()[session.id]).toMatchObject({ text: '', status: 'idle' })
     await kernel.waitForIdle()
     const stored = await kernel.snapshot(session.id)
     expect(stored.messages.some((message) => message.role === 'user' && message.content[0]?.type === 'text')).toBeTrue()
+    expect(stored.messages.some((message) => message.content.some((block) => block.type === 'file'))).toBeTrue()
   } finally {
     runtime?.dispose()
+    attachments?.dispose()
     client?.disconnect()
     await host?.close()
     await kernel.close()

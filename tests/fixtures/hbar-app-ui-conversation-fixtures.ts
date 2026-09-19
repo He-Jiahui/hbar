@@ -22,6 +22,7 @@ export const CONVERSATION_FIXTURE = {
     submitTitle: 'Send',
     stop: 'Stop',
     uploading: 'Uploading',
+    addAttachment: 'Add attachment',
     removeAttachment: (attachment) => `Remove ${attachment.name}`,
   } satisfies HbarAppUiPromptLabels,
 }

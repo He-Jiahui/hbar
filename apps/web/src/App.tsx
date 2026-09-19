@@ -19,6 +19,7 @@ import {
 import { createAppRuntime, type ClientJsonValue } from '@hbar/app-runtime'
 import {
   HbarClient,
+  createBrowserAttachmentController,
   createAgentCommandClient,
   createBudgetCommandClient,
   createCommandCatalogClient,
@@ -39,7 +40,7 @@ import {
   createUsageCommandClient,
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
-import type { ConnectionStatus } from '@hbar/client'
+import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
@@ -68,7 +69,12 @@ function layoutSidebarWidth(layout: Readonly<Record<string, ClientJsonValue>>): 
   return typeof width === 'number' ? Math.min(24, Math.max(12, width)) : shellLayout.sidebar.widthRem
 }
 
-function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) {
+function createRuntime(
+  client: HbarClient,
+  hostId: string,
+  locale: ShellLocale,
+  attachments: ReturnType<typeof createBrowserAttachmentController>['commands'],
+) {
   const copy = getShellCopy(locale)
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
@@ -77,6 +83,7 @@ function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) 
     workspaces: createWorkspaceSessionCommandClient(client),
     timeline: createSessionTimelineClient(client),
     run: createRunCommandClient(client),
+    attachments,
     interactions: createInteractionCommandClient(client),
     models: createModelCommandClient(client),
     usage: createUsageCommandClient(client),
@@ -98,7 +105,15 @@ function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) 
   })
 }
 
-function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
+function WorkspaceBody({
+  locale,
+  connected,
+  prepareAttachment,
+}: {
+  readonly locale: ShellLocale
+  readonly connected: boolean
+  readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
+}) {
   const copy = getShellCopy(locale)
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -125,16 +140,28 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
         }
       />
     )
-  if (session) return <HbarSessionWorkspace sessionTitle={session.title} labels={copy.session} connected={connected} />
+  if (session)
+    return (
+      <HbarSessionWorkspace
+        sessionTitle={session.title}
+        labels={copy.session}
+        connected={connected}
+        prepareAttachment={prepareAttachment}
+      />
+    )
   return <HbarAppUiWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
 }
 
 export default function App({ locale }: { readonly locale: ShellLocale }) {
   const copy = getShellCopy(locale)
   const client = useMemo(() => new HbarClient(window.location.origin), [])
+  const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [hostId, setHostId] = useState(() => `pending:${window.location.origin}`)
-  const runtime = useMemo(() => createRuntime(client, hostId, locale), [client, hostId, locale])
+  const runtime = useMemo(
+    () => createRuntime(client, hostId, locale, attachmentController.commands),
+    [attachmentController, client, hostId, locale],
+  )
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const sidebarWidth = layoutSidebarWidth(layout.description)
 
@@ -153,9 +180,10 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
       })
     return () => {
       offStatus()
+      attachmentController.dispose()
       client.disconnect()
     }
-  }, [client])
+  }, [attachmentController, client])
 
   useEffect(() => () => runtime.dispose(), [runtime])
 
@@ -183,7 +211,11 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
         connection={connection}
         onReconnect={reconnect}
       >
-        <WorkspaceBody locale={locale} connected={connection === 'connected'} />
+        <WorkspaceBody
+          locale={locale}
+          connected={connection === 'connected'}
+          prepareAttachment={attachmentController.prepare}
+        />
       </HbarWorkspaceShell>
     </HbarRuntimeProvider>
   )

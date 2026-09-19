@@ -1,8 +1,10 @@
 import { CommandError, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
+import { artifactSchema } from '@hbar/contracts'
 import { draftCommands, type PromptAttachment } from '@hbar/contracts/commands/draft'
 import { runAcceptedSchema, type RunAccepted, type SubmitRunInput } from '@hbar/contracts/commands/run'
 import { createState } from './state'
 import type { DraftsState, RunActionsState, RunActionState, RunCommandPort, SessionDraftState } from './types'
+import type { CommandExecutor } from '@hbar/commands'
 
 const MAX_DRAFTS = 100
 
@@ -17,6 +19,8 @@ function initial(sessionId: string): SessionDraftState {
     sessionId,
     text: '',
     attachments: [],
+    uploading: 0,
+    uploadError: null,
     revision: 0,
     status: 'idle',
     error: null,
@@ -48,6 +52,7 @@ function matchesInput(draft: SessionDraftState, input: SubmitRunInput): boolean 
 export function createDrafts(
   local: CommandRegistry,
   run: RunCommandPort | undefined,
+  attachmentCommands: CommandExecutor | undefined,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
 ) {
@@ -96,6 +101,8 @@ export function createDrafts(
     checkRevision(current, expectedRevision)
     const keys = attachments.map(attachmentKey)
     if (new Set(keys).size !== keys.length) throw new CommandError('INVALID_INPUT', 'Draft attachments must be unique')
+    if (attachments.length + current.uploading > 12)
+      throw new CommandError('BUSY', 'Pending uploads reserve the remaining attachment slots')
     const next = {
       ...current,
       ...editedStatus(current),
@@ -104,6 +111,48 @@ export function createDrafts(
     }
     replace(sessionId, next)
     return { sessionId, revision: next.revision }
+  })
+
+  local.register(draftCommands['draft.reportAttachmentError'], ({ sessionId, error }) => {
+    const current = entry(sessionId)
+    replace(sessionId, { ...current, uploadError: error })
+    return { sessionId, revision: current.revision }
+  })
+
+  local.register(draftCommands['draft.addAttachment'], async ({ sessionId, kind, upload }, context) => {
+    if (!attachmentCommands)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Attachment uploads are unavailable in this runtime')
+    const current = entry(sessionId)
+    if (current.attachments.length + current.uploading >= 12)
+      throw new CommandError('BUSY', 'The session draft attachment limit is reached')
+    replace(sessionId, { ...current, uploading: current.uploading + 1, uploadError: null })
+    try {
+      const uploaded = artifactSchema.safeParse(await attachmentCommands.execute('attachment.upload', upload, context))
+      if (!uploaded.success) throw new CommandError('INVALID_OUTPUT', 'Attachment upload returned an invalid artifact')
+      const artifact = uploaded.data
+      const latest = entry(sessionId)
+      const attachment: PromptAttachment = { kind, artifact }
+      const existing = latest.attachments.find((item) => attachmentKey(item) === attachmentKey(attachment))
+      if (!existing && latest.attachments.length + latest.uploading > 12)
+        throw new CommandError('BUSY', 'The session draft attachment limit changed during upload')
+      const next = {
+        ...latest,
+        attachments: existing ? latest.attachments : [...latest.attachments, attachment],
+        uploading: Math.max(0, latest.uploading - 1),
+        uploadError: null,
+        revision: latest.revision + (existing ? 0 : 1),
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision, attachment: existing ?? attachment }
+    } catch (error) {
+      const latest = entry(sessionId)
+      replace(sessionId, {
+        ...latest,
+        uploading: Math.max(0, latest.uploading - 1),
+        uploadError: errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED'),
+      })
+      throw error
+    }
   })
 
   const settle = (sessionId: string, submission: PendingSubmission, accepted: RunAccepted): void => {

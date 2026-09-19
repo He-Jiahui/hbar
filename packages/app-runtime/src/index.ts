@@ -144,7 +144,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
-  const drafts = createDrafts(local, options.run, onSubscriberError, () => disposed)
+  const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed)
   const interactions = createInteractions(
     local,
     options.interactions,

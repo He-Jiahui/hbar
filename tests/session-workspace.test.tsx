@@ -228,7 +228,14 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarSessionWorkspace sessionTitle={session.title} labels={getShellCopy('en-US').session} connected />
+        <HbarSessionWorkspace
+          sessionTitle={session.title}
+          labels={getShellCopy('en-US').session}
+          connected
+          prepareAttachment={async () => {
+            throw new Error('not invoked during static rendering')
+          }}
+        />
       </HbarRuntimeProvider>,
     )
     expect(html).toContain('Session: Rich session')
@@ -239,6 +246,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('Agent approval')
     expect(html).toContain('Should we continue?')
     expect(html).toContain('AI usage')
+    expect(html).toContain('aria-label="Add attachment"')
     expect(html).toContain('20 tokens')
     expect(html).not.toContain('Workspace 1')
   } finally {

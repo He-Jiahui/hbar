@@ -525,6 +525,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       submitTitle: choose('发送提示词', 'Send prompt'),
       stop: choose('停止当前运行', 'Stop the current run'),
       uploading: choose('正在上传附件', 'Uploading attachments'),
+      addAttachment: choose('添加附件', 'Add attachment'),
       removeAttachment: (attachment) => choose(`移除附件 ${attachment.name}`, `Remove attachment ${attachment.name}`),
     },
     model: (name, thinkingLevel) =>

@@ -64,6 +64,7 @@ export interface RuntimeOptions {
   readonly workspaces?: CommandExecutor
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
+  readonly attachments?: CommandExecutor
   readonly interactions?: CommandExecutor
   readonly models?: CommandExecutor
   readonly usage?: CommandExecutor
@@ -379,6 +380,8 @@ export interface SessionDraftState {
   readonly sessionId: string
   readonly text: string
   readonly attachments: readonly Readonly<PromptAttachment>[]
+  readonly uploading: number
+  readonly uploadError: string | null
   readonly revision: number
   readonly status: 'idle' | 'submitting' | 'unknown' | 'failed'
   readonly error: string | null

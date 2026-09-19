@@ -18,6 +18,7 @@ import {
   type HbarAppUiRunActivityStatus,
 } from 'hbar-app-ui'
 import type { SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
+import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-workspace.css'
 
@@ -76,6 +77,13 @@ export interface HbarSessionWorkspaceProps {
   readonly sessionTitle: string
   readonly labels: HbarSessionWorkspaceLabels
   readonly connected: boolean
+  readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
+}
+
+export interface HbarSessionAttachmentSelection {
+  readonly kind: 'image' | 'file'
+  readonly upload: AttachmentUploadInput
+  release(): void
 }
 
 function Markdown({ text }: { readonly text: string }) {
@@ -176,7 +184,12 @@ function usageContent(controls: SessionControlsState, labels: HbarSessionWorkspa
   }
 }
 
-export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSessionWorkspaceProps) {
+export function HbarSessionWorkspace({
+  sessionTitle,
+  labels,
+  connected,
+  prepareAttachment,
+}: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
@@ -191,10 +204,37 @@ export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSe
   const configured = model?.status === 'configured' && model.modelId !== null
   const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const activeRun = activeRuns[0]
-  const invoke = (name: string, input: unknown) =>
-    void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input).catch(
-      () => {},
-    )
+  const execute = (name: string, input: unknown) =>
+    (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
+  const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
+  const addAttachments = (files: readonly File[]) => {
+    if (!sessionId || !prepareAttachment) return
+    const available = Math.max(0, 12 - ((draft?.attachments.length ?? 0) + (draft?.uploading ?? 0)))
+    void (async () => {
+      for (const file of files.slice(0, available)) {
+        let release: (() => void) | undefined
+        try {
+          const selection = await prepareAttachment(file)
+          release = selection.release
+          await execute('draft.addAttachment', {
+            sessionId,
+            kind: selection.kind,
+            upload: selection.upload,
+          })
+        } catch (error) {
+          const code =
+            error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+              ? error.code
+              : error instanceof Error
+                ? error.message
+                : 'EXECUTION_FAILED'
+          await execute('draft.reportAttachmentError', { sessionId, error: code.slice(0, 200) }).catch(() => {})
+        } finally {
+          release?.()
+        }
+      }
+    })()
+  }
   const runErrorAction = activeRuns.map((run) => runActions[run.id]).find((action) => action?.error)
 
   const messages: HbarAppUiMessageProps[] = [
@@ -328,7 +368,15 @@ export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSe
         }))}
         disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
         submitting={draft?.status === 'submitting'}
-        uploading={false}
+        uploading={(draft?.uploading ?? 0) > 0}
+        canAddAttachments={
+          Boolean(prepareAttachment) &&
+          connected &&
+          timeline.status !== 'loading' &&
+          timeline.status !== 'error' &&
+          draft?.status !== 'submitting' &&
+          (draft?.attachments.length ?? 0) + (draft?.uploading ?? 0) < 12
+        }
         canSubmit={
           configured && draft?.status !== 'unknown' && Boolean(draft?.text.trim() || draft?.attachments.length)
         }
@@ -337,11 +385,13 @@ export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSe
           activeRun && ['submitting', 'unknown', 'succeeded'].includes(runActions[activeRun.id]?.status ?? ''),
         )}
         error={
-          draft?.error
-            ? labels.error(draft.error)
-            : controls.errors.model
-              ? labels.error(controls.errors.model)
-              : undefined
+          draft?.uploadError
+            ? labels.error(draft.uploadError)
+            : draft?.error
+              ? labels.error(draft.error)
+              : controls.errors.model
+                ? labels.error(controls.errors.model)
+                : undefined
         }
         context={
           <span className="hbar-app-react-model-status">
@@ -349,6 +399,7 @@ export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSe
           </span>
         }
         onChange={(text) => invoke('draft.setText', { sessionId, text })}
+        onAddAttachments={prepareAttachment ? addAttachments : undefined}
         onRemoveAttachment={(id, kind) =>
           invoke('draft.setAttachments', {
             sessionId,

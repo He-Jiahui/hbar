@@ -2,6 +2,7 @@ export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runt
 export { HbarWorkspaceShell, type HbarWorkspaceShellLabels, type HbarWorkspaceShellProps } from './workspace-shell'
 export {
   HbarSessionWorkspace,
+  type HbarSessionAttachmentSelection,
   type HbarSessionWorkspaceLabels,
   type HbarSessionWorkspaceProps,
 } from './session-workspace'

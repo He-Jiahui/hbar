@@ -48,6 +48,9 @@
   gap: var(--hbar-app-ui-space-sm);
   min-inline-size: 0;
 }
+.hbar-app-ui-prompt-composer .attachment-input {
+  display: none;
+}
 .hbar-app-ui-prompt-composer .composer-right {
   margin-inline-start: auto;
 }
