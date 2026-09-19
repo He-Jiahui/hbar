@@ -8,4 +8,23 @@
 
 `compileKeyedList` 与对应纯状态转换为 List/定制 editor 提供稳定条目 ID、显式排序、删除和重置语义。描述只引用已注册的 item Schema ID 与 component/element ID；框架不导入具体 Provider 或保存命令。
 
-调用示例见 `tests/schema-core.test.ts`。表单只接受通过注册表声明兼容的字段组件；预算命令适配将在 A4 的下一切片引用 `@hbar/contracts/commands/budget` 的同源 Schema，而不是在此包写入预算规则。
+动态内容不在 renderer 中调用业务函数。描述通过 `callbackId/version/dependsOn/valueType` 声明 query，组合根注册同名 callback：
+
+```ts
+import { createSchemaCallbackRegistry } from '@hbar/schema-core'
+
+const callbacks = createSchemaCallbackRegistry()
+const unregister = callbacks.registerQuery('settings.getThinkingLevels', {
+  version: 1,
+  valueType: 'string',
+  async execute(request) {
+    const model = request.dependencies['provider.model']
+    if (typeof model !== 'string') return { kind: 'options', status: 'unavailable', reasonCode: 'missing_model' }
+    return loadThinkingLevelReport(model, request.dependencyFingerprint)
+  },
+})
+```
+
+Host bridge 只传描述中声明的依赖、搜索和 cursor。resolver 按 Host/身份/作用域/Schema/依赖指纹隔离缓存，取消旧 generation，校验返回类型、重复值、容量和 capability revision。callback 是只读 query，不得修改设置或其他业务状态。
+
+完整表单、稳定 List 和动态内容示例见 `tests/schema-core.test.ts`、`tests/schema-content.test.ts` 与 `packages/kernel/src/index.ts` 的内建模型/思考等级 callback。预算、Provider 和保存规则属于 hbar contracts/runtime/Host，不进入此包。

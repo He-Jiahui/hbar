@@ -1,12 +1,16 @@
 # P5：hbar-app-ui 工作台与 Schema 渲染
 
-状态：第二阶段实施中；P5.1、P5.2、P5.4 与 P5.5 已完成，P5.3 已完成 Files 子切片，P5.6–P5.7 待实施。Schema 设置工作台现已覆盖三层 override、动态内容、稳定 List 与 ProviderDialog；分类命令目录已复用统一 descriptor、上下文参数和执行回执。上级：[总计划](command-first-architecture-plan.md)。完整 UI 实施依赖第一阶段退出门禁；P1–P3 可以提前使用最小 UI adapter 验证框架。
+状态：第二阶段 P5.1–P5.7 已完成。生产工作台已覆盖 AppShell、Session 对话、分层 Schema 设置、分类命令面板、五类会话工具、扩展入口与 Performance/Usage/Git 状态中心。所有业务修改经 command 进入 runtime/Host，React 只读投影；旧页面、可写 store 和不可达占位面板已退出生产路径。上级：[总计划](command-first-architecture-plan.md)。
 
 P5.1 新增独立 `@hbar/app-react`，只公开 runtime context、只读订阅 hook 和工作台组合组件。Web 组合根负责 Client、runtime、Host generation、平台布局与 i18n；组件没有获得 Client、Host、Storage 或可写 store。生产 AppShell 现从 Host 目录按最多 100 项分页展示 Workspace → Session，展开保持为局部 UI 状态，选择与公开页面入口分别执行 `app.setSession`、`app.openPanel`、`app.openStatus` 和 `app.openSettings`。版本化布局描述经 Schema 校验；旧损坏 localStorage 不参与新状态，也不会被删除。无 Host 时显示只读断开状态并允许显式重连。
 
 P5.2 已将选中 Session 的有界 timeline、流式 Markdown/GFM、安全渲染、Run 活动、审批、问卷、PromptInput 与可靠 AIUsage 接入同一个只读 runtime。草稿、附件、发送、取消、审批和问卷答案全部执行 command；React 不保存业务草稿或写共享状态。真实 Host 浏览器场景验证发送、用量结算、审批与取消，断线外壳继续使用相同受控组件显示明确状态。
 
 P5.5 已将 Host 与 client/platform 命令合并为有界分类目录。`@hbar/commands` 从公开 descriptor 编译通用参数字段、默认值、枚举和约束；app-runtime 只通过 internal `commandPalette.*` 命令修改搜索、选择、草稿与执行状态，敏感值不进入只读快照。`@hbar/app-react` 复用 `hbar-app-ui` 受控命令列表，Web 宿主提供中英文名称、分类、字段、格式化和错误文案。真实 Host 浏览器已从当前 Session 执行 `session.setBudget`，并核对上下文预填、幂等执行、原位回执、关闭命令和窄屏流。
+
+P5.3 已完成 Files、Session Monitoring、子 Agent、目标/计划和 Session Settings；每个面板都由 `app.openPanel`/`app.openSettings` 绑定原目标，草稿、保存、取消和未知结果核对属于 app-runtime。扩展/技能工作台从 Host 查询插件与 skill，并把详细操作定向到同一命令目录。
+
+P5.6 已完成全局 Performance、Usage 与 Git 分区。面板只显示 Host 的有界采样、用量账本和工作区 Git 统计；缺失、gap、估算值和当前未记录的指标均明确标示，不填造零值。P5.7 删除最后的占位分支，恢复 app-react 仅依赖 runtime 公开读模型的包边界，并通过全库检查、中英文桌面/窄屏 E2E 和 Tauri smoke。
 
 ## 1. 界面组合边界
 
@@ -30,7 +34,7 @@ AppShell
    └─ 右侧工具入口与绑定 Session 的工具面板
 ```
 
-默认布局保存在独立版本化描述文件，包含模块 ID/type、region/order、尺寸约束、可见性和配置。沿用 FlexLayout adapter 管理停靠与序列化；AppShell 消费同一逻辑布局投影，不再保存另一套相互竞争的面板 open/selected 状态。
+默认外壳尺寸保存在独立版本化描述文件，AppShell 使用正常 flex 流；面板开关、选中和目标只由 runtime surface 投影管理。当后续增加可拖拽停靠时，布局 adapter 只提交版本化描述，不得建立第二套业务面板状态。
 
 普通内容采用语义 flex 流；不能用截图坐标、固定内容高度或定位排正文。真正浮层仅定位其容器，内部仍是正常流。桌面与窄屏使用同一模块 ID 和状态，工具区在窄屏变为可返回的单面板/抽屉。
 
@@ -59,7 +63,7 @@ AIUsage 紧接 PromptInput 下方，读 P4 的用量/预算投影，显示可靠
 | Files            | app.openPanel，kind=files，sessionId       | File Manager，分页树、预览、编辑/保存、路径权限与冲突 |
 | Monitoring       | app.openPanel，kind=monitoring，sessionId  | Session/含后代 Usage、运行与可归属性能视图            |
 | 子 Agent         | app.openPanel，kind=agents，sessionId      | 父子关系、状态、预算归属、创建/取消和跳转             |
-| 目标与计划       | app.openPanel，kind=goalsPlans，sessionId  | 真实 Goal/Plan 查询、草稿、保存、清除及运行约束       |
+| 目标与计划       | app.openPanel，panelId=goals，sessionId    | 真实 Goal/Plan 查询、草稿、保存、清除及运行约束       |
 | Session Settings | app.openSettings，scope=session，sessionId | 同一 Schema 设置系统，显示上层继承和本层 override     |
 
 面板 instance 采用 P2 的 followActive/pinned 规则。打开、关闭、Escape 与重开都经应用命令；重复 open 聚焦已存在实例。读请求随目标变化失效，写请求始终绑定原对象，反馈归原操作位置。

@@ -1,6 +1,6 @@
 # 命令优先重构实施记录
 
-本文件只记录已核验的实施进度，不替代总计划的完整目标。起始代码为 `857206a`；旧 Web 行为从 `7ae9740` 查证，当前外壳由 `6ec3b46` 提供。2026-09-17 起逐里程碑实施。第一阶段 A0–A15 已完成，当前进入 B1–B7 工作台重建。
+本文件只记录已核验的实施进度，不替代总计划的完整目标。起始代码为 `857206a`；旧 Web 行为从 `7ae9740` 查证，外壳基线由 `6ec3b46` 提供。2026-09-17 起逐里程碑实施，第一阶段 A0–A15 与第二阶段 B1–B7 现已全部完成。
 
 ## A0：基线、功能映射与包依赖门禁（完成）
 
@@ -252,3 +252,11 @@ Git 分区使用 status panel 当前绑定的 workspaceId 从只读 directory �
 Git 页显示 repo ID、HEAD、扫描数与索引模式，分别统计自动/手动/外部提交，展示文件数、增删行、rename 和 binary file，并绘制提交来源及增删行两组有界时序。Binary line changes 按 Host availability 显示，不估算二进制行数。Web 组合根注入 typed Git client。
 
 交付验证：Git runtime/React/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。Playwright 临时工作区初始化为真实 Git 仓库并产生外部提交，核对仓库分区与来源指标；人工检查 `artifacts/web-b6/git.png` 确认仓库事实、提交来源、行数变化和图表布局。至此 B6 Performance、Usage 与 Git 三个分区已闭合。
+
+## B7：迁移收尾与全平台回归（完成）
+
+生产 Web 已没有旧业务页面、共享可写 store 或不可达的占位面板分支。迁移清单仍覆盖当前所有 RPC 与 terminal alias；消费端边界测试拒绝 deprecated write RPC，Host 保留的兼容 mutation 只委托 canonical command handler。app-react 中 B5/B6 视图的展示类型改从 app-runtime 公开投影推导，包边界守卫确认没有直接 contracts 依赖。
+
+连接真实 Host 的 Playwright 场景在 390×844 下依次重开 Files、Monitoring、子 Agent、目标/计划、扩展、Usage 和 Git，检查页面无水平溢出且 AppSidebar 与 Main 几何不重叠。该回归暴露并修复了窄屏侧栏因 flex shrink 被主区覆盖的问题；人工检查 `artifacts/web-b7/connected-status-narrow.png` 确认两个 pane 保持正常上下流。
+
+最终验证：`bun run check` 通过 lint、typecheck 与 348 个测试（111 个文件、2702 个断言）；`bun run build` 完成 2378 个模块；`bun run test:e2e` 的 5 个场景通过。使用 Visual Studio x64 环境完成 debug Tauri 构建，`bun scripts/desktop-smoke.ts` 确认原生 WebView 外壳渲染、关闭窗口隐藏、桌面退出后 Host 存活与独立 SDK 取消 Run。完整检查日志保留在忽略目录 `artifacts/command-first-b7-check.log`。

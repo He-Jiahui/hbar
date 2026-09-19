@@ -17,8 +17,10 @@ bun run test:e2e
 ```
 
 E2E 使用 Vite preview 和真实浏览器验证无 Host 降级、中英文、桌面/窄屏、键盘命令入口、
-侧栏滚动和刷新；临时真实 Host 场景还验证发送、用量、审批和取消。组件预览仍使用
+侧栏滚动和刷新；临时真实 Host 场景还覆盖文件编辑、命令参数表单、发送/审批/取消、三层设置、
+ProviderDialog、Session Monitoring、子 Agent、目标计划、扩展入口和 Performance/Usage/Git 状态中心。
+连接 Host 的 390px 场景会逐项重开工具并检查侧栏、主区和水平溢出。组件预览仍使用
 `bun run app-ui:preview`。
 
-后续 B3–B7 在相同 runtime/command backend 上接入设置、命令面板、工具与监控页面。
-不要将旧 store、业务 RPC 回调或预览数据重新引入 Web View。
+B1–B7 的生产组合已完成。新功能继续向 runtime 注入类型化 port、向 command catalog 注册行为，
+并由 `@hbar/app-react` 读取投影；不得将旧 store、直达业务 RPC 的视图回调或预览数据重新引入 Web View。

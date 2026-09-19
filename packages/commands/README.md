@@ -62,4 +62,6 @@ typed client 根据本地定义推导输入输出；网络/文本/插件调用�
 
 声明 capabilities 的调用默认拒绝，执行域必须注入 authorize。注册表不替代 Host 认证、领域审批或插件隔离。一个 registry 是一个执行域/作用域实例；默认 execution 为 client，Host/platform 组合根显式指定，注册时拒绝执行域不匹配的命令。跨域路由与目录聚合由 runtime/Host adapter 完成。
 
-持久/外部副作用和 required idempotency 当前返回 CAPABILITY_UNAVAILABLE；A3 将以事务 journal adapter 实现后启用。长任务受理/回执、持久恢复、动态 availability 和旧 terminal/RPC 兼容按后续里程碑交付，不能将当前内存调用视作持久业务完成。
+框架本身不写数据库。`persistent`/`external` command 只能在组合根安装了持久回执/领域事务 adapter 后执行；hbar Host 已为预算、Run、设置、Session/Workspace 等命令实现 actor + idempotency key + payload hash 回放，并将断线或超时后的未知副作用报告为 `RESULT_UNKNOWN`。长任务用持久 operation ID 分离受理与终态，通过 query/watch 恢复，不把模型运行时间占住短命令连接。
+
+同一 descriptor 由 Host catalog、CLI/REPL/TUI、SDK 和 Web 命令面板共用。组合根应注册领域 handler，UI 只调用 ID + typed input；禁止将 React 回调闭包放进命令目录。Host 保留的 deprecated mutation RPC 仅可作为 canonical handler 的输入/输出兼容 adapter。

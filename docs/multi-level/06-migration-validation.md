@@ -1,6 +1,6 @@
 # P6：迁移顺序、验收矩阵与交付纪律
 
-状态：第一阶段 A0–A15 已完成，第二阶段 B1–B7 实施中。上级：[总计划](command-first-architecture-plan.md)。本计划将 P0–P5 转为可执行切片，所有代码切片均按[质量与交付](../../.agents/skills/hbar-engineering/references/quality.md)验证后立即独立提交。
+状态：第一阶段 A0–A15 与第二阶段 B1–B7 已完成。上级：[总计划](command-first-architecture-plan.md)。本计划将 P0–P5 转为可执行切片，所有代码切片均按[质量与交付](../../.agents/skills/hbar-engineering/references/quality.md)验证后立即独立提交。
 
 ## 1. 基线证据与迁移记录
 
@@ -169,6 +169,12 @@ B2 已完成：app-runtime 从 Session snapshot/follow 建立可恢复、有界�
 B3 已完成：独立 `@hbar/schema-react` 提供同步 schema-core 能力登记的 ComponentRegistry、EditorRegistry、受控标量表单与 keyed List renderer。Host 发布设置及 ProviderDialog 描述、动态模型/思考等级 callback 和不含凭据的 Provider List；app-runtime 拥有三层设置草稿、动态 generation、稳定 provider 列表、ProviderDialog FormState、私有密钥缓冲与未知结果核对。Web 在 AppShell 内显示 scope/sidebar/form/List/Dialog，全部字段、分组、来源、动态选项和文案来自类型化宿主契约，真实 Host 浏览器完成继承保存与供应商创建。框架包没有设置领域、runtime、Host 或传输依赖；B4 接着实现分类命令面板与通用参数表单。
 
 B4 已完成：`@hbar/commands` 从统一 descriptor 编译无 React 参数表单和结构化 input；app-runtime 合并有界 Host/client/platform 目录，并只通过 `commandPalette.*` command 修改搜索、选择、参数和执行投影。敏感值不进入公开 Zustand，普通参数与成功回执保持同一 invocation。`@hbar/client` 提供通用 Host catalog adapter，`@hbar/app-react` 复用受控命令列表，Web 提供类型化中英文内容。真实 Host 浏览器从 Ctrl+K 搜索并执行 `session.setBudget`，验证 Session 目标预填、typed 参数、必需幂等键、成功回执、窄屏关闭与离线本地命令；B5 接着逐项实现会话右侧工具与已有扩展入口。
+
+B5 已完成：Files 使用 workspace 边界内的 compare-and-write；Session Monitoring 复用可靠 Usage 投影；子 Agent 保持独立 Session/预算/取消事实；目标与计划保持 Host 状态机与草稿边界；Session Settings 复用三层 Schema 工作台。扩展页查询 Host plugin/skill 并转到共享命令目录。每个可见写入只执行 command，打开/关闭由 surface command 管理。
+
+B6 已完成：Performance 显示 Host 进程和有界资源采样，Usage 显示全局账本、token/费用/速率/延时/模型分布，Git 显示选中工作区的一方历史、来源与行数变化。缺少采样、gap、估算与未记录指标保持明确状态，不由 UI 伪造数据。
+
+B7 已完成：旧 Web 业务页面和共享可写 store 保持删除，最后不可达的占位面板文案已清理；消费端不直达 deprecated write RPC，Host 兼容入口仍委托 canonical handler。app-react 只经 app-runtime 公开读模型取得业务类型。连接 Host 的 390px 场景验证全部工具和状态分区无水平溢出或侧栏/主区重叠。最终通过 348 个 Bun 测试、5 个 Playwright 场景、2378 模块生产构建、Windows debug Tauri 构建和原生 desktop smoke。
 
 ## 5. 验收矩阵
 
