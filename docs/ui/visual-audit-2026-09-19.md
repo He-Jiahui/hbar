@@ -407,3 +407,18 @@ Git 页现在把仓库和时间窗保留为常用筛选，提交来源进入“�
 Production build 从 2400 个模块、224.24 kB CSS 变为 2390 个模块、214.06 kB CSS。清理后重新执行真实 Host E2E，并人工复核[会话](../../artifacts/ui-redesign/session/after/desktop-1440.png)、[设置](../../artifacts/ui-redesign/settings/after/desktop-1440-providers.png)、[文件工具](../../artifacts/ui-redesign/file-tool/after/list-1440.png)、[命令目录](../../artifacts/ui-redesign/commands/after/desktop-1440-search.png)和[窄屏 Performance](../../artifacts/ui-redesign/performance/after/mobile-390.png)。页面层级、选中/禁用状态、工具分栏、模态遮罩、表单和滚动没有因旧 CSS 移除而退化。
 
 验证结果：ESLint、TypeScript、22 个受影响测试（236 个断言）、Web production build（2390 modules）和全部 5 项 Playwright 场景通过。截图来自清理后的最终 production preview 并逐张人工查看；Tauri 实窗仍归 R6.4。
+
+## 25. R2.5 直接新建会话与可读命令目标
+
+侧栏“新建会话”原先只把命令目录筛选到 Host `session.create`，用户仍需再次点击结果，并面对 `workspaceId` 等内部字段。现在入口在显示弹窗前完成 `commandPalette.refresh`、精确查询和 `openCommand`，直接落到客户端组合命令 `app.createSession` 的参数页；“打开工程”同样直接进入 `workspace.open` 参数页。组合命令在运行时先确认工程，再用内部幂等键执行 Host `session.create`，合并返回会话并更新导航。不确定结果保留原键，重试不会重复创建。
+
+命令表单从目录只读投影生成已加载目标。工程选择显示“名称 · 路径”，会话选择显示“标题 · 所属工程”；用户主动选择“输入其他标识符”后才出现自由输入框。所有变化继续经过 `commandPalette.setParameter`，React 没有直接写导航或目录。首次 production 截图发现弹窗挂载刷新与入口刷新竞争，页面错误显示 `RESULT_UNKNOWN`；调整为先准备表单再开弹窗，并让 StrictMode 初始化忽略已被替代的刷新结果后，错误消失。交互复核又发现切到自定义 ID 后，父级清空值会立即把控件切回已知目标；最终由字段实例持有显示模式，并在表单 reset revision 时重建，切换、填写、恢复均通过浏览器操作。
+
+| 场景       | 截图与人工观察                                                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面默认   | [1440](../../artifacts/ui-redesign/session-create/after/desktop-1440.png)：当前工程已选中，名称位于长路径之前；标题保持可选；没有搜索中间页或错误横幅                  |
+| 桌面高级值 | [1440](../../artifacts/ui-redesign/session-create/after/desktop-1440-custom-id.png)：选择“其他标识符”后在同一字段内展开第二行输入，必填提示仍与整个字段关联            |
+| 窄屏       | [390](../../artifacts/ui-redesign/session-create/after/mobile-390.png)：页头、命令事实、两个字段和底部操作在单列正常流中完整可达，无水平溢出                           |
+| 执行完成   | [1440](../../artifacts/ui-redesign/session-create/after/executed-1440.png)：真实 Host 创建 `Visual QA session`，命令弹窗关闭，主标题和侧栏选中行同步更新，原会话仍保留 |
+
+验证结果：运行时测试覆盖 Host 端口、目录合并、导航和 `RESULT_UNKNOWN` 后复用幂等键；React 测试覆盖可读工程/会话选项和本地化文案；真实 Host Playwright 覆盖默认目标、自定义目标、390 宽度和实际创建。全仓以提高 Node heap 的相同 ESLint 配置通过，TypeScript 通过，391 个 Bun 测试（3112 个断言）通过，Web production build 为 2390 modules / 214.26 kB CSS，Playwright 5 项场景通过。截图均在最终 production preview 中重新生成并逐张人工查看；Tauri 实窗仍归 R6.4。
