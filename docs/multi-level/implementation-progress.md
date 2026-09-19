@@ -210,3 +210,11 @@ app-runtime 为每个 agents panel instance 保存独立的有界子 Agent 列�
 `@hbar/app-react` 提供受控创建表单和子 Session 卡片，显示 Host 状态、模型、独立预算、错误、创建时间及取消状态。Open session 顺序执行关闭面板和 `app.setSession`，不越过 runtime 写选中状态。Web 注入通用 agent command client 和类型化中英文内容。
 
 交付验证：runtime/React/Session/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2366 个模块。真实临时 Host 的 Playwright 场景使用当前模型和 5,000 Token 子预算创建独立子 Session，核对 Host 返回的 running 状态和可取消操作；人工检查 `artifacts/web-b5/child-agents.png` 确认宽屏分栏、完整表单和子 Agent 卡片。
+
+### B5d：目标与计划（完成）
+
+app-runtime 为每个 goals panel instance 保存目标和计划的 Host baseline、可编辑草稿、dirty 状态与写入结果。目标编辑覆盖 objective、Goal status 和 Token budget，持久化时使用 `expectedGoalId` 拒绝过期修改；计划草稿最多 100 步，通过稳定本地 ID 执行添加、文案/状态修改、移动、删除和说明编辑，保存时只提交领域 `PlanStep`。所有草稿修改走 internal `goalPlanWorkspace.*` command。非幂等写入遇到断线或超时后进入 unknown 并锁定对应编辑器；Refresh/Reconcile 重查 `goal.get` 与 `plan.get` 权威事实后才收敛，不盲目重发写入。
+
+`@hbar/app-react` 复用 `HbarAppUiPlanEditor`，将步骤排序、状态和保存绑定到 runtime command；目标区显示剩余/已用 Token 和累计时间。Web 注入 goal/plan typed client 和类型化中英文内容，面板打开、关闭与 Session 目标绑定仍由应用命令所有。
+
+交付验证：runtime/React/Session/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2370 个模块。真实临时 Host 的 Playwright 场景创建 16,000 Token 目标，保存带说明的计划步骤，核对回执后清理目标/计划以隔离后续场景；人工检查 `artifacts/web-b5/goals-and-plans.png` 确认分栏布局、计量条、受控步骤和就近操作。
