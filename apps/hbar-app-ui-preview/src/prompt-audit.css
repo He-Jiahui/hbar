@@ -1,0 +1,21 @@
+html,
+body {
+  margin: 0;
+  min-inline-size: 0;
+  min-block-size: 100%;
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-bg);
+  font-family: var(--hbar-app-ui-font);
+}
+
+.prompt-audit-host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-lg);
+  inline-size: min(56rem, calc(100% - 2rem));
+  margin: 32px auto;
+}
+
+.prompt-audit-host output {
+  overflow-wrap: anywhere;
+}

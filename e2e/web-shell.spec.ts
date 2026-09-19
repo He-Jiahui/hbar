@@ -186,6 +186,8 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
     await prompt.fill('hello from browser')
+    await expect(prompt).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await page.screenshot({ path: 'artifacts/ui-redesign/prompt/production-session.png', fullPage: true })
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByText('hello from browser')).toBeVisible()
     await expect(page.getByText('Completed').first()).toBeVisible()

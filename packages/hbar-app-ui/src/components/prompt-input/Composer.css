@@ -1,5 +1,6 @@
 @import '../../tokens.css';
 .hbar-app-ui-prompt-composer {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-sm);
@@ -8,11 +9,69 @@
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
   border-radius: var(--hbar-app-ui-control-radius);
   background: var(--hbar-app-ui-surface-0);
+  color: var(--hbar-app-ui-text);
+  font-family: var(--hbar-app-ui-font);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.hbar-app-ui-prompt-composer * {
+  box-sizing: border-box;
 }
 .hbar-app-ui-prompt-composer textarea {
   inline-size: 100%;
   min-inline-size: 0;
+  min-block-size: 5rem;
+  max-block-size: min(14rem, 30dvb);
+  padding: 8px 0;
+  border: 0;
+  border-radius: var(--hbar-app-ui-control-radius);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  overflow: auto;
   resize: vertical;
+}
+.hbar-app-ui-prompt-composer textarea::placeholder {
+  color: var(--hbar-app-ui-subtle);
+  opacity: 1;
+}
+.hbar-app-ui-prompt-composer :is(textarea, button):focus-visible {
+  outline: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-accent);
+  outline-offset: 0.125rem;
+}
+.hbar-app-ui-prompt-composer :where(.attachment-button, .attachment-chip button, .send-button, .stop-button) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--hbar-app-ui-control-min);
+  min-block-size: var(--hbar-app-ui-control-min);
+  padding: 0;
+  border: var(--hbar-app-ui-divider) solid transparent;
+  border-radius: var(--hbar-app-ui-control-radius);
+  color: var(--hbar-app-ui-muted);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.hbar-app-ui-prompt-composer :is(.attachment-button, .attachment-chip button):hover:not(:disabled) {
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-2);
+}
+.hbar-app-ui-prompt-composer .send-button {
+  color: var(--hbar-app-ui-bg);
+  background: var(--hbar-app-ui-accent);
+}
+.hbar-app-ui-prompt-composer .stop-button {
+  color: var(--hbar-app-ui-danger);
+  background: color-mix(in srgb, var(--hbar-app-ui-danger) 12%, var(--hbar-app-ui-surface-0));
+}
+.hbar-app-ui-prompt-composer :is(.send-button, .stop-button):hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+.hbar-app-ui-prompt-composer :is(button, textarea):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .hbar-app-ui-prompt-composer .attachment-strip {
   display: flex;
@@ -25,10 +84,17 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   gap: var(--hbar-app-ui-space-sm);
+  padding: 4px 8px;
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
 }
 .hbar-app-ui-prompt-composer .attachment-chip span {
+  flex: 1 1 auto;
   min-inline-size: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hbar-app-ui-prompt-composer .attachment-chip img {
   inline-size: var(--hbar-app-ui-control-min);
@@ -40,6 +106,8 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--hbar-app-ui-space-sm);
+  padding-block-start: var(--hbar-app-ui-space-sm);
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 .hbar-app-ui-prompt-composer .composer-left,
 .hbar-app-ui-prompt-composer .composer-right {
@@ -47,6 +115,15 @@
   align-items: center;
   gap: var(--hbar-app-ui-space-sm);
   min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-app-ui-prompt-composer .composer-left {
+  flex-wrap: wrap;
+}
+.hbar-app-ui-prompt-composer .composer-right > :not(.send-button, .stop-button) {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 .hbar-app-ui-prompt-composer .attachment-input {
   display: none;
@@ -55,6 +132,7 @@
   margin-inline-start: auto;
 }
 .hbar-app-ui-composer-error {
+  margin: 0;
   color: var(--hbar-app-ui-danger);
   overflow-wrap: anywhere;
 }
