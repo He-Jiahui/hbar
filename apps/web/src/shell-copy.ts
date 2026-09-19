@@ -2,6 +2,7 @@ import type {
   HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
   HbarFileWorkspaceLabels,
+  HbarGoalPlanWorkspaceLabels,
   HbarProviderDialogLabels,
   HbarProviderSettingsLabels,
   HbarSessionMonitoringLabels,
@@ -24,6 +25,7 @@ interface ShellCopy {
   readonly files: HbarFileWorkspaceLabels
   readonly monitoring: HbarSessionMonitoringLabels
   readonly agents: HbarAgentWorkspaceLabels
+  readonly goals: HbarGoalPlanWorkspaceLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
@@ -532,6 +534,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       files: choose('文件', 'Files'),
       monitoring: choose('用量监控', 'Monitoring'),
       agents: choose('子 Agent', 'Child agents'),
+      goals: choose('目标与计划', 'Goals and plans'),
       settings: choose('会话设置', 'Session settings'),
     },
     runs: {
@@ -744,6 +747,85 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
   }
 }
 
+function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspaceLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale)
+  const goalStatuses: HbarGoalPlanWorkspaceLabels['goal']['statuses'] = zh
+    ? {
+        active: '进行中',
+        paused: '已暂停',
+        blocked: '已阻塞',
+        usage_limited: '用量受限',
+        budget_limited: '预算受限',
+        complete: '已完成',
+      }
+    : {
+        active: 'Active',
+        paused: 'Paused',
+        blocked: 'Blocked',
+        usage_limited: 'Usage limited',
+        budget_limited: 'Budget limited',
+        complete: 'Complete',
+      }
+  const planStatuses: HbarGoalPlanWorkspaceLabels['plan']['statuses'] = zh
+    ? { pending: '待处理', in_progress: '进行中', completed: '已完成' }
+    : { pending: 'Pending', in_progress: 'In progress', completed: 'Completed' }
+  return {
+    title: choose('目标与计划', 'Goals and plans'),
+    description: choose(
+      '管理当前会话的持久目标、Token 预算和分步计划。',
+      'Manage the session goal, token budget, and persisted step-by-step plan.',
+    ),
+    close: choose('关闭目标与计划', 'Close goals and plans'),
+    refresh: choose('刷新', 'Refresh'),
+    loading: choose('正在加载目标与计划…', 'Loading goals and plans…'),
+    goal: {
+      title: choose('会话目标', 'Session goal'),
+      objective: choose('目标', 'Goal objective'),
+      objectivePlaceholder: choose('描述需要持续完成的成果', 'Describe the outcome to pursue'),
+      tokenBudget: choose('Token 预算', 'Goal token budget'),
+      status: choose('目标状态', 'Goal status'),
+      statuses: goalStatuses,
+      save: choose('保存目标', 'Save goal'),
+      saving: choose('正在保存…', 'Saving…'),
+      clear: choose('清除目标', 'Clear goal'),
+      reconcile: choose('核对目标保存结果', 'Reconcile goal save'),
+      saved: choose('目标已保存。', 'Goal saved.'),
+      remaining: choose('剩余 Token', 'Remaining tokens'),
+      used: choose('已用 Token', 'Used tokens'),
+      elapsed: choose('累计时间', 'Elapsed time'),
+    },
+    plan: {
+      title: choose('执行计划', 'Execution plan'),
+      summary: choose('最多 100 个有序步骤', 'Up to 100 ordered steps'),
+      review: choose('保存后供当前会话后续运行使用。', 'Save the plan for later runs in this session.'),
+      addPlaceholder: choose('新计划步骤', 'Add plan step'),
+      add: choose('添加步骤', 'Add step'),
+      start: (count) =>
+        choose(`保存 ${number.format(count)} 个步骤`, `Save ${number.format(count)} ${count === 1 ? 'step' : 'steps'}`),
+      moveUp: (title) => choose(`上移 ${title}`, `Move ${title} up`),
+      moveDown: (title) => choose(`下移 ${title}`, `Move ${title} down`),
+      skip: (title) => choose(`移除 ${title}`, `Remove ${title}`),
+      restore: (title) => choose(`恢复 ${title}`, `Restore ${title}`),
+      newStepStateLabel: choose('待处理', 'Pending'),
+      empty: choose('尚无计划步骤。', 'No plan steps yet.'),
+      explanation: choose('计划说明', 'Plan explanation'),
+      explanationPlaceholder: choose('记录计划的约束或决策背景', 'Record constraints or decision context'),
+      clear: choose('清除计划', 'Clear plan'),
+      reconcile: choose('核对计划保存结果', 'Reconcile plan save'),
+      saved: choose('计划已保存。', 'Plan saved.'),
+      stepTitle: (index) => choose(`步骤 ${index} 内容`, `Step ${index} title`),
+      stepStatus: (index) => choose(`步骤 ${index} 状态`, `Step ${index} status`),
+      statuses: planStatuses,
+    },
+    number: (value) => number.format(value),
+    duration: (seconds) => choose(`${number.format(seconds)} 秒`, `${number.format(seconds)} s`),
+    issue: () => choose('请填写符合约束的值。', 'Enter a value that satisfies the field constraints.'),
+    error: (code) => choose(`目标或计划操作失败：${code}`, `Goal or plan operation failed: ${code}`),
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     shell: {
@@ -774,6 +856,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     files: createFileLabels('zh-CN'),
     monitoring: createSessionMonitoringLabels('zh-CN'),
     agents: createAgentWorkspaceLabels('zh-CN'),
+    goals: createGoalPlanWorkspaceLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -809,6 +892,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     files: createFileLabels('en-US'),
     monitoring: createSessionMonitoringLabels('en-US'),
     agents: createAgentWorkspaceLabels('en-US'),
+    goals: createGoalPlanWorkspaceLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },

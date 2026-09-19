@@ -44,6 +44,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly files: string
     readonly monitoring: string
     readonly agents: string
+    readonly goals: string
     readonly settings: string
   }
   readonly runs: HbarAppUiRunActivityLabels
@@ -405,6 +406,9 @@ export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSe
           </HbarAppUiButton>
           <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'agents' })}>
             {labels.tools.agents}
+          </HbarAppUiButton>
+          <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'goals' })}>
+            {labels.tools.goals}
           </HbarAppUiButton>
           <HbarAppUiButton onClick={() => invoke('app.openSettings', { scope: 'session', targetId: sessionId })}>
             {labels.tools.settings}

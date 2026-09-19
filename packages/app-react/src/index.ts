@@ -20,4 +20,5 @@ export { HbarCommandPalette, type HbarCommandPaletteLabels, type HbarCommandPale
 export { HbarFileWorkspace, type HbarFileWorkspaceLabels } from './file-workspace'
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
 export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './agent-workspace'
+export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'
 export type { HbarRuntimeView } from './runtime'

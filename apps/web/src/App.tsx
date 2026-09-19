@@ -3,6 +3,7 @@ import {
   HbarAgentWorkspace,
   HbarCommandPalette,
   HbarFileWorkspace,
+  HbarGoalPlanWorkspace,
   HbarProviderDialog,
   HbarProviderSettings,
   HbarRuntimeProvider,
@@ -23,6 +24,7 @@ import {
   createConfigurationCommandClient,
   createDirectoryQueryAdapter,
   createFileCommandClient,
+  createGoalPlanCommandClient,
   createRunCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
@@ -36,7 +38,7 @@ import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
 
-const panels = new Set(['commands', 'files', 'monitoring', 'agents', 'status', 'settings', 'settings-editor'])
+const panels = new Set(['commands', 'files', 'monitoring', 'agents', 'goals', 'status', 'settings', 'settings-editor'])
 
 function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) {
   const copy = getShellCopy(locale)
@@ -54,6 +56,7 @@ function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) 
     configuration: createConfigurationCommandClient(client),
     files: createFileCommandClient(client),
     agents: createAgentCommandClient(client),
+    goals: createGoalPlanCommandClient(client),
     commandCatalog: createCommandCatalogClient(client),
     commandText: { resolve: copy.commandPalette.resolve },
     schemaContent: createSchemaCallbackClient(client),
@@ -75,6 +78,7 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
   if (panel?.panelId === 'files') return <HbarFileWorkspace labels={copy.files} connected={connected} />
   if (panel?.panelId === 'monitoring') return <HbarSessionMonitoring labels={copy.monitoring} />
   if (panel?.panelId === 'agents') return <HbarAgentWorkspace labels={copy.agents} connected={connected} />
+  if (panel?.panelId === 'goals') return <HbarGoalPlanWorkspace labels={copy.goals} connected={connected} />
   if (panel?.panelId === 'settings')
     return (
       <HbarSettingsWorkspace
