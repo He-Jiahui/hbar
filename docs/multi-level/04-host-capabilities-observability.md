@@ -45,7 +45,7 @@ A11g 已将 `computer.status/screenshot/click/doubleClick/type/key/scroll/move/w
 
 A11h 已将 `git.info/status/diff/log/commit/branch/worktree/diffToRemote` 注册为 workspace scope 的 Host commands，旧 `git.diff_to_remote` 映射为 `git.diffToRemote`。adapter 只依赖 GitService，复用 workspace realpath/symlink 边界、pathspec/branch 校验、参数数组进程执行、输出上限、超时和成功后的观察通知。只读入口是 query；commit、branch 与 worktree 统一按 `external` 处理，动作进入后的取消、Git timeout 或丢失回执要求先查询 repository 状态。CLI 用 descriptor 解析 cwd、paths JSON、分页和 mutation 参数；A14 另行增加来源事实与 `git.stats`，本切片不把现有 log 推断成统计账本。
 
-A11i 已将 `workspace.list/get/create` 与 `session.list/get/create/rename/archive/fork/export` 注册到 Host command catalog。create/fork 使用数据库 v4 的 actor-scoped 事务回执：同 key 同载荷在并发和重启后返回原 Session，异载荷或跨命令复用冲突；workspace.create 依靠规范 realpath 唯一键收敛。export 改为每页最多 500 个规范事件并要求游标前进，CLI/TUI helper 最多汇总 100000 条。AppRuntime 的 read-only DirectoryPort、CLI、REPL、TUI 与 typed Client 已切到统一命令入口。`session.snapshot/follow/unfollow` 保留为有界状态快照和连接订阅端口，它们不代表用户业务动作；`workspace.open` 在 B1 由客户端导航命令接入。
+A11i 已将 `workspace.list/get/create` 与 `session.list/get/create/rename/archive/fork/export` 注册到 Host command catalog。create/fork 使用数据库 v4 的 actor-scoped 事务回执：同 key 同载荷在并发和重启后返回原 Session，异载荷或跨命令复用冲突；workspace.create 依靠规范 realpath 唯一键收敛。export 改为每页最多 500 个规范事件并要求游标前进，CLI/TUI helper 最多汇总 100000 条。AppRuntime 的 read-only DirectoryPort、CLI、REPL、TUI 与 typed Client 已切到统一命令入口。`session.snapshot/follow/unfollow` 保留为有界状态快照和连接订阅端口，它们不代表用户业务动作；B1 后续已用客户端 `workspace.open` 组合平台目录选择、Host 注册与稳定 ID 选择。
 
 ## 3. 预算切片保持现有业务语义
 
@@ -55,7 +55,7 @@ A11j 补齐 `session.clearBudget`，并把旧 `budget.clear` 映射到同一 Bud
 
 A11k 将 `permission.get/set`、`mode.get/set` 与 `provider.save/delete` 纳入 Host command catalog。权限偏好仍由 Kernel 设置事实持有，Session 模式继续写入 Plan 插件的 `mode.changed` 事件，供应商配置和凭据分别落入 storage 与 secrets 端口。保存响应只返回无凭据模型描述，删除返回可重复核对的 `deleted` 状态；CLI 的供应商保存通过结构化 `--input-json` 输入，密钥不进入 Session 事件或命令输出。
 
-A11l 将诊断、路径、设备和配对管理发布为 `system.diagnose`、`system.paths.*`、`device.*` 与 `pairing.create`。契约包只保存可序列化 schema，Host adapter 通过注入端口组合 Kernel、Auth 与 socket 撤销通知；Client/CLI/TUI 不直接访问这些实现。路径 set 只写下一次启动使用的 pointer 并明确返回 `restartRequired: true`；当前 `system.restart` 如实返回 `accepted: false`，不声称已重启进程。设备撤销和配对码刷新均为可重复收敛操作。
+A11l 将诊断、路径、设备和配对管理发布为 `system.diagnose`、`system.paths.*`、`device.*` 与 `pairing.create`。契约包只保存可序列化 schema，Host adapter 通过注入端口组合 Kernel、Auth 与 socket 撤销通知；Client/CLI/TUI 不直接访问这些实现。路径 set 只写下一次启动使用的 pointer 并明确返回 `restartRequired: true`。受监督 Host 接受 `system.restart` 后以专用退出码交回 supervisor，沿用已发现端口重启并发布新的 instance；未接入 supervisor 的嵌入式 Host 仍诚实返回 `accepted: false`。设备撤销和配对码刷新均为可重复收敛操作。
 
 A11m 将插件安装、配置、启停、卸载、扫描、依赖解析、图、lock、doctor、列表/详情和全局技能发现纳入 `system.extensions` command catalog。Host adapter 仅通过注入端口调用 Kernel/PluginManager 和 skills 根目录；包校验、受管路径、依赖回滚、scope 释放与 lock 完整性仍由原插件领域实现。安装及生命周期 mutation 声明为 external，连接丢失时 Client 返回 `RESULT_UNKNOWN` 并要求先用 `plugin.list` 核对；CLI/REPL/TUI 和旧短命令共用 typed Client。
 

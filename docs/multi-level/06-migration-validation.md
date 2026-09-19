@@ -102,13 +102,13 @@ A11h 迁移 Git 已有的八个入口，并把 `git.diff_to_remote` 规范为 `g
 
 A11i1 将数据库升级到 v4，增加 actor/key、command ID、payload hash 和原 Session 结果组成的实体命令回执，并把 create/fork 的业务事务与回执写入绑定。同 key 同载荷重放返回原对象，跨命令或异载荷返回 `IDEMPOTENCY_CONFLICT`；存储测试覆盖并发顺序、唯一子 Session 和进程重开恢复。
 
-A11i2 发布 workspace/session typed commands，并把既有四个 directory queries 纳入认证 Host catalog。create/fork 强制 idempotency key；rename/archive 走 Kernel 用例并保留 active-run 门禁；export 使用 500 条事件分页和单调 cursor。AppRuntime DirectoryPort 改经 command transport 读取，CLI/TUI 的 new/fork/archive/export 不再调用写 RPC。测试覆盖完整目录、workspace path 收敛、create 并发/冲突、rename/archive 过滤、分页 export、同 actor 重启回执，以及显式 `hbar exec session.*`。snapshot/follow/unfollow 继续作为状态同步协议，`workspace.open` 留给 B1 客户端导航。
+A11i2 发布 workspace/session typed commands，并把既有四个 directory queries 纳入认证 Host catalog。create/fork 强制 idempotency key；rename/archive 走 Kernel 用例并保留 active-run 门禁；export 使用 500 条事件分页和单调 cursor。AppRuntime DirectoryPort 改经 command transport 读取，CLI/TUI 的 new/fork/archive/export 不再调用写 RPC。测试覆盖完整目录、workspace path 收敛、create 并发/冲突、rename/archive 过滤、分页 export、同 actor 重启回执，以及显式 `hbar exec session.*`。snapshot/follow/unfollow 继续作为状态同步协议；B1 后续已完成 `workspace.open` 的平台目录选择、Host 注册和 runtime 选择闭环。
 
 A11j 补齐预算域的收敛清除命令 `session.clearBudget`。命令复用 BudgetService 的串行账本写入和 Session 存在性检查；首次清除追加规范事件并返回 `cleared: true`，后续调用返回 `false`。Host catalog、typed Client 和 CLI 的点分入口使用同一契约，旧 `budget.clear` 仅作为兼容 adapter。
 
 A11k 迁移供应商、默认审批权限和 Session 运行模式。六个 typed commands 只调用现有 Kernel/ModeService 用例；重复设置模式不追加事件，供应商删除收敛返回是否实际删除。Provider API key 只进入 secrets 写端口，command 输出与测试日志只包含 `hasKey`。CLI/REPL/TUI 的设置入口改用 typed Client，旧 RPC 继续作为同用例兼容入口。
 
-A11l 迁移 Host 系统控制面：诊断、路径查询/验证/切换、重启能力报告、设备列表/撤销和新配对码进入认证 command catalog。Host adapter 以窄依赖接口组合 Kernel、Auth 和连接关闭回调；CLI 的这些命令不创建 Session，也不要求配置模型。测试使用临时 pointer 文件验证路径写入，覆盖重复设备撤销、配对码期限、无凭据诊断和 `system.restart` 未接入进程监管时的诚实结果。
+A11l 迁移 Host 系统控制面：诊断、路径查询/验证/切换、重启能力报告、设备列表/撤销和新配对码进入认证 command catalog。Host adapter 以窄依赖接口组合 Kernel、Auth 和连接关闭回调；CLI 的这些命令不创建 Session，也不要求配置模型。测试使用临时 pointer 文件验证路径写入，覆盖重复设备撤销、配对码期限、无凭据诊断、未监督 Host 的诚实拒绝，以及 supervisor 接受重启后保持端口并发布新 Host instance。
 
 A11m 迁移扩展管理。`plugin.list/inspect/set/install/scan/remove/enable/disable/resolve/graph/lock/doctor` 和 `skill.list` 使用可序列化契约、Host 依赖端口与 typed Client；CLI 的 `plugins`/`skills` 别名不再读取 bootstrap 或本地目录。真实临时插件包测试覆盖安装、配置、停启、依赖报告、lock、doctor、全局技能发现和停用后卸载；transport 测试区分 mutation 的未知结果与 query 的原始断线错误。
 
@@ -174,7 +174,7 @@ B4 已完成：`@hbar/commands` 从统一 descriptor 编译无 React 参数表�
 
 B5 已完成：Files 使用 workspace 边界内的 compare-and-write；Session Monitoring 复用可靠 Usage 投影；子 Agent 保持独立 Session/预算/取消事实；目标与计划保持 Host 状态机与草稿边界；Session Settings 复用三层 Schema 工作台。扩展页查询 Host plugin/skill 并转到共享命令目录。每个可见写入只执行 command，打开/关闭由 surface command 管理。
 
-B6 已完成：Performance 显示 Host 进程和有界资源采样，Usage 显示全局账本、token/费用/速率/延时/模型分布以及工具结果、请求/工具并发、Run/工具耗时，Git 显示选中工作区的一方历史、来源与行数变化。缺少采样、gap、估算与旧事实不完整保持明确状态，不由 UI 伪造数据。
+B6 已完成：Performance 显示 Host 进程和有界资源采样，并通过命令切换时间窗及整机/Host 范围；Usage 按 global/workspace/session、provider、model、时间窗和聚合粒度查询 token/费用/速率/延时/模型分布、工具结果、请求/工具并发与 Run/工具耗时，并按同一查询分页导出 JSON/CSV；Git 按仓库、来源和 committer-time 时间窗显示仓库状态、统计与最多 100 条提交详情。缺少采样、gap、估算、导出截断与旧事实不完整保持明确状态，不由 UI 伪造数据。
 
 B7 已完成：旧 Web 业务页面和共享可写 store 保持删除，最后不可达的占位面板文案已清理；消费端不直达 deprecated write RPC，Host 兼容入口仍委托 canonical handler。app-react 只经 app-runtime 公开读模型取得业务类型。连接 Host 的 390px 场景验证全部工具和状态分区无水平溢出或侧栏/主区重叠。最终通过 349 个 Bun 测试、5 个 Playwright 场景、2378 模块生产构建、Windows debug Tauri 构建和原生 desktop smoke。
 

@@ -1,6 +1,6 @@
 # P2：只读状态、独立应用运行时与 CLI
 
-状态：实施中，A2 只读运行时、A4 预算表单 ViewModel、A6 命令入口与 A7 逻辑 surface/PlatformPort/定向 Host 中继已交付；通用草稿、全领域别名迁移与增量同步仍在后续里程碑。上级：[总计划](command-first-architecture-plan.md)。依赖 P0 与 P1 最小命令契约。交付 `packages/app-runtime` 及 CLI/Client adapters；React 只读 hooks 随 P5 进入 `packages/app-react`。
+状态：完成。P2.1–P2.5 已交付独立只读 app-runtime、命令拥有的草稿/表单、CLI/TUI/REPL、逻辑 surface/PlatformPort、定向 Host 中继，以及按领域采用有界 query/snapshot/follow 的可靠投影；React 只经 `packages/app-react` 的只读订阅消费状态。上级：[总计划](command-first-architecture-plan.md)。依赖 P0 与 P1 命令契约。
 
 ## 1. 状态所有权和写入边界
 

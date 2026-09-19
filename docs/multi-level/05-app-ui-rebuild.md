@@ -10,7 +10,7 @@ P5.5 已将 Host 与 client/platform 命令合并为有界分类目录。`@hbar/
 
 P5.3 已完成 Files、Session Monitoring、子 Agent、目标/计划和 Session Settings；每个面板都由 `app.openPanel`/`app.openSettings` 绑定原目标，草稿、保存、取消和未知结果核对属于 app-runtime。扩展/技能工作台从 Host 查询插件与 skill，并把详细操作定向到同一命令目录。
 
-P5.6 已完成全局 Performance、Usage 与 Git 分区。面板只显示 Host 的有界采样、用量/执行账本和工作区 Git 统计；Usage 包含工具成功/失败/未知数、请求/工具最大并发、Run 总耗时与 Run/工具 p50/p95。缺失、gap、估算值和旧事实不足都明确标示，不填造零值。P5.7 删除最后的占位分支，恢复 app-react 仅依赖 runtime 公开读模型的包边界，并通过全库检查、中英文桌面/窄屏 E2E 和 Tauri smoke。
+P5.6 已完成全局 Performance、Usage 与 Git 分区。面板只显示 Host 的有界采样、用量/执行账本和工作区 Git 事实；Performance 的时间窗及整机/Host 范围、Usage 的 scope/provider/model/时间聚合与 JSON/CSV 导出、Git 的仓库/来源/时间窗和提交详情均由 application command 持有。Usage 包含工具成功/失败/未知数、请求/工具最大并发、Run 总耗时与 Run/工具 p50/p95。缺失、gap、估算值、导出截断和旧事实不足都明确标示，不填造零值。P5.7 删除最后的占位分支，恢复 app-react 仅依赖 runtime 公开读模型的包边界，并通过全库检查、中英文桌面/窄屏 E2E 和 Tauri smoke。
 
 ## 1. 界面组合边界
 

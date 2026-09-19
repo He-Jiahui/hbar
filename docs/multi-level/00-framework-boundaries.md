@@ -1,6 +1,6 @@
 # P0：框架包、业务模块与组合根
 
-状态：实施中，A0 的基线与依赖门禁已交付；各框架包按后续里程碑逐项落地。上级：[总计划](command-first-architecture-plan.md)。本计划固定所有后续子计划的源码边界；它不要求预先创建没有真实使用者的包。
+状态：完成。P0.1–P0.4 已随 A0–A15、B1–B7 逐项落地：commands、schema-core、settings-core、app-runtime 与 app-react 均有真实消费者、公开出口、依赖方向和行为门禁；CLI 构建不含 React，hbar-app-ui 不依赖 runtime。上级：[总计划](command-first-architecture-plan.md)。本计划固定所有后续子计划的源码边界；它不要求预先创建没有真实使用者的包。
 
 ## 1. 三层职责
 

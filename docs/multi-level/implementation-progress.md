@@ -231,7 +231,7 @@ AppShell 固定底区新增 Extensions 入口，不占用 Session 右侧五个�
 
 ### B6a：Performance Dashboard（完成）
 
-app-runtime 新增 status workspace 投影，按 `app.openStatus` 面板的 dashboard/usage/git params 绑定原分区。Performance 分区调用 Host `metrics.query`，窗口最多 120 个 1 秒聚合点，保留 process 事实、current sample、gap、skipped sample 与每个读数的 availability/reason/source/estimated/sampleCount。请求 generation 阻止过期分区响应回写。
+app-runtime 新增 status workspace 投影，按 `app.openStatus` 面板的 dashboard/usage/git params 绑定原分区。Performance 分区调用 Host `metrics.query`，2 分钟、15 分钟和 1 小时时间窗均按最多 120 个聚合点显式计算桶宽，保留 process 事实、current sample、gap、skipped sample 与每个读数的 availability/reason/source/estimated/sampleCount。`statusWorkspace.setPerformanceQuery` 拥有时间窗及 all/system/host 范围，请求 generation 阻止过期分区响应回写。
 
 Status Center 的 Performance 页显示 Host PID/平台/架构/运行时间/逻辑处理器，整机与 Host CPU、负载、内存/RSS/堆、线程、事件循环、活动/排队运行、受管子进程、磁盘读写、网络收发与有界 CPU 时序。Windows 无法观测的整机 CPU/负载/线程/I/O 显示确切 reason，不补 0；字节使用稳定 B/KB/MB/GB 格式，无双重单位。分区标签和刷新/关闭均是命令入口。
 
@@ -239,19 +239,19 @@ Status Center 的 Performance 页显示 Host PID/平台/架构/运行时间/逻�
 
 ### B6b：Usage Dashboard（完成）
 
-status workspace 在 usage 分区查询 Host 全局持久 usage/attempt 账本，使用 60 秒桶、最多 120 桶和 10,000 个样本的有界聚合。投影保留 accounting version、scope/window、gap、attempt/run 总数、input/output/cache read/cache write/billable Token、估算金额、缓存命中率、输入/输出/总速率、四类 p50/p95 延迟、模型分布和时间序列。切换 Performance/Usage 保留已读投影，只为当前 params 分区发起新查询。
+status workspace 在 usage 分区查询 Host 持久 usage/attempt 账本。`statusWorkspace.setUsageQuery` 保存 global/workspace/session（可含子 Agent）scope、1 小时/24 小时/7 天/30 天时间窗、minute/hour/day 聚合以及 provider/model 过滤；每次 Host 请求显式携带范围、桶宽、最多 500 桶和 10,000 个样本。投影保留 accounting version、scope/window、gap、attempt/run 总数、input/output/cache read/cache write/billable Token、估算金额、缓存命中率、输入/输出/总速率、四类 p50/p95 延迟、模型分布和时间序列。切换 Performance/Usage 保留已读投影，只为当前 params 分区发起新查询。
 
-Usage 页按 Host i18n formatter 显示 Token、USD、比率、tokens/s 和毫秒；预计金额保留 estimated 说明，无样本/无价格/无时间点保留 reason。执行统计由持久 Run/Attempt/ToolCall 事实聚合：工具结算与 `tool.settled` 原子写入，报表给出工具成功/失败/未知、请求/工具最大并发、Run 总耗时与 Run/工具 p50/p95；旧事实缺失结算时间则显示具体 unavailable reason。
+Usage 页按 Host i18n formatter 显示 Token、USD、比率、tokens/s 和毫秒；预计金额保留 estimated 说明，无样本/无价格/无时间点保留 reason。执行统计由持久 Run/Attempt/ToolCall 事实聚合：工具结算与 `tool.settled` 原子写入，报表给出工具成功/失败/未知、请求/工具最大并发、Run 总耗时与 Run/工具 p50/p95；旧事实缺失结算时间则显示具体 unavailable reason。`statusWorkspace.exportUsage` 复用当前查询，按 Host 稳定 cursor 每页 500 条、最多 20 页导出 JSON/CSV；文件写入由注入的 ClientExportPort 承担，gap 与 10,000 条截断写入导出元数据和只读状态。
 
-交付验证：usage/runtime/React 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。真实 Host Playwright 在产生用量事实和一次审批后的 `write_file` 调用后切换 Usage，核对持久 token 账本、1 次成功工具调用、并发与耗时。人工检查 `artifacts/web-b6/usage.png`、`usage-details.png` 与 `execution-usage.png`。
+交付验证：usage/runtime/React 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建最初为 2378 个模块。真实 Host Playwright 在产生用量事实和一次审批后的 `write_file` 调用后切换 Usage，核对持久 token 账本、1 次成功工具调用、并发与耗时。补项提交 `47607c3` 验证 scope/provider/model/时间聚合映射、两页导出和 20 页容量上限；人工检查 `artifacts/web-b6/usage.png`、`usage-details.png` 与 `execution-usage.png`。
 
 ### B6c：Git Statistics（完成）
 
-Git 分区使用 status panel 当前绑定的 workspaceId 从只读 directory 投影解析确切 Host 路径，再查询 `git.stats`；没有工作区、目标已失效或不是仓库时返回明确错误，不默认到 Host 其他目录。查询使用 UTC committer time、24 小时桶、最多 120 桶和 auto/manual/external 全来源，保留 first-parent history、rename separate、binary availability、index mode/completeness 与 gap。
+Git 分区从只读 directory 投影解析命令选择的确切 workspace 路径，并并发查询 `git.stats`、`git.status` 与最多 100 条 `git.log`；没有工作区、目标已失效或不是仓库时返回明确错误，不默认到 Host 其他目录。`statusWorkspace.setGitQuery` 保存仓库、auto/manual/external 来源和 7 天/30 天/90 天/1 年窗口；统计使用 UTC committer time 和 1 天或 7 天桶，保留 first-parent history、rename separate、binary availability、index mode/completeness 与 gap。GitCommitInfo 新 Host 输出可选 committer timestamp，旧 Host 回退 author timestamp，保证版本 1 输出兼容。
 
-Git 页显示 repo ID、HEAD、扫描数与索引模式，分别统计自动/手动/外部提交，展示文件数、增删行、rename 和 binary file，并绘制提交来源及增删行两组有界时序。Binary line changes 按 Host availability 显示，不估算二进制行数。Web 组合根注入 typed Git client。
+Git 页显示 repo ID、HEAD、分支、上游、ahead/behind、工作树状态、变更路径数、扫描数与索引模式，分别统计自动/手动/外部提交，展示文件数、增删行、rename 和 binary file，并绘制提交来源及增删行两组有界时序。最近提交按同一来源和 committer-time 窗口过滤，可展开查看作者、时间、来源与 session/run/operation 关联；达到 100 条读取容量时明确提示。Binary line changes 按 Host availability 显示，不估算二进制行数。Web 组合根注入 typed Git client。
 
-交付验证：Git runtime/React/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。Playwright 临时工作区初始化为真实 Git 仓库并产生外部提交，核对仓库分区与来源指标；人工检查 `artifacts/web-b6/git.png` 确认仓库事实、提交来源、行数变化和图表布局。至此 B6 Performance、Usage 与 Git 三个分区已闭合。
+交付验证：Git runtime/React/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建最初为 2378 个模块。补项提交 `069ee6e` 继续验证两仓库切换、来源/时间窗映射、仓库状态、同口径提交过滤和 100 条容量提示。Playwright 临时工作区初始化为真实 Git 仓库并产生外部提交，核对仓库分区与来源指标；人工检查 `artifacts/web-b6/git.png` 确认仓库事实、提交来源、行数变化和图表布局。至此 B6 Performance、Usage 与 Git 三个分区已闭合。
 
 ## B7：迁移收尾与全平台回归（完成）
 
@@ -260,3 +260,11 @@ Git 页显示 repo ID、HEAD、扫描数与索引模式，分别统计自动/手
 连接真实 Host 的 Playwright 场景在 390×844 下依次重开 Files、Monitoring、子 Agent、目标/计划、扩展、Usage 和 Git，检查页面无水平溢出且 AppSidebar 与 Main 几何不重叠。该回归暴露并修复了窄屏侧栏因 flex shrink 被主区覆盖的问题；人工检查 `artifacts/web-b7/connected-status-narrow.png` 确认两个 pane 保持正常上下流。
 
 最终验证：`bun run check` 通过 lint、typecheck 与 349 个测试（111 个文件、2713 个断言）；`bun run build` 完成 2378 个模块；`bun run test:e2e` 的 5 个场景通过。使用 Visual Studio x64 环境完成 debug Tauri 构建，`bun scripts/desktop-smoke.ts` 确认原生 WebView 外壳渲染、关闭窗口隐藏、桌面退出后 Host 存活与独立 SDK 取消 Run。完整检查日志保留在忽略目录 `artifacts/command-first-b7-check.log`。
+
+## 完成声明后的逐项复核（完成）
+
+总计划逐条复查后补齐了原完成声明中仍为设计目标或固定查询的行为：`d6ce8f8` 让 layout/device preferences 经版本化 ClientPersistencePort 恢复并只由 `layout.*`、`preferences.*` 修改；`9ce8b99` 交付 `workspace.open`；`1ad6272` 将 TUI 内部动作改为类型化 application commands；`45a87f9` 交付受监督 Host restart。`eb75f59` 将 Prompt 附件选择、Host 上传、容量和失败状态收进 draft command；`d9f260b` 将 FilePicker/DirectoryPicker 资源引用、浏览器 adapter 与设置回调收进 Schema/runtime 边界。
+
+状态中心补项分成三次独立提交：`a6efe92` 完成 Performance 时间窗和整机/Host 过滤，`47607c3` 完成 Usage scope/provider/model/聚合及有界导出，`069ee6e` 完成 Git 仓库/来源/时间窗、仓库状态和提交详情。`6654374` 将真实 Host E2E 的两处旧 Global Usage 标题断言更新为 scope-neutral 标题；`a11e9bb` 删除 app-react manifest 中最后一条未使用的 contracts 依赖，并用生产边界测试固定该依赖方向。
+
+2026-09-18 在当前共享工作树重新执行全平台门禁：默认约 4 GiB Node 堆的全库 ESLint 曾因内存不足退出；设置 `NODE_OPTIONS=--max-old-space-size=8192` 后，同一 `bun run check` 完整通过 lint、typecheck 与 366 个测试（119 个文件、2853 个断言）。`bun run build` 完成 2387 个模块，`bun run test:e2e` 的 5 个场景通过；通过 Visual Studio x64 环境完成 debug Tauri/NSIS 构建，`bun scripts/desktop-smoke.ts` 再次确认原生 WebView、关闭隐藏、Host 独立存活与 SDK 取消。上述验证未暂存或清理共享工作树中的其他任务改动。
