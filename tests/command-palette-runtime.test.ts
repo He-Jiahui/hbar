@@ -109,6 +109,8 @@ test('command palette projects categorized host and client commands through comm
     await runtime.view.commands.execute('commandPalette.execute', {})
     state = runtime.view.state.commandPalette.getSnapshot()
     expect(state.execution).toMatchObject({ status: 'succeeded', commandId: 'session.setBudget' })
+    expect(state.draft?.values).toMatchObject({ sessionId: session.id, tokens: '120000' })
+    expect(state.draft?.issues).toEqual([])
     expect(executions[0]).toMatchObject({
       id: 'session.setBudget',
       input: { sessionId: session.id, tokens: 120000 },

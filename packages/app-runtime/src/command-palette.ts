@@ -366,7 +366,9 @@ export function createCommandPalette(
       const latest = state.reader.getSnapshot()
       if (latest.execution.commandId !== commandId || latest.execution.status !== 'submitting')
         throw new CommandError('RESULT_UNKNOWN', 'Command execution was superseded')
-      selectDraft(item)
+      for (const field of item.form.fields)
+        if (field.sensitive && Object.hasOwn(fullDraft.values, field.name))
+          fullDraft = unsetCommandParameter(item.form, fullDraft, field.name)
       state.replace({
         ...latest,
         draft: fullDraft ? publicDraft(item.form, fullDraft) : null,
