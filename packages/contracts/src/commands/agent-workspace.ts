@@ -7,6 +7,8 @@ const field = z.enum(['objective', 'modelId', 'title', 'tokenBudget', 'thinkingL
 const summary = z.strictObject({
   instanceId,
   parentSessionId: idSchema,
+  view: z.enum(['list', 'create', 'detail']),
+  selectedAgentId: idSchema.nullable(),
   status: z.enum(['loading', 'ready', 'error']),
   itemCount: z.number().int().nonnegative(),
   hasMore: z.boolean(),
@@ -33,6 +35,21 @@ export const agentWorkspaceCommands = {
   'agentWorkspace.loadMore': defineCommand(
     metadata('agentWorkspace.loadMore'),
     z.strictObject({ instanceId }),
+    summary,
+  ),
+  'agentWorkspace.showList': defineCommand(
+    metadata('agentWorkspace.showList'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
+  'agentWorkspace.showCreate': defineCommand(
+    metadata('agentWorkspace.showCreate'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
+  'agentWorkspace.showAgent': defineCommand(
+    metadata('agentWorkspace.showAgent'),
+    z.strictObject({ instanceId, agentId: idSchema }),
     summary,
   ),
   'agentWorkspace.setField': defineCommand(

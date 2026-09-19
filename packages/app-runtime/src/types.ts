@@ -165,6 +165,8 @@ export interface AgentWorkspaceActionState {
 export interface AgentWorkspaceEntryState {
   readonly instanceId: string
   readonly parentSessionId: string
+  readonly view: 'list' | 'create' | 'detail'
+  readonly selectedAgentId: string | null
   readonly status: 'loading' | 'ready' | 'error'
   readonly items: readonly Readonly<AgentRecord>[]
   readonly nextCursor: string | null

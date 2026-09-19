@@ -108,6 +108,8 @@ export function createAgentWorkspace(
   const summary = (entry: AgentWorkspaceEntryState) => ({
     instanceId: entry.instanceId,
     parentSessionId: entry.parentSessionId,
+    view: entry.view,
+    selectedAgentId: entry.selectedAgentId,
     status: entry.status,
     itemCount: entry.items.length,
     hasMore: entry.nextCursor !== null,
@@ -125,6 +127,8 @@ export function createAgentWorkspace(
     const loading: AgentWorkspaceEntryState = {
       instanceId,
       parentSessionId: target.sessionId,
+      view: sameTarget ? previous.view : 'list',
+      selectedAgentId: sameTarget ? previous.selectedAgentId : null,
       status: 'loading',
       items: sameTarget ? previous.items : [],
       nextCursor: null,
@@ -145,8 +149,13 @@ export function createAgentWorkspace(
       const actions = { ...loading.actions }
       for (const item of page.items)
         if (terminal(item.status) || item.status === 'cancelRequested') delete actions[item.agentId]
+      const selectedAgentId = page.items.some((item) => item.agentId === loading.selectedAgentId)
+        ? loading.selectedAgentId
+        : null
       const ready = {
         ...loading,
+        view: loading.view === 'detail' && selectedAgentId === null ? ('list' as const) : loading.view,
+        selectedAgentId,
         status: 'ready' as const,
         items: page.items,
         nextCursor: page.nextCursor,
@@ -185,6 +194,35 @@ export function createAgentWorkspace(
     replace(next)
     return summary(next)
   }
+  const showList = (instanceId: string) => {
+    const entry = state.reader.getSnapshot().entries[instanceId]
+    const target = panel(instanceId)
+    if (!entry || entry.parentSessionId !== target.sessionId)
+      throw new CommandError('RESULT_UNKNOWN', 'Refresh agent panel target')
+    const next = { ...entry, view: 'list' as const, selectedAgentId: null }
+    replace(next)
+    return summary(next)
+  }
+  const showCreate = (instanceId: string) => {
+    const entry = state.reader.getSnapshot().entries[instanceId]
+    const target = panel(instanceId)
+    if (!entry || entry.parentSessionId !== target.sessionId)
+      throw new CommandError('RESULT_UNKNOWN', 'Refresh agent panel target')
+    const next = { ...entry, view: 'create' as const, selectedAgentId: null }
+    replace(next)
+    return summary(next)
+  }
+  const showAgent = (instanceId: string, agentId: string) => {
+    const entry = state.reader.getSnapshot().entries[instanceId]
+    const target = panel(instanceId)
+    if (!entry || entry.parentSessionId !== target.sessionId)
+      throw new CommandError('RESULT_UNKNOWN', 'Refresh agent panel target')
+    if (!entry.items.some((item) => item.agentId === agentId))
+      throw new CommandError('COMMAND_NOT_FOUND', 'Child agent is not available in this panel')
+    const next = { ...entry, view: 'detail' as const, selectedAgentId: agentId }
+    replace(next)
+    return summary(next)
+  }
   const setField = (
     instanceId: string,
     field: keyof Omit<AgentWorkspaceDraftState, 'revision' | 'issues'>,
@@ -192,6 +230,7 @@ export function createAgentWorkspace(
   ) => {
     const entry = state.reader.getSnapshot().entries[instanceId]
     if (!entry) throw new CommandError('COMMAND_NOT_FOUND', 'Agent workspace is not loaded')
+    if (entry.view !== 'create') throw new CommandError('INVALID_INPUT', 'Open the creation form before editing it')
     if (entry.creation.status === 'submitting' || entry.creation.status === 'unknown')
       throw new CommandError('BUSY', 'Resolve the pending agent creation before editing its fields')
     const issues = { ...entry.draft.issues }
@@ -211,6 +250,7 @@ export function createAgentWorkspace(
     const target = panel(instanceId)
     if (!entry || entry.parentSessionId !== target.sessionId)
       throw new CommandError('RESULT_UNKNOWN', 'Refresh agent panel target')
+    if (entry.view !== 'create') throw new CommandError('INVALID_INPUT', 'Open the creation form before submitting it')
     if (entry.creation.status === 'submitting') throw new CommandError('BUSY', 'Agent creation is already in progress')
     let input
     try {
@@ -248,6 +288,8 @@ export function createAgentWorkspace(
           : latest.draft
       const succeeded = {
         ...latest,
+        view: 'detail' as const,
+        selectedAgentId: created.agentId,
         status: 'ready' as const,
         items,
         draft,
@@ -312,6 +354,11 @@ export function createAgentWorkspace(
 
   local.register(agentWorkspaceCommands['agentWorkspace.refresh'], ({ instanceId }) => load(instanceId))
   local.register(agentWorkspaceCommands['agentWorkspace.loadMore'], ({ instanceId }) => loadMore(instanceId))
+  local.register(agentWorkspaceCommands['agentWorkspace.showList'], ({ instanceId }) => showList(instanceId))
+  local.register(agentWorkspaceCommands['agentWorkspace.showCreate'], ({ instanceId }) => showCreate(instanceId))
+  local.register(agentWorkspaceCommands['agentWorkspace.showAgent'], ({ instanceId, agentId }) =>
+    showAgent(instanceId, agentId),
+  )
   local.register(agentWorkspaceCommands['agentWorkspace.setField'], ({ instanceId, field, value }) =>
     setField(instanceId, field, value),
   )

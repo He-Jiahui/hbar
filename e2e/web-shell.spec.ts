@@ -324,6 +324,32 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
           if (geometry!.minimumBarWidth < 1 || geometry!.maximumBarHeight < 8)
             throw new Error(`Monitoring bar geometry: ${JSON.stringify(geometry)}`)
         })
+    const expectAgentLayout = async (view: 'list' | 'create' | 'detail') =>
+      expect(
+        await page.evaluate((expectedView) => {
+          const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
+          const workspace = document.querySelector<HTMLElement>('.hbar-app-react-agent-workspace')
+          if (!drawer || !workspace) return null
+          const drawerRect = drawer.getBoundingClientRect()
+          const workspaceRect = workspace.getBoundingClientRect()
+          const actualView = workspace.querySelector('.hbar-app-react-agent-create-view')
+            ? 'create'
+            : workspace.querySelector('.hbar-app-react-agent-detail')
+              ? 'detail'
+              : workspace.querySelector('.hbar-app-react-agent-list')
+                ? 'list'
+                : null
+          return {
+            view: actualView,
+            fillsDrawer:
+              Math.abs(drawerRect.left - workspaceRect.left) <= 1 &&
+              Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
+              Math.abs(drawerRect.height - workspaceRect.height) <= 1,
+            noOverflow: workspace.scrollWidth <= workspace.clientWidth,
+            expectedView,
+          }
+        }, view),
+      ).toMatchObject({ view, expectedView: view, fillsDrawer: true, noOverflow: true })
     await expectMonitoringLayout()
     await expect(page.getByText('Total tokens')).toBeVisible()
     await expect(page.getByText('Token timeline')).toBeVisible()
@@ -357,13 +383,25 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Child agents', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
+    await expectAgentLayout('list')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-empty.png', fullPage: true })
+    await page.getByRole('button', { name: 'Create child agent' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Create child agent' })).toBeVisible()
+    await expectAgentLayout('create')
     await page.getByRole('textbox', { name: 'Objective' }).fill('Verify the browser workflow')
     await expect(page.getByRole('textbox', { name: 'Model' })).toHaveValue('local-fixture')
     await page.getByRole('spinbutton', { name: 'Token budget' }).fill('5000')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-create.png', fullPage: true })
     await page.getByRole('button', { name: 'Create and run' }).click()
     await expect(page.getByText('Child agent created.')).toBeVisible()
     await expect(page.getByText('Verify the browser workflow')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Child agent details' })).toBeVisible()
+    await expectAgentLayout('detail')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-detail.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to child agents' }).click()
+    await expectAgentLayout('list')
     await page.screenshot({ path: 'artifacts/web-b5/child-agents.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-list.png', fullPage: true })
     await page.getByRole('button', { name: 'Close child agent management' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
@@ -401,6 +439,10 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expectMonitoringLayout()
     await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/tablet-1024.png', fullPage: true })
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
+    await page.getByRole('button', { name: 'Child agents', exact: true }).click()
+    await expectAgentLayout('list')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/tablet-1024-list.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close child agent management' }).click()
     await page.setViewportSize({ width: 390, height: 844 })
     const expectNoHorizontalOverflow = async () =>
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -450,7 +492,17 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Child agents', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
+    await expectAgentLayout('list')
     await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/mobile-390-list.png', fullPage: true })
+    await page.getByRole('button', { name: 'View details for Verify the browser workflow' }).click()
+    await expectAgentLayout('detail')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/mobile-390-detail.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to child agents' }).click()
+    await page.getByRole('button', { name: 'Create child agent' }).click()
+    await expectAgentLayout('create')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/mobile-390-create.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to child agents' }).click()
     await page.getByRole('button', { name: 'Close child agent management' }).click()
 
     await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()

@@ -56,6 +56,18 @@ test('child agent panel renders Host records and a command-owned creation draft'
     await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
     const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
     await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: panel.instanceId })
+    const listHtml = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarAgentWorkspace labels={getShellCopy('en-US').agents} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(listHtml).toContain('Child agent management')
+    expect(listHtml).toContain('Verify the release candidate')
+    expect(listHtml).toContain('provider:model')
+    expect(listHtml).toContain('12,000 tokens')
+    expect(listHtml).toContain('View details for Verify the release candidate')
+
+    await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: panel.instanceId })
     await runtime.view.commands.execute('agentWorkspace.setField', {
       instanceId: panel.instanceId,
       field: 'objective',
@@ -66,13 +78,24 @@ test('child agent panel renders Host records and a command-owned creation draft'
         <HbarAgentWorkspace labels={getShellCopy('en-US').agents} connected />
       </HbarRuntimeProvider>,
     )
-    expect(html).toContain('Child agent management')
+    expect(html).toContain('Create child agent')
     expect(html).toContain('Draft child task')
-    expect(html).toContain('Verify the release candidate')
-    expect(html).toContain('provider:model')
-    expect(html).toContain('12,000 tokens')
-    expect(html).toContain('Open session')
-    expect(html).toContain('Cancel agent')
+    expect(html).toContain('Back to child agents')
+    expect(html).not.toContain('Verify the release candidate')
+
+    await runtime.view.commands.execute('agentWorkspace.showAgent', {
+      instanceId: panel.instanceId,
+      agentId: agent.agentId,
+    })
+    const detailHtml = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarAgentWorkspace labels={getShellCopy('en-US').agents} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(detailHtml).toContain('Child agent details')
+    expect(detailHtml).toContain('Current session')
+    expect(detailHtml).toContain('Open session')
+    expect(detailHtml).toContain('Cancel agent')
   } finally {
     runtime.dispose()
   }

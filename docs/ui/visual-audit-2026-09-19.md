@@ -198,3 +198,26 @@ Playwright 在三档宽度分别断言工具 workspace 与 AppShell drawer 的�
 Playwright 在 1440、1024 和 390 三档宽度断言 Monitoring 工作区与 AppShell drawer 四条边对齐且无横向溢出，并读取每个时间桶的真实几何。当前 Host fixture 返回大量零值桶和最后一个非零桶，所以视觉上只有最右侧细柱；实测每桶宽度仍至少 1 CSS px，非零柱高度至少 8 CSS px。这是实际数据分布，不是用假数据填充的图形，也不是 CSS 收缩故障。
 
 验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；380 个 Bun 测试、2980 个断言通过；Web production build 通过（2395 modules）；flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过。真实场景在三档宽度检查工具边界、溢出与时间桶几何，重新生成并人工查看默认态和展开态截图。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在后续集中验收中补齐。
+
+## 14. R4.4 子 Agent 列表、创建与详情
+
+旧页面在 24rem 工具列中永久并排创建表单和 Agent 列表，两侧还分别设置最小宽度。真实截图中列表只剩几个字符宽，任务目标、模型和操作被逐字竖排；大标题、说明、刷新和关闭文字按钮又挤占首屏。这个故障与 R4.2 文件工具相同，根因是把桌面双栏结构直接塞入狭窄工具区，而不是缺少单个换行样式。
+
+Agent 工具现在由 `agentWorkspace.showList`、`agentWorkspace.showCreate` 和 `agentWorkspace.showAgent` 持有 `list/create/detail` 子视图及明确的 `selectedAgentId`。默认只显示可扫描列表；创建表单和单个 Agent 详情各自独占工具宽度。创建成功后使用 Host 返回的 `agentId` 进入详情，返回列表保留已创建实体；刷新详情时若目标已不存在，则回到列表。React 只读取 Zustand 投影并执行命令，没有用局部 state 复制业务视图或草稿。
+
+创建页复用 `hbar-app-ui/forms` 的 Field、Input、Textarea 和 Select，模型默认值继续来自当前会话配置；任务、标题、模型、Token 预算、思考等级与审批模式仍由原有命令草稿持有。页面明确说明任务与预算属于当前会话下的新子会话。详情复用 CompactMetrics 显示父会话、模型、预算和创建时间；取消绑定当前 `agentId`，打开会话先成功执行 `app.setSession` 再关闭原工具，导航失败时不会先丢失当前上下文。
+
+| 场景       | 截图与人工观察                                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面空列表 | [1440](../../artifacts/ui-redesign/agents/after/desktop-1440-empty.png)：单一列表视图、紧凑图标动作与居中空态，旧创建栏不再常驻                          |
+| 桌面创建   | [1440](../../artifacts/ui-redesign/agents/after/desktop-1440-create.png)：表单独占工具宽度，目标、模型和预算没有被第二列挤压                             |
+| 桌面详情   | [1440](../../artifacts/ui-redesign/agents/after/desktop-1440-detail.png)：创建回执、状态、任务、归属指标、打开会话和取消作用于同一明确 Agent             |
+| 桌面列表   | [1440](../../artifacts/ui-redesign/agents/after/desktop-1440-list.png)：返回后任务、状态、模型、预算与时间可在一行组内快速扫描                           |
+| 中等宽度   | [1024](../../artifacts/ui-redesign/agents/after/tablet-1024-list.png)：右侧 drawer 被完整填充，列表不会与创建表单重新并排                                |
+| 窄屏列表   | [390](../../artifacts/ui-redesign/agents/after/mobile-390-list.png)：全宽工具保留三项图标动作与完整任务摘要，没有横向页面溢出                            |
+| 窄屏详情   | [390](../../artifacts/ui-redesign/agents/after/mobile-390-detail.png)：父会话使用可读的“当前会话”，本地化创建时间不再拆出孤立的 AM，两个目标动作保持可达 |
+| 窄屏创建   | [390](../../artifacts/ui-redesign/agents/after/mobile-390-create.png)：六个字段和提交动作按单列自然滚动，844px 高度下完整表单可达                        |
+
+Playwright 在 list/create/detail 每次切换后检查只存在一个对应主视图，并在 1440、1024 和 390 三档宽度断言 Agent 工作区与 AppShell drawer 四条边对齐且无横向溢出。真实 Host 流程创建预算为 5,000 tokens 的子 Agent，验证返回详情、返回列表、跨断点重开详情和重开创建表单。截图均来自重新构建的 production preview 并逐张人工查看；第一次视觉回归误读了旧 `dist/web`，在重建后重新执行并用新截图取代，未把旧产物作为结论。
+
+验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；380 个 Bun 测试、2991 个断言通过；Web production build 通过（2395 modules）；flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过。真实 Host 场景完成创建、详情、返回列表和跨三档宽度重开子视图，以上八张截图均在最终产物上重新生成并人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在后续集中验收中补齐。

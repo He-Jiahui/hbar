@@ -98,6 +98,16 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
     await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
     const loaded = runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!
     expect(loaded.draft.modelId).toBe('provider:model')
+    expect(loaded).toMatchObject({ view: 'list', selectedAgentId: null })
+
+    await expect(
+      runtime.view.commands.execute('agentWorkspace.showAgent', {
+        instanceId: opened.instanceId,
+        agentId: 'missing',
+      }),
+    ).rejects.toMatchObject({ code: 'COMMAND_NOT_FOUND' })
+    await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: opened.instanceId })
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.view).toBe('create')
 
     for (const [field, value] of [
       ['objective', 'Review the change'],
@@ -127,6 +137,10 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
       sessionId: 'child-session',
       status: 'running',
     })
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]).toMatchObject({
+      view: 'detail',
+      selectedAgentId: 'child',
+    })
 
     await expect(
       runtime.view.commands.execute('agentWorkspace.cancel', { instanceId: opened.instanceId, agentId: 'child' }),
@@ -134,6 +148,11 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
     expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.actions.child?.status).toBe('unknown')
     await runtime.view.commands.execute('agentWorkspace.cancel', { instanceId: opened.instanceId, agentId: 'child' })
     expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.items[0]?.status).toBe('cancelRequested')
+    await runtime.view.commands.execute('agentWorkspace.showList', { instanceId: opened.instanceId })
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]).toMatchObject({
+      view: 'list',
+      selectedAgentId: null,
+    })
   } finally {
     runtime.dispose()
   }

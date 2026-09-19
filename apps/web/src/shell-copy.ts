@@ -874,7 +874,14 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   const number = new Intl.NumberFormat(locale)
-  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
+  const date = new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const budget = (tokens: number | null) =>
+    tokens === null ? choose('继承 / 未限定', 'Inherited / unlimited') : `${number.format(tokens)} tokens`
   const statuses: Readonly<Record<Parameters<HbarAgentWorkspaceLabels['status']>[0], string>> = zh
     ? {
         created: '已创建',
@@ -910,10 +917,19 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     empty: choose('当前会话尚无子 Agent。', 'This session has no child agents.'),
     loadMore: choose('加载更多', 'Load more'),
     createTitle: choose('创建子 Agent', 'Create child agent'),
+    createScope: choose(
+      '任务和 Token 预算属于当前会话下新建的独立子会话。',
+      'The task and token budget belong to a new child session under the current session.',
+    ),
+    detailTitle: choose('子 Agent 详情', 'Child agent details'),
+    back: choose('返回子 Agent 列表', 'Back to child agents'),
+    showDetails: (objective) => choose(`查看 ${objective} 的详情`, `View details for ${objective}`),
     objective: choose('目标', 'Objective'),
     objectivePlaceholder: choose('描述子 Agent 需要完成的任务', 'Describe the task for the child agent'),
     childTitle: choose('会话标题', 'Session title'),
     childTitlePlaceholder: choose('可选会话标题', 'Optional session title'),
+    parentSession: choose('父会话', 'Parent session'),
+    currentSession: () => choose('当前会话', 'Current session'),
     createdAt: choose('创建时间', 'Created'),
     model: choose('模型', 'Model'),
     tokenBudget: choose('Token 预算', 'Token budget'),
@@ -935,8 +951,8 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     count: (count) =>
       choose(`${number.format(count)} 个子 Agent`, `${number.format(count)} child ${count === 1 ? 'agent' : 'agents'}`),
     status: (status) => statuses[status],
-    budget: (tokens) =>
-      tokens === null ? choose('继承 / 未限定', 'Inherited / unlimited') : `${number.format(tokens)} tokens`,
+    budget,
+    summary: (modelId, tokens) => `${modelId} · ${budget(tokens)}`,
     modelValue: (modelId) => modelId,
     timestamp: (value) => date.format(value),
     issue: () => choose('请填写符合约束的值。', 'Enter a value that satisfies the field constraints.'),
