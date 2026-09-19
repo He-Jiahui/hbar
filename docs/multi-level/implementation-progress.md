@@ -187,7 +187,7 @@ app-runtime 新增只读 command palette 投影，将 Host 分页目录与本地
 
 交付验证：`bun run check` 通过 lint、typecheck、332 个测试（96 个文件、2596 个断言）；生产构建包含 2356 个模块。Playwright 5 个场景通过，覆盖中英文桌面/390px、离线本地目录、关闭后继续导航，以及真实临时 Host 上搜索 `session.setBudget`、预填 Session ID、填写 120000 Token、持久执行并显示回执。人工检查 `artifacts/web-b4/command-palette.png` 后修正成功回执旁参数被异步目录活动重置的问题；最终截图保留确切提交参数且无必填伪错误。
 
-## B5：会话右侧工具（实施中）
+## B5：会话右侧工具（完成）
 
 ### B5a：Files 工作区（完成）
 
@@ -218,3 +218,11 @@ app-runtime 为每个 goals panel instance 保存目标和计划的 Host baselin
 `@hbar/app-react` 复用 `HbarAppUiPlanEditor`，将步骤排序、状态和保存绑定到 runtime command；目标区显示剩余/已用 Token 和累计时间。Web 注入 goal/plan typed client 和类型化中英文内容，面板打开、关闭与 Session 目标绑定仍由应用命令所有。
 
 交付验证：runtime/React/Session/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2370 个模块。真实临时 Host 的 Playwright 场景创建 16,000 Token 目标，保存带说明的计划步骤，核对回执后清理目标/计划以隔离后续场景；人工检查 `artifacts/web-b5/goals-and-plans.png` 确认分栏布局、计量条、受控步骤和就近操作。
+
+### B5e：已有扩展入口（完成）
+
+AppShell 固定底区新增 Extensions 入口，不占用 Session 右侧五个主工具槽位。app-runtime 为 extension panel 保存 Host `plugin.list` 与 `skill.list` 投影、生命周期操作状态和 unknown 结果；可选插件启用/禁用只经 `extensionWorkspace.setEnabled` 调用 Host 命令，响应丢失后禁止盲目重发，Refresh 从 Host 权威列表核对。Required plugin 在 UI 中不提供禁用。
+
+扩展卡片展示插件 ID、版本、状态、能力、command/panel 贡献与说明；Open related commands 打开 B4 共享命令目录并以贡献 command/capability 预填搜索，使 browser、computer、terminal 及其他注册能力仍可达。System and diagnostic commands 提供 `system.*` 目录入口；Skill 列表保留 Host 路径事实。
+
+交付验证：runtime/React/AppShell/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2374 个模块。真实临时 Host 的 Playwright 场景从固定侧栏打开扩展页，核对 plugin/skill 分区与诊断命令入口；人工检查 `artifacts/web-b5/extensions.png` 确认 14 个 Host 插件的双列有界布局和滚动。至此 B5 的 Files、Monitoring、子 Agent、目标计划、Session Settings 五个主工具与扩展入口已闭合。

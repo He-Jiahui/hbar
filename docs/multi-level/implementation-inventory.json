@@ -33,6 +33,8 @@
         "tests/workspace-session-commands.test.ts",
         "tests/file-commands.test.ts",
         "tests/extension-commands.test.ts",
+        "tests/extension-workspace-runtime.test.ts",
+        "tests/extension-workspace-react.test.tsx",
         "tests/interaction-commands.test.ts",
         "tests/model-commands.test.ts",
         "tests/run-commands.test.ts",
@@ -414,6 +416,8 @@
     "goalPlanWorkspace.removeStep",
     "goalPlanWorkspace.savePlan",
     "goalPlanWorkspace.clearPlan",
+    "extensionWorkspace.refresh",
+    "extensionWorkspace.setEnabled",
     "layout.commit",
     "layout.restore",
     "preferences.set",
@@ -460,7 +464,7 @@
     "B2": "complete: recoverable timeline, command-owned drafts/run/interactions, model/budget/usage projections and controlled React session workspace verified against a real Host",
     "B3": "complete: schema-react scalar and keyed List renderers, Host descriptions/callbacks, layered FormState, cancellable content, command-owned grouping, private credential drafts, ProviderDialog and real Web save/create flows",
     "B4": "complete: bounded merged catalog, descriptor parameter forms, private sensitive drafts, controlled categorized Web palette and real Host execution",
-    "B5": "in progress: Files, session Monitoring, child Agent, and goal/plan panels complete with command-owned state, safe unknown recovery, responsive tool rail, and real Host E2E",
+    "B5": "complete: Files, session Monitoring, child Agent, goal/plan, Session Settings, and extensions entry use command-owned state with responsive real-Host E2E",
     "B6-B7": "pending"
   }
 }
