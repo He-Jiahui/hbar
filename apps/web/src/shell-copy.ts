@@ -874,6 +874,12 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
+  const currency = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  })
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   const formatBytes = (value: number) => {
     const units = ['B', 'KB', 'MB', 'GB', 'TB'] as const
@@ -931,9 +937,46 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       uptime: choose('运行时间', 'Uptime'),
       processors: choose('逻辑处理器', 'Logical processors'),
     },
+    usage: {
+      title: choose('全局 AI 用量', 'Global AI usage'),
+      gap: choose('当前时间窗口包含不完整的用量事实。', 'The current window contains incomplete usage facts.'),
+      totals: choose('Token 细分', 'Token breakdown'),
+      tokens: choose('Token 总数', 'Total tokens'),
+      attempts: choose('尝试数', 'Attempts'),
+      runs: choose('运行数', 'Runs'),
+      input: choose('输入 Token', 'Input tokens'),
+      output: choose('输出 Token', 'Output tokens'),
+      cacheRead: choose('缓存读取', 'Cache read'),
+      cacheWrite: choose('缓存写入', 'Cache write'),
+      billable: choose('计费 Token', 'Billable tokens'),
+      cost: choose('预计金额', 'Estimated cost'),
+      cacheHit: choose('缓存命中率', 'Cache hit rate'),
+      rates: choose('Token 速率', 'Token rates'),
+      inputRate: choose('输入速率', 'Input rate'),
+      outputRate: choose('输出速率', 'Output rate'),
+      totalRate: choose('总消耗速率', 'Total consumption rate'),
+      latency: choose('请求延迟', 'Request latency'),
+      firstProviderEvent: choose('首个供应商事件', 'First provider event'),
+      firstThinking: choose('首个思考事件', 'First reasoning event'),
+      firstText: choose('首个可见文本', 'First visible text'),
+      response: choose('完整响应', 'Full response'),
+      models: choose('不同模型用量', 'Usage by model'),
+      timeline: choose('Token 时间序列', 'Token timeline'),
+      limitations: choose('当前账本未记录的指标', 'Metrics not recorded by the current ledger'),
+      toolCalls: choose('工具调用', 'Tool calls'),
+      concurrency: choose('请求并发数', 'Request concurrency'),
+      totalDuration: choose('总计耗时', 'Total elapsed time'),
+      notRecorded: choose('当前 usage 账本未记录', 'Not recorded by the current usage ledger'),
+      estimated: choose('基于 Host 价格快照估算', 'Estimated from the Host pricing snapshot'),
+      p50p95: (p50, p95) => `p50 ${p50} · p95 ${p95}`,
+      model: (provider, model) => `${provider} / ${model}`,
+    },
     unavailable: (reason) =>
       choose(`不可用${reason ? ` · ${reason}` : ''}`, `Unavailable${reason ? ` · ${reason}` : ''}`),
     number: (value) => number.format(value),
+    currency: (value) => currency.format(value),
+    tokenCount: (value) => choose(`${number.format(value)} Token`, `${number.format(value)} tokens`),
+    tokenRate: (value) => choose(`${number.format(value)} Token/秒`, `${number.format(value)} tokens/s`),
     percent: (value) => `${number.format(value)}%`,
     bytes: (value) => formatBytes(value),
     bytesPerSecond: (value) => `${formatBytes(value)}/s`,

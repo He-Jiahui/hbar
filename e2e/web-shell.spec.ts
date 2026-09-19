@@ -200,6 +200,18 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
     await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await page.getByRole('button', { name: 'Usage', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Global AI usage' })).toBeVisible()
+    await expect(page.getByText('Metrics not recorded by the current ledger')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b6/usage.png', fullPage: true })
+    await page.locator('.hbar-app-react-status-workspace > main').evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    await page.screenshot({ path: 'artifacts/web-b6/usage-details.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+
     await page.getByRole('button', { name: 'Child agents', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
     await page.getByRole('textbox', { name: 'Objective' }).fill('Verify the browser workflow')

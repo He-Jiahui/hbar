@@ -168,3 +168,4 @@ export type UsageExportInput = z.output<typeof usageExportInputSchema>
 export type UsageExportResult = z.output<typeof usageExportResultSchema>
 export type UsageAttemptExport = z.output<typeof usageAttemptExportSchema>
 export type UsageMetric = z.output<typeof usageMetricSchema>
+export type UsageLatency = z.output<typeof usageLatencySchema>
