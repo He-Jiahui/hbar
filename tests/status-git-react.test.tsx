@@ -104,18 +104,72 @@ test('Git status renders workspace provenance, changes, bounded series, and poli
     )
     expect(html).toContain('Git repository')
     expect(html).toContain('Git query filters')
+    expect(html).toContain('More filters')
     expect(html).toContain('Last 30 days')
     expect(html).toContain('Automatic commits')
-    expect(html).toContain('Repository status')
+    expect(html).toContain('Activity summary')
     expect(html).toContain('origin/main')
     expect(html).toContain('Uncommitted changes')
     expect(html).toContain('Files changed')
     expect(html).toContain('BINARY_CONTENT')
     expect(html).toContain('Commit and line-change timeline')
+    expect(html).toContain('Files changed trend')
+    expect(html).toContain('Filter commit details to bucket')
     expect(html).toContain('first-parent')
+    expect(html).toContain('Repository and accounting details')
     expect(html).toContain('Recent commit details')
     expect(html).toContain('Automatic checkpoint')
     expect(html).toContain('<dt>Session</dt><dd>session</dd>')
+    expect(html).toContain('hbar-app-ui-compact-metrics')
+    expect(html).toContain('hbar-app-ui-bar-series')
+    expect(html).not.toContain('hbar-app-ui-metric-strip')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('Git status keeps repository selection available for a non-repository workspace', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'status-git-no-repository',
+    hostId: 'host',
+    directory: {
+      async execute(name: string) {
+        if (name === 'workspace.get') return workspace
+        if (name === 'workspace.list') return { items: [workspace], nextCursor: null }
+        if (name === 'session.list') return { items: [], nextCursor: null }
+        return null
+      },
+    },
+    git: {
+      async execute(name: string) {
+        if (name === 'git.stats')
+          return {
+            ...report,
+            head: null,
+            totals: { ...totals, commits: 0 },
+            points: [],
+            scannedCommits: 0,
+            indexMode: 'empty' as const,
+          }
+        if (name === 'git.status') return { ...repositoryStatus, root: null, head: null, entries: [], dirty: false }
+        if (name === 'git.log') return []
+        throw new Error(`Unsupported Git command: ${name}`)
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'status' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setWorkspace', { workspaceId: workspace.id })
+    const panel = await runtime.view.commands.execute('app.openStatus', { section: 'git' })
+    await runtime.view.commands.execute('statusWorkspace.refresh', { instanceId: panel.instanceId })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarStatusWorkspace labels={getShellCopy('en-US').status} />
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain('The selected workspace is not a Git repository.')
+    expect(html).toContain('Repository')
+    expect(html).not.toContain('Activity summary')
   } finally {
     runtime.dispose()
   }

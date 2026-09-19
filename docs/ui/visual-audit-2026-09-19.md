@@ -352,3 +352,26 @@ Usage 现在保留范围与时间窗作为常用筛选；聚合、供应商和�
 第一次看图发现展开高级筛选会把 Export 推到字段之后，第二次发现模型标题的桌面 `flex-basis` 在手机纵向流中变成固定高度。最终用 flex order 保留常用操作顺序，并在手机断点恢复模型标题的内容高度；桌面、1024 和 390 截图重新生成后逐张复核。Playwright 还在产生一次真实工具调用后展开执行统计，检查成功数、请求并发和总 Run 时间，避免只验证零值 fixture。
 
 验证结果：Usage runtime、React、导出边界与真实工具账本定向测试通过；flow/content/icon guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3063 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景完成常用与高级筛选、锚定导出菜单、1440/1024/390 三档布局、时间线与模型区域滚动，以及产生一次真实工具调用后的执行统计核对；以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
+
+## 22. R5.7 Git 页面重排
+
+旧 Git 页把仓库 ID、HEAD、扫描数、索引模式、分支、上游、工作树、来源统计和文件变化拆成四组同权 MetricStrip 大卡片；两张自定义图表固定占据 10rem 高度。真实 Host 只有一条提交时，首屏仍留下大片空图区域，提交详情和统计口径被推到视口下方。仓库、时间窗和三个来源复选框又全部挤在同一行，并继续使用浏览器原生控件。
+
+Git 页现在把仓库和时间窗保留为常用筛选，提交来源进入“更多筛选”；Select 与 CheckBox 全部来自 `hbar-app-ui/forms`。首层只显示分支、上游、工作树、ahead/behind 和变更路径；提交来源、文件和增删行合并为 Activity summary。仓库 ID、HEAD、扫描数、索引模式、历史/时间口径、时区、重命名和二进制事实进入按需展开的技术详情，长临时仓库路径不再占据首屏最高层级。
+
+提交数、变更文件数与增删行使用同一个 `hbar-app-ui` BarSeries。组件新增受控 selectedId、宿主标签和选择回调；Git 页面点击任一时间桶执行 `statusWorkspace.selectGitBucket`，三个趋势同步标记选中桶，并只过滤下方最近提交。再次点击或“显示全部提交”清除选择；仓库、时间窗或来源变化会由运行时清除旧桶，UI 没有第二份业务状态。提交行先显示 SHA、标题、来源和提交时间，作者与 session/run/operation 仍可原位展开。
+
+| 场景         | 截图与人工观察                                                                                                                                                          |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面默认态   | [1440](../../artifacts/ui-redesign/git/after/desktop-1440.png)：分支/工作树、活动摘要、三条趋势、最近提交和折叠详情全部进入首屏；旧四组大卡片消失                       |
+| 桌面更多筛选 | [1440](../../artifacts/ui-redesign/git/after/desktop-1440-filters.png)：来源复选框在独立一行展开，三种来源都有文本标签，仓库和时间窗保持常用位置                        |
+| 桌面时间桶   | [1440](../../artifacts/ui-redesign/git/after/desktop-1440-selected.png)：三个图表同步显示选择轮廓，提交区明确显示桶时间、结果数量和恢复全部提交动作                     |
+| 桌面技术详情 | [1440](../../artifacts/ui-redesign/git/after/desktop-1440-details.png)：临时仓库长路径、HEAD、索引和统计口径以紧凑事实行展示，不重新引入卡片墙                          |
+| 中等宽度     | [1024](../../artifacts/ui-redesign/git/after/tablet-1024.png)：应用侧栏保留时摘要自然换行，三张图按可用宽度换为两列加一列，内容不横向溢出                               |
+| 窄屏默认态   | [390](../../artifacts/ui-redesign/git/after/mobile-390.png)：仓库与时间窗保持完整值，分支/工作树和 Activity summary 使用双列事实行，标题和值没有逐字断裂                |
+| 窄屏趋势     | [390](../../artifacts/ui-redesign/git/after/mobile-390-charts.png)：三条趋势按单列排列，每张图保留足够可点击高度；真实 fixture 仅最后一个时间桶非零，不用假数据填满图表 |
+| 窄屏更多筛选 | [390](../../artifacts/ui-redesign/git/after/mobile-390-filters.png)：三种来源按两行自然换行，筛选展开后趋势仍连续且无水平溢出                                           |
+
+第一轮真实页面截图发现桌面 Time window 标签被控件宽度压成两行；最终给常用 Git 标签保留单行，并重新 production build 后生成全部截图。技术详情第一版又让仓库路径与所有事实等宽，最终为首项提供更宽 flex basis，把路径从四行缩短到两行。Playwright 实际点击最后一个非零提交桶、断言三个图表的受控选择状态和一条提交结果，再恢复全部提交。非 Git 工作区使用独立 React/Host 投影测试验证明确空态；空历史继续由 `head: null` 与零统计区分，读取失败使用原错误边界。
+
+验证结果：Git runtime、React、非仓库空态与共享 BarSeries 定向测试通过；flow/content/icon guards、全仓 ESLint、TypeScript、387 个 Bun 测试（3077 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景完成来源筛选、三条趋势、命令化时间桶选择与恢复、提交行、仓库技术详情以及 1440/1024/390 三档无水平溢出验证；以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。

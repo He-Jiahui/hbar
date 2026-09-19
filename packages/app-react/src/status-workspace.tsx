@@ -1,12 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
-import {
-  HbarAppUiButton,
-  HbarAppUiIcon,
-  HbarAppUiIconButton,
-  HbarAppUiMetricStrip,
-  HbarAppUiSurface,
-} from 'hbar-app-ui'
+import { HbarAppUiButton, HbarAppUiIcon, HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui'
 import { HbarAppUiCheckBox, HbarAppUiSelect } from 'hbar-app-ui/forms'
 import { HbarAppUiBarSeries, HbarAppUiCompactMetrics, HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import type { StatusWorkspaceEntryState } from '@hbar/app-runtime'
@@ -112,6 +106,7 @@ export interface HbarStatusWorkspaceLabels {
   readonly git: {
     readonly title: string
     readonly filters: string
+    readonly advancedFilters: string
     readonly repositoryFilter: string
     readonly timeWindow: string
     readonly windows: Readonly<Record<'7d' | '30d' | '90d' | '1y', string>>
@@ -125,10 +120,13 @@ export interface HbarStatusWorkspaceLabels {
     readonly dirty: string
     readonly aheadBehind: (ahead: number, behind: number) => string
     readonly changedPaths: string
+    readonly activity: string
     readonly provenance: string
     readonly changes: string
     readonly timeline: string
+    readonly files: string
     readonly policy: string
+    readonly details: string
     readonly commits: string
     readonly automatic: string
     readonly manual: string
@@ -149,6 +147,8 @@ export interface HbarStatusWorkspaceLabels {
     readonly binaryChanges: string
     readonly binaryUnavailable: string
     readonly noHead: string
+    readonly noRepository: string
+    readonly emptyHistory: string
     readonly recentCommits: string
     readonly noCommits: string
     readonly historyTruncated: string
@@ -156,9 +156,13 @@ export interface HbarStatusWorkspaceLabels {
     readonly commitDate: string
     readonly formatCommitDate: (authoredAt: string) => string
     readonly commitSource: string
+    readonly commitMetadata: (source: string, date: string) => string
     readonly session: string
     readonly run: string
     readonly operation: string
+    readonly selectBucket: (summary: string) => string
+    readonly selectedBucket: (time: string, count: number) => string
+    readonly showAllCommits: string
   }
   readonly unavailable: (reason: string | null) => string
   readonly number: (value: number) => string
@@ -226,6 +230,13 @@ export function HbarStatusWorkspace({
   const gitReport = entry?.git
   const gitStatus = entry?.gitStatus
   const gitQuery = entry?.gitQuery
+  const selectedGitPoint = gitReport?.points.find((point) => point.start === entry?.gitBucketStart) ?? null
+  const visibleGitCommits = selectedGitPoint
+    ? (entry?.gitCommits ?? []).filter((commit) => {
+        const committedAt = Date.parse(commit.committedAt ?? commit.authoredAt)
+        return committedAt >= selectedGitPoint.start && committedAt < selectedGitPoint.end
+      })
+    : (entry?.gitCommits ?? [])
   const readings = report?.current?.readings
   const performanceQuery = entry?.performanceQuery
   const includeSystem = performanceQuery?.target !== 'host'
@@ -323,6 +334,14 @@ export function HbarStatusWorkspace({
       candidate === source ? checked : gitQuery.sources.includes(candidate),
     )
     if (sources.length > 0) setGitQuery({ sources })
+  }
+  const selectGitBucket = (id: string) => {
+    const bucketStart = Number(id)
+    if (!Number.isSafeInteger(bucketStart) || bucketStart < 0) return
+    invoke('statusWorkspace.selectGitBucket', {
+      instanceId,
+      bucketStart: entry?.gitBucketStart === bucketStart ? null : bucketStart,
+    })
   }
 
   return (
@@ -531,10 +550,14 @@ export function HbarStatusWorkspace({
         </div>
       )}
       {section === 'git' && gitQuery?.workspaceId && (
-        <div className="hbar-app-react-status-controls" role="group" aria-label={labels.git.filters}>
+        <div
+          className="hbar-app-react-status-controls hbar-app-react-git-controls"
+          role="group"
+          aria-label={labels.git.filters}
+        >
           <label>
             <span>{labels.git.repositoryFilter}</span>
-            <select
+            <HbarAppUiSelect
               value={gitQuery.workspaceId}
               disabled={entry?.status === 'loading'}
               onChange={(event) => setGitQuery({ workspaceId: event.currentTarget.value })}
@@ -544,11 +567,11 @@ export function HbarStatusWorkspace({
                   {workspace.name}
                 </option>
               ))}
-            </select>
+            </HbarAppUiSelect>
           </label>
           <label>
             <span>{labels.git.timeWindow}</span>
-            <select
+            <HbarAppUiSelect
               value={gitQuery.window}
               disabled={entry?.status === 'loading'}
               onChange={(event) => setGitQuery({ window: event.currentTarget.value as typeof gitQuery.window })}
@@ -558,25 +581,25 @@ export function HbarStatusWorkspace({
                   {labels.git.windows[window]}
                 </option>
               ))}
-            </select>
+            </HbarAppUiSelect>
           </label>
-          <fieldset>
-            <legend>{labels.git.sources}</legend>
-            {(['auto', 'manual', 'external'] as const).map((source) => {
-              const checked = gitQuery.sources.includes(source)
-              return (
-                <label key={source}>
-                  <input
-                    type="checkbox"
+          <details className="hbar-app-react-status-filter-details">
+            <summary>{labels.git.advancedFilters}</summary>
+            <div className="hbar-app-react-git-source-options" role="group" aria-label={labels.git.sources}>
+              {(['auto', 'manual', 'external'] as const).map((source) => {
+                const checked = gitQuery.sources.includes(source)
+                return (
+                  <HbarAppUiCheckBox
+                    key={source}
+                    label={labels.git[source === 'auto' ? 'automatic' : source]}
                     checked={checked}
                     disabled={entry?.status === 'loading' || (checked && gitQuery.sources.length === 1)}
                     onChange={(event) => toggleGitSource(source, event.currentTarget.checked)}
                   />
-                  <span>{labels.git[source === 'auto' ? 'automatic' : source]}</span>
-                </label>
-              )
-            })}
-          </fieldset>
+                )
+              })}
+            </div>
+          </details>
         </div>
       )}
       {!entry || entry.status === 'loading' ? (
@@ -801,185 +824,244 @@ export function HbarStatusWorkspace({
         </main>
       ) : gitReport ? (
         <main className="hbar-app-react-git-status">
-          {gitReport.gap && <p role="status">{labels.git.gap}</p>}
+          {gitReport.gap && (
+            <p className="hbar-app-react-status-gap" role="status">
+              {labels.git.gap}
+            </p>
+          )}
           <section>
             <h2>{labels.git.title}</h2>
-            <HbarAppUiMetricStrip
-              metrics={[
-                { label: labels.git.repository, value: gitReport.repoId },
-                { label: labels.git.head, value: gitReport.head?.slice(0, 12) ?? labels.git.noHead },
-                { label: labels.git.scanned, value: labels.number(gitReport.scannedCommits) },
-                { label: labels.git.indexMode, value: gitReport.indexMode },
-              ]}
-            />
-          </section>
-          {gitStatus && (
-            <section>
-              <h2>{labels.git.repositoryStatus}</h2>
-              <HbarAppUiMetricStrip
+            {!gitStatus?.root ? (
+              <p className="hbar-app-react-git-empty" role="status">
+                {labels.git.noRepository}
+              </p>
+            ) : (
+              <HbarAppUiCompactMetrics
+                label={labels.git.repositoryStatus}
                 metrics={[
-                  { label: labels.git.branch, value: gitStatus.branch ?? labels.git.noHead },
-                  { label: labels.git.upstream, value: gitStatus.upstream ?? labels.git.noUpstream },
+                  { id: 'branch', label: labels.git.branch, value: gitStatus.branch ?? labels.git.noHead },
+                  { id: 'upstream', label: labels.git.upstream, value: gitStatus.upstream ?? labels.git.noUpstream },
                   {
+                    id: 'working-tree',
                     label: labels.git.workingTree,
                     value: gitStatus.dirty ? labels.git.dirty : labels.git.clean,
                     detail: labels.git.aheadBehind(gitStatus.ahead, gitStatus.behind),
                   },
-                  { label: labels.git.changedPaths, value: labels.number(gitStatus.entries.length) },
+                  {
+                    id: 'changed-paths',
+                    label: labels.git.changedPaths,
+                    value: labels.number(gitStatus.entries.length),
+                  },
                 ]}
               />
-            </section>
-          )}
-          <section>
-            <h2>{labels.git.provenance}</h2>
-            <HbarAppUiMetricStrip
-              metrics={[
-                { label: labels.git.commits, value: labels.number(gitReport.totals.commits) },
-                { label: labels.git.automatic, value: labels.number(gitReport.totals.autoCommits) },
-                { label: labels.git.manual, value: labels.number(gitReport.totals.manualCommits) },
-                { label: labels.git.external, value: labels.number(gitReport.totals.externalCommits) },
-              ]}
-            />
-          </section>
-          <section>
-            <h2>{labels.git.changes}</h2>
-            <HbarAppUiMetricStrip
-              metrics={[
-                { label: labels.git.filesChanged, value: labels.number(gitReport.totals.filesChanged) },
-                { label: labels.git.additions, value: labels.number(gitReport.totals.additions) },
-                { label: labels.git.deletions, value: labels.number(gitReport.totals.deletions) },
-                { label: labels.git.renames, value: labels.number(gitReport.totals.renames) },
-                { label: labels.git.binaryFiles, value: labels.number(gitReport.totals.binaryFiles) },
-                {
-                  label: labels.git.binaryChanges,
-                  value:
-                    gitReport.binaryLineChanges.availability === 'available' &&
-                    gitReport.binaryLineChanges.value !== null
-                      ? labels.number(gitReport.binaryLineChanges.value)
-                      : labels.git.binaryUnavailable,
-                  ...(gitReport.binaryLineChanges.reason ? { detail: gitReport.binaryLineChanges.reason } : {}),
-                },
-              ]}
-            />
-          </section>
-          <section>
-            <h2>{labels.git.timeline}</h2>
-            <div className="hbar-app-react-git-charts">
-              <article>
-                <h3>{labels.git.commits}</h3>
-                <div className="hbar-app-react-git-series" aria-label={labels.git.commits}>
-                  {gitReport.points.map((point) => {
-                    const maximum = Math.max(1, ...gitReport.points.map((item) => item.commits))
-                    return (
-                      <span
-                        key={point.start}
-                        style={{
-                          blockSize: `${point.commits === 0 ? 0 : Math.max(0.08, point.commits / maximum) * 100}%`,
-                        }}
-                        title={`${labels.observedAt(point.start)} · ${labels.number(point.commits)} ${labels.git.commits}`}
-                      >
-                        {point.autoCommits > 0 && <i className="is-auto" style={{ flex: point.autoCommits }} />}
-                        {point.manualCommits > 0 && <i className="is-manual" style={{ flex: point.manualCommits }} />}
-                        {point.externalCommits > 0 && (
-                          <i className="is-external" style={{ flex: point.externalCommits }} />
-                        )}
-                      </span>
-                    )
-                  })}
-                </div>
-                <footer>
-                  <span className="is-auto">{labels.git.automatic}</span>
-                  <span className="is-manual">{labels.git.manual}</span>
-                  <span className="is-external">{labels.git.external}</span>
-                </footer>
-              </article>
-              <article>
-                <h3>{labels.git.changes}</h3>
-                <div className="hbar-app-react-git-series" aria-label={labels.git.changes}>
-                  {gitReport.points.map((point) => {
-                    const value = point.additions + point.deletions
-                    const maximum = Math.max(1, ...gitReport.points.map((item) => item.additions + item.deletions))
-                    return (
-                      <span
-                        key={point.start}
-                        style={{ blockSize: `${value === 0 ? 0 : Math.max(0.08, value / maximum) * 100}%` }}
-                        title={`${labels.observedAt(point.start)} · +${labels.number(point.additions)} / -${labels.number(point.deletions)}`}
-                      >
-                        {point.additions > 0 && <i className="is-addition" style={{ flex: point.additions }} />}
-                        {point.deletions > 0 && <i className="is-deletion" style={{ flex: point.deletions }} />}
-                      </span>
-                    )
-                  })}
-                </div>
-                <footer>
-                  <span className="is-addition">{labels.git.additions}</span>
-                  <span className="is-deletion">{labels.git.deletions}</span>
-                </footer>
-              </article>
-            </div>
-          </section>
-          <section>
-            <h2>{labels.git.policy}</h2>
-            <HbarAppUiMetricStrip
-              metrics={[
-                { label: labels.git.historyPolicy, value: gitReport.historyPolicy },
-                { label: labels.git.timeBasis, value: gitReport.timeBasis },
-                { label: labels.git.timezone, value: gitReport.timezone },
-              ]}
-            />
-          </section>
-          <section>
-            <h2>{labels.git.recentCommits}</h2>
-            {entry.gitCommits.length === 0 ? (
-              <p>{labels.git.noCommits}</p>
-            ) : (
-              <div className="hbar-app-react-git-commits">
-                {entry.gitCommits.map((commit) => (
-                  <details key={commit.sha}>
-                    <summary>
-                      <code>{commit.shortSha}</code>
-                      <span>{commit.subject}</span>
-                    </summary>
-                    <dl>
-                      <div>
-                        <dt>{labels.git.commitAuthor}</dt>
-                        <dd>{commit.author}</dd>
-                      </div>
-                      <div>
-                        <dt>{labels.git.commitDate}</dt>
-                        <dd>{labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt)}</dd>
-                      </div>
-                      <div>
-                        <dt>{labels.git.commitSource}</dt>
-                        <dd>
-                          {labels.git[commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source]}
-                        </dd>
-                      </div>
-                      {commit.provenance.sessionId && (
-                        <div>
-                          <dt>{labels.git.session}</dt>
-                          <dd>{commit.provenance.sessionId}</dd>
-                        </div>
-                      )}
-                      {commit.provenance.runId && (
-                        <div>
-                          <dt>{labels.git.run}</dt>
-                          <dd>{commit.provenance.runId}</dd>
-                        </div>
-                      )}
-                      {commit.provenance.operationId && (
-                        <div>
-                          <dt>{labels.git.operation}</dt>
-                          <dd>{commit.provenance.operationId}</dd>
-                        </div>
-                      )}
-                    </dl>
-                  </details>
-                ))}
-              </div>
             )}
-            {entry.gitHistoryTruncated && <p role="status">{labels.git.historyTruncated}</p>}
           </section>
+          {gitStatus?.root && (
+            <>
+              <section>
+                <h2>{labels.git.activity}</h2>
+                {!gitReport.head && <p className="hbar-app-react-git-empty">{labels.git.emptyHistory}</p>}
+                <HbarAppUiCompactMetrics
+                  label={labels.git.activity}
+                  metrics={[
+                    { id: 'commits', label: labels.git.commits, value: labels.number(gitReport.totals.commits) },
+                    {
+                      id: 'automatic',
+                      label: labels.git.automatic,
+                      value: labels.number(gitReport.totals.autoCommits),
+                    },
+                    { id: 'manual', label: labels.git.manual, value: labels.number(gitReport.totals.manualCommits) },
+                    {
+                      id: 'external',
+                      label: labels.git.external,
+                      value: labels.number(gitReport.totals.externalCommits),
+                    },
+                    {
+                      id: 'files',
+                      label: labels.git.filesChanged,
+                      value: labels.number(gitReport.totals.filesChanged),
+                    },
+                    {
+                      id: 'additions',
+                      label: labels.git.additions,
+                      value: labels.number(gitReport.totals.additions),
+                    },
+                    {
+                      id: 'deletions',
+                      label: labels.git.deletions,
+                      value: labels.number(gitReport.totals.deletions),
+                    },
+                  ]}
+                />
+              </section>
+              <section>
+                <h2>{labels.git.timeline}</h2>
+                {gitReport.totals.commits === 0 ? (
+                  <p>{labels.git.noCommits}</p>
+                ) : (
+                  <div className="hbar-app-react-git-charts">
+                    <article className="is-commits">
+                      <h3>{labels.git.commits}</h3>
+                      <HbarAppUiBarSeries
+                        label={labels.git.commits}
+                        points={gitReport.points.map((point) => ({
+                          id: String(point.start),
+                          value: point.commits,
+                          label: `${labels.git.formatCommitDate(new Date(point.start).toISOString())} · ${labels.number(point.commits)} ${labels.git.commits} · ${labels.number(point.autoCommits)} ${labels.git.automatic} · ${labels.number(point.manualCommits)} ${labels.git.manual} · ${labels.number(point.externalCommits)} ${labels.git.external}`,
+                        }))}
+                        selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
+                        selectLabel={(point) => labels.git.selectBucket(point.label)}
+                        onSelect={selectGitBucket}
+                        empty={<p>{labels.git.noCommits}</p>}
+                      />
+                    </article>
+                    <article className="is-files">
+                      <h3>{labels.git.files}</h3>
+                      <HbarAppUiBarSeries
+                        label={labels.git.files}
+                        points={gitReport.points.map((point) => ({
+                          id: String(point.start),
+                          value: point.filesChanged,
+                          label: `${labels.git.formatCommitDate(new Date(point.start).toISOString())} · ${labels.number(point.filesChanged)} ${labels.git.filesChanged}`,
+                        }))}
+                        selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
+                        selectLabel={(point) => labels.git.selectBucket(point.label)}
+                        onSelect={selectGitBucket}
+                        empty={<p>{labels.git.noCommits}</p>}
+                      />
+                    </article>
+                    <article className="is-changes">
+                      <h3>{labels.git.changes}</h3>
+                      <HbarAppUiBarSeries
+                        label={labels.git.changes}
+                        points={gitReport.points.map((point) => ({
+                          id: String(point.start),
+                          value: point.additions + point.deletions,
+                          label: `${labels.git.formatCommitDate(new Date(point.start).toISOString())} · +${labels.number(point.additions)} / -${labels.number(point.deletions)}`,
+                        }))}
+                        selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
+                        selectLabel={(point) => labels.git.selectBucket(point.label)}
+                        onSelect={selectGitBucket}
+                        empty={<p>{labels.git.noCommits}</p>}
+                      />
+                    </article>
+                  </div>
+                )}
+              </section>
+              <section>
+                <h2>{labels.git.recentCommits}</h2>
+                {selectedGitPoint && (
+                  <div className="hbar-app-react-git-bucket-filter" role="status">
+                    <span>
+                      {labels.git.selectedBucket(
+                        labels.git.formatCommitDate(new Date(selectedGitPoint.start).toISOString()),
+                        visibleGitCommits.length,
+                      )}
+                    </span>
+                    <HbarAppUiButton
+                      onClick={() => invoke('statusWorkspace.selectGitBucket', { instanceId, bucketStart: null })}
+                    >
+                      {labels.git.showAllCommits}
+                    </HbarAppUiButton>
+                  </div>
+                )}
+                {visibleGitCommits.length === 0 ? (
+                  <p>{labels.git.noCommits}</p>
+                ) : (
+                  <div className="hbar-app-react-git-commits">
+                    {visibleGitCommits.map((commit) => (
+                      <details key={commit.sha}>
+                        <summary>
+                          <code>{commit.shortSha}</code>
+                          <span>
+                            <strong>{commit.subject}</strong>
+                            <small>
+                              {labels.git.commitMetadata(
+                                labels.git[
+                                  commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source
+                                ],
+                                labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt),
+                              )}
+                            </small>
+                          </span>
+                        </summary>
+                        <dl>
+                          <div>
+                            <dt>{labels.git.commitAuthor}</dt>
+                            <dd>{commit.author}</dd>
+                          </div>
+                          <div>
+                            <dt>{labels.git.commitDate}</dt>
+                            <dd>{labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt)}</dd>
+                          </div>
+                          <div>
+                            <dt>{labels.git.commitSource}</dt>
+                            <dd>
+                              {labels.git[commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source]}
+                            </dd>
+                          </div>
+                          {commit.provenance.sessionId && (
+                            <div>
+                              <dt>{labels.git.session}</dt>
+                              <dd>{commit.provenance.sessionId}</dd>
+                            </div>
+                          )}
+                          {commit.provenance.runId && (
+                            <div>
+                              <dt>{labels.git.run}</dt>
+                              <dd>{commit.provenance.runId}</dd>
+                            </div>
+                          )}
+                          {commit.provenance.operationId && (
+                            <div>
+                              <dt>{labels.git.operation}</dt>
+                              <dd>{commit.provenance.operationId}</dd>
+                            </div>
+                          )}
+                        </dl>
+                      </details>
+                    ))}
+                  </div>
+                )}
+                {entry.gitHistoryTruncated && <p role="status">{labels.git.historyTruncated}</p>}
+              </section>
+              <details className="hbar-app-react-status-details">
+                <summary>{labels.git.details}</summary>
+                <HbarAppUiCompactMetrics
+                  label={labels.git.details}
+                  metrics={[
+                    { id: 'repository', label: labels.git.repository, value: gitReport.repoId },
+                    {
+                      id: 'head',
+                      label: labels.git.head,
+                      value: gitReport.head?.slice(0, 12) ?? labels.git.noHead,
+                    },
+                    { id: 'scanned', label: labels.git.scanned, value: labels.number(gitReport.scannedCommits) },
+                    { id: 'index', label: labels.git.indexMode, value: gitReport.indexMode },
+                    { id: 'history', label: labels.git.historyPolicy, value: gitReport.historyPolicy },
+                    { id: 'time', label: labels.git.timeBasis, value: gitReport.timeBasis },
+                    { id: 'timezone', label: labels.git.timezone, value: gitReport.timezone },
+                    { id: 'renames', label: labels.git.renames, value: labels.number(gitReport.totals.renames) },
+                    {
+                      id: 'binary-files',
+                      label: labels.git.binaryFiles,
+                      value: labels.number(gitReport.totals.binaryFiles),
+                    },
+                    {
+                      id: 'binary-lines',
+                      label: labels.git.binaryChanges,
+                      value:
+                        gitReport.binaryLineChanges.availability === 'available' &&
+                        gitReport.binaryLineChanges.value !== null
+                          ? labels.number(gitReport.binaryLineChanges.value)
+                          : labels.git.binaryUnavailable,
+                      ...(gitReport.binaryLineChanges.reason ? { detail: gitReport.binaryLineChanges.reason } : {}),
+                    },
+                  ]}
+                />
+              </details>
+            </>
+          )}
         </main>
       ) : null}
     </HbarAppUiSurface>

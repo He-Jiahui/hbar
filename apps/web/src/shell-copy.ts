@@ -1254,6 +1254,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     git: {
       title: choose('Git 仓库', 'Git repository'),
       filters: choose('Git 查询条件', 'Git query filters'),
+      advancedFilters: choose('更多筛选', 'More filters'),
       repositoryFilter: choose('仓库', 'Repository'),
       timeWindow: choose('时间窗', 'Time window'),
       windows: {
@@ -1276,10 +1277,13 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
           `${number.format(ahead)} ahead · ${number.format(behind)} behind`,
         ),
       changedPaths: choose('变更路径', 'Changed paths'),
+      activity: choose('活动摘要', 'Activity summary'),
       provenance: choose('提交来源', 'Commit provenance'),
       changes: choose('文件与行数变化', 'File and line changes'),
       timeline: choose('提交与行数时间序列', 'Commit and line-change timeline'),
+      files: choose('变更文件趋势', 'Files changed trend'),
       policy: choose('统计口径', 'Accounting policy'),
+      details: choose('仓库与统计详情', 'Repository and accounting details'),
       commits: choose('提交', 'Commits'),
       automatic: choose('自动提交', 'Automatic commits'),
       manual: choose('手动提交', 'Manual commits'),
@@ -1300,6 +1304,11 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       binaryChanges: choose('二进制行数', 'Binary line changes'),
       binaryUnavailable: choose('不计算', 'Not calculated'),
       noHead: choose('无提交', 'No commits'),
+      noRepository: choose('所选工作区不是 Git 仓库。', 'The selected workspace is not a Git repository.'),
+      emptyHistory: choose(
+        '仓库尚无提交；工作树状态仍可查看。',
+        'This repository has no commits yet; working tree status remains available.',
+      ),
       recentCommits: choose('最近提交详情', 'Recent commit details'),
       noCommits: choose('当前过滤条件内没有最近提交。', 'No recent commits match the current filters.'),
       historyTruncated: choose(
@@ -1313,9 +1322,17 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
         return Number.isFinite(value) ? dateTime.format(value) : authoredAt
       },
       commitSource: choose('来源', 'Source'),
+      commitMetadata: (source, date) => `${source} · ${date}`,
       session: 'Session',
       run: 'Run',
       operation: choose('操作', 'Operation'),
+      selectBucket: (summary) => choose(`筛选到时间桶：${summary}`, `Filter commit details to bucket: ${summary}`),
+      selectedBucket: (time, count) =>
+        choose(
+          `正在显示 ${time} 时间桶内的 ${number.format(count)} 条提交。`,
+          `Showing ${number.format(count)} commits from the ${time} bucket.`,
+        ),
+      showAllCommits: choose('显示全部提交', 'Show all commits'),
     },
     unavailable: (reason) =>
       choose(`不可用${reason ? ` · ${reason}` : ''}`, `Unavailable${reason ? ` · ${reason}` : ''}`),

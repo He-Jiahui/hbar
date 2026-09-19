@@ -48,21 +48,6 @@
   color: var(--hbar-app-ui-warning);
 }
 
-.hbar-app-react-status-controls fieldset {
-  display: flex;
-  align-items: center;
-  gap: var(--hbar-app-ui-space-sm);
-  min-inline-size: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.hbar-app-react-status-controls legend {
-  float: inline-start;
-  margin-inline-end: var(--hbar-app-ui-space-xs);
-}
-
 .hbar-app-react-status-filter-details > summary,
 .hbar-app-react-status-export-menu > summary {
   display: flex;
@@ -99,6 +84,14 @@
 
 .hbar-app-react-status-filter-details > div > label {
   flex: 1 1 14rem;
+}
+
+.hbar-app-react-git-source-options > .hbar-app-ui-checkbox {
+  flex: 1 1 10rem;
+}
+
+.hbar-app-react-git-controls > label > span {
+  white-space: nowrap;
 }
 
 .hbar-app-react-status-export-menu {
@@ -266,74 +259,52 @@
 
 .hbar-app-react-git-charts article {
   display: flex;
-  min-inline-size: min(100%, 18rem);
-  flex: 1 1 28rem;
+  min-inline-size: min(100%, 15rem);
+  flex: 1 1 18rem;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-sm);
   padding: var(--hbar-app-ui-space-md);
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
 }
 
-.hbar-app-react-git-series {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.1875rem;
-  min-block-size: 10rem;
+.hbar-app-react-git-charts .hbar-app-ui-bar-series {
+  min-block-size: 6rem;
 }
 
-.hbar-app-react-git-series > span {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  min-inline-size: 0.1875rem;
-  max-inline-size: 2.5rem;
-  overflow: hidden;
-}
-
-.hbar-app-react-git-series i {
-  display: block;
-  min-block-size: 0.125rem;
-}
-
-.hbar-app-react-git-charts footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hbar-app-ui-space-md);
-  color: var(--hbar-app-ui-muted);
-}
-
-.hbar-app-react-git-charts footer span::before {
-  display: inline-block;
-  inline-size: 0.625rem;
-  block-size: 0.625rem;
-  margin-inline-end: var(--hbar-app-ui-space-xs);
-  background: currentColor;
-  content: '';
-}
-
-.hbar-app-react-git-charts .is-auto {
-  color: var(--hbar-app-ui-accent);
-  background: var(--hbar-app-ui-accent);
-}
-
-.hbar-app-react-git-charts .is-manual {
-  color: var(--hbar-app-ui-positive);
+.hbar-app-react-git-charts .is-files .hbar-app-ui-bar-series > i,
+.hbar-app-react-git-charts .is-files .hbar-app-ui-bar-series > button {
   background: var(--hbar-app-ui-positive);
 }
 
-.hbar-app-react-git-charts .is-external {
-  color: var(--hbar-app-ui-warning);
+.hbar-app-react-git-charts .is-changes .hbar-app-ui-bar-series > i,
+.hbar-app-react-git-charts .is-changes .hbar-app-ui-bar-series > button {
   background: var(--hbar-app-ui-warning);
 }
 
-.hbar-app-react-git-charts .is-addition {
-  color: var(--hbar-app-ui-positive);
-  background: var(--hbar-app-ui-positive);
+.hbar-app-react-git-empty {
+  color: var(--hbar-app-ui-muted);
 }
 
-.hbar-app-react-git-charts .is-deletion {
-  color: var(--hbar-app-ui-danger);
-  background: var(--hbar-app-ui-danger);
+.hbar-app-react-git-status > .hbar-app-react-status-details .hbar-app-ui-compact-metrics > div:first-child {
+  flex-basis: 24rem;
+}
+
+.hbar-app-react-git-status > .hbar-app-react-status-details .hbar-app-ui-compact-metrics > div:first-child dd {
+  text-align: start;
+}
+
+.hbar-app-react-git-bucket-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
 }
 
 .hbar-app-react-git-commits {
@@ -349,8 +320,25 @@
 
 .hbar-app-react-git-commits summary {
   display: flex;
+  align-items: flex-start;
   gap: var(--hbar-app-ui-space-sm);
   cursor: pointer;
+}
+
+.hbar-app-react-git-commits summary code {
+  flex: 0 0 auto;
+  color: var(--hbar-app-ui-accent);
+}
+
+.hbar-app-react-git-commits summary > span {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-react-git-commits summary small {
+  color: var(--hbar-app-ui-muted);
 }
 
 .hbar-app-react-git-commits summary span,
