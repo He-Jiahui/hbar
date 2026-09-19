@@ -42,13 +42,19 @@
   padding: var(--hbar-app-ui-space-md);
   border: var(--hbar-app-ui-divider) solid transparent;
   border-radius: var(--hbar-app-ui-control-radius);
+  background: transparent;
   color: var(--hbar-app-ui-text);
+  cursor: pointer;
   text-align: start;
 }
 .hbar-app-ui-command-options button.is-selected,
 .hbar-app-ui-command-options button:hover {
   background: var(--hbar-app-ui-surface-2);
   border-color: var(--hbar-app-ui-border);
+}
+.hbar-app-ui-command-options button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 .hbar-app-ui-command-options button > span {
   flex: 1 1 auto;
@@ -68,11 +74,17 @@
   gap: var(--hbar-app-ui-space-md);
   border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
   padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 .hbar-app-ui-controlled-commands footer > span {
   display: flex;
   align-items: center;
   gap: var(--hbar-app-ui-space-xs);
+}
+.hbar-app-ui-controlled-commands footer > small {
+  margin-inline-start: auto;
+  font: inherit;
 }
 .hbar-app-ui-controlled-commands p {
   padding: var(--hbar-app-ui-space-sm);

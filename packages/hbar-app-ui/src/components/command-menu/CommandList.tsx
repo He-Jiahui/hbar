@@ -50,7 +50,8 @@ export interface HbarAppUiCommandListProps {
 }
 export function HbarAppUiCommandList(content: HbarAppUiCommandListProps) {
   const listId = useId(),
-    viewport = useRef<HTMLDivElement>(null)
+    viewport = useRef<HTMLDivElement>(null),
+    previousQuery = useRef(content.query)
   const items = uniqueItems(content.items)
   const selected = items.find((item) => item.id === content.selectedId)
   const virtual = useVirtualizer({
@@ -68,9 +69,14 @@ export function HbarAppUiCommandList(content: HbarAppUiCommandListProps) {
   })
   const selectedIndex = items.findIndex((item) => item.id === content.selectedId)
   useEffect(() => {
-    if (content.listStrategy === 'virtual' && selectedIndex >= 0)
-      virtual.scrollToIndex(selectedIndex, { align: 'auto' })
-  }, [selectedIndex, content.listStrategy, virtual])
+    if (content.listStrategy !== 'virtual') return
+    if (previousQuery.current !== content.query) {
+      previousQuery.current = content.query
+      virtual.scrollToOffset(0)
+      return
+    }
+    if (selectedIndex >= 0) virtual.scrollToIndex(selectedIndex, { align: 'auto' })
+  }, [content.query, selectedIndex, content.listStrategy, virtual])
   const renderRow = (item: HbarAppUiCommandItem, index: number) => (
     <button
       type="button"
