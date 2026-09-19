@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  HbarCommandPalette,
   HbarProviderDialog,
   HbarProviderSettings,
   HbarRuntimeProvider,
@@ -13,6 +14,7 @@ import { createAppRuntime } from '@hbar/app-runtime'
 import {
   HbarClient,
   createBudgetCommandClient,
+  createCommandCatalogClient,
   createConnectionCommands,
   createConfigurationCommandClient,
   createDirectoryQueryAdapter,
@@ -31,7 +33,8 @@ import { shellLayout } from './shell-layout'
 
 const panels = new Set(['commands', 'status', 'settings', 'settings-editor'])
 
-function createRuntime(client: HbarClient, hostId: string) {
+function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) {
+  const copy = getShellCopy(locale)
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
     hostId,
@@ -44,6 +47,8 @@ function createRuntime(client: HbarClient, hostId: string) {
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
     configuration: createConfigurationCommandClient(client),
+    commandCatalog: createCommandCatalogClient(client),
+    commandText: { resolve: copy.commandPalette.resolve },
     schemaContent: createSchemaCallbackClient(client),
     surfaces: { canRender: (panelId) => panels.has(panelId) },
   })
@@ -59,6 +64,7 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   if (panel?.panelId === 'settings-editor')
     return <HbarProviderDialog labels={copy.providers.dialog} connected={connected} />
+  if (panel?.panelId === 'commands') return <HbarCommandPalette labels={copy.commandPalette} connected={connected} />
   if (panel?.panelId === 'settings')
     return (
       <HbarSettingsWorkspace
@@ -82,7 +88,7 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
   const client = useMemo(() => new HbarClient(window.location.origin), [])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [hostId, setHostId] = useState(() => `pending:${window.location.origin}`)
-  const runtime = useMemo(() => createRuntime(client, hostId), [client, hostId])
+  const runtime = useMemo(() => createRuntime(client, hostId, locale), [client, hostId, locale])
 
   useEffect(() => {
     const offStatus = client.onStatus(setConnection)

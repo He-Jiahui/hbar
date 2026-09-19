@@ -1,4 +1,5 @@
 import type {
+  HbarCommandPaletteLabels,
   HbarProviderDialogLabels,
   HbarProviderSettingsLabels,
   HbarSessionWorkspaceLabels,
@@ -16,9 +17,223 @@ interface ShellCopy {
     readonly list: HbarProviderSettingsLabels
     readonly dialog: HbarProviderDialogLabels
   }
+  readonly commandPalette: HbarCommandPaletteLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
+}
+
+function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const categories: Readonly<Record<string, string>> = zh
+    ? {
+        'app.navigation': '应用与导航',
+        'workspace.session': '工程与会话',
+        'run.approval': '运行与审批',
+        'model.budget': '模型与预算',
+        'model.configuration': '模型配置',
+        'agent.goal.plan': 'Agent、目标与计划',
+        'files.tools': '文件与工具',
+        'settings.providers': '设置与供应商',
+        'monitoring.performance': '性能监控',
+        'monitoring.usage': '用量监控',
+        'monitoring.git': 'Git 统计',
+        'system.extensions': '系统与扩展',
+      }
+    : {
+        'app.navigation': 'App and navigation',
+        'workspace.session': 'Projects and sessions',
+        'run.approval': 'Runs and approvals',
+        'model.budget': 'Models and budgets',
+        'model.configuration': 'Model configuration',
+        'agent.goal.plan': 'Agents, goals, and plans',
+        'files.tools': 'Files and tools',
+        'settings.providers': 'Settings and providers',
+        'monitoring.performance': 'Performance monitoring',
+        'monitoring.usage': 'Usage monitoring',
+        'monitoring.git': 'Git statistics',
+        'system.extensions': 'System and extensions',
+      }
+  const messages: Readonly<Record<string, string>> = zh
+    ? {
+        'commands.app.openPanel.title': '打开子界面',
+        'commands.app.openPanel.description': '在当前工作台打开指定子界面。',
+        'commands.app.closePanel.title': '关闭子界面',
+        'commands.app.closePanel.description': '关闭指定的工作台子界面。',
+        'commands.app.openSettings.title': '打开设置',
+        'commands.app.openSettings.description': '按全局、工作区或会话作用域打开设置。',
+        'commands.app.openStatus.title': '打开状态中心',
+        'commands.app.openStatus.description': '打开性能、用量或 Git 状态分区。',
+        'commands.app.setWorkspace.title': '选择工作区',
+        'commands.app.setWorkspace.description': '将当前工作台聚焦到指定工作区。',
+        'commands.app.setSession.title': '选择会话',
+        'commands.app.setSession.description': '按 ID 或名称将当前工作台聚焦到会话。',
+        'commands.session.setBudget.title': '设置会话 Token 预算',
+        'commands.session.setBudget.description': '持久设置指定会话的 Token 上限。',
+        'commands.session.getBudget.title': '查询会话 Token 预算',
+        'commands.session.getBudget.description': '读取指定会话当前生效的 Token 预算。',
+        'commands.session.clearBudget.title': '清除会话 Token 预算',
+        'commands.session.clearBudget.description': '删除指定会话的独立 Token 预算。',
+        'commands.workspace.list.title': '列出工作区',
+        'commands.workspace.list.description': '分页查询 Host 中的工作区。',
+        'commands.session.list.title': '列出会话',
+        'commands.session.list.description': '分页查询指定工作区的会话。',
+      }
+    : {
+        'commands.app.openPanel.title': 'Open panel',
+        'commands.app.openPanel.description': 'Open a named panel in the current workbench.',
+        'commands.app.closePanel.title': 'Close panel',
+        'commands.app.closePanel.description': 'Close a workbench panel instance.',
+        'commands.app.openSettings.title': 'Open settings',
+        'commands.app.openSettings.description': 'Open settings at global, workspace, or session scope.',
+        'commands.app.openStatus.title': 'Open status center',
+        'commands.app.openStatus.description': 'Open the performance, usage, or Git status section.',
+        'commands.app.setWorkspace.title': 'Select workspace',
+        'commands.app.setWorkspace.description': 'Focus the current workbench on a workspace.',
+        'commands.app.setSession.title': 'Select session',
+        'commands.app.setSession.description': 'Focus the current workbench on a session by ID or name.',
+        'commands.session.setBudget.title': 'Set session token budget',
+        'commands.session.setBudget.description': 'Persist the token limit for a session.',
+        'commands.session.getBudget.title': 'Get session token budget',
+        'commands.session.getBudget.description': 'Read the effective token budget for a session.',
+        'commands.session.clearBudget.title': 'Clear session token budget',
+        'commands.session.clearBudget.description': 'Remove the session-specific token budget.',
+        'commands.workspace.list.title': 'List workspaces',
+        'commands.workspace.list.description': 'Query Host workspaces by page.',
+        'commands.session.list.title': 'List sessions',
+        'commands.session.list.description': 'Query sessions in a workspace by page.',
+      }
+  const fields: Readonly<Record<string, string>> = zh
+    ? {
+        sessionId: '会话 ID',
+        workspaceId: '工作区 ID',
+        session: '会话 ID 或名称',
+        sessionName: '会话名称',
+        tokens: 'Token 上限',
+        expectedRevision: '预期版本',
+        panelId: '子界面 ID',
+        instanceId: '实例 ID',
+        binding: '目标绑定方式',
+        scope: '作用域',
+        targetId: '目标 ID',
+        section: '分区',
+        windowId: '窗口 ID',
+        page: '页面描述',
+        after: '分页游标',
+        limit: '返回数量',
+        includeArchived: '包含已归档会话',
+        title: '标题',
+        input: '输入',
+        modelId: '模型 ID',
+        operationId: '操作 ID',
+      }
+    : {
+        sessionId: 'Session ID',
+        workspaceId: 'Workspace ID',
+        session: 'Session ID or name',
+        sessionName: 'Session name',
+        tokens: 'Token limit',
+        expectedRevision: 'Expected revision',
+        panelId: 'Panel ID',
+        instanceId: 'Instance ID',
+        binding: 'Target binding',
+        scope: 'Scope',
+        targetId: 'Target ID',
+        section: 'Section',
+        windowId: 'Window ID',
+        page: 'Page descriptor',
+        after: 'Page cursor',
+        limit: 'Result limit',
+        includeArchived: 'Include archived sessions',
+        title: 'Title',
+        input: 'Input',
+        modelId: 'Model ID',
+        operationId: 'Operation ID',
+      }
+  const resolve = (key: string) => {
+    if (messages[key]) return messages[key]
+    const category = key.startsWith('commands.categories.') ? key.slice('commands.categories.'.length) : null
+    return category ? (categories[category] ?? key) : key
+  }
+  return {
+    title: choose('命令目录', 'Command catalog'),
+    description: choose(
+      '搜索同一份公开命令定义，填写参数并在当前上下文执行。',
+      'Search the shared command definitions, fill parameters, and execute in the current context.',
+    ),
+    search: choose('搜索命令', 'Search commands'),
+    available: choose('可用命令', 'Available commands'),
+    empty: choose('没有匹配的命令。', 'No matching commands.'),
+    unavailable: choose('先前选择的命令已不可用。', 'The previous command selection is unavailable.'),
+    choose: choose('选择', 'Choose'),
+    close: choose('关闭命令目录', 'Close command catalog'),
+    count: (count) => choose(`${count} 个命令`, `${count} ${count === 1 ? 'command' : 'commands'}`),
+    navigateKeys: '↑↓',
+    executeKey: 'Enter',
+    closeKey: 'Esc',
+    category: (id) => categories[id] ?? id,
+    resolve,
+    commandFallback: (id) => id,
+    descriptionFallback: (id) => choose(`执行 ${id}。`, `Execute ${id}.`),
+    parameters: choose('参数', 'Parameters'),
+    noParameters: choose('此命令不需要参数。', 'This command has no parameters.'),
+    required: choose('必填', 'Required'),
+    optional: choose('可选', 'Optional'),
+    unset: choose('清除', 'Clear'),
+    trueValue: choose('是', 'True'),
+    falseValue: choose('否', 'False'),
+    jsonPlaceholder: choose('输入 JSON', 'Enter JSON'),
+    fieldFallback: (name) => fields[name] ?? name,
+    option: (_field, value) => String(value),
+    issue: (issue) => {
+      const codes = zh
+        ? {
+            required: '此参数必填。',
+            invalid: '参数格式无效。',
+            too_small: '参数小于允许范围。',
+            too_large: '参数超过允许范围。',
+            not_allowed: '请选择允许的值。',
+          }
+        : {
+            required: 'This parameter is required.',
+            invalid: 'The parameter format is invalid.',
+            too_small: 'The parameter is below the allowed range.',
+            too_large: 'The parameter exceeds the allowed range.',
+            not_allowed: 'Choose an allowed value.',
+          }
+      return codes[issue.code]
+    },
+    refresh: choose('刷新目录', 'Refresh catalog'),
+    reset: choose('重置参数', 'Reset parameters'),
+    execute: choose('执行命令', 'Execute command'),
+    executing: choose('正在执行…', 'Executing…'),
+    succeeded: choose('命令执行成功', 'Command succeeded'),
+    result: choose('命令结果', 'Command result'),
+    loading: choose('正在加载命令…', 'Loading commands…'),
+    truncated: choose(
+      '目录已达到显示上限，请用搜索缩小范围。',
+      'The catalog reached its display limit; narrow the search.',
+    ),
+    unavailableReason: (code) =>
+      code === 'HOST_DISCONNECTED'
+        ? choose('连接 Host 后可执行此命令。', 'Connect to the Host to execute this command.')
+        : choose(`命令当前不可用：${code}`, `Command unavailable: ${code}`),
+    error: (code) => choose(`命令操作失败：${code}`, `Command action failed: ${code}`),
+    kind: (kind) => (kind === 'query' ? choose('查询', 'Query') : choose('命令', 'Command')),
+    execution: (execution) =>
+      execution === 'host'
+        ? choose('Host 执行', 'Host execution')
+        : execution === 'platform'
+          ? choose('平台执行', 'Platform execution')
+          : choose('客户端执行', 'Client execution'),
+    scope: (scope) => {
+      const values = zh
+        ? { global: '全局', workspace: '工作区', session: '会话', client: '当前客户端' }
+        : { global: 'Global', workspace: 'Workspace', session: 'Session', client: 'Current client' }
+      return values[scope]
+    },
+  }
 }
 
 function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels {
@@ -402,6 +617,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     session: createSessionLabels('zh-CN'),
     settings: createSettingsLabels('zh-CN'),
     providers: createProviderLabels('zh-CN'),
+    commandPalette: createCommandPaletteLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -433,6 +649,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     session: createSessionLabels('en-US'),
     settings: createSettingsLabels('en-US'),
     providers: createProviderLabels('en-US'),
+    commandPalette: createCommandPaletteLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },

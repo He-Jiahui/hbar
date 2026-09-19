@@ -89,7 +89,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await expect(page.locator('footer')).toContainText(locale === 'zh-CN' ? '未连接' : 'Disconnected')
         await expect(page.getByRole('button', { name: locale === 'zh-CN' ? '命令' : 'Commands' })).toBeVisible()
         await page.keyboard.press('Control+K')
-        await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale === 'zh-CN' ? '命令' : 'Commands')
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+          locale === 'zh-CN' ? '命令目录' : 'Command catalog',
+        )
+        await expect(
+          page.getByRole('searchbox', { name: locale === 'zh-CN' ? '搜索命令' : 'Search commands' }),
+        ).toBeVisible()
+        await page.getByRole('button', { name: locale === 'zh-CN' ? '关闭命令目录' : 'Close command catalog' }).click()
         await page.getByRole('button', { name: locale === 'zh-CN' ? '设置' : 'Settings' }).click()
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(
           locale === 'zh-CN' ? '全局设置' : 'Global settings',
@@ -134,6 +140,21 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
     const prompt = page.getByRole('textbox', { name: 'Prompt' })
     await expect(prompt).toBeEnabled()
+
+    await page.keyboard.press('Control+K')
+    await expect(page.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await page.getByRole('searchbox', { name: 'Search commands' }).fill('session.setBudget')
+    await expect(page.getByRole('heading', { level: 2, name: 'Set session token budget' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Session ID' })).toHaveValue(fixture.ready.sessionId)
+    const tokenLimit = page.getByRole('spinbutton', { name: 'Token limit' })
+    await tokenLimit.fill('120000')
+    await expect(tokenLimit).toHaveValue('120000')
+    await page.getByRole('button', { name: 'Execute command' }).click()
+    await expect(page.getByText('Command succeeded')).toBeVisible()
+    await expect(tokenLimit).toHaveValue('120000')
+    await page.screenshot({ path: 'artifacts/web-b4/command-palette.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close command catalog' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
     await prompt.fill('hello from browser')
     await page.getByRole('button', { name: 'Send' }).click()

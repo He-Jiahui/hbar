@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarCommandPalette, HbarRuntimeProvider, type HbarCommandPaletteLabels } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const labels: HbarCommandPaletteLabels = {
   title: 'Command catalog',
@@ -81,4 +82,17 @@ test('app-react renders the controlled catalog and descriptor parameter form wit
   } finally {
     runtime.dispose()
   }
+})
+
+test('web host supplies localized command, category, field, and validation copy', () => {
+  const chinese = getShellCopy('zh-CN').commandPalette
+  const english = getShellCopy('en-US').commandPalette
+  expect(chinese.resolve('commands.session.setBudget.title')).toBe('设置会话 Token 预算')
+  expect(english.resolve('commands.session.setBudget.title')).toBe('Set session token budget')
+  expect(chinese.category('model.budget')).toBe('模型与预算')
+  expect(english.category('model.budget')).toBe('Models and budgets')
+  expect(chinese.fieldFallback('tokens')).toBe('Token 上限')
+  expect(english.fieldFallback('tokens')).toBe('Token limit')
+  expect(english.issue({ field: 'tokens', code: 'required' })).toBe('This parameter is required.')
+  expect(english.resolve('commands.plugin.dynamic.title')).toBe('commands.plugin.dynamic.title')
 })
