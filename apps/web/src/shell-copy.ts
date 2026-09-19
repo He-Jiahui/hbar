@@ -70,6 +70,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.app.openPanel.description': '在当前工作台打开指定子界面。',
         'commands.app.closePanel.title': '关闭子界面',
         'commands.app.closePanel.description': '关闭指定的工作台子界面。',
+        'commands.app.back.title': '返回上一层界面',
+        'commands.app.back.description': '依次关闭活动弹窗、会话工具或管理页面。',
+        'commands.app.setSidebarVisible.title': '设置侧栏可见性',
+        'commands.app.setSidebarVisible.description': '显示或隐藏当前工作台的工程与会话侧栏。',
         'commands.app.openSettings.title': '打开设置',
         'commands.app.openSettings.description': '按全局、工作区或会话作用域打开设置。',
         'commands.app.openStatus.title': '打开状态中心',
@@ -100,6 +104,11 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.app.openPanel.description': 'Open a named panel in the current workbench.',
         'commands.app.closePanel.title': 'Close panel',
         'commands.app.closePanel.description': 'Close a workbench panel instance.',
+        'commands.app.back.title': 'Go back',
+        'commands.app.back.description': 'Close the active modal, session tool, or management page in that order.',
+        'commands.app.setSidebarVisible.title': 'Set sidebar visibility',
+        'commands.app.setSidebarVisible.description':
+          'Show or hide the projects and sessions sidebar for this workbench.',
         'commands.app.openSettings.title': 'Open settings',
         'commands.app.openSettings.description': 'Open settings at global, workspace, or session scope.',
         'commands.app.openStatus.title': 'Open status center',
@@ -153,6 +162,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         presetId: '供应商预设 ID',
         query: '搜索关键词',
         cursor: '分页游标',
+        visible: '是否可见',
       }
     : {
         sessionId: 'Session ID',
@@ -180,6 +190,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         presetId: 'Provider preset ID',
         query: 'Search query',
         cursor: 'Page cursor',
+        visible: 'Visible',
       }
   const resolve = (key: string) => {
     if (messages[key]) return messages[key]

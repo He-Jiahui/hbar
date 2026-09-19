@@ -43,7 +43,7 @@ import { createGoalPlanWorkspace } from './goal-plan-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
 import { createStatusWorkspace } from './status-workspace'
 import { createClientPersistence } from './client-persistence'
-import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
+import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
   BudgetCommandPort,
@@ -71,6 +71,9 @@ export type {
   PanelSurface,
   WindowSurface,
   SurfaceState,
+  MainPageState,
+  SessionViewContext,
+  PresentationState,
   SettingsFormEntry,
   SettingsFieldContentState,
   SettingsWorkspaceState,
@@ -127,6 +130,16 @@ export function createAppRuntime(options: RuntimeOptions) {
     { panels: {}, windows: {}, focusedPanelId: null, focusedWindowId: null },
     onSubscriberError,
   )
+  const presentation = createState<PresentationState>(
+    {
+      page: { kind: 'session' },
+      toolInstanceId: null,
+      modalInstanceId: null,
+      returnContext: null,
+      sidebarOpen: true,
+    },
+    onSubscriberError,
+  )
 
   const local = new CommandRegistry({ execution: 'client' })
   const platform = new CommandRegistry({ execution: 'platform' })
@@ -143,7 +156,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const remote = directory.registry
   registerNavigationCommands(local, directory.queries, directory.openWorkspace, navigation, () => disposed)
-  const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces)
+  const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed)
@@ -249,6 +262,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       directory: directory.reader,
       forms: forms.reader,
       surfaces: surfaces.reader,
+      presentation: presentation.reader,
       timeline: timeline.reader,
       drafts: drafts.reader,
       runActions: drafts.actions,
@@ -300,6 +314,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       clientPersistence.dispose()
       disposeSurfaces()
       surfaces.dispose()
+      presentation.dispose()
       navigation.dispose()
     },
   }

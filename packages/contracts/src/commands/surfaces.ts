@@ -17,6 +17,13 @@ const windowSummarySchema = z.strictObject({
   page: z.strictObject({ kind: z.string().min(1).max(128), params: z.record(z.string(), z.unknown()) }),
   focused: z.boolean(),
 })
+const presentationSummarySchema = z.strictObject({
+  page: z.enum(['session', 'settings', 'status']),
+  pageInstanceId: instanceIdSchema.nullable(),
+  toolInstanceId: instanceIdSchema.nullable(),
+  modalInstanceId: instanceIdSchema.nullable(),
+  sidebarOpen: z.boolean(),
+})
 const metadata = (id: string, execution: 'client' | 'platform' = 'client') => ({
   id,
   version: 1,
@@ -58,6 +65,19 @@ export const surfaceCommands = {
     { ...metadata('app.closePanel'), cli: { arguments: [{ field: 'instanceId', type: 'string', position: 0 }] } },
     z.strictObject({ instanceId: instanceIdSchema }),
     z.strictObject({ instanceId: instanceIdSchema, closed: z.boolean() }),
+  ),
+  'app.back': defineCommand(
+    { ...metadata('app.back'), cli: { arguments: [] } },
+    z.strictObject({}),
+    presentationSummarySchema,
+  ),
+  'app.setSidebarVisible': defineCommand(
+    {
+      ...metadata('app.setSidebarVisible'),
+      cli: { arguments: [{ field: 'visible', type: 'boolean', position: 0, flag: 'visible' }] },
+    },
+    z.strictObject({ visible: z.boolean() }),
+    presentationSummarySchema,
   ),
   'app.openSettings': defineCommand(
     {

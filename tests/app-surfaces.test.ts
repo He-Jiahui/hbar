@@ -65,6 +65,69 @@ test('logical panels are command-owned, idempotent and preserve follow versus pi
   runtime.dispose()
 })
 
+test('presentation commands separate the main page, session tool, modal, return context, and sidebar', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'presentation',
+    hostId: 'host',
+    directory,
+    surfaces: {
+      canRender: (panelId) => ['files', 'settings', 'status', 'commands', 'settings-editor'].includes(panelId),
+    },
+  })
+  try {
+    expect(runtime.view.state.presentation.getSnapshot()).toEqual({
+      page: { kind: 'session' },
+      toolInstanceId: null,
+      modalInstanceId: null,
+      returnContext: null,
+      sidebarOpen: true,
+    })
+    expect(await runtime.view.commands.execute('app.setSidebarVisible', { visible: false })).toMatchObject({
+      page: 'session',
+      sidebarOpen: false,
+    })
+    await runtime.view.commands.execute('app.setSession', { sessionId: 's1' })
+    const tool = await runtime.view.commands.execute('app.openPanel', { panelId: 'files' })
+    expect(runtime.view.state.presentation.getSnapshot()).toMatchObject({
+      page: { kind: 'session' },
+      toolInstanceId: tool.instanceId,
+      modalInstanceId: null,
+    })
+    const settings = await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    expect(runtime.view.state.presentation.getSnapshot()).toEqual({
+      page: { kind: 'settings', instanceId: settings.instanceId },
+      toolInstanceId: null,
+      modalInstanceId: null,
+      returnContext: { workspaceId: 'w1', sessionId: 's1', toolInstanceId: tool.instanceId },
+      sidebarOpen: false,
+    })
+    const modal = await runtime.view.commands.execute('app.openPanel', { panelId: 'commands' })
+    expect(runtime.view.state.presentation.getSnapshot().modalInstanceId).toBe(modal.instanceId)
+    expect(await runtime.view.commands.execute('app.back', {})).toMatchObject({
+      page: 'settings',
+      modalInstanceId: null,
+    })
+    expect(await runtime.view.commands.execute('app.back', {})).toMatchObject({
+      page: 'session',
+      toolInstanceId: tool.instanceId,
+    })
+
+    await runtime.view.commands.execute('app.openStatus', { section: 'dashboard' })
+    await expect(runtime.view.commands.execute('app.setSession', { sessionId: 'missing' })).rejects.toMatchObject({
+      code: 'SESSION_NOT_FOUND',
+    })
+    expect(runtime.view.state.presentation.getSnapshot().page.kind).toBe('status')
+    await runtime.view.commands.execute('app.setSession', { sessionId: 's2' })
+    expect(runtime.view.state.presentation.getSnapshot()).toMatchObject({
+      page: { kind: 'session' },
+      modalInstanceId: null,
+      returnContext: null,
+    })
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('window commands publish state only after the platform succeeds and close exact IDs', async () => {
   const opened: string[] = []
   const closed: string[] = []

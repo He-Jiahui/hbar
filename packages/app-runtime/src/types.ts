@@ -587,6 +587,22 @@ export interface SurfaceState {
   readonly focusedPanelId: string | null
   readonly focusedWindowId: string | null
 }
+export type MainPageState =
+  | { readonly kind: 'session' }
+  | { readonly kind: 'settings'; readonly instanceId: string }
+  | { readonly kind: 'status'; readonly instanceId: string }
+export interface SessionViewContext {
+  readonly workspaceId: string | null
+  readonly sessionId: string | null
+  readonly toolInstanceId: string | null
+}
+export interface PresentationState {
+  readonly page: MainPageState
+  readonly toolInstanceId: string | null
+  readonly modalInstanceId: string | null
+  readonly returnContext: SessionViewContext | null
+  readonly sidebarOpen: boolean
+}
 export interface NavigationState {
   readonly workspaceId: string | null
   readonly sessionId: string | null

@@ -1,7 +1,17 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import { surfaceCommands } from '@hbar/contracts/commands'
 import type { createState, StateReader } from './state'
-import type { NavigationState, PanelSurface, RuntimeOptions, SurfaceState, WindowSurface } from './types'
+import type {
+  NavigationState,
+  PanelSurface,
+  PresentationState,
+  RuntimeOptions,
+  SurfaceState,
+  WindowSurface,
+} from './types'
+
+const toolPanelIds = new Set(['files', 'monitoring', 'agents', 'goals'])
+const modalPanelIds = new Set(['commands', 'settings-editor'])
 
 function summary(panel: PanelSurface, focused: boolean) {
   return {
@@ -14,12 +24,27 @@ function summary(panel: PanelSurface, focused: boolean) {
   }
 }
 
+function presentationSummary(state: PresentationState) {
+  return {
+    page: state.page.kind,
+    pageInstanceId: state.page.kind === 'session' ? null : state.page.instanceId,
+    toolInstanceId: state.toolInstanceId,
+    modalInstanceId: state.modalInstanceId,
+    sidebarOpen: state.sidebarOpen,
+  }
+}
+
+function focusedPresentationInstance(state: PresentationState): string | null {
+  return state.modalInstanceId ?? state.toolInstanceId ?? (state.page.kind === 'session' ? null : state.page.instanceId)
+}
+
 export function registerSurfaceCommands(
   local: CommandRegistry,
   platform: CommandRegistry,
   options: RuntimeOptions,
   navigation: StateReader<NavigationState>,
   surfaces: ReturnType<typeof createState<SurfaceState>>,
+  presentation: ReturnType<typeof createState<PresentationState>>,
 ): () => void {
   const windowTails = new Map<string, Promise<void>>()
   async function serializeWindow<Value>(windowId: string, operation: () => Promise<Value>): Promise<Value> {
@@ -62,20 +87,86 @@ export function registerSurfaceCommands(
       throw new CommandError('COMMAND_CONFLICT', 'Panel instance is already bound to another kind')
     const panel: PanelSurface = { instanceId, panelId, workspaceId, sessionId, binding: input.binding, params }
     surfaces.replace({ ...current, panels: { ...current.panels, [instanceId]: panel }, focusedPanelId: instanceId })
+    const currentPresentation = presentation.reader.getSnapshot()
+    if (toolPanelIds.has(panelId)) {
+      presentation.replace({
+        ...currentPresentation,
+        page: { kind: 'session' },
+        toolInstanceId: instanceId,
+        modalInstanceId: null,
+        returnContext: null,
+      })
+    } else if (modalPanelIds.has(panelId)) {
+      presentation.replace({ ...currentPresentation, modalInstanceId: instanceId })
+    } else if (panelId === 'settings' || panelId === 'status') {
+      const returnContext =
+        currentPresentation.returnContext ??
+        (currentPresentation.page.kind === 'session'
+          ? {
+              workspaceId: active.workspaceId,
+              sessionId: active.sessionId,
+              toolInstanceId: currentPresentation.toolInstanceId,
+            }
+          : null)
+      presentation.replace({
+        ...currentPresentation,
+        page: { kind: panelId, instanceId },
+        toolInstanceId: null,
+        modalInstanceId: null,
+        returnContext,
+      })
+    }
     return summary(panel, true)
   }
 
-  local.register(surfaceCommands['app.openPanel'], (input) => openPanel(input.panelId, input))
-  local.register(surfaceCommands['app.closePanel'], ({ instanceId }) => {
+  function closePanel(instanceId: string) {
     const current = surfaces.reader.getSnapshot()
     if (!current.panels[instanceId]) return { instanceId, closed: false }
     const panels = Object.fromEntries(Object.entries(current.panels).filter(([id]) => id !== instanceId))
+    const currentPresentation = presentation.reader.getSnapshot()
+    let nextPresentation = currentPresentation
+    if (currentPresentation.modalInstanceId === instanceId)
+      nextPresentation = { ...currentPresentation, modalInstanceId: null }
+    if (currentPresentation.toolInstanceId === instanceId)
+      nextPresentation = { ...nextPresentation, toolInstanceId: null }
+    if (currentPresentation.page.kind !== 'session' && currentPresentation.page.instanceId === instanceId) {
+      const restoredToolId = currentPresentation.returnContext?.toolInstanceId
+      nextPresentation = {
+        ...nextPresentation,
+        page: { kind: 'session' },
+        toolInstanceId: restoredToolId && panels[restoredToolId] ? restoredToolId : null,
+        modalInstanceId: null,
+        returnContext: null,
+      }
+    } else if (currentPresentation.returnContext?.toolInstanceId === instanceId) {
+      nextPresentation = {
+        ...nextPresentation,
+        returnContext: { ...currentPresentation.returnContext, toolInstanceId: null },
+      }
+    }
+    presentation.replace(nextPresentation)
     surfaces.replace({
       ...current,
       panels,
-      focusedPanelId: current.focusedPanelId === instanceId ? null : current.focusedPanelId,
+      focusedPanelId:
+        current.focusedPanelId === instanceId ? focusedPresentationInstance(nextPresentation) : current.focusedPanelId,
     })
     return { instanceId, closed: true }
+  }
+
+  local.register(surfaceCommands['app.openPanel'], (input) => openPanel(input.panelId, input))
+  local.register(surfaceCommands['app.closePanel'], ({ instanceId }) => closePanel(instanceId))
+  local.register(surfaceCommands['app.back'], () => {
+    const current = presentation.reader.getSnapshot()
+    const target =
+      current.modalInstanceId ?? (current.page.kind === 'session' ? current.toolInstanceId : current.page.instanceId)
+    if (target) closePanel(target)
+    return presentationSummary(presentation.reader.getSnapshot())
+  })
+  local.register(surfaceCommands['app.setSidebarVisible'], ({ visible }) => {
+    const current = presentation.reader.getSnapshot()
+    presentation.replace({ ...current, sidebarOpen: visible })
+    return presentationSummary(presentation.reader.getSnapshot())
   })
   local.register(surfaceCommands['app.openSettings'], (input) =>
     openPanel('settings', input, { scope: input.scope, targetId: input.targetId, section: input.section }),
@@ -132,6 +223,18 @@ export function registerSurfaceCommands(
         return [id, { ...panel, workspaceId: target.workspaceId, sessionId: target.sessionId }]
       }),
     )
-    if (changed) surfaces.replace({ ...current, panels })
+    const currentPresentation = presentation.reader.getSnapshot()
+    const navigationSettled = target.status === 'idle'
+    const nextPresentation: PresentationState = navigationSettled
+      ? {
+          ...currentPresentation,
+          page: { kind: 'session' },
+          modalInstanceId: null,
+          returnContext: null,
+        }
+      : currentPresentation
+    if (navigationSettled && nextPresentation !== currentPresentation) presentation.replace(nextPresentation)
+    const focusedPanelId = navigationSettled ? focusedPresentationInstance(nextPresentation) : current.focusedPanelId
+    if (changed || focusedPanelId !== current.focusedPanelId) surfaces.replace({ ...current, panels, focusedPanelId })
   })
 }
