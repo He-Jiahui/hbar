@@ -187,6 +187,7 @@ export interface StatusWorkspaceEntryState {
   readonly section: 'dashboard' | 'usage' | 'git'
   readonly status: 'loading' | 'ready' | 'error'
   readonly performance: Readonly<MetricsQueryResult> | null
+  readonly usage: Readonly<UsageQueryResult> | null
   readonly error: string | null
 }
 

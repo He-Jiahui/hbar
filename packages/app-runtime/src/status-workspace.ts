@@ -1,6 +1,7 @@
 import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/commands'
 import { metricsCommands } from '@hbar/contracts/commands/metrics'
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
+import { usageCommands } from '@hbar/contracts/commands/usage'
 import { createState, type StateReader } from './state'
 import type { RuntimeOptions, StatusWorkspaceEntryState, StatusWorkspaceState, SurfaceState } from './types'
 
@@ -26,6 +27,7 @@ export function createStatusWorkspace(
 ) {
   const state = createState<StatusWorkspaceState>({ entries: {} }, onSubscriberError)
   const metrics = options.metrics ? createCommandClient(metricsCommands, options.metrics) : null
+  const usage = options.usage ? createCommandClient(usageCommands, options.usage) : null
   const generations = new Map<string, number>()
 
   const panel = (instanceId: string) => {
@@ -64,14 +66,26 @@ export function createStatusWorkspace(
       section: target.section,
       status: 'loading',
       performance: previous?.performance ?? null,
+      usage: previous?.usage ?? null,
       error: null,
     }
     replace(loading)
     try {
-      if (target.section !== 'dashboard')
-        throw new CommandError('CAPABILITY_UNAVAILABLE', `Status section is not implemented yet: ${target.section}`)
-      if (!metrics) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Performance metrics are unavailable')
-      const performance = await metrics.execute('metrics.query', { bucketMs: 1_000, maxPoints: 120 })
+      let performance = loading.performance
+      let usageReport = loading.usage
+      if (target.section === 'dashboard') {
+        if (!metrics) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Performance metrics are unavailable')
+        performance = await metrics.execute('metrics.query', { bucketMs: 1_000, maxPoints: 120 })
+      } else if (target.section === 'usage') {
+        if (!usage) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Usage metrics are unavailable')
+        usageReport = await usage.execute('usage.query', {
+          scope: { kind: 'global' },
+          bucketMs: 60_000,
+          maxBuckets: 120,
+          maxSamples: 10_000,
+          filters: {},
+        })
+      } else throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git status is not implemented yet')
       if (isDisposed() || generations.get(instanceId) !== generation)
         throw new CommandError('RESULT_UNKNOWN', 'Status refresh was superseded')
       const ready: StatusWorkspaceEntryState = {
@@ -79,6 +93,7 @@ export function createStatusWorkspace(
         section: target.section,
         status: 'ready',
         performance,
+        usage: usageReport,
         error: null,
       }
       replace(ready)
