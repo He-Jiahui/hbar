@@ -202,3 +202,11 @@ Session 工作区新增正常 grid/flex 流中的右侧工具栏；Files 执行 
 Session 工具栏新增 Monitoring 入口，通过 `app.openPanel` 打开逻辑面板，通过 `app.closePanel` 关闭；React 不持有可写业务状态。面板直接读取 app-runtime 已有的 Session usage 投影，展示 Token 总数、运行/尝试数、预计金额、缓存命中率、Token 速率、首文本与完整响应 p95、有界时间序列及模型分布。Host 未能可靠计算的值保留 unavailable 状态，时间窗口中的 gap 明确告知，零 Token 分桶不绘制伪数据柱。全局 CPU、进程、磁盘、网络与 Git 统计仍归 B6 Status Center。
 
 交付验证：Monitoring/Session/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2362 个模块。真实临时 Host 的 Playwright 场景在产生使用事实后打开监控、检查指标与时间序列、截图并命令关闭；人工检查 `artifacts/web-b5/session-monitoring.png` 确认宽屏布局、数据来源与不可用文案。
+
+### B5c：子 Agent 管理（完成）
+
+app-runtime 为每个 agents panel instance 保存独立的有界子 Agent 列表、创建草稿和操作状态；列表每页 50 项、最多 500 项，以 Host `agent.list` 事实为准。创建表单的目标、会话标题、模型、Token 预算、思考等级和审批模式全部通过 internal `agentWorkspace.*` command 修改；创建与取消调用已有 Host `agent.create/cancel`。创建响应丢失后保留原幂等键并锁定参数，重试使同一 key 收敛；取消超时也可安全重试。提交期间没有 React 私有的业务草稿或直接 transport 写路径。
+
+`@hbar/app-react` 提供受控创建表单和子 Session 卡片，显示 Host 状态、模型、独立预算、错误、创建时间及取消状态。Open session 顺序执行关闭面板和 `app.setSession`，不越过 runtime 写选中状态。Web 注入通用 agent command client 和类型化中英文内容。
+
+交付验证：runtime/React/Session/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2366 个模块。真实临时 Host 的 Playwright 场景使用当前模型和 5,000 Token 子预算创建独立子 Session，核对 Host 返回的 running 状态和可取消操作；人工检查 `artifacts/web-b5/child-agents.png` 确认宽屏分栏、完整表单和子 Agent 卡片。
