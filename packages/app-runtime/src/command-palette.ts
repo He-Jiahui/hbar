@@ -276,9 +276,8 @@ export function createCommandPalette(
   const setQuery = (query: string): CommandPaletteSummary => {
     const current = state.reader.getSnapshot()
     const ids = visible(current.items, query)
-    const selectionLost = current.selectedId !== null && !ids.includes(current.selectedId)
     state.replace({
-      ...replaceSelection({ ...current, query }, current.items, ids, current.selectedId, selectionLost),
+      ...replaceSelection({ ...current, query }, current.items, ids, null, false),
       query,
       view: 'search',
       execution: { status: 'idle', commandId: null, result: null, error: null },

@@ -101,6 +101,13 @@ test('command palette projects categorized host and client commands through comm
     expect(initial.visibleIds).toContain('session.setBudget')
     expect(initial.visibleIds).not.toContain('commandPalette.setQuery')
 
+    await runtime.view.commands.execute('commandPalette.select', { commandId: 'workspace.open' })
+    await runtime.view.commands.execute('commandPalette.setQuery', { query: '' })
+    expect(runtime.view.state.commandPalette.getSnapshot()).toMatchObject({
+      selectedId: initial.visibleIds[0],
+      selectionLost: false,
+    })
+
     await runtime.view.commands.execute('commandPalette.setQuery', { query: '设置预算' })
     let state = runtime.view.state.commandPalette.getSnapshot()
     expect(state.visibleIds).toEqual(['session.setBudget'])
