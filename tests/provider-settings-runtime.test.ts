@@ -34,6 +34,42 @@ function provider(id: string, name: string): ProviderConfig {
   })
 }
 
+const openAiPreset = {
+  id: 'openai:openai-responses:fixture',
+  providerId: 'openai',
+  name: 'OpenAI',
+  protocol: 'openai-responses' as const,
+  baseUrl: 'https://api.openai.com/v1',
+  requiresBaseUrlConfiguration: false,
+  modelCount: 2,
+}
+const openAiPresetModels = [
+  {
+    id: 'gpt-5.4',
+    name: 'GPT-5.4',
+    contextWindow: 1_000_000,
+    maxOutput: 128_000,
+    imageInput: true,
+    reasoning: true,
+    inputPrice: 2.5,
+    outputPrice: 15,
+    thinkingLevels: ['off', 'low', 'medium', 'high'] as const,
+    defaultThinkingLevel: 'medium' as const,
+  },
+  {
+    id: 'gpt-5.4-mini',
+    name: 'GPT-5.4 mini',
+    contextWindow: 400_000,
+    maxOutput: 64_000,
+    imageInput: true,
+    reasoning: true,
+    inputPrice: 0.4,
+    outputPrice: 1.6,
+    thinkingLevels: ['off', 'low', 'high'] as const,
+    defaultThinkingLevel: 'low' as const,
+  },
+]
+
 const directory: CommandExecutor = {
   execute(name) {
     if (name === 'workspace.list' || name === 'session.list') return Promise.resolve({ items: [], nextCursor: null })
@@ -51,6 +87,15 @@ function fixture() {
     execute(name, raw) {
       if (name === 'provider.describe') return Promise.resolve(HBAR_PROVIDER_EDITOR_DESCRIPTION)
       if (name === 'provider.list') return Promise.resolve([...profiles.values()])
+      if (name === 'provider.preset.list')
+        return Promise.resolve({ items: [openAiPreset], nextCursor: null, catalogGeneratedAt: 1 })
+      if (name === 'provider.preset.models')
+        return Promise.resolve({
+          preset: openAiPreset,
+          items: openAiPresetModels,
+          nextCursor: null,
+          catalogGeneratedAt: 1,
+        })
       if (name === 'provider.save') {
         const input = configurationCommands[name].input.parse(raw)
         const saved = providerSchema.parse(input.provider)
@@ -146,6 +191,98 @@ test('provider runtime owns list, editor drafts, secrets, save, and unknown reco
     expect(runtime.view.state.providers.getSnapshot().editor).toMatchObject({
       form: { status: 'succeeded', dirty: [] },
       original: { name: 'Recovered provider' },
+    })
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('provider runtime applies paged presets and edits multi-model visibility and thinking through commands', async () => {
+  const configuration = fixture()
+  const runtime = createAppRuntime({
+    instanceId: 'structured-provider-runtime',
+    hostId: 'host',
+    directory,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      instanceId: 'settings-editor:providers:new',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    expect(editor.draft.models).toHaveLength(0)
+    expect(editor.draftIssues.length).toBeGreaterThan(0)
+
+    await runtime.view.commands.execute('providerEditor.loadPresets', {
+      editorId: editor.editorId,
+      query: 'openai',
+      append: false,
+    })
+    expect(runtime.view.state.providers.getSnapshot().editor?.presets.items).toEqual([openAiPreset])
+    await runtime.view.commands.execute('providerEditor.applyPreset', {
+      editorId: editor.editorId,
+      presetId: openAiPreset.id,
+    })
+    expect(runtime.view.state.providers.getSnapshot().editor).toMatchObject({
+      draft: {
+        id: 'openai',
+        protocol: 'openai-responses',
+        model: 'gpt-5.4',
+        models: [{ id: 'gpt-5.4', visible: true }],
+      },
+      selectedModelId: 'gpt-5.4',
+      draftIssues: [],
+    })
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: editor.editorId,
+      field: 'visible',
+      value: false,
+    })
+    await runtime.view.commands.execute('providerEditor.addPresetModel', {
+      editorId: editor.editorId,
+      presetId: openAiPreset.id,
+      modelId: 'gpt-5.4-mini',
+    })
+    await runtime.view.commands.execute('providerEditor.setModelField', {
+      editorId: editor.editorId,
+      modelId: 'gpt-5.4-mini',
+      field: 'visible',
+      value: false,
+    })
+    await runtime.view.commands.execute('providerEditor.setModelThinkingLevels', {
+      editorId: editor.editorId,
+      modelId: 'gpt-5.4-mini',
+      thinkingLevels: ['off', 'high'],
+    })
+    await runtime.view.commands.execute('providerEditor.setDefaultModel', {
+      editorId: editor.editorId,
+      modelId: 'gpt-5.4-mini',
+    })
+    const structured = runtime.view.state.providers.getSnapshot().editor!
+    expect(structured.draft.models).toHaveLength(2)
+    expect(structured.draftDirty).toContain('models')
+    expect(structured.draftIssues).toEqual([])
+    await runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId })
+    expect(configuration.profiles.get('openai')?.provider).toMatchObject({
+      visible: false,
+      model: 'gpt-5.4-mini',
+      models: [
+        { id: 'gpt-5.4', visible: true },
+        {
+          id: 'gpt-5.4-mini',
+          visible: false,
+          thinkingLevels: ['off', 'high'],
+          defaultThinkingLevel: 'high',
+        },
+      ],
+    })
+    expect(runtime.view.state.providers.getSnapshot().editor).toMatchObject({
+      draftDirty: [],
+      draftIssues: [],
+      form: { status: 'succeeded' },
     })
   } finally {
     runtime.dispose()

@@ -50,7 +50,13 @@ import type {
   StatusUsageWindow,
   StatusGitWindow,
 } from '@hbar/contracts/commands/status-workspace'
-import type { ProviderEditorDescription, ProviderProfile } from '@hbar/contracts/commands/configuration'
+import type {
+  ProviderEditorDescription,
+  ProviderPresetModel,
+  ProviderPresetSummary,
+  ProviderProfile,
+} from '@hbar/contracts/commands/configuration'
+import type { ThinkingLevel } from '@hbar/contracts'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
 
 export interface BudgetCommandPort {
@@ -404,11 +410,59 @@ export interface ProviderEditorState {
   readonly description: Readonly<ProviderEditorDescription>
   readonly schema: Readonly<CompiledForm>
   readonly form: Readonly<FormState>
+  readonly draft: Readonly<ProviderEditorDraft>
+  readonly baselineDraft: Readonly<ProviderEditorDraft>
+  readonly draftDirty: readonly string[]
+  readonly draftIssues: readonly ProviderEditorDraftIssue[]
+  readonly selectedModelId: string | null
+  readonly presets: Readonly<ProviderPresetCatalogState>
   readonly original: Readonly<ProviderProfile['provider']> | null
   readonly hasKey: boolean
   readonly sensitiveDirty: boolean
   readonly secretRevision: number
   readonly secretResetRevision: number
+  readonly error: string | null
+}
+
+export interface ProviderEditorDraftModel {
+  readonly id: string
+  readonly name: string
+  readonly visible: boolean
+  readonly contextWindow: number
+  readonly maxOutput: number
+  readonly imageInput: boolean
+  readonly reasoning: boolean
+  readonly inputPrice: number
+  readonly outputPrice: number
+  readonly thinkingLevels: readonly ThinkingLevel[]
+  readonly defaultThinkingLevel: ThinkingLevel
+}
+
+export interface ProviderEditorDraft {
+  readonly id: string
+  readonly name: string
+  readonly visible: boolean
+  readonly protocol: 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'mock'
+  readonly baseUrl: string
+  readonly model: string
+  readonly models: readonly Readonly<ProviderEditorDraftModel>[]
+}
+
+export interface ProviderEditorDraftIssue {
+  readonly path: string
+  readonly code: string
+}
+
+export interface ProviderPresetCatalogState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly query: string
+  readonly items: readonly Readonly<ProviderPresetSummary>[]
+  readonly nextCursor: string | null
+  readonly selectedPresetId: string | null
+  readonly modelsQuery: string
+  readonly models: readonly Readonly<ProviderPresetModel>[]
+  readonly modelsNextCursor: string | null
+  readonly catalogGeneratedAt: number | null
   readonly error: string | null
 }
 

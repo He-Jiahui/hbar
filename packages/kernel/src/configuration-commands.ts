@@ -101,7 +101,7 @@ export const HBAR_PROVIDER_EDITOR_DESCRIPTION: ProviderEditorDescription = Objec
       readOnlyOnEdit: false,
       sensitive: false,
       minimum: 64,
-      maximum: 1_000_000,
+      maximum: 10_000_000,
       defaultValue: 8_192,
     },
     {

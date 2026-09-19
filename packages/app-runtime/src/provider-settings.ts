@@ -1,11 +1,18 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
+import {
+  providerInputSchema,
+  providerSchema,
+  type ProviderConfig,
+  type ProviderInput,
+  type ThinkingLevel,
+} from '@hbar/contracts'
 import { providerEditorCommands } from '@hbar/contracts/commands/provider-editor'
 import {
   configurationCommands,
   type ProviderEditorDescription,
+  type ProviderPresetModel,
   type ProviderProfile,
 } from '@hbar/contracts/commands/configuration'
-import type { ProviderInput } from '@hbar/contracts'
 import {
   beginSubmit,
   compileForm,
@@ -18,18 +25,46 @@ import {
   SchemaError,
   setField,
   settleSubmit,
+  type FormState,
   type Submission,
 } from '@hbar/schema-core'
 import { createState, type StateReader } from './state'
-import type { PanelSurface, ProviderEditorState, ProviderSettingsState, RuntimeOptions, SurfaceState } from './types'
+import type {
+  PanelSurface,
+  ProviderEditorDraft,
+  ProviderEditorDraftIssue,
+  ProviderEditorDraftModel,
+  ProviderEditorState,
+  ProviderPresetCatalogState,
+  ProviderSettingsState,
+  RuntimeOptions,
+  SurfaceState,
+} from './types'
 
 interface PendingProviderSave {
   readonly submission: Submission
   readonly provider: ProviderInput
+  readonly draft: ProviderEditorDraft
   readonly apiKeyPresent: boolean
   readonly apiKey: string | undefined
   readonly secretRevision: number
 }
+
+const protocolValues = ['openai-completions', 'openai-responses', 'anthropic-messages', 'mock'] as const
+const providerFields = ['id', 'name', 'visible', 'protocol', 'baseUrl'] as const
+const modelFields = [
+  'id',
+  'name',
+  'visible',
+  'contextWindow',
+  'maxOutput',
+  'imageInput',
+  'reasoning',
+  'inputPrice',
+  'outputPrice',
+  'thinkingLevels',
+  'defaultThinkingLevel',
+] as const
 
 function errorCode(error: unknown): string {
   if (error instanceof CommandError || error instanceof SchemaError) return error.code
@@ -49,7 +84,7 @@ function summary(state: ProviderSettingsState) {
     providerId: state.editor?.providerId ?? null,
     formStatus: state.editor?.form.status ?? null,
     revision: state.editor?.form.revision ?? 0,
-    dirty: [...(state.editor?.form.dirty ?? []), ...(state.editor?.sensitiveDirty ? ['apiKey'] : [])],
+    dirty: [...(state.editor?.draftDirty ?? []), ...(state.editor?.sensitiveDirty ? ['apiKey'] : [])],
     error: state.editor?.error ?? state.error,
   }
 }
@@ -107,77 +142,237 @@ function baseline(description: ProviderEditorDescription, profile: ProviderProfi
   )
 }
 
-function selectedModel(provider: ProviderInput, modelId: string) {
-  return provider.models?.find((model) => model.id === modelId)
+function draftModel(model: ProviderConfig['models'][number]): ProviderEditorDraftModel {
+  return {
+    id: model.id,
+    name: model.name,
+    visible: model.visible,
+    contextWindow: model.contextWindow,
+    maxOutput: model.maxOutput,
+    imageInput: model.imageInput,
+    reasoning: model.reasoning,
+    inputPrice: model.inputPrice,
+    outputPrice: model.outputPrice,
+    thinkingLevels: [...model.thinkingLevels],
+    defaultThinkingLevel: model.defaultThinkingLevel,
+  }
 }
 
-function providerInput(
-  editor: ProviderEditorState,
-  input: Readonly<Record<string, unknown>>,
-  apiKey: string | undefined,
-): Omit<PendingProviderSave, 'submission'> {
-  const id = String(input.id)
-  const model = String(input.model)
-  const original = editor.original
-  const modelInput = {
-    ...(selectedModel(original ?? ({} as ProviderInput), model) ?? {}),
-    id: model,
-    contextWindow: Number(input.contextWindow),
-    maxOutput: Number(input.maxOutput),
-    imageInput: Boolean(input.imageInput),
-    reasoning: Boolean(input.reasoning),
-    inputPrice: Number(input.inputPrice),
-    outputPrice: Number(input.outputPrice),
-  }
-  const originalModels = original?.models ?? []
-  const models = original
-    ? originalModels.some((candidate) => candidate.id === model)
-      ? originalModels.map((candidate) => (candidate.id === model ? modelInput : candidate))
-      : originalModels.length > 1
-        ? [...originalModels, modelInput]
-        : [modelInput]
-    : undefined
-  const provider: ProviderInput = {
-    id,
-    name: String(input.name),
-    protocol: input.protocol as ProviderInput['protocol'],
-    baseUrl: String(input.baseUrl),
-    model,
-    ...(models ? { models } : {}),
-    contextWindow: Number(input.contextWindow),
-    maxOutput: Number(input.maxOutput),
-    imageInput: Boolean(input.imageInput),
-    reasoning: Boolean(input.reasoning),
-    inputPrice: Number(input.inputPrice),
-    outputPrice: Number(input.outputPrice),
-  }
-  const apiKeyPresent = editor.sensitiveDirty
+function draftFromProvider(provider: ProviderConfig): ProviderEditorDraft {
   return {
-    provider,
-    apiKeyPresent,
-    apiKey: apiKeyPresent ? (apiKey ?? '') : undefined,
-    secretRevision: editor.secretRevision,
+    id: provider.id,
+    name: provider.name,
+    visible: provider.visible,
+    protocol: provider.protocol,
+    baseUrl: provider.baseUrl,
+    model: provider.model,
+    models: provider.models.map(draftModel),
   }
+}
+
+function emptyDraft(): ProviderEditorDraft {
+  return {
+    id: '',
+    name: '',
+    visible: true,
+    protocol: 'openai-responses',
+    baseUrl: '',
+    model: '',
+    models: [],
+  }
+}
+
+function defaultModel(id: string): ProviderEditorDraftModel {
+  return {
+    id,
+    name: id,
+    visible: true,
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    imageInput: false,
+    reasoning: false,
+    inputPrice: 0,
+    outputPrice: 0,
+    thinkingLevels: ['off'],
+    defaultThinkingLevel: 'off',
+  }
+}
+
+function draftFromPreset(model: ProviderPresetModel): ProviderEditorDraftModel {
+  return {
+    id: model.id,
+    name: model.name,
+    visible: true,
+    contextWindow: model.contextWindow,
+    maxOutput: model.maxOutput,
+    imageInput: model.imageInput,
+    reasoning: model.reasoning,
+    inputPrice: model.inputPrice,
+    outputPrice: model.outputPrice,
+    thinkingLevels: [...model.thinkingLevels],
+    defaultThinkingLevel: model.defaultThinkingLevel,
+  }
+}
+
+function toProviderInput(draft: ProviderEditorDraft): ProviderInput {
+  return {
+    id: draft.id,
+    name: draft.name,
+    visible: draft.visible,
+    protocol: draft.protocol,
+    baseUrl: draft.baseUrl,
+    model: draft.model,
+    models: draft.models.map((model) => ({
+      id: model.id,
+      name: model.name,
+      visible: model.visible,
+      contextWindow: model.contextWindow,
+      maxOutput: model.maxOutput,
+      imageInput: model.imageInput,
+      reasoning: model.reasoning,
+      inputPrice: model.inputPrice,
+      outputPrice: model.outputPrice,
+      thinkingLevels: [...model.thinkingLevels],
+      defaultThinkingLevel: model.defaultThinkingLevel,
+    })),
+  }
+}
+
+function issuesForDraft(draft: ProviderEditorDraft): readonly ProviderEditorDraftIssue[] {
+  const result = providerInputSchema.safeParse(toProviderInput(draft))
+  if (result.success) return []
+  return result.error.issues.map((issue) => ({
+    path: issue.path.length > 0 ? issue.path.join('.') : 'provider',
+    code: issue.code,
+  }))
+}
+
+function dirtyPaths(baselineDraft: ProviderEditorDraft, draft: ProviderEditorDraft): readonly string[] {
+  const dirty: string[] = []
+  for (const field of providerFields) if (baselineDraft[field] !== draft[field]) dirty.push(field)
+  if (baselineDraft.model !== draft.model) dirty.push('model')
+  if (
+    baselineDraft.models.map((model) => model.id).join('\u0000') !==
+    draft.models.map((model) => model.id).join('\u0000')
+  )
+    dirty.push('models')
+  const baselineModels = new Map(baselineDraft.models.map((model) => [model.id, model]))
+  for (const model of draft.models) {
+    const previous = baselineModels.get(model.id)
+    if (!previous) continue
+    for (const field of modelFields)
+      if (JSON.stringify(previous[field]) !== JSON.stringify(model[field])) dirty.push(`models.${model.id}.${field}`)
+  }
+  return dirty
+}
+
+function selectedDraftModel(draft: ProviderEditorDraft, selectedModelId: string | null) {
+  return (
+    draft.models.find((model) => model.id === selectedModelId) ?? draft.models.find((model) => model.id === draft.model)
+  )
+}
+
+function syncForm(editor: ProviderEditorState, draft: ProviderEditorDraft, selectedModelId: string | null): FormState {
+  const model = selectedDraftModel(draft, selectedModelId)
+  const projection: Readonly<Record<string, string | boolean>> = {
+    id: draft.id,
+    name: draft.name,
+    protocol: draft.protocol,
+    baseUrl: draft.baseUrl,
+    model: draft.model,
+    contextWindow: String(model?.contextWindow ?? 128_000),
+    maxOutput: String(model?.maxOutput ?? 8_192),
+    imageInput: model?.imageInput ?? false,
+    reasoning: model?.reasoning ?? false,
+    inputPrice: String(model?.inputPrice ?? 0),
+    outputPrice: String(model?.outputPrice ?? 0),
+  }
+  let form = editor.form
+  for (const field of editor.schema.fields) {
+    if (field.readOnly || field.name === 'apiKey') continue
+    const value = projection[field.name]
+    if (value === undefined) continue
+    if (form.draft[field.name] === value || form.raw[field.name] === String(value)) continue
+    form = setField(editor.schema, form, field.name, value)
+  }
+  return form
+}
+
+function updateDraft(
+  editor: ProviderEditorState,
+  draft: ProviderEditorDraft,
+  selectedModelId = editor.selectedModelId,
+): ProviderEditorState {
+  const selected = draft.models.some((model) => model.id === selectedModelId)
+    ? selectedModelId
+    : (draft.models.find((model) => model.id === draft.model)?.id ?? draft.models[0]?.id ?? null)
+  return {
+    ...editor,
+    draft,
+    draftDirty: dirtyPaths(editor.baselineDraft, draft),
+    draftIssues: issuesForDraft(draft),
+    selectedModelId: selected,
+    form: syncForm(editor, draft, selected),
+    error: null,
+  }
+}
+
+function draftFromFlatForm(editor: ProviderEditorState, form: FormState): ProviderEditorDraft {
+  const modelId = String(form.draft.model ?? editor.draft.model)
+  const existing = editor.draft.models.find((model) => model.id === modelId)
+  const model: ProviderEditorDraftModel = {
+    ...(existing ?? defaultModel(modelId)),
+    id: modelId,
+    name: existing?.name ?? modelId,
+    contextWindow: Number(form.draft.contextWindow ?? existing?.contextWindow ?? 128_000),
+    maxOutput: Number(form.draft.maxOutput ?? existing?.maxOutput ?? 8_192),
+    imageInput: Boolean(form.draft.imageInput ?? existing?.imageInput),
+    reasoning: Boolean(form.draft.reasoning ?? existing?.reasoning),
+    inputPrice: Number(form.draft.inputPrice ?? existing?.inputPrice ?? 0),
+    outputPrice: Number(form.draft.outputPrice ?? existing?.outputPrice ?? 0),
+  }
+  const models = editor.draft.models.some((candidate) => candidate.id === modelId)
+    ? editor.draft.models.map((candidate) => (candidate.id === modelId ? model : candidate))
+    : [...editor.draft.models, model]
+  return {
+    ...editor.draft,
+    id: String(form.draft.id ?? editor.draft.id),
+    name: String(form.draft.name ?? editor.draft.name),
+    protocol: (form.draft.protocol ?? editor.draft.protocol) as ProviderEditorDraft['protocol'],
+    baseUrl: String(form.draft.baseUrl ?? editor.draft.baseUrl),
+    model: modelId,
+    models,
+  }
+}
+
+function emptyPresets(): ProviderPresetCatalogState {
+  return {
+    status: 'idle',
+    query: '',
+    items: [],
+    nextCursor: null,
+    selectedPresetId: null,
+    modelsQuery: '',
+    models: [],
+    modelsNextCursor: null,
+    catalogGeneratedAt: null,
+    error: null,
+  }
+}
+
+function mergeById<Value extends { readonly id: string }>(left: readonly Value[], right: readonly Value[]): Value[] {
+  const merged = new Map(left.map((item) => [item.id, item]))
+  for (const item of right) merged.set(item.id, item)
+  return [...merged.values()]
 }
 
 function profileMatches(profile: ProviderProfile | undefined, pending: PendingProviderSave): boolean {
   if (!profile) return false
-  const expected = pending.provider
-  if (
-    profile.provider.id !== expected.id ||
-    profile.provider.name !== expected.name ||
-    profile.provider.protocol !== expected.protocol ||
-    profile.provider.baseUrl !== expected.baseUrl ||
-    profile.provider.model !== expected.model ||
-    profile.provider.contextWindow !== expected.contextWindow ||
-    profile.provider.maxOutput !== expected.maxOutput ||
-    profile.provider.imageInput !== expected.imageInput ||
-    profile.provider.reasoning !== expected.reasoning ||
-    profile.provider.inputPrice !== expected.inputPrice ||
-    profile.provider.outputPrice !== expected.outputPrice
+  const expected = providerSchema.parse(pending.provider)
+  return (
+    JSON.stringify(profile.provider) === JSON.stringify(expected) &&
+    (!pending.apiKeyPresent || profile.hasKey === Boolean(pending.apiKey))
   )
-    return false
-  return !pending.apiKeyPresent || profile.hasKey === Boolean(pending.apiKey)
 }
 
 export function createProviderSettings(
@@ -194,6 +389,7 @@ export function createProviderSettings(
   const pending = new Map<string, PendingProviderSave>()
   const secretDrafts = new Map<string, string>()
   let generation = 0
+  let presetGeneration = 0
 
   const port = () => {
     if (!options.configuration)
@@ -220,7 +416,8 @@ export function createProviderSettings(
     const currentGeneration = ++generation
     replace({ ...current, status: 'loading', error: null })
     try {
-      const [description, profiles] = await Promise.all([current.description ?? queryDescription(), queryProfiles()])
+      const [description, rawProfiles] = await Promise.all([current.description ?? queryDescription(), queryProfiles()])
+      const profiles = rawProfiles.map((profile) => ({ ...profile, provider: providerSchema.parse(profile.provider) }))
       if (currentGeneration !== generation || isDisposed())
         throw new CommandError('CONTENT_SUPERSEDED', 'A newer provider request replaced this result')
       const listSchema = compileKeyedList({
@@ -247,6 +444,8 @@ export function createProviderSettings(
             name: profile.provider.name,
             protocol: profile.provider.protocol,
             model: profile.provider.model,
+            modelCount: profile.provider.models.length,
+            visible: profile.provider.visible,
             hasKey: profile.hasKey,
           })),
         ),
@@ -272,23 +471,33 @@ export function createProviderSettings(
     const profile = providerId ? loaded.profiles[providerId] : undefined
     if (providerId && !profile) throw new CommandError('PROVIDER_NOT_FOUND', 'Provider profile does not exist')
     const schema = compile(loaded.description!, Boolean(profile))
-    const editor: ProviderEditorState = {
+    const normalizedProvider = profile ? providerSchema.parse(profile.provider) : null
+    const initialDraft = normalizedProvider ? draftFromProvider(normalizedProvider) : emptyDraft()
+    let nextEditor: ProviderEditorState = {
       editorId: panel.instanceId,
       providerId,
       description: loaded.description!,
       schema,
       form: createForm(schema, baseline(loaded.description!, profile ?? null)),
-      original: profile?.provider ?? null,
+      draft: initialDraft,
+      baselineDraft: initialDraft,
+      draftDirty: [],
+      draftIssues: issuesForDraft(initialDraft),
+      selectedModelId: initialDraft.model || null,
+      presets: emptyPresets(),
+      original: normalizedProvider,
       hasKey: profile?.hasKey ?? false,
       sensitiveDirty: false,
       secretRevision: 0,
       secretResetRevision: 0,
       error: null,
     }
+    nextEditor = updateDraft(nextEditor, initialDraft, nextEditor.selectedModelId)
     secretDrafts.delete(panel.instanceId)
     pending.delete(panel.instanceId)
-    replace({ ...state.reader.getSnapshot(), editor, error: null })
-    return editor
+    presetGeneration += 1
+    replace({ ...state.reader.getSnapshot(), editor: nextEditor, error: null })
+    return nextEditor
   }
   const editor = (editorId: string): ProviderEditorState => {
     const current = state.reader.getSnapshot().editor
@@ -300,16 +509,36 @@ export function createProviderSettings(
     const current = state.reader.getSnapshot()
     replace({ ...current, editor: next })
   }
+  const replaceDraft = (current: ProviderEditorState, draft: ProviderEditorDraft, selectedModelId?: string | null) => {
+    const next = updateDraft(current, draft, selectedModelId === undefined ? current.selectedModelId : selectedModelId)
+    replaceEditor(next)
+    return next
+  }
   const settleSuccess = (editorId: string, operation: PendingProviderSave, loaded: ProviderSettingsState) => {
     const current = editor(editorId)
     const profile = loaded.profiles[operation.provider.id]
+    const saved = providerSchema.parse(profile?.provider ?? operation.provider)
     let form = settleSubmit(current.schema, current.form, operation.submission, 'succeeded')
-    if (profile) form = rebaseForm(current.schema, form, baseline(current.description, profile))
+    form = rebaseForm(
+      current.schema,
+      form,
+      baseline(current.description, profile ?? { provider: saved, hasKey: false }),
+    )
+    const savedDraft = draftFromProvider(saved)
+    const hasNewerDraft = JSON.stringify(current.draft) !== JSON.stringify(operation.draft)
+    const nextDraft = hasNewerDraft ? current.draft : savedDraft
     const next: ProviderEditorState = {
       ...current,
       providerId: operation.provider.id,
       form,
-      original: profile?.provider ?? current.original,
+      draft: nextDraft,
+      baselineDraft: savedDraft,
+      draftDirty: dirtyPaths(savedDraft, nextDraft),
+      draftIssues: issuesForDraft(nextDraft),
+      selectedModelId: nextDraft.models.some((model) => model.id === current.selectedModelId)
+        ? current.selectedModelId
+        : nextDraft.model || null,
+      original: saved,
       hasKey: profile?.hasKey ?? (operation.apiKeyPresent ? Boolean(operation.apiKey) : current.hasKey),
       sensitiveDirty:
         current.secretRevision === operation.secretRevision && operation.apiKeyPresent ? false : current.sensitiveDirty,
@@ -327,9 +556,17 @@ export function createProviderSettings(
   const save = async (editorId: string): Promise<ProviderEditorState> => {
     const current = editor(editorId)
     if (pending.has(editorId)) throw new CommandError('SUBMISSION_PENDING', 'Provider save is already pending')
+    const parsed = providerInputSchema.safeParse(toProviderInput(current.draft))
+    if (!parsed.success) throw new CommandError('INVALID_INPUT', 'Resolve provider draft issues before saving')
     const begun = beginSubmit(current.schema, current.form)
-    const candidate = providerInput(current, begun.submission.input, secretDrafts.get(editorId))
-    const operation = { ...candidate, submission: begun.submission }
+    const operation: PendingProviderSave = {
+      submission: begun.submission,
+      provider: parsed.data,
+      draft: current.draft,
+      apiKeyPresent: current.sensitiveDirty,
+      apiKey: current.sensitiveDirty ? (secretDrafts.get(editorId) ?? '') : undefined,
+      secretRevision: current.secretRevision,
+    }
     pending.set(editorId, operation)
     replaceEditor({ ...current, form: begun.state, error: null })
     try {
@@ -363,6 +600,99 @@ export function createProviderSettings(
     return settleSuccess(editorId, operation, loaded)
   }
 
+  const loadPresets = async (
+    editorId: string,
+    input: { readonly query?: string; readonly cursor?: string; readonly append: boolean },
+  ) => {
+    const current = editor(editorId)
+    const currentGeneration = ++presetGeneration
+    replaceEditor({
+      ...current,
+      presets: { ...current.presets, status: 'loading', query: input.query ?? '', error: null },
+    })
+    try {
+      const result = configurationCommands['provider.preset.list'].output.parse(
+        await port().execute('provider.preset.list', {
+          ...(input.query ? { query: input.query } : {}),
+          ...(input.cursor ? { cursor: input.cursor } : {}),
+          limit: 50,
+        }),
+      )
+      if (currentGeneration !== presetGeneration)
+        throw new CommandError('CONTENT_SUPERSEDED', 'Preset query was replaced')
+      const latest = editor(editorId)
+      replaceEditor({
+        ...latest,
+        presets: {
+          ...latest.presets,
+          status: 'ready',
+          query: input.query ?? '',
+          items: input.append ? mergeById(latest.presets.items, result.items) : result.items,
+          nextCursor: result.nextCursor,
+          catalogGeneratedAt: result.catalogGeneratedAt,
+          error: null,
+        },
+      })
+    } catch (error) {
+      if (currentGeneration === presetGeneration) {
+        const latest = editor(editorId)
+        replaceEditor({ ...latest, presets: { ...latest.presets, status: 'error', error: errorCode(error) } })
+      }
+      throw error
+    }
+  }
+
+  const loadPresetModels = async (
+    editorId: string,
+    input: { readonly presetId: string; readonly query?: string; readonly cursor?: string; readonly append: boolean },
+  ) => {
+    const current = editor(editorId)
+    const currentGeneration = ++presetGeneration
+    replaceEditor({
+      ...current,
+      presets: {
+        ...current.presets,
+        status: 'loading',
+        selectedPresetId: input.presetId,
+        modelsQuery: input.query ?? '',
+        error: null,
+      },
+    })
+    try {
+      const result = configurationCommands['provider.preset.models'].output.parse(
+        await port().execute('provider.preset.models', {
+          presetId: input.presetId,
+          ...(input.query ? { query: input.query } : {}),
+          ...(input.cursor ? { cursor: input.cursor } : {}),
+          limit: 100,
+        }),
+      )
+      if (currentGeneration !== presetGeneration)
+        throw new CommandError('CONTENT_SUPERSEDED', 'Preset model query was replaced')
+      const latest = editor(editorId)
+      replaceEditor({
+        ...latest,
+        presets: {
+          ...latest.presets,
+          status: 'ready',
+          selectedPresetId: input.presetId,
+          modelsQuery: input.query ?? '',
+          models: input.append ? mergeById(latest.presets.models, result.items) : result.items,
+          modelsNextCursor: result.nextCursor,
+          catalogGeneratedAt: result.catalogGeneratedAt,
+          error: null,
+        },
+      })
+      return result
+    } catch (error) {
+      if (currentGeneration === presetGeneration) {
+        const latest = editor(editorId)
+        replaceEditor({ ...latest, presets: { ...latest.presets, status: 'error', error: errorCode(error) } })
+      }
+      throw error
+    }
+  }
+
   local.register(providerEditorCommands['providerEditor.refresh'], async () => {
     try {
       const panel = currentEditorPanel()
@@ -381,18 +711,20 @@ export function createProviderSettings(
       if (definition.sensitive) {
         if (typeof value !== 'string') throw new CommandError('INVALID_INPUT', 'Sensitive fields require text input')
         secretDrafts.set(editorId, value)
-        const next = {
+        replaceEditor({
           ...current,
           sensitiveDirty: true,
           secretRevision: current.secretRevision + 1,
-          secretResetRevision: current.secretResetRevision,
           error: null,
-        }
-        replaceEditor(next)
+        })
         return summary(state.reader.getSnapshot())
       }
-      const next = { ...current, form: setField(current.schema, current.form, field, value), error: null }
-      replaceEditor(next)
+      const form = setField(current.schema, current.form, field, value)
+      replaceDraft(
+        { ...current, form },
+        draftFromFlatForm(current, form),
+        String(form.draft.model ?? current.draft.model),
+      )
       return summary(state.reader.getSnapshot())
     } catch (error) {
       throw commandError(error)
@@ -405,18 +737,244 @@ export function createProviderSettings(
       if (!definition) throw new CommandError('FIELD_NOT_FOUND', 'Provider field is not registered')
       if (definition.sensitive) {
         secretDrafts.delete(editorId)
-        const next = {
+        replaceEditor({
           ...current,
           sensitiveDirty: false,
           secretRevision: current.secretRevision + 1,
           secretResetRevision: current.secretResetRevision + 1,
           error: null,
-        }
-        replaceEditor(next)
+        })
         return summary(state.reader.getSnapshot())
       }
-      const next = { ...current, form: resetField(current.schema, current.form, field), error: null }
+      const form = resetField(current.schema, current.form, field)
+      replaceDraft(
+        { ...current, form },
+        draftFromFlatForm(current, form),
+        String(form.draft.model ?? current.draft.model),
+      )
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.setProviderField'], ({ editorId, field, value }) => {
+    try {
+      const current = editor(editorId)
+      if (field === 'id' && current.providerId) throw new CommandError('FIELD_READ_ONLY', 'Provider id is immutable')
+      if (field === 'visible') {
+        if (typeof value !== 'boolean') throw new CommandError('INVALID_INPUT', 'Provider visibility must be boolean')
+        replaceDraft(current, { ...current.draft, visible: value })
+      } else {
+        if (typeof value !== 'string') throw new CommandError('INVALID_INPUT', 'Provider field requires text')
+        if (field === 'protocol' && !protocolValues.includes(value as (typeof protocolValues)[number]))
+          throw new CommandError('INVALID_INPUT', 'Provider protocol is unsupported')
+        replaceDraft(current, { ...current.draft, [field]: value })
+      }
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.selectModel'], ({ editorId, modelId }) => {
+    try {
+      const current = editor(editorId)
+      if (!current.draft.models.some((model) => model.id === modelId))
+        throw new CommandError('MODEL_NOT_FOUND', 'Provider draft model was not found')
+      replaceEditor({ ...current, selectedModelId: modelId, form: syncForm(current, current.draft, modelId) })
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.setDefaultModel'], ({ editorId, modelId }) => {
+    try {
+      const current = editor(editorId)
+      if (!current.draft.models.some((model) => model.id === modelId))
+        throw new CommandError('MODEL_NOT_FOUND', 'Provider draft model was not found')
+      replaceDraft(current, { ...current.draft, model: modelId })
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.addModel'], ({ editorId, modelId }) => {
+    try {
+      const current = editor(editorId)
+      if (current.draft.models.length >= 256) throw new CommandError('INPUT_TOO_LARGE', 'Provider model limit reached')
+      if (current.draft.models.some((model) => model.id === modelId))
+        throw new CommandError('COMMAND_CONFLICT', 'Provider model id already exists')
+      const model = defaultModel(modelId)
+      replaceDraft(
+        current,
+        { ...current.draft, model: current.draft.model || modelId, models: [...current.draft.models, model] },
+        modelId,
+      )
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.removeModel'], ({ editorId, modelId }) => {
+    try {
+      const current = editor(editorId)
+      if (current.draft.models.length <= 1)
+        throw new CommandError('INVALID_INPUT', 'A provider needs at least one model')
+      if (!current.draft.models.some((model) => model.id === modelId))
+        throw new CommandError('MODEL_NOT_FOUND', 'Provider draft model was not found')
+      const models = current.draft.models.filter((model) => model.id !== modelId)
+      const defaultModelId = current.draft.model === modelId ? models[0]!.id : current.draft.model
+      replaceDraft(current, { ...current.draft, model: defaultModelId, models }, models[0]!.id)
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.setModelField'], ({ editorId, modelId, field, value }) => {
+    try {
+      const current = editor(editorId)
+      const existing = current.draft.models.find((model) => model.id === modelId)
+      if (!existing) throw new CommandError('MODEL_NOT_FOUND', 'Provider draft model was not found')
+      let nextId = modelId
+      let replacement: ProviderEditorDraftModel
+      if (field === 'id' || field === 'name' || field === 'defaultThinkingLevel') {
+        if (typeof value !== 'string') throw new CommandError('INVALID_INPUT', 'Model field requires text')
+        if (field === 'id') {
+          if (!value) throw new CommandError('INVALID_INPUT', 'Model id is required')
+          if (value !== modelId && current.draft.models.some((model) => model.id === value))
+            throw new CommandError('COMMAND_CONFLICT', 'Provider model id already exists')
+          nextId = value
+        }
+        if (field === 'defaultThinkingLevel' && !existing.thinkingLevels.includes(value as ThinkingLevel))
+          throw new CommandError('INVALID_INPUT', 'Default thinking level is unavailable')
+        replacement = { ...existing, [field]: value }
+      } else if (field === 'visible' || field === 'imageInput' || field === 'reasoning') {
+        if (typeof value !== 'boolean') throw new CommandError('INVALID_INPUT', 'Model field requires boolean')
+        replacement = { ...existing, [field]: value }
+      } else {
+        if (typeof value !== 'number' || value < 0)
+          throw new CommandError('INVALID_INPUT', 'Model numeric field is invalid')
+        replacement = { ...existing, [field]: value }
+      }
+      const models = current.draft.models.map((model) => (model.id === modelId ? replacement : model))
+      replaceDraft(
+        current,
+        { ...current.draft, model: current.draft.model === modelId ? nextId : current.draft.model, models },
+        current.selectedModelId === modelId ? nextId : current.selectedModelId,
+      )
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(
+    providerEditorCommands['providerEditor.setModelThinkingLevels'],
+    ({ editorId, modelId, thinkingLevels }) => {
+      try {
+        const current = editor(editorId)
+        const existing = current.draft.models.find((model) => model.id === modelId)
+        if (!existing) throw new CommandError('MODEL_NOT_FOUND', 'Provider draft model was not found')
+        const levels = [...new Set(thinkingLevels)]
+        const defaultThinkingLevel = levels.includes(existing.defaultThinkingLevel)
+          ? existing.defaultThinkingLevel
+          : (levels.find((level) => level !== 'off') ?? 'off')
+        const replacement = {
+          ...existing,
+          thinkingLevels: levels,
+          defaultThinkingLevel,
+          reasoning: levels.some((level) => level !== 'off'),
+        }
+        replaceDraft(current, {
+          ...current.draft,
+          models: current.draft.models.map((model) => (model.id === modelId ? replacement : model)),
+        })
+        return summary(state.reader.getSnapshot())
+      } catch (error) {
+        throw commandError(error)
+      }
+    },
+  )
+  local.register(providerEditorCommands['providerEditor.resetDraft'], ({ editorId }) => {
+    try {
+      const current = editor(editorId)
+      secretDrafts.delete(editorId)
+      const next = updateDraft(
+        {
+          ...current,
+          sensitiveDirty: false,
+          secretRevision: current.secretRevision + 1,
+          secretResetRevision: current.secretResetRevision + 1,
+        },
+        current.baselineDraft,
+        current.baselineDraft.model || null,
+      )
       replaceEditor(next)
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.loadPresets'], async ({ editorId, query, cursor, append }) => {
+    try {
+      await loadPresets(editorId, { ...(query ? { query } : {}), ...(cursor ? { cursor } : {}), append })
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.loadPresetModels'], async (input) => {
+    try {
+      await loadPresetModels(input.editorId, {
+        presetId: input.presetId,
+        ...(input.query ? { query: input.query } : {}),
+        ...(input.cursor ? { cursor: input.cursor } : {}),
+        append: input.append,
+      })
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.applyPreset'], async ({ editorId, presetId }) => {
+    try {
+      const current = editor(editorId)
+      const preset = current.presets.items.find((item) => item.id === presetId)
+      if (!preset) throw new CommandError('NOT_FOUND', 'Provider preset is unavailable')
+      const result = await loadPresetModels(editorId, { presetId, append: false })
+      const first = result.items[0]
+      if (!first) throw new CommandError('NOT_FOUND', 'Provider preset has no compatible models')
+      const latest = editor(editorId)
+      const model = draftFromPreset(first)
+      replaceDraft(
+        latest,
+        {
+          id: latest.providerId ? latest.draft.id : preset.providerId,
+          name: preset.name,
+          visible: latest.draft.visible,
+          protocol: preset.protocol,
+          baseUrl: preset.baseUrl,
+          model: model.id,
+          models: [model],
+        },
+        model.id,
+      )
+      return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.addPresetModel'], ({ editorId, presetId, modelId }) => {
+    try {
+      const current = editor(editorId)
+      const preset = current.presets.items.find((item) => item.id === presetId)
+      const model = current.presets.models.find((item) => item.id === modelId)
+      if (!preset || current.presets.selectedPresetId !== presetId || !model)
+        throw new CommandError('NOT_FOUND', 'Preset model is unavailable')
+      if (preset.protocol !== current.draft.protocol || preset.baseUrl !== current.draft.baseUrl)
+        throw new CommandError('INVALID_INPUT', 'Preset model does not match the provider transport')
+      if (current.draft.models.some((item) => item.id === modelId))
+        throw new CommandError('COMMAND_CONFLICT', 'Provider model id already exists')
+      if (current.draft.models.length >= 256) throw new CommandError('INPUT_TOO_LARGE', 'Provider model limit reached')
+      replaceDraft(current, { ...current.draft, models: [...current.draft.models, draftFromPreset(model)] }, model.id)
       return summary(state.reader.getSnapshot())
     } catch (error) {
       throw commandError(error)
@@ -452,9 +1010,7 @@ export function createProviderSettings(
 
   const syncSurface = () => {
     const panel = currentEditorPanel()
-    if (!panel) {
-      return
-    }
+    if (!panel) return
     const providerId = typeof panel.params.entryId === 'string' ? panel.params.entryId : null
     const current = state.reader.getSnapshot().editor
     if (current?.editorId === panel.instanceId && current.providerId === providerId) return
@@ -467,6 +1023,7 @@ export function createProviderSettings(
     dispose() {
       unsubscribe()
       generation += 1
+      presetGeneration += 1
       pending.clear()
       secretDrafts.clear()
       state.dispose()
