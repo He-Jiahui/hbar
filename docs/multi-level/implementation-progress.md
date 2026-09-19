@@ -236,3 +236,11 @@ app-runtime 新增 status workspace 投影，按 `app.openStatus` 面板的 dash
 Status Center 的 Performance 页显示 Host PID/平台/架构/运行时间/逻辑处理器，整机与 Host CPU、负载、内存/RSS/堆、线程、事件循环、活动/排队运行、受管子进程、磁盘读写、网络收发与有界 CPU 时序。Windows 无法观测的整机 CPU/负载/线程/I/O 显示确切 reason，不补 0；字节使用稳定 B/KB/MB/GB 格式，无双重单位。分区标签和刷新/关闭均是命令入口。
 
 交付验证：performance runtime/React/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2378 个模块。真实临时 Host 的 Playwright 场景从侧栏打开 Performance，核对选中分区、Host process 与关闭回路；人工检查 `artifacts/web-b6/performance.png` 后将长 unavailable reason 移到 detail，并修正字节单位显示。
+
+### B6b：Usage Dashboard（完成）
+
+status workspace 在 usage 分区查询 Host 全局持久 usage/attempt 账本，使用 60 秒桶、最多 120 桶和 10,000 个样本的有界聚合。投影保留 accounting version、scope/window、gap、attempt/run 总数、input/output/cache read/cache write/billable Token、估算金额、缓存命中率、输入/输出/总速率、四类 p50/p95 延迟、模型分布和时间序列。切换 Performance/Usage 保留已读投影，只为当前 params 分区发起新查询。
+
+Usage 页按 Host i18n formatter 显示 Token、USD、比率、tokens/s 和毫秒；预计金额保留 estimated 说明，无样本/无价格/无时间点保留 reason。当前账本尚未记录可靠的工具调用统计、请求并发和总计耗时，页面显式显示为 unavailable/Not recorded，不从 message/run 数量或重叠延迟伪造。
+
+交付验证：usage runtime/React 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建仍为 2378 个模块。真实 Host Playwright 在产生用量事实后切换 Usage，核对持久账本与未记录指标。人工检查 `artifacts/web-b6/usage.png` 与 `usage-details.png`，并将长 cache/timing reason 改为 metric detail。
