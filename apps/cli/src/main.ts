@@ -64,6 +64,7 @@ async function serve(args: CliArgs) {
   const command = [
     process.execPath,
     host,
+    '--supervisor',
     '--desktop',
     ...(args.dataRoot ? ['--data-root', args.dataRoot] : []),
     ...(args.cacheRoot ? ['--cache-root', args.cacheRoot] : []),

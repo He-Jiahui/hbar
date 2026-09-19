@@ -21,7 +21,15 @@ test('system commands expose bounded diagnostics, path operations, devices, and 
     demo: true,
     secrets: new MemorySecrets(),
   })
-  const host = await startServer(kernel, { port: 0 })
+  let restartAccepted = false
+  let restartRequests = 0
+  const host = await startServer(kernel, {
+    port: 0,
+    restart() {
+      restartRequests++
+      return restartAccepted
+    },
+  })
   const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
   cleanups.push(async () => {
     client.disconnect()
@@ -61,6 +69,9 @@ test('system commands expose bounded diagnostics, path operations, devices, and 
     restartRequired: true,
   })
   expect(await commands.execute('system.restart', {})).toEqual({ accepted: false, restartRequired: true })
+  restartAccepted = true
+  expect(await commands.execute('system.restart', {})).toEqual({ accepted: true, restartRequired: false })
+  expect(restartRequests).toBe(2)
 
   const second = await host.auth.createDevice('second system device')
   expect((await commands.execute('device.list', {})).map((device) => device.id)).toContain(second.device.id)

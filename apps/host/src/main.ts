@@ -6,6 +6,7 @@ import type { KernelProfile } from '@hbar/kernel'
 import { Kernel } from '@hbar/kernel'
 import { resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
+import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -23,6 +24,8 @@ const { values } = parseArgs({
     key: { type: 'string' },
     'web-root': { type: 'string' },
     profile: { type: 'string' },
+    supervisor: { type: 'boolean' },
+    supervised: { type: 'boolean' },
   },
 })
 const layout = await resolvePathLayout({
@@ -31,6 +34,18 @@ const layout = await resolvePathLayout({
   cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
 })
 const home = layout.dataRoot
+if (values.supervisor) {
+  const supervisor = createHostSupervisor({
+    executable: process.execPath,
+    entrypoint: import.meta.path,
+    hostArgs: Bun.argv.slice(2),
+    connectionFile: layout.connectionFile,
+  })
+  const stopSupervisor = () => supervisor.stop()
+  process.on('SIGINT', stopSupervisor)
+  process.on('SIGTERM', stopSupervisor)
+  process.exit(await supervisor.run())
+}
 await mkdir(home, { recursive: true })
 const lock = layout.hostLock
 await mkdir(resolve(lock, '..'), { recursive: true })
@@ -52,6 +67,7 @@ try {
 }
 let cleanup: (() => Promise<void>) | undefined
 let kernel: Kernel | undefined
+let requestShutdown: ((exitCode: number) => void) | undefined
 try {
   const profile = values.profile
     ? ((await import(pathToFileURL(resolve(values.profile)).href)) as { default: KernelProfile }).default
@@ -71,6 +87,11 @@ try {
     ...((values['web-root'] ?? process.env.HBAR_WEB_ROOT)
       ? { staticRoot: values['web-root'] ?? process.env.HBAR_WEB_ROOT! }
       : {}),
+    restart() {
+      if (!values.supervised || !requestShutdown) return false
+      setTimeout(() => requestShutdown?.(RESTART_EXIT_CODE), 100)
+      return true
+    },
   })
   if (values.desktop) {
     const device = await host.auth.createDevice('hbar desktop')
@@ -94,11 +115,14 @@ try {
     await rm(lock, { force: true })
   }
   let closing = false
-  const stop = async () => {
+  const stop = async (exitCode = 0) => {
     if (closing) return
     closing = true
     await cleanup?.()
-    process.exit(0)
+    process.exit(exitCode)
+  }
+  requestShutdown = (exitCode) => {
+    void stop(exitCode)
   }
   process.on('SIGINT', () => {
     void stop()

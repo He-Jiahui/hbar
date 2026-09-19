@@ -33,6 +33,7 @@ export interface SystemCommandDependencies {
   devices(): Promise<Device[]>
   revokeDevice(id: string): Promise<{ revoked: boolean }>
   createPairing(): { code: string; expiresAt: number }
+  restart?(): boolean | Promise<boolean>
 }
 
 export function createSystemCommands(dependencies: SystemCommandDependencies) {
@@ -61,7 +62,10 @@ export function createSystemCommands(dependencies: SystemCommandDependencies) {
     ({ dataRoot, cacheRoot }) => translate(() => dependencies.setPaths(dataRoot, cacheRoot)),
     { durable: true },
   )
-  registry.register(systemCommands['system.restart'], () => ({ accepted: false, restartRequired: true }))
+  registry.register(systemCommands['system.restart'], async () => {
+    const accepted = (await dependencies.restart?.()) ?? false
+    return { accepted, restartRequired: !accepted }
+  })
   registry.register(systemCommands['device.list'], () => translate(() => dependencies.devices()))
   registry.register(systemCommands['device.revoke'], ({ id }) => translate(() => dependencies.revokeDevice(id)), {
     durable: true,

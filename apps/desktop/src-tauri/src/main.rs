@@ -123,7 +123,7 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
     let mut command = Command::new(executable);
     command
         .arg(resources.join("host.js"))
-        .args(["--desktop", "--port", "0", "--data-root"])
+        .args(["--supervisor", "--desktop", "--port", "0", "--data-root"])
         .arg(&data_root)
         .arg("--cache-root")
         .arg(&cache_root)

@@ -89,6 +89,7 @@ export interface ServerOptions {
   cert?: string
   key?: string
   metricsIntervalMs?: number
+  restart?: () => boolean | Promise<boolean>
 }
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
@@ -284,6 +285,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       return { revoked: true }
     },
     createPairing: () => auth.createPairing(),
+    ...(options.restart ? { restart: options.restart } : {}),
   })
   for (const id of Object.keys(systemDefinitions)) {
     commandDispatchers.set(id, systemCommands.dispatch)
