@@ -30,6 +30,7 @@
     "./commands/provider-editor": "./src/commands/provider-editor.ts",
     "./commands/run": "./src/commands/run.ts",
     "./commands/settings": "./src/commands/settings.ts",
+    "./commands/status-workspace": "./src/commands/status-workspace.ts",
     "./commands/settings-editor": "./src/commands/settings-editor.ts",
     "./commands/system": "./src/commands/system.ts",
     "./commands/usage": "./src/commands/usage.ts",

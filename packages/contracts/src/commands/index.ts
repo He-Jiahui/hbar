@@ -15,6 +15,7 @@ import { fileWorkspaceCommands } from './file-workspace'
 import { agentWorkspaceCommands } from './agent-workspace'
 import { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 import { extensionWorkspaceCommands } from './extension-workspace'
+import { statusWorkspaceCommands } from './status-workspace'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -155,6 +156,7 @@ export { fileWorkspaceCommands } from './file-workspace'
 export { agentWorkspaceCommands } from './agent-workspace'
 export { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 export { extensionWorkspaceCommands } from './extension-workspace'
+export { statusWorkspaceCommands } from './status-workspace'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -174,4 +176,5 @@ export const applicationCommands = {
   ...agentWorkspaceCommands,
   ...goalPlanWorkspaceCommands,
   ...extensionWorkspaceCommands,
+  ...statusWorkspaceCommands,
 }

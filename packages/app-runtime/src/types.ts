@@ -14,6 +14,7 @@ import type { ModelConfiguration } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type { PluginInfo, SkillDescriptor } from '@hbar/contracts/commands/extensions'
+import type { MetricsQueryResult } from '@hbar/contracts/commands/metrics'
 import type {
   Approval,
   GoalStatus,
@@ -71,6 +72,7 @@ export interface RuntimeOptions {
   readonly agents?: CommandExecutor
   readonly goals?: CommandExecutor
   readonly extensions?: CommandExecutor
+  readonly metrics?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort
   readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
@@ -178,6 +180,18 @@ export interface ExtensionWorkspaceEntryState {
 
 export interface ExtensionWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<ExtensionWorkspaceEntryState>>>
+}
+
+export interface StatusWorkspaceEntryState {
+  readonly instanceId: string
+  readonly section: 'dashboard' | 'usage' | 'git'
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly performance: Readonly<MetricsQueryResult> | null
+  readonly error: string | null
+}
+
+export interface StatusWorkspaceState {
+  readonly entries: Readonly<Record<string, Readonly<StatusWorkspaceEntryState>>>
 }
 
 export interface FileWorkspaceDocumentState {
