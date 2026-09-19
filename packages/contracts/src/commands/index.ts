@@ -11,6 +11,7 @@ import { settingsEditorCommands } from './settings-editor'
 import { providerEditorCommands } from './provider-editor'
 import { configurationCommands } from './configuration'
 import { commandPaletteCommands } from './command-palette'
+import { fileWorkspaceCommands } from './file-workspace'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -147,6 +148,7 @@ export { interactionDraftCommands } from './interaction-draft'
 export { settingsEditorCommands } from './settings-editor'
 export { providerEditorCommands } from './provider-editor'
 export { commandPaletteCommands } from './command-palette'
+export { fileWorkspaceCommands } from './file-workspace'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -162,4 +164,5 @@ export const applicationCommands = {
   ...providerEditorCommands,
   ...configurationCommands,
   ...commandPaletteCommands,
+  ...fileWorkspaceCommands,
 }

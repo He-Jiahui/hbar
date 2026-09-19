@@ -61,12 +61,38 @@ export interface RuntimeOptions {
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
   readonly configuration?: CommandExecutor
+  readonly files?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort
   readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly onSubscriberError?: (error: unknown) => void
+}
+
+export interface FileWorkspaceDocumentState {
+  readonly path: string
+  readonly status: 'idle' | 'loading' | 'ready' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
+  readonly baseline: string
+  readonly draft: string
+  readonly sha256: string | null
+  readonly pendingText: string | null
+  readonly error: string | null
+}
+
+export interface FileWorkspaceEntryState {
+  readonly instanceId: string
+  readonly workspaceId: string
+  readonly path: string
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly items: readonly { readonly name: string; readonly path: string; readonly directory: boolean }[]
+  readonly nextCursor: string | null
+  readonly document: Readonly<FileWorkspaceDocumentState> | null
+  readonly error: string | null
+}
+
+export interface FileWorkspaceState {
+  readonly entries: Readonly<Record<string, Readonly<FileWorkspaceEntryState>>>
 }
 
 export interface CommandCatalogPage {
