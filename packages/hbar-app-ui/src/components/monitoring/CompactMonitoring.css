@@ -54,11 +54,26 @@
   border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
-.hbar-app-ui-bar-series i {
+.hbar-app-ui-bar-series i,
+.hbar-app-ui-bar-series button {
   inline-size: 1rem;
   min-inline-size: var(--hbar-app-ui-divider);
   max-inline-size: 2rem;
   flex: 1 1 1rem;
+  padding: 0;
+  border: 0;
   border-radius: var(--hbar-app-ui-control-radius) var(--hbar-app-ui-control-radius) 0 0;
   background: var(--hbar-app-ui-accent);
+}
+
+.hbar-app-ui-bar-series button {
+  cursor: pointer;
+}
+
+.hbar-app-ui-bar-series button:hover,
+.hbar-app-ui-bar-series button:focus-visible,
+.hbar-app-ui-bar-series button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--hbar-app-ui-accent) 72%, var(--hbar-app-ui-text));
+  outline: calc(var(--hbar-app-ui-divider) * 2) solid var(--hbar-app-ui-text);
+  outline-offset: var(--hbar-app-ui-divider);
 }

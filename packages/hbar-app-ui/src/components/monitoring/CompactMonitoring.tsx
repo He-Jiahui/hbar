@@ -40,11 +40,17 @@ export function HbarAppUiBarSeries({
   points,
   empty,
   maximum,
+  selectedId,
+  selectLabel,
+  onSelect,
 }: {
   readonly label: string
   readonly points: readonly HbarAppUiBarPoint[]
   readonly empty: ReactNode
   readonly maximum?: number | undefined
+  readonly selectedId?: string | null | undefined
+  readonly selectLabel?: ((point: HbarAppUiBarPoint) => string) | undefined
+  readonly onSelect?: ((id: string) => void) | undefined
 }) {
   const records = uniqueItems(points)
   const scale =
@@ -53,15 +59,24 @@ export function HbarAppUiBarSeries({
       : Math.max(1, ...records.map((point) => (Number.isFinite(point.value) ? point.value : 0)))
   return records.length ? (
     <div className="hbar-app-ui-bar-series" role="img" aria-label={label}>
-      {records.map((point) => (
-        <i
-          key={point.id}
-          title={point.label}
-          style={{
-            blockSize: `${Math.max(0, Math.min(1, Number.isFinite(point.value) ? point.value / scale : 0)) * 100}%`,
-          }}
-        />
-      ))}
+      {records.map((point) => {
+        const style = {
+          blockSize: `${Math.max(0, Math.min(1, Number.isFinite(point.value) ? point.value / scale : 0)) * 100}%`,
+        }
+        return onSelect ? (
+          <button
+            key={point.id}
+            type="button"
+            title={point.label}
+            aria-label={selectLabel?.(point) ?? point.label}
+            aria-pressed={selectedId === point.id}
+            style={style}
+            onClick={() => onSelect(point.id)}
+          />
+        ) : (
+          <i key={point.id} title={point.label} style={style} />
+        )
+      })}
     </div>
   ) : (
     <>{empty}</>

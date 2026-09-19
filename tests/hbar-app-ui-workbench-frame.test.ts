@@ -123,6 +123,19 @@ test('compact monitoring primitives render finite host metrics without fallback 
   expect(series).toContain('block-size:20%')
   expect(series).not.toContain('NaN')
   expect(series).not.toContain('Localized empty series')
+  const selectableSeries = renderToStaticMarkup(
+    createElement(HbarAppUiBarSeries, {
+      label: 'Localized selectable timeline',
+      points: [{ id: 'bucket', value: 12, label: 'Localized bucket details' }],
+      selectedId: 'bucket',
+      selectLabel: () => 'Filter localized records to this bucket',
+      onSelect: () => undefined,
+      empty: 'Localized empty series',
+    }),
+  )
+  expect(selectableSeries).toContain('type="button"')
+  expect(selectableSeries).toContain('aria-label="Filter localized records to this bucket"')
+  expect(selectableSeries).toContain('aria-pressed="true"')
   const emptySeries = renderToStaticMarkup(
     createElement(HbarAppUiBarSeries, {
       label: 'Localized empty timeline',
