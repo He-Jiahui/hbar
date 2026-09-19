@@ -202,7 +202,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await page.getByRole('button', { name: 'Usage', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 2, name: 'Global AI usage' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'AI usage' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: 'Execution statistics' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b6/usage.png', fullPage: true })
     await page.locator('.hbar-app-react-status-workspace > main').evaluate((element) => {
@@ -290,7 +290,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await page.getByRole('button', { name: 'Usage', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 2, name: 'Global AI usage' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'AI usage' })).toBeVisible()
     await expectNoHorizontalOverflow()
     await expectShellPanesDoNotOverlap()
     await page.screenshot({ path: 'artifacts/web-b7/connected-status-narrow.png', fullPage: true })
