@@ -91,6 +91,7 @@ test('command palette projects categorized host and client commands through comm
     const refreshed = await runtime.view.commands.execute('commandPalette.refresh', {})
     expect(refreshed.status).toBe('ready')
     const initial = runtime.view.state.commandPalette.getSnapshot()
+    expect(initial.view).toBe('search')
     expect(initial.revision).toBe(
       7 + Object.values(initial.items).filter((item) => item.descriptor.metadata.execution !== 'host').length,
     )
@@ -106,10 +107,13 @@ test('command palette projects categorized host and client commands through comm
     expect(state.selectedId).toBe('session.setBudget')
     expect(state.draft?.values).toMatchObject({ sessionId: session.id })
     expect(state.draft?.issues).toContainEqual({ field: 'tokens', code: 'required' })
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: 'session.setBudget' })
+    expect(runtime.view.state.commandPalette.getSnapshot().view).toBe('parameters')
     await runtime.view.commands.execute('commandPalette.setParameter', { field: 'tokens', value: '120000' })
     await runtime.view.commands.execute('commandPalette.execute', {})
     state = runtime.view.state.commandPalette.getSnapshot()
     expect(state.execution).toMatchObject({ status: 'succeeded', commandId: 'session.setBudget' })
+    expect(state.view).toBe('result')
     expect(state.draft?.values).toMatchObject({ sessionId: session.id, tokens: '120000' })
     expect(state.draft?.issues).toEqual([])
     expect(executions[0]).toMatchObject({
@@ -117,8 +121,14 @@ test('command palette projects categorized host and client commands through comm
       input: { sessionId: session.id, tokens: 120000 },
     })
     expect(executions[0]?.idempotencyKey).toBeString()
+    await runtime.view.commands.execute('commandPalette.back', {})
+    expect(runtime.view.state.commandPalette.getSnapshot()).toMatchObject({
+      view: 'parameters',
+      execution: { status: 'idle' },
+    })
 
     await runtime.view.commands.execute('commandPalette.setQuery', { query: 'sample.saveSecret' })
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: 'sample.saveSecret' })
     await runtime.view.commands.execute('commandPalette.setParameter', { field: 'secret', value: 'never-project-me' })
     state = runtime.view.state.commandPalette.getSnapshot()
     expect(state.draft?.values).toEqual({})
@@ -133,6 +143,7 @@ test('command palette projects categorized host and client commands through comm
     expect(JSON.stringify(state)).not.toContain('never-project-me')
 
     await runtime.view.commands.execute('commandPalette.setQuery', { query: 'app.openPanel' })
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: 'app.openPanel' })
     await runtime.view.commands.execute('commandPalette.setParameter', { field: 'panelId', value: 'status' })
     await runtime.view.commands.execute('commandPalette.execute', {})
     expect(runtime.view.state.surfaces.getSnapshot().focusedPanelId).not.toBeNull()

@@ -4,6 +4,7 @@ import { defineCommand } from '@hbar/commands/protocol'
 const commandIdSchema = z.string().min(1).max(128)
 const summarySchema = z.strictObject({
   status: z.enum(['idle', 'loading', 'ready', 'error']),
+  view: z.enum(['search', 'parameters', 'result']),
   query: z.string().max(256),
   selectedId: commandIdSchema.nullable(),
   itemCount: z.number().int().nonnegative(),
@@ -41,6 +42,12 @@ export const commandPaletteCommands = {
     z.strictObject({ commandId: commandIdSchema }),
     summarySchema,
   ),
+  'commandPalette.openCommand': defineCommand(
+    metadata('commandPalette.openCommand'),
+    z.strictObject({ commandId: commandIdSchema }),
+    summarySchema,
+  ),
+  'commandPalette.back': defineCommand(metadata('commandPalette.back'), z.strictObject({}), summarySchema),
   'commandPalette.move': defineCommand(
     metadata('commandPalette.move'),
     z.strictObject({ direction: z.union([z.literal(-1), z.literal(1)]) }),

@@ -119,6 +119,7 @@ export function createCommandPalette(
   const state = createState<CommandPaletteState>(
     {
       status: 'idle',
+      view: 'search',
       revision: null,
       query: '',
       categories: [],
@@ -203,6 +204,7 @@ export function createCommandPalette(
     const current = state.reader.getSnapshot()
     return {
       status: current.status,
+      view: current.view,
       query: current.query,
       selectedId: current.selectedId,
       itemCount: current.visibleIds.length,
@@ -278,6 +280,7 @@ export function createCommandPalette(
     state.replace({
       ...replaceSelection({ ...current, query }, current.items, ids, current.selectedId, selectionLost),
       query,
+      view: 'search',
       execution: { status: 'idle', commandId: null, result: null, error: null },
     })
     return summary()
@@ -303,6 +306,24 @@ export function createCommandPalette(
     const index = current.selectedId ? current.visibleIds.indexOf(current.selectedId) : -1
     const next = Math.min(current.visibleIds.length - 1, Math.max(0, index + direction))
     return select(current.visibleIds[next]!)
+  }
+
+  const openCommand = (commandId: string): CommandPaletteSummary => {
+    select(commandId)
+    const current = state.reader.getSnapshot()
+    state.replace({ ...current, view: 'parameters' })
+    return summary()
+  }
+
+  const back = (): CommandPaletteSummary => {
+    const current = state.reader.getSnapshot()
+    if (current.view === 'search') return summary()
+    state.replace({
+      ...current,
+      view: current.view === 'result' ? 'parameters' : 'search',
+      execution: { status: 'idle', commandId: null, result: null, error: null },
+    })
+    return summary()
   }
 
   const updateParameter = (field: string, value: CommandParameterDraftValue | undefined): CommandPaletteSummary => {
@@ -373,6 +394,7 @@ export function createCommandPalette(
           fullDraft = unsetCommandParameter(item.form, fullDraft, field.name)
       state.replace({
         ...latest,
+        view: 'result',
         draft: fullDraft ? publicDraft(item.form, fullDraft) : null,
         execution: { status: 'succeeded', commandId, result: resultText(result), error: null },
         sensitiveResetRevision: latest.sensitiveResetRevision + 1,
@@ -384,6 +406,7 @@ export function createCommandPalette(
       const code = errorCode(reason)
       state.replace({
         ...latest,
+        view: 'result',
         execution: {
           status: code === 'RESULT_UNKNOWN' || code === 'TIMEOUT' || code === 'DISCONNECTED' ? 'unknown' : 'failed',
           commandId,
@@ -398,6 +421,8 @@ export function createCommandPalette(
   local.register(commandPaletteCommands['commandPalette.refresh'], refresh)
   local.register(commandPaletteCommands['commandPalette.setQuery'], ({ query }) => setQuery(query))
   local.register(commandPaletteCommands['commandPalette.select'], ({ commandId }) => select(commandId))
+  local.register(commandPaletteCommands['commandPalette.openCommand'], ({ commandId }) => openCommand(commandId))
+  local.register(commandPaletteCommands['commandPalette.back'], back)
   local.register(commandPaletteCommands['commandPalette.move'], ({ direction }) => move(direction))
   local.register(commandPaletteCommands['commandPalette.setParameter'], ({ field, value }) =>
     updateParameter(field, value),

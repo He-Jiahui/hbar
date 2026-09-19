@@ -358,6 +358,7 @@ export interface CommandPaletteDraftState {
 
 export interface CommandPaletteState {
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly view: 'search' | 'parameters' | 'result'
   readonly revision: number | null
   readonly query: string
   readonly categories: readonly { readonly id: string; readonly count: number }[]
