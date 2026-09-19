@@ -13,6 +13,7 @@ import type { RunAccepted } from '@hbar/contracts/commands/run'
 import type { ModelConfiguration } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
+import type { PluginInfo, SkillDescriptor } from '@hbar/contracts/commands/extensions'
 import type {
   Approval,
   GoalStatus,
@@ -69,6 +70,7 @@ export interface RuntimeOptions {
   readonly files?: CommandExecutor
   readonly agents?: CommandExecutor
   readonly goals?: CommandExecutor
+  readonly extensions?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort
   readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
@@ -158,6 +160,24 @@ export interface GoalPlanWorkspaceEntryState {
 
 export interface GoalPlanWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<GoalPlanWorkspaceEntryState>>>
+}
+
+export interface ExtensionWorkspaceActionState {
+  readonly status: 'submitting' | 'succeeded' | 'failed' | 'unknown'
+  readonly error: string | null
+}
+
+export interface ExtensionWorkspaceEntryState {
+  readonly instanceId: string
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly plugins: readonly Readonly<PluginInfo>[]
+  readonly skills: readonly Readonly<SkillDescriptor>[]
+  readonly actions: Readonly<Record<string, Readonly<ExtensionWorkspaceActionState>>>
+  readonly error: string | null
+}
+
+export interface ExtensionWorkspaceState {
+  readonly entries: Readonly<Record<string, Readonly<ExtensionWorkspaceEntryState>>>
 }
 
 export interface FileWorkspaceDocumentState {

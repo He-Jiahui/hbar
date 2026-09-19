@@ -21,6 +21,7 @@ import { commandPaletteCommands } from '@hbar/contracts/commands/command-palette
 import { fileWorkspaceCommands } from '@hbar/contracts/commands/file-workspace'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
+import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-workspace'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -36,6 +37,7 @@ import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
 import { createAgentWorkspace } from './agent-workspace'
 import { createGoalPlanWorkspace } from './goal-plan-workspace'
+import { createExtensionWorkspace } from './extension-workspace'
 import type { NavigationState, RuntimeOptions, SurfaceState } from './types'
 export type { StateReader } from './state'
 export type {
@@ -87,6 +89,9 @@ export type {
   GoalPlanPlanDraftState,
   GoalPlanWorkspaceEntryState,
   GoalPlanWorkspaceState,
+  ExtensionWorkspaceActionState,
+  ExtensionWorkspaceEntryState,
+  ExtensionWorkspaceState,
 } from './types'
 export { SessionSelectionError } from './navigation'
 
@@ -162,6 +167,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
   )
   const goalPlanWorkspace = createGoalPlanWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
+  const extensionWorkspace = createExtensionWorkspace(
+    local,
+    options,
+    surfaces.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -188,6 +200,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(fileWorkspaceCommands, name) ||
         Object.hasOwn(agentWorkspaceCommands, name) ||
         Object.hasOwn(goalPlanWorkspaceCommands, name) ||
+        Object.hasOwn(extensionWorkspaceCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -221,6 +234,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       files: fileWorkspace.reader,
       agents: agentWorkspace.reader,
       goals: goalPlanWorkspace.reader,
+      extensions: extensionWorkspace.reader,
     }),
     commands: Object.freeze(createCommandClient(applicationCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
@@ -250,6 +264,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       fileWorkspace.dispose()
       agentWorkspace.dispose()
       goalPlanWorkspace.dispose()
+      extensionWorkspace.dispose()
       disposeSurfaces()
       surfaces.dispose()
       navigation.dispose()

@@ -137,3 +137,4 @@ export const extensionCommands = {
 }
 
 export type SkillDescriptor = z.output<typeof skillSchema>
+export type PluginInfo = z.output<typeof pluginInfoSchema>
