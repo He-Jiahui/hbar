@@ -63,6 +63,33 @@ export interface HbarStatusWorkspaceLabels {
     readonly p50p95: (p50: string, p95: string) => string
     readonly model: (provider: string, model: string) => string
   }
+  readonly git: {
+    readonly title: string
+    readonly provenance: string
+    readonly changes: string
+    readonly timeline: string
+    readonly policy: string
+    readonly commits: string
+    readonly automatic: string
+    readonly manual: string
+    readonly external: string
+    readonly filesChanged: string
+    readonly additions: string
+    readonly deletions: string
+    readonly renames: string
+    readonly binaryFiles: string
+    readonly repository: string
+    readonly head: string
+    readonly scanned: string
+    readonly indexMode: string
+    readonly historyPolicy: string
+    readonly timeBasis: string
+    readonly timezone: string
+    readonly gap: string
+    readonly binaryChanges: string
+    readonly binaryUnavailable: string
+    readonly noHead: string
+  }
   readonly unavailable: (reason: string | null) => string
   readonly number: (value: number) => string
   readonly currency: (value: number) => string
@@ -116,6 +143,7 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
 
   const report = entry?.performance
   const usageReport = entry?.usage
+  const gitReport = entry?.git
   const readings = report?.current?.readings
   const metrics = (keys: readonly ReadingKey[]) =>
     keys.map((key) => {
@@ -200,7 +228,7 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
       ) : entry.error ||
         (section === 'dashboard' && !report) ||
         (section === 'usage' && !usageReport) ||
-        section === 'git' ? (
+        (section === 'git' && !gitReport) ? (
         <p className="hbar-app-react-status-loading" role="alert">
           {labels.error(entry.error ?? 'CAPABILITY_UNAVAILABLE')}
         </p>
@@ -270,7 +298,7 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
             </div>
           </section>
         </main>
-      ) : usageReport ? (
+      ) : section === 'usage' && usageReport ? (
         <main className="hbar-app-react-global-usage">
           {usageReport.gap && <p role="status">{labels.usage.gap}</p>}
           <section>
@@ -358,6 +386,119 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
                 { label: labels.usage.toolCalls, value: labels.unavailable(labels.usage.notRecorded) },
                 { label: labels.usage.concurrency, value: labels.unavailable(labels.usage.notRecorded) },
                 { label: labels.usage.totalDuration, value: labels.unavailable(labels.usage.notRecorded) },
+              ]}
+            />
+          </section>
+        </main>
+      ) : gitReport ? (
+        <main className="hbar-app-react-git-status">
+          {gitReport.gap && <p role="status">{labels.git.gap}</p>}
+          <section>
+            <h2>{labels.git.title}</h2>
+            <HbarAppUiMetricStrip
+              metrics={[
+                { label: labels.git.repository, value: gitReport.repoId },
+                { label: labels.git.head, value: gitReport.head?.slice(0, 12) ?? labels.git.noHead },
+                { label: labels.git.scanned, value: labels.number(gitReport.scannedCommits) },
+                { label: labels.git.indexMode, value: gitReport.indexMode },
+              ]}
+            />
+          </section>
+          <section>
+            <h2>{labels.git.provenance}</h2>
+            <HbarAppUiMetricStrip
+              metrics={[
+                { label: labels.git.commits, value: labels.number(gitReport.totals.commits) },
+                { label: labels.git.automatic, value: labels.number(gitReport.totals.autoCommits) },
+                { label: labels.git.manual, value: labels.number(gitReport.totals.manualCommits) },
+                { label: labels.git.external, value: labels.number(gitReport.totals.externalCommits) },
+              ]}
+            />
+          </section>
+          <section>
+            <h2>{labels.git.changes}</h2>
+            <HbarAppUiMetricStrip
+              metrics={[
+                { label: labels.git.filesChanged, value: labels.number(gitReport.totals.filesChanged) },
+                { label: labels.git.additions, value: labels.number(gitReport.totals.additions) },
+                { label: labels.git.deletions, value: labels.number(gitReport.totals.deletions) },
+                { label: labels.git.renames, value: labels.number(gitReport.totals.renames) },
+                { label: labels.git.binaryFiles, value: labels.number(gitReport.totals.binaryFiles) },
+                {
+                  label: labels.git.binaryChanges,
+                  value:
+                    gitReport.binaryLineChanges.availability === 'available' &&
+                    gitReport.binaryLineChanges.value !== null
+                      ? labels.number(gitReport.binaryLineChanges.value)
+                      : labels.git.binaryUnavailable,
+                  ...(gitReport.binaryLineChanges.reason ? { detail: gitReport.binaryLineChanges.reason } : {}),
+                },
+              ]}
+            />
+          </section>
+          <section>
+            <h2>{labels.git.timeline}</h2>
+            <div className="hbar-app-react-git-charts">
+              <article>
+                <h3>{labels.git.commits}</h3>
+                <div className="hbar-app-react-git-series" aria-label={labels.git.commits}>
+                  {gitReport.points.map((point) => {
+                    const maximum = Math.max(1, ...gitReport.points.map((item) => item.commits))
+                    return (
+                      <span
+                        key={point.start}
+                        style={{
+                          blockSize: `${point.commits === 0 ? 0 : Math.max(0.08, point.commits / maximum) * 100}%`,
+                        }}
+                        title={`${labels.observedAt(point.start)} · ${labels.number(point.commits)} ${labels.git.commits}`}
+                      >
+                        {point.autoCommits > 0 && <i className="is-auto" style={{ flex: point.autoCommits }} />}
+                        {point.manualCommits > 0 && <i className="is-manual" style={{ flex: point.manualCommits }} />}
+                        {point.externalCommits > 0 && (
+                          <i className="is-external" style={{ flex: point.externalCommits }} />
+                        )}
+                      </span>
+                    )
+                  })}
+                </div>
+                <footer>
+                  <span className="is-auto">{labels.git.automatic}</span>
+                  <span className="is-manual">{labels.git.manual}</span>
+                  <span className="is-external">{labels.git.external}</span>
+                </footer>
+              </article>
+              <article>
+                <h3>{labels.git.changes}</h3>
+                <div className="hbar-app-react-git-series" aria-label={labels.git.changes}>
+                  {gitReport.points.map((point) => {
+                    const value = point.additions + point.deletions
+                    const maximum = Math.max(1, ...gitReport.points.map((item) => item.additions + item.deletions))
+                    return (
+                      <span
+                        key={point.start}
+                        style={{ blockSize: `${value === 0 ? 0 : Math.max(0.08, value / maximum) * 100}%` }}
+                        title={`${labels.observedAt(point.start)} · +${labels.number(point.additions)} / -${labels.number(point.deletions)}`}
+                      >
+                        {point.additions > 0 && <i className="is-addition" style={{ flex: point.additions }} />}
+                        {point.deletions > 0 && <i className="is-deletion" style={{ flex: point.deletions }} />}
+                      </span>
+                    )
+                  })}
+                </div>
+                <footer>
+                  <span className="is-addition">{labels.git.additions}</span>
+                  <span className="is-deletion">{labels.git.deletions}</span>
+                </footer>
+              </article>
+            </div>
+          </section>
+          <section>
+            <h2>{labels.git.policy}</h2>
+            <HbarAppUiMetricStrip
+              metrics={[
+                { label: labels.git.historyPolicy, value: gitReport.historyPolicy },
+                { label: labels.git.timeBasis, value: gitReport.timeBasis },
+                { label: labels.git.timezone, value: gitReport.timezone },
               ]}
             />
           </section>

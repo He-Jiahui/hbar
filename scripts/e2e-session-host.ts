@@ -1,5 +1,6 @@
 import { HbarClient, createBudgetCommandClient, createModelCommandClient } from '@hbar/client'
 import { writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -8,6 +9,14 @@ const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
 if (!root || !Number.isInteger(port)) throw new Error('E2E Host root and port are required')
 
 await writeFile(`${root}/browser-e2e.md`, '# Browser file\n', 'utf8')
+for (const arguments_ of [
+  ['init'],
+  ['config', 'user.email', 'browser-e2e@hbar.invalid'],
+  ['config', 'user.name', 'hbar browser fixture'],
+  ['add', 'browser-e2e.md'],
+  ['commit', '-m', 'browser fixture'],
+])
+  execFileSync('git', arguments_, { cwd: root, stdio: 'ignore', windowsHide: true })
 
 const kernel = await Kernel.create({ home: `${root}/data`, workspace: root, demo: true, secrets: new MemorySecrets() })
 const workspace = (await kernel.storage.call('workspaces'))[0]!
