@@ -79,3 +79,22 @@
 .hbar-app-react-load-more {
   color: var(--hbar-app-ui-accent) !important;
 }
+
+@media (max-width: 42rem) {
+  .hbar-app-ui-app-shell > .hbar-app-ui-app-sidebar {
+    flex: 0 0 40dvh;
+    block-size: 40dvh;
+  }
+
+  .hbar-app-ui-app-sidebar > header,
+  .hbar-app-ui-app-sidebar > footer {
+    padding: var(--hbar-app-ui-space-md);
+  }
+
+  .hbar-app-react-sidebar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--hbar-app-ui-space-xs);
+    padding-block-start: var(--hbar-app-ui-space-sm);
+  }
+}

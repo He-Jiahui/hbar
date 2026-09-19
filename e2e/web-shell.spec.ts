@@ -249,6 +249,58 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Close goals and plans' }).click()
     await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
+    await page.setViewportSize({ width: 390, height: 844 })
+    const expectNoHorizontalOverflow = async () =>
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    const expectShellPanesDoNotOverlap = async () =>
+      expect(
+        await page.evaluate(() => {
+          const sidebar = document.querySelector('aside')?.getBoundingClientRect()
+          const main = document.querySelector('main[aria-label="Workspace"]')?.getBoundingClientRect()
+          return Boolean(sidebar && main && sidebar.bottom <= main.top + 1)
+        }),
+      ).toBe(true)
+    await expectNoHorizontalOverflow()
+    await expectShellPanesDoNotOverlap()
+
+    await page.getByRole('button', { name: 'Files', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.getByRole('button', { name: 'Close file manager' }).click()
+
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.getByRole('button', { name: 'Close session monitoring' }).click()
+
+    await page.getByRole('button', { name: 'Child agents', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.getByRole('button', { name: 'Close child agent management' }).click()
+
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Goals and plans' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+
+    await page.getByRole('button', { name: 'Extensions', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Extensions and skills' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.getByRole('button', { name: 'Close extensions and skills' }).click()
+
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await page.getByRole('button', { name: 'Usage', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Global AI usage' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await expectShellPanesDoNotOverlap()
+    await page.screenshot({ path: 'artifacts/web-b7/connected-status-narrow.png', fullPage: true })
+    await page.getByRole('button', { name: 'Git', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Git repository' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await page.setViewportSize({ width: 1440, height: 960 })
+
     await prompt.fill('/tool write_file {"path":"browser-e2e.txt","text":"approved"}')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByText('Agent approval')).toBeVisible()
