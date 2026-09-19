@@ -155,7 +155,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   )
   const remote = directory.registry
-  registerNavigationCommands(local, directory.queries, directory.openWorkspace, navigation, () => disposed)
+  registerNavigationCommands(
+    local,
+    directory.queries,
+    directory.createSession,
+    directory.openWorkspace,
+    navigation,
+    () => disposed,
+  )
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)

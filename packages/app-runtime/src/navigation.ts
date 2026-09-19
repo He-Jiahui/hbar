@@ -3,7 +3,24 @@ import { navigationCommands } from '@hbar/contracts/commands'
 import type { createState } from './state'
 import type { NavigationState } from './types'
 import type { DirectoryQueries } from './directory'
-import type { Workspace } from '@hbar/contracts/directory'
+import type { Session, Workspace } from '@hbar/contracts/directory'
+const MAX_PENDING_SESSION_CREATIONS = 128
+const UNCERTAIN_CREATION_CODES = new Set([
+  'RESULT_UNKNOWN',
+  'DISCONNECTED',
+  'TIMEOUT',
+  'TIMED_OUT',
+  'CANCELLED',
+  'NAVIGATION_SUPERSEDED',
+  'INVALID_OUTPUT',
+])
+
+function errorCode(error: unknown): string {
+  return error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : 'EXECUTION_FAILED'
+}
+
 export class SessionSelectionError extends CommandError {
   constructor(
     code: string,
@@ -16,11 +33,13 @@ export class SessionSelectionError extends CommandError {
 export function registerNavigationCommands(
   local: CommandRegistry,
   queries: DirectoryQueries,
+  createSession: (workspaceId: string, title: string | undefined, execution: ExecuteOptions) => Promise<Session>,
   openWorkspace: (path: string, execution: ExecuteOptions) => Promise<Workspace>,
   navigation: ReturnType<typeof createState<NavigationState>>,
   isDisposed: () => boolean,
 ): void {
   let generation = 0
+  const pendingSessionCreations = new Map<string, string>()
   async function navigate<Selection extends { workspaceId: string; sessionId: string | null }>(
     operation: (execution: ExecuteOptions) => Promise<Selection>,
     execution: ExecuteOptions,
@@ -51,6 +70,34 @@ export function registerNavigationCommands(
       throw error
     }
   }
+  local.register(navigationCommands['app.createSession'], async (input, context) => {
+    const operation = JSON.stringify([input.workspaceId, input.title ?? null])
+    let key = context.idempotencyKey ?? pendingSessionCreations.get(operation)
+    if (!key) {
+      if (pendingSessionCreations.size >= MAX_PENDING_SESSION_CREATIONS)
+        throw new CommandError('BUSY', 'Too many unresolved session creations')
+      key = crypto.randomUUID()
+    }
+    pendingSessionCreations.set(operation, key)
+    let creationStarted = false
+    try {
+      const result = await navigate(async (execution) => {
+        const workspace = await queries.execute('workspace.get', { workspaceId: input.workspaceId }, execution)
+        if (!workspace) throw new SessionSelectionError('WORKSPACE_NOT_FOUND')
+        creationStarted = true
+        const session = await createSession(input.workspaceId, input.title, {
+          ...execution,
+          idempotencyKey: key,
+        })
+        return { workspaceId: workspace.id, sessionId: session.id, session }
+      }, context)
+      pendingSessionCreations.delete(operation)
+      return result.session
+    } catch (error) {
+      if (!creationStarted || !UNCERTAIN_CREATION_CODES.has(errorCode(error))) pendingSessionCreations.delete(operation)
+      throw error
+    }
+  })
   local.register(navigationCommands['workspace.open'], (input, context) =>
     navigate(async (execution) => {
       const workspace = await openWorkspace(input.path, execution)

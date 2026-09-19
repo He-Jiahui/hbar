@@ -4,6 +4,16 @@ import { CommandError, type CommandExecutor } from '@hbar/commands'
 
 const existing = { id: 'existing', name: 'existing', path: 'D:/existing', createdAt: 1 }
 const opened = { id: 'opened', name: 'project', path: 'D:/project', createdAt: 2 }
+const created = {
+  id: 'created-session',
+  workspaceId: existing.id,
+  title: 'Focused work',
+  archived: false,
+  parentId: null,
+  createdAt: 3,
+  updatedAt: 3,
+  seq: 0,
+}
 const directory: CommandExecutor = {
   execute(name, input) {
     if (name === 'workspace.get')
@@ -73,4 +83,80 @@ test('workspace.open reports unavailable and unknown writes without claiming a n
   expect(unknown.view.state.navigation.getSnapshot()).toMatchObject({ workspaceId: existing.id, status: 'error' })
   expect(unknown.view.state.directory.getSnapshot().workspaces[opened.id]).toBeUndefined()
   unknown.dispose()
+})
+
+test('app.createSession creates through the Host port and opens the returned session without exposing an ID workflow', async () => {
+  const calls: { name: string; input: unknown; idempotencyKey?: string }[] = []
+  const runtime = createAppRuntime({
+    instanceId: 'session-create',
+    hostId: 'host',
+    directory,
+    workspaces: {
+      execute(name, input, options) {
+        calls.push({ name, input, ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}) })
+        return Promise.resolve(created)
+      },
+    },
+  })
+  try {
+    const result = await runtime.view.commands.execute('app.createSession', {
+      workspaceId: existing.id,
+      title: ' Focused work ',
+    })
+    expect(result).toEqual(created)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      name: 'session.create',
+      input: { workspaceId: existing.id, title: 'Focused work' },
+    })
+    expect(calls[0]?.idempotencyKey).toBeString()
+    expect(calls[0]?.idempotencyKey).not.toBeEmpty()
+    expect(runtime.view.state.navigation.getSnapshot()).toMatchObject({
+      workspaceId: existing.id,
+      sessionId: created.id,
+      status: 'idle',
+      error: null,
+    })
+    expect(runtime.view.state.directory.getSnapshot().sessions[created.id]).toEqual(created)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('app.createSession reuses its internal idempotency key after an unknown Host result', async () => {
+  const keys: string[] = []
+  let attempt = 0
+  const runtime = createAppRuntime({
+    instanceId: 'session-create-retry',
+    hostId: 'host',
+    directory,
+    workspaces: {
+      execute(_name, _input, options) {
+        keys.push(options?.idempotencyKey ?? '')
+        attempt += 1
+        if (attempt === 1) return Promise.reject(new CommandError('RESULT_UNKNOWN', 'response lost'))
+        return Promise.resolve(created)
+      },
+    },
+  })
+  try {
+    const input = { workspaceId: existing.id, title: 'Focused work' }
+    await expect(runtime.view.commands.execute('app.createSession', input)).rejects.toHaveProperty(
+      'code',
+      'RESULT_UNKNOWN',
+    )
+    expect(runtime.view.state.navigation.getSnapshot()).toMatchObject({ status: 'error', sessionId: null })
+    expect(await runtime.view.commands.execute('app.createSession', input)).toEqual(created)
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toBeString()
+    expect(keys[0]).not.toBeEmpty()
+    expect(keys[1]).toBe(keys[0])
+    expect(runtime.view.state.navigation.getSnapshot()).toMatchObject({
+      workspaceId: existing.id,
+      sessionId: created.id,
+      status: 'idle',
+    })
+  } finally {
+    runtime.dispose()
+  }
 })

@@ -110,6 +110,24 @@ export const setSessionInputSchema = z
   )
 
 export const navigationCommands = {
+  'app.createSession': defineCommand(
+    {
+      ...query('app.createSession'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'workspace',
+      category: 'workspace.session',
+      cli: {
+        arguments: [
+          { field: 'title', type: 'string', position: 0, flag: 'title' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+        ],
+      },
+    },
+    z.strictObject({ workspaceId: z.string().min(1).max(160), title: z.string().trim().min(1).max(160).optional() }),
+    sessionSchema,
+  ),
   'workspace.open': defineCommand(
     {
       ...query('workspace.open'),

@@ -403,6 +403,7 @@
     "agentWorkspace.showList",
     "agentWorkspace.setField",
     "app.back",
+    "app.createSession",
     "app.clearTranscript",
     "app.closeCommandForm",
     "app.closePanel",

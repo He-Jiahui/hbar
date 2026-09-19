@@ -129,6 +129,28 @@ export function createDirectoryModule(
 
   return {
     queries,
+    async createSession(workspaceId: string, title: string | undefined, execution: ExecuteOptions): Promise<Session> {
+      if (!options.workspaces)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot create Host sessions')
+      if (!execution.idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Session creation requires an internal idempotency key')
+      let value: unknown
+      try {
+        value = await options.workspaces.execute(
+          'session.create',
+          { workspaceId, ...(title === undefined ? {} : { title }) },
+          execution,
+        )
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
+      const session = decode(sessionSchema, value)
+      if (session.workspaceId !== workspaceId || session.archived)
+        throw new CommandError('INVALID_OUTPUT', 'Created session does not match its workspace')
+      if (!disposed && !execution.signal?.aborted) mergeSessions([session])
+      return session
+    },
     async openWorkspace(path: string, execution: ExecuteOptions): Promise<Workspace> {
       if (!options.workspaces)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot register Host workspaces')
