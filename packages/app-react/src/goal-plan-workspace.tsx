@@ -66,14 +66,17 @@ const fromUiState: Readonly<Partial<Record<HbarAppUiAgentPlanState, PlanStepStat
 export function HbarGoalPlanWorkspace({
   labels,
   connected,
+  instanceId: requestedInstanceId,
 }: {
   readonly labels: HbarGoalPlanWorkspaceLabels
   readonly connected: boolean
+  readonly instanceId?: string
 }) {
   const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const goals = useHbarRuntimeState(runtime.state.goals)
-  const instanceId = surfaces.focusedPanelId
+  const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const entry = instanceId ? goals.entries[instanceId] : undefined
   const invoke = useCallback(

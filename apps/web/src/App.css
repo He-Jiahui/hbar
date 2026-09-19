@@ -1,0 +1,21 @@
+dialog.hbar-app-react-workspace-modal {
+  --hbar-app-ui-dialog-width: 72rem;
+
+  block-size: min(52rem, calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap)));
+}
+
+dialog.hbar-app-react-provider-modal {
+  --hbar-app-ui-dialog-width: 80rem;
+}
+
+.hbar-app-react-workspace-modal > .hbar-app-ui-native-dialog-body > * {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 48rem) {
+  dialog.hbar-app-react-workspace-modal {
+    block-size: calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap));
+  }
+}

@@ -100,15 +100,17 @@ export function HbarProviderDialog({
 }) {
   const runtime = useHbarRuntime()
   const providers = useHbarRuntimeState(runtime.state.providers)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const [actionError, setActionError] = useState<string | null>(null)
   const editor = providers.editor
   const editorId = editor?.editorId
   const back = useCallback(() => {
     setActionError(null)
-    void runtime.commands
-      .execute('app.openSettings', { scope: 'global', section: 'providers' })
-      .catch((reason) => setActionError(reasonCode(reason)))
-  }, [runtime.commands])
+    if (presentation.modalInstanceId)
+      void runtime.commands
+        .execute('app.closePanel', { instanceId: presentation.modalInstanceId })
+        .catch((reason) => setActionError(reasonCode(reason)))
+  }, [presentation.modalInstanceId, runtime.commands])
   const intent = useCallback(
     (value: HbarProviderEditorIntent) => {
       if (!editorId) return

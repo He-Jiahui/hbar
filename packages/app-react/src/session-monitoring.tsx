@@ -37,16 +37,22 @@ export interface HbarSessionMonitoringLabels {
   readonly model: (provider: string, model: string) => string
 }
 
-export function HbarSessionMonitoring({ labels }: { readonly labels: HbarSessionMonitoringLabels }) {
+export function HbarSessionMonitoring({
+  labels,
+  instanceId: requestedInstanceId,
+}: {
+  readonly labels: HbarSessionMonitoringLabels
+  readonly instanceId?: string
+}) {
   const runtime = useHbarRuntime()
   const controls = useHbarRuntimeState(runtime.state.controls)
-  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const report = controls.usage
   const value = (metric: { value: number | null; availability: string }, format: (item: number) => string) =>
     metric.availability === 'available' && metric.value !== null ? format(metric.value) : labels.unavailable
   const close = () => {
-    if (surfaces.focusedPanelId)
-      void runtime.commands.execute('app.closePanel', { instanceId: surfaces.focusedPanelId }).catch(() => {})
+    if (instanceId) void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
   }
   const maximum = Math.max(1, ...(report?.series.map((point) => point.billableTokens) ?? []))
   return (

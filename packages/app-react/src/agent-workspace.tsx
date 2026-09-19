@@ -52,14 +52,17 @@ function tone(status: AgentStatus): 'neutral' | 'positive' | 'warning' | 'danger
 export function HbarAgentWorkspace({
   labels,
   connected,
+  instanceId: requestedInstanceId,
 }: {
   readonly labels: HbarAgentWorkspaceLabels
   readonly connected: boolean
+  readonly instanceId?: string
 }) {
   const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const agents = useHbarRuntimeState(runtime.state.agents)
-  const instanceId = surfaces.focusedPanelId
+  const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const entry = instanceId ? agents.entries[instanceId] : undefined
   const invoke = useCallback(

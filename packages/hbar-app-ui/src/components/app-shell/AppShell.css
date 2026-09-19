@@ -335,3 +335,9 @@
     box-shadow: var(--hbar-app-ui-shadow);
   }
 }
+
+@media (max-width: 47.9375rem) {
+  .hbar-app-ui-app-tool-drawer {
+    inline-size: 100%;
+  }
+}

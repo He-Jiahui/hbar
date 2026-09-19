@@ -55,6 +55,9 @@ dialog.hbar-app-ui-native-dialog > footer {
   min-inline-size: 0;
   overflow: auto;
 }
+.hbar-app-ui-native-dialog.is-chromeless > .hbar-app-ui-native-dialog-body {
+  display: flex;
+}
 .hbar-app-ui-native-dialog > footer {
   justify-content: flex-end;
   flex-wrap: wrap;

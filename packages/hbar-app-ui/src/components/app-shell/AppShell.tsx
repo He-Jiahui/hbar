@@ -28,6 +28,7 @@ export interface HbarAppUiAppShellProps {
   readonly onCloseSidebar: () => void
   readonly header?: ReactNode
   readonly tool?: ReactNode
+  readonly toolLabel?: string | undefined
   readonly overlay?: ReactNode
   readonly children: ReactNode
 }
@@ -42,6 +43,7 @@ export function HbarAppUiAppShell({
   onCloseSidebar,
   header,
   tool,
+  toolLabel,
   overlay,
   children,
 }: HbarAppUiAppShellProps) {
@@ -67,7 +69,11 @@ export function HbarAppUiAppShell({
           <main className="hbar-app-ui-app-main" aria-label={label}>
             {children}
           </main>
-          {tool && <aside className="hbar-app-ui-app-tool-drawer">{tool}</aside>}
+          {tool && (
+            <aside className="hbar-app-ui-app-tool-drawer" aria-label={toolLabel}>
+              {tool}
+            </aside>
+          )}
         </div>
       </div>
       {overlay}

@@ -23,14 +23,17 @@ export interface HbarFileWorkspaceLabels extends HbarAppUiWorkspaceFileLabels {
 export function HbarFileWorkspace({
   labels,
   connected,
+  instanceId: requestedInstanceId,
 }: {
   readonly labels: HbarFileWorkspaceLabels
   readonly connected: boolean
+  readonly instanceId?: string
 }) {
   const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const files = useHbarRuntimeState(runtime.state.files)
-  const instanceId = surfaces.focusedPanelId
+  const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const entry = instanceId ? files.entries[instanceId] : undefined
   const invoke = useCallback(

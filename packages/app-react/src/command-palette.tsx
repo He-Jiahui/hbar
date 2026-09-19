@@ -95,7 +95,7 @@ function SensitiveParameter({
 export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProps) {
   const runtime = useHbarRuntime()
   const palette = useHbarRuntimeState(runtime.state.commandPalette)
-  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const search = useRef<HTMLInputElement>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const selected = palette.selectedId ? palette.items[palette.selectedId] : undefined
@@ -121,16 +121,6 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
   useEffect(() => {
     if (palette.status === 'ready') search.current?.focus()
   }, [palette.status])
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !surfaces.focusedPanelId) return
-      event.preventDefault()
-      dispatch(runtime.commands.execute('app.closePanel', { instanceId: surfaces.focusedPanelId }))
-    }
-    window.addEventListener('keydown', close)
-    return () => window.removeEventListener('keydown', close)
-  }, [dispatch, runtime.commands, surfaces.focusedPanelId])
-
   const listItems = useMemo(
     () =>
       palette.visibleIds.flatMap((id) => {
@@ -159,8 +149,8 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
   const unsetParameter = (field: string) =>
     dispatch(runtime.commands.execute('commandPalette.unsetParameter', { field }))
   const closePanel = () => {
-    if (surfaces.focusedPanelId)
-      dispatch(runtime.commands.execute('app.closePanel', { instanceId: surfaces.focusedPanelId }))
+    if (presentation.modalInstanceId)
+      dispatch(runtime.commands.execute('app.closePanel', { instanceId: presentation.modalInstanceId }))
   }
   const fieldIssue = (field: string) => palette.draft?.issues.find((issue) => issue.field === field)
 

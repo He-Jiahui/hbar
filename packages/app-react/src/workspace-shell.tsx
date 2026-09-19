@@ -42,6 +42,9 @@ export interface HbarWorkspaceShellProps {
   readonly sidebarWidthRem: number
   readonly connection: 'connected' | 'connecting' | 'pairing' | 'disconnected'
   readonly onReconnect: () => void
+  readonly tool?: ReactNode
+  readonly toolLabel?: string
+  readonly overlay?: ReactNode
   readonly children: ReactNode
 }
 
@@ -215,6 +218,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           <strong>{props.labels.brand}</strong>
         </div>
       }
+      tool={props.tool}
+      toolLabel={props.toolLabel}
+      overlay={props.overlay}
       sidebar={
         <HbarAppUiAppSidebar
           brand={props.labels.brand}

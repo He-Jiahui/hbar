@@ -178,12 +178,19 @@ function usageValue(metric: UsageMetric, labels: HbarStatusWorkspaceLabels, form
     : labels.unavailable(metric.reason)
 }
 
-export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWorkspaceLabels }) {
+export function HbarStatusWorkspace({
+  labels,
+  instanceId: requestedInstanceId,
+}: {
+  readonly labels: HbarStatusWorkspaceLabels
+  readonly instanceId?: string
+}) {
   const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const status = useHbarRuntimeState(runtime.state.status)
   const directory = useHbarRuntimeState(runtime.state.directory)
-  const instanceId = surfaces.focusedPanelId
+  const instanceId = requestedInstanceId ?? (presentation.page.kind === 'status' ? presentation.page.instanceId : null)
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const rawSection = panel?.params.section
   const section = rawSection === 'usage' || rawSection === 'git' ? rawSection : 'dashboard'

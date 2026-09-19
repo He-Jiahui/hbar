@@ -42,11 +42,13 @@ import {
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
+import { HbarAppUiDialog } from 'hbar-app-ui'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
+import './App.css'
 
 const panels = new Set([
   'commands',
@@ -123,19 +125,11 @@ function WorkspaceBody({
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
-  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
-  const panel = surfaces.focusedPanelId ? surfaces.panels[surfaces.focusedPanelId] : undefined
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
-  if (panel?.panelId === 'settings-editor')
-    return <HbarProviderDialog labels={copy.providers.dialog} connected={connected} />
-  if (panel?.panelId === 'commands') return <HbarCommandPalette labels={copy.commandPalette} connected={connected} />
-  if (panel?.panelId === 'files') return <HbarFileWorkspace labels={copy.files} connected={connected} />
-  if (panel?.panelId === 'monitoring') return <HbarSessionMonitoring labels={copy.monitoring} />
-  if (panel?.panelId === 'agents') return <HbarAgentWorkspace labels={copy.agents} connected={connected} />
-  if (panel?.panelId === 'goals') return <HbarGoalPlanWorkspace labels={copy.goals} connected={connected} />
-  if (panel?.panelId === 'extensions') return <HbarExtensionWorkspace labels={copy.extensions} connected={connected} />
-  if (panel?.panelId === 'status') return <HbarStatusWorkspace labels={copy.status} />
-  if (panel?.panelId === 'settings')
+  if (presentation.page.kind === 'status')
+    return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
+  if (presentation.page.kind === 'settings')
     return (
       <HbarSettingsWorkspace
         labels={copy.settings}
@@ -157,6 +151,86 @@ function WorkspaceBody({
   return <HbarAppUiWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
 }
 
+function WorkspaceTool({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
+  const copy = getShellCopy(locale)
+  const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const instanceId = presentation.toolInstanceId
+  const panel = instanceId ? surfaces.panels[instanceId] : undefined
+  if (!instanceId || !panel) return null
+  if (panel.panelId === 'files')
+    return <HbarFileWorkspace labels={copy.files} connected={connected} instanceId={instanceId} />
+  if (panel.panelId === 'monitoring') return <HbarSessionMonitoring labels={copy.monitoring} instanceId={instanceId} />
+  if (panel.panelId === 'agents')
+    return <HbarAgentWorkspace labels={copy.agents} connected={connected} instanceId={instanceId} />
+  if (panel.panelId === 'goals')
+    return <HbarGoalPlanWorkspace labels={copy.goals} connected={connected} instanceId={instanceId} />
+  return null
+}
+
+function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
+  const copy = getShellCopy(locale)
+  const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const providers = useHbarRuntimeState(runtime.state.providers)
+  const modalInstanceId = presentation.modalInstanceId
+  const modal = modalInstanceId ? surfaces.panels[modalInstanceId] : undefined
+  const legacyExtensionId =
+    !modal && surfaces.focusedPanelId && surfaces.panels[surfaces.focusedPanelId]?.panelId === 'extensions'
+      ? surfaces.focusedPanelId
+      : null
+  const close = (instanceId: string) => {
+    void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
+  }
+  if (modalInstanceId && modal?.panelId === 'commands')
+    return (
+      <HbarAppUiDialog
+        open
+        chromeless
+        title={copy.commandPalette.title}
+        closeLabel={copy.commandPalette.close}
+        className="hbar-app-react-workspace-modal hbar-app-react-command-modal"
+        onClose={() => close(modalInstanceId)}
+      >
+        <HbarCommandPalette labels={copy.commandPalette} connected={connected} />
+      </HbarAppUiDialog>
+    )
+  if (modalInstanceId && modal?.panelId === 'settings-editor') {
+    const editor = providers.editor
+    const title = editor?.providerId
+      ? copy.providers.dialog.editTitle(editor.draft.name || editor.providerId)
+      : copy.providers.dialog.addTitle
+    return (
+      <HbarAppUiDialog
+        open
+        chromeless
+        title={title}
+        closeLabel={copy.providers.dialog.back}
+        className="hbar-app-react-workspace-modal hbar-app-react-provider-modal"
+        onClose={() => close(modalInstanceId)}
+      >
+        <HbarProviderDialog labels={copy.providers.dialog} connected={connected} />
+      </HbarAppUiDialog>
+    )
+  }
+  if (legacyExtensionId)
+    return (
+      <HbarAppUiDialog
+        open
+        chromeless
+        title={copy.extensions.title}
+        closeLabel={copy.extensions.close}
+        className="hbar-app-react-workspace-modal hbar-app-react-extension-modal"
+        onClose={() => close(legacyExtensionId)}
+      >
+        <HbarExtensionWorkspace labels={copy.extensions} connected={connected} />
+      </HbarAppUiDialog>
+    )
+  return null
+}
+
 export default function App({ locale }: { readonly locale: ShellLocale }) {
   const copy = getShellCopy(locale)
   const client = useMemo(() => new HbarClient(window.location.origin), [])
@@ -169,6 +243,7 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
     [attachmentController, client, hostId, locale, resourcePicker],
   )
   const layout = useHbarRuntimeState(runtime.view.state.layout)
+  const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const sidebarWidth = layoutSidebarWidth(layout.description)
 
   useEffect(() => {
@@ -217,6 +292,13 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
         sidebarWidthRem={sidebarWidth}
         connection={connection}
         onReconnect={reconnect}
+        toolLabel={copy.session.tools.label}
+        tool={
+          presentation.toolInstanceId ? (
+            <WorkspaceTool locale={locale} connected={connection === 'connected'} />
+          ) : undefined
+        }
+        overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} />}
       >
         <WorkspaceBody
           locale={locale}

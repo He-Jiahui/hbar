@@ -11,6 +11,7 @@ export interface HbarAppUiDialogProps {
   readonly children: ReactNode
   readonly footer?: ReactNode
   readonly className?: string
+  readonly chromeless?: boolean
   readonly initialFocus?: RefObject<HTMLElement | null> | undefined
 }
 
@@ -47,6 +48,7 @@ export function HbarAppUiDialog({
   children,
   footer,
   className = '',
+  chromeless = false,
   initialFocus,
 }: HbarAppUiDialogProps) {
   const ref = useRef<HTMLDialogElement>(null),
@@ -71,11 +73,13 @@ export function HbarAppUiDialog({
   return (
     <dialog
       ref={ref}
-      className={`hbar-app-ui-native-dialog ${className}`}
-      aria-labelledby={titleId}
+      className={`hbar-app-ui-native-dialog${chromeless ? ' is-chromeless' : ''}${className ? ` ${className}` : ''}`}
+      aria-label={chromeless ? title : undefined}
+      aria-labelledby={chromeless ? undefined : titleId}
       onKeyDown={retainDialogFocus}
       onCancel={(event) => {
         event.preventDefault()
+        event.stopPropagation()
         onClose()
       }}
       onMouseDown={(event) => {
@@ -90,12 +94,14 @@ export function HbarAppUiDialog({
           onClose()
       }}
     >
-      <header>
-        <h2 id={titleId}>{title}</h2>
-        <button type="button" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
-          <HbarAppUiIcon icon={X} />
-        </button>
-      </header>
+      {!chromeless && (
+        <header>
+          <h2 id={titleId}>{title}</h2>
+          <button type="button" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
+            <HbarAppUiIcon icon={X} />
+          </button>
+        </header>
+      )}
       <div className="hbar-app-ui-native-dialog-body">{children}</div>
       {footer && <footer>{footer}</footer>}
     </dialog>

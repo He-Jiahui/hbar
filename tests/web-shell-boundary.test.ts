@@ -42,5 +42,8 @@ test('Web composition does not restore the retired writable store or placeholder
   const copy = await Bun.file('apps/web/src/shell-copy.ts').text()
   expect(app).not.toContain('workbench-store')
   expect(app).not.toContain('copy.panels')
+  expect(app).toContain("presentation.page.kind === 'status'")
+  expect(app).toContain('presentation.toolInstanceId')
+  expect(app).toContain('presentation.modalInstanceId')
   expect(copy).not.toContain('readonly panels:')
 })

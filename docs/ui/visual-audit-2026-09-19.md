@@ -120,3 +120,20 @@ UI-01–09 是待办，不因 Prompt 的修复或全库检查通过而关闭。�
 | 真实 Host 窄屏 | [正文 390](../../artifacts/ui-redesign/shell/connected-content-390.png)、[抽屉 390](../../artifacts/ui-redesign/shell/connected-drawer-390.png)：切换到窄屏自动收起，抽屉中的活动会话和底部入口可达；聊天头部裁切继续归属会话页重构 |
 
 验证结果：全仓 ESLint（Node heap 8 GiB）、TypeScript、375 个 Bun 测试（2931 个断言）、flow/content/icon guards、Prettier 和 Web production build 通过；离线四组合 E2E 与真实 Host connected E2E 共 5 项通过。截图逐张人工查看。UI-03 在 Web 壳层关闭；UI-01、UI-02、UI-04 和各业务页面视觉问题没有因壳层修复而关闭。
+
+## 10. R2 主页面、工具与模态出口
+
+Web 组合根不再用 `focusedPanelId` 串行决定全部可见内容。`presentation.page` 只选择 session/settings/status 主页面，`toolInstanceId` 选择 files/monitoring/agents/goals 工具，`modalInstanceId` 选择 commands/settings-editor。AppShell 的 tool 和 overlay 插槽进入实际组合；工具组件读取明确 instanceId，因此打开命令模态不会让工具误读焦点目标。扩展管理尚未迁入设置 Schema，迁移前通过兼容模态呈现，不再替换会话主页面。
+
+命令目录和供应商编辑器使用 `hbar-app-ui` 原生 `<dialog>` 顶层。组件新增 chromeless 模式，让内部页面保留自己唯一的一套标题和动作，同时由原生 dialog 提供 inert 背景、焦点圈定、Escape 和关闭后焦点恢复。真实交互发现内层删除确认的 `cancel` 会冒泡并关闭外层供应商编辑器；NativeDialog 现已在处理 cancel 后停止传播，重新执行 Escape 后只关闭确认层并把焦点还给“删除供应商”。
+
+| 场景          | 截图与人工观察                                                                                                                                                                                                                                                                                |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 命令模态      | [1440](../../artifacts/web-b4/command-palette.png)、[390](../../artifacts/ui-redesign/outlets/command-en-US-390.png)：底层会话保留且 inert，目录和参数区在自身范围滚动；窄屏保持单列                                                                                                          |
+| 供应商模态    | [1440](../../artifacts/ui-redesign/provider-editor/after/desktop-1440.png)、[390](../../artifacts/ui-redesign/provider-editor/after/mobile-390.png)：设置页保留在底层，编辑器标题/操作不重复，内层删除确认可独立关闭                                                                          |
+| 扩展兼容模态  | [1440](../../artifacts/web-b5/extensions.png)：会话留在底层；插件列表拥有独立滚动范围，待 R5 迁入设置分类                                                                                                                                                                                     |
+| 工具并排/抽屉 | [1440](../../artifacts/web-b5/file-manager.png)、[1024](../../artifacts/ui-redesign/outlets/files-1024.png)、[390](../../artifacts/ui-redesign/outlets/files-390.png)：聊天实例持续存在，宽屏并排、中宽右侧抽屉、手机全宽单面板；文件工具内部仍同时挤入列表与编辑器，继续归属 R4 文件工具重构 |
+
+E2E 明确断言工具打开时会话标题仍存在、status 主页面替换会话、命令/供应商/扩展具有 dialog 语义、供应商底层设置页仍存在、关闭后返回原上下文。UI-04 在 Web 组合根关闭；兼容 `focusedPanelId` 只为尚未迁入设置的扩展入口保留，不能新增依赖。
+
+验证结果：全仓 ESLint（Node heap 8 GiB）、TypeScript、376 个 Bun 测试（2938 个断言）、flow/content/icon guards、Prettier 和 Web production build 通过；5 项 Playwright 场景通过。真实 Host E2E 覆盖四类工具切换、三个管理页分区、命令模态、扩展兼容模态、供应商模态和嵌套删除确认的 Escape/焦点恢复。

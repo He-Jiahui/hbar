@@ -80,13 +80,14 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.addInitScript(() => localStorage.setItem('hbar.workbench.v1', '{broken legacy state'))
       try {
         await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+        const navigationName = locale === 'zh-CN' ? '工程与会话' : 'Projects and sessions'
         await expect(page.locator('[data-hbar-app-ui-shell="app"]')).toBeVisible()
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(
           locale === 'zh-CN' ? '选择一个会话' : 'Select a session',
         )
         await expect(page.locator('html')).toHaveAttribute('lang', locale)
         if (viewport.width < 1024) {
-          await expect(page.getByRole('complementary')).toBeHidden()
+          await expect(page.getByRole('complementary', { name: navigationName })).toBeHidden()
           await page.screenshot({
             path: `artifacts/ui-redesign/shell/content-${locale}-${viewport.width}.png`,
             fullPage: true,
@@ -101,13 +102,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
               name: locale === 'zh-CN' ? '显示工程与会话侧栏' : 'Show projects and sessions sidebar',
             })
             .click()
-          await expect(page.getByRole('complementary')).toBeVisible()
+          await expect(page.getByRole('complementary', { name: navigationName })).toBeVisible()
           await page.screenshot({
             path: `artifacts/ui-redesign/shell/drawer-${locale}-${viewport.width}.png`,
             fullPage: true,
           })
         } else {
-          await expect(page.getByRole('complementary')).toBeVisible()
+          await expect(page.getByRole('complementary', { name: navigationName })).toBeVisible()
           await page.screenshot({
             path: `artifacts/ui-redesign/shell/sidebar-${locale}-${viewport.width}.png`,
             fullPage: true,
@@ -116,13 +117,21 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await expect(page.locator('footer')).toContainText(locale === 'zh-CN' ? '未连接' : 'Disconnected')
         await expect(page.getByRole('button', { name: locale === 'zh-CN' ? '命令' : 'Commands' })).toBeVisible()
         await page.keyboard.press('Control+K')
-        await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        const commandDialog = page.getByRole('dialog', { name: locale === 'zh-CN' ? '命令目录' : 'Command catalog' })
+        await expect(commandDialog.getByRole('heading', { level: 1 })).toHaveText(
           locale === 'zh-CN' ? '命令目录' : 'Command catalog',
         )
         await expect(
-          page.getByRole('searchbox', { name: locale === 'zh-CN' ? '搜索命令' : 'Search commands' }),
+          commandDialog.getByRole('searchbox', { name: locale === 'zh-CN' ? '搜索命令' : 'Search commands' }),
         ).toBeVisible()
-        await page.getByRole('button', { name: locale === 'zh-CN' ? '关闭命令目录' : 'Close command catalog' }).click()
+        if (viewport.width < 1024)
+          await page.screenshot({
+            path: `artifacts/ui-redesign/outlets/command-${locale}-${viewport.width}.png`,
+            fullPage: true,
+          })
+        await commandDialog
+          .getByRole('button', { name: locale === 'zh-CN' ? '关闭命令目录' : 'Close command catalog' })
+          .click()
         if (viewport.width < 1024)
           await page
             .getByRole('button', {
@@ -180,6 +189,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
     await page.getByRole('button', { name: 'browser-e2e.md' }).click()
     const fileEditor = page.getByRole('textbox', { name: 'browser-e2e.md' })
     await expect(fileEditor).toHaveValue('# Browser file\n')
@@ -192,6 +202,8 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Extensions', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Extensions and skills' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Extensions and skills' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: 'Plugins' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: 'Skills' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Open system and diagnostic commands' })).toBeVisible()
@@ -201,6 +213,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Status center' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeHidden()
     await expect(page.getByRole('button', { name: 'Performance' })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { level: 2, name: 'Host process' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b6/performance.png', fullPage: true })
@@ -208,7 +221,9 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
     await page.keyboard.press('Control+K')
-    await expect(page.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    const commandDialog = page.getByRole('dialog', { name: 'Command catalog' })
+    await expect(commandDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
     await page.getByRole('searchbox', { name: 'Search commands' }).fill('session.setBudget')
     await expect(page.getByRole('heading', { level: 2, name: 'Set session token budget' })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Session ID' })).toHaveValue(fixture.ready.sessionId)
@@ -233,6 +248,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
     await expect(page.getByText('Total tokens')).toBeVisible()
     await expect(page.getByText('Token timeline')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
@@ -290,6 +306,10 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.setViewportSize({ width: 1024, height: 768 })
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Files', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close file manager' }).click()
     await page.setViewportSize({ width: 390, height: 844 })
     const expectNoHorizontalOverflow = async () =>
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -316,6 +336,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
     await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-390.png', fullPage: true })
     await page.getByRole('button', { name: 'Close file manager' }).click()
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
@@ -399,6 +420,8 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: 'Provider configurations' })).toBeVisible()
     await page.getByRole('button', { name: 'Add provider', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Add provider' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Add provider' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Global settings' })).toBeVisible()
     const preset = page.getByRole('combobox', { name: 'Provider preset' })
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/add-desktop-1440.png', fullPage: true })
     await preset.fill('OpenAI')
@@ -471,6 +494,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/mobile-390-models.png', fullPage: true })
     await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: 'Back to settings' }).click()
+    await expect(page.getByRole('dialog', { name: /provider/i })).toBeHidden()
     await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.screenshot({ path: 'artifacts/web-b3/settings-workspace.png', fullPage: true })
