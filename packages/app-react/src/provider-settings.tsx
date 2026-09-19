@@ -1,20 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  HbarSchemaForm,
-  HbarSchemaList,
-  createSchemaComponentRegistry,
-  registerStandardSchemaComponents,
-  type HbarSchemaFormLabels,
-  type HbarSchemaListLabels,
-  type SchemaFieldIntent,
-  type SchemaListIntent,
-} from '@hbar/schema-react'
-import { HbarAppUiButton, HbarAppUiSurface } from 'hbar-app-ui'
+import { useCallback, useEffect, useState } from 'react'
+import { HbarSchemaList, type HbarSchemaListLabels, type SchemaListIntent } from '@hbar/schema-react'
+import { HbarAppUiButton } from 'hbar-app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarProviderEditorView, type HbarProviderDialogLabels, type HbarProviderEditorIntent } from './provider-editor'
 import './provider-settings.css'
 
-const providerComponents = createSchemaComponentRegistry()
-registerStandardSchemaComponents(providerComponents)
+export type { HbarProviderDialogLabels } from './provider-editor'
 
 function reasonCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -27,24 +18,6 @@ export interface HbarProviderSettingsLabels {
   readonly refresh: string
   readonly error: (code: string) => string
   readonly list: HbarSchemaListLabels
-}
-
-export interface HbarProviderDialogLabels {
-  readonly addTitle: string
-  readonly editTitle: (name: string) => string
-  readonly description: string
-  readonly loading: string
-  readonly back: string
-  readonly save: string
-  readonly reconcile: string
-  readonly remove: string
-  readonly saved: string
-  readonly unsaved: (count: number) => string
-  readonly configured: string
-  readonly notConfigured: string
-  readonly error: (code: string) => string
-  readonly resolve: (key: string) => string
-  readonly form: Omit<HbarSchemaFormLabels, 'resolve' | 'help'>
 }
 
 export function HbarProviderSettings({
@@ -129,43 +102,119 @@ export function HbarProviderDialog({
   const providers = useHbarRuntimeState(runtime.state.providers)
   const [actionError, setActionError] = useState<string | null>(null)
   const editor = providers.editor
-  const definitions = useMemo(
-    () => new Map(editor?.description.fields.map((field) => [field.name, field] as const) ?? []),
-    [editor?.description],
-  )
-  const back = () => {
+  const editorId = editor?.editorId
+  const back = useCallback(() => {
     setActionError(null)
     void runtime.commands
       .execute('app.openSettings', { scope: 'global', section: 'providers' })
       .catch((reason) => setActionError(reasonCode(reason)))
-  }
+  }, [runtime.commands])
+  const intent = useCallback(
+    (value: HbarProviderEditorIntent) => {
+      if (!editorId) return
+      setActionError(null)
+      let request: Promise<unknown>
+      switch (value.kind) {
+        case 'set-provider-field':
+          request = runtime.commands.execute('providerEditor.setProviderField', {
+            editorId,
+            field: value.field,
+            value: value.value,
+          })
+          break
+        case 'set-secret':
+          request = runtime.commands.execute('providerEditor.setField', {
+            editorId,
+            field: 'apiKey',
+            value: value.value,
+          })
+          break
+        case 'reset-draft':
+          request = runtime.commands.execute('providerEditor.resetDraft', { editorId })
+          break
+        case 'load-presets':
+          request = runtime.commands.execute('providerEditor.loadPresets', {
+            editorId,
+            query: value.query,
+            ...(value.cursor ? { cursor: value.cursor } : {}),
+            append: value.append,
+          })
+          break
+        case 'apply-preset':
+          request = runtime.commands.execute('providerEditor.applyPreset', {
+            editorId,
+            presetId: value.presetId,
+          })
+          break
+        case 'load-preset-models':
+          request = runtime.commands.execute('providerEditor.loadPresetModels', {
+            editorId,
+            presetId: value.presetId,
+            query: value.query,
+            ...(value.cursor ? { cursor: value.cursor } : {}),
+            append: value.append,
+          })
+          break
+        case 'add-preset-model':
+          request = runtime.commands.execute('providerEditor.addPresetModel', {
+            editorId,
+            presetId: value.presetId,
+            modelId: value.modelId,
+          })
+          break
+        case 'add-model':
+          request = runtime.commands.execute('providerEditor.addModel', {
+            editorId,
+            modelId: value.modelId,
+          })
+          break
+        case 'select-model':
+          request = runtime.commands.execute('providerEditor.selectModel', {
+            editorId,
+            modelId: value.modelId,
+          })
+          break
+        case 'set-default-model':
+          request = runtime.commands.execute('providerEditor.setDefaultModel', {
+            editorId,
+            modelId: value.modelId,
+          })
+          break
+        case 'remove-model':
+          request = runtime.commands.execute('providerEditor.removeModel', {
+            editorId,
+            modelId: value.modelId,
+          })
+          break
+        case 'set-model-field':
+          request = runtime.commands.execute('providerEditor.setModelField', {
+            editorId,
+            modelId: value.modelId,
+            field: value.field,
+            value: value.value,
+          })
+          break
+        case 'set-model-thinking-levels':
+          request = runtime.commands.execute('providerEditor.setModelThinkingLevels', {
+            editorId,
+            modelId: value.modelId,
+            thinkingLevels: [...value.thinkingLevels],
+          })
+          break
+      }
+      void request.catch((reason) => setActionError(reasonCode(reason)))
+    },
+    [editorId, runtime.commands],
+  )
   if (!editor)
     return (
-      <HbarAppUiSurface className="hbar-app-react-provider-dialog hbar-app-react-provider-state">
+      <section className="hbar-app-react-provider-dialog hbar-app-react-provider-state">
         <p role={providers.status === 'error' ? 'alert' : 'status'}>
           {providers.status === 'error' ? labels.error(providers.error ?? 'FORM_NOT_READY') : labels.loading}
         </p>
         <HbarAppUiButton onClick={back}>{labels.back}</HbarAppUiButton>
-      </HbarAppUiSurface>
+      </section>
     )
-  const dirtyCount = editor.form.dirty.length + (editor.sensitiveDirty ? 1 : 0)
-  const busy = editor.form.status === 'submitting'
-  const unknown = editor.form.status === 'unknown'
-  const title = editor.providerId
-    ? labels.editTitle(String(editor.form.draft.name ?? editor.providerId))
-    : labels.addTitle
-  const intent = (value: SchemaFieldIntent) => {
-    setActionError(null)
-    const request =
-      value.kind === 'set'
-        ? runtime.commands.execute('providerEditor.setField', {
-            editorId: editor.editorId,
-            field: value.field,
-            value: value.value,
-          })
-        : runtime.commands.execute('providerEditor.resetField', { editorId: editor.editorId, field: value.field })
-    void request.catch((reason) => setActionError(reasonCode(reason)))
-  }
   const save = (reconcile: boolean) => {
     setActionError(null)
     void runtime.commands
@@ -181,68 +230,16 @@ export function HbarProviderDialog({
       .catch((reason) => setActionError(reasonCode(reason)))
   }
   return (
-    <HbarAppUiSurface className="hbar-app-react-provider-dialog">
-      <header>
-        <div>
-          <h1>{title}</h1>
-          <p>{labels.description}</p>
-        </div>
-        <HbarAppUiButton onClick={back}>{labels.back}</HbarAppUiButton>
-      </header>
-      <main>
-        <HbarSchemaForm
-          schema={editor.schema}
-          state={editor.form}
-          components={providerComponents}
-          labels={{
-            ...labels.form,
-            resolve: labels.resolve,
-            help: (field) => {
-              const key = definitions.get(field.name)?.helpKey
-              return key ? labels.resolve(key) : undefined
-            },
-          }}
-          controlRevisions={{ apiKey: editor.secretResetRevision }}
-          renderFieldContext={(field) =>
-            definitions.get(field.name)?.sensitive ? (
-              <small>{editor.hasKey ? labels.configured : labels.notConfigured}</small>
-            ) : null
-          }
-          onIntent={intent}
-        />
-      </main>
-      <footer>
-        <span role="status">
-          {editor.form.status === 'succeeded' && dirtyCount === 0
-            ? labels.saved
-            : dirtyCount > 0
-              ? labels.unsaved(dirtyCount)
-              : null}
-        </span>
-        <div>
-          {editor.providerId && (
-            <HbarAppUiButton tone="danger" disabled={!connected || busy || unknown} onClick={remove}>
-              {labels.remove}
-            </HbarAppUiButton>
-          )}
-          {unknown ? (
-            <HbarAppUiButton tone="warning" disabled={!connected} onClick={() => save(true)}>
-              {labels.reconcile}
-            </HbarAppUiButton>
-          ) : (
-            <HbarAppUiButton
-              tone="accent"
-              disabled={!connected || busy || editor.form.issues.length > 0 || dirtyCount === 0}
-              onClick={() => save(false)}
-            >
-              {labels.save}
-            </HbarAppUiButton>
-          )}
-        </div>
-      </footer>
-      {(actionError || editor.error) && (
-        <p role="alert">{labels.error(actionError ?? editor.error ?? 'EXECUTION_FAILED')}</p>
-      )}
-    </HbarAppUiSurface>
+    <HbarProviderEditorView
+      editor={editor}
+      labels={labels}
+      connected={connected}
+      actionError={actionError}
+      onBack={back}
+      onSave={() => save(false)}
+      onReconcile={() => save(true)}
+      onRemove={remove}
+      onIntent={intent}
+    />
   )
 }

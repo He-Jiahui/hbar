@@ -123,7 +123,8 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.provider.preset.list.title': 'List provider presets',
         'commands.provider.preset.list.description': 'Query built-in provider presets by name, protocol, or API URL.',
         'commands.provider.preset.models.title': 'List preset models',
-        'commands.provider.preset.models.description': 'Query models, capabilities, and thinking levels in a provider preset.',
+        'commands.provider.preset.models.description':
+          'Query models, capabilities, and thinking levels in a provider preset.',
       }
   const fields: Readonly<Record<string, string>> = zh
     ? {
@@ -383,6 +384,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
 function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale)
   const messages: Readonly<Record<string, string>> = zh
     ? {
         'i18n:settings.providers.list.label': '供应商配置',
@@ -452,30 +454,153 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     save: choose('保存供应商', 'Save provider'),
     reconcile: choose('核对保存结果', 'Reconcile save'),
     remove: choose('删除供应商', 'Delete provider'),
+    reset: choose('放弃更改', 'Discard changes'),
+    cancel: choose('取消', 'Cancel'),
     saved: choose('供应商已保存。', 'Provider saved.'),
     unsaved: (count) => choose(`${count} 项更改尚未保存`, `${count} unsaved ${count === 1 ? 'change' : 'changes'}`),
     configured: choose('已安全保存凭据', 'Credential is stored securely'),
     notConfigured: choose('尚未保存凭据', 'No stored credential'),
     error: (code) => choose(`供应商操作失败：${code}`, `Provider action failed: ${code}`),
-    resolve: (key) => messages[key] ?? key,
-    form: {
-      reset: choose('恢复已保存值', 'Restore saved value'),
-      loading: choose('正在加载选项…', 'Loading options…'),
-      empty: choose('没有可用选项', 'No options available'),
-      unavailable: (code) => choose(`选项当前不可用：${code}`, `Options unavailable: ${code}`),
-      contentError: (code) => choose(`选项加载失败：${code}`, `Option loading failed: ${code}`),
-      selectedInvalid: (value) =>
-        choose(`当前值不可用：${String(value)}`, `Current value unavailable: ${String(value)}`),
-      issue: (issue) =>
-        issue.code === 'required'
-          ? choose('此字段必填。', 'This field is required.')
-          : choose('字段值不符合约束。', 'The value does not satisfy this field.'),
-      option: (_field, value) => String(value),
-      contentText: (text) => (text.kind === 'literal' ? text.text : (messages[text.key] ?? text.key)),
-      pickResource: (kind) =>
-        kind === 'file' ? choose('选择文件', 'Choose file') : choose('选择文件夹', 'Choose directory'),
-      componentUnavailable: (component) => choose(`缺少组件：${component}`, `Component unavailable: ${component}`),
+    requiredIndicator: choose('（必填）', ' (required)'),
+    sections: {
+      preset: choose('从预设开始', 'Start from a preset'),
+      presetDescription: choose(
+        '选择供应商后会载入推荐协议、地址和首个模型，之后仍可逐项调整。',
+        'Choose a provider to load its protocol, endpoint, and first model, then adjust any field.',
+      ),
+      connection: choose('连接', 'Connection'),
+      connectionDescription: choose(
+        '供应商标识、协议和 API 地址。',
+        'Provider identity, transport protocol, and API endpoint.',
+      ),
+      credentials: choose('凭据', 'Credentials'),
+      credentialsDescription: choose(
+        '凭据只提交给 Host，不会进入界面状态快照。',
+        'Credentials are submitted to the Host and never enter the UI state snapshot.',
+      ),
+      models: choose('模型', 'Models'),
+      modelsDescription: choose(
+        '一个供应商可以包含多个模型，并分别控制能力、价格和可见性。',
+        'A provider can contain multiple models with independent capabilities, pricing, and visibility.',
+      ),
+      modelDetails: choose('模型详情', 'Model details'),
+      modelDetailsDescription: choose(
+        '选择左侧模型后编辑；默认模型会用于新的运行。',
+        'Select a model to edit it. The default model is used for new runs.',
+      ),
     },
+    preset: {
+      label: choose('供应商预设', 'Provider preset'),
+      placeholder: choose('搜索供应商、协议或 API 地址', 'Search providers, protocols, or API URLs'),
+      open: choose('打开供应商预设', 'Open provider presets'),
+      empty: choose('没有匹配的供应商预设', 'No provider presets match'),
+      loading: choose('正在加载供应商预设…', 'Loading provider presets…'),
+      loadMore: choose('加载更多供应商', 'Load more providers'),
+      detail: (protocol, baseUrl, modelCount) =>
+        choose(
+          `${protocol} · ${baseUrl} · ${number.format(modelCount)} 个模型`,
+          `${protocol} · ${baseUrl} · ${number.format(modelCount)} models`,
+        ),
+    },
+    provider: {
+      id: choose('供应商 ID', 'Provider ID'),
+      idDescription: choose(
+        '保存后不可修改，用于命令和凭据引用。',
+        'Immutable after save; used by commands and credentials.',
+      ),
+      name: choose('显示名称', 'Display name'),
+      protocol: choose('协议', 'Protocol'),
+      baseUrl: choose('API 地址', 'API URL'),
+      visible: choose('在模型选择中显示', 'Show in model selection'),
+      visibleDescription: choose(
+        '关闭后保留配置和已有会话引用。',
+        'When hidden, configuration and existing session references remain available.',
+      ),
+      apiKey: choose('API Key', 'API key'),
+      apiKeyDescription: choose(
+        '留空会保留已保存凭据；输入新值会在保存时替换。',
+        'Leave blank to retain the stored credential; enter a value to replace it on save.',
+      ),
+    },
+    models: {
+      empty: choose(
+        '还没有模型。请从目录选择或添加自定义模型。',
+        'No models yet. Choose one from the catalog or add a custom model.',
+      ),
+      default: choose('默认模型', 'Default model'),
+      hidden: choose('已隐藏', 'Hidden'),
+      select: (name) => choose(`选择 ${name}`, `Select ${name}`),
+      customId: choose('自定义模型 ID', 'Custom model ID'),
+      customIdPlaceholder: choose('例如 my-model', 'For example, my-model'),
+      addCustom: choose('添加自定义模型', 'Add custom model'),
+      catalog: choose('从预设目录添加', 'Add from preset catalog'),
+      catalogPlaceholder: choose('搜索模型', 'Search models'),
+      catalogOpen: choose('打开模型目录', 'Open model catalog'),
+      catalogEmpty: choose('没有匹配的模型', 'No models match'),
+      catalogLoading: choose('正在加载模型…', 'Loading models…'),
+      catalogLoadMore: choose('加载更多模型', 'Load more models'),
+      catalogDetail: (contextWindow, maxOutput) =>
+        choose(
+          `上下文 ${number.format(contextWindow)} · 最大输出 ${number.format(maxOutput)}`,
+          `${number.format(contextWindow)} context · ${number.format(maxOutput)} max output`,
+        ),
+      setDefault: choose('设为默认', 'Set as default'),
+      remove: choose('移除模型', 'Remove model'),
+      id: choose('模型 ID', 'Model ID'),
+      name: choose('显示名称', 'Display name'),
+      visible: choose('在模型选择中显示', 'Show in model selection'),
+      visibleDescription: choose(
+        '隐藏后已有会话仍可继续引用此模型。',
+        'Existing sessions can continue to reference a hidden model.',
+      ),
+      contextWindow: choose('上下文窗口', 'Context window'),
+      maxOutput: choose('最大输出 Token', 'Maximum output tokens'),
+      inputPrice: choose('输入价格（每百万 Token）', 'Input price per million tokens'),
+      outputPrice: choose('输出价格（每百万 Token）', 'Output price per million tokens'),
+      imageInput: choose('支持图片输入', 'Supports image input'),
+      imageInputDescription: choose('允许将图片作为模型输入。', 'Allows images as model input.'),
+      reasoning: choose('支持推理', 'Supports reasoning'),
+      reasoningDescription: choose(
+        '模型可以使用非 off 的思考等级。',
+        'The model can use thinking levels other than off.',
+      ),
+      thinkingLevels: choose('可用思考等级', 'Available thinking levels'),
+      thinkingLevelsDescription: choose(
+        '决定会话设置中可选择的思考强度。',
+        'Controls the thinking strengths offered in session settings.',
+      ),
+      defaultThinkingLevel: choose('默认思考等级', 'Default thinking level'),
+      removeThinkingLevel: (level) => choose(`移除思考等级 ${level}`, `Remove thinking level ${level}`),
+    },
+    protocol: (protocol) =>
+      ({
+        'openai-responses': 'OpenAI Responses',
+        'openai-completions': 'OpenAI Chat Completions',
+        'anthropic-messages': 'Anthropic Messages',
+        mock: choose('模拟协议', 'Mock protocol'),
+      })[protocol],
+    thinkingLevel: (level) =>
+      ({
+        off: choose('关闭', 'Off'),
+        minimal: choose('极低', 'Minimal'),
+        low: choose('低', 'Low'),
+        medium: choose('中', 'Medium'),
+        high: choose('高', 'High'),
+        xhigh: choose('极高', 'Extra high'),
+        max: choose('最大', 'Maximum'),
+      })[level],
+    validation: (_path, code) =>
+      code === 'too_small'
+        ? choose('值低于允许范围或缺少必填内容。', 'The value is below the allowed range or is required.')
+        : code === 'too_big'
+          ? choose('值超过允许范围。', 'The value exceeds the allowed range.')
+          : choose('值不符合字段约束。', 'The value does not satisfy this field.'),
+    deleteConfirmTitle: (name) => choose(`删除供应商“${name}”？`, `Delete provider “${name}”?`),
+    deleteConfirmDescription: (name) =>
+      choose(
+        `将删除“${name}”的配置和凭据引用。此操作无法从当前界面撤销。`,
+        `This removes the configuration and credential reference for “${name}”. This action cannot be undone here.`,
+      ),
   }
   return { list, dialog }
 }

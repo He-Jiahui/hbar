@@ -72,10 +72,25 @@ test('provider list and dialog render Host descriptions without exposing a crede
     )
     expect(dialog).toContain('Edit provider · Visible provider')
     expect(dialog).toContain('Provider ID')
+    expect(dialog).toContain('Connection')
+    expect(dialog).toContain('Models')
+    expect(dialog).toContain('Model details')
+    expect(dialog).toContain('Show in model selection')
     expect(dialog).toContain('API key')
     expect(dialog).toContain('type="password"')
     expect(dialog).toContain('Credential is stored securely')
     expect(dialog).not.toContain('runtime-secret')
+
+    const chinese = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarProviderDialog labels={getShellCopy('zh-CN').providers.dialog} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(chinese).toContain('编辑供应商 · Visible provider')
+    expect(chinese).toContain('连接')
+    expect(chinese).toContain('模型详情')
+    expect(chinese).toContain('在模型选择中显示')
+    expect(chinese).not.toContain('Configure protocol')
   } finally {
     runtime.dispose()
   }

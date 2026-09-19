@@ -348,16 +348,77 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: 'Provider configurations' })).toBeVisible()
     await page.getByRole('button', { name: 'Add provider', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Add provider' })).toBeVisible()
+    const preset = page.getByRole('combobox', { name: 'Provider preset' })
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/add-desktop-1440.png', fullPage: true })
+    await preset.fill('OpenAI')
+    await expect(page.getByRole('option').filter({ has: page.getByText('OpenAI', { exact: true }) })).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/add-preset-open-1440.png',
+      fullPage: true,
+    })
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('OpenAI', { exact: true }) })
+      .click()
     await page.getByRole('textbox', { name: 'Provider ID' }).fill('browser-provider')
-    await page.getByRole('textbox', { name: 'Display name' }).fill('Browser provider')
-    await page.getByRole('combobox', { name: 'Protocol' }).selectOption({ label: 'openai-responses' })
-    await page.getByRole('textbox', { name: 'API URL' }).fill('https://example.invalid/v1')
-    await page.getByRole('textbox', { name: 'Default model ID' }).fill('browser-model')
+    await page.getByRole('textbox', { name: 'Display name' }).first().fill('Browser provider')
+    const modelCatalog = page.getByRole('combobox', { name: 'Add from preset catalog' })
+    await modelCatalog.fill('gpt-5.4')
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('GPT-5.4', { exact: true }) })
+      .click()
+    await page.getByRole('button', { name: 'Set as default' }).click()
     await page.getByLabel('API key').fill('browser-secret')
     await page.getByRole('button', { name: 'Save provider' }).click()
     await expect(page.getByText('Provider saved.')).toBeVisible()
     await expect(page.getByLabel('API key')).toHaveValue('')
-    await page.screenshot({ path: 'artifacts/web-b3/provider-dialog.png', fullPage: true })
+    const providerMain = page.locator('.hbar-app-react-provider-dialog > main')
+    const providerFooter = page.locator('.hbar-app-react-provider-dialog > footer')
+    const expectProviderRegionsSeparated = async () => {
+      const [mainBox, footerBox] = await Promise.all([providerMain.boundingBox(), providerFooter.boundingBox()])
+      expect(mainBox).not.toBeNull()
+      expect(footerBox).not.toBeNull()
+      expect(mainBox!.y + mainBox!.height).toBeLessThanOrEqual(footerBox!.y + 1)
+    }
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/desktop-1440.png', fullPage: true })
+    const deleteProvider = page.getByRole('button', { name: 'Delete provider' })
+    await deleteProvider.click()
+    const deleteDialog = page.getByRole('dialog', { name: 'Delete provider “Browser provider”?' })
+    await expect(deleteDialog).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/delete-confirm-1440.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
+    await expect(deleteDialog).toBeHidden()
+    await expect(deleteProvider).toBeFocused()
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024.png', fullPage: true })
+    await page.getByRole('heading', { level: 2, name: 'Models', exact: true }).scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024-models.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/mobile-390.png', fullPage: true })
+    await page.getByRole('heading', { level: 2, name: 'Models', exact: true }).scrollIntoViewIfNeeded()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/mobile-390-models.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: 'Back to settings' }).click()
     await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
