@@ -155,6 +155,7 @@ export function createStatusWorkspace(
       gitStatus: previous?.gitStatus ?? null,
       gitCommits: previous?.gitCommits ?? [],
       gitHistoryTruncated: previous?.gitHistoryTruncated ?? false,
+      gitBucketStart: previous?.gitBucketStart ?? null,
       gitQuery:
         target.section === 'git' && !previousGitQuery.workspaceId && target.workspaceId
           ? { ...previousGitQuery, workspaceId: target.workspaceId }
@@ -170,6 +171,7 @@ export function createStatusWorkspace(
       let gitStatus = loading.gitStatus
       let gitCommits = loading.gitCommits
       let gitHistoryTruncated = loading.gitHistoryTruncated
+      let gitBucketStart = loading.gitBucketStart
       let gitWorkspaceId = loading.gitWorkspaceId
       if (target.section === 'dashboard') {
         if (!metrics) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Performance metrics are unavailable')
@@ -212,6 +214,8 @@ export function createStatusWorkspace(
           return sources.has(commit.provenance.source) && committedAt >= query.from && committedAt < query.to
         })
         gitHistoryTruncated = history.length === 100
+        if (gitBucketStart !== null && !stats.points.some((point) => point.start === gitBucketStart))
+          gitBucketStart = null
         gitWorkspaceId = workspace.id
       }
       if (isDisposed() || generations.get(instanceId) !== generation)
@@ -229,6 +233,7 @@ export function createStatusWorkspace(
         gitStatus,
         gitCommits,
         gitHistoryTruncated,
+        gitBucketStart,
         gitQuery: loading.gitQuery,
         gitWorkspaceId,
         error: null,
@@ -262,6 +267,7 @@ export function createStatusWorkspace(
       gitStatus: null,
       gitCommits: [],
       gitHistoryTruncated: false,
+      gitBucketStart: null,
       gitQuery: DEFAULT_GIT_QUERY,
       gitWorkspaceId: null,
       error: null,
@@ -291,6 +297,7 @@ export function createStatusWorkspace(
         gitStatus: null,
         gitCommits: [],
         gitHistoryTruncated: false,
+        gitBucketStart: null,
         gitQuery: DEFAULT_GIT_QUERY,
         gitWorkspaceId: null,
         error: null,
@@ -395,14 +402,34 @@ export function createStatusWorkspace(
         gitStatus: null,
         gitCommits: [],
         gitHistoryTruncated: false,
+        gitBucketStart: null,
         gitQuery: DEFAULT_GIT_QUERY,
         gitWorkspaceId: null,
         error: null,
       }
-      replace({ ...base, section: 'git', gitQuery: { workspaceId, window, sources }, error: null })
+      replace({
+        ...base,
+        section: 'git',
+        gitBucketStart: null,
+        gitQuery: { workspaceId, window, sources },
+        error: null,
+      })
       return load(instanceId)
     },
   )
+  local.register(statusWorkspaceCommands['statusWorkspace.selectGitBucket'], ({ instanceId, bucketStart }) => {
+    const targetPanel = panel(instanceId)
+    if (targetPanel.section !== 'git')
+      throw new CommandError('INVALID_INPUT', 'Git bucket selection belongs to the Git section')
+    const current = state.reader.getSnapshot().entries[instanceId]
+    if (!current?.git || current.status !== 'ready')
+      throw new CommandError('COMMAND_NOT_FOUND', 'Git statistics are not loaded')
+    if (bucketStart !== null && !current.git.points.some((point) => point.start === bucketStart))
+      throw new CommandError('INVALID_INPUT', 'Git bucket is outside the current query')
+    const next = { ...current, gitBucketStart: bucketStart }
+    replace(next)
+    return summary(next)
+  })
   return {
     reader: state.reader,
     dispose() {

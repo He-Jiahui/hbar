@@ -280,6 +280,7 @@ export interface StatusWorkspaceEntryState {
   readonly gitStatus: Readonly<GitStatus> | null
   readonly gitCommits: readonly Readonly<GitCommitInfo>[]
   readonly gitHistoryTruncated: boolean
+  readonly gitBucketStart: number | null
   readonly gitQuery: {
     readonly workspaceId: string | null
     readonly window: StatusGitWindow

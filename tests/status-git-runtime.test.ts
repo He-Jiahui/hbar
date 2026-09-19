@@ -161,6 +161,13 @@ test('status Git workspace owns repository, source, and time filters with bounde
     expect((initial.to as number) - (initial.from as number)).toBe(2_592_000_000)
     expect(inputs.get('git.status')?.[0]).toEqual({ cwd: workspace.path })
     expect(inputs.get('git.log')?.[0]).toEqual({ cwd: workspace.path, limit: 100 })
+    await runtime.view.commands.execute('statusWorkspace.selectGitBucket', {
+      instanceId: panel.instanceId,
+      bucketStart: report.points[0]?.start ?? null,
+    })
+    expect(runtime.view.state.status.getSnapshot().entries[panel.instanceId]?.gitBucketStart).toBe(
+      report.points[0]?.start,
+    )
     await runtime.view.commands.execute('workspace.list', { limit: 100 })
     await runtime.view.commands.execute('statusWorkspace.setGitQuery', {
       instanceId: panel.instanceId,
@@ -185,6 +192,7 @@ test('status Git workspace owns repository, source, and time filters with bounde
       gitQuery: { workspaceId: otherWorkspace.id, window: '7d', sources: ['auto', 'external'] },
       gitCommits: [{ subject: 'Automatic checkpoint', provenance: { source: 'auto' } }],
       gitHistoryTruncated: true,
+      gitBucketStart: null,
     })
   } finally {
     runtime.dispose()

@@ -80,6 +80,11 @@ export const statusWorkspaceCommands = {
     }),
     summary,
   ),
+  'statusWorkspace.selectGitBucket': defineCommand(
+    metadata('statusWorkspace.selectGitBucket'),
+    z.strictObject({ instanceId, bucketStart: z.number().int().nonnegative().safe().nullable() }),
+    summary,
+  ),
 }
 
 export type PerformanceWindow = z.output<typeof performanceWindowSchema>

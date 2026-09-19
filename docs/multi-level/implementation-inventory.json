@@ -492,6 +492,7 @@
     "settingsForm.submit",
     "statusWorkspace.exportUsage",
     "statusWorkspace.refresh",
+    "statusWorkspace.selectGitBucket",
     "statusWorkspace.setGitQuery",
     "statusWorkspace.setPerformanceQuery",
     "statusWorkspace.setUsageQuery",
