@@ -5,6 +5,7 @@ import {
   HbarProviderDialog,
   HbarProviderSettings,
   HbarRuntimeProvider,
+  HbarSessionMonitoring,
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
   HbarWorkspaceShell,
@@ -33,7 +34,7 @@ import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'
 
-const panels = new Set(['commands', 'files', 'status', 'settings', 'settings-editor'])
+const panels = new Set(['commands', 'files', 'monitoring', 'status', 'settings', 'settings-editor'])
 
 function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) {
   const copy = getShellCopy(locale)
@@ -69,6 +70,7 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
     return <HbarProviderDialog labels={copy.providers.dialog} connected={connected} />
   if (panel?.panelId === 'commands') return <HbarCommandPalette labels={copy.commandPalette} connected={connected} />
   if (panel?.panelId === 'files') return <HbarFileWorkspace labels={copy.files} connected={connected} />
+  if (panel?.panelId === 'monitoring') return <HbarSessionMonitoring labels={copy.monitoring} />
   if (panel?.panelId === 'settings')
     return (
       <HbarSettingsWorkspace

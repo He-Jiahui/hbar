@@ -175,6 +175,14 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: 'AI usage' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'AI usage' }).getByText(/^[1-9][\d,.]* tokens$/)).toBeVisible()
 
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
+    await expect(page.getByText('Total tokens')).toBeVisible()
+    await expect(page.getByText('Token timeline')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close session monitoring' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+
     await prompt.fill('/tool write_file {"path":"browser-e2e.txt","text":"approved"}')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByText('Agent approval')).toBeVisible()

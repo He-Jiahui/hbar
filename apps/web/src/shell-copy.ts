@@ -3,6 +3,7 @@ import type {
   HbarFileWorkspaceLabels,
   HbarProviderDialogLabels,
   HbarProviderSettingsLabels,
+  HbarSessionMonitoringLabels,
   HbarSessionWorkspaceLabels,
   HbarSettingsWorkspaceLabels,
   HbarWorkspaceShellLabels,
@@ -20,6 +21,7 @@ interface ShellCopy {
   }
   readonly commandPalette: HbarCommandPaletteLabels
   readonly files: HbarFileWorkspaceLabels
+  readonly monitoring: HbarSessionMonitoringLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
@@ -526,6 +528,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     tools: {
       label: choose('会话工具', 'Session tools'),
       files: choose('文件', 'Files'),
+      monitoring: choose('用量监控', 'Monitoring'),
       settings: choose('会话设置', 'Session settings'),
     },
     runs: {
@@ -620,6 +623,50 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
   }
 }
 
+function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitoringLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
+  const currency = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  })
+  const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
+  return {
+    title: choose('会话用量监控', 'Session monitoring'),
+    description: choose(
+      '查看 Host 记录的 Token、费用、延迟与模型用量。',
+      'Inspect Host-recorded tokens, cost, latency, and model usage.',
+    ),
+    close: choose('关闭用量监控', 'Close session monitoring'),
+    unavailable: choose('当前没有可靠的用量数据。', 'Reliable usage data is not available.'),
+    gap: choose('当前时间窗口包含数据缺口。', 'The current time window contains a data gap.'),
+    totals: {
+      tokens: choose('Token 总数', 'Total tokens'),
+      runs: choose('运行数', 'Runs'),
+      attempts: choose('尝试数', 'Attempts'),
+      cost: choose('预计金额', 'Estimated cost'),
+      cache: choose('缓存命中率', 'Cache hit rate'),
+      rate: choose('Token 速率', 'Token rate'),
+    },
+    latency: {
+      title: choose('延迟 p95', 'Latency p95'),
+      firstToken: choose('首个文本 Token', 'First text token'),
+      response: choose('完整响应', 'Full response'),
+    },
+    models: choose('模型用量', 'Model usage'),
+    series: choose('Token 时间序列', 'Token timeline'),
+    number: (value) => number.format(value),
+    currency: (value) => currency.format(value),
+    percent: (value) => percent.format(value),
+    duration: (value) => `${number.format(value)} ms`,
+    rate: (value) => choose(`${number.format(value)} Token/秒`, `${number.format(value)} tokens/s`),
+    model: (provider, model) => `${provider} / ${model}`,
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     shell: {
@@ -648,6 +695,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     providers: createProviderLabels('zh-CN'),
     commandPalette: createCommandPaletteLabels('zh-CN'),
     files: createFileLabels('zh-CN'),
+    monitoring: createSessionMonitoringLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -681,6 +729,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     providers: createProviderLabels('en-US'),
     commandPalette: createCommandPaletteLabels('en-US'),
     files: createFileLabels('en-US'),
+    monitoring: createSessionMonitoringLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },

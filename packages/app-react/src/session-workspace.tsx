@@ -39,7 +39,12 @@ export interface HbarSessionWorkspaceLabels {
   readonly prompt: HbarAppUiPromptLabels
   readonly model: (name: string, thinkingLevel: string | null) => string
   readonly modelUnavailable: string
-  readonly tools: { readonly label: string; readonly files: string; readonly settings: string }
+  readonly tools: {
+    readonly label: string
+    readonly files: string
+    readonly monitoring: string
+    readonly settings: string
+  }
   readonly runs: HbarAppUiRunActivityLabels
   readonly runDetail: (modelId: string) => string
   readonly runDuration: (startedAt: number, endedAt: number | null) => string
@@ -393,6 +398,9 @@ export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSe
         <aside className="hbar-app-react-session-tools" aria-label={labels.tools.label}>
           <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'files' })}>
             {labels.tools.files}
+          </HbarAppUiButton>
+          <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'monitoring' })}>
+            {labels.tools.monitoring}
           </HbarAppUiButton>
           <HbarAppUiButton onClick={() => invoke('app.openSettings', { scope: 'session', targetId: sessionId })}>
             {labels.tools.settings}
