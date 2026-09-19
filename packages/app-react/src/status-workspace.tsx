@@ -7,7 +7,7 @@ import {
   HbarAppUiMetricStrip,
   HbarAppUiSurface,
 } from 'hbar-app-ui'
-import { HbarAppUiSelect } from 'hbar-app-ui/forms'
+import { HbarAppUiCheckBox, HbarAppUiSelect } from 'hbar-app-ui/forms'
 import { HbarAppUiBarSeries, HbarAppUiCompactMetrics, HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import type { StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -55,6 +55,8 @@ export interface HbarStatusWorkspaceLabels {
   readonly usage: {
     readonly title: string
     readonly filters: string
+    readonly advancedFilters: string
+    readonly export: string
     readonly scope: string
     readonly timeWindow: string
     readonly aggregation: string
@@ -256,34 +258,38 @@ export function HbarStatusWorkspace({
       empty={<p className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</p>}
     />
   )
-  const usageMaximum = Math.max(1, ...(usageReport?.series.map((point) => point.billableTokens) ?? []))
-  const usageItem = (label: string, metric: UsageMetric, format: (value: number) => string) =>
+  const usageItem = (id: string, label: string, metric: UsageMetric, format: (value: number) => string) =>
     metric.availability === 'available' && metric.value !== null
       ? {
+          id,
           label,
           value: format(metric.value),
           ...(metric.estimated ? { detail: labels.usage.estimated } : {}),
         }
       : {
+          id,
           label,
           value: labels.unavailable(null),
           ...(metric.reason ? { detail: metric.reason } : {}),
         }
-  const latencyItem = (label: string, metric: UsageLatency) =>
+  const latencyItem = (id: string, label: string, metric: UsageLatency) =>
     metric.availability === 'available' && metric.p50 !== null && metric.p95 !== null
-      ? { label, value: labels.usage.p50p95(labels.milliseconds(metric.p50), labels.milliseconds(metric.p95)) }
+      ? { id, label, value: labels.usage.p50p95(labels.milliseconds(metric.p50), labels.milliseconds(metric.p95)) }
       : {
+          id,
           label,
           value: labels.unavailable(null),
           ...(metric.reason ? { detail: metric.reason } : {}),
         }
-  const executionItem = (label: string, metric: ExecutionMetric) =>
+  const executionItem = (id: string, label: string, metric: ExecutionMetric) =>
     metric.availability === 'available' && metric.value !== null
       ? {
+          id,
           label,
           value: metric.unit === 'milliseconds' ? labels.duration(metric.value) : labels.number(metric.value),
         }
       : {
+          id,
           label,
           value: labels.unavailable(metric.reason),
           ...(metric.reason ? { detail: metric.reason } : {}),
@@ -396,10 +402,14 @@ export function HbarStatusWorkspace({
         </div>
       )}
       {section === 'usage' && usageQuery && (
-        <div className="hbar-app-react-status-controls" role="group" aria-label={labels.usage.filters}>
+        <div
+          className="hbar-app-react-status-controls hbar-app-react-usage-controls"
+          role="group"
+          aria-label={labels.usage.filters}
+        >
           <label>
             <span>{labels.usage.scope}</span>
-            <select
+            <HbarAppUiSelect
               value={usageQuery.scope}
               disabled={entry?.status === 'loading'}
               onChange={(event) => setUsageQuery({ scope: event.currentTarget.value as typeof usageQuery.scope })}
@@ -413,22 +423,19 @@ export function HbarStatusWorkspace({
                   {labels.usage.scopes[scope]}
                 </option>
               ))}
-            </select>
+            </HbarAppUiSelect>
           </label>
           {usageQuery.scope === 'session' && (
-            <label>
-              <input
-                type="checkbox"
-                checked={usageQuery.includeDescendants}
-                disabled={entry?.status === 'loading'}
-                onChange={(event) => setUsageQuery({ includeDescendants: event.currentTarget.checked })}
-              />
-              <span>{labels.usage.includeDescendants}</span>
-            </label>
+            <HbarAppUiCheckBox
+              label={labels.usage.includeDescendants}
+              checked={usageQuery.includeDescendants}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) => setUsageQuery({ includeDescendants: event.currentTarget.checked })}
+            />
           )}
           <label>
             <span>{labels.usage.timeWindow}</span>
-            <select
+            <HbarAppUiSelect
               value={usageQuery.window}
               disabled={entry?.status === 'loading'}
               onChange={(event) => setUsageQuery({ window: event.currentTarget.value as typeof usageQuery.window })}
@@ -438,68 +445,78 @@ export function HbarStatusWorkspace({
                   {labels.usage.windows[window]}
                 </option>
               ))}
-            </select>
+            </HbarAppUiSelect>
           </label>
-          <label>
-            <span>{labels.usage.aggregation}</span>
-            <select
-              value={usageQuery.aggregation}
-              disabled={entry?.status === 'loading'}
-              onChange={(event) =>
-                setUsageQuery({ aggregation: event.currentTarget.value as typeof usageQuery.aggregation })
-              }
-            >
-              {(['minute', 'hour', 'day'] as const).map((aggregation) => (
-                <option key={aggregation} value={aggregation}>
-                  {labels.usage.aggregations[aggregation]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>{labels.usage.provider}</span>
-            <select
-              value={usageQuery.providerId ?? ''}
-              disabled={entry?.status === 'loading'}
-              onChange={(event) => setUsageQuery({ providerId: event.currentTarget.value || null, modelId: null })}
-            >
-              <option value="">{labels.usage.allProviders}</option>
-              {usageProviders.map((providerId) => (
-                <option key={providerId} value={providerId}>
-                  {providerId}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>{labels.usage.modelFilter}</span>
-            <select
-              value={usageQuery.modelId ?? ''}
-              disabled={entry?.status === 'loading'}
-              onChange={(event) => setUsageQuery({ modelId: event.currentTarget.value || null })}
-            >
-              <option value="">{labels.usage.allModels}</option>
-              {usageModels.map((modelId) => (
-                <option key={modelId} value={modelId}>
-                  {modelId}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="hbar-app-react-status-export-actions">
-            <HbarAppUiButton
-              disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
-              onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'json' })}
-            >
-              {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportJson}
-            </HbarAppUiButton>
-            <HbarAppUiButton
-              disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
-              onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'csv' })}
-            >
-              {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportCsv}
-            </HbarAppUiButton>
-          </div>
+          <details className="hbar-app-react-status-filter-details">
+            <summary>{labels.usage.advancedFilters}</summary>
+            <div>
+              <label>
+                <span>{labels.usage.aggregation}</span>
+                <HbarAppUiSelect
+                  value={usageQuery.aggregation}
+                  disabled={entry?.status === 'loading'}
+                  onChange={(event) =>
+                    setUsageQuery({ aggregation: event.currentTarget.value as typeof usageQuery.aggregation })
+                  }
+                >
+                  {(['minute', 'hour', 'day'] as const).map((aggregation) => (
+                    <option key={aggregation} value={aggregation}>
+                      {labels.usage.aggregations[aggregation]}
+                    </option>
+                  ))}
+                </HbarAppUiSelect>
+              </label>
+              <label>
+                <span>{labels.usage.provider}</span>
+                <HbarAppUiSelect
+                  value={usageQuery.providerId ?? ''}
+                  disabled={entry?.status === 'loading'}
+                  onChange={(event) => setUsageQuery({ providerId: event.currentTarget.value || null, modelId: null })}
+                >
+                  <option value="">{labels.usage.allProviders}</option>
+                  {usageProviders.map((providerId) => (
+                    <option key={providerId} value={providerId}>
+                      {providerId}
+                    </option>
+                  ))}
+                </HbarAppUiSelect>
+              </label>
+              <label>
+                <span>{labels.usage.modelFilter}</span>
+                <HbarAppUiSelect
+                  value={usageQuery.modelId ?? ''}
+                  disabled={entry?.status === 'loading'}
+                  onChange={(event) => setUsageQuery({ modelId: event.currentTarget.value || null })}
+                >
+                  <option value="">{labels.usage.allModels}</option>
+                  {usageModels.map((modelId) => (
+                    <option key={modelId} value={modelId}>
+                      {modelId}
+                    </option>
+                  ))}
+                </HbarAppUiSelect>
+              </label>
+            </div>
+          </details>
+          <details className="hbar-app-react-status-export-menu">
+            <summary>{labels.usage.export}</summary>
+            <div className="hbar-app-ui-dialog-menu" role="menu" aria-label={labels.usage.export}>
+              <HbarAppUiButton
+                role="menuitem"
+                disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
+                onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'json' })}
+              >
+                {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportJson}
+              </HbarAppUiButton>
+              <HbarAppUiButton
+                role="menuitem"
+                disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
+                onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'csv' })}
+              >
+                {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportCsv}
+              </HbarAppUiButton>
+            </div>
+          </details>
           {usageExport?.status === 'succeeded' && usageExport.fileName && (
             <p role="status">
               {labels.usage.exported(usageExport.rowCount, usageExport.fileName)}
@@ -660,68 +677,75 @@ export function HbarStatusWorkspace({
         </main>
       ) : section === 'usage' && usageReport ? (
         <main className="hbar-app-react-global-usage">
-          {usageReport.gap && <p role="status">{labels.usage.gap}</p>}
+          {usageReport.gap && (
+            <p className="hbar-app-react-status-gap" role="status">
+              {labels.usage.gap}
+            </p>
+          )}
           <section>
             <h2>{labels.usage.title}</h2>
-            <HbarAppUiMetricStrip
+            <HbarAppUiCompactMetrics
+              label={labels.usage.title}
               metrics={[
                 {
+                  id: 'tokens',
                   label: labels.usage.tokens,
                   value: labels.tokenCount(usageReport.totals.input + usageReport.totals.output),
                 },
-                { label: labels.usage.runs, value: labels.number(usageReport.totals.runs) },
-                { label: labels.usage.attempts, value: labels.number(usageReport.totals.attempts) },
-                usageItem(labels.usage.cost, usageReport.cost, labels.currency),
-                usageItem(labels.usage.cacheHit, usageReport.cacheHitRate, labels.percent),
-              ]}
-            />
-          </section>
-          <section>
-            <h2>{labels.usage.totals}</h2>
-            <HbarAppUiMetricStrip
-              metrics={[
-                { label: labels.usage.input, value: labels.number(usageReport.totals.input) },
-                { label: labels.usage.output, value: labels.number(usageReport.totals.output) },
-                { label: labels.usage.cacheRead, value: labels.number(usageReport.totals.cacheRead) },
-                { label: labels.usage.cacheWrite, value: labels.number(usageReport.totals.cacheWrite) },
-                { label: labels.usage.billable, value: labels.number(usageReport.totals.billableTokens) },
+                { id: 'input', label: labels.usage.input, value: labels.number(usageReport.totals.input) },
+                { id: 'output', label: labels.usage.output, value: labels.number(usageReport.totals.output) },
+                { id: 'cache-read', label: labels.usage.cacheRead, value: labels.number(usageReport.totals.cacheRead) },
+                {
+                  id: 'cache-write',
+                  label: labels.usage.cacheWrite,
+                  value: labels.number(usageReport.totals.cacheWrite),
+                },
+                {
+                  id: 'billable',
+                  label: labels.usage.billable,
+                  value: labels.number(usageReport.totals.billableTokens),
+                },
+                { id: 'runs', label: labels.usage.runs, value: labels.number(usageReport.totals.runs) },
+                { id: 'attempts', label: labels.usage.attempts, value: labels.number(usageReport.totals.attempts) },
+                usageItem('cost', labels.usage.cost, usageReport.cost, labels.currency),
+                usageItem('cache-hit', labels.usage.cacheHit, usageReport.cacheHitRate, labels.percent),
               ]}
             />
           </section>
           <section>
             <h2>{labels.usage.rates}</h2>
-            <HbarAppUiMetricStrip
+            <HbarAppUiCompactMetrics
+              label={labels.usage.rates}
               metrics={[
-                usageItem(labels.usage.inputRate, usageReport.rates.input, labels.tokenRate),
-                usageItem(labels.usage.outputRate, usageReport.rates.output, labels.tokenRate),
-                usageItem(labels.usage.totalRate, usageReport.rates.total, labels.tokenRate),
+                usageItem('input-rate', labels.usage.inputRate, usageReport.rates.input, labels.tokenRate),
+                usageItem('output-rate', labels.usage.outputRate, usageReport.rates.output, labels.tokenRate),
+                usageItem('total-rate', labels.usage.totalRate, usageReport.rates.total, labels.tokenRate),
               ]}
             />
           </section>
-          <section>
+          <section className="hbar-app-react-usage-latency">
             <h2>{labels.usage.latency}</h2>
-            <HbarAppUiMetricStrip
+            <HbarAppUiCompactMetrics
+              label={labels.usage.latency}
               metrics={[
-                latencyItem(labels.usage.firstProviderEvent, usageReport.latency.firstProviderEvent),
-                latencyItem(labels.usage.firstThinking, usageReport.latency.firstThinking),
-                latencyItem(labels.usage.firstText, usageReport.latency.firstText),
-                latencyItem(labels.usage.response, usageReport.latency.response),
+                latencyItem('first-provider', labels.usage.firstProviderEvent, usageReport.latency.firstProviderEvent),
+                latencyItem('first-thinking', labels.usage.firstThinking, usageReport.latency.firstThinking),
+                latencyItem('first-text', labels.usage.firstText, usageReport.latency.firstText),
+                latencyItem('response', labels.usage.response, usageReport.latency.response),
               ]}
             />
           </section>
           <section>
             <h2>{labels.usage.timeline}</h2>
-            <div className="hbar-app-react-usage-series" aria-label={labels.usage.timeline}>
-              {usageReport.series.map((point) => (
-                <i
-                  key={point.start}
-                  style={{
-                    blockSize: `${point.billableTokens === 0 ? 0 : Math.max(0.08, point.billableTokens / usageMaximum) * 100}%`,
-                  }}
-                  title={`${labels.observedAt(point.start)} · ${labels.tokenCount(point.billableTokens)}`}
-                />
-              ))}
-            </div>
+            <HbarAppUiBarSeries
+              label={labels.usage.timeline}
+              points={usageReport.series.map((point) => ({
+                id: String(point.start),
+                value: point.billableTokens,
+                label: `${labels.observedAt(point.start)} · ${labels.tokenCount(point.billableTokens)}`,
+              }))}
+              empty={<p className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</p>}
+            />
           </section>
           <section>
             <h2>{labels.usage.models}</h2>
@@ -739,12 +763,14 @@ export function HbarStatusWorkspace({
               </ul>
             )}
           </section>
-          <section>
-            <h2>{labels.usage.execution}</h2>
+          <details className="hbar-app-react-status-details">
+            <summary>{labels.usage.execution}</summary>
             {usageReport.execution ? (
-              <HbarAppUiMetricStrip
+              <HbarAppUiCompactMetrics
+                label={labels.usage.execution}
                 metrics={[
                   {
+                    id: 'tool-calls',
                     label: labels.usage.toolCalls,
                     value: labels.number(usageReport.execution.toolCalls.total),
                     detail: labels.usage.toolCallsDetail(
@@ -753,17 +779,25 @@ export function HbarStatusWorkspace({
                       usageReport.execution.toolCalls.unknown,
                     ),
                   },
-                  executionItem(labels.usage.requestConcurrency, usageReport.execution.requestConcurrency),
-                  executionItem(labels.usage.toolConcurrency, usageReport.execution.toolConcurrency),
-                  executionItem(labels.usage.totalDuration, usageReport.execution.totalRunDuration),
-                  latencyItem(labels.usage.runDuration, usageReport.execution.runDuration),
-                  latencyItem(labels.usage.toolDuration, usageReport.execution.toolDuration),
+                  executionItem(
+                    'request-concurrency',
+                    labels.usage.requestConcurrency,
+                    usageReport.execution.requestConcurrency,
+                  ),
+                  executionItem(
+                    'tool-concurrency',
+                    labels.usage.toolConcurrency,
+                    usageReport.execution.toolConcurrency,
+                  ),
+                  executionItem('total-duration', labels.usage.totalDuration, usageReport.execution.totalRunDuration),
+                  latencyItem('run-duration', labels.usage.runDuration, usageReport.execution.runDuration),
+                  latencyItem('tool-duration', labels.usage.toolDuration, usageReport.execution.toolDuration),
                 ]}
               />
             ) : (
               <p>{labels.usage.executionUnavailable}</p>
             )}
-          </section>
+          </details>
         </main>
       ) : gitReport ? (
         <main className="hbar-app-react-git-status">

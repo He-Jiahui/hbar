@@ -28,6 +28,11 @@
   gap: var(--hbar-app-ui-space-xs);
 }
 
+.hbar-app-react-usage-controls > label {
+  min-inline-size: min(100%, 12rem);
+  flex: 1 1 12rem;
+}
+
 .hbar-app-react-status-controls select,
 .hbar-app-react-status-controls .hbar-app-ui-control {
   max-inline-size: 14rem;
@@ -43,11 +48,6 @@
   color: var(--hbar-app-ui-warning);
 }
 
-.hbar-app-react-status-export-actions {
-  display: flex;
-  gap: var(--hbar-app-ui-space-xs);
-}
-
 .hbar-app-react-status-controls fieldset {
   display: flex;
   align-items: center;
@@ -61,6 +61,70 @@
 .hbar-app-react-status-controls legend {
   float: inline-start;
   margin-inline-end: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-react-status-filter-details > summary,
+.hbar-app-react-status-export-menu > summary {
+  display: flex;
+  min-block-size: var(--hbar-app-ui-control-compact);
+  align-items: center;
+  padding-inline: var(--hbar-app-ui-space-sm);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
+  cursor: pointer;
+  list-style: none;
+}
+
+.hbar-app-react-status-filter-details {
+  order: 3;
+}
+
+.hbar-app-react-status-filter-details > summary::-webkit-details-marker,
+.hbar-app-react-status-export-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hbar-app-react-status-filter-details[open] {
+  order: 5;
+  flex-basis: 100%;
+}
+
+.hbar-app-react-status-filter-details > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-md);
+  padding-block-start: var(--hbar-app-ui-space-sm);
+}
+
+.hbar-app-react-status-filter-details > div > label {
+  flex: 1 1 14rem;
+}
+
+.hbar-app-react-status-export-menu {
+  position: relative;
+  order: 4;
+}
+
+.hbar-app-react-status-export-menu > .hbar-app-ui-dialog-menu {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: calc(100% + var(--hbar-app-ui-space-xs));
+  inset-inline-end: 0;
+  display: flex;
+  min-inline-size: 10rem;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
+  padding: var(--hbar-app-ui-space-xs);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-0);
+  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--hbar-app-ui-bg) 72%, transparent);
+}
+
+.hbar-app-react-status-export-menu > .hbar-app-ui-dialog-menu .hbar-app-ui-button {
+  inline-size: 100%;
+  justify-content: flex-start;
 }
 
 .hbar-app-react-status-workspace > nav {
@@ -165,22 +229,6 @@
   color: var(--hbar-app-ui-muted);
 }
 
-.hbar-app-react-usage-series {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.125rem;
-  min-block-size: 9rem;
-  padding: var(--hbar-app-ui-space-sm);
-  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
-}
-
-.hbar-app-react-usage-series i {
-  flex: 1 1 0;
-  min-inline-size: 0.125rem;
-  max-inline-size: 2rem;
-  background: var(--hbar-app-ui-accent);
-}
-
 .hbar-app-react-usage-models {
   display: flex;
   flex-direction: column;
@@ -204,6 +252,10 @@
   min-inline-size: min(100%, 14rem);
   flex: 1 1 14rem;
   overflow-wrap: anywhere;
+}
+
+.hbar-app-react-usage-latency .hbar-app-ui-compact-metrics > div {
+  flex-basis: 14rem;
 }
 
 .hbar-app-react-git-charts {
@@ -336,5 +388,10 @@
     align-items: flex-start;
     flex-direction: column;
     gap: var(--hbar-app-ui-space-xs);
+  }
+
+  .hbar-app-react-usage-models strong {
+    min-inline-size: 0;
+    flex: 0 0 auto;
   }
 }

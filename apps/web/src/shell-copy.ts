@@ -1170,6 +1170,8 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     usage: {
       title: choose('AI 用量', 'AI usage'),
       filters: choose('用量查询条件与导出', 'Usage query filters and exports'),
+      advancedFilters: choose('更多筛选', 'More filters'),
+      export: choose('导出', 'Export'),
       scope: choose('统计范围', 'Scope'),
       timeWindow: choose('时间窗', 'Time window'),
       aggregation: choose('聚合粒度', 'Aggregation'),

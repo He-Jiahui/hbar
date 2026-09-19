@@ -329,3 +329,26 @@ Playwright 在真实 Host 流程中先展开现有 Provider 的二级菜单，�
 第一轮截图发现复用 BarSeries 的默认行为会按当前序列最大值归一化；这适合 token 等相对序列，却会误画百分比。组件增加可选固定上限并补静态渲染断言后，真实图中的系统 CPU 柱约占报告百分比高度，Host CPU 低值保持接近基线。Playwright 同时读取实际柱高，确保至少一个真实样本可见；1440、1024 和 390 均检查无水平溢出并逐张人工复核。
 
 验证结果：flow/content/icon guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3058 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。Performance runtime、React 与共享 CompactMetrics/BarSeries 定向测试覆盖固定百分比上限、过滤与 unavailable；真实 Host 场景验证四张页面截图、手机趋势截图、柱高可见性和三档无水平溢出。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
+
+## 21. R5.6 全局 Usage 页面
+
+旧 Usage 把范围、时间、聚合、供应商、模型和两个导出按钮全部铺在同一筛选行，并用六组 MetricStrip 卡片依次展示总览、token 拆分、速率、延迟和执行统计。真实桌面初始截图中信息虽齐全，但所有数字获得相同视觉权重；390px 时首屏先堆叠六个筛选/导出控件，再用双列大卡片重复占用高度，用户需要滚动很远才能看到时间线、模型和执行口径。
+
+Usage 现在保留范围与时间窗作为常用筛选；聚合、供应商和模型进入原位“更多筛选” disclosure，打开后继续执行同一 `statusWorkspace.setUsageQuery`。JSON 与 CSV 合并到一个锚定导出菜单，导出中、失败、截断和成功状态仍由原 `usageExport` 投影持有。会话范围的后代开关复用受控 CheckBox；所有 select 使用 `hbar-app-ui/forms`，页面没有第二份查询 state。
+
+总览合并总 token、输入、输出、缓存读写、billable、Run、attempt、预计费用与缓存命中率，以 CompactMetrics 显示实际可用性和估算标记。速率和四类延迟继续使用账本报告，不产生缺少分母或事件的伪值；时间线复用 BarSeries，模型列表保留供应商/模型、token 与费用文本。执行统计改为按需展开，工具成功/失败/未知、请求/工具并发、总 Run 时间与 p50/p95 仍来自同一 execution 报告。
+
+| 场景           | 截图与人工观察                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 桌面默认态     | [1440](../../artifacts/ui-redesign/usage/after/desktop-1440.png)：常用筛选、总览、速率、延迟、token 时间线、模型与折叠执行统计全部进入首屏，旧卡片墙消失           |
+| 桌面更多筛选   | [1440](../../artifacts/ui-redesign/usage/after/desktop-1440-filters.png)：Export 保持常用操作位置，聚合、供应商和模型在下一行使用统一受控 Select                   |
+| 桌面导出       | [1440](../../artifacts/ui-redesign/usage/after/desktop-1440-export.png)：JSON/CSV 位于锚定菜单，不再长期占据两个同级按钮                                           |
+| 桌面执行明细   | [1440](../../artifacts/ui-redesign/usage/after/desktop-1440-details.png)：展开后以紧凑事实行呈现工具结果、并发与耗时，不改变查询范围                               |
+| 中等宽度       | [1024](../../artifacts/ui-redesign/usage/after/tablet-1024.png)：两项常用筛选和管理入口保持一行；延迟字段获得更宽 basis，p50/p95 不再被大卡片挤压                  |
+| 窄屏默认态     | [390](../../artifacts/ui-redesign/usage/after/mobile-390.png)：范围、时间、更多筛选与导出按可用宽度换行；总览和速率使用紧凑双列，无水平溢出                        |
+| 窄屏更多筛选   | [390](../../artifacts/ui-redesign/usage/after/mobile-390-filters.png)：Export 保留在常用操作区，高级字段按单列排列，标签和当前值完整可读                           |
+| 窄屏趋势与模型 | [390](../../artifacts/ui-redesign/usage/after/mobile-390-chart.png)：时间线、模型 token/费用和执行 disclosure 连续排列，模型标题不再因桌面 flex basis 产生大块空白 |
+
+第一次看图发现展开高级筛选会把 Export 推到字段之后，第二次发现模型标题的桌面 `flex-basis` 在手机纵向流中变成固定高度。最终用 flex order 保留常用操作顺序，并在手机断点恢复模型标题的内容高度；桌面、1024 和 390 截图重新生成后逐张复核。Playwright 还在产生一次真实工具调用后展开执行统计，检查成功数、请求并发和总 Run 时间，避免只验证零值 fixture。
+
+验证结果：Usage runtime、React、导出边界与真实工具账本定向测试通过；flow/content/icon guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3063 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景完成常用与高级筛选、锚定导出菜单、1440/1024/390 三档布局、时间线与模型区域滚动，以及产生一次真实工具调用后的执行统计核对；以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
