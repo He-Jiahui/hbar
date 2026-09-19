@@ -11,6 +11,7 @@ import {
   HbarSessionMonitoring,
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
+  HbarStatusWorkspace,
   HbarWorkspaceShell,
   useHbarRuntime,
   useHbarRuntimeState,
@@ -30,6 +31,7 @@ import {
   createRunCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
+  createMetricsCommandClient,
   createModelCommandClient,
   createSchemaCallbackClient,
   createSettingsCommandClient,
@@ -70,6 +72,7 @@ function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) 
     agents: createAgentCommandClient(client),
     goals: createGoalPlanCommandClient(client),
     extensions: createExtensionCommandClient(client),
+    metrics: createMetricsCommandClient(client),
     commandCatalog: createCommandCatalogClient(client),
     commandText: { resolve: copy.commandPalette.resolve },
     schemaContent: createSchemaCallbackClient(client),
@@ -93,6 +96,7 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
   if (panel?.panelId === 'agents') return <HbarAgentWorkspace labels={copy.agents} connected={connected} />
   if (panel?.panelId === 'goals') return <HbarGoalPlanWorkspace labels={copy.goals} connected={connected} />
   if (panel?.panelId === 'extensions') return <HbarExtensionWorkspace labels={copy.extensions} connected={connected} />
+  if (panel?.panelId === 'status') return <HbarStatusWorkspace labels={copy.status} />
   if (panel?.panelId === 'settings')
     return (
       <HbarSettingsWorkspace

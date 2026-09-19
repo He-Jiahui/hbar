@@ -162,6 +162,14 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Close extensions and skills' }).click()
     await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Status center' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Performance' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { level: 2, name: 'Host process' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b6/performance.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+
     await page.keyboard.press('Control+K')
     await expect(page.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
     await page.getByRole('searchbox', { name: 'Search commands' }).fill('session.setBudget')

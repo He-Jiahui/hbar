@@ -9,6 +9,7 @@ import type {
   HbarSessionMonitoringLabels,
   HbarSessionWorkspaceLabels,
   HbarSettingsWorkspaceLabels,
+  HbarStatusWorkspaceLabels,
   HbarWorkspaceShellLabels,
 } from '@hbar/app-react'
 
@@ -28,6 +29,7 @@ interface ShellCopy {
   readonly agents: HbarAgentWorkspaceLabels
   readonly goals: HbarGoalPlanWorkspaceLabels
   readonly extensions: HbarExtensionWorkspaceLabels
+  readonly status: HbarStatusWorkspaceLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
@@ -868,6 +870,85 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
   }
 }
 
+function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
+  const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const formatBytes = (value: number) => {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'] as const
+    let scaled = Math.max(0, value)
+    let unit = 0
+    while (scaled >= 1_000 && unit < units.length - 1) {
+      scaled /= 1_000
+      unit += 1
+    }
+    return `${number.format(scaled)} ${units[unit]}`
+  }
+  return {
+    title: choose('状态中心', 'Status center'),
+    description: choose(
+      '查看远程 Host 性能、AI 用量和 Git 统计。',
+      'Inspect remote Host performance, AI usage, and Git statistics.',
+    ),
+    close: choose('关闭状态中心', 'Close status center'),
+    refresh: choose('刷新当前分区', 'Refresh current section'),
+    loading: choose('正在加载状态数据…', 'Loading status data…'),
+    tabs: choose('状态分区', 'Status sections'),
+    sections: { dashboard: choose('性能', 'Performance'), usage: choose('使用情况', 'Usage'), git: 'Git' },
+    gap: (skipped) =>
+      choose(
+        `当前窗口存在数据缺口，已跳过 ${number.format(skipped)} 个样本。`,
+        `The current window has a data gap; ${number.format(skipped)} samples were skipped.`,
+      ),
+    process: choose('Host 进程', 'Host process'),
+    resources: choose('计算与内存', 'Compute and memory'),
+    runtime: choose('运行时与队列', 'Runtime and queues'),
+    io: choose('磁盘与网络', 'Disk and network'),
+    trends: choose('CPU 时间序列', 'CPU timeline'),
+    readings: {
+      systemCpuPercent: choose('整机 CPU', 'System CPU'),
+      hostCpuPercent: 'Host CPU',
+      systemLoad1: choose('1 分钟负载', '1-minute load'),
+      systemMemoryUsedBytes: choose('整机已用内存', 'System memory used'),
+      systemMemoryTotalBytes: choose('整机总内存', 'System memory total'),
+      hostRssBytes: 'Host RSS',
+      hostHeapUsedBytes: choose('Host 堆内存', 'Host heap used'),
+      hostThreadCount: choose('Host 线程', 'Host threads'),
+      hostDiskReadBytesPerSecond: choose('Host 磁盘读取', 'Host disk read'),
+      hostDiskWriteBytesPerSecond: choose('Host 磁盘写入', 'Host disk write'),
+      systemNetworkReceiveBytesPerSecond: choose('整机网络接收', 'System network receive'),
+      systemNetworkTransmitBytesPerSecond: choose('整机网络发送', 'System network transmit'),
+      eventLoopLagMs: choose('事件循环延迟', 'Event loop lag'),
+      activeRuns: choose('活动运行', 'Active runs'),
+      queuedRuns: choose('排队运行', 'Queued runs'),
+      managedChildProcesses: choose('受管子进程', 'Managed child processes'),
+    },
+    processLabels: {
+      pid: 'PID',
+      platform: choose('平台', 'Platform'),
+      architecture: choose('架构', 'Architecture'),
+      uptime: choose('运行时间', 'Uptime'),
+      processors: choose('逻辑处理器', 'Logical processors'),
+    },
+    unavailable: (reason) =>
+      choose(`不可用${reason ? ` · ${reason}` : ''}`, `Unavailable${reason ? ` · ${reason}` : ''}`),
+    number: (value) => number.format(value),
+    percent: (value) => `${number.format(value)}%`,
+    bytes: (value) => formatBytes(value),
+    bytesPerSecond: (value) => `${formatBytes(value)}/s`,
+    milliseconds: (value) => `${number.format(value)} ms`,
+    duration: (value) => {
+      const seconds = Math.floor(value / 1_000)
+      const hours = Math.floor(seconds / 3_600)
+      const minutes = Math.floor((seconds % 3_600) / 60)
+      return choose(`${hours} 小时 ${minutes} 分钟`, `${hours}h ${minutes}m`)
+    },
+    observedAt: (value) => time.format(value),
+    error: (code) => choose(`状态查询失败：${code}`, `Status query failed: ${code}`),
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     shell: {
@@ -901,6 +982,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     agents: createAgentWorkspaceLabels('zh-CN'),
     goals: createGoalPlanWorkspaceLabels('zh-CN'),
     extensions: createExtensionWorkspaceLabels('zh-CN'),
+    status: createStatusWorkspaceLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -939,6 +1021,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     agents: createAgentWorkspaceLabels('en-US'),
     goals: createGoalPlanWorkspaceLabels('en-US'),
     extensions: createExtensionWorkspaceLabels('en-US'),
+    status: createStatusWorkspaceLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },
