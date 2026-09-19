@@ -470,7 +470,9 @@ export function createSettingsForms(
       const scope = panelScope(panel)
       const id = formKey(panel, scope)
       const current = state.reader.getSnapshot()
-      if (current.activeFormId === id && current.forms[id]) return
+      const active = current.forms[id]
+      const requestedGroup = typeof panel.params.section === 'string' ? panel.params.section : null
+      if (current.activeFormId === id && active && (!requestedGroup || active.selectedGroup === requestedGroup)) return
       void load(panel).catch(() => undefined)
     } catch (error) {
       onSubscriberError(error)

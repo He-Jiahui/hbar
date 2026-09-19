@@ -112,7 +112,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
   expect(description).toMatchObject({
     id: 'hbar.settings',
     schemaVersion: 1,
-    groups: [{ id: 'model' }, { id: 'session' }, { id: 'providers' }],
+    groups: [{ id: 'model' }, { id: 'session' }, { id: 'providers' }, { id: 'extensions' }],
   })
   expect(description.fields.map((item) => encodePath(item.path))).toEqual([
     encodePath(field('provider.model')),

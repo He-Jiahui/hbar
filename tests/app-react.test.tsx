@@ -28,7 +28,6 @@ const labels: HbarWorkspaceShellLabels = {
   commandShortcut: 'Ctrl K',
   openWorkspace: '打开工作区',
   status: '打开状态中心',
-  extensions: '打开扩展',
   settings: '打开设置',
   server: '服务端连接',
   connected: '已经连接',

@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { HbarAppUiButton, HbarAppUiMetricStrip, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui'
+import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './extension-workspace.css'
@@ -9,7 +9,7 @@ type PluginStatus = ExtensionWorkspaceEntryState['plugins'][number]['status']
 export interface HbarExtensionWorkspaceLabels {
   readonly title: string
   readonly description: string
-  readonly close: string
+  readonly hostWide: string
   readonly refresh: string
   readonly loading: string
   readonly plugins: string
@@ -21,12 +21,17 @@ export interface HbarExtensionWorkspaceLabels {
   readonly provides: string
   readonly commands: string
   readonly panels: string
+  readonly source: string
+  readonly skillScope: string
+  readonly discovered: string
+  readonly unavailable: string
   readonly openCommands: string
   readonly openSystemCommands: string
   readonly enable: string
   readonly disable: string
   readonly changing: string
   readonly reconcile: string
+  readonly pluginMetadata: (id: string, version: string) => string
   readonly pluginCount: (count: number) => string
   readonly skillCount: (count: number) => string
   readonly error: (code: string) => string
@@ -41,16 +46,15 @@ function tone(status: PluginStatus): 'positive' | 'neutral' | 'danger' {
 export function HbarExtensionWorkspace({
   labels,
   connected,
+  instanceId,
 }: {
   readonly labels: HbarExtensionWorkspaceLabels
   readonly connected: boolean
+  readonly instanceId: string
 }) {
   const runtime = useHbarRuntime()
-  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const extensions = useHbarRuntimeState(runtime.state.extensions)
-  const instanceId = surfaces.focusedPanelId
-  const panel = instanceId ? surfaces.panels[instanceId] : undefined
-  const entry = instanceId ? extensions.entries[instanceId] : undefined
+  const entry = extensions.entries[instanceId]
   const invoke = useCallback(
     (name: string, input: unknown) =>
       void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input).catch(
@@ -59,9 +63,8 @@ export function HbarExtensionWorkspace({
     [runtime.commands],
   )
   useEffect(() => {
-    if (instanceId && panel?.panelId === 'extensions' && !entry) invoke('extensionWorkspace.refresh', { instanceId })
-  }, [entry, instanceId, invoke, panel?.panelId])
-  if (!instanceId || panel?.panelId !== 'extensions') return null
+    if (!entry) invoke('extensionWorkspace.refresh', { instanceId })
+  }, [entry, instanceId, invoke])
 
   const openCommands = (query: string) => {
     void runtime.commands
@@ -71,11 +74,12 @@ export function HbarExtensionWorkspace({
   }
 
   return (
-    <HbarAppUiSurface className="hbar-app-react-extension-workspace">
-      <header>
+    <section className="hbar-app-react-extension-workspace" aria-labelledby={`${instanceId}-extensions-title`}>
+      <header className="hbar-app-react-extension-heading">
         <div>
-          <h1>{labels.title}</h1>
+          <h2 id={`${instanceId}-extensions-title`}>{labels.title}</h2>
           <p>{labels.description}</p>
+          <small>{labels.hostWide}</small>
         </div>
         <div>
           <HbarAppUiButton
@@ -84,51 +88,51 @@ export function HbarExtensionWorkspace({
           >
             {labels.refresh}
           </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => invoke('app.closePanel', { instanceId })}>{labels.close}</HbarAppUiButton>
+          <HbarAppUiButton onClick={() => openCommands('system.')}>{labels.openSystemCommands}</HbarAppUiButton>
         </div>
       </header>
+
       {!entry || entry.status === 'loading' ? (
-        <p className="hbar-app-react-extension-loading">{labels.loading}</p>
+        <p className="hbar-app-react-extension-state" role="status">
+          {labels.loading}
+        </p>
       ) : entry.error ? (
-        <p className="hbar-app-react-extension-loading" role="alert">
+        <p className="hbar-app-react-extension-state" role="alert">
           {labels.error(entry.error)}
         </p>
       ) : (
-        <main>
-          <HbarAppUiMetricStrip
-            metrics={[
-              { label: labels.plugins, value: labels.pluginCount(entry.plugins.length) },
-              { label: labels.skills, value: labels.skillCount(entry.skills.length) },
-            ]}
-          />
-          <section className="hbar-app-react-extension-plugins">
+        <>
+          <section className="hbar-app-react-extension-section">
             <header>
-              <h2>{labels.plugins}</h2>
-              <HbarAppUiButton onClick={() => openCommands('system.')}>{labels.openSystemCommands}</HbarAppUiButton>
+              <h3>{labels.plugins}</h3>
+              <small>{labels.pluginCount(entry.plugins.length)}</small>
             </header>
             {entry.plugins.length === 0 ? (
-              <p>{labels.noPlugins}</p>
+              <p className="hbar-app-react-extension-empty">{labels.noPlugins}</p>
             ) : (
-              <ul>
+              <ul className="hbar-app-react-extension-list">
                 {entry.plugins.map((plugin) => {
                   const action = entry.actions[plugin.id]
                   const query = plugin.contributes?.commands[0]?.id ?? plugin.provides[0] ?? plugin.id
+                  const source = plugin.packageName ?? plugin.path ?? plugin.id
                   return (
-                    <li key={plugin.id}>
+                    <li key={plugin.id} className="hbar-app-react-extension-plugin">
                       <header>
                         <div>
                           <strong>{plugin.name}</strong>
-                          <small>
-                            {plugin.id} · {plugin.version}
-                          </small>
+                          <small>{labels.pluginMetadata(plugin.id, plugin.version)}</small>
                         </div>
                         <HbarAppUiStatus value={labels.status[plugin.status]} tone={tone(plugin.status)} />
                       </header>
                       <p>{plugin.description}</p>
                       <dl>
                         <div>
+                          <dt>{labels.source}</dt>
+                          <dd>{source}</dd>
+                        </div>
+                        <div>
                           <dt>{labels.provides}</dt>
-                          <dd>{plugin.provides.join(', ') || '—'}</dd>
+                          <dd>{plugin.provides.join(', ') || labels.unavailable}</dd>
                         </div>
                         <div>
                           <dt>{labels.commands}</dt>
@@ -175,23 +179,30 @@ export function HbarExtensionWorkspace({
               </ul>
             )}
           </section>
-          <section className="hbar-app-react-extension-skills">
-            <h2>{labels.skills}</h2>
+          <section className="hbar-app-react-extension-section">
+            <header>
+              <h3>{labels.skills}</h3>
+              <small>{labels.skillCount(entry.skills.length)}</small>
+            </header>
             {entry.skills.length === 0 ? (
-              <p>{labels.noSkills}</p>
+              <p className="hbar-app-react-extension-empty">{labels.noSkills}</p>
             ) : (
-              <ul>
+              <ul className="hbar-app-react-extension-list hbar-app-react-extension-skill-list">
                 {entry.skills.map((skill) => (
                   <li key={skill.id}>
-                    <strong>{skill.id}</strong>
-                    <small>{skill.path}</small>
+                    <div>
+                      <strong>{skill.id}</strong>
+                      <small title={skill.path}>{skill.path}</small>
+                      <span>{labels.skillScope}</span>
+                    </div>
+                    <HbarAppUiStatus value={labels.discovered} tone="neutral" />
                   </li>
                 ))}
               </ul>
             )}
           </section>
-        </main>
+        </>
       )}
-    </HbarAppUiSurface>
+    </section>
   )
 }

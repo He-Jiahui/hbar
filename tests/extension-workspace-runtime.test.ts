@@ -42,10 +42,16 @@ test('extension workspace lists Host extensions and reconciles an unknown lifecy
         throw new Error(`Unsupported extension command: ${name}`)
       },
     },
-    surfaces: { canRender: (panelId) => panelId === 'extensions' },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
   })
   try {
     const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'extensions' })
+    expect(panel).toMatchObject({ instanceId: 'settings', panelId: 'settings' })
+    expect(runtime.view.state.presentation.getSnapshot().page).toEqual({ kind: 'settings', instanceId: 'settings' })
+    expect(runtime.view.state.surfaces.getSnapshot().panels.settings?.params).toEqual({
+      scope: 'global',
+      section: 'extensions',
+    })
     await runtime.view.commands.execute('extensionWorkspace.refresh', { instanceId: panel.instanceId })
     expect(runtime.view.state.extensions.getSnapshot().entries[panel.instanceId]).toMatchObject({
       status: 'ready',

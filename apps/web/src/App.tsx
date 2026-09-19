@@ -50,17 +50,7 @@ import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
 import './App.css'
 
-const panels = new Set([
-  'commands',
-  'files',
-  'monitoring',
-  'agents',
-  'goals',
-  'extensions',
-  'status',
-  'settings',
-  'settings-editor',
-])
+const panels = new Set(['commands', 'files', 'monitoring', 'agents', 'goals', 'status', 'settings', 'settings-editor'])
 
 function isJsonObject(value: ClientJsonValue | undefined): value is Readonly<Record<string, ClientJsonValue>> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -134,9 +124,19 @@ function WorkspaceBody({
       <HbarSettingsWorkspace
         labels={copy.settings}
         connected={connected}
-        renderGroup={(groupId) =>
-          groupId === 'providers' ? <HbarProviderSettings labels={copy.providers.list} connected={connected} /> : null
-        }
+        renderGroup={(groupId) => {
+          if (groupId === 'providers')
+            return <HbarProviderSettings labels={copy.providers.list} connected={connected} />
+          if (groupId === 'extensions' && presentation.page.kind === 'settings')
+            return (
+              <HbarExtensionWorkspace
+                labels={copy.extensions}
+                connected={connected}
+                instanceId={presentation.page.instanceId}
+              />
+            )
+          return null
+        }}
       />
     )
   if (session)
@@ -178,10 +178,6 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
   const providers = useHbarRuntimeState(runtime.state.providers)
   const modalInstanceId = presentation.modalInstanceId
   const modal = modalInstanceId ? surfaces.panels[modalInstanceId] : undefined
-  const legacyExtensionId =
-    !modal && surfaces.focusedPanelId && surfaces.panels[surfaces.focusedPanelId]?.panelId === 'extensions'
-      ? surfaces.focusedPanelId
-      : null
   const close = (instanceId: string) => {
     void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
   }
@@ -216,19 +212,6 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
       </HbarAppUiDialog>
     )
   }
-  if (legacyExtensionId)
-    return (
-      <HbarAppUiDialog
-        open
-        chromeless
-        title={copy.extensions.title}
-        closeLabel={copy.extensions.close}
-        className="hbar-app-react-workspace-modal hbar-app-react-extension-modal"
-        onClose={() => close(legacyExtensionId)}
-      >
-        <HbarExtensionWorkspace labels={copy.extensions} connected={connected} />
-      </HbarAppUiDialog>
-    )
   return null
 }
 

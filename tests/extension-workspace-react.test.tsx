@@ -36,22 +36,29 @@ test('extension panel renders Host plugins, skills, and command catalog entry po
         throw new Error(`Unsupported extension command: ${name}`)
       },
     },
-    surfaces: { canRender: (panelId) => panelId === 'extensions' || panelId === 'commands' },
+    surfaces: { canRender: (panelId) => panelId === 'settings' || panelId === 'commands' },
   })
   try {
     const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'extensions' })
     await runtime.view.commands.execute('extensionWorkspace.refresh', { instanceId: panel.instanceId })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarExtensionWorkspace labels={getShellCopy('en-US').extensions} connected />
+        <HbarExtensionWorkspace labels={getShellCopy('en-US').extensions} connected instanceId={panel.instanceId} />
       </HbarRuntimeProvider>,
     )
     expect(html).toContain('Extensions and skills')
+    expect(html).toContain('global capabilities on the current Host')
     expect(html).toContain('Browser use')
     expect(html).toContain('Managed browser automation')
+    expect(html).toContain('@hbar/browser-use')
+    expect(html).toContain('Version 1.0.0')
     expect(html).toContain('review-helper')
+    expect(html).toContain('D:/skills/review-helper')
+    expect(html).toContain('Scope: Global')
     expect(html).toContain('Open related commands')
+    expect(html).toContain('Disable')
     expect(html).toContain('Open system and diagnostic commands')
+    expect(html).not.toContain('Close extensions and skills')
   } finally {
     runtime.dispose()
   }

@@ -123,7 +123,7 @@ UI-01–09 是待办，不因 Prompt 的修复或全库检查通过而关闭。�
 
 ## 10. R2 主页面、工具与模态出口
 
-Web 组合根不再用 `focusedPanelId` 串行决定全部可见内容。`presentation.page` 只选择 session/settings/status 主页面，`toolInstanceId` 选择 files/monitoring/agents/goals 工具，`modalInstanceId` 选择 commands/settings-editor。AppShell 的 tool 和 overlay 插槽进入实际组合；工具组件读取明确 instanceId，因此打开命令模态不会让工具误读焦点目标。扩展管理尚未迁入设置 Schema，迁移前通过兼容模态呈现，不再替换会话主页面。
+Web 组合根不再用 `focusedPanelId` 串行决定全部可见内容。`presentation.page` 只选择 session/settings/status 主页面，`toolInstanceId` 选择 files/monitoring/agents/goals 工具，`modalInstanceId` 选择 commands/settings-editor。AppShell 的 tool 和 overlay 插槽进入实际组合；工具组件读取明确 instanceId，因此打开命令模态不会让工具误读焦点目标。该切片当时仍以兼容模态呈现扩展管理；第 19 节已用设置内分组取代这一过渡状态。
 
 命令目录和供应商编辑器使用 `hbar-app-ui` 原生 `<dialog>` 顶层。组件新增 chromeless 模式，让内部页面保留自己唯一的一套标题和动作，同时由原生 dialog 提供 inert 背景、焦点圈定、Escape 和关闭后焦点恢复。真实交互发现内层删除确认的 `cancel` 会冒泡并关闭外层供应商编辑器；NativeDialog 现已在处理 cancel 后停止传播，重新执行 Escape 后只关闭确认层并把焦点还给“删除供应商”。
 
@@ -291,3 +291,23 @@ R5.2 完成后，Provider 分组仍由旧 `SchemaList` 把每个实体渲染成�
 Playwright 在真实 Host 流程中先展开现有 Provider 的二级菜单，打开删除确认并验证两层 Escape 与焦点恢复，再通过新增入口完成预设选择、模型编辑和保存。返回列表后在 1440、1024 和 390 三档宽度检查 Browser provider 可编辑、页面没有水平溢出，并重新生成以上截图。截图已逐张人工查看；旧灰色整行按钮、直接暴露的删除动作和窄屏状态挤压均已消失。
 
 验证结果：flow/content/icon guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3039 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景完成列表菜单、确认弹窗、ProviderEditor 返回和三档响应式验证；以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
+
+## 19. R5.4 扩展与技能归入设置
+
+旧实现把扩展管理作为侧栏底部的第三个全局入口，并在会话上方打开独立模态。模态内部再次渲染 `h1`、全局关闭按钮、指标卡和卡片网格，内容自己滚动；结果是应用外壳、模态和扩展页面同时提供导航与关闭语义。旧截图 [extensions modal](../../artifacts/web-b5/extensions.png) 现在只作为迁移前证据。
+
+设置描述新增 `extensions` 管理分组。兼容命令 `app.openPanel('extensions')` 不再创建扩展 panel，而是打开全局 `settings` page 并请求 `section: extensions`；当同一设置实例已经存在时，runtime 仍会处理新的 section 并切换分组。ExtensionWorkspace 接收明确的设置页面 instanceId，所有刷新、启停和未知结果核对继续写入原有只读投影。侧栏删除独立扩展按钮，只保留状态中心与设置；诊断和相关命令仍打开统一命令目录。
+
+嵌入内容去掉重复 `h1`、全局关闭按钮、MetricStrip 和内部滚动容器。分组头只说明 Host 全局作用域并提供刷新与系统诊断入口；插件按普通 flex 列表显示名称、启用状态、ID、版本、来源、能力、命令数、面板数和现有操作。必需插件只显示必需状态，可选插件保留启用/禁用；技能分区显示稳定 ID、路径、作用域和发现状态，真实 Host 没有技能时显示明确空态。
+
+| 场景     | 截图与人工观察                                                                                                                                                             |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面顶部 | [1440](../../artifacts/ui-redesign/extensions/after/desktop-1440.png)：设置页是唯一页面壳，分类、Host 全局说明、诊断入口和插件事实按一个阅读流排列；侧栏底部不再有扩展按钮 |
+| 桌面底部 | [1440](../../artifacts/ui-redesign/extensions/after/desktop-1440-skills.png)：可选插件的禁用操作与必需插件状态都可见；Skills 分区显示真实 0 项空态                         |
+| 中等宽度 | [1024](../../artifacts/ui-redesign/extensions/after/tablet-1024.png)：应用侧栏与设置分类栏共存时，标题说明先占完整行，操作移到下一行，插件事实自然换行                     |
+| 窄屏顶部 | [390](../../artifacts/ui-redesign/extensions/after/mobile-390.png)：分类改为选择器，两个管理动作全宽排列，插件事实按单列阅读且没有水平溢出                                 |
+| 窄屏底部 | [390](../../artifacts/ui-redesign/extensions/after/mobile-390-skills.png)：可选插件的相关命令与禁用动作并排保持可达，Skills 空态未被固定 footer 或内部滚动裁切             |
+
+第一次真实截图在 1024px 发现标题说明被两个操作按钮压成逐词换行，因此分组头改为可换行 flex；第二次截图又发现桌面标题的 `flex-basis: 22rem` 在手机纵向布局中变成 22rem 高度，把按钮推到页面中部，最终在窄屏断点恢复内容高度。两项都在重新构建 production preview 后重跑并逐张复核，未用仅通过类型或几何断言替代看图。
+
+验证结果：flow/content guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3052 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。定向 React 测试还以非空技能数据验证路径与全局作用域文案；真实 Host 流程验证设置内导航、诊断命令模态、返回原分组、1440/1024/390 响应式布局、底部 Skills 空态及无水平溢出。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。

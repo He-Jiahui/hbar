@@ -154,7 +154,11 @@ export function registerSurfaceCommands(
     return { instanceId, closed: true }
   }
 
-  local.register(surfaceCommands['app.openPanel'], (input) => openPanel(input.panelId, input))
+  local.register(surfaceCommands['app.openPanel'], (input) =>
+    input.panelId === 'extensions'
+      ? openPanel('settings', input, { scope: 'global', section: 'extensions' })
+      : openPanel(input.panelId, input),
+  )
   local.register(surfaceCommands['app.closePanel'], ({ instanceId }) => closePanel(instanceId))
   local.register(surfaceCommands['app.back'], () => {
     const current = presentation.reader.getSnapshot()

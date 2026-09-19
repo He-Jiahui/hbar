@@ -101,6 +101,12 @@ test('presentation commands separate the main page, session tool, modal, return 
       returnContext: { workspaceId: 'w1', sessionId: 's1', toolInstanceId: tool.instanceId },
       sidebarOpen: false,
     })
+    const legacyExtensions = await runtime.view.commands.execute('app.openPanel', { panelId: 'extensions' })
+    expect(legacyExtensions).toMatchObject({ panelId: 'settings', instanceId: settings.instanceId })
+    expect(runtime.view.state.surfaces.getSnapshot().panels[settings.instanceId]?.params).toEqual({
+      scope: 'global',
+      section: 'extensions',
+    })
     const modal = await runtime.view.commands.execute('app.openPanel', { panelId: 'commands' })
     expect(runtime.view.state.presentation.getSnapshot().modalInstanceId).toBe(modal.instanceId)
     expect(await runtime.view.commands.execute('app.back', {})).toMatchObject({

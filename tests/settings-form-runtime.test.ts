@@ -159,6 +159,12 @@ test('settings group selection is command-owned and isolated per scoped form', a
   expect(global.selectedGroup).toBe('model')
   await runtime.view.commands.execute('settingsForm.selectGroup', { formId: global.formId, groupId: 'session' })
   expect(runtime.view.state.settings.getSnapshot().forms[global.formId]?.selectedGroup).toBe('session')
+  const legacyExtensions = await runtime.view.commands.execute('app.openPanel', { panelId: 'extensions' })
+  expect(legacyExtensions).toMatchObject({ panelId: 'settings', instanceId: 'settings' })
+  await waitFor(() =>
+    runtime.view.state.settings.getSnapshot().forms[global.formId]?.selectedGroup === 'extensions' ? true : undefined,
+  )
+  await runtime.view.commands.execute('settingsForm.selectGroup', { formId: global.formId, groupId: 'session' })
   await expect(
     runtime.view.commands.execute('settingsForm.selectGroup', { formId: global.formId, groupId: 'missing' }),
   ).rejects.toMatchObject({ code: 'GROUP_NOT_FOUND' })

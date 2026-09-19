@@ -21,7 +21,6 @@ export interface HbarWorkspaceShellLabels {
   readonly commandShortcut: string
   readonly openWorkspace: string
   readonly status: string
-  readonly extensions: string
   readonly settings: string
   readonly server: string
   readonly connected: string
@@ -55,7 +54,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
-  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
   )
@@ -276,12 +274,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 label={props.labels.status}
                 selected={presentation.page.kind === 'status'}
                 onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
-              />
-              <HbarAppUiSidebarAction
-                icon="puzzle"
-                label={props.labels.extensions}
-                selected={surfaces.focusedPanelId === 'extensions'}
-                onClick={() => openPanel('extensions')}
               />
               <HbarAppUiSidebarAction
                 icon="settings"

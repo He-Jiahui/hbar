@@ -35,6 +35,7 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
       { id: 'model', labelKey: 'i18n:settings.groups.model', order: 10 },
       { id: 'session', labelKey: 'i18n:settings.groups.session', order: 20 },
       { id: 'providers', labelKey: 'i18n:settings.groups.providers', order: 30 },
+      { id: 'extensions', labelKey: 'i18n:settings.groups.extensions', order: 40 },
     ],
     fields: [
       {

@@ -31,8 +31,8 @@ export function createExtensionWorkspace(
 
   const panel = (instanceId: string) => {
     const value = surfaces.getSnapshot().panels[instanceId]
-    if (!value || value.panelId !== 'extensions')
-      throw new CommandError('COMMAND_NOT_FOUND', 'Extension panel is not open')
+    if (!value || (value.panelId !== 'extensions' && value.panelId !== 'settings'))
+      throw new CommandError('COMMAND_NOT_FOUND', 'Extension settings are not open')
     return value
   }
   const requireClient = () => {
