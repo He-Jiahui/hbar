@@ -288,11 +288,17 @@
       "owner": "Host files / artifacts / execution service",
       "stateOwner": "Host files/artifacts; client upload/edit drafts",
       "category": "files.tools",
-      "milestone": "A11",
-      "status": "complete-headless-commands-and-transfer",
+      "milestone": "A11/B5",
+      "status": "complete-headless-commands-transfer-and-file-workspace",
       "rpc": ["file.read", "file.list"],
       "additionalCommands": ["file.write", "attachment.upload", "attachment.query"],
-      "tests": ["tests/file-attachment.test.ts", "tests/file-commands.test.ts", "tests/cli.test.ts"]
+      "tests": [
+        "tests/file-attachment.test.ts",
+        "tests/file-commands.test.ts",
+        "tests/file-workspace-runtime.test.ts",
+        "tests/file-workspace-react.test.tsx",
+        "tests/cli.test.ts"
+      ]
     },
     {
       "id": "agents-metrics",
@@ -375,6 +381,12 @@
     "commandPalette.unsetParameter",
     "commandPalette.resetParameters",
     "commandPalette.execute",
+    "fileWorkspace.refresh",
+    "fileWorkspace.loadMore",
+    "fileWorkspace.openEntry",
+    "fileWorkspace.setText",
+    "fileWorkspace.save",
+    "fileWorkspace.reconcile",
     "layout.commit",
     "layout.restore",
     "preferences.set",
@@ -421,6 +433,7 @@
     "B2": "complete: recoverable timeline, command-owned drafts/run/interactions, model/budget/usage projections and controlled React session workspace verified against a real Host",
     "B3": "complete: schema-react scalar and keyed List renderers, Host descriptions/callbacks, layered FormState, cancellable content, command-owned grouping, private credential drafts, ProviderDialog and real Web save/create flows",
     "B4": "complete: bounded merged catalog, descriptor parameter forms, private sensitive drafts, controlled categorized Web palette and real Host execution",
-    "B5-B7": "pending"
+    "B5": "in progress: Files panel complete with command-owned paging, editing, CAS save, unknown reconciliation, responsive tool rail and real Host E2E",
+    "B6-B7": "pending"
   }
 }

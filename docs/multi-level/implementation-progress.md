@@ -186,3 +186,13 @@ app-runtime 新增只读 command palette 投影，将 Host 分页目录与本地
 `@hbar/app-react` 复用 `hbar-app-ui` 的受控、可虚拟化命令列表，按正常 grid/flex 流组合分类搜索和 descriptor 参数区；React 只保存搜索焦点与密码 DOM 值。Web 组合根注入 catalog transport 和类型化中英文命令/分类/字段文案。Ctrl/Cmd+K、刷新、选择、参数、执行、Escape/关闭都映射到应用 command；断线时仍可浏览本地命令，Host 命令明确不可用。
 
 交付验证：`bun run check` 通过 lint、typecheck、332 个测试（96 个文件、2596 个断言）；生产构建包含 2356 个模块。Playwright 5 个场景通过，覆盖中英文桌面/390px、离线本地目录、关闭后继续导航，以及真实临时 Host 上搜索 `session.setBudget`、预填 Session ID、填写 120000 Token、持久执行并显示回执。人工检查 `artifacts/web-b4/command-palette.png` 后修正成功回执旁参数被异步目录活动重置的问题；最终截图保留确切提交参数且无必填伪错误。
+
+## B5：会话右侧工具（实施中）
+
+### B5a：Files 工作区（完成）
+
+Session 工作区新增正常 grid/flex 流中的右侧工具栏；Files 执行 `app.openPanel`，Session Settings 继续执行 `app.openSettings`，窄屏时工具栏回到横向内容流。app-runtime 为每个 file panel instance 保存独立只读投影，按 panel 绑定的 workspace 分页读取最多 500 个稳定路径条目；目录刷新、分页、打开、编辑、保存和 unknown 核对全部使用 internal `fileWorkspace.*` command。切换 followActive 目标后 UI 会按新 workspace 刷新，不把旧目录或文档继续显示为当前事实。
+
+文件正文最多 2 MiB，保存使用 Host `file.write` 的 SHA-256 baseline 防止覆盖外部修改。提交捕获原 workspace/path/baseline/text；提交期间继续编辑会保留新 draft，成功只把已提交正文设为 baseline。明确冲突保留草稿和原位错误，断线未知通过 `file.read` 比较确切提交正文后收敛。`@hbar/app-react` 复用 `HbarAppUiWorkspaceFiles` 与 `HbarAppUiFileDocument`，React 只订阅读状态并发命令。
+
+交付验证：runtime/React/Session/Web boundary 定向测试通过，严格 typecheck 与目标 ESLint 通过；生产构建包含 2360 个模块。真实临时 Host 的 Playwright 场景打开 `browser-e2e.md`、编辑保存、确认回执、关闭 Files 并返回原 Session；人工检查 `artifacts/web-b5/file-manager.png` 后修正 editor/footer 的组件类选择器。Monitoring、子 Agent、目标计划及已有扩展入口继续按 B5b–B5e 独立提交。
