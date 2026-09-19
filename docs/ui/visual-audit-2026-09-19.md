@@ -102,3 +102,21 @@ UI-01–09 是待办，不因 Prompt 的修复或全库检查通过而关闭。�
 | 删除确认   | [1440](../../artifacts/ui-redesign/provider-editor/after/delete-confirm-1440.png)：使用原生 modal 顶层、明确目标和危险动作；Escape 关闭后焦点恢复到触发按钮                                                                          |
 
 验证结果：17 个定向 Bun 测试与 153 个断言通过；全仓 TypeScript 类型检查通过；本切片 ESLint、flow/content/icon guards、Prettier 与 `git diff --check` 通过；Web production build 通过（2390 modules）；真实 Host 的 connected Playwright 场景通过。E2E 实际执行预设搜索、OpenAI 选择、从目录加入 GPT-5.4、设为默认、保存凭据、三视口滚动和删除确认焦点恢复。截图已逐张人工查看。本切片没有执行 Tauri 实窗，因此不把桌面平台视觉矩阵记为完成。
+
+## 9. R1/R2 AppShell 与工程会话侧栏
+
+本切片用 `hbar-app-ui/workbench` 的公开壳层契约重建应用骨架。AppShell 现在明确拥有 sidebar、header、main、tool 和 overlay 插槽；AppSidebar 只负责品牌区、主操作、独立滚动的工程会话树和底部状态区。`app-react` 读取 `presentation.sidebarOpen`，所有展开/收起、打开命令、状态、设置、扩展和选择会话仍通过公开命令完成。树本身的工程折叠属于局部 UI 状态。
+
+视觉层级参考了 cc-haha 的[侧栏布局](../../../cc-haha/img_preview/layout_adj.png)和 JetBrains 工作台的边界关系。当前实现按本项目计划保留顶部“新建会话”和命令入口，将工程与会话树作为唯一伸缩滚动区，把只读服务状态和管理入口固定在底部。扩展管理暂时保留为较低优先级入口，待设置页面增加正式的扩展分组后迁入设置。
+
+第一轮真实截图验证了旧 UI-03 的根因：旧 CSS 在窄屏把侧栏设为 `40dvh` 并与正文上下堆叠。新壳层在小于 64rem 时把侧栏作为真实抽屉覆盖层，默认显示完整正文；选择会话或导航到页面后自动收起。1024 宽度仍使用桌面侧栏，390 宽度使用 17rem 抽屉和右侧关闭区域。流式布局守卫原来只识别 modal/menu；本切片让守卫按技能文档同时识别 sidebar/tool drawer，并补了自测。
+
+| 场景           | 截图与人工观察                                                                                                                                                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 离线桌面       | [中文 1440](../../artifacts/ui-redesign/shell/sidebar-zh-CN-1440.png)：主操作、工程树、服务状态和管理入口分区清楚；主页面不再继承壳层大 padding                                                                                     |
+| 离线窄屏       | [正文 390](../../artifacts/ui-redesign/shell/content-en-US-390.png)、[抽屉 390](../../artifacts/ui-redesign/shell/drawer-en-US-390.png)：正文首屏完整；抽屉覆盖而不挤压正文，背景点击区可关闭                                       |
+| 真实 Host 桌面 | [1440](../../artifacts/ui-redesign/shell/connected-sidebar-1440.png)：工作区、会话、更新时间、选中态和连接状态来自 Host 数据                                                                                                        |
+| 真实 Host 中宽 | [1024](../../artifacts/ui-redesign/shell/connected-sidebar-1024.png)：侧栏与主页面保持边界，无横向页面溢出；同时暴露会话工具栏文字竖排，继续归属 UI-01                                                                              |
+| 真实 Host 窄屏 | [正文 390](../../artifacts/ui-redesign/shell/connected-content-390.png)、[抽屉 390](../../artifacts/ui-redesign/shell/connected-drawer-390.png)：切换到窄屏自动收起，抽屉中的活动会话和底部入口可达；聊天头部裁切继续归属会话页重构 |
+
+验证结果：全仓 ESLint（Node heap 8 GiB）、TypeScript、375 个 Bun 测试（2931 个断言）、flow/content/icon guards、Prettier 和 Web production build 通过；离线四组合 E2E 与真实 Host connected E2E 共 5 项通过。截图逐张人工查看。UI-03 在 Web 壳层关闭；UI-01、UI-02、UI-04 和各业务页面视觉问题没有因壳层修复而关闭。

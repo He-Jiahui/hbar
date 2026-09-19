@@ -69,7 +69,10 @@ function parseRules(source) {
     if (inComment) continue
 
     if (character === '{') {
-      const selector = source.slice(headerStart, index).replaceAll(/\/\*[\s\S]*?\*\//g, '').trim()
+      const selector = source
+        .slice(headerStart, index)
+        .replaceAll(/\/\*[\s\S]*?\*\//g, '')
+        .trim()
       stack.push({ selector, bodyStart: index + 1, startLine: lineNumber(source, headerStart) })
       headerStart = index + 1
       continue
@@ -86,7 +89,7 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(selector) {
-  return /hbar-app-ui-(?:dialog-backdrop|dialog-menu)(?:[\s.:#>+~]|$)/.test(selector)
+  return /hbar-app-ui-(?:dialog-backdrop|dialog-menu|app-sidebar-drawer|app-tool-drawer)(?:[\s.:#>+~]|$)/.test(selector)
 }
 
 function validateCss(path, source) {
@@ -103,7 +106,9 @@ function validateCss(path, source) {
         errors.push(`${location}: ${property} is reserved for a real overlay container; use flex flow for content.`)
       }
       if (property === 'position' && /\b(?:absolute|fixed)\b/.test(value) && !isOverlay) {
-        errors.push(`${location}: ${value.trim()} positioning is reserved for a real overlay container; use flex flow for content.`)
+        errors.push(
+          `${location}: ${value.trim()} positioning is reserved for a real overlay container; use flex flow for content.`,
+        )
       }
       if (property === 'display' && /\b(?:inline-)?grid\b/.test(value)) {
         errors.push(`${location}: ${value.trim()} uses CSS Grid; use flex flow for ordinary content.`)
@@ -112,7 +117,9 @@ function validateCss(path, source) {
         errors.push(`${location}: ${property} is a CSS Grid declaration; use flex flow for ordinary content.`)
       }
       if (/\b\d+(?:\.\d+)?px\b/.test(value) && !spacingProperties.has(property)) {
-        errors.push(`${location}: ${property} contains a px value outside spacing; use rem, em, percentages, or intrinsic sizing.`)
+        errors.push(
+          `${location}: ${property} contains a px value outside spacing; use rem, em, percentages, or intrinsic sizing.`,
+        )
       }
     }
   }
@@ -121,32 +128,47 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
-  const valid = validateCss('self-test-valid.css', `.card {
+  const valid = validateCss(
+    'self-test-valid.css',
+    `.card {
   display: flex;
   padding: 8px;
   margin-inline: 4px;
   gap: 6px;
   border-radius: .5rem;
-}`)
+}`,
+  )
   if (valid.length !== 0) {
     console.error(`Flow layout guard self-test expected valid CSS, got: ${valid.join('; ')}`)
     process.exit(1)
   }
-  const invalid = validateCss('self-test-invalid.css', `.card {
+  const invalid = validateCss(
+    'self-test-invalid.css',
+    `.card {
   display: grid;
   border: 1px solid red;
   width: 320px;
   left: 2px;
-}`)
+}`,
+  )
   if (invalid.length < 4) {
-    console.error(`Flow layout guard self-test expected CSS Grid, px, and coordinate errors, got: ${invalid.join('; ')}`)
+    console.error(
+      `Flow layout guard self-test expected CSS Grid, px, and coordinate errors, got: ${invalid.join('; ')}`,
+    )
     process.exit(1)
   }
-  const overlay = validateCss('self-test-overlay.css', `.hbar-app-ui-dialog-backdrop {
+  const overlay = validateCss(
+    'self-test-overlay.css',
+    `.hbar-app-ui-dialog-backdrop {
   position: fixed;
   inset: 0;
   padding: 1rem;
-}`)
+}
+.hbar-app-ui-app-sidebar-drawer {
+  position: fixed;
+  inset: 0;
+}`,
+  )
   if (overlay.length !== 0) {
     console.error(`Flow layout guard self-test expected overlay exception, got: ${overlay.join('; ')}`)
     process.exit(1)
@@ -162,7 +184,7 @@ if (inputPaths.length === 0) {
 const allErrors = []
 for (const path of inputPaths) {
   const file = Bun.file(path)
-  if (!await file.exists()) {
+  if (!(await file.exists())) {
     allErrors.push(`${path}: stylesheet does not exist`)
     continue
   }

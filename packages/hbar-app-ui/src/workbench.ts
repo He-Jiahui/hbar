@@ -2,8 +2,11 @@
 export {
   HbarAppUiAppShell,
   HbarAppUiAppSidebar,
+  HbarAppUiShellIcon,
+  HbarAppUiSidebarAction,
   HbarAppUiWorkbenchNotice,
   type HbarAppUiAppShellProps,
   type HbarAppUiAppSidebarProps,
   type HbarAppUiWorkbenchNoticeProps,
+  type HbarAppUiShellIconName,
 } from './components/app-shell/AppShell'

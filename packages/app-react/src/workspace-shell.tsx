@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { HbarAppUiAppShell, HbarAppUiAppSidebar } from 'hbar-app-ui/workbench'
+import {
+  HbarAppUiAppShell,
+  HbarAppUiAppSidebar,
+  HbarAppUiShellIcon,
+  HbarAppUiSidebarAction,
+} from 'hbar-app-ui/workbench'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './workspace-shell.css'
 
@@ -11,18 +16,24 @@ export interface HbarWorkspaceShellLabels {
   readonly noSessions: string
   readonly loading: string
   readonly loadMore: string
+  readonly newSession: string
   readonly commands: string
+  readonly commandShortcut: string
   readonly openWorkspace: string
   readonly status: string
   readonly extensions: string
   readonly settings: string
   readonly server: string
   readonly connected: string
+  readonly pairing: string
   readonly disconnected: string
   readonly reconnect: string
+  readonly showSidebar: string
+  readonly hideSidebar: string
   readonly expandWorkspace: (name: string) => string
   readonly collapseWorkspace: (name: string) => string
   readonly openSession: (name: string) => string
+  readonly sessionUpdatedAt: (timestamp: number) => string
   readonly error: (code: string) => string
 }
 
@@ -40,6 +51,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
   )
@@ -91,6 +104,17 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [loadWorkspaces, props.connection])
 
   useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 63.9375rem)')
+    const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
+      if (event.matches && runtime.state.presentation.getSnapshot().sidebarOpen)
+        void execute('app.setSidebarVisible', { visible: false }).catch(recordError)
+    }
+    closeNarrowSidebar(narrow)
+    narrow.addEventListener('change', closeNarrowSidebar)
+    return () => narrow.removeEventListener('change', closeNarrowSidebar)
+  }, [execute, recordError, runtime.state.presentation])
+
+  useEffect(() => {
     if (navigation.workspaceId)
       setExpanded((current) =>
         current.has(navigation.workspaceId!) ? current : new Set(current).add(navigation.workspaceId!),
@@ -106,7 +130,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        void execute('app.openPanel', { panelId: 'commands' }).catch(recordError)
+        void execute('app.openPanel', { panelId: 'commands' })
+          .then(() => {
+            if (window.matchMedia('(max-width: 63.9375rem)').matches)
+              return execute('app.setSidebarVisible', { visible: false })
+            return undefined
+          })
+          .catch(recordError)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -129,58 +159,130 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     return result
   }, [directory])
 
-  const openPanel = (panelId: string) => void execute('app.openPanel', { panelId }).catch(recordError)
+  const setSidebarVisible = (visible: boolean) => void execute('app.setSidebarVisible', { visible }).catch(recordError)
+  const closeNarrowSidebar = async () => {
+    if (window.matchMedia('(max-width: 63.9375rem)').matches) await execute('app.setSidebarVisible', { visible: false })
+  }
+  const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
+  const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
+  const openCommand = (query?: string) => {
+    let operation: Promise<unknown> = execute('app.openPanel', { panelId: 'commands' })
+    if (query)
+      operation = operation
+        .then(() => execute('commandPalette.refresh', {}))
+        .then(() => execute('commandPalette.setQuery', { query }))
+    settleNavigation(operation)
+  }
   const openWorkspace = () => {
-    void execute('app.openPanel', { panelId: 'commands' })
-      .then(() => execute('commandPalette.refresh', {}))
-      .then(() => execute('commandPalette.setQuery', { query: 'workspace.open' }))
+    openCommand('workspace.open')
+  }
+  const openSession = (sessionId: string) => {
+    void execute('app.setSession', { sessionId })
+      .then(() => {
+        return closeNarrowSidebar()
+      })
       .catch(recordError)
   }
   const serverValue =
     props.connection === 'connected'
       ? props.labels.connected
-      : props.connection === 'connecting'
-        ? props.labels.loading
-        : props.labels.disconnected
+      : props.connection === 'pairing'
+        ? props.labels.pairing
+        : props.connection === 'connecting'
+          ? props.labels.loading
+          : props.labels.disconnected
+  const serverTone =
+    props.connection === 'connected' ? 'positive' : props.connection === 'disconnected' ? 'danger' : 'warning'
 
   return (
     <HbarAppUiAppShell
       label={props.labels.main}
       sidebarWidthRem={props.sidebarWidthRem}
+      sidebarOpen={presentation.sidebarOpen}
+      closeSidebarLabel={props.labels.hideSidebar}
+      onCloseSidebar={() => setSidebarVisible(false)}
+      header={
+        <div className="hbar-app-react-shell-header">
+          <button
+            type="button"
+            className="hbar-app-react-icon-action"
+            aria-label={props.labels.showSidebar}
+            title={props.labels.showSidebar}
+            onClick={() => setSidebarVisible(true)}
+          >
+            <HbarAppUiShellIcon name="menu" />
+          </button>
+          <strong>{props.labels.brand}</strong>
+        </div>
+      }
       sidebar={
         <HbarAppUiAppSidebar
           brand={props.labels.brand}
           title={props.labels.projectsAndSessions}
           emptyLabel={loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
-          status={{ label: props.labels.server, value: serverValue }}
+          status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
+          brandAction={
+            <button
+              type="button"
+              className="hbar-app-react-icon-action"
+              aria-label={props.labels.hideSidebar}
+              title={props.labels.hideSidebar}
+              onClick={() => setSidebarVisible(false)}
+            >
+              <HbarAppUiShellIcon name="panel-close" />
+            </button>
+          }
+          primaryActions={
+            <div className="hbar-app-react-sidebar-primary">
+              <HbarAppUiSidebarAction
+                icon="plus"
+                label={props.labels.newSession}
+                onClick={() => openCommand('session.create')}
+              />
+              <HbarAppUiSidebarAction
+                icon="command"
+                label={props.labels.commands}
+                detail={props.labels.commandShortcut}
+                selected={presentation.modalInstanceId === 'commands'}
+                onClick={() => openPanel('commands')}
+              />
+            </div>
+          }
+          treeAction={
+            <button
+              type="button"
+              className="hbar-app-react-icon-action"
+              aria-label={props.labels.openWorkspace}
+              title={props.labels.openWorkspace}
+              disabled={props.connection !== 'connected'}
+              onClick={openWorkspace}
+            >
+              <HbarAppUiShellIcon name="folder-open" />
+            </button>
+          }
           actions={
             <div className="hbar-app-react-sidebar-actions">
               {props.connection !== 'connected' && (
-                <button type="button" onClick={props.onReconnect}>
-                  {props.labels.reconnect}
-                </button>
+                <HbarAppUiSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
               )}
-              <button type="button" onClick={openWorkspace}>
-                {props.labels.openWorkspace}
-              </button>
-              <button type="button" onClick={() => openPanel('commands')}>
-                {props.labels.commands}
-              </button>
-              <button
-                type="button"
-                onClick={() => void execute('app.openStatus', { section: 'dashboard' }).catch(recordError)}
-              >
-                {props.labels.status}
-              </button>
-              <button type="button" onClick={() => openPanel('extensions')}>
-                {props.labels.extensions}
-              </button>
-              <button
-                type="button"
-                onClick={() => void execute('app.openSettings', { scope: 'global' }).catch(recordError)}
-              >
-                {props.labels.settings}
-              </button>
+              <HbarAppUiSidebarAction
+                icon="activity"
+                label={props.labels.status}
+                selected={presentation.page.kind === 'status'}
+                onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
+              />
+              <HbarAppUiSidebarAction
+                icon="puzzle"
+                label={props.labels.extensions}
+                selected={surfaces.focusedPanelId === 'extensions'}
+                onClick={() => openPanel('extensions')}
+              />
+              <HbarAppUiSidebarAction
+                icon="settings"
+                label={props.labels.settings}
+                selected={presentation.page.kind === 'settings'}
+                onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
+              />
             </div>
           }
         >
@@ -212,7 +314,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       })
                     }
                   >
-                    <span aria-hidden="true">{isExpanded ? '▾' : '▸'}</span>
+                    <HbarAppUiShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
+                    <HbarAppUiShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
                     <strong>{workspace.name}</strong>
                   </button>
                   {isExpanded && (
@@ -228,9 +331,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                             type="button"
                             aria-current={navigation.sessionId === session.id ? 'page' : undefined}
                             aria-label={props.labels.openSession(session.title)}
-                            onClick={() => void execute('app.setSession', { sessionId: session.id }).catch(recordError)}
+                            title={session.title}
+                            onClick={() => openSession(session.id)}
                           >
-                            <span>{session.title}</span>
+                            <HbarAppUiShellIcon name="message" tier="sm" />
+                            <span className="hbar-app-react-session-label">
+                              <strong>{session.title}</strong>
+                              <small>{props.labels.sessionUpdatedAt(session.updatedAt)}</small>
+                            </span>
                           </button>
                         ))
                       )}
