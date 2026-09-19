@@ -1,9 +1,16 @@
 import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/commands'
 import { metricsCommands } from '@hbar/contracts/commands/metrics'
+import { gitCommands } from '@hbar/contracts/commands/git'
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
 import { usageCommands } from '@hbar/contracts/commands/usage'
 import { createState, type StateReader } from './state'
-import type { RuntimeOptions, StatusWorkspaceEntryState, StatusWorkspaceState, SurfaceState } from './types'
+import type {
+  DirectoryState,
+  RuntimeOptions,
+  StatusWorkspaceEntryState,
+  StatusWorkspaceState,
+  SurfaceState,
+} from './types'
 
 const MAX_PANELS = 4
 
@@ -22,12 +29,14 @@ export function createStatusWorkspace(
   local: CommandRegistry,
   options: RuntimeOptions,
   surfaces: StateReader<SurfaceState>,
+  directory: StateReader<DirectoryState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
 ) {
   const state = createState<StatusWorkspaceState>({ entries: {} }, onSubscriberError)
   const metrics = options.metrics ? createCommandClient(metricsCommands, options.metrics) : null
   const usage = options.usage ? createCommandClient(usageCommands, options.usage) : null
+  const git = options.git ? createCommandClient(gitCommands, options.git) : null
   const generations = new Map<string, number>()
 
   const panel = (instanceId: string) => {
@@ -67,12 +76,16 @@ export function createStatusWorkspace(
       status: 'loading',
       performance: previous?.performance ?? null,
       usage: previous?.usage ?? null,
+      git: previous?.git ?? null,
+      gitWorkspaceId: previous?.gitWorkspaceId ?? null,
       error: null,
     }
     replace(loading)
     try {
       let performance = loading.performance
       let usageReport = loading.usage
+      let gitReport = loading.git
+      let gitWorkspaceId = loading.gitWorkspaceId
       if (target.section === 'dashboard') {
         if (!metrics) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Performance metrics are unavailable')
         performance = await metrics.execute('metrics.query', { bucketMs: 1_000, maxPoints: 120 })
@@ -85,7 +98,19 @@ export function createStatusWorkspace(
           maxSamples: 10_000,
           filters: {},
         })
-      } else throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git status is not implemented yet')
+      } else {
+        if (!git) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git statistics are unavailable')
+        if (!target.workspaceId) throw new CommandError('INVALID_INPUT', 'Select a workspace before opening Git status')
+        const workspace = directory.getSnapshot().workspaces[target.workspaceId]
+        if (!workspace) throw new CommandError('COMMAND_NOT_FOUND', 'Status workspace target is unavailable')
+        gitReport = await git.execute('git.stats', {
+          cwd: workspace.path,
+          bucketMs: 86_400_000,
+          maxBuckets: 120,
+          sources: ['auto', 'manual', 'external'],
+        })
+        gitWorkspaceId = workspace.id
+      }
       if (isDisposed() || generations.get(instanceId) !== generation)
         throw new CommandError('RESULT_UNKNOWN', 'Status refresh was superseded')
       const ready: StatusWorkspaceEntryState = {
@@ -94,6 +119,8 @@ export function createStatusWorkspace(
         status: 'ready',
         performance,
         usage: usageReport,
+        git: gitReport,
+        gitWorkspaceId,
         error: null,
       }
       replace(ready)

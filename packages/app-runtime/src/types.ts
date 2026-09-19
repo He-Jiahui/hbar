@@ -15,6 +15,7 @@ import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type { PluginInfo, SkillDescriptor } from '@hbar/contracts/commands/extensions'
 import type { MetricsQueryResult } from '@hbar/contracts/commands/metrics'
+import type { GitStatsReport } from '@hbar/contracts'
 import type {
   Approval,
   GoalStatus,
@@ -73,6 +74,7 @@ export interface RuntimeOptions {
   readonly goals?: CommandExecutor
   readonly extensions?: CommandExecutor
   readonly metrics?: CommandExecutor
+  readonly git?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort
   readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
@@ -188,6 +190,8 @@ export interface StatusWorkspaceEntryState {
   readonly status: 'loading' | 'ready' | 'error'
   readonly performance: Readonly<MetricsQueryResult> | null
   readonly usage: Readonly<UsageQueryResult> | null
+  readonly git: Readonly<GitStatsReport> | null
+  readonly gitWorkspaceId: string | null
   readonly error: string | null
 }
 

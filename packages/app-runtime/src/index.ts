@@ -178,7 +178,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
-  const statusWorkspace = createStatusWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
+  const statusWorkspace = createStatusWorkspace(
+    local,
+    options,
+    surfaces.reader,
+    directory.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
