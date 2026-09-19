@@ -203,7 +203,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await page.getByRole('button', { name: 'Usage', exact: true }).click()
     await expect(page.getByRole('heading', { level: 2, name: 'Global AI usage' })).toBeVisible()
-    await expect(page.getByText('Metrics not recorded by the current ledger')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Execution statistics' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b6/usage.png', fullPage: true })
     await page.locator('.hbar-app-react-status-workspace > main').evaluate((element) => {
       element.scrollTop = element.scrollHeight
@@ -306,6 +306,22 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('Agent approval')).toBeVisible()
     await page.getByRole('button', { name: 'Allow' }).click()
     await expect(page.getByText('Resolved')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Agent activity' }).getByText('2 runs')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await page.getByRole('button', { name: 'Usage', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Execution statistics' })).toBeVisible()
+    const toolCalls = page.locator('.hbar-app-ui-metric').filter({ hasText: 'Tool calls' })
+    await expect(toolCalls).toContainText('1')
+    await expect(toolCalls).toContainText('1 succeeded · 0 failed · 0 unknown')
+    await expect(page.getByText('Peak request concurrency')).toBeVisible()
+    await expect(page.getByText('Total Run time')).toBeVisible()
+    await page.locator('.hbar-app-react-status-workspace > main').evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    await page.screenshot({ path: 'artifacts/web-b6/execution-usage.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
 
     await prompt.fill('/slow')
     await page.getByRole('button', { name: 'Send' }).click()

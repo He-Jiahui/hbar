@@ -50,6 +50,35 @@ function usage(): UsageQueryResult {
       total: metric(14, 'tokens_per_second'),
     },
     latency: { firstProviderEvent: latency, firstThinking: latency, firstText: latency, response: latency },
+    execution: {
+      toolCalls: { total: 1, succeeded: 1, failed: 0, unknown: 0 },
+      requestConcurrency: {
+        value: 2,
+        unit: 'count',
+        availability: 'available',
+        reason: null,
+        source: 'attempt-timeline',
+        sampleCount: 2,
+      },
+      toolConcurrency: {
+        value: 1,
+        unit: 'count',
+        availability: 'available',
+        reason: null,
+        source: 'tool-timeline',
+        sampleCount: 1,
+      },
+      totalRunDuration: {
+        value: 500,
+        unit: 'milliseconds',
+        availability: 'available',
+        reason: null,
+        source: 'run-projection',
+        sampleCount: 1,
+      },
+      runDuration: latency,
+      toolDuration: latency,
+    },
     models: [
       {
         modelSelectionId: 'provider:model',
@@ -124,6 +153,8 @@ test('session monitoring renders only the runtime usage projection and closes th
     expect(html).toContain('$0.125')
     expect(html).toContain('provider / model')
     expect(html).toContain('Token timeline')
+    expect(html).toContain('Execution statistics')
+    expect(html).toContain('1 succeeded · 0 failed · 0 unknown')
 
     const panelId = runtime.view.state.surfaces.getSnapshot().focusedPanelId
     expect(panelId).not.toBeNull()

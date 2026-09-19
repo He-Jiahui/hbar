@@ -39,6 +39,35 @@ function usage(): UsageQueryResult {
       total: metric(14, 'tokens_per_second'),
     },
     latency: { firstProviderEvent: latency, firstThinking: latency, firstText: latency, response: latency },
+    execution: {
+      toolCalls: { total: 3, succeeded: 2, failed: 1, unknown: 0 },
+      requestConcurrency: {
+        value: 2,
+        unit: 'count',
+        availability: 'available',
+        reason: null,
+        source: 'attempt-timeline',
+        sampleCount: 2,
+      },
+      toolConcurrency: {
+        value: 1,
+        unit: 'count',
+        availability: 'available',
+        reason: null,
+        source: 'tool-timeline',
+        sampleCount: 3,
+      },
+      totalRunDuration: {
+        value: 2_500,
+        unit: 'milliseconds',
+        availability: 'available',
+        reason: null,
+        source: 'run-projection',
+        sampleCount: 2,
+      },
+      runDuration: latency,
+      toolDuration: latency,
+    },
     models: [
       {
         modelSelectionId: 'provider:model',
@@ -52,7 +81,7 @@ function usage(): UsageQueryResult {
   }
 }
 
-test('global usage status renders ledger facts and explicit unrecorded metrics', async () => {
+test('global usage status renders ledger and execution facts', async () => {
   const runtime = createAppRuntime({
     instanceId: 'status-usage-react',
     hostId: 'host',
@@ -81,8 +110,11 @@ test('global usage status renders ledger facts and explicit unrecorded metrics',
     expect(html).toContain('$0.25')
     expect(html).toContain('p50 40 ms · p95 80 ms')
     expect(html).toContain('provider / model')
-    expect(html).toContain('Metrics not recorded by the current ledger')
-    expect(html).toContain('Not recorded by the current usage ledger')
+    expect(html).toContain('Execution statistics')
+    expect(html).toContain('<dt>Tool calls</dt><dd>3</dd>')
+    expect(html).toContain('2 succeeded · 1 failed · 0 unknown')
+    expect(html).toContain('Peak request concurrency')
+    expect(html).toContain('2.5 s')
   } finally {
     runtime.dispose()
   }

@@ -17,6 +17,16 @@ export interface HbarSessionMonitoringLabels {
     readonly rate: string
   }
   readonly latency: { readonly title: string; readonly firstToken: string; readonly response: string }
+  readonly execution: {
+    readonly title: string
+    readonly toolCalls: string
+    readonly toolCallsDetail: (succeeded: number, failed: number, unknown: number) => string
+    readonly requestConcurrency: string
+    readonly toolConcurrency: string
+    readonly totalDuration: string
+    readonly runDuration: string
+    readonly toolDuration: string
+  }
   readonly models: string
   readonly series: string
   readonly number: (value: number) => string
@@ -84,6 +94,50 @@ export function HbarSessionMonitoring({ labels }: { readonly labels: HbarSession
               ]}
             />
           </section>
+          {report.execution && (
+            <section>
+              <h2>{labels.execution.title}</h2>
+              <HbarAppUiMetricStrip
+                metrics={[
+                  {
+                    label: labels.execution.toolCalls,
+                    value: labels.number(report.execution.toolCalls.total),
+                    detail: labels.execution.toolCallsDetail(
+                      report.execution.toolCalls.succeeded,
+                      report.execution.toolCalls.failed,
+                      report.execution.toolCalls.unknown,
+                    ),
+                  },
+                  {
+                    label: labels.execution.requestConcurrency,
+                    value: value(report.execution.requestConcurrency, labels.number),
+                  },
+                  {
+                    label: labels.execution.toolConcurrency,
+                    value: value(report.execution.toolConcurrency, labels.number),
+                  },
+                  {
+                    label: labels.execution.totalDuration,
+                    value: value(report.execution.totalRunDuration, labels.duration),
+                  },
+                  {
+                    label: labels.execution.runDuration,
+                    value:
+                      report.execution.runDuration.p95 === null
+                        ? labels.unavailable
+                        : labels.duration(report.execution.runDuration.p95),
+                  },
+                  {
+                    label: labels.execution.toolDuration,
+                    value:
+                      report.execution.toolDuration.p95 === null
+                        ? labels.unavailable
+                        : labels.duration(report.execution.toolDuration.p95),
+                  },
+                ]}
+              />
+            </section>
+          )}
           <section>
             <h2>{labels.series}</h2>
             <div className="hbar-app-react-monitoring-series" aria-label={labels.series}>

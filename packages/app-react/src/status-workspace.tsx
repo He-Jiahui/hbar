@@ -10,6 +10,8 @@ type MetricValue = PerformanceReadings[keyof PerformanceReadings]
 type UsageReport = NonNullable<StatusWorkspaceEntryState['usage']>
 type UsageMetric = UsageReport['cost']
 type UsageLatency = UsageReport['latency']['response']
+type ExecutionReport = NonNullable<UsageReport['execution']>
+type ExecutionMetric = ExecutionReport['requestConcurrency']
 type ReadingKey = keyof PerformanceReadings
 
 export interface HbarStatusWorkspaceLabels {
@@ -59,11 +61,15 @@ export interface HbarStatusWorkspaceLabels {
     readonly response: string
     readonly models: string
     readonly timeline: string
-    readonly limitations: string
+    readonly execution: string
     readonly toolCalls: string
-    readonly concurrency: string
+    readonly toolCallsDetail: (succeeded: number, failed: number, unknown: number) => string
+    readonly requestConcurrency: string
+    readonly toolConcurrency: string
     readonly totalDuration: string
-    readonly notRecorded: string
+    readonly runDuration: string
+    readonly toolDuration: string
+    readonly executionUnavailable: string
     readonly estimated: string
     readonly p50p95: (p50: string, p95: string) => string
     readonly model: (provider: string, model: string) => string
@@ -197,6 +203,17 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
       : {
           label,
           value: labels.unavailable(null),
+          ...(metric.reason ? { detail: metric.reason } : {}),
+        }
+  const executionItem = (label: string, metric: ExecutionMetric) =>
+    metric.availability === 'available' && metric.value !== null
+      ? {
+          label,
+          value: metric.unit === 'milliseconds' ? labels.duration(metric.value) : labels.number(metric.value),
+        }
+      : {
+          label,
+          value: labels.unavailable(metric.reason),
           ...(metric.reason ? { detail: metric.reason } : {}),
         }
 
@@ -385,14 +402,29 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
             )}
           </section>
           <section>
-            <h2>{labels.usage.limitations}</h2>
-            <HbarAppUiMetricStrip
-              metrics={[
-                { label: labels.usage.toolCalls, value: labels.unavailable(labels.usage.notRecorded) },
-                { label: labels.usage.concurrency, value: labels.unavailable(labels.usage.notRecorded) },
-                { label: labels.usage.totalDuration, value: labels.unavailable(labels.usage.notRecorded) },
-              ]}
-            />
+            <h2>{labels.usage.execution}</h2>
+            {usageReport.execution ? (
+              <HbarAppUiMetricStrip
+                metrics={[
+                  {
+                    label: labels.usage.toolCalls,
+                    value: labels.number(usageReport.execution.toolCalls.total),
+                    detail: labels.usage.toolCallsDetail(
+                      usageReport.execution.toolCalls.succeeded,
+                      usageReport.execution.toolCalls.failed,
+                      usageReport.execution.toolCalls.unknown,
+                    ),
+                  },
+                  executionItem(labels.usage.requestConcurrency, usageReport.execution.requestConcurrency),
+                  executionItem(labels.usage.toolConcurrency, usageReport.execution.toolConcurrency),
+                  executionItem(labels.usage.totalDuration, usageReport.execution.totalRunDuration),
+                  latencyItem(labels.usage.runDuration, usageReport.execution.runDuration),
+                  latencyItem(labels.usage.toolDuration, usageReport.execution.toolDuration),
+                ]}
+              />
+            ) : (
+              <p>{labels.usage.executionUnavailable}</p>
+            )}
           </section>
         </main>
       ) : gitReport ? (

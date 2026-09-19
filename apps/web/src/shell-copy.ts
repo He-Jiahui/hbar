@@ -663,6 +663,20 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
       firstToken: choose('首个文本 Token', 'First text token'),
       response: choose('完整响应', 'Full response'),
     },
+    execution: {
+      title: choose('执行统计', 'Execution statistics'),
+      toolCalls: choose('工具调用', 'Tool calls'),
+      toolCallsDetail: (succeeded, failed, unknown) =>
+        choose(
+          `成功 ${number.format(succeeded)} · 失败 ${number.format(failed)} · 未知 ${number.format(unknown)}`,
+          `${number.format(succeeded)} succeeded · ${number.format(failed)} failed · ${number.format(unknown)} unknown`,
+        ),
+      requestConcurrency: choose('请求最大并发', 'Peak request concurrency'),
+      toolConcurrency: choose('工具最大并发', 'Peak tool concurrency'),
+      totalDuration: choose('Run 总计耗时', 'Total Run time'),
+      runDuration: choose('Run 耗时 p95', 'Run duration p95'),
+      toolDuration: choose('工具耗时 p95', 'Tool duration p95'),
+    },
     models: choose('模型用量', 'Model usage'),
     series: choose('Token 时间序列', 'Token timeline'),
     number: (value) => number.format(value),
@@ -959,11 +973,22 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       response: choose('完整响应', 'Full response'),
       models: choose('不同模型用量', 'Usage by model'),
       timeline: choose('Token 时间序列', 'Token timeline'),
-      limitations: choose('当前账本未记录的指标', 'Metrics not recorded by the current ledger'),
+      execution: choose('执行统计', 'Execution statistics'),
       toolCalls: choose('工具调用', 'Tool calls'),
-      concurrency: choose('请求并发数', 'Request concurrency'),
-      totalDuration: choose('总计耗时', 'Total elapsed time'),
-      notRecorded: choose('当前 usage 账本未记录', 'Not recorded by the current usage ledger'),
+      toolCallsDetail: (succeeded, failed, unknown) =>
+        choose(
+          `成功 ${number.format(succeeded)} · 失败 ${number.format(failed)} · 未知 ${number.format(unknown)}`,
+          `${number.format(succeeded)} succeeded · ${number.format(failed)} failed · ${number.format(unknown)} unknown`,
+        ),
+      requestConcurrency: choose('请求最大并发', 'Peak request concurrency'),
+      toolConcurrency: choose('工具最大并发', 'Peak tool concurrency'),
+      totalDuration: choose('Run 总计耗时', 'Total Run time'),
+      runDuration: choose('Run 耗时', 'Run duration'),
+      toolDuration: choose('工具耗时', 'Tool duration'),
+      executionUnavailable: choose(
+        '当前 Host 版本未返回执行统计。',
+        'The current Host version did not return execution statistics.',
+      ),
       estimated: choose('基于 Host 价格快照估算', 'Estimated from the Host pricing snapshot'),
       p50p95: (p50, p95) => `p50 ${p50} · p95 ${p95}`,
       model: (provider, model) => `${provider} / ${model}`,
@@ -1006,10 +1031,14 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     bytesPerSecond: (value) => `${formatBytes(value)}/s`,
     milliseconds: (value) => `${number.format(value)} ms`,
     duration: (value) => {
+      if (value < 60_000) return choose(`${number.format(value / 1_000)} 秒`, `${number.format(value / 1_000)} s`)
       const seconds = Math.floor(value / 1_000)
       const hours = Math.floor(seconds / 3_600)
       const minutes = Math.floor((seconds % 3_600) / 60)
-      return choose(`${hours} 小时 ${minutes} 分钟`, `${hours}h ${minutes}m`)
+      const remainder = seconds % 60
+      return hours
+        ? choose(`${hours} 小时 ${minutes} 分钟`, `${hours}h ${minutes}m`)
+        : choose(`${minutes} 分钟 ${remainder} 秒`, `${minutes}m ${remainder}s`)
     },
     observedAt: (value) => time.format(value),
     error: (code) => choose(`状态查询失败：${code}`, `Status query failed: ${code}`),
