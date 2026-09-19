@@ -4,6 +4,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import {
   HbarAppUiApprovalRequest,
+  HbarAppUiButton,
   HbarAppUiCompactUsage,
   HbarAppUiConversation,
   HbarAppUiPromptComposer,
@@ -38,6 +39,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly prompt: HbarAppUiPromptLabels
   readonly model: (name: string, thinkingLevel: string | null) => string
   readonly modelUnavailable: string
+  readonly tools: { readonly label: string; readonly files: string; readonly settings: string }
   readonly runs: HbarAppUiRunActivityLabels
   readonly runDetail: (modelId: string) => string
   readonly runDuration: (startedAt: number, endedAt: number | null) => string
@@ -371,20 +373,32 @@ export function HbarSessionWorkspace({ sessionTitle, labels, connected }: HbarSe
 
   return (
     <div className="hbar-app-react-session-workspace">
-      <HbarAppUiConversation
-        title={labels.conversationTitle(sessionTitle)}
-        messages={messages}
-        empty={
-          <p>
-            {timeline.status === 'loading'
-              ? labels.loading
-              : timeline.error
-                ? labels.error(timeline.error)
-                : labels.empty}
-          </p>
-        }
-        composer={composer}
-      />
+      <div className="hbar-app-react-session-main">
+        <HbarAppUiConversation
+          title={labels.conversationTitle(sessionTitle)}
+          messages={messages}
+          empty={
+            <p>
+              {timeline.status === 'loading'
+                ? labels.loading
+                : timeline.error
+                  ? labels.error(timeline.error)
+                  : labels.empty}
+            </p>
+          }
+          composer={composer}
+        />
+      </div>
+      {sessionId && (
+        <aside className="hbar-app-react-session-tools" aria-label={labels.tools.label}>
+          <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'files' })}>
+            {labels.tools.files}
+          </HbarAppUiButton>
+          <HbarAppUiButton onClick={() => invoke('app.openSettings', { scope: 'session', targetId: sessionId })}>
+            {labels.tools.settings}
+          </HbarAppUiButton>
+        </aside>
+      )}
     </div>
   )
 }

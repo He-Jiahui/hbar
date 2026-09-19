@@ -141,6 +141,18 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     const prompt = page.getByRole('textbox', { name: 'Prompt' })
     await expect(prompt).toBeEnabled()
 
+    await page.getByRole('button', { name: 'Files', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await page.getByRole('button', { name: 'browser-e2e.md' }).click()
+    const fileEditor = page.getByRole('textbox', { name: 'browser-e2e.md' })
+    await expect(fileEditor).toHaveValue('# Browser file\n')
+    await fileEditor.fill('# Browser file\n\nEdited from the file panel.\n')
+    await page.getByRole('button', { name: 'Save file' }).click()
+    await expect(page.getByText('File saved.')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b5/file-manager.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close file manager' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+
     await page.keyboard.press('Control+K')
     await expect(page.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
     await page.getByRole('searchbox', { name: 'Search commands' }).fill('session.setBudget')

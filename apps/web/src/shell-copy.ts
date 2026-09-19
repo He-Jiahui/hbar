@@ -1,5 +1,6 @@
 import type {
   HbarCommandPaletteLabels,
+  HbarFileWorkspaceLabels,
   HbarProviderDialogLabels,
   HbarProviderSettingsLabels,
   HbarSessionWorkspaceLabels,
@@ -18,6 +19,7 @@ interface ShellCopy {
     readonly dialog: HbarProviderDialogLabels
   }
   readonly commandPalette: HbarCommandPaletteLabels
+  readonly files: HbarFileWorkspaceLabels
   readonly panels: Readonly<
     Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
   >
@@ -521,6 +523,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       '请先在 Session 设置中选择可用模型。',
       'Choose an available model in Session settings first.',
     ),
+    tools: {
+      label: choose('会话工具', 'Session tools'),
+      files: choose('文件', 'Files'),
+      settings: choose('会话设置', 'Session settings'),
+    },
     runs: {
       title: choose('Agent Activity', 'Agent activity'),
       emptyTitle: choose('尚无运行', 'No runs yet'),
@@ -591,6 +598,28 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
   }
 }
 
+function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  return {
+    title: choose('文件管理器', 'File manager'),
+    parent: choose('返回上级目录', 'Open parent folder'),
+    refresh: choose('刷新文件', 'Refresh files'),
+    loading: choose('正在加载文件…', 'Loading files…'),
+    empty: choose('此目录为空；选择文件后会在此处打开。', 'This folder is empty; select a file to open it.'),
+    retry: choose('重试', 'Retry'),
+    readOnly: choose('可编辑文本', 'Editable text'),
+    close: choose('关闭文件管理器', 'Close file manager'),
+    loadMore: choose('加载更多文件', 'Load more files'),
+    save: choose('保存文件', 'Save file'),
+    saving: choose('正在保存…', 'Saving…'),
+    saved: choose('文件已保存。', 'File saved.'),
+    reconcile: choose('核对保存结果', 'Reconcile save'),
+    dirty: choose('有未保存的更改', 'Unsaved changes'),
+    error: (code) => choose(`文件操作失败：${code}`, `File operation failed: ${code}`),
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     shell: {
@@ -618,6 +647,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     settings: createSettingsLabels('zh-CN'),
     providers: createProviderLabels('zh-CN'),
     commandPalette: createCommandPaletteLabels('zh-CN'),
+    files: createFileLabels('zh-CN'),
     panels: {
       commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
       status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
@@ -650,6 +680,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     settings: createSettingsLabels('en-US'),
     providers: createProviderLabels('en-US'),
     commandPalette: createCommandPaletteLabels('en-US'),
+    files: createFileLabels('en-US'),
     panels: {
       commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
       status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },

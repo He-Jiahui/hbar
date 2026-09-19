@@ -1,0 +1,100 @@
+.hbar-app-react-file-workspace {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  overflow: hidden;
+}
+.hbar-app-react-file-workspace > header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-lg);
+  border-block-end: 1px solid var(--hbar-app-ui-border);
+}
+.hbar-app-react-file-workspace h1,
+.hbar-app-react-file-workspace p {
+  margin: 0;
+}
+.hbar-app-react-file-workspace header p {
+  color: var(--hbar-app-ui-muted);
+}
+.hbar-app-react-file-layout {
+  display: grid;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(14rem, 20rem) minmax(0, 1fr);
+  overflow: hidden;
+}
+.hbar-app-react-file-browser {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  border-inline-end: 1px solid var(--hbar-app-ui-border);
+}
+.hbar-app-react-file-browser > .hbar-app-ui-workspace-files {
+  flex: 1 1 auto;
+  block-size: auto;
+}
+.hbar-app-react-file-browser > button {
+  flex: 0 0 auto;
+  margin: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-react-file-layout > .hbar-app-ui-file-document {
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.hbar-app-ui-file-document-body textarea {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 12rem;
+  resize: none;
+  border: 0;
+  padding: var(--hbar-app-ui-space-md);
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-0);
+  font: inherit;
+  font-family: var(--hbar-app-ui-mono);
+  box-sizing: border-box;
+}
+.hbar-app-ui-file-document-body footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  border-block-start: 1px solid var(--hbar-app-ui-border);
+}
+.hbar-app-react-file-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--hbar-app-ui-space-lg);
+  color: var(--hbar-app-ui-muted);
+}
+@media (max-width: 48rem) {
+  .hbar-app-react-file-workspace {
+    overflow: auto;
+  }
+  .hbar-app-react-file-layout {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .hbar-app-react-file-browser {
+    block-size: 22rem;
+    flex: 0 0 auto;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--hbar-app-ui-border);
+  }
+  .hbar-app-react-file-layout > .hbar-app-ui-file-document {
+    block-size: 32rem;
+    flex: 0 0 auto;
+  }
+}
