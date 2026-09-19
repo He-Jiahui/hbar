@@ -4,7 +4,6 @@ import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import {
   HbarAppUiApprovalRequest,
-  HbarAppUiButton,
   HbarAppUiCompactUsage,
   HbarAppUiConversation,
   HbarAppUiPromptComposer,
@@ -17,6 +16,7 @@ import {
   type HbarAppUiRunActivityLabels,
   type HbarAppUiRunActivityStatus,
 } from 'hbar-app-ui'
+import { HbarAppUiPageAction, HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import type { SessionAttachmentUpload, SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-workspace.css'
@@ -74,6 +74,7 @@ export interface HbarSessionWorkspaceLabels {
 
 export interface HbarSessionWorkspaceProps {
   readonly sessionTitle: string
+  readonly workspaceName: string
   readonly labels: HbarSessionWorkspaceLabels
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
@@ -152,11 +153,11 @@ function usageContent(controls: SessionControlsState, labels: HbarSessionWorkspa
   const total = report ? report.totals.input + report.totals.output : null
   const used = budget?.usedTokens ?? 0
   const limit = budget?.limit ?? 0
-  const maximum = Math.max(1, ...(report?.series ?? []).map((point) => point.billableTokens))
   const metric = (label: string, value: string) => ({ id: label, label, value })
   const available = (value: number | null, formatter: (item: number) => string) =>
     value === null ? labels.unavailable : formatter(value)
   return {
+    density: 'inline' as const,
     title: labels.title,
     description: report?.gap ? `${labels.description} ${labels.gap}` : labels.description,
     value: total === null ? labels.unavailable : labels.total(total),
@@ -171,12 +172,10 @@ function usageContent(controls: SessionControlsState, labels: HbarSessionWorkspa
           : ('accent' as const),
     sparkline: (report?.series ?? []).map((point) => ({
       id: String(point.start),
-      value: point.billableTokens / maximum,
+      value: point.billableTokens,
     })),
     sparklineLabel: labels.sparkline,
     metrics: [
-      metric(labels.input, report ? labels.number(report.totals.input) : labels.unavailable),
-      metric(labels.output, report ? labels.number(report.totals.output) : labels.unavailable),
       metric(labels.cost, report ? available(report.cost.value, labels.currency) : labels.unavailable),
       metric(labels.rate, report ? available(report.rates.total.value, labels.tokensPerSecond) : labels.unavailable),
     ],
@@ -185,6 +184,7 @@ function usageContent(controls: SessionControlsState, labels: HbarSessionWorkspa
 
 export function HbarSessionWorkspace({
   sessionTitle,
+  workspaceName,
   labels,
   connected,
   prepareAttachment,
@@ -197,6 +197,8 @@ export function HbarSessionWorkspace({
   const questionnaires = useHbarRuntimeState(runtime.state.questionnaires)
   const runActions = useHbarRuntimeState(runtime.state.runActions)
   const controls = useHbarRuntimeState(runtime.state.controls)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
   const draft = sessionId ? drafts[sessionId] : undefined
   const model = controls.sessionId === sessionId ? controls.model : null
@@ -235,6 +237,15 @@ export function HbarSessionWorkspace({
     })()
   }
   const runErrorAction = activeRuns.map((run) => runActions[run.id]).find((action) => action?.error)
+  const toolInstanceId = presentation.toolInstanceId
+  const activeTool = toolInstanceId ? surfaces.panels[toolInstanceId] : undefined
+  const toggleTool = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') => {
+    if (toolInstanceId && activeTool?.panelId === panelId) {
+      invoke('app.closePanel', { instanceId: toolInstanceId })
+      return
+    }
+    invoke('app.openPanel', { panelId, sessionId, binding: 'followActive' })
+  }
 
   const messages: HbarAppUiMessageProps[] = [
     ...timeline.messages.map((message) => ({
@@ -267,96 +278,98 @@ export function HbarSessionWorkspace({
     })),
   ]
 
+  const activity: ReactNode =
+    timeline.runs.length > 0 || timeline.approvals.length > 0 || timeline.userInputs.length > 0 ? (
+      <div className="hbar-app-react-session-activity">
+        {timeline.runs.length > 0 && (
+          <HbarAppUiRunActivity
+            runs={timeline.runs.map((run) => ({
+              id: run.id,
+              label: labels.timestamp(run.createdAt),
+              status: run.status as HbarAppUiRunActivityStatus,
+              detail: run.error ?? labels.runDetail(run.modelId),
+              duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
+            }))}
+            labels={labels.runs}
+            listStrategy="content-grown"
+            cancellingRunIds={activeRuns
+              .filter((run) => ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? ''))
+              .map((run) => run.id)}
+            feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
+            onCancelRun={(operationId) => invoke('operation.cancel', { operationId })}
+          />
+        )}
+        {timeline.approvals.map((approval) => {
+          const action = interactions[`approval:${approval.id}`]
+          return (
+            <HbarAppUiApprovalRequest
+              key={approval.id}
+              id={approval.id}
+              tool={approval.tool}
+              summary={labels.approvalSummary(approval.tool)}
+              details={JSON.stringify(approval.args, null, 2)}
+              labels={labels.approval}
+              state={decisionState(action?.status, action?.error, approval.status !== 'pending', labels)}
+              onDecision={(_id, decision) =>
+                invoke('approval.resolve', {
+                  sessionId: approval.sessionId,
+                  approvalId: approval.id,
+                  decision: decision === 'deny' ? 'denied' : 'allowed',
+                })
+              }
+            />
+          )
+        })}
+        {timeline.userInputs.map((request) => {
+          const action = interactions[`questionnaire:${request.requestId}`]
+          const answerDraft = questionnaires[request.requestId]
+          return (
+            <HbarAppUiQuestionnaire
+              key={request.requestId}
+              requestId={request.requestId}
+              questions={request.questions.map((question) => ({
+                id: question.id,
+                header: question.header,
+                prompt: question.question,
+                options: question.options?.map((option) => ({
+                  value: option.label,
+                  label: option.label,
+                  description: option.description,
+                })),
+                acceptsCustomAnswer: question.isOther,
+                secret: question.isSecret,
+              }))}
+              answers={answerDraft?.answers ?? {}}
+              labels={labels.questionnaire}
+              state={decisionState(action?.status, action?.error, false, labels)}
+              onAnswer={(_requestId, questionId, answer) =>
+                invoke('questionnaire.setAnswer', {
+                  sessionId: request.sessionId,
+                  requestId: request.requestId,
+                  questionId,
+                  answer,
+                })
+              }
+              onSubmit={() =>
+                invoke('questionnaire.answer', {
+                  sessionId: request.sessionId,
+                  requestId: request.requestId,
+                  answers: Object.fromEntries(
+                    Object.entries(answerDraft?.answers ?? {}).map(([questionId, answer]) => [
+                      questionId,
+                      { answers: [answer.value] },
+                    ]),
+                  ),
+                })
+              }
+            />
+          )
+        })}
+      </div>
+    ) : null
+
   const composer: ReactNode = sessionId ? (
     <div className="hbar-app-react-session-footer">
-      {(timeline.runs.length > 0 || timeline.approvals.length > 0 || timeline.userInputs.length > 0) && (
-        <div className="hbar-app-react-session-actions">
-          {timeline.runs.length > 0 && (
-            <HbarAppUiRunActivity
-              runs={timeline.runs.map((run) => ({
-                id: run.id,
-                label: labels.timestamp(run.createdAt),
-                status: run.status as HbarAppUiRunActivityStatus,
-                detail: run.error ?? labels.runDetail(run.modelId),
-                duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
-              }))}
-              labels={labels.runs}
-              listStrategy="content-grown"
-              cancellingRunIds={activeRuns
-                .filter((run) => ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? ''))
-                .map((run) => run.id)}
-              feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
-              onCancelRun={(operationId) => invoke('operation.cancel', { operationId })}
-            />
-          )}
-          {timeline.approvals.map((approval) => {
-            const action = interactions[`approval:${approval.id}`]
-            return (
-              <HbarAppUiApprovalRequest
-                key={approval.id}
-                id={approval.id}
-                tool={approval.tool}
-                summary={labels.approvalSummary(approval.tool)}
-                details={JSON.stringify(approval.args, null, 2)}
-                labels={labels.approval}
-                state={decisionState(action?.status, action?.error, approval.status !== 'pending', labels)}
-                onDecision={(_id, decision) =>
-                  invoke('approval.resolve', {
-                    sessionId: approval.sessionId,
-                    approvalId: approval.id,
-                    decision: decision === 'deny' ? 'denied' : 'allowed',
-                  })
-                }
-              />
-            )
-          })}
-          {timeline.userInputs.map((request) => {
-            const action = interactions[`questionnaire:${request.requestId}`]
-            const answerDraft = questionnaires[request.requestId]
-            return (
-              <HbarAppUiQuestionnaire
-                key={request.requestId}
-                requestId={request.requestId}
-                questions={request.questions.map((question) => ({
-                  id: question.id,
-                  header: question.header,
-                  prompt: question.question,
-                  options: question.options?.map((option) => ({
-                    value: option.label,
-                    label: option.label,
-                    description: option.description,
-                  })),
-                  acceptsCustomAnswer: question.isOther,
-                  secret: question.isSecret,
-                }))}
-                answers={answerDraft?.answers ?? {}}
-                labels={labels.questionnaire}
-                state={decisionState(action?.status, action?.error, false, labels)}
-                onAnswer={(_requestId, questionId, answer) =>
-                  invoke('questionnaire.setAnswer', {
-                    sessionId: request.sessionId,
-                    requestId: request.requestId,
-                    questionId,
-                    answer,
-                  })
-                }
-                onSubmit={() =>
-                  invoke('questionnaire.answer', {
-                    sessionId: request.sessionId,
-                    requestId: request.requestId,
-                    answers: Object.fromEntries(
-                      Object.entries(answerDraft?.answers ?? {}).map(([questionId, answer]) => [
-                        questionId,
-                        { answers: [answer.value] },
-                      ]),
-                    ),
-                  })
-                }
-              />
-            )
-          })}
-        </div>
-      )}
       <HbarAppUiPromptComposer
         value={draft?.text ?? ''}
         labels={labels.prompt}
@@ -430,9 +443,58 @@ export function HbarSessionWorkspace({
 
   return (
     <div className="hbar-app-react-session-workspace">
+      <HbarAppUiPageHeader
+        title={sessionTitle}
+        context={workspaceName}
+        status={
+          activeRun
+            ? {
+                label: labels.runs.statusLabel(activeRun.status as HbarAppUiRunActivityStatus),
+                tone: activeRun.status === 'waiting_approval' ? 'warning' : 'positive',
+              }
+            : undefined
+        }
+        actionsLabel={labels.tools.label}
+        actions={
+          sessionId ? (
+            <>
+              <HbarAppUiPageAction
+                icon="files"
+                label={labels.tools.files}
+                selected={activeTool?.panelId === 'files'}
+                onClick={() => toggleTool('files')}
+              />
+              <HbarAppUiPageAction
+                icon="monitoring"
+                label={labels.tools.monitoring}
+                selected={activeTool?.panelId === 'monitoring'}
+                onClick={() => toggleTool('monitoring')}
+              />
+              <HbarAppUiPageAction
+                icon="agents"
+                label={labels.tools.agents}
+                selected={activeTool?.panelId === 'agents'}
+                onClick={() => toggleTool('agents')}
+              />
+              <HbarAppUiPageAction
+                icon="goals"
+                label={labels.tools.goals}
+                selected={activeTool?.panelId === 'goals'}
+                onClick={() => toggleTool('goals')}
+              />
+              <HbarAppUiPageAction
+                icon="settings"
+                label={labels.tools.settings}
+                onClick={() => invoke('app.openSettings', { scope: 'session', targetId: sessionId })}
+              />
+            </>
+          ) : undefined
+        }
+      />
       <div className="hbar-app-react-session-main">
         <HbarAppUiConversation
           title={labels.conversationTitle(sessionTitle)}
+          header={null}
           messages={messages}
           empty={
             <p>
@@ -443,28 +505,10 @@ export function HbarSessionWorkspace({
                   : labels.empty}
             </p>
           }
+          afterMessages={activity}
           composer={composer}
         />
       </div>
-      {sessionId && (
-        <aside className="hbar-app-react-session-tools" aria-label={labels.tools.label}>
-          <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'files' })}>
-            {labels.tools.files}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'monitoring' })}>
-            {labels.tools.monitoring}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'agents' })}>
-            {labels.tools.agents}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => invoke('app.openPanel', { panelId: 'goals' })}>
-            {labels.tools.goals}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => invoke('app.openSettings', { scope: 'session', targetId: sessionId })}>
-            {labels.tools.settings}
-          </HbarAppUiButton>
-        </aside>
-      )}
     </div>
   )
 }

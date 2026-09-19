@@ -110,6 +110,7 @@ export interface HbarAppUiUsageRequestLogContent extends UsageHeading, UsageColl
   readonly filter?: UsageAction | undefined
 }
 export interface HbarAppUiCompactUsageContent extends UsageHeading {
+  readonly density?: 'default' | 'inline' | undefined
   readonly value: string
   readonly detail: string
   readonly progress: number

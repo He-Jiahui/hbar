@@ -78,3 +78,16 @@ test('budget uses the host state, bounds invalid visual proportions, and never c
   expect(compact).toContain('aria-valuenow="0"')
   expect(compact).toContain('block-size:100%')
 })
+
+test('inline usage keeps host totals and metrics without rendering the full chart surface', () => {
+  const inline = renderToStaticMarkup(
+    createElement(HbarAppUiCompactUsage, { ...USAGE_FIXTURES.compact, density: 'inline' }),
+  )
+  expect(inline).toContain('class="hbar-app-ui-inline-usage"')
+  expect(inline).toContain('aria-label="Plan usage"')
+  expect(inline).toContain('Requests')
+  expect(inline).toContain('2,482')
+  expect(inline).not.toContain('hbar-app-ui-sparkline')
+  expect(inline).not.toContain('role="progressbar"')
+  expect(inline).not.toContain('<h2>')
+})

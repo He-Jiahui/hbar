@@ -8,18 +8,27 @@ export interface HbarAppUiConversationProps {
   readonly messages: readonly HbarAppUiMessageProps[]
   readonly empty: ReactNode
   readonly composer: ReactNode
+  readonly header?: ReactNode | undefined
+  readonly afterMessages?: ReactNode | undefined
 }
 /** Small bounded embedded thread; long production history supplies virtualized message rows. */
 export function HbarAppUiConversation(props: HbarAppUiConversationProps) {
   return (
     <section className="hbar-app-ui-conversation" aria-label={props.title}>
-      <header>
-        <h2>{props.title}</h2>
-      </header>
+      {props.header === undefined ? (
+        <header>
+          <h2>{props.title}</h2>
+        </header>
+      ) : (
+        props.header
+      )}
       <div className="hbar-app-ui-conversation-messages">
-        {props.messages.length
-          ? uniqueItems(props.messages).map((message) => <HbarAppUiMessage {...message} key={message.id} />)
-          : props.empty}
+        <div className="hbar-app-ui-conversation-content">
+          {props.messages.length
+            ? uniqueItems(props.messages).map((message) => <HbarAppUiMessage {...message} key={message.id} />)
+            : props.empty}
+          {props.afterMessages}
+        </div>
       </div>
       {props.composer}
     </section>

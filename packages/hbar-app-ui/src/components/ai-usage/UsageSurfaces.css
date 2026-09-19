@@ -78,3 +78,51 @@
   margin: 0;
   font-size: inherit;
 }
+
+.hbar-app-ui-inline-usage,
+.hbar-app-ui-inline-usage-summary,
+.hbar-app-ui-inline-usage dl,
+.hbar-app-ui-inline-usage dl > div {
+  display: flex;
+  min-inline-size: 0;
+  align-items: baseline;
+}
+
+.hbar-app-ui-inline-usage {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-lg);
+  color: var(--hbar-app-ui-subtle);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-inline-usage-summary,
+.hbar-app-ui-inline-usage dl {
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-ui-inline-usage-summary {
+  flex: 1 1 20rem;
+}
+
+.hbar-app-ui-inline-usage strong,
+.hbar-app-ui-inline-usage dd {
+  color: var(--hbar-app-ui-muted);
+  font-family: var(--hbar-app-ui-mono);
+  font-weight: 600;
+}
+
+.hbar-app-ui-inline-usage dl {
+  flex: 0 1 auto;
+  margin: 0;
+}
+
+.hbar-app-ui-inline-usage dl > div {
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-ui-inline-usage dt,
+.hbar-app-ui-inline-usage dd {
+  margin: 0;
+}

@@ -10,12 +10,22 @@
   flex: 0 0 auto;
 }
 .hbar-app-ui-conversation-messages {
+  display: flex;
   flex: 1 1 auto;
   min-block-size: 0;
   overflow: auto;
 }
+.hbar-app-ui-conversation-content {
+  display: flex;
+  inline-size: min(100%, 52rem);
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-md);
+  margin-inline: auto;
+  padding: var(--hbar-app-ui-space-lg);
+}
 .hbar-app-ui-conversation .message {
-  padding: var(--hbar-app-ui-space-md);
+  min-inline-size: 0;
 }
 .hbar-app-ui-conversation .message-body {
   overflow-wrap: anywhere;
@@ -25,6 +35,33 @@
   align-items: center;
   gap: var(--hbar-app-ui-space-sm);
 }
+.hbar-app-ui-conversation .message-heading .avatar {
+  display: none;
+}
 .hbar-app-ui-conversation .message-user {
+  inline-size: min(80%, 42rem);
   align-self: flex-end;
+  padding: var(--hbar-app-ui-space-md);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
+}
+.hbar-app-ui-conversation .message-assistant,
+.hbar-app-ui-conversation .message-system,
+.hbar-app-ui-conversation .message-tool {
+  inline-size: 100%;
+}
+.hbar-app-ui-conversation .message-body pre {
+  max-inline-size: 100%;
+  overflow: auto;
+}
+
+@media (max-width: 35rem) {
+  .hbar-app-ui-conversation-content {
+    padding: var(--hbar-app-ui-space-md);
+  }
+
+  .hbar-app-ui-conversation .message-user {
+    inline-size: 92%;
+  }
 }

@@ -1,8 +1,11 @@
 import {
   Activity,
+  Bot,
+  ChartNoAxesColumnIncreasing,
   ChevronDown,
   ChevronRight,
   Command,
+  Files,
   Folder,
   FolderOpen,
   Menu,
@@ -13,6 +16,7 @@ import {
   RefreshCw,
   Server,
   Settings,
+  Target,
   type LucideIcon,
 } from 'lucide-react'
 import { useId, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react'
@@ -83,35 +87,43 @@ export function HbarAppUiAppShell({
 
 export type HbarAppUiShellIconName =
   | 'activity'
+  | 'agents'
   | 'chevron-down'
   | 'chevron-right'
   | 'command'
+  | 'files'
   | 'folder'
   | 'folder-open'
   | 'menu'
   | 'message'
+  | 'monitoring'
   | 'panel-close'
   | 'plus'
   | 'puzzle'
   | 'refresh'
   | 'server'
   | 'settings'
+  | 'goals'
 
 const shellIcons: Readonly<Record<HbarAppUiShellIconName, LucideIcon>> = {
   activity: Activity,
+  agents: Bot,
   'chevron-down': ChevronDown,
   'chevron-right': ChevronRight,
   command: Command,
+  files: Files,
   folder: Folder,
   'folder-open': FolderOpen,
   menu: Menu,
   message: MessageSquare,
+  monitoring: ChartNoAxesColumnIncreasing,
   'panel-close': PanelLeftClose,
   plus: Plus,
   puzzle: Puzzle,
   refresh: RefreshCw,
   server: Server,
   settings: Settings,
+  goals: Target,
 }
 
 export function HbarAppUiShellIcon({

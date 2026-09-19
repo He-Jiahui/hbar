@@ -10,3 +10,8 @@ export {
   type HbarAppUiWorkbenchNoticeProps,
   type HbarAppUiShellIconName,
 } from './components/app-shell/AppShell'
+export {
+  HbarAppUiPageAction,
+  HbarAppUiPageHeader,
+  type HbarAppUiPageHeaderProps,
+} from './components/app-shell/PageHeader'

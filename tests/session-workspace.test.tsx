@@ -230,6 +230,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
       <HbarRuntimeProvider view={runtime.view}>
         <HbarSessionWorkspace
           sessionTitle={session.title}
+          workspaceName="Workspace 1"
           labels={getShellCopy('en-US').session}
           connected
           prepareAttachment={async () => {
@@ -248,7 +249,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('AI usage')
     expect(html).toContain('aria-label="Add attachment"')
     expect(html).toContain('20 tokens')
-    expect(html).not.toContain('Workspace 1')
+    expect(html).toContain('Workspace 1')
   } finally {
     runtime.dispose()
   }

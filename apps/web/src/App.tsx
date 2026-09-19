@@ -143,6 +143,7 @@ function WorkspaceBody({
     return (
       <HbarSessionWorkspace
         sessionTitle={session.title}
+        workspaceName={directory.workspaces[session.workspaceId]?.name ?? session.workspaceId}
         labels={copy.session}
         connected={connected}
         prepareAttachment={prepareAttachment}

@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { HbarAppUiPromptComposer, HbarAppUiMessage } from '../packages/hbar-app-ui/src/production'
+import {
+  HbarAppUiConversation,
+  HbarAppUiPromptComposer,
+  HbarAppUiMessage,
+} from '../packages/hbar-app-ui/src/production'
 import { getPromptCopy, getMessageCopy } from './fixtures/hbar-app-ui-host-copy'
 
 describe('host-controlled conversation components', () => {
@@ -47,5 +51,22 @@ describe('host-controlled conversation components', () => {
     expect(markup).toContain('message-system')
     expect(markup).toContain('Host message')
     expect(markup).not.toContain('<button')
+  })
+  test('supports one host page header while keeping activity inside the conversation timeline', () => {
+    const markup = renderToStaticMarkup(
+      createElement(HbarAppUiConversation, {
+        title: 'Localized conversation name',
+        header: null,
+        messages: [],
+        empty: createElement('p', null, 'Host empty state'),
+        afterMessages: createElement('section', { 'aria-label': 'Run activity' }, 'Host activity'),
+        composer: createElement('form', null, 'Host composer'),
+      }),
+    )
+    expect(markup).toContain('aria-label="Localized conversation name"')
+    expect(markup).not.toContain('<h2>Localized conversation name</h2>')
+    expect(markup).toContain('hbar-app-ui-conversation-content')
+    expect(markup.indexOf('Host empty state')).toBeLessThan(markup.indexOf('Host activity'))
+    expect(markup.indexOf('Host activity')).toBeLessThan(markup.indexOf('Host composer'))
   })
 })

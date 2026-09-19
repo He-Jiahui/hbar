@@ -137,3 +137,25 @@ Web 组合根不再用 `focusedPanelId` 串行决定全部可见内容。`presen
 E2E 明确断言工具打开时会话标题仍存在、status 主页面替换会话、命令/供应商/扩展具有 dialog 语义、供应商底层设置页仍存在、关闭后返回原上下文。UI-04 在 Web 组合根关闭；兼容 `focusedPanelId` 只为尚未迁入设置的扩展入口保留，不能新增依赖。
 
 验证结果：全仓 ESLint（Node heap 8 GiB）、TypeScript、376 个 Bun 测试（2938 个断言）、flow/content/icon guards、Prettier 和 Web production build 通过；5 项 Playwright 场景通过。真实 Host E2E 覆盖四类工具切换、三个管理页分区、命令模态、扩展兼容模态、供应商模态和嵌套删除确认的 Escape/焦点恢复。
+
+## 11. R3 会话页、时间线与紧凑用量
+
+会话页现在只保留一个 PageHeader：标题使用 Session 名称，上下文显示工作区，右侧五个图标动作分别通过 `app.openPanel` 或 `app.openSettings` 命令打开文件、监控、子 Agent、目标与计划和 Session 设置。打开中的工具有选中反馈，再次点击同一动作通过 `app.closePanel` 关闭。旧的竖排文字工具栏已经删除；组件为每个图标保留宿主提供的 tooltip 和可访问名称。
+
+`hbar-app-ui` 的 Conversation 新增可组合 header 和 afterMessages 插槽。生产页面隐藏组件的重复标题，但保留 section 的可访问名称；Message、Activity、Approval 和 Questionnaire 进入同一个独立滚动时间线。消息正文与输入区都使用 52rem 上限的阅读列，用户消息使用较窄的弱背景块，助手消息保持全文宽度。原来头像文本和作者文本重复显示成 “You You” 的问题通过 Conversation 自身样式修复。
+
+CompactUsage 新增真正的 `inline` 密度：Session 只显示总 token、剩余预算、预计金额和 token 速率，不再渲染大标题、sparkline、进度条和四项统计卡，也不再由 app-react 的后代选择器隐藏组件内部元素。输入/输出 token 的详细拆分继续位于 Monitoring。运行活动从 composer 上方移入时间线后，composer 只承载提示词输入和最多两行的用量摘要。
+
+| 场景             | 截图与人工观察                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 真实 Host 空会话 | [1440](../../artifacts/ui-redesign/session/after/desktop-1440-empty.png)：单一标题栏、五个横向图标、空态、输入和两行用量没有重复壳层  |
+| 真实 Host 有消息 | [1440](../../artifacts/ui-redesign/session/after/desktop-1440.png)：用户/助手消息、Agent activity 和输入区共用阅读列；活动属于时间线  |
+| 中等宽度         | [1024](../../artifacts/ui-redesign/session/after/tablet-1024.png)：标题与工具保持一行，旧竖排栏消失，消息与输入未被侧栏挤坏           |
+| 窄屏             | [390](../../artifacts/ui-redesign/session/after/mobile-390.png)：应用栏、页面标题、五个图标、消息、活动、输入和两行用量均在视口内     |
+| 工具并排         | [1440](../../artifacts/web-b5/file-manager.png)：文件图标选中且 Session 保持可见；同时再次确认 File Manager 内部两列挤压问题属于 R4.2 |
+
+Playwright 除业务闭环外还量化断言：1440、1024、390 三个宽度下五个页面动作必须位于同一水平行且 `writing-mode` 为 horizontal，PageHeader 不得横向溢出，Conversation 时间线与 composer 左右边界误差不超过 1 CSS px，inline Usage 高度不超过 48 CSS px。三档截图均逐张查看；没有用测试通过替代人工看图。
+
+本切片关闭 UI-01 和 UI-02。R3.2 的 Plan 归属、R3.5 的长历史滚动锚点/流式快速切换/断线恢复仍未完成。文件工具在 24rem 抽屉中把列表和编辑器并排导致文件名逐字断行，是当前最明显的生产视觉缺陷，继续归属 R4.2。
+
+验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；379 个 Bun 测试、2960 个断言通过；Web production build 与 Usage 独立预览验证通过；flow/content/icon guards、Prettier 和 `git diff --check` 通过；Playwright 离线中英文桌面/窄屏与真实 Host connected 场景共 5 项通过。真实场景执行了文件、监控、子 Agent、目标与计划、Session 设置、发送、审批、取消和各页面返回路径。

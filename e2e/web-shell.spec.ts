@@ -183,13 +183,37 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1440.png', fullPage: true })
     await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const expectSessionLayout = async () =>
+      expect(
+        await page.evaluate(() => {
+          const header = document.querySelector<HTMLElement>('.hbar-app-ui-page-header')
+          const actions = [...document.querySelectorAll<HTMLElement>('.hbar-app-ui-page-action')]
+          const timeline = document.querySelector<HTMLElement>('.hbar-app-ui-conversation-content')
+          const composer = document.querySelector<HTMLElement>('.hbar-app-react-session-footer')
+          const usage = document.querySelector<HTMLElement>('.hbar-app-ui-inline-usage')
+          if (!header || actions.length !== 5 || !timeline || !composer || !usage) return false
+          const actionTops = actions.map((action) => action.getBoundingClientRect().top)
+          const timelineRect = timeline.getBoundingClientRect()
+          const composerRect = composer.getBoundingClientRect()
+          return (
+            header.scrollWidth <= header.clientWidth &&
+            Math.max(...actionTops) - Math.min(...actionTops) <= 1 &&
+            actions.every((action) => getComputedStyle(action).writingMode === 'horizontal-tb') &&
+            Math.abs(timelineRect.left - composerRect.left) <= 1 &&
+            Math.abs(timelineRect.right - composerRect.right) <= 1 &&
+            usage.getBoundingClientRect().height <= 48
+          )
+        }),
+      ).toBe(true)
+    await expectSessionLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440-empty.png', fullPage: true })
     const prompt = page.getByRole('textbox', { name: 'Prompt' })
     await expect(prompt).toBeEnabled()
 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     await page.getByRole('button', { name: 'browser-e2e.md' }).click()
     const fileEditor = page.getByRole('textbox', { name: 'browser-e2e.md' })
     await expect(fileEditor).toHaveValue('# Browser file\n')
@@ -198,32 +222,32 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('File saved.')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/file-manager.png', fullPage: true })
     await page.getByRole('button', { name: 'Close file manager' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Extensions', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Extensions and skills' })).toBeVisible()
     await expect(page.getByRole('dialog', { name: 'Extensions and skills' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: 'Plugins' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: 'Skills' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Open system and diagnostic commands' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/extensions.png', fullPage: true })
     await page.getByRole('button', { name: 'Close extensions and skills' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Status center' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeHidden()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeHidden()
     await expect(page.getByRole('button', { name: 'Performance' })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { level: 2, name: 'Host process' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b6/performance.png', fullPage: true })
     await page.getByRole('button', { name: 'Close status center' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.keyboard.press('Control+K')
     const commandDialog = page.getByRole('dialog', { name: 'Command catalog' })
     await expect(commandDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     await page.getByRole('searchbox', { name: 'Search commands' }).fill('session.setBudget')
     await expect(page.getByRole('heading', { level: 2, name: 'Set session token budget' })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Session ID' })).toHaveValue(fixture.ready.sessionId)
@@ -235,7 +259,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(tokenLimit).toHaveValue('120000')
     await page.screenshot({ path: 'artifacts/web-b4/command-palette.png', fullPage: true })
     await page.getByRole('button', { name: 'Close command catalog' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await prompt.fill('hello from browser')
     await expect(prompt).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
@@ -243,17 +267,17 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByText('hello from browser')).toBeVisible()
     await expect(page.getByText('Completed').first()).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: 'AI usage' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'AI usage' }).getByText(/^[1-9][\d,.]* tokens$/)).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440.png', fullPage: true })
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     await expect(page.getByText('Total tokens')).toBeVisible()
     await expect(page.getByText('Token timeline')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await page.getByRole('button', { name: 'Usage', exact: true }).click()
@@ -265,7 +289,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await page.screenshot({ path: 'artifacts/web-b6/usage-details.png', fullPage: true })
     await page.getByRole('button', { name: 'Close status center' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await page.getByRole('button', { name: 'Git', exact: true }).click()
@@ -273,7 +297,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('Automatic commits').first()).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b6/git.png', fullPage: true })
     await page.getByRole('button', { name: 'Close status center' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Child agents', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
@@ -285,7 +309,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('Verify the browser workflow')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/child-agents.png', fullPage: true })
     await page.getByRole('button', { name: 'Close child agent management' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Goals and plans' })).toBeVisible()
@@ -302,10 +326,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Clear plan' }).click()
     await page.getByRole('button', { name: 'Clear goal' }).click()
     await page.getByRole('button', { name: 'Close goals and plans' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.setViewportSize({ width: 1024, height: 768 })
+    await expectSessionLayout()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1024.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/tablet-1024.png', fullPage: true })
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-1024.png', fullPage: true })
@@ -328,7 +354,9 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       ).toBe(true)
     await expectNoHorizontalOverflow()
     await expectShellPanesDoNotOverlap()
+    await expectSessionLayout()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-content-390.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/mobile-390.png', fullPage: true })
     await openShellNavigation()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-drawer-390.png', fullPage: true })
     await page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first().click()
@@ -371,7 +399,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: 'Git repository' })).toBeVisible()
     await expectNoHorizontalOverflow()
     await page.getByRole('button', { name: 'Close status center' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     await page.setViewportSize({ width: 1440, height: 960 })
     await openShellNavigation()
 
@@ -395,7 +423,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await page.screenshot({ path: 'artifacts/web-b6/execution-usage.png', fullPage: true })
     await page.getByRole('button', { name: 'Close status center' }).click()
-    await expect(page.getByRole('heading', { level: 2, name: `Session: ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await prompt.fill('/slow')
     await page.getByRole('button', { name: 'Send' }).click()

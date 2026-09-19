@@ -16,7 +16,7 @@ const runtime = createAppRuntime({
 root.render(
   <HbarRuntimeProvider view={runtime.view}>
     <HbarWorkspaceShell labels={labels.shell} connection="connected" onReconnect={reconnect} sidebarWidthRem={18}>
-      <HbarSessionWorkspace sessionTitle={title} labels={labels.session} connected />
+      <HbarSessionWorkspace sessionTitle={title} workspaceName={workspaceName} labels={labels.session} connected />
     </HbarWorkspaceShell>
   </HbarRuntimeProvider>,
 )

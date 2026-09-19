@@ -318,6 +318,24 @@ export function HbarAppUiUsageRequestLog(content: HbarAppUiUsageRequestLogConten
   )
 }
 export function HbarAppUiCompactUsage(content: HbarAppUiCompactUsageContent) {
+  if (content.density === 'inline')
+    return (
+      <section className="hbar-app-ui-inline-usage" aria-label={content.title} title={content.description}>
+        <div className="hbar-app-ui-inline-usage-summary">
+          <strong>{content.value}</strong>
+          <span>{content.detail}</span>
+        </div>
+        <dl>
+          {uniqueItems(content.metrics).map((metric) => (
+            <div key={metric.id}>
+              <dt>{metric.label}</dt>
+              <dd>{metric.value}</dd>
+            </div>
+          ))}
+        </dl>
+        {content.action && <Action action={content.action} />}
+      </section>
+    )
   return (
     <Frame content={content} variant={8}>
       {content.action && <Action action={content.action} />}

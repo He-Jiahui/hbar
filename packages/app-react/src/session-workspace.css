@@ -1,34 +1,21 @@
 .hbar-app-react-session-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   min-inline-size: 0;
   min-block-size: 0;
   block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .hbar-app-react-session-main {
+  display: flex;
   min-inline-size: 0;
   min-block-size: 0;
+  flex: 1 1 auto;
 }
 
-.hbar-app-react-session-tools {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hbar-app-ui-space-xs);
-  padding: var(--hbar-app-ui-space-sm);
-  border-inline-start: 1px solid var(--hbar-app-ui-border);
-}
-
-.hbar-app-react-session-tools button {
-  min-block-size: 6rem;
-  writing-mode: vertical-rl;
-}
-
-.hbar-app-react-session-workspace .hbar-app-ui-conversation-messages {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hbar-app-ui-space-sm);
-  scroll-behavior: smooth;
+.hbar-app-react-session-main > .hbar-app-ui-conversation {
+  gap: 0;
 }
 
 .hbar-app-react-session-workspace .message-body > :first-child,
@@ -55,23 +42,24 @@
   margin-block: var(--hbar-app-ui-space-sm);
 }
 
-.hbar-app-react-session-footer {
+.hbar-app-react-session-activity {
   display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
   min-inline-size: 0;
-  max-block-size: min(60dvh, 38rem);
-  gap: var(--hbar-app-ui-space-sm);
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-md);
+  padding-block-start: var(--hbar-app-ui-space-md);
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
-.hbar-app-react-session-actions {
+.hbar-app-react-session-footer {
   display: flex;
-  flex-direction: column;
+  inline-size: min(100%, 52rem);
   min-inline-size: 0;
-  min-block-size: 0;
-  gap: var(--hbar-app-ui-space-sm);
-  overflow: auto;
-  padding-inline-end: var(--hbar-app-ui-space-xs);
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
+  margin-inline: auto;
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg) var(--hbar-app-ui-space-lg);
 }
 
 .hbar-app-react-model-status {
@@ -80,56 +68,8 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-app-react-session-footer > .hbar-app-ui-usage-content {
-  flex: 0 0 auto;
-  inline-size: 100%;
-  gap: var(--hbar-app-ui-space-xs);
-}
-
-.hbar-app-react-session-footer .hbar-app-ui-compact-usage {
-  inline-size: 100%;
-  max-inline-size: none;
-  box-sizing: border-box;
-}
-
-.hbar-app-react-session-footer .hbar-app-ui-secondary-meters > span {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: var(--hbar-app-ui-space-sm);
-  min-inline-size: 0;
-}
-
-.hbar-app-react-session-footer .hbar-app-ui-secondary-meters b {
-  font-family: var(--hbar-app-ui-mono);
-}
-
-.hbar-app-react-session-footer > .hbar-app-ui-usage-content .hbar-app-ui-toolbar small,
-.hbar-app-react-session-footer > .hbar-app-ui-usage-content .hbar-app-ui-progress {
-  display: none;
-}
-
-@media (max-width: 42rem) {
-  .hbar-app-react-session-workspace {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .hbar-app-react-session-main {
-    flex: 1 1 auto;
-  }
-
-  .hbar-app-react-session-tools {
-    flex-direction: row;
-    border-inline-start: 0;
-    border-block-start: 1px solid var(--hbar-app-ui-border);
-  }
-
-  .hbar-app-react-session-tools button {
-    min-block-size: var(--hbar-app-ui-control-min);
-    writing-mode: horizontal-tb;
-  }
+@media (max-width: 35rem) {
   .hbar-app-react-session-footer {
-    max-block-size: min(68dvh, 34rem);
+    padding: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-md) var(--hbar-app-ui-space-md);
   }
 }

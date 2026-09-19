@@ -1,7 +1,13 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { HbarAppUiAppShell, HbarAppUiAppSidebar, HbarAppUiWorkbenchNotice } from '../packages/hbar-app-ui/src/workbench'
+import {
+  HbarAppUiAppShell,
+  HbarAppUiAppSidebar,
+  HbarAppUiPageAction,
+  HbarAppUiPageHeader,
+  HbarAppUiWorkbenchNotice,
+} from '../packages/hbar-app-ui/src/workbench'
 
 test('structural shell renders host content and a read-only connection state without invented controls', () => {
   const html = renderToStaticMarkup(
@@ -63,4 +69,26 @@ test('slots preserve supplied content, suppress the empty label, and allow the s
   expect(shell).toContain('Host-owned tool')
   expect(shell).toContain('Host-owned overlay')
   expect(shell).toContain('Main content')
+})
+
+test('page header preserves long host copy and icon actions expose names and selected state', () => {
+  const html = renderToStaticMarkup(
+    createElement(HbarAppUiPageHeader, {
+      title: 'A deliberately long localized session title supplied by the host',
+      context: 'A deliberately long localized workspace name supplied by the host',
+      status: { label: 'Waiting for an external approval', tone: 'warning' },
+      actionsLabel: 'Session tools',
+      actions: createElement(HbarAppUiPageAction, {
+        icon: 'files',
+        label: 'Open localized workspace files',
+        selected: true,
+      }),
+    }),
+  )
+  expect(html).toContain('A deliberately long localized session title supplied by the host')
+  expect(html).toContain('A deliberately long localized workspace name supplied by the host')
+  expect(html).toContain('Waiting for an external approval')
+  expect(html).toContain('role="group" aria-label="Session tools"')
+  expect(html).toContain('aria-label="Open localized workspace files"')
+  expect(html).toContain('aria-pressed="true"')
 })
