@@ -166,16 +166,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }
   const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
-  const openCommand = (query?: string) => {
-    let operation: Promise<unknown> = execute('app.openPanel', { panelId: 'commands' })
-    if (query)
-      operation = operation
-        .then(() => execute('commandPalette.refresh', {}))
-        .then(() => execute('commandPalette.setQuery', { query }))
+  const openCommandForm = (commandId: string) => {
+    const operation = execute('commandPalette.refresh', {})
+      .then(() => execute('commandPalette.setQuery', { query: commandId }))
+      .then(() => execute('commandPalette.openCommand', { commandId }))
+      .then(() => execute('app.openPanel', { panelId: 'commands' }))
     settleNavigation(operation)
   }
   const openWorkspace = () => {
-    openCommand('workspace.open')
+    openCommandForm('workspace.open')
   }
   const openSession = (sessionId: string) => {
     void execute('app.setSession', { sessionId })
@@ -241,7 +240,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               <HbarAppUiSidebarAction
                 icon="plus"
                 label={props.labels.newSession}
-                onClick={() => openCommand('session.create')}
+                onClick={() => openCommandForm('app.createSession')}
               />
               <HbarAppUiSidebarAction
                 icon="command"

@@ -107,6 +107,18 @@
   flex: 0 0 auto;
 }
 
+.hbar-app-react-known-target {
+  display: grid;
+  min-inline-size: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-react-known-target > * {
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
 .hbar-app-react-command-parameters textarea {
   min-block-size: 8rem;
   font-family: var(--hbar-app-ui-mono);

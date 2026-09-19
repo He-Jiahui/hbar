@@ -32,6 +32,11 @@ const labels: HbarCommandPaletteLabels = {
   trueValue: 'True',
   falseValue: 'False',
   jsonPlaceholder: 'JSON value',
+  chooseKnownTarget: 'Choose a loaded target',
+  customIdentifierOption: 'Enter another identifier',
+  customIdentifier: (field) => `Custom ${field}`,
+  workspaceOption: (name, path) => `${name} at ${path}`,
+  sessionOption: (title, workspace) => `${title} in ${workspace}`,
   fieldFallback: (name) => `Field ${name}`,
   option: (_field, value) => String(value),
   issue: (issue) => `Issue ${issue.field} ${issue.code}`,
@@ -100,11 +105,59 @@ test('app-react renders the controlled catalog and descriptor parameter form wit
   }
 })
 
+test('command parameters present loaded workspace and session targets with readable labels', async () => {
+  const workspace = { id: 'workspace-1', name: 'Hbar', path: 'D:/Git/hbar', createdAt: 1 }
+  const session = {
+    id: 'session-1',
+    workspaceId: workspace.id,
+    title: 'Visual review',
+    archived: false,
+    parentId: null,
+    createdAt: 2,
+    updatedAt: 3,
+    seq: 0,
+  }
+  const runtime = createAppRuntime({
+    instanceId: 'react-known-targets',
+    hostId: 'host',
+    directory: {
+      execute(name) {
+        if (name === 'workspace.list') return Promise.resolve({ items: [workspace], nextCursor: null })
+        if (name === 'workspace.get') return Promise.resolve(workspace)
+        if (name === 'session.list') return Promise.resolve({ items: [session], nextCursor: null })
+        if (name === 'session.get') return Promise.resolve(session)
+        return Promise.reject(new Error(`Unexpected directory command: ${name}`))
+      },
+    },
+  })
+  try {
+    await runtime.view.commands.execute('workspace.list', { limit: 100 })
+    await runtime.view.commands.execute('session.list', { workspaceId: workspace.id, limit: 100 })
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('commandPalette.refresh', {})
+    await runtime.view.commands.execute('commandPalette.setQuery', { query: 'app.setSession' })
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: 'app.setSession' })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarCommandPalette labels={labels} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain('Visual review in Hbar')
+    expect(html).toContain('value="session-1" selected=""')
+    expect(html).toContain('Enter another identifier')
+    expect(html).not.toContain('type="text" value="session-1"')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('web host supplies localized command, category, field, and validation copy', () => {
   const chinese = getShellCopy('zh-CN').commandPalette
   const english = getShellCopy('en-US').commandPalette
   expect(chinese.resolve('commands.session.setBudget.title')).toBe('设置会话 Token 预算')
   expect(english.resolve('commands.session.setBudget.title')).toBe('Set session token budget')
+  expect(chinese.resolve('commands.app.createSession.title')).toBe('新建会话')
+  expect(english.resolve('commands.app.createSession.title')).toBe('New session')
   expect(chinese.category('model.budget')).toBe('模型与预算')
   expect(english.category('model.budget')).toBe('Models and budgets')
   expect(chinese.fieldFallback('tokens')).toBe('Token 上限')

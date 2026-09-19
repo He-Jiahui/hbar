@@ -46,6 +46,11 @@ export interface HbarCommandPaletteLabels {
   readonly trueValue: string
   readonly falseValue: string
   readonly jsonPlaceholder: string
+  readonly chooseKnownTarget: string
+  readonly customIdentifierOption: string
+  readonly customIdentifier: (field: string) => string
+  readonly workspaceOption: (name: string, path: string) => string
+  readonly sessionOption: (title: string, workspace: string) => string
   readonly fieldFallback: (name: string) => string
   readonly option: (field: CommandParameterField, value: string | number | boolean) => string
   readonly issue: (issue: CommandParameterIssue) => string
@@ -111,11 +116,91 @@ function SensitiveParameter({
   )
 }
 
+const CUSTOM_IDENTIFIER = '__hbar_custom_identifier__'
+
+interface KnownTargetOption {
+  readonly id: string
+  readonly label: string
+}
+
+function KnownTargetParameter({
+  id,
+  label,
+  field,
+  value,
+  options,
+  labels,
+  disabled,
+  onChange,
+  onUnset,
+}: {
+  readonly id: string
+  readonly label: string
+  readonly field: CommandParameterField
+  readonly value: unknown
+  readonly options: readonly KnownTargetOption[]
+  readonly labels: HbarCommandPaletteLabels
+  readonly disabled: boolean
+  readonly onChange: (value: string) => void
+  readonly onUnset: () => void
+}) {
+  const known = typeof value === 'string' && options.some((option) => option.id === value)
+  const [custom, setCustom] = useState(() => typeof value === 'string' && value.length > 0 && !known)
+  const customValue = custom && typeof value === 'string' && !known ? value : ''
+  return (
+    <div className="hbar-app-react-known-target">
+      <HbarAppUiSelect
+        id={id}
+        value={custom ? CUSTOM_IDENTIFIER : typeof value === 'string' ? value : ''}
+        required={field.required}
+        disabled={disabled}
+        onChange={(event) => {
+          const next = event.currentTarget.value
+          if (next === CUSTOM_IDENTIFIER) {
+            setCustom(true)
+            if (known || value === undefined) onUnset()
+          } else if (next === '') {
+            setCustom(false)
+            onUnset()
+          } else {
+            setCustom(false)
+            onChange(next)
+          }
+        }}
+      >
+        <option value="" disabled={field.required}>
+          {field.required ? labels.chooseKnownTarget : labels.unset}
+        </option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+        <option value={CUSTOM_IDENTIFIER}>{labels.customIdentifierOption}</option>
+      </HbarAppUiSelect>
+      {custom && (
+        <HbarAppUiInput
+          type="text"
+          aria-label={labels.customIdentifier(label)}
+          placeholder={labels.customIdentifier(label)}
+          minLength={field.minLength}
+          maxLength={field.maxLength}
+          required={field.required}
+          value={customValue}
+          disabled={disabled}
+          onChange={(event) => onChange(event.currentTarget.value)}
+        />
+      )}
+    </div>
+  )
+}
+
 export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProps) {
   const runtime = useHbarRuntime()
   const palette = useHbarRuntimeState(runtime.state.commandPalette)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
   const search = useRef<HTMLInputElement>(null)
-  const initialized = useRef(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const selected = palette.selectedId ? palette.items[palette.selectedId] : undefined
   const busy = palette.execution.status === 'submitting'
@@ -135,11 +220,20 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
     void promise.catch((reason) => setActionError(reasonCode(reason)))
   }, [])
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    dispatch(runtime.commands.execute('commandPalette.setQuery', { query: '' }))
-    if (palette.status === 'idle') dispatch(runtime.commands.execute('commandPalette.refresh', {}))
-  }, [dispatch, palette.query, palette.status, runtime.commands])
+    let active = true
+    const initialize = (promise: Promise<unknown>) => {
+      void promise.catch((reason) => {
+        const code = reasonCode(reason)
+        if (active && code !== 'RESULT_UNKNOWN') setActionError(code)
+      })
+    }
+    const current = runtime.state.commandPalette.getSnapshot()
+    if (current.view === 'search') initialize(runtime.commands.execute('commandPalette.setQuery', { query: '' }))
+    if (current.status === 'idle') initialize(runtime.commands.execute('commandPalette.refresh', {}))
+    return () => {
+      active = false
+    }
+  }, [runtime.commands, runtime.state.commandPalette])
   useEffect(() => {
     if (palette.status === 'ready' && palette.view === 'search') search.current?.focus()
   }, [palette.status, palette.view])
@@ -165,6 +259,27 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
       }),
     [connected, labels, palette.items, palette.visibleIds],
   )
+  const workspaceTargets = useMemo<KnownTargetOption[]>(
+    () =>
+      Object.values(directory.workspaces)
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map((workspace) => ({ id: workspace.id, label: labels.workspaceOption(workspace.name, workspace.path) })),
+    [directory.workspaces, labels],
+  )
+  const sessionTargets = useMemo<KnownTargetOption[]>(() => {
+    const draftWorkspace = palette.draft?.values.workspaceId
+    const workspaceId = typeof draftWorkspace === 'string' ? draftWorkspace : navigation.workspaceId
+    return Object.values(directory.sessions)
+      .filter((session) => !session.archived && (!workspaceId || session.workspaceId === workspaceId))
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .map((session) => ({
+        id: session.id,
+        label: labels.sessionOption(
+          session.title,
+          directory.workspaces[session.workspaceId]?.name ?? session.workspaceId,
+        ),
+      }))
+  }, [directory.sessions, directory.workspaces, labels, navigation.workspaceId, palette.draft?.values.workspaceId])
 
   const commandTitle = selected
     ? labels.resolve(selected.descriptor.metadata.titleKey) === selected.descriptor.metadata.titleKey
@@ -190,10 +305,15 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
   }
   const executeCommand = () => {
     setActionError(null)
+    const previousSelection = runtime.state.navigation.getSnapshot()
     void runtime.commands
       .execute('commandPalette.execute', {})
       .then(async () => {
-        if (selected?.descriptor.metadata.category !== 'app.navigation') return
+        const nextSelection = runtime.state.navigation.getSnapshot()
+        const navigated =
+          nextSelection.workspaceId !== previousSelection.workspaceId ||
+          nextSelection.sessionId !== previousSelection.sessionId
+        if (selected?.descriptor.metadata.category !== 'app.navigation' && !navigated) return
         const instanceId = runtime.state.presentation.getSnapshot().modalInstanceId
         if (instanceId) await runtime.commands.execute('app.closePanel', { instanceId })
       })
@@ -201,7 +321,7 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
   }
   const fieldIssue = (field: string) => palette.draft?.issues.find((issue) => issue.field === field)
 
-  const fieldControl = (field: CommandParameterField, controlId: string) => {
+  const fieldControl = (field: CommandParameterField, controlId: string, label: string) => {
     const value = palette.draft?.values[field.name]
     if (field.sensitive)
       return (
@@ -267,6 +387,27 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
             </option>
           ))}
         </HbarAppUiSelect>
+      )
+    const knownTargets =
+      field.name === 'workspaceId'
+        ? workspaceTargets
+        : field.name === 'sessionId' || field.name === 'parentSessionId'
+          ? sessionTargets
+          : []
+    if (field.kind === 'string' && knownTargets.length)
+      return (
+        <KnownTargetParameter
+          key={`${palette.selectedId}:${field.name}:${palette.sensitiveResetRevision}`}
+          id={controlId}
+          label={label}
+          field={field}
+          value={value}
+          options={knownTargets}
+          labels={labels}
+          disabled={busy}
+          onChange={(next) => setParameter(field.name, next)}
+          onUnset={() => unsetParameter(field.name)}
+        />
       )
     if (field.kind === 'json')
       return (
@@ -399,6 +540,10 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
                     const isSet =
                       Object.hasOwn(palette.draft?.values ?? {}, field.name) ||
                       palette.draft?.sensitiveFields.includes(field.name)
+                    const usesKnownTargetControl =
+                      field.kind === 'string' &&
+                      ((field.name === 'workspaceId' && workspaceTargets.length > 0) ||
+                        ((field.name === 'sessionId' || field.name === 'parentSessionId') && sessionTargets.length > 0))
                     const controlId = `hbar-command-${field.name}`
                     return (
                       <div key={field.name} className="hbar-app-react-command-field">
@@ -409,9 +554,9 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
                           {...(issue ? { error: labels.issue(issue) } : {})}
                           required={field.required}
                         >
-                          {fieldControl(field, controlId)}
+                          {fieldControl(field, controlId, label)}
                         </HbarAppUiField>
-                        {!field.required && isSet && (
+                        {!field.required && isSet && !usesKnownTargetControl && (
                           <HbarAppUiButton type="button" disabled={busy} onClick={() => unsetParameter(field.name)}>
                             {labels.unset}
                           </HbarAppUiButton>
