@@ -73,12 +73,15 @@ const settings: CommandExecutor = {
 }
 
 const labels: HbarSettingsWorkspaceLabels = {
+  pageTitle: '设置',
   title: (scope, target) => `设置 ${scope}${target ? ` ${target}` : ''}`,
   description: '由 Host Schema 生成的设置',
+  back: '返回会话',
   scopes: '设置作用域',
   global: '全局',
   workspace: '工作区',
   session: '会话',
+  scopeOption: (scope, target) => `${scope}${target ? ` · ${target}` : ''}`,
   groups: '设置分组',
   loading: '正在加载设置',
   refresh: '刷新',
@@ -151,12 +154,16 @@ test('settings workspace renders Host schema, scoped source state, and command-o
       </HbarRuntimeProvider>,
     )
     expect(form.selectedGroup).toBe('model')
+    expect(html).toContain('<h1 title="设置">设置</h1>')
+    expect(html).toContain('aria-label="返回会话"')
     expect(html).toContain('设置 workspace Schema 工程')
     expect(html).toContain('模型选择')
     expect(html).toContain('思考等级')
     expect(html).toContain('当前层覆盖')
     expect(html).toContain('恢复继承')
     expect(html).toContain('aria-current="page"')
+    expect(html).toContain('aria-label="设置作用域"')
+    expect(html).toContain('workspace · Schema 工程')
     expect(html).not.toContain('默认预算')
     expect(html).not.toContain('settings.get')
   } finally {

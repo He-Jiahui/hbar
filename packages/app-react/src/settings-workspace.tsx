@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { encodePath, type CompiledField, type FieldItemValue, type FieldValue } from '@hbar/schema-core'
 import {
   HbarSchemaForm,
@@ -6,7 +7,9 @@ import {
   type SchemaComponentRegistry,
   type SchemaFieldIntent,
 } from '@hbar/schema-react'
-import { HbarAppUiButton, HbarAppUiSurface } from 'hbar-app-ui'
+import { HbarAppUiButton, HbarAppUiIcon, HbarAppUiIconButton } from 'hbar-app-ui'
+import { HbarAppUiSelect } from 'hbar-app-ui/forms'
+import { HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import type { SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { createHbarSchemaComponents } from './schema-components'
@@ -17,12 +20,15 @@ const standardComponents = createHbarSchemaComponents()
 type SettingApplyMode = NonNullable<SettingsFormEntry['description']>['fields'][number]['applyMode']
 
 export interface HbarSettingsWorkspaceLabels {
+  readonly pageTitle: string
   readonly title: (scope: SettingsFormEntry['scope']['kind'], targetName: string | null) => string
   readonly description: string
+  readonly back: string
   readonly scopes: string
   readonly global: string
   readonly workspace: string
   readonly session: string
+  readonly scopeOption: (scope: SettingsFormEntry['scope']['kind'], targetName: string | null) => string
   readonly groups: string
   readonly loading: string
   readonly refresh: string
@@ -78,6 +84,10 @@ export function HbarSettingsWorkspace({
         ? (directory.workspaces[entry.scope.targetId]?.name ?? null)
         : (directory.sessions[entry.scope.targetId]?.title ?? null)
     : null
+  const workspaceTargetName = navigation.workspaceId
+    ? (directory.workspaces[navigation.workspaceId]?.name ?? null)
+    : null
+  const sessionTargetName = navigation.sessionId ? (directory.sessions[navigation.sessionId]?.title ?? null) : null
   const groups = useMemo(
     () =>
       entry?.description
@@ -115,6 +125,8 @@ export function HbarSettingsWorkspace({
             : null
     if (request) void request.catch(reportError)
   }
+  const onScopeChange = (event: ChangeEvent<HTMLSelectElement>) =>
+    selectScope(event.currentTarget.value as 'global' | 'workspace' | 'session')
   const dispatchIntent = (intent: SchemaFieldIntent) => {
     if (!entry) return
     setActionError(null)
@@ -153,6 +165,7 @@ export function HbarSettingsWorkspace({
   const canRefresh = connected && Boolean(entry) && !busy && !unknown && dirtyCount === 0
   const canSave = connected && Boolean(entry) && !busy && !unknown && !invalid && dirtyCount > 0
   const customGroup = entry?.selectedGroup ? renderGroup?.(entry.selectedGroup) : null
+  const selectedGroup = groups.find((group) => group.id === entry?.selectedGroup)
 
   const fieldContext = (field: CompiledField) => {
     if (!entry) return null
@@ -186,32 +199,36 @@ export function HbarSettingsWorkspace({
   }
 
   return (
-    <HbarAppUiSurface className="hbar-app-react-settings-workspace">
-      <header className="hbar-app-react-settings-header">
-        <div>
-          <h1>{labels.title(entry?.scope.kind ?? 'global', selectedTargetName)}</h1>
-          <p>{labels.description}</p>
-        </div>
-        <div className="hbar-app-react-settings-scopes" role="group" aria-label={labels.scopes}>
-          <HbarAppUiButton aria-pressed={entry?.scope.kind === 'global'} onClick={() => selectScope('global')}>
-            {labels.global}
-          </HbarAppUiButton>
-          <HbarAppUiButton
-            aria-pressed={entry?.scope.kind === 'workspace'}
-            disabled={!navigation.workspaceId}
-            onClick={() => selectScope('workspace')}
+    <section className="hbar-app-react-settings-workspace">
+      <HbarAppUiPageHeader
+        title={labels.pageTitle}
+        context={labels.title(entry?.scope.kind ?? 'global', selectedTargetName)}
+        leading={
+          <HbarAppUiIconButton
+            label={labels.back}
+            onClick={() => void runtime.commands.execute('app.back', {}).catch(reportError)}
           >
-            {labels.workspace}
-          </HbarAppUiButton>
-          <HbarAppUiButton
-            aria-pressed={entry?.scope.kind === 'session'}
-            disabled={!navigation.sessionId}
-            onClick={() => selectScope('session')}
+            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
+          </HbarAppUiIconButton>
+        }
+        actionsLabel={labels.scopes}
+        actions={
+          <HbarAppUiSelect
+            className="hbar-app-react-settings-scope"
+            aria-label={labels.scopes}
+            value={entry?.scope.kind ?? 'global'}
+            onChange={onScopeChange}
           >
-            {labels.session}
-          </HbarAppUiButton>
-        </div>
-      </header>
+            <option value="global">{labels.scopeOption('global', null)}</option>
+            <option value="workspace" disabled={!navigation.workspaceId}>
+              {labels.scopeOption('workspace', workspaceTargetName)}
+            </option>
+            <option value="session" disabled={!navigation.sessionId}>
+              {labels.scopeOption('session', sessionTargetName)}
+            </option>
+          </HbarAppUiSelect>
+        }
+      />
 
       {!entry || entry.status === 'loading' ? (
         <p className="hbar-app-react-settings-state" role="status">
@@ -238,8 +255,27 @@ export function HbarSettingsWorkspace({
             ))}
           </nav>
           <main className="hbar-app-react-settings-main">
-            {customGroup ?? (
-              <>
+            <div className="hbar-app-react-settings-mobile-group">
+              <HbarAppUiSelect
+                aria-label={labels.groups}
+                value={entry.selectedGroup ?? ''}
+                onChange={(event) => selectGroup(event.currentTarget.value)}
+              >
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {labels.resolve(group.labelKey)}
+                  </option>
+                ))}
+              </HbarAppUiSelect>
+            </div>
+            {!customGroup && selectedGroup && (
+              <header className="hbar-app-react-settings-content-header">
+                <h2>{labels.resolve(selectedGroup.labelKey)}</h2>
+                <p>{labels.description}</p>
+              </header>
+            )}
+            <div className="hbar-app-react-settings-scroll">
+              {customGroup ?? (
                 <HbarSchemaForm
                   schema={entry.schema}
                   state={entry.form}
@@ -258,7 +294,11 @@ export function HbarSettingsWorkspace({
                   renderFieldActions={fieldActions}
                   onIntent={dispatchIntent}
                 />
-                <footer className="hbar-app-react-settings-footer">
+              )}
+            </div>
+            {!customGroup && (
+              <footer className="hbar-app-react-settings-footer">
+                <div className="hbar-app-react-settings-footer-inner">
                   <span role="status">
                     {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
                   </span>
@@ -276,8 +316,8 @@ export function HbarSettingsWorkspace({
                       </HbarAppUiButton>
                     )}
                   </div>
-                </footer>
-              </>
+                </div>
+              </footer>
             )}
           </main>
         </div>
@@ -285,6 +325,6 @@ export function HbarSettingsWorkspace({
       {(actionError || (entry?.status === 'ready' && entry.error)) && (
         <p role="alert">{labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}</p>
       )}
-    </HbarAppUiSurface>
+    </section>
   )
 }

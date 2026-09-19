@@ -39,6 +39,7 @@
 }
 
 .hbar-app-ui-page-header-end,
+.hbar-app-ui-page-header-leading,
 .hbar-app-ui-page-actions,
 .hbar-app-ui-page-status {
   display: flex;
@@ -49,6 +50,10 @@
 .hbar-app-ui-page-header-end {
   flex: 0 0 auto;
   gap: var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-ui-page-header-leading {
+  flex: 0 0 auto;
 }
 
 .hbar-app-ui-page-actions {

@@ -334,6 +334,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     return choose('上一级', 'parent scope')
   }
   return {
+    pageTitle: choose('设置', 'Settings'),
     title: (scope, target) =>
       scope === 'global'
         ? choose('全局设置', 'Global settings')
@@ -341,10 +342,19 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
           ? choose(`工作区设置${target ? ` · ${target}` : ''}`, `Workspace settings${target ? ` · ${target}` : ''}`)
           : choose(`会话设置${target ? ` · ${target}` : ''}`, `Session settings${target ? ` · ${target}` : ''}`),
     description: choose('更改按全局、工作区和会话层级覆盖。', 'Values override global, workspace, and session scopes.'),
+    back: choose('返回会话', 'Back to session'),
     scopes: choose('设置作用域', 'Settings scope'),
     global: choose('全局', 'Global'),
     workspace: choose('工作区', 'Workspace'),
     session: choose('会话', 'Session'),
+    scopeOption: (scope, target) => {
+      const names = {
+        global: choose('全局', 'Global'),
+        workspace: choose('工作区', 'Workspace'),
+        session: choose('会话', 'Session'),
+      }
+      return target ? `${names[scope]} · ${target}` : names[scope]
+    },
     groups: choose('设置分组', 'Settings groups'),
     loading: choose('正在加载设置…', 'Loading settings…'),
     refresh: choose('刷新', 'Refresh'),

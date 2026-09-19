@@ -139,9 +139,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             })
             .click()
         await page.getByRole('button', { name: locale === 'zh-CN' ? '设置' : 'Settings' }).click()
-        await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-          locale === 'zh-CN' ? '全局设置' : 'Global settings',
-        )
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale === 'zh-CN' ? '设置' : 'Settings')
         await expect(page.getByText(locale === 'zh-CN' ? /设置操作失败/ : /Settings action failed/)).toBeVisible()
         const emptyProjects = page.getByText(locale === 'zh-CN' ? '尚无工程' : 'No projects yet')
         if (viewport.width < 1024) await expect(emptyProjects).toBeAttached()
@@ -615,37 +613,83 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('Cancelled', { exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Global settings' })).toBeVisible()
-    await page.getByRole('button', { name: 'Session', exact: true }).click()
-    await expect(
-      page.getByRole('heading', { level: 1, name: `Session settings · ${fixture.ready.sessionTitle}` }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    const settingsScope = page.getByRole('combobox', { name: 'Settings scope' })
+    await settingsScope.selectOption('session')
+    await expect(page.locator('.hbar-app-ui-page-heading p')).toHaveText(
+      `Session settings · ${fixture.ready.sessionTitle}`,
+    )
     const settingsModel = page.getByRole('combobox', { name: 'Model' })
     await expect(settingsModel).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Thinking level' })).toBeVisible()
+    const expectSettingsLayout = async (mode: 'sidebar' | 'select') =>
+      expect(
+        await page.locator('.hbar-app-react-settings-workspace').evaluate((element, expectedMode) => {
+          const root = element.getBoundingClientRect()
+          const footer = element.querySelector('.hbar-app-react-settings-footer')?.getBoundingClientRect()
+          const groups = element.querySelector('.hbar-app-react-settings-groups')
+          const mobile = element.querySelector('.hbar-app-react-settings-mobile-group')
+          return {
+            mode:
+              groups && getComputedStyle(groups).display !== 'none'
+                ? 'sidebar'
+                : mobile && getComputedStyle(mobile).display !== 'none'
+                  ? 'select'
+                  : 'missing',
+            footerAligned: Boolean(footer && Math.abs(root.bottom - footer.bottom) <= 1),
+            noOverflow: element.scrollWidth <= element.clientWidth,
+            expectedMode,
+          }
+        }, mode),
+      ).toMatchObject({ mode, expectedMode: mode, footerAligned: true, noOverflow: true })
+    await expectSettingsLayout('sidebar')
     await page.screenshot({
-      path: 'artifacts/ui-redesign/settings-schema/desktop-1440.png',
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-model.png',
       fullPage: true,
     })
     await settingsModel.click()
     await expect(page.getByRole('listbox')).toBeVisible()
     await expect(page.getByRole('option')).not.toHaveCount(0)
     await page.screenshot({
-      path: 'artifacts/ui-redesign/settings-schema/desktop-1440-open.png',
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-model-open.png',
       fullPage: true,
     })
     await page.keyboard.press('Escape')
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectSettingsLayout('sidebar')
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/tablet-1024-model.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    const hideSettingsNavigation = page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first()
+    if (await hideSettingsNavigation.isVisible()) await hideSettingsNavigation.click()
+    await expect(page.getByRole('combobox', { name: 'Settings groups' })).toBeVisible()
+    await expectSettingsLayout('select')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/mobile-390-model.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 320, height: 720 })
+    await expectSettingsLayout('select')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/mobile-320-model.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: 'Restore inheritance' }).click()
     await page.getByRole('button', { name: 'Save changes' }).click()
     await expect(page.getByText('Settings saved.')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Global', exact: true }).click()
+    await settingsScope.selectOption('global')
     await page.getByRole('button', { name: 'Providers', exact: true }).click()
     await expect(page.getByRole('heading', { level: 2, name: 'Provider configurations' })).toBeVisible()
     await page.getByRole('button', { name: 'Add provider', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Add provider' })).toBeVisible()
     await expect(page.getByRole('dialog', { name: 'Add provider' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 1, name: 'Global settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
     const preset = page.getByRole('combobox', { name: 'Provider preset' })
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/add-desktop-1440.png', fullPage: true })
     await preset.fill('OpenAI')
@@ -722,6 +766,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.screenshot({ path: 'artifacts/web-b3/settings-workspace.png', fullPage: true })
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-providers.png',
+      fullPage: true,
+    })
+    await page.getByRole('button', { name: 'Back to session' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     expect(errors).toEqual([])
   } finally {
     await context.close()

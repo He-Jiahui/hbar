@@ -5,6 +5,7 @@ import './PageHeader.css'
 export interface HbarAppUiPageHeaderProps {
   readonly title: string
   readonly context?: string | undefined
+  readonly leading?: ReactNode
   readonly status?:
     | {
         readonly label: string
@@ -16,9 +17,17 @@ export interface HbarAppUiPageHeaderProps {
 }
 
 /** A single title row for a workbench page. The host owns all visible copy and actions. */
-export function HbarAppUiPageHeader({ title, context, status, actionsLabel, actions }: HbarAppUiPageHeaderProps) {
+export function HbarAppUiPageHeader({
+  title,
+  context,
+  leading,
+  status,
+  actionsLabel,
+  actions,
+}: HbarAppUiPageHeaderProps) {
   return (
     <header className="hbar-app-ui-page-header">
+      {leading && <div className="hbar-app-ui-page-header-leading">{leading}</div>}
       <div className="hbar-app-ui-page-heading">
         <h1 title={title}>{title}</h1>
         {context && <p title={context}>{context}</p>}

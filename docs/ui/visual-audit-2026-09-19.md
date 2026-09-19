@@ -254,3 +254,21 @@ Playwright 在 overview/goal/plan 每次切换后检查只存在一个对应主�
 真实 Host 的[关闭态](../../artifacts/ui-redesign/settings-schema/desktop-1440.png)和[展开态](../../artifacts/ui-redesign/settings-schema/desktop-1440-open.png)显示，生产设置页已经使用统一 ComboBox：输入、边框、焦点环、弹层、选中标记与 ProviderEditor 相同，弹层没有被设置内容区裁切。底层 MultiSelect 复用 R1.3 已人工复核的[展开截图](../../artifacts/ui-redesign/form-controls/zh-CN-dark-1280-open.png)，新增 Schema adapter 的静态渲染测试进一步确认多选标签和宿主提供的移除文案进入生产组件。截图也再次确认设置页自身仍有大标题、顶部作用域按钮、稀疏内容和过宽字段等结构问题；这些视觉问题明确保留给 R5.2，不能因控件适配完成而关闭 UI-05 的页面部分。
 
 验证结果：Schema core、React registry、hbar adapter、设置描述和设置运行时定向测试通过；真实多选值经过 `settingsForm.setField` 与 `settingsForm.submit` 后原样持久化。全仓 TypeScript、定向 ESLint、Prettier、Web production build（2397 modules）与 5 项 Playwright 场景通过；connected E2E 实际打开 Model ComboBox、检查非空 option 列表并生成上述截图。完整 Bun 与全仓 ESLint 在提交前再次执行。本切片没有执行 Tauri 实窗。
+
+## 17. R5.2 设置页分类、作用域与保存流
+
+R5.1 的生产截图仍保留旧设置结构：约 110px 高的大标题区同时放置三枚作用域按钮，左侧分类栏和右侧表单之间缺乏稳定阅读宽度，保存动作位于滚动内容末尾。内容较少时页面显得空散；内容增长时保存动作会随表单离开视口。390 宽度则把作用域、分类和表单依次平铺，当前修改目标不够清楚。
+
+新页面复用 `hbar-app-ui` PageHeader，并为管理页增加通用 leading slot。页头只显示“Settings”、返回会话命令、当前作用域目标和一个作用域选择器。全局、工作区、会话选项都携带可读目标名称；切换仍执行 `app.openSettings`，每个 scope 的分类和普通草稿继续由运行时独立保存。桌面分类栏拥有自己的滚动区；小于 48rem 时改为单个分类 Select。Schema 表单从 grid 改为 flex 流，宽屏使用标签/控件双列，空间不足时自然变成上下顺序。表单内容是唯一伸缩滚动区，dirty 数量、刷新、保存或未知结果核对位于滚动区外的固定 footer；恢复继承仍提交 unset，不把上层当前值写成本层覆盖。
+
+| 场景          | 截图与人工观察                                                                                                                                                                                                                                           |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面模型设置  | [1440](../../artifacts/ui-redesign/settings/after/desktop-1440-model.png)：页头高度降至普通工作台行，作用域和目标合并为一个选择器；分类、字段和固定保存条形成三层清晰结构                                                                                |
+| 桌面动态选项  | [1440 展开](../../artifacts/ui-redesign/settings/after/desktop-1440-model-open.png)：Model 弹层位于控件下方且未被内容滚动区裁切，选中值和焦点环清楚                                                                                                      |
+| 中等宽度      | [1024](../../artifacts/ui-redesign/settings/after/tablet-1024-model.png)：应用侧栏和设置分类栏同时存在时，字段自动转为上下顺序，没有压缩成窄列                                                                                                           |
+| 窄屏          | [390](../../artifacts/ui-redesign/settings/after/mobile-390-model.png)、[320](../../artifacts/ui-redesign/settings/after/mobile-320-model.png)：应用侧栏收起，分类改为单个选择器；页头、作用域、两个字段、继承动作和固定 footer 全部在视口内，无横向溢出 |
+| Provider 分组 | [1440](../../artifacts/ui-redesign/settings/after/desktop-1440-providers.png)：新设置骨架保留当前分组和作用域，但 Provider 行仍是旧 SchemaList 灰条，明确留给 R5.3                                                                                       |
+
+Playwright 在 1440、1024、390 和 320 四档宽度读取真实几何：设置根没有内部横向溢出，footer 下边界与页面下边界误差不超过 1 CSS px；前两档显示分类 sidebar，390/320 显示分类 select。第一轮 320 截图发现单行页头将作用域截成 “Session · N” 且隐藏目标上下文；最终在 480px 以下把页头改为两行，让全宽作用域选择器完整显示 “Session · New session”。真实 Host 流程从全局切到会话，打开动态 Model 列表，恢复继承并保存，再返回全局 Provider 分组、打开/保存 ProviderDialog，最后通过 `app.back` 返回原会话。以上截图均来自重新构建的 production preview 并逐张人工查看。
+
+验证结果：定向 React、Schema 与 PageHeader 测试、全仓 TypeScript、Web production build（2397 modules）和 5 项 Playwright 场景通过；flow/content/icon guards、完整 Bun 与全仓 ESLint 在提交前再次执行。本切片没有执行 Tauri 实窗；Provider 列表视觉和扩展分组分别归属 R5.3、R5.4。

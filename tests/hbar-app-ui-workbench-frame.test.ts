@@ -78,6 +78,7 @@ test('page header preserves long host copy and icon actions expose names and sel
     createElement(HbarAppUiPageHeader, {
       title: 'A deliberately long localized session title supplied by the host',
       context: 'A deliberately long localized workspace name supplied by the host',
+      leading: createElement('button', { type: 'button', 'aria-label': 'Back to localized session' }, '←'),
       status: { label: 'Waiting for an external approval', tone: 'warning' },
       actionsLabel: 'Session tools',
       actions: createElement(HbarAppUiPageAction, {
@@ -90,6 +91,7 @@ test('page header preserves long host copy and icon actions expose names and sel
   expect(html).toContain('A deliberately long localized session title supplied by the host')
   expect(html).toContain('A deliberately long localized workspace name supplied by the host')
   expect(html).toContain('Waiting for an external approval')
+  expect(html).toContain('aria-label="Back to localized session"')
   expect(html).toContain('role="group" aria-label="Session tools"')
   expect(html).toContain('aria-label="Open localized workspace files"')
   expect(html).toContain('aria-pressed="true"')
