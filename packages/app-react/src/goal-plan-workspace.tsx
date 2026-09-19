@@ -7,9 +7,12 @@ import {
   type HbarAppUiAgentPlanEditableContent,
   type HbarAppUiAgentPlanState,
 } from 'hbar-app-ui'
-import type { GoalStatus, PlanStepStatus } from '@hbar/contracts'
+import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './goal-plan-workspace.css'
+
+type GoalStatus = GoalPlanGoalDraftState['status']
+type PlanStepStatus = GoalPlanStepDraftState['status']
 
 export interface HbarGoalPlanWorkspaceLabels {
   readonly title: string

@@ -1,8 +1,10 @@
 import { useCallback, useEffect } from 'react'
 import { HbarAppUiButton, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui'
-import type { AgentRecord } from '@hbar/contracts/commands/agents'
+import type { AgentWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './agent-workspace.css'
+
+type AgentStatus = AgentWorkspaceEntryState['items'][number]['status']
 
 export interface HbarAgentWorkspaceLabels {
   readonly title: string
@@ -32,7 +34,7 @@ export interface HbarAgentWorkspaceLabels {
   readonly cancelling: string
   readonly retryCancel: string
   readonly count: (count: number) => string
-  readonly status: (status: AgentRecord['status']) => string
+  readonly status: (status: AgentStatus) => string
   readonly budget: (tokens: number | null) => string
   readonly modelValue: (modelId: string) => string
   readonly timestamp: (value: number) => string
@@ -40,7 +42,7 @@ export interface HbarAgentWorkspaceLabels {
   readonly error: (code: string) => string
 }
 
-function tone(status: AgentRecord['status']): 'neutral' | 'positive' | 'warning' | 'danger' {
+function tone(status: AgentStatus): 'neutral' | 'positive' | 'warning' | 'danger' {
   if (status === 'completed') return 'positive'
   if (status === 'failed' || status === 'interrupted') return 'danger'
   if (status === 'waiting_approval' || status === 'cancelRequested') return 'warning'

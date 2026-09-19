@@ -1,8 +1,10 @@
 import { useCallback, useEffect } from 'react'
 import { HbarAppUiButton, HbarAppUiMetricStrip, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui'
-import type { PluginInfo } from '@hbar/contracts/commands/extensions'
+import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './extension-workspace.css'
+
+type PluginStatus = ExtensionWorkspaceEntryState['plugins'][number]['status']
 
 export interface HbarExtensionWorkspaceLabels {
   readonly title: string
@@ -14,7 +16,7 @@ export interface HbarExtensionWorkspaceLabels {
   readonly skills: string
   readonly noPlugins: string
   readonly noSkills: string
-  readonly status: Readonly<Record<PluginInfo['status'], string>>
+  readonly status: Readonly<Record<PluginStatus, string>>
   readonly required: string
   readonly provides: string
   readonly commands: string
@@ -30,7 +32,7 @@ export interface HbarExtensionWorkspaceLabels {
   readonly error: (code: string) => string
 }
 
-function tone(status: PluginInfo['status']): 'positive' | 'neutral' | 'danger' {
+function tone(status: PluginStatus): 'positive' | 'neutral' | 'danger' {
   if (status === 'active') return 'positive'
   if (status === 'failed') return 'danger'
   return 'neutral'

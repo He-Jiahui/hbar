@@ -1,10 +1,15 @@
 import { useCallback, useEffect } from 'react'
 import { HbarAppUiButton, HbarAppUiMetricStrip, HbarAppUiSurface } from 'hbar-app-ui'
-import type { UsageLatency, UsageMetric } from '@hbar/contracts/commands/usage'
-import type { MetricValue, PerformanceReadings } from '@hbar/contracts/metrics'
+import type { StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './status-workspace.css'
 
+type PerformanceReport = NonNullable<StatusWorkspaceEntryState['performance']>
+type PerformanceReadings = NonNullable<PerformanceReport['current']>['readings']
+type MetricValue = PerformanceReadings[keyof PerformanceReadings]
+type UsageReport = NonNullable<StatusWorkspaceEntryState['usage']>
+type UsageMetric = UsageReport['cost']
+type UsageLatency = UsageReport['latency']['response']
 type ReadingKey = keyof PerformanceReadings
 
 export interface HbarStatusWorkspaceLabels {
