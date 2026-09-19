@@ -62,6 +62,7 @@ test('file workspace binds a panel target, pages entries, preserves concurrent e
     expect(runtime.view.state.files.getSnapshot().entries.files).toMatchObject({
       workspaceId: 'w1',
       path: '.',
+      view: 'browser',
       status: 'ready',
       items: [
         { path: 'docs', directory: true },
@@ -78,6 +79,7 @@ test('file workspace binds a panel target, pages entries, preserves concurrent e
       path: 'docs/readme.md',
       directory: false,
     })
+    expect(runtime.view.state.files.getSnapshot().entries.files?.view).toBe('document')
     await runtime.view.commands.execute('fileWorkspace.setText', { instanceId: 'files', text: 'submitted' })
     const saving = runtime.view.commands.execute('fileWorkspace.save', { instanceId: 'files' })
     await Bun.sleep(0)
@@ -102,6 +104,12 @@ test('file workspace binds a panel target, pages entries, preserves concurrent e
       draft: 'newer edit',
       status: 'failed',
       error: 'FILE_CONFLICT',
+    })
+    const browser = await runtime.view.commands.execute('fileWorkspace.showBrowser', { instanceId: 'files' })
+    expect(browser).toMatchObject({ view: 'browser', selectedPath: null, dirty: true })
+    expect(runtime.view.state.files.getSnapshot().entries.files).toMatchObject({
+      view: 'browser',
+      document: { path: 'docs/readme.md', draft: 'newer edit', error: 'FILE_CONFLICT' },
     })
   } finally {
     runtime.dispose()

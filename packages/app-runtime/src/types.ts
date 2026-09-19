@@ -304,6 +304,7 @@ export interface FileWorkspaceEntryState {
   readonly instanceId: string
   readonly workspaceId: string
   readonly path: string
+  readonly view: 'browser' | 'document'
   readonly status: 'loading' | 'ready' | 'error'
   readonly items: readonly { readonly name: string; readonly path: string; readonly directory: boolean }[]
   readonly nextCursor: string | null

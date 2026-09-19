@@ -62,11 +62,12 @@ export function createFileWorkspace(
     instanceId: entry.instanceId,
     workspaceId: entry.workspaceId,
     path: entry.path,
-    selectedPath: entry.document?.path ?? null,
+    view: entry.view,
+    selectedPath: entry.view === 'document' ? (entry.document?.path ?? null) : null,
     status: entry.status,
     documentStatus: entry.document?.status ?? 'idle',
     dirty: Boolean(entry.document && entry.document.draft !== entry.document.baseline),
-    error: entry.document?.error ?? entry.error,
+    error: (entry.view === 'document' ? entry.document?.error : null) ?? entry.error,
   })
   const load = async (instanceId: string, path?: string) => {
     const target = panel(instanceId)
@@ -78,10 +79,11 @@ export function createFileWorkspace(
       instanceId,
       workspaceId: target.workspaceId,
       path: requestedPath,
+      view: 'browser',
       status: 'loading',
       items: current?.workspaceId === target.workspaceId && current.path === requestedPath ? current.items : [],
       nextCursor: null,
-      document: null,
+      document: current?.workspaceId === target.workspaceId ? current.document : null,
       error: null,
     }
     replace(loading)
@@ -132,8 +134,11 @@ export function createFileWorkspace(
     const target = panel(instanceId)
     if (!entry || entry.workspaceId !== target.workspaceId)
       throw new CommandError('RESULT_UNKNOWN', 'Refresh panel target')
+    const generation = (generations.get(instanceId) ?? 0) + 1
+    generations.set(instanceId, generation)
     const loading = {
       ...entry,
+      view: 'document' as const,
       document: {
         path,
         status: 'loading' as const,
@@ -147,6 +152,8 @@ export function createFileWorkspace(
     replace(loading)
     try {
       const file = await requireClient().execute('file.read', { workspaceId: target.workspaceId, path })
+      if (isDisposed() || generations.get(instanceId) !== generation)
+        throw new CommandError('RESULT_UNKNOWN', 'File read was superseded')
       const ready = {
         ...loading,
         document: {
@@ -162,10 +169,20 @@ export function createFileWorkspace(
       replace(ready)
       return summary(ready)
     } catch (reason) {
+      if (isDisposed() || generations.get(instanceId) !== generation) throw reason
       const failed = { ...loading, document: { ...loading.document, status: 'failed' as const, error: code(reason) } }
       replace(failed)
       throw commandFailure(reason)
     }
+  }
+  const showBrowser = (instanceId: string) => {
+    panel(instanceId)
+    const entry = state.reader.getSnapshot().entries[instanceId]
+    if (!entry) throw new CommandError('RESULT_UNKNOWN', 'Refresh the file panel')
+    generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
+    const next = { ...entry, view: 'browser' as const }
+    replace(next)
+    return summary(next)
   }
   const setText = (instanceId: string, text: string) => {
     const entry = state.reader.getSnapshot().entries[instanceId]
@@ -262,6 +279,7 @@ export function createFileWorkspace(
   local.register(fileWorkspaceCommands['fileWorkspace.openEntry'], ({ instanceId, path, directory }) =>
     openEntry(instanceId, path, directory),
   )
+  local.register(fileWorkspaceCommands['fileWorkspace.showBrowser'], ({ instanceId }) => showBrowser(instanceId))
   local.register(fileWorkspaceCommands['fileWorkspace.setText'], ({ instanceId, text }) => setText(instanceId, text))
   local.register(fileWorkspaceCommands['fileWorkspace.save'], ({ instanceId }) => save(instanceId))
   local.register(fileWorkspaceCommands['fileWorkspace.reconcile'], ({ instanceId }) => reconcile(instanceId))

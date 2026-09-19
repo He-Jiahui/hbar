@@ -6,6 +6,7 @@ const summary = z.strictObject({
   instanceId,
   workspaceId: z.string().min(1).max(160),
   path: z.string().max(4000),
+  view: z.enum(['browser', 'document']),
   selectedPath: z.string().max(4000).nullable(),
   status: z.enum(['loading', 'ready', 'error']),
   documentStatus: z.enum(['idle', 'loading', 'ready', 'submitting', 'succeeded', 'failed', 'unknown']),
@@ -33,6 +34,11 @@ export const fileWorkspaceCommands = {
   'fileWorkspace.openEntry': defineCommand(
     metadata('fileWorkspace.openEntry'),
     z.strictObject({ instanceId, path: z.string().min(1).max(4000), directory: z.boolean() }),
+    summary,
+  ),
+  'fileWorkspace.showBrowser': defineCommand(
+    metadata('fileWorkspace.showBrowser'),
+    z.strictObject({ instanceId }),
     summary,
   ),
   'fileWorkspace.setText': defineCommand(

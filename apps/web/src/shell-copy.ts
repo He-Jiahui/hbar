@@ -781,13 +781,32 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
     retry: choose('重试', 'Retry'),
     readOnly: choose('可编辑文本', 'Editable text'),
     close: choose('关闭文件管理器', 'Close file manager'),
+    root: choose('工作区根目录', 'Workspace root'),
     loadMore: choose('加载更多文件', 'Load more files'),
     save: choose('保存文件', 'Save file'),
     saving: choose('正在保存…', 'Saving…'),
     saved: choose('文件已保存。', 'File saved.'),
     reconcile: choose('核对保存结果', 'Reconcile save'),
     dirty: choose('有未保存的更改', 'Unsaved changes'),
-    error: (code) => choose(`文件操作失败：${code}`, `File operation failed: ${code}`),
+    backToFiles: choose('返回文件列表', 'Back to files'),
+    reload: choose('重新加载源文件', 'Reload source'),
+    reloadTitle: (path) => choose(`重新加载“${path}”？`, `Reload “${path}”?`),
+    reloadDescription: choose(
+      '磁盘上的文件已改变。重新加载会丢弃当前草稿。',
+      'The file changed on disk. Reloading will discard the current draft.',
+    ),
+    keepDraft: choose('保留草稿', 'Keep draft'),
+    discardAndReload: choose('丢弃并重新加载', 'Discard and reload'),
+    error: (code) => {
+      if (code === 'FILE_CONFLICT')
+        return choose('源文件已更新；当前草稿仍保留。', 'The source changed; your draft is still preserved.')
+      if (code === 'UNSUPPORTED_TYPE')
+        return choose('此文件不是可编辑的 UTF-8 文本。', 'This file is not editable UTF-8 text.')
+      if (code === 'INVALID_OUTPUT' || code === 'INPUT_TOO_LARGE')
+        return choose('此文件过大，无法在工具中打开。', 'This file is too large to open in the tool.')
+      if (code === 'ENOENT' || code === 'NOT_FOUND') return choose('此文件已不存在。', 'This file no longer exists.')
+      return choose(`文件操作失败：${code}`, `File operation failed: ${code}`)
+    },
   }
 }
 

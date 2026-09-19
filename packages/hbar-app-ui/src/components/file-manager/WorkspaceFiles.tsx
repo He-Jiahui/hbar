@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, FileCode2, Folder, RefreshCw } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
+import { HbarAppUiButton, HbarAppUiIconButton } from '../../primitives'
 import { HbarAppUiVirtualList } from '../../VirtualList'
 import './WorkspaceFiles.css'
 
@@ -28,6 +29,7 @@ export function HbarAppUiWorkspaceFiles({
   onOpen,
   onParent,
   onRefresh,
+  embedded = false,
 }: {
   readonly items: readonly HbarAppUiWorkspaceFile[]
   readonly path: string
@@ -37,32 +39,31 @@ export function HbarAppUiWorkspaceFiles({
   readonly onOpen: (id: string) => void
   readonly onParent: () => void
   readonly onRefresh: () => void
+  readonly embedded?: boolean | undefined
 }) {
   return (
-    <section className="hbar-app-ui-workspace-files file-nav" aria-label={labels.title} aria-busy={loading}>
+    <section
+      className={`hbar-app-ui-workspace-files file-nav${embedded ? ' is-embedded' : ''}`}
+      aria-label={labels.title}
+      aria-busy={loading}
+    >
       <header>
-        <strong>{labels.title}</strong>
-        <button
-          type="button"
-          aria-label={labels.parent}
-          title={labels.parent}
-          disabled={path === '.' || loading}
-          onClick={onParent}
-        >
-          <HbarAppUiIcon icon={ChevronLeft} />
-        </button>
-        <button type="button" aria-label={labels.refresh} title={labels.refresh} disabled={loading} onClick={onRefresh}>
-          <HbarAppUiIcon icon={RefreshCw} />
-        </button>
+        {!embedded && <strong>{labels.title}</strong>}
+        <HbarAppUiIconButton label={labels.parent} disabled={path === '.' || loading} onClick={onParent}>
+          <HbarAppUiIcon icon={ChevronLeft} tier="sm" />
+        </HbarAppUiIconButton>
+        <HbarAppUiIconButton label={labels.refresh} disabled={loading} onClick={onRefresh}>
+          <HbarAppUiIcon icon={RefreshCw} tier="sm" />
+        </HbarAppUiIconButton>
       </header>
-      <p className="hbar-app-ui-file-path">{path}</p>
+      {!embedded && <p className="hbar-app-ui-file-path">{path}</p>}
       {loading && <p role="status">{labels.loading}</p>}
       {error ? (
         <div role="alert">
           <p>{error}</p>
-          <button type="button" onClick={onRefresh}>
+          <HbarAppUiButton type="button" onClick={onRefresh}>
             {labels.retry}
-          </button>
+          </HbarAppUiButton>
         </div>
       ) : (
         <HbarAppUiVirtualList
@@ -72,7 +73,7 @@ export function HbarAppUiWorkspaceFiles({
           className="file-list"
           renderRow={(item) => (
             <button type="button" title={item.id} onClick={() => onOpen(item.id)}>
-              <HbarAppUiIcon icon={item.directory ? Folder : FileCode2} />
+              <HbarAppUiIcon icon={item.directory ? Folder : FileCode2} tier="sm" />
               <span>{item.name}</span>
               {item.directory && <HbarAppUiIcon icon={ChevronRight} tier="sm" />}
             </button>
@@ -89,37 +90,59 @@ export function HbarAppUiFileDocument({
   loading,
   error,
   onRetry,
+  name,
+  back,
+  contentAvailable = true,
+  refreshDisabled = false,
+  errorAction,
   children,
 }: {
   readonly path: string
+  readonly name?: string | undefined
   readonly labels: HbarAppUiWorkspaceFileLabels
   readonly loading: boolean
   readonly error?: string | undefined
   readonly onRetry: () => void
+  readonly back?: { readonly label: string; readonly onInvoke: () => void } | undefined
+  readonly contentAvailable?: boolean | undefined
+  readonly refreshDisabled?: boolean | undefined
+  readonly errorAction?: ReactNode | undefined
   readonly children: ReactNode
 }) {
   return (
     <section className="hbar-app-ui-file-document file-viewer" aria-label={path} aria-busy={loading}>
       <header>
-        <HbarAppUiIcon icon={FileCode2} />
-        <strong>{path}</strong>
-        <span>{labels.readOnly}</span>
-        <button type="button" onClick={onRetry} disabled={loading} aria-label={labels.refresh}>
-          <HbarAppUiIcon icon={RefreshCw} />
-        </button>
+        {back && (
+          <HbarAppUiIconButton label={back.label} onClick={back.onInvoke}>
+            <HbarAppUiIcon icon={ChevronLeft} tier="sm" />
+          </HbarAppUiIconButton>
+        )}
+        <HbarAppUiIcon icon={FileCode2} tier="sm" />
+        <div className="hbar-app-ui-file-document-title">
+          <strong title={path}>{name ?? path}</strong>
+          <span>{labels.readOnly}</span>
+        </div>
+        <HbarAppUiIconButton label={labels.refresh} onClick={onRetry} disabled={loading || refreshDisabled}>
+          <HbarAppUiIcon icon={RefreshCw} tier="sm" />
+        </HbarAppUiIconButton>
       </header>
-      {error ? (
+      {error && (
         <div role="alert">
           <p>{error}</p>
-          <button type="button" onClick={onRetry}>
-            {labels.retry}
-          </button>
+          {contentAvailable ? (
+            errorAction
+          ) : (
+            <HbarAppUiButton type="button" onClick={onRetry}>
+              {labels.retry}
+            </HbarAppUiButton>
+          )}
         </div>
-      ) : loading ? (
-        <p role="status">{labels.loading}</p>
-      ) : (
-        <div className="hbar-app-ui-file-document-body">{children}</div>
       )}
+      {loading ? (
+        <p role="status">{labels.loading}</p>
+      ) : contentAvailable ? (
+        <div className="hbar-app-ui-file-document-body">{children}</div>
+      ) : null}
     </section>
   )
 }

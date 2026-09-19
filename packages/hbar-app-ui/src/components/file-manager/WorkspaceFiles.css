@@ -18,10 +18,26 @@
   border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 .hbar-app-ui-workspace-files header strong,
-.hbar-app-ui-file-document header strong {
+.hbar-app-ui-file-document-title {
   flex: 1 1 auto;
   min-inline-size: 0;
-  overflow-wrap: anywhere;
+}
+.hbar-app-ui-workspace-files.is-embedded header {
+  justify-content: flex-end;
+}
+.hbar-app-ui-file-document-title {
+  display: flex;
+  flex-direction: column;
+}
+.hbar-app-ui-file-document-title strong,
+.hbar-app-ui-file-document-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-app-ui-file-document-title span {
+  color: var(--hbar-app-ui-subtle);
+  font-size: 0.75rem;
 }
 .hbar-app-ui-workspace-files .file-list button {
   display: flex;
@@ -29,13 +45,27 @@
   gap: var(--hbar-app-ui-space-sm);
   inline-size: 100%;
   min-block-size: var(--hbar-app-ui-control-min);
+  border: var(--hbar-app-ui-divider) solid transparent;
+  border-radius: var(--hbar-app-ui-control-radius);
+  outline: 0;
+  color: var(--hbar-app-ui-text);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
   text-align: start;
   padding: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-workspace-files .file-list button:hover,
+.hbar-app-ui-workspace-files .file-list button:focus-visible {
+  border-color: var(--hbar-app-ui-border);
+  background: var(--hbar-app-ui-surface-1);
 }
 .hbar-app-ui-workspace-files .file-list span {
   flex: 1 1 auto;
   min-inline-size: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hbar-app-ui-file-path {
   overflow-wrap: anywhere;
@@ -52,4 +82,17 @@
 .hbar-app-ui-file-document-body > * {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+.hbar-app-ui-file-document > [role='alert'] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  color: var(--hbar-app-ui-danger);
+}
+.hbar-app-ui-file-document > [role='alert'] p {
+  margin: 0;
 }

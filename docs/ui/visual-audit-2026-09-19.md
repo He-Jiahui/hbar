@@ -159,3 +159,22 @@ Playwright 除业务闭环外还量化断言：1440、1024、390 三个宽度下
 本切片关闭 UI-01 和 UI-02。R3.2 的 Plan 归属、R3.5 的长历史滚动锚点/流式快速切换/断线恢复仍未完成。文件工具在 24rem 抽屉中把列表和编辑器并排导致文件名逐字断行，是当前最明显的生产视觉缺陷，继续归属 R4.2。
 
 验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；379 个 Bun 测试、2960 个断言通过；Web production build 与 Usage 独立预览验证通过；flow/content/icon guards、Prettier 和 `git diff --check` 通过；Playwright 离线中英文桌面/窄屏与真实 Host connected 场景共 5 项通过。真实场景执行了文件、监控、子 Agent、目标与计划、Session 设置、发送、审批、取消和各页面返回路径。
+
+## 12. R4.2 文件工具列表与详情
+
+真实截图确认旧文件工具的故障不是单个文字换行问题：24rem 抽屉内同时放置最小 14rem 的目录列和编辑器，剩余详情宽度接近一个字符；工具自身又按内容宽度收缩，没有填满 AppShell 的 drawer。旧页面还同时显示外层 “File manager”、组件内 “File manager”和空详情，形成重复标题与无效区域。
+
+文件工具现在使用明确的 `browser/document` 子视图。`fileWorkspace.openEntry` 打开目录时进入 browser、打开文本时进入 document；新增 `fileWorkspace.showBrowser` 只切回列表并保留当前文档草稿。文件读取使用 generation，返回列表后到达的旧读取结果不能重新打开详情。所有切换继续经过命令注册与只读状态投影，React 没有直接改运行时状态。
+
+WorkspaceFiles 的 embedded 形态移除重复标题与路径，文件行使用组件自己的紧凑按钮、语义图标、hover/focus 和省略规则。FileDocument 显示 basename、完整路径 tooltip、返回、刷新、编辑状态和 footer；工具内容明确占满 drawer。未保存时刷新被禁用。保存冲突继续显示编辑器并保留草稿，用户选择“重新加载源文件”后还需在原生 dialog 中确认“丢弃并重新加载”；确认动作捕获原文件路径。非 UTF-8、过大和已删除文件使用宿主本地化原因，不伪装成可编辑文本。
+
+| 场景     | 截图与人工观察                                                                                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面列表 | [1440](../../artifacts/ui-redesign/file-tool/after/list-1440.png)：目录与文件使用完整 24rem 工具列，页面标题不重复                                                               |
+| 桌面详情 | [1440](../../artifacts/ui-redesign/file-tool/after/document-1440.png)：返回、basename、编辑器和保存状态在同一单面板层级                                                          |
+| 中等宽度 | [列表](../../artifacts/ui-redesign/outlets/files-1024.png)、[详情](../../artifacts/ui-redesign/file-tool/after/document-1024.png)：右侧 drawer 被内容完整填充，聊天保留在背景    |
+| 窄屏     | [列表](../../artifacts/ui-redesign/outlets/files-390.png)、[详情](../../artifacts/ui-redesign/file-tool/after/document-390.png)：工具占满 390px 单面板，列表和编辑器不会同时出现 |
+
+Playwright 在三档宽度分别断言工具 workspace 与 AppShell drawer 的四条边误差不超过 1 CSS px、没有内部横向溢出，并逐次检查 `data-view` 只能为 browser 或 document。真实 Host 流程打开、编辑、保存、返回列表后再次在 1024/390 打开相同文件；运行时测试验证保存期间的新编辑不会被旧回执覆盖、冲突保留草稿、返回列表不清除草稿。R4.2 关闭；二进制/过大文件由现有 Host 读取错误进入明确不可编辑状态，当前没有虚构二进制预览器。
+
+验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；379 个 Bun 测试、2968 个断言通过；Web production build、File Manager 独立预览的滚动/窄屏/本地化验证、flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过并重新生成、逐张查看以上真实 Host 截图。本节结果取代第 10、11 节中“文件工具内部仍待 R4.2 修复”的旧状态记录。

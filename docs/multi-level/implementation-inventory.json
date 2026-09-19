@@ -435,6 +435,7 @@
     "fileWorkspace.refresh",
     "fileWorkspace.save",
     "fileWorkspace.setText",
+    "fileWorkspace.showBrowser",
     "form.reconcile",
     "form.resetField",
     "form.setField",

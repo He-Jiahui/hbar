@@ -214,13 +214,37 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const expectFileToolLayout = async (view: 'browser' | 'document') =>
+      expect(
+        await page.evaluate((expectedView) => {
+          const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
+          const workspace = document.querySelector<HTMLElement>('.hbar-app-react-file-workspace')
+          const layout = document.querySelector<HTMLElement>('.hbar-app-react-file-layout')
+          if (!drawer || !workspace || !layout) return false
+          const drawerRect = drawer.getBoundingClientRect()
+          const workspaceRect = workspace.getBoundingClientRect()
+          return (
+            layout.dataset.view === expectedView &&
+            Math.abs(drawerRect.left - workspaceRect.left) <= 1 &&
+            Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
+            Math.abs(drawerRect.height - workspaceRect.height) <= 1 &&
+            workspace.scrollWidth <= workspace.clientWidth
+          )
+        }, view),
+      ).toBe(true)
+    await expectFileToolLayout('browser')
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/list-1440.png', fullPage: true })
     await page.getByRole('button', { name: 'browser-e2e.md' }).click()
+    await expectFileToolLayout('document')
     const fileEditor = page.getByRole('textbox', { name: 'browser-e2e.md' })
     await expect(fileEditor).toHaveValue('# Browser file\n')
     await fileEditor.fill('# Browser file\n\nEdited from the file panel.\n')
     await page.getByRole('button', { name: 'Save file' }).click()
     await expect(page.getByText('File saved.')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/file-manager.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/document-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to files' }).click()
+    await expectFileToolLayout('browser')
     await page.getByRole('button', { name: 'Close file manager' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
@@ -334,7 +358,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/tablet-1024.png', fullPage: true })
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await expectFileToolLayout('browser')
     await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'browser-e2e.md' }).click()
+    await expectFileToolLayout('document')
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/document-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to files' }).click()
     await page.getByRole('button', { name: 'Close file manager' }).click()
     await page.setViewportSize({ width: 390, height: 844 })
     const expectNoHorizontalOverflow = async () =>
@@ -363,8 +392,14 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await expectFileToolLayout('browser')
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-390.png', fullPage: true })
+    await page.getByRole('button', { name: 'browser-e2e.md' }).click()
+    await expectFileToolLayout('document')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/document-390.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to files' }).click()
     await page.getByRole('button', { name: 'Close file manager' }).click()
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
