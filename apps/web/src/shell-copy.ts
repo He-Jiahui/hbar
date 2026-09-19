@@ -30,9 +30,6 @@ interface ShellCopy {
   readonly goals: HbarGoalPlanWorkspaceLabels
   readonly extensions: HbarExtensionWorkspaceLabels
   readonly status: HbarStatusWorkspaceLabels
-  readonly panels: Readonly<
-    Record<'commands' | 'status' | 'settings', { readonly title: string; readonly description: string }>
-  >
 }
 
 function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabels {
@@ -1053,11 +1050,6 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     goals: createGoalPlanWorkspaceLabels('zh-CN'),
     extensions: createExtensionWorkspaceLabels('zh-CN'),
     status: createStatusWorkspaceLabels('zh-CN'),
-    panels: {
-      commands: { title: '命令', description: '分类命令面板将在此区域打开。' },
-      status: { title: '状态中心', description: 'Performance、Usage 与 Git 状态将在此区域显示。' },
-      settings: { title: '设置', description: 'Schema 设置工作台将在此区域打开。' },
-    },
   },
   'en-US': {
     shell: {
@@ -1092,11 +1084,6 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     goals: createGoalPlanWorkspaceLabels('en-US'),
     extensions: createExtensionWorkspaceLabels('en-US'),
     status: createStatusWorkspaceLabels('en-US'),
-    panels: {
-      commands: { title: 'Commands', description: 'The categorized command palette opens in this region.' },
-      status: { title: 'Status center', description: 'Performance, Usage, and Git status appear in this region.' },
-      settings: { title: 'Settings', description: 'The schema settings workspace opens in this region.' },
-    },
   },
 }
 

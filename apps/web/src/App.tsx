@@ -109,10 +109,6 @@ function WorkspaceBody({ locale, connected }: { readonly locale: ShellLocale; re
         }
       />
     )
-  if (panel) {
-    const content = copy.panels[panel.panelId as keyof typeof copy.panels] ?? copy.panels.commands
-    return <HbarAppUiWorkbenchNotice title={content.title} description={content.description} />
-  }
   if (session) return <HbarSessionWorkspace sessionTitle={session.title} labels={copy.session} connected={connected} />
   return <HbarAppUiWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
 }

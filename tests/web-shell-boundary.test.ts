@@ -36,3 +36,11 @@ test('shell chooses a supported language without reading the retired workbench s
   expect(resolveShellLocale(['fr', 'zh-TW'])).toBe('zh-CN')
   expect(resolveShellLocale([])).toBe('zh-CN')
 })
+
+test('Web composition does not restore the retired writable store or placeholder panels', async () => {
+  const app = await Bun.file('apps/web/src/App.tsx').text()
+  const copy = await Bun.file('apps/web/src/shell-copy.ts').text()
+  expect(app).not.toContain('workbench-store')
+  expect(app).not.toContain('copy.panels')
+  expect(copy).not.toContain('readonly panels:')
+})
