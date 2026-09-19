@@ -42,7 +42,7 @@ import {
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
-import { HbarAppUiDialog } from 'hbar-app-ui'
+import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { shellLayout } from './shell-layout'

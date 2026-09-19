@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HbarAppUiButton, HbarAppUiDialog } from 'hbar-app-ui'
+import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
+import { HbarAppUiButton } from 'hbar-app-ui/primitives'
 import { HbarAppUiSettingsList } from 'hbar-app-ui/workbench'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarProviderEditorView, type HbarProviderDialogLabels, type HbarProviderEditorIntent } from './provider-editor'

@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ProviderEditorState } from '@hbar/app-runtime'
+import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
 import {
-  HbarAppUiButton,
   HbarAppUiCheckBox,
   HbarAppUiComboBox,
-  HbarAppUiDialog,
   HbarAppUiField,
-  HbarAppUiIcon,
   HbarAppUiInput,
   HbarAppUiMultiSelect,
   HbarAppUiSelect,
   type HbarAppUiControlOption,
-} from 'hbar-app-ui'
+} from 'hbar-app-ui/forms'
+import { HbarAppUiIcon } from 'hbar-app-ui/icon'
+import { HbarAppUiButton } from 'hbar-app-ui/primitives'
 import { ArrowLeft, Check, EyeOff, Plus, RotateCcw, Trash2 } from 'lucide-react'
 
 type ProviderField = 'id' | 'name' | 'visible' | 'protocol' | 'baseUrl'

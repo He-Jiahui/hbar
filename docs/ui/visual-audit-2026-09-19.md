@@ -397,3 +397,13 @@ Git 页现在把仓库和时间窗保留为常用筛选，提交来源进入“�
 第一轮真实截图发现三个代码检查无法证明的问题：重新打开目录会保留扩展页留下的 `system.` 查询；普通命令行继承了应用全局按钮的灰色背景；参数和结果沿用搜索页固定高度，产生大片空白。修正后第二轮又发现虚拟列表仍保留旧选中项的滚动偏移，首项只露出一条灰边且分类标题消失。最终运行时让查询变化重置选择，共享 CommandList 让按钮样式自包含并在查询变化时复位虚拟滚动，弹窗按三种状态使用不同桌面高度；所有 production 截图重新生成并逐张人工复核。
 
 验证结果：命令目录 runtime 与 React 定向测试通过；flow/content/icon guards、全仓 ESLint、TypeScript、387 个 Bun 测试（3086 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。真实 Host 场景实际搜索 `session.setBudget`、填写并执行 Token 上限、查看折叠与展开回执、按两次 Escape 返回搜索，在 1440/1024/390 三档检查无水平溢出；E2E 还断言空查询首个分类可见，防止虚拟滚动回归。以上截图来自最终 production preview 并逐张人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
+
+## 24. R6.2 生产样式入口清理
+
+页面迁移完成后，Web React 树已经只使用新 AppShell，但 app-react 与 Web 仍从 `hbar-app-ui` 根入口读取按钮、图标、对话框和若干受控组件。根入口同时公开旧 `HbarAppUiWorkbenchShell`；Bun 构建输入审计证实旧壳层模块仍被加载，其 CSS 会与新 AppShell 一起进入生产样式图。它没有形成第二个可见 React 导航，却仍可能通过通用选择器影响按钮、列表和壳层，这也是命令目录普通行曾继承错误按钮背景的同类风险。
+
+组件库增加 primitives、icon、conversation、prompt-composer、workspace-files 和 plan-editor 等窄生产入口；已有 forms、workbench、app-dialog、command-menu、ai-usage、run-activity、approval-request 和 questionnaire 继续复用。Web 与 app-react 的生产源不再导入 `hbar-app-ui` 根入口。根入口、WorkbenchShell、catalog 和 preview 均未删除，因为组件预览与兼容测试仍有明确调用者；Web 边界测试改为断言旧 WorkbenchShell 不进入生产构建输入。
+
+Production build 从 2400 个模块、224.24 kB CSS 变为 2390 个模块、214.06 kB CSS。清理后重新执行真实 Host E2E，并人工复核[会话](../../artifacts/ui-redesign/session/after/desktop-1440.png)、[设置](../../artifacts/ui-redesign/settings/after/desktop-1440-providers.png)、[文件工具](../../artifacts/ui-redesign/file-tool/after/list-1440.png)、[命令目录](../../artifacts/ui-redesign/commands/after/desktop-1440-search.png)和[窄屏 Performance](../../artifacts/ui-redesign/performance/after/mobile-390.png)。页面层级、选中/禁用状态、工具分栏、模态遮罩、表单和滚动没有因旧 CSS 移除而退化。
+
+验证结果：ESLint、TypeScript、22 个受影响测试（236 个断言）、Web production build（2390 modules）和全部 5 项 Playwright 场景通过。截图来自清理后的最终 production preview 并逐张人工查看；Tauri 实窗仍归 R6.4。

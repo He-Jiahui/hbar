@@ -2,20 +2,18 @@ import type { ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
-import {
-  HbarAppUiApprovalRequest,
-  HbarAppUiCompactUsage,
-  HbarAppUiConversation,
-  HbarAppUiPromptComposer,
-  HbarAppUiQuestionnaire,
-  HbarAppUiRunActivity,
-  type HbarAppUiApprovalRequestLabels,
-  type HbarAppUiMessageProps,
-  type HbarAppUiPromptLabels,
-  type HbarAppUiQuestionnaireLabels,
-  type HbarAppUiRunActivityLabels,
-  type HbarAppUiRunActivityStatus,
-} from 'hbar-app-ui'
+import { HbarAppUiCompactUsage } from 'hbar-app-ui/ai-usage'
+import { HbarAppUiApprovalRequest } from 'hbar-app-ui/approval-request'
+import { HbarAppUiConversation, type HbarAppUiMessageProps } from 'hbar-app-ui/conversation'
+import { HbarAppUiPromptComposer, type HbarAppUiPromptLabels } from 'hbar-app-ui/prompt-composer'
+import { HbarAppUiQuestionnaire } from 'hbar-app-ui/questionnaire'
+import { HbarAppUiRunActivity } from 'hbar-app-ui/run-activity'
+import type {
+  HbarAppUiApprovalRequestLabels,
+  HbarAppUiQuestionnaireLabels,
+  HbarAppUiRunActivityLabels,
+  HbarAppUiRunActivityStatus,
+} from 'hbar-app-ui/types'
 import { HbarAppUiPageAction, HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import type { SessionAttachmentUpload, SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'

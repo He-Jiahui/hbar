@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui'
+import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui/primitives'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './extension-workspace.css'

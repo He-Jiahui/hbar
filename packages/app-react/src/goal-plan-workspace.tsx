@@ -1,15 +1,12 @@
 import { useCallback, useEffect } from 'react'
 import { ArrowLeft, RefreshCw, X } from 'lucide-react'
+import { HbarAppUiIcon } from 'hbar-app-ui/icon'
 import {
-  HbarAppUiButton,
-  HbarAppUiIcon,
-  HbarAppUiIconButton,
   HbarAppUiPlanEditor,
-  HbarAppUiStatus,
-  HbarAppUiSurface,
   type HbarAppUiAgentPlanEditableContent,
   type HbarAppUiAgentPlanState,
-} from 'hbar-app-ui'
+} from 'hbar-app-ui/plan-editor'
+import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui/primitives'
 import { HbarAppUiField, HbarAppUiInput, HbarAppUiSelect, HbarAppUiTextarea } from 'hbar-app-ui/forms'
 import { HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'

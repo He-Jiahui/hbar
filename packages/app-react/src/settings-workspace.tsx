@@ -7,8 +7,9 @@ import {
   type SchemaComponentRegistry,
   type SchemaFieldIntent,
 } from '@hbar/schema-react'
-import { HbarAppUiButton, HbarAppUiIcon, HbarAppUiIconButton } from 'hbar-app-ui'
 import { HbarAppUiSelect } from 'hbar-app-ui/forms'
+import { HbarAppUiIcon } from 'hbar-app-ui/icon'
+import { HbarAppUiButton, HbarAppUiIconButton } from 'hbar-app-ui/primitives'
 import { HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import type { SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'

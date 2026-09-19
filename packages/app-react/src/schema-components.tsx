@@ -10,8 +10,8 @@ import {
   type SchemaComponentRegistry,
   type SchemaFieldRendererProps,
 } from '@hbar/schema-react'
-import { HbarAppUiButton } from 'hbar-app-ui'
 import { HbarAppUiComboBox, HbarAppUiInput, HbarAppUiMultiSelect, type HbarAppUiControlOption } from 'hbar-app-ui/forms'
+import { HbarAppUiButton } from 'hbar-app-ui/primitives'
 import './schema-components.css'
 
 interface VisualOption extends HbarAppUiControlOption {

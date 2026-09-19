@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
-import { HbarAppUiIcon, HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui'
+import { HbarAppUiIcon } from 'hbar-app-ui/icon'
+import { HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui/primitives'
 import { HbarAppUiBarSeries, HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-monitoring.css'

@@ -1,15 +1,13 @@
 import { X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
+import { HbarAppUiIcon } from 'hbar-app-ui/icon'
+import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui/primitives'
 import {
-  HbarAppUiButton,
-  HbarAppUiDialog,
   HbarAppUiFileDocument,
-  HbarAppUiIcon,
-  HbarAppUiIconButton,
-  HbarAppUiSurface,
   HbarAppUiWorkspaceFiles,
   type HbarAppUiWorkspaceFileLabels,
-} from 'hbar-app-ui'
+} from 'hbar-app-ui/workspace-files'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './file-workspace.css'
 

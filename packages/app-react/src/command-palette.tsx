@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, RefreshCw, X } from 'lucide-react'
 import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
-import {
-  HbarAppUiButton,
-  HbarAppUiCommandList,
-  HbarAppUiIcon,
-  HbarAppUiIconButton,
-  HbarAppUiSurface,
-} from 'hbar-app-ui'
+import { HbarAppUiCommandList } from 'hbar-app-ui/command-menu'
+import { HbarAppUiIcon } from 'hbar-app-ui/icon'
+import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui/primitives'
 import {
   HbarAppUiCheckBox,
   HbarAppUiField,

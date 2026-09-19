@@ -30,6 +30,7 @@ test('Web composition root imports runtime and transport without server or previ
     ),
   ).toEqual([])
   expect([...inputs].some((path) => /\/zustand\/(?:esm\/)?vanilla\.[mc]?js$/.test(path))).toBe(true)
+  expect([...inputs].some((path) => path.endsWith('/components/app-shell/WorkbenchShell.tsx'))).toBe(false)
 })
 
 test('shell chooses a supported language without reading the retired workbench store', () => {

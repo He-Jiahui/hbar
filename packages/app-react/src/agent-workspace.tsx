@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { ArrowLeft, ExternalLink, Plus, RefreshCw, X } from 'lucide-react'
-import { HbarAppUiButton, HbarAppUiIcon, HbarAppUiIconButton, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui'
+import { HbarAppUiIcon } from 'hbar-app-ui/icon'
+import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui/primitives'
 import { HbarAppUiField, HbarAppUiInput, HbarAppUiSelect, HbarAppUiTextarea } from 'hbar-app-ui/forms'
 import { HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
 import type { AgentWorkspaceEntryState } from '@hbar/app-runtime'
