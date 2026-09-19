@@ -15,13 +15,17 @@ import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type {
   Approval,
+  GoalStatus,
   LiveStream,
   Message,
+  PlanState,
+  PlanStepStatus,
   Run,
   SessionBudget,
   SessionEvent,
   SessionSnapshot,
   StreamDelta,
+  ThreadGoal,
   Usage,
   UserInputRequest,
 } from '@hbar/contracts'
@@ -64,6 +68,7 @@ export interface RuntimeOptions {
   readonly configuration?: CommandExecutor
   readonly files?: CommandExecutor
   readonly agents?: CommandExecutor
+  readonly goals?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort
   readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
@@ -105,6 +110,54 @@ export interface AgentWorkspaceEntryState {
 
 export interface AgentWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<AgentWorkspaceEntryState>>>
+}
+
+export interface GoalPlanActionState {
+  readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
+  readonly error: string | null
+}
+
+export interface GoalPlanGoalDraftState {
+  readonly objective: string
+  readonly status: GoalStatus
+  readonly tokenBudget: string
+  readonly revision: number
+  readonly issues: Readonly<Record<string, string>>
+}
+
+export interface GoalPlanStepDraftState {
+  readonly id: string
+  readonly step: string
+  readonly status: PlanStepStatus
+}
+
+export interface GoalPlanPlanDraftState {
+  readonly explanation: string
+  readonly newStep: string
+  readonly steps: readonly Readonly<GoalPlanStepDraftState>[]
+  readonly revision: number
+  readonly issues: Readonly<Record<string, string>>
+}
+
+export interface GoalPlanWorkspaceEntryState {
+  readonly instanceId: string
+  readonly sessionId: string
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly goal: Readonly<ThreadGoal> | null
+  readonly remainingTokens: number | null
+  readonly completionBudgetReport: string | null
+  readonly goalDraft: Readonly<GoalPlanGoalDraftState>
+  readonly goalDirty: boolean
+  readonly goalAction: Readonly<GoalPlanActionState>
+  readonly plan: Readonly<PlanState> | null
+  readonly planDraft: Readonly<GoalPlanPlanDraftState>
+  readonly planDirty: boolean
+  readonly planAction: Readonly<GoalPlanActionState>
+  readonly error: string | null
+}
+
+export interface GoalPlanWorkspaceState {
+  readonly entries: Readonly<Record<string, Readonly<GoalPlanWorkspaceEntryState>>>
 }
 
 export interface FileWorkspaceDocumentState {

@@ -13,6 +13,7 @@ import { configurationCommands } from './configuration'
 import { commandPaletteCommands } from './command-palette'
 import { fileWorkspaceCommands } from './file-workspace'
 import { agentWorkspaceCommands } from './agent-workspace'
+import { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -151,6 +152,7 @@ export { providerEditorCommands } from './provider-editor'
 export { commandPaletteCommands } from './command-palette'
 export { fileWorkspaceCommands } from './file-workspace'
 export { agentWorkspaceCommands } from './agent-workspace'
+export { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -168,4 +170,5 @@ export const applicationCommands = {
   ...commandPaletteCommands,
   ...fileWorkspaceCommands,
   ...agentWorkspaceCommands,
+  ...goalPlanWorkspaceCommands,
 }
