@@ -4,9 +4,14 @@ import {
   CommandRegistry,
   CommandError,
   createCommandClient,
+  commandParameterInput,
+  compileCommandParameterForm,
+  createCommandParameterDraft,
   defineCommand,
   describeCommand,
+  setCommandParameter,
   tokenizeCommand,
+  unsetCommandParameter,
   type CommandMetadataInput,
 } from '@hbar/commands'
 
@@ -239,6 +244,68 @@ test('definition validation rejects query effects, mismatched form parameters an
   expect(() => describeCommand(defineCommand(metadata, z.object({ value: z.number() }), outputSchema))).toThrow(
     'strict object',
   )
+})
+
+test('descriptor parameter forms preserve defaults, context, constraints, enums and sensitive fields', () => {
+  const definition = defineCommand(
+    {
+      ...metadata,
+      id: 'sample.configure',
+      aliases: [],
+      surfaces: ['palette'],
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'count', type: 'number', position: 0 },
+          { field: 'enabled', type: 'boolean', flag: 'enabled' },
+          { field: 'payload', type: 'json', flag: 'payload' },
+        ],
+      },
+    },
+    z.strictObject({
+      sessionId: z.string().min(1).max(160),
+      count: z.number().int().min(1).max(9),
+      enabled: z.boolean().default(true),
+      mode: z.enum(['fast', 'safe']).default('safe'),
+      secret: z.string().max(128).optional().meta({ writeOnly: true, title: 'sample.secret' }),
+      payload: z.strictObject({ label: z.string() }).optional(),
+    }),
+    z.null(),
+  )
+  const form = compileCommandParameterForm(describeCommand(definition))
+  expect(form.fields).toMatchObject([
+    { name: 'sessionId', kind: 'string', required: true, labelKey: 'commands.sample.configure.fields.sessionId' },
+    { name: 'count', kind: 'number', required: true, minimum: 1, maximum: 9 },
+    { name: 'enabled', kind: 'boolean', defaultValue: true },
+    { name: 'mode', kind: 'string', choices: ['fast', 'safe'], defaultValue: 'safe' },
+    { name: 'secret', kind: 'string', sensitive: true, labelKey: 'sample.secret' },
+    { name: 'payload', kind: 'json' },
+  ])
+  let draft = createCommandParameterDraft(form, { sessionId: 'session-1', ignored: 'value' })
+  expect(draft.values).toEqual({ sessionId: 'session-1', enabled: true, mode: 'safe' })
+  expect(draft.issues).toEqual([{ field: 'count', code: 'required' }])
+  draft = setCommandParameter(form, draft, 'count', '10')
+  expect(draft.issues).toEqual([{ field: 'count', code: 'too_large' }])
+  draft = setCommandParameter(form, draft, 'count', '3')
+  draft = setCommandParameter(form, draft, 'mode', 'other')
+  expect(draft.issues).toEqual([{ field: 'mode', code: 'not_allowed' }])
+  draft = setCommandParameter(form, draft, 'mode', 'fast')
+  draft = setCommandParameter(form, draft, 'payload', '{"label":"ready"}')
+  draft = setCommandParameter(form, draft, 'secret', '')
+  expect(commandParameterInput(form, draft)).toEqual({
+    sessionId: 'session-1',
+    count: 3,
+    enabled: true,
+    mode: 'fast',
+    secret: '',
+    payload: { label: 'ready' },
+  })
+  const withoutSecret = unsetCommandParameter(form, draft, 'secret')
+  expect(commandParameterInput(form, withoutSecret)).not.toHaveProperty('secret')
+  expect(() => setCommandParameter(form, draft, 'enabled', 'true')).toThrow('input type')
+  expect(() => commandParameterInput(form, createCommandParameterDraft(form))).toThrow('Resolve')
+  expect(Object.isFrozen(form.fields[0])).toBeTrue()
+  expect(Object.isFrozen(draft.values)).toBeTrue()
 })
 
 test('execution validates permissions, wire versions, outputs and rejects unavailable durable execution', async () => {

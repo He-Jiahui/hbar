@@ -10,3 +10,16 @@ export {
 } from './registry'
 export { createCommandClient, type CommandExecutor } from './client'
 export { MAX_INVOCATION_BYTES } from './limits'
+export {
+  compileCommandParameterForm,
+  createCommandParameterDraft,
+  setCommandParameter,
+  unsetCommandParameter,
+  commandParameterInput,
+  type CommandParameterKind,
+  type CommandParameterField,
+  type CommandParameterForm,
+  type CommandParameterDraftValue,
+  type CommandParameterIssue,
+  type CommandParameterDraft,
+} from './parameter-form'
