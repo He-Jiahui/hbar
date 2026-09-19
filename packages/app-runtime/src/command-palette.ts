@@ -345,7 +345,8 @@ export function createCommandPalette(
     if (!item || !fullDraft) throw new CommandError('COMMAND_NOT_FOUND', 'Select a command before execution')
     if (!item.available)
       throw new CommandError('CAPABILITY_UNAVAILABLE', item.unavailableReason ?? 'Command is unavailable')
-    const input = commandParameterInput(item.form, fullDraft)
+    const submittedDraft = fullDraft
+    const input = commandParameterInput(item.form, submittedDraft)
     const commandId = item.descriptor.metadata.id
     state.replace({
       ...current,
@@ -366,6 +367,7 @@ export function createCommandPalette(
       const latest = state.reader.getSnapshot()
       if (latest.execution.commandId !== commandId || latest.execution.status !== 'submitting')
         throw new CommandError('RESULT_UNKNOWN', 'Command execution was superseded')
+      fullDraft = submittedDraft
       for (const field of item.form.fields)
         if (field.sensitive && Object.hasOwn(fullDraft.values, field.name))
           fullDraft = unsetCommandParameter(item.form, fullDraft, field.name)
