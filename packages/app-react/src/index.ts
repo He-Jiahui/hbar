@@ -16,4 +16,5 @@ export {
   type HbarProviderSettingsLabels,
   type HbarProviderDialogLabels,
 } from './provider-settings'
+export { HbarCommandPalette, type HbarCommandPaletteLabels, type HbarCommandPaletteProps } from './command-palette'
 export type { HbarRuntimeView } from './runtime'
