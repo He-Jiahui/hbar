@@ -322,6 +322,7 @@
         "tests/usage-facts.test.ts",
         "tests/usage-commands.test.ts",
         "tests/performance-metrics.test.ts",
+        "tests/session-monitoring.test.tsx",
         "tests/cli.test.ts"
       ]
     }
@@ -433,7 +434,7 @@
     "B2": "complete: recoverable timeline, command-owned drafts/run/interactions, model/budget/usage projections and controlled React session workspace verified against a real Host",
     "B3": "complete: schema-react scalar and keyed List renderers, Host descriptions/callbacks, layered FormState, cancellable content, command-owned grouping, private credential drafts, ProviderDialog and real Web save/create flows",
     "B4": "complete: bounded merged catalog, descriptor parameter forms, private sensitive drafts, controlled categorized Web palette and real Host execution",
-    "B5": "in progress: Files panel complete with command-owned paging, editing, CAS save, unknown reconciliation, responsive tool rail and real Host E2E",
+    "B5": "in progress: Files and session Monitoring panels complete with command-owned surfaces, CAS file editing, reliable usage projection, responsive tool rail and real Host E2E",
     "B6-B7": "pending"
   }
 }

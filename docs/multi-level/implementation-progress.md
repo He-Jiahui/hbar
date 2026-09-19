@@ -196,3 +196,9 @@ Session 工作区新增正常 grid/flex 流中的右侧工具栏；Files 执行 
 文件正文最多 2 MiB，保存使用 Host `file.write` 的 SHA-256 baseline 防止覆盖外部修改。提交捕获原 workspace/path/baseline/text；提交期间继续编辑会保留新 draft，成功只把已提交正文设为 baseline。明确冲突保留草稿和原位错误，断线未知通过 `file.read` 比较确切提交正文后收敛。`@hbar/app-react` 复用 `HbarAppUiWorkspaceFiles` 与 `HbarAppUiFileDocument`，React 只订阅读状态并发命令。
 
 交付验证：runtime/React/Session/Web boundary 定向测试通过，严格 typecheck 与目标 ESLint 通过；生产构建包含 2360 个模块。真实临时 Host 的 Playwright 场景打开 `browser-e2e.md`、编辑保存、确认回执、关闭 Files 并返回原 Session；人工检查 `artifacts/web-b5/file-manager.png` 后修正 editor/footer 的组件类选择器。Monitoring、子 Agent、目标计划及已有扩展入口继续按 B5b–B5e 独立提交。
+
+### B5b：Session Monitoring（完成）
+
+Session 工具栏新增 Monitoring 入口，通过 `app.openPanel` 打开逻辑面板，通过 `app.closePanel` 关闭；React 不持有可写业务状态。面板直接读取 app-runtime 已有的 Session usage 投影，展示 Token 总数、运行/尝试数、预计金额、缓存命中率、Token 速率、首文本与完整响应 p95、有界时间序列及模型分布。Host 未能可靠计算的值保留 unavailable 状态，时间窗口中的 gap 明确告知，零 Token 分桶不绘制伪数据柱。全局 CPU、进程、磁盘、网络与 Git 统计仍归 B6 Status Center。
+
+交付验证：Monitoring/Session/Web boundary 定向测试、严格 typecheck 与目标 ESLint 通过；生产构建包含 2362 个模块。真实临时 Host 的 Playwright 场景在产生使用事实后打开监控、检查指标与时间序列、截图并命令关闭；人工检查 `artifacts/web-b5/session-monitoring.png` 确认宽屏布局、数据来源与不可用文案。
