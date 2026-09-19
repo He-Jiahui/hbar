@@ -217,7 +217,8 @@ export function createCommandPalette(
     const before = state.reader.getSnapshot()
     state.replace({ ...before, status: 'loading', error: null })
     const descriptors = localDescriptors()
-    let revision = descriptors.length
+    const localRevision = descriptors.length
+    let revision = localRevision
     let truncated = false
     let failure: string | null = null
     if (options.commandCatalog) {
@@ -230,7 +231,7 @@ export function createCommandPalette(
             throw new CommandError('RESULT_UNKNOWN', 'Catalog refresh superseded')
           if (!Number.isSafeInteger(page.revision) || page.revision < 0 || page.items.length > CATALOG_PAGE_SIZE)
             throw new CommandError('INVALID_OUTPUT', 'Command catalog returned an invalid page')
-          revision = page.revision + descriptors.length
+          revision = page.revision + localRevision
           const validated = page.items.map(validateDescriptor)
           const remaining = Math.max(0, MAX_CATALOG_ITEMS - descriptors.length)
           descriptors.push(...validated.slice(0, remaining))

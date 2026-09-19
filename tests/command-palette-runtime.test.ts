@@ -56,8 +56,9 @@ test('command palette projects categorized host and client commands through comm
   const executions: { id: string; input: Readonly<Record<string, unknown>>; idempotencyKey?: string }[] = []
   const catalog: CommandCatalogPort = {
     async list({ after }) {
-      const items = descriptors.filter((item) => !after || item.metadata.id > after)
-      return { revision: 7, items }
+      return after
+        ? { revision: 7, items: [descriptors[1]!] }
+        : { revision: 7, items: [descriptors[0]!], nextCursor: descriptors[0]!.metadata.id }
     },
     async execute(descriptor, input, options) {
       executions.push({
@@ -90,7 +91,9 @@ test('command palette projects categorized host and client commands through comm
     const refreshed = await runtime.view.commands.execute('commandPalette.refresh', {})
     expect(refreshed.status).toBe('ready')
     const initial = runtime.view.state.commandPalette.getSnapshot()
-    expect(initial.revision).toBeGreaterThan(7)
+    expect(initial.revision).toBe(
+      7 + Object.values(initial.items).filter((item) => item.descriptor.metadata.execution !== 'host').length,
+    )
     expect(initial.categories.map((item) => item.id)).toContain('model.budget')
     expect(initial.visibleIds).toContain('app.openPanel')
     expect(initial.visibleIds).toContain('session.setBudget')
