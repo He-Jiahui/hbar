@@ -1,5 +1,6 @@
 import { artifactSchema, HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
 export { createDirectoryQueryAdapter } from './directory'
+export { createCommandCatalogClient } from './command-catalog'
 export { createBudgetCommandClient } from './budget'
 export { createRunCommandClient } from './run'
 export { createOperationWatcher } from './run'
