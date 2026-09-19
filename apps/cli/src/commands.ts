@@ -43,6 +43,7 @@ import { modelCommands } from '@hbar/contracts/commands/models'
 import { metricsCommands } from '@hbar/contracts/commands/metrics'
 import { runCommands } from '@hbar/contracts/commands/run'
 import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
+import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-application'
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
 import { systemCommands } from '@hbar/contracts/commands/system'
 import { usageCommands, type UsageScope } from '@hbar/contracts/commands/usage'
@@ -196,6 +197,7 @@ export async function runCatalogCommand(
       ...Object.values(navigationCommands),
       ...Object.values(connectionCommands),
       ...Object.values(surfaceCommands),
+      ...Object.values(terminalApplicationCommands),
       ...Object.values(attachmentCommands),
     ]
       .map(describeCommand)
@@ -222,6 +224,7 @@ export async function runCatalogCommand(
       ...Object.values(navigationCommands),
       ...Object.values(connectionCommands),
       ...Object.values(surfaceCommands),
+      ...Object.values(terminalApplicationCommands),
       ...Object.values(attachmentCommands),
     ].find((definition) => definition.metadata.id === selector)
     output(

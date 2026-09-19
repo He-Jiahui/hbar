@@ -24,6 +24,7 @@ import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-wo
 import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-workspace'
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
 import { clientPersistenceCommands } from '@hbar/contracts/commands/client-persistence'
+import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-application'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -210,6 +211,8 @@ export function createAppRuntime(options: RuntimeOptions) {
           return Promise.reject(new CommandError('CAPABILITY_UNAVAILABLE', 'Configuration commands are unavailable'))
         return options.configuration.execute(name, input, execution)
       }
+      if (Object.hasOwn(terminalApplicationCommands, name))
+        return Promise.reject(new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime does not own a terminal UI'))
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||

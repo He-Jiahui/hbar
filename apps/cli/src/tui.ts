@@ -22,7 +22,13 @@ import {
   createWorkspaceSessionCommandClient,
   exportSessionEvents,
 } from '@hbar/client'
-import { BUILTIN_TERMINAL_COMMANDS, parseTerminalInput } from '@hbar/terminal'
+import {
+  BUILTIN_TERMINAL_COMMANDS,
+  TERMINAL_APPLICATION_ALIASES,
+  createTerminalApplicationCommands,
+  isTerminalApplicationCommand,
+  parseTerminalInput,
+} from '@hbar/terminal'
 import type { CliRuntime } from './runtime.ts'
 import { selectModel, waitForRun } from './runtime.ts'
 import { executeCommandLine } from './command-line.ts'
@@ -213,6 +219,13 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     syntax.destroy()
     resolveClosed()
   }
+  const terminalApplication = createTerminalApplicationCommands({
+    clearTranscript() {
+      base = ''
+      render()
+    },
+    closeTerminal: close,
+  })
   const resolveApproval = async (decision: 'allowed' | 'denied', id?: string) => {
     const snapshot = await runtime.client.call('session.snapshot', { sessionId: session.id })
     const approval = id
@@ -287,9 +300,11 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
   }
   const slash = async (command: string, args: string[], source: string) => {
     const argument = args.join(' ')
-    if (command === 'quit' || command === 'q') return close()
+    const applicationCommand = TERMINAL_APPLICATION_ALIASES[command]
+    if (applicationCommand) return terminalApplication.commands.execute(applicationCommand, {})
     if (command === 'help') return render(`### Commands\n\n${SLASH_COMMANDS.map((item) => `- \`${item}\``).join('\n')}`)
     if (command === 'exec') {
+      if (isTerminalApplicationCommand(args[0])) return terminalApplication.commands.execute(args[0], {})
       const output: unknown[] = []
       const previous = session.id
       await executeCommandLine(
@@ -316,10 +331,6 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
           .map((value) => (typeof value === 'string' ? value : JSON.stringify(value, null, 2)))
           .join('\n')}\n\`\`\``,
       )
-    }
-    if (command === 'clear') {
-      base = ''
-      return render()
     }
     if (command === 'new')
       return load(
@@ -494,11 +505,15 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
       const run = runs.get(session.id)
       if (run) void createRunCommandClient(runtime.client).execute('operation.cancel', { operationId: run.id })
       else if (input.value) input.value = ''
-      else void close()
+      else
+        void terminalApplication.commands.execute('app.closeTerminal', {}).catch((error: unknown) => {
+          status.content = error instanceof Error ? error.message : String(error)
+        })
     } else if (key.ctrl && key.name === 'l') {
       key.preventDefault()
-      base = ''
-      render()
+      void terminalApplication.commands.execute('app.clearTranscript', {}).catch((error: unknown) => {
+        status.content = error instanceof Error ? error.message : String(error)
+      })
     } else if (key.ctrl && key.name === 'p') {
       key.preventDefault()
       void refreshCatalog().then(async () => {
@@ -517,6 +532,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
   renderer.requestRender()
   await closedPromise.finally(() => {
     renderer.keyInput.off('keypress', keypress)
+    terminalApplication.dispose()
     runtime.close()
   })
 }

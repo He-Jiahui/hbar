@@ -1,4 +1,9 @@
 import type { TerminalCommand, TerminalKeybinding } from '@hbar/contracts'
+import { CommandRegistry as ApplicationCommandRegistry, createCommandClient } from '@hbar/commands'
+import {
+  terminalApplicationCommands,
+  type TerminalApplicationCommandId,
+} from '@hbar/contracts/commands/terminal-application'
 export type {
   TerminalCommand,
   TerminalCommandGroup,
@@ -29,6 +34,37 @@ export interface ApprovalPrompt {
   tool: string
   summary: string
   args: Record<string, unknown>
+}
+
+export interface TerminalApplicationPort {
+  clearTranscript(): void | Promise<void>
+  closeTerminal(): void | Promise<void>
+}
+
+export const TERMINAL_APPLICATION_ALIASES: Readonly<Record<string, TerminalApplicationCommandId>> = Object.freeze({
+  clear: 'app.clearTranscript',
+  quit: 'app.closeTerminal',
+  q: 'app.closeTerminal',
+})
+
+export function isTerminalApplicationCommand(value: string | undefined): value is TerminalApplicationCommandId {
+  return value !== undefined && Object.hasOwn(terminalApplicationCommands, value)
+}
+
+export function createTerminalApplicationCommands(port: TerminalApplicationPort) {
+  const registry = new ApplicationCommandRegistry({ execution: 'client' })
+  registry.register(terminalApplicationCommands['app.clearTranscript'], async () => {
+    await port.clearTranscript()
+    return { cleared: true }
+  })
+  registry.register(terminalApplicationCommands['app.closeTerminal'], async () => {
+    await port.closeTerminal()
+    return { closed: true }
+  })
+  return {
+    commands: createCommandClient(terminalApplicationCommands, registry),
+    dispose: () => registry.dispose(),
+  }
 }
 
 export type TerminalCommandHandler<Context> = (invocation: CommandInvocation, context: Context) => void | Promise<void>

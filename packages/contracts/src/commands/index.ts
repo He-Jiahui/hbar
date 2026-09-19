@@ -17,6 +17,7 @@ import { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 import { extensionWorkspaceCommands } from './extension-workspace'
 import { statusWorkspaceCommands } from './status-workspace'
 import { clientPersistenceCommands } from './client-persistence'
+import { terminalApplicationCommands } from './terminal-application'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -172,6 +173,7 @@ export { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 export { extensionWorkspaceCommands } from './extension-workspace'
 export { statusWorkspaceCommands } from './status-workspace'
 export { clientPersistenceCommands } from './client-persistence'
+export { terminalApplicationCommands } from './terminal-application'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -193,4 +195,5 @@ export const applicationCommands = {
   ...extensionWorkspaceCommands,
   ...statusWorkspaceCommands,
   ...clientPersistenceCommands,
+  ...terminalApplicationCommands,
 }

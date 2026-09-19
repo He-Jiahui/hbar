@@ -32,6 +32,7 @@
     "./commands/settings": "./src/commands/settings.ts",
     "./commands/status-workspace": "./src/commands/status-workspace.ts",
     "./commands/client-persistence": "./src/commands/client-persistence.ts",
+    "./commands/terminal-application": "./src/commands/terminal-application.ts",
     "./commands/settings-editor": "./src/commands/settings-editor.ts",
     "./commands/system": "./src/commands/system.ts",
     "./commands/usage": "./src/commands/usage.ts",
