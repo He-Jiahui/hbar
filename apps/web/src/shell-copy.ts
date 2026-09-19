@@ -386,6 +386,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
       contentText: (text) => (text.kind === 'literal' ? text.text : (messages[text.key] ?? text.key)),
       pickResource: (kind) =>
         kind === 'file' ? choose('选择文件', 'Choose file') : choose('选择文件夹', 'Choose directory'),
+      openOptions: (label) => choose(`打开${label}选项`, `Open ${label} options`),
+      removeOption: (label) => choose(`移除 ${label}`, `Remove ${label}`),
       componentUnavailable: (component) =>
         choose(`缺少设置组件：${component}`, `Settings component unavailable: ${component}`),
     },

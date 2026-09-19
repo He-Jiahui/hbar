@@ -1,5 +1,13 @@
 export { compileForm, createComponentRegistry, SchemaError } from './schema'
-export type { CompiledField, CompiledForm, ComponentRegistry, FormDescription, FieldType, FieldValue } from './schema'
+export type {
+  CompiledField,
+  CompiledForm,
+  ComponentRegistry,
+  FormDescription,
+  FieldItemValue,
+  FieldType,
+  FieldValue,
+} from './schema'
 export {
   decodeResourceReference,
   encodeResourceReference,

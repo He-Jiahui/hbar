@@ -5,7 +5,8 @@ import {
   type ResourceKind,
 } from './resource'
 
-export type FieldValue = string | number | boolean | null
+export type FieldItemValue = string | number | boolean
+export type FieldValue = FieldItemValue | null | readonly FieldItemValue[]
 export type FieldType = 'string' | 'integer' | 'number' | 'boolean'
 
 export interface FormDescription {
@@ -29,6 +30,7 @@ export interface CompiledField {
   readonly labelKey: string
   readonly component: string
   readonly type: FieldType
+  readonly multiple: boolean
   readonly required: boolean
   readonly nullable: boolean
   readonly readOnly: boolean
@@ -39,7 +41,9 @@ export interface CompiledField {
   readonly exclusiveMaximum?: number
   readonly minLength?: number
   readonly maxLength?: number
-  readonly choices?: readonly FieldValue[]
+  readonly minItems?: number
+  readonly maxItems?: number
+  readonly choices?: readonly FieldItemValue[]
   readonly defaultValue?: FieldValue
 }
 
@@ -60,8 +64,13 @@ export class SchemaError extends Error {
 }
 
 export interface ComponentRegistry {
-  register(id: string, supportedTypes: readonly FieldType[], resourceKinds?: readonly ResourceKind[]): () => void
-  supports(id: string, type: FieldType): boolean
+  register(
+    id: string,
+    supportedTypes: readonly FieldType[],
+    resourceKinds?: readonly ResourceKind[],
+    multiple?: boolean,
+  ): () => void
+  supports(id: string, type: FieldType, multiple?: boolean): boolean
   supportsResource(id: string, kind: ResourceKind): boolean
   requiresResource(id: string): boolean
 }
@@ -69,10 +78,14 @@ export interface ComponentRegistry {
 export function createComponentRegistry(): ComponentRegistry {
   const components = new Map<
     string,
-    { readonly types: ReadonlySet<FieldType>; readonly resources: ReadonlySet<ResourceKind> }
+    {
+      readonly types: ReadonlySet<FieldType>
+      readonly resources: ReadonlySet<ResourceKind>
+      readonly multiple: boolean
+    }
   >()
   return {
-    register(id, supportedTypes, resourceKinds = []) {
+    register(id, supportedTypes, resourceKinds = [], multiple = false) {
       if (!id || components.has(id) || !supportedTypes.length)
         throw new SchemaError('COMPONENT_CONFLICT', 'Component needs a unique ID and supported types')
       const types = new Set(supportedTypes)
@@ -83,13 +96,16 @@ export function createComponentRegistry(): ComponentRegistry {
         resourceKinds.some((kind) => kind !== 'file' && kind !== 'directory')
       )
         throw new SchemaError('INVALID_COMPONENT', 'Component capabilities must be unique')
-      const capabilities = { types, resources }
+      const capabilities = { types, resources, multiple }
       components.set(id, capabilities)
       return () => {
         if (components.get(id) === capabilities) components.delete(id)
       }
     },
-    supports: (id, type) => components.get(id)?.types.has(type) ?? false,
+    supports: (id, type, multiple = false) => {
+      const component = components.get(id)
+      return Boolean(component?.types.has(type) && component.multiple === multiple)
+    },
     supportsResource: (id, kind) => components.get(id)?.resources.has(kind) ?? false,
     requiresResource: (id) => Boolean(components.get(id)?.resources.size),
   }
@@ -117,6 +133,13 @@ function unknownArray(value: unknown): value is unknown[] {
   return Array.isArray(value)
 }
 
+function itemValueArray(value: unknown): value is readonly FieldItemValue[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item: unknown) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean')
+  )
+}
+
 const fieldKeywords = [
   'type',
   'anyOf',
@@ -126,7 +149,36 @@ const fieldKeywords = [
   'exclusiveMaximum',
   'minLength',
   'maxLength',
+  'items',
+  'minItems',
+  'maxItems',
+  'uniqueItems',
   'enum',
+  'default',
+  'description',
+  'title',
+] as const
+
+const scalarKeywords = [
+  'type',
+  'minimum',
+  'exclusiveMinimum',
+  'maximum',
+  'exclusiveMaximum',
+  'minLength',
+  'maxLength',
+  'enum',
+  'description',
+  'title',
+] as const
+
+const scalarFieldKeywords = [...scalarKeywords, 'default'] as const
+const arrayKeywords = [
+  'type',
+  'items',
+  'minItems',
+  'maxItems',
+  'uniqueItems',
   'default',
   'description',
   'title',
@@ -157,6 +209,14 @@ function compileField(
     )
     nullable = true
   }
+  const multiple = data.type === 'array'
+  const arrayData = multiple ? data : null
+  if (multiple) {
+    onlyKeys(data, arrayKeywords)
+    if (data.uniqueItems !== true) throw new SchemaError('UNSUPPORTED_SCHEMA', 'Array fields require uniqueItems')
+    data = record(data.items)
+    onlyKeys(data, scalarKeywords)
+  } else onlyKeys(data, scalarFieldKeywords)
   const type = data.type
   if (type !== 'string' && type !== 'integer' && type !== 'number' && type !== 'boolean')
     throw new SchemaError('UNSUPPORTED_SCHEMA', `Unsupported field type: ${name}`)
@@ -201,6 +261,7 @@ function compileField(
     labelKey: view.labelKey,
     component: view.component,
     type,
+    multiple,
     required,
     nullable,
     readOnly: view.readOnly ?? false,
@@ -212,28 +273,43 @@ function compileField(
     ...(minLength !== undefined ? { minLength } : {}),
     ...(maxLength !== undefined ? { maxLength } : {}),
   }
-  const validatedChoices: FieldValue[] = []
+  const minItems = multiple ? finiteNumber(arrayData?.minItems, 'minItems') : undefined
+  const maxItems = multiple ? finiteNumber(arrayData?.maxItems, 'maxItems') : undefined
+  if (
+    (minItems !== undefined && (!Number.isSafeInteger(minItems) || minItems < 0)) ||
+    (maxItems !== undefined && (!Number.isSafeInteger(maxItems) || maxItems < 0 || maxItems > 256)) ||
+    (minItems !== undefined && maxItems !== undefined && minItems > maxItems)
+  )
+    throw new SchemaError('INVALID_SCHEMA', 'Array bounds must be ordered integers between 0 and 256')
+  const boundedConstraints: CompiledField = {
+    ...constraints,
+    ...(minItems !== undefined ? { minItems } : {}),
+    ...(maxItems !== undefined ? { maxItems } : {}),
+  }
+  const validatedChoices: FieldItemValue[] = []
   if (choices !== undefined) {
     for (const choice of choices) {
-      if (!validValue(constraints, choice) || validatedChoices.includes(choice))
+      if (!validItemValue(boundedConstraints, choice) || validatedChoices.includes(choice))
         throw new SchemaError('INVALID_SCHEMA', 'Enum contains duplicate or invalid values')
       validatedChoices.push(choice)
     }
   }
   const field: CompiledField = {
-    ...constraints,
+    ...boundedConstraints,
     ...(choices !== undefined ? { choices: Object.freeze(validatedChoices) } : {}),
   }
-  const defaultValue = data.default
-  if (Object.hasOwn(data, 'default')) {
+  const defaultValue = multiple ? arrayData?.default : data.default
+  if (multiple ? Object.hasOwn(arrayData ?? {}, 'default') : Object.hasOwn(data, 'default')) {
     if (!validValue(field, defaultValue)) throw new SchemaError('INVALID_SCHEMA', 'Default violates field constraints')
-    return Object.freeze({ ...field, defaultValue })
+    return Object.freeze({
+      ...field,
+      defaultValue: itemValueArray(defaultValue) ? Object.freeze([...defaultValue]) : defaultValue,
+    })
   }
   return Object.freeze(field)
 }
 
-export function validValue(field: CompiledField, value: unknown): value is FieldValue {
-  if (value === null) return field.nullable
+function validItemValue(field: CompiledField, value: unknown): value is FieldItemValue {
   if (field.type === 'string') {
     if (
       typeof value !== 'string' ||
@@ -260,6 +336,19 @@ export function validValue(field: CompiledField, value: unknown): value is Field
   return field.choices === undefined || field.choices.includes(value)
 }
 
+export function validValue(field: CompiledField, value: unknown): value is FieldValue {
+  if (value === null) return field.nullable
+  if (!field.multiple) return validItemValue(field, value)
+  if (
+    !Array.isArray(value) ||
+    value.length < (field.minItems ?? 0) ||
+    value.length > (field.maxItems ?? 256) ||
+    new Set(value.map((item) => `${typeof item}:${String(item)}`)).size !== value.length
+  )
+    return false
+  return value.every((item) => validItemValue(field, item))
+}
+
 export function compileForm(
   schema: unknown,
   description: FormDescription,
@@ -282,10 +371,17 @@ export function compileForm(
     const view = description.fields[name]
     if (!view) throw new SchemaError('INVALID_DESCRIPTION', `Missing field description: ${name}`)
     const field = compileField(name, properties[name], view, required.includes(name))
-    if (!components.supports(field.component, field.type))
-      throw new SchemaError('COMPONENT_UNAVAILABLE', `Component ${field.component} cannot edit ${field.type}`)
+    if (!components.supports(field.component, field.type, field.multiple))
+      throw new SchemaError(
+        'COMPONENT_UNAVAILABLE',
+        `Component ${field.component} cannot edit ${field.multiple ? 'multiple ' : ''}${field.type}`,
+      )
     if (field.resource) {
-      if (field.type !== 'string' || !components.supportsResource(field.component, field.resource.kind))
+      if (
+        field.multiple ||
+        field.type !== 'string' ||
+        !components.supportsResource(field.component, field.resource.kind)
+      )
         throw new SchemaError(
           'COMPONENT_UNAVAILABLE',
           `Component ${field.component} cannot select ${field.resource.kind}`,

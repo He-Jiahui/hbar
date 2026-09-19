@@ -620,8 +620,21 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(
       page.getByRole('heading', { level: 1, name: `Session settings · ${fixture.ready.sessionTitle}` }),
     ).toBeVisible()
-    await expect(page.getByRole('combobox', { name: 'Model' })).toBeVisible()
+    const settingsModel = page.getByRole('combobox', { name: 'Model' })
+    await expect(settingsModel).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Thinking level' })).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings-schema/desktop-1440.png',
+      fullPage: true,
+    })
+    await settingsModel.click()
+    await expect(page.getByRole('listbox')).toBeVisible()
+    await expect(page.getByRole('option')).not.toHaveCount(0)
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings-schema/desktop-1440-open.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Restore inheritance' }).click()
     await page.getByRole('button', { name: 'Save changes' }).click()
     await expect(page.getByText('Settings saved.')).toBeVisible()

@@ -29,6 +29,8 @@ const labels: HbarSchemaFormLabels = {
   option: (_field, value: FieldValue) => `Option ${String(value)}`,
   contentText: (text) => (text.kind === 'literal' ? text.text : `Translated ${text.key}`),
   pickResource: (kind) => (kind === 'file' ? 'Choose file' : 'Choose directory'),
+  openOptions: (label) => `Open ${label}`,
+  removeOption: (label) => `Remove ${label}`,
   componentUnavailable: (id) => `Missing component: ${id}`,
 }
 
@@ -44,6 +46,13 @@ function fixture() {
         name: { type: 'string', minLength: 1 },
         count: { type: 'integer', minimum: 1, maximum: 100 },
         mode: { type: 'string' },
+        tags: {
+          type: 'array',
+          items: { type: 'string', enum: ['stable', 'preview'] },
+          uniqueItems: true,
+          maxItems: 2,
+          default: [],
+        },
       },
     },
     {
@@ -53,6 +62,7 @@ function fixture() {
         name: { labelKey: 'i18n:name', component: 'TextField' },
         count: { labelKey: 'i18n:count', component: 'NumberField' },
         mode: { labelKey: 'i18n:mode', component: 'ComboBox' },
+        tags: { labelKey: 'i18n:mode', component: 'MultiSelect' },
       },
     },
     components.schema,
@@ -102,20 +112,19 @@ test('schema React registry binds serializable capabilities to schema-core and u
       () => null,
     ),
   ).toThrow('unique')
-  expect(() =>
-    components.register(
-      'Multiple',
-      {
-        version: 1,
-        fieldTypes: ['string'],
-        multiple: true,
-        contentKinds: [],
-        resourceKinds: [],
-        interaction: 'inline',
-      },
-      () => null,
-    ),
-  ).toThrow('unsupported')
+  components.register(
+    'Multiple',
+    {
+      version: 1,
+      fieldTypes: ['string'],
+      multiple: true,
+      contentKinds: [],
+      resourceKinds: [],
+      interaction: 'inline',
+    },
+    () => null,
+  )
+  expect(components.schema.supports('Multiple', 'string', true)).toBe(true)
   dispose()
   expect(components.resolve('CustomText')).toBeUndefined()
   expect(components.schema.supports('CustomText', 'string')).toBe(false)
@@ -218,6 +227,24 @@ test('standard resource renderers expose host-labelled command intents for decla
   expect(html).toContain('readOnly=""')
   expect(components.resolve('FilePicker')?.descriptor.resourceKinds).toEqual(['file'])
   expect(components.resolve('DirectoryPicker')?.descriptor.resourceKinds).toEqual(['directory'])
+})
+
+test('standard multi-select renderer compiles arrays and preserves typed selected values', () => {
+  const { components, schema } = fixture()
+  const state = createForm(schema, { name: 'Ada', count: 8, mode: 'balanced', tags: ['stable'] })
+  const html = renderToStaticMarkup(
+    <HbarSchemaForm
+      schema={schema}
+      state={state}
+      components={components}
+      labels={labels}
+      fieldNames={['tags']}
+      onIntent={() => undefined}
+    />,
+  )
+  expect(html).toContain('multiple=""')
+  expect(html).toContain('value="string:stable" selected=""')
+  expect(components.resolve('MultiSelect')?.descriptor.multiple).toBe(true)
 })
 
 test('editor registry keeps ProviderDialog-style renderers versioned and lifecycle scoped', () => {

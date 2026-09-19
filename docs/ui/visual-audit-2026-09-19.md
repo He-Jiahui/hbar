@@ -244,3 +244,13 @@ Goal 编辑复用 `hbar-app-ui/forms` 的 Field、Input、Textarea 和 Select；
 Playwright 在 overview/goal/plan 每次切换后检查只存在一个对应主视图，并在 1440、1024 和 390 三档宽度断言 Goal/Plan 工作区与 AppShell drawer 四条边对齐且无横向溢出。真实 Host 流程创建 16,000 tokens 目标，保存一条带说明的计划，跨断点重开两类编辑器，最后清除计划和目标并验证反馈。八张截图均来自 production preview 并逐张人工查看。
 
 验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；380 个 Bun 测试、2999 个断言通过；Web production build 通过（2395 modules）；flow/content/icon guards、Prettier 和 `git diff --check` 通过；5 项 Playwright 场景通过。真实 Host 场景完成空摘要、目标保存、计划保存、三档宽度重开编辑器、返回摘要以及清除目标/计划，以上八张截图均在最终 production preview 上重新生成并人工查看。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在后续集中验收中补齐。
+
+## 16. R5.1 Schema ComponentRegistry 与 hbar-app-ui 适配
+
+审计发现原 ComponentRegistry 虽然公开了 `multiple` 描述字段，注册实现却主动拒绝 `multiple: true`；`schema-core` 只接受标量 JSON Schema，`settingsForm.setField` 也只接受标量。设置页同时仍使用 `schema-react` 的原生 input/select renderer，因此 R1.3 已交付的 `hbar-app-ui` 受控表单能力没有进入生产 Schema 流程。
+
+本切片将数据契约和视觉适配继续分层。`schema-core` 现在支持 `type: array`、标量 items、`uniqueItems: true`、0–256 的数量边界、数组默认值和结构化 dirty 比较；ComponentRegistry 按元素类型和单值/多值共同校验组件能力。`schema-react` 保留依赖中立的标准 renderer，并新增真正的 MultiSelect 注册。`app-react` 的 `createHbarSchemaComponents` 负责把 TextField、NumberField、SecretField、CheckBox、ComboBox、MultiSelect、FilePicker 和 DirectoryPicker 映射到 `hbar-app-ui/forms`，设置工作区只消费这一公开注册表。设置描述、客户端命令和运行时提交均可传递最多 256 个保留 string/number/boolean 类型的选项；secret renderer 从不把既有状态值写入 HTML。
+
+真实 Host 的[关闭态](../../artifacts/ui-redesign/settings-schema/desktop-1440.png)和[展开态](../../artifacts/ui-redesign/settings-schema/desktop-1440-open.png)显示，生产设置页已经使用统一 ComboBox：输入、边框、焦点环、弹层、选中标记与 ProviderEditor 相同，弹层没有被设置内容区裁切。底层 MultiSelect 复用 R1.3 已人工复核的[展开截图](../../artifacts/ui-redesign/form-controls/zh-CN-dark-1280-open.png)，新增 Schema adapter 的静态渲染测试进一步确认多选标签和宿主提供的移除文案进入生产组件。截图也再次确认设置页自身仍有大标题、顶部作用域按钮、稀疏内容和过宽字段等结构问题；这些视觉问题明确保留给 R5.2，不能因控件适配完成而关闭 UI-05 的页面部分。
+
+验证结果：Schema core、React registry、hbar adapter、设置描述和设置运行时定向测试通过；真实多选值经过 `settingsForm.setField` 与 `settingsForm.submit` 后原样持久化。全仓 TypeScript、定向 ESLint、Prettier、Web production build（2397 modules）与 5 项 Playwright 场景通过；connected E2E 实际打开 Model ComboBox、检查非空 option 列表并生成上述截图。完整 Bun 与全仓 ESLint 在提交前再次执行。本切片没有执行 Tauri 实窗。

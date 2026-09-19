@@ -100,12 +100,71 @@ test('schema rejects unsupported data and unavailable components instead of sile
   expect(components.supports('NumberField', 'integer')).toBe(false)
   expect(() => createForm(form, { sessionId: 'target', tokens: 0 })).toThrow('Invalid initial value')
   expect(() => createForm(form, { sessionId: 'target', tokens: 10, extra: true })).toThrow('Unknown form field')
-  const schema = { type: 'object', additionalProperties: false, properties: { field: { type: 'array' } }, required: [] }
+  const schema = {
+    type: 'object',
+    additionalProperties: false,
+    properties: { field: { type: 'object' } },
+    required: [],
+  }
   const view = { id: 'bad', version: 1, fields: { field: { labelKey: 'i18n:field', component: 'TextField' } } }
   expect(() => compileForm(schema, view, components)).toThrow('Unsupported field type')
   expect(() =>
     compileForm({ ...schema, properties: { field: { type: 'string', pattern: '.*' } } }, view, components),
   ).toThrow('Unsupported schema keyword')
+  expect(() =>
+    compileForm({ ...schema, properties: { field: { type: 'string', minItems: 1 } } }, view, components),
+  ).toThrow('Unsupported schema keyword')
+})
+
+test('schema arrays use explicit multiple components, bounded unique values and structural dirty checks', () => {
+  const components = createComponentRegistry()
+  components.register('MultiSelect', ['string'], [], true)
+  const form = compileForm(
+    {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        levels: {
+          type: 'array',
+          items: { type: 'string', enum: ['low', 'medium', 'high'] },
+          uniqueItems: true,
+          minItems: 1,
+          maxItems: 3,
+          default: ['medium'],
+        },
+      },
+    },
+    {
+      id: 'multiple.settings',
+      version: 1,
+      fields: { levels: { labelKey: 'i18n:levels', component: 'MultiSelect' } },
+    },
+    components,
+  )
+  expect(form.fields[0]).toMatchObject({ type: 'string', multiple: true, minItems: 1, maxItems: 3 })
+  const initial = createForm(form, {})
+  expect(initial.draft.levels).toEqual(['medium'])
+  expect(Object.isFrozen(initial.draft.levels)).toBe(true)
+  expect(setField(form, initial, 'levels', ['medium']).dirty).toEqual([])
+  const changed = setField(form, initial, 'levels', ['low', 'high'])
+  expect(changed.draft.levels).toEqual(['low', 'high'])
+  expect(changed.dirty).toEqual(['levels'])
+  expect(setField(form, changed, 'levels', ['low', 'low']).issues).toEqual([{ field: 'levels', code: 'invalid' }])
+  expect(() =>
+    compileForm(
+      {
+        type: 'object',
+        additionalProperties: false,
+        properties: { levels: { type: 'array', items: { type: 'string' }, uniqueItems: false } },
+      },
+      {
+        id: 'invalid.multiple',
+        version: 1,
+        fields: { levels: { labelKey: 'i18n:levels', component: 'MultiSelect' } },
+      },
+      components,
+    ),
+  ).toThrow('uniqueItems')
 })
 
 test('schema paths identify stable item IDs and round-trip punctuation without positional aliases', () => {

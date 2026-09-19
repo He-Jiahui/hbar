@@ -20,13 +20,15 @@ export const settingsChangeSchema = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('unset'), path: schemaPathSchema }),
 ])
 const settingTypeSchema = z.enum(['string', 'integer', 'number', 'boolean'])
-const settingValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
+const settingItemValueSchema = z.union([z.string(), z.number().finite(), z.boolean()])
+const settingValueSchema = z.union([settingItemValueSchema, z.null()])
+const settingFieldValueSchema = z.union([settingValueSchema, z.array(settingItemValueSchema).max(256)])
 const settingsFieldSchema = z
   .strictObject({
     path: schemaPathSchema,
     type: settingTypeSchema,
     nullable: z.boolean(),
-    defaultValue: settingValueSchema,
+    defaultValue: settingFieldValueSchema,
     minimum: z.number().finite().optional(),
     maximum: z.number().finite().optional(),
     choices: z.array(settingValueSchema).max(256).optional(),
@@ -40,7 +42,7 @@ const settingsFieldSchema = z
     group: z.string().min(1).max(128),
     order: z.number().int().nonnegative(),
     component: z.string().regex(/^[A-Z][A-Za-z0-9.]{0,127}$/),
-    multiple: z.literal(false),
+    multiple: z.boolean(),
     resource: z
       .strictObject({
         kind: z.enum(['file', 'directory']),
@@ -57,18 +59,25 @@ const settingsFieldSchema = z
       .optional(),
   })
   .superRefine((field, context) => {
+    const validItem = (value: unknown): boolean =>
+      field.type === 'string'
+        ? typeof value === 'string'
+        : field.type === 'boolean'
+          ? typeof value === 'boolean'
+          : typeof value === 'number' &&
+            Number.isFinite(value) &&
+            (field.type !== 'integer' || Number.isSafeInteger(value)) &&
+            (field.minimum === undefined || value >= field.minimum) &&
+            (field.maximum === undefined || value <= field.maximum)
     const valid = (value: unknown): boolean =>
       value === null
         ? field.nullable
-        : field.type === 'string'
-          ? typeof value === 'string'
-          : field.type === 'boolean'
-            ? typeof value === 'boolean'
-            : typeof value === 'number' &&
-              Number.isFinite(value) &&
-              (field.type !== 'integer' || Number.isSafeInteger(value)) &&
-              (field.minimum === undefined || value >= field.minimum) &&
-              (field.maximum === undefined || value <= field.maximum)
+        : field.multiple
+          ? Array.isArray(value) &&
+            value.length <= 256 &&
+            value.every(validItem) &&
+            new Set(value.map((item) => `${typeof item}:${String(item)}`)).size === value.length
+          : validItem(value)
     if (!valid(field.defaultValue))
       context.addIssue({ code: 'custom', message: 'Setting default does not match its declared type' })
     if (
@@ -80,14 +89,14 @@ const settingsFieldSchema = z
       context.addIssue({ code: 'custom', message: 'Setting minimum cannot exceed maximum' })
     if (
       field.choices &&
-      (field.choices.some((choice) => choice === null || !valid(choice)) ||
+      (field.choices.some((choice) => choice === null || !validItem(choice)) ||
         new Set(field.choices.map((choice) => `${typeof choice}:${String(choice)}`)).size !== field.choices.length)
     )
       context.addIssue({ code: 'custom', message: 'Setting choices must be unique values of the declared type' })
     if (new Set(field.allowedScopes).size !== field.allowedScopes.length)
       context.addIssue({ code: 'custom', message: 'Allowed setting scopes must be unique' })
-    if (field.resource && field.type !== 'string')
-      context.addIssue({ code: 'custom', message: 'Resource settings must use string references' })
+    if (field.resource && (field.type !== 'string' || field.multiple))
+      context.addIssue({ code: 'custom', message: 'Resource settings must use one string reference' })
   })
 export const settingsDescriptionSchema = z
   .strictObject({

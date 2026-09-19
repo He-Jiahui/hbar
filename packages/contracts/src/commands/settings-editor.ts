@@ -46,7 +46,13 @@ export const settingsEditorCommands = {
     z.strictObject({
       formId: formIdSchema,
       field: z.string().min(1).max(1_024),
-      value: z.union([z.string().max(8_192), z.boolean(), z.null()]),
+      value: z.union([
+        z.string().max(8_192),
+        z.number().finite(),
+        z.boolean(),
+        z.null(),
+        z.array(z.union([z.string().max(8_192), z.number().finite(), z.boolean()])).max(256),
+      ]),
     }),
     summarySchema,
   ),

@@ -1,9 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { encodePath, type CompiledField } from '@hbar/schema-core'
+import { encodePath, type CompiledField, type FieldItemValue, type FieldValue } from '@hbar/schema-core'
 import {
   HbarSchemaForm,
-  createSchemaComponentRegistry,
-  registerStandardSchemaComponents,
   type HbarSchemaFormLabels,
   type SchemaComponentRegistry,
   type SchemaFieldIntent,
@@ -11,10 +9,10 @@ import {
 import { HbarAppUiButton, HbarAppUiSurface } from 'hbar-app-ui'
 import type { SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { createHbarSchemaComponents } from './schema-components'
 import './settings-workspace.css'
 
-const standardComponents = createSchemaComponentRegistry()
-registerStandardSchemaComponents(standardComponents)
+const standardComponents = createHbarSchemaComponents()
 
 type SettingApplyMode = NonNullable<SettingsFormEntry['description']>['fields'][number]['applyMode']
 
@@ -54,6 +52,11 @@ function reasonCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
     ? reason.code
     : 'EXECUTION_FAILED'
+}
+
+function commandFieldValue(value: FieldValue): FieldItemValue | null | FieldItemValue[] {
+  const multiple = value as readonly FieldItemValue[]
+  return Array.isArray(value) ? Array.from(multiple) : (value as FieldItemValue | null)
 }
 
 export function HbarSettingsWorkspace({
@@ -120,7 +123,7 @@ export function HbarSettingsWorkspace({
         ? runtime.commands.execute('settingsForm.setField', {
             formId: entry.formId,
             field: intent.field,
-            value: intent.value,
+            value: commandFieldValue(intent.value),
           })
         : intent.kind === 'pick'
           ? runtime.commands.execute('settingsForm.pickResource', { formId: entry.formId, field: intent.field })

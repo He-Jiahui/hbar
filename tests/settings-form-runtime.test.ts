@@ -3,11 +3,16 @@ import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/c
 import { createAppRuntime } from '@hbar/app-runtime'
 import { createSettingsCommandClient } from '@hbar/client'
 import { HbarError } from '@hbar/contracts'
-import { settingsCommands, type SettingsApplyInput, type SettingsReceipt } from '@hbar/contracts/commands/settings'
+import {
+  settingsCommands,
+  settingsDescriptionSchema,
+  type SettingsApplyInput,
+  type SettingsReceipt,
+} from '@hbar/contracts/commands/settings'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
 import { createSchemaCallbackRegistry, encodePath, type OptionContentReport } from '@hbar/schema-core'
-import { applySettingsChanges, resolveSettings } from '@hbar/settings-core'
+import { applySettingsChanges, resolveSettings, type SettingDefinition } from '@hbar/settings-core'
 
 const workspace: Workspace = { id: 'w1', name: 'workspace', path: 'D:/workspace', createdAt: 1 }
 const session: Session = {
@@ -398,4 +403,97 @@ test('settings runtime projects dynamic content and rejects superseded dependenc
   expect(content?.status === 'ready' ? content.report.options.map((option) => option.value) : []).toEqual(['high'])
   runtime.dispose()
   callbacks.dispose()
+})
+
+test('settings runtime accepts typed multi-select command values through describe, edit and submit', async () => {
+  const path = [{ kind: 'field' as const, name: 'provider.modalities' }]
+  const key = encodePath(path)
+  const description = settingsDescriptionSchema.parse({
+    id: 'multiple.settings',
+    schemaVersion: 1,
+    groups: [{ id: 'model', labelKey: 'i18n:settings.groups.model', order: 10 }],
+    fields: [
+      {
+        path,
+        type: 'string',
+        nullable: false,
+        defaultValue: ['text'],
+        choices: ['text', 'image'],
+        allowedScopes: ['global'],
+        applyMode: 'nextRun',
+        labelKey: 'i18n:settings.provider.modalities.label',
+        group: 'model',
+        order: 10,
+        component: 'MultiSelect',
+        multiple: true,
+      },
+    ],
+  })
+  const definitions: readonly SettingDefinition[] = [
+    {
+      path,
+      allowedLayers: ['global'],
+      schema: { kind: 'array', items: { kind: 'string', enum: ['text', 'image'] } },
+      defaultValue: ['text'],
+      applyMode: 'nextRun',
+    },
+  ]
+  let values: Readonly<Record<string, unknown>> = {}
+  let revision = 0
+  const port: CommandExecutor = {
+    execute(name, raw) {
+      if (name === 'settings.describe') return Promise.resolve(description)
+      const scope = { kind: 'global' as const }
+      if (name === 'settings.get')
+        return Promise.resolve(
+          settingsCommands[name].output.parse({
+            schemaVersion: 1,
+            scope,
+            revisions: { 'settings:global': revision },
+            resolution: resolveSettings(definitions, [{ id: 'settings:global', kind: 'global', revision, values }]),
+          }),
+        )
+      if (name !== 'settings.apply') return Promise.reject(new Error(`Unexpected settings command: ${name}`))
+      const input = settingsCommands[name].input.parse(raw)
+      values = applySettingsChanges(definitions, 'global', values, input.changes)
+      revision += 1
+      return Promise.resolve(
+        settingsCommands[name].output.parse({
+          commitId: `multiple-${revision}`,
+          layerId: 'settings:global',
+          revision,
+          schemaVersion: 1,
+          values,
+          resolution: resolveSettings(definitions, [{ id: 'settings:global', kind: 'global', revision, values }]),
+        }),
+      )
+    },
+  }
+  const runtime = createAppRuntime({
+    instanceId: 'settings-multiple',
+    hostId: 'host',
+    directory,
+    settings: port,
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    const form = await waitFor(() => {
+      const state = runtime.view.state.settings.getSnapshot()
+      const entry = state.activeFormId ? state.forms[state.activeFormId] : undefined
+      return entry?.status === 'ready' ? entry : undefined
+    })
+    expect(form.form?.draft[key]).toEqual(['text'])
+    await runtime.view.commands.execute('settingsForm.setField', {
+      formId: form.formId,
+      field: key,
+      value: ['text', 'image'],
+    })
+    expect(runtime.view.state.settings.getSnapshot().forms[form.formId]?.form?.dirty).toEqual([key])
+    await runtime.view.commands.execute('settingsForm.submit', { formId: form.formId })
+    expect(values[key]).toEqual(['text', 'image'])
+    expect(runtime.view.state.settings.getSnapshot().forms[form.formId]?.form?.dirty).toEqual([])
+  } finally {
+    runtime.dispose()
+  }
 })

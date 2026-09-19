@@ -1,4 +1,5 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
+export { createHbarSchemaComponents } from './schema-components'
 export { HbarWorkspaceShell, type HbarWorkspaceShellLabels, type HbarWorkspaceShellProps } from './workspace-shell'
 export {
   HbarSessionWorkspace,

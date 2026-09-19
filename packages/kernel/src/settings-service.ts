@@ -99,17 +99,22 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
 
 function definition(field: SettingsFieldDescription): SettingDefinition {
   const common = { nullable: field.nullable }
-  const schema: ValueSchema =
+  const item: ValueSchema =
     field.type === 'string'
-      ? { ...common, kind: 'string' as const, ...(field.choices ? { enum: field.choices as readonly string[] } : {}) }
+      ? {
+          ...(field.multiple ? {} : common),
+          kind: 'string' as const,
+          ...(field.choices ? { enum: field.choices as readonly string[] } : {}),
+        }
       : field.type === 'boolean'
-        ? { ...common, kind: 'boolean' as const }
+        ? { ...(field.multiple ? {} : common), kind: 'boolean' as const }
         : {
-            ...common,
+            ...(field.multiple ? {} : common),
             kind: field.type,
             ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
             ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
           }
+  const schema: ValueSchema = field.multiple ? { ...common, kind: 'array', items: item } : item
   return {
     path: field.path,
     allowedLayers: field.allowedScopes,

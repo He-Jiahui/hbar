@@ -16,6 +16,8 @@ export interface HbarSchemaFormLabels {
   readonly option: SchemaFieldLabels['option']
   readonly contentText: SchemaFieldLabels['contentText']
   readonly pickResource: SchemaFieldLabels['pickResource']
+  readonly openOptions: SchemaFieldLabels['openOptions']
+  readonly removeOption: SchemaFieldLabels['removeOption']
   readonly componentUnavailable: (componentId: string) => string
 }
 
@@ -73,11 +75,13 @@ export function HbarSchemaForm({
             option: labels.option,
             contentText: labels.contentText,
             pickResource: labels.pickResource,
+            openOptions: labels.openOptions,
+            removeOption: labels.removeOption,
           }
           const incompatible =
             !registration ||
             !registration.descriptor.fieldTypes.includes(field.type) ||
-            registration.descriptor.multiple ||
+            registration.descriptor.multiple !== field.multiple ||
             (field.resource
               ? !registration.descriptor.resourceKinds.includes(field.resource.kind)
               : registration.descriptor.resourceKinds.length > 0)

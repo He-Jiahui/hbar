@@ -115,6 +115,8 @@ const labels: HbarSettingsWorkspaceLabels = {
     option: (_field, value: FieldValue) => String(value),
     contentText: (text) => (text.kind === 'literal' ? text.text : text.key),
     pickResource: (kind) => (kind === 'file' ? '选择文件' : '选择文件夹'),
+    openOptions: (label) => `打开 ${label}`,
+    removeOption: (label) => `移除 ${label}`,
     componentUnavailable: (component) => `组件不可用 ${component}`,
   },
 }

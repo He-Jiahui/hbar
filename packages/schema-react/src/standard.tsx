@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
-import { decodeResourceReference, resourceReferenceLabel, type FieldValue } from '@hbar/schema-core'
+import { decodeResourceReference, resourceReferenceLabel, type FieldItemValue } from '@hbar/schema-core'
 import type { SchemaComponentRegistry, SchemaFieldRendererProps } from './registry'
 
 function value(props: SchemaFieldRendererProps): string {
@@ -68,33 +68,40 @@ function CheckBox(props: SchemaFieldRendererProps) {
   )
 }
 
-function optionKey(item: FieldValue): string {
+function optionKey(item: FieldItemValue): string {
   return `${typeof item}:${String(item)}`
 }
 
-function parseOption(props: SchemaFieldRendererProps, source: string): string | boolean | null {
+function isMultipleValue(value: SchemaFieldRendererProps['value']): value is readonly FieldItemValue[] {
+  return Array.isArray(value)
+}
+
+function parseOption(props: SchemaFieldRendererProps, source: string): FieldItemValue {
   const options = props.content.status === 'ready' ? props.content.report.options.map((item) => item.value) : []
   const staticOptions = props.field.choices ?? []
   const match = [...staticOptions, ...options].find((item) => optionKey(item) === source)
-  return typeof match === 'string' || typeof match === 'boolean' ? match : match === null ? null : source
+  return match ?? source
+}
+
+function optionsFor(props: SchemaFieldRendererProps) {
+  const dynamic = props.content.status === 'ready' ? props.content.report.options : []
+  return props.content.status === 'ready'
+    ? dynamic.map((item) => ({
+        value: item.value,
+        disabled: item.disabled,
+        label: props.labels.contentText(item.label),
+      }))
+    : (props.field.choices?.map((item) => ({
+        value: item,
+        disabled: false,
+        label: props.labels.option(props.field, item),
+      })) ?? [])
 }
 
 function ComboBox(props: SchemaFieldRendererProps) {
-  const dynamic = props.content.status === 'ready' ? props.content.report.options : []
-  const options =
-    props.content.status === 'ready'
-      ? dynamic.map((item) => ({
-          value: item.value,
-          disabled: item.disabled,
-          label: props.labels.contentText(item.label),
-        }))
-      : (props.field.choices?.map((item) => ({
-          value: item,
-          disabled: false,
-          label: props.labels.option(props.field, item),
-        })) ?? [])
-  const selected = props.value
-  const selectedValid = selected === undefined || options.some((item) => item.value === selected)
+  const options = optionsFor(props)
+  const selected = isMultipleValue(props.value) ? undefined : props.value
+  const selectedValid = selected === undefined || selected === null || options.some((item) => item.value === selected)
   const onChange = (event: ChangeEvent<HTMLSelectElement>) =>
     props.onIntent({ kind: 'set', field: props.field.name, value: parseOption(props, event.currentTarget.value) })
   return (
@@ -102,16 +109,49 @@ function ComboBox(props: SchemaFieldRendererProps) {
       <select
         id={`hbar-schema-field-${props.field.name}`}
         name={props.field.name}
-        value={selected === undefined ? '' : optionKey(selected)}
+        value={selected === undefined || selected === null ? '' : optionKey(selected)}
         disabled={props.disabled || props.field.readOnly || props.content.status === 'loading'}
         aria-invalid={Boolean(props.issue) || !selectedValid}
         aria-describedby={describedBy(props)}
         onChange={onChange}
       >
-        {selected === undefined && <option value="" />}
-        {!selectedValid && selected !== undefined && (
+        {(selected === undefined || selected === null) && <option value="" />}
+        {!selectedValid && selected !== undefined && selected !== null && (
           <option value={optionKey(selected)}>{props.labels.selectedInvalid(selected)}</option>
         )}
+        {options.map((item) => (
+          <option key={optionKey(item.value)} value={optionKey(item.value)} disabled={item.disabled}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+      {props.content.status === 'loading' && <small>{props.labels.loading}</small>}
+      {props.content.status === 'ready' && props.content.report.options.length === 0 && (
+        <small>{props.labels.empty}</small>
+      )}
+    </>
+  )
+}
+
+function MultiSelect(props: SchemaFieldRendererProps) {
+  const options = optionsFor(props)
+  const selected = isMultipleValue(props.value) ? props.value : []
+  const selectedKeys = new Set(selected.map(optionKey))
+  return (
+    <>
+      <select
+        id={`hbar-schema-field-${props.field.name}`}
+        name={props.field.name}
+        multiple
+        value={[...selectedKeys]}
+        disabled={props.disabled || props.field.readOnly || props.content.status === 'loading'}
+        aria-invalid={Boolean(props.issue)}
+        aria-describedby={describedBy(props)}
+        onChange={(event) => {
+          const values = [...event.currentTarget.selectedOptions].map((option) => parseOption(props, option.value))
+          props.onIntent({ kind: 'set', field: props.field.name, value: values })
+        }}
+      >
         {options.map((item) => (
           <option key={optionKey(item.value)} value={optionKey(item.value)} disabled={item.disabled}>
             {item.label}
@@ -215,6 +255,18 @@ export function registerStandardSchemaComponents(registry: SchemaComponentRegist
         interaction: 'inline',
       },
       ComboBox,
+    ),
+    registry.register(
+      'MultiSelect',
+      {
+        version: 1,
+        fieldTypes: ['string', 'integer', 'number', 'boolean'],
+        multiple: true,
+        contentKinds: ['options'],
+        resourceKinds: [],
+        interaction: 'inline',
+      },
+      MultiSelect,
     ),
     registry.register(
       'FilePicker',

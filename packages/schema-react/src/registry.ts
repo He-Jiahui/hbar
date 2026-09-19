@@ -38,7 +38,7 @@ export type SchemaFieldContent =
   | { readonly status: 'error'; readonly errorCode: string }
 
 export type SchemaFieldIntent =
-  | { readonly kind: 'set'; readonly field: string; readonly value: string | boolean | null }
+  | { readonly kind: 'set'; readonly field: string; readonly value: FieldValue }
   | { readonly kind: 'reset'; readonly field: string }
   | { readonly kind: 'pick'; readonly field: string }
 
@@ -55,6 +55,8 @@ export interface SchemaFieldLabels {
   readonly option: (field: CompiledField, value: FieldValue) => string
   readonly contentText: (text: LocalizedText) => string
   readonly pickResource: (kind: ResourceKind) => string
+  readonly openOptions: (label: string) => string
+  readonly removeOption: (label: string) => string
 }
 
 export interface SchemaFieldRendererProps {
@@ -102,8 +104,7 @@ function freezeDescriptor(descriptor: SchemaComponentDescriptor): SchemaComponen
     !unique(descriptor.fieldTypes) ||
     !unique(descriptor.contentKinds) ||
     !unique(descriptor.resourceKinds) ||
-    descriptor.resourceKinds.some((kind) => kind !== 'file' && kind !== 'directory') ||
-    descriptor.multiple
+    descriptor.resourceKinds.some((kind) => kind !== 'file' && kind !== 'directory')
   )
     throw new SchemaError('INVALID_COMPONENT', 'Component capabilities are invalid or unsupported')
   return Object.freeze({
@@ -126,7 +127,7 @@ export function createSchemaComponentRegistry(): SchemaComponentRegistry {
       if (!idPattern.test(id) || entries.has(id) || entries.size >= MAX_COMPONENTS)
         throw new SchemaError('COMPONENT_CONFLICT', 'Component needs a unique bounded ID')
       const compiled = freezeDescriptor(descriptor)
-      const disposeSchema = schema.register(id, compiled.fieldTypes, compiled.resourceKinds)
+      const disposeSchema = schema.register(id, compiled.fieldTypes, compiled.resourceKinds, compiled.multiple)
       const registration = Object.freeze({ id, descriptor: compiled, Renderer })
       entries.set(id, registration)
       schemaDisposers.set(id, disposeSchema)

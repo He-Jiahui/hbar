@@ -88,17 +88,20 @@ function compile(description: SettingsDescription, scope: SettingsSnapshot['scop
   components.register('NumberField', ['integer', 'number'])
   components.register('CheckBox', ['boolean'])
   components.register('ComboBox', ['string', 'integer', 'number', 'boolean'])
+  components.register('MultiSelect', ['string', 'integer', 'number', 'boolean'], [], true)
   components.register('FilePicker', ['string'], ['file'])
   components.register('DirectoryPicker', ['string'], ['directory'])
   const properties = Object.fromEntries(
     description.fields.map((field) => {
-      const constraints = {
+      const item = {
         type: field.type,
         ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
         ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
         ...(field.choices ? { enum: field.choices } : {}),
-        default: field.defaultValue,
       }
+      const constraints = field.multiple
+        ? { type: 'array', items: item, uniqueItems: true, maxItems: 256, default: field.defaultValue }
+        : { ...item, default: field.defaultValue }
       return [encodePath(field.path), field.nullable ? { anyOf: [constraints, { type: 'null' }] } : constraints]
     }),
   )

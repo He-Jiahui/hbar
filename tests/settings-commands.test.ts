@@ -59,6 +59,29 @@ test('settings description rejects type drift, duplicate paths and dynamic depen
   expect(settingsDescriptionSchema.safeParse(cyclic).success).toBe(false)
 })
 
+test('settings description accepts bounded typed multi-select fields and rejects scalar or duplicate defaults', () => {
+  const description = structuredClone(HBAR_SETTINGS_DESCRIPTION)
+  description.fields.push({
+    path: field('provider.modalities'),
+    type: 'string',
+    nullable: false,
+    defaultValue: ['text'],
+    choices: ['text', 'image'],
+    allowedScopes: ['global', 'workspace', 'session'],
+    applyMode: 'nextRun',
+    labelKey: 'i18n:settings.provider.modalities.label',
+    group: 'model',
+    order: 30,
+    component: 'MultiSelect',
+    multiple: true,
+  })
+  expect(settingsDescriptionSchema.safeParse(description).success).toBe(true)
+  description.fields.at(-1)!.defaultValue = 'text'
+  expect(settingsDescriptionSchema.safeParse(description).success).toBe(false)
+  description.fields.at(-1)!.defaultValue = ['text', 'text']
+  expect(settingsDescriptionSchema.safeParse(description).success).toBe(false)
+})
+
 test('typed settings commands share catalog, layered CAS and actor-scoped idempotency', async () => {
   const { client, workspace, session } = await fixture()
   const commands = createSettingsCommandClient(client)
