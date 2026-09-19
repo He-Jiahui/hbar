@@ -3,6 +3,7 @@ import { navigationCommands } from '@hbar/contracts/commands'
 import type { createState } from './state'
 import type { NavigationState } from './types'
 import type { DirectoryQueries } from './directory'
+import type { Workspace } from '@hbar/contracts/directory'
 export class SessionSelectionError extends CommandError {
   constructor(
     code: string,
@@ -15,12 +16,13 @@ export class SessionSelectionError extends CommandError {
 export function registerNavigationCommands(
   local: CommandRegistry,
   queries: DirectoryQueries,
+  openWorkspace: (path: string, execution: ExecuteOptions) => Promise<Workspace>,
   navigation: ReturnType<typeof createState<NavigationState>>,
   isDisposed: () => boolean,
 ): void {
   let generation = 0
-  async function navigate(
-    operation: (execution: ExecuteOptions) => Promise<{ workspaceId: string; sessionId: string | null }>,
+  async function navigate<Selection extends { workspaceId: string; sessionId: string | null }>(
+    operation: (execution: ExecuteOptions) => Promise<Selection>,
     execution: ExecuteOptions,
   ) {
     const current = ++generation
@@ -29,7 +31,12 @@ export function registerNavigationCommands(
       const selection = await operation(execution)
       if (isDisposed() || execution.signal?.aborted || generation !== current)
         throw new SessionSelectionError('NAVIGATION_SUPERSEDED')
-      navigation.replace({ ...selection, status: 'idle', error: null })
+      navigation.replace({
+        workspaceId: selection.workspaceId,
+        sessionId: selection.sessionId,
+        status: 'idle',
+        error: null,
+      })
       return selection
     } catch (error) {
       if (!isDisposed() && generation === current)
@@ -44,6 +51,12 @@ export function registerNavigationCommands(
       throw error
     }
   }
+  local.register(navigationCommands['workspace.open'], (input, context) =>
+    navigate(async (execution) => {
+      const workspace = await openWorkspace(input.path, execution)
+      return { workspaceId: workspace.id, sessionId: null, workspace }
+    }, context).then(({ workspace }) => workspace),
+  )
   local.register(navigationCommands['app.setWorkspace'], (input, context) =>
     navigate(async (execution) => {
       const workspace = await queries.execute('workspace.get', input, execution)

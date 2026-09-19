@@ -405,6 +405,11 @@ test('exec Git queries use the workspace service through the shared command path
 
 test('exec workspace and session commands create, retry, rename, list, and export through one catalog', async () => {
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const openedPath = join(root, 'opened-by-command')
+  await mkdir(openedPath, { recursive: true })
+  const opened = await run([...common, 'exec', 'workspace.open', openedPath])
+  expect(opened.code).toBe(0)
+  expect(JSON.parse(opened.stdout)).toMatchObject({ path: openedPath })
   const base = await run([...common, 'session', 'new'])
   expect(base.code).toBe(0)
   const created = await run([

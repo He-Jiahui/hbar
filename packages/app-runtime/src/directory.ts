@@ -129,6 +129,14 @@ export function createDirectoryModule(
 
   return {
     queries,
+    async openWorkspace(path: string, execution: ExecuteOptions): Promise<Workspace> {
+      if (!options.workspaces)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot register Host workspaces')
+      const value = await options.workspaces.execute('workspace.create', { path }, execution)
+      const workspace = decode(workspaceSchema, value)
+      if (!disposed && !execution.signal?.aborted) mergeWorkspaces([workspace])
+      return workspace
+    },
     registry: remote,
     reader: directory.reader,
     dispose() {

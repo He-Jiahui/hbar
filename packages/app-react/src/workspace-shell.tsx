@@ -12,6 +12,7 @@ export interface HbarWorkspaceShellLabels {
   readonly loading: string
   readonly loadMore: string
   readonly commands: string
+  readonly openWorkspace: string
   readonly status: string
   readonly extensions: string
   readonly settings: string
@@ -129,6 +130,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [directory])
 
   const openPanel = (panelId: string) => void execute('app.openPanel', { panelId }).catch(recordError)
+  const openWorkspace = () => {
+    void execute('app.openPanel', { panelId: 'commands' })
+      .then(() => execute('commandPalette.refresh', {}))
+      .then(() => execute('commandPalette.setQuery', { query: 'workspace.open' }))
+      .catch(recordError)
+  }
   const serverValue =
     props.connection === 'connected'
       ? props.labels.connected
@@ -153,6 +160,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   {props.labels.reconnect}
                 </button>
               )}
+              <button type="button" onClick={openWorkspace}>
+                {props.labels.openWorkspace}
+              </button>
               <button type="button" onClick={() => openPanel('commands')}>
                 {props.labels.commands}
               </button>

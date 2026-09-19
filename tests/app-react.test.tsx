@@ -24,6 +24,7 @@ const labels: HbarWorkspaceShellLabels = {
   loading: '正在加载数据',
   loadMore: '加载下一页',
   commands: '打开命令目录',
+  openWorkspace: '打开工作区',
   status: '打开状态中心',
   extensions: '打开扩展',
   settings: '打开设置',
@@ -72,6 +73,7 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('需要键盘导航的会话')
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('打开命令目录')
+    expect(html).toContain('打开工作区')
     expect(html).toContain('打开状态中心')
     expect(html).toContain('打开设置')
     expect(html).toContain('已经连接')

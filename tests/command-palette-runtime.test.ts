@@ -96,6 +96,7 @@ test('command palette projects categorized host and client commands through comm
     )
     expect(initial.categories.map((item) => item.id)).toContain('model.budget')
     expect(initial.visibleIds).toContain('app.openPanel')
+    expect(initial.visibleIds).toContain('workspace.open')
     expect(initial.visibleIds).toContain('session.setBudget')
     expect(initial.visibleIds).not.toContain('commandPalette.setQuery')
 

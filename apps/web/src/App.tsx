@@ -37,6 +37,7 @@ import {
   createSchemaCallbackClient,
   createSettingsCommandClient,
   createUsageCommandClient,
+  createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import type { ConnectionStatus } from '@hbar/client'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
@@ -73,6 +74,7 @@ function createRuntime(client: HbarClient, hostId: string, locale: ShellLocale) 
     instanceId: crypto.randomUUID(),
     hostId,
     directory: createDirectoryQueryAdapter(client),
+    workspaces: createWorkspaceSessionCommandClient(client),
     timeline: createSessionTimelineClient(client),
     run: createRunCommandClient(client),
     interactions: createInteractionCommandClient(client),

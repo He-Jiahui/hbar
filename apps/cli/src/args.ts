@@ -84,6 +84,7 @@ Usage:
   hbar commands list [--category <category>] [--limit <1-200>]
   hbar commands describe <commandId>
   hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
+  hbar exec workspace.open <directory-path>
   hbar exec app.openPanel <panel> --client <clientId> [--session <id>]
   hbar exec settings.get|settings.set|settings.unset <path> --scope <scope>
   hbar exec approval.resolve <approvalId> <allowed|denied> --session <id|name>

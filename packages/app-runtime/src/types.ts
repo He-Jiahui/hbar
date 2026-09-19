@@ -61,6 +61,7 @@ export interface RuntimeOptions {
   readonly instanceId: string
   readonly hostId: string
   readonly directory: CommandExecutor
+  readonly workspaces?: CommandExecutor
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
   readonly interactions?: CommandExecutor

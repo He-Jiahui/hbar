@@ -193,7 +193,7 @@ export async function runCatalogCommand(
       cursor = page.nextCursor
     } while (cursor && remote.length < 10_000)
     const local = [
-      navigationCommands['app.setSession'],
+      ...Object.values(navigationCommands),
       ...Object.values(connectionCommands),
       ...Object.values(surfaceCommands),
       ...Object.values(attachmentCommands),
@@ -219,7 +219,7 @@ export async function runCatalogCommand(
     )
   } else if (action === 'describe' && selector && args.commandArgs.length === 2) {
     const local = [
-      navigationCommands['app.setSession'],
+      ...Object.values(navigationCommands),
       ...Object.values(connectionCommands),
       ...Object.values(surfaceCommands),
       ...Object.values(attachmentCommands),
@@ -1016,6 +1016,26 @@ export async function runApplicationCommand(
     }
     output(JSON.stringify(await store.set(args.context, selected, expected)))
     return selected
+  } finally {
+    runtime.dispose()
+  }
+}
+
+export async function runWorkspaceOpenCommand(args: CliArgs, client: HbarClient, output: CommandOutput = writeStdout) {
+  const [action, path] = args.commandArgs
+  if (action !== 'workspace.open' || !path || args.commandArgs.length !== 2)
+    throw new CommandError('INVALID_SYNTAX', 'Usage: hbar exec workspace.open <directory-path>')
+  const bootstrap = await client.call('system.bootstrap', {})
+  const runtime = createAppRuntime({
+    instanceId: `cli-${process.pid}`,
+    hostId: bootstrap.host.instanceId,
+    directory: createDirectoryQueryAdapter(client),
+    workspaces: createWorkspaceSessionCommandClient(client),
+  })
+  try {
+    const workspace = await runtime.view.commands.execute('workspace.open', { path })
+    output(workspace)
+    return workspace
   } finally {
     runtime.dispose()
   }

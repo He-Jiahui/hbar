@@ -16,6 +16,7 @@ import {
   isSettingsCommand,
   runModelListCommand,
   runApplicationCommand,
+  runWorkspaceOpenCommand,
   runCatalogCommand,
   runCliCommand,
   runFileCommand,
@@ -229,6 +230,15 @@ try {
     const { client, layout } = await openCatalogClient(args)
     try {
       await runApplicationCommand(args, client, layout.dataRoot)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && args.commandArgs[0] === 'workspace.open') {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runWorkspaceOpenCommand(args, client)
     } finally {
       client.disconnect()
     }

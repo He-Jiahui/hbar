@@ -2,6 +2,7 @@ import { CommandError, tokenizeCommand } from '@hbar/commands'
 import { parseCli, type CliArgs } from './args.ts'
 import {
   runApplicationCommand,
+  runWorkspaceOpenCommand,
   runCatalogCommand,
   runCliCommand,
   runOperationCommand,
@@ -56,6 +57,11 @@ export async function executeCommandLine(
     runtime.bootstrap = bootstrap
     runtime.project = project
     runtime.session = session
+    return
+  }
+  if (args.command === 'exec' && args.commandArgs[0] === 'workspace.open') {
+    await runWorkspaceOpenCommand(args, runtime.client, output)
+    runtime.bootstrap = await runtime.client.call('system.bootstrap', {})
     return
   }
   if (args.command === 'exec' && isSurfaceCommand(args.commandArgs[0]))
