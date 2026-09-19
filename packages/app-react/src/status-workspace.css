@@ -53,6 +53,21 @@
   gap: var(--hbar-app-ui-space-xs);
 }
 
+.hbar-app-react-status-controls fieldset {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hbar-app-react-status-controls legend {
+  float: inline-start;
+  margin-inline-end: var(--hbar-app-ui-space-xs);
+}
+
 .hbar-app-react-status-workspace > nav {
   flex: 0 0 auto;
   padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
@@ -253,6 +268,48 @@
 .hbar-app-react-git-charts .is-deletion {
   color: var(--hbar-app-ui-danger);
   background: var(--hbar-app-ui-danger);
+}
+
+.hbar-app-react-git-commits {
+  display: flex;
+  flex-direction: column;
+  border-block-start: 1px solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-git-commits details {
+  padding: var(--hbar-app-ui-space-sm) 0;
+  border-block-end: 1px solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-git-commits summary {
+  display: flex;
+  gap: var(--hbar-app-ui-space-sm);
+  cursor: pointer;
+}
+
+.hbar-app-react-git-commits summary span,
+.hbar-app-react-git-commits dd {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-git-commits dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--hbar-app-ui-space-sm);
+  margin: var(--hbar-app-ui-space-sm) 0 0;
+}
+
+.hbar-app-react-git-commits dl div {
+  min-inline-size: 0;
+}
+
+.hbar-app-react-git-commits dt {
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-react-git-commits dd {
+  margin: 0;
 }
 
 .hbar-app-react-status-workspace [role='alert'] {

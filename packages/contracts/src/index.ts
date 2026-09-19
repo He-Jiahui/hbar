@@ -201,6 +201,7 @@ export const gitCommitInfoSchema = z.object({
   shortSha: z.string().regex(/^[0-9a-f]{7,64}$/i),
   author: z.string().max(1_000),
   authoredAt: z.string().max(100),
+  committedAt: z.string().max(100).optional(),
   subject: z.string().max(4_000),
   provenance: gitCommitProvenanceSchema,
 })

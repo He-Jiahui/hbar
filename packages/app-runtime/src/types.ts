@@ -16,7 +16,7 @@ import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type { PluginInfo, SkillDescriptor } from '@hbar/contracts/commands/extensions'
 import type { MetricsQueryResult } from '@hbar/contracts/commands/metrics'
-import type { GitStatsReport } from '@hbar/contracts'
+import type { GitCommitInfo, GitCommitSource, GitStatsReport, GitStatus } from '@hbar/contracts'
 import type {
   Approval,
   GoalStatus,
@@ -48,6 +48,7 @@ import type {
   StatusUsageAggregation,
   StatusUsageScope,
   StatusUsageWindow,
+  StatusGitWindow,
 } from '@hbar/contracts/commands/status-workspace'
 import type { ProviderEditorDescription, ProviderProfile } from '@hbar/contracts/commands/configuration'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
@@ -267,6 +268,14 @@ export interface StatusWorkspaceEntryState {
     readonly error: string | null
   }
   readonly git: Readonly<GitStatsReport> | null
+  readonly gitStatus: Readonly<GitStatus> | null
+  readonly gitCommits: readonly Readonly<GitCommitInfo>[]
+  readonly gitHistoryTruncated: boolean
+  readonly gitQuery: {
+    readonly workspaceId: string | null
+    readonly window: StatusGitWindow
+    readonly sources: readonly GitCommitSource[]
+  }
   readonly gitWorkspaceId: string | null
   readonly error: string | null
 }

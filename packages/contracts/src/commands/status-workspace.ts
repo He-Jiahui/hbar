@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
+import { gitCommitSourceSchema, idSchema } from '../index'
 
 const instanceId = z.string().min(1).max(160)
 const section = z.enum(['dashboard', 'usage', 'git'])
@@ -9,6 +10,7 @@ export const statusUsageScopeSchema = z.enum(['global', 'workspace', 'session'])
 export const statusUsageWindowSchema = z.enum(['1h', '24h', '7d', '30d'])
 export const statusUsageAggregationSchema = z.enum(['minute', 'hour', 'day'])
 export const statusExportFormatSchema = z.enum(['json', 'csv'])
+export const statusGitWindowSchema = z.enum(['7d', '30d', '90d', '1y'])
 const summary = z.strictObject({
   instanceId,
   section,
@@ -64,6 +66,20 @@ export const statusWorkspaceCommands = {
     z.strictObject({ instanceId, format: statusExportFormatSchema }),
     summary,
   ),
+  'statusWorkspace.setGitQuery': defineCommand(
+    metadata('statusWorkspace.setGitQuery'),
+    z.strictObject({
+      instanceId,
+      workspaceId: idSchema,
+      window: statusGitWindowSchema,
+      sources: z
+        .array(gitCommitSourceSchema)
+        .min(1)
+        .max(3)
+        .refine((sources) => new Set(sources).size === sources.length, 'Git sources must be unique'),
+    }),
+    summary,
+  ),
 }
 
 export type PerformanceWindow = z.output<typeof performanceWindowSchema>
@@ -72,3 +88,4 @@ export type StatusUsageScope = z.output<typeof statusUsageScopeSchema>
 export type StatusUsageWindow = z.output<typeof statusUsageWindowSchema>
 export type StatusUsageAggregation = z.output<typeof statusUsageAggregationSchema>
 export type StatusExportFormat = z.output<typeof statusExportFormatSchema>
+export type StatusGitWindow = z.output<typeof statusGitWindowSchema>

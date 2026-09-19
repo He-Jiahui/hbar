@@ -34,6 +34,17 @@ const DEFAULT_USAGE_EXPORT = {
 } as const
 const USAGE_WINDOWS = { '1h': 3_600_000, '24h': 86_400_000, '7d': 604_800_000, '30d': 2_592_000_000 } as const
 const USAGE_BUCKETS = { minute: 60_000, hour: 3_600_000, day: 86_400_000 } as const
+const DEFAULT_GIT_QUERY = {
+  workspaceId: null,
+  window: '30d',
+  sources: ['auto', 'manual', 'external'],
+} as const
+const GIT_WINDOWS = {
+  '7d': { duration: 604_800_000, bucketMs: 86_400_000 },
+  '30d': { duration: 2_592_000_000, bucketMs: 86_400_000 },
+  '90d': { duration: 7_776_000_000, bucketMs: 86_400_000 },
+  '1y': { duration: 31_536_000_000, bucketMs: 604_800_000 },
+} as const
 
 function code(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -114,11 +125,23 @@ export function createStatusWorkspace(
       },
     }
   }
+  const gitInput = (query: StatusWorkspaceEntryState['gitQuery']) => {
+    const range = GIT_WINDOWS[query.window]
+    const to = Date.now() + 1
+    return {
+      from: Math.max(0, to - range.duration),
+      to,
+      bucketMs: range.bucketMs,
+      maxBuckets: Math.ceil(range.duration / range.bucketMs),
+      sources: [...query.sources],
+    }
+  }
   const load = async (instanceId: string) => {
     const target = panel(instanceId)
     const previous = state.reader.getSnapshot().entries[instanceId]
     const generation = (generations.get(instanceId) ?? 0) + 1
     generations.set(instanceId, generation)
+    const previousGitQuery = previous?.gitQuery ?? DEFAULT_GIT_QUERY
     const loading: StatusWorkspaceEntryState = {
       instanceId,
       section: target.section,
@@ -129,6 +152,13 @@ export function createStatusWorkspace(
       usageQuery: previous?.usageQuery ?? DEFAULT_USAGE_QUERY,
       usageExport: previous?.usageExport ?? DEFAULT_USAGE_EXPORT,
       git: previous?.git ?? null,
+      gitStatus: previous?.gitStatus ?? null,
+      gitCommits: previous?.gitCommits ?? [],
+      gitHistoryTruncated: previous?.gitHistoryTruncated ?? false,
+      gitQuery:
+        target.section === 'git' && !previousGitQuery.workspaceId && target.workspaceId
+          ? { ...previousGitQuery, workspaceId: target.workspaceId }
+          : previousGitQuery,
       gitWorkspaceId: previous?.gitWorkspaceId ?? null,
       error: null,
     }
@@ -137,6 +167,9 @@ export function createStatusWorkspace(
       let performance = loading.performance
       let usageReport = loading.usage
       let gitReport = loading.git
+      let gitStatus = loading.gitStatus
+      let gitCommits = loading.gitCommits
+      let gitHistoryTruncated = loading.gitHistoryTruncated
       let gitWorkspaceId = loading.gitWorkspaceId
       if (target.section === 'dashboard') {
         if (!metrics) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Performance metrics are unavailable')
@@ -161,15 +194,24 @@ export function createStatusWorkspace(
         })
       } else {
         if (!git) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git statistics are unavailable')
-        if (!target.workspaceId) throw new CommandError('INVALID_INPUT', 'Select a workspace before opening Git status')
-        const workspace = directory.getSnapshot().workspaces[target.workspaceId]
+        if (!loading.gitQuery.workspaceId)
+          throw new CommandError('INVALID_INPUT', 'Select a workspace before opening Git status')
+        const workspace = directory.getSnapshot().workspaces[loading.gitQuery.workspaceId]
         if (!workspace) throw new CommandError('COMMAND_NOT_FOUND', 'Status workspace target is unavailable')
-        gitReport = await git.execute('git.stats', {
-          cwd: workspace.path,
-          bucketMs: 86_400_000,
-          maxBuckets: 120,
-          sources: ['auto', 'manual', 'external'],
+        const query = gitInput(loading.gitQuery)
+        const [stats, repositoryStatus, history] = await Promise.all([
+          git.execute('git.stats', { cwd: workspace.path, ...query }),
+          git.execute('git.status', { cwd: workspace.path }),
+          git.execute('git.log', { cwd: workspace.path, limit: 100 }),
+        ])
+        const sources = new Set(loading.gitQuery.sources)
+        gitReport = stats
+        gitStatus = repositoryStatus
+        gitCommits = history.filter((commit) => {
+          const committedAt = Date.parse(commit.committedAt ?? commit.authoredAt)
+          return sources.has(commit.provenance.source) && committedAt >= query.from && committedAt < query.to
         })
+        gitHistoryTruncated = history.length === 100
         gitWorkspaceId = workspace.id
       }
       if (isDisposed() || generations.get(instanceId) !== generation)
@@ -184,6 +226,10 @@ export function createStatusWorkspace(
         usageQuery: loading.usageQuery,
         usageExport: loading.usageExport,
         git: gitReport,
+        gitStatus,
+        gitCommits,
+        gitHistoryTruncated,
+        gitQuery: loading.gitQuery,
         gitWorkspaceId,
         error: null,
       }
@@ -213,6 +259,10 @@ export function createStatusWorkspace(
       usageQuery: DEFAULT_USAGE_QUERY,
       usageExport: DEFAULT_USAGE_EXPORT,
       git: null,
+      gitStatus: null,
+      gitCommits: [],
+      gitHistoryTruncated: false,
+      gitQuery: DEFAULT_GIT_QUERY,
       gitWorkspaceId: null,
       error: null,
     }
@@ -238,6 +288,10 @@ export function createStatusWorkspace(
         usageQuery: DEFAULT_USAGE_QUERY,
         usageExport: DEFAULT_USAGE_EXPORT,
         git: null,
+        gitStatus: null,
+        gitCommits: [],
+        gitHistoryTruncated: false,
+        gitQuery: DEFAULT_GIT_QUERY,
         gitWorkspaceId: null,
         error: null,
       }
@@ -320,6 +374,35 @@ export function createStatusWorkspace(
       throw failure(reason)
     }
   })
+  local.register(
+    statusWorkspaceCommands['statusWorkspace.setGitQuery'],
+    ({ instanceId, workspaceId, window, sources }) => {
+      const targetPanel = panel(instanceId)
+      if (targetPanel.section !== 'git') throw new CommandError('INVALID_INPUT', 'Git query belongs to the Git section')
+      if (!directory.getSnapshot().workspaces[workspaceId])
+        throw new CommandError('COMMAND_NOT_FOUND', 'Git workspace target is unavailable')
+      const current = state.reader.getSnapshot().entries[instanceId]
+      const base: StatusWorkspaceEntryState = current ?? {
+        instanceId,
+        section: 'git',
+        status: 'loading',
+        performance: null,
+        performanceQuery: DEFAULT_PERFORMANCE_QUERY,
+        usage: null,
+        usageQuery: DEFAULT_USAGE_QUERY,
+        usageExport: DEFAULT_USAGE_EXPORT,
+        git: null,
+        gitStatus: null,
+        gitCommits: [],
+        gitHistoryTruncated: false,
+        gitQuery: DEFAULT_GIT_QUERY,
+        gitWorkspaceId: null,
+        error: null,
+      }
+      replace({ ...base, section: 'git', gitQuery: { workspaceId, window, sources }, error: null })
+      return load(instanceId)
+    },
+  )
   return {
     reader: state.reader,
     dispose() {

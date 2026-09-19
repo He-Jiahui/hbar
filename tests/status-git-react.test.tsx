@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarRuntimeProvider, HbarStatusWorkspace } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
-import type { GitStatsReport } from '@hbar/contracts'
+import type { GitCommitInfo, GitStatsReport, GitStatus } from '@hbar/contracts'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
@@ -41,6 +41,35 @@ const report: GitStatsReport = {
   indexComplete: true,
   gap: false,
 }
+const repositoryStatus: GitStatus = {
+  cwd: workspace.path,
+  root: workspace.path,
+  branch: 'main',
+  head: 'a'.repeat(40),
+  upstream: 'origin/main',
+  ahead: 1,
+  behind: 0,
+  dirty: true,
+  entries: [{ index: 'M', worktree: ' ', path: 'src/index.ts' }],
+  originUrl: null,
+}
+const commits: GitCommitInfo[] = [
+  {
+    sha: 'a'.repeat(40),
+    shortSha: 'a'.repeat(7),
+    author: 'Hbar',
+    authoredAt: new Date(Date.now() - 86_400_000).toISOString(),
+    committedAt: new Date(Date.now() - 86_400_000).toISOString(),
+    subject: 'Automatic checkpoint',
+    provenance: {
+      source: 'auto',
+      recordedAt: Date.now() - 86_400_000,
+      sessionId: 'session',
+      runId: 'run',
+      operationId: 'operation',
+    },
+  },
+]
 
 test('Git status renders workspace provenance, changes, bounded series, and policies', async () => {
   const runtime = createAppRuntime({
@@ -55,8 +84,11 @@ test('Git status renders workspace provenance, changes, bounded series, and poli
       },
     },
     git: {
-      async execute() {
-        return report
+      async execute(name: string) {
+        if (name === 'git.stats') return report
+        if (name === 'git.status') return repositoryStatus
+        if (name === 'git.log') return commits
+        throw new Error(`Unsupported Git command: ${name}`)
       },
     },
     surfaces: { canRender: (panelId) => panelId === 'status' },
@@ -71,11 +103,19 @@ test('Git status renders workspace provenance, changes, bounded series, and poli
       </HbarRuntimeProvider>,
     )
     expect(html).toContain('Git repository')
+    expect(html).toContain('Git query filters')
+    expect(html).toContain('Last 30 days')
     expect(html).toContain('Automatic commits')
+    expect(html).toContain('Repository status')
+    expect(html).toContain('origin/main')
+    expect(html).toContain('Uncommitted changes')
     expect(html).toContain('Files changed')
     expect(html).toContain('BINARY_CONTENT')
     expect(html).toContain('Commit and line-change timeline')
     expect(html).toContain('first-parent')
+    expect(html).toContain('Recent commit details')
+    expect(html).toContain('Automatic checkpoint')
+    expect(html).toContain('<dt>Session</dt><dd>session</dd>')
   } finally {
     runtime.dispose()
   }

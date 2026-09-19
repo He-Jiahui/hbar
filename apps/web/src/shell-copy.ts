@@ -903,6 +903,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     maximumFractionDigits: 6,
   })
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const dateTime = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
   const formatBytes = (value: number) => {
     const units = ['B', 'KB', 'MB', 'GB', 'TB'] as const
     let scaled = Math.max(0, value)
@@ -1058,6 +1059,29 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     },
     git: {
       title: choose('Git 仓库', 'Git repository'),
+      filters: choose('Git 查询条件', 'Git query filters'),
+      repositoryFilter: choose('仓库', 'Repository'),
+      timeWindow: choose('时间窗', 'Time window'),
+      windows: {
+        '7d': choose('最近 7 天', 'Last 7 days'),
+        '30d': choose('最近 30 天', 'Last 30 days'),
+        '90d': choose('最近 90 天', 'Last 90 days'),
+        '1y': choose('最近 1 年', 'Last year'),
+      },
+      sources: choose('提交来源', 'Commit sources'),
+      repositoryStatus: choose('仓库状态', 'Repository status'),
+      branch: choose('分支', 'Branch'),
+      upstream: choose('上游', 'Upstream'),
+      noUpstream: choose('未配置', 'Not configured'),
+      workingTree: choose('工作树', 'Working tree'),
+      clean: choose('干净', 'Clean'),
+      dirty: choose('有未提交变更', 'Uncommitted changes'),
+      aheadBehind: (ahead, behind) =>
+        choose(
+          `领先 ${number.format(ahead)} · 落后 ${number.format(behind)}`,
+          `${number.format(ahead)} ahead · ${number.format(behind)} behind`,
+        ),
+      changedPaths: choose('变更路径', 'Changed paths'),
       provenance: choose('提交来源', 'Commit provenance'),
       changes: choose('文件与行数变化', 'File and line changes'),
       timeline: choose('提交与行数时间序列', 'Commit and line-change timeline'),
@@ -1082,6 +1106,22 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       binaryChanges: choose('二进制行数', 'Binary line changes'),
       binaryUnavailable: choose('不计算', 'Not calculated'),
       noHead: choose('无提交', 'No commits'),
+      recentCommits: choose('最近提交详情', 'Recent commit details'),
+      noCommits: choose('当前过滤条件内没有最近提交。', 'No recent commits match the current filters.'),
+      historyTruncated: choose(
+        '提交详情仅检查最近 100 条历史记录。',
+        'Commit details are limited to the 100 most recent history entries.',
+      ),
+      commitAuthor: choose('作者', 'Author'),
+      commitDate: choose('提交时间', 'Committed at'),
+      formatCommitDate: (authoredAt) => {
+        const value = Date.parse(authoredAt)
+        return Number.isFinite(value) ? dateTime.format(value) : authoredAt
+      },
+      commitSource: choose('来源', 'Source'),
+      session: 'Session',
+      run: 'Run',
+      operation: choose('操作', 'Operation'),
     },
     unavailable: (reason) =>
       choose(`不可用${reason ? ` · ${reason}` : ''}`, `Unavailable${reason ? ` · ${reason}` : ''}`),

@@ -275,7 +275,7 @@ function parseLog(output: string): GitCommitInfo[] {
   const commits: GitCommitInfo[] = []
   for (const record of output.split('\x1e')) {
     if (!record) continue
-    const [sha, shortSha, author, authoredAt, subject, note = ''] = record.split('\0')
+    const [sha, shortSha, author, authoredAt, committedAt, subject, note = ''] = record.split('\0')
     if (!sha || !shortSha) continue
     commits.push(
       gitCommitInfoSchema.parse({
@@ -283,6 +283,7 @@ function parseLog(output: string): GitCommitInfo[] {
         shortSha,
         author: author ?? '',
         authoredAt: authoredAt ?? '',
+        committedAt: committedAt ?? '',
         subject: subject ?? '',
         provenance: parseProvenance(note.trim()),
       }),
@@ -669,7 +670,7 @@ export class GitRuntime implements GitService {
         String(bounded),
         '--date=iso-strict',
         `--show-notes=${PROVENANCE_NOTES_REF}`,
-        '--pretty=format:%x1e%H%x00%h%x00%an%x00%aI%x00%s%x00%N',
+        '--pretty=format:%x1e%H%x00%h%x00%an%x00%aI%x00%cI%x00%s%x00%N',
       ],
       signal,
     )
@@ -796,6 +797,7 @@ export class GitRuntime implements GitService {
         shortSha: head.slice(0, 7),
         author: '',
         authoredAt: '',
+        committedAt: '',
         subject: message.split(/\r?\n/, 1)[0],
         provenance,
       },

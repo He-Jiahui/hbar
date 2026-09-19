@@ -49,6 +49,7 @@ function service(overrides: Partial<GitService> = {}): GitService {
     shortSha: 'a'.repeat(7),
     author: 'test',
     authoredAt: '2026-01-01T00:00:00Z',
+    committedAt: '2026-01-01T00:00:00Z',
     subject: 'test',
     provenance: {
       source: 'manual' as const,

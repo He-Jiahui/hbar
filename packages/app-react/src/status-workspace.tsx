@@ -100,6 +100,20 @@ export interface HbarStatusWorkspaceLabels {
   }
   readonly git: {
     readonly title: string
+    readonly filters: string
+    readonly repositoryFilter: string
+    readonly timeWindow: string
+    readonly windows: Readonly<Record<'7d' | '30d' | '90d' | '1y', string>>
+    readonly sources: string
+    readonly repositoryStatus: string
+    readonly branch: string
+    readonly upstream: string
+    readonly noUpstream: string
+    readonly workingTree: string
+    readonly clean: string
+    readonly dirty: string
+    readonly aheadBehind: (ahead: number, behind: number) => string
+    readonly changedPaths: string
     readonly provenance: string
     readonly changes: string
     readonly timeline: string
@@ -124,6 +138,16 @@ export interface HbarStatusWorkspaceLabels {
     readonly binaryChanges: string
     readonly binaryUnavailable: string
     readonly noHead: string
+    readonly recentCommits: string
+    readonly noCommits: string
+    readonly historyTruncated: string
+    readonly commitAuthor: string
+    readonly commitDate: string
+    readonly formatCommitDate: (authoredAt: string) => string
+    readonly commitSource: string
+    readonly session: string
+    readonly run: string
+    readonly operation: string
   }
   readonly unavailable: (reason: string | null) => string
   readonly number: (value: number) => string
@@ -158,6 +182,7 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
   const runtime = useHbarRuntime()
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const status = useHbarRuntimeState(runtime.state.status)
+  const directory = useHbarRuntimeState(runtime.state.directory)
   const instanceId = surfaces.focusedPanelId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const rawSection = panel?.params.section
@@ -181,6 +206,8 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
   const usageQuery = entry?.usageQuery
   const usageExport = entry?.usageExport
   const gitReport = entry?.git
+  const gitStatus = entry?.gitStatus
+  const gitQuery = entry?.gitQuery
   const readings = report?.current?.readings
   const performanceQuery = entry?.performanceQuery
   const includeSystem = performanceQuery?.target !== 'host'
@@ -262,6 +289,18 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
   const setUsageQuery = (patch: Partial<StatusWorkspaceEntryState['usageQuery']>) => {
     if (!usageQuery) return
     invoke('statusWorkspace.setUsageQuery', { instanceId, ...usageQuery, ...patch })
+  }
+  const gitWorkspaces = Object.values(directory.workspaces).sort((left, right) => left.name.localeCompare(right.name))
+  const setGitQuery = (patch: Partial<StatusWorkspaceEntryState['gitQuery']>) => {
+    if (!gitQuery?.workspaceId) return
+    invoke('statusWorkspace.setGitQuery', { instanceId, ...gitQuery, ...patch })
+  }
+  const toggleGitSource = (source: StatusWorkspaceEntryState['gitQuery']['sources'][number], checked: boolean) => {
+    if (!gitQuery) return
+    const sources = (['auto', 'manual', 'external'] as const).filter((candidate) =>
+      candidate === source ? checked : gitQuery.sources.includes(candidate),
+    )
+    if (sources.length > 0) setGitQuery({ sources })
   }
 
   return (
@@ -450,6 +489,55 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
           {usageExport?.status === 'failed' && usageExport.error && (
             <p role="alert">{labels.error(usageExport.error)}</p>
           )}
+        </div>
+      )}
+      {section === 'git' && gitQuery?.workspaceId && (
+        <div className="hbar-app-react-status-controls" role="group" aria-label={labels.git.filters}>
+          <label>
+            <span>{labels.git.repositoryFilter}</span>
+            <select
+              value={gitQuery.workspaceId}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) => setGitQuery({ workspaceId: event.currentTarget.value })}
+            >
+              {gitWorkspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{labels.git.timeWindow}</span>
+            <select
+              value={gitQuery.window}
+              disabled={entry?.status === 'loading'}
+              onChange={(event) => setGitQuery({ window: event.currentTarget.value as typeof gitQuery.window })}
+            >
+              {(['7d', '30d', '90d', '1y'] as const).map((window) => (
+                <option key={window} value={window}>
+                  {labels.git.windows[window]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <fieldset>
+            <legend>{labels.git.sources}</legend>
+            {(['auto', 'manual', 'external'] as const).map((source) => {
+              const checked = gitQuery.sources.includes(source)
+              return (
+                <label key={source}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={entry?.status === 'loading' || (checked && gitQuery.sources.length === 1)}
+                    onChange={(event) => toggleGitSource(source, event.currentTarget.checked)}
+                  />
+                  <span>{labels.git[source === 'auto' ? 'automatic' : source]}</span>
+                </label>
+              )
+            })}
+          </fieldset>
         </div>
       )}
       {!entry || entry.status === 'loading' ? (
@@ -653,6 +741,23 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
               ]}
             />
           </section>
+          {gitStatus && (
+            <section>
+              <h2>{labels.git.repositoryStatus}</h2>
+              <HbarAppUiMetricStrip
+                metrics={[
+                  { label: labels.git.branch, value: gitStatus.branch ?? labels.git.noHead },
+                  { label: labels.git.upstream, value: gitStatus.upstream ?? labels.git.noUpstream },
+                  {
+                    label: labels.git.workingTree,
+                    value: gitStatus.dirty ? labels.git.dirty : labels.git.clean,
+                    detail: labels.git.aheadBehind(gitStatus.ahead, gitStatus.behind),
+                  },
+                  { label: labels.git.changedPaths, value: labels.number(gitStatus.entries.length) },
+                ]}
+              />
+            </section>
+          )}
           <section>
             <h2>{labels.git.provenance}</h2>
             <HbarAppUiMetricStrip
@@ -750,6 +855,58 @@ export function HbarStatusWorkspace({ labels }: { readonly labels: HbarStatusWor
                 { label: labels.git.timezone, value: gitReport.timezone },
               ]}
             />
+          </section>
+          <section>
+            <h2>{labels.git.recentCommits}</h2>
+            {entry.gitCommits.length === 0 ? (
+              <p>{labels.git.noCommits}</p>
+            ) : (
+              <div className="hbar-app-react-git-commits">
+                {entry.gitCommits.map((commit) => (
+                  <details key={commit.sha}>
+                    <summary>
+                      <code>{commit.shortSha}</code>
+                      <span>{commit.subject}</span>
+                    </summary>
+                    <dl>
+                      <div>
+                        <dt>{labels.git.commitAuthor}</dt>
+                        <dd>{commit.author}</dd>
+                      </div>
+                      <div>
+                        <dt>{labels.git.commitDate}</dt>
+                        <dd>{labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt)}</dd>
+                      </div>
+                      <div>
+                        <dt>{labels.git.commitSource}</dt>
+                        <dd>
+                          {labels.git[commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source]}
+                        </dd>
+                      </div>
+                      {commit.provenance.sessionId && (
+                        <div>
+                          <dt>{labels.git.session}</dt>
+                          <dd>{commit.provenance.sessionId}</dd>
+                        </div>
+                      )}
+                      {commit.provenance.runId && (
+                        <div>
+                          <dt>{labels.git.run}</dt>
+                          <dd>{commit.provenance.runId}</dd>
+                        </div>
+                      )}
+                      {commit.provenance.operationId && (
+                        <div>
+                          <dt>{labels.git.operation}</dt>
+                          <dd>{commit.provenance.operationId}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </details>
+                ))}
+              </div>
+            )}
+            {entry.gitHistoryTruncated && <p role="status">{labels.git.historyTruncated}</p>}
           </section>
         </main>
       ) : null}

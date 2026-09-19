@@ -92,6 +92,7 @@ test('Git commit, branch, and worktree operations use validated paths', async ()
     },
   })
   expect(commit.subject).toBe('add change')
+  expect(commit.committedAt).toMatch(/T/)
   expect(commit.provenance).toMatchObject({
     source: 'auto',
     sessionId: 'session-1',
