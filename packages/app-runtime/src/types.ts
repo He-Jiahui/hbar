@@ -106,6 +106,7 @@ export interface RuntimeOptions {
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly persistence?: ClientPersistencePort
+  readonly layoutDescription?: ClientLayoutDescriptionPort
   readonly exporter?: ClientExportPort
   readonly defaultLayout?: Readonly<Record<string, ClientJsonValue>>
   readonly onSubscriberError?: (error: unknown) => void
@@ -120,6 +121,10 @@ export interface ClientPersistencePort {
   read(key: string): Promise<unknown>
   write(key: string, value: ClientJsonValue): Promise<void>
   remove(key: string): Promise<void>
+}
+
+export interface ClientLayoutDescriptionPort {
+  normalize(description: ClientJsonObject): ClientJsonObject
 }
 
 export interface ClientLayoutState {

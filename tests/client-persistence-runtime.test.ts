@@ -109,6 +109,79 @@ test('corrupt or future persisted data falls back per runtime without leaking in
   isolated.dispose()
 })
 
+test('layout descriptions migrate through a host schema while invalid saved or committed layouts stay isolated', async () => {
+  const normalize = (description: Readonly<Record<string, ClientJsonValue>>) => {
+    if (description.schemaVersion === 1)
+      return {
+        schemaVersion: 2,
+        modules: [{ moduleId: 'projects', widthRem: description.sidebarWidthRem ?? 17 }],
+      }
+    if (description.schemaVersion === 2 && Array.isArray(description.modules)) return description
+    throw new Error('unsupported layout')
+  }
+  const storage = memory({
+    'hbar:host:layout': {
+      version: 1,
+      revision: 4,
+      value: { schemaVersion: 1, sidebarWidthRem: 20 },
+    },
+  })
+  const runtime = createAppRuntime({
+    instanceId: 'layout-migration',
+    hostId: 'host',
+    directory,
+    persistence: storage.port,
+    layoutDescription: { normalize },
+    defaultLayout: { schemaVersion: 2, modules: [{ moduleId: 'projects', widthRem: 17 }] },
+  })
+  try {
+    await runtime.ready
+    expect(runtime.view.state.layout.getSnapshot()).toMatchObject({
+      source: 'saved',
+      revision: 4,
+      persisted: true,
+      description: { schemaVersion: 2, modules: [{ moduleId: 'projects', widthRem: 20 }] },
+      restoreError: null,
+    })
+    expect(storage.values.get('hbar:host:layout')).toMatchObject({
+      value: { schemaVersion: 1, sidebarWidthRem: 20 },
+    })
+    await expect(
+      runtime.view.commands.execute('layout.commit', {
+        description: { schemaVersion: 3 },
+        expectedRevision: 4,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(runtime.view.state.layout.getSnapshot()).toMatchObject({ revision: 4, source: 'saved' })
+  } finally {
+    runtime.dispose()
+  }
+
+  const invalidStorage = memory({
+    'hbar:invalid:layout': { version: 1, revision: 1, value: { schemaVersion: 3 } },
+  })
+  const invalid = createAppRuntime({
+    instanceId: 'invalid-layout',
+    hostId: 'invalid',
+    directory,
+    persistence: invalidStorage.port,
+    layoutDescription: { normalize },
+    defaultLayout: { schemaVersion: 2, modules: [] },
+  })
+  try {
+    await invalid.ready
+    expect(invalid.view.state.layout.getSnapshot()).toMatchObject({
+      source: 'default',
+      persisted: false,
+      description: { schemaVersion: 2, modules: [] },
+      restoreError: 'INVALID_PERSISTED_STATE',
+    })
+    expect(invalidStorage.values.has('hbar:invalid:layout')).toBe(true)
+  } finally {
+    invalid.dispose()
+  }
+})
+
 test('client persistence commands serialize writes and reject oversized JSON', async () => {
   let release: (() => void) | undefined
   const writes: ClientJsonValue[] = []

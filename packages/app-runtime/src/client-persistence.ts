@@ -54,6 +54,24 @@ function cloneObject(value: unknown, label: string): ClientJsonObject {
   return cloned
 }
 
+function normalizeLayout(
+  options: RuntimeOptions,
+  value: unknown,
+  code: 'INVALID_INPUT' | 'INVALID_PERSISTED_STATE',
+): ClientJsonObject {
+  const description = cloneObject(value, code === 'INVALID_INPUT' ? 'Layout description' : 'Persisted layout')
+  if (!options.layoutDescription) return description
+  try {
+    return cloneObject(options.layoutDescription.normalize(description), 'Normalized layout description')
+  } catch (reason) {
+    if (reason instanceof CommandError) throw reason
+    throw new CommandError(
+      code,
+      code === 'INVALID_INPUT' ? 'Layout description is invalid' : 'Persisted layout is invalid',
+    )
+  }
+}
+
 function envelope(value: unknown): PersistedEnvelope {
   if (value === null || typeof value !== 'object' || Array.isArray(value))
     throw new CommandError('INVALID_PERSISTED_STATE', 'Persisted client state is not an object')
@@ -76,7 +94,7 @@ export function createClientPersistence(
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
 ) {
-  const defaultLayout = cloneObject(options.defaultLayout ?? {}, 'Default layout')
+  const defaultLayout = normalizeLayout(options, options.defaultLayout ?? {}, 'INVALID_INPUT')
   const layout = createState<ClientLayoutState>(
     {
       status: options.persistence ? 'loading' : 'ready',
@@ -156,7 +174,7 @@ export function createClientPersistence(
           revision: saved.revision,
           source: 'saved',
           persisted: true,
-          description: saved.value,
+          description: normalizeLayout(options, saved.value, 'INVALID_PERSISTED_STATE'),
           restoreError: null,
         }
       : {
@@ -173,7 +191,7 @@ export function createClientPersistence(
     serialize(async () => {
       const current = layout.reader.getSnapshot()
       assertRevision(current.revision, input.expectedRevision)
-      const description = cloneObject(input.description, 'Layout description')
+      const description = normalizeLayout(options, input.description, 'INVALID_INPUT')
       const revision = current.revision + 1
       const persisted = await write(layoutKey, revision, description)
       const next: ClientLayoutState = {
