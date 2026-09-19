@@ -102,7 +102,10 @@ export function compileCommandParameterForm(descriptor: CommandDescriptor): Comm
         typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean',
     )
     const initial = property.default ?? variant.default
-    const defaultValue = draftValue(kind, initial)
+    const sensitive = property.writeOnly === true || variant.writeOnly === true
+    if (sensitive && initial !== undefined)
+      throw new CommandError('INVALID_DEFINITION', `Sensitive command field ${name} cannot publish a default`)
+    const defaultValue = sensitive ? undefined : draftValue(kind, initial)
     const minimum = finite(variant.minimum)
     const maximum = finite(variant.maximum)
     const minLength = nonnegativeInteger(variant.minLength)
@@ -113,7 +116,7 @@ export function compileCommandParameterForm(descriptor: CommandDescriptor): Comm
         typeof property.title === 'string' ? property.title : `commands.${descriptor.metadata.id}.fields.${name}`,
       kind,
       required: required.has(name),
-      sensitive: property.writeOnly === true || variant.writeOnly === true,
+      sensitive,
       choices,
       ...(minimum !== undefined ? { minimum } : {}),
       ...(maximum !== undefined ? { maximum } : {}),

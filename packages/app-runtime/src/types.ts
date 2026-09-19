@@ -1,4 +1,11 @@
-import type { CommandExecutor } from '@hbar/commands'
+import type {
+  CommandDescriptor,
+  CommandExecutor,
+  CommandParameterDraftValue,
+  CommandParameterForm,
+  CommandParameterIssue,
+  ExecuteOptions,
+} from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
@@ -54,10 +61,69 @@ export interface RuntimeOptions {
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
   readonly configuration?: CommandExecutor
+  readonly commandCatalog?: CommandCatalogPort
+  readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly onSubscriberError?: (error: unknown) => void
+}
+
+export interface CommandCatalogPage {
+  readonly revision: number
+  readonly items: readonly CommandDescriptor[]
+  readonly nextCursor?: string
+}
+
+export interface CommandCatalogPort {
+  list(input: { readonly after?: string; readonly limit: number }): Promise<CommandCatalogPage>
+  execute(
+    descriptor: CommandDescriptor,
+    input: Readonly<Record<string, unknown>>,
+    options?: ExecuteOptions,
+  ): Promise<unknown>
+}
+
+export interface CommandTextPort {
+  resolve(key: string): string
+}
+
+export interface CommandPaletteItem {
+  readonly descriptor: Readonly<CommandDescriptor>
+  readonly form: Readonly<CommandParameterForm>
+  readonly available: boolean
+  readonly unavailableReason: string | null
+}
+
+export interface CommandPaletteDraftState {
+  readonly commandId: string
+  readonly commandVersion: number
+  /** Sensitive values never leave the command palette module. */
+  readonly values: Readonly<Record<string, CommandParameterDraftValue>>
+  readonly sensitiveFields: readonly string[]
+  readonly issues: readonly CommandParameterIssue[]
+  readonly revision: number
+}
+
+export interface CommandPaletteState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly revision: number | null
+  readonly query: string
+  readonly categories: readonly { readonly id: string; readonly count: number }[]
+  readonly items: Readonly<Record<string, Readonly<CommandPaletteItem>>>
+  readonly visibleIds: readonly string[]
+  readonly selectedId: string | null
+  readonly selectionLost: boolean
+  readonly draft: Readonly<CommandPaletteDraftState> | null
+  readonly execution: {
+    readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
+    readonly commandId: string | null
+    readonly result: string | null
+    readonly error: string | null
+  }
+  readonly sensitiveResetRevision: number
+  readonly truncated: boolean
+  readonly error: string | null
 }
 
 export interface SettingsFormEntry {

@@ -306,6 +306,17 @@ test('descriptor parameter forms preserve defaults, context, constraints, enums 
   expect(() => commandParameterInput(form, createCommandParameterDraft(form))).toThrow('Resolve')
   expect(Object.isFrozen(form.fields[0])).toBeTrue()
   expect(Object.isFrozen(draft.values)).toBeTrue()
+  expect(() =>
+    compileCommandParameterForm(
+      describeCommand(
+        defineCommand(
+          { ...metadata, id: 'sample.secretDefault', aliases: [], cli: { arguments: [] } },
+          z.strictObject({ secret: z.string().default('must-not-project').meta({ writeOnly: true }) }),
+          z.null(),
+        ),
+      ),
+    ),
+  ).toThrow('cannot publish a default')
 })
 
 test('execution validates permissions, wire versions, outputs and rejects unavailable durable execution', async () => {

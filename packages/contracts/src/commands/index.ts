@@ -10,6 +10,7 @@ import { interactionDraftCommands } from './interaction-draft'
 import { settingsEditorCommands } from './settings-editor'
 import { providerEditorCommands } from './provider-editor'
 import { configurationCommands } from './configuration'
+import { commandPaletteCommands } from './command-palette'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -145,6 +146,7 @@ export { usageCommands } from './usage'
 export { interactionDraftCommands } from './interaction-draft'
 export { settingsEditorCommands } from './settings-editor'
 export { providerEditorCommands } from './provider-editor'
+export { commandPaletteCommands } from './command-palette'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,
@@ -159,4 +161,5 @@ export const applicationCommands = {
   ...settingsEditorCommands,
   ...providerEditorCommands,
   ...configurationCommands,
+  ...commandPaletteCommands,
 }

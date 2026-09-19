@@ -11,6 +11,7 @@
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
     "./commands/browser": "./src/commands/browser.ts",
     "./commands/computer": "./src/commands/computer.ts",
+    "./commands/command-palette": "./src/commands/command-palette.ts",
     "./commands/draft": "./src/commands/draft.ts",
     "./commands/connection": "./src/commands/connection.ts",
     "./commands/configuration": "./src/commands/configuration.ts",
