@@ -12,6 +12,7 @@ import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { RunAccepted } from '@hbar/contracts/commands/run'
 import type { ModelConfiguration } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
+import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type {
   Approval,
   LiveStream,
@@ -62,12 +63,48 @@ export interface RuntimeOptions {
   readonly settings?: CommandExecutor
   readonly configuration?: CommandExecutor
   readonly files?: CommandExecutor
+  readonly agents?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort
   readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly onSubscriberError?: (error: unknown) => void
+}
+
+export interface AgentWorkspaceDraftState {
+  readonly objective: string
+  readonly modelId: string
+  readonly title: string
+  readonly tokenBudget: string
+  readonly thinkingLevel: string
+  readonly approval: 'deny' | 'ask' | 'allow'
+  readonly revision: number
+  readonly issues: Readonly<Record<string, string>>
+}
+
+export interface AgentWorkspaceActionState {
+  readonly status: 'submitting' | 'succeeded' | 'failed' | 'unknown'
+  readonly error: string | null
+}
+
+export interface AgentWorkspaceEntryState {
+  readonly instanceId: string
+  readonly parentSessionId: string
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly items: readonly Readonly<AgentRecord>[]
+  readonly nextCursor: string | null
+  readonly draft: Readonly<AgentWorkspaceDraftState>
+  readonly creation: {
+    readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
+    readonly error: string | null
+  }
+  readonly actions: Readonly<Record<string, Readonly<AgentWorkspaceActionState>>>
+  readonly error: string | null
+}
+
+export interface AgentWorkspaceState {
+  readonly entries: Readonly<Record<string, Readonly<AgentWorkspaceEntryState>>>
 }
 
 export interface FileWorkspaceDocumentState {

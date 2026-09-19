@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./commands": "./src/commands/index.ts",
     "./commands/agents": "./src/commands/agents.ts",
+    "./commands/agent-workspace": "./src/commands/agent-workspace.ts",
     "./commands/budget": "./src/commands/budget.ts",
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
     "./commands/browser": "./src/commands/browser.ts",
