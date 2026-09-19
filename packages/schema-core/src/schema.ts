@@ -1,3 +1,10 @@
+import {
+  decodeResourceReference,
+  resourceReferenceMatches,
+  type ResourceFieldDescription,
+  type ResourceKind,
+} from './resource'
+
 export type FieldValue = string | number | boolean | null
 export type FieldType = 'string' | 'integer' | 'number' | 'boolean'
 
@@ -5,7 +12,15 @@ export interface FormDescription {
   readonly id: string
   readonly version: number
   readonly fields: Readonly<
-    Record<string, { readonly labelKey: string; readonly component: string; readonly readOnly?: boolean }>
+    Record<
+      string,
+      {
+        readonly labelKey: string
+        readonly component: string
+        readonly readOnly?: boolean
+        readonly resource?: ResourceFieldDescription
+      }
+    >
   >
 }
 
@@ -17,6 +32,7 @@ export interface CompiledField {
   readonly required: boolean
   readonly nullable: boolean
   readonly readOnly: boolean
+  readonly resource?: ResourceFieldDescription
   readonly minimum?: number
   readonly exclusiveMinimum?: number
   readonly maximum?: number
@@ -44,23 +60,38 @@ export class SchemaError extends Error {
 }
 
 export interface ComponentRegistry {
-  register(id: string, supportedTypes: readonly FieldType[]): () => void
+  register(id: string, supportedTypes: readonly FieldType[], resourceKinds?: readonly ResourceKind[]): () => void
   supports(id: string, type: FieldType): boolean
+  supportsResource(id: string, kind: ResourceKind): boolean
+  requiresResource(id: string): boolean
 }
 
 export function createComponentRegistry(): ComponentRegistry {
-  const components = new Map<string, ReadonlySet<FieldType>>()
+  const components = new Map<
+    string,
+    { readonly types: ReadonlySet<FieldType>; readonly resources: ReadonlySet<ResourceKind> }
+  >()
   return {
-    register(id, supportedTypes) {
+    register(id, supportedTypes, resourceKinds = []) {
       if (!id || components.has(id) || !supportedTypes.length)
         throw new SchemaError('COMPONENT_CONFLICT', 'Component needs a unique ID and supported types')
       const types = new Set(supportedTypes)
-      components.set(id, types)
+      const resources = new Set(resourceKinds)
+      if (
+        types.size !== supportedTypes.length ||
+        resources.size !== resourceKinds.length ||
+        resourceKinds.some((kind) => kind !== 'file' && kind !== 'directory')
+      )
+        throw new SchemaError('INVALID_COMPONENT', 'Component capabilities must be unique')
+      const capabilities = { types, resources }
+      components.set(id, capabilities)
       return () => {
-        if (components.get(id) === types) components.delete(id)
+        if (components.get(id) === capabilities) components.delete(id)
       }
     },
-    supports: (id, type) => components.get(id)?.has(type) ?? false,
+    supports: (id, type) => components.get(id)?.types.has(type) ?? false,
+    supportsResource: (id, kind) => components.get(id)?.resources.has(kind) ?? false,
+    requiresResource: (id) => Boolean(components.get(id)?.resources.size),
   }
 }
 
@@ -137,6 +168,12 @@ function compileField(
     (view.readOnly !== undefined && typeof view.readOnly !== 'boolean')
   )
     throw new SchemaError('INVALID_DESCRIPTION', `Field ${name} needs a label key and component`)
+  if (
+    view.resource &&
+    (!['file', 'directory'].includes(view.resource.kind) ||
+      !['client-local', 'host', 'workspace'].includes(view.resource.location))
+  )
+    throw new SchemaError('INVALID_DESCRIPTION', `Field ${name} has invalid resource metadata`)
   const minLength = finiteNumber(data.minLength, 'minLength')
   const maxLength = finiteNumber(data.maxLength, 'maxLength')
   if ((minLength !== undefined || maxLength !== undefined) && type !== 'string')
@@ -167,6 +204,7 @@ function compileField(
     required,
     nullable,
     readOnly: view.readOnly ?? false,
+    ...(view.resource ? { resource: Object.freeze({ ...view.resource }) } : {}),
     ...(minimum !== undefined ? { minimum } : {}),
     ...(exclusiveMinimum !== undefined ? { exclusiveMinimum } : {}),
     ...(maximum !== undefined ? { maximum } : {}),
@@ -203,6 +241,10 @@ export function validValue(field: CompiledField, value: unknown): value is Field
       value.length > (field.maxLength ?? Infinity)
     )
       return false
+    if (field.resource) {
+      const reference = decodeResourceReference(value)
+      if (!reference || !resourceReferenceMatches(reference, field.resource)) return false
+    }
   } else if (field.type === 'boolean') {
     if (typeof value !== 'boolean') return false
   } else if (
@@ -242,6 +284,14 @@ export function compileForm(
     const field = compileField(name, properties[name], view, required.includes(name))
     if (!components.supports(field.component, field.type))
       throw new SchemaError('COMPONENT_UNAVAILABLE', `Component ${field.component} cannot edit ${field.type}`)
+    if (field.resource) {
+      if (field.type !== 'string' || !components.supportsResource(field.component, field.resource.kind))
+        throw new SchemaError(
+          'COMPONENT_UNAVAILABLE',
+          `Component ${field.component} cannot select ${field.resource.kind}`,
+        )
+    } else if (components.requiresResource(field.component))
+      throw new SchemaError('INVALID_DESCRIPTION', `Component ${field.component} requires resource metadata`)
     return field
   })
   return Object.freeze({ id: description.id, version: description.version, fields: Object.freeze(fields) })

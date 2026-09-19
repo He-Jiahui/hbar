@@ -11,6 +11,8 @@ import {
   validateForm,
   encodePath,
   decodePath,
+  decodeResourceReference,
+  encodeResourceReference,
 } from '@hbar/schema-core'
 
 function fixture() {
@@ -118,6 +120,63 @@ test('schema paths identify stable item IDs and round-trip punctuation without p
   expect(() => decodePath('f:provider/i:%GG')).toThrow('Malformed')
   expect(() => decodePath('i:0/f:label')).toThrow('start with a field')
   expect(() => decodePath('f:provider/i:')).toThrow('stable item ID')
+})
+
+test('resource fields compile against picker capabilities and reject ambiguous raw paths', () => {
+  const components = createComponentRegistry()
+  components.register('TextField', ['string'])
+  components.register('FilePicker', ['string'], ['file'])
+  const reference = encodeResourceReference({
+    kind: 'workspace-path',
+    resourceKind: 'file',
+    workspaceId: 'workspace',
+    path: 'docs/plan.md',
+  })
+  expect(decodeResourceReference(reference)).toEqual({
+    kind: 'workspace-path',
+    resourceKind: 'file',
+    workspaceId: 'workspace',
+    path: 'docs/plan.md',
+  })
+  const form = compileForm(
+    {
+      type: 'object',
+      additionalProperties: false,
+      properties: { plan: { anyOf: [{ type: 'string' }, { type: 'null' }], default: null } },
+    },
+    {
+      id: 'resource.settings',
+      version: 1,
+      fields: {
+        plan: {
+          labelKey: 'i18n:plan',
+          component: 'FilePicker',
+          resource: { kind: 'file', location: 'workspace' },
+        },
+      },
+    },
+    components,
+  )
+  const selected = setField(form, createForm(form, { plan: null }), 'plan', reference)
+  expect(selected.draft.plan).toBe(reference)
+  expect(setField(form, selected, 'plan', 'D:/client/plan.md').issues).toEqual([{ field: 'plan', code: 'invalid' }])
+  expect(() =>
+    compileForm(
+      { type: 'object', additionalProperties: false, properties: { plan: { type: 'string' } } },
+      {
+        id: 'resource.mismatch',
+        version: 1,
+        fields: {
+          plan: {
+            labelKey: 'i18n:plan',
+            component: 'TextField',
+            resource: { kind: 'file', location: 'workspace' },
+          },
+        },
+      },
+      components,
+    ),
+  ).toThrow('cannot select file')
 })
 
 test('schema-core builds without hbar domain, React, Host, command, or storage dependencies', async () => {

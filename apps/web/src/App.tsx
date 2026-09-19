@@ -20,6 +20,7 @@ import { createAppRuntime, type ClientJsonValue } from '@hbar/app-runtime'
 import {
   HbarClient,
   createBrowserAttachmentController,
+  createBrowserResourcePicker,
   createAgentCommandClient,
   createBudgetCommandClient,
   createCommandCatalogClient,
@@ -74,6 +75,7 @@ function createRuntime(
   hostId: string,
   locale: ShellLocale,
   attachments: ReturnType<typeof createBrowserAttachmentController>['commands'],
+  resourcePicker: ReturnType<typeof createBrowserResourcePicker>,
 ) {
   const copy = getShellCopy(locale)
   return createAppRuntime({
@@ -84,6 +86,7 @@ function createRuntime(
     timeline: createSessionTimelineClient(client),
     run: createRunCommandClient(client),
     attachments,
+    resourcePicker,
     interactions: createInteractionCommandClient(client),
     models: createModelCommandClient(client),
     usage: createUsageCommandClient(client),
@@ -156,11 +159,12 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
   const copy = getShellCopy(locale)
   const client = useMemo(() => new HbarClient(window.location.origin), [])
   const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
+  const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [hostId, setHostId] = useState(() => `pending:${window.location.origin}`)
   const runtime = useMemo(
-    () => createRuntime(client, hostId, locale, attachmentController.commands),
-    [attachmentController, client, hostId, locale],
+    () => createRuntime(client, hostId, locale, attachmentController.commands, resourcePicker),
+    [attachmentController, client, hostId, locale, resourcePicker],
   )
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const sidebarWidth = layoutSidebarWidth(layout.description)
@@ -181,9 +185,10 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
     return () => {
       offStatus()
       attachmentController.dispose()
+      resourcePicker.dispose()
       client.disconnect()
     }
-  }, [attachmentController, client])
+  }, [attachmentController, client, resourcePicker])
 
   useEffect(() => () => runtime.dispose(), [runtime])
 

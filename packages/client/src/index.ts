@@ -34,6 +34,11 @@ export {
   type BrowserAttachmentControllerOptions,
   type BrowserAttachmentSelection,
 } from './browser-attachments'
+export {
+  createBrowserResourcePicker,
+  type BrowserFileSelectionPort,
+  type BrowserResourcePickerOptions,
+} from './browser-resource-picker'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'

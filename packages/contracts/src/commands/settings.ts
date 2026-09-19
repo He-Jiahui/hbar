@@ -41,6 +41,12 @@ const settingsFieldSchema = z
     order: z.number().int().nonnegative(),
     component: z.string().regex(/^[A-Z][A-Za-z0-9.]{0,127}$/),
     multiple: z.literal(false),
+    resource: z
+      .strictObject({
+        kind: z.enum(['file', 'directory']),
+        location: z.enum(['client-local', 'host', 'workspace']),
+      })
+      .optional(),
     content: z
       .strictObject({
         kind: z.literal('options'),
@@ -80,6 +86,8 @@ const settingsFieldSchema = z
       context.addIssue({ code: 'custom', message: 'Setting choices must be unique values of the declared type' })
     if (new Set(field.allowedScopes).size !== field.allowedScopes.length)
       context.addIssue({ code: 'custom', message: 'Allowed setting scopes must be unique' })
+    if (field.resource && field.type !== 'string')
+      context.addIssue({ code: 'custom', message: 'Resource settings must use string references' })
   })
 export const settingsDescriptionSchema = z
   .strictObject({

@@ -122,7 +122,9 @@ export function HbarSettingsWorkspace({
             field: intent.field,
             value: intent.value,
           })
-        : runtime.commands.execute('settingsForm.resetField', { formId: entry.formId, field: intent.field })
+        : intent.kind === 'pick'
+          ? runtime.commands.execute('settingsForm.pickResource', { formId: entry.formId, field: intent.field })
+          : runtime.commands.execute('settingsForm.resetField', { formId: entry.formId, field: intent.field })
     void request.catch(reportError)
   }
   const runFormCommand = (command: 'refresh' | 'submit' | 'reconcile') => {

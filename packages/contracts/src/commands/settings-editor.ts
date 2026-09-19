@@ -50,6 +50,16 @@ export const settingsEditorCommands = {
     }),
     summarySchema,
   ),
+  'settingsForm.pickResource': defineCommand(
+    {
+      ...metadata('settingsForm.pickResource'),
+      cancelMode: 'cooperative',
+      timeoutMs: 5 * 60_000,
+      maxConcurrent: 1,
+    },
+    z.strictObject({ formId: formIdSchema, field: z.string().min(1).max(1_024) }),
+    summarySchema,
+  ),
   'settingsForm.resetField': defineCommand(
     metadata('settingsForm.resetField'),
     z.strictObject({ formId: formIdSchema, field: z.string().min(1).max(1_024) }),

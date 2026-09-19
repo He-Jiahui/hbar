@@ -15,9 +15,12 @@ import {
   createComponentRegistry,
   createContentResolver,
   createForm,
+  decodeResourceReference,
   decodePath,
+  encodeResourceReference,
   encodePath,
   rebaseForm,
+  resourceReferenceMatches,
   resetField,
   SchemaError,
   SchemaContentError,
@@ -85,6 +88,8 @@ function compile(description: SettingsDescription, scope: SettingsSnapshot['scop
   components.register('NumberField', ['integer', 'number'])
   components.register('CheckBox', ['boolean'])
   components.register('ComboBox', ['string', 'integer', 'number', 'boolean'])
+  components.register('FilePicker', ['string'], ['file'])
+  components.register('DirectoryPicker', ['string'], ['directory'])
   const properties = Object.fromEntries(
     description.fields.map((field) => {
       const constraints = {
@@ -109,6 +114,7 @@ function compile(description: SettingsDescription, scope: SettingsSnapshot['scop
             labelKey: field.labelKey,
             component: field.component,
             readOnly: !field.allowedScopes.includes(scope.kind),
+            ...(field.resource ? { resource: field.resource } : {}),
           },
         ]),
       ),
@@ -584,6 +590,87 @@ export function createSettingsForms(
       refreshContent(formId, field)
       return summary(next)
     } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(settingsEditorCommands['settingsForm.pickResource'], async ({ formId, field }, context) => {
+    let current: ReturnType<typeof ready>
+    try {
+      current = ready(formId)
+      const compiled = current.schema.fields.find((candidate) => candidate.name === field)
+      if (!compiled?.resource || compiled.readOnly)
+        throw new CommandError('INVALID_INPUT', 'Setting field is not an editable resource picker')
+      if (!options.resourcePicker)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Resource picker is unavailable in this client')
+      const workspaceId =
+        current.scope.kind === 'workspace'
+          ? current.scope.targetId
+          : current.scope.kind === 'session'
+            ? directory.getSnapshot().sessions[current.scope.targetId]?.workspaceId
+            : undefined
+      if (compiled.resource.location === 'workspace' && !workspaceId)
+        throw new CommandError('INVALID_INPUT', 'Workspace resource selection requires a workspace target')
+      const selectedValue = current.form.draft[field]
+      const existing = typeof selectedValue === 'string' ? decodeResourceReference(selectedValue) : null
+      replaceEntry(formId, {
+        ...current,
+        content: { ...current.content, [field]: { status: 'loading' } },
+        error: null,
+      })
+      const selection = await options.resourcePicker.select(
+        {
+          resource: compiled.resource,
+          current: existing,
+          clientId: options.instanceId,
+          hostId: options.hostId,
+          ...(workspaceId ? { workspaceId } : {}),
+        },
+        context.signal,
+      )
+      const latest = ready(formId)
+      const latestField = latest.schema.fields.find((candidate) => candidate.name === field)
+      if (!latestField?.resource || JSON.stringify(latestField.resource) !== JSON.stringify(compiled.resource))
+        throw new CommandError('VERSION_CONFLICT', 'Resource field changed while the picker was open')
+      if (!selection) {
+        const next = { ...latest, content: { ...latest.content, [field]: { status: 'idle' as const } } }
+        replaceEntry(formId, next)
+        return summary(next)
+      }
+      const reference = selection.reference
+      if (!resourceReferenceMatches(reference, compiled.resource))
+        throw new CommandError('INVALID_OUTPUT', 'Resource picker returned an incompatible reference')
+      if (reference.kind === 'workspace-path' && reference.workspaceId !== workspaceId)
+        throw new CommandError('INVALID_OUTPUT', 'Resource picker returned another workspace path')
+      if (reference.kind === 'host-path' && reference.hostId !== options.hostId)
+        throw new CommandError('INVALID_OUTPUT', 'Resource picker returned another Host path')
+      if (reference.kind === 'client-path')
+        throw new CommandError('INVALID_OUTPUT', 'Host settings require a durable artifact instead of a client path')
+      const form = setField(latest.schema, latest.form, field, encodeResourceReference(reference))
+      const unsets = { ...latest.unsets }
+      delete unsets[field]
+      const next = {
+        ...latest,
+        form,
+        unsets,
+        receipt: null,
+        error: null,
+        content: { ...latest.content, [field]: { status: 'idle' as const } },
+      }
+      replaceEntry(formId, next)
+      refreshContent(formId, field)
+      return summary(next)
+    } catch (error) {
+      if (!isDisposed()) {
+        try {
+          const latest = ready(formId)
+          replaceEntry(formId, {
+            ...latest,
+            content: { ...latest.content, [field]: { status: 'error', errorCode: errorCode(error) } },
+          })
+        } catch {
+          /* The form was closed while the platform picker was active. */
+        }
+      }
       throw commandError(error)
     }
   })

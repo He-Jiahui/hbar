@@ -61,6 +61,7 @@ export type {
   RuntimeOptions,
   RunCommandPort,
   SessionDraftState,
+  SessionAttachmentUpload,
   SessionControlsState,
   SessionTimelinePort,
   SessionTimelineState,

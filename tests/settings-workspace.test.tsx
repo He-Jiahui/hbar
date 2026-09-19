@@ -114,6 +114,7 @@ const labels: HbarSettingsWorkspaceLabels = {
     issue: (issue: FieldIssue) => `字段错误 ${issue.code}`,
     option: (_field, value: FieldValue) => String(value),
     contentText: (text) => (text.kind === 'literal' ? text.text : text.key),
+    pickResource: (kind) => (kind === 'file' ? '选择文件' : '选择文件夹'),
     componentUnavailable: (component) => `组件不可用 ${component}`,
   },
 }

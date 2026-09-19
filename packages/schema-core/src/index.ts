@@ -1,5 +1,21 @@
 export { compileForm, createComponentRegistry, SchemaError } from './schema'
 export type { CompiledField, CompiledForm, ComponentRegistry, FormDescription, FieldType, FieldValue } from './schema'
+export {
+  decodeResourceReference,
+  encodeResourceReference,
+  resourceReferenceLabel,
+  resourceReferenceMatches,
+  validResourceReference,
+} from './resource'
+export type {
+  ResourceFieldDescription,
+  ResourceKind,
+  ResourceLocation,
+  ResourcePickerPort,
+  ResourcePickerRequest,
+  ResourcePickerSelection,
+  ResourceReference,
+} from './resource'
 export { createForm, setField, resetField, beginSubmit, settleSubmit, rebaseForm, validateForm } from './form'
 export type { FormState, FieldIssue, Submission, SubmitOutcome } from './form'
 export {

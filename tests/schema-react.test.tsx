@@ -1,6 +1,13 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { compileForm, createForm, setField, type FieldIssue, type FieldValue } from '@hbar/schema-core'
+import {
+  compileForm,
+  createForm,
+  encodeResourceReference,
+  setField,
+  type FieldIssue,
+  type FieldValue,
+} from '@hbar/schema-core'
 import {
   HbarSchemaForm,
   createSchemaComponentRegistry,
@@ -21,6 +28,7 @@ const labels: HbarSchemaFormLabels = {
   issue: (issue: FieldIssue) => `${issue.field}: ${issue.code}`,
   option: (_field, value: FieldValue) => `Option ${String(value)}`,
   contentText: (text) => (text.kind === 'literal' ? text.text : `Translated ${text.key}`),
+  pickResource: (kind) => (kind === 'file' ? 'Choose file' : 'Choose directory'),
   componentUnavailable: (id) => `Missing component: ${id}`,
 }
 
@@ -56,7 +64,14 @@ test('schema React registry binds serializable capabilities to schema-core and u
   const components = createSchemaComponentRegistry()
   const dispose = components.register(
     'CustomText',
-    { version: 2, fieldTypes: ['string'], multiple: false, contentKinds: ['options'], interaction: 'dialog' },
+    {
+      version: 2,
+      fieldTypes: ['string'],
+      multiple: false,
+      contentKinds: ['options'],
+      resourceKinds: [],
+      interaction: 'dialog',
+    },
     () => <input readOnly />,
   )
   expect(components.schema.supports('CustomText', 'string')).toBe(true)
@@ -68,6 +83,7 @@ test('schema React registry binds serializable capabilities to schema-core and u
         fieldTypes: ['string'],
         multiple: false,
         contentKinds: ['options'],
+        resourceKinds: [],
         interaction: 'dialog',
       },
     },
@@ -75,14 +91,28 @@ test('schema React registry binds serializable capabilities to schema-core and u
   expect(() =>
     components.register(
       'CustomText',
-      { version: 1, fieldTypes: ['string'], multiple: false, contentKinds: [], interaction: 'inline' },
+      {
+        version: 1,
+        fieldTypes: ['string'],
+        multiple: false,
+        contentKinds: [],
+        resourceKinds: [],
+        interaction: 'inline',
+      },
       () => null,
     ),
   ).toThrow('unique')
   expect(() =>
     components.register(
       'Multiple',
-      { version: 1, fieldTypes: ['string'], multiple: true, contentKinds: [], interaction: 'inline' },
+      {
+        version: 1,
+        fieldTypes: ['string'],
+        multiple: true,
+        contentKinds: [],
+        resourceKinds: [],
+        interaction: 'inline',
+      },
       () => null,
     ),
   ).toThrow('unsupported')
@@ -132,6 +162,62 @@ test('schema form renders host-owned copy, raw numeric input and dynamic option 
   expect(html).toContain('Source for mode')
   expect(html).toContain('Action for count')
   expect(html).not.toContain('settings.get')
+})
+
+test('standard resource renderers expose host-labelled command intents for declared picker kinds', () => {
+  const components = createSchemaComponentRegistry()
+  registerStandardSchemaComponents(components)
+  const schema = compileForm(
+    {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        source: { anyOf: [{ type: 'string' }, { type: 'null' }], default: null },
+        output: { anyOf: [{ type: 'string' }, { type: 'null' }], default: null },
+      },
+    },
+    {
+      id: 'resource.form',
+      version: 1,
+      fields: {
+        source: {
+          labelKey: 'i18n:name',
+          component: 'FilePicker',
+          resource: { kind: 'file', location: 'client-local' },
+        },
+        output: {
+          labelKey: 'i18n:mode',
+          component: 'DirectoryPicker',
+          resource: { kind: 'directory', location: 'workspace' },
+        },
+      },
+    },
+    components.schema,
+  )
+  const html = renderToStaticMarkup(
+    <HbarSchemaForm
+      schema={schema}
+      state={createForm(schema, {
+        source: encodeResourceReference({
+          kind: 'artifact',
+          resourceKind: 'file',
+          artifactId: 'a'.repeat(64),
+          name: 'context.md',
+        }),
+        output: null,
+      })}
+      components={components}
+      labels={labels}
+      onIntent={() => undefined}
+    />,
+  )
+  expect(html).toContain('Choose file')
+  expect(html).toContain('Choose directory')
+  expect(html).toContain('value="context.md"')
+  expect(html).not.toContain('hbar-artifact')
+  expect(html).toContain('readOnly=""')
+  expect(components.resolve('FilePicker')?.descriptor.resourceKinds).toEqual(['file'])
+  expect(components.resolve('DirectoryPicker')?.descriptor.resourceKinds).toEqual(['directory'])
 })
 
 test('editor registry keeps ProviderDialog-style renderers versioned and lifecycle scoped', () => {

@@ -17,8 +17,7 @@ import {
   type HbarAppUiRunActivityLabels,
   type HbarAppUiRunActivityStatus,
 } from 'hbar-app-ui'
-import type { SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
-import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
+import type { SessionAttachmentUpload, SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-workspace.css'
 
@@ -82,7 +81,7 @@ export interface HbarSessionWorkspaceProps {
 
 export interface HbarSessionAttachmentSelection {
   readonly kind: 'image' | 'file'
-  readonly upload: AttachmentUploadInput
+  readonly upload: SessionAttachmentUpload
   release(): void
 }
 

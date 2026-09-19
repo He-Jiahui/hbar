@@ -9,6 +9,7 @@ import {
   type FieldValue,
   type LocalizedText,
   type OptionContentReport,
+  type ResourceKind,
 } from '@hbar/schema-core'
 
 const MAX_COMPONENTS = 128
@@ -23,6 +24,7 @@ export interface SchemaComponentDescriptor {
   readonly fieldTypes: readonly FieldType[]
   readonly multiple: boolean
   readonly contentKinds: readonly SchemaContentKind[]
+  readonly resourceKinds: readonly ResourceKind[]
   readonly interaction: SchemaInteractionMode
 }
 
@@ -38,6 +40,7 @@ export type SchemaFieldContent =
 export type SchemaFieldIntent =
   | { readonly kind: 'set'; readonly field: string; readonly value: string | boolean | null }
   | { readonly kind: 'reset'; readonly field: string }
+  | { readonly kind: 'pick'; readonly field: string }
 
 export interface SchemaFieldLabels {
   readonly label: string
@@ -51,6 +54,7 @@ export interface SchemaFieldLabels {
   readonly issue: (issue: FieldIssue) => string
   readonly option: (field: CompiledField, value: FieldValue) => string
   readonly contentText: (text: LocalizedText) => string
+  readonly pickResource: (kind: ResourceKind) => string
 }
 
 export interface SchemaFieldRendererProps {
@@ -97,6 +101,8 @@ function freezeDescriptor(descriptor: SchemaComponentDescriptor): SchemaComponen
     !descriptor.fieldTypes.length ||
     !unique(descriptor.fieldTypes) ||
     !unique(descriptor.contentKinds) ||
+    !unique(descriptor.resourceKinds) ||
+    descriptor.resourceKinds.some((kind) => kind !== 'file' && kind !== 'directory') ||
     descriptor.multiple
   )
     throw new SchemaError('INVALID_COMPONENT', 'Component capabilities are invalid or unsupported')
@@ -104,6 +110,7 @@ function freezeDescriptor(descriptor: SchemaComponentDescriptor): SchemaComponen
     ...descriptor,
     fieldTypes: Object.freeze([...descriptor.fieldTypes]),
     contentKinds: Object.freeze([...descriptor.contentKinds]),
+    resourceKinds: Object.freeze([...descriptor.resourceKinds]),
   })
 }
 
@@ -119,7 +126,7 @@ export function createSchemaComponentRegistry(): SchemaComponentRegistry {
       if (!idPattern.test(id) || entries.has(id) || entries.size >= MAX_COMPONENTS)
         throw new SchemaError('COMPONENT_CONFLICT', 'Component needs a unique bounded ID')
       const compiled = freezeDescriptor(descriptor)
-      const disposeSchema = schema.register(id, compiled.fieldTypes)
+      const disposeSchema = schema.register(id, compiled.fieldTypes, compiled.resourceKinds)
       const registration = Object.freeze({ id, descriptor: compiled, Renderer })
       entries.set(id, registration)
       schemaDisposers.set(id, disposeSchema)

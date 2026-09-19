@@ -9,6 +9,7 @@ import type {
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
+import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type { RunAccepted } from '@hbar/contracts/commands/run'
 import type { ModelConfiguration } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
@@ -32,7 +33,13 @@ import type {
   Usage,
   UserInputRequest,
 } from '@hbar/contracts'
-import type { CompiledForm, FormState, OptionContentReport, SchemaCallbackPort } from '@hbar/schema-core'
+import type {
+  CompiledForm,
+  FormState,
+  OptionContentReport,
+  ResourcePickerPort,
+  SchemaCallbackPort,
+} from '@hbar/schema-core'
 import type { SettingsDescription, SettingsReceipt, SettingsSnapshot } from '@hbar/contracts/commands/settings'
 import type { ProviderEditorDescription, ProviderProfile } from '@hbar/contracts/commands/configuration'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
@@ -80,6 +87,7 @@ export interface RuntimeOptions {
   readonly commandCatalog?: CommandCatalogPort
   readonly commandText?: CommandTextPort
   readonly schemaContent?: SchemaCallbackPort
+  readonly resourcePicker?: ResourcePickerPort
   readonly surfaces?: SurfaceCapabilityPort
   readonly platform?: PlatformPort
   readonly persistence?: ClientPersistencePort
@@ -387,6 +395,7 @@ export interface SessionDraftState {
   readonly error: string | null
   readonly lastOperationId: string | null
 }
+export type SessionAttachmentUpload = AttachmentUploadInput
 export type DraftsState = Readonly<Record<string, SessionDraftState>>
 
 export interface InteractionActionState {

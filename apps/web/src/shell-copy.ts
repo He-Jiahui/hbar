@@ -358,6 +358,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
           : choose('字段值不符合约束。', 'The value does not satisfy this field.'),
       option: (_field, value) => option(value),
       contentText: (text) => (text.kind === 'literal' ? text.text : (messages[text.key] ?? text.key)),
+      pickResource: (kind) =>
+        kind === 'file' ? choose('选择文件', 'Choose file') : choose('选择文件夹', 'Choose directory'),
       componentUnavailable: (component) =>
         choose(`缺少设置组件：${component}`, `Settings component unavailable: ${component}`),
     },
@@ -456,6 +458,8 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
           : choose('字段值不符合约束。', 'The value does not satisfy this field.'),
       option: (_field, value) => String(value),
       contentText: (text) => (text.kind === 'literal' ? text.text : (messages[text.key] ?? text.key)),
+      pickResource: (kind) =>
+        kind === 'file' ? choose('选择文件', 'Choose file') : choose('选择文件夹', 'Choose directory'),
       componentUnavailable: (component) => choose(`缺少组件：${component}`, `Component unavailable: ${component}`),
     },
   }
