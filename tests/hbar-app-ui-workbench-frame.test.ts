@@ -112,6 +112,7 @@ test('compact monitoring primitives render finite host metrics without fallback 
         { id: 'invalid', value: Number.NaN, label: 'Unavailable sample' },
         { id: 'valid', value: 20, label: '20 localized tokens' },
       ],
+      maximum: 100,
       empty: 'Localized empty series',
     }),
   )
@@ -119,6 +120,7 @@ test('compact monitoring primitives render finite host metrics without fallback 
   expect(metrics).toContain('Measured by Host')
   expect(series).toContain('Localized token timeline')
   expect(series).toContain('20 localized tokens')
+  expect(series).toContain('block-size:20%')
   expect(series).not.toContain('NaN')
   expect(series).not.toContain('Localized empty series')
   const emptySeries = renderToStaticMarkup(

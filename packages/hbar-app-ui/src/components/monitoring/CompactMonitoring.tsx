@@ -39,13 +39,18 @@ export function HbarAppUiBarSeries({
   label,
   points,
   empty,
+  maximum,
 }: {
   readonly label: string
   readonly points: readonly HbarAppUiBarPoint[]
   readonly empty: ReactNode
+  readonly maximum?: number | undefined
 }) {
   const records = uniqueItems(points)
-  const maximum = Math.max(1, ...records.map((point) => (Number.isFinite(point.value) ? point.value : 0)))
+  const scale =
+    maximum !== undefined && Number.isFinite(maximum) && maximum > 0
+      ? maximum
+      : Math.max(1, ...records.map((point) => (Number.isFinite(point.value) ? point.value : 0)))
   return records.length ? (
     <div className="hbar-app-ui-bar-series" role="img" aria-label={label}>
       {records.map((point) => (
@@ -53,7 +58,7 @@ export function HbarAppUiBarSeries({
           key={point.id}
           title={point.label}
           style={{
-            blockSize: `${Math.max(0, Math.min(1, Number.isFinite(point.value) ? point.value / maximum : 0)) * 100}%`,
+            blockSize: `${Math.max(0, Math.min(1, Number.isFinite(point.value) ? point.value / scale : 0)) * 100}%`,
           }}
         />
       ))}

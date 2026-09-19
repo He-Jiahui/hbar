@@ -1,5 +1,14 @@
 import { useCallback, useEffect } from 'react'
-import { HbarAppUiButton, HbarAppUiMetricStrip, HbarAppUiSurface } from 'hbar-app-ui'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
+import {
+  HbarAppUiButton,
+  HbarAppUiIcon,
+  HbarAppUiIconButton,
+  HbarAppUiMetricStrip,
+  HbarAppUiSurface,
+} from 'hbar-app-ui'
+import { HbarAppUiSelect } from 'hbar-app-ui/forms'
+import { HbarAppUiBarSeries, HbarAppUiCompactMetrics, HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
 import type { StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './status-workspace.css'
@@ -222,30 +231,30 @@ export function HbarStatusWorkspace({
   const metrics = (keys: readonly ReadingKey[]) =>
     keys.map((key) => {
       const metric = readings?.[key]
-      if (!metric) return { label: labels.readings[key], value: '—' }
+      if (!metric) return { id: key, label: labels.readings[key], value: labels.unavailable(null) }
       if (metric.availability !== 'available' || metric.value === null)
         return {
+          id: key,
           label: labels.readings[key],
           value: labels.unavailable(null),
           ...(metric.reason ? { detail: metric.reason } : {}),
         }
-      return { label: labels.readings[key], value: formatMetric(metric, labels) }
+      return { id: key, label: labels.readings[key], value: formatMetric(metric, labels) }
     })
   const chart = (key: 'systemCpuPercent' | 'hostCpuPercent') => (
-    <div className="hbar-app-react-performance-series" aria-label={labels.readings[key]}>
-      {(report?.points ?? []).map((point) => {
+    <HbarAppUiBarSeries
+      label={labels.readings[key]}
+      maximum={100}
+      points={(report?.points ?? []).map((point) => {
         const metric = point.readings[key]
-        const value = metric.availability === 'available' && metric.value !== null ? metric.value : 0
-        return (
-          <i
-            key={point.start}
-            className={metric.availability === 'available' ? undefined : 'is-unavailable'}
-            style={{ blockSize: `${Math.max(0, Math.min(100, value))}%` }}
-            title={`${labels.observedAt(point.start)} · ${formatMetric(metric, labels)}`}
-          />
-        )
+        return {
+          id: String(point.start),
+          value: metric.availability === 'available' && metric.value !== null ? metric.value : 0,
+          label: `${labels.observedAt(point.start)} · ${formatMetric(metric, labels)}`,
+        }
       })}
-    </div>
+      empty={<p className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</p>}
+    />
   )
   const usageMaximum = Math.max(1, ...(usageReport?.series.map((point) => point.billableTokens) ?? []))
   const usageItem = (label: string, metric: UsageMetric, format: (value: number) => string) =>
@@ -312,21 +321,25 @@ export function HbarStatusWorkspace({
 
   return (
     <HbarAppUiSurface className="hbar-app-react-status-workspace">
-      <header>
-        <div>
-          <h1>{labels.title}</h1>
-          <p>{labels.description}</p>
-        </div>
-        <div>
-          <HbarAppUiButton
+      <HbarAppUiPageHeader
+        title={labels.title}
+        context={labels.description}
+        leading={
+          <HbarAppUiIconButton label={labels.close} onClick={() => invoke('app.closePanel', { instanceId })}>
+            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
+          </HbarAppUiIconButton>
+        }
+        actionsLabel={labels.refresh}
+        actions={
+          <HbarAppUiIconButton
+            label={labels.refresh}
             disabled={entry?.status === 'loading'}
             onClick={() => invoke('statusWorkspace.refresh', { instanceId })}
           >
-            {labels.refresh}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => invoke('app.closePanel', { instanceId })}>{labels.close}</HbarAppUiButton>
-        </div>
-      </header>
+            <HbarAppUiIcon icon={RefreshCw} tier="sm" />
+          </HbarAppUiIconButton>
+        }
+      />
       <nav aria-label={labels.tabs}>
         {(['dashboard', 'usage', 'git'] as const).map((item) => (
           <HbarAppUiButton
@@ -342,7 +355,7 @@ export function HbarStatusWorkspace({
         <div className="hbar-app-react-status-controls" role="group" aria-label={labels.performanceFilters.label}>
           <label>
             <span>{labels.performanceFilters.timeWindow}</span>
-            <select
+            <HbarAppUiSelect
               value={performanceQuery.window}
               disabled={entry?.status === 'loading'}
               onChange={(event) =>
@@ -358,11 +371,11 @@ export function HbarStatusWorkspace({
                   {labels.performanceFilters.windows[window]}
                 </option>
               ))}
-            </select>
+            </HbarAppUiSelect>
           </label>
           <label>
             <span>{labels.performanceFilters.target}</span>
-            <select
+            <HbarAppUiSelect
               value={performanceQuery.target}
               disabled={entry?.status === 'loading'}
               onChange={(event) =>
@@ -378,7 +391,7 @@ export function HbarStatusWorkspace({
                   {labels.performanceFilters.targets[target]}
                 </option>
               ))}
-            </select>
+            </HbarAppUiSelect>
           </label>
         </div>
       )}
@@ -490,7 +503,9 @@ export function HbarStatusWorkspace({
           {usageExport?.status === 'succeeded' && usageExport.fileName && (
             <p role="status">
               {labels.usage.exported(usageExport.rowCount, usageExport.fileName)}
-              {usageExport.incomplete ? ` ${labels.usage.incompleteExport}` : ''}
+              {usageExport.incomplete && (
+                <span className="hbar-app-react-status-export-warning">{labels.usage.incompleteExport}</span>
+              )}
             </p>
           )}
           {usageExport?.status === 'failed' && usageExport.error && (
@@ -557,25 +572,16 @@ export function HbarStatusWorkspace({
           {labels.error(entry.error ?? 'CAPABILITY_UNAVAILABLE')}
         </p>
       ) : section === 'dashboard' && report ? (
-        <main>
-          {report.gap && <p role="status">{labels.gap(report.skippedSamples)}</p>}
-          {includeHost && (
-            <section>
-              <h2>{labels.process}</h2>
-              <HbarAppUiMetricStrip
-                metrics={[
-                  { label: labels.processLabels.pid, value: labels.number(report.process.pid) },
-                  { label: labels.processLabels.platform, value: report.process.platform },
-                  { label: labels.processLabels.architecture, value: report.process.arch },
-                  { label: labels.processLabels.uptime, value: labels.duration(report.process.uptimeMs) },
-                  { label: labels.processLabels.processors, value: labels.number(report.process.logicalProcessors) },
-                ]}
-              />
-            </section>
+        <main className="hbar-app-react-performance">
+          {report.gap && (
+            <p className="hbar-app-react-status-gap" role="status">
+              {labels.gap(report.skippedSamples)}
+            </p>
           )}
           <section>
             <h2>{labels.resources}</h2>
-            <HbarAppUiMetricStrip
+            <HbarAppUiCompactMetrics
+              label={labels.resources}
               metrics={metrics([
                 ...(includeSystem
                   ? (['systemCpuPercent', 'systemLoad1', 'systemMemoryUsedBytes', 'systemMemoryTotalBytes'] as const)
@@ -587,7 +593,8 @@ export function HbarStatusWorkspace({
           {includeHost && (
             <section>
               <h2>{labels.runtime}</h2>
-              <HbarAppUiMetricStrip
+              <HbarAppUiCompactMetrics
+                label={labels.runtime}
                 metrics={metrics([
                   'hostThreadCount',
                   'eventLoopLagMs',
@@ -598,17 +605,6 @@ export function HbarStatusWorkspace({
               />
             </section>
           )}
-          <section>
-            <h2>{labels.io}</h2>
-            <HbarAppUiMetricStrip
-              metrics={metrics([
-                ...(includeHost ? (['hostDiskReadBytesPerSecond', 'hostDiskWriteBytesPerSecond'] as const) : []),
-                ...(includeSystem
-                  ? (['systemNetworkReceiveBytesPerSecond', 'systemNetworkTransmitBytesPerSecond'] as const)
-                  : []),
-              ])}
-            />
-          </section>
           <section>
             <h2>{labels.trends}</h2>
             <div className="hbar-app-react-performance-charts">
@@ -626,6 +622,41 @@ export function HbarStatusWorkspace({
               )}
             </div>
           </section>
+          {includeHost && (
+            <details className="hbar-app-react-status-details">
+              <summary>{labels.process}</summary>
+              <HbarAppUiCompactMetrics
+                label={labels.process}
+                metrics={[
+                  { id: 'pid', label: labels.processLabels.pid, value: labels.number(report.process.pid) },
+                  { id: 'platform', label: labels.processLabels.platform, value: report.process.platform },
+                  { id: 'architecture', label: labels.processLabels.architecture, value: report.process.arch },
+                  {
+                    id: 'uptime',
+                    label: labels.processLabels.uptime,
+                    value: labels.duration(report.process.uptimeMs),
+                  },
+                  {
+                    id: 'processors',
+                    label: labels.processLabels.processors,
+                    value: labels.number(report.process.logicalProcessors),
+                  },
+                ]}
+              />
+            </details>
+          )}
+          <details className="hbar-app-react-status-details">
+            <summary>{labels.io}</summary>
+            <HbarAppUiCompactMetrics
+              label={labels.io}
+              metrics={metrics([
+                ...(includeHost ? (['hostDiskReadBytesPerSecond', 'hostDiskWriteBytesPerSecond'] as const) : []),
+                ...(includeSystem
+                  ? (['systemNetworkReceiveBytesPerSecond', 'systemNetworkTransmitBytesPerSecond'] as const)
+                  : []),
+              ])}
+            />
+          </details>
         </main>
       ) : section === 'usage' && usageReport ? (
         <main className="hbar-app-react-global-usage">

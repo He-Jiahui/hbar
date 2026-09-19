@@ -311,3 +311,21 @@ Playwright 在真实 Host 流程中先展开现有 Provider 的二级菜单，�
 第一次真实截图在 1024px 发现标题说明被两个操作按钮压成逐词换行，因此分组头改为可换行 flex；第二次截图又发现桌面标题的 `flex-basis: 22rem` 在手机纵向布局中变成 22rem 高度，把按钮推到页面中部，最终在窄屏断点恢复内容高度。两项都在重新构建 production preview 后重跑并逐张复核，未用仅通过类型或几何断言替代看图。
 
 验证结果：flow/content guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3052 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。定向 React 测试还以非空技能数据验证路径与全局作用域文案；真实 Host 流程验证设置内导航、诊断命令模态、返回原分组、1440/1024/390 响应式布局、底部 Skills 空态及无水平溢出。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。
+
+## 20. R5.5 Performance 页面重排
+
+旧状态中心使用独立大标题、文字刷新/关闭按钮、原生 select 和多组 `MetricStrip` 大卡片。本轮初始真实截图中进程、计算、运行时和 I/O 共铺开 21 个等权卡片，CPU 趋势被推到首屏底部且图形不可见；窄屏大标题与两个文字动作又占据多行。数据查询本身已经具备范围、时间窗、单位、gap 和 unavailable 原因，因此本切片只重排呈现与复用组件，没有复制统计状态或推算缺失指标。
+
+状态中心现在复用统一 PageHeader：返回和刷新使用语义图标按钮，分区导航与筛选保持在标题下方的普通流中，Performance 的两个筛选改用 `hbar-app-ui` 受控 Select。CPU、内存、线程/队列使用 CompactMetrics；CPU 趋势复用 BarSeries。BarSeries 新增可选固定 maximum，CPU 明确按 0–100% 绘制，避免单个 32% 样本被按当前最大值归一化成满高。Host 进程事实和磁盘/网络事实改为原位 `details`，折叠只属于 UI 局部状态；展开内容仍显示 Host 返回的 PID、平台、架构、运行时间、处理器数、读写与上下行单位。
+
+| 场景         | 截图与人工观察                                                                                                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面默认态   | [1440](../../artifacts/ui-redesign/performance/after/desktop-1440.png)：标题、分区和筛选缩成工作台行；计算/内存、运行时和两条 CPU 趋势均进入首屏，unavailable 原因就近显示               |
+| 桌面进程明细 | [1440](../../artifacts/ui-redesign/performance/after/desktop-1440-process.png)：展开 Host process 后以紧凑事实行显示 PID、平台、架构、运行时间与逻辑处理器，不重新引入卡片墙             |
+| 中等宽度     | [1024](../../artifacts/ui-redesign/performance/after/tablet-1024.png)：应用侧栏存在时指标自然换行，两条趋势按可用宽度纵向排列，没有压缩成窄图                                            |
+| 窄屏摘要     | [390](../../artifacts/ui-redesign/performance/after/mobile-390.png)：标题、三分区、两个筛选和紧凑指标完整可达，无水平页面溢出                                                            |
+| 窄屏趋势     | [390](../../artifacts/ui-redesign/performance/after/mobile-390-chart.png)：System/Host CPU 图按单列排列，32–57% 系统值保持对应比例，约 1% Host 值仍以低柱显示，进程与 I/O 明细保留在图后 |
+
+第一轮截图发现复用 BarSeries 的默认行为会按当前序列最大值归一化；这适合 token 等相对序列，却会误画百分比。组件增加可选固定上限并补静态渲染断言后，真实图中的系统 CPU 柱约占报告百分比高度，Host CPU 低值保持接近基线。Playwright 同时读取实际柱高，确保至少一个真实样本可见；1440、1024 和 390 均检查无水平溢出并逐张人工复核。
+
+验证结果：flow/content/icon guards、全仓 ESLint、TypeScript、386 个 Bun 测试（3058 个断言）、Web production build（2399 modules）和全部 5 项 Playwright 场景通过。Performance runtime、React 与共享 CompactMetrics/BarSeries 定向测试覆盖固定百分比上限、过滤与 unavailable；真实 Host 场景验证四张页面截图、手机趋势截图、柱高可见性和三档无水平溢出。本切片没有执行 Tauri 实窗，因此桌面平台视觉矩阵仍需在 R6.4 补齐。

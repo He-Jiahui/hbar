@@ -7,30 +7,19 @@
   overflow: hidden;
 }
 
-.hbar-app-react-status-workspace > header {
-  display: flex;
+.hbar-app-react-status-workspace > .hbar-app-ui-page-header {
   flex: 0 0 auto;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--hbar-app-ui-space-md);
-  padding: var(--hbar-app-ui-space-lg);
-  border-block-end: 1px solid var(--hbar-app-ui-border);
-}
-
-.hbar-app-react-status-workspace > header > div:last-child,
-.hbar-app-react-status-workspace > nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hbar-app-ui-space-sm);
+  min-block-size: 3.75rem;
 }
 
 .hbar-app-react-status-controls {
   display: flex;
   flex: 0 0 auto;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--hbar-app-ui-space-md);
   padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
-  border-block-end: 1px solid var(--hbar-app-ui-border);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
 .hbar-app-react-status-controls label {
@@ -39,13 +28,19 @@
   gap: var(--hbar-app-ui-space-xs);
 }
 
-.hbar-app-react-status-controls select {
+.hbar-app-react-status-controls select,
+.hbar-app-react-status-controls .hbar-app-ui-control {
   max-inline-size: 14rem;
 }
 
 .hbar-app-react-status-controls > p {
   align-self: center;
   color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-react-status-export-warning {
+  margin-inline-start: var(--hbar-app-ui-space-xs);
+  color: var(--hbar-app-ui-warning);
 }
 
 .hbar-app-react-status-export-actions {
@@ -69,9 +64,18 @@
 }
 
 .hbar-app-react-status-workspace > nav {
+  display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-xs);
   padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-lg);
-  border-block-end: 1px solid var(--hbar-app-ui-border);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-status-workspace > nav .hbar-app-ui-button {
+  min-block-size: var(--hbar-app-ui-control-compact);
+  border-color: transparent;
+  background: transparent;
 }
 
 .hbar-app-react-status-workspace > nav button[aria-current='page'] {
@@ -84,10 +88,6 @@
 .hbar-app-react-status-workspace h3,
 .hbar-app-react-status-workspace p {
   margin: 0;
-}
-
-.hbar-app-react-status-workspace > header p {
-  color: var(--hbar-app-ui-muted);
 }
 
 .hbar-app-react-status-workspace > main {
@@ -106,6 +106,34 @@
   gap: var(--hbar-app-ui-space-sm);
 }
 
+.hbar-app-react-status-workspace > main > section > h2,
+.hbar-app-react-status-details > summary {
+  font-size: var(--hbar-app-ui-font-section);
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.hbar-app-react-status-gap {
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  color: var(--hbar-app-ui-warning);
+  background: color-mix(in srgb, var(--hbar-app-ui-warning) 8%, transparent);
+}
+
+.hbar-app-react-status-details {
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-react-status-details > summary {
+  padding-block: var(--hbar-app-ui-space-md);
+  cursor: pointer;
+}
+
+.hbar-app-react-status-details[open] > summary {
+  color: var(--hbar-app-ui-accent);
+}
+
 .hbar-app-react-status-loading {
   display: flex;
   flex: 1 1 auto;
@@ -115,44 +143,26 @@
 }
 
 .hbar-app-react-performance-charts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--hbar-app-ui-space-md);
 }
 
 .hbar-app-react-performance-charts article {
   display: flex;
+  min-inline-size: min(100%, 18rem);
+  flex: 1 1 24rem;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-sm);
-  min-inline-size: 0;
   padding: var(--hbar-app-ui-space-md);
-  border: 1px solid var(--hbar-app-ui-border);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
 }
 
-.hbar-app-react-performance-series {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.125rem;
-  min-block-size: 8rem;
-}
-
-.hbar-app-react-performance-series i {
-  flex: 1 1 0;
-  min-inline-size: 0.125rem;
-  max-inline-size: 2rem;
-  background: var(--hbar-app-ui-accent);
-}
-
-.hbar-app-react-performance-series i.is-unavailable {
-  block-size: 100% !important;
-  opacity: 0.12;
-  background: repeating-linear-gradient(
-    45deg,
-    var(--hbar-app-ui-muted),
-    var(--hbar-app-ui-muted) 0.125rem,
-    transparent 0.125rem,
-    transparent 0.25rem
-  );
+.hbar-app-react-status-empty-chart {
+  min-block-size: 5rem;
+  color: var(--hbar-app-ui-muted);
 }
 
 .hbar-app-react-usage-series {
@@ -161,7 +171,7 @@
   gap: 0.125rem;
   min-block-size: 9rem;
   padding: var(--hbar-app-ui-space-sm);
-  border: 1px solid var(--hbar-app-ui-border);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
 .hbar-app-react-usage-series i {
@@ -181,31 +191,35 @@
 }
 
 .hbar-app-react-usage-models li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   gap: var(--hbar-app-ui-space-md);
   min-inline-size: 0;
   padding: var(--hbar-app-ui-space-sm);
-  border-block-end: 1px solid var(--hbar-app-ui-border);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
 .hbar-app-react-usage-models strong {
+  min-inline-size: min(100%, 14rem);
+  flex: 1 1 14rem;
   overflow-wrap: anywhere;
 }
 
 .hbar-app-react-git-charts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--hbar-app-ui-space-md);
 }
 
 .hbar-app-react-git-charts article {
   display: flex;
+  min-inline-size: min(100%, 18rem);
+  flex: 1 1 28rem;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-sm);
-  min-inline-size: 0;
   padding: var(--hbar-app-ui-space-md);
-  border: 1px solid var(--hbar-app-ui-border);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
 .hbar-app-react-git-series {
@@ -273,12 +287,12 @@
 .hbar-app-react-git-commits {
   display: flex;
   flex-direction: column;
-  border-block-start: 1px solid var(--hbar-app-ui-border);
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
 .hbar-app-react-git-commits details {
   padding: var(--hbar-app-ui-space-sm) 0;
-  border-block-end: 1px solid var(--hbar-app-ui-border);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
 .hbar-app-react-git-commits summary {
@@ -294,14 +308,15 @@
 }
 
 .hbar-app-react-git-commits dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--hbar-app-ui-space-sm);
   margin: var(--hbar-app-ui-space-sm) 0 0;
 }
 
 .hbar-app-react-git-commits dl div {
   min-inline-size: 0;
+  flex: 1 1 10rem;
 }
 
 .hbar-app-react-git-commits dt {
@@ -317,16 +332,9 @@
 }
 
 @media (max-width: 42rem) {
-  .hbar-app-react-performance-charts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .hbar-app-react-usage-models li {
-    grid-template-columns: minmax(0, 1fr);
+    align-items: flex-start;
+    flex-direction: column;
     gap: var(--hbar-app-ui-space-xs);
-  }
-
-  .hbar-app-react-git-charts {
-    grid-template-columns: minmax(0, 1fr);
   }
 }

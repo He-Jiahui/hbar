@@ -280,10 +280,39 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 1, name: 'Status center' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeHidden()
     await expect(page.getByRole('button', { name: 'Performance' })).toHaveAttribute('aria-current', 'page')
-    await expect(page.getByRole('heading', { level: 2, name: 'Host process' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Compute and memory' })).toBeVisible()
+    const systemCpuChart = page.getByRole('img', { name: 'System CPU' })
+    const hostCpuChart = page.getByRole('img', { name: 'Host CPU' })
+    await expect(systemCpuChart).toBeVisible()
+    await expect(hostCpuChart).toBeVisible()
+    expect(
+      await systemCpuChart
+        .locator('i')
+        .evaluateAll((bars) => bars.some((bar) => Number.parseFloat(getComputedStyle(bar).blockSize) > 0)),
+    ).toBe(true)
+    await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/web-b6/performance.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/desktop-1440.png', fullPage: true })
+    await page.getByText('Host process', { exact: true }).click()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/performance/after/desktop-1440-process.png',
+      fullPage: true,
+    })
+    await page.getByText('Host process', { exact: true }).click()
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/tablet-1024.png', fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await expect(systemCpuChart).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/mobile-390.png', fullPage: true })
+    await systemCpuChart.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/mobile-390-chart.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: 'Close status center' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const restoreShellNavigation = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
+    if (await restoreShellNavigation.isVisible()) await restoreShellNavigation.click()
 
     await page.keyboard.press('Control+K')
     const commandDialog = page.getByRole('dialog', { name: 'Command catalog' })
