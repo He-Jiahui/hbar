@@ -8,6 +8,7 @@ import { HbarAppUiConversation, type HbarAppUiMessageProps } from 'hbar-app-ui/c
 import { HbarAppUiPromptComposer, type HbarAppUiPromptLabels } from 'hbar-app-ui/prompt-composer'
 import { HbarAppUiQuestionnaire } from 'hbar-app-ui/questionnaire'
 import { HbarAppUiRunActivity } from 'hbar-app-ui/run-activity'
+import { HbarAppUiButton } from 'hbar-app-ui/primitives'
 import type {
   HbarAppUiApprovalRequestLabels,
   HbarAppUiQuestionnaireLabels,
@@ -25,6 +26,14 @@ export interface HbarSessionWorkspaceLabels {
   readonly conversationTitle: (title: string) => string
   readonly loading: string
   readonly empty: string
+  readonly disconnected: string
+  readonly refreshing: string
+  readonly loadOlder: string
+  readonly loadingOlder: string
+  readonly retryHistory: string
+  readonly retryTimeline: string
+  readonly historyLimit: string
+  readonly latest: string
   readonly author: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly avatar: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly copy: string
@@ -234,7 +243,7 @@ export function HbarSessionWorkspace({
       }
     })()
   }
-  const runErrorAction = activeRuns.map((run) => runActions[run.id]).find((action) => action?.error)
+  const runErrorAction = timeline.runs.map((run) => runActions[run.id]).find((action) => action?.error)
   const toolInstanceId = presentation.toolInstanceId
   const activeTool = toolInstanceId ? surfaces.panels[toolInstanceId] : undefined
   const toggleTool = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') => {
@@ -293,8 +302,12 @@ export function HbarSessionWorkspace({
             cancellingRunIds={activeRuns
               .filter((run) => ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? ''))
               .map((run) => run.id)}
+            retryingRunIds={timeline.runs
+              .filter((run) => runActions[run.id]?.status === 'submitting')
+              .map((run) => run.id)}
             feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
             onCancelRun={(operationId) => invoke('operation.cancel', { operationId })}
+            onRetryRun={(operationId) => invoke('run.retry', { sessionId, operationId })}
           />
         )}
         {timeline.approvals.map((approval) => {
@@ -365,6 +378,48 @@ export function HbarSessionWorkspace({
         })}
       </div>
     ) : null
+
+  const retryTimeline = () => sessionId && invoke('timeline.retry', { sessionId })
+  const loadOlder = () => sessionId && invoke('timeline.loadOlder', { sessionId })
+  const historyNotices = sessionId ? (
+    <div className="hbar-app-react-session-history-controls">
+      {!connected && <p role="status">{labels.disconnected}</p>}
+      {timeline.status === 'loading' && timeline.messages.length > 0 && <p role="status">{labels.refreshing}</p>}
+      {timeline.status === 'error' && timeline.messages.length > 0 && (
+        <div className="hbar-app-react-session-history-error" role="alert">
+          <span>{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</span>
+          {connected && <HbarAppUiButton onClick={retryTimeline}>{labels.retryTimeline}</HbarAppUiButton>}
+        </div>
+      )}
+      {timeline.olderStatus === 'limit' ? (
+        <p role="status">{labels.historyLimit}</p>
+      ) : timeline.hasOlder || timeline.olderStatus === 'error' ? (
+        <div className="hbar-app-react-session-history-page">
+          {timeline.olderStatus === 'error' && (
+            <span role="alert">{labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}</span>
+          )}
+          <HbarAppUiButton disabled={!connected || timeline.olderStatus === 'loading'} onClick={loadOlder}>
+            {timeline.olderStatus === 'loading'
+              ? labels.loadingOlder
+              : timeline.olderStatus === 'error'
+                ? labels.retryHistory
+                : labels.loadOlder}
+          </HbarAppUiButton>
+        </div>
+      ) : null}
+    </div>
+  ) : null
+
+  const emptyTimeline = (
+    <div className="hbar-app-react-session-empty">
+      <p>
+        {timeline.status === 'loading' ? labels.loading : timeline.error ? labels.error(timeline.error) : labels.empty}
+      </p>
+      {connected && timeline.status === 'error' && sessionId && (
+        <HbarAppUiButton onClick={retryTimeline}>{labels.retryTimeline}</HbarAppUiButton>
+      )}
+    </div>
+  )
 
   const composer: ReactNode = sessionId ? (
     <div className="hbar-app-react-session-footer">
@@ -494,17 +549,16 @@ export function HbarSessionWorkspace({
           title={labels.conversationTitle(sessionTitle)}
           header={null}
           messages={messages}
-          empty={
-            <p>
-              {timeline.status === 'loading'
-                ? labels.loading
-                : timeline.error
-                  ? labels.error(timeline.error)
-                  : labels.empty}
-            </p>
-          }
+          empty={emptyTimeline}
+          beforeMessages={historyNotices}
           afterMessages={activity}
           composer={composer}
+          scrollKey={sessionId ?? undefined}
+          contentRevision={`${timeline.cursor}:${Object.values(timeline.streams)
+            .map((stream) => `${stream.id}:${stream.version}`)
+            .sort()
+            .join(',')}`}
+          latestLabel={labels.latest}
         />
       </div>
     </div>

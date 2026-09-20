@@ -1,12 +1,13 @@
-import { Square } from 'lucide-react'
+import { RotateCcw, Square } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
-import { HbarAppUiEmptyState, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
+import { HbarAppUiButton, HbarAppUiEmptyState, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
 import { HbarAppUiVirtualList } from '../../VirtualList'
 import { uniqueItems } from '../../collection'
 import type { HbarAppUiRunActivityItem, HbarAppUiRunActivityProps } from '../../run-activity-types'
 import './RunActivity.css'
 
 const activeStatuses = new Set<HbarAppUiRunActivityItem['status']>(['queued', 'running', 'waiting_approval'])
+const retryableStatuses = new Set<HbarAppUiRunActivityItem['status']>(['failed', 'interrupted'])
 function tone(status: HbarAppUiRunActivityItem['status']) {
   if (status === 'completed') return 'positive'
   if (status === 'failed' || status === 'interrupted') return 'danger'
@@ -18,9 +19,11 @@ export function HbarAppUiRunActivity({
   listStrategy,
   selectedRunId,
   cancellingRunIds,
+  retryingRunIds,
   feedback,
   onSelectRun,
   onCancelRun,
+  onRetryRun,
 }: HbarAppUiRunActivityProps) {
   const records = uniqueItems(runs)
   const empty = (
@@ -32,6 +35,7 @@ export function HbarAppUiRunActivity({
   )
   function renderRow(run: HbarAppUiRunActivityItem) {
     const cancelling = cancellingRunIds?.includes(run.id) ?? false
+    const retrying = retryingRunIds?.includes(run.id) ?? false
     const content = (
       <>
         <span className="hbar-app-ui-run-activity-marker" aria-hidden="true" />
@@ -72,6 +76,17 @@ export function HbarAppUiRunActivity({
           >
             <HbarAppUiIcon icon={Square} tier="sm" />
           </HbarAppUiIconButton>
+        )}
+        {retryableStatuses.has(run.status) && onRetryRun && (
+          <HbarAppUiButton
+            type="button"
+            className="hbar-app-ui-run-activity-retry"
+            disabled={retrying}
+            onClick={() => onRetryRun(run.id)}
+          >
+            <HbarAppUiIcon icon={RotateCcw} tier="sm" />
+            <span>{retrying ? labels.retryingLabel : labels.retryLabel}</span>
+          </HbarAppUiButton>
         )}
       </article>
     )

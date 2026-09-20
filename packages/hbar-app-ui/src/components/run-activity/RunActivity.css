@@ -82,6 +82,16 @@
   margin-inline-end: var(--hbar-app-ui-space-sm);
   flex: 0 0 auto;
 }
+.hbar-app-ui-run-activity-retry {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-xs);
+  min-block-size: var(--hbar-app-ui-control-compact);
+  margin-inline-end: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-sm);
+  flex: 0 0 auto;
+}
 .hbar-app-ui-run-activity-feedback {
   color: var(--hbar-app-ui-danger);
   margin: 0;

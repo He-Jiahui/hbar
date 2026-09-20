@@ -59,6 +59,7 @@ describe('host-controlled conversation components', () => {
         header: null,
         messages: [],
         empty: createElement('p', null, 'Host empty state'),
+        beforeMessages: createElement('button', null, 'Load host history'),
         afterMessages: createElement('section', { 'aria-label': 'Run activity' }, 'Host activity'),
         composer: createElement('form', null, 'Host composer'),
       }),
@@ -66,6 +67,7 @@ describe('host-controlled conversation components', () => {
     expect(markup).toContain('aria-label="Localized conversation name"')
     expect(markup).not.toContain('<h2>Localized conversation name</h2>')
     expect(markup).toContain('hbar-app-ui-conversation-content')
+    expect(markup.indexOf('Load host history')).toBeLessThan(markup.indexOf('Host empty state'))
     expect(markup.indexOf('Host empty state')).toBeLessThan(markup.indexOf('Host activity'))
     expect(markup.indexOf('Host activity')).toBeLessThan(markup.indexOf('Host composer'))
   })

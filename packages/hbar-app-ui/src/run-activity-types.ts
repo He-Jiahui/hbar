@@ -14,6 +14,8 @@ export interface HbarAppUiRunActivityLabels {
   readonly emptyDescription: string
   readonly cancelLabel: string
   readonly cancellingLabel: string
+  readonly retryLabel: string
+  readonly retryingLabel: string
   readonly countLabel: (count: number) => string
   readonly statusLabel: (status: HbarAppUiRunActivityStatus) => string
 }
@@ -23,7 +25,9 @@ export interface HbarAppUiRunActivityProps {
   readonly listStrategy: 'content-grown' | 'virtual'
   readonly selectedRunId?: string | undefined
   readonly cancellingRunIds?: readonly string[] | undefined
+  readonly retryingRunIds?: readonly string[] | undefined
   readonly feedback?: string | undefined
   readonly onSelectRun?: ((runId: string) => void) | undefined
   readonly onCancelRun?: ((runId: string) => void) | undefined
+  readonly onRetryRun?: ((runId: string) => void) | undefined
 }

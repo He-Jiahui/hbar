@@ -669,6 +669,17 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     conversationTitle: (title) => choose(`会话：${title}`, `Session: ${title}`),
     loading: choose('正在加载会话记录…', 'Loading session history…'),
     empty: choose('发送提示词以开始会话。', 'Send a prompt to begin this session.'),
+    disconnected: choose(
+      '连接已中断；现有记录、草稿和附件已保留。',
+      'Connection lost. Existing history, draft, and attachments are preserved.',
+    ),
+    refreshing: choose('正在刷新会话记录…', 'Refreshing session history…'),
+    loadOlder: choose('加载更早消息', 'Load earlier messages'),
+    loadingOlder: choose('正在加载更早消息…', 'Loading earlier messages…'),
+    retryHistory: choose('重试加载更早消息', 'Retry earlier messages'),
+    retryTimeline: choose('重试会话加载', 'Retry session history'),
+    historyLimit: choose('已达到此窗口的 1,000 条消息上限。', 'This window reached its 1,000-message history limit.'),
+    latest: choose('查看最新消息', 'View latest messages'),
     author: zh
       ? { user: '你', assistant: '助手', system: '系统', tool: '工具' }
       : { user: 'You', assistant: 'Assistant', system: 'System', tool: 'Tool' },
@@ -720,7 +731,9 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ),
       cancelLabel: choose('取消运行', 'Cancel run'),
       cancellingLabel: choose('正在取消', 'Cancelling'),
-      countLabel: (count) => choose(`${count} 次运行`, `${count} runs`),
+      retryLabel: choose('重试运行', 'Retry run'),
+      retryingLabel: choose('正在重试', 'Retrying'),
+      countLabel: (count) => choose(`${count} 次运行`, `${count} ${count === 1 ? 'run' : 'runs'}`),
       statusLabel: (status) => statusLabels[status],
     },
     runDetail: (modelId) => choose(`模型 ${modelId}`, `Model ${modelId}`),

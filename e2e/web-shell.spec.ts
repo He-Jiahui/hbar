@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type WebSocketRoute } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -6,7 +6,7 @@ import { delimiter, join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createInterface } from 'node:readline'
 
-async function startSessionHost(root: string, sessionCount = 1) {
+async function startSessionHost(root: string, sessionCount = 1, historyCount = 0) {
   const bun =
     process.platform === 'win32'
       ? (process.env.PATH ?? '')
@@ -25,6 +25,7 @@ async function startSessionHost(root: string, sessionCount = 1) {
       HBAR_E2E_DATA_ROOT: root,
       HBAR_E2E_HOST_PORT: '4317',
       HBAR_E2E_SESSION_COUNT: String(sessionCount),
+      HBAR_E2E_HISTORY_COUNT: String(historyCount),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
@@ -210,6 +211,195 @@ test('session tree paginates the 101st row inside its sidebar pane', async ({ br
         .evaluate((element) => element.scrollHeight > element.clientHeight),
     ).toBe(true)
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/capacity-101.png', fullPage: true })
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('long session history preserves reading anchors, follows new content on demand, and survives reconnect', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-history-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root, 2, 180)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+    const page = await context.newPage()
+    let browserSocket: WebSocketRoute | undefined
+    await page.routeWebSocket('**/rpc', (socket) => {
+      browserSocket = socket
+      socket.connectToServer()
+    })
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    const viewport = page.locator('.hbar-app-ui-conversation-messages')
+    const virtual = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '60')
+    await expect(page.locator('[data-message-id="history-180"]')).toBeVisible()
+    expect(await page.locator('[data-message-id]').count()).toBeLessThan(50)
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    const anchor = page.locator('[data-message-id="history-121"]')
+    await expect(anchor).toBeVisible()
+    const anchorTop = await anchor.evaluate((element) => element.getBoundingClientRect().top)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-page-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Load earlier messages' }).click()
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '120')
+    await expect(anchor).toBeVisible()
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    )
+    await expect
+      .poll(async () => Math.abs((await anchor.evaluate((element) => element.getBoundingClientRect().top)) - anchorTop))
+      .toBeLessThan(16)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-anchor-1440.png', fullPage: true })
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    await page.getByRole('button', { name: 'Load earlier messages' }).click()
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '180')
+    await page.waitForTimeout(300)
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    await expect(page.locator('[data-message-id="history-1"]')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Load earlier messages' })).toHaveCount(0)
+    expect(await page.locator('[data-message-id]').count()).toBeLessThan(50)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-top-1440.png', fullPage: true })
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight / 2
+      element.dispatchEvent(new Event('scroll'))
+    })
+    const readingOffset = await viewport.evaluate((element) => element.scrollTop)
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await prompt.fill('new while reading history')
+    await page.getByRole('button', { name: 'Send' }).click()
+    const latest = page.getByRole('button', { name: 'View latest messages' })
+    await expect(latest).toBeVisible()
+    expect(Math.abs((await viewport.evaluate((element) => element.scrollTop)) - readingOffset)).toBeLessThan(16)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-new-1440.png', fullPage: true })
+    await latest.click()
+    await expect(latest).toHaveCount(0)
+    await expect(page.getByText('new while reading history', { exact: true })).toBeVisible()
+    expect(
+      await viewport.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight),
+    ).toBeLessThan(32)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-latest-1440.png', fullPage: true })
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight * 0.35
+      element.dispatchEvent(new Event('scroll'))
+    })
+    const savedOffset = await viewport.evaluate((element) => element.scrollTop)
+    await page.getByRole('button', { name: 'Open session Session 001' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Session 001' })).toBeVisible()
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '182')
+    await expect
+      .poll(async () => Math.abs((await viewport.evaluate((element) => element.scrollTop)) - savedOffset))
+      .toBeLessThan(32)
+
+    await prompt.fill('draft preserved through reconnect')
+    if (!browserSocket) throw new Error('The browser RPC WebSocket was not routed')
+    const disconnectedSocket = browserSocket
+    await disconnectedSocket.close({ code: 1012, reason: 'E2E connection interruption' })
+    await expect(page.locator('footer')).toContainText('Disconnected')
+    await expect(prompt).toHaveValue('draft preserved through reconnect')
+    await expect(
+      page.getByText('Connection lost. Existing history, draft, and attachments are preserved.'),
+    ).toBeAttached()
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/disconnected-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Reconnect' }).click()
+    await expect(page.locator('footer')).toContainText('Connected')
+    await expect.poll(() => browserSocket !== disconnectedSocket).toBe(true)
+    await expect(prompt).toHaveValue('draft preserved through reconnect')
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '182')
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/reconnected-1440.png', fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-mobile-390.png', fullPage: true })
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('failed session runs expose a command retry without breaking narrow layouts', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-run-retry-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await prompt.fill('/fail')
+    await page.getByRole('button', { name: 'Send' }).click()
+    const activity = page.getByRole('region', { name: 'Agent activity' })
+    await expect(activity.getByText('1 run', { exact: true })).toBeVisible()
+    await expect(activity.getByText('Failed', { exact: true })).toHaveCount(1)
+    const retry = activity.getByRole('button', { name: 'Retry run' })
+    await expect(retry).toHaveCount(1)
+    await expect(page.getByText('Fixture provider failure', { exact: true })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-failed-1440.png', fullPage: true })
+
+    await retry.click()
+    await expect(activity.getByText('2 runs', { exact: true })).toBeVisible()
+    await expect(activity.getByText('Failed', { exact: true })).toHaveCount(2)
+    await expect(activity.getByRole('button', { name: 'Retry run' })).toHaveCount(2)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-retried-1440.png', fullPage: true })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    expect(
+      await activity.locator('.hbar-app-ui-run-activity-item').evaluateAll((items) =>
+        items.every((item) => {
+          const row = item.getBoundingClientRect()
+          const retryButton = item
+            .querySelector<HTMLElement>('.hbar-app-ui-run-activity-retry')
+            ?.getBoundingClientRect()
+          return Boolean(retryButton && retryButton.left >= row.left && retryButton.right <= row.right)
+        }),
+      ),
+    ).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-retried-mobile-390.png', fullPage: true })
+    expect(errors).toEqual([])
   } finally {
     await context.close()
     if (fixture) await stopSessionHost(fixture.child)

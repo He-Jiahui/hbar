@@ -139,7 +139,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
         ],
         usage: { input: 10, output: 10, cacheRead: 2, cacheWrite: 0, cost: 0.01 },
         cursor: 4,
-        hasOlder: false,
+        hasOlder: true,
         streams: [],
       }
     },
@@ -247,6 +247,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('Agent approval')
     expect(html).toContain('Should we continue?')
     expect(html).toContain('AI usage')
+    expect(html).toContain('Load earlier messages')
     expect(html).toContain('aria-label="Add attachment"')
     expect(html).toContain('20 tokens')
     expect(html).toContain('Workspace 1')

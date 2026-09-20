@@ -51,6 +51,48 @@
   border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
 }
 
+.hbar-app-react-session-history-controls,
+.hbar-app-react-session-history-page,
+.hbar-app-react-session-history-error,
+.hbar-app-react-session-empty {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hbar-app-ui-space-sm);
+}
+
+.hbar-app-react-session-history-controls,
+.hbar-app-react-session-empty {
+  flex-direction: column;
+}
+
+.hbar-app-react-session-history-controls:empty {
+  display: none;
+}
+
+.hbar-app-react-session-history-controls p,
+.hbar-app-react-session-history-page,
+.hbar-app-react-session-history-error,
+.hbar-app-react-session-empty p {
+  margin: 0;
+  color: var(--hbar-app-ui-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.hbar-app-react-session-history-page,
+.hbar-app-react-session-history-error {
+  flex-wrap: wrap;
+}
+
+.hbar-app-react-session-history-controls .hbar-app-ui-button,
+.hbar-app-react-session-empty .hbar-app-ui-button {
+  min-block-size: var(--hbar-app-ui-control-compact);
+  padding-inline: var(--hbar-app-ui-space-sm);
+  font-size: 0.8125rem;
+}
+
 .hbar-app-react-session-footer {
   display: flex;
   inline-size: min(100%, 52rem);

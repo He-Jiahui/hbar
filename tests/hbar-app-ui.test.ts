@@ -229,9 +229,13 @@ describe('hbar-app-ui registry', () => {
           countLabel: (count) => `${count} 个运行`,
           cancelLabel: '停止此运行',
           cancellingLabel: '正在停止',
+          retryLabel: '重试此运行',
+          retryingLabel: '正在重试',
         },
         cancellingRunIds: ['run-active'],
+        retryingRunIds: ['run-failed'],
         onCancelRun: () => undefined,
+        onRetryRun: () => undefined,
         runs: [
           {
             id: 'run-active',
@@ -253,13 +257,21 @@ describe('hbar-app-ui registry', () => {
             status: 'queued',
             statusLabel: '排队中',
           },
+          {
+            id: 'run-failed',
+            label: '检查失败',
+            status: 'failed',
+            statusLabel: '失败',
+          },
         ],
       }),
     )
     expect(markup).toContain('运行记录')
-    expect(markup).toContain('3 个运行')
+    expect(markup).toContain('4 个运行')
     expect(markup).toContain('正在停止')
     expect(markup).toContain('停止此运行')
+    expect(markup).toContain('正在重试')
+    expect(markup).toContain('hbar-app-ui-run-activity-retry')
     expect(markup).toContain('hbar-app-ui-run-status-running')
     expect(markup).not.toContain('hbar-app-ui-preview')
     expect(markup).not.toContain('hbar-app-ui-profile-controls')
@@ -275,6 +287,8 @@ describe('hbar-app-ui registry', () => {
           emptyDescription: 'Hier erscheinen Ausführungen.',
           cancelLabel: 'Lauf stoppen',
           cancellingLabel: 'Wird gestoppt',
+          retryLabel: 'Erneut versuchen',
+          retryingLabel: 'Wird erneut versucht',
           countLabel: (count) => `${count} ${count === 1 ? 'Lauf' : 'Läufe'}`,
           statusLabel: (status) => `status:${status}`,
         },

@@ -24,6 +24,39 @@
   margin-inline: auto;
   padding: var(--hbar-app-ui-space-lg);
 }
+.hbar-app-ui-conversation-virtual {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+.hbar-app-ui-conversation-virtual-row {
+  min-inline-size: 0;
+  padding-block-end: var(--hbar-app-ui-space-md);
+}
+.hbar-app-ui-conversation-latest {
+  display: inline-flex;
+  inline-size: max-content;
+  max-inline-size: calc(100% - (var(--hbar-app-ui-space-md) * 2));
+  min-block-size: var(--hbar-app-ui-control-compact);
+  flex: 0 0 auto;
+  align-items: center;
+  align-self: center;
+  gap: var(--hbar-app-ui-space-xs);
+  margin-block: calc(var(--hbar-app-ui-space-sm) * -1) var(--hbar-app-ui-space-xs);
+  padding-inline: var(--hbar-app-ui-space-md);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
+  border-radius: var(--hbar-app-ui-radius-pill);
+  background: var(--hbar-app-ui-surface-2);
+  color: var(--hbar-app-ui-text);
+  box-shadow: var(--hbar-app-ui-shadow);
+  font: inherit;
+  text-align: center;
+}
+.hbar-app-ui-conversation-latest:hover,
+.hbar-app-ui-conversation-latest:focus-visible {
+  border-color: var(--hbar-app-ui-accent);
+  background: var(--hbar-app-ui-surface-1);
+}
 .hbar-app-ui-conversation .message {
   min-inline-size: 0;
 }

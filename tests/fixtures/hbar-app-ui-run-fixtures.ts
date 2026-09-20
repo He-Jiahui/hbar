@@ -5,6 +5,8 @@ export const RUN_LABELS: HbarAppUiRunActivityLabels = {
   emptyDescription: 'Execution history will appear here.',
   cancelLabel: 'Stop run',
   cancellingLabel: 'Stopping run',
+  retryLabel: 'Retry run',
+  retryingLabel: 'Retrying run',
   countLabel: (count) => `${count} runs`,
   statusLabel: (status) =>
     ({
