@@ -1,0 +1,151 @@
+.hbar-app-react-shell-header,
+.hbar-app-react-sidebar-primary,
+.hbar-app-react-project-tree,
+.hbar-app-react-project-tree section,
+.hbar-app-react-session-list,
+.hbar-app-react-sidebar-actions,
+.hbar-app-react-session-label {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.hbar-app-react-shell-header {
+  min-block-size: 3rem;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.hbar-app-react-shell-header strong {
+  overflow: hidden;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-sidebar-primary,
+.hbar-app-react-project-tree,
+.hbar-app-react-project-tree section,
+.hbar-app-react-session-list,
+.hbar-app-react-sidebar-actions,
+.hbar-app-react-session-label {
+  flex-direction: column;
+}
+
+.hbar-app-react-session-row,
+.hbar-app-react-session-target,
+.hbar-app-react-workspace-line {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.hbar-app-react-sidebar-primary {
+  gap: 0.125rem;
+}
+
+.hbar-app-react-project-tree {
+  gap: 0.25rem;
+  padding-block-end: 1rem;
+}
+
+.hbar-app-react-workspace-row,
+.hbar-app-react-session-target {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-workspace-row {
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-workspace-row [data-variant],
+.hbar-app-react-session-label [data-variant] {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-session-list {
+  gap: 0.125rem;
+  padding-inline-start: 1.5rem;
+}
+
+.hbar-app-react-session-row {
+  gap: 0.25rem;
+}
+
+.hbar-app-react-session-target {
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-session-row > .lumen-action-menu {
+  margin-inline-end: 0.25rem;
+  opacity: 0;
+}
+
+.hbar-app-react-workspace-line > .lumen-action-menu {
+  margin-inline-end: 0.25rem;
+  opacity: 0;
+}
+
+.hbar-app-react-workspace-line:hover > .lumen-action-menu,
+.hbar-app-react-workspace-line:focus-within > .lumen-action-menu {
+  opacity: 1;
+}
+
+.hbar-app-react-session-row:hover > .lumen-action-menu,
+.hbar-app-react-session-row:focus-within > .lumen-action-menu,
+.hbar-app-react-session-row[data-selected='true'] > .lumen-action-menu {
+  opacity: 1;
+}
+
+.hbar-app-react-session-label {
+  flex: 1 1 auto;
+  gap: 0.0625rem;
+}
+
+.hbar-app-react-session-list p,
+.hbar-app-react-project-tree > p,
+.hbar-app-react-project-tree + [role='alert'] {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-project-tree + [role='alert'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-app-react-sidebar-actions {
+  gap: 0.125rem;
+}
+
+@media (max-width: 63.9375rem) {
+  .hbar-app-react-shell-header {
+    min-block-size: 3.25rem;
+  }
+
+  .hbar-app-react-session-row > .lumen-action-menu {
+    opacity: 1;
+  }
+
+  .hbar-app-react-workspace-line > .lumen-action-menu {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .hbar-app-react-session-row > .lumen-action-menu {
+    opacity: 1;
+  }
+
+  .hbar-app-react-workspace-line > .lumen-action-menu {
+    opacity: 1;
+  }
+}

@@ -1,0 +1,470 @@
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  Activity,
+  ChevronDown,
+  ChevronRight,
+  Command,
+  Folder,
+  FolderOpen,
+  Menu,
+  MessageSquare,
+  PanelLeftClose,
+  Plus,
+  RefreshCw,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react'
+import {
+  LumenActionMenu,
+  LumenAppShell,
+  LumenAppSidebar,
+  LumenButton,
+  LumenIcon,
+  LumenIconButton,
+  LumenNavigationButton,
+  LumenSidebarAction,
+  LumenText,
+  type LumenIconTier,
+  type LumenSidebarActionProps,
+} from '@lumen/app-ui'
+import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import './lumen-workspace-shell.css'
+
+export interface HbarWorkspaceShellLabels {
+  readonly main: string
+  readonly brand: string
+  readonly projectsAndSessions: string
+  readonly noWorkspaces: string
+  readonly noSessions: string
+  readonly loading: string
+  readonly loadMore: string
+  readonly newSession: string
+  readonly commands: string
+  readonly commandShortcut: string
+  readonly openWorkspace: string
+  readonly status: string
+  readonly settings: string
+  readonly server: string
+  readonly connected: string
+  readonly pairing: string
+  readonly disconnected: string
+  readonly reconnect: string
+  readonly showSidebar: string
+  readonly hideSidebar: string
+  readonly expandWorkspace: (name: string) => string
+  readonly collapseWorkspace: (name: string) => string
+  readonly workspaceActions: (name: string) => string
+  readonly newSessionInWorkspace: string
+  readonly openSession: (name: string) => string
+  readonly sessionUpdatedAt: (timestamp: number) => string
+  readonly sessionActions: (name: string) => string
+  readonly renameSession: string
+  readonly archiveSession: string
+  readonly error: (code: string) => string
+}
+
+export interface HbarWorkspaceShellProps {
+  readonly labels: HbarWorkspaceShellLabels
+  readonly sidebarWidthRem: number
+  readonly toolWidthRem?: number
+  readonly connection: 'connected' | 'connecting' | 'pairing' | 'disconnected'
+  readonly onReconnect: () => void
+  readonly tool?: ReactNode
+  readonly toolLabel?: string
+  readonly overlay?: ReactNode
+  readonly children: ReactNode
+}
+
+const PAGE_SIZE = 100
+
+const workspaceShellIcons = {
+  activity: Activity,
+  'chevron-down': ChevronDown,
+  'chevron-right': ChevronRight,
+  command: Command,
+  folder: Folder,
+  'folder-open': FolderOpen,
+  menu: Menu,
+  message: MessageSquare,
+  'panel-close': PanelLeftClose,
+  plus: Plus,
+  refresh: RefreshCw,
+  settings: Settings,
+} satisfies Readonly<Record<string, LucideIcon>>
+
+type WorkspaceShellIconName = keyof typeof workspaceShellIcons
+
+function WorkspaceShellIcon({
+  name,
+  tier = 'md',
+}: {
+  readonly name: WorkspaceShellIconName
+  readonly tier?: LumenIconTier
+}) {
+  return <LumenIcon icon={workspaceShellIcons[name]} tier={tier} />
+}
+
+function WorkspaceSidebarAction({
+  icon,
+  ...props
+}: Omit<LumenSidebarActionProps, 'icon'> & { readonly icon: WorkspaceShellIconName }) {
+  return <LumenSidebarAction {...props} icon={<WorkspaceShellIcon name={icon} />} />
+}
+
+export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
+  const runtime = useHbarRuntime()
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+    () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
+  )
+  const [workspaceCursor, setWorkspaceCursor] = useState<string | null | undefined>()
+  const [sessionCursors, setSessionCursors] = useState<Readonly<Record<string, string | null | undefined>>>({})
+  const [loading, setLoading] = useState<ReadonlySet<string>>(() => new Set())
+  const [error, setError] = useState<string | null>(null)
+
+  const execute = runtime.commands.execute
+  const recordError = useCallback((reason: unknown) => {
+    setError(reason instanceof Error ? reason.message : String(reason))
+  }, [])
+  const loadWorkspaces = useCallback(
+    async (after?: string) => {
+      setLoading((current) => new Set(current).add('workspaces'))
+      setError(null)
+      try {
+        const page = await execute('workspace.list', { after, limit: PAGE_SIZE })
+        setWorkspaceCursor(page.nextCursor)
+        if (!after && navigation.workspaceId === null && page.items[0])
+          setExpanded((current) => new Set(current).add(page.items[0]!.id))
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason))
+      } finally {
+        setLoading((current) => new Set([...current].filter((id) => id !== 'workspaces')))
+      }
+    },
+    [execute, navigation.workspaceId],
+  )
+
+  const loadSessions = useCallback(
+    async (workspaceId: string, after?: string) => {
+      setLoading((current) => new Set(current).add(workspaceId))
+      setError(null)
+      try {
+        const page = await execute('session.list', { workspaceId, after, limit: PAGE_SIZE })
+        setSessionCursors((current) => ({ ...current, [workspaceId]: page.nextCursor }))
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason))
+      } finally {
+        setLoading((current) => new Set([...current].filter((id) => id !== workspaceId)))
+      }
+    },
+    [execute],
+  )
+
+  useEffect(() => {
+    if (props.connection === 'connected') void loadWorkspaces()
+  }, [loadWorkspaces, props.connection])
+
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 63.9375rem)')
+    const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
+      if (event.matches && runtime.state.presentation.getSnapshot().sidebarOpen)
+        void execute('app.setSidebarVisible', { visible: false }).catch(recordError)
+    }
+    closeNarrowSidebar(narrow)
+    narrow.addEventListener('change', closeNarrowSidebar)
+    return () => narrow.removeEventListener('change', closeNarrowSidebar)
+  }, [execute, recordError, runtime.state.presentation])
+
+  useEffect(() => {
+    if (navigation.workspaceId)
+      setExpanded((current) =>
+        current.has(navigation.workspaceId!) ? current : new Set(current).add(navigation.workspaceId!),
+      )
+  }, [navigation.workspaceId])
+
+  useEffect(() => {
+    if (props.connection !== 'connected') return
+    for (const workspaceId of expanded) if (!Object.hasOwn(sessionCursors, workspaceId)) void loadSessions(workspaceId)
+  }, [expanded, loadSessions, props.connection, sessionCursors])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        void execute('app.openPanel', { panelId: 'commands' })
+          .then(() => {
+            if (window.matchMedia('(max-width: 63.9375rem)').matches)
+              return execute('app.setSidebarVisible', { visible: false })
+            return undefined
+          })
+          .catch(recordError)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [execute, recordError])
+
+  const workspaces = useMemo(
+    () => Object.values(directory.workspaces).sort((left, right) => left.name.localeCompare(right.name)),
+    [directory],
+  )
+  const sessionsByWorkspace = useMemo(() => {
+    const result = new Map<string, (typeof directory.sessions)[string][]>()
+    for (const session of Object.values(directory.sessions)) {
+      if (session.archived) continue
+      const items = result.get(session.workspaceId) ?? []
+      items.push(session)
+      result.set(session.workspaceId, items)
+    }
+    for (const items of result.values()) items.sort((left, right) => right.updatedAt - left.updatedAt)
+    return result
+  }, [directory])
+
+  const setSidebarVisible = (visible: boolean) => void execute('app.setSidebarVisible', { visible }).catch(recordError)
+  const closeNarrowSidebar = async () => {
+    if (window.matchMedia('(max-width: 63.9375rem)').matches) await execute('app.setSidebarVisible', { visible: false })
+  }
+  const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
+  const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
+  const openCommandForm = (commandId: string, parameters: Readonly<Record<string, string | boolean>> = {}) => {
+    let operation: Promise<unknown> = execute('commandPalette.refresh', {})
+      .then(() => execute('commandPalette.setQuery', { query: commandId }))
+      .then(() => execute('commandPalette.openCommand', { commandId }))
+    for (const [field, value] of Object.entries(parameters))
+      operation = operation.then(() => execute('commandPalette.setParameter', { field, value }))
+    operation = operation.then(() => execute('app.openPanel', { panelId: 'commands' }))
+    settleNavigation(operation)
+  }
+  const openWorkspace = () => {
+    openCommandForm('workspace.open')
+  }
+  const openSession = (sessionId: string) => {
+    void execute('app.setSession', { sessionId })
+      .then(() => {
+        return closeNarrowSidebar()
+      })
+      .catch(recordError)
+  }
+  const serverValue =
+    props.connection === 'connected'
+      ? props.labels.connected
+      : props.connection === 'pairing'
+        ? props.labels.pairing
+        : props.connection === 'connecting'
+          ? props.labels.loading
+          : props.labels.disconnected
+  const serverTone =
+    props.connection === 'connected' ? 'success' : props.connection === 'disconnected' ? 'danger' : 'warning'
+
+  return (
+    <LumenAppShell
+      label={props.labels.main}
+      sidebarWidthRem={props.sidebarWidthRem}
+      {...(props.toolWidthRem === undefined ? {} : { toolWidthRem: props.toolWidthRem })}
+      sidebarOpen={presentation.sidebarOpen}
+      closeSidebarLabel={props.labels.hideSidebar}
+      onCloseSidebar={() => setSidebarVisible(false)}
+      header={
+        <div className="hbar-app-react-shell-header">
+          <LumenIconButton label={props.labels.showSidebar} onClick={() => setSidebarVisible(true)}>
+            <WorkspaceShellIcon name="menu" />
+          </LumenIconButton>
+          <strong>{props.labels.brand}</strong>
+        </div>
+      }
+      tool={props.tool}
+      toolLabel={props.toolLabel}
+      overlay={props.overlay}
+      sidebar={
+        <LumenAppSidebar
+          brand={props.labels.brand}
+          title={props.labels.projectsAndSessions}
+          emptyLabel={loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
+          status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
+          brandAction={
+            <LumenIconButton label={props.labels.hideSidebar} onClick={() => setSidebarVisible(false)}>
+              <WorkspaceShellIcon name="panel-close" />
+            </LumenIconButton>
+          }
+          primaryActions={
+            <div className="hbar-app-react-sidebar-primary">
+              <WorkspaceSidebarAction
+                icon="plus"
+                label={props.labels.newSession}
+                size="l"
+                variant="outlined"
+                onClick={() => openCommandForm('app.createSession')}
+              />
+              <WorkspaceSidebarAction
+                icon="command"
+                label={props.labels.commands}
+                detail={props.labels.commandShortcut}
+                selected={presentation.modalInstanceId === 'commands'}
+                onClick={() => openPanel('commands')}
+              />
+            </div>
+          }
+          treeAction={
+            <LumenIconButton
+              label={props.labels.openWorkspace}
+              disabled={props.connection !== 'connected'}
+              onClick={openWorkspace}
+            >
+              <WorkspaceShellIcon name="folder-open" />
+            </LumenIconButton>
+          }
+          actions={
+            <div className="hbar-app-react-sidebar-actions">
+              {props.connection !== 'connected' && (
+                <WorkspaceSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
+              )}
+              <WorkspaceSidebarAction
+                icon="activity"
+                label={props.labels.status}
+                selected={presentation.page.kind === 'status'}
+                onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
+              />
+              <WorkspaceSidebarAction
+                icon="settings"
+                label={props.labels.settings}
+                selected={presentation.page.kind === 'settings'}
+                onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
+              />
+            </div>
+          }
+        >
+          <nav className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
+            {workspaces.length === 0 && (
+              <p>{loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}</p>
+            )}
+            {workspaces.map((workspace) => {
+              const isExpanded = expanded.has(workspace.id)
+              const sessions = sessionsByWorkspace.get(workspace.id) ?? []
+              const nextSessionCursor = sessionCursors[workspace.id]
+              return (
+                <section key={workspace.id}>
+                  <div className="hbar-app-react-workspace-line">
+                    <LumenButton
+                      className="hbar-app-react-workspace-row"
+                      size="s"
+                      variant="text"
+                      aria-expanded={isExpanded}
+                      aria-label={
+                        isExpanded
+                          ? props.labels.collapseWorkspace(workspace.name)
+                          : props.labels.expandWorkspace(workspace.name)
+                      }
+                      onClick={() =>
+                        setExpanded((current) => {
+                          const next = new Set(current)
+                          if (next.has(workspace.id)) next.delete(workspace.id)
+                          else next.add(workspace.id)
+                          return next
+                        })
+                      }
+                    >
+                      <WorkspaceShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
+                      <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
+                      <LumenText size="s" variant="label">
+                        {workspace.name}
+                      </LumenText>
+                    </LumenButton>
+                    <LumenActionMenu
+                      label={props.labels.workspaceActions(workspace.name)}
+                      items={[{ id: 'new-session', label: props.labels.newSessionInWorkspace }]}
+                      onAction={() => openCommandForm('app.createSession', { workspaceId: workspace.id })}
+                    />
+                  </div>
+                  {isExpanded && (
+                    <div className="hbar-app-react-session-list">
+                      {loading.has(workspace.id) && sessions.length === 0 ? (
+                        <p>{props.labels.loading}</p>
+                      ) : sessions.length === 0 ? (
+                        <p>{props.labels.noSessions}</p>
+                      ) : (
+                        sessions.map((session) => (
+                          <div
+                            key={session.id}
+                            className="hbar-app-react-session-row"
+                            data-selected={navigation.sessionId === session.id}
+                          >
+                            <LumenNavigationButton
+                              className="hbar-app-react-session-target"
+                              size="s"
+                              variant="text"
+                              selected={navigation.sessionId === session.id}
+                              indicatorEdge="left"
+                              aria-label={props.labels.openSession(session.title)}
+                              title={session.title}
+                              onClick={() => openSession(session.id)}
+                            >
+                              <WorkspaceShellIcon name="message" tier="sm" />
+                              <span className="hbar-app-react-session-label">
+                                <LumenText size="s" variant="label">
+                                  {session.title}
+                                </LumenText>
+                                <LumenText as="small" size="s" tone="subtle" variant="supporting">
+                                  {props.labels.sessionUpdatedAt(session.updatedAt)}
+                                </LumenText>
+                              </span>
+                            </LumenNavigationButton>
+                            <LumenActionMenu
+                              label={props.labels.sessionActions(session.title)}
+                              items={[
+                                { id: 'rename', label: props.labels.renameSession },
+                                { id: 'archive', label: props.labels.archiveSession, tone: 'danger' },
+                              ]}
+                              onAction={(action) => {
+                                if (action === 'rename')
+                                  openCommandForm('app.renameSession', {
+                                    sessionId: session.id,
+                                    title: session.title,
+                                  })
+                                else
+                                  openCommandForm('app.archiveSession', {
+                                    sessionId: session.id,
+                                    archived: true,
+                                  })
+                              }}
+                            />
+                          </div>
+                        ))
+                      )}
+                      {nextSessionCursor && (
+                        <LumenButton
+                          className="hbar-app-react-load-more"
+                          size="s"
+                          tone="primary"
+                          variant="text"
+                          onClick={() => void loadSessions(workspace.id, nextSessionCursor)}
+                        >
+                          {props.labels.loadMore}
+                        </LumenButton>
+                      )}
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+            {workspaceCursor && (
+              <LumenButton
+                className="hbar-app-react-load-more"
+                size="s"
+                tone="primary"
+                variant="text"
+                onClick={() => void loadWorkspaces(workspaceCursor)}
+              >
+                {props.labels.loadMore}
+              </LumenButton>
+            )}
+          </nav>
+          {error && <p role="alert">{props.labels.error(error)}</p>}
+        </LumenAppSidebar>
+      }
+    >
+      {props.children}
+    </LumenAppShell>
+  )
+}

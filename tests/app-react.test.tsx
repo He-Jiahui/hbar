@@ -98,7 +98,7 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('需要键盘导航的会话 的操作')
     expect(html).toContain('重命名会话')
     expect(html).toContain('归档会话')
-    expect(html).toContain('--hbar-app-ui-tool-size:26rem')
+    expect(html).toContain('--lumen-tool-size:26rem')
     expect(html).not.toContain('Workspace 1')
   } finally {
     runtime.dispose()
@@ -158,4 +158,5 @@ test('app-react production entry excludes transport, Host, storage, catalog, and
   expect(result.success).toBeTrue()
   expect(inputs.some((path) => /packages\/client|apps\/host|packages\/storage/.test(path))).toBeFalse()
   expect(inputs.some((path) => /catalog|fixtures|preview/.test(path))).toBeFalse()
+  expect(inputs.some((path) => /packages\/app-react\/src\/workspace-shell\.tsx$/.test(path))).toBeFalse()
 })
