@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   plugins: [react()],
+  resolve: { dedupe: ['react', 'react-dom'] },
   build: { outDir: '../../dist/web', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
   server: {
     host: '127.0.0.1',
