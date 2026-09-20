@@ -17,7 +17,13 @@ import {
   useHbarRuntimeState,
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
-import { applyLumenAppearance, LumenProvider, LumenWindowTitlebar, LumenWorkbenchNotice } from '@lumen/app-ui'
+import {
+  applyLumenAppearance,
+  LumenDialog,
+  LumenProvider,
+  LumenWindowTitlebar,
+  LumenWorkbenchNotice,
+} from '@lumen/app-ui'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
   HbarClient,
@@ -44,7 +50,6 @@ import {
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
-import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
 import { applyHbarAppUiAppearance, resolveHbarAppUiAppearance } from 'hbar-app-ui/appearance'
 import { WebAppearanceSettings, type WebAppearanceSettingsLabels } from './AppearanceSettings'
 import {
@@ -276,7 +281,7 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
   }
   if (modalInstanceId && modal?.panelId === 'commands')
     return (
-      <HbarAppUiDialog
+      <LumenDialog
         open
         chromeless
         title={copy.commandPalette.title}
@@ -292,7 +297,7 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
         }}
       >
         <HbarCommandPalette labels={copy.commandPalette} connected={connected} searchRef={commandSearch} />
-      </HbarAppUiDialog>
+      </LumenDialog>
     )
   if (modalInstanceId && modal?.panelId === 'settings-editor') {
     const editor = providers.editor
@@ -300,7 +305,7 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
       ? copy.providers.dialog.editTitle(editor.draft.name || editor.providerId)
       : copy.providers.dialog.addTitle
     return (
-      <HbarAppUiDialog
+      <LumenDialog
         open
         chromeless
         title={title}
@@ -309,7 +314,7 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
         onClose={() => close(modalInstanceId)}
       >
         <HbarProviderDialog labels={copy.providers.dialog} connected={connected} />
-      </HbarAppUiDialog>
+      </LumenDialog>
     )
   }
   return null
