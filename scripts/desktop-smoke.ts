@@ -95,6 +95,16 @@ try {
   await createDialog.getByRole('button', { name: /^(执行命令|Execute command)$/ }).click()
   await createDialog.waitFor({ state: 'hidden' })
   await page.getByRole('heading', { level: 1, name: 'Tauri visual session' }).waitFor()
+  const fileChooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: /^(添加附件|Add attachment)$/ }).click()
+  await (
+    await fileChooser
+  ).setFiles({
+    name: 'native-visual.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Selected through the native WebView file chooser.'),
+  })
+  await page.getByText('native-visual.txt', { exact: true }).waitFor()
   const noHorizontalOverflow = async () =>
     page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
   if (!(await noHorizontalOverflow())) throw new Error('Desktop session has horizontal overflow')
@@ -155,7 +165,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
+    'PASS: Native credentials connected; the WebView file chooser uploaded an attachment; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
   )
 } catch (error) {
   console.error(await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'))
