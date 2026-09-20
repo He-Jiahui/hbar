@@ -25,6 +25,9 @@ Web 组合根通过 `apps/web/src/surface-manifest.ts` 声明可渲染 surface�
 | ------------------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------- |
 | 侧栏会话行                           | `app.setSession <sessionId>`                                                                       | session page；成功后窄屏侧栏收起          | 选择失败保留原页面                            |
 | 侧栏“新建会话”                       | `commandPalette.refresh` → `setQuery app.createSession` → `openCommand` → `app.openPanel commands` | commands modal 的新建参数页；默认当前工程 | Escape 返回目录；执行成功关闭弹窗并进入新会话 |
+| 工程行“在此工程新建会话”             | 打开 `app.createSession` 参数页并写入原行 `workspaceId`                                            | commands modal；工程已选，标题可选        | 不折叠工程、不改变当前会话                    |
+| 会话行“重命名”                       | 打开 `app.renameSession` 参数页并写入原行 `sessionId` 与标题                                       | commands modal；执行后合并返回的会话事实  | 不选择被操作行；失败保留输入和原标题          |
+| 会话行“归档”                         | 打开 `app.archiveSession` 参数页并写入原行 `sessionId`                                             | commands modal；执行后合并归档事实        | 仅归档当前项时清除当前选择                    |
 | 工程标题“打开工程”                   | `commandPalette.refresh` → `setQuery workspace.open` → `openCommand` → `app.openPanel commands`    | commands modal 的路径参数页               | Escape 返回目录；执行成功进入新工程           |
 | 侧栏“命令”或 Ctrl/Cmd+K              | `app.openPanel commands`                                                                           | commands modal                            | 结果→参数→搜索→关闭                           |
 | 侧栏“状态”                           | `app.openStatus dashboard`                                                                         | status page / Performance                 | `app.back` 或页头返回恢复 session/tool 上下文 |
@@ -41,7 +44,7 @@ Web 组合根通过 `apps/web/src/surface-manifest.ts` 声明可渲染 surface�
 
 所有业务表单继续执行各自的公开命令；UI 不直接写 Zustand。命令目录根据 catalog descriptor 生成参数表单，不能再维护一张 UI 专属命令清单。
 
-`app.createSession` 是客户端组合命令：它先确认工程，再用运行时持有的幂等键调用 Host `session.create`，合并返回的目录事实并更新选择。`RESULT_UNKNOWN` 等不确定结果保留同一键供重试，普通失败清除待处理键。工作区/会话 ID 参数优先从目录只读投影生成“名称 · 路径/所属工程”选项；未加载或跨 Host 的稳定 ID 仍可通过“其他标识符”输入，因此 UI 不要求常规用户猜内部 ID，也不封死高级目标。
+`app.createSession` 是客户端组合命令：它先确认工程，再用运行时持有的幂等键调用 Host `session.create`，合并返回的目录事实并更新选择。`RESULT_UNKNOWN` 等不确定结果保留同一键供重试，普通失败清除待处理键。`app.renameSession` 与 `app.archiveSession` 同样只通过 Host 命令端口写入；返回会话先进入目录投影，归档仅在目标就是当前会话时清除选择。工作区/会话 ID 参数优先从目录只读投影生成“名称 · 路径/所属工程”选项；未加载或跨 Host 的稳定 ID 仍可通过“其他标识符”输入，因此 UI 不要求常规用户猜内部 ID，也不封死高级目标。
 
 ## 3. 迁移与拒绝规则
 

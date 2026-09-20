@@ -432,3 +432,21 @@ Production build 从 2400 个模块、224.24 kB CSS 变为 2390 个模块、214.
 视觉复核沿用最终生产截图：[桌面侧栏](../../artifacts/ui-redesign/shell/connected-sidebar-1440.png)、[文件工具分区](../../artifacts/ui-redesign/file-tool/after/list-1440.png)、[390 正文](../../artifacts/ui-redesign/shell/content-en-US-390.png)与[390 抽屉](../../artifacts/ui-redesign/shell/drawer-en-US-390.png)。桌面分隔线、主区宽度、24rem 工具区和底部固定区没有变化；窄屏默认正文不再被侧栏遮挡，菜单打开后抽屉仍为 17rem 且背景留出关闭区域。当前产品没有标签页和自由停靠，因此生产没有引入已有的 `flexlayout-react`；这避免恢复用户要求删除的复杂导航和额外交互状态。
 
 验证结果：布局、通用持久化、React、AppShell 与 Web 边界定向测试通过；flow/content/icon guards、ESLint、TypeScript、395 个 Bun 测试（3130 个断言）、Web production build（2390 modules / 214.31 kB CSS）和 5/5 Playwright 场景通过。以上四张 production 图已重新生成并人工查看；Tauri 实窗仍归 R6.4。
+
+## 27. R2.4 工程会话树容量、原目标行菜单与 Host 写入
+
+R2.4 之前只有单页会话选择和顶部新建入口，100 条默认页上限、第 101 条加载、分页后的选择稳定、工程/会话原目标操作都没有形成一条可审计的生产流程。第一版会话行菜单虽然功能正确，却让 100 行同时显示省略号，真实截图形成整列重复视觉噪声。最终桌面只在选中、hover 或键盘焦点时显示菜单入口，触屏与窄屏保持常显；状态、标题和操作位置不会因 hover 改变行宽。
+
+`HbarAppUiActionMenu` 作为 hbar-app-ui 的受控基础组件提供宿主标签、菜单项、danger 状态、Escape 关闭与焦点恢复。app-react 只组合目录只读投影和命令：工程行的“在此工程新建会话”打开 `app.createSession` 参数页并预填原 `workspaceId`；会话行的“重命名/归档”打开 `app.renameSession` / `app.archiveSession` 并预填原 `sessionId`，重命名同时带入当前标题。运行时经 Host `session.rename` / `session.archive` 写入并合并返回事实；归档仅在目标就是当前会话时清除选择，React 不直接修改 Zustand。
+
+| 场景           | 截图与人工观察                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 首页 100 条    | [1440](../../artifacts/ui-redesign/shell/capacity-100.png)：100 个唯一会话行在侧栏自己的滚动区内，底部显式显示 Load more；未交互行没有重复省略号噪声          |
+| 合并第 101 条  | [1440](../../artifacts/ui-redesign/shell/capacity-101.png)：服务端 cursor 加载唯一新增行，首屏选中的原行仍保持 `aria-current=page`；document 不接管工程树滚动 |
+| 工程原目标菜单 | [1440](../../artifacts/ui-redesign/shell/workspace-actions-1440.png)：工程行右端菜单不触发折叠或会话切换，单一操作不与全局“新建会话”重复堆叠                  |
+| 工程创建表单   | [1440](../../artifacts/ui-redesign/shell/workspace-new-session-1440.png)：原工程以“名称 · 路径”预填，标题可选；底层当前会话保持选中                           |
+| 会话原目标菜单 | [1440](../../artifacts/ui-redesign/shell/session-actions-1440.png)：选中会话只显示 Rename/Archive，菜单靠近触发行且没有把侧栏撑宽                             |
+| 重命名参数     | [1440](../../artifacts/ui-redesign/shell/session-rename-1440.png)：可读会话选项和当前标题已填入；用户无需复制内部 ID                                          |
+| 重命名完成     | [1440](../../artifacts/ui-redesign/shell/session-renamed-1440.png)：真实 Host 执行后回执、主标题和侧栏行一致更新                                              |
+
+真实 Host E2E 单独创建 101 个会话，断言第一页恰好 100 个唯一可访问名称、显式加载后为 101、侧栏内容区实际溢出并拥有滚动、选中项跨页合并不丢失。完整工作区流程验证工程菜单的 `workspaceId`、会话菜单的 `sessionId`/标题、Escape 层级和真实重命名；运行时测试覆盖归档当前/非当前目标。验证结果：Prettier、定向 ESLint、TypeScript、flow/content/icon guards、397 个 Bun 测试（3148 个断言）、Web production build（2392 modules / 217.69 kB CSS）和 6/6 Playwright 场景通过。以上七张图来自最终 production preview 并逐张原尺寸查看；Tauri 实窗仍归 R6.4。

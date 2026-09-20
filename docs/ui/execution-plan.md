@@ -50,7 +50,7 @@ R1.2a 只修复组件外观与容量边界，自动高度、输入区整体布�
 | R2.6 | 侧栏和工具的分栏/drawer/手机单面板适配          | R2.3            | 断点两侧、焦点、Escape、所有功能可达               |
 | R2.7 | version 2 默认描述、v1迁移、坏数据回退          | R2.1、R2.3      | 唯一布局模型、刷新恢复、保留已有用户数据           |
 
-当前状态：R2.1、R2.2、R2.3、R2.5 与 R2.7 已完成；R2.6 的侧栏、工具出口和模态断点已接通，工具内部页面的窄容器重排继续按 R4 分项交付。R2.5 由客户端组合命令 `app.createSession` 调用持久化 Host `session.create`，以内部幂等键跨未知结果重试；侧栏入口直接打开参数页，已加载工程/会话使用可读选项并保留自定义标识符入口，成功后切换新会话。R2.7 使用 Web 所有的 v2 schema 描述 sidebar/page/tool，app-runtime 只提供可注入规范化端口和通用持久化；v1 合法宽度/隐藏偏好可迁移，未知、重复、缺失与越界模块回退默认且保留原存储。R2.4 的行菜单/大列表边界仍待实施。实测证据见[视觉审计](visual-audit-2026-09-19.md)。
+当前状态：R2.1、R2.2、R2.3、R2.4、R2.5 与 R2.7 已完成；R2.6 的侧栏、工具出口和模态断点已接通，工具内部页面的窄容器重排继续按 R4 分项交付。R2.4 以服务端游标分页保留 100 条首屏容量，显式加载第 101 条；侧栏是唯一滚动所有者，分页合并不改变原选择。工程行菜单把原 `workspaceId` 预填到 `app.createSession`，会话行菜单把原 `sessionId` 绑定到 `app.renameSession` / `app.archiveSession`，行内菜单不会冒泡改变选择。R2.5 由客户端组合命令 `app.createSession` 调用持久化 Host `session.create`，以内部幂等键跨未知结果重试；侧栏入口直接打开参数页，已加载工程/会话使用可读选项并保留自定义标识符入口，成功后切换新会话。R2.7 使用 Web 所有的 v2 schema 描述 sidebar/page/tool，app-runtime 只提供可注入规范化端口和通用持久化；v1 合法宽度/隐藏偏好可迁移，未知、重复、缺失与越界模块回退默认且保留原存储。实测证据见[视觉审计](visual-audit-2026-09-19.md)。
 
 ## 5. R3：会话主页面
 
@@ -101,7 +101,7 @@ R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型�
 | R6.4 | Tauri 实窗与缩放验收               | 标题栏、DPI、文件选择、弹窗和窄窗，无截图替代声明         |
 | R6.5 | 文档、证据索引与旧 UI 计划替代说明 | **进行中**：实现/证据/遗留项已同步；待 R6.4 后关闭        |
 
-R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成，见[最终验证矩阵](final-validation-matrix.md)：18 个页面族、158 张图、真实 Host 全流程和全仓 checks 均有证据；Tauri、整页 light/system 主题和既有 R2/R3 容量差距没有混入完成声明。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 R6.4 有效实窗证据补齐前不标记最终完成。
+R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：18 个页面族、165 张图、真实 Host 全流程、101 会话容量和全仓 checks 均有证据；Tauri、整页 light/system 主题和 R3.5 恢复边界没有混入完成声明。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 R6.4 有效实窗证据补齐前不标记最终完成。
 
 ## 9. 提交与交付记录规则
 
