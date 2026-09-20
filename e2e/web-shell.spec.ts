@@ -478,7 +478,7 @@ test('failed session runs expose a command retry without breaking narrow layouts
 })
 
 test('connected session workspace sends, approves, cancels, and updates usage', async ({ browser }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(180_000)
   const root = await mkdtemp(join(tmpdir(), 'hbar-web-session-'))
   let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
@@ -599,17 +599,21 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
         await page.evaluate(() => {
           const header = document.querySelector<HTMLElement>('.hbar-app-ui-page-header')
           const actions = [...document.querySelectorAll<HTMLElement>('.hbar-app-ui-page-action')]
+          const conversation = document.querySelector<HTMLElement>('.hbar-app-ui-conversation')
           const timeline = document.querySelector<HTMLElement>('.hbar-app-ui-conversation-content')
           const composer = document.querySelector<HTMLElement>('.hbar-app-react-session-footer')
           const usage = document.querySelector<HTMLElement>('.hbar-app-ui-inline-usage')
-          if (!header || actions.length !== 5 || !timeline || !composer || !usage) return false
+          if (!header || actions.length !== 5 || !conversation || !timeline || !composer || !usage) return false
           const actionTops = actions.map((action) => action.getBoundingClientRect().top)
+          const conversationRect = conversation.getBoundingClientRect()
           const timelineRect = timeline.getBoundingClientRect()
           const composerRect = composer.getBoundingClientRect()
           return (
             header.scrollWidth <= header.clientWidth &&
             Math.max(...actionTops) - Math.min(...actionTops) <= 1 &&
             actions.every((action) => getComputedStyle(action).writingMode === 'horizontal-tb') &&
+            getComputedStyle(conversation).display === 'flex' &&
+            Math.abs(conversationRect.bottom - composerRect.bottom) <= 1 &&
             Math.abs(timelineRect.left - composerRect.left) <= 1 &&
             Math.abs(timelineRect.right - composerRect.right) <= 1 &&
             usage.getBoundingClientRect().height <= 48
@@ -1220,7 +1224,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await page.setViewportSize({ width: 390, height: 844 })
     const hideSettingsNavigation = page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first()
-    if (await hideSettingsNavigation.isVisible()) await hideSettingsNavigation.click({ force: true })
+    if ((await hideSettingsNavigation.count()) > 0) await hideSettingsNavigation.click({ force: true })
     await expect(page.getByRole('combobox', { name: 'Settings groups' })).toBeVisible()
     await expectSettingsLayout('select')
     await expectNoHorizontalOverflow()

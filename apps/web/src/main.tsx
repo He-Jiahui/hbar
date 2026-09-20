@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import 'hbar-app-ui/theme.css'
 import App from './App'
 import { resolveShellLocale } from './shell-copy'
 import { applyWebTheme, readThemeBootstrap, resolveWebTheme } from './theme'
-import 'hbar-app-ui/theme.css'
 import './document.css'
 
 const locale = resolveShellLocale(navigator.languages)
