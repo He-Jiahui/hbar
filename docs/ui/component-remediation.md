@@ -68,4 +68,4 @@
 5. 在实际应用页面再次采集，确认无父容器/旧 CSS 冲突。
 6. 通过相关 guards、lint、typecheck、tests、build 后独立提交。
 
-逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。组件表中的已完成状态不覆盖仍单列的 ToolPane、完整 fixture 入口和 Tauri 验收。
+逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。完整页面 fixture 已复用生产 Web 组合根；组件表中的已完成状态不覆盖仍单列的 ToolPane 和 Tauri 验收。

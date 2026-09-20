@@ -36,6 +36,7 @@
 - Web production build：2395 modules；CSS 224.97 kB；JS 964.25 kB。构建边界确认旧 WorkbenchShell、catalog、fixtures、Kernel、Storage、TUI 和未采用的自由停靠模型不进入 Web 生产图。
 - Playwright：11/11。新增真实 Host 的 system/light/dark 选择、刷新恢复、系统媒体切换及 1440/390/320 整页矩阵；Button/IconButton 的 dark/light × 1024/320 和既有四个离线 locale/viewport 场景、101 会话目录容量、180 条会话历史与断线恢复、Plan Run 归属与刷新恢复、失败运行重试、完整真实 Host 场景继续通过。真实流程遍历工程/会话原目标行菜单、创建与重命名、四类工具、设置、Provider、Extensions、状态三分区、命令三步流、发送/审批/取消/Usage 更新。
 - 每个实质样式切片均运行 flow guard；用户可见 TSX 按范围运行 content-contract 与 icon-scale guard。最终生产截图在各切片修复后重新生成并人工查看。
+- 完整页面 fixture 直接运行 `apps/web` production build，并由 `scripts/e2e-session-host.ts` 提供隔离的 Host 数据与模型行为；fixture 没有复制页面组件或追加修补样式。
 - 参考差异属于产品决定：hbar 使用工程→会话二级树、状态中心、命令目录和会话工具；不复制 cc-haha 的额外业务入口或顶部工作区标签。
 
 ## 4. 范围边界与后续事项

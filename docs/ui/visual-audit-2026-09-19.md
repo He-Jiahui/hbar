@@ -523,3 +523,9 @@ Web 入口过去在 `main.tsx` 与 `document.css` 两处强制 dark。组件库�
 真实 E2E 从模拟 dark 系统以 System 启动，切到 Light 后检查 dataset、内联与 computed `color-scheme`，在 320px 截图，再刷新并确认 Light 与会话页恢复；随后切回 System，先确认 dark，再把媒体查询改为 light 并在 390px 复核。命令模态和 Performance 也在显式 Light 下逐张查看。首次扩展测试因把侧栏按钮完整名称写成 `Commands` 而等待超时；可访问树显示实际名称含 `Ctrl K`，改为稳定前缀定位后流程通过，产品功能没有失败。
 
 验证结果：commit `7d16ba4`；TypeScript、定向 ESLint、content-contract/icon-scale/flow-layout guards、403 个 Bun 测试（3220 个断言）、Web production build（2395 modules / 224.97 kB CSS / 964.25 kB JS）和 11/11 Playwright 场景全部通过。七张主题 production 图均逐张原尺寸查看；`artifacts/ui-redesign` 当前共 20 个页面/组件族、190 张 PNG。R1.1 已关闭；Tauri 实窗继续归 R6.4。
+
+## 32. R1.6 完整页面 fixture 入口核对
+
+最终视觉矩阵没有再建立一套“看起来像生产”的页面。Playwright 始终启动 `apps/web` 的 production build，`scripts/e2e-session-host.ts` 只在临时数据根中创建工程、会话、历史、Plan、失败模型、审批、Usage、设置和 Git/性能事实，并通过真实认证与 RPC 路径供页面读取。离线场景直接打开同一 Web 入口且拒绝业务网络请求；连接场景经真实 Host 完成命令、持久写入、刷新恢复和增量通知。
+
+这种组合满足 fixture 边界：页面 DOM、AppShell、工具、模态、表单、主题和全部组件 CSS 均来自生产入口，测试只控制数据、locale、viewport、媒体查询、连接中断和用户操作。按钮与 Prompt 的独立矩阵也直接渲染生产组件和生产样式文件，没有给子组件补缺失外观。当前 11 项 Playwright 共同覆盖四个离线 locale/viewport、101 会话、180 条时间线、Plan Run 归属、失败重试、完整 Host 工作流、基础按钮和整页主题，因此 R1.6 不再保留一个重复 preview 应用作为未完成项。

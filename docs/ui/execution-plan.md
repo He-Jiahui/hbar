@@ -34,9 +34,9 @@ R1 中能独立复现、修复的组件可以先完成，之后进入页面组�
 | R1.3  | 抽取公开 Field/Input/Textarea/Select/CheckBox/ComboBox 控件 | typed labels、错误关联、动态与多选能力真实匹配  | **已完成，见视觉记录**                          |
 | R1.4  | 修复 NativeDialog 与 ToolPane 容器，补 footer/返回/目标契约 | 长内容滚动、焦点圈定与恢复、窄屏操作不裁切      | 待实施                                          |
 | R1.5  | 为 Conversation/FileDocument/Usage 提供 embedded/density    | 没有重复标题/套壳；不靠调用端隐藏内部 DOM       | Conversation/Usage 已完成；FileDocument 待 R4.2 |
-| R1.6  | 建立完整页面 fixture 组合入口，复用生产组件                 | fixture 只提供数据，不额外补生产缺失的控件样式  | 待实施                                          |
+| R1.6  | 建立完整页面 fixture 组合入口，复用生产组件                 | fixture 只提供数据，不额外补生产缺失的控件样式  | **已完成：生产 Web + E2E Host**                 |
 
-R1.1 由现有 command-owned `preferences.set` 保存 system/light/dark，Web 只把只读偏好与系统媒体查询解析为实际 light/dark 并同步 `color-scheme`；设置页通过通用 header action slot 组合宿主本地化的主题选择器。刷新恢复、System 实时变化、1440/390/320、会话、设置、命令模态和状态中心均已用真实 Host 页面验证。R1.2 由组件自身导入样式，并固化 compact/default/focal 三档命中区、五种语义 tone、键盘焦点、选中、禁用和图标按钮正方形约束；独立矩阵在 dark/light 与 1024/320 四种组合中测量尺寸、长中文换行和页面溢出，再以完整生产页面回归确认会话、设置和命令目录没有被基础尺寸挤压。R1.2a 只修复 PromptComposer 外观与容量边界，自动高度和输入区整体布局继续由所属页面约束。
+R1.1 由现有 command-owned `preferences.set` 保存 system/light/dark，Web 只把只读偏好与系统媒体查询解析为实际 light/dark 并同步 `color-scheme`；设置页通过通用 header action slot 组合宿主本地化的主题选择器。刷新恢复、System 实时变化、1440/390/320、会话、设置、命令模态和状态中心均已用真实 Host 页面验证。R1.2 由组件自身导入样式，并固化 compact/default/focal 三档命中区、五种语义 tone、键盘焦点、选中、禁用和图标按钮正方形约束；独立矩阵在 dark/light 与 1024/320 四种组合中测量尺寸、长中文换行和页面溢出，再以完整生产页面回归确认会话、设置和命令目录没有被基础尺寸挤压。R1.2a 只修复 PromptComposer 外观与容量边界，自动高度和输入区整体布局继续由所属页面约束。R1.6 使用未分叉的 `apps/web` 生产组合根与 `scripts/e2e-session-host.ts`：fixture 只创建隔离工作区、持久事实、认证与模型响应，页面 DOM、主题和组件 CSS 均来自 production build；同一入口已覆盖离线/连接、容量、恢复、主题和完整工作流，不另建会漂移的演示页面。
 
 ## 4. R2：状态、外壳与导航
 
