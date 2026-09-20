@@ -14,7 +14,7 @@
 | `HbarAppUiActionMenu`                                         | 受控标签、菜单项、danger 与动作 ID           | 工程/会话原目标的紧凑行菜单                                             | 已验证 Escape、首项焦点、桌面按需显隐和触屏常显；靠近滚动边缘的未来菜单需继续测裁切                             |
 | `HbarAppUiToolPane`                                           | header / toolbar / status / children slots   | 四种会话工具共同容器                                                    | 当前是用户未提交新增文件；集成前核对，不直接夹带提交；补 footer 和窄屏返回契约                                  |
 | `HbarAppUiConversation` / `HbarAppUiMessage`                  | 受控消息、composer/afterMessages/header slot | 已作为会话 Timeline 容器与消息                                          | **R3.5 已完成**：40 条阈值动态虚拟化、加载旧页锚点、按会话恢复和非强制跟随                                      |
-| `HbarAppUiPromptComposer`                                     | 草稿、附件、IME、发送/停止回调               | 唯一生产输入组件，页面组合已验收                                        | 模型选择仍由状态/设置提供；整应用 light/system 主题仍归 R1.1                                                    |
+| `HbarAppUiPromptComposer`                                     | 草稿、附件、IME、发送/停止回调               | 唯一生产输入组件，页面组合已验收                                        | 模型选择仍由状态/设置提供；整应用 system/light/dark 已随 R1.1 验证                                              |
 | `HbarAppUiRunActivity` / ApprovalRequest / Questionnaire      | 实际运行、审批、问卷                         | 插入所属消息/当前交互区域                                               | 失败重试和 Plan 折叠摘要均由宿主数据驱动；Plan 用 runId 归属，步骤列表自然增长                                  |
 | AgentPlan / `HbarAppUiPlanEditor`                             | 计划展示与受控编辑                           | Goal/Plan 工具的摘要与编辑子视图                                        | 工具编辑器继续负责完整修改；时间线复用 RunActivity 的只读 Plan 契约                                             |
 | `HbarAppUiCompactUsage`                                       | 用量、预算、速率与 inline 密度               | 会话输入下方紧凑摘要                                                    | 已移除大卡片依赖；完整统计进入 Monitoring/Usage                                                                 |
@@ -23,7 +23,7 @@
 | `HbarAppUiCommandList` / CommandDialog                        | 分类、键盘、虚拟列表、对话框                 | CommandList 组合搜索→参数→回执单模态                                    | 已修行样式、查询滚动复位和紧凑帮助；失败/unknown 继续由 runtime 回执表达                                        |
 | `HbarAppUiPreferencesSettings` / SettingsField                | 受控偏好与设置行                             | 复用行外观/开关，抽出独立字段能力                                       | SettingsField 尚非完整公开 Schema renderer；不要直接把 demo WorkspaceSettings 当生产设置                        |
 | CompactMetrics / BarSeries / UsageSurfaces                    | 受控指标、趋势、用量与明细                   | Monitoring、Performance、Usage、Git 共享                                | 固定百分比上限和可选时间桶已完成；复杂科学图表不在本轮范围                                                      |
-| Button / IconButton / Status / EmptyState                     | 公共基础组件                                 | 全部页面共享，使用语义图标尺寸                                          | Button/IconButton 已自带三档尺寸、五种 tone、焦点/禁用/选中样式并通过四档视觉矩阵；整应用浅色与系统主题仍需完成 |
+| Button / IconButton / Status / EmptyState                     | 公共基础组件                                 | 全部页面共享，使用语义图标尺寸                                          | Button/IconButton 已自带三档尺寸、五种 tone、焦点/禁用/选中样式并通过四档视觉矩阵；整页三主题已通过生产页面复核 |
 
 `AppShell`、`PromptInput`、`FileManager` 等带 `spec/onAction` 的目录变体是展示入口，不等于生产接口。它们可以展示同一受控组件，但业务页面不能依赖 catalog 注册和演示数据。
 
@@ -55,7 +55,7 @@
 - 以 `tokens.css` 定义尺寸、空间和语义变量；抽出基础 theme 与组件样式，不让生产依赖整个 catalog 的特殊选择器。
 - 同一 token 只有一个基础定义和明确的浅/深主题覆盖；不要在多个 `:root` 重复定义尺寸。
 - 新主题沿用 cc-haha 的层级和密度，颜色作为设计 token 管理；实际样式值以截图校准，不从截图坐标还原布局。
-- 保留用户已设主题；新的 system 选项解析到 light/dark。Web 的 `color-scheme` 跟随实际主题，修复当前硬编码 dark 的问题。
+- 已保留用户主题偏好；system 通过媒体查询解析到 light/dark，Web 的 `color-scheme` 与实际主题同步，入口不再硬编码 dark。
 - 删除新页面对库私有 DOM 的补丁式隐藏规则；对接前先提供 public prop/slot。
 - 普通组件用 flex，真实 overlay 只定位外层；测试 fixture 外壳不能给子组件补上生产缺少的 CSS。
 
@@ -68,4 +68,4 @@
 5. 在实际应用页面再次采集，确认无父容器/旧 CSS 冲突。
 6. 通过相关 guards、lint、typecheck、tests、build 后独立提交。
 
-逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。组件表中的已完成状态不覆盖仍单列的整页主题和 Tauri 验收。
+逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。组件表中的已完成状态不覆盖仍单列的 ToolPane、完整 fixture 入口和 Tauri 验收。

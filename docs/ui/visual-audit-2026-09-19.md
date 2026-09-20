@@ -504,3 +504,22 @@ Plan 插件早已把 `update_plan` 产生的 `plan.updated` 写入 SessionEvent�
 独立 E2E 用 React 服务端渲染真实组件，并同时加载生产 `tokens.css`、`theme.css` 和组件样式；浏览器逐项测量 compact/default/focal 与图标按钮尺寸、长标签 `scrollWidth`、document 溢出和键盘焦点 computed style。随后完整 production E2E 重新生成会话、设置和命令目录截图并人工抽查：页头图标操作、设置底部操作和命令模态标题区都没有因命中区提升而错位或裁切。
 
 验证结果：commit `0e772f5`；TypeScript、定向 ESLint、icon-scale/flow-layout guards、400 个 Bun 测试（3198 个断言）、Web production build（2394 modules / 224.19 kB CSS / 962.15 kB JS）和 10/10 Playwright 场景全部通过。四张按钮矩阵和六张生产页面代表图均已实际查看；`artifacts/ui-redesign` 当前共 19 个页面/组件族、183 张 PNG。content-contract 仍报告旧 `primitives.tsx` 中 DataTable/Composer 的 6 处历史英文文案，本轮没有把该既有缺口写成通过；整页 system/light 主题继续归 R1.1，Tauri 实窗继续归 R6.4。
+
+## 31. R1.1 System / Light / Dark 整页主题与偏好恢复
+
+Web 入口过去在 `main.tsx` 与 `document.css` 两处强制 dark。组件库虽已有浅色变量，生产页面既没有主题选择器，也不会同步原生表单的 `color-scheme`；独立组件的 light 截图因此不能证明 AppShell、会话、模态和状态中心能一起切换。审计还发现 app-react 的侧栏选中行使用未定义的 `--hbar-app-ui-accent-soft`，在两个主题中都会退化为透明背景。
+
+主题偏好继续使用已有客户端命令 `preferences.set`，UI 不直接修改 Zustand。Web 将 `system | light | dark` 的只读偏好和 `prefers-color-scheme` 解析为实际主题，只把结果写入 document dataset 与 `color-scheme`；固定 localStorage key 是首次绘制 bootstrap，不替代 runtime 权威状态。System 模式监听媒体变化，显式 Light/Dark 在刷新后从偏好恢复。`HbarSettingsWorkspace` 只增加通用 `headerActions` slot，Web 组合宿主本地化的主题 Select；作用域和主题在 320px 仍共享一行。缺失的 accent-soft token 复用既有 accent background，使侧栏、状态页等选中项在两主题中恢复一致层次。
+
+| 场景         | 截图与人工观察                                                                                                                                                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 深色设置     | [1440 System dark](../../artifacts/ui-redesign/theme/after/settings-system-dark-1440.png)：主题与作用域位于同一页头操作区；分类选中背景恢复，表单与底部操作保持原密度                                                              |
+| 浅色设置     | [1440 Light](../../artifacts/ui-redesign/theme/after/settings-light-1440.png)：侧栏、分类栏、表单、边界和禁用按钮全部切到浅色，没有深色局部残留                                                                                    |
+| 窄屏设置     | [320 Light](../../artifacts/ui-redesign/theme/after/settings-light-320.png)、[390 System light](../../artifacts/ui-redesign/theme/after/settings-system-light-390.png)：两个页头选择器同排，分类选择和固定 footer 完整，无水平滚动 |
+| 浅色会话     | [1440](../../artifacts/ui-redesign/theme/after/session-light-1440.png)：工程树选中行、页头工具、空会话、Prompt 与 Usage 使用同一浅色层级；刷新后仍保持 Light                                                                       |
+| 浅色 Overlay | [命令目录](../../artifacts/ui-redesign/theme/after/commands-light-1440.png)：backdrop、对话框阴影、焦点框和选中命令清楚，底层页面降权但仍保留上下文                                                                                |
+| 浅色状态     | [Performance](../../artifacts/ui-redesign/theme/after/status-light-1440.png)：页头、分区、筛选、紧凑指标、图表和折叠详情没有丢失边界或文字对比                                                                                     |
+
+真实 E2E 从模拟 dark 系统以 System 启动，切到 Light 后检查 dataset、内联与 computed `color-scheme`，在 320px 截图，再刷新并确认 Light 与会话页恢复；随后切回 System，先确认 dark，再把媒体查询改为 light 并在 390px 复核。命令模态和 Performance 也在显式 Light 下逐张查看。首次扩展测试因把侧栏按钮完整名称写成 `Commands` 而等待超时；可访问树显示实际名称含 `Ctrl K`，改为稳定前缀定位后流程通过，产品功能没有失败。
+
+验证结果：commit `7d16ba4`；TypeScript、定向 ESLint、content-contract/icon-scale/flow-layout guards、403 个 Bun 测试（3220 个断言）、Web production build（2395 modules / 224.97 kB CSS / 964.25 kB JS）和 11/11 Playwright 场景全部通过。七张主题 production 图均逐张原尺寸查看；`artifacts/ui-redesign` 当前共 20 个页面/组件族、190 张 PNG。R1.1 已关闭；Tauri 实窗继续归 R6.4。
