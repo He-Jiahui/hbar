@@ -562,3 +562,23 @@ E2E 在 1440×960、1024×768 和 390×844 三档同时读取真实 production D
 首次完整 Playwright 回归在 11 项中的第 10 项耗尽旧的 120 秒场景总预算；失败截图和可访问树显示 390px 设置页已经正确呈现、侧栏已经关闭，等待的是一个此时不存在的“隐藏侧栏”按钮，因此不能记为视觉通过，也不能误报产品布局失败。测试改为立即检查该按钮是否存在，并把涵盖侧栏、会话、四类工具、设置、Provider、状态和命令目录的完整流程预算调整为 180 秒。最终全套 11/11 在 32.4 秒完成，其中完整连接流程为 12.3 秒。
 
 验证结果：commit `a1abd0c`；Prettier、定向 ESLint、TypeScript、全仓 ESLint、403 个 Bun 测试（3221 个断言）、Web production build（2395 modules / 226.03 kB CSS / 964.26 kB JS）和 11/11 Playwright 全部通过。三档会话截图和上述代表页面均直接查看，没有以代码断言代替视觉检查；Tauri 实窗仍归 R6.4。
+
+## 35. Provider 动态模型目录、思考等级与可见性闭环
+
+此前 ProviderEditor 已有 PI 供应商预设、多模型、自定义模型、供应商/模型可见性和每模型思考等级的代码与单元测试，但完整浏览器流程只操作了 OpenAI、GPT-5.4、默认模型和凭据。现有截图能看到多个模型与思考等级，不能证明用户真的可以编辑这些状态、关闭重开后仍保留，或隐藏配置会正确影响设置页模型目录。因此本轮增加独立真实 Host 流程，不再把“控件存在”当作行为完成。
+
+流程从 OpenAI 预设创建 `browser-provider`，目录自动带入 GPT-4，再加入 GPT-5.4；随后隐藏整个供应商、单独隐藏 GPT-5.4、移除 Extra high、加入 Maximum，添加自定义 `browser-custom`，为它加入 High 并设为默认。首次保存后检查凭据输入已清空、供应商仍隐藏、自定义模型仍可见、GPT-5.4 有隐藏标记、Off/High 仍存在。关闭并重开编辑器后再次核对三模型、默认项、隐藏项与思考等级，证明这些是 Host 事实而不是局部 React 状态。
+
+该流程发现设置页模型选项原先不会随 Provider 变更即时更新。动态内容 resolver 按依赖指纹缓存 30 秒；Provider 保存后即使 Host 已返回新模型，已加载设置表单仍可能继续显示旧目录。修复新增内部命令 `settingsForm.refreshContent`：它只重新执行动态 Schema 内容回调并显式绕过 resolver 缓存，不重建表单，因此不会丢失设置草稿、继承标记或作用域。Provider 保存、未知结果核对和删除成功后，通过该命令刷新所有已加载的 ready 表单；命令也登记在 application command inventory 中。普通依赖变化仍使用缓存，只有明确刷新越过缓存。
+
+最终把供应商重新设为可见后，真实 Host `model.list` 返回 `browser-custom` 且不返回隐藏的 GPT-5.4；同一时刻设置页 Model ComboBox 显示 Browser provider · browser-custom、Browser provider · GPT-4 和 Local fixture · fixture，也不显示 GPT-5.4。用户不再需要猜测保存后还要手动点 Refresh。移动断点测试同时改为等待 AppShell 自动收起后的 “Show projects and sessions sidebar” 最终状态，消除了测试主动点击与响应式 effect 争抢同一按钮的竞态。
+
+| 场景         | 截图与人工观察                                                                                                                                                                                                              |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面完整状态 | [1440](../../artifacts/ui-redesign/provider-editor/after/visibility-thinking-desktop-1440.png)：左侧供应商隐藏，模型栏同时显示 GPT-4、隐藏的 GPT-5.4 和默认 `browser-custom`；右侧 Off/High、默认等级和能力字段完整进入首屏 |
+| 中宽思考等级 | [1024](../../artifacts/ui-redesign/provider-editor/after/visibility-thinking-tablet-1024.png)：正常内容滚动把选中模型、能力、思考等级和默认等级带入视口；header/footer 不随 body 滚动                                       |
+| 窄屏思考等级 | [390](../../artifacts/ui-redesign/provider-editor/after/visibility-thinking-mobile-390.png)：单列字段、Off/High chips、默认等级及两个 footer 动作均完整，没有横向溢出                                                       |
+| 重开恢复     | [1440](../../artifacts/ui-redesign/provider-editor/after/visibility-thinking-reopened-1440.png)：关闭再打开后，三模型、隐藏/默认标记和 Off/High 均由 Host 恢复                                                              |
+| 最终模型目录 | [1440](../../artifacts/ui-redesign/settings/after/provider-model-visibility-1440.png)：重新显示供应商后目录自动更新；自定义模型和 GPT-4 可选，隐藏 GPT-5.4 缺席                                                             |
+
+验证结果：commit `89de53e`；Prettier、全仓 ESLint、TypeScript、404 个 Bun 测试（3230 个断言）、Web production build（2395 modules / 226.03 kB CSS / 964.71 kB JS）和 12/12 Playwright 全部通过。新增五张 production 图均以原分辨率查看；`artifacts/ui-redesign` 当前共 20 个页面/组件族、195 张 PNG。Tauri 实窗仍归 R6.4。

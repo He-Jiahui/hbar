@@ -80,18 +80,18 @@ R4.1 的 page/tool/modal 出口、实例目标和断点容器已经完成；R4.2
 
 ## 7. R5：设置、状态与命令
 
-| ID   | 独立交付                           | 前置             | 验收                                                       |
-| ---- | ---------------------------------- | ---------------- | ---------------------------------------------------------- |
-| R5.1 | hbar Schema ComponentRegistry 适配 | R1.3             | **已完成**：core/renderer 分离；单/多选、路径、secret 契约 |
-| R5.2 | Settings 分类/作用域/表单/保存条   | R2.2、R5.1       | **已完成**：三层 override、来源、unset、dirty、未知结果    |
-| R5.3 | Provider 列表及 NativeDialog       | R1.4、R5.2       | **已完成**：结构化列表、二级删除、焦点恢复、三档实测       |
-| R5.4 | 扩展和技能归入设置                 | R5.2             | **已完成**：旧命令兼容、生命周期/诊断保留、三档实测        |
-| R5.5 | Performance 页面重排               | R2.3、R1.5       | **已完成**：紧凑指标、固定百分比尺度、gap、三档实测        |
-| R5.6 | Usage 共享指标/曲线/日志与全局页面 | R2.3、R1.5       | **已完成**：紧凑口径、分层筛选、导出菜单、三档实测         |
-| R5.7 | Git 页面重排                       | R2.3、R1.5       | **已完成**：紧凑摘要、三趋势、命令化时间桶、三档实测       |
-| R5.8 | 命令对话框搜索→参数→结果           | R1.4、R5.1、R2.1 | **已完成**：三步命令流、分层返回、可读回执、三档实测       |
+| ID   | 独立交付                           | 前置             | 验收                                                                             |
+| ---- | ---------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| R5.1 | hbar Schema ComponentRegistry 适配 | R1.3             | **已完成**：core/renderer 分离；单/多选、路径、secret 契约                       |
+| R5.2 | Settings 分类/作用域/表单/保存条   | R2.2、R5.1       | **已完成**：三层 override、来源、unset、dirty、未知结果                          |
+| R5.3 | Provider 列表及 NativeDialog       | R1.4、R5.2       | **已完成**：PI 预设、多模型/自定义、思考等级、独立可见性、动态设置刷新与三档实测 |
+| R5.4 | 扩展和技能归入设置                 | R5.2             | **已完成**：旧命令兼容、生命周期/诊断保留、三档实测                              |
+| R5.5 | Performance 页面重排               | R2.3、R1.5       | **已完成**：紧凑指标、固定百分比尺度、gap、三档实测                              |
+| R5.6 | Usage 共享指标/曲线/日志与全局页面 | R2.3、R1.5       | **已完成**：紧凑口径、分层筛选、导出菜单、三档实测                               |
+| R5.7 | Git 页面重排                       | R2.3、R1.5       | **已完成**：紧凑摘要、三趋势、命令化时间桶、三档实测                             |
+| R5.8 | 命令对话框搜索→参数→结果           | R1.4、R5.1、R2.1 | **已完成**：三步命令流、分层返回、可读回执、三档实测                             |
 
-R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型的数组字段，ComponentRegistry 明确区分单值和多值能力；`schema-react` 保留无视觉库依赖的标准 renderer，`app-react` 通过 `createHbarSchemaComponents` 将相同契约映射到 `hbar-app-ui` 的受控控件。多选值已经贯通设置描述、`settingsForm.setField`、分层设置解析与提交；secret renderer 不回显状态值，文件/目录仍只产生选择命令。R5.2 也已完成：设置页使用统一 PageHeader、目标明确的单个作用域选择器、桌面分类栏/窄屏分类选择、独立内容滚动区和固定保存条；三层草稿、继承恢复、未知回执核对继续由运行时命令持有。R5.3 已完成：Provider 分组使用 `hbar-app-ui` 的受控设置列表显示协议、默认模型、模型数、可见性和凭据状态；编辑保持原设置上下文，删除移入二级菜单并由 NativeDialog 确认，Escape 关闭后恢复触发焦点。ProviderEditor 的结构化连接、凭据、模型和敏感值契约继续复用既有命令实现。R5.4 已完成：扩展与技能成为设置描述中的真实管理分组；兼容 `app.openPanel('extensions')` 会打开全局设置并选中该分组，插件启停、未知结果核对和系统诊断命令入口继续使用原命令。独立扩展模态、重复标题/关闭按钮和侧栏扩展入口已经移除。R5.5 已完成：状态中心改用统一 PageHeader 和受控筛选，Performance 以 CompactMetrics 展示当前值、以 BarSeries 展示实际 CPU 百分比，并将进程和 I/O 事实放入按需展开的明细；gap、不可用原因、范围和单位仍来自 Host 报告。R5.6 已完成：全局 Usage 合并重复指标卡，常用范围/时间筛选保持在首行，聚合/供应商/模型进入更多筛选，JSON/CSV 合并为一个导出菜单；总览、速率、延迟、时间线、模型和执行统计继续使用同一命令查询与账本口径。R5.7 已完成：Git 页使用统一受控 Select/CheckBox、CompactMetrics 与 BarSeries；仓库/时间保留为常用筛选，来源进入更多筛选，分支与工作树、活动摘要、提交/文件/行数趋势、提交详情和统计口径按阅读顺序排列。选择时间桶执行 `statusWorkspace.selectGitBucket`，运行时持有选中桶并只过滤本页提交明细；更换查询自动清除过期选择。非仓库、空历史、读取失败和截断继续保持不同状态。R5.8 已完成：命令目录使用 runtime 持有的 search/parameters/result 三步状态，搜索结果按分类呈现，查询变化会重置到第一个结果和列表顶部；参数页由 descriptor 编译并复用 `hbar-app-ui/forms`，结果页先显示可读成功/失败摘要，再按需展开原始技术回执。返回按钮和 Escape 都按结果→参数→搜索→关闭逐层退出，导航类命令成功后直接关闭目录，宿主仍只通过命令修改状态。
+R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型的数组字段，ComponentRegistry 明确区分单值和多值能力；`schema-react` 保留无视觉库依赖的标准 renderer，`app-react` 通过 `createHbarSchemaComponents` 将相同契约映射到 `hbar-app-ui` 的受控控件。多选值已经贯通设置描述、`settingsForm.setField`、分层设置解析与提交；secret renderer 不回显状态值，文件/目录仍只产生选择命令。R5.2 也已完成：设置页使用统一 PageHeader、目标明确的单个作用域选择器、桌面分类栏/窄屏分类选择、独立内容滚动区和固定保存条；三层草稿、继承恢复、未知回执核对继续由运行时命令持有。R5.3 已完成：Provider 分组使用 `hbar-app-ui` 的受控设置列表显示协议、默认模型、模型数、可见性和凭据状态；编辑保持原设置上下文，删除移入二级菜单并由 NativeDialog 确认，Escape 关闭后恢复触发焦点。ProviderEditor 可从 PI 目录搜索供应商与模型，也可添加自定义模型；供应商与每个模型独立控制可见性，每个模型持有自己的多选思考等级和默认等级。Provider 保存、未知结果核对或删除成功后执行内部 `settingsForm.refreshContent`，绕过动态选项缓存但保留设置草稿，使模型选择立即反映新目录。R5.4 已完成：扩展与技能成为设置描述中的真实管理分组；兼容 `app.openPanel('extensions')` 会打开全局设置并选中该分组，插件启停、未知结果核对和系统诊断命令入口继续使用原命令。独立扩展模态、重复标题/关闭按钮和侧栏扩展入口已经移除。R5.5 已完成：状态中心改用统一 PageHeader 和受控筛选，Performance 以 CompactMetrics 展示当前值、以 BarSeries 展示实际 CPU 百分比，并将进程和 I/O 事实放入按需展开的明细；gap、不可用原因、范围和单位仍来自 Host 报告。R5.6 已完成：全局 Usage 合并重复指标卡，常用范围/时间筛选保持在首行，聚合/供应商/模型进入更多筛选，JSON/CSV 合并为一个导出菜单；总览、速率、延迟、时间线、模型和执行统计继续使用同一命令查询与账本口径。R5.7 已完成：Git 页使用统一受控 Select/CheckBox、CompactMetrics 与 BarSeries；仓库/时间保留为常用筛选，来源进入更多筛选，分支与工作树、活动摘要、提交/文件/行数趋势、提交详情和统计口径按阅读顺序排列。选择时间桶执行 `statusWorkspace.selectGitBucket`，运行时持有选中桶并只过滤本页提交明细；更换查询自动清除过期选择。非仓库、空历史、读取失败和截断继续保持不同状态。R5.8 已完成：命令目录使用 runtime 持有的 search/parameters/result 三步状态，搜索结果按分类呈现，查询变化会重置到第一个结果和列表顶部；参数页由 descriptor 编译并复用 `hbar-app-ui/forms`，结果页先显示可读成功/失败摘要，再按需展开原始技术回执。返回按钮和 Escape 都按结果→参数→搜索→关闭逐层退出，导航类命令成功后直接关闭目录，宿主仍只通过命令修改状态。
 
 ## 8. R6：替换、回归与交付
 
@@ -99,11 +99,11 @@ R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型�
 | ---- | ---------------------------------- | -------------------------------------------------------------------------------------------- |
 | R6.1 | 原入口→新位置→命令的完整对照       | **已完成**：类型化 outlet manifest、迁移别名与入口对照                                       |
 | R6.2 | 删除旧串行页面出口和已迁移冲突样式 | **已完成**：生产窄入口排除旧壳层 CSS，保留 catalog 调用者                                    |
-| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：190 张图、真实流程、完整 checks                                         |
+| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：195 张图、真实流程、完整 checks                                         |
 | R6.4 | Tauri 实窗与缩放验收               | **环境阻塞**：编译/启动已通过；原生控制表面不可用，仍待标题栏、DPI、文件选择、弹窗和窄窗实图 |
 | R6.5 | 文档、证据索引与旧 UI 计划替代说明 | **进行中**：实现/证据/遗留项已同步；待 ToolPane 与 R6.4 后关闭                               |
 
-R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：20 个页面/组件族、190 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、Plan Run 归属、断线重连、基础按钮和整页主题矩阵及全仓 checks 均有证据；Tauri 实窗没有混入完成声明。R6.4 已完成当前代码的 debug 编译和启动验证；第一次视觉尝试停在 Windows LockApp/LogonUI，后续 Computer Use inventory 又返回空应用列表和 `unsupported Codex auth method: apikey`，因此没有用浏览器图替代标题栏、DPI、原生选择器和窄窗实图。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 ToolPane 公开契约与 R6.4 有效实窗证据补齐前不标记最终完成。
+R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：20 个页面/组件族、195 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、Plan Run 归属、Provider 多模型与动态设置刷新、断线重连、基础按钮和整页主题矩阵及全仓 checks 均有证据；Tauri 实窗没有混入完成声明。R6.4 已完成当前代码的 debug 编译和启动验证；第一次视觉尝试停在 Windows LockApp/LogonUI，后续 Computer Use inventory 又返回空应用列表和 `unsupported Codex auth method: apikey`，因此没有用浏览器图替代标题栏、DPI、原生选择器和窄窗实图。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 ToolPane 公开契约与 R6.4 有效实窗证据补齐前不标记最终完成。
 
 ## 9. 提交与交付记录规则
 
