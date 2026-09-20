@@ -6,6 +6,7 @@ import {
     useState
 } from 'react'
 import type {HbarAppUiDataRow, HbarAppUiMetric, HbarAppUiOption, HbarAppUiTimelineStep} from './types'
+import './primitives.css'
 
 export function HbarAppUiSurface({className = '', children, ...props}: HTMLAttributes<HTMLDivElement>) {
     return <div {...props} className={`hbar-app-ui-surface${className ? ` ${className}` : ''}`}>{children}</div>
@@ -31,25 +32,35 @@ export function HbarAppUiSpotlight({as = 'div', className = '', children, ...pro
     )
 }
 
+export type HbarAppUiButtonTone = 'neutral' | 'accent' | 'positive' | 'warning' | 'danger'
+export type HbarAppUiButtonSize = 'compact' | 'default' | 'focal'
+export type HbarAppUiButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+    readonly tone?: HbarAppUiButtonTone
+    readonly size?: HbarAppUiButtonSize
+}
+
 export function HbarAppUiButton({
                                     tone = 'neutral',
+                                    size = 'default',
                                     className = '',
                                     children,
                                     ...props
-                                }: ButtonHTMLAttributes<HTMLButtonElement> & {
-    readonly tone?: 'neutral' | 'accent' | 'positive' | 'warning' | 'danger'
-}) {
+                                }: HbarAppUiButtonProps) {
     return <button {...props} type={props.type ?? 'button'}
-                   className={`hbar-app-ui-button hbar-app-ui-button-${tone}${className ? ` ${className}` : ''}`}>{children}</button>
+                   className={`hbar-app-ui-button hbar-app-ui-button-${tone} hbar-app-ui-button-${size}${className ? ` ${className}` : ''}`}>{children}</button>
 }
+
+export type HbarAppUiIconButtonProps = HbarAppUiButtonProps & { readonly label: string }
 
 export function HbarAppUiIconButton({
                                         label,
+                                        size = 'compact',
                                         className = '',
                                         children,
                                         ...props
-                                    }: ButtonHTMLAttributes<HTMLButtonElement> & { readonly label: string }) {
-    return <HbarAppUiButton {...props} className={`hbar-app-ui-icon-button${className ? ` ${className}` : ''}`}
+                                    }: HbarAppUiIconButtonProps) {
+    return <HbarAppUiButton {...props} size={size}
+                            className={`hbar-app-ui-icon-button${className ? ` ${className}` : ''}`}
                             aria-label={props['aria-label'] ?? label}
                             title={props.title ?? label}>{children}</HbarAppUiButton>
 }
