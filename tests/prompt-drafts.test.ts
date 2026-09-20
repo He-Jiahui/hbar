@@ -125,6 +125,24 @@ test('draft submission captures its session and revision while newer edits survi
     const cancel = await runtime.view.commands.execute('operation.cancel', { operationId: receipt!.operationId })
     expect(cancel.status).toBe('cancelRequested')
     expect(runtime.view.state.runActions.getSnapshot()[receipt!.operationId]?.status).toBe('succeeded')
+
+    mode = 'unknown'
+    const retryInput = { sessionId: 'session-one', operationId: receipt!.operationId }
+    await expect(runtime.view.commands.execute('run.retry', retryInput)).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    const unknownRetry = calls.at(-1)
+    expect(unknownRetry).toMatchObject({ name: 'run.retry', input: retryInput })
+    expect(unknownRetry?.key).toBeString()
+    expect(runtime.view.state.runActions.getSnapshot()[receipt!.operationId]).toMatchObject({
+      status: 'unknown',
+      error: 'RESULT_UNKNOWN',
+    })
+    mode = 'success'
+    const retried = await runtime.view.commands.execute('run.retry', retryInput)
+    expect(calls.at(-1)?.key).toBe(unknownRetry?.key)
+    expect(retried.sessionId).toBe('session-one')
+    expect(runtime.view.state.runActions.getSnapshot()[receipt!.operationId]?.status).toBe('succeeded')
   } finally {
     runtime.dispose()
   }

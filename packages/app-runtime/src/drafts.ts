@@ -59,6 +59,7 @@ export function createDrafts(
   const state = createState<DraftsState>({}, onSubscriberError)
   const actions = createState<RunActionsState>({}, onSubscriberError)
   const pending = new Map<string, PendingSubmission>()
+  const retryKeys = new Map<string, string>()
 
   const replaceAction = (operationId: string, action: RunActionState) => {
     if (isDisposed()) return
@@ -205,6 +206,31 @@ export function createDrafts(
           throw error
         }
       }
+      if (name === 'run.retry') {
+        const sourceOperationId = (input as { operationId: string }).operationId
+        const current = actions.reader.getSnapshot()[sourceOperationId]
+        if (current?.status === 'submitting') throw new CommandError('BUSY', 'Run retry is already pending')
+        const key = retryKeys.get(sourceOperationId) ?? options.idempotencyKey ?? crypto.randomUUID()
+        retryKeys.set(sourceOperationId, key)
+        const action: RunActionState = { operationId: sourceOperationId, status: 'submitting', error: null }
+        replaceAction(sourceOperationId, action)
+        try {
+          const result = runAcceptedSchema.parse(await run.execute(name, input, { ...options, idempotencyKey: key }))
+          retryKeys.delete(sourceOperationId)
+          replaceAction(sourceOperationId, { ...action, status: 'succeeded' })
+          return result
+        } catch (error) {
+          const value = errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED')
+          const unknown = value === 'RESULT_UNKNOWN'
+          if (!unknown) retryKeys.delete(sourceOperationId)
+          replaceAction(sourceOperationId, {
+            ...action,
+            status: unknown ? 'unknown' : 'failed',
+            error: value,
+          })
+          throw error
+        }
+      }
       if (name !== 'run.submit') return run.execute(name, input, options)
       const submit = input as SubmitRunInput
       const current = entry(submit.sessionId)
@@ -239,6 +265,7 @@ export function createDrafts(
     },
     dispose() {
       pending.clear()
+      retryKeys.clear()
       state.dispose()
       actions.dispose()
     },
