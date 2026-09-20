@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LumenButton, LumenDialog, LumenSettingsList } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
-import { HbarProviderEditorView, type HbarProviderDialogLabels, type HbarProviderEditorIntent } from './provider-editor'
-import './provider-settings.css'
+import {
+  HbarProviderEditorView,
+  type HbarProviderDialogLabels,
+  type HbarProviderEditorIntent,
+} from './lumen-provider-editor'
+import './lumen-provider-settings.css'
 
-export type { HbarProviderDialogLabels } from './provider-editor'
+export type { HbarProviderDialogLabels } from './lumen-provider-editor'
 
 function reasonCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
