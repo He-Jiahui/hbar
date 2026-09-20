@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ArrowLeft, RefreshCw, X } from 'lucide-react'
-import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
-import { HbarAppUiCommandList } from 'hbar-app-ui/command-menu'
-import { HbarAppUiIcon } from 'hbar-app-ui/icon'
-import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui/primitives'
 import {
-  HbarAppUiCheckBox,
-  HbarAppUiField,
-  HbarAppUiInput,
-  HbarAppUiSelect,
-  HbarAppUiTextarea,
-} from 'hbar-app-ui/forms'
-import { HbarAppUiPageHeader } from 'hbar-app-ui/workbench'
+  LumenButton,
+  LumenCheckBox,
+  LumenCommandList,
+  LumenFormField,
+  LumenIcon,
+  LumenIconButton,
+  LumenInput,
+  LumenPageHeader,
+  LumenSelect,
+  LumenTextarea,
+} from '@lumen/app-ui'
+import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './command-palette.css'
 
@@ -99,7 +100,7 @@ function SensitiveParameter({
   const [value, setValue] = useState('')
   useEffect(() => setValue(''), [resetRevision])
   return (
-    <HbarAppUiInput
+    <LumenInput
       id={id}
       type="password"
       autoComplete="new-password"
@@ -150,7 +151,7 @@ function KnownTargetParameter({
   const customValue = custom && typeof value === 'string' && !known ? value : ''
   return (
     <div className="hbar-app-react-known-target">
-      <HbarAppUiSelect
+      <LumenSelect
         id={id}
         value={custom ? CUSTOM_IDENTIFIER : typeof value === 'string' ? value : ''}
         required={field.required}
@@ -178,9 +179,9 @@ function KnownTargetParameter({
           </option>
         ))}
         <option value={CUSTOM_IDENTIFIER}>{labels.customIdentifierOption}</option>
-      </HbarAppUiSelect>
+      </LumenSelect>
       {custom && (
-        <HbarAppUiInput
+        <LumenInput
           type="text"
           aria-label={labels.customIdentifier(label)}
           placeholder={labels.customIdentifier(label)}
@@ -339,7 +340,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
     if (field.kind === 'boolean') {
       if (!field.required && field.defaultValue === undefined)
         return (
-          <HbarAppUiSelect
+          <LumenSelect
             id={controlId}
             value={typeof value === 'boolean' ? String(value) : ''}
             disabled={busy}
@@ -352,10 +353,10 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             <option value="">{labels.unset}</option>
             <option value="true">{labels.trueValue}</option>
             <option value="false">{labels.falseValue}</option>
-          </HbarAppUiSelect>
+          </LumenSelect>
         )
       return (
-        <HbarAppUiCheckBox
+        <LumenCheckBox
           id={controlId}
           label={labels.trueValue}
           checked={value === true}
@@ -366,7 +367,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
     }
     if (field.choices.length)
       return (
-        <HbarAppUiSelect
+        <LumenSelect
           id={controlId}
           value={typeof value === 'string' ? value : ''}
           required={field.required}
@@ -388,7 +389,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               {labels.option(field, choice)}
             </option>
           ))}
-        </HbarAppUiSelect>
+        </LumenSelect>
       )
     const knownTargets =
       field.name === 'workspaceId'
@@ -413,7 +414,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
       )
     if (field.kind === 'json')
       return (
-        <HbarAppUiTextarea
+        <LumenTextarea
           id={controlId}
           value={typeof value === 'string' ? value : ''}
           required={field.required}
@@ -423,7 +424,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         />
       )
     return (
-      <HbarAppUiInput
+      <LumenInput
         id={controlId}
         type={field.kind === 'number' || field.kind === 'integer' ? 'number' : 'text'}
         step={field.kind === 'integer' ? 1 : field.kind === 'number' ? 'any' : undefined}
@@ -440,46 +441,47 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
   }
 
   const header = (
-    <HbarAppUiPageHeader
+    <LumenPageHeader
       title={palette.view === 'result' ? labels.result : palette.view === 'parameters' ? commandTitle : labels.title}
       context={palette.view === 'search' ? labels.description : commandDescription}
       leading={
         palette.view === 'search' ? undefined : (
-          <HbarAppUiIconButton
+          <LumenIconButton
             label={palette.view === 'result' ? labels.backToParameters : labels.backToCommands}
             onClick={goBack}
           >
-            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
-          </HbarAppUiIconButton>
+            <LumenIcon icon={ArrowLeft} tier="sm" />
+          </LumenIconButton>
         )
       }
       actionsLabel={labels.actions}
       actions={
         <>
           {palette.view === 'search' && (
-            <HbarAppUiIconButton
+            <LumenIconButton
               label={labels.refresh}
               disabled={palette.status === 'loading' || busy}
               onClick={() => dispatch(runtime.commands.execute('commandPalette.refresh', {}))}
             >
-              <HbarAppUiIcon icon={RefreshCw} tier="sm" />
-            </HbarAppUiIconButton>
+              <LumenIcon icon={RefreshCw} tier="sm" />
+            </LumenIconButton>
           )}
-          <HbarAppUiIconButton label={labels.close} onClick={closePanel}>
-            <HbarAppUiIcon icon={X} tier="sm" />
-          </HbarAppUiIconButton>
+          <LumenIconButton label={labels.close} onClick={closePanel}>
+            <LumenIcon icon={X} tier="sm" />
+          </LumenIconButton>
         </>
       }
     />
   )
 
   return (
-    <HbarAppUiSurface className="hbar-app-react-command-palette" data-view={palette.view}>
+    <section className="hbar-app-react-command-palette" data-view={palette.view}>
       {header}
       {palette.view === 'search' ? (
         <div className="hbar-app-react-command-search">
-          <HbarAppUiCommandList
+          <LumenCommandList
             inputRef={search}
+            inputId="hbar-command-search"
             labels={{
               search: labels.search,
               available: labels.available,
@@ -549,7 +551,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                     const controlId = `hbar-command-${field.name}`
                     return (
                       <div key={field.name} className="hbar-app-react-command-field">
-                        <HbarAppUiField
+                        <LumenFormField
                           controlId={controlId}
                           label={label}
                           hint={field.required ? labels.required : labels.optional}
@@ -557,11 +559,16 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                           required={field.required}
                         >
                           {fieldControl(field, controlId, label)}
-                        </HbarAppUiField>
+                        </LumenFormField>
                         {!field.required && isSet && !usesKnownTargetControl && (
-                          <HbarAppUiButton type="button" disabled={busy} onClick={() => unsetParameter(field.name)}>
+                          <LumenButton
+                            type="button"
+                            variant="text"
+                            disabled={busy}
+                            onClick={() => unsetParameter(field.name)}
+                          >
                             {labels.unset}
-                          </HbarAppUiButton>
+                          </LumenButton>
                         )}
                       </div>
                     )
@@ -578,16 +585,17 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               {actionError && <p role="alert">{labels.error(actionError)}</p>}
             </div>
             <footer>
-              <HbarAppUiButton
+              <LumenButton
                 type="button"
+                variant="outlined"
                 disabled={busy}
                 onClick={() => dispatch(runtime.commands.execute('commandPalette.resetParameters', {}))}
               >
                 {labels.reset}
-              </HbarAppUiButton>
-              <HbarAppUiButton type="submit" tone="accent" disabled={!canExecute}>
+              </LumenButton>
+              <LumenButton type="submit" tone="primary" disabled={!canExecute}>
                 {busy ? labels.executing : labels.execute}
-              </HbarAppUiButton>
+              </LumenButton>
             </footer>
           </form>
         </main>
@@ -595,7 +603,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         <main className="hbar-app-react-command-result-view">
           <section
             className="hbar-app-react-command-result-summary"
-            data-tone={palette.execution.status === 'succeeded' ? 'positive' : 'danger'}
+            data-tone={palette.execution.status === 'succeeded' ? 'success' : 'danger'}
             role={palette.execution.status === 'succeeded' ? 'status' : 'alert'}
           >
             <strong>
@@ -620,18 +628,22 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             <pre>{palette.execution.result ?? palette.execution.error}</pre>
           </details>
           <footer>
-            <HbarAppUiButton onClick={goBack}>{labels.backToParameters}</HbarAppUiButton>
-            <HbarAppUiButton tone="accent" onClick={closePanel}>
+            <LumenButton variant="outlined" onClick={goBack}>
+              {labels.backToParameters}
+            </LumenButton>
+            <LumenButton tone="primary" onClick={closePanel}>
               {labels.close}
-            </HbarAppUiButton>
+            </LumenButton>
           </footer>
         </main>
       ) : (
         <main className="hbar-app-react-command-missing">
           <p role="status">{labels.empty}</p>
-          <HbarAppUiButton onClick={goBack}>{labels.backToCommands}</HbarAppUiButton>
+          <LumenButton variant="outlined" onClick={goBack}>
+            {labels.backToCommands}
+          </LumenButton>
         </main>
       )}
-    </HbarAppUiSurface>
+    </section>
   )
 }

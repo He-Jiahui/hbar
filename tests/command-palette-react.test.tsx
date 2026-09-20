@@ -75,7 +75,7 @@ test('app-react renders the controlled catalog and descriptor parameter form wit
     expect(html).toContain('Command catalog')
     expect(html).toContain('app.openPanel')
     expect(html).toContain('Category app.navigation')
-    expect(html).toContain('hbar-app-ui-controlled-commands')
+    expect(html).toContain('lumen-command-list')
     expect(html).not.toContain('Field panelId')
 
     await runtime.view.commands.execute('commandPalette.openCommand', { commandId: 'app.openPanel' })
