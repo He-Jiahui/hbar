@@ -32,6 +32,8 @@ export interface HbarWorkspaceShellLabels {
   readonly hideSidebar: string
   readonly expandWorkspace: (name: string) => string
   readonly collapseWorkspace: (name: string) => string
+  readonly workspaceActions: (name: string) => string
+  readonly newSessionInWorkspace: string
   readonly openSession: (name: string) => string
   readonly sessionUpdatedAt: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
@@ -301,28 +303,35 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               const nextSessionCursor = sessionCursors[workspace.id]
               return (
                 <section key={workspace.id}>
-                  <button
-                    type="button"
-                    className="hbar-app-react-workspace-row"
-                    aria-expanded={isExpanded}
-                    aria-label={
-                      isExpanded
-                        ? props.labels.collapseWorkspace(workspace.name)
-                        : props.labels.expandWorkspace(workspace.name)
-                    }
-                    onClick={() =>
-                      setExpanded((current) => {
-                        const next = new Set(current)
-                        if (next.has(workspace.id)) next.delete(workspace.id)
-                        else next.add(workspace.id)
-                        return next
-                      })
-                    }
-                  >
-                    <HbarAppUiShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
-                    <HbarAppUiShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
-                    <strong>{workspace.name}</strong>
-                  </button>
+                  <div className="hbar-app-react-workspace-line">
+                    <button
+                      type="button"
+                      className="hbar-app-react-workspace-row"
+                      aria-expanded={isExpanded}
+                      aria-label={
+                        isExpanded
+                          ? props.labels.collapseWorkspace(workspace.name)
+                          : props.labels.expandWorkspace(workspace.name)
+                      }
+                      onClick={() =>
+                        setExpanded((current) => {
+                          const next = new Set(current)
+                          if (next.has(workspace.id)) next.delete(workspace.id)
+                          else next.add(workspace.id)
+                          return next
+                        })
+                      }
+                    >
+                      <HbarAppUiShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
+                      <HbarAppUiShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
+                      <strong>{workspace.name}</strong>
+                    </button>
+                    <HbarAppUiActionMenu
+                      label={props.labels.workspaceActions(workspace.name)}
+                      items={[{ id: 'new-session', label: props.labels.newSessionInWorkspace }]}
+                      onAction={() => openCommandForm('app.createSession', { workspaceId: workspace.id })}
+                    />
+                  </div>
                   {isExpanded && (
                     <div className="hbar-app-react-session-list">
                       {loading.has(workspace.id) && sessions.length === 0 ? (

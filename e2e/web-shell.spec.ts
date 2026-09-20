@@ -34,14 +34,21 @@ async function startSessionHost(root: string, sessionCount = 1) {
     errors += String(chunk)
   })
   const output = createInterface({ input: child.stdout! })
-  const ready = await new Promise<{ token: string; sessionId: string; sessionTitle: string }>((resolve, reject) => {
+  type Ready = {
+    token: string
+    workspaceId: string
+    workspaceName: string
+    sessionId: string
+    sessionTitle: string
+  }
+  const ready = await new Promise<Ready>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`E2E Host did not start: ${errors}`)), 20_000)
     output.on('line', (line) => {
       try {
-        const value = JSON.parse(line) as { token?: string; sessionId?: string; sessionTitle?: string }
-        if (value.token && value.sessionId && value.sessionTitle) {
+        const value = JSON.parse(line) as Partial<Ready>
+        if (value.token && value.workspaceId && value.workspaceName && value.sessionId && value.sessionTitle) {
           clearTimeout(timer)
-          resolve(value as { token: string; sessionId: string; sessionTitle: string })
+          resolve(value as Ready)
         }
       } catch {
         // Ignore non-protocol diagnostics; stderr is included in startup failures.
@@ -244,6 +251,36 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1440.png', fullPage: true })
     await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(
+      page
+        .getByRole('main', { name: 'Workspace' })
+        .getByRole('heading', { level: 1, name: fixture.ready.sessionTitle }),
+    ).toBeVisible()
+    const workspaceActions = page.getByTitle(`Actions for project ${fixture.ready.workspaceName}`)
+    await workspaceActions.click()
+    const workspaceMenu = page.getByRole('menu', {
+      name: `Actions for project ${fixture.ready.workspaceName}`,
+    })
+    await expect(workspaceMenu.getByRole('menuitem', { name: 'New session in this project' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/workspace-actions-1440.png', fullPage: true })
+    await workspaceMenu.getByRole('menuitem', { name: 'New session in this project' }).click()
+    const workspaceCreateDialog = page.getByRole('dialog', { name: 'Command catalog' })
+    await expect(workspaceCreateDialog.getByRole('heading', { level: 1, name: 'New session' })).toBeVisible()
+    await expect(workspaceCreateDialog.getByRole('combobox', { name: 'Workspace ID' })).toHaveValue(
+      fixture.ready.workspaceId,
+    )
+    await expect(
+      page
+        .getByRole('main', { name: 'Workspace' })
+        .getByRole('heading', { level: 1, name: fixture.ready.sessionTitle }),
+    ).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/shell/workspace-new-session-1440.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
+    await expect(workspaceCreateDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await workspaceCreateDialog.getByRole('button', { name: 'Close command catalog' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     const sessionActions = page.getByTitle(`Actions for ${fixture.ready.sessionTitle}`)
     await sessionActions.click()

@@ -47,7 +47,15 @@ await createBudgetCommandClient(client).execute(
   { idempotencyKey: 'web-e2e-budget' },
 )
 client.disconnect()
-process.stdout.write(`${JSON.stringify({ token, sessionId: session.id, sessionTitle: session.title })}\n`)
+process.stdout.write(
+  `${JSON.stringify({
+    token,
+    workspaceId: workspace.id,
+    workspaceName: workspace.name,
+    sessionId: session.id,
+    sessionTitle: session.title,
+  })}\n`,
+)
 
 let closing = false
 const close = async () => {
