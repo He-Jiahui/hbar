@@ -1,15 +1,20 @@
 import { useCallback, useEffect } from 'react'
 import { ListTodo, RefreshCw } from 'lucide-react'
-import { HbarAppUiIcon } from 'hbar-app-ui/icon'
-import { HbarAppUiToolPane } from 'hbar-app-ui/tool-pane'
 import {
-  HbarAppUiPlanEditor,
-  type HbarAppUiAgentPlanEditableContent,
-  type HbarAppUiAgentPlanState,
-} from 'hbar-app-ui/plan-editor'
-import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus } from 'hbar-app-ui/primitives'
-import { HbarAppUiField, HbarAppUiInput, HbarAppUiSelect, HbarAppUiTextarea } from 'hbar-app-ui/forms'
-import { HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
+  LumenButton,
+  LumenCompactMetrics,
+  LumenFormField,
+  LumenIcon,
+  LumenIconButton,
+  LumenInput,
+  LumenPlanEditor,
+  LumenSelect,
+  LumenStatus,
+  LumenTextarea,
+  LumenToolPane,
+  type LumenPlanEditorLabels,
+  type LumenPlanState,
+} from '@lumen/app-ui'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './goal-plan-workspace.css'
@@ -45,7 +50,7 @@ export interface HbarGoalPlanWorkspaceLabels {
     readonly used: string
     readonly elapsed: string
   }
-  readonly plan: HbarAppUiAgentPlanEditableContent['labels'] & {
+  readonly plan: LumenPlanEditorLabels & {
     readonly explanation: string
     readonly explanationPlaceholder: string
     readonly edit: string
@@ -64,25 +69,25 @@ export interface HbarGoalPlanWorkspaceLabels {
   readonly error: (code: string) => string
 }
 
-const toUiState: Readonly<Record<PlanStepStatus, HbarAppUiAgentPlanState>> = {
+const toUiState: Readonly<Record<PlanStepStatus, LumenPlanState>> = {
   pending: 'queued',
   in_progress: 'running',
   completed: 'done',
 }
-const fromUiState: Readonly<Partial<Record<HbarAppUiAgentPlanState, PlanStepStatus>>> = {
+const fromUiState: Readonly<Partial<Record<LumenPlanState, PlanStepStatus>>> = {
   queued: 'pending',
   running: 'in_progress',
   done: 'completed',
 }
 
-function goalTone(status: GoalStatus): 'neutral' | 'positive' | 'warning' | 'danger' {
-  if (status === 'complete') return 'positive'
+function goalTone(status: GoalStatus): 'neutral' | 'success' | 'warning' | 'danger' {
+  if (status === 'complete') return 'success'
   if (status === 'blocked' || status === 'budget_limited' || status === 'usage_limited') return 'warning'
   return 'neutral'
 }
 
-function stepTone(status: PlanStepStatus): 'neutral' | 'positive' | 'warning' {
-  if (status === 'completed') return 'positive'
+function stepTone(status: PlanStepStatus): 'neutral' | 'success' | 'warning' {
+  if (status === 'completed') return 'success'
   if (status === 'in_progress') return 'warning'
   return 'neutral'
 }
@@ -133,7 +138,7 @@ export function HbarGoalPlanWorkspace({
   const back = () => invoke('goalPlanWorkspace.showOverview', { instanceId })
 
   return (
-    <HbarAppUiToolPane
+    <LumenToolPane
       title={labels.title}
       targetLabel={targetLabel}
       description={labels.description}
@@ -145,13 +150,13 @@ export function HbarGoalPlanWorkspace({
       busy={Boolean(!entry || entry.status === 'loading' || goalBusy || planBusy)}
       actions={
         <>
-          <HbarAppUiIconButton
+          <LumenIconButton
             label={labels.refresh}
             disabled={!connected || entry?.status === 'loading'}
             onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}
           >
-            <HbarAppUiIcon icon={RefreshCw} tier="sm" />
-          </HbarAppUiIconButton>
+            <LumenIcon icon={RefreshCw} tier="sm" />
+          </LumenIconButton>
         </>
       }
       className="hbar-app-react-goal-plan-workspace"
@@ -173,26 +178,26 @@ export function HbarGoalPlanWorkspace({
           >
             <h2>{labels.goal.title}</h2>
             <fieldset disabled={!connected || goalBusy}>
-              <HbarAppUiField
+              <LumenFormField
                 controlId={`${instanceId}-goal-objective`}
                 label={labels.goal.objective}
                 required
                 {...(entry.goalDraft.issues.objective ? { error: labels.issue('objective') } : {})}
               >
-                <HbarAppUiTextarea
+                <LumenTextarea
                   id={`${instanceId}-goal-objective`}
                   required
                   value={entry.goalDraft.objective}
                   placeholder={labels.goal.objectivePlaceholder}
                   onChange={(event) => setGoalField('objective', event.currentTarget.value)}
                 />
-              </HbarAppUiField>
-              <HbarAppUiField
+              </LumenFormField>
+              <LumenFormField
                 controlId={`${instanceId}-goal-budget`}
                 label={labels.goal.tokenBudget}
                 {...(entry.goalDraft.issues.tokenBudget ? { error: labels.issue('tokenBudget') } : {})}
               >
-                <HbarAppUiInput
+                <LumenInput
                   id={`${instanceId}-goal-budget`}
                   type="number"
                   inputMode="numeric"
@@ -201,10 +206,10 @@ export function HbarGoalPlanWorkspace({
                   value={entry.goalDraft.tokenBudget}
                   onChange={(event) => setGoalField('tokenBudget', event.currentTarget.value)}
                 />
-              </HbarAppUiField>
+              </LumenFormField>
               {entry.goal && (
-                <HbarAppUiField controlId={`${instanceId}-goal-status`} label={labels.goal.status}>
-                  <HbarAppUiSelect
+                <LumenFormField controlId={`${instanceId}-goal-status`} label={labels.goal.status}>
+                  <LumenSelect
                     id={`${instanceId}-goal-status`}
                     value={entry.goalDraft.status}
                     onChange={(event) => setGoalField('status', event.currentTarget.value)}
@@ -214,32 +219,32 @@ export function HbarGoalPlanWorkspace({
                         {labels.goal.statuses[status]}
                       </option>
                     ))}
-                  </HbarAppUiSelect>
-                </HbarAppUiField>
+                  </LumenSelect>
+                </LumenFormField>
               )}
             </fieldset>
             {entry.goalAction.error && <p role="alert">{labels.error(entry.goalAction.error)}</p>}
             {entry.goalAction.status === 'succeeded' && <p role="status">{labels.goal.saved}</p>}
             <footer>
               {entry.goalAction.status === 'unknown' ? (
-                <HbarAppUiButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
+                <LumenButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
                   {labels.goal.reconcile}
-                </HbarAppUiButton>
+                </LumenButton>
               ) : (
-                <HbarAppUiButton
+                <LumenButton
                   type="submit"
-                  tone="accent"
+                  tone="primary"
                   disabled={!connected || !entry.goalDirty || entry.goalAction.status === 'submitting'}
                 >
                   {entry.goalAction.status === 'submitting' ? labels.goal.saving : labels.goal.save}
-                </HbarAppUiButton>
+                </LumenButton>
               )}
             </footer>
           </form>
         </main>
       ) : view === 'plan' ? (
         <main className="hbar-app-react-plan-editor-view">
-          <HbarAppUiPlanEditor
+          <LumenPlanEditor
             labels={labels.plan}
             steps={steps}
             listStrategy={{ kind: 'pane-scroll', expectedMaximum: 100 }}
@@ -249,8 +254,8 @@ export function HbarGoalPlanWorkspace({
             canSubmit={entry.planDirty && entry.planDraft.steps.every((step) => step.step.trim().length > 0)}
             error={entry.planAction.error ? labels.error(entry.planAction.error) : undefined}
             before={
-              <HbarAppUiField controlId={`${instanceId}-plan-explanation`} label={labels.plan.explanation}>
-                <HbarAppUiTextarea
+              <LumenFormField controlId={`${instanceId}-plan-explanation`} label={labels.plan.explanation}>
+                <LumenTextarea
                   id={`${instanceId}-plan-explanation`}
                   value={entry.planDraft.explanation}
                   placeholder={labels.plan.explanationPlaceholder}
@@ -259,14 +264,14 @@ export function HbarGoalPlanWorkspace({
                     invoke('goalPlanWorkspace.setExplanation', { instanceId, value: event.currentTarget.value })
                   }
                 />
-              </HbarAppUiField>
+              </LumenFormField>
             }
             after={entry.planAction.status === 'succeeded' ? <p role="status">{labels.plan.saved}</p> : undefined}
             actions={
               entry.planAction.status === 'unknown' ? (
-                <HbarAppUiButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
+                <LumenButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
                   {labels.plan.reconcile}
-                </HbarAppUiButton>
+                </LumenButton>
               ) : undefined
             }
             onDraftChange={(value) => invoke('goalPlanWorkspace.setNewStep', { instanceId, value })}
@@ -300,13 +305,13 @@ export function HbarGoalPlanWorkspace({
             <header>
               <h2>{labels.goal.title}</h2>
               {entry.goal && (
-                <HbarAppUiStatus value={labels.goal.statuses[entry.goal.status]} tone={goalTone(entry.goal.status)} />
+                <LumenStatus value={labels.goal.statuses[entry.goal.status]} tone={goalTone(entry.goal.status)} />
               )}
             </header>
             {entry.goal ? (
               <>
                 <p className="hbar-app-react-goal-objective">{entry.goal.objective}</p>
-                <HbarAppUiCompactMetrics
+                <LumenCompactMetrics
                   label={labels.goal.title}
                   metrics={[
                     {
@@ -333,27 +338,27 @@ export function HbarGoalPlanWorkspace({
             )}
             {entry.goalAction.error && <p role="alert">{labels.error(entry.goalAction.error)}</p>}
             <footer>
-              <HbarAppUiButton
-                tone={entry.goal ? 'neutral' : 'accent'}
+              <LumenButton
+                tone={entry.goal ? 'neutral' : 'primary'}
                 onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}
               >
                 {entry.goal ? labels.goal.edit : labels.goal.create}
-              </HbarAppUiButton>
+              </LumenButton>
               {entry.goal && (
-                <HbarAppUiButton
+                <LumenButton
                   disabled={!connected || goalBusy}
                   tone="warning"
                   onClick={() => invoke('goalPlanWorkspace.clearGoal', { instanceId })}
                 >
                   {labels.goal.clear}
-                </HbarAppUiButton>
+                </LumenButton>
               )}
             </footer>
           </section>
           <section>
             <header>
               <h2>{labels.plan.title}</h2>
-              <span>{labels.plan.count(entry.plan?.plan.length ?? 0)}</span>
+              <span className="hbar-app-react-plan-count">{labels.plan.count(entry.plan?.plan.length ?? 0)}</span>
             </header>
             {entry.plan ? (
               <>
@@ -363,7 +368,7 @@ export function HbarGoalPlanWorkspace({
                     <li key={`${index}-${step.step}`}>
                       <span aria-hidden="true">{index + 1}</span>
                       <strong>{step.step}</strong>
-                      <HbarAppUiStatus value={labels.plan.statuses[step.status]} tone={stepTone(step.status)} />
+                      <LumenStatus value={labels.plan.statuses[step.status]} tone={stepTone(step.status)} />
                     </li>
                   ))}
                 </ol>
@@ -376,25 +381,25 @@ export function HbarGoalPlanWorkspace({
             )}
             {entry.planAction.error && <p role="alert">{labels.error(entry.planAction.error)}</p>}
             <footer>
-              <HbarAppUiButton
-                tone={entry.plan ? 'neutral' : 'accent'}
+              <LumenButton
+                tone={entry.plan ? 'neutral' : 'primary'}
                 onClick={() => invoke('goalPlanWorkspace.showPlanEditor', { instanceId })}
               >
                 {labels.plan.edit}
-              </HbarAppUiButton>
+              </LumenButton>
               {entry.plan && (
-                <HbarAppUiButton
+                <LumenButton
                   disabled={!connected || planBusy}
                   tone="warning"
                   onClick={() => invoke('goalPlanWorkspace.clearPlan', { instanceId })}
                 >
                   {labels.plan.clear}
-                </HbarAppUiButton>
+                </LumenButton>
               )}
             </footer>
           </section>
         </main>
       )}
-    </HbarAppUiToolPane>
+    </LumenToolPane>
   )
 }

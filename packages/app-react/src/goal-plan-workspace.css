@@ -4,7 +4,7 @@
 }
 
 .hbar-app-react-goal-plan-workspace h2 {
-  font-size: var(--hbar-app-ui-font-section);
+  font-size: 0.875rem;
 }
 
 .hbar-app-react-goal-editor > footer,
@@ -14,24 +14,24 @@
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--hbar-app-ui-space-xs);
+  gap: 0.25rem;
 }
 
-.hbar-app-react-goal-plan-workspace .hbar-app-ui-session-tool-pane-body > main {
+.hbar-app-react-goal-plan-workspace .lumen-tool-pane-body > main {
   display: flex;
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: var(--hbar-app-ui-space-lg);
+  gap: 1rem;
   overflow: visible;
-  padding: var(--hbar-app-ui-space-md);
+  padding: 0.75rem;
 }
 
 .hbar-app-react-goal-plan-back {
   display: inline-flex;
   align-self: flex-start;
   align-items: center;
-  gap: var(--hbar-app-ui-space-xs);
+  gap: 0.25rem;
 }
 
 .hbar-app-react-goal-editor,
@@ -39,7 +39,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: var(--hbar-app-ui-space-md);
+  gap: 0.75rem;
 }
 
 .hbar-app-react-goal-editor fieldset {
@@ -48,7 +48,7 @@
   border: 0;
 }
 
-.hbar-app-react-plan-editor-view > .hbar-app-ui-plan-editor {
+.hbar-app-react-plan-editor-view > .lumen-plan-editor {
   flex: 0 0 auto;
 }
 
@@ -57,12 +57,12 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: var(--hbar-app-ui-space-md);
+  gap: 0.75rem;
 }
 
 .hbar-app-react-goal-plan-overview > section + section {
-  padding-block-start: var(--hbar-app-ui-space-lg);
-  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  padding-block-start: 1rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
 .hbar-app-react-goal-plan-overview section > header {
@@ -70,12 +70,12 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: var(--hbar-app-ui-space-md);
+  gap: 0.75rem;
 }
 
-.hbar-app-react-goal-plan-overview section > header > span:not(.hbar-app-ui-status),
+.hbar-app-react-plan-count,
 .hbar-app-react-plan-explanation {
-  color: var(--hbar-app-ui-subtle);
+  color: var(--lumen-subtle);
   font-size: 0.75rem;
 }
 
@@ -97,16 +97,16 @@
   display: flex;
   min-inline-size: 0;
   align-items: flex-start;
-  gap: var(--hbar-app-ui-space-sm);
-  padding-block: var(--hbar-app-ui-space-sm);
-  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  gap: 0.5rem;
+  padding-block: 0.5rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
 .hbar-app-react-plan-summary li > span:first-child {
-  min-inline-size: var(--hbar-app-ui-control-compact);
-  flex: 0 0 var(--hbar-app-ui-control-compact);
-  color: var(--hbar-app-ui-muted);
-  font-family: var(--hbar-app-ui-mono);
+  min-inline-size: 1.75rem;
+  flex: 0 0 1.75rem;
+  color: var(--lumen-muted);
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
   text-align: center;
 }
 
@@ -122,20 +122,20 @@
   min-block-size: 7rem;
   align-items: center;
   justify-content: center;
-  color: var(--hbar-app-ui-muted);
+  color: var(--lumen-muted);
   text-align: center;
 }
 
 .hbar-app-react-goal-plan-loading {
   flex: 1 1 auto;
-  padding: var(--hbar-app-ui-space-lg);
+  padding: 1rem;
 }
 
 .hbar-app-react-goal-plan-workspace [role='alert'] {
-  color: var(--hbar-app-ui-danger);
+  color: var(--lumen-danger);
   overflow-wrap: anywhere;
 }
 
 .hbar-app-react-goal-plan-workspace [role='status'] {
-  color: var(--hbar-app-ui-positive);
+  color: var(--lumen-success);
 }
