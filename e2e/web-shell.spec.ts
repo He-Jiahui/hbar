@@ -1692,10 +1692,10 @@ test('global appearance saves through preferences, survives reload, and restores
       expected: { readonly theme: 'light' | 'dark'; readonly size: 's' | 'm' | 'l' },
     ) => {
       const html = page.locator('html')
-      await expect(html).toHaveAttribute('data-hbar-app-ui-theme', expected.theme)
-      await expect(html).toHaveAttribute('data-hbar-app-ui-control-size', expected.size)
-      await expect(html).toHaveAttribute('data-hbar-app-ui-text-size', expected.size)
-      await expect(html).toHaveAttribute('data-hbar-app-ui-corner-size', expected.size)
+      await expect(html).toHaveAttribute('data-lumen-mode', expected.theme)
+      await expect(html).toHaveAttribute('data-lumen-control-size', expected.size)
+      await expect(html).toHaveAttribute('data-lumen-text-size', expected.size)
+      await expect(html).toHaveAttribute('data-lumen-corner-size', expected.size)
       expect(
         await page.evaluate(() => ({
           inline: document.documentElement.style.colorScheme,
@@ -1730,10 +1730,10 @@ test('global appearance saves through preferences, survives reload, and restores
     await expect(page.getByText('Appearance changes are not saved', { exact: true })).toBeVisible()
     await expectAppearance({ theme: 'dark', size: 'm' })
     const preview = page.getByRole('region', { name: 'Live preview' })
-    await expect(preview).toHaveAttribute('data-hbar-app-ui-theme', 'light')
-    await expect(preview).toHaveAttribute('data-hbar-app-ui-control-size', 'l')
-    await expect(preview).toHaveAttribute('data-hbar-app-ui-text-size', 'l')
-    await expect(preview).toHaveAttribute('data-hbar-app-ui-corner-size', 'l')
+    await expect(preview).toHaveAttribute('data-lumen-mode', 'light')
+    await expect(preview).toHaveAttribute('data-lumen-control-size', 'l')
+    await expect(preview).toHaveAttribute('data-lumen-text-size', 'l')
+    await expect(preview).toHaveAttribute('data-lumen-corner-size', 'l')
 
     await page.getByRole('button', { name: 'Save appearance' }).click()
     await expect(page.getByText('Appearance preferences saved', { exact: true })).toBeVisible()
@@ -1753,7 +1753,7 @@ test('global appearance saves through preferences, survives reload, and restores
         selectRadius: selectStyle.borderRadius,
       }
     })
-    expect(geometry).toEqual({ selectHeight: 44, buttonHeight: 44, labelFontSize: '14px', selectRadius: '8px' })
+    expect(geometry).toEqual({ selectHeight: 42, buttonHeight: 42, labelFontSize: '16px', selectRadius: '8px' })
     const savedEnvelope = await page.evaluate(() => {
       const key = Object.keys(localStorage).find((candidate) => candidate.endsWith(':preferences'))
       const parsed: unknown = key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null
