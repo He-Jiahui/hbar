@@ -76,6 +76,7 @@ async function stopSessionHost(child: ChildProcess) {
 for (const locale of ['zh-CN', 'en-US'] as const) {
   for (const viewport of [
     { width: 1440, height: 960 },
+    { width: 900, height: 600 },
     { width: 390, height: 844 },
   ]) {
     test(`command shell without a Host: ${locale} ${viewport.width}`, async ({ browser }) => {
@@ -101,6 +102,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         )
         await expect(page.locator('html')).toHaveAttribute('lang', locale)
         if (viewport.width < 1024) {
+          const frameBefore = await page.locator('.hbar-app-ui-app-frame').boundingBox()
           await expect(page.getByRole('complementary', { name: navigationName })).toBeHidden()
           await page.screenshot({
             path: `artifacts/ui-redesign/shell/content-${locale}-${viewport.width}.png`,
@@ -117,6 +119,20 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             })
             .click()
           await expect(page.getByRole('complementary', { name: navigationName })).toBeVisible()
+          if (viewport.width >= 768) {
+            const [sidebar, frame] = await Promise.all([
+              page.locator('.hbar-app-ui-app-sidebar-drawer').boundingBox(),
+              page.locator('.hbar-app-ui-app-frame').boundingBox(),
+            ])
+            expect(frameBefore).not.toBeNull()
+            expect(sidebar).not.toBeNull()
+            expect(frame).not.toBeNull()
+            expect(sidebar!.x + sidebar!.width).toBeCloseTo(frame!.x, 0)
+            expect(frame!.width).toBeLessThan(frameBefore!.width)
+            await expect(page.locator('.hbar-app-ui-app-sidebar-backdrop')).toBeHidden()
+          } else {
+            await expect(page.locator('.hbar-app-ui-app-frame')).toBeHidden()
+          }
           await page.screenshot({
             path: `artifacts/ui-redesign/shell/drawer-${locale}-${viewport.width}.png`,
             fullPage: true,

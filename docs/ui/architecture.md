@@ -78,7 +78,7 @@ interface PresentationState {
 
 页面注册描述表达 `id / outlet / supportedScopes / labelKey / icon / requiredCapability / componentType`。outlet 由注册定义，不由任意命令字符串决定。描述仅含可序列化值；React component 与 command callback 在组合根白名单注册。
 
-默认布局已经升级为 version 2，表达稳定 `moduleId`、outlet、区域、顺序、尺寸、可见性与响应式配置。`projects / workspace / session-tool` 分别固定到 sidebar/page/tool，由同一描述向 `HbarAppUiAppShell` 提供 sidebar 与 tool 的受控尺寸；组件仍以正常 flex 流和既有 drawer/page 断点呈现。仓库虽有 `flexlayout-react` 依赖，生产外壳没有引入它：当前产品没有标签、拖拽停靠或自由分区需求，加载其交互模型会重新制造用户要求删除的导航复杂度。若以后确有多标签停靠需求，应新增明确任务和布局模块版本，不能让依赖存在本身决定 UI。
+默认布局已经升级为 version 2，表达稳定 `moduleId`、outlet、区域、顺序、尺寸、可见性与响应式配置。`projects / workspace / session-tool` 分别固定到 sidebar/page/tool，由同一描述向 `HbarAppUiAppShell` 提供 sidebar 与 tool 的受控尺寸。侧栏在 `48rem` 以上使用正常 flex 流推动主区，更窄时切换为独占导航面板；工具继续使用 drawer/page 断点。仓库虽有 `flexlayout-react` 依赖，生产外壳没有引入它：当前产品没有标签、拖拽停靠或自由分区需求，加载其交互模型会重新制造用户要求删除的导航复杂度。若以后确有多标签停靠需求，应新增明确任务和布局模块版本，不能让依赖存在本身决定 UI。
 
 布局负责几何和偏好；presentation 负责当前目标与页面。默认文件中的 visible 是初始值，恢复后由活动展示状态派生实际可见性，不能产生两套互相覆盖的面板开关。
 

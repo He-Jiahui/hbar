@@ -293,38 +293,6 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 63.9375rem) {
-  .hbar-app-ui-app-sidebar-drawer {
-    position: fixed;
-    z-index: 30;
-    inset: 0;
-    inline-size: 100%;
-    background: transparent;
-  }
-
-  .hbar-app-ui-app-sidebar-backdrop {
-    display: block;
-    min-inline-size: 0;
-    min-block-size: 0;
-    flex: 1 1 auto;
-    padding: 0;
-    border: 0;
-    background: color-mix(in srgb, var(--hbar-app-ui-bg) 66%, transparent);
-    cursor: default;
-  }
-
-  .hbar-app-ui-app-sidebar-drawer-panel {
-    inline-size: min(var(--hbar-app-ui-sidebar-size), calc(100% - 3rem));
-    max-inline-size: calc(100% - 3rem);
-    flex: 0 0 auto;
-    box-shadow: var(--hbar-app-ui-shadow);
-  }
-
-  .hbar-app-ui-app-header {
-    display: flex;
-  }
-}
-
 @media (max-width: 79.9375rem) {
   .hbar-app-ui-app-tool-drawer {
     position: fixed;
@@ -337,6 +305,19 @@
 }
 
 @media (max-width: 47.9375rem) {
+  .hbar-app-ui-app-shell[data-sidebar-open='true'] .hbar-app-ui-app-frame {
+    display: none;
+  }
+
+  .hbar-app-ui-app-sidebar-drawer[data-open='true'] {
+    inline-size: 100%;
+    flex: 1 1 100%;
+  }
+
+  .hbar-app-ui-app-sidebar-drawer-panel {
+    inline-size: 100%;
+  }
+
   .hbar-app-ui-app-tool-drawer {
     inline-size: 100%;
   }
