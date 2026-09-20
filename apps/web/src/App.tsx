@@ -17,7 +17,7 @@ import {
   useHbarRuntimeState,
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
-import { applyLumenAppearance, LumenProvider } from '@lumen/app-ui'
+import { applyLumenAppearance, LumenProvider, LumenWorkbenchNotice } from '@lumen/app-ui'
 import {
   HbarClient,
   createBrowserAttachmentController,
@@ -45,7 +45,6 @@ import {
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
 import { applyHbarAppUiAppearance, resolveHbarAppUiAppearance } from 'hbar-app-ui/appearance'
-import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { WebAppearanceSettings, type WebAppearanceSettingsLabels } from './AppearanceSettings'
 import {
   hasWebAppearanceOverrides,
@@ -165,7 +164,7 @@ function WorkspaceBody({
         prepareAttachment={prepareAttachment}
       />
     )
-  return <HbarAppUiWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
+  return <LumenWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
 }
 
 function AppearanceSettingsController({
