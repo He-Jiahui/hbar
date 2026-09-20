@@ -1,7 +1,16 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
-import { contentBlockSchema, inputSchema, usageSchema, userInputRequestSchema } from '@hbar/contracts'
+import { contentBlockSchema, inputSchema, planStateSchema, usageSchema, userInputRequestSchema } from '@hbar/contracts'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
-import type { Approval, LiveStream, Message, Run, SessionEvent, SessionSnapshot, StreamDelta } from '@hbar/contracts'
+import type {
+  Approval,
+  LiveStream,
+  Message,
+  PlanState,
+  Run,
+  SessionEvent,
+  SessionSnapshot,
+  StreamDelta,
+} from '@hbar/contracts'
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
 import type { NavigationState, SessionTimelinePort, SessionTimelineState } from './types'
@@ -47,6 +56,7 @@ function emptyState(sessionId: string | null, status: SessionTimelineState['stat
     runs: [],
     approvals: [],
     userInputs: [],
+    plan: null,
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
     streams: {},
     events: [],
@@ -65,7 +75,11 @@ function mergeMessages(
   return [...messages.values()].sort((left, right) => left.seq - right.seq).slice(-MAX_MESSAGES)
 }
 
-function fromSnapshot(snapshot: SessionSnapshot, previous?: SessionTimelineState): SessionTimelineState {
+function fromSnapshot(
+  snapshot: SessionSnapshot,
+  previous?: SessionTimelineState,
+  plan?: Readonly<PlanState> | null,
+): SessionTimelineState {
   const messages = mergeMessages(previous?.messages ?? [], snapshot.messages)
   const snapshotFirst = snapshot.messages[0]?.seq
   const previousFirst = previous?.messages[0]?.seq
@@ -79,6 +93,7 @@ function fromSnapshot(snapshot: SessionSnapshot, previous?: SessionTimelineState
     runs: snapshot.runs.slice(0, MAX_RUNS),
     approvals: snapshot.approvals.slice(0, MAX_APPROVALS),
     userInputs: snapshot.userInputs.slice(0, MAX_USER_INPUTS),
+    plan: plan === undefined ? (previous?.plan ?? null) : plan,
     usage: { ...snapshot.usage },
     streams: Object.fromEntries(snapshot.streams.map((stream) => [stream.id, { ...stream }])),
     events: [],
@@ -108,6 +123,7 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
   let runs = current.runs
   let approvals = current.approvals
   let userInputs = current.userInputs
+  let plan = current.plan
   let usage = current.usage
   let streams = current.streams
 
@@ -145,6 +161,11 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     if (parsed.success) userInputs = upsert(userInputs, parsed.data, (item) => item.requestId, MAX_USER_INPUTS)
   } else if (event.type === 'user_input.resolved' && data && typeof data.requestId === 'string') {
     userInputs = userInputs.filter((item) => item.requestId !== data.requestId)
+  } else if (event.type === 'plan.updated' && data) {
+    const parsed = planStateSchema.safeParse(data.plan)
+    if (parsed.success && parsed.data.sessionId === current.sessionId) plan = parsed.data
+  } else if (event.type === 'plan.cleared') {
+    plan = null
   } else if (event.type === 'usage.recorded') {
     const parsed = usageSchema.safeParse(event.data)
     if (parsed.success)
@@ -164,6 +185,7 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     runs,
     approvals,
     userInputs,
+    plan,
     usage,
     streams,
     events: [...current.events, event].slice(-MAX_EVENTS),
@@ -230,11 +252,19 @@ export function createSessionTimeline(
     const cached = cache.get(sessionId)
     remember(cached ? { ...cached, status: 'loading', error: null } : emptyState(sessionId, 'loading'))
     try {
-      const snapshot = await port.snapshot(sessionId, undefined, PAGE_SIZE)
+      const [snapshot, loadedPlan] = await Promise.all([
+        port.snapshot(sessionId, undefined, PAGE_SIZE),
+        port.plan
+          ? port
+              .plan(sessionId)
+              .then((plan) => (plan === null ? null : planStateSchema.parse(plan)))
+              .catch(() => undefined)
+          : Promise.resolve(undefined),
+      ])
       if (isDisposed() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId) return undefined
       if (snapshot.session.id !== sessionId)
         throw new Error('Timeline snapshot does not belong to the selected session')
-      remember(fromSnapshot(snapshot, cache.get(sessionId)))
+      remember(fromSnapshot(snapshot, cache.get(sessionId), loadedPlan))
       const watcher = await port.watch(sessionId, snapshot.cursor, (update) => {
         if (isDisposed() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId) return
         if (update.kind === 'reset') {

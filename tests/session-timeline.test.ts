@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createAppRuntime, type SessionTimelinePort, type SessionTimelineUpdate } from '@hbar/app-runtime'
 import { createSessionTimelineClient } from '@hbar/client'
-import type { SessionEvent, SessionSnapshot, StreamDelta, WireNotification } from '@hbar/contracts'
+import type { PlanState, SessionEvent, SessionSnapshot, StreamDelta, WireNotification } from '@hbar/contracts'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
 const sessions = [
@@ -94,9 +94,25 @@ test('timeline follows the selected session incrementally and rejects stale or m
     ['session-one', snapshot('session-one', 1, 'first')],
     ['session-two', snapshot('session-two', 2, 'second')],
   ])
+  const plans = new Map<string, PlanState | null>([
+    [
+      'session-one',
+      {
+        sessionId: 'session-one',
+        turnId: 'run-one',
+        explanation: 'Initial plan',
+        plan: [{ step: 'Inspect', status: 'in_progress' }],
+        updatedAt: 1,
+      },
+    ],
+    ['session-two', null],
+  ])
   const timeline: SessionTimelinePort = {
     async snapshot(sessionId) {
       return structuredClone(snapshots.get(sessionId)!)
+    },
+    async plan(sessionId) {
+      return structuredClone(plans.get(sessionId) ?? null)
     },
     async watch(sessionId, _cursor, onUpdate) {
       updates.set(sessionId, onUpdate)
@@ -112,6 +128,10 @@ test('timeline follows the selected session incrementally and rejects stale or m
     await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'ready')
     expect(runtime.view.state.timeline.getSnapshot().messages[0]?.content).toEqual([{ type: 'text', text: 'first' }])
     expect(Object.isFrozen(runtime.view.state.timeline.getSnapshot().messages[0])).toBeTrue()
+    expect(runtime.view.state.timeline.getSnapshot().plan).toMatchObject({
+      turnId: 'run-one',
+      explanation: 'Initial plan',
+    })
 
     const onFirst = updates.get('session-one')!
     onFirst({
@@ -160,6 +180,36 @@ test('timeline follows the selected session incrementally and rejects stale or m
     onFirst({ kind: 'event', event: event('session-one', 3, 'message.committed', { role: 'bad' }, 'run-one') })
     expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(2)
     expect(runtime.view.state.timeline.getSnapshot().cursor).toBe(3)
+
+    onFirst({
+      kind: 'event',
+      event: event(
+        'session-one',
+        4,
+        'plan.updated',
+        {
+          plan: {
+            sessionId: 'session-one',
+            turnId: 'run-one',
+            explanation: 'Updated plan',
+            plan: [
+              { step: 'Inspect', status: 'completed' },
+              { step: 'Verify', status: 'in_progress' },
+            ],
+            updatedAt: 4,
+          },
+        },
+        'run-one',
+      ),
+    })
+    expect(runtime.view.state.timeline.getSnapshot().plan).toMatchObject({
+      turnId: 'run-one',
+      explanation: 'Updated plan',
+      plan: [{ status: 'completed' }, { status: 'in_progress' }],
+    })
+    plans.set('session-one', null)
+    onFirst({ kind: 'event', event: event('session-one', 5, 'plan.cleared', { sessionId: 'session-one' }) })
+    expect(runtime.view.state.timeline.getSnapshot().plan).toBeNull()
 
     snapshots.set('session-one', snapshot('session-one', 9, 'stream resynced'))
     onFirst({
@@ -305,6 +355,14 @@ test('client timeline adapter filters notifications and releases its exact follo
   const transport = {
     async call(method: string) {
       if (method === 'session.snapshot') return snapshot('session-one', 1, 'initial')
+      if (method === 'plan.get')
+        return {
+          sessionId: 'session-one',
+          turnId: 'run',
+          explanation: null,
+          plan: [{ step: 'Verify', status: 'in_progress' }],
+          updatedAt: 1,
+        }
       throw new Error(`Unexpected call: ${method}`)
     },
     onEvent(listener: (event: WireNotification) => void) {
@@ -319,6 +377,7 @@ test('client timeline adapter filters notifications and releases its exact follo
     },
   }
   const client = createSessionTimelineClient(transport as never)
+  expect(await client.plan('session-one')).toMatchObject({ turnId: 'run' })
   const received: SessionTimelineUpdate[] = []
   const close = await client.watch('session-one', 1, (update) => received.push(update))
   const stream: StreamDelta = {

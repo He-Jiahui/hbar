@@ -1,4 +1,4 @@
-import type { SessionEvent, SessionSnapshot, StreamDelta, WireNotification } from '@hbar/contracts'
+import type { PlanState, SessionEvent, SessionSnapshot, StreamDelta, WireNotification } from '@hbar/contracts'
 import type { ClientTransport } from './transport'
 
 type SessionTimelineUpdate =
@@ -17,6 +17,9 @@ export function createSessionTimelineClient(client: SessionTimelineTransport) {
   return {
     snapshot(sessionId: string, before?: number, limit?: number): Promise<SessionSnapshot> {
       return client.call('session.snapshot', { sessionId, before, limit })
+    },
+    plan(sessionId: string): Promise<PlanState | null> {
+      return client.call('plan.get', { sessionId })
     },
     async watch(sessionId: string, cursor: number, onUpdate: (update: SessionTimelineUpdate) => void) {
       let closed = false

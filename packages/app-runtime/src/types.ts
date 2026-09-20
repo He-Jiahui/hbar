@@ -552,6 +552,7 @@ export type SessionTimelineUpdate =
 
 export interface SessionTimelinePort {
   snapshot(sessionId: string, before?: number, limit?: number): Promise<SessionSnapshot>
+  plan?(sessionId: string): Promise<PlanState | null>
   watch(
     sessionId: string,
     cursor: number,
@@ -568,6 +569,7 @@ export interface SessionTimelineState {
   readonly runs: readonly Readonly<Run>[]
   readonly approvals: readonly Readonly<Approval>[]
   readonly userInputs: readonly Readonly<UserInputRequest>[]
+  readonly plan: Readonly<PlanState> | null
   readonly usage: Readonly<Usage>
   readonly streams: Readonly<Record<string, Readonly<LiveStream>>>
   readonly events: readonly Readonly<SessionEvent>[]
