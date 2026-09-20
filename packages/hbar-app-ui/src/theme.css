@@ -5809,3 +5809,55 @@
         justify-self: stretch;
     }
 }
+
+/* Lumen is the default hbar visual language. The vendored MUI source records
+ * the upstream composition and these aliases keep hbar primitives on the same
+ * monochrome, glass, and light-beam token scale. */
+:root,
+[data-hbar-app-ui-theme='dark'] {
+    --hbar-app-ui-bg: #090909;
+    --hbar-app-ui-surface-0: #181818;
+    --hbar-app-ui-surface-1: rgb(20 20 20 / 88%);
+    --hbar-app-ui-surface-2: rgb(255 255 255 / 10%);
+    --hbar-app-ui-border: rgb(255 255 255 / 10%);
+    --hbar-app-ui-border-strong: rgb(255 255 255 / 17%);
+    --hbar-app-ui-text: #eeeeee;
+    --hbar-app-ui-muted: #aaaaaa;
+    --hbar-app-ui-subtle: #858585;
+    --hbar-app-ui-accent: #eeeeee;
+    --hbar-app-ui-accent-bg: rgb(255 255 255 / 10%);
+    --hbar-app-ui-positive: #77deb0;
+    --hbar-app-ui-warning: #efd17a;
+    --hbar-app-ui-danger: #ff969b;
+    --hbar-app-ui-shadow: 0 0 1.75rem rgb(255 255 255 / 10%);
+    --hbar-app-ui-lumen-line: rgb(255 255 255 / 10%);
+    --hbar-app-ui-lumen-edge: rgb(255 255 255 / 17%);
+    --hbar-app-ui-lumen-glass: rgb(20 20 20 / 30%);
+    --hbar-app-ui-lumen-reading: rgb(9 9 9 / 28%);
+    --hbar-app-ui-lumen-glow-near: 0.875rem;
+    --hbar-app-ui-lumen-glow-far: 1.75rem;
+}
+
+[data-hbar-app-ui-theme='light'] {
+    --hbar-app-ui-bg: #f5f5f5;
+    --hbar-app-ui-surface-0: #fafafa;
+    --hbar-app-ui-surface-1: rgb(255 255 255 / 92%);
+    --hbar-app-ui-surface-2: rgb(0 0 0 / 8%);
+    --hbar-app-ui-border: rgb(0 0 0 / 10%);
+    --hbar-app-ui-border-strong: rgb(0 0 0 / 14%);
+    --hbar-app-ui-text: #171717;
+    --hbar-app-ui-muted: #666666;
+    --hbar-app-ui-subtle: #737373;
+    --hbar-app-ui-accent: #171717;
+    --hbar-app-ui-accent-bg: rgb(0 0 0 / 8%);
+    --hbar-app-ui-positive: #1a7c56;
+    --hbar-app-ui-warning: #996500;
+    --hbar-app-ui-danger: #b73548;
+    --hbar-app-ui-shadow: 0 0 0.95rem rgb(0 0 0 / 14%);
+    --hbar-app-ui-lumen-line: rgb(0 0 0 / 10%);
+    --hbar-app-ui-lumen-edge: rgb(0 0 0 / 14%);
+    --hbar-app-ui-lumen-glass: rgb(255 255 255 / 35%);
+    --hbar-app-ui-lumen-reading: rgb(245 245 245 / 45%);
+    --hbar-app-ui-lumen-glow-near: 0.45rem;
+    --hbar-app-ui-lumen-glow-far: 0.95rem;
+}
