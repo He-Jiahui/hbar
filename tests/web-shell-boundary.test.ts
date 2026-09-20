@@ -20,7 +20,7 @@ test('Web composition root imports runtime and transport without server or previ
     ],
   })
   expect(result.success).toBe(true)
-  expect([...inputs].some((path) => path.endsWith('/components/app-shell/AppShell.tsx'))).toBe(true)
+  expect([...inputs].some((path) => path.endsWith('/hbar-ui/packages/lumen-app-ui/src/workbench.tsx'))).toBe(true)
   expect([...inputs].some((path) => path.endsWith('/packages/client/src/index.ts'))).toBe(true)
   expect([...inputs].some((path) => path.endsWith('/packages/app-react/src/index.ts'))).toBe(true)
   expect([...inputs].filter((path) => /\/packages\/(kernel|storage|terminal|ui-sdk)\//.test(path))).toEqual([])
@@ -31,6 +31,7 @@ test('Web composition root imports runtime and transport without server or previ
   ).toEqual([])
   expect([...inputs].some((path) => /\/zustand\/(?:esm\/)?vanilla\.[mc]?js$/.test(path))).toBe(true)
   expect([...inputs].some((path) => path.endsWith('/components/app-shell/WorkbenchShell.tsx'))).toBe(false)
+  expect([...inputs].some((path) => path.endsWith('/components/app-shell/AppShell.tsx'))).toBe(false)
 })
 
 test('shell chooses a supported language without reading the retired workbench store', () => {
