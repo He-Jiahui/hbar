@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
-import { HbarAppUiButton } from 'hbar-app-ui/primitives'
-import { HbarAppUiSettingsList } from 'hbar-app-ui/workbench'
+import { LumenButton, LumenDialog, LumenSettingsList } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarProviderEditorView, type HbarProviderDialogLabels, type HbarProviderEditorIntent } from './provider-editor'
 import './provider-settings.css'
@@ -78,9 +76,9 @@ export function HbarProviderSettings({
     return (
       <div className="hbar-app-react-provider-state">
         <p role="alert">{labels.error(actionError ?? providers.error ?? 'CAPABILITY_UNAVAILABLE')}</p>
-        <HbarAppUiButton disabled={!connected} onClick={refresh}>
+        <LumenButton variant="outlined" disabled={!connected} onClick={refresh}>
           {labels.refresh}
-        </HbarAppUiButton>
+        </LumenButton>
       </div>
     )
   const items = providers.list.draft.map((item) => {
@@ -97,7 +95,7 @@ export function HbarProviderSettings({
       ],
       status: {
         label: item.hasKey ? labels.configured : labels.notConfigured,
-        tone: item.hasKey ? ('positive' as const) : ('neutral' as const),
+        tone: item.hasKey ? ('success' as const) : ('neutral' as const),
       },
       editLabel: labels.edit(name),
       menuLabel: labels.actions(name),
@@ -116,7 +114,7 @@ export function HbarProviderSettings({
   }
   return (
     <div className="hbar-app-react-provider-list">
-      <HbarAppUiSettingsList
+      <LumenSettingsList
         label={labels.title}
         description={labels.description}
         empty={labels.empty}
@@ -134,26 +132,26 @@ export function HbarProviderSettings({
         }}
       />
       {actionError && <p role="alert">{labels.error(actionError)}</p>}
-      <HbarAppUiDialog
+      <LumenDialog
         open={Boolean(removeTarget)}
         title={labels.deleteConfirmTitle(removeTarget?.name ?? '')}
         closeLabel={labels.cancel}
         onClose={() => !removing && setRemoveTarget(null)}
         footer={
           <>
-            <HbarAppUiButton disabled={removing} onClick={() => setRemoveTarget(null)}>
+            <LumenButton variant="outlined" disabled={removing} onClick={() => setRemoveTarget(null)}>
               {labels.cancel}
-            </HbarAppUiButton>
-            <HbarAppUiButton tone="danger" disabled={removing} onClick={confirmRemove}>
+            </LumenButton>
+            <LumenButton tone="danger" disabled={removing} onClick={confirmRemove}>
               {labels.confirmRemove}
-            </HbarAppUiButton>
+            </LumenButton>
           </>
         }
       >
         <p className="hbar-app-react-provider-delete-copy">
           {labels.deleteConfirmDescription(removeTarget?.name ?? '')}
         </p>
-      </HbarAppUiDialog>
+      </LumenDialog>
     </div>
   )
 }
@@ -281,7 +279,9 @@ export function HbarProviderDialog({
         <p role={providers.status === 'error' ? 'alert' : 'status'}>
           {providers.status === 'error' ? labels.error(providers.error ?? 'FORM_NOT_READY') : labels.loading}
         </p>
-        <HbarAppUiButton onClick={back}>{labels.back}</HbarAppUiButton>
+        <LumenButton variant="outlined" onClick={back}>
+          {labels.back}
+        </LumenButton>
       </section>
     )
   const save = (reconcile: boolean) => {
