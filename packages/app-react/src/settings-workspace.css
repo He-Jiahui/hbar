@@ -17,6 +17,13 @@
   inline-size: min(18rem, 34vw);
 }
 
+.hbar-app-react-settings-header-controls {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
 .hbar-app-react-settings-layout {
   display: flex;
   min-inline-size: 0;
@@ -228,8 +235,14 @@
     flex-basis: 100%;
   }
 
-  .hbar-app-react-settings-scope {
+  .hbar-app-react-settings-header-controls {
     inline-size: 100%;
+    flex: 1 1 auto;
+  }
+
+  .hbar-app-react-settings-scope {
+    inline-size: auto;
+    flex: 1 1 auto;
   }
 }
 

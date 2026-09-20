@@ -4,6 +4,24 @@ dialog.hbar-app-react-workspace-modal {
   block-size: min(52rem, calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap)));
 }
 
+.hbar-web-theme-control {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-web-theme-control > .hbar-app-ui-control {
+  inline-size: 8rem;
+}
+
+.hbar-web-theme-control > small {
+  max-inline-size: 12rem;
+  color: var(--hbar-app-ui-danger);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
 dialog.hbar-app-react-provider-modal {
   --hbar-app-ui-dialog-width: 80rem;
 }
@@ -39,5 +57,15 @@ dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[o
 
   dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette) {
     block-size: calc(100dvb - 2 * var(--hbar-app-ui-overlay-gap));
+  }
+}
+
+@media (max-width: 30rem) {
+  .hbar-web-theme-control {
+    flex: 0 0 auto;
+  }
+
+  .hbar-web-theme-control > .hbar-app-ui-control {
+    inline-size: 7.5rem;
   }
 }

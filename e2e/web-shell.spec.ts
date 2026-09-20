@@ -1407,3 +1407,91 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('client theme follows the system and persists explicit light or dark choices', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-theme-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({
+    locale: 'en-US',
+    colorScheme: 'dark',
+    viewport: { width: 1440, height: 960 },
+  })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const expectTheme = async (theme: 'light' | 'dark') => {
+      await expect(page.locator('html')).toHaveAttribute('data-hbar-app-ui-theme', theme)
+      expect(
+        await page.evaluate(() => ({
+          inline: document.documentElement.style.colorScheme,
+          computed: getComputedStyle(document.documentElement).colorScheme,
+          overflow: document.documentElement.scrollWidth <= window.innerWidth,
+        })),
+      ).toEqual({ inline: theme, computed: theme, overflow: true })
+    }
+
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    const theme = page.getByRole('combobox', { name: 'Theme' })
+    await expect(theme).toHaveValue('system')
+    await expectTheme('dark')
+    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-system-dark-1440.png', fullPage: true })
+
+    await theme.selectOption('light')
+    await expectTheme('light')
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-light-1440.png', fullPage: true })
+
+    await page.setViewportSize({ width: 320, height: 720 })
+    await expect(page.getByRole('combobox', { name: 'Settings scope' })).toBeVisible()
+    await expect(theme).toBeVisible()
+    await expectTheme('light')
+    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-light-320.png', fullPage: true })
+
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.reload()
+    await expectTheme('light')
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/session-light-1440.png', fullPage: true })
+
+    await page.getByRole('button', { name: /^Commands/ }).click()
+    const commandDialog = page.getByRole('dialog', { name: 'Command catalog' })
+    await expect(commandDialog).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/commands-light-1440.png', fullPage: true })
+    await commandDialog.getByRole('button', { name: 'Close command catalog' }).click()
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Status center' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/status-light-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    const restoredTheme = page.getByRole('combobox', { name: 'Theme' })
+    await expect(restoredTheme).toHaveValue('light')
+    await restoredTheme.selectOption('system')
+    await expectTheme('dark')
+    await page.emulateMedia({ colorScheme: 'light' })
+    await expectTheme('light')
+    await page.setViewportSize({ width: 390, height: 844 })
+    const hideNavigation = page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first()
+    if (await hideNavigation.isVisible()) await hideNavigation.click({ force: true })
+    await expectTheme('light')
+    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-system-light-390.png', fullPage: true })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})

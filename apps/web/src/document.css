@@ -6,7 +6,14 @@ body,
   margin: 0;
 }
 
-body {
+:root {
   color-scheme: dark;
+}
+
+:root[data-hbar-app-ui-theme='light'] {
+  color-scheme: light;
+}
+
+body {
   background: var(--hbar-app-ui-bg);
 }

@@ -25,6 +25,7 @@
   --hbar-app-ui-switch-height: 1.25rem;
   --hbar-app-ui-switch-thumb: 0.875rem;
   --hbar-app-ui-divider: 0.0625rem;
+  --hbar-app-ui-accent-soft: var(--hbar-app-ui-accent-bg);
   --hbar-app-ui-dialog-width: 40rem;
   --hbar-app-ui-auth-card-width: 28rem;
   --hbar-app-ui-command-viewport: 60dvh;

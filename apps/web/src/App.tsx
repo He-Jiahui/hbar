@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ChangeEvent } from 'react'
 import {
   HbarAgentWorkspace,
   HbarCommandPalette,
@@ -43,12 +43,21 @@ import {
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
+import { HbarAppUiSelect } from 'hbar-app-ui/forms'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
+import {
+  applyWebTheme,
+  readThemeBootstrap,
+  readThemePreference,
+  resolveWebTheme,
+  writeThemeBootstrap,
+  type WebThemePreference,
+} from './theme'
 import './App.css'
 
 function createRuntime(
@@ -95,16 +104,22 @@ function WorkspaceBody({
   locale,
   connected,
   prepareAttachment,
+  themePreference,
+  onThemePreferenceChange,
 }: {
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
+  readonly themePreference: WebThemePreference
+  readonly onThemePreferenceChange: (preference: WebThemePreference) => Promise<void>
 }) {
   const copy = getShellCopy(locale)
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const [themeBusy, setThemeBusy] = useState(false)
+  const [themeError, setThemeError] = useState(false)
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
@@ -113,6 +128,31 @@ function WorkspaceBody({
       <HbarSettingsWorkspace
         labels={copy.settings}
         connected={connected}
+        headerActions={
+          <span className="hbar-web-theme-control">
+            <HbarAppUiSelect
+              aria-label={copy.theme.label}
+              value={themePreference}
+              disabled={themeBusy}
+              aria-invalid={themeError || undefined}
+              title={themeError ? copy.theme.saveError : copy.theme.label}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                const preference = readThemePreference(event.currentTarget.value)
+                if (!preference) return
+                setThemeBusy(true)
+                setThemeError(false)
+                void onThemePreferenceChange(preference)
+                  .catch(() => setThemeError(true))
+                  .finally(() => setThemeBusy(false))
+              }}
+            >
+              <option value="system">{copy.theme.system}</option>
+              <option value="light">{copy.theme.light}</option>
+              <option value="dark">{copy.theme.dark}</option>
+            </HbarAppUiSelect>
+            {themeError && <small role="alert">{copy.theme.saveError}</small>}
+          </span>
+        }
         renderGroup={(groupId) => {
           if (groupId === 'providers')
             return <HbarProviderSettings labels={copy.providers.list} connected={connected} />
@@ -217,12 +257,20 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
   const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [hostId, setHostId] = useState(() => `pending:${window.location.origin}`)
+  const [bootstrapTheme, setBootstrapTheme] = useState(() => readThemeBootstrap(window.localStorage))
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+  )
   const runtime = useMemo(
     () => createRuntime(client, hostId, locale, attachmentController.commands, resourcePicker),
     [attachmentController, client, hostId, locale, resourcePicker],
   )
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
+  const preferences = useHbarRuntimeState(runtime.view.state.preferences)
+  const persistedTheme = readThemePreference(preferences.values.theme)
+  const themePreference = persistedTheme ?? bootstrapTheme
+  const resolvedTheme = resolveWebTheme(themePreference, systemPrefersDark)
   const resolvedLayout = useMemo(() => normalizeShellLayout(layout.description), [layout.description])
   const sidebarLayout = shellLayoutModule(resolvedLayout, 'projects')
   const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
@@ -231,6 +279,23 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
     if (layout.status === 'ready' && !sidebarLayout.visible)
       void runtime.view.commands.execute('app.setSidebarVisible', { visible: false }).catch(() => undefined)
   }, [layout.revision, layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const update = (event: MediaQueryListEvent | MediaQueryList) => setSystemPrefersDark(event.matches)
+    update(media)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useLayoutEffect(() => {
+    applyWebTheme(document.documentElement, resolvedTheme)
+    writeThemeBootstrap(window.localStorage, themePreference)
+  }, [resolvedTheme, themePreference])
+
+  useEffect(() => {
+    if (persistedTheme && persistedTheme !== bootstrapTheme) setBootstrapTheme(persistedTheme)
+  }, [bootstrapTheme, persistedTheme])
 
   useEffect(() => {
     const offStatus = client.onStatus(setConnection)
@@ -254,6 +319,14 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
   }, [attachmentController, client, resourcePicker])
 
   useEffect(() => () => runtime.dispose(), [runtime])
+
+  const setThemePreference = useCallback(
+    async (preference: WebThemePreference) => {
+      await runtime.view.commands.execute('preferences.set', { key: 'theme', value: preference })
+      setBootstrapTheme(preference)
+    },
+    [runtime.view.commands],
+  )
 
   const reconnect = () => {
     void createConnectionCommands(client)
@@ -291,6 +364,8 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
           locale={locale}
           connected={connection === 'connected'}
           prepareAttachment={attachmentController.prepare}
+          themePreference={themePreference}
+          onThemePreferenceChange={setThemePreference}
         />
       </HbarWorkspaceShell>
     </HbarRuntimeProvider>

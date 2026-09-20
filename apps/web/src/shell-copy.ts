@@ -19,6 +19,13 @@ interface ShellCopy {
   readonly empty: { readonly title: string; readonly description: string }
   readonly session: HbarSessionWorkspaceLabels
   readonly settings: HbarSettingsWorkspaceLabels
+  readonly theme: {
+    readonly label: string
+    readonly system: string
+    readonly light: string
+    readonly dark: string
+    readonly saveError: string
+  }
   readonly providers: {
     readonly list: HbarProviderSettingsLabels
     readonly dialog: HbarProviderDialogLabels
@@ -367,6 +374,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
           : choose(`会话设置${target ? ` · ${target}` : ''}`, `Session settings${target ? ` · ${target}` : ''}`),
     description: choose('更改按全局、工作区和会话层级覆盖。', 'Values override global, workspace, and session scopes.'),
     back: choose('返回会话', 'Back to session'),
+    controls: choose('设置控制', 'Settings controls'),
     scopes: choose('设置作用域', 'Settings scope'),
     global: choose('全局', 'Global'),
     workspace: choose('工作区', 'Workspace'),
@@ -1444,6 +1452,13 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
     session: createSessionLabels('zh-CN'),
     settings: createSettingsLabels('zh-CN'),
+    theme: {
+      label: '主题',
+      system: '跟随系统',
+      light: '浅色',
+      dark: '深色',
+      saveError: '主题偏好保存失败',
+    },
     providers: createProviderLabels('zh-CN'),
     commandPalette: createCommandPaletteLabels('zh-CN'),
     files: createFileLabels('zh-CN'),
@@ -1490,6 +1505,13 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
     session: createSessionLabels('en-US'),
     settings: createSettingsLabels('en-US'),
+    theme: {
+      label: 'Theme',
+      system: 'System',
+      light: 'Light',
+      dark: 'Dark',
+      saveError: 'Could not save the theme preference',
+    },
     providers: createProviderLabels('en-US'),
     commandPalette: createCommandPaletteLabels('en-US'),
     files: createFileLabels('en-US'),

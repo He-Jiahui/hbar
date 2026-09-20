@@ -77,6 +77,7 @@ const labels: HbarSettingsWorkspaceLabels = {
   title: (scope, target) => `设置 ${scope}${target ? ` ${target}` : ''}`,
   description: '由 Host Schema 生成的设置',
   back: '返回会话',
+  controls: '设置控制',
   scopes: '设置作用域',
   global: '全局',
   workspace: '工作区',
@@ -150,7 +151,15 @@ test('settings workspace renders Host schema, scoped source state, and command-o
     const form = await waitForReady(runtime)
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarSettingsWorkspace labels={labels} connected />
+        <HbarSettingsWorkspace
+          labels={labels}
+          connected
+          headerActions={
+            <select aria-label="客户端主题">
+              <option>跟随系统</option>
+            </select>
+          }
+        />
       </HbarRuntimeProvider>,
     )
     expect(form.selectedGroup).toBe('model')
@@ -163,6 +172,9 @@ test('settings workspace renders Host schema, scoped source state, and command-o
     expect(html).toContain('恢复继承')
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('aria-label="设置作用域"')
+    expect(html).toContain('aria-label="设置控制"')
+    expect(html).toContain('aria-label="客户端主题"')
+    expect(html).toContain('跟随系统')
     expect(html).toContain('workspace · Schema 工程')
     expect(html).not.toContain('默认预算')
     expect(html).not.toContain('settings.get')

@@ -25,6 +25,7 @@ export interface HbarSettingsWorkspaceLabels {
   readonly title: (scope: SettingsFormEntry['scope']['kind'], targetName: string | null) => string
   readonly description: string
   readonly back: string
+  readonly controls: string
   readonly scopes: string
   readonly global: string
   readonly workspace: string
@@ -53,6 +54,7 @@ export interface HbarSettingsWorkspaceProps {
   readonly connected: boolean
   readonly components?: SchemaComponentRegistry
   readonly renderGroup?: (groupId: string) => ReactNode
+  readonly headerActions?: ReactNode
 }
 
 function reasonCode(reason: unknown): string {
@@ -71,6 +73,7 @@ export function HbarSettingsWorkspace({
   connected,
   components = standardComponents,
   renderGroup,
+  headerActions,
 }: HbarSettingsWorkspaceProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -212,22 +215,25 @@ export function HbarSettingsWorkspace({
             <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
           </HbarAppUiIconButton>
         }
-        actionsLabel={labels.scopes}
+        actionsLabel={labels.controls}
         actions={
-          <HbarAppUiSelect
-            className="hbar-app-react-settings-scope"
-            aria-label={labels.scopes}
-            value={entry?.scope.kind ?? 'global'}
-            onChange={onScopeChange}
-          >
-            <option value="global">{labels.scopeOption('global', null)}</option>
-            <option value="workspace" disabled={!navigation.workspaceId}>
-              {labels.scopeOption('workspace', workspaceTargetName)}
-            </option>
-            <option value="session" disabled={!navigation.sessionId}>
-              {labels.scopeOption('session', sessionTargetName)}
-            </option>
-          </HbarAppUiSelect>
+          <div className="hbar-app-react-settings-header-controls">
+            <HbarAppUiSelect
+              className="hbar-app-react-settings-scope"
+              aria-label={labels.scopes}
+              value={entry?.scope.kind ?? 'global'}
+              onChange={onScopeChange}
+            >
+              <option value="global">{labels.scopeOption('global', null)}</option>
+              <option value="workspace" disabled={!navigation.workspaceId}>
+                {labels.scopeOption('workspace', workspaceTargetName)}
+              </option>
+              <option value="session" disabled={!navigation.sessionId}>
+                {labels.scopeOption('session', sessionTargetName)}
+              </option>
+            </HbarAppUiSelect>
+            {headerActions}
+          </div>
         }
       />
 
