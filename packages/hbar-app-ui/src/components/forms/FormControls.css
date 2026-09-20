@@ -148,8 +148,17 @@ select.hbar-app-ui-control {
   min-inline-size: 0;
   align-items: stretch;
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
-  border-radius: var(--hbar-app-ui-control-radius);
+  border-radius: var(--hbar-app-ui-component-radius);
   background: var(--hbar-app-ui-surface-0);
+}
+
+.hbar-app-ui-combobox-control[data-variant='plain'] {
+  border-color: transparent;
+  background: transparent;
+}
+
+.hbar-app-ui-combobox-control[data-invalid='true'] {
+  border-color: var(--hbar-app-ui-danger);
 }
 
 .hbar-app-ui-combobox-control .hbar-app-ui-control {
@@ -160,16 +169,12 @@ select.hbar-app-ui-control {
   box-shadow: none;
 }
 
-.hbar-app-ui-combobox-control > button {
-  display: inline-flex;
-  inline-size: var(--hbar-app-ui-control-min);
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+.hbar-app-ui-combobox-control > .hbar-app-ui-combobox-toggle {
+  flex: 0 0 auto;
   border: 0;
+  border-radius: calc(var(--hbar-app-ui-component-radius) - var(--hbar-app-ui-divider));
   background: transparent;
   color: var(--hbar-app-ui-muted);
-  cursor: pointer;
 }
 
 .hbar-app-ui-dialog-menu.hbar-app-ui-combobox-popup {
@@ -179,7 +184,7 @@ select.hbar-app-ui-control {
   inset-inline: 0;
   overflow: hidden;
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
-  border-radius: var(--hbar-app-ui-control-radius);
+  border-radius: var(--hbar-app-ui-component-radius);
   background: var(--hbar-app-ui-surface-0);
   box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--hbar-app-ui-bg) 72%, transparent);
 }
@@ -188,42 +193,23 @@ select.hbar-app-ui-control {
   display: flex;
   max-block-size: 16rem;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--hbar-app-ui-space-xs);
   overflow: auto;
-  padding: 4px;
+  padding: var(--hbar-app-ui-space-xs);
 }
 
 .hbar-app-ui-combobox-load-more {
-  display: block;
-  min-block-size: var(--hbar-app-ui-control-compact);
-  margin: 0 4px 4px;
-  border: 0;
-  border-radius: calc(var(--hbar-app-ui-control-radius) - 0.125rem);
-  background: var(--hbar-app-ui-surface-2);
-  color: var(--hbar-app-ui-text);
-  cursor: pointer;
-  font: inherit;
+  inline-size: calc(100% - 2 * var(--hbar-app-ui-space-xs));
+  margin: 0 var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-xs);
 }
 
 .hbar-app-ui-combobox-popup p {
-  margin: 0;
-  padding: 10px;
-  color: var(--hbar-app-ui-muted);
-  font-size: 0.8125rem;
+  padding: var(--hbar-app-ui-space-md);
 }
 
-.hbar-app-ui-combobox-popup [role='option'] {
-  display: flex;
-  min-inline-size: 0;
-  min-block-size: var(--hbar-app-ui-control-min);
-  align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  border: 0;
-  border-radius: calc(var(--hbar-app-ui-control-radius) - 0.125rem);
-  background: transparent;
-  color: var(--hbar-app-ui-text);
-  cursor: pointer;
+.hbar-app-ui-combobox-option {
+  inline-size: 100%;
+  justify-content: space-between;
   text-align: start;
 }
 
@@ -246,14 +232,8 @@ select.hbar-app-ui-control {
   color: var(--hbar-app-ui-muted);
 }
 
-.hbar-app-ui-combobox-popup [role='option'].is-active,
-.hbar-app-ui-combobox-popup [role='option']:hover {
+.hbar-app-ui-combobox-option.is-active {
   background: var(--hbar-app-ui-surface-2);
-}
-
-.hbar-app-ui-combobox-popup [role='option']:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 .hbar-app-ui-multi-select,
@@ -263,8 +243,30 @@ select.hbar-app-ui-control {
 }
 
 .hbar-app-ui-multi-select {
+  --hbar-app-ui-multi-select-height: var(--hbar-app-ui-control-height);
+  --hbar-app-ui-multi-select-padding-inline: var(--hbar-app-ui-control-padding-inline);
+  --hbar-app-ui-multi-select-font-size: var(--hbar-app-ui-text-body-size);
+
   flex-direction: column;
   gap: 6px;
+}
+
+.hbar-app-ui-multi-select[data-size='s'] {
+  --hbar-app-ui-multi-select-height: var(--hbar-app-ui-control-height-s);
+  --hbar-app-ui-multi-select-padding-inline: var(--hbar-app-ui-control-padding-inline-s);
+  --hbar-app-ui-multi-select-font-size: var(--hbar-app-ui-font-size-s);
+}
+
+.hbar-app-ui-multi-select[data-size='m'] {
+  --hbar-app-ui-multi-select-height: var(--hbar-app-ui-control-height-m);
+  --hbar-app-ui-multi-select-padding-inline: var(--hbar-app-ui-control-padding-inline-m);
+  --hbar-app-ui-multi-select-font-size: var(--hbar-app-ui-font-size-m);
+}
+
+.hbar-app-ui-multi-select[data-size='l'] {
+  --hbar-app-ui-multi-select-height: var(--hbar-app-ui-control-height-l);
+  --hbar-app-ui-multi-select-padding-inline: var(--hbar-app-ui-control-padding-inline-l);
+  --hbar-app-ui-multi-select-font-size: var(--hbar-app-ui-font-size-l);
 }
 
 .hbar-app-ui-multi-select-values {
@@ -275,34 +277,15 @@ select.hbar-app-ui-control {
 .hbar-app-ui-multi-select-values > span {
   display: inline-flex;
   min-inline-size: 0;
+  min-block-size: var(--hbar-app-ui-multi-select-height);
   align-items: center;
-  gap: 4px;
-  padding: 4px 4px 4px 8px;
+  gap: var(--hbar-app-ui-space-xs);
+  padding-inline-start: var(--hbar-app-ui-multi-select-padding-inline);
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
-  border-radius: var(--hbar-app-ui-control-radius);
+  border-radius: var(--hbar-app-ui-component-radius);
   background: var(--hbar-app-ui-surface-2);
   color: var(--hbar-app-ui-text);
-  font-size: 0.75rem;
-}
-
-.hbar-app-ui-multi-select-values button {
-  display: inline-flex;
-  inline-size: var(--hbar-app-ui-control-compact);
-  block-size: var(--hbar-app-ui-control-compact);
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: calc(var(--hbar-app-ui-control-radius) - 0.125rem);
-  background: transparent;
-  color: var(--hbar-app-ui-muted);
-  cursor: pointer;
-}
-
-.hbar-app-ui-multi-select-values button:hover,
-.hbar-app-ui-multi-select-values button:focus-visible {
-  background: var(--hbar-app-ui-surface-1);
-  color: var(--hbar-app-ui-text);
+  font-size: var(--hbar-app-ui-multi-select-font-size);
 }
 
 .hbar-app-ui-multi-select.is-disabled {

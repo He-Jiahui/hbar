@@ -15,7 +15,7 @@ import {
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import type { HbarAppUiSize } from '../../appearance'
 import { HbarAppUiIcon } from '../../icon'
-import { HbarAppUiLabel, HbarAppUiText } from '../../primitives'
+import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiLabel, HbarAppUiText } from '../../primitives'
 import './FormControls.css'
 
 export interface HbarAppUiControlOption {
@@ -238,6 +238,8 @@ export interface HbarAppUiComboBoxProps {
   readonly options: readonly HbarAppUiControlOption[]
   readonly labels: HbarAppUiComboBoxLabels
   readonly placeholder?: string
+  readonly size?: HbarAppUiSize
+  readonly variant?: HbarAppUiFieldVariant
   readonly disabled?: boolean
   readonly loading?: boolean
   readonly invalid?: boolean
@@ -257,6 +259,8 @@ export function HbarAppUiComboBox({
   options,
   labels,
   placeholder,
+  size,
+  variant = 'outline',
   disabled = false,
   loading = false,
   invalid = false,
@@ -268,6 +272,7 @@ export function HbarAppUiComboBox({
   onValueChange,
 }: HbarAppUiComboBoxProps) {
   const field = useContext(FieldAccessibility)
+  const resolvedSize = size ?? field.size
   const root = useRef<HTMLDivElement>(null)
   const generatedId = useId()
   const listboxId = `${id}-${generatedId.replaceAll(':', '')}-listbox`
@@ -323,10 +328,14 @@ export function HbarAppUiComboBox({
 
   return (
     <div ref={root} className="hbar-app-ui-combobox">
-      <div className="hbar-app-ui-combobox-control">
-        <input
+      <div
+        className="hbar-app-ui-combobox-control"
+        data-size={resolvedSize}
+        data-variant={variant}
+        data-invalid={invalid || field.invalid || undefined}
+      >
+        <HbarAppUiInput
           id={id}
-          className="hbar-app-ui-control"
           type="text"
           role="combobox"
           value={query}
@@ -346,52 +355,65 @@ export function HbarAppUiComboBox({
             if (!open) onOpenChange(true)
           }}
           onKeyDown={handleKeyDown}
+          variant={variant}
+          {...(resolvedSize ? { size: resolvedSize } : {})}
         />
-        <button
-          type="button"
-          aria-label={labels.open}
-          title={labels.open}
+        <HbarAppUiIconButton
+          label={labels.open}
+          className="hbar-app-ui-combobox-toggle"
+          variant="ghost"
           aria-expanded={open}
           disabled={disabled}
           onClick={() => onOpenChange(!open)}
+          {...(resolvedSize ? { size: resolvedSize } : {})}
         >
           <HbarAppUiIcon icon={ChevronsUpDown} tier="xs" />
-        </button>
+        </HbarAppUiIconButton>
       </div>
       {open && !disabled && (
         <div className="hbar-app-ui-dialog-menu hbar-app-ui-combobox-popup">
           <div id={listboxId} role="listbox">
             {loading ? (
-              <p>{labels.loading}</p>
+              <HbarAppUiText as="p" tone="muted" variant="supporting">
+                {labels.loading}
+              </HbarAppUiText>
             ) : items.length === 0 ? (
-              <p>{labels.empty}</p>
+              <HbarAppUiText as="p" tone="muted" variant="supporting">
+                {labels.empty}
+              </HbarAppUiText>
             ) : (
               items.map((option, index) => (
-                <button
+                <HbarAppUiButton
                   key={`${option.id}:${index}`}
                   id={`${listboxId}-${index}`}
-                  type="button"
                   role="option"
                   aria-selected={value === option.id}
                   disabled={option.disabled}
-                  className={activeId === option.id ? 'is-active' : ''}
+                  className={`hbar-app-ui-combobox-option${activeId === option.id ? ' is-active' : ''}`}
+                  variant="ghost"
                   onPointerMove={() => !option.disabled && setActiveId(option.id)}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => select(option)}
+                  {...(resolvedSize ? { size: resolvedSize } : {})}
                 >
                   <span>
                     <strong>{option.label}</strong>
                     {option.detail && <small>{option.detail}</small>}
                   </span>
                   {value === option.id && <HbarAppUiIcon icon={Check} tier="xs" />}
-                </button>
+                </HbarAppUiButton>
               ))
             )}
           </div>
           {loadMoreLabel && onLoadMore && (
-            <button type="button" className="hbar-app-ui-combobox-load-more" onClick={onLoadMore}>
+            <HbarAppUiButton
+              className="hbar-app-ui-combobox-load-more"
+              variant="ghost"
+              onClick={onLoadMore}
+              {...(resolvedSize ? { size: resolvedSize } : {})}
+            >
               {loadMoreLabel}
-            </button>
+            </HbarAppUiButton>
           )}
         </div>
       )}
@@ -418,6 +440,7 @@ export function HbarAppUiMultiSelect({
   options,
   labels,
   disabled,
+  size,
   onValuesChange,
   ...comboBox
 }: HbarAppUiMultiSelectProps) {
@@ -428,21 +451,21 @@ export function HbarAppUiMultiSelect({
   )
   const available = uniqueOptionItems.filter((option) => !uniqueValues.includes(option.id))
   return (
-    <div className={`hbar-app-ui-multi-select${disabled ? ' is-disabled' : ''}`}>
+    <div className={`hbar-app-ui-multi-select${disabled ? ' is-disabled' : ''}`} data-size={size}>
       {selected.length > 0 && (
         <div className="hbar-app-ui-multi-select-values">
           {selected.map((option) => (
             <span key={option.id}>
               {option.label}
-              <button
-                type="button"
-                aria-label={labels.remove(option.label)}
-                title={labels.remove(option.label)}
+              <HbarAppUiIconButton
+                label={labels.remove(option.label)}
+                variant="ghost"
                 disabled={disabled}
                 onClick={() => onValuesChange(uniqueValues.filter((value) => value !== option.id))}
+                {...(size ? { size } : {})}
               >
                 <HbarAppUiIcon icon={X} tier="xs" />
-              </button>
+              </HbarAppUiIconButton>
             </span>
           ))}
         </div>
@@ -452,6 +475,7 @@ export function HbarAppUiMultiSelect({
         value={null}
         options={available}
         labels={labels}
+        {...(size ? { size } : {})}
         {...(disabled === undefined ? {} : { disabled })}
         onValueChange={(value) => onValuesChange([...uniqueValues, value])}
       />

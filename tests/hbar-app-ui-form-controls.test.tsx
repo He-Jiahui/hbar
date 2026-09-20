@@ -66,6 +66,8 @@ test('controlled combo box renders every bounded host option and publishes acces
       open
       options={options}
       labels={{ open: '打开模型列表', empty: '没有匹配模型', loading: '正在加载模型' }}
+      size="l"
+      variant="plain"
       onQueryChange={() => {}}
       onOpenChange={() => {}}
       onValueChange={() => {}}
@@ -75,6 +77,9 @@ test('controlled combo box renders every bounded host option and publishes acces
   expect(markup.match(/role="option"/g)).toHaveLength(120)
   expect(markup).toContain('aria-expanded="true"')
   expect(markup).toContain('aria-selected="true"')
+  expect(markup).toContain('data-size="l"')
+  expect(markup).toContain('data-variant="plain"')
+  expect(markup.match(/class="hbar-app-ui-button/g)).toHaveLength(121)
   expect(markup).toContain('模型 119')
   expect(markup).toContain('247K 上下文')
 })
@@ -119,6 +124,7 @@ test('multi-select preserves stale host values, de-duplicates selections, and ex
       values={['low', 'stale-level', 'low']}
       query=""
       open
+      size="s"
       options={[
         { id: 'off', label: '关闭' },
         { id: 'low', label: '低' },
@@ -139,6 +145,8 @@ test('multi-select preserves stale host values, de-duplicates selections, and ex
     />,
   )
   expect(markup.match(/aria-label="移除 低"/g)).toHaveLength(1)
+  expect(markup).toContain('hbar-app-ui-multi-select" data-size="s"')
+  expect(markup).toContain('class="hbar-app-ui-button hbar-app-ui-icon-button"')
   expect(markup).toContain('stale-level')
   expect(markup).toContain('aria-label="移除 stale-level"')
   expect(markup.match(/role="option"/g)).toHaveLength(2)
