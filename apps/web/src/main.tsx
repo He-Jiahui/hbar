@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import 'hbar-app-ui/theme.css'
+import '@lumen/app-ui/styles.css'
 import { applyHbarAppUiAppearance } from 'hbar-app-ui/appearance'
 import App from './App'
 import { readAppearanceBootstrap } from './appearance'

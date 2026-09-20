@@ -5,6 +5,7 @@ import {
   DEFAULT_WEB_APPEARANCE_PREFERENCES,
   WEB_APPEARANCE_STORAGE_KEY,
   hasWebAppearanceOverrides,
+  createWebLumenAppearance,
   readAppearanceBootstrap,
   resetWebAppearancePreferences,
   resolveWebAppearancePreferences,
@@ -114,4 +115,16 @@ test('appearance settings renders host copy and shared design-system primitives'
   expect(html).toContain('class="hbar-app-ui-button"')
   expect(html).toContain('class="hbar-app-ui-label"')
   expect(html).not.toContain('Write a message')
+})
+
+test('web appearance maps legacy preferences into the controlled Lumen provider contract', () => {
+  expect(createWebLumenAppearance('light', { controlSize: 's', textSize: 'l', cornerSize: 'm' }, false)).toEqual({
+    mode: 'light',
+    controlSize: 's',
+    textSize: 'l',
+    cornerSize: 'm',
+    shape: 'rounded',
+    glow: 65,
+    motion: false,
+  })
 })

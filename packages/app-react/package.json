@@ -10,7 +10,7 @@
     "@hbar/app-runtime": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/schema-react": "workspace:*",
-    "@lumen/app-ui": "file:../../hbar-ui/packages/lumen-app-ui/.",
+    "@lumen/app-ui": "workspace:*",
     "hbar-app-ui": "workspace:*",
     "react-markdown": "10.1.0",
     "rehype-sanitize": "6.0.0",

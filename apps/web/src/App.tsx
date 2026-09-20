@@ -17,6 +17,7 @@ import {
   useHbarRuntimeState,
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
+import { applyLumenAppearance, LumenProvider } from '@lumen/app-ui'
 import {
   HbarClient,
   createBrowserAttachmentController,
@@ -48,6 +49,7 @@ import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { WebAppearanceSettings, type WebAppearanceSettingsLabels } from './AppearanceSettings'
 import {
   hasWebAppearanceOverrides,
+  createWebLumenAppearance,
   readAppearanceBootstrap,
   resetWebAppearancePreferences,
   resolveWebAppearancePreferences,
@@ -332,6 +334,9 @@ export default function App({
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
   )
+  const [systemPrefersReducedMotion, setSystemPrefersReducedMotion] = useState(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
   const runtime = useMemo(
     () => createRuntime(client, hostId, locale, attachmentController.commands, resourcePicker),
     [attachmentController, client, hostId, locale, resourcePicker],
@@ -347,6 +352,10 @@ export default function App({
     [preferences.values],
   )
   const appearance = preferences.status === 'ready' ? persistedAppearance : bootstrapAppearance
+  const lumenAppearance = useMemo(
+    () => createWebLumenAppearance(resolvedTheme, appearance, !systemPrefersReducedMotion),
+    [appearance, resolvedTheme, systemPrefersReducedMotion],
+  )
   const resolvedLayout = useMemo(() => normalizeShellLayout(layout.description), [layout.description])
   const sidebarLayout = shellLayoutModule(resolvedLayout, 'projects')
   const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
@@ -364,12 +373,21 @@ export default function App({
     return () => media.removeEventListener('change', update)
   }, [])
 
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = (event: MediaQueryListEvent | MediaQueryList) => setSystemPrefersReducedMotion(event.matches)
+    update(media)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
   useLayoutEffect(() => {
     applyWebTheme(document.documentElement, resolvedTheme)
     applyHbarAppUiAppearance(document.documentElement, appearance)
+    applyLumenAppearance(document.documentElement, lumenAppearance)
     writeThemeBootstrap(window.localStorage, themePreference)
     writeAppearanceBootstrap(window.localStorage, appearance)
-  }, [appearance, resolvedTheme, themePreference])
+  }, [appearance, lumenAppearance, resolvedTheme, themePreference])
 
   useEffect(() => {
     if (preferences.status === 'ready' && persistedTheme !== bootstrapTheme) setBootstrapTheme(persistedTheme)
@@ -420,28 +438,30 @@ export default function App({
   }
 
   return (
-    <HbarRuntimeProvider view={runtime.view}>
-      <HbarWorkspaceShell
-        labels={copy.shell}
-        sidebarWidthRem={sidebarLayout.size.preferredRem}
-        toolWidthRem={toolLayout.size.preferredRem}
-        connection={connection}
-        onReconnect={reconnect}
-        toolLabel={copy.session.tools.label}
-        tool={
-          presentation.toolInstanceId ? (
-            <WorkspaceTool locale={locale} connected={connection === 'connected'} />
-          ) : undefined
-        }
-        overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} />}
-      >
-        <WorkspaceBody
-          locale={locale}
-          connected={connection === 'connected'}
-          prepareAttachment={attachmentController.prepare}
-          systemPrefersDark={systemPrefersDark}
-        />
-      </HbarWorkspaceShell>
-    </HbarRuntimeProvider>
+    <LumenProvider appearance={lumenAppearance}>
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell
+          labels={copy.shell}
+          sidebarWidthRem={sidebarLayout.size.preferredRem}
+          toolWidthRem={toolLayout.size.preferredRem}
+          connection={connection}
+          onReconnect={reconnect}
+          toolLabel={copy.session.tools.label}
+          tool={
+            presentation.toolInstanceId ? (
+              <WorkspaceTool locale={locale} connected={connection === 'connected'} />
+            ) : undefined
+          }
+          overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} />}
+        >
+          <WorkspaceBody
+            locale={locale}
+            connected={connection === 'connected'}
+            prepareAttachment={attachmentController.prepare}
+            systemPrefersDark={systemPrefersDark}
+          />
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>
+    </LumenProvider>
   )
 }

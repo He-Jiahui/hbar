@@ -10,7 +10,8 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "plugins/*"
+    "plugins/*",
+    "hbar-ui/packages/lumen-app-ui"
   ],
   "scripts": {
     "dev": "bun scripts/dev.ts",

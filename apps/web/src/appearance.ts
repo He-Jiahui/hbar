@@ -4,7 +4,8 @@ import {
   resolveHbarAppUiAppearance,
   type HbarAppUiAppearance,
 } from 'hbar-app-ui/appearance'
-import { readThemePreference, type WebThemePreference } from './theme'
+import type { LumenAppearance } from '@lumen/app-ui'
+import { readThemePreference, type WebResolvedTheme, type WebThemePreference } from './theme'
 
 export interface WebAppearancePreferences extends HbarAppUiAppearance {
   readonly theme: WebThemePreference
@@ -64,6 +65,22 @@ export function sameHbarAppUiAppearance(left: HbarAppUiAppearance, right: HbarAp
   return (
     left.controlSize === right.controlSize && left.textSize === right.textSize && left.cornerSize === right.cornerSize
   )
+}
+
+export function createWebLumenAppearance(
+  mode: WebResolvedTheme,
+  appearance: HbarAppUiAppearance,
+  motion: boolean,
+): LumenAppearance {
+  return {
+    mode,
+    controlSize: appearance.controlSize,
+    textSize: appearance.textSize,
+    cornerSize: appearance.cornerSize,
+    shape: 'rounded',
+    glow: 65,
+    motion,
+  }
 }
 
 export function readAppearanceBootstrap(storage: AppearanceStorage): HbarAppUiAppearance {
