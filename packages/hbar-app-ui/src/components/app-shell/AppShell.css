@@ -76,7 +76,7 @@
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
-  flex: 0 1 24rem;
+  flex: 0 1 var(--hbar-app-ui-tool-size);
   border-inline-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
   background: var(--hbar-app-ui-surface-0);
 }
@@ -331,7 +331,7 @@
     z-index: 20;
     inset-block: 0;
     inset-inline-end: 0;
-    inline-size: min(24rem, 100%);
+    inline-size: min(var(--hbar-app-ui-tool-size), 100%);
     box-shadow: var(--hbar-app-ui-shadow);
   }
 }

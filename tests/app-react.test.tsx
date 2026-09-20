@@ -69,7 +69,13 @@ test('app-react renders host-owned workspace and session content from read-only 
     await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          sidebarWidthRem={17}
+          toolWidthRem={26}
+          connection="connected"
+          onReconnect={() => {}}
+        >
           <h1>宿主主内容</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -82,6 +88,7 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('打开状态中心')
     expect(html).toContain('打开设置')
     expect(html).toContain('已经连接')
+    expect(html).toContain('--hbar-app-ui-tool-size:26rem')
     expect(html).not.toContain('Workspace 1')
   } finally {
     runtime.dispose()

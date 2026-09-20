@@ -39,6 +39,7 @@ export interface HbarWorkspaceShellLabels {
 export interface HbarWorkspaceShellProps {
   readonly labels: HbarWorkspaceShellLabels
   readonly sidebarWidthRem: number
+  readonly toolWidthRem?: number
   readonly connection: 'connected' | 'connecting' | 'pairing' | 'disconnected'
   readonly onReconnect: () => void
   readonly tool?: ReactNode
@@ -198,6 +199,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     <HbarAppUiAppShell
       label={props.labels.main}
       sidebarWidthRem={props.sidebarWidthRem}
+      {...(props.toolWidthRem === undefined ? {} : { toolWidthRem: props.toolWidthRem })}
       sidebarOpen={presentation.sidebarOpen}
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}

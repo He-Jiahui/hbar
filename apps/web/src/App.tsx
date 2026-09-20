@@ -16,7 +16,7 @@ import {
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
-import { createAppRuntime, type ClientJsonValue } from '@hbar/app-runtime'
+import { createAppRuntime } from '@hbar/app-runtime'
 import {
   HbarClient,
   createBrowserAttachmentController,
@@ -45,22 +45,11 @@ import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
 import { getShellCopy, type ShellLocale } from './shell-copy'
-import { shellLayout } from './shell-layout'
+import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
 import './App.css'
-
-function isJsonObject(value: ClientJsonValue | undefined): value is Readonly<Record<string, ClientJsonValue>> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function layoutSidebarWidth(layout: Readonly<Record<string, ClientJsonValue>>): number {
-  const sidebar = layout.sidebar
-  if (!isJsonObject(sidebar) || !Object.hasOwn(sidebar, 'widthRem')) return shellLayout.sidebar.widthRem
-  const width = sidebar.widthRem
-  return typeof width === 'number' ? Math.min(24, Math.max(12, width)) : shellLayout.sidebar.widthRem
-}
 
 function createRuntime(
   client: HbarClient,
@@ -96,6 +85,7 @@ function createRuntime(
     schemaContent: createSchemaCallbackClient(client),
     surfaces: { canRender: canRenderWebSurface },
     defaultLayout: shellLayout,
+    layoutDescription: { normalize: normalizeShellLayout },
     persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web'),
     exporter: createBrowserClientExport(),
   })
@@ -233,7 +223,14 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
   )
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
-  const sidebarWidth = layoutSidebarWidth(layout.description)
+  const resolvedLayout = useMemo(() => normalizeShellLayout(layout.description), [layout.description])
+  const sidebarLayout = shellLayoutModule(resolvedLayout, 'projects')
+  const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
+
+  useEffect(() => {
+    if (layout.status === 'ready' && !sidebarLayout.visible)
+      void runtime.view.commands.execute('app.setSidebarVisible', { visible: false }).catch(() => undefined)
+  }, [layout.revision, layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
 
   useEffect(() => {
     const offStatus = client.onStatus(setConnection)
@@ -278,7 +275,8 @@ export default function App({ locale }: { readonly locale: ShellLocale }) {
     <HbarRuntimeProvider view={runtime.view}>
       <HbarWorkspaceShell
         labels={copy.shell}
-        sidebarWidthRem={sidebarWidth}
+        sidebarWidthRem={sidebarLayout.size.preferredRem}
+        toolWidthRem={toolLayout.size.preferredRem}
         connection={connection}
         onReconnect={reconnect}
         toolLabel={copy.session.tools.label}

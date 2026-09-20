@@ -180,6 +180,15 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
     await expect(page.locator('footer')).toContainText('Connected')
+    expect(
+      await page.locator('[data-hbar-app-ui-shell="app"]').evaluate((element) => {
+        const styles = getComputedStyle(element)
+        return {
+          sidebar: styles.getPropertyValue('--hbar-app-ui-sidebar-size').trim(),
+          tool: styles.getPropertyValue('--hbar-app-ui-tool-size').trim(),
+        }
+      }),
+    ).toEqual({ sidebar: '17rem', tool: '24rem' })
     await expect(page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1440.png', fullPage: true })
     await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
@@ -250,6 +259,11 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const configuredToolWidth = await page
+      .locator('.hbar-app-ui-app-tool-drawer')
+      .evaluate((element) => element.getBoundingClientRect().width)
+    expect(configuredToolWidth).toBeGreaterThanOrEqual(383)
+    expect(configuredToolWidth).toBeLessThanOrEqual(385)
     const expectFileToolLayout = async (view: 'browser' | 'document') =>
       expect(
         await page.evaluate((expectedView) => {

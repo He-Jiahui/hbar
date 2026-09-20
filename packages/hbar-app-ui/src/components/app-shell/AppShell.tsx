@@ -27,6 +27,7 @@ export interface HbarAppUiAppShellProps {
   readonly label: string
   readonly sidebar?: ReactNode
   readonly sidebarWidthRem: number
+  readonly toolWidthRem?: number
   readonly sidebarOpen: boolean
   readonly closeSidebarLabel: string
   readonly onCloseSidebar: () => void
@@ -42,6 +43,7 @@ export function HbarAppUiAppShell({
   label,
   sidebar,
   sidebarWidthRem,
+  toolWidthRem = 24,
   sidebarOpen,
   closeSidebarLabel,
   onCloseSidebar,
@@ -51,8 +53,12 @@ export function HbarAppUiAppShell({
   overlay,
   children,
 }: HbarAppUiAppShellProps) {
-  const style: CSSProperties & { '--hbar-app-ui-sidebar-size': string } = {
+  const style: CSSProperties & {
+    '--hbar-app-ui-sidebar-size': string
+    '--hbar-app-ui-tool-size': string
+  } = {
     '--hbar-app-ui-sidebar-size': `${sidebarWidthRem}rem`,
+    '--hbar-app-ui-tool-size': `${toolWidthRem}rem`,
   }
   return (
     <div className="hbar-app-ui-app-shell" data-hbar-app-ui-shell="app" data-sidebar-open={sidebarOpen} style={style}>
