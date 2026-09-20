@@ -4,7 +4,7 @@
 
 ## 1. 证据范围
 
-`artifacts/ui-redesign` 当前包含 22 个页面/组件族、204 张 PNG。所有核心 Web 页面图均由生产组合根与真实 Host fixture 生成；Prompt、基础表单和 Button 的独立矩阵使用同一生产组件，只由 fixture 提供受控状态；ToolPane 三张对照图直接组合同一次真实 Host 流程产生的文件、Monitoring、子 Agent 和 Goal/Plan 页面。Tauri 六张图来自当前 debug exe 的真实 WebView2 窗口，其中 Windows 外框图包含系统标题栏。最终代码在清除旧 WorkbenchShell 样式入口、补齐会话长历史、Plan Run 归属、失败重试、基础按钮、整页主题、Provider 动态目录刷新、四类工具统一外壳和桌面自动认证后重新执行完整门禁，截图不是清理前遗留产物。
+`artifacts/ui-redesign` 当前包含 22 个页面/组件族、212 张 PNG。所有核心 Web 页面图均由生产组合根与真实 Host fixture 生成；Prompt、基础表单和 Button 的独立矩阵使用同一生产组件，只由 fixture 提供受控状态；ToolPane 三张对照图直接组合同一次真实 Host 流程产生的文件、Monitoring、子 Agent 和 Goal/Plan 页面。Tauri 七张图来自当前 debug exe 的真实 WebView2 窗口，其中 Windows 外框图包含系统标题栏。最终代码在清除旧 WorkbenchShell 样式入口、补齐会话长历史、Plan Run 归属、失败重试、基础按钮、整页主题、Provider 动态目录刷新、四类工具统一外壳、桌面自动认证和 900px 流式侧栏后重新执行完整门禁，截图不是清理前遗留产物。
 
 参考布局再次目视对照 `D:/Git/cc-haha/docs/images/app/en/session-dark.webp` 与 `settings-general.webp`。hbar 保留其稳定的侧栏→主工作区→按需工具空间、设置分类栏、紧凑页头和就近操作关系；按既定产品决定使用更高信息密度的 JetBrains 风格，不迁入 Scheduled、Skills Market、Pet、顶部多标签等无关业务。
 
@@ -35,8 +35,8 @@
 ## 3. 行为门禁
 
 - TypeScript、全仓 ESLint 与 Bun tests：410 个测试、3255 个断言、零失败，覆盖 128 个文件。Theme 切片通过 content-contract、icon-scale 和 flow-layout guards；Button 切片的同文件 content-contract 历史发现仍按上一节记录。全仓 ESLint 使用同一配置和 8 GB Node heap 通过。
-- Web production build：2398 modules；CSS 225.76 kB；JS 967.45 kB。构建边界确认旧 WorkbenchShell、catalog、fixtures、Kernel、Storage、TUI 和未采用的自由停靠模型不进入 Web 生产图。
-- Playwright：12/12。除 system/light/dark、四个离线 locale/viewport、101 会话、180 条时间线、Plan Run 归属、失败重试和完整 Host 工作流外，独立 Provider 真实流程搜索 OpenAI 预设、加入 GPT-5.4 和自定义模型、编辑 Off/High/Maximum 思考等级、切换默认模型、分别隐藏供应商与模型、保存、关闭重开恢复，再重新显示供应商；Host `model.list` 和设置 Model ComboBox 同时证明可见的 `browser-custom`/GPT-4 出现而隐藏 GPT-5.4 不出现。ToolPane 断言在 1440、1024、390 三档逐页测量容器填充、header/body 边界、body 滚动所有权和横向溢出，并验证文件绑定工作区、其余三页绑定会话。会话断言继续测量 `Conversation` 为 flex 且 composer 底边与会话底边误差不超过 1 CSS px。
+- Web production build：2398 modules；CSS 225.45 kB；JS 967.45 kB。构建边界确认旧 WorkbenchShell、catalog、fixtures、Kernel、Storage、TUI 和未采用的自由停靠模型不进入 Web 生产图。
+- Playwright：14/14。除 system/light/dark、六个离线 locale/viewport、101 会话、180 条时间线、Plan Run 归属、失败重试和完整 Host 工作流外，独立 Provider 真实流程搜索 OpenAI 预设、加入 GPT-5.4 和自定义模型、编辑 Off/High/Maximum 思考等级、切换默认模型、分别隐藏供应商与模型、保存、关闭重开恢复，再重新显示供应商；Host `model.list` 和设置 Model ComboBox 同时证明可见的 `browser-custom`/GPT-4 出现而隐藏 GPT-5.4 不出现。ToolPane 断言在 1440、1024、390 三档逐页测量容器填充、header/body 边界、body 滚动所有权和横向溢出，并验证文件绑定工作区、其余三页绑定会话。会话断言继续测量 `Conversation` 为 flex、composer 与会话底边误差不超过 1 CSS px，并在 900px 检查会话占满主区、正文和输入两端对齐及侧栏推动主区。
 - Tauri：VS x64 debug `cargo build` 通过；`bun scripts/desktop-smoke.ts` 启动真实 exe，通过受限主窗口桥读取同源 loopback token，UI 新建并打开首会话，WebView file chooser 上传 `native-visual.txt`，打开文件工具，并通过 Tauri `set_size` 把真实内窗改为 900×600。smoke 量测 Conversation 填满主区、Timeline 与 Composer 两端对齐、留白对称，并验证侧栏为正常流布局且展开后主区实际缩小；同时验证默认/最小窗口均无水平溢出、关闭变隐藏、桌面退出后 Host 存活和独立 SDK Run 取消。Win32 外框截图实测 916×639，包含系统标题栏和完整 900×600 内容。
 - 每个实质样式切片均运行 flow guard；用户可见 TSX 按范围运行 content-contract 与 icon-scale guard。最终生产截图在各切片修复后重新生成并人工查看。
 - 完整页面 fixture 直接运行 `apps/web` production build，并由 `scripts/e2e-session-host.ts` 提供隔离的 Host 数据与模型行为；fixture 没有复制页面组件或追加修补样式。

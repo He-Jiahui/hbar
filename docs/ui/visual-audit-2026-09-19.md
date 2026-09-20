@@ -619,3 +619,13 @@ desktop smoke 现在继续触发 WebView2 `filechooser`，上传有界 `native-v
 | Windows 外框 | [916×639](../../artifacts/ui-redesign/tauri/native-min-window-frame.png)：系统标题栏、hbar 图标、窗口按钮和 900×600 内容同时可见，无旧尺寸空白或错位                           |
 
 验证结果：自动认证与原生窗口 commit `1661ed0`，附件选择 smoke commit `b400108`；VS x64 debug Cargo 构建、Prettier、全仓 ESLint、TypeScript、410 个 Bun 测试（3255 个断言）、Web production build（2398 modules / 225.76 kB CSS / 967.45 kB JS）、12/12 Playwright 和增强 desktop smoke 全部通过。六张 Tauri 图均已原尺寸查看；`artifacts/ui-redesign` 最终共 22 个页面/组件族、204 张 PNG。R6.4 关闭。
+
+## 38. 900px 侧栏流式缩进与会话两端对齐回归
+
+900×600 Tauri 实窗复核发现两个源代码检查未暴露的布局错误。`HbarAppUiAppShell` 在 `64rem` 以下把工程侧栏设为 viewport fixed overlay，因此点击汉堡按钮会把导航盖到会话标题和正文上；`HbarAppUiConversation` 没有占满 session main，正文与 composer 又使用 `min(100%, 52rem)`，在该 flex 组合中按内在内容收缩，输入区实际只占约 366px，右侧留下不对称空白。
+
+侧栏修复改为正常 flex 列：`48rem` 以上展开侧栏会占据自己的 17rem 列，主区按剩余宽度同步缩进；更窄时侧栏成为独占导航面板并暂时隐藏主区，避免压出不可用的细主列。会话修复让 Conversation 明确占满 session main，Timeline 与 Composer 都使用 `width: 100%` 和相同的 `max-width: 52rem`，保留受控阅读宽度并形成相等的左右留白。
+
+Playwright 新增中英文 900×600 离线外壳场景，量测侧栏右边与主区左边相接、主区实际变窄、backdrop 不可见；连接流程在 900px 量测 Conversation 与 session main 左右边界一致、Timeline 与 Composer 左右边界误差不超过 1 CSS px、左右留白对称且内容宽度不少于 800px。真实 desktop smoke 执行同一组会话断言，并在展开工程侧栏后确认其 computed position 不是 fixed、主区宽度从 900px 缩为约 628px；人工原尺寸查看了[Web 900px 会话](../../artifacts/ui-redesign/session/after/desktop-900-empty.png)、[Tauri 900px 会话](../../artifacts/ui-redesign/tauri/session-min-window.png)、[Tauri 900px 展开侧栏](../../artifacts/ui-redesign/tauri/session-sidebar-min-window.png)、[900px 工程侧栏](../../artifacts/ui-redesign/shell/drawer-zh-CN-900.png)和[390px 独占导航](../../artifacts/ui-redesign/shell/drawer-zh-CN-390.png)。
+
+验证结果：流式侧栏 commit `dceeed1`，会话对齐 commit `975a374`；flow-layout guard、Prettier、定向 ESLint、VS x64 debug Cargo build、410 个 Bun 测试（3255 个断言）、Web production build（2398 modules / 225.45 kB CSS / 967.45 kB JS）、14/14 Playwright 和增强 desktop smoke 全部通过。新增与受影响截图均以原分辨率查看；`artifacts/ui-redesign` 当前共 22 个页面/组件族、212 张 PNG。
