@@ -1,4 +1,5 @@
 import { expect, test, type WebSocketRoute } from '@playwright/test'
+import { HbarClient, createModelCommandClient } from '@hbar/client'
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -1223,8 +1224,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       fullPage: true,
     })
     await page.setViewportSize({ width: 390, height: 844 })
-    const hideSettingsNavigation = page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first()
-    if ((await hideSettingsNavigation.count()) > 0) await hideSettingsNavigation.click({ force: true })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' }).first()).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Settings groups' })).toBeVisible()
     await expectSettingsLayout('select')
     await expectNoHorizontalOverflow()
@@ -1330,7 +1330,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await expectProviderRegionsSeparated()
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024.png', fullPage: true })
-    await page.getByRole('heading', { level: 2, name: 'Models', exact: true }).scrollIntoViewIfNeeded()
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
     await page.screenshot({
       path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024-models.png',
       fullPage: true,
@@ -1342,7 +1342,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await expectProviderRegionsSeparated()
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/mobile-390.png', fullPage: true })
-    await page.getByRole('heading', { level: 2, name: 'Models', exact: true }).scrollIntoViewIfNeeded()
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/mobile-390-models.png', fullPage: true })
     await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: 'Back to settings' }).click()
@@ -1362,8 +1362,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       fullPage: true,
     })
     await page.setViewportSize({ width: 390, height: 844 })
-    const hideProviderNavigation = page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first()
-    if (await hideProviderNavigation.isVisible()) await hideProviderNavigation.click({ force: true })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' }).first()).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Settings groups' })).toHaveValue('providers')
     await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
     await expectNoHorizontalOverflow()
@@ -1404,6 +1403,168 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('button', { name: 'Open session Visual QA session' })).toBeVisible()
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/session-create/after/executed-1440.png', fullPage: true })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('provider presets persist custom models, thinking levels, and independent visibility', async ({ browser }) => {
+  test.setTimeout(120_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-provider-editor-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const expectNoHorizontalOverflow = async () =>
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    await page.getByRole('combobox', { name: 'Settings scope' }).selectOption('global')
+    await page.getByRole('button', { name: 'Providers', exact: true }).click()
+    await page.getByRole('button', { name: 'Add provider', exact: true }).click()
+
+    const preset = page.getByRole('combobox', { name: 'Provider preset' })
+    await preset.fill('OpenAI')
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('OpenAI', { exact: true }) })
+      .click()
+    await page.getByRole('textbox', { name: 'Provider ID' }).fill('browser-provider')
+    await page.getByRole('textbox', { name: 'Display name' }).first().fill('Browser provider')
+
+    const modelCatalog = page.getByRole('combobox', { name: 'Add from preset catalog' })
+    await modelCatalog.fill('gpt-5.4')
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('GPT-5.4', { exact: true }) })
+      .click()
+    await expect(page.getByRole('button', { name: 'Select GPT-5.4' })).toHaveAttribute('aria-current', 'true')
+    await page.getByRole('button', { name: 'Set as default' }).click()
+
+    const providerPrimaryColumn = page.locator('.hbar-app-react-provider-primary-column')
+    const providerModelDetails = page.getByRole('region', { name: 'Model details' })
+    const providerVisibility = providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' })
+    const selectedModelVisibility = providerModelDetails.getByRole('checkbox', {
+      name: 'Show in model selection',
+    })
+    await providerVisibility.uncheck()
+    await selectedModelVisibility.uncheck()
+    await providerModelDetails.getByRole('button', { name: 'Remove thinking level Extra high' }).click()
+    const thinkingLevels = providerModelDetails.getByRole('combobox', { name: 'Available thinking levels' })
+    await thinkingLevels.fill('Maximum')
+    await page.getByRole('option', { name: 'Maximum', exact: true }).click()
+
+    await page.getByRole('textbox', { name: 'Custom model ID' }).fill('browser-custom')
+    await page.getByRole('button', { name: 'Add custom model' }).click()
+    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'true')
+    await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level Off' })).toBeVisible()
+    await thinkingLevels.fill('High')
+    await page.getByRole('option', { name: 'High', exact: true }).click()
+    await providerModelDetails.getByRole('button', { name: 'Set as default' }).click()
+    await page.getByLabel('API key').fill('browser-provider-secret')
+    await page.getByRole('button', { name: 'Save provider' }).click()
+    await expect(page.getByText('Provider saved.')).toBeVisible()
+    await expect(page.getByLabel('API key')).toHaveValue('')
+    await expect(providerVisibility).not.toBeChecked()
+    await expect(selectedModelVisibility).toBeChecked()
+    await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level High' })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Select GPT-5.4' }).getByLabel('Hidden', { exact: true }),
+    ).toBeVisible()
+
+    const providerMain = page.locator('.hbar-app-react-provider-dialog > main')
+    const providerFooter = page.locator('.hbar-app-react-provider-dialog > footer')
+    const expectProviderRegionsSeparated = async () => {
+      const [mainBox, footerBox] = await Promise.all([providerMain.boundingBox(), providerFooter.boundingBox()])
+      expect(mainBox).not.toBeNull()
+      expect(footerBox).not.toBeNull()
+      expect(mainBox!.y + mainBox!.height).toBeLessThanOrEqual(footerBox!.y + 1)
+    }
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-desktop-1440.png',
+      fullPage: true,
+    })
+
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
+    await expectProviderRegionsSeparated()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-tablet-1024.png',
+      fullPage: true,
+    })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
+    await expectProviderRegionsSeparated()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-mobile-390.png',
+      fullPage: true,
+    })
+
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByRole('button', { name: 'Back to settings' }).click()
+    await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
+    await expect(page.getByText('Default: browser-custom', { exact: true })).toBeVisible()
+    await expect(page.getByText('3 models', { exact: true })).toBeVisible()
+    await expect(page.getByText('Hidden', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Edit Browser provider' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Edit provider · Browser provider' })).toBeVisible()
+    await expect(providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' })).not.toBeChecked()
+    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'true')
+    await expect(
+      page.getByRole('button', { name: 'Select GPT-5.4' }).getByLabel('Hidden', { exact: true }),
+    ).toBeVisible()
+    await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level High' })).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-reopened-1440.png',
+      fullPage: true,
+    })
+
+    await providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' }).check()
+    await expect(page.getByText('1 unsaved change', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Save provider' }).click()
+    await expect(page.getByText('Provider saved.')).toBeVisible()
+    await page.getByRole('button', { name: 'Back to settings' }).click()
+    await expect(page.getByText('Hidden', { exact: true })).toHaveCount(0)
+    const directClient = new HbarClient('http://127.0.0.1:4317', fixture.ready.token)
+    await directClient.connect()
+    try {
+      const visibleModels = await createModelCommandClient(directClient).execute('model.list', {})
+      expect(visibleModels.map((model) => model.modelId)).toContain('browser-custom')
+      expect(visibleModels.map((model) => model.modelId)).not.toContain('gpt-5.4')
+    } finally {
+      directClient.disconnect()
+    }
+    await page.getByRole('button', { name: 'Model', exact: true }).click()
+    const settingsModel = page.getByRole('combobox', { name: 'Model' })
+    await settingsModel.click()
+    await expect(page.getByRole('option', { name: /browser-custom/i })).toBeVisible()
+    await expect(page.getByRole('option', { name: /gpt-5\.4/i })).toHaveCount(0)
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/provider-model-visibility-1440.png',
+      fullPage: true,
+    })
     expect(errors).toEqual([])
   } finally {
     await context.close()
@@ -1488,8 +1649,7 @@ test('client theme follows the system and persists explicit light or dark choice
     await page.emulateMedia({ colorScheme: 'light' })
     await expectTheme('light')
     await page.setViewportSize({ width: 390, height: 844 })
-    const hideNavigation = page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first()
-    if (await hideNavigation.isVisible()) await hideNavigation.click({ force: true })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' }).first()).toBeVisible()
     await expectTheme('light')
     await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-system-light-390.png', fullPage: true })
     expect(errors).toEqual([])

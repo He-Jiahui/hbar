@@ -194,7 +194,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
-  const providerSettings = createProviderSettings(local, options, surfaces.reader, onSubscriberError, () => disposed)
+  const providerSettings = createProviderSettings(
+    local,
+    options,
+    surfaces.reader,
+    settingsForms.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const fileWorkspace = createFileWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
   const agentWorkspace = createAgentWorkspace(
     local,

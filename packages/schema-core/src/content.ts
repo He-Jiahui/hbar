@@ -273,6 +273,7 @@ export interface ResolveContentInput {
   readonly data: Readonly<Record<string, unknown>>
   readonly search?: string
   readonly cursor?: string
+  readonly bypassCache?: boolean
   readonly signal?: AbortSignal
 }
 
@@ -373,9 +374,9 @@ export function createContentResolver(options: ContentResolverOptions) {
         search: request.search ?? null,
         cursor: request.cursor ?? null,
       })
-      const cached = cache.get(cacheKey)
+      const cached = input.bypassCache ? undefined : cache.get(cacheKey)
       if (cached && cached.expiresAt > Date.now()) return cached.report
-      if (cached) cache.delete(cacheKey)
+      if (cached || input.bypassCache) cache.delete(cacheKey)
       const controller = new AbortController()
       const current = ++generation
       active.set(slot, { generation: current, controller })

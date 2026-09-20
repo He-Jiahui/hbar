@@ -333,6 +333,11 @@ test('settings runtime projects dynamic content and rejects superseded dependenc
   const model = encodePath([{ kind: 'field', name: 'provider.model' }])
   const thinking = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
   let oldStarted = false
+  let modelContentRevision = 1
+  let availableModels = [
+    { value: 'old', label: { kind: 'literal' as const, text: 'Old model' }, disabled: false },
+    { value: 'new', label: { kind: 'literal' as const, text: 'New model' }, disabled: false },
+  ]
   const pendingOld: { resolve?: (report: OptionContentReport) => void } = {}
   callbacks.registerQuery('settings.getModels', {
     version: 1,
@@ -341,12 +346,9 @@ test('settings runtime projects dynamic content and rejects superseded dependenc
       return {
         kind: 'options',
         status: 'ready',
-        options: [
-          { value: 'old', label: { kind: 'literal', text: 'Old model' }, disabled: false },
-          { value: 'new', label: { kind: 'literal', text: 'New model' }, disabled: false },
-        ],
+        options: availableModels,
         dependencyFingerprint: request.dependencyFingerprint,
-        capabilityRevision: 'models:1',
+        capabilityRevision: `models:${modelContentRevision}`,
       }
     },
   })
@@ -407,6 +409,25 @@ test('settings runtime projects dynamic content and rejects superseded dependenc
   await Bun.sleep(5)
   const content = runtime.view.state.settings.getSnapshot().forms[form.formId]?.content[thinking]
   expect(content?.status === 'ready' ? content.report.options.map((option) => option.value) : []).toEqual(['high'])
+  availableModels = [
+    ...availableModels,
+    {
+      value: 'provider/custom',
+      label: { kind: 'literal' as const, text: 'Provider · custom' },
+      disabled: false,
+    },
+  ]
+  modelContentRevision += 1
+  await runtime.view.commands.execute('settingsForm.refreshContent', { formId: form.formId })
+  expect(runtime.view.state.settings.getSnapshot().forms[form.formId]?.form?.draft[model]).toBe('new')
+  expect(runtime.view.state.settings.getSnapshot().forms[form.formId]?.form?.dirty).toContain(model)
+  await waitFor(() => {
+    const refreshed = runtime.view.state.settings.getSnapshot().forms[form.formId]?.content[model]
+    return refreshed?.status === 'ready' &&
+      refreshed.report.options.some((option) => option.value === 'provider/custom')
+      ? true
+      : undefined
+  })
   runtime.dispose()
   callbacks.dispose()
 })

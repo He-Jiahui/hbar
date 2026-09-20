@@ -72,6 +72,9 @@ test('dynamic content sends only declared dependencies, validates typed reports 
   expect(Object.isFrozen(first)).toBe(true)
   expect(await resolver.resolve(input(data))).toBe(first)
   expect(calls).toBe(1)
+  const refreshed = await resolver.resolve({ ...input(data), bypassCache: true })
+  expect(refreshed).not.toBe(first)
+  expect(calls).toBe(2)
   const otherIdentity = createContentResolver({
     graph: graph(),
     port: registry,
@@ -79,7 +82,7 @@ test('dynamic content sends only declared dependencies, validates typed reports 
     identityId: 'device-b',
   })
   await otherIdentity.resolve(input(data))
-  expect(calls).toBe(2)
+  expect(calls).toBe(3)
   expect(await resolver.resolve(input({ [providerKey]: 'openai' }))).toEqual({
     kind: 'options',
     status: 'unavailable',

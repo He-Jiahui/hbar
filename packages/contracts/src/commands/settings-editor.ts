@@ -41,6 +41,11 @@ export const settingsEditorCommands = {
     z.strictObject({ formId: formIdSchema }),
     summarySchema,
   ),
+  'settingsForm.refreshContent': defineCommand(
+    metadata('settingsForm.refreshContent'),
+    z.strictObject({ formId: formIdSchema }),
+    summarySchema,
+  ),
   'settingsForm.setField': defineCommand(
     metadata('settingsForm.setField'),
     z.strictObject({

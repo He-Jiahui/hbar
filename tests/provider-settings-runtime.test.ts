@@ -3,7 +3,10 @@ import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { providerSchema, type ProviderConfig } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
-import { HBAR_PROVIDER_EDITOR_DESCRIPTION } from '@hbar/kernel'
+import { settingsCommands } from '@hbar/contracts/commands/settings'
+import { HBAR_PROVIDER_EDITOR_DESCRIPTION, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
+import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
+import { resolveSettings } from '@hbar/settings-core'
 
 function model(id: string) {
   return {
@@ -286,5 +289,110 @@ test('provider runtime applies paged presets and edits multi-model visibility an
     })
   } finally {
     runtime.dispose()
+  }
+})
+
+test('provider save refreshes loaded settings model content without rebuilding the form', async () => {
+  const configuration = fixture()
+  const callbacks = createSchemaCallbackRegistry()
+  const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
+  callbacks.registerQuery('settings.getModels', {
+    version: 1,
+    valueType: 'string',
+    async execute(request) {
+      const options = [...configuration.profiles.values()].flatMap(({ provider: item }) =>
+        item.visible
+          ? item.models
+              .filter((entry) => entry.visible)
+              .map((entry) => ({
+                value: `${item.id}:${entry.id}`,
+                label: { kind: 'literal' as const, text: `${item.name} · ${entry.name}` },
+                disabled: false,
+              }))
+          : [],
+      )
+      return {
+        kind: 'options',
+        status: 'ready',
+        options,
+        dependencyFingerprint: request.dependencyFingerprint,
+        capabilityRevision: `models:${options.map((option) => option.value).join(',')}`,
+      }
+    },
+  })
+  callbacks.registerQuery('settings.getThinkingLevels', {
+    version: 1,
+    valueType: 'string',
+    async execute() {
+      return { kind: 'options', status: 'unavailable', reasonCode: 'missing_model' }
+    },
+  })
+  const settings: CommandExecutor = {
+    execute(name, raw) {
+      if (name === 'settings.describe') return Promise.resolve(HBAR_SETTINGS_DESCRIPTION)
+      if (name === 'settings.get') {
+        const scope = settingsCommands[name].input.parse(raw).scope
+        return Promise.resolve(
+          settingsCommands[name].output.parse({
+            schemaVersion: 1,
+            scope,
+            revisions: { 'settings:global': 0 },
+            resolution: resolveSettings(HBAR_SETTINGS_DEFINITIONS, [
+              { id: 'settings:global', kind: 'global', revision: 0, values: {} },
+            ]),
+          }),
+        )
+      }
+      return Promise.reject(new Error(`Unexpected settings command: ${name}`))
+    },
+  }
+  const subscriberErrors: unknown[] = []
+  const runtime = createAppRuntime({
+    instanceId: 'provider-settings-content',
+    hostId: 'host',
+    directory,
+    settings,
+    schemaContent: callbacks,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => ['settings', 'settings-editor'].includes(panelId) },
+    onSubscriberError: (error) => subscriberErrors.push(error),
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    const form = await waitFor(() => {
+      const state = runtime.view.state.settings.getSnapshot()
+      const entry = state.activeFormId ? state.forms[state.activeFormId] : undefined
+      const content = entry?.content[modelPath]
+      return entry && content?.status === 'ready' ? entry : undefined
+    })
+    expect(form.content[modelPath]?.status === 'ready' ? form.content[modelPath].report.options : []).toHaveLength(1)
+
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      instanceId: 'settings-editor:providers:refresh-content',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    await runtime.view.commands.execute('providerEditor.loadPresets', {
+      editorId: editor.editorId,
+      query: 'openai',
+      append: false,
+    })
+    await runtime.view.commands.execute('providerEditor.applyPreset', {
+      editorId: editor.editorId,
+      presetId: openAiPreset.id,
+    })
+    await runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId })
+    await waitFor(() => {
+      const content = runtime.view.state.settings.getSnapshot().forms[form.formId]?.content[modelPath]
+      return content?.status === 'ready' && content.report.options.some((option) => option.value === 'openai:gpt-5.4')
+        ? true
+        : undefined
+    })
+    expect(runtime.view.state.settings.getSnapshot().forms[form.formId]?.form?.dirty).toEqual([])
+    expect(subscriberErrors).toEqual([])
+  } finally {
+    runtime.dispose()
+    callbacks.dispose()
   }
 })

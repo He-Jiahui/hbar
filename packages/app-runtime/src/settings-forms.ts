@@ -297,7 +297,7 @@ export function createSettingsForms(
     touched.splice(touched.indexOf(evict), 1)
     state.replace({ ...current, forms })
   }
-  const refreshContent = (formId: string, changedField?: string): void => {
+  const refreshContent = (formId: string, changedField?: string, bypassCache = false): void => {
     let current: ReturnType<typeof ready>
     try {
       current = ready(formId)
@@ -342,6 +342,7 @@ export function createSettingsForms(
           formRevision: current.form.revision,
           path: field.path,
           data,
+          bypassCache,
         })
         .then((report) => {
           let latest: ReturnType<typeof ready>
@@ -441,7 +442,7 @@ export function createSettingsForms(
         error: null,
       }
       replaceEntry(formId, next)
-      refreshContent(formId)
+      refreshContent(formId, undefined, force)
       return next
     } catch (error) {
       if (generations.get(formId) !== generation) throw error
@@ -580,6 +581,15 @@ export function createSettingsForms(
       if (!panel || formKey(panel, panelScope(panel)) !== formId)
         throw new CommandError('FORM_NOT_FOUND', 'Settings form is not active')
       return summary(await load(panel, true))
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(settingsEditorCommands['settingsForm.refreshContent'], ({ formId }) => {
+    try {
+      ready(formId)
+      refreshContent(formId, undefined, true)
+      return summary(ready(formId))
     } catch (error) {
       throw commandError(error)
     }

@@ -38,6 +38,7 @@ import type {
   ProviderPresetCatalogState,
   ProviderSettingsState,
   RuntimeOptions,
+  SettingsWorkspaceState,
   SurfaceState,
 } from './types'
 
@@ -379,6 +380,7 @@ export function createProviderSettings(
   local: CommandRegistry,
   options: RuntimeOptions,
   surfaces: StateReader<SurfaceState>,
+  settings: StateReader<SettingsWorkspaceState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
 ) {
@@ -398,6 +400,12 @@ export function createProviderSettings(
   }
   const replace = (next: ProviderSettingsState): void => {
     if (!isDisposed()) state.replace(next)
+  }
+  const refreshSettingsContent = (): void => {
+    for (const [formId, form] of Object.entries(settings.getSnapshot().forms)) {
+      if (form.status !== 'ready') continue
+      void local.execute('settingsForm.refreshContent', { formId }).catch(onSubscriberError)
+    }
   }
   const currentEditorPanel = (): PanelSurface | null => {
     const current = surfaces.getSnapshot()
@@ -575,7 +583,9 @@ export function createProviderSettings(
         ...(operation.apiKeyPresent ? { apiKey: operation.apiKey } : {}),
       })
       const loaded = await loadList(true)
-      return settleSuccess(editorId, operation, loaded)
+      const settled = settleSuccess(editorId, operation, loaded)
+      refreshSettingsContent()
+      return settled
     } catch (error) {
       const latest = editor(editorId)
       const code = errorCode(error)
@@ -597,7 +607,9 @@ export function createProviderSettings(
     const loaded = await loadList(true)
     if (!profileMatches(loaded.profiles[operation.provider.id], operation))
       throw new CommandError('RESULT_UNKNOWN', 'Provider save is not yet confirmed by the Host')
-    return settleSuccess(editorId, operation, loaded)
+    const settled = settleSuccess(editorId, operation, loaded)
+    refreshSettingsContent()
+    return settled
   }
 
   const loadPresets = async (
@@ -1002,6 +1014,7 @@ export function createProviderSettings(
       const loaded = await loadList(true)
       if (loaded.editor?.providerId === providerId)
         replace({ ...state.reader.getSnapshot(), editor: null, error: null })
+      refreshSettingsContent()
       return summary(state.reader.getSnapshot())
     } catch (error) {
       throw commandError(error)

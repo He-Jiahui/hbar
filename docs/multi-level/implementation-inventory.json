@@ -490,6 +490,7 @@
     "settingsForm.pickResource",
     "settingsForm.reconcile",
     "settingsForm.refresh",
+    "settingsForm.refreshContent",
     "settingsForm.resetField",
     "settingsForm.restoreInheritance",
     "settingsForm.selectGroup",
