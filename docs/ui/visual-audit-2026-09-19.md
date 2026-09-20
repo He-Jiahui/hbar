@@ -582,3 +582,19 @@ E2E 在 1440×960、1024×768 和 390×844 三档同时读取真实 production D
 | 最终模型目录 | [1440](../../artifacts/ui-redesign/settings/after/provider-model-visibility-1440.png)：重新显示供应商后目录自动更新；自定义模型和 GPT-4 可选，隐藏 GPT-5.4 缺席                                                             |
 
 验证结果：commit `89de53e`；Prettier、全仓 ESLint、TypeScript、404 个 Bun 测试（3230 个断言）、Web production build（2395 modules / 226.03 kB CSS / 964.71 kB JS）和 12/12 Playwright 全部通过。新增五张 production 图均以原分辨率查看；`artifacts/ui-redesign` 当前共 20 个页面/组件族、195 张 PNG。Tauri 实窗仍归 R6.4。
+
+## 36. ToolPane 正式契约与四类工具统一外壳
+
+原计划中的 `packages/hbar-app-ui/src/components/app-shell/ToolPane.tsx/.css` 是用户未跟踪草稿，在可达历史和 Git 回收对象中都找不到可分离基线；`production.ts` 对它的导出也是用户未提交修改。为了不把用户工作夹带进提交，本轮没有覆盖或暂存这些文件，而是以干净的 `hbar-app-ui/tool-pane` 窄入口增加正式 `HbarAppUiToolPane`。组件只接受宿主文案和受控内容，公开 title、targetLabel、description/icon、actions、toolbar/status/error、body、footer、busy、onBack/onClose；header/footer 固定，body 是普通长内容的唯一外层滚动区。结构测试覆盖全部槽位、busy/alert 语义及“不提供标签就不臆造返回/关闭文案”的边界。
+
+文件、Monitoring、子 Agent 和 Goal/Plan 随后全部迁入该外壳。Web 组合根根据工具语义解析目标：文件显示工作区，其他三页显示会话；关闭、返回、刷新、创建仍执行现有 runtime command。文件详情、Agent create/detail、Goal/Plan editor 的返回移入同一标题栏，页面正文不再重复 h1、返回和关闭。工具标题改为会话 h1 下的 h2。迁移同时删除四页各自复制的 root/header CSS，把普通长内容滚动交给 ToolPane body；文件虚拟列表和编辑器继续保留有界内部内容区。
+
+第一次真实 Host 回归先通过了几何断言，但目标断言发现 Monitoring 显示工作区名，因为 surface 同时携带 workspaceId/sessionId 而组合根无条件优先前者；修复后只有文件优先工作区，其他工具优先会话。该次失败截图还显示 24rem 标题栏把 target pill 与标题并排，导致 “Session monitoring” 被截断。目标随后移到标题下一行；重跑后完整流程通过。这个问题来自实际截图观察，而非代码猜测。
+
+| 视口 | 对照图与人工观察                                                                                                                                                                               |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1440 | [四页对照](../../artifacts/ui-redesign/tool-pane/after/contact-desktop-1440.png)：聊天上下文保留，24rem 工具区标题、目标、操作与正文层次清楚；文件保存、监控展开、Agent 创建和 Plan 编辑均可见 |
+| 1024 | [四页对照](../../artifacts/ui-redesign/tool-pane/after/contact-tablet-1024.png)：工具 drawer 仍填满出口；标题/目标不与关闭按钮争抢，列表与摘要不产生横向滚动                                   |
+| 390  | [四页对照](../../artifacts/ui-redesign/tool-pane/after/contact-mobile-390.png)：单面板下返回、图标、标题、目标、刷新/关闭完整同屏；表单和计划控件自然换行，文件保存区与监控详情完整            |
+
+E2E 对四页分别测量 ToolPane 与 AppShell tool drawer 四边误差、header/body 相邻边界、body 滚动 computed style 和 `scrollWidth <= clientWidth`；三档还实际执行文件打开/保存/返回、Monitoring 展开、Agent 列表/创建/详情、Goal/Plan 编辑/保存/返回。验证结果：组件契约 commit `406c93d`，生产迁移 commit `fd05760`；Prettier、全仓 ESLint、TypeScript、406 个 Bun 测试（3247 个断言）、Web production build（2397 modules / 225.76 kB CSS / 966.51 kB JS）和 12/12 Playwright 全部通过。三张对照图与其来源 production 截图均以原分辨率查看；`artifacts/ui-redesign` 当前共 21 个页面/组件族、198 张 PNG。Tauri 实窗仍归 R6.4。
