@@ -163,7 +163,8 @@ test('settings workspace renders Host schema, scoped source state, and command-o
       </HbarRuntimeProvider>,
     )
     expect(form.selectedGroup).toBe('model')
-    expect(html).toContain('<h1 title="设置">设置</h1>')
+    expect(html).toContain('<h1 title="设置"')
+    expect(html).toContain('data-variant="title">设置</h1>')
     expect(html).toContain('aria-label="返回会话"')
     expect(html).toContain('设置 workspace Schema 工程')
     expect(html).toContain('模型选择')
@@ -215,7 +216,8 @@ test('settings workspace composes client groups from the app.openSettings sectio
       'model',
     )
     expect(html).toContain('aria-current="page" type="button"')
-    expect(html).toContain('data-variant="solid">外观</button>')
+    expect(html).toContain('data-variant="text" data-tone="neutral" data-size="s"')
+    expect(html).toContain('>外观<span data-edge="right" data-state="selected"')
     expect(html).toContain('设备全局外观')
     expect(html).toContain('<option value="appearance" selected="">外观</option>')
     expect(html).not.toContain('模型选择')

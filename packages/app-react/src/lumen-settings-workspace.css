@@ -1,0 +1,242 @@
+.hbar-app-react-settings-workspace {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--lumen-ink);
+  background: var(--lumen-frost);
+}
+
+.hbar-app-react-settings-workspace > .lumen-page-header {
+  min-block-size: 3.75rem;
+}
+
+.hbar-app-react-settings-scope {
+  inline-size: min(18rem, 34vw);
+}
+
+.hbar-app-react-settings-header-controls {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-settings-layout {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.hbar-app-react-settings-groups {
+  display: flex;
+  inline-size: 13rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 0 0 13rem;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  padding: 0.5rem;
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-reading);
+}
+
+.hbar-app-react-settings-groups button {
+  inline-size: 100%;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-app-react-settings-main {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-settings-mobile-group {
+  display: none;
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-react-settings-content-header {
+  inline-size: min(100%, 54rem);
+  flex: 0 0 auto;
+  margin-inline: auto;
+  padding: 1rem 1rem 0.5rem;
+}
+
+.hbar-app-react-settings-content-header h2,
+.hbar-app-react-settings-content-header p,
+.hbar-app-react-settings-state p {
+  margin: 0;
+}
+
+.hbar-app-react-settings-content-header h2 {
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.hbar-app-react-settings-content-header p {
+  margin-block-start: 0.25rem;
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.hbar-app-react-settings-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0 1rem 1rem;
+}
+
+.hbar-app-react-settings-scroll > .hbar-schema-form,
+.hbar-app-react-settings-scroll > .hbar-app-react-provider-list {
+  inline-size: min(100%, 50rem);
+  margin-inline: auto;
+}
+
+.hbar-app-react-settings-footer {
+  flex: 0 0 auto;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-frost);
+}
+
+.hbar-app-react-settings-footer-inner,
+.hbar-app-react-settings-footer-inner > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-settings-footer-inner {
+  inline-size: min(100%, 54rem);
+  min-block-size: 3.75rem;
+  justify-content: space-between;
+  margin-inline: auto;
+  padding: 0.5rem 1rem;
+}
+
+.hbar-app-react-settings-footer-inner > span {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-settings-footer-inner > div {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.hbar-app-react-settings-state {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.hbar-app-react-settings-workspace > [role='alert'] {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  color: var(--lumen-danger);
+  background: color-mix(in srgb, var(--lumen-danger) 8%, var(--lumen-frost));
+}
+
+@media (max-width: 48rem) {
+  .hbar-app-react-settings-workspace > .lumen-page-header {
+    gap: 0.5rem;
+    padding-inline: 0.5rem;
+  }
+
+  .hbar-app-react-settings-workspace .lumen-page-heading p {
+    max-inline-size: 10rem;
+  }
+
+  .hbar-app-react-settings-scope {
+    inline-size: min(11rem, 44vw);
+  }
+
+  .hbar-app-react-settings-groups {
+    display: none;
+  }
+
+  .hbar-app-react-settings-mobile-group {
+    display: flex;
+  }
+
+  .hbar-app-react-settings-mobile-group > .lumen-control {
+    inline-size: 100%;
+  }
+
+  .hbar-app-react-settings-content-header {
+    padding: 0.75rem 0.75rem 0.5rem;
+  }
+
+  .hbar-app-react-settings-scroll {
+    padding: 0 0.75rem 0.75rem;
+  }
+
+  .hbar-app-react-settings-footer-inner {
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .hbar-app-react-settings-workspace > .lumen-page-header {
+    flex-wrap: wrap;
+  }
+
+  .hbar-app-react-settings-workspace .lumen-page-heading p {
+    display: none;
+  }
+
+  .hbar-app-react-settings-workspace .lumen-page-header-end,
+  .hbar-app-react-settings-workspace .lumen-page-actions {
+    inline-size: 100%;
+    flex-basis: 100%;
+  }
+
+  .hbar-app-react-settings-header-controls {
+    inline-size: 100%;
+    flex: 1 1 auto;
+  }
+
+  .hbar-app-react-settings-scope {
+    inline-size: auto;
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 24rem) {
+  .hbar-app-react-settings-footer-inner > span {
+    flex-basis: 100%;
+  }
+
+  .hbar-app-react-settings-footer-inner > div,
+  .hbar-app-react-settings-footer-inner button {
+    flex: 1 1 auto;
+  }
+}

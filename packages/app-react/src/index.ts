@@ -16,7 +16,7 @@ export {
   type HbarSettingsAdditionalGroup,
   type HbarSettingsWorkspaceLabels,
   type HbarSettingsWorkspaceProps,
-} from './settings-workspace'
+} from './lumen-settings-workspace'
 export {
   HbarProviderSettings,
   HbarProviderDialog,
