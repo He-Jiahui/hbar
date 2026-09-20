@@ -79,8 +79,53 @@ try {
     )
     throw error
   }
-  await mkdir('artifacts', { recursive: true })
-  await page.screenshot({ path: `artifacts/${Date.now()}-tauri-workbench.png` })
+  await page
+    .locator('footer')
+    .getByText(/^(已连接|Connected)$/)
+    .waitFor({ timeout: 15_000 })
+  await mkdir('artifacts/ui-redesign/tauri', { recursive: true })
+  await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
+  const createDialog = page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ })
+  const workspace = createDialog.getByRole('combobox', { name: /^(工作区 ID|Workspace ID)$/ })
+  await until(async () => {
+    const value = await workspace.inputValue()
+    if (!value) throw new Error('Desktop session workspace options are still loading')
+  })
+  await createDialog.getByRole('textbox', { name: /^(标题|Title)$/ }).fill('Tauri visual session')
+  await createDialog.getByRole('button', { name: /^(执行命令|Execute command)$/ }).click()
+  await createDialog.waitFor({ state: 'hidden' })
+  await page.getByRole('heading', { level: 1, name: 'Tauri visual session' }).waitFor()
+  const noHorizontalOverflow = async () =>
+    page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+  if (!(await noHorizontalOverflow())) throw new Error('Desktop session has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-default-window.png' })
+  await page.getByRole('button', { name: /^(文件|Files)$/ }).click()
+  await page.getByRole('heading', { level: 2, name: /^(文件管理器|File manager)$/ }).waitFor()
+  if (!(await noHorizontalOverflow())) throw new Error('Desktop tool window has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-default-window.png' })
+  await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
+
+  await page.evaluate(async () => {
+    const tauri = (
+      window as unknown as { __TAURI_INTERNALS__: { invoke(command: string, args: unknown): Promise<unknown> } }
+    ).__TAURI_INTERNALS__
+    await tauri.invoke('plugin:window|set_size', {
+      label: 'main',
+      value: { Logical: { width: 900, height: 600 } },
+    })
+  })
+  await until(async () => {
+    const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+    if (size.width < 880 || size.width > 920 || size.height < 580 || size.height > 620)
+      throw new Error(`Desktop window has not resized: ${JSON.stringify(size)}`)
+  })
+  if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop window has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-min-window.png' })
+  await page.getByRole('button', { name: /^(文件|Files)$/ }).click()
+  await page.getByRole('heading', { level: 2, name: /^(文件管理器|File manager)$/ }).waitFor()
+  if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop tool window has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-min-window.png' })
+  await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
   api = new HbarClient(connection.url, connection.token)
   await api.connect()
   const data = await api.call('system.bootstrap', {})
@@ -110,7 +155,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native component shell rendered; closing hides window; Host survives desktop exit; independent SDK run cancellation works. Web pairing is not exercised during the UI rebuild.',
+    'PASS: Native credentials connected; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
   )
 } catch (error) {
   console.error(await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'))

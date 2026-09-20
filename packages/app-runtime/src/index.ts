@@ -268,6 +268,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     local,
     options,
     navigation.reader,
+    directory.reader,
     executor,
     onSubscriberError,
     () => disposed,

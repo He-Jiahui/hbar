@@ -4,5 +4,11 @@
   "description": "Desktop window lifecycle; business operations use the authenticated Host protocol.",
   "windows": ["main"],
   "remote": { "urls": ["http://127.0.0.1:*"] },
-  "permissions": ["core:default", "allow-connection-info", "core:window:allow-close", "core:window:allow-is-visible"]
+  "permissions": [
+    "core:default",
+    "allow-connection-info",
+    "core:window:allow-close",
+    "core:window:allow-is-visible",
+    "core:window:allow-set-size"
+  ]
 }

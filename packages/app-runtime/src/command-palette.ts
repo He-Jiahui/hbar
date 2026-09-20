@@ -23,6 +23,7 @@ import type {
   CommandPaletteItem,
   CommandPaletteState,
   CommandTextPort,
+  DirectoryState,
   NavigationState,
   RuntimeOptions,
 } from './types'
@@ -100,10 +101,15 @@ function searchableText(descriptor: CommandDescriptor, text: CommandTextPort | u
   return keys.join('\n').toLocaleLowerCase()
 }
 
-function commandContext(navigation: StateReader<NavigationState>): Readonly<Record<string, unknown>> {
+function commandContext(
+  navigation: StateReader<NavigationState>,
+  directory: StateReader<DirectoryState>,
+): Readonly<Record<string, unknown>> {
   const current = navigation.getSnapshot()
+  const workspaces = Object.keys(directory.getSnapshot().workspaces)
+  const workspaceId = current.workspaceId ?? (workspaces.length === 1 ? workspaces[0] : undefined)
   return {
-    ...(current.workspaceId ? { workspaceId: current.workspaceId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
     ...(current.sessionId ? { sessionId: current.sessionId } : {}),
   }
 }
@@ -112,6 +118,7 @@ export function createCommandPalette(
   local: CommandRegistry,
   options: RuntimeOptions,
   navigation: StateReader<NavigationState>,
+  directory: StateReader<DirectoryState>,
   executor: ApplicationExecutor,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
@@ -171,7 +178,7 @@ export function createCommandPalette(
   }
 
   const selectDraft = (item: Readonly<CommandPaletteItem> | undefined): void => {
-    fullDraft = item ? createCommandParameterDraft(item.form, commandContext(navigation)) : null
+    fullDraft = item ? createCommandParameterDraft(item.form, commandContext(navigation, directory)) : null
   }
 
   const replaceSelection = (

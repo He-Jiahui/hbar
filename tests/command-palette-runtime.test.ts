@@ -185,3 +185,25 @@ test('palette keeps local commands usable when catalog discovery fails and marks
     runtime.dispose()
   }
 })
+
+test('palette defaults a required workspace target when the loaded directory has one workspace', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'palette-unique-workspace',
+    hostId: 'host-test',
+    directory: directory(),
+    surfaces: { canRender: () => true },
+  })
+  try {
+    await runtime.view.commands.execute('workspace.list', { limit: 100 })
+    await runtime.view.commands.execute('commandPalette.refresh', {})
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: 'app.createSession' })
+
+    expect(runtime.view.state.navigation.getSnapshot()).toMatchObject({ workspaceId: null, sessionId: null })
+    expect(runtime.view.state.commandPalette.getSnapshot().draft).toMatchObject({
+      values: { workspaceId: workspace.id },
+      issues: [],
+    })
+  } finally {
+    runtime.dispose()
+  }
+})

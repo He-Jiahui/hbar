@@ -50,6 +50,7 @@ import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-la
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
+import type { HbarNativeConnection } from './native-connection'
 import {
   applyWebTheme,
   readThemeBootstrap,
@@ -276,13 +277,21 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
   return null
 }
 
-export default function App({ locale }: { readonly locale: ShellLocale }) {
+export default function App({
+  locale,
+  nativeConnection,
+}: {
+  readonly locale: ShellLocale
+  readonly nativeConnection?: HbarNativeConnection | undefined
+}) {
   const copy = getShellCopy(locale)
-  const client = useMemo(() => new HbarClient(window.location.origin), [])
+  const clientUrl = nativeConnection?.url ?? window.location.origin
+  const clientToken = nativeConnection?.token
+  const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
   const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
   const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
-  const [hostId, setHostId] = useState(() => `pending:${window.location.origin}`)
+  const [hostId, setHostId] = useState(() => `pending:${clientUrl}`)
   const [bootstrapTheme, setBootstrapTheme] = useState(() => readThemeBootstrap(window.localStorage))
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
