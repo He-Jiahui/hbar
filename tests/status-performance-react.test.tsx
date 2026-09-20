@@ -73,8 +73,8 @@ test('performance dashboard renders bounded Host process and availability facts'
     expect(html).toContain('PLATFORM_UNSUPPORTED')
     expect(html).toContain('The current window has a data gap; 2 samples were skipped.')
     expect(html).toContain('CPU timeline')
-    expect(html).toContain('hbar-app-ui-compact-metrics')
-    expect(html).toContain('hbar-app-ui-bar-series')
+    expect(html).toContain('lumen-compact-metrics')
+    expect(html).toContain('lumen-bar-series')
     expect(html).toContain('block-size:42%')
     expect(html).toContain('<summary>Host process</summary>')
     expect(html).not.toContain('hbar-app-ui-metric-strip')
@@ -91,8 +91,8 @@ test('performance dashboard renders bounded Host process and availability facts'
         <HbarStatusWorkspace labels={getShellCopy('en-US').status} />
       </HbarRuntimeProvider>,
     )
-    expect(filtered).toContain('<dt>Host CPU</dt>')
-    expect(filtered).not.toContain('<dt>System CPU</dt>')
+    expect(filtered).toContain('>Host CPU</dt>')
+    expect(filtered).not.toContain('>System CPU</dt>')
   } finally {
     runtime.dispose()
   }

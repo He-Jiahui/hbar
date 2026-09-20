@@ -120,8 +120,8 @@ test('Git status renders workspace provenance, changes, bounded series, and poli
     expect(html).toContain('Recent commit details')
     expect(html).toContain('Automatic checkpoint')
     expect(html).toContain('<dt>Session</dt><dd>session</dd>')
-    expect(html).toContain('hbar-app-ui-compact-metrics')
-    expect(html).toContain('hbar-app-ui-bar-series')
+    expect(html).toContain('lumen-compact-metrics')
+    expect(html).toContain('lumen-bar-series')
     expect(html).not.toContain('hbar-app-ui-metric-strip')
   } finally {
     runtime.dispose()
