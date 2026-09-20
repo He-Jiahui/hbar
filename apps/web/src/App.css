@@ -26,7 +26,7 @@ dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[o
   block-size: min(42rem, calc(100dvb - 2rem));
 }
 
-.hbar-app-react-workspace-modal > .hbar-app-ui-native-dialog-body > * {
+.hbar-app-react-workspace-modal > .lumen-dialog-body > * {
   min-inline-size: 0;
   min-block-size: 0;
   flex: 1 1 auto;

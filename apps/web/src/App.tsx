@@ -50,15 +50,15 @@ import {
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
-import { applyHbarAppUiAppearance, resolveHbarAppUiAppearance } from 'hbar-app-ui/appearance'
 import { WebAppearanceSettings, type WebAppearanceSettingsLabels } from './AppearanceSettings'
 import {
   hasWebAppearanceOverrides,
   createWebLumenAppearance,
   readAppearanceBootstrap,
   resetWebAppearancePreferences,
+  resolveWebAppearanceDimensions,
   resolveWebAppearancePreferences,
-  sameHbarAppUiAppearance,
+  sameWebAppearanceDimensions,
   saveWebAppearancePreferences,
   writeAppearanceBootstrap,
   type WebAppearancePreferences,
@@ -70,13 +70,7 @@ import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
 import type { HbarNativeConnection } from './native-connection'
 import type { HbarNativeWindowContext } from './native-window'
-import {
-  applyWebTheme,
-  readThemeBootstrap,
-  readThemePreference,
-  resolveWebTheme,
-  writeThemeBootstrap,
-} from './theme'
+import { applyWebTheme, readThemeBootstrap, readThemePreference, resolveWebTheme, writeThemeBootstrap } from './theme'
 import './App.css'
 
 function createRuntime(
@@ -410,10 +404,7 @@ export default function App({
   const persistedTheme = readThemePreference(preferences.values.theme) ?? 'system'
   const themePreference = preferences.status === 'ready' ? persistedTheme : bootstrapTheme
   const resolvedTheme = resolveWebTheme(themePreference, systemPrefersDark)
-  const persistedAppearance = useMemo(
-    () => resolveHbarAppUiAppearance(preferences.values),
-    [preferences.values],
-  )
+  const persistedAppearance = useMemo(() => resolveWebAppearanceDimensions(preferences.values), [preferences.values])
   const appearance = preferences.status === 'ready' ? persistedAppearance : bootstrapAppearance
   const lumenAppearance = useMemo(
     () => createWebLumenAppearance(resolvedTheme, appearance, !systemPrefersReducedMotion),
@@ -446,7 +437,6 @@ export default function App({
 
   useLayoutEffect(() => {
     applyWebTheme(document.documentElement, resolvedTheme)
-    applyHbarAppUiAppearance(document.documentElement, appearance)
     applyLumenAppearance(document.documentElement, lumenAppearance)
     writeThemeBootstrap(window.localStorage, themePreference)
     writeAppearanceBootstrap(window.localStorage, appearance)
@@ -457,7 +447,7 @@ export default function App({
   }, [bootstrapTheme, persistedTheme, preferences.status])
 
   useEffect(() => {
-    if (preferences.status === 'ready' && !sameHbarAppUiAppearance(bootstrapAppearance, persistedAppearance))
+    if (preferences.status === 'ready' && !sameWebAppearanceDimensions(bootstrapAppearance, persistedAppearance))
       setBootstrapAppearance(persistedAppearance)
   }, [bootstrapAppearance, persistedAppearance, preferences.status])
 

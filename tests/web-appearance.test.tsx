@@ -117,7 +117,7 @@ test('appearance settings renders host copy and shared design-system primitives'
   expect(html).not.toContain('Write a message')
 })
 
-test('web appearance maps legacy preferences into the controlled Lumen provider contract', () => {
+test('web appearance maps persisted preferences into the controlled Lumen provider contract', () => {
   expect(createWebLumenAppearance('light', { controlSize: 's', textSize: 'l', cornerSize: 'm' }, false)).toEqual({
     mode: 'light',
     controlSize: 's',

@@ -1,13 +1,13 @@
-import {
-  DEFAULT_HBAR_APP_UI_APPEARANCE,
-  HBAR_APP_UI_APPEARANCE_KEYS,
-  resolveHbarAppUiAppearance,
-  type HbarAppUiAppearance,
-} from 'hbar-app-ui/appearance'
-import type { LumenAppearance } from '@lumen/app-ui'
+import { DEFAULT_LUMEN_APPEARANCE, LUMEN_SIZES, type LumenAppearance, type LumenSize } from '@lumen/app-ui'
 import { readThemePreference, type WebResolvedTheme, type WebThemePreference } from './theme'
 
-export interface WebAppearancePreferences extends HbarAppUiAppearance {
+export interface WebAppearanceDimensions {
+  readonly controlSize: LumenSize
+  readonly textSize: LumenSize
+  readonly cornerSize: LumenSize
+}
+
+export interface WebAppearancePreferences extends WebAppearanceDimensions {
   readonly theme: WebThemePreference
 }
 
@@ -17,7 +17,11 @@ export interface PreferenceMutationResult {
 }
 
 export interface PreferenceMutationPort {
-  set(input: { readonly key: string; readonly value: string; readonly expectedRevision: number }): Promise<PreferenceMutationResult>
+  set(input: {
+    readonly key: string
+    readonly value: string
+    readonly expectedRevision: number
+  }): Promise<PreferenceMutationResult>
   unset(input: { readonly key: string; readonly expectedRevision: number }): Promise<PreferenceMutationResult>
 }
 
@@ -26,42 +30,64 @@ interface AppearanceStorage {
   setItem(key: string, value: string): void
 }
 
+const WEB_APPEARANCE_DIMENSION_KEYS = Object.freeze({
+  controlSize: 'appearance.controlSize',
+  textSize: 'appearance.textSize',
+  cornerSize: 'appearance.cornerSize',
+} as const)
+
 export const WEB_APPEARANCE_STORAGE_KEY = 'hbar:web:appearance'
+
+export const DEFAULT_WEB_APPEARANCE_DIMENSIONS: Readonly<WebAppearanceDimensions> = Object.freeze({
+  controlSize: DEFAULT_LUMEN_APPEARANCE.controlSize,
+  textSize: DEFAULT_LUMEN_APPEARANCE.textSize,
+  cornerSize: DEFAULT_LUMEN_APPEARANCE.cornerSize,
+})
 
 export const DEFAULT_WEB_APPEARANCE_PREFERENCES: WebAppearancePreferences = Object.freeze({
   theme: 'system',
-  ...DEFAULT_HBAR_APP_UI_APPEARANCE,
+  ...DEFAULT_WEB_APPEARANCE_DIMENSIONS,
 })
 
 export const WEB_APPEARANCE_PREFERENCE_KEYS = Object.freeze([
   'theme',
-  HBAR_APP_UI_APPEARANCE_KEYS.controlSize,
-  HBAR_APP_UI_APPEARANCE_KEYS.textSize,
-  HBAR_APP_UI_APPEARANCE_KEYS.cornerSize,
+  WEB_APPEARANCE_DIMENSION_KEYS.controlSize,
+  WEB_APPEARANCE_DIMENSION_KEYS.textSize,
+  WEB_APPEARANCE_DIMENSION_KEYS.cornerSize,
 ] as const)
 
-export function resolveWebAppearancePreferences(
-  values: Readonly<Record<string, unknown>>,
-): WebAppearancePreferences {
+function readLumenSize(value: unknown, fallback: LumenSize): LumenSize {
+  return typeof value === 'string' && (LUMEN_SIZES as readonly string[]).includes(value)
+    ? (value as LumenSize)
+    : fallback
+}
+
+export function resolveWebAppearanceDimensions(values: Readonly<Record<string, unknown>>): WebAppearanceDimensions {
   return {
-    theme: readThemePreference(values.theme) ?? DEFAULT_WEB_APPEARANCE_PREFERENCES.theme,
-    ...resolveHbarAppUiAppearance(values),
+    controlSize: readLumenSize(
+      values[WEB_APPEARANCE_DIMENSION_KEYS.controlSize],
+      DEFAULT_WEB_APPEARANCE_DIMENSIONS.controlSize,
+    ),
+    textSize: readLumenSize(values[WEB_APPEARANCE_DIMENSION_KEYS.textSize], DEFAULT_WEB_APPEARANCE_DIMENSIONS.textSize),
+    cornerSize: readLumenSize(
+      values[WEB_APPEARANCE_DIMENSION_KEYS.cornerSize],
+      DEFAULT_WEB_APPEARANCE_DIMENSIONS.cornerSize,
+    ),
   }
 }
 
-export function sameWebAppearance(
-  left: WebAppearancePreferences,
-  right: WebAppearancePreferences,
-): boolean {
-  return (
-    left.theme === right.theme &&
-    left.controlSize === right.controlSize &&
-    left.textSize === right.textSize &&
-    left.cornerSize === right.cornerSize
-  )
+export function resolveWebAppearancePreferences(values: Readonly<Record<string, unknown>>): WebAppearancePreferences {
+  return {
+    theme: readThemePreference(values.theme) ?? DEFAULT_WEB_APPEARANCE_PREFERENCES.theme,
+    ...resolveWebAppearanceDimensions(values),
+  }
 }
 
-export function sameHbarAppUiAppearance(left: HbarAppUiAppearance, right: HbarAppUiAppearance): boolean {
+export function sameWebAppearance(left: WebAppearancePreferences, right: WebAppearancePreferences): boolean {
+  return left.theme === right.theme && sameWebAppearanceDimensions(left, right)
+}
+
+export function sameWebAppearanceDimensions(left: WebAppearanceDimensions, right: WebAppearanceDimensions): boolean {
   return (
     left.controlSize === right.controlSize && left.textSize === right.textSize && left.cornerSize === right.cornerSize
   )
@@ -69,7 +95,7 @@ export function sameHbarAppUiAppearance(left: HbarAppUiAppearance, right: HbarAp
 
 export function createWebLumenAppearance(
   mode: WebResolvedTheme,
-  appearance: HbarAppUiAppearance,
+  appearance: WebAppearanceDimensions,
   motion: boolean,
 ): LumenAppearance {
   return {
@@ -77,30 +103,30 @@ export function createWebLumenAppearance(
     controlSize: appearance.controlSize,
     textSize: appearance.textSize,
     cornerSize: appearance.cornerSize,
-    shape: 'rounded',
-    glow: 65,
+    shape: DEFAULT_LUMEN_APPEARANCE.shape,
+    glow: DEFAULT_LUMEN_APPEARANCE.glow,
     motion,
   }
 }
 
-export function readAppearanceBootstrap(storage: AppearanceStorage): HbarAppUiAppearance {
+export function readAppearanceBootstrap(storage: AppearanceStorage): WebAppearanceDimensions {
   try {
     const raw = storage.getItem(WEB_APPEARANCE_STORAGE_KEY)
-    if (!raw) return DEFAULT_HBAR_APP_UI_APPEARANCE
+    if (!raw) return DEFAULT_WEB_APPEARANCE_DIMENSIONS
     const parsed: unknown = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return DEFAULT_HBAR_APP_UI_APPEARANCE
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return DEFAULT_WEB_APPEARANCE_DIMENSIONS
     const value = parsed as Readonly<Record<string, unknown>>
-    return resolveHbarAppUiAppearance({
-      [HBAR_APP_UI_APPEARANCE_KEYS.controlSize]: value.controlSize,
-      [HBAR_APP_UI_APPEARANCE_KEYS.textSize]: value.textSize,
-      [HBAR_APP_UI_APPEARANCE_KEYS.cornerSize]: value.cornerSize,
+    return resolveWebAppearanceDimensions({
+      [WEB_APPEARANCE_DIMENSION_KEYS.controlSize]: value.controlSize,
+      [WEB_APPEARANCE_DIMENSION_KEYS.textSize]: value.textSize,
+      [WEB_APPEARANCE_DIMENSION_KEYS.cornerSize]: value.cornerSize,
     })
   } catch {
-    return DEFAULT_HBAR_APP_UI_APPEARANCE
+    return DEFAULT_WEB_APPEARANCE_DIMENSIONS
   }
 }
 
-export function writeAppearanceBootstrap(storage: AppearanceStorage, appearance: HbarAppUiAppearance): boolean {
+export function writeAppearanceBootstrap(storage: AppearanceStorage, appearance: WebAppearanceDimensions): boolean {
   try {
     storage.setItem(WEB_APPEARANCE_STORAGE_KEY, JSON.stringify(appearance))
     return true
@@ -112,9 +138,9 @@ export function writeAppearanceBootstrap(storage: AppearanceStorage, appearance:
 function preferenceEntries(preferences: WebAppearancePreferences): readonly (readonly [string, string])[] {
   return [
     ['theme', preferences.theme],
-    [HBAR_APP_UI_APPEARANCE_KEYS.controlSize, preferences.controlSize],
-    [HBAR_APP_UI_APPEARANCE_KEYS.textSize, preferences.textSize],
-    [HBAR_APP_UI_APPEARANCE_KEYS.cornerSize, preferences.cornerSize],
+    [WEB_APPEARANCE_DIMENSION_KEYS.controlSize, preferences.controlSize],
+    [WEB_APPEARANCE_DIMENSION_KEYS.textSize, preferences.textSize],
+    [WEB_APPEARANCE_DIMENSION_KEYS.cornerSize, preferences.cornerSize],
   ]
 }
 

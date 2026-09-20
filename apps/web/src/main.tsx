@@ -1,10 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import 'hbar-app-ui/theme.css'
 import '@lumen/app-ui/styles.css'
-import { applyHbarAppUiAppearance } from 'hbar-app-ui/appearance'
+import { applyLumenAppearance } from '@lumen/app-ui'
 import App from './App'
-import { readAppearanceBootstrap } from './appearance'
+import { createWebLumenAppearance, readAppearanceBootstrap } from './appearance'
 import { loadNativeConnection } from './native-connection'
 import { applyNativeWindowContext, readNativeWindowContext } from './native-window'
 import { resolveShellLocale } from './shell-copy'
@@ -13,11 +12,19 @@ import './document.css'
 
 const locale = resolveShellLocale(navigator.languages)
 document.documentElement.lang = locale
-applyWebTheme(
-  document.documentElement,
-  resolveWebTheme(readThemeBootstrap(window.localStorage), window.matchMedia('(prefers-color-scheme: dark)').matches),
+const resolvedTheme = resolveWebTheme(
+  readThemeBootstrap(window.localStorage),
+  window.matchMedia('(prefers-color-scheme: dark)').matches,
 )
-applyHbarAppUiAppearance(document.documentElement, readAppearanceBootstrap(window.localStorage))
+applyWebTheme(document.documentElement, resolvedTheme)
+applyLumenAppearance(
+  document.documentElement,
+  createWebLumenAppearance(
+    resolvedTheme,
+    readAppearanceBootstrap(window.localStorage),
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  ),
+)
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing application root')
