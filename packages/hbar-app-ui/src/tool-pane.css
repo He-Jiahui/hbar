@@ -1,0 +1,172 @@
+.hbar-app-ui-session-tool-pane {
+  display: flex;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 100%;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-0);
+}
+
+.hbar-app-ui-session-tool-pane-header {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-md);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-ui-session-tool-pane-start {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+}
+
+.hbar-app-ui-session-tool-pane-icon {
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-ui-session-tool-pane-copy {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-session-tool-pane-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: baseline;
+  gap: var(--hbar-app-ui-space-sm);
+}
+
+.hbar-app-ui-session-tool-pane-heading h2,
+.hbar-app-ui-session-tool-pane-copy p {
+  margin: 0;
+}
+
+.hbar-app-ui-session-tool-pane-heading h2 {
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: var(--hbar-app-ui-font-title);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-session-tool-pane-heading span {
+  min-inline-size: 0;
+  max-inline-size: 48%;
+  overflow: hidden;
+  padding: 0.125rem var(--hbar-app-ui-space-xs);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: 999px;
+  color: var(--hbar-app-ui-subtle);
+  background: var(--hbar-app-ui-surface-1);
+  font-size: 0.6875rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-session-tool-pane-copy p {
+  overflow: hidden;
+  margin-block-start: 0.125rem;
+  color: var(--hbar-app-ui-subtle);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-session-tool-pane-actions,
+.hbar-app-ui-session-tool-pane-footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-ui-session-tool-pane-toolbar,
+.hbar-app-ui-session-tool-pane-status,
+.hbar-app-ui-session-tool-pane-error,
+.hbar-app-ui-session-tool-pane-footer {
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-ui-session-tool-pane-toolbar,
+.hbar-app-ui-session-tool-pane-status,
+.hbar-app-ui-session-tool-pane-error {
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-ui-session-tool-pane-status {
+  color: var(--hbar-app-ui-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-session-tool-pane-error {
+  color: var(--hbar-app-ui-danger);
+  background: color-mix(in srgb, var(--hbar-app-ui-danger) 8%, var(--hbar-app-ui-surface-0));
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-session-tool-pane-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hbar-app-ui-session-tool-pane-footer {
+  justify-content: flex-end;
+  padding-block-end: max(var(--hbar-app-ui-space-sm), env(safe-area-inset-bottom));
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  background: var(--hbar-app-ui-surface-0);
+}
+
+@media (max-width: 35rem) {
+  .hbar-app-ui-session-tool-pane-header {
+    align-items: flex-start;
+    gap: var(--hbar-app-ui-space-sm);
+    padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
+  }
+
+  .hbar-app-ui-session-tool-pane-start {
+    align-items: flex-start;
+  }
+
+  .hbar-app-ui-session-tool-pane-heading {
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .hbar-app-ui-session-tool-pane-heading span {
+    max-inline-size: 100%;
+  }
+
+  .hbar-app-ui-session-tool-pane-actions {
+    justify-content: flex-end;
+  }
+
+  .hbar-app-ui-session-tool-pane-toolbar,
+  .hbar-app-ui-session-tool-pane-status,
+  .hbar-app-ui-session-tool-pane-error,
+  .hbar-app-ui-session-tool-pane-footer {
+    padding-inline: var(--hbar-app-ui-space-md);
+  }
+}

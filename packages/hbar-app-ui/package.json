@@ -11,6 +11,7 @@
     "./icon": "./src/icon.tsx",
     "./types": "./src/types.ts",
     "./workbench": "./src/workbench.ts",
+    "./tool-pane": "./src/tool-pane.tsx",
     "./conversation": "./src/conversation.ts",
     "./prompt-composer": "./src/prompt-composer.ts",
     "./workspace-files": "./src/workspace-files.ts",
