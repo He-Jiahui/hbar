@@ -733,6 +733,18 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       cancellingLabel: choose('正在取消', 'Cancelling'),
       retryLabel: choose('重试运行', 'Retry run'),
       retryingLabel: choose('正在重试', 'Retrying'),
+      planTitle: choose('Agent 计划', 'Agent plan'),
+      planProgress: (completed, total) =>
+        choose(
+          `${number.format(completed)} / ${number.format(total)} 已完成`,
+          `${number.format(completed)} of ${number.format(total)} completed`,
+        ),
+      planStatusLabel: (status) =>
+        ({
+          pending: choose('待处理', 'Pending'),
+          in_progress: choose('进行中', 'In progress'),
+          completed: choose('已完成', 'Completed'),
+        })[status],
       countLabel: (count) => choose(`${count} 次运行`, `${count} ${count === 1 ? 'run' : 'runs'}`),
       statusLabel: (status) => statusLabels[status],
     },

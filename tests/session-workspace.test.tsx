@@ -143,6 +143,18 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
         streams: [],
       }
     },
+    async plan() {
+      return {
+        sessionId: session.id,
+        turnId: 'run',
+        explanation: 'Keep the plan attached to its run.',
+        plan: [
+          { step: 'Inspect the change', status: 'completed' as const },
+          { step: 'Run verification', status: 'in_progress' as const },
+        ],
+        updatedAt: 4,
+      }
+    },
     async watch() {
       return () => undefined
     },
@@ -245,6 +257,9 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('next prompt')
     expect(html).toContain('Fixture Model · thinking low')
     expect(html).toContain('Agent approval')
+    expect(html).toContain('Agent plan')
+    expect(html).toContain('1 of 2 completed')
+    expect(html).toContain('Keep the plan attached to its run.')
     expect(html).toContain('Should we continue?')
     expect(html).toContain('AI usage')
     expect(html).toContain('Load earlier messages')

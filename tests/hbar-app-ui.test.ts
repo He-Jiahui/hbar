@@ -231,11 +231,22 @@ describe('hbar-app-ui registry', () => {
           cancellingLabel: '正在停止',
           retryLabel: '重试此运行',
           retryingLabel: '正在重试',
+          planTitle: 'Agent 计划',
+          planProgress: (completed, total) => `${completed}/${total} 已完成`,
+          planStatusLabel: (status) => `计划:${status}`,
         },
         cancellingRunIds: ['run-active'],
         retryingRunIds: ['run-failed'],
         onCancelRun: () => undefined,
         onRetryRun: () => undefined,
+        plan: {
+          runId: 'run-complete',
+          explanation: '按顺序完成变更。',
+          steps: [
+            { id: 'step-one', title: '检查工作区', status: 'completed' },
+            { id: 'step-two', title: '运行验证', status: 'in_progress' },
+          ],
+        },
         runs: [
           {
             id: 'run-active',
@@ -272,6 +283,10 @@ describe('hbar-app-ui registry', () => {
     expect(markup).toContain('停止此运行')
     expect(markup).toContain('正在重试')
     expect(markup).toContain('hbar-app-ui-run-activity-retry')
+    expect(markup).toContain('Agent 计划')
+    expect(markup).toContain('1/2 已完成')
+    expect(markup).toContain('按顺序完成变更。')
+    expect(markup).toContain('计划:in_progress')
     expect(markup).toContain('hbar-app-ui-run-status-running')
     expect(markup).not.toContain('hbar-app-ui-preview')
     expect(markup).not.toContain('hbar-app-ui-profile-controls')
@@ -289,6 +304,9 @@ describe('hbar-app-ui registry', () => {
           cancellingLabel: 'Wird gestoppt',
           retryLabel: 'Erneut versuchen',
           retryingLabel: 'Wird erneut versucht',
+          planTitle: 'Agentenplan',
+          planProgress: (completed, total) => `${completed} von ${total} erledigt`,
+          planStatusLabel: (status) => `plan:${status}`,
           countLabel: (count) => `${count} ${count === 1 ? 'Lauf' : 'Läufe'}`,
           statusLabel: (status) => `status:${status}`,
         },

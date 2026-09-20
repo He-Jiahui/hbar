@@ -348,6 +348,76 @@ test('long session history preserves reading anchors, follows new content on dem
   }
 })
 
+test('agent plans stay attached to the run that created them', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-run-plan-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await prompt.fill(
+      '/tool update_plan {"explanation":"Verify the session workspace in order.","plan":[{"step":"Inspect the timeline","status":"completed"},{"step":"Verify responsive layout","status":"in_progress"},{"step":"Record evidence","status":"pending"}]}',
+    )
+    await page.getByRole('button', { name: 'Send' }).click()
+    const activity = page.getByRole('region', { name: 'Agent activity' })
+    await expect(activity.getByText('Completed', { exact: true }).first()).toBeVisible()
+    await expect(activity.getByText('Agent plan', { exact: true })).toBeVisible()
+    await expect(activity.getByText('1 of 3 completed', { exact: true })).toBeVisible()
+    const plan = activity.locator('.hbar-app-ui-run-activity-plan')
+    await expect(plan).toHaveCount(1)
+    expect(
+      await plan.evaluate((element) => element.parentElement?.classList.contains('hbar-app-ui-run-activity-item')),
+    ).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/plan-summary-1440.png', fullPage: true })
+
+    await plan.getByText('Agent plan', { exact: true }).click()
+    await expect(plan).toHaveAttribute('open', '')
+    await expect(plan.getByText('Verify the session workspace in order.', { exact: true })).toBeVisible()
+    await expect(plan.getByText('Inspect the timeline', { exact: true })).toBeVisible()
+    await expect(plan.getByText('Verify responsive layout', { exact: true })).toBeVisible()
+    await expect(plan.getByText('Record evidence', { exact: true })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/plan-expanded-1440.png', fullPage: true })
+
+    await page.reload()
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: /^Open session / }).click()
+    await expect(activity.getByText('Agent plan', { exact: true })).toBeVisible()
+    await expect(activity.getByText('1 of 3 completed', { exact: true })).toBeVisible()
+    await plan.getByText('Agent plan', { exact: true }).click()
+    await expect(plan.getByText('Verify the session workspace in order.', { exact: true })).toBeVisible()
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    expect(
+      await plan.evaluate((element) => {
+        const planBox = element.getBoundingClientRect()
+        const runBox = element.parentElement?.getBoundingClientRect()
+        return Boolean(runBox && planBox.left >= runBox.left && planBox.right <= runBox.right)
+      }),
+    ).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/plan-expanded-mobile-390.png', fullPage: true })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('failed session runs expose a command retry without breaking narrow layouts', async ({ browser }) => {
   test.setTimeout(60_000)
   const root = await mkdtemp(join(tmpdir(), 'hbar-web-run-retry-'))

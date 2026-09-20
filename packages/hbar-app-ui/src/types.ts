@@ -194,7 +194,7 @@ export interface HbarAppUiDataRow {
     readonly detail: string
 }
 
-export type { HbarAppUiRunActivityStatus, HbarAppUiRunActivityItem, HbarAppUiRunActivityLabels, HbarAppUiRunActivityProps } from './run-activity-types'
+export type { HbarAppUiRunActivityStatus, HbarAppUiRunActivityItem, HbarAppUiRunActivityLabels, HbarAppUiRunActivityProps, HbarAppUiRunPlan, HbarAppUiRunPlanStepStatus } from './run-activity-types'
 
 export type { HbarAppUiApprovalDecision, HbarAppUiFailureMessage, HbarAppUiApprovalRequestLabels, HbarAppUiApprovalRequestProps, HbarAppUiQuestionnaireOption, HbarAppUiQuestionnaireQuestion, HbarAppUiQuestionnaireResult, HbarAppUiQuestionnaireLabels, HbarAppUiQuestionnaireProps } from './decision-types'
 

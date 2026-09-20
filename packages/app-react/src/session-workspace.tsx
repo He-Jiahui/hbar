@@ -299,6 +299,19 @@ export function HbarSessionWorkspace({
             }))}
             labels={labels.runs}
             listStrategy="content-grown"
+            plan={
+              timeline.plan && (timeline.plan.plan.length > 0 || timeline.plan.explanation)
+                ? {
+                    runId: timeline.plan.turnId,
+                    explanation: timeline.plan.explanation ?? undefined,
+                    steps: timeline.plan.plan.map((step, index) => ({
+                      id: `${timeline.plan!.updatedAt}:${index}`,
+                      title: step.step,
+                      status: step.status,
+                    })),
+                  }
+                : undefined
+            }
             cancellingRunIds={activeRuns
               .filter((run) => ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? ''))
               .map((run) => run.id)}

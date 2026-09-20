@@ -3,7 +3,7 @@ import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiEmptyState, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
 import { HbarAppUiVirtualList } from '../../VirtualList'
 import { uniqueItems } from '../../collection'
-import type { HbarAppUiRunActivityItem, HbarAppUiRunActivityProps } from '../../run-activity-types'
+import type { HbarAppUiRunActivityItem, HbarAppUiRunActivityProps, HbarAppUiRunPlan } from '../../run-activity-types'
 import './RunActivity.css'
 
 const activeStatuses = new Set<HbarAppUiRunActivityItem['status']>(['queued', 'running', 'waiting_approval'])
@@ -20,12 +20,15 @@ export function HbarAppUiRunActivity({
   selectedRunId,
   cancellingRunIds,
   retryingRunIds,
+  plan,
   feedback,
   onSelectRun,
   onCancelRun,
   onRetryRun,
 }: HbarAppUiRunActivityProps) {
   const records = uniqueItems(runs)
+  const planRunId = plan?.runId ?? null
+  const hasPlanOwner = planRunId !== null && records.some((run) => run.id === planRunId)
   const empty = (
     <HbarAppUiEmptyState
       icon={<HbarAppUiIcon icon={Square} />}
@@ -33,6 +36,30 @@ export function HbarAppUiRunActivity({
       description={labels.emptyDescription}
     />
   )
+  function renderPlan(value: HbarAppUiRunPlan) {
+    const steps = uniqueItems(value.steps)
+    const completed = steps.filter((step) => step.status === 'completed').length
+    return (
+      <details className="hbar-app-ui-run-activity-plan">
+        <summary>
+          <strong>{labels.planTitle}</strong>
+          <span>{labels.planProgress(completed, steps.length)}</span>
+        </summary>
+        {value.explanation && <p>{value.explanation}</p>}
+        {steps.length > 0 && (
+          <ol>
+            {steps.map((step) => (
+              <li className={`is-${step.status}`} key={step.id}>
+                <span aria-hidden="true" />
+                <span>{step.title}</span>
+                <small>{labels.planStatusLabel(step.status)}</small>
+              </li>
+            ))}
+          </ol>
+        )}
+      </details>
+    )
+  }
   function renderRow(run: HbarAppUiRunActivityItem) {
     const cancelling = cancellingRunIds?.includes(run.id) ?? false
     const retrying = retryingRunIds?.includes(run.id) ?? false
@@ -88,6 +115,7 @@ export function HbarAppUiRunActivity({
             <span>{retrying ? labels.retryingLabel : labels.retryLabel}</span>
           </HbarAppUiButton>
         )}
+        {plan?.runId === run.id && renderPlan(plan)}
       </article>
     )
   }
@@ -113,6 +141,7 @@ export function HbarAppUiRunActivity({
       ) : (
         empty
       )}
+      {plan && !hasPlanOwner && renderPlan(plan)}
     </section>
   )
 }

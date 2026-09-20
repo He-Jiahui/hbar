@@ -7,6 +7,9 @@ export const RUN_LABELS: HbarAppUiRunActivityLabels = {
   cancellingLabel: 'Stopping run',
   retryLabel: 'Retry run',
   retryingLabel: 'Retrying run',
+  planTitle: 'Agent plan',
+  planProgress: (completed, total) => `${completed} of ${total} completed`,
+  planStatusLabel: (status) => ({ pending: 'Pending', in_progress: 'In progress', completed: 'Completed' })[status],
   countLabel: (count) => `${count} runs`,
   statusLabel: (status) =>
     ({

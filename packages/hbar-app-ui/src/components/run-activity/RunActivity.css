@@ -27,6 +27,7 @@
 }
 .hbar-app-ui-run-activity-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   min-inline-size: 0;
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
@@ -95,4 +96,68 @@
 .hbar-app-ui-run-activity-feedback {
   color: var(--hbar-app-ui-danger);
   margin: 0;
+}
+.hbar-app-ui-run-activity-plan {
+  flex: 1 0 100%;
+  min-inline-size: 0;
+  padding: var(--hbar-app-ui-space-sm);
+  border-block-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+.hbar-app-ui-run-activity-plan > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-sm);
+  cursor: pointer;
+}
+.hbar-app-ui-run-activity-plan > summary > span,
+.hbar-app-ui-run-activity-plan small,
+.hbar-app-ui-run-activity-plan > p {
+  color: var(--hbar-app-ui-muted);
+}
+.hbar-app-ui-run-activity-plan > p {
+  margin: var(--hbar-app-ui-space-sm) 0 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-run-activity-plan ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
+  padding: 0;
+  margin: var(--hbar-app-ui-space-sm) 0 0;
+  list-style: none;
+}
+.hbar-app-ui-run-activity-plan li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-run-activity-plan li > span:first-child {
+  inline-size: var(--hbar-app-ui-space-sm);
+  block-size: var(--hbar-app-ui-space-sm);
+  margin-block-start: var(--hbar-app-ui-space-xs);
+  flex: 0 0 var(--hbar-app-ui-space-sm);
+  border-radius: 50%;
+  background: var(--hbar-app-ui-subtle);
+}
+.hbar-app-ui-run-activity-plan li.is-in_progress > span:first-child {
+  background: var(--hbar-app-ui-warning);
+}
+.hbar-app-ui-run-activity-plan li.is-completed > span:first-child {
+  background: var(--hbar-app-ui-positive);
+}
+.hbar-app-ui-run-activity-plan li > span:nth-child(2) {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-run-activity-plan li.is-completed > span:nth-child(2) {
+  color: var(--hbar-app-ui-muted);
+  text-decoration: line-through;
+}
+.hbar-app-ui-run-activity > .hbar-app-ui-run-activity-plan {
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-1);
 }
