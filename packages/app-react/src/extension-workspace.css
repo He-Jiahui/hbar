@@ -3,9 +3,9 @@
   inline-size: min(100%, 58rem);
   min-inline-size: 0;
   flex-direction: column;
-  gap: var(--hbar-app-ui-space-lg);
+  gap: 1rem;
   margin-inline: auto;
-  padding-block: var(--hbar-app-ui-space-lg);
+  padding-block: 1rem;
 }
 
 .hbar-app-react-extension-heading,
@@ -24,7 +24,7 @@
 .hbar-app-react-extension-skill-list > li {
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--hbar-app-ui-space-md);
+  gap: 0.75rem;
 }
 
 .hbar-app-react-extension-heading {
@@ -38,7 +38,7 @@
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--hbar-app-ui-space-xs);
+  gap: 0.25rem;
 }
 
 .hbar-app-react-extension-heading > div:first-child {
@@ -49,7 +49,7 @@
 .hbar-app-react-extension-plugin > footer {
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--hbar-app-ui-space-sm);
+  gap: 0.5rem;
 }
 
 .hbar-app-react-extension-heading > div:last-child {
@@ -72,7 +72,7 @@
 }
 
 .hbar-app-react-extension-workspace h2 {
-  font-size: var(--hbar-app-ui-font-section);
+  font-size: 0.875rem;
 }
 
 .hbar-app-react-extension-workspace h3 {
@@ -86,7 +86,7 @@
 .hbar-app-react-extension-plugin dt,
 .hbar-app-react-extension-skill-list span,
 .hbar-app-react-extension-skill-list small {
-  color: var(--hbar-app-ui-muted);
+  color: var(--lumen-muted);
 }
 
 .hbar-app-react-extension-heading p,
@@ -107,11 +107,11 @@
 }
 
 .hbar-app-react-extension-section {
-  gap: var(--hbar-app-ui-space-sm);
+  gap: 0.5rem;
 }
 
 .hbar-app-react-extension-list {
-  gap: var(--hbar-app-ui-space-xs);
+  gap: 0.25rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -120,20 +120,20 @@
 .hbar-app-react-extension-plugin,
 .hbar-app-react-extension-skill-list > li,
 .hbar-app-react-extension-empty {
-  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
-  border-radius: var(--hbar-app-ui-control-radius);
-  background: var(--hbar-app-ui-surface-0);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
 }
 
 .hbar-app-react-extension-plugin {
-  gap: var(--hbar-app-ui-space-sm);
-  padding: var(--hbar-app-ui-space-md);
+  gap: 0.5rem;
+  padding: 0.75rem;
 }
 
 .hbar-app-react-extension-plugin dl {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--hbar-app-ui-space-md);
+  gap: 0.75rem;
 }
 
 .hbar-app-react-extension-plugin dl > div {
@@ -156,21 +156,21 @@
 
 .hbar-app-react-extension-skill-list > li,
 .hbar-app-react-extension-empty {
-  padding: var(--hbar-app-ui-space-md);
+  padding: 0.75rem;
 }
 
 .hbar-app-react-extension-state,
 .hbar-app-react-extension-empty {
-  color: var(--hbar-app-ui-muted);
+  color: var(--lumen-muted);
 }
 
 .hbar-app-react-extension-state {
-  padding: var(--hbar-app-ui-space-xl);
+  padding: 1.25rem;
   text-align: center;
 }
 
 .hbar-app-react-extension-workspace [role='alert'] {
-  color: var(--hbar-app-ui-danger);
+  color: var(--lumen-danger);
 }
 
 @media (max-width: 42rem) {
@@ -183,11 +183,11 @@
   }
 
   .hbar-app-react-extension-heading > div:last-child,
-  .hbar-app-react-extension-heading > div:last-child > .hbar-app-ui-button {
+  .hbar-app-react-extension-heading > div:last-child > button {
     inline-size: 100%;
   }
 
-  .hbar-app-react-extension-heading > div:last-child > .hbar-app-ui-button {
+  .hbar-app-react-extension-heading > div:last-child > button {
     flex: 1 1 12rem;
   }
 

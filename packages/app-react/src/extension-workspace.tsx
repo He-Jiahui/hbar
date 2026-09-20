@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui/primitives'
+import { LumenButton, LumenStatus } from '@lumen/app-ui'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './extension-workspace.css'
@@ -37,8 +37,8 @@ export interface HbarExtensionWorkspaceLabels {
   readonly error: (code: string) => string
 }
 
-function tone(status: PluginStatus): 'positive' | 'neutral' | 'danger' {
-  if (status === 'active') return 'positive'
+function tone(status: PluginStatus): 'success' | 'neutral' | 'danger' {
+  if (status === 'active') return 'success'
   if (status === 'failed') return 'danger'
   return 'neutral'
 }
@@ -82,13 +82,16 @@ export function HbarExtensionWorkspace({
           <small>{labels.hostWide}</small>
         </div>
         <div>
-          <HbarAppUiButton
+          <LumenButton
+            variant="outlined"
             disabled={!connected || entry?.status === 'loading'}
             onClick={() => invoke('extensionWorkspace.refresh', { instanceId })}
           >
             {labels.refresh}
-          </HbarAppUiButton>
-          <HbarAppUiButton onClick={() => openCommands('system.')}>{labels.openSystemCommands}</HbarAppUiButton>
+          </LumenButton>
+          <LumenButton variant="outlined" onClick={() => openCommands('system.')}>
+            {labels.openSystemCommands}
+          </LumenButton>
         </div>
       </header>
 
@@ -122,7 +125,7 @@ export function HbarExtensionWorkspace({
                           <strong>{plugin.name}</strong>
                           <small>{labels.pluginMetadata(plugin.id, plugin.version)}</small>
                         </div>
-                        <HbarAppUiStatus value={labels.status[plugin.status]} tone={tone(plugin.status)} />
+                        <LumenStatus value={labels.status[plugin.status]} tone={tone(plugin.status)} />
                       </header>
                       <p>{plugin.description}</p>
                       <dl>
@@ -145,16 +148,21 @@ export function HbarExtensionWorkspace({
                       </dl>
                       {action?.error && <p role="alert">{labels.error(action.error)}</p>}
                       <footer>
-                        <HbarAppUiButton onClick={() => openCommands(query)}>{labels.openCommands}</HbarAppUiButton>
+                        <LumenButton variant="text" onClick={() => openCommands(query)}>
+                          {labels.openCommands}
+                        </LumenButton>
                         {action?.status === 'unknown' ? (
-                          <HbarAppUiButton onClick={() => invoke('extensionWorkspace.refresh', { instanceId })}>
+                          <LumenButton
+                            variant="outlined"
+                            onClick={() => invoke('extensionWorkspace.refresh', { instanceId })}
+                          >
                             {labels.reconcile}
-                          </HbarAppUiButton>
+                          </LumenButton>
                         ) : (
                           !plugin.required && (
-                            <HbarAppUiButton
+                            <LumenButton
                               disabled={!connected || action?.status === 'submitting'}
-                              tone={plugin.status === 'active' ? 'warning' : 'accent'}
+                              tone={plugin.status === 'active' ? 'warning' : 'primary'}
                               onClick={() =>
                                 invoke('extensionWorkspace.setEnabled', {
                                   instanceId,
@@ -168,7 +176,7 @@ export function HbarExtensionWorkspace({
                                 : plugin.status === 'active'
                                   ? labels.disable
                                   : labels.enable}
-                            </HbarAppUiButton>
+                            </LumenButton>
                           )
                         )}
                         {plugin.required && <small>{labels.required}</small>}
@@ -195,7 +203,7 @@ export function HbarExtensionWorkspace({
                       <small title={skill.path}>{skill.path}</small>
                       <span>{labels.skillScope}</span>
                     </div>
-                    <HbarAppUiStatus value={labels.discovered} tone="neutral" />
+                    <LumenStatus value={labels.discovered} tone="neutral" />
                   </li>
                 ))}
               </ul>

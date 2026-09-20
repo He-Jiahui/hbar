@@ -1,6 +1,5 @@
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { HbarAppUiToolPane } from 'hbar-app-ui/tool-pane'
-import { HbarAppUiBarSeries, HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
+import { LumenBarSeries, LumenCompactMetrics, LumenToolPane } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-monitoring.css'
 
@@ -67,7 +66,7 @@ export function HbarSessionMonitoring({
     if (instanceId) void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
   }
   return (
-    <HbarAppUiToolPane
+    <LumenToolPane
       title={labels.title}
       targetLabel={targetLabel}
       description={labels.description}
@@ -85,7 +84,7 @@ export function HbarSessionMonitoring({
               {labels.gap}
             </p>
           )}
-          <HbarAppUiCompactMetrics
+          <LumenCompactMetrics
             label={labels.title}
             metrics={[
               metric('tokens', labels.totals.tokens, labels.number(report.totals.input + report.totals.output)),
@@ -98,7 +97,7 @@ export function HbarSessionMonitoring({
           />
           <section>
             <h2>{labels.series}</h2>
-            <HbarAppUiBarSeries
+            <LumenBarSeries
               label={labels.series}
               points={report.series.map((point) => ({
                 id: String(point.start),
@@ -110,7 +109,7 @@ export function HbarSessionMonitoring({
           </section>
           <details>
             <summary>{labels.latency.title}</summary>
-            <HbarAppUiCompactMetrics
+            <LumenCompactMetrics
               label={labels.latency.title}
               metrics={[
                 metric(
@@ -133,7 +132,7 @@ export function HbarSessionMonitoring({
           {report.execution && (
             <details>
               <summary>{labels.execution.title}</summary>
-              <HbarAppUiCompactMetrics
+              <LumenCompactMetrics
                 label={labels.execution.title}
                 metrics={[
                   metric(
@@ -199,6 +198,6 @@ export function HbarSessionMonitoring({
           </details>
         </main>
       )}
-    </HbarAppUiToolPane>
+    </LumenToolPane>
   )
 }
