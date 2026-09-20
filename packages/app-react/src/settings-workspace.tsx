@@ -53,8 +53,15 @@ export interface HbarSettingsWorkspaceProps {
   readonly labels: HbarSettingsWorkspaceLabels
   readonly connected: boolean
   readonly components?: SchemaComponentRegistry
+  readonly additionalGroups?: readonly HbarSettingsAdditionalGroup[]
   readonly renderGroup?: (groupId: string) => ReactNode
   readonly headerActions?: ReactNode
+}
+
+export interface HbarSettingsAdditionalGroup {
+  readonly id: string
+  readonly label: string
+  readonly order: number
 }
 
 function reasonCode(reason: unknown): string {
@@ -72,6 +79,7 @@ export function HbarSettingsWorkspace({
   labels,
   connected,
   components = standardComponents,
+  additionalGroups = [],
   renderGroup,
   headerActions,
 }: HbarSettingsWorkspaceProps) {
@@ -79,8 +87,14 @@ export function HbarSettingsWorkspace({
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const settings = useHbarRuntimeState(runtime.state.settings)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const [actionError, setActionError] = useState<string | null>(null)
   const entry = settings.activeFormId ? settings.forms[settings.activeFormId] : undefined
+  const settingsPanel =
+    presentation.page.kind === 'settings' ? surfaces.panels[presentation.page.instanceId] : undefined
+  const requestedSection =
+    settingsPanel && typeof settingsPanel.params.section === 'string' ? settingsPanel.params.section : null
   const selectedTargetName = entry
     ? entry.scope.kind === 'global'
       ? null
@@ -92,7 +106,7 @@ export function HbarSettingsWorkspace({
     ? (directory.workspaces[navigation.workspaceId]?.name ?? null)
     : null
   const sessionTargetName = navigation.sessionId ? (directory.sessions[navigation.sessionId]?.title ?? null) : null
-  const groups = useMemo(
+  const hostGroups = useMemo(
     () =>
       entry?.description
         ? [...entry.description.groups].sort(
@@ -101,6 +115,27 @@ export function HbarSettingsWorkspace({
         : [],
     [entry?.description],
   )
+  const clientGroups = useMemo(() => {
+    const hostIds = new Set(hostGroups.map((group) => group.id))
+    const seen = new Set<string>()
+    return additionalGroups
+      .filter((group) => {
+        if (group.id.length === 0 || hostIds.has(group.id) || seen.has(group.id)) return false
+        seen.add(group.id)
+        return true
+      })
+      .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
+  }, [additionalGroups, hostGroups])
+  const groups = useMemo(
+    () =>
+      [
+        ...clientGroups.map((group) => ({ ...group, label: group.label })),
+        ...hostGroups.map((group) => ({ ...group, label: labels.resolve(group.labelKey) })),
+      ].sort((left, right) => left.order - right.order || left.id.localeCompare(right.id)),
+    [clientGroups, hostGroups, labels],
+  )
+  const activeClientGroup = clientGroups.find((group) => group.id === requestedSection)
+  const activeGroupId = activeClientGroup?.id ?? entry?.selectedGroup ?? null
   const definitions = useMemo(
     () => new Map(entry?.description?.fields.map((field) => [encodePath(field.path), field] as const) ?? []),
     [entry?.description],
@@ -115,17 +150,29 @@ export function HbarSettingsWorkspace({
   )
 
   const reportError = useCallback((reason: unknown) => setActionError(reasonCode(reason)), [])
+  const openSettings = (scope: 'global' | 'workspace' | 'session', targetId: string | null, section: string | null) => {
+    if (!settingsPanel) return null
+    return runtime.commands.execute('app.openSettings', {
+      scope,
+      ...(targetId ? { targetId } : {}),
+      ...(section ? { section } : {}),
+      instanceId: settingsPanel.instanceId,
+      binding: settingsPanel.binding,
+      ...(settingsPanel.workspaceId ? { workspaceId: settingsPanel.workspaceId } : {}),
+      ...(settingsPanel.sessionId ? { sessionId: settingsPanel.sessionId } : {}),
+    })
+  }
   const selectScope = (scope: 'global' | 'workspace' | 'session') => {
     setActionError(null)
     const request =
       scope === 'global'
-        ? runtime.commands.execute('app.openSettings', { scope })
+        ? openSettings(scope, null, activeGroupId)
         : scope === 'workspace'
           ? navigation.workspaceId
-            ? runtime.commands.execute('app.openSettings', { scope, targetId: navigation.workspaceId })
+            ? openSettings(scope, navigation.workspaceId, activeGroupId)
             : null
           : navigation.sessionId
-            ? runtime.commands.execute('app.openSettings', { scope, targetId: navigation.sessionId })
+            ? openSettings(scope, navigation.sessionId, activeGroupId)
             : null
     if (request) void request.catch(reportError)
   }
@@ -152,9 +199,11 @@ export function HbarSettingsWorkspace({
     void runtime.commands.execute(`settingsForm.${command}`, { formId: entry.formId }).catch(reportError)
   }
   const selectGroup = (groupId: string) => {
-    if (!entry) return
+    if (!entry || !settingsPanel) return
     setActionError(null)
-    void runtime.commands.execute('settingsForm.selectGroup', { formId: entry.formId, groupId }).catch(reportError)
+    const targetId = entry.scope.kind === 'global' ? null : entry.scope.targetId
+    const request = openSettings(entry.scope.kind, targetId, groupId)
+    if (request) void request.catch(reportError)
   }
   const restoreInheritance = (field: string) => {
     if (!entry) return
@@ -168,8 +217,8 @@ export function HbarSettingsWorkspace({
   const invalid = Boolean(entry?.form?.issues.length)
   const canRefresh = connected && Boolean(entry) && !busy && !unknown && dirtyCount === 0
   const canSave = connected && Boolean(entry) && !busy && !unknown && !invalid && dirtyCount > 0
-  const customGroup = entry?.selectedGroup ? renderGroup?.(entry.selectedGroup) : null
-  const selectedGroup = groups.find((group) => group.id === entry?.selectedGroup)
+  const customGroup = activeGroupId ? renderGroup?.(activeGroupId) : null
+  const selectedGroup = hostGroups.find((group) => group.id === activeGroupId)
 
   const fieldContext = (field: CompiledField) => {
     if (!entry) return null
@@ -254,10 +303,10 @@ export function HbarSettingsWorkspace({
             {groups.map((group) => (
               <HbarAppUiButton
                 key={group.id}
-                aria-current={entry.selectedGroup === group.id ? 'page' : undefined}
+                aria-current={activeGroupId === group.id ? 'page' : undefined}
                 onClick={() => selectGroup(group.id)}
               >
-                {labels.resolve(group.labelKey)}
+                {group.label}
               </HbarAppUiButton>
             ))}
           </nav>
@@ -265,12 +314,12 @@ export function HbarSettingsWorkspace({
             <div className="hbar-app-react-settings-mobile-group">
               <HbarAppUiSelect
                 aria-label={labels.groups}
-                value={entry.selectedGroup ?? ''}
+                value={activeGroupId ?? ''}
                 onChange={(event) => selectGroup(event.currentTarget.value)}
               >
                 {groups.map((group) => (
                   <option key={group.id} value={group.id}>
-                    {labels.resolve(group.labelKey)}
+                    {group.label}
                   </option>
                 ))}
               </HbarAppUiSelect>

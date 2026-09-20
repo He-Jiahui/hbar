@@ -9,6 +9,7 @@ export {
 } from './session-workspace'
 export {
   HbarSettingsWorkspace,
+  type HbarSettingsAdditionalGroup,
   type HbarSettingsWorkspaceLabels,
   type HbarSettingsWorkspaceProps,
 } from './settings-workspace'

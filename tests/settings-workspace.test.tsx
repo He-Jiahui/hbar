@@ -183,6 +183,48 @@ test('settings workspace renders Host schema, scoped source state, and command-o
   }
 })
 
+test('settings workspace composes client groups from the app.openSettings section', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-react-client-group',
+    hostId: 'host',
+    directory,
+    settings,
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('workspace.list', { limit: 100 })
+    await runtime.view.commands.execute('session.list', { workspaceId: workspace.id, limit: 100 })
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('app.openSettings', {
+      scope: 'session',
+      targetId: session.id,
+      section: 'appearance',
+    })
+    await waitForReady(runtime)
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace
+          labels={labels}
+          connected
+          additionalGroups={[{ id: 'appearance', label: '外观', order: 0 }]}
+          renderGroup={(groupId) => (groupId === 'appearance' ? <div>设备全局外观</div> : null)}
+        />
+      </HbarRuntimeProvider>,
+    )
+    expect(runtime.view.state.settings.getSnapshot().forms['settings:session:session-settings']?.selectedGroup).toBe(
+      'model',
+    )
+    expect(html).toContain('aria-current="page" type="button"')
+    expect(html).toContain('data-variant="solid">外观</button>')
+    expect(html).toContain('设备全局外观')
+    expect(html).toContain('<option value="appearance" selected="">外观</option>')
+    expect(html).not.toContain('模型选择')
+    expect(html).not.toContain('由 Host Schema 生成的设置')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('settings workspace presents one bounded failure when the Host is unavailable', async () => {
   const runtime = createAppRuntime({
     instanceId: 'settings-react-offline',
