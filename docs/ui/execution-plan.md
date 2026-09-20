@@ -54,15 +54,15 @@ R1.2a 只修复组件外观与容量边界，自动高度、输入区整体布�
 
 ## 5. R3：会话主页面
 
-| ID   | 独立交付                                           | 前置        | 验收                                                        |
-| ---- | -------------------------------------------------- | ----------- | ----------------------------------------------------------- |
-| R3.1 | Conversation/Message 嵌入布局与统一阅读宽度        | R1.5、R2.3  | **已完成**：单一页头、时间线/输入同宽、三视口实测           |
-| R3.2 | Activity/ToolCall/Approval/Questionnaire/Plan 重组 | R3.1        | Activity/审批/问卷已进入时间线；Plan 归属仍待核对           |
-| R3.3 | Prompt controls、自动高度与附件失败恢复            | R1.2a、R3.1 | Prompt 控件与页面组合已完成；断线草稿保留已由 R3.5 验证     |
-| R3.4 | inline UsageSummary 与详情导航                     | R1.5、R3.3  | **已完成**：组件原生 inline 密度、常规/窄屏最多两行         |
-| R3.5 | 滚动锚点、流式/快速切换、断线与重试                | R3.1–R3.4   | **已完成**：60 条分页、动态虚拟化、会话锚点、重连和幂等重试 |
+| ID   | 独立交付                                           | 前置        | 验收                                                         |
+| ---- | -------------------------------------------------- | ----------- | ------------------------------------------------------------ |
+| R3.1 | Conversation/Message 嵌入布局与统一阅读宽度        | R1.5、R2.3  | **已完成**：单一页头、时间线/输入同宽、三视口实测            |
+| R3.2 | Activity/ToolCall/Approval/Questionnaire/Plan 重组 | R3.1        | **已完成**：Run/交互进入时间线，当前 Plan 以 turnId 绑定 Run |
+| R3.3 | Prompt controls、自动高度与附件失败恢复            | R1.2a、R3.1 | Prompt 控件与页面组合已完成；断线草稿保留已由 R3.5 验证      |
+| R3.4 | inline UsageSummary 与详情导航                     | R1.5、R3.3  | **已完成**：组件原生 inline 密度、常规/窄屏最多两行          |
+| R3.5 | 滚动锚点、流式/快速切换、断线与重试                | R3.1–R3.4   | **已完成**：60 条分页、动态虚拟化、会话锚点、重连和幂等重试  |
 
-当前 R3.1、R3.3、R3.4、R3.5 已完成；R3.2 的运行、审批和问卷已进入消息时间线，Plan 与具体消息/Run 的归属仍待核对。R3.5 将时间线分页固化为每页 60 条、每会话最多 1,000 条和最多 8 个会话缓存；超过 40 条时由 `HbarAppUiConversation` 动态虚拟化。按 sessionId 保存的可见消息锚点可跨加载旧页和快速切换恢复，阅读历史时新内容只显示“查看最新消息”，断线保留消息、草稿和附件，失败运行由 `run.retry` 使用可恢复幂等键重放。实测证据见[视觉审计](visual-audit-2026-09-19.md)。
+R3.1–R3.5 已完成。R3.2 将当前 Plan 加入时间线只读投影：首次加载调用 `plan.get`，后续消费 `plan.updated` / `plan.cleared`；`PlanState.turnId` 与 Run ID 一致时，紧凑折叠摘要显示在所属 Run 卡片内，无 turnId 或原 Run 已不在有界投影时显示为会话级计划，不伪造消息关系。R3.5 将时间线分页固化为每页 60 条、每会话最多 1,000 条和最多 8 个会话缓存；超过 40 条时由 `HbarAppUiConversation` 动态虚拟化。按 sessionId 保存的可见消息锚点可跨加载旧页和快速切换恢复，阅读历史时新内容只显示“查看最新消息”，断线保留消息、草稿和附件，失败运行由 `run.retry` 使用可恢复幂等键重放。实测证据见[视觉审计](visual-audit-2026-09-19.md)。
 
 ## 6. R4：会话工具（每类单独提交）
 
@@ -97,11 +97,11 @@ R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型�
 | ---- | ---------------------------------- | --------------------------------------------------------- |
 | R6.1 | 原入口→新位置→命令的完整对照       | **已完成**：类型化 outlet manifest、迁移别名与入口对照    |
 | R6.2 | 删除旧串行页面出口和已迁移冲突样式 | **已完成**：生产窄入口排除旧壳层 CSS，保留 catalog 调用者 |
-| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：176 张图、真实流程、完整 checks      |
+| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：179 张图、真实流程、完整 checks      |
 | R6.4 | Tauri 实窗与缩放验收               | 标题栏、DPI、文件选择、弹窗和窄窗，无截图替代声明         |
 | R6.5 | 文档、证据索引与旧 UI 计划替代说明 | **进行中**：实现/证据/遗留项已同步；待 R6.4 后关闭        |
 
-R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：18 个页面族、176 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、断线重连和全仓 checks 均有证据；Tauri、整页 light/system 主题和 R3.2 Plan 归属没有混入完成声明。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 R6.4 有效实窗证据补齐前不标记最终完成。
+R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：18 个页面族、179 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、Plan Run 归属、断线重连和全仓 checks 均有证据；Tauri 与整页 light/system 主题没有混入完成声明。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 R6.4 有效实窗证据补齐前不标记最终完成。
 
 ## 9. 提交与交付记录规则
 

@@ -471,3 +471,19 @@ R2.4 之前只有单页会话选择和顶部新建入口，100 条默认页上�
 失败/中断 Run 的动作由 `HbarAppUiRunActivity` 显示为带 RotateCcw 图标和宿主文案的按钮，不能退化成无名图标。React 发出 `run.retry`，app-runtime 在响应未知时保留同一幂等键，下一次核对不会重复入队。真实 `/fail` 模型场景点击重试后生成第二个失败 Run，证明按钮绑定的不是局部伪状态。截图又发现单项计数写成 “1 runs”，最终改为 “1 run”；390px 下两个重试按钮都保持在各自卡片边界内。
 
 验证结果：TypeScript、定向 ESLint、content-contract/icon-scale/flow-layout guards、398 个 Bun 测试（3174 个断言）、Web production build（2393 modules / 219.92 kB CSS / 960.51 kB JS）和 8/8 Playwright 场景全部通过。新增 11 张 production 图均逐张原尺寸查看；`artifacts/ui-redesign` 当前共 18 个页面/组件族、176 张 PNG。Tauri 实窗仍归 R6.4，R3.2 的 Plan 归属仍单列，未借 R3.5 提前关闭。
+
+## 29. R3.2 Agent Plan 的 Run 归属与刷新恢复
+
+Plan 插件早已把 `update_plan` 产生的 `plan.updated` 写入 SessionEvent，并同时把触发 Run ID 保存为 `PlanState.turnId`；会话页面之前没有消费这项事实，只能在独立 Goal/Plan 工具中读取最新计划。R3.2 现在让 `SessionTimelineState` 持有当前 Plan：首次加载在消息快照旁调用 `plan.get`，后续用 `plan.updated` / `plan.cleared` 增量更新。Plan 查询是可选能力，失败不会清空时间线或阻断聊天。
+
+没有把 catalog 中占满页面的 AgentPlan 变体塞进聊天。`HbarAppUiRunActivity` 新增小型只读 Plan contract：折叠态只显示标题和完成进度，展开后显示说明、步骤、状态和语义色点。`turnId` 匹配现有 Run 时，Plan details 是该 Run article 的子节点；没有 turnId 或 Run 已超出 80 条有界投影时，显示为会话级 Plan，不根据时间位置猜关联。完整修改仍由 Goal/Plan 工具的 PlanEditor 完成。
+
+| 场景       | 截图与人工观察                                                                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面折叠   | [1440](../../artifacts/ui-redesign/session/after/plan-summary-1440.png)：Run 状态、模型和耗时保持首行；Plan 只增加一行摘要，默认不挤占长时间线                   |
+| 桌面展开   | [1440](../../artifacts/ui-redesign/session/after/plan-expanded-1440.png)：说明和三步计划位于同一 Run 卡片，完成项删除线、进行中和待处理状态可区分                |
+| 刷新与窄屏 | [390](../../artifacts/ui-redesign/session/after/plan-expanded-mobile-390.png)：页面刷新后从 `plan.get` 恢复，再展开；长自动会话标题省略，Plan 和输入均无水平溢出 |
+
+真实 E2E 通过 `/tool update_plan` 生成带 turnId 的 Plan，断言 Plan DOM 的父元素就是创建它的 Run article；刷新后重新选择自动改名的会话，Plan 仍恢复并保持 1/3 进度。首轮刷新断言曾按旧标题 “New session” 查找侧栏项而失败，截图证明 Host 已按首条提示自动改名；最终测试改为通过唯一的 `Open session …` 语义入口选择，验证真实生命周期而非固定 fixture 名称。
+
+验证结果：TypeScript、定向 ESLint、content-contract/icon-scale/flow-layout guards、398 个 Bun 测试（3185 个断言）、Web production build（2393 modules / 221.70 kB CSS / 962.08 kB JS）和 9/9 Playwright 场景全部通过。三张 production 图均逐张原尺寸查看；`artifacts/ui-redesign` 当前共 18 个页面/组件族、179 张 PNG。R3.2 已关闭，整页主题和 Tauri 实窗继续独立验收。
