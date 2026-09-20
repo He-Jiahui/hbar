@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import {
   HbarAgentWorkspace,
   HbarCommandPalette,
@@ -232,6 +232,7 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const providers = useHbarRuntimeState(runtime.state.providers)
+  const commandSearch = useRef<HTMLInputElement>(null)
   const modalInstanceId = presentation.modalInstanceId
   const modal = modalInstanceId ? surfaces.panels[modalInstanceId] : undefined
   const close = (instanceId: string) => {
@@ -245,6 +246,7 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
         title={copy.commandPalette.title}
         closeLabel={copy.commandPalette.close}
         className="hbar-app-react-workspace-modal hbar-app-react-command-modal"
+        initialFocus={commandSearch}
         onClose={() => {
           if (runtime.state.commandPalette.getSnapshot().view !== 'search') {
             void runtime.commands.execute('commandPalette.back', {}).catch(() => {})
@@ -253,7 +255,7 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
           close(modalInstanceId)
         }}
       >
-        <HbarCommandPalette labels={copy.commandPalette} connected={connected} />
+        <HbarCommandPalette labels={copy.commandPalette} connected={connected} searchRef={commandSearch} />
       </HbarAppUiDialog>
     )
   if (modalInstanceId && modal?.panelId === 'settings-editor') {

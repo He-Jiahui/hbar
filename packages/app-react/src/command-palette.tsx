@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ArrowLeft, RefreshCw, X } from 'lucide-react'
 import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
 import { HbarAppUiCommandList } from 'hbar-app-ui/command-menu'
@@ -74,6 +74,7 @@ export interface HbarCommandPaletteLabels {
 export interface HbarCommandPaletteProps {
   readonly labels: HbarCommandPaletteLabels
   readonly connected: boolean
+  readonly searchRef?: RefObject<HTMLInputElement | null>
 }
 
 function reasonCode(reason: unknown): string {
@@ -195,12 +196,13 @@ function KnownTargetParameter({
   )
 }
 
-export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProps) {
+export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommandPaletteProps) {
   const runtime = useHbarRuntime()
   const palette = useHbarRuntimeState(runtime.state.commandPalette)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const navigation = useHbarRuntimeState(runtime.state.navigation)
-  const search = useRef<HTMLInputElement>(null)
+  const internalSearch = useRef<HTMLInputElement>(null)
+  const search = searchRef ?? internalSearch
   const [actionError, setActionError] = useState<string | null>(null)
   const selected = palette.selectedId ? palette.items[palette.selectedId] : undefined
   const busy = palette.execution.status === 'submitting'
@@ -236,7 +238,7 @@ export function HbarCommandPalette({ labels, connected }: HbarCommandPaletteProp
   }, [runtime.commands, runtime.state.commandPalette])
   useEffect(() => {
     if (palette.status === 'ready' && palette.view === 'search') search.current?.focus()
-  }, [palette.status, palette.view])
+  }, [palette.status, palette.view, search])
 
   const listItems = useMemo(
     () =>
