@@ -10,7 +10,7 @@ export {
   type HbarSessionAttachmentSelection,
   type HbarSessionWorkspaceLabels,
   type HbarSessionWorkspaceProps,
-} from './session-workspace'
+} from './lumen-session-workspace'
 export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,
