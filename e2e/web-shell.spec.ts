@@ -1668,9 +1668,9 @@ test('provider presets persist custom models, thinking levels, and independent v
   }
 })
 
-test('client theme follows the system and persists explicit light or dark choices', async ({ browser }) => {
+test('global appearance saves through preferences, survives reload, and restores defaults', async ({ browser }) => {
   test.setTimeout(60_000)
-  const root = await mkdtemp(join(tmpdir(), 'hbar-web-theme-'))
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-appearance-'))
   let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
   const context = await browser.newContext({
     locale: 'en-US',
@@ -1688,65 +1688,152 @@ test('client theme follows the system and persists explicit light or dark choice
     const page = await context.newPage()
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
-    const expectTheme = async (theme: 'light' | 'dark') => {
-      await expect(page.locator('html')).toHaveAttribute('data-hbar-app-ui-theme', theme)
+    const expectAppearance = async (
+      expected: { readonly theme: 'light' | 'dark'; readonly size: 's' | 'm' | 'l' },
+    ) => {
+      const html = page.locator('html')
+      await expect(html).toHaveAttribute('data-hbar-app-ui-theme', expected.theme)
+      await expect(html).toHaveAttribute('data-hbar-app-ui-control-size', expected.size)
+      await expect(html).toHaveAttribute('data-hbar-app-ui-text-size', expected.size)
+      await expect(html).toHaveAttribute('data-hbar-app-ui-corner-size', expected.size)
       expect(
         await page.evaluate(() => ({
           inline: document.documentElement.style.colorScheme,
           computed: getComputedStyle(document.documentElement).colorScheme,
           overflow: document.documentElement.scrollWidth <= window.innerWidth,
         })),
-      ).toEqual({ inline: theme, computed: theme, overflow: true })
+      ).toEqual({ inline: expected.theme, computed: expected.theme, overflow: true })
     }
 
     await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
     await expect(page.locator('footer')).toContainText('Connected')
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Appearance', exact: true }).click()
     const theme = page.getByRole('combobox', { name: 'Theme' })
+    const controlSize = page.getByRole('combobox', { name: 'Control size' })
+    const textSize = page.getByRole('combobox', { name: 'Text size' })
+    const cornerSize = page.getByRole('combobox', { name: 'Corner size' })
     await expect(theme).toHaveValue('system')
-    await expectTheme('dark')
-    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-system-dark-1440.png', fullPage: true })
+    await expect(controlSize).toHaveValue('m')
+    await expect(textSize).toHaveValue('m')
+    await expect(cornerSize).toHaveValue('m')
+    await expectAppearance({ theme: 'dark', size: 'm' })
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-system-m-1440.png',
+      fullPage: true,
+    })
 
     await theme.selectOption('light')
-    await expectTheme('light')
-    await expect(page.getByRole('alert')).toHaveCount(0)
-    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-light-1440.png', fullPage: true })
+    await controlSize.selectOption('l')
+    await textSize.selectOption('l')
+    await cornerSize.selectOption('l')
+    await expect(page.getByText('Appearance changes are not saved', { exact: true })).toBeVisible()
+    await expectAppearance({ theme: 'dark', size: 'm' })
+    const preview = page.getByRole('region', { name: 'Live preview' })
+    await expect(preview).toHaveAttribute('data-hbar-app-ui-theme', 'light')
+    await expect(preview).toHaveAttribute('data-hbar-app-ui-control-size', 'l')
+    await expect(preview).toHaveAttribute('data-hbar-app-ui-text-size', 'l')
+    await expect(preview).toHaveAttribute('data-hbar-app-ui-corner-size', 'l')
+
+    await page.getByRole('button', { name: 'Save appearance' }).click()
+    await expect(page.getByText('Appearance preferences saved', { exact: true })).toBeVisible()
+    await expectAppearance({ theme: 'light', size: 'l' })
+    const geometry = await page.evaluate(() => {
+      const select = document.querySelector<HTMLSelectElement>('#hbar-appearance-controlSize')
+      const label = document.querySelector<HTMLElement>('label[for="hbar-appearance-controlSize"]')
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => candidate.textContent?.trim() === 'Save appearance',
+      )
+      if (!select || !label || !button) throw new Error('Appearance controls are missing')
+      const selectStyle = getComputedStyle(select)
+      return {
+        selectHeight: Math.round(select.getBoundingClientRect().height),
+        buttonHeight: Math.round(button.getBoundingClientRect().height),
+        labelFontSize: getComputedStyle(label).fontSize,
+        selectRadius: selectStyle.borderRadius,
+      }
+    })
+    expect(geometry).toEqual({ selectHeight: 44, buttonHeight: 44, labelFontSize: '14px', selectRadius: '8px' })
+    const savedEnvelope = await page.evaluate(() => {
+      const key = Object.keys(localStorage).find((candidate) => candidate.endsWith(':preferences'))
+      const parsed: unknown = key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null
+      return parsed
+    })
+    expect(savedEnvelope).toMatchObject({
+      revision: 4,
+      value: {
+        theme: 'light',
+        'appearance.controlSize': 'l',
+        'appearance.textSize': 'l',
+        'appearance.cornerSize': 'l',
+      },
+    })
+    expect(
+      await page.evaluate(() => JSON.parse(localStorage.getItem('hbar:web:appearance') ?? 'null') as unknown),
+    ).toEqual({ controlSize: 'l', textSize: 'l', cornerSize: 'l' })
+    await page.screenshot({ path: 'artifacts/ui-redesign/appearance/after/settings-light-l-1440.png', fullPage: true })
 
     await page.setViewportSize({ width: 320, height: 720 })
     await expect(page.getByRole('combobox', { name: 'Settings scope' })).toBeVisible()
     await expect(theme).toBeVisible()
-    await expectTheme('light')
-    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-light-320.png', fullPage: true })
+    await expectAppearance({ theme: 'light', size: 'l' })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/appearance/after/settings-light-l-320.png', fullPage: true })
+    await page.getByRole('button', { name: 'Restore defaults' }).scrollIntoViewIfNeeded()
+    await expect(page.getByRole('button', { name: 'Restore defaults' })).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-light-l-actions-320.png',
+      fullPage: true,
+    })
 
     await page.setViewportSize({ width: 1440, height: 960 })
     await page.reload()
-    await expectTheme('light')
+    await expectAppearance({ theme: 'light', size: 'l' })
     await expect(page.locator('footer')).toContainText('Connected')
-    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
-    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
-    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/session-light-1440.png', fullPage: true })
-
-    await page.getByRole('button', { name: /^Commands/ }).click()
-    const commandDialog = page.getByRole('dialog', { name: 'Command catalog' })
-    await expect(commandDialog).toBeVisible()
-    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/commands-light-1440.png', fullPage: true })
-    await commandDialog.getByRole('button', { name: 'Close command catalog' }).click()
-    await page.getByRole('button', { name: 'Status center', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Status center' })).toBeVisible()
-    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/status-light-1440.png', fullPage: true })
-    await page.getByRole('button', { name: 'Close status center' }).click()
-
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Appearance', exact: true }).click()
     const restoredTheme = page.getByRole('combobox', { name: 'Theme' })
     await expect(restoredTheme).toHaveValue('light')
-    await restoredTheme.selectOption('system')
-    await expectTheme('dark')
+    await expect(page.getByRole('combobox', { name: 'Control size' })).toHaveValue('l')
+    await expect(page.getByRole('combobox', { name: 'Text size' })).toHaveValue('l')
+    await expect(page.getByRole('combobox', { name: 'Corner size' })).toHaveValue('l')
+
+    await page.getByRole('button', { name: 'Restore defaults' }).click()
+    await expect(page.getByText('Appearance preferences saved', { exact: true })).toBeVisible()
+    await expect(restoredTheme).toHaveValue('system')
+    await expect(page.getByRole('combobox', { name: 'Control size' })).toHaveValue('m')
+    await expectAppearance({ theme: 'dark', size: 'm' })
+    const resetEnvelope = await page.evaluate(() => {
+      const key = Object.keys(localStorage).find((candidate) => candidate.endsWith(':preferences'))
+      const parsed: unknown = key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null
+      return parsed
+    })
+    expect(resetEnvelope).toMatchObject({ revision: 8, value: {} })
     await page.emulateMedia({ colorScheme: 'light' })
-    await expectTheme('light')
+    await expectAppearance({ theme: 'light', size: 'm' })
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' }).first()).toBeVisible()
-    await expectTheme('light')
-    await page.screenshot({ path: 'artifacts/ui-redesign/theme/after/settings-system-light-390.png', fullPage: true })
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-reset-system-m-390.png',
+      fullPage: true,
+    })
+
+    await page.evaluate(() => {
+      const setItem = Storage.prototype.setItem
+      Storage.prototype.setItem = function setItemWithPreferenceFailure(key: string, value: string) {
+        if (key.endsWith(':preferences')) throw new DOMException('Storage unavailable', 'QuotaExceededError')
+        setItem.call(this, key, value)
+      }
+    })
+    await page.getByRole('combobox', { name: 'Control size' }).selectOption('l')
+    await page.getByRole('button', { name: 'Save appearance' }).click()
+    await expect(page.getByRole('alert')).toHaveText('Could not save appearance preferences: EXECUTION_FAILED')
+    await expectAppearance({ theme: 'light', size: 'm' })
+    await page.getByRole('alert').scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-save-failure-390.png',
+      fullPage: true,
+    })
     expect(errors).toEqual([])
   } finally {
     await context.close()

@@ -84,6 +84,54 @@ try {
     .getByText(/^(已连接|Connected)$/)
     .waitFor({ timeout: 15_000 })
   await mkdir('artifacts/ui-redesign/tauri', { recursive: true })
+  await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
+  await page.getByRole('button', { name: /^(外观|Appearance)$/ }).click()
+  const controlSize = page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ })
+  const textSize = page.getByRole('combobox', { name: /^(文本尺寸|Text size)$/ })
+  const cornerSize = page.getByRole('combobox', { name: /^(圆角尺寸|Corner size)$/ })
+  await controlSize.selectOption('l')
+  await textSize.selectOption('l')
+  await cornerSize.selectOption('l')
+  await page.getByRole('button', { name: /^(保存外观|Save appearance)$/ }).click()
+  await page.getByText(/^(外观偏好已保存|Appearance preferences saved)$/).waitFor()
+  const largeAppearance = await page.evaluate(() => {
+    const control = document.querySelector<HTMLElement>('#hbar-appearance-controlSize')
+    if (!control) throw new Error('Desktop appearance control is missing')
+    return {
+      controlSize: document.documentElement.dataset.hbarAppUiControlSize,
+      textSize: document.documentElement.dataset.hbarAppUiTextSize,
+      cornerSize: document.documentElement.dataset.hbarAppUiCornerSize,
+      height: Math.round(control.getBoundingClientRect().height),
+    }
+  })
+  if (
+    largeAppearance.controlSize !== 'l' ||
+    largeAppearance.textSize !== 'l' ||
+    largeAppearance.cornerSize !== 'l' ||
+    largeAppearance.height !== 44
+  )
+    throw new Error(`Desktop appearance did not apply the large scale: ${JSON.stringify(largeAppearance)}`)
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/appearance-large-default-window.png' })
+  await page.reload()
+  await page
+    .locator('footer')
+    .getByText(/^(已连接|Connected)$/)
+    .waitFor({ timeout: 15_000 })
+  await page.locator('html[data-hbar-app-ui-control-size="l"]').waitFor()
+  await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
+  await page.getByRole('button', { name: /^(外观|Appearance)$/ }).click()
+  await page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ }).waitFor()
+  if (
+    (await page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ }).inputValue()) !== 'l' ||
+    (await page.getByRole('combobox', { name: /^(文本尺寸|Text size)$/ }).inputValue()) !== 'l' ||
+    (await page.getByRole('combobox', { name: /^(圆角尺寸|Corner size)$/ }).inputValue()) !== 'l'
+  )
+    throw new Error('Desktop appearance preferences did not survive reload')
+  await page.getByRole('button', { name: /^(恢复默认|Restore defaults)$/ }).click()
+  await page.getByText(/^(外观偏好已保存|Appearance preferences saved)$/).waitFor()
+  await page.locator('html[data-hbar-app-ui-control-size="m"]').waitFor()
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/appearance-reset-default-window.png' })
+  await page.getByRole('button', { name: /^(返回会话|Back to session)$/ }).click()
   await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
   const createDialog = page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ })
   const workspace = createDialog.getByRole('combobox', { name: /^(工作区 ID|Workspace ID)$/ })
@@ -222,7 +270,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected; the WebView file chooser uploaded an attachment; session content aligned at both edges; the medium-width sidebar shrank the main workspace without overlap; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
+    'PASS: Native credentials connected; appearance preferences applied, survived reload, and reset through the real WebView; the WebView file chooser uploaded an attachment; session content aligned at both edges; the medium-width sidebar shrank the main workspace without overlap; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
   )
 } catch (error) {
   console.error(await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'))

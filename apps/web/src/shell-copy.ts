@@ -12,6 +12,7 @@ import type {
   HbarStatusWorkspaceLabels,
   HbarWorkspaceShellLabels,
 } from '@hbar/app-react'
+import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 interface ShellCopy {
@@ -19,13 +20,7 @@ interface ShellCopy {
   readonly empty: { readonly title: string; readonly description: string }
   readonly session: HbarSessionWorkspaceLabels
   readonly settings: HbarSettingsWorkspaceLabels
-  readonly theme: {
-    readonly label: string
-    readonly system: string
-    readonly light: string
-    readonly dark: string
-    readonly saveError: string
-  }
+  readonly appearance: WebAppearanceSettingsLabels
   readonly providers: {
     readonly list: HbarProviderSettingsLabels
     readonly dialog: HbarProviderDialogLabels
@@ -37,6 +32,77 @@ interface ShellCopy {
   readonly goals: HbarGoalPlanWorkspaceLabels
   readonly extensions: HbarExtensionWorkspaceLabels
   readonly status: HbarStatusWorkspaceLabels
+}
+
+function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const sizeNames = {
+    s: choose('小', 'Small'),
+    m: choose('中', 'Medium'),
+    l: choose('大', 'Large'),
+  } as const
+  const sizeDetails = {
+    controlSize: {
+      s: choose('紧凑控件', 'compact controls'),
+      m: choose('标准控件', 'standard controls'),
+      l: choose('宽松控件', 'spacious controls'),
+    },
+    textSize: {
+      s: choose('高密度文字', 'dense text'),
+      m: choose('标准文字', 'standard text'),
+      l: choose('易读文字', 'readable text'),
+    },
+    cornerSize: {
+      s: choose('轻微圆角', 'subtle corners'),
+      m: choose('标准圆角', 'standard corners'),
+      l: choose('柔和圆角', 'soft corners'),
+    },
+  } as const
+  return {
+    group: choose('外观', 'Appearance'),
+    title: choose('外观', 'Appearance'),
+    description: choose(
+      '统一设置按钮、文字、输入控件和圆角的默认档位。显式指定尺寸的特殊控件不受影响。',
+      'Set the default scale for buttons, text, form controls, and corners. Components with an explicit semantic size keep their own scale.',
+    ),
+    deviceScope: choose('此设备全局生效', 'Applies globally on this device'),
+    theme: {
+      label: choose('主题', 'Theme'),
+      description: choose('选择浅色、深色，或跟随系统外观。', 'Choose light, dark, or follow the system appearance.'),
+      system: choose('跟随系统', 'System'),
+      light: choose('浅色', 'Light'),
+      dark: choose('深色', 'Dark'),
+    },
+    controlSize: {
+      label: choose('控件尺寸', 'Control size'),
+      description: choose('控制按钮、输入框和选择器的默认高度与内边距。', 'Controls default height and padding for buttons, inputs, and selects.'),
+    },
+    textSize: {
+      label: choose('文本尺寸', 'Text size'),
+      description: choose('控制正文、标签和辅助文字的默认字号与行高。', 'Controls the default size and line height for body, label, and supporting text.'),
+    },
+    cornerSize: {
+      label: choose('圆角尺寸', 'Corner size'),
+      description: choose('控制通用按钮、输入框和面板的默认圆角。', 'Controls the default corner radius for shared buttons, fields, and panels.'),
+    },
+    sizeOption: (dimension, size) => `${sizeNames[size]} · ${sizeDetails[dimension][size]}`,
+    preview: {
+      title: choose('实时预览', 'Live preview'),
+      description: choose('草稿只影响此预览；保存后才应用到整个应用。', 'The draft affects this preview only and applies to the app after saving.'),
+      label: choose('示例标签', 'Example label'),
+      input: choose('示例输入内容', 'Example input value'),
+      select: choose('示例选择器', 'Example select'),
+      button: choose('主要操作', 'Primary action'),
+      iconButton: choose('外观操作示例', 'Example appearance action'),
+    },
+    loading: choose('正在读取设备偏好', 'Loading device preferences'),
+    unsaved: choose('有未保存的外观更改', 'Appearance changes are not saved'),
+    saved: choose('外观偏好已保存', 'Appearance preferences saved'),
+    save: choose('保存外观', 'Save appearance'),
+    reset: choose('恢复默认', 'Restore defaults'),
+    error: (code) => choose(`外观偏好保存失败：${code}`, `Could not save appearance preferences: ${code}`),
+  }
 }
 
 function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabels {
@@ -1452,13 +1518,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
     session: createSessionLabels('zh-CN'),
     settings: createSettingsLabels('zh-CN'),
-    theme: {
-      label: '主题',
-      system: '跟随系统',
-      light: '浅色',
-      dark: '深色',
-      saveError: '主题偏好保存失败',
-    },
+    appearance: createAppearanceLabels('zh-CN'),
     providers: createProviderLabels('zh-CN'),
     commandPalette: createCommandPaletteLabels('zh-CN'),
     files: createFileLabels('zh-CN'),
@@ -1505,13 +1565,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
     session: createSessionLabels('en-US'),
     settings: createSettingsLabels('en-US'),
-    theme: {
-      label: 'Theme',
-      system: 'System',
-      light: 'Light',
-      dark: 'Dark',
-      saveError: 'Could not save the theme preference',
-    },
+    appearance: createAppearanceLabels('en-US'),
     providers: createProviderLabels('en-US'),
     commandPalette: createCommandPaletteLabels('en-US'),
     files: createFileLabels('en-US'),

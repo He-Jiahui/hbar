@@ -1,6 +1,7 @@
 @import './tokens.css';
 
-:root {
+:root,
+[data-hbar-app-ui-theme='dark'] {
     --hbar-app-ui-bg: #0a0a0a;
     --hbar-app-ui-surface-0: #111111;
     --hbar-app-ui-surface-1: #171717;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   HbarAgentWorkspace,
   HbarCommandPalette,
@@ -43,8 +43,19 @@ import {
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
-import { HbarAppUiSelect } from 'hbar-app-ui/forms'
+import { applyHbarAppUiAppearance, resolveHbarAppUiAppearance } from 'hbar-app-ui/appearance'
 import { HbarAppUiWorkbenchNotice } from 'hbar-app-ui/workbench'
+import { WebAppearanceSettings, type WebAppearanceSettingsLabels } from './AppearanceSettings'
+import {
+  hasWebAppearanceOverrides,
+  readAppearanceBootstrap,
+  resetWebAppearancePreferences,
+  resolveWebAppearancePreferences,
+  sameHbarAppUiAppearance,
+  saveWebAppearancePreferences,
+  writeAppearanceBootstrap,
+  type WebAppearancePreferences,
+} from './appearance'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
@@ -57,7 +68,6 @@ import {
   readThemePreference,
   resolveWebTheme,
   writeThemeBootstrap,
-  type WebThemePreference,
 } from './theme'
 import './App.css'
 
@@ -105,22 +115,18 @@ function WorkspaceBody({
   locale,
   connected,
   prepareAttachment,
-  themePreference,
-  onThemePreferenceChange,
+  systemPrefersDark,
 }: {
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
-  readonly themePreference: WebThemePreference
-  readonly onThemePreferenceChange: (preference: WebThemePreference) => Promise<void>
+  readonly systemPrefersDark: boolean
 }) {
   const copy = getShellCopy(locale)
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
-  const [themeBusy, setThemeBusy] = useState(false)
-  const [themeError, setThemeError] = useState(false)
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
@@ -129,32 +135,10 @@ function WorkspaceBody({
       <HbarSettingsWorkspace
         labels={copy.settings}
         connected={connected}
-        headerActions={
-          <span className="hbar-web-theme-control">
-            <HbarAppUiSelect
-              aria-label={copy.theme.label}
-              value={themePreference}
-              disabled={themeBusy}
-              aria-invalid={themeError || undefined}
-              title={themeError ? copy.theme.saveError : copy.theme.label}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                const preference = readThemePreference(event.currentTarget.value)
-                if (!preference) return
-                setThemeBusy(true)
-                setThemeError(false)
-                void onThemePreferenceChange(preference)
-                  .catch(() => setThemeError(true))
-                  .finally(() => setThemeBusy(false))
-              }}
-            >
-              <option value="system">{copy.theme.system}</option>
-              <option value="light">{copy.theme.light}</option>
-              <option value="dark">{copy.theme.dark}</option>
-            </HbarAppUiSelect>
-            {themeError && <small role="alert">{copy.theme.saveError}</small>}
-          </span>
-        }
+        additionalGroups={[{ id: 'appearance', label: copy.appearance.group, order: 0 }]}
         renderGroup={(groupId) => {
+          if (groupId === 'appearance')
+            return <AppearanceSettingsController labels={copy.appearance} systemPrefersDark={systemPrefersDark} />
           if (groupId === 'providers')
             return <HbarProviderSettings labels={copy.providers.list} connected={connected} />
           if (groupId === 'extensions' && presentation.page.kind === 'settings')
@@ -180,6 +164,55 @@ function WorkspaceBody({
       />
     )
   return <HbarAppUiWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
+}
+
+function AppearanceSettingsController({
+  labels,
+  systemPrefersDark,
+}: {
+  readonly labels: WebAppearanceSettingsLabels
+  readonly systemPrefersDark: boolean
+}) {
+  const runtime = useHbarRuntime()
+  const preferences = useHbarRuntimeState(runtime.state.preferences)
+  const value = useMemo(() => resolveWebAppearancePreferences(preferences.values), [preferences.values])
+  const save = useCallback(
+    (target: WebAppearancePreferences, expectedRevision: number) =>
+      saveWebAppearancePreferences(
+        {
+          set: (input) => runtime.commands.execute('preferences.set', input),
+          unset: (input) => runtime.commands.execute('preferences.unset', input),
+        },
+        preferences.values,
+        target,
+        expectedRevision,
+      ),
+    [preferences.values, runtime.commands],
+  )
+  const reset = useCallback(
+    (expectedRevision: number) =>
+      resetWebAppearancePreferences(
+        {
+          set: (input) => runtime.commands.execute('preferences.set', input),
+          unset: (input) => runtime.commands.execute('preferences.unset', input),
+        },
+        preferences.values,
+        expectedRevision,
+      ),
+    [preferences.values, runtime.commands],
+  )
+  return (
+    <WebAppearanceSettings
+      labels={labels}
+      value={value}
+      revision={preferences.revision}
+      ready={preferences.status === 'ready'}
+      canReset={hasWebAppearanceOverrides(preferences.values)}
+      systemPrefersDark={systemPrefersDark}
+      onSave={save}
+      onReset={reset}
+    />
+  )
 }
 
 function WorkspaceTool({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
@@ -295,6 +328,7 @@ export default function App({
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [hostId, setHostId] = useState(() => `pending:${clientUrl}`)
   const [bootstrapTheme, setBootstrapTheme] = useState(() => readThemeBootstrap(window.localStorage))
+  const [bootstrapAppearance, setBootstrapAppearance] = useState(() => readAppearanceBootstrap(window.localStorage))
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
   )
@@ -305,9 +339,14 @@ export default function App({
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const preferences = useHbarRuntimeState(runtime.view.state.preferences)
-  const persistedTheme = readThemePreference(preferences.values.theme)
-  const themePreference = persistedTheme ?? bootstrapTheme
+  const persistedTheme = readThemePreference(preferences.values.theme) ?? 'system'
+  const themePreference = preferences.status === 'ready' ? persistedTheme : bootstrapTheme
   const resolvedTheme = resolveWebTheme(themePreference, systemPrefersDark)
+  const persistedAppearance = useMemo(
+    () => resolveHbarAppUiAppearance(preferences.values),
+    [preferences.values],
+  )
+  const appearance = preferences.status === 'ready' ? persistedAppearance : bootstrapAppearance
   const resolvedLayout = useMemo(() => normalizeShellLayout(layout.description), [layout.description])
   const sidebarLayout = shellLayoutModule(resolvedLayout, 'projects')
   const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
@@ -327,12 +366,19 @@ export default function App({
 
   useLayoutEffect(() => {
     applyWebTheme(document.documentElement, resolvedTheme)
+    applyHbarAppUiAppearance(document.documentElement, appearance)
     writeThemeBootstrap(window.localStorage, themePreference)
-  }, [resolvedTheme, themePreference])
+    writeAppearanceBootstrap(window.localStorage, appearance)
+  }, [appearance, resolvedTheme, themePreference])
 
   useEffect(() => {
-    if (persistedTheme && persistedTheme !== bootstrapTheme) setBootstrapTheme(persistedTheme)
-  }, [bootstrapTheme, persistedTheme])
+    if (preferences.status === 'ready' && persistedTheme !== bootstrapTheme) setBootstrapTheme(persistedTheme)
+  }, [bootstrapTheme, persistedTheme, preferences.status])
+
+  useEffect(() => {
+    if (preferences.status === 'ready' && !sameHbarAppUiAppearance(bootstrapAppearance, persistedAppearance))
+      setBootstrapAppearance(persistedAppearance)
+  }, [bootstrapAppearance, persistedAppearance, preferences.status])
 
   useEffect(() => {
     const offStatus = client.onStatus(setConnection)
@@ -356,14 +402,6 @@ export default function App({
   }, [attachmentController, client, resourcePicker])
 
   useEffect(() => () => runtime.dispose(), [runtime])
-
-  const setThemePreference = useCallback(
-    async (preference: WebThemePreference) => {
-      await runtime.view.commands.execute('preferences.set', { key: 'theme', value: preference })
-      setBootstrapTheme(preference)
-    },
-    [runtime.view.commands],
-  )
 
   const reconnect = () => {
     void createConnectionCommands(client)
@@ -401,8 +439,7 @@ export default function App({
           locale={locale}
           connected={connection === 'connected'}
           prepareAttachment={attachmentController.prepare}
-          themePreference={themePreference}
-          onThemePreferenceChange={setThemePreference}
+          systemPrefersDark={systemPrefersDark}
         />
       </HbarWorkspaceShell>
     </HbarRuntimeProvider>
