@@ -8,6 +8,7 @@ const root = process.env.HBAR_E2E_DATA_ROOT
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
 const sessionCount = Math.max(1, Math.min(101, Number(process.env.HBAR_E2E_SESSION_COUNT ?? '1')))
 const historyCount = Math.max(0, Math.min(1_000, Number(process.env.HBAR_E2E_HISTORY_COUNT ?? '0')))
+const webOrigin = process.env.HBAR_E2E_WEB_ORIGIN
 if (!root || !Number.isInteger(port)) throw new Error('E2E Host root and port are required')
 
 await writeFile(`${root}/browser-e2e.md`, '# Browser file\n', 'utf8')
@@ -34,7 +35,7 @@ for (let index = 1; index <= historyCount; index += 1)
     [{ type: 'text', text: `History message ${index}` }],
     `history-${index}`,
   )
-const host = await startServer(kernel, { port })
+const host = await startServer(kernel, { port, ...(webOrigin ? { origins: [webOrigin] } : {}) })
 const response = await fetch(`http://127.0.0.1:${port}/auth/pair`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
