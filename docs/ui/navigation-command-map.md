@@ -37,6 +37,9 @@ Web 组合根通过 `apps/web/src/surface-manifest.ts` 声明可渲染 surface�
 | 设置作用域切换                       | `app.openSettings <scope> [targetId]`                                                              | 同一 settings page 与对应 form 投影       | 不创建第二套设置状态                          |
 | Provider 新增/编辑                   | `app.openSettingsEditor providers <entryId?>`                                                      | settings-editor modal                     | `app.closePanel` 返回原设置分组和焦点         |
 | 文件/监控/子 Agent/目标与计划        | `app.openPanel <surface> <sessionId> followActive`                                                 | 唯一 session tool outlet                  | 再次点击或 `app.closePanel` 只关闭工具        |
+| 加载更早消息                         | `timeline.loadOlder <sessionId>`                                                                   | 当前 Conversation 顶部合并上一页          | 失败原位显示重试；不改变滚动锚点              |
+| 重试时间线加载                       | `timeline.retry <sessionId>`                                                                       | 刷新当前时间线只读投影                    | 保留现有消息、草稿和附件                      |
+| 失败/中断 Run 的“重试运行”           | `run.retry <sessionId> <operationId>`                                                              | 原 Run 下方新增重放 Run                   | unknown 使用同一幂等键再次核对                |
 | 扩展与技能管理                       | `app.openSettings global --section extensions`                                                     | settings page 的 Extensions 分组          | 返回原会话上下文                              |
 | 旧 `app.openPanel extensions`        | runtime 迁移为上一个命令                                                                           | 不注册、不渲染 `extensions` surface       | 仅兼容已有命令调用者                          |
 | 展开工程、折叠详情、菜单和图表 hover | 组件局部状态                                                                                       | 所属组件内部                              | 不进入共享业务状态                            |
@@ -45,6 +48,8 @@ Web 组合根通过 `apps/web/src/surface-manifest.ts` 声明可渲染 surface�
 所有业务表单继续执行各自的公开命令；UI 不直接写 Zustand。命令目录根据 catalog descriptor 生成参数表单，不能再维护一张 UI 专属命令清单。
 
 `app.createSession` 是客户端组合命令：它先确认工程，再用运行时持有的幂等键调用 Host `session.create`，合并返回的目录事实并更新选择。`RESULT_UNKNOWN` 等不确定结果保留同一键供重试，普通失败清除待处理键。`app.renameSession` 与 `app.archiveSession` 同样只通过 Host 命令端口写入；返回会话先进入目录投影，归档仅在目标就是当前会话时清除选择。工作区/会话 ID 参数优先从目录只读投影生成“名称 · 路径/所属工程”选项；未加载或跨 Host 的稳定 ID 仍可通过“其他标识符”输入，因此 UI 不要求常规用户猜内部 ID，也不封死高级目标。
+
+`timeline.loadOlder` 和 `timeline.retry` 是 app-runtime 内部命令，不进入面向 CLI 的公共 catalog；它们仍遵守 UI 只通过命令修改客户端状态的约束。runtime 捕获当前 sessionId、generation 和 cursor，验证返回页后才合并只读投影。`run.retry` 是公开 Host 命令；React 只传原 operationId，app-runtime 负责生成并在 `RESULT_UNKNOWN` 后复用幂等键。
 
 ## 3. 迁移与拒绝规则
 

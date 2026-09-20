@@ -50,7 +50,7 @@ interface PresentationState {
 }
 ```
 
-`SessionViewContext` 当前只保存 workspaceId、sessionId 和 toolInstanceId。页面 scope、section 和表单目标继续存放在对应 `PanelSurface.params` 与模块投影中；消息、草稿、表单与请求不复制进 presentation。滚动锚点和通用触发焦点恢复尚未进入该 slice，仍分别属于 R3.5 与组件/NativeDialog 的局部行为；DOM ref 不进入持久化状态。
+`SessionViewContext` 当前只保存 workspaceId、sessionId 和 toolInstanceId。页面 scope、section 和表单目标继续存放在对应 `PanelSurface.params` 与模块投影中；消息、草稿、表单与请求不复制进 presentation。滚动锚点已经作为 `HbarAppUiConversation` 按 sessionId 保存的局部视觉状态实现，通用触发焦点恢复继续属于组件/NativeDialog 的局部行为；两者都不进入 presentation，DOM ref 也不进入持久化状态。
 
 现有 surfaces 是实例和目标的事实源；presentation 是落点和活动关系的事实源。`focusedPanelId` 在迁移期只作为兼容派生值，不能再独立决定整个主页面。移除 `App.tsx` 中由一个 focusedPanelId 决定所有页面的串行分支。
 

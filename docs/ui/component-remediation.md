@@ -10,13 +10,13 @@
 | ------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `HbarAppUiAppShell` / `HbarAppUiAppSidebar`（workbench 入口） | 受控左右结构、树和底部 slots                 | 唯一生产外壳，已完成 header/tool/modal、drawer 与受控 sidebar/tool 尺寸 | **布局 v2 已完成**：稳定模块、v1 迁移、坏数据回退；不引入自由停靠                        |
 | `HbarAppUiWorkbenchShell` / `HbarAppUiNavigation`             | 旧全局顶栏、工作区选择、导航                 | 只保留 catalog/preview 兼容                                             | 已从 Web 生产构建输入移除；有明确旧调用者，不能直接删除                                  |
-| `HbarAppUiSessionNavigator`                                   | 受控会话列表                                 | catalog/preview 保留；生产工程树由 app-react 按目录投影组合             | 生产已验证 0/1/100/101、服务端分页、唯一滚动和选择稳定；长历史仍归 R3.5                  |
+| `HbarAppUiSessionNavigator`                                   | 受控会话列表                                 | catalog/preview 保留；生产工程树由 app-react 按目录投影组合             | 生产已验证 0/1/100/101、服务端分页、唯一滚动和选择稳定                                   |
 | `HbarAppUiActionMenu`                                         | 受控标签、菜单项、danger 与动作 ID           | 工程/会话原目标的紧凑行菜单                                             | 已验证 Escape、首项焦点、桌面按需显隐和触屏常显；靠近滚动边缘的未来菜单需继续测裁切      |
 | `HbarAppUiToolPane`                                           | header / toolbar / status / children slots   | 四种会话工具共同容器                                                    | 当前是用户未提交新增文件；集成前核对，不直接夹带提交；补 footer 和窄屏返回契约           |
-| `HbarAppUiConversation` / `HbarAppUiMessage`                  | 受控消息、composer/afterMessages/header slot | 已作为会话 Timeline 容器与消息                                          | 长历史虚拟化、滚动锚点和快速切换恢复仍归 R3.5                                            |
+| `HbarAppUiConversation` / `HbarAppUiMessage`                  | 受控消息、composer/afterMessages/header slot | 已作为会话 Timeline 容器与消息                                          | **R3.5 已完成**：40 条阈值动态虚拟化、加载旧页锚点、按会话恢复和非强制跟随               |
 | `HbarAppUiPromptComposer`                                     | 草稿、附件、IME、发送/停止回调               | 唯一生产输入组件，页面组合已验收                                        | 模型选择仍由状态/设置提供；整应用 light/system 主题仍归 R1.1                             |
-| `HbarAppUiRunActivity` / ApprovalRequest / Questionnaire      | 实际运行、审批、问卷                         | 插入所属消息/当前交互区域                                               | 核对薄条、裁切、待处理可达性；禁止裸图标按钮和空标题                                     |
-| AgentPlan / `HbarAppUiPlanEditor`                             | 计划展示与受控编辑                           | Goal/Plan 工具的摘要与编辑子视图                                        | 时间线内 Plan 归属和长计划容量仍需随 R3.2/R3.5 继续核对                                  |
+| `HbarAppUiRunActivity` / ApprovalRequest / Questionnaire      | 实际运行、审批、问卷                         | 插入所属消息/当前交互区域                                               | 失败/中断项已有宿主文案重试按钮与忙碌态；待处理可达性继续随所属交互验证                  |
+| AgentPlan / `HbarAppUiPlanEditor`                             | 计划展示与受控编辑                           | Goal/Plan 工具的摘要与编辑子视图                                        | 时间线内 Plan 归属和长计划容量仍需随 R3.2 核对                                           |
 | `HbarAppUiCompactUsage`                                       | 用量、预算、速率与 inline 密度               | 会话输入下方紧凑摘要                                                    | 已移除大卡片依赖；完整统计进入 Monitoring/Usage                                          |
 | `HbarAppUiWorkspaceFiles` / FileDocument                      | 受控虚拟列表、嵌入文档容器                   | 文件工具的列表→详情                                                     | 已完成返回、编辑保存和冲突保留草稿；超大目录容量继续由分页/虚拟化契约约束                |
 | `HbarAppUiDialog`（NativeDialog）                             | 原生 top layer、焦点圈定、Escape、初始焦点   | Provider 与命令三步流                                                   | Provider 删除确认和命令分层 Escape 已实测；Tauri 标题栏/DPI 仍归 R6.4                    |
@@ -68,4 +68,4 @@
 5. 在实际应用页面再次采集，确认无父容器/旧 CSS 冲突。
 6. 通过相关 guards、lint、typecheck、tests、build 后独立提交。
 
-逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。组件表中的已完成状态不覆盖仍单列的主题、容量、恢复和 Tauri 验收。
+逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。组件表中的已完成状态不覆盖仍单列的整页主题、Plan 归属和 Tauri 验收。

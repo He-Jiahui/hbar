@@ -156,7 +156,7 @@ CompactUsage 新增真正的 `inline` 密度：Session 只显示总 token、剩�
 
 Playwright 除业务闭环外还量化断言：1440、1024、390 三个宽度下五个页面动作必须位于同一水平行且 `writing-mode` 为 horizontal，PageHeader 不得横向溢出，Conversation 时间线与 composer 左右边界误差不超过 1 CSS px，inline Usage 高度不超过 48 CSS px。三档截图均逐张查看；没有用测试通过替代人工看图。
 
-本切片关闭 UI-01 和 UI-02。R3.2 的 Plan 归属、R3.5 的长历史滚动锚点/流式快速切换/断线恢复仍未完成。文件工具在 24rem 抽屉中把列表和编辑器并排导致文件名逐字断行，是当前最明显的生产视觉缺陷，继续归属 R4.2。
+本切片关闭 UI-01 和 UI-02。当时 R3.2 的 Plan 归属、R3.5 的长历史滚动锚点/流式快速切换/断线恢复仍未完成；R3.5 后续在第 28 节关闭。文件工具在 24rem 抽屉中把列表和编辑器并排导致文件名逐字断行，是该切片最明显的生产视觉缺陷，随后由 R4.2 关闭。
 
 验证结果：全仓 ESLint（Node heap 8 GiB）和 TypeScript 通过；379 个 Bun 测试、2960 个断言通过；Web production build 与 Usage 独立预览验证通过；flow/content/icon guards、Prettier 和 `git diff --check` 通过；Playwright 离线中英文桌面/窄屏与真实 Host connected 场景共 5 项通过。真实场景执行了文件、监控、子 Agent、目标与计划、Session 设置、发送、审批、取消和各页面返回路径。
 
@@ -450,3 +450,24 @@ R2.4 之前只有单页会话选择和顶部新建入口，100 条默认页上�
 | 重命名完成     | [1440](../../artifacts/ui-redesign/shell/session-renamed-1440.png)：真实 Host 执行后回执、主标题和侧栏行一致更新                                              |
 
 真实 Host E2E 单独创建 101 个会话，断言第一页恰好 100 个唯一可访问名称、显式加载后为 101、侧栏内容区实际溢出并拥有滚动、选中项跨页合并不丢失。完整工作区流程验证工程菜单的 `workspaceId`、会话菜单的 `sessionId`/标题、Escape 层级和真实重命名；运行时测试覆盖归档当前/非当前目标。验证结果：Prettier、定向 ESLint、TypeScript、flow/content/icon guards、397 个 Bun 测试（3148 个断言）、Web production build（2392 modules / 217.69 kB CSS）和 6/6 Playwright 场景通过。以上七张图来自最终 production preview 并逐张原尺寸查看；Tauri 实窗仍归 R6.4。
+
+## 28. R3.5 长会话、阅读锚点、断线恢复与运行重试
+
+短会话截图无法证明历史分页或恢复逻辑。新的真实 Host fixture 先持久化 180 条稳定 ID 消息，production 页面首屏只加载最新 60 条，再从最小 seq 每次向前加载 60 条。runtime 最多缓存 8 个会话和每会话 1,000 条消息；刷新、重连或旧页失败保留已显示内容。目标 sessionId、cursor 或 generation 不匹配的晚到页会被拒绝，快速切换不会让旧会话结果覆盖当前页面。
+
+`HbarAppUiConversation` 在 40 条以上启用动态虚拟化，虚拟 DOM 仍保留 list/listitem 语义。旧页前插以“首个可见消息 ID + 相对视口偏移”恢复位置，并在动态测量的短窗口内用 `ResizeObserver` 校正。初版按总 scrollHeight 差补偿，实测漂移约 330px；改为消息锚点后稳定在 16px 内。随后快速切换测试又发现 unmount cleanup 会把新保存的锚点覆盖为旧 DOM 位置，因此删除 cleanup 读取，只在真实滚动时保存。用户阅读历史时，新消息不强制滚到底部，只显示“View latest messages”；首版提示占满整行，经截图发现抢占视觉层级，改为内容宽度的紧凑 pill。
+
+| 场景         | 截图与人工观察                                                                                                                                                                                                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 加载两页     | [1440](../../artifacts/ui-redesign/session/after/long-history-page-1440.png)：显示 120 条事实，但 DOM 消息项少于 50；顶部加载动作与消息列对齐                                                                                                                    |
+| 前插锚点     | [1440](../../artifacts/ui-redesign/session/after/long-history-anchor-1440.png)：加载至 180 条后原首个可见消息保持同一视口位置，没有大片空白或重叠                                                                                                                |
+| 历史顶部     | [1440](../../artifacts/ui-redesign/session/after/long-history-top-1440.png)：最早消息可达，1,000 条上限与分页状态有明确位置                                                                                                                                      |
+| 历史中新内容 | [1440](../../artifacts/ui-redesign/session/after/long-history-new-1440.png)：发送后阅读位置保持，紧凑“View latest messages”动作位于输入区上方                                                                                                                    |
+| 回到最新     | [1440](../../artifacts/ui-redesign/session/after/long-history-latest-1440.png)：显式点击后到达底部，composer 与消息列仍同宽                                                                                                                                      |
+| 断线与重连   | [断线](../../artifacts/ui-redesign/session/after/disconnected-1440.png)、[重连](../../artifacts/ui-redesign/session/after/reconnected-1440.png)：历史与未发送草稿均保留                                                                                          |
+| 长历史窄屏   | [390](../../artifacts/ui-redesign/session/after/long-history-mobile-390.png)：虚拟列表、页头、提示和输入无横向溢出                                                                                                                                               |
+| 失败与重试   | [失败](../../artifacts/ui-redesign/session/after/run-failed-1440.png)、[重试后](../../artifacts/ui-redesign/session/after/run-retried-1440.png)、[390](../../artifacts/ui-redesign/session/after/run-retried-mobile-390.png)：原因、状态、耗时和文字按钮保持清楚 |
+
+失败/中断 Run 的动作由 `HbarAppUiRunActivity` 显示为带 RotateCcw 图标和宿主文案的按钮，不能退化成无名图标。React 发出 `run.retry`，app-runtime 在响应未知时保留同一幂等键，下一次核对不会重复入队。真实 `/fail` 模型场景点击重试后生成第二个失败 Run，证明按钮绑定的不是局部伪状态。截图又发现单项计数写成 “1 runs”，最终改为 “1 run”；390px 下两个重试按钮都保持在各自卡片边界内。
+
+验证结果：TypeScript、定向 ESLint、content-contract/icon-scale/flow-layout guards、398 个 Bun 测试（3174 个断言）、Web production build（2393 modules / 219.92 kB CSS / 960.51 kB JS）和 8/8 Playwright 场景全部通过。新增 11 张 production 图均逐张原尺寸查看；`artifacts/ui-redesign` 当前共 18 个页面/组件族、176 张 PNG。Tauri 实窗仍归 R6.4，R3.2 的 Plan 归属仍单列，未借 R3.5 提前关闭。

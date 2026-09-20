@@ -45,7 +45,7 @@ PageHeader（工程、会话、工具）
 - 提交中、上传中、停止中和断线各自使用已有状态，禁止将所有状态合并为一个笼统 loading。
 - 发送失败保留文本和附件，错误在输入框附近；新输入不被旧提交回执清空。
 
-2026-09-19 已完成组件自包含样式修复；随后会话页完成单一 PageHeader、消息时间线、运行/审批/问卷、PromptComposer 与 inline Usage 的生产组合，并通过 1440/1024/390 真实 Host 截图。模型当前以只读状态显示，完整选择控件仍由设置/命令负责；长历史滚动锚点、快速切换、断线和重试仍归 R3.5，不能由短 fixture 回合替代。
+2026-09-19 已完成组件自包含样式修复；随后会话页完成单一 PageHeader、消息时间线、运行/审批/问卷、PromptComposer 与 inline Usage 的生产组合，并通过 1440/1024/390 真实 Host 截图。模型当前以只读状态显示，完整选择控件仍由设置/命令负责。2026-09-20 又用 180 条真实持久消息验证长历史分页、虚拟化、锚点、快速切换、断线重连和失败运行重试，R3.5 已关闭；Plan 与消息/Run 的归属仍归 R3.2。
 
 ## 4. 用量摘要
 
@@ -57,18 +57,29 @@ PageHeader（工程、会话、工具）
 
 ## 5. 状态所有权与命令
 
-| 操作               | 所属现有模块                   | UI 规则                                     |
-| ------------------ | ------------------------------ | ------------------------------------------- |
-| 编辑/添加/移除附件 | app-runtime drafts             | 回调捕获 sessionId；UI 不复制草稿           |
-| 发送/重试/取消     | run 命令与回执                 | 提交捕获 draft revision；取消只针对当前 Run |
-| 模型/思考/预算     | session-controls、budget-forms | 从现有 catalog 绑定，不在控件中写供应商规则 |
-| 审批/问卷          | interactions                   | 捕获原 request/approval ID；错误原位展示    |
-| 跳转工具/设置      | presentation / surfaces        | 命令打开明确目标与作用域                    |
+| 操作               | 所属现有模块                   | UI 规则                                                                                    |
+| ------------------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| 编辑/添加/移除附件 | app-runtime drafts             | 回调捕获 sessionId；UI 不复制草稿                                                          |
+| 发送/重试/取消     | run 命令与回执                 | 提交捕获 draft revision；重试绑定原 operationId 并复用未知回执的幂等键；取消只针对当前 Run |
+| 加载/重试时间线    | timeline 内部命令              | UI 只调用 `timeline.loadOlder` / `timeline.retry`；runtime 验证目标与游标后合并            |
+| 模型/思考/预算     | session-controls、budget-forms | 从现有 catalog 绑定，不在控件中写供应商规则                                                |
+| 审批/问卷          | interactions                   | 捕获原 request/approval ID；错误原位展示                                                   |
+| 跳转工具/设置      | presentation / surfaces        | 命令打开明确目标与作用域                                                                   |
 
-消息滚动锚点按 sessionId 保存；回到底部是局部视觉行为。用户已在底部时流式跟随，否则保留阅读位置并显示新消息提示。切换工具不重新挂载整个会话 timeline。
+消息滚动锚点按 sessionId 保存；回到底部是局部视觉行为。用户已在底部时流式跟随，否则保留阅读位置并显示新消息提示。切换工具不重新挂载整个会话 timeline。当前实现按首个可见消息 ID 与其视口相对偏移恢复锚点，动态测量期间用短期 `ResizeObserver` 修正；切换会话时只读取已保存锚点，不在旧组件 cleanup 中覆盖新值。
 
 ## 6. 复用与验收
 
 复用 Conversation、Message、PromptComposer、RunActivity、ApprovalRequest、Questionnaire、AgentPlan 与 Usage 受控组件。消息/运行格式化留在 app-react；包内不能 import Web locale。
 
 必须看图的场景：空会话、短问答、长历史、长代码/表格、运行中、等待审批、问卷、长输入、多附件、错误、断线、工具打开。行为检查包括 IME 不误发、发送原草稿、晚到附件不串会话、失败重试幂等、旧消息回看不跳动。长历史使用已有分页/虚拟化，确认流式更新不让外壳持续重绘。
+
+## 7. R3.5 已实现的容量与恢复边界
+
+- runtime 每次加载 60 条消息，最多缓存 8 个会话、每会话最多保留 1,000 条；更早页按当前最小 seq 查询，错误页可重试，错误目标、错误 cursor 和旧 generation 结果不会污染当前会话。
+- `HbarAppUiConversation` 在消息数超过 40 时使用动态虚拟列表，保留 `list/listitem` 语义和可访问消息总数。旧页前插不改变首个可见消息的位置；180 条记录实测 DOM 消息节点保持少于 50。
+- 用户停留在历史位置时，新消息不抢滚动位置，只显示紧凑的“查看最新消息”；点击后回到底部。按 sessionId 快速往返会恢复各自偏移。
+- WebSocket 中断时，已有记录、草稿和附件继续显示；Composer 禁止离线发送，显式 Reconnect 后重新订阅并保留输入。刷新/重连错误只改变状态，不清空已呈现内容。
+- `HbarAppUiRunActivity` 对 failed/interrupted Run 显示带文字的重试动作。React 只发出 `run.retry { sessionId, operationId }`；app-runtime 在 `RESULT_UNKNOWN` 时保存同一幂等键，恢复后重试不会重复创建运行。
+
+视觉证据包括[两页历史](../../artifacts/ui-redesign/session/after/long-history-page-1440.png)、[加载旧页锚点](../../artifacts/ui-redesign/session/after/long-history-anchor-1440.png)、[历史中新内容](../../artifacts/ui-redesign/session/after/long-history-new-1440.png)、[回到最新](../../artifacts/ui-redesign/session/after/long-history-latest-1440.png)、[断线](../../artifacts/ui-redesign/session/after/disconnected-1440.png)、[重连](../../artifacts/ui-redesign/session/after/reconnected-1440.png)、[失败运行](../../artifacts/ui-redesign/session/after/run-failed-1440.png)、[重试后](../../artifacts/ui-redesign/session/after/run-retried-1440.png)和[390 宽度](../../artifacts/ui-redesign/session/after/run-retried-mobile-390.png)。最终验证为 TypeScript、定向 ESLint、content/icon/flow guards、398 个 Bun 测试（3174 个断言）、2393-module production build 和 8/8 Playwright 场景全部通过。
