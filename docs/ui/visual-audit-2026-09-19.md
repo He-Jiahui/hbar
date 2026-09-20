@@ -550,3 +550,15 @@ Web 入口过去在 `main.tsx` 与 `document.css` 两处强制 dark。组件库�
 六张图均以原分辨率人工查看。设置页再次确认 hbar 应借鉴的是“全局导航、局部分类、内容”三层关系，而不是复制 cc-haha 的 Scheduled、Skills Market、Pets 或顶部多标签业务。移动图再次确认窄屏应切换成单面板与覆盖抽屉。抽屉几何报告在 150ms 位移动画完成前采样，因此 `sidebar-390x844-metrics.json` 的 `x=-280` 是动画起点；最终截图清楚显示抽屉终态左边缘为 0、右边缘为 280，不能用该瞬时值否定截图。
 
 完整可复核数据位于[采集元数据](../../artifacts/ui-reference/cc-haha-runtime/current/capture-metadata.json)、[用户状态守卫](../../artifacts/ui-reference/cc-haha-runtime/current/user-state-guard.json)、各图同名 metrics/ARIA/body 文件及 server/Vite 日志。首次尝试暴露 Playwright 自带 Chromium 未下载，随后复用系统 Chrome；另一次暴露 Vite 冷启动依赖转换超过默认 30 秒，改为有界 180 秒等待。最终结果为 `passed`，没有把两次环境超时计成页面通过。
+
+## 34. 会话 composer 底部停靠回归
+
+把 R0.3 的当前运行参考与 hbar production 空会话并排查看后，发现 hbar 的 composer 曾停在主区中下部，下面留下约 300px 无意义空白；DOM 结构、左右边界和组件自身 CSS 都正确，单看源代码容易误判为已完成。实际 computed style 显示 `HbarAppUiConversation` 被渲染成 grid：Web 入口先导入 `App`，组件样式随 React 依赖进入构建，之后加载的全局 `hbar-app-ui/theme.css` 又用旧 `.hbar-app-ui-conversation { display: grid }` 规则覆盖了组件声明的 flex column。
+
+修复没有修改用户正在编辑的 `theme.css`，而是在 Web 入口把基础主题放到 `App` 之前加载，使具体组件 CSS 按正常层叠顺序覆盖基础规则。`Conversation` 因此恢复纵向 flex，时间线吸收剩余空间，composer 保持在会话内容区底边。该顺序也明确了样式职责：tokens/theme 提供基础变量与兼容外观，组件文件决定组件内部布局。
+
+E2E 在 1440×960、1024×768 和 390×844 三档同时读取真实 production DOM，断言 `Conversation` 的 computed `display` 为 `flex`，composer 与 Conversation 底边误差不超过 1 CSS px，并继续检查时间线与 composer 左右边界、页头操作同排、Usage 高度和整页横向溢出。人工原尺寸查看了[桌面空会话](../../artifacts/ui-redesign/session/after/desktop-1440-empty.png)、[移动会话](../../artifacts/ui-redesign/session/after/mobile-390.png)、[深色设置](../../artifacts/ui-redesign/theme/after/settings-system-dark-1440.png)、[命令参数](../../artifacts/ui-redesign/commands/after/desktop-1440-parameters.png)和[浅色状态](../../artifacts/ui-redesign/theme/after/status-light-1440.png)。[参考与修复后对照](../../artifacts/ui-reference/cc-haha-runtime/comparison/session-desktop-compare-after.png)确认两者都采用伸展阅读区加底部输入区；hbar 仍保留自己的工程会话树、页头工具和紧凑 Usage。
+
+首次完整 Playwright 回归在 11 项中的第 10 项耗尽旧的 120 秒场景总预算；失败截图和可访问树显示 390px 设置页已经正确呈现、侧栏已经关闭，等待的是一个此时不存在的“隐藏侧栏”按钮，因此不能记为视觉通过，也不能误报产品布局失败。测试改为立即检查该按钮是否存在，并把涵盖侧栏、会话、四类工具、设置、Provider、状态和命令目录的完整流程预算调整为 180 秒。最终全套 11/11 在 32.4 秒完成，其中完整连接流程为 12.3 秒。
+
+验证结果：commit `a1abd0c`；Prettier、定向 ESLint、TypeScript、全仓 ESLint、403 个 Bun 测试（3221 个断言）、Web production build（2395 modules / 226.03 kB CSS / 964.26 kB JS）和 11/11 Playwright 全部通过。三档会话截图和上述代表页面均直接查看，没有以代码断言代替视觉检查；Tauri 实窗仍归 R6.4。
