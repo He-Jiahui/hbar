@@ -1,6 +1,6 @@
 # 2026-09-19：组件现状审计、Prompt 与表单控件修复
 
-上级：[UI 总计划](index.md)。对应 R0.1、R1.2a、R1.3。此记录区分已验证修复和待实施的整页重设计。
+上级：[UI 总计划](index.md)。对应 R0.1、R0.3、R1.2a、R1.3 及后续实际交付。此记录区分已验证修复和待实施的整页重设计。
 
 ## 1. 环境与证据范围
 
@@ -8,7 +8,7 @@
 - 本轮代码修复：`8408735`，仅包含 Composer.css、独立生产组件预览、fixture、视觉脚本与生产 E2E 截图断言。
 - 本轮浏览器：本地 Chrome headless 组件审核、Playwright Web E2E；没有使用真实付费模型。
 - 独立输入组件：中英文×浅深色×1440/1024/390/320，共 16 个常规组合；另有附件、长输入、错误、运行和禁用 5 个场景。
-- 修复前后各 21 张截图和几何报告，另有真实 Host fixture 生产会话截图。本轮没有执行新的 Tauri 实窗审核，也没有采集 cc-haha 当前运行版本。
+- 修复前后各 21 张截图和几何报告，另有真实 Host fixture 生产会话截图。初始审计当时没有执行新的 Tauri 实窗审核，也没有采集 cc-haha 当前运行版本；后者已由第 33 节的 R0.3 隔离运行证据补齐，前者仍归 R6.4。
 
 此前已看的 cc-haha 产品图来自其仓库 `docs/images/app/zh-CN`，相关图片提交 `107bfc86`（2026-07-31）。这些参考用于确定空间和层级，不冒充本轮实时浏览器截图。
 
@@ -529,3 +529,24 @@ Web 入口过去在 `main.tsx` 与 `document.css` 两处强制 dark。组件库�
 最终视觉矩阵没有再建立一套“看起来像生产”的页面。Playwright 始终启动 `apps/web` 的 production build，`scripts/e2e-session-host.ts` 只在临时数据根中创建工程、会话、历史、Plan、失败模型、审批、Usage、设置和 Git/性能事实，并通过真实认证与 RPC 路径供页面读取。离线场景直接打开同一 Web 入口且拒绝业务网络请求；连接场景经真实 Host 完成命令、持久写入、刷新恢复和增量通知。
 
 这种组合满足 fixture 边界：页面 DOM、AppShell、工具、模态、表单、主题和全部组件 CSS 均来自生产入口，测试只控制数据、locale、viewport、媒体查询、连接中断和用户操作。按钮与 Prompt 的独立矩阵也直接渲染生产组件和生产样式文件，没有给子组件补缺失外观。当前 11 项 Playwright 共同覆盖四个离线 locale/viewport、101 会话、180 条时间线、Plan Run 归属、失败重试、完整 Host 工作流、基础按钮和整页主题，因此 R1.6 不再保留一个重复 preview 应用作为未完成项。
+
+## 33. R0.3 cc-haha 当前运行参考
+
+仓库内产品截图能说明历史外观，不能证明当前代码在固定条件下仍呈现相同结构。R0.3 因此单独启动 `D:\Git\cc-haha` 当前 desktop renderer，并记录运行环境与工作区边界。参考 tracked HEAD 为 `e28d0a653481ef41b7a329411eeb2f0fd5656731`（2026-09-02）；tracked diff 为空，仓库原有 15 个未跟踪项，采集过程没有改动或清理这些用户文件。因此这组图描述“该 commit 加当前未跟踪工作区”的实际运行结果，不能伪装成 clean checkout 像素基线。
+
+页面使用生产 React/Vite renderer、真实本地 Host/API/WebSocket 和仓库自带 deterministic mock SDK CLI。fixture 只在临时目录创建工程、会话、假供应商和一次 Write 工具审批，不读取真实供应商凭据，不访问模型网络；结束后用户配置指纹为零变化，临时工程与配置已删除。官方 `check:desktop-ui-smoke` 原定使用的 `agent-browser` 在机器上未安装，本次用 hbar 已有 Playwright 驱动系统 Chrome 153.0.8010.48，页面和服务端均未替换。
+
+固定渲染条件为英文、内置 dark 主题、DPR 1、visual viewport scale 1、reduced motion，以及 1440×900 和 390×844 两个视口。参考的移动断点是源码明确的 `max-width: 767px`。根/正文实际使用 Inter；字体加载完成后 `Inter` 与 `JetBrains Mono` 检查为 true，当前页面未请求 Manrope。桌面实测全局侧栏 280px、标签栏 52px、主区 1160px；390px 下标签栏移除，会话头 61px，侧栏为 280px 覆盖抽屉。全部页面 `scrollWidth === clientWidth`，没有整页横向溢出。
+
+| 场景     | 当前运行截图与人工观察                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 空会话   | [1440×900](../../artifacts/ui-reference/cc-haha-runtime/current/session-empty-1440x900.png)：工程区、会话标签、阅读主区和底部 composer 各自只有一个滚动/布局职责；输入区没有额外页面卡壳。  |
+| 审批中   | [1440×900](../../artifacts/ui-reference/cc-haha-runtime/current/permission-dialog-1440x900.png)：Write 审批直接进入时间线，路径、diff、状态及 Allow/Deny 同一上下文可见，没有另开全屏页面。 |
+| 工具完成 | [1440×900](../../artifacts/ui-reference/cc-haha-runtime/current/session-tool-complete-1440x900.png)：响应后的卡片降权并保留结果，composer 仍固定在底部，消息区独立滚动。                    |
+| 设置     | [1440×900](../../artifacts/ui-reference/cc-haha-runtime/current/settings-1440x900.png)：280px 全局项目栏外再使用 195px 设置分类栏，主操作贴近页面标题；内容按普通流占用剩余宽度。           |
+| 移动会话 | [390×844](../../artifacts/ui-reference/cc-haha-runtime/current/session-390x844.png)：单一 61px 会话头替代桌面标签栏；composer 和工程选择完整留在视口底部，没有把桌面侧栏堆到正文上方。      |
+| 移动侧栏 | [390×844](../../artifacts/ui-reference/cc-haha-runtime/current/sidebar-390x844.png)：280px 抽屉覆盖主区，右侧遮罩保留关闭目标；品牌、主操作、搜索与底部区域沿同一竖向流组织。               |
+
+六张图均以原分辨率人工查看。设置页再次确认 hbar 应借鉴的是“全局导航、局部分类、内容”三层关系，而不是复制 cc-haha 的 Scheduled、Skills Market、Pets 或顶部多标签业务。移动图再次确认窄屏应切换成单面板与覆盖抽屉。抽屉几何报告在 150ms 位移动画完成前采样，因此 `sidebar-390x844-metrics.json` 的 `x=-280` 是动画起点；最终截图清楚显示抽屉终态左边缘为 0、右边缘为 280，不能用该瞬时值否定截图。
+
+完整可复核数据位于[采集元数据](../../artifacts/ui-reference/cc-haha-runtime/current/capture-metadata.json)、[用户状态守卫](../../artifacts/ui-reference/cc-haha-runtime/current/user-state-guard.json)、各图同名 metrics/ARIA/body 文件及 server/Vite 日志。首次尝试暴露 Playwright 自带 Chromium 未下载，随后复用系统 Chrome；另一次暴露 Vite 冷启动依赖转换超过默认 30 秒，改为有界 180 秒等待。最终结果为 `passed`，没有把两次环境超时计成页面通过。
