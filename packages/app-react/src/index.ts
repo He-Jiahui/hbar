@@ -1,5 +1,5 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
-export { createHbarSchemaComponents } from './schema-components'
+export { createHbarSchemaComponents } from './lumen-schema-components'
 export {
   HbarWorkspaceShell,
   type HbarWorkspaceShellLabels,

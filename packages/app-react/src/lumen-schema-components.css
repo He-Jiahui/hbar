@@ -1,0 +1,22 @@
+.hbar-app-react-schema-resource {
+  display: flex;
+  min-inline-size: 0;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-schema-resource > .lumen-control {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-schema-resource > button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 32rem) {
+  .hbar-app-react-schema-resource {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

@@ -69,9 +69,9 @@ test('hbar schema adapter renders the shared visual controls for scalar, secret,
       onIntent={() => undefined}
     />,
   )
-  expect(html).toContain('hbar-app-ui-control')
-  expect(html).toContain('hbar-app-ui-combobox')
-  expect(html).toContain('hbar-app-ui-multi-select')
+  expect(html).toContain('lumen-control')
+  expect(html).toContain('lumen-combobox')
+  expect(html).toContain('lumen-multi-select')
   expect(html).toContain('Remove text')
   expect(html).not.toContain('never-render-this-value')
   components.dispose()
