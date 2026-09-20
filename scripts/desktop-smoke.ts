@@ -107,6 +107,44 @@ try {
   await page.getByText('native-visual.txt', { exact: true }).waitFor()
   const noHorizontalOverflow = async () =>
     page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+  const readSessionGeometry = async () =>
+    page.evaluate(() => {
+      const rect = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector)
+        if (!element) throw new Error(`Missing desktop layout region: ${selector}`)
+        const bounds = element.getBoundingClientRect()
+        return { left: bounds.left, right: bounds.right, width: bounds.width }
+      }
+      return {
+        shell: rect('.hbar-app-ui-app-shell'),
+        frame: rect('.hbar-app-ui-app-frame'),
+        sessionMain: rect('.hbar-app-react-session-main'),
+        conversation: rect('.hbar-app-ui-conversation'),
+        timeline: rect('.hbar-app-ui-conversation-content'),
+        composer: rect('.hbar-app-react-session-footer'),
+      }
+    })
+  const assertSessionGeometry = async (stage: string) => {
+    const geometry = await readSessionGeometry()
+    const within = (left: number, right: number, tolerance = 1) => Math.abs(left - right) <= tolerance
+    if (
+      !within(geometry.sessionMain.left, geometry.conversation.left) ||
+      !within(geometry.sessionMain.right, geometry.conversation.right)
+    )
+      throw new Error(`${stage}: conversation does not fill the session main region: ${JSON.stringify(geometry)}`)
+    if (
+      !within(geometry.timeline.left, geometry.composer.left) ||
+      !within(geometry.timeline.right, geometry.composer.right)
+    )
+      throw new Error(`${stage}: timeline and composer edges differ: ${JSON.stringify(geometry)}`)
+    const leftGutter = geometry.timeline.left - geometry.conversation.left
+    const rightGutter = geometry.conversation.right - geometry.timeline.right
+    if (!within(leftGutter, rightGutter) || geometry.composer.width < Math.min(geometry.conversation.width, 800))
+      throw new Error(
+        `${stage}: session content is not balanced across the available width: ${JSON.stringify(geometry)}`,
+      )
+    return geometry
+  }
   if (!(await noHorizontalOverflow())) throw new Error('Desktop session has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-default-window.png' })
   await page.getByRole('button', { name: /^(文件|Files)$/ }).click()
@@ -130,7 +168,26 @@ try {
       throw new Error(`Desktop window has not resized: ${JSON.stringify(size)}`)
   })
   if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop window has horizontal overflow')
+  const collapsedGeometry = await assertSessionGeometry('Minimum desktop window')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-min-window.png' })
+  await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).click()
+  await page.getByRole('complementary', { name: /^(工程与会话|Projects and sessions)$/ }).waitFor()
+  const expandedGeometry = await assertSessionGeometry('Minimum desktop window with sidebar')
+  const sidebarGeometry = await page.locator('.hbar-app-ui-app-sidebar-drawer').evaluate((element) => {
+    const bounds = element.getBoundingClientRect()
+    return { left: bounds.left, right: bounds.right, width: bounds.width, position: getComputedStyle(element).position }
+  })
+  if (
+    sidebarGeometry.position === 'fixed' ||
+    Math.abs(sidebarGeometry.right - expandedGeometry.frame.left) > 1 ||
+    expandedGeometry.frame.width >= collapsedGeometry.frame.width
+  )
+    throw new Error(
+      `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, collapsedGeometry, expandedGeometry })}`,
+    )
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-sidebar-min-window.png' })
+  await page.getByRole('button', { name: /^(隐藏工程与会话侧栏|Hide projects and sessions sidebar)$/ }).click()
+  await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).waitFor()
   await page.getByRole('button', { name: /^(文件|Files)$/ }).click()
   await page.getByRole('heading', { level: 2, name: /^(文件管理器|File manager)$/ }).waitFor()
   if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop tool window has horizontal overflow')
@@ -165,7 +222,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected; the WebView file chooser uploaded an attachment; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
+    'PASS: Native credentials connected; the WebView file chooser uploaded an attachment; session content aligned at both edges; the medium-width sidebar shrank the main workspace without overlap; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
   )
 } catch (error) {
   console.error(await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'))

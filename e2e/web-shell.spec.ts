@@ -616,12 +616,15 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
         await page.evaluate(() => {
           const header = document.querySelector<HTMLElement>('.hbar-app-ui-page-header')
           const actions = [...document.querySelectorAll<HTMLElement>('.hbar-app-ui-page-action')]
+          const sessionMain = document.querySelector<HTMLElement>('.hbar-app-react-session-main')
           const conversation = document.querySelector<HTMLElement>('.hbar-app-ui-conversation')
           const timeline = document.querySelector<HTMLElement>('.hbar-app-ui-conversation-content')
           const composer = document.querySelector<HTMLElement>('.hbar-app-react-session-footer')
           const usage = document.querySelector<HTMLElement>('.hbar-app-ui-inline-usage')
-          if (!header || actions.length !== 5 || !conversation || !timeline || !composer || !usage) return false
+          if (!header || actions.length !== 5 || !sessionMain || !conversation || !timeline || !composer || !usage)
+            return false
           const actionTops = actions.map((action) => action.getBoundingClientRect().top)
+          const sessionMainRect = sessionMain.getBoundingClientRect()
           const conversationRect = conversation.getBoundingClientRect()
           const timelineRect = timeline.getBoundingClientRect()
           const composerRect = composer.getBoundingClientRect()
@@ -630,15 +633,26 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
             Math.max(...actionTops) - Math.min(...actionTops) <= 1 &&
             actions.every((action) => getComputedStyle(action).writingMode === 'horizontal-tb') &&
             getComputedStyle(conversation).display === 'flex' &&
+            Math.abs(sessionMainRect.left - conversationRect.left) <= 1 &&
+            Math.abs(sessionMainRect.right - conversationRect.right) <= 1 &&
             Math.abs(conversationRect.bottom - composerRect.bottom) <= 1 &&
             Math.abs(timelineRect.left - composerRect.left) <= 1 &&
             Math.abs(timelineRect.right - composerRect.right) <= 1 &&
+            Math.abs(timelineRect.left - conversationRect.left - (conversationRect.right - timelineRect.right)) <= 1 &&
+            composerRect.width >= Math.min(conversationRect.width, 800) &&
             usage.getBoundingClientRect().height <= 48
           )
         }),
       ).toBe(true)
     await expectSessionLayout()
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440-empty.png', fullPage: true })
+    await page.setViewportSize({ width: 900, height: 600 })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' })).toBeVisible()
+    await expectSessionLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-900-empty.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    const restoreNavigationAfterLayout = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
+    if (await restoreNavigationAfterLayout.isVisible()) await restoreNavigationAfterLayout.click()
     const prompt = page.getByRole('textbox', { name: 'Prompt' })
     await expect(prompt).toBeEnabled()
 

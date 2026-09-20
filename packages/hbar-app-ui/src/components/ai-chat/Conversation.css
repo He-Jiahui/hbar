@@ -1,5 +1,6 @@
 .hbar-app-ui-conversation {
   display: flex;
+  inline-size: 100%;
   flex-direction: column;
   min-inline-size: 0;
   min-block-size: 0;
@@ -17,7 +18,8 @@
 }
 .hbar-app-ui-conversation-content {
   display: flex;
-  inline-size: min(100%, 52rem);
+  inline-size: 100%;
+  max-inline-size: 52rem;
   min-inline-size: 0;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-md);

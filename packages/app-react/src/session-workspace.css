@@ -95,7 +95,8 @@
 
 .hbar-app-react-session-footer {
   display: flex;
-  inline-size: min(100%, 52rem);
+  inline-size: 100%;
+  max-inline-size: 52rem;
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
