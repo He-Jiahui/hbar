@@ -1,0 +1,64 @@
+.hbar-app-react-file-workspace > .lumen-tool-pane-body {
+  overflow: hidden;
+}
+
+.hbar-app-react-file-layout,
+.hbar-app-react-file-browser {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-file-browser > .lumen-workspace-files {
+  flex: 1 1 auto;
+  block-size: auto;
+}
+
+.hbar-app-react-file-browser > button {
+  flex: 0 0 auto;
+  margin: 0.5rem;
+}
+
+.hbar-app-react-file-layout > .lumen-file-document {
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.hbar-app-react-file-editor {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: 12rem;
+  flex: 1 1 auto;
+  resize: none;
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.5;
+}
+
+.lumen-file-document-body footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-file-document-body footer [role='status'] {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-file-reload-description {
+  margin: 0;
+  padding: 1rem;
+  color: var(--lumen-muted);
+}
