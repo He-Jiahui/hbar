@@ -34,6 +34,8 @@ export function registerNavigationCommands(
   local: CommandRegistry,
   queries: DirectoryQueries,
   createSession: (workspaceId: string, title: string | undefined, execution: ExecuteOptions) => Promise<Session>,
+  renameSession: (sessionId: string, title: string, execution: ExecuteOptions) => Promise<Session>,
+  archiveSession: (sessionId: string, archived: boolean, execution: ExecuteOptions) => Promise<Session>,
   openWorkspace: (path: string, execution: ExecuteOptions) => Promise<Workspace>,
   navigation: ReturnType<typeof createState<NavigationState>>,
   isDisposed: () => boolean,
@@ -98,6 +100,12 @@ export function registerNavigationCommands(
       throw error
     }
   })
+  local.register(navigationCommands['app.renameSession'], (input, context) =>
+    renameSession(input.sessionId, input.title, context),
+  )
+  local.register(navigationCommands['app.archiveSession'], (input, context) =>
+    archiveSession(input.sessionId, input.archived, context),
+  )
   local.register(navigationCommands['workspace.open'], (input, context) =>
     navigate(async (execution) => {
       const workspace = await openWorkspace(input.path, execution)

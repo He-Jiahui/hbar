@@ -151,6 +151,41 @@ export function createDirectoryModule(
       if (!disposed && !execution.signal?.aborted) mergeSessions([session])
       return session
     },
+    async renameSession(sessionId: string, title: string, execution: ExecuteOptions): Promise<Session> {
+      if (!options.workspaces)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot rename Host sessions')
+      let value: unknown
+      try {
+        value = await options.workspaces.execute('session.rename', { sessionId, title }, execution)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
+      const session = decode(sessionSchema, value)
+      if (session.id !== sessionId || session.title !== title || session.archived)
+        throw new CommandError('INVALID_OUTPUT', 'Renamed session does not match its command')
+      if (!disposed && !execution.signal?.aborted) mergeSessions([session])
+      return session
+    },
+    async archiveSession(sessionId: string, archived: boolean, execution: ExecuteOptions): Promise<Session> {
+      if (!options.workspaces)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot archive Host sessions')
+      let value: unknown
+      try {
+        value = await options.workspaces.execute('session.archive', { sessionId, archived }, execution)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
+      const session = decode(sessionSchema, value)
+      if (session.id !== sessionId || session.archived !== archived)
+        throw new CommandError('INVALID_OUTPUT', 'Archived session does not match its command')
+      if (!disposed && !execution.signal?.aborted) {
+        mergeSessions([session])
+        if (session.archived) onSessionUnavailable(session.id)
+      }
+      return session
+    },
     async openWorkspace(path: string, execution: ExecuteOptions): Promise<Workspace> {
       if (!options.workspaces)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot register Host workspaces')

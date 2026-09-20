@@ -160,3 +160,60 @@ test('app.createSession reuses its internal idempotency key after an unknown Hos
     runtime.dispose()
   }
 })
+
+test('session row commands merge renamed facts and clear an archived active selection', async () => {
+  const calls: { name: string; input: unknown }[] = []
+  const runtime = createAppRuntime({
+    instanceId: 'session-row-actions',
+    hostId: 'host',
+    directory: {
+      execute(name, input) {
+        if (name === 'workspace.get') return Promise.resolve(existing)
+        if (name === 'session.get')
+          return Promise.resolve((input as { sessionId: string }).sessionId === created.id ? created : null)
+        if (name === 'workspace.list') return Promise.resolve({ items: [existing], nextCursor: null })
+        if (name === 'session.list') return Promise.resolve({ items: [created], nextCursor: null })
+        return Promise.reject(new Error(`Unexpected query: ${name}`))
+      },
+    },
+    workspaces: {
+      execute(name, input) {
+        calls.push({ name, input })
+        if (name === 'session.rename')
+          return Promise.resolve({ ...created, title: (input as { title: string }).title, updatedAt: 4, seq: 1 })
+        if (name === 'session.archive')
+          return Promise.resolve({ ...created, title: 'Renamed session', archived: true, updatedAt: 5, seq: 2 })
+        return Promise.reject(new Error(`Unexpected write: ${name}`))
+      },
+    },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: created.id })
+    const renamed = await runtime.view.commands.execute('app.renameSession', {
+      sessionId: created.id,
+      title: ' Renamed session ',
+    })
+    expect(renamed).toMatchObject({ id: created.id, title: 'Renamed session', archived: false, seq: 1 })
+    expect(runtime.view.state.directory.getSnapshot().sessions[created.id]).toMatchObject({
+      title: 'Renamed session',
+      seq: 1,
+    })
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(created.id)
+
+    const archived = await runtime.view.commands.execute('app.archiveSession', { sessionId: created.id })
+    expect(archived).toMatchObject({ id: created.id, archived: true, seq: 2 })
+    expect(runtime.view.state.directory.getSnapshot().sessions[created.id]?.archived).toBe(true)
+    expect(runtime.view.state.navigation.getSnapshot()).toMatchObject({
+      workspaceId: existing.id,
+      sessionId: null,
+      status: 'idle',
+      error: null,
+    })
+    expect(calls).toEqual([
+      { name: 'session.rename', input: { sessionId: created.id, title: 'Renamed session' } },
+      { name: 'session.archive', input: { sessionId: created.id, archived: true } },
+    ])
+  } finally {
+    runtime.dispose()
+  }
+})

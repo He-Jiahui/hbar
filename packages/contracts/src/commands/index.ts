@@ -128,6 +128,42 @@ export const navigationCommands = {
     z.strictObject({ workspaceId: z.string().min(1).max(160), title: z.string().trim().min(1).max(160).optional() }),
     sessionSchema,
   ),
+  'app.renameSession': defineCommand(
+    {
+      ...query('app.renameSession'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'session',
+      category: 'workspace.session',
+      cli: {
+        arguments: [
+          { field: 'title', type: 'string', position: 0, flag: 'title' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+        ],
+      },
+    },
+    z.strictObject({ sessionId: z.string().min(1).max(160), title: z.string().trim().min(1).max(160) }),
+    sessionSchema,
+  ),
+  'app.archiveSession': defineCommand(
+    {
+      ...query('app.archiveSession'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'session',
+      category: 'workspace.session',
+      cli: {
+        arguments: [
+          { field: 'archived', type: 'boolean', position: 0 },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+        ],
+      },
+    },
+    z.strictObject({ sessionId: z.string().min(1).max(160), archived: z.boolean().default(true) }),
+    sessionSchema,
+  ),
   'workspace.open': defineCommand(
     {
       ...query('workspace.open'),

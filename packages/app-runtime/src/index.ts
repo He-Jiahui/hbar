@@ -159,6 +159,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     local,
     directory.queries,
     directory.createSession,
+    directory.renameSession,
+    directory.archiveSession,
     directory.openWorkspace,
     navigation,
     () => disposed,
