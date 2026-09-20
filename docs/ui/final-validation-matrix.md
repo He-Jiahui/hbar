@@ -41,6 +41,7 @@
 
 ## 4. 范围边界与后续事项
 
+- 生产四类工具已经通过 AppShell tool slot、统一 PageHeader 和各自单面板子视图完成，但计划中的独立 `HbarAppUiToolPane` 仍是用户未提交的新文件，尚未补 footer、target、onBack/onClose 公开契约和独立窄屏矩阵；不能用生产页面已可用替代该组件库交付。
 - Tauri 实窗、系统 DPI、标题栏、原生文件选择和窄窗属于 R6.4。2026-09-20 已用当前代码成功编译并启动 debug 窗口，但 Windows 会话处于 LockApp/LogonUI 锁屏，Computer Use 按强制规则停止，未取得有效实窗截图。
 - R1.1 已以 command-owned 偏好、System 媒体查询、刷新恢复和七张整页生产截图关闭；主题 bootstrap 只用于首次绘制，权威偏好仍由 `preferences.set` 更新。
 - R3.2 已以真实 `update_plan`、turnId/Run article 几何、刷新冷加载和 390px 展开关闭；R3.5 已以 180 条持久消息、三页加载、虚拟 DOM 上限、锚点测量、快速切换、历史中新消息、WebSocket 中断/重连和真实失败运行重试关闭。R2.4、R2.5 与 R2.7 的既有完成状态保持不变。

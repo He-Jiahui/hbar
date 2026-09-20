@@ -28,17 +28,17 @@ R0.3 已在 `cc-haha` tracked HEAD `e28d0a6` 上启动生产 desktop renderer、
 
 ## 3. R1：hbar-app-ui 组件整治
 
-| ID    | 独立交付                                                    | 验收重点                                        | 当前状态                                        |
-| ----- | ----------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
-| R1.1  | 整理主题 token 与基础样式入口，支持 system/light/dark       | 不硬编码 dark；组件与页面同主题；不污染 catalog | **已完成：7d16ba4**                             |
-| R1.2  | 统一 Button/IconButton 的尺寸、tone、hover/focus/disabled   | 对比度、长文本、最小操作面积、无默认原生外观    | **已完成：0e772f5**                             |
-| R1.2a | PromptComposer 自包含输入/按钮/附件样式及独立视觉入口       | 21 场景截图、IME/发送/停止/附件、生产会话截图   | **已完成：8408735**                             |
-| R1.3  | 抽取公开 Field/Input/Textarea/Select/CheckBox/ComboBox 控件 | typed labels、错误关联、动态与多选能力真实匹配  | **已完成，见视觉记录**                          |
-| R1.4  | 修复 NativeDialog 与 ToolPane 容器，补 footer/返回/目标契约 | 长内容滚动、焦点圈定与恢复、窄屏操作不裁切      | 待实施                                          |
-| R1.5  | 为 Conversation/FileDocument/Usage 提供 embedded/density    | 没有重复标题/套壳；不靠调用端隐藏内部 DOM       | Conversation/Usage 已完成；FileDocument 待 R4.2 |
-| R1.6  | 建立完整页面 fixture 组合入口，复用生产组件                 | fixture 只提供数据，不额外补生产缺失的控件样式  | **已完成：生产 Web + E2E Host**                 |
+| ID    | 独立交付                                                    | 验收重点                                        | 当前状态                                          |
+| ----- | ----------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| R1.1  | 整理主题 token 与基础样式入口，支持 system/light/dark       | 不硬编码 dark；组件与页面同主题；不污染 catalog | **已完成：7d16ba4**                               |
+| R1.2  | 统一 Button/IconButton 的尺寸、tone、hover/focus/disabled   | 对比度、长文本、最小操作面积、无默认原生外观    | **已完成：0e772f5**                               |
+| R1.2a | PromptComposer 自包含输入/按钮/附件样式及独立视觉入口       | 21 场景截图、IME/发送/停止/附件、生产会话截图   | **已完成：8408735**                               |
+| R1.3  | 抽取公开 Field/Input/Textarea/Select/CheckBox/ComboBox 控件 | typed labels、错误关联、动态与多选能力真实匹配  | **已完成，见视觉记录**                            |
+| R1.4  | 修复 NativeDialog 与 ToolPane 容器，补 footer/返回/目标契约 | 长内容滚动、焦点圈定与恢复、窄屏操作不裁切      | NativeDialog **已完成：12404d2**；ToolPane 待集成 |
+| R1.5  | 为 Conversation/FileDocument/Usage 提供 embedded/density    | 没有重复标题/套壳；不靠调用端隐藏内部 DOM       | **已完成**：Conversation/FileDocument/Usage       |
+| R1.6  | 建立完整页面 fixture 组合入口，复用生产组件                 | fixture 只提供数据，不额外补生产缺失的控件样式  | **已完成：生产 Web + E2E Host**                   |
 
-R1.1 由现有 command-owned `preferences.set` 保存 system/light/dark，Web 只把只读偏好与系统媒体查询解析为实际 light/dark 并同步 `color-scheme`；设置页通过通用 header action slot 组合宿主本地化的主题选择器。刷新恢复、System 实时变化、1440/390/320、会话、设置、命令模态和状态中心均已用真实 Host 页面验证。R1.2 由组件自身导入样式，并固化 compact/default/focal 三档命中区、五种语义 tone、键盘焦点、选中、禁用和图标按钮正方形约束；独立矩阵在 dark/light 与 1024/320 四种组合中测量尺寸、长中文换行和页面溢出，再以完整生产页面回归确认会话、设置和命令目录没有被基础尺寸挤压。R1.2a 只修复 PromptComposer 外观与容量边界，自动高度和输入区整体布局继续由所属页面约束。R1.6 使用未分叉的 `apps/web` 生产组合根与 `scripts/e2e-session-host.ts`：fixture 只创建隔离工作区、持久事实、认证与模型响应，页面 DOM、主题和组件 CSS 均来自 production build；同一入口已覆盖离线/连接、容量、恢复、主题和完整工作流，不另建会漂移的演示页面。
+R1.1 由现有 command-owned `preferences.set` 保存 system/light/dark，Web 只把只读偏好与系统媒体查询解析为实际 light/dark 并同步 `color-scheme`；设置页通过通用 header action slot 组合宿主本地化的主题选择器。刷新恢复、System 实时变化、1440/390/320、会话、设置、命令模态和状态中心均已用真实 Host 页面验证。R1.2 由组件自身导入样式，并固化 compact/default/focal 三档命中区、五种语义 tone、键盘焦点、选中、禁用和图标按钮正方形约束；独立矩阵在 dark/light 与 1024/320 四种组合中测量尺寸、长中文换行和页面溢出，再以完整生产页面回归确认会话、设置和命令目录没有被基础尺寸挤压。R1.2a 只修复 PromptComposer 外观与容量边界，自动高度和输入区整体布局继续由所属页面约束。R1.4 的 NativeDialog 已由 `12404d2` 完成 footer、原生 top layer、焦点圈定/恢复、Escape 与初始焦点，并在 Provider、命令和文件冲突流程中验证；ToolPane 仍是用户未提交的新文件，没有把它夹带成已完成能力。R1.5 的 FileDocument 已随 `702cb76` 完成列表→详情单面板、embedded 文档容器、保存与冲突草稿恢复，和既有 Conversation/Usage 一同关闭。R1.6 使用未分叉的 `apps/web` 生产组合根与 `scripts/e2e-session-host.ts`：fixture 只创建隔离工作区、持久事实、认证与模型响应，页面 DOM、主题和组件 CSS 均来自 production build；同一入口已覆盖离线/连接、容量、恢复、主题和完整工作流，不另建会漂移的演示页面。
 
 ## 4. R2：状态、外壳与导航
 
@@ -95,15 +95,15 @@ R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型�
 
 ## 8. R6：替换、回归与交付
 
-| ID   | 独立交付                           | 验收                                                      |
-| ---- | ---------------------------------- | --------------------------------------------------------- |
-| R6.1 | 原入口→新位置→命令的完整对照       | **已完成**：类型化 outlet manifest、迁移别名与入口对照    |
-| R6.2 | 删除旧串行页面出口和已迁移冲突样式 | **已完成**：生产窄入口排除旧壳层 CSS，保留 catalog 调用者 |
-| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：190 张图、真实流程、完整 checks      |
-| R6.4 | Tauri 实窗与缩放验收               | 标题栏、DPI、文件选择、弹窗和窄窗，无截图替代声明         |
-| R6.5 | 文档、证据索引与旧 UI 计划替代说明 | **进行中**：实现/证据/遗留项已同步；待 R6.4 后关闭        |
+| ID   | 独立交付                           | 验收                                                           |
+| ---- | ---------------------------------- | -------------------------------------------------------------- |
+| R6.1 | 原入口→新位置→命令的完整对照       | **已完成**：类型化 outlet manifest、迁移别名与入口对照         |
+| R6.2 | 删除旧串行页面出口和已迁移冲突样式 | **已完成**：生产窄入口排除旧壳层 CSS，保留 catalog 调用者      |
+| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：190 张图、真实流程、完整 checks           |
+| R6.4 | Tauri 实窗与缩放验收               | 标题栏、DPI、文件选择、弹窗和窄窗，无截图替代声明              |
+| R6.5 | 文档、证据索引与旧 UI 计划替代说明 | **进行中**：实现/证据/遗留项已同步；待 ToolPane 与 R6.4 后关闭 |
 
-R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：20 个页面/组件族、190 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、Plan Run 归属、断线重连、基础按钮和整页主题矩阵及全仓 checks 均有证据；Tauri 实窗没有混入完成声明。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 R6.4 有效实窗证据补齐前不标记最终完成。
+R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：20 个页面/组件族、190 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、Plan Run 归属、断线重连、基础按钮和整页主题矩阵及全仓 checks 均有证据；Tauri 实窗没有混入完成声明。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现，但在 ToolPane 公开契约与 R6.4 有效实窗证据补齐前不标记最终完成。
 
 ## 9. 提交与交付记录规则
 

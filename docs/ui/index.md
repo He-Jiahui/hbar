@@ -1,6 +1,6 @@
 # hbar UI 重设计：参考 cc-haha 的视觉与空间组织，采用单页面导航
 
-> 更新：2026-09-20。本文保留已确认的总设计；下列子计划将其细化到页面、组件、状态和可验收任务。核心 AppShell、会话页、四类工具、设置、Provider、状态三分区、命令三步流、基础按钮与 system/light/dark 主题体系，以及目录/时间线容量、Plan Run 归属和断线恢复已经完成 Web/Host 重建与视觉验收；Tauri 实窗仍按[任务清单](execution-plan.md)保持未完成。
+> 更新：2026-09-20。本文保留已确认的总设计；下列子计划将其细化到页面、组件、状态和可验收任务。核心 AppShell、会话页、四类工具、设置、Provider、状态三分区、命令三步流、基础按钮与 system/light/dark 主题体系，以及目录/时间线容量、Plan Run 归属和断线恢复已经完成 Web/Host 重建与视觉验收；独立 `ToolPane` 库契约和 Tauri 实窗仍按[任务清单](execution-plan.md)保持未完成。
 
 ## 子计划阅读入口
 
