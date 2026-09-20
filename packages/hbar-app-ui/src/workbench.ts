@@ -1,5 +1,10 @@
 /** Structural production components. No catalog, sample data, or application state. */
 export {
+  HbarAppUiActionMenu,
+  type HbarAppUiActionMenuItem,
+  type HbarAppUiActionMenuProps,
+} from './components/app-shell/ActionMenu'
+export {
   HbarAppUiAppShell,
   HbarAppUiAppSidebar,
   HbarAppUiShellIcon,

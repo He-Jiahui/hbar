@@ -6,7 +6,7 @@ import { delimiter, join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createInterface } from 'node:readline'
 
-async function startSessionHost(root: string) {
+async function startSessionHost(root: string, sessionCount = 1) {
   const bun =
     process.platform === 'win32'
       ? (process.env.PATH ?? '')
@@ -20,7 +20,12 @@ async function startSessionHost(root: string) {
   if (!bun) throw new Error('Bun executable is unavailable for the E2E Host fixture')
   const child = spawn(bun, ['scripts/e2e-session-host.ts'], {
     cwd: process.cwd(),
-    env: { ...process.env, HBAR_E2E_DATA_ROOT: root, HBAR_E2E_HOST_PORT: '4317' },
+    env: {
+      ...process.env,
+      HBAR_E2E_DATA_ROOT: root,
+      HBAR_E2E_HOST_PORT: '4317',
+      HBAR_E2E_SESSION_COUNT: String(sessionCount),
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
@@ -158,6 +163,46 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
   }
 }
 
+test('session tree paginates the 101st row inside its sidebar pane', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-directory-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root, 101)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+    const page = await context.newPage()
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    const sidebar = page.getByRole('complementary', { name: 'Projects and sessions' })
+    const sessionRows = sidebar.getByRole('button', { name: /^Open session Session / })
+    await expect(sessionRows).toHaveCount(100)
+    const firstPageNames = await sessionRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+    expect(new Set(firstPageNames).size).toBe(100)
+    const loadMore = sidebar.getByRole('button', { name: 'Load more' })
+    await loadMore.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/capacity-100.png', fullPage: true })
+    await loadMore.click()
+    await expect(sessionRows).toHaveCount(101)
+    const allNames = await sessionRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+    expect(allNames.filter((name) => !firstPageNames.includes(name))).toHaveLength(1)
+    expect(
+      await sidebar
+        .locator('.hbar-app-ui-app-sidebar-content')
+        .evaluate((element) => element.scrollHeight > element.clientHeight),
+    ).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/capacity-101.png', fullPage: true })
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('connected session workspace sends, approves, cancels, and updates usage', async ({ browser }) => {
   test.setTimeout(120_000)
   const root = await mkdtemp(join(tmpdir(), 'hbar-web-session-'))
@@ -192,6 +237,22 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1440.png', fullPage: true })
     await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const sessionActions = page.getByTitle(`Actions for ${fixture.ready.sessionTitle}`)
+    await sessionActions.click()
+    const sessionMenu = page.getByRole('menu', { name: `Actions for ${fixture.ready.sessionTitle}` })
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Rename' })).toBeVisible()
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Archive' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/session-actions-1440.png', fullPage: true })
+    await sessionMenu.getByRole('menuitem', { name: 'Rename' }).click()
+    const renameDialog = page.getByRole('dialog', { name: 'Command catalog' })
+    await expect(renameDialog.getByRole('heading', { level: 1, name: 'Rename session' })).toBeVisible()
+    await expect(renameDialog.getByRole('combobox', { name: 'Session ID' })).toHaveValue(fixture.ready.sessionId)
+    await expect(renameDialog.getByRole('textbox', { name: 'Title' })).toHaveValue(fixture.ready.sessionTitle)
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/session-rename-1440.png', fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(renameDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await renameDialog.getByRole('button', { name: 'Close command catalog' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     await page.getByRole('button', { name: 'New session', exact: true }).click()
     const createSessionDialog = page.getByRole('dialog', { name: 'Command catalog' })
@@ -1007,6 +1068,24 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     const restoreNavigationForCreation = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
     if (await restoreNavigationForCreation.isVisible()) await restoreNavigationForCreation.click()
+    await page.getByTitle(`Actions for ${fixture.ready.sessionTitle}`).click()
+    await page
+      .getByRole('menu', { name: `Actions for ${fixture.ready.sessionTitle}` })
+      .getByRole('menuitem', { name: 'Rename' })
+      .click()
+    const renameExecutionDialog = page.getByRole('dialog', { name: 'Command catalog' })
+    const renamedTitle = 'Renamed by UI'
+    await renameExecutionDialog.getByRole('textbox', { name: 'Title' }).fill(renamedTitle)
+    await renameExecutionDialog.getByRole('button', { name: 'Execute command' }).click()
+    await expect(renameExecutionDialog.getByText('Command succeeded')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: renamedTitle })).toBeVisible()
+    await expect(page.getByRole('button', { name: `Open session ${renamedTitle}` })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/session-renamed-1440.png', fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(renameExecutionDialog.getByRole('heading', { level: 1, name: 'Rename session' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(renameExecutionDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await renameExecutionDialog.getByRole('button', { name: 'Close command catalog' }).click()
     await page.getByRole('button', { name: 'New session', exact: true }).click()
     const creationDialog = page.getByRole('dialog', { name: 'Command catalog' })
     await expect(creationDialog.getByRole('heading', { level: 1, name: 'New session' })).toBeVisible()

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
+  HbarAppUiActionMenu,
   HbarAppUiAppShell,
   HbarAppUiAppSidebar,
   HbarAppUiShellIcon,
@@ -33,6 +34,9 @@ export interface HbarWorkspaceShellLabels {
   readonly collapseWorkspace: (name: string) => string
   readonly openSession: (name: string) => string
   readonly sessionUpdatedAt: (timestamp: number) => string
+  readonly sessionActions: (name: string) => string
+  readonly renameSession: string
+  readonly archiveSession: string
   readonly error: (code: string) => string
 }
 
@@ -167,11 +171,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }
   const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
-  const openCommandForm = (commandId: string) => {
-    const operation = execute('commandPalette.refresh', {})
+  const openCommandForm = (commandId: string, parameters: Readonly<Record<string, string | boolean>> = {}) => {
+    let operation: Promise<unknown> = execute('commandPalette.refresh', {})
       .then(() => execute('commandPalette.setQuery', { query: commandId }))
       .then(() => execute('commandPalette.openCommand', { commandId }))
-      .then(() => execute('app.openPanel', { panelId: 'commands' }))
+    for (const [field, value] of Object.entries(parameters))
+      operation = operation.then(() => execute('commandPalette.setParameter', { field, value }))
+    operation = operation.then(() => execute('app.openPanel', { panelId: 'commands' }))
     settleNavigation(operation)
   }
   const openWorkspace = () => {
@@ -325,20 +331,45 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         <p>{props.labels.noSessions}</p>
                       ) : (
                         sessions.map((session) => (
-                          <button
+                          <div
                             key={session.id}
-                            type="button"
-                            aria-current={navigation.sessionId === session.id ? 'page' : undefined}
-                            aria-label={props.labels.openSession(session.title)}
-                            title={session.title}
-                            onClick={() => openSession(session.id)}
+                            className="hbar-app-react-session-row"
+                            data-selected={navigation.sessionId === session.id}
                           >
-                            <HbarAppUiShellIcon name="message" tier="sm" />
-                            <span className="hbar-app-react-session-label">
-                              <strong>{session.title}</strong>
-                              <small>{props.labels.sessionUpdatedAt(session.updatedAt)}</small>
-                            </span>
-                          </button>
+                            <button
+                              type="button"
+                              className="hbar-app-react-session-target"
+                              aria-current={navigation.sessionId === session.id ? 'page' : undefined}
+                              aria-label={props.labels.openSession(session.title)}
+                              title={session.title}
+                              onClick={() => openSession(session.id)}
+                            >
+                              <HbarAppUiShellIcon name="message" tier="sm" />
+                              <span className="hbar-app-react-session-label">
+                                <strong>{session.title}</strong>
+                                <small>{props.labels.sessionUpdatedAt(session.updatedAt)}</small>
+                              </span>
+                            </button>
+                            <HbarAppUiActionMenu
+                              label={props.labels.sessionActions(session.title)}
+                              items={[
+                                { id: 'rename', label: props.labels.renameSession },
+                                { id: 'archive', label: props.labels.archiveSession, tone: 'danger' },
+                              ]}
+                              onAction={(action) => {
+                                if (action === 'rename')
+                                  openCommandForm('app.renameSession', {
+                                    sessionId: session.id,
+                                    title: session.title,
+                                  })
+                                else
+                                  openCommandForm('app.archiveSession', {
+                                    sessionId: session.id,
+                                    archived: true,
+                                  })
+                              }}
+                            />
+                          </div>
                         ))
                       )}
                       {nextSessionCursor && (

@@ -61,6 +61,13 @@
   flex-direction: column;
 }
 
+.hbar-app-react-session-row,
+.hbar-app-react-session-target {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
 .hbar-app-react-sidebar-primary {
   gap: 0.125rem;
 }
@@ -77,7 +84,8 @@
   padding-block-end: var(--hbar-app-ui-space-lg);
 }
 
-.hbar-app-react-project-tree button {
+.hbar-app-react-project-tree
+  :is(.hbar-app-react-workspace-row, .hbar-app-react-session-target, .hbar-app-react-load-more) {
   min-block-size: var(--hbar-app-ui-control-min);
   border: var(--hbar-app-ui-divider) solid transparent;
   border-radius: var(--hbar-app-ui-control-radius);
@@ -89,15 +97,17 @@
   text-align: start;
 }
 
-.hbar-app-react-project-tree button:hover,
-.hbar-app-react-project-tree button:focus-visible {
+.hbar-app-react-project-tree
+  :is(.hbar-app-react-workspace-row, .hbar-app-react-session-target, .hbar-app-react-load-more):hover,
+.hbar-app-react-project-tree
+  :is(.hbar-app-react-workspace-row, .hbar-app-react-session-target, .hbar-app-react-load-more):focus-visible {
   border-color: var(--hbar-app-ui-border);
   background: var(--hbar-app-ui-surface-1);
   color: var(--hbar-app-ui-text);
 }
 
 .hbar-app-react-workspace-row,
-.hbar-app-react-session-list > button {
+.hbar-app-react-session-target {
   display: flex;
   inline-size: 100%;
   min-inline-size: 0;
@@ -128,14 +138,38 @@
   padding-inline-start: var(--hbar-app-ui-space-xl);
 }
 
-.hbar-app-react-session-list > button {
+.hbar-app-react-session-row {
+  border: var(--hbar-app-ui-divider) solid transparent;
+  border-radius: var(--hbar-app-ui-control-radius);
+}
+
+.hbar-app-react-session-row:hover,
+.hbar-app-react-session-row:focus-within {
+  border-color: var(--hbar-app-ui-border);
+  background: var(--hbar-app-ui-surface-1);
+  color: var(--hbar-app-ui-text);
+}
+
+.hbar-app-react-session-target {
+  flex: 1 1 auto;
   padding: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-sm);
 }
 
-.hbar-app-react-session-list > button[aria-current='page'] {
+.hbar-app-react-session-row[data-selected='true'] {
   border-color: color-mix(in srgb, var(--hbar-app-ui-accent) 24%, var(--hbar-app-ui-border));
   background: var(--hbar-app-ui-accent-soft);
   color: var(--hbar-app-ui-text);
+}
+
+.hbar-app-react-session-row > .hbar-app-ui-action-menu {
+  margin-inline-end: var(--hbar-app-ui-space-xs);
+  opacity: 0;
+}
+
+.hbar-app-react-session-row:hover > .hbar-app-ui-action-menu,
+.hbar-app-react-session-row:focus-within > .hbar-app-ui-action-menu,
+.hbar-app-react-session-row[data-selected='true'] > .hbar-app-ui-action-menu {
+  opacity: 1;
 }
 
 .hbar-app-react-session-label {
@@ -181,5 +215,15 @@
   .hbar-app-react-icon-action {
     min-inline-size: 2.5rem;
     block-size: 2.5rem;
+  }
+
+  .hbar-app-react-session-row > .hbar-app-ui-action-menu {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .hbar-app-react-session-row > .hbar-app-ui-action-menu {
+    opacity: 1;
   }
 }

@@ -40,6 +40,9 @@ const labels: HbarWorkspaceShellLabels = {
   collapseWorkspace: (name) => `折叠 ${name}`,
   openSession: (name) => `选择 ${name}`,
   sessionUpdatedAt: (timestamp) => `更新于 ${timestamp}`,
+  sessionActions: (name) => `${name} 的操作`,
+  renameSession: '重命名会话',
+  archiveSession: '归档会话',
   error: (code) => `错误 ${code}`,
 }
 
@@ -88,6 +91,9 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('打开状态中心')
     expect(html).toContain('打开设置')
     expect(html).toContain('已经连接')
+    expect(html).toContain('需要键盘导航的会话 的操作')
+    expect(html).toContain('重命名会话')
+    expect(html).toContain('归档会话')
     expect(html).toContain('--hbar-app-ui-tool-size:26rem')
     expect(html).not.toContain('Workspace 1')
   } finally {

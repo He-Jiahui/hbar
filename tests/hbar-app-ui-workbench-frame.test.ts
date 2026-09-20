@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
+  HbarAppUiActionMenu,
   HbarAppUiAppShell,
   HbarAppUiAppSidebar,
   HbarAppUiBarSeries,
@@ -11,6 +12,25 @@ import {
   HbarAppUiSettingsList,
   HbarAppUiWorkbenchNotice,
 } from '../packages/hbar-app-ui/src/workbench'
+
+test('row action menu renders only host-labelled actions and semantic danger state', () => {
+  const html = renderToStaticMarkup(
+    createElement(HbarAppUiActionMenu, {
+      label: '会话操作',
+      items: [
+        { id: 'rename', label: '重命名' },
+        { id: 'archive', label: '归档', tone: 'danger' },
+      ],
+      onAction: () => {},
+    }),
+  )
+  expect(html).toContain('aria-label="会话操作"')
+  expect(html).toContain('role="menu"')
+  expect(html).toContain('role="menuitem"')
+  expect(html).toContain('data-tone="danger"')
+  expect(html).toContain('重命名')
+  expect(html).toContain('归档')
+})
 
 test('structural shell renders host content and a read-only connection state without invented controls', () => {
   const html = renderToStaticMarkup(

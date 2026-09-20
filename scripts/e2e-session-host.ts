@@ -6,6 +6,7 @@ import { startServer } from '../apps/host/src/server.ts'
 
 const root = process.env.HBAR_E2E_DATA_ROOT
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
+const sessionCount = Math.max(1, Math.min(101, Number(process.env.HBAR_E2E_SESSION_COUNT ?? '1')))
 if (!root || !Number.isInteger(port)) throw new Error('E2E Host root and port are required')
 
 await writeFile(`${root}/browser-e2e.md`, '# Browser file\n', 'utf8')
@@ -20,7 +21,9 @@ for (const arguments_ of [
 
 const kernel = await Kernel.create({ home: `${root}/data`, workspace: root, demo: true, secrets: new MemorySecrets() })
 const workspace = (await kernel.storage.call('workspaces'))[0]!
-const session = await kernel.createSession(workspace.id)
+let session = await kernel.createSession(workspace.id, sessionCount === 1 ? undefined : 'Session 001')
+for (let index = 2; index <= sessionCount; index += 1)
+  session = await kernel.createSession(workspace.id, `Session ${String(index).padStart(3, '0')}`)
 const host = await startServer(kernel, { port })
 const response = await fetch(`http://127.0.0.1:${port}/auth/pair`, {
   method: 'POST',
