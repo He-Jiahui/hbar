@@ -422,3 +422,13 @@ Production build 从 2400 个模块、224.24 kB CSS 变为 2390 个模块、214.
 | 执行完成   | [1440](../../artifacts/ui-redesign/session-create/after/executed-1440.png)：真实 Host 创建 `Visual QA session`，命令弹窗关闭，主标题和侧栏选中行同步更新，原会话仍保留 |
 
 验证结果：运行时测试覆盖 Host 端口、目录合并、导航和 `RESULT_UNKNOWN` 后复用幂等键；React 测试覆盖可读工程/会话选项和本地化文案；真实 Host Playwright 覆盖默认目标、自定义目标、390 宽度和实际创建。全仓以提高 Node heap 的相同 ESLint 配置通过，TypeScript 通过，391 个 Bun 测试（3112 个断言）通过，Web production build 为 2390 modules / 214.26 kB CSS，Playwright 5 项场景通过。截图均在最终 production preview 中重新生成并逐张人工查看；Tauri 实窗仍归 R6.4。
+
+## 26. R2.7 AppShell 布局 v2、迁移与受控尺寸
+
+旧 `shell-layout.json` 只描述 sidebar v1；通用持久层接受任意 JSON，无法区分未知模块、重复 ID、损坏结构和越界尺寸，File Manager 的 24rem 工具宽度则直接写在 `hbar-app-ui` CSS 中。现在 Web 包拥有严格的 v2 schema：`projects`、`workspace`、`session-tool` 各自声明唯一 moduleId、outlet、region、order、visible、size 和响应式配置。app-runtime 新增纯 `layoutDescription.normalize` 端口，只在 default、saved 和 commit 边界调用宿主 schema；它仍不知道 React、AppShell 或 Web 模块。合法 v1 只迁移 projects 的 12–24rem 宽度和隐藏偏好，其他模块使用 v2 默认；未知、重复、缺失、越界或损坏内容回退默认，原持久数据不删除。
+
+`HbarAppUiAppShell` 新增向后兼容的 `toolWidthRem`，sidebar/tool 分别通过 `--hbar-app-ui-sidebar-size` 与 `--hbar-app-ui-tool-size` 驱动正常 flex 分区和真实 drawer 覆盖层。生产 E2E 读取两个计算值为 17rem/24rem，并测得 1440 视口 File Manager 工具区为 384 CSS px。第一轮 390 回归发现恢复默认 `visible: true` 会晚于响应式关闭命令执行，从而重新打开侧栏；最终只把保存的 false 当作首次隐藏覆盖，true 不再争抢窄屏或用户当前显隐状态。
+
+视觉复核沿用最终生产截图：[桌面侧栏](../../artifacts/ui-redesign/shell/connected-sidebar-1440.png)、[文件工具分区](../../artifacts/ui-redesign/file-tool/after/list-1440.png)、[390 正文](../../artifacts/ui-redesign/shell/content-en-US-390.png)与[390 抽屉](../../artifacts/ui-redesign/shell/drawer-en-US-390.png)。桌面分隔线、主区宽度、24rem 工具区和底部固定区没有变化；窄屏默认正文不再被侧栏遮挡，菜单打开后抽屉仍为 17rem 且背景留出关闭区域。当前产品没有标签页和自由停靠，因此生产没有引入已有的 `flexlayout-react`；这避免恢复用户要求删除的复杂导航和额外交互状态。
+
+验证结果：布局、通用持久化、React、AppShell 与 Web 边界定向测试通过；flow/content/icon guards、ESLint、TypeScript、395 个 Bun 测试（3130 个断言）、Web production build（2390 modules / 214.31 kB CSS）和 5/5 Playwright 场景通过。以上四张 production 图已重新生成并人工查看；Tauri 实窗仍归 R6.4。

@@ -76,11 +76,11 @@ interface PresentationState {
 
 页面注册描述表达 `id / outlet / supportedScopes / labelKey / icon / requiredCapability / componentType`。outlet 由注册定义，不由任意命令字符串决定。描述仅含可序列化值；React component 与 command callback 在组合根白名单注册。
 
-默认布局升级为 version 2，表达稳定 moduleId、区域、顺序、尺寸、可见性与配置。仓库已有 flexlayout-react 依赖，但当前新生产外壳只描述 sidebar v1，不能视为已经接通完整分区适配。R2.7 负责复用该依赖建立受控尺寸/分区适配，隐藏标签栏并关闭自由停靠；外壳及组件内部内容使用正常 flex 流。唯一序列化描述同时驱动桌面分区和窄屏投影，不创建移动版业务状态。
+默认布局已经升级为 version 2，表达稳定 `moduleId`、outlet、区域、顺序、尺寸、可见性与响应式配置。`projects / workspace / session-tool` 分别固定到 sidebar/page/tool，由同一描述向 `HbarAppUiAppShell` 提供 sidebar 与 tool 的受控尺寸；组件仍以正常 flex 流和既有 drawer/page 断点呈现。仓库虽有 `flexlayout-react` 依赖，生产外壳没有引入它：当前产品没有标签、拖拽停靠或自由分区需求，加载其交互模型会重新制造用户要求删除的导航复杂度。若以后确有多标签停靠需求，应新增明确任务和布局模块版本，不能让依赖存在本身决定 UI。
 
 布局负责几何和偏好；presentation 负责当前目标与页面。默认文件中的 visible 是初始值，恢复后由活动展示状态派生实际可见性，不能产生两套互相覆盖的面板开关。
 
-旧 sidebar v1 数据只迁移有效宽度与显隐。未知模块、重复 ID、损坏 JSON、越界尺寸回退默认；保留原存储以便诊断。持久化白名单排除模态、连接、运行中状态、请求回执和敏感表单数据。普通草稿继续由已有机制管理。
+旧 sidebar v1 数据只迁移有效宽度与隐藏型初始偏好。`visible: false` 可在恢复后首次关闭侧栏；`visible: true` 不会覆盖窄屏自动关闭或用户后续显隐命令。未知模块、重复/缺失 ID、损坏 JSON、越界尺寸回退默认；原存储不被删除，便于诊断。持久化白名单排除模态、连接、运行中状态、请求回执和敏感表单数据。普通草稿继续由已有机制管理。
 
 ## 5. 组件与样式组合
 
