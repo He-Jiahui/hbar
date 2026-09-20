@@ -487,3 +487,20 @@ Plan 插件早已把 `update_plan` 产生的 `plan.updated` 写入 SessionEvent�
 真实 E2E 通过 `/tool update_plan` 生成带 turnId 的 Plan，断言 Plan DOM 的父元素就是创建它的 Run article；刷新后重新选择自动改名的会话，Plan 仍恢复并保持 1/3 进度。首轮刷新断言曾按旧标题 “New session” 查找侧栏项而失败，截图证明 Host 已按首条提示自动改名；最终测试改为通过唯一的 `Open session …` 语义入口选择，验证真实生命周期而非固定 fixture 名称。
 
 验证结果：TypeScript、定向 ESLint、content-contract/icon-scale/flow-layout guards、398 个 Bun 测试（3185 个断言）、Web production build（2393 modules / 221.70 kB CSS / 962.08 kB JS）和 9/9 Playwright 场景全部通过。三张 production 图均逐张原尺寸查看；`artifacts/ui-redesign` 当前共 18 个页面/组件族、179 张 PNG。R3.2 已关闭，整页主题和 Tauri 实窗继续独立验收。
+
+## 30. R1.2 Button / IconButton 语义尺寸与独立视觉矩阵
+
+旧 `HbarAppUiButton` 只有 tone，默认高度由整库 `theme.css` 的 32px 规则决定；`IconButton` 只有单一宽度，没有普通按钮层级、焦点轮廓和 `aria-pressed` 的自包含约束。应用已大量复用这些原语，只看某个页面无法区分组件本身是否正确，亦无法证明 light 主题或 320px 长文案边界。
+
+组件现在由 `primitives.tsx` 直接导入自己的样式，并公开 compact/default/focal 三档 size；普通按钮默认 2.25rem，紧凑图标按钮 2rem，强调动作 2.75rem。neutral/accent/positive/warning/danger 在 hover、选中和 `aria-pressed=true` 时保留语义色，`:focus-visible` 提供明确轮廓，disabled 保持不可点击光标和降低权重。图标按钮的绘制 tier 继续由 `HbarAppUiIcon` 管理，命中区按 size 保持正方形，两者没有重新耦合。
+
+| 场景     | 截图与人工观察                                                                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 深色桌面 | [1024](../../artifacts/ui-redesign/buttons/after/dark-desktop-1024.png)：三档层级、五种 tone、选中/禁用、长中文和三档图标按钮在紧凑卡片中清楚可辨                |
+| 浅色桌面 | [1024](../../artifacts/ui-redesign/buttons/after/light-desktop-1024.png)：accent 反相、positive/warning/danger 边框与文字保持可读，焦点轮廓没有被浅色边框吞没    |
+| 深色窄屏 | [320](../../artifacts/ui-redesign/buttons/after/dark-mobile-320.png)：各组按普通 flex 自然换行，长中文只在按钮内部换行，卡片与页面均无水平滚动                   |
+| 浅色窄屏 | [320](../../artifacts/ui-redesign/buttons/after/light-mobile-320.png)：禁用与选中仍可区分，32/36/44px 三档点击区域和三档正方形图标按钮均由浏览器实际几何测量确认 |
+
+独立 E2E 用 React 服务端渲染真实组件，并同时加载生产 `tokens.css`、`theme.css` 和组件样式；浏览器逐项测量 compact/default/focal 与图标按钮尺寸、长标签 `scrollWidth`、document 溢出和键盘焦点 computed style。随后完整 production E2E 重新生成会话、设置和命令目录截图并人工抽查：页头图标操作、设置底部操作和命令模态标题区都没有因命中区提升而错位或裁切。
+
+验证结果：commit `0e772f5`；TypeScript、定向 ESLint、icon-scale/flow-layout guards、400 个 Bun 测试（3198 个断言）、Web production build（2394 modules / 224.19 kB CSS / 962.15 kB JS）和 10/10 Playwright 场景全部通过。四张按钮矩阵和六张生产页面代表图均已实际查看；`artifacts/ui-redesign` 当前共 19 个页面/组件族、183 张 PNG。content-contract 仍报告旧 `primitives.tsx` 中 DataTable/Composer 的 6 处历史英文文案，本轮没有把该既有缺口写成通过；整页 system/light 主题继续归 R1.1，Tauri 实窗继续归 R6.4。

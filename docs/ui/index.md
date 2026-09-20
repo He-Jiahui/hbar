@@ -1,6 +1,6 @@
 # hbar UI 重设计：参考 cc-haha 的视觉与空间组织，采用单页面导航
 
-> 更新：2026-09-20。本文保留已确认的总设计；下列子计划将其细化到页面、组件、状态和可验收任务。核心 AppShell、会话页、四类工具、设置、Provider、状态三分区、命令三步流，以及目录/时间线容量、Plan Run 归属和断线恢复已经完成 Web/Host 重建与视觉验收；整页 system/light 主题和 Tauri 实窗仍按[任务清单](execution-plan.md)保持未完成。
+> 更新：2026-09-20。本文保留已确认的总设计；下列子计划将其细化到页面、组件、状态和可验收任务。核心 AppShell、会话页、四类工具、设置、Provider、状态三分区、命令三步流、基础按钮体系，以及目录/时间线容量、Plan Run 归属和断线恢复已经完成 Web/Host 重建与视觉验收；整页 system/light 主题和 Tauri 实窗仍按[任务清单](execution-plan.md)保持未完成。
 
 ## 子计划阅读入口
 
@@ -17,7 +17,7 @@
 | [可执行子任务与状态](execution-plan.md)              | R0–R6 的逐项交付、依赖、验收、实际完成状态               |
 | [视觉与回归验证规范](visual-validation.md)           | 三层证据、视口/状态矩阵、人工看图、自动门禁              |
 | [本轮视觉审计与修复证据](visual-audit-2026-09-19.md) | 修复前后截图、复现与根因、验证结果、未关闭问题           |
-| [Web/Host 最终验证矩阵](final-validation-matrix.md)  | 18 个页面族、179 张图、完整 checks 与明确未覆盖项        |
+| [Web/Host 最终验证矩阵](final-validation-matrix.md)  | 19 个页面/组件族、183 张图、完整 checks 与明确未覆盖项   |
 
 建议顺序：架构 → 组件整治 → 所属页面 → 任务清单 → 视觉验收。实现应优先修复和复用 hbar-app-ui 的受控组件，不能重新堆一套 app-react 专属视觉组件。
 
@@ -25,7 +25,7 @@
 
 **整体视觉贴近 cc-haha，保留单页面导航。** 重做 hbar 的外壳、页面层级、工具区、设置和交互反馈；现有命令框架、Schema 设置框架、业务状态与服务器交互继续复用。
 
-总计划编写时已目视对照 **8 张 cc-haha 产品截图和 8 张 hbar 视觉产物**，涵盖会话、文件、设置、供应商编辑、命令面板、子 Agent、深色和窄屏。主要参考包括 [cc-haha 会话界面](/D:/Git/cc-haha/docs/images/app/zh-CN/session-main.webp)与[设置界面](/D:/Git/cc-haha/docs/images/app/zh-CN/settings-general.webp)。重建期间持续以真实 production preview 看图修正，当前 `artifacts/ui-redesign` 包含 18 个页面/组件族、179 张 PNG；最终又对照 cc-haha 的 `session-dark.webp` 与 `settings-general.webp` 核对空间关系。完整范围、结果和未覆盖项见[最终验证矩阵](final-validation-matrix.md)。
+总计划编写时已目视对照 **8 张 cc-haha 产品截图和 8 张 hbar 视觉产物**，涵盖会话、文件、设置、供应商编辑、命令面板、子 Agent、深色和窄屏。主要参考包括 [cc-haha 会话界面](/D:/Git/cc-haha/docs/images/app/zh-CN/session-main.webp)与[设置界面](/D:/Git/cc-haha/docs/images/app/zh-CN/settings-general.webp)。重建期间持续以真实 production preview 看图修正，当前 `artifacts/ui-redesign` 包含 19 个页面/组件族、183 张 PNG；最终又对照 cc-haha 的 `session-dark.webp` 与 `settings-general.webp` 核对空间关系。完整范围、结果和未覆盖项见[最终验证矩阵](final-validation-matrix.md)。
 
 新设计明确替换以下布局：
 
