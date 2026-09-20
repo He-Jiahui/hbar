@@ -25,6 +25,7 @@ import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-w
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
 import { clientPersistenceCommands } from '@hbar/contracts/commands/client-persistence'
 import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-application'
+import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
@@ -167,7 +168,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
-  const timeline = createSessionTimeline(options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed)
   const interactions = createInteractions(
     local,
@@ -250,6 +251,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(extensionWorkspaceCommands, name) ||
         Object.hasOwn(statusWorkspaceCommands, name) ||
         Object.hasOwn(clientPersistenceCommands, name) ||
+        Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)

@@ -562,6 +562,8 @@ export interface SessionTimelinePort {
 export interface SessionTimelineState {
   readonly sessionId: string | null
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly olderStatus: 'idle' | 'loading' | 'error' | 'limit'
+  readonly olderError: string | null
   readonly messages: readonly Readonly<Message>[]
   readonly runs: readonly Readonly<Run>[]
   readonly approvals: readonly Readonly<Approval>[]

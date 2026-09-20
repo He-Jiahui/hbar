@@ -177,7 +177,7 @@ test('timeline follows the selected session incrementally and rejects stale or m
       },
     })
     await waitFor(() => runtime.view.state.timeline.getSnapshot().cursor === 9)
-    expect(runtime.view.state.timeline.getSnapshot().messages[0]?.content).toEqual([
+    expect(runtime.view.state.timeline.getSnapshot().messages.at(-1)?.content).toEqual([
       { type: 'text', text: 'stream resynced' },
     ])
 
@@ -190,7 +190,110 @@ test('timeline follows the selected session incrementally and rejects stale or m
     snapshots.set('session-two', snapshot('session-two', 8, 'resynced'))
     updates.get('session-two')!({ kind: 'reset' })
     await waitFor(() => runtime.view.state.timeline.getSnapshot().cursor === 8)
-    expect(runtime.view.state.timeline.getSnapshot().messages[0]?.content).toEqual([{ type: 'text', text: 'resynced' }])
+    expect(runtime.view.state.timeline.getSnapshot().messages.at(-1)?.content).toEqual([
+      { type: 'text', text: 'resynced' },
+    ])
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('timeline pages older history, preserves cached content on reconnect, and ignores work for old selections', async () => {
+  const messages = Array.from({ length: 180 }, (_, index) => ({
+    id: `history-${index + 1}`,
+    sessionId: 'session-one',
+    runId: `run-${index + 1}`,
+    role: 'assistant' as const,
+    content: [{ type: 'text' as const, text: `History ${index + 1}` }],
+    seq: index + 1,
+    createdAt: index + 1,
+  }))
+  let failLatest = false
+  let failOlder = true
+  let holdLatest = false
+  let update: ((value: SessionTimelineUpdate) => void) | undefined
+  let releaseLatest: ((value: SessionSnapshot) => void) | undefined
+  let releaseSecond: ((value: SessionSnapshot) => void) | undefined
+  const timeline: SessionTimelinePort = {
+    async snapshot(sessionId, before, limit = 60) {
+      if (sessionId === 'session-two')
+        return new Promise<SessionSnapshot>((resolve) => {
+          releaseSecond = resolve
+        })
+      if (before === undefined && holdLatest)
+        return new Promise<SessionSnapshot>((resolve) => {
+          releaseLatest = resolve
+        })
+      if (before === undefined && failLatest) throw new Error('DISCONNECTED')
+      if (before !== undefined && failOlder) {
+        failOlder = false
+        throw new Error('PAGE_UNAVAILABLE')
+      }
+      const candidates = messages.filter((message) => message.seq < (before ?? Number.MAX_SAFE_INTEGER))
+      const page = candidates.slice(-limit)
+      return {
+        ...snapshot(sessionId, 180, 'unused'),
+        messages: page,
+        hasOlder: candidates.length > page.length,
+      }
+    },
+    async watch(sessionId, _cursor, onUpdate) {
+      if (sessionId === 'session-one') update = onUpdate
+      return () => undefined
+    },
+  }
+  const runtime = createAppRuntime({ instanceId: 'timeline-history', hostId: 'host', directory: directory(), timeline })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'ready')
+    expect(runtime.view.state.timeline.getSnapshot().messages.map((message) => message.seq)).toEqual(
+      Array.from({ length: 60 }, (_, index) => index + 121),
+    )
+
+    await expect(runtime.view.commands.execute('timeline.loadOlder', { sessionId: 'session-one' })).rejects.toThrow()
+    expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({
+      olderStatus: 'error',
+      olderError: 'PAGE_UNAVAILABLE',
+    })
+    expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(60)
+
+    await runtime.view.commands.execute('timeline.loadOlder', { sessionId: 'session-one' })
+    await runtime.view.commands.execute('timeline.loadOlder', { sessionId: 'session-one' })
+    expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({
+      olderStatus: 'idle',
+      hasOlder: false,
+    })
+    expect(runtime.view.state.timeline.getSnapshot().messages.map((message) => message.seq)).toEqual(
+      Array.from({ length: 180 }, (_, index) => index + 1),
+    )
+
+    failLatest = true
+    update?.({ kind: 'reset' })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'error')
+    expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(180)
+    expect(runtime.view.state.timeline.getSnapshot().error).toBe('DISCONNECTED')
+    failLatest = false
+    await runtime.view.commands.execute('timeline.retry', { sessionId: 'session-one' })
+    expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({ status: 'ready', error: null })
+    expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(180)
+
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-two' })
+    expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({ sessionId: 'session-two', status: 'loading' })
+    holdLatest = true
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
+    expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({ sessionId: 'session-one', status: 'loading' })
+    expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(180)
+    releaseSecond?.(snapshot('session-two', 200, 'late second session'))
+    releaseLatest?.({
+      ...snapshot('session-one', 180, 'unused'),
+      messages: messages.slice(-60),
+      hasOlder: true,
+    })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'ready')
+    expect(runtime.view.state.timeline.getSnapshot().sessionId).toBe('session-one')
+    expect(
+      runtime.view.state.timeline.getSnapshot().messages.some((message) => message.sessionId === 'session-two'),
+    ).toBeFalse()
   } finally {
     runtime.dispose()
   }

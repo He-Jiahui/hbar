@@ -30,7 +30,7 @@ runtime.dispose()
 
 目录投影最多缓存 1,000 个 Session 和 200 个 Workspace，淘汰时保留当前选择。返回页独立于缓存，调用者按 nextCursor 获取后续数据；查询重复不互相报取消，旧查询结果不会替代同查询更新的投影。Session 更新按 seq/updatedAt 合并。明确刷新 session.get 得到删除/归档时清除失效选择，不自动选中另一会话。
 
-目录保持分页查询投影。Session timeline 在选择变化后读取有界快照，再从快照 cursor 订阅增量事件和 stream delta；重复事件、迟到旧 Session、缺失 stream version/offset 和 Host resync 都不会静默污染当前投影。切换或 dispose 释放精确 follow，Host 或身份换代时组合根销毁旧 runtime 后创建新实例，不停止 Host Run。View 通过 `view.state.timeline` 只读取得 messages、runs、approvals、userInputs、usage、streams、cursor 与恢复状态。
+目录保持分页查询投影。Session timeline 在选择变化后读取有界快照，再从快照 cursor 订阅增量事件和 stream delta；重复事件、迟到旧 Session、缺失 stream version/offset 和 Host resync 都不会静默污染当前投影。最近八个会话保留各自最多 1,000 条消息的只读缓存，快速切回或重连刷新时继续展示已有内容；迟到页面和旧会话刷新由 generation 丢弃。`timeline.loadOlder` 按最早消息 seq 读取 60 条旧页并合并去重，`timeline.retry` 重新建立快照和 follow；加载或重连失败保留已有消息与明确错误。切换或 dispose 释放精确 follow，Host 或身份换代时组合根销毁旧 runtime 后创建新实例，不停止 Host Run。View 通过 `view.state.timeline` 只读取得 messages、runs、approvals、userInputs、usage、streams、cursor 与恢复状态。
 
 预算参数表单由组合根可选地注入 `createBudgetCommandClient(client)`。`app.openCommandForm({ commandId: 'session.setBudget', sessionId, formId })` 从 Host 读取当前预算并固定原 Session 目标；`form.setField` 只改本实例的草稿，`form.submit` 使用 A3 的持久命令和独立幂等键。View 通过 `view.state.forms` 只读订阅原文、字段问题、dirty、状态与回执。断线/超时进入 unknown，`form.reconcile` 使用同一 actor、Session、键查询回执；查不到时保持 unknown，不用新键重发。成功后修订版本更新而在途的新编辑仍为 dirty；失败保留草稿。`app.closeCommandForm` 关闭实例，不取消已送出的 Host 写入。
 

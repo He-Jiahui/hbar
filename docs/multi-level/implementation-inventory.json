@@ -501,6 +501,8 @@
     "statusWorkspace.setGitQuery",
     "statusWorkspace.setPerformanceQuery",
     "statusWorkspace.setUsageQuery",
+    "timeline.loadOlder",
+    "timeline.retry",
     "workspace.open"
   ],
   "uiExemptions": [
