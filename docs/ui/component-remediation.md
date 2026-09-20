@@ -19,7 +19,7 @@
 | AgentPlan / `HbarAppUiPlanEditor`                             | 计划展示与受控编辑                                                         | Goal/Plan 工具的摘要与编辑子视图                                        | 工具编辑器继续负责完整修改；时间线复用 RunActivity 的只读 Plan 契约                                             |
 | `HbarAppUiCompactUsage`                                       | 用量、预算、速率与 inline 密度                                             | 会话输入下方紧凑摘要                                                    | 已移除大卡片依赖；完整统计进入 Monitoring/Usage                                                                 |
 | `HbarAppUiWorkspaceFiles` / FileDocument                      | 受控虚拟列表、嵌入文档容器                                                 | 文件工具的列表→详情                                                     | 已完成返回、编辑保存和冲突保留草稿；超大目录容量继续由分页/虚拟化契约约束                                       |
-| `HbarAppUiDialog`（NativeDialog）                             | 原生 top layer、焦点圈定、Escape、初始焦点                                 | Provider 与命令三步流                                                   | Provider 删除确认和命令分层 Escape 已实测；Tauri 标题栏/DPI 仍归 R6.4                                           |
+| `HbarAppUiDialog`（NativeDialog）                             | 原生 top layer、焦点圈定、Escape、初始焦点                                 | Provider 与命令三步流                                                   | Provider 删除确认和命令分层 Escape 已实测；Tauri 标题栏与命令弹窗已随 R6.4 实窗验证                             |
 | `HbarAppUiCommandList` / CommandDialog                        | 分类、键盘、虚拟列表、对话框                                               | CommandList 组合搜索→参数→回执单模态                                    | 已修行样式、查询滚动复位和紧凑帮助；失败/unknown 继续由 runtime 回执表达                                        |
 | `HbarAppUiPreferencesSettings` / SettingsField                | 受控偏好与设置行                                                           | 复用行外观/开关，抽出独立字段能力                                       | SettingsField 尚非完整公开 Schema renderer；不要直接把 demo WorkspaceSettings 当生产设置                        |
 | CompactMetrics / BarSeries / UsageSurfaces                    | 受控指标、趋势、用量与明细                                                 | Monitoring、Performance、Usage、Git 共享                                | 固定百分比上限和可选时间桶已完成；复杂科学图表不在本轮范围                                                      |
@@ -68,4 +68,4 @@
 5. 在实际应用页面再次采集，确认无父容器/旧 CSS 冲突。
 6. 通过相关 guards、lint、typecheck、tests、build 后独立提交。
 
-逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host 验证矩阵](final-validation-matrix.md)。完整页面 fixture 已复用生产 Web 组合根；ToolPane 已完成公开契约与生产四页验证，Tauri 实窗仍单列在 R6.4。
+逐切片结果见[2026-09-19 视觉修复记录](visual-audit-2026-09-19.md)，最终跨页索引见[Web/Host/Tauri 验证矩阵](final-validation-matrix.md)。完整页面 fixture 已复用生产 Web 组合根；ToolPane 已完成公开契约与生产四页验证，Tauri 实窗由 R6.4 原生 smoke 和标题栏截图关闭。

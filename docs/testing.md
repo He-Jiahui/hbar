@@ -8,7 +8,7 @@
 
 `bun run build && bun run test:e2e` 使用 Vite preview 和 Edge/Playwright，覆盖无 Host 时的中英文桌面/窄屏外壳、Ctrl+K 本地命令目录、命令关闭后的导航、刷新、旧 localStorage 隔离和明确失败状态。真实临时 Host 场景覆盖选择会话、文件 compare-and-write、通用 descriptor 预算表单、发送/审批/取消、可靠 Usage、真实工具结算/并发/耗时统计、三层设置动态内容、ProviderDialog 凭据保存、Session Monitoring、子 Agent、目标/计划、扩展/技能以及 Performance/Usage/Git 状态中心。连接 Host 后还会切换到 390×844，逐项重开上述工具，检查水平溢出和 AppSidebar/Main 几何重叠。组件库的受控交互测试和独立预览验证脚本继续保留。
 
-`bun scripts/desktop-smoke.ts` 需要先构建 Host 资源和 debug Tauri 程序。它通过 WebView2 的调试端口验证组件外壳，测试关闭窗口隐藏、退出桌面后 Host 存活和通过独立 SDK 取消运行。当前不验证 Web 自动配对。调试端口只由该测试进程的环境变量启用，常规桌面启动不启用。
+`bun scripts/desktop-smoke.ts` 需要先构建 Host 资源和 debug Tauri 程序。它通过 WebView2 调试端口驱动真实 Tauri 窗口，验证受限 `connection_info` 自动认证、唯一工作区默认、新建并打开会话、WebView file chooser 附件上传、文件工具、默认窗口与原生 900×600 内窗、横向溢出、关闭窗口隐藏、退出桌面后 Host 存活和通过独立 SDK 取消运行。调试端口只由该测试进程的环境变量启用，常规桌面启动不启用。
 
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 

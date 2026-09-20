@@ -14,7 +14,7 @@ R0 证据与入口盘点
              └─ R6 清理与完整验收
 ```
 
-R1 中能独立复现、修复的组件可以先完成，之后进入页面组合。每个可独立交付的子功能通过验证立即提交；失败或未执行的检查不标记完成。核心页面组合已经推进到 R6.3；表内仍标为待实施的主题、容量、恢复与桌面项不能由核心页面截图替代。
+R1 中能独立复现、修复的组件可以先完成，之后进入页面组合。每个可独立交付的子功能通过验证立即提交；失败或未执行的检查不标记完成。R0–R6 已按表内证据全部关闭；历史行保留各切片当时的状态和验证边界。
 
 ## 2. R0：视觉证据与现状清单
 
@@ -95,15 +95,15 @@ R5.1 已完成：`schema-core` 现在编译有界、唯一、保留元素类型�
 
 ## 8. R6：替换、回归与交付
 
-| ID   | 独立交付                           | 验收                                                                                         |
-| ---- | ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| R6.1 | 原入口→新位置→命令的完整对照       | **已完成**：类型化 outlet manifest、迁移别名与入口对照                                       |
-| R6.2 | 删除旧串行页面出口和已迁移冲突样式 | **已完成**：生产窄入口排除旧壳层 CSS，保留 catalog 调用者                                    |
-| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：198 张图、真实流程、完整 checks                                         |
-| R6.4 | Tauri 实窗与缩放验收               | **环境阻塞**：编译/启动已通过；原生控制表面不可用，仍待标题栏、DPI、文件选择、弹窗和窄窗实图 |
-| R6.5 | 文档、证据索引与旧 UI 计划替代说明 | **已完成**：实现、证据和仅余 R6.4 的边界已同步                                               |
+| ID   | 独立交付                           | 验收                                                                                 |
+| ---- | ---------------------------------- | ------------------------------------------------------------------------------------ |
+| R6.1 | 原入口→新位置→命令的完整对照       | **已完成**：类型化 outlet manifest、迁移别名与入口对照                               |
+| R6.2 | 删除旧串行页面出口和已迁移冲突样式 | **已完成**：生产窄入口排除旧壳层 CSS，保留 catalog 调用者                            |
+| R6.3 | 完整视觉矩阵与真实 Host 行为回归   | **已完成 Web/Host**：198 张图、真实流程、完整 checks                                 |
+| R6.4 | Tauri 实窗与缩放验收               | **已完成：1661ed0 / b400108**：原生认证、文件选择、标题栏、默认/900×600 实窗与 smoke |
+| R6.5 | 文档、证据索引与旧 UI 计划替代说明 | **已完成**：Web/Host/Tauri 实现、证据和最终边界已同步                                |
 
-R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor/tool-pane 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：21 个页面/组件族、198 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、Plan Run 归属、Provider 多模型与动态设置刷新、ToolPane 四页三档矩阵、断线重连、基础按钮和整页主题矩阵及全仓 checks 均有证据；Tauri 实窗没有混入完成声明。R6.4 已完成当前代码的 debug 编译和启动验证；第一次视觉尝试停在 Windows LockApp/LogonUI，后续 Computer Use inventory 又返回空应用列表和 `unsupported Codex auth method: apikey`，因此没有用浏览器图替代标题栏、DPI、原生选择器和窄窗实图。R6.5 已将总计划、架构、组件清单和页面状态同步到实际实现；最终总体验收只剩 R6.4 的有效实窗证据。
+R6.1 已完成：Web 组合根以类型化 manifest 固化 settings/status page、四类 session tool 和 commands/settings-editor modal；未知 panel 不能创建不可见实例，旧 `extensions` 只在 runtime 转换为设置分组。完整入口、命令、状态投影、返回和局部 UI 边界见[入口对照](navigation-command-map.md)。R6.2 已完成：Web 与 app-react 不再从 `hbar-app-ui` 根入口加载少量生产控件，改用 primitives/icon/dialog/conversation/prompt/workspace-files/plan-editor/tool-pane 等窄入口；旧 WorkbenchShell 和样式不再进入 Web 构建输入，catalog 与 preview 的既有调用者继续保留。R6.3 的 Web/Host 矩阵已完成并持续补充，见[最终验证矩阵](final-validation-matrix.md)：21 个 Web 页面/组件族、198 张图、真实 Host 全流程、101 会话目录容量、180 条时间线容量、Plan Run 归属、Provider 多模型与动态设置刷新、ToolPane 四页三档矩阵、断线重连、基础按钮和整页主题矩阵及全仓 checks 均有证据。R6.4 由真实 Tauri debug exe 调用受 origin/主窗口限制的 `connection_info` 自动认证；desktop smoke 通过 UI 新建首会话、触发 WebView2 file chooser 并上传附件、打开文件工具、用 Tauri 原生 `set_size` 调整为 900×600 内窗，再验证关闭隐藏、Host 独立存活和 SDK 取消。Windows 外框截图确认 916×639 外框、标准标题栏和 900×600 内容同步缩放；第一次 LockApp/空 Computer Use inventory 和错误的 CDP surface 尺寸尝试均没有被算作通过。R6.5 已将总计划、架构、组件清单和页面状态同步到最终实现。
 
 ## 9. 提交与交付记录规则
 

@@ -8,7 +8,7 @@
 - 本轮代码修复：`8408735`，仅包含 Composer.css、独立生产组件预览、fixture、视觉脚本与生产 E2E 截图断言。
 - 本轮浏览器：本地 Chrome headless 组件审核、Playwright Web E2E；没有使用真实付费模型。
 - 独立输入组件：中英文×浅深色×1440/1024/390/320，共 16 个常规组合；另有附件、长输入、错误、运行和禁用 5 个场景。
-- 修复前后各 21 张截图和几何报告，另有真实 Host fixture 生产会话截图。初始审计当时没有执行新的 Tauri 实窗审核，也没有采集 cc-haha 当前运行版本；后者已由第 33 节的 R0.3 隔离运行证据补齐，前者仍归 R6.4。
+- 修复前后各 21 张截图和几何报告，另有真实 Host fixture 生产会话截图。初始审计当时没有执行新的 Tauri 实窗审核，也没有采集 cc-haha 当前运行版本；后者已由第 33 节的 R0.3 隔离运行证据补齐，前者最终由第 37 节关闭。
 
 此前已看的 cc-haha 产品图来自其仓库 `docs/images/app/zh-CN`，相关图片提交 `107bfc86`（2026-07-31）。这些参考用于确定空间和层级，不冒充本轮实时浏览器截图。
 
@@ -598,3 +598,24 @@ E2E 在 1440×960、1024×768 和 390×844 三档同时读取真实 production D
 | 390  | [四页对照](../../artifacts/ui-redesign/tool-pane/after/contact-mobile-390.png)：单面板下返回、图标、标题、目标、刷新/关闭完整同屏；表单和计划控件自然换行，文件保存区与监控详情完整            |
 
 E2E 对四页分别测量 ToolPane 与 AppShell tool drawer 四边误差、header/body 相邻边界、body 滚动 computed style 和 `scrollWidth <= clientWidth`；三档还实际执行文件打开/保存/返回、Monitoring 展开、Agent 列表/创建/详情、Goal/Plan 编辑/保存/返回。验证结果：组件契约 commit `406c93d`，生产迁移 commit `fd05760`；Prettier、全仓 ESLint、TypeScript、406 个 Bun 测试（3247 个断言）、Web production build（2397 modules / 225.76 kB CSS / 966.51 kB JS）和 12/12 Playwright 全部通过。三张对照图与其来源 production 截图均以原分辨率查看；`artifacts/ui-redesign` 当前共 21 个页面/组件族、198 张 PNG。Tauri 实窗仍归 R6.4。
+
+## 37. Tauri 自动认证、原生窗口与文件选择闭环
+
+早期 desktop smoke 只能证明 WebView 外壳加载、窗口关闭变隐藏、Host 独立存活和 SDK Run 取消。实际原生截图一直停在“等待配对”：Rust 已将 `connection_info` 限制为主窗口和当前 Host origin，但 Web 入口从未调用它，仍以无 token 的普通浏览器客户端连接。修复新增独立 `native-connection` 引导层；只在 Tauri 注入桥存在时调用 `connection_info`，并再次校验 URL 必须是当前 origin 的 `http://127.0.0.1`、token/instanceId 有界，再把凭据传给 `HbarClient`。普通 Web 没有桥时返回 null，继续使用配对流程。跨端口、外部 origin、空 token 和无桥均有单元测试。
+
+修复后的 Tauri 首次连接成功显示工程，却在全局“新建会话”参数页暴露另一个真实缺口：没有当前 session 时，workspaceId 仍为空，唯一已加载工程没有成为默认值，执行按钮永久禁用。默认逻辑随后下沉到 command palette runtime：导航未指定工程且目录恰有一个工程时，把该稳定 ID 放入参数草稿；多工程仍要求用户明确选择。原生 smoke 随后通过同一命令弹窗创建并打开 `Tauri visual session`，无需输入内部 ID。
+
+desktop smoke 现在继续触发 WebView2 `filechooser`，上传有界 `native-visual.txt` 并等待附件进入命令持有的草稿；打开真实工作区文件工具；分别采集默认窗口与 900×600 最小内窗；检查两种尺寸的 document 横向溢出；再关闭窗口、确认变为隐藏、杀掉 desktop 进程后确认 Host 仍存活并取消独立 SDK Run。窗口调整通过新增的最小 Tauri `core:window:allow-set-size` capability 调用原生 `set_size`，没有使用浏览器 viewport 模拟。
+
+视觉验证过程中保留了失败证据边界。第一次尝试停在 Windows LockApp/LogonUI；恢复后 Computer Use inventory 多次返回空应用列表和 `unsupported Codex auth method: apikey`。随后曾尝试 WebView2 `Browser.setWindowBounds`，页面截图虽变成 900×600，Win32 外框仍是旧尺寸并出现合成错位，因此立即撤销，未计为通过。最终用 Tauri `set_size` 后，Win32 `GetWindowRect` 为 916×639，内部截图精确为 900×600；标题栏、应用图标和最小化/最大化/关闭按钮与内容同步缩放。
+
+| 场景         | 截图与人工观察                                                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 四态对照     | [默认/最小会话与文件](../../artifacts/ui-redesign/tauri/contact-native-windows.png)：默认窗保留工程侧栏；900×600 自动切为汉堡入口，文件工具与主会话并排，composer/Usage 仍贴底 |
+| 默认会话     | [1084×960](../../artifacts/ui-redesign/tauri/session-default-window.png)：服务端已连接、唯一工程与 UI 创建会话可见；`native-visual.txt` 附件进入 Prompt 草稿                   |
+| 默认文件     | [1084×960](../../artifacts/ui-redesign/tauri/files-default-window.png)：真实 hbar 工作区目录在 24rem ToolPane 中独立滚动，标题、目标、返回父级、刷新和关闭完整                 |
+| 最小会话     | [900×600](../../artifacts/ui-redesign/tauri/session-min-window.png)：侧栏收起、页头工具同排、Prompt 与紧凑 Usage 完整，没有横向溢出                                            |
+| 最小文件     | [900×600](../../artifacts/ui-redesign/tauri/files-min-window.png)：主区与文件工具共享最小窗口，目录行和滚动条无裁切                                                            |
+| Windows 外框 | [916×639](../../artifacts/ui-redesign/tauri/native-min-window-frame.png)：系统标题栏、hbar 图标、窗口按钮和 900×600 内容同时可见，无旧尺寸空白或错位                           |
+
+验证结果：自动认证与原生窗口 commit `1661ed0`，附件选择 smoke commit `b400108`；VS x64 debug Cargo 构建、Prettier、全仓 ESLint、TypeScript、410 个 Bun 测试（3255 个断言）、Web production build（2398 modules / 225.76 kB CSS / 967.45 kB JS）、12/12 Playwright 和增强 desktop smoke 全部通过。六张 Tauri 图均已原尺寸查看；`artifacts/ui-redesign` 最终共 22 个页面/组件族、204 张 PNG。R6.4 关闭。
