@@ -24,11 +24,7 @@ test('Web composition root imports runtime and transport without server or previ
   expect([...inputs].some((path) => path.endsWith('/packages/client/src/index.ts'))).toBe(true)
   expect([...inputs].some((path) => path.endsWith('/packages/app-react/src/index.ts'))).toBe(true)
   expect([...inputs].filter((path) => /\/packages\/(kernel|storage|terminal|ui-sdk)\//.test(path))).toEqual([])
-  expect(
-    [...inputs].filter((path) =>
-      /\/packages\/hbar-app-ui\/src\/(fixtures|profiles|specs|registry|variants|catalog)(\/|\.)/.test(path),
-    ),
-  ).toEqual([])
+  expect([...inputs].filter((path) => /\/packages\/hbar-app-ui\/src\//.test(path))).toEqual([])
   expect([...inputs].some((path) => /\/zustand\/(?:esm\/)?vanilla\.[mc]?js$/.test(path))).toBe(true)
   expect([...inputs].some((path) => path.endsWith('/components/app-shell/WorkbenchShell.tsx'))).toBe(false)
   expect([...inputs].some((path) => path.endsWith('/components/app-shell/AppShell.tsx'))).toBe(false)
