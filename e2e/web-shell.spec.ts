@@ -627,7 +627,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(prompt).toBeEnabled()
 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'File manager' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     const configuredToolWidth = await page
       .locator('.hbar-app-ui-app-tool-drawer')
@@ -640,19 +640,29 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
           const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
           const workspace = document.querySelector<HTMLElement>('.hbar-app-react-file-workspace')
           const layout = document.querySelector<HTMLElement>('.hbar-app-react-file-layout')
-          if (!drawer || !workspace || !layout) return false
+          const header = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !workspace || !layout || !header || !body) return false
           const drawerRect = drawer.getBoundingClientRect()
           const workspaceRect = workspace.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
           return (
             layout.dataset.view === expectedView &&
             Math.abs(drawerRect.left - workspaceRect.left) <= 1 &&
             Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
             Math.abs(drawerRect.height - workspaceRect.height) <= 1 &&
+            Math.abs(headerRect.top - workspaceRect.top) <= 1 &&
+            headerRect.bottom <= bodyRect.top + 1 &&
+            Math.abs(bodyRect.bottom - workspaceRect.bottom) <= 1 &&
             workspace.scrollWidth <= workspace.clientWidth
           )
         }, view),
       ).toBe(true)
     await expectFileToolLayout('browser')
+    await expect(page.locator('.hbar-app-react-file-workspace .hbar-app-ui-session-tool-pane-heading span')).toHaveText(
+      fixture.ready.workspaceName,
+    )
     await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/list-1440.png', fullPage: true })
     await page.getByRole('button', { name: 'browser-e2e.md' }).click()
     await expectFileToolLayout('document')
@@ -789,7 +799,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440.png', fullPage: true })
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Session monitoring' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
     const expectMonitoringLayout = async () =>
       page
@@ -797,9 +807,13 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
           const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
           const monitoring = document.querySelector<HTMLElement>('.hbar-app-react-session-monitoring')
           const bars = [...document.querySelectorAll<HTMLElement>('.hbar-app-ui-bar-series i')]
-          if (!drawer || !monitoring || !bars.length) return null
+          const header = monitoring?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = monitoring?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !monitoring || !header || !body || !bars.length) return null
           const drawerRect = drawer.getBoundingClientRect()
           const monitoringRect = monitoring.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
           const barRects = bars.map((bar) => bar.getBoundingClientRect())
           return {
             fillsDrawer:
@@ -807,6 +821,11 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
               Math.abs(drawerRect.right - monitoringRect.right) <= 1 &&
               Math.abs(drawerRect.height - monitoringRect.height) <= 1,
             noOverflow: monitoring.scrollWidth <= monitoring.clientWidth,
+            fixedChrome:
+              Math.abs(headerRect.top - monitoringRect.top) <= 1 &&
+              headerRect.bottom <= bodyRect.top + 1 &&
+              Math.abs(bodyRect.bottom - monitoringRect.bottom) <= 1,
+            bodyOwnsScroll: getComputedStyle(body).overflowY === 'auto',
             barCount: bars.length,
             minimumBarWidth: Math.min(...barRects.map((rect) => rect.width)),
             maximumBarHeight: Math.max(...barRects.map((rect) => rect.height)),
@@ -814,7 +833,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
         })
         .then((geometry) => {
           expect(geometry).not.toBeNull()
-          expect(geometry).toMatchObject({ fillsDrawer: true, noOverflow: true })
+          expect(geometry).toMatchObject({
+            fillsDrawer: true,
+            noOverflow: true,
+            fixedChrome: true,
+            bodyOwnsScroll: true,
+          })
           if (geometry!.minimumBarWidth < 1 || geometry!.maximumBarHeight < 8)
             throw new Error(`Monitoring bar geometry: ${JSON.stringify(geometry)}`)
         })
@@ -823,9 +847,13 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
         await page.evaluate((expectedView) => {
           const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
           const workspace = document.querySelector<HTMLElement>('.hbar-app-react-agent-workspace')
-          if (!drawer || !workspace) return null
+          const header = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !workspace || !header || !body) return null
           const drawerRect = drawer.getBoundingClientRect()
           const workspaceRect = workspace.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
           const actualView = workspace.querySelector('.hbar-app-react-agent-create-view')
             ? 'create'
             : workspace.querySelector('.hbar-app-react-agent-detail')
@@ -840,18 +868,34 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
               Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
               Math.abs(drawerRect.height - workspaceRect.height) <= 1,
             noOverflow: workspace.scrollWidth <= workspace.clientWidth,
+            fixedChrome:
+              Math.abs(headerRect.top - workspaceRect.top) <= 1 &&
+              headerRect.bottom <= bodyRect.top + 1 &&
+              Math.abs(bodyRect.bottom - workspaceRect.bottom) <= 1,
+            bodyOwnsScroll: getComputedStyle(body).overflowY === 'auto',
             expectedView,
           }
         }, view),
-      ).toMatchObject({ view, expectedView: view, fillsDrawer: true, noOverflow: true })
+      ).toMatchObject({
+        view,
+        expectedView: view,
+        fillsDrawer: true,
+        noOverflow: true,
+        fixedChrome: true,
+        bodyOwnsScroll: true,
+      })
     const expectGoalPlanLayout = async (view: 'overview' | 'goal' | 'plan') =>
       expect(
         await page.evaluate((expectedView) => {
           const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
           const workspace = document.querySelector<HTMLElement>('.hbar-app-react-goal-plan-workspace')
-          if (!drawer || !workspace) return null
+          const header = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !workspace || !header || !body) return null
           const drawerRect = drawer.getBoundingClientRect()
           const workspaceRect = workspace.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
           const actualView = workspace.querySelector('.hbar-app-react-goal-editor-view')
             ? 'goal'
             : workspace.querySelector('.hbar-app-react-plan-editor-view')
@@ -866,11 +910,26 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
               Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
               Math.abs(drawerRect.height - workspaceRect.height) <= 1,
             noOverflow: workspace.scrollWidth <= workspace.clientWidth,
+            fixedChrome:
+              Math.abs(headerRect.top - workspaceRect.top) <= 1 &&
+              headerRect.bottom <= bodyRect.top + 1 &&
+              Math.abs(bodyRect.bottom - workspaceRect.bottom) <= 1,
+            bodyOwnsScroll: getComputedStyle(body).overflowY === 'auto',
             expectedView,
           }
         }, view),
-      ).toMatchObject({ view, expectedView: view, fillsDrawer: true, noOverflow: true })
+      ).toMatchObject({
+        view,
+        expectedView: view,
+        fillsDrawer: true,
+        noOverflow: true,
+        fixedChrome: true,
+        bodyOwnsScroll: true,
+      })
     await expectMonitoringLayout()
+    await expect(
+      page.locator('.hbar-app-react-session-monitoring .hbar-app-ui-session-tool-pane-heading span'),
+    ).toHaveText(fixture.ready.sessionTitle)
     await expect(page.getByText('Total tokens')).toBeVisible()
     await expect(page.getByText('Token timeline')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
@@ -944,8 +1003,11 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Child agents', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Child agent management' })).toBeVisible()
     await expectAgentLayout('list')
+    await expect(
+      page.locator('.hbar-app-react-agent-workspace .hbar-app-ui-session-tool-pane-heading span'),
+    ).toHaveText(fixture.ready.sessionTitle)
     await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-empty.png', fullPage: true })
     await page.getByRole('button', { name: 'Create child agent' }).click()
     await expect(page.getByRole('heading', { level: 2, name: 'Create child agent' })).toBeVisible()
@@ -968,8 +1030,11 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Goals and plans' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Goals and plans' })).toBeVisible()
     await expectGoalPlanLayout('overview')
+    await expect(
+      page.locator('.hbar-app-react-goal-plan-workspace .hbar-app-ui-session-tool-pane-heading span'),
+    ).toHaveText(fixture.ready.sessionTitle)
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-empty.png', fullPage: true })
     await page.getByRole('button', { name: 'Set goal' }).click()
     await expectGoalPlanLayout('goal')
@@ -1000,7 +1065,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1024.png', fullPage: true })
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/tablet-1024.png', fullPage: true })
     await page.getByRole('button', { name: 'Files', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'File manager' })).toBeVisible()
     await expectFileToolLayout('browser')
     await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-1024.png', fullPage: true })
     await page.getByRole('button', { name: 'browser-e2e.md' }).click()
@@ -1044,7 +1109,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first().click()
 
     await page.getByRole('button', { name: 'Files', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'File manager' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'File manager' })).toBeVisible()
     await expectFileToolLayout('browser')
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-390.png', fullPage: true })
@@ -1056,7 +1121,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Close file manager' }).click()
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Session monitoring' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Session monitoring' })).toBeVisible()
     await expectMonitoringLayout()
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/mobile-390.png', fullPage: true })
@@ -1066,7 +1131,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
 
     await page.getByRole('button', { name: 'Child agents', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Child agent management' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Child agent management' })).toBeVisible()
     await expectAgentLayout('list')
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/mobile-390-list.png', fullPage: true })
@@ -1081,7 +1146,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Close child agent management' }).click()
 
     await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Goals and plans' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Goals and plans' })).toBeVisible()
     await expectGoalPlanLayout('overview')
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/mobile-390-overview.png', fullPage: true })

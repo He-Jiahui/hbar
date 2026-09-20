@@ -1,6 +1,5 @@
-import { X } from 'lucide-react'
-import { HbarAppUiIcon } from 'hbar-app-ui/icon'
-import { HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui/primitives'
+import { ChartNoAxesColumnIncreasing } from 'lucide-react'
+import { HbarAppUiToolPane } from 'hbar-app-ui/tool-pane'
 import { HbarAppUiBarSeries, HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-monitoring.css'
@@ -45,9 +44,11 @@ export interface HbarSessionMonitoringLabels {
 export function HbarSessionMonitoring({
   labels,
   instanceId: requestedInstanceId,
+  targetLabel,
 }: {
   readonly labels: HbarSessionMonitoringLabels
   readonly instanceId?: string
+  readonly targetLabel?: string | undefined
 }) {
   const runtime = useHbarRuntime()
   const controls = useHbarRuntimeState(runtime.state.controls)
@@ -66,16 +67,15 @@ export function HbarSessionMonitoring({
     if (instanceId) void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
   }
   return (
-    <HbarAppUiSurface className="hbar-app-react-session-monitoring">
-      <header>
-        <div>
-          <h1>{labels.title}</h1>
-          <p>{labels.description}</p>
-        </div>
-        <HbarAppUiIconButton label={labels.close} onClick={close}>
-          <HbarAppUiIcon icon={X} tier="sm" />
-        </HbarAppUiIconButton>
-      </header>
+    <HbarAppUiToolPane
+      title={labels.title}
+      targetLabel={targetLabel}
+      description={labels.description}
+      icon={ChartNoAxesColumnIncreasing}
+      closeLabel={labels.close}
+      onClose={close}
+      className="hbar-app-react-session-monitoring"
+    >
       {!report ? (
         <p className="hbar-app-react-monitoring-empty">{labels.empty}</p>
       ) : (
@@ -199,6 +199,6 @@ export function HbarSessionMonitoring({
           </details>
         </main>
       )}
-    </HbarAppUiSurface>
+    </HbarAppUiToolPane>
   )
 }

@@ -1,41 +1,6 @@
-.hbar-app-ui-surface.hbar-app-react-session-monitoring {
-  display: flex;
-  inline-size: 100%;
-  min-inline-size: 0;
-  min-block-size: 0;
-  block-size: 100%;
-  flex: 1 1 auto;
-  flex-direction: column;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
-}
-
-.hbar-app-react-session-monitoring > header {
-  display: flex;
-  min-inline-size: 0;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hbar-app-ui-space-md);
-  padding: var(--hbar-app-ui-space-md);
-  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
-}
-
-.hbar-app-react-session-monitoring > header > div {
-  min-inline-size: 0;
-  flex: 1 1 auto;
-}
-
-.hbar-app-react-session-monitoring h1,
 .hbar-app-react-session-monitoring h2,
 .hbar-app-react-session-monitoring p {
   margin: 0;
-}
-
-.hbar-app-react-session-monitoring h1 {
-  font-size: var(--hbar-app-ui-font-title);
-  line-height: 1.25;
 }
 
 .hbar-app-react-session-monitoring h2,
@@ -44,22 +9,13 @@
   font-weight: 650;
 }
 
-.hbar-app-react-session-monitoring header p {
-  overflow: hidden;
-  color: var(--hbar-app-ui-subtle);
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .hbar-app-react-session-monitoring main {
   display: flex;
   min-inline-size: 0;
-  min-block-size: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-lg);
-  overflow: auto;
+  overflow: visible;
   padding: var(--hbar-app-ui-space-md);
 }
 
@@ -132,10 +88,4 @@
   padding: var(--hbar-app-ui-space-lg);
   color: var(--hbar-app-ui-muted);
   text-align: center;
-}
-
-@media (max-width: 35rem) {
-  .hbar-app-react-session-monitoring > header {
-    padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
-  }
 }

@@ -1,12 +1,13 @@
 import { useCallback, useEffect } from 'react'
-import { ArrowLeft, RefreshCw, X } from 'lucide-react'
+import { ListTodo, RefreshCw } from 'lucide-react'
 import { HbarAppUiIcon } from 'hbar-app-ui/icon'
+import { HbarAppUiToolPane } from 'hbar-app-ui/tool-pane'
 import {
   HbarAppUiPlanEditor,
   type HbarAppUiAgentPlanEditableContent,
   type HbarAppUiAgentPlanState,
 } from 'hbar-app-ui/plan-editor'
-import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui/primitives'
+import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus } from 'hbar-app-ui/primitives'
 import { HbarAppUiField, HbarAppUiInput, HbarAppUiSelect, HbarAppUiTextarea } from 'hbar-app-ui/forms'
 import { HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
@@ -90,10 +91,12 @@ export function HbarGoalPlanWorkspace({
   labels,
   connected,
   instanceId: requestedInstanceId,
+  targetLabel,
 }: {
   readonly labels: HbarGoalPlanWorkspaceLabels
   readonly connected: boolean
   readonly instanceId?: string
+  readonly targetLabel?: string | undefined
 }) {
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
@@ -130,13 +133,18 @@ export function HbarGoalPlanWorkspace({
   const back = () => invoke('goalPlanWorkspace.showOverview', { instanceId })
 
   return (
-    <HbarAppUiSurface className="hbar-app-react-goal-plan-workspace">
-      <header>
-        <div>
-          <h1>{labels.title}</h1>
-          <p>{labels.description}</p>
-        </div>
-        <div className="hbar-app-react-goal-plan-header-actions">
+    <HbarAppUiToolPane
+      title={labels.title}
+      targetLabel={targetLabel}
+      description={labels.description}
+      icon={ListTodo}
+      backLabel={view === 'overview' ? undefined : labels.back}
+      closeLabel={labels.close}
+      onBack={view === 'overview' ? undefined : back}
+      onClose={() => invoke('app.closePanel', { instanceId })}
+      busy={Boolean(!entry || entry.status === 'loading' || goalBusy || planBusy)}
+      actions={
+        <>
           <HbarAppUiIconButton
             label={labels.refresh}
             disabled={!connected || entry?.status === 'loading'}
@@ -144,11 +152,10 @@ export function HbarGoalPlanWorkspace({
           >
             <HbarAppUiIcon icon={RefreshCw} tier="sm" />
           </HbarAppUiIconButton>
-          <HbarAppUiIconButton label={labels.close} onClick={() => invoke('app.closePanel', { instanceId })}>
-            <HbarAppUiIcon icon={X} tier="sm" />
-          </HbarAppUiIconButton>
-        </div>
-      </header>
+        </>
+      }
+      className="hbar-app-react-goal-plan-workspace"
+    >
       {!entry || entry.status === 'loading' ? (
         <p className="hbar-app-react-goal-plan-loading">{labels.loading}</p>
       ) : entry.error ? (
@@ -157,10 +164,6 @@ export function HbarGoalPlanWorkspace({
         </p>
       ) : view === 'goal' ? (
         <main className="hbar-app-react-goal-editor-view">
-          <HbarAppUiButton className="hbar-app-react-goal-plan-back" onClick={back}>
-            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
-            <span>{labels.back}</span>
-          </HbarAppUiButton>
           <form
             className="hbar-app-react-goal-editor"
             onSubmit={(event) => {
@@ -236,10 +239,6 @@ export function HbarGoalPlanWorkspace({
         </main>
       ) : view === 'plan' ? (
         <main className="hbar-app-react-plan-editor-view">
-          <HbarAppUiButton className="hbar-app-react-goal-plan-back" onClick={back}>
-            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
-            <span>{labels.back}</span>
-          </HbarAppUiButton>
           <HbarAppUiPlanEditor
             labels={labels.plan}
             steps={steps}
@@ -396,6 +395,6 @@ export function HbarGoalPlanWorkspace({
           </section>
         </main>
       )}
-    </HbarAppUiSurface>
+    </HbarAppUiToolPane>
   )
 }

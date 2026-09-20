@@ -1,7 +1,8 @@
 import { useCallback, useEffect } from 'react'
-import { ArrowLeft, ExternalLink, Plus, RefreshCw, X } from 'lucide-react'
+import { Bot, ExternalLink, Plus, RefreshCw } from 'lucide-react'
 import { HbarAppUiIcon } from 'hbar-app-ui/icon'
-import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus, HbarAppUiSurface } from 'hbar-app-ui/primitives'
+import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus } from 'hbar-app-ui/primitives'
+import { HbarAppUiToolPane } from 'hbar-app-ui/tool-pane'
 import { HbarAppUiField, HbarAppUiInput, HbarAppUiSelect, HbarAppUiTextarea } from 'hbar-app-ui/forms'
 import { HbarAppUiCompactMetrics } from 'hbar-app-ui/workbench'
 import type { AgentWorkspaceEntryState } from '@hbar/app-runtime'
@@ -69,10 +70,12 @@ export function HbarAgentWorkspace({
   labels,
   connected,
   instanceId: requestedInstanceId,
+  targetLabel,
 }: {
   readonly labels: HbarAgentWorkspaceLabels
   readonly connected: boolean
   readonly instanceId?: string
+  readonly targetLabel?: string | undefined
 }) {
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
@@ -109,13 +112,18 @@ export function HbarAgentWorkspace({
   const back = () => invoke('agentWorkspace.showList', { instanceId })
 
   return (
-    <HbarAppUiSurface className="hbar-app-react-agent-workspace">
-      <header>
-        <div>
-          <h1>{labels.title}</h1>
-          <p>{labels.description}</p>
-        </div>
-        <div className="hbar-app-react-agent-header-actions">
+    <HbarAppUiToolPane
+      title={labels.title}
+      targetLabel={targetLabel}
+      description={labels.description}
+      icon={Bot}
+      backLabel={view === 'list' ? undefined : labels.back}
+      closeLabel={labels.close}
+      onBack={view === 'list' ? undefined : back}
+      onClose={() => invoke('app.closePanel', { instanceId })}
+      busy={Boolean(!entry || entry.status === 'loading' || creationBusy)}
+      actions={
+        <>
           {view === 'list' && entry && (
             <HbarAppUiIconButton
               label={labels.createTitle}
@@ -132,17 +140,12 @@ export function HbarAgentWorkspace({
           >
             <HbarAppUiIcon icon={RefreshCw} tier="sm" />
           </HbarAppUiIconButton>
-          <HbarAppUiIconButton label={labels.close} onClick={() => invoke('app.closePanel', { instanceId })}>
-            <HbarAppUiIcon icon={X} tier="sm" />
-          </HbarAppUiIconButton>
-        </div>
-      </header>
+        </>
+      }
+      className="hbar-app-react-agent-workspace"
+    >
       {view === 'create' && entry ? (
         <main className="hbar-app-react-agent-create-view">
-          <HbarAppUiButton className="hbar-app-react-agent-back" onClick={back}>
-            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
-            <span>{labels.back}</span>
-          </HbarAppUiButton>
           <div>
             <h2>{labels.createTitle}</h2>
             <p>{labels.createScope}</p>
@@ -242,10 +245,6 @@ export function HbarAgentWorkspace({
         </main>
       ) : selectedAgent && entry ? (
         <main className="hbar-app-react-agent-detail">
-          <HbarAppUiButton className="hbar-app-react-agent-back" onClick={back}>
-            <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
-            <span>{labels.back}</span>
-          </HbarAppUiButton>
           <div className="hbar-app-react-agent-detail-heading">
             <h2>{labels.detailTitle}</h2>
             <HbarAppUiStatus value={labels.status(selectedAgent.status)} tone={tone(selectedAgent.status)} />
@@ -330,6 +329,6 @@ export function HbarAgentWorkspace({
           )}
         </main>
       )}
-    </HbarAppUiSurface>
+    </HbarAppUiToolPane>
   )
 }

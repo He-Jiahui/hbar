@@ -1,8 +1,8 @@
-import { X } from 'lucide-react'
+import { FolderTree } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { HbarAppUiDialog } from 'hbar-app-ui/app-dialog'
-import { HbarAppUiIcon } from 'hbar-app-ui/icon'
-import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiSurface } from 'hbar-app-ui/primitives'
+import { HbarAppUiButton } from 'hbar-app-ui/primitives'
+import { HbarAppUiToolPane } from 'hbar-app-ui/tool-pane'
 import {
   HbarAppUiFileDocument,
   HbarAppUiWorkspaceFiles,
@@ -33,10 +33,12 @@ export function HbarFileWorkspace({
   labels,
   connected,
   instanceId: requestedInstanceId,
+  targetLabel,
 }: {
   readonly labels: HbarFileWorkspaceLabels
   readonly connected: boolean
   readonly instanceId?: string
+  readonly targetLabel?: string | undefined
 }) {
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
@@ -75,16 +77,18 @@ export function HbarFileWorkspace({
   }
   return (
     <>
-      <HbarAppUiSurface className="hbar-app-react-file-workspace">
-        <header>
-          <div>
-            <h1>{labels.title}</h1>
-            {entry && <p title={entry.path}>{entry.path === '.' ? labels.root : entry.path}</p>}
-          </div>
-          <HbarAppUiIconButton label={labels.close} onClick={() => invoke('app.closePanel', { instanceId })}>
-            <HbarAppUiIcon icon={X} tier="sm" />
-          </HbarAppUiIconButton>
-        </header>
+      <HbarAppUiToolPane
+        title={labels.title}
+        targetLabel={targetLabel}
+        description={entry ? (entry.path === '.' ? labels.root : entry.path) : undefined}
+        icon={FolderTree}
+        backLabel={document ? labels.backToFiles : undefined}
+        closeLabel={labels.close}
+        onBack={document ? () => invoke('fileWorkspace.showBrowser', { instanceId }) : undefined}
+        onClose={() => invoke('app.closePanel', { instanceId })}
+        busy={Boolean(!entry || entry.status === 'loading' || busy)}
+        className="hbar-app-react-file-workspace"
+      >
         <div className="hbar-app-react-file-layout" data-view={document ? 'document' : 'browser'}>
           {document ? (
             <HbarAppUiFileDocument
@@ -95,10 +99,6 @@ export function HbarFileWorkspace({
               error={document.error && document.status !== 'unknown' ? labels.error(document.error) : undefined}
               contentAvailable={document.sha256 !== null}
               refreshDisabled={dirty || busy || unknown}
-              back={{
-                label: labels.backToFiles,
-                onInvoke: () => invoke('fileWorkspace.showBrowser', { instanceId }),
-              }}
               errorAction={
                 document.error === 'FILE_CONFLICT' ? (
                   <HbarAppUiButton onClick={() => setReloadTarget(document.path)}>{labels.reload}</HbarAppUiButton>
@@ -167,7 +167,7 @@ export function HbarFileWorkspace({
             </div>
           )}
         </div>
-      </HbarAppUiSurface>
+      </HbarAppUiToolPane>
       <HbarAppUiDialog
         open={reloadTarget !== null}
         title={labels.reloadTitle(reloadTarget ?? '')}

@@ -1,56 +1,12 @@
-.hbar-app-react-goal-plan-workspace {
-  display: flex;
-  inline-size: 100%;
-  min-inline-size: 0;
-  min-block-size: 0;
-  block-size: 100%;
-  flex: 1 1 auto;
-  flex-direction: column;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
-}
-
-.hbar-app-react-goal-plan-workspace > header {
-  display: flex;
-  min-inline-size: 0;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hbar-app-ui-space-md);
-  padding: var(--hbar-app-ui-space-md);
-  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
-}
-
-.hbar-app-react-goal-plan-workspace > header > div:first-child {
-  min-inline-size: 0;
-  flex: 1 1 auto;
-}
-
-.hbar-app-react-goal-plan-workspace h1,
 .hbar-app-react-goal-plan-workspace h2,
 .hbar-app-react-goal-plan-workspace p {
   margin: 0;
-}
-
-.hbar-app-react-goal-plan-workspace h1 {
-  font-size: var(--hbar-app-ui-font-title);
-  line-height: 1.25;
 }
 
 .hbar-app-react-goal-plan-workspace h2 {
   font-size: var(--hbar-app-ui-font-section);
 }
 
-.hbar-app-react-goal-plan-workspace > header p {
-  overflow: hidden;
-  color: var(--hbar-app-ui-subtle);
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hbar-app-react-goal-plan-header-actions,
 .hbar-app-react-goal-editor > footer,
 .hbar-app-react-goal-plan-overview section > footer {
   display: flex;
@@ -61,14 +17,13 @@
   gap: var(--hbar-app-ui-space-xs);
 }
 
-.hbar-app-react-goal-plan-workspace > main {
+.hbar-app-react-goal-plan-workspace .hbar-app-ui-session-tool-pane-body > main {
   display: flex;
   min-inline-size: 0;
-  min-block-size: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-lg);
-  overflow: auto;
+  overflow: visible;
   padding: var(--hbar-app-ui-space-md);
 }
 
@@ -183,10 +138,4 @@
 
 .hbar-app-react-goal-plan-workspace [role='status'] {
   color: var(--hbar-app-ui-positive);
-}
-
-@media (max-width: 35rem) {
-  .hbar-app-react-goal-plan-workspace > header {
-    padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
-  }
 }

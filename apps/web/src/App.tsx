@@ -184,18 +184,44 @@ function WorkspaceBody({
 function WorkspaceTool({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
   const copy = getShellCopy(locale)
   const runtime = useHbarRuntime()
+  const directory = useHbarRuntimeState(runtime.state.directory)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const instanceId = presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   if (!instanceId || !panel) return null
+  const targetLabel =
+    panel.panelId === 'files' && panel.workspaceId
+      ? (directory.workspaces[panel.workspaceId]?.name ?? panel.workspaceId)
+      : panel.sessionId
+        ? (directory.sessions[panel.sessionId]?.title ?? panel.sessionId)
+        : panel.workspaceId
+          ? (directory.workspaces[panel.workspaceId]?.name ?? panel.workspaceId)
+          : undefined
   if (panel.panelId === 'files')
-    return <HbarFileWorkspace labels={copy.files} connected={connected} instanceId={instanceId} />
-  if (panel.panelId === 'monitoring') return <HbarSessionMonitoring labels={copy.monitoring} instanceId={instanceId} />
+    return (
+      <HbarFileWorkspace labels={copy.files} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
+    )
+  if (panel.panelId === 'monitoring')
+    return <HbarSessionMonitoring labels={copy.monitoring} instanceId={instanceId} targetLabel={targetLabel} />
   if (panel.panelId === 'agents')
-    return <HbarAgentWorkspace labels={copy.agents} connected={connected} instanceId={instanceId} />
+    return (
+      <HbarAgentWorkspace
+        labels={copy.agents}
+        connected={connected}
+        instanceId={instanceId}
+        targetLabel={targetLabel}
+      />
+    )
   if (panel.panelId === 'goals')
-    return <HbarGoalPlanWorkspace labels={copy.goals} connected={connected} instanceId={instanceId} />
+    return (
+      <HbarGoalPlanWorkspace
+        labels={copy.goals}
+        connected={connected}
+        instanceId={instanceId}
+        targetLabel={targetLabel}
+      />
+    )
   return null
 }
 

@@ -1,43 +1,8 @@
-.hbar-app-react-agent-workspace {
-  display: flex;
-  inline-size: 100%;
-  min-inline-size: 0;
-  min-block-size: 0;
-  block-size: 100%;
-  flex: 1 1 auto;
-  flex-direction: column;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
-}
-
-.hbar-app-react-agent-workspace > header {
-  display: flex;
-  min-inline-size: 0;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hbar-app-ui-space-md);
-  padding: var(--hbar-app-ui-space-md);
-  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
-}
-
-.hbar-app-react-agent-workspace > header > div:first-child {
-  min-inline-size: 0;
-  flex: 1 1 auto;
-}
-
-.hbar-app-react-agent-workspace h1,
 .hbar-app-react-agent-workspace h2,
 .hbar-app-react-agent-workspace h3,
 .hbar-app-react-agent-workspace p,
 .hbar-app-react-agent-workspace dl {
   margin: 0;
-}
-
-.hbar-app-react-agent-workspace h1 {
-  font-size: var(--hbar-app-ui-font-title);
-  line-height: 1.25;
 }
 
 .hbar-app-react-agent-workspace h2 {
@@ -47,19 +12,11 @@
 .hbar-app-react-agent-workspace h3,
 .hbar-app-react-agent-list small,
 .hbar-app-react-agent-list time,
-.hbar-app-react-agent-workspace > header p,
 .hbar-app-react-agent-create-view > div > p {
   color: var(--hbar-app-ui-subtle);
   font-size: 0.75rem;
 }
 
-.hbar-app-react-agent-workspace > header p {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hbar-app-react-agent-header-actions,
 .hbar-app-react-agent-detail > footer {
   display: flex;
   min-inline-size: 0;
@@ -69,14 +26,13 @@
   gap: var(--hbar-app-ui-space-xs);
 }
 
-.hbar-app-react-agent-workspace > main {
+.hbar-app-react-agent-workspace .hbar-app-ui-session-tool-pane-body > main {
   display: flex;
   min-inline-size: 0;
-  min-block-size: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: var(--hbar-app-ui-space-lg);
-  overflow: auto;
+  overflow: visible;
   padding: var(--hbar-app-ui-space-md);
 }
 
@@ -221,10 +177,4 @@
 
 .hbar-app-react-agent-detail > section p {
   overflow-wrap: anywhere;
-}
-
-@media (max-width: 35rem) {
-  .hbar-app-react-agent-workspace > header {
-    padding: var(--hbar-app-ui-space-sm) var(--hbar-app-ui-space-md);
-  }
 }

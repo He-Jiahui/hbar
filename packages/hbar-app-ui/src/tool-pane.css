@@ -43,8 +43,9 @@
 .hbar-app-ui-session-tool-pane-heading {
   display: flex;
   min-inline-size: 0;
-  align-items: baseline;
-  gap: var(--hbar-app-ui-space-sm);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
 }
 
 .hbar-app-ui-session-tool-pane-heading h2,
@@ -53,6 +54,7 @@
 }
 
 .hbar-app-ui-session-tool-pane-heading h2 {
+  inline-size: 100%;
   min-inline-size: 0;
   overflow: hidden;
   font-size: var(--hbar-app-ui-font-title);
@@ -63,7 +65,7 @@
 
 .hbar-app-ui-session-tool-pane-heading span {
   min-inline-size: 0;
-  max-inline-size: 48%;
+  max-inline-size: 100%;
   overflow: hidden;
   padding: 0.125rem var(--hbar-app-ui-space-xs);
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
@@ -148,15 +150,6 @@
 
   .hbar-app-ui-session-tool-pane-start {
     align-items: flex-start;
-  }
-
-  .hbar-app-ui-session-tool-pane-heading {
-    flex-direction: column;
-    gap: 0.125rem;
-  }
-
-  .hbar-app-ui-session-tool-pane-heading span {
-    max-inline-size: 100%;
   }
 
   .hbar-app-ui-session-tool-pane-actions {
