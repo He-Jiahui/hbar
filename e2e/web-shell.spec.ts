@@ -183,6 +183,12 @@ test('session tree paginates the 101st row inside its sidebar pane', async ({ br
     await expect(sessionRows).toHaveCount(100)
     const firstPageNames = await sessionRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
     expect(new Set(firstPageNames).size).toBe(100)
+    const selectedName = firstPageNames[0]
+    if (!selectedName) throw new Error('The first session page is empty')
+    const selectedRow = sidebar.getByRole('button', { name: selectedName })
+    await selectedRow.click()
+    await expect(selectedRow).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { level: 1, name: selectedName.replace('Open session ', '') })).toBeVisible()
     const loadMore = sidebar.getByRole('button', { name: 'Load more' })
     await loadMore.scrollIntoViewIfNeeded()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/capacity-100.png', fullPage: true })
@@ -190,6 +196,7 @@ test('session tree paginates the 101st row inside its sidebar pane', async ({ br
     await expect(sessionRows).toHaveCount(101)
     const allNames = await sessionRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
     expect(allNames.filter((name) => !firstPageNames.includes(name))).toHaveLength(1)
+    await expect(selectedRow).toHaveAttribute('aria-current', 'page')
     expect(
       await sidebar
         .locator('.hbar-app-ui-app-sidebar-content')
