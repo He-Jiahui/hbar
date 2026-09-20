@@ -109,7 +109,11 @@ export class PlaywrightUiHarness {
     this.#theme = options.theme
     this.#runtimeErrorPolicy = options.runtimeErrorPolicy ?? 'fail'
     this.#page.on('console', (message) => {
-      if (message.type() === 'error') this.#consoleErrors.push(message.text())
+      if (message.type() !== 'error') return
+      const location = message.location()
+      this.#consoleErrors.push(
+        `${message.text()}${location.url ? ` (${location.url}:${location.lineNumber}:${location.columnNumber})` : ''}`,
+      )
     })
     this.#page.on('pageerror', (error) => this.#pageErrors.push(error.message))
   }
