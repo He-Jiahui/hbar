@@ -22,14 +22,15 @@ test('controlled form primitives connect host-owned field copy and validation me
         error="名称不能为空。"
         required
         requiredIndicator="*"
+        size="l"
       >
         <HbarAppUiInput id="provider-name" value="" readOnly />
       </HbarAppUiField>
       <HbarAppUiField controlId="notes" label="说明" hint="最多 500 个字符。">
-        <HbarAppUiTextarea id="notes" value="由宿主控制的长文本" readOnly />
+        <HbarAppUiTextarea id="notes" value="由宿主控制的长文本" variant="plain" readOnly />
       </HbarAppUiField>
       <HbarAppUiField controlId="protocol" label="协议">
-        <HbarAppUiSelect id="protocol" value="responses" disabled>
+        <HbarAppUiSelect id="protocol" value="responses" size="s" disabled>
           <option value="responses">Responses</option>
         </HbarAppUiSelect>
       </HbarAppUiField>
@@ -40,6 +41,11 @@ test('controlled form primitives connect host-owned field copy and validation me
   expect(markup).toContain('供应商显示名称')
   expect(markup).toContain('aria-describedby="provider-name-description provider-name-error"')
   expect(markup).toContain('aria-invalid="true"')
+  expect(markup).toContain('class="hbar-app-ui-label"')
+  expect(markup).toContain('data-size="l"')
+  expect(markup).toContain('data-variant="outline"')
+  expect(markup).toContain('data-variant="plain"')
+  expect(markup).toContain('data-size="s"')
   expect(markup).toContain('aria-describedby="notes-hint"')
   expect(markup).toContain('type="checkbox"')
   expect(markup).toContain('在模型选择器中显示')

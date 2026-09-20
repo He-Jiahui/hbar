@@ -8,30 +8,23 @@
 }
 
 .hbar-app-ui-field {
-  gap: 6px;
+  gap: var(--hbar-app-ui-space-sm);
 }
 
 .hbar-app-ui-field > label,
-.hbar-app-ui-checkbox-copy > strong {
+.hbar-app-ui-checkbox-copy > .hbar-app-ui-text[data-variant='label'] {
   color: var(--hbar-app-ui-text);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.35;
 }
 
 .hbar-app-ui-field > label > span {
-  margin-inline-start: 4px;
+  margin-inline-start: var(--hbar-app-ui-space-xs);
   color: var(--hbar-app-ui-danger);
 }
 
 .hbar-app-ui-field > p,
 .hbar-app-ui-field > small,
 .hbar-app-ui-checkbox-copy > small {
-  margin: 0;
   color: var(--hbar-app-ui-muted);
-  font-size: 0.75rem;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .hbar-app-ui-field > .hbar-app-ui-field-error {
@@ -39,17 +32,49 @@
 }
 
 .hbar-app-ui-control {
+  --hbar-app-ui-field-control-height: var(--hbar-app-ui-control-height);
+  --hbar-app-ui-field-control-padding-inline: var(--hbar-app-ui-control-padding-inline);
+  --hbar-app-ui-field-font-size: var(--hbar-app-ui-text-body-size);
+  --hbar-app-ui-field-line-height: var(--hbar-app-ui-text-line-height);
+
   inline-size: 100%;
   min-inline-size: 0;
-  min-block-size: var(--hbar-app-ui-control-min);
-  padding: 7px 10px;
+  min-block-size: var(--hbar-app-ui-field-control-height);
+  padding: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-field-control-padding-inline);
   border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
-  border-radius: var(--hbar-app-ui-control-radius);
+  border-radius: var(--hbar-app-ui-component-radius);
   outline: 0;
   background: var(--hbar-app-ui-surface-0);
   color: var(--hbar-app-ui-text);
-  font: inherit;
-  line-height: 1.35;
+  font-family: inherit;
+  font-size: var(--hbar-app-ui-field-font-size);
+  line-height: var(--hbar-app-ui-field-line-height);
+}
+
+.hbar-app-ui-control[data-size='s'] {
+  --hbar-app-ui-field-control-height: var(--hbar-app-ui-control-height-s);
+  --hbar-app-ui-field-control-padding-inline: var(--hbar-app-ui-control-padding-inline-s);
+  --hbar-app-ui-field-font-size: var(--hbar-app-ui-font-size-s);
+  --hbar-app-ui-field-line-height: var(--hbar-app-ui-line-height-s);
+}
+
+.hbar-app-ui-control[data-size='m'] {
+  --hbar-app-ui-field-control-height: var(--hbar-app-ui-control-height-m);
+  --hbar-app-ui-field-control-padding-inline: var(--hbar-app-ui-control-padding-inline-m);
+  --hbar-app-ui-field-font-size: var(--hbar-app-ui-font-size-m);
+  --hbar-app-ui-field-line-height: var(--hbar-app-ui-line-height-m);
+}
+
+.hbar-app-ui-control[data-size='l'] {
+  --hbar-app-ui-field-control-height: var(--hbar-app-ui-control-height-l);
+  --hbar-app-ui-field-control-padding-inline: var(--hbar-app-ui-control-padding-inline-l);
+  --hbar-app-ui-field-font-size: var(--hbar-app-ui-font-size-l);
+  --hbar-app-ui-field-line-height: var(--hbar-app-ui-line-height-l);
+}
+
+.hbar-app-ui-control[data-variant='plain'] {
+  border-color: transparent;
+  background: transparent;
 }
 
 textarea.hbar-app-ui-control {
@@ -58,7 +83,7 @@ textarea.hbar-app-ui-control {
 }
 
 select.hbar-app-ui-control {
-  padding-inline-end: 32px;
+  padding-inline-end: var(--hbar-app-ui-field-control-height);
 }
 
 .hbar-app-ui-control::placeholder {
@@ -79,7 +104,11 @@ select.hbar-app-ui-control {
 .hbar-app-ui-control:disabled,
 .hbar-app-ui-checkbox input:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.55;
+}
+
+.hbar-app-ui-control:read-only:not(select) {
+  background: var(--hbar-app-ui-surface-1);
 }
 
 .hbar-app-ui-control[aria-invalid='true'],
@@ -91,22 +120,22 @@ select.hbar-app-ui-control {
   display: flex;
   min-inline-size: 0;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--hbar-app-ui-space-md);
   color: var(--hbar-app-ui-text);
   cursor: pointer;
 }
 
 .hbar-app-ui-checkbox input {
-  inline-size: 1.125rem;
-  block-size: 1.125rem;
+  inline-size: var(--hbar-app-ui-icon-md);
+  block-size: var(--hbar-app-ui-icon-md);
   flex: 0 0 auto;
-  margin: 1px 0 0;
+  margin: var(--hbar-app-ui-space-xs) 0 0;
   cursor: pointer;
   accent-color: var(--hbar-app-ui-accent);
 }
 
 .hbar-app-ui-checkbox-copy {
-  gap: 2px;
+  gap: var(--hbar-app-ui-space-xs);
 }
 
 .hbar-app-ui-combobox {

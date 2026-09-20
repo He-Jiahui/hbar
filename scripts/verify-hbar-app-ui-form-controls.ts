@@ -18,7 +18,7 @@ async function ready(): Promise<boolean> {
   }
 }
 
-async function inspect(page: Page, name: string) {
+async function inspect(page: Page, name: string, minimumControlHeight = 36) {
   const report = await page.locator('.form-controls-audit-panel').evaluate((panel) => {
     const panelBounds = panel.getBoundingClientRect()
     const controls = [...panel.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), select, textarea')].map(
@@ -49,7 +49,7 @@ async function inspect(page: Page, name: string) {
     `${name}: a control escapes the form panel`,
   )
   assert(
-    report.controls.every((control) => control.height >= 36),
+    report.controls.every((control) => control.height >= minimumControlHeight),
     `${name}: a control has an undersized hit area`,
   )
   if (report.popup)
@@ -86,6 +86,25 @@ async function run() {
             await page.evaluate(() => document.fonts.ready.then(() => undefined))
             records.push(await inspect(page, `${locale}-${theme}-${width}`))
           }
+
+      await page.setViewportSize({ width: 1280, height: 900 })
+      for (const [size, expectedHeight] of [
+        ['s', 32],
+        ['m', 36],
+        ['l', 44],
+      ] as const) {
+        await page.goto(`${baseUrl}/form-controls-audit.html?locale=en-US&theme=light`)
+        await page.getByRole('heading', { name: formControlsAuditCopy['en-US'].title }).waitFor()
+        await page.evaluate((appearanceSize) => {
+          document.documentElement.dataset.hbarAppUiControlSize = appearanceSize
+          document.documentElement.dataset.hbarAppUiTextSize = appearanceSize
+          document.documentElement.dataset.hbarAppUiCornerSize = appearanceSize
+        }, size)
+        const record = await inspect(page, `appearance-${size}`, expectedHeight)
+        const input = record.controls.find((control) => control.id === 'provider-name')
+        assert(input?.height === expectedHeight, `${size}: input height does not match the shared appearance tier`)
+        records.push(record)
+      }
 
       const copy = formControlsAuditCopy['zh-CN']
       await page.setViewportSize({ width: 390, height: 844 })

@@ -14,6 +14,10 @@ export type {
   HbarAppUiComboBoxProps,
   HbarAppUiControlOption,
   HbarAppUiFieldProps,
+  HbarAppUiFieldVariant,
+  HbarAppUiInputProps,
   HbarAppUiMultiSelectLabels,
   HbarAppUiMultiSelectProps,
+  HbarAppUiSelectProps,
+  HbarAppUiTextareaProps,
 } from './components/forms/FormControls'

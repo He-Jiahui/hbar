@@ -13,7 +13,9 @@ import {
   type TextareaHTMLAttributes,
 } from 'react'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
+import type { HbarAppUiSize } from '../../appearance'
 import { HbarAppUiIcon } from '../../icon'
+import { HbarAppUiLabel, HbarAppUiText } from '../../primitives'
 import './FormControls.css'
 
 export interface HbarAppUiControlOption {
@@ -31,11 +33,18 @@ export interface HbarAppUiFieldProps {
   readonly error?: string
   readonly required?: boolean
   readonly requiredIndicator?: string
+  readonly size?: HbarAppUiSize
   readonly children: ReactNode
   readonly className?: string
 }
 
-const FieldAccessibility = createContext<{ readonly describedBy?: string; readonly invalid: boolean }>({
+interface FieldAccessibilityValue {
+  readonly describedBy?: string
+  readonly invalid: boolean
+  readonly size?: HbarAppUiSize
+}
+
+const FieldAccessibility = createContext<FieldAccessibilityValue>({
   invalid: false,
 })
 
@@ -47,6 +56,7 @@ export function HbarAppUiField({
   error,
   required,
   requiredIndicator,
+  size,
   children,
   className = '',
 }: HbarAppUiFieldProps) {
@@ -58,25 +68,41 @@ export function HbarAppUiField({
       data-description-id={descriptionId}
       data-message-id={messageId}
     >
-      <label htmlFor={controlId}>
+      <HbarAppUiLabel htmlFor={controlId} {...(size ? { size } : {})}>
         {label}
         {required && requiredIndicator && <span aria-hidden="true">{requiredIndicator}</span>}
-      </label>
-      {description && <p id={descriptionId}>{description}</p>}
+      </HbarAppUiLabel>
+      {description && (
+        <HbarAppUiText as="p" id={descriptionId} tone="muted" variant="supporting" {...(size ? { size } : {})}>
+          {description}
+        </HbarAppUiText>
+      )}
       <FieldAccessibility.Provider
         value={{
           ...(descriptionId || messageId ? { describedBy: [descriptionId, messageId].filter(Boolean).join(' ') } : {}),
+          ...(size ? { size } : {}),
           invalid: Boolean(error),
         }}
       >
         {children}
       </FieldAccessibility.Provider>
       {error ? (
-        <small id={messageId} className="hbar-app-ui-field-error">
+        <HbarAppUiText
+          as="small"
+          id={messageId}
+          className="hbar-app-ui-field-error"
+          tone="danger"
+          variant="supporting"
+          {...(size ? { size } : {})}
+        >
           {error}
-        </small>
+        </HbarAppUiText>
       ) : (
-        hint && <small id={messageId}>{hint}</small>
+        hint && (
+          <HbarAppUiText as="small" id={messageId} tone="muted" variant="supporting" {...(size ? { size } : {})}>
+            {hint}
+          </HbarAppUiText>
+        )
       )}
     </div>
   )
@@ -95,70 +121,106 @@ function uniqueOptions(options: readonly HbarAppUiControlOption[]): readonly Hba
   })
 }
 
-export const HbarAppUiInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
-  function HbarAppUiInput({ className, ...props }, ref) {
-    const field = useContext(FieldAccessibility)
-    return (
-      <input
-        {...props}
-        ref={ref}
-        className={controlClass(className)}
-        aria-describedby={props['aria-describedby'] ?? field.describedBy}
-        aria-invalid={props['aria-invalid'] ?? (field.invalid || undefined)}
-      />
-    )
-  },
-)
+export type HbarAppUiFieldVariant = 'outline' | 'plain'
 
-export const HbarAppUiTextarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  function HbarAppUiTextarea({ className, ...props }, ref) {
-    const field = useContext(FieldAccessibility)
-    return (
-      <textarea
-        {...props}
-        ref={ref}
-        className={controlClass(className)}
-        aria-describedby={props['aria-describedby'] ?? field.describedBy}
-        aria-invalid={props['aria-invalid'] ?? (field.invalid || undefined)}
-      />
-    )
-  },
-)
+export interface HbarAppUiInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  readonly size?: HbarAppUiSize
+  readonly variant?: HbarAppUiFieldVariant
+}
 
-export const HbarAppUiSelect = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
-  function HbarAppUiSelect({ className, children, ...props }, ref) {
-    const field = useContext(FieldAccessibility)
-    return (
-      <select
-        {...props}
-        ref={ref}
-        className={controlClass(className)}
-        aria-describedby={props['aria-describedby'] ?? field.describedBy}
-        aria-invalid={props['aria-invalid'] ?? (field.invalid || undefined)}
-      >
-        {children}
-      </select>
-    )
-  },
-)
+export interface HbarAppUiTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  readonly size?: HbarAppUiSize
+  readonly variant?: HbarAppUiFieldVariant
+}
 
-export interface HbarAppUiCheckBoxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'children'> {
+export interface HbarAppUiSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
+  readonly size?: HbarAppUiSize
+  readonly variant?: HbarAppUiFieldVariant
+}
+
+export const HbarAppUiInput = forwardRef<HTMLInputElement, HbarAppUiInputProps>(function HbarAppUiInput(
+  { className, size, variant = 'outline', ...props },
+  ref,
+) {
+  const field = useContext(FieldAccessibility)
+  return (
+    <input
+      {...props}
+      ref={ref}
+      className={controlClass(className)}
+      data-size={size ?? field.size}
+      data-variant={variant}
+      aria-describedby={props['aria-describedby'] ?? field.describedBy}
+      aria-invalid={props['aria-invalid'] ?? (field.invalid || undefined)}
+    />
+  )
+})
+
+export const HbarAppUiTextarea = forwardRef<HTMLTextAreaElement, HbarAppUiTextareaProps>(function HbarAppUiTextarea(
+  { className, size, variant = 'outline', ...props },
+  ref,
+) {
+  const field = useContext(FieldAccessibility)
+  return (
+    <textarea
+      {...props}
+      ref={ref}
+      className={controlClass(className)}
+      data-size={size ?? field.size}
+      data-variant={variant}
+      aria-describedby={props['aria-describedby'] ?? field.describedBy}
+      aria-invalid={props['aria-invalid'] ?? (field.invalid || undefined)}
+    />
+  )
+})
+
+export const HbarAppUiSelect = forwardRef<HTMLSelectElement, HbarAppUiSelectProps>(function HbarAppUiSelect(
+  { className, children, size, variant = 'outline', ...props },
+  ref,
+) {
+  const field = useContext(FieldAccessibility)
+  return (
+    <select
+      {...props}
+      ref={ref}
+      className={controlClass(className)}
+      data-size={size ?? field.size}
+      data-variant={variant}
+      aria-describedby={props['aria-describedby'] ?? field.describedBy}
+      aria-invalid={props['aria-invalid'] ?? (field.invalid || undefined)}
+    >
+      {children}
+    </select>
+  )
+})
+
+export interface HbarAppUiCheckBoxProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'type' | 'children' | 'size'
+> {
   readonly label: string
   readonly description?: string
+  readonly size?: HbarAppUiSize
 }
 
 export const HbarAppUiCheckBox = forwardRef<HTMLInputElement, HbarAppUiCheckBoxProps>(function HbarAppUiCheckBox(
-  { label, description, className = '', ...props },
+  { label, description, size, className = '', ...props },
   ref,
 ) {
   return (
-    <label className={`hbar-app-ui-checkbox${className ? ` ${className}` : ''}`}>
+    <HbarAppUiLabel className={`hbar-app-ui-checkbox${className ? ` ${className}` : ''}`} {...(size ? { size } : {})}>
       <input {...props} ref={ref} type="checkbox" />
       <span className="hbar-app-ui-checkbox-copy">
-        <strong>{label}</strong>
-        {description && <small>{description}</small>}
+        <HbarAppUiText as="span" variant="label" {...(size ? { size } : {})}>
+          {label}
+        </HbarAppUiText>
+        {description && (
+          <HbarAppUiText as="small" tone="muted" variant="supporting" {...(size ? { size } : {})}>
+            {description}
+          </HbarAppUiText>
+        )}
       </span>
-    </label>
+    </HbarAppUiLabel>
   )
 })
 

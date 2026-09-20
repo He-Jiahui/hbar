@@ -140,6 +140,10 @@
   overflow-wrap: anywhere;
 }
 
+.hbar-app-ui-text {
+  font-weight: 400;
+}
+
 .hbar-app-ui-label,
 .hbar-app-ui-text[data-variant='label'] {
   font-size: var(--hbar-app-ui-text-label-size);
