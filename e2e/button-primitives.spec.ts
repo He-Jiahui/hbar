@@ -64,7 +64,7 @@ test('button primitives keep their hierarchy and boundaries across themes and na
         </html>`)
 
       await expect(page.getByRole('heading', { name: 'Button system' })).toBeVisible()
-      await expect(page.getByRole('button')).toHaveCount(14)
+      await expect(page.getByRole('button')).toHaveCount(15)
       await expect(page.getByRole('button', { name: 'Open settings' })).toHaveAttribute('title', 'Open settings')
       await expect(page.getByRole('button', { name: 'Run unavailable' })).toBeDisabled()
       await expect(page.getByRole('button', { name: 'Selected session' })).toHaveAttribute('aria-pressed', 'true')
@@ -82,34 +82,36 @@ test('button primitives keep their hierarchy and boundaries across themes and na
           }
         }
         return {
-          compact: box('compact-button'),
-          standard: box('default-button'),
-          focal: box('focal-button'),
-          compactIcon: box('compact-icon-button'),
-          standardIcon: box('default-icon-button'),
-          focalIcon: box('focal-icon-button'),
+          small: box('s-button'),
+          medium: box('m-button'),
+          large: box('l-button'),
+          defaultButton: box('default-button'),
+          smallIcon: box('s-icon-button'),
+          mediumIcon: box('m-icon-button'),
+          largeIcon: box('l-icon-button'),
           long: box('long-button'),
           documentWidth: document.documentElement.scrollWidth,
           viewportWidth: window.innerWidth,
         }
       })
 
-      expect(measurements.compact.height).toBeGreaterThanOrEqual(32)
-      expect(measurements.standard.height).toBeGreaterThanOrEqual(36)
-      expect(measurements.focal.height).toBeGreaterThanOrEqual(44)
-      expect(Math.abs(measurements.compactIcon.width - measurements.compactIcon.height)).toBeLessThanOrEqual(1)
-      expect(Math.abs(measurements.standardIcon.width - measurements.standardIcon.height)).toBeLessThanOrEqual(1)
-      expect(Math.abs(measurements.focalIcon.width - measurements.focalIcon.height)).toBeLessThanOrEqual(1)
-      expect(measurements.compactIcon.height).toBeGreaterThanOrEqual(32)
-      expect(measurements.standardIcon.height).toBeGreaterThanOrEqual(36)
-      expect(measurements.focalIcon.height).toBeGreaterThanOrEqual(44)
+      expect(measurements.small.height).toBe(32)
+      expect(measurements.medium.height).toBe(36)
+      expect(measurements.large.height).toBe(44)
+      expect(measurements.defaultButton.height).toBe(36)
+      expect(Math.abs(measurements.smallIcon.width - measurements.smallIcon.height)).toBeLessThanOrEqual(1)
+      expect(Math.abs(measurements.mediumIcon.width - measurements.mediumIcon.height)).toBeLessThanOrEqual(1)
+      expect(Math.abs(measurements.largeIcon.width - measurements.largeIcon.height)).toBeLessThanOrEqual(1)
+      expect(measurements.smallIcon.height).toBe(32)
+      expect(measurements.mediumIcon.height).toBe(36)
+      expect(measurements.largeIcon.height).toBe(44)
       expect(measurements.long.scrollWidth).toBeLessThanOrEqual(measurements.long.clientWidth)
       expect(measurements.documentWidth).toBeLessThanOrEqual(measurements.viewportWidth)
 
       await page.getByRole('heading', { name: 'Button system' }).focus()
       await page.keyboard.press('Tab')
       const focusedButton = page.locator(':focus')
-      await expect(focusedButton).toHaveAttribute('data-testid', 'compact-button')
+      await expect(focusedButton).toHaveAttribute('data-testid', 's-button')
       const focusStyle = await focusedButton.evaluate((element) => {
         const style = getComputedStyle(element)
         return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) }

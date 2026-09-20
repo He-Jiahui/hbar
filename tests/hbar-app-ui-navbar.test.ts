@@ -109,7 +109,7 @@ describe('hbar-app-ui navbar surfaces', () => {
             },
         }
         const staleMarkup = renderNavbar(8, duplicateAndStale)
-        expect(staleMarkup).toContain('hbar-app-ui-button-default is-selected')
+        expect(staleMarkup).toContain('class="hbar-app-ui-button is-selected"')
         expect(staleMarkup).toContain('Kept row')
         expect(staleMarkup).not.toContain('Duplicate all')
         expect(staleMarkup).not.toContain('Duplicate row')

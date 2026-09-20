@@ -16,14 +16,17 @@ const markup = renderToStaticMarkup(
     <section className="button-fixture-card" aria-labelledby="button-sizes-title">
       <div className="button-fixture-section-heading">
         <h2 id="button-sizes-title">Control hierarchy</h2>
-        <span>32 / 36 / 44 minimum hit areas</span>
+        <span>S / M / L · 32 / 36 / 44 minimum hit areas</span>
       </div>
       <div className="button-fixture-row">
-        <HbarAppUiButton data-testid="compact-button" size="compact">
-          Compact
+        <HbarAppUiButton data-testid="s-button" size="s">
+          Small
         </HbarAppUiButton>
-        <HbarAppUiButton data-testid="default-button">Default action</HbarAppUiButton>
-        <HbarAppUiButton data-testid="focal-button" size="focal" tone="accent">
+        <HbarAppUiButton data-testid="m-button" size="m">
+          Medium
+        </HbarAppUiButton>
+        <HbarAppUiButton data-testid="default-button">Global default</HbarAppUiButton>
+        <HbarAppUiButton data-testid="l-button" size="l" tone="accent">
           <HbarAppUiIcon icon={Play} tier="md" />
           Start run
         </HbarAppUiButton>
@@ -36,14 +39,22 @@ const markup = renderToStaticMarkup(
         <span>Meaning survives hover and selection</span>
       </div>
       <div className="button-fixture-row">
-        <HbarAppUiButton data-testid="focus-button">Neutral</HbarAppUiButton>
-        <HbarAppUiButton tone="accent">Accent</HbarAppUiButton>
-        <HbarAppUiButton tone="positive">
+        <HbarAppUiButton data-testid="focus-button" variant="solid">
+          Neutral solid
+        </HbarAppUiButton>
+        <HbarAppUiButton tone="accent" variant="solid">
+          Accent solid
+        </HbarAppUiButton>
+        <HbarAppUiButton tone="positive" variant="outline">
           <HbarAppUiIcon icon={Check} tier="sm" />
           Complete
         </HbarAppUiButton>
-        <HbarAppUiButton tone="warning">Needs review</HbarAppUiButton>
-        <HbarAppUiButton tone="danger">Delete run</HbarAppUiButton>
+        <HbarAppUiButton tone="warning" variant="outline">
+          Warning outline
+        </HbarAppUiButton>
+        <HbarAppUiButton tone="danger" variant="ghost">
+          Danger ghost
+        </HbarAppUiButton>
       </div>
     </section>
 
@@ -69,13 +80,13 @@ const markup = renderToStaticMarkup(
         <span>Drawing tier stays separate from the hit area</span>
       </div>
       <div className="button-fixture-row">
-        <HbarAppUiIconButton data-testid="compact-icon-button" label="Open settings">
+        <HbarAppUiIconButton data-testid="s-icon-button" label="Open settings" size="s">
           <HbarAppUiIcon icon={Settings} tier="sm" />
         </HbarAppUiIconButton>
-        <HbarAppUiIconButton data-testid="default-icon-button" label="Delete session" size="default" tone="danger">
+        <HbarAppUiIconButton data-testid="m-icon-button" label="Delete session" size="m" tone="danger">
           <HbarAppUiIcon icon={Trash2} tier="md" />
         </HbarAppUiIconButton>
-        <HbarAppUiIconButton data-testid="focal-icon-button" label="Confirm selection" size="focal" tone="positive">
+        <HbarAppUiIconButton data-testid="l-icon-button" label="Confirm selection" size="l" tone="positive">
           <HbarAppUiIcon icon={Check} tier="lg" />
         </HbarAppUiIconButton>
       </div>

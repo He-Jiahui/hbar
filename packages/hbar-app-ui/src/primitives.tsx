@@ -2,9 +2,11 @@ import {
     type ButtonHTMLAttributes,
     type ElementType,
     type HTMLAttributes,
+    type LabelHTMLAttributes,
     type ReactNode,
     useState
 } from 'react'
+import type {HbarAppUiSize} from './appearance'
 import type {HbarAppUiDataRow, HbarAppUiMetric, HbarAppUiOption, HbarAppUiTimelineStep} from './types'
 import './primitives.css'
 
@@ -33,36 +35,104 @@ export function HbarAppUiSpotlight({as = 'div', className = '', children, ...pro
 }
 
 export type HbarAppUiButtonTone = 'neutral' | 'accent' | 'positive' | 'warning' | 'danger'
-export type HbarAppUiButtonSize = 'compact' | 'default' | 'focal'
+export type HbarAppUiButtonSize = HbarAppUiSize
+export type HbarAppUiButtonVariant = 'solid' | 'outline' | 'ghost'
 export type HbarAppUiButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-    readonly tone?: HbarAppUiButtonTone
-    readonly size?: HbarAppUiButtonSize
+  readonly tone?: HbarAppUiButtonTone
+  readonly size?: HbarAppUiButtonSize
+  readonly variant?: HbarAppUiButtonVariant
+  readonly loading?: boolean
 }
 
 export function HbarAppUiButton({
-                                    tone = 'neutral',
-                                    size = 'default',
-                                    className = '',
-                                    children,
-                                    ...props
-                                }: HbarAppUiButtonProps) {
-    return <button {...props} type={props.type ?? 'button'}
-                   className={`hbar-app-ui-button hbar-app-ui-button-${tone} hbar-app-ui-button-${size}${className ? ` ${className}` : ''}`}>{children}</button>
+  tone = 'neutral',
+  size,
+  variant = 'solid',
+  loading = false,
+  className = '',
+  children,
+  disabled,
+  ...props
+}: HbarAppUiButtonProps) {
+  return (
+    <button
+      {...props}
+      type={props.type ?? 'button'}
+      className={`hbar-app-ui-button${className ? ` ${className}` : ''}`}
+      data-size={size}
+      data-tone={tone}
+      data-variant={variant}
+      aria-busy={loading || undefined}
+      disabled={disabled || loading}
+    >
+      {children}
+    </button>
+  )
 }
 
 export type HbarAppUiIconButtonProps = HbarAppUiButtonProps & { readonly label: string }
 
-export function HbarAppUiIconButton({
-                                        label,
-                                        size = 'compact',
-                                        className = '',
-                                        children,
-                                        ...props
-                                    }: HbarAppUiIconButtonProps) {
-    return <HbarAppUiButton {...props} size={size}
-                            className={`hbar-app-ui-icon-button${className ? ` ${className}` : ''}`}
-                            aria-label={props['aria-label'] ?? label}
-                            title={props.title ?? label}>{children}</HbarAppUiButton>
+export function HbarAppUiIconButton({ label, className = '', children, ...props }: HbarAppUiIconButtonProps) {
+  return (
+    <HbarAppUiButton
+      {...props}
+      className={`hbar-app-ui-icon-button${className ? ` ${className}` : ''}`}
+      aria-label={props['aria-label'] ?? label}
+      title={props.title ?? label}
+    >
+      {children}
+    </HbarAppUiButton>
+  )
+}
+
+export type HbarAppUiTextTone = 'neutral' | 'muted' | 'subtle' | 'positive' | 'warning' | 'danger'
+export type HbarAppUiTextVariant = 'body' | 'label' | 'supporting' | 'code'
+export type HbarAppUiTextProps = HTMLAttributes<HTMLElement> & {
+  readonly as?: 'span' | 'p' | 'small' | 'code'
+  readonly size?: HbarAppUiSize
+  readonly tone?: HbarAppUiTextTone
+  readonly variant?: HbarAppUiTextVariant
+}
+
+export function HbarAppUiText({
+  as = 'span',
+  size,
+  tone = 'neutral',
+  variant = 'body',
+  className = '',
+  children,
+  ...props
+}: HbarAppUiTextProps) {
+  const Element: ElementType = as
+  return (
+    <Element
+      {...props}
+      className={`hbar-app-ui-text${className ? ` ${className}` : ''}`}
+      data-size={size}
+      data-tone={tone}
+      data-variant={variant}
+    >
+      {children}
+    </Element>
+  )
+}
+
+export type HbarAppUiLabelProps = LabelHTMLAttributes<HTMLLabelElement> & {
+  readonly size?: HbarAppUiSize
+  readonly tone?: HbarAppUiTextTone
+}
+
+export function HbarAppUiLabel({ size, tone = 'neutral', className = '', children, ...props }: HbarAppUiLabelProps) {
+  return (
+    <label
+      {...props}
+      className={`hbar-app-ui-label${className ? ` ${className}` : ''}`}
+      data-size={size}
+      data-tone={tone}
+    >
+      {children}
+    </label>
+  )
 }
 
 export function HbarAppUiTabs({options, value, onChange, label}: {
