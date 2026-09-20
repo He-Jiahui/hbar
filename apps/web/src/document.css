@@ -7,13 +7,23 @@ body,
 }
 
 :root {
+  --hbar-host-background: #090909;
+
   color-scheme: dark;
 }
 
-:root[data-hbar-app-ui-theme='light'] {
+:root[data-lumen-mode='light'] {
+  --hbar-host-background: #f5f5f5;
+
   color-scheme: light;
 }
 
 body {
-  background: var(--hbar-app-ui-bg);
+  background: var(--hbar-host-background);
+  color: var(--lumen-ink);
+}
+
+:root[data-hbar-window-material='mica'] body,
+:root[data-hbar-window-material='vibrancy'] body {
+  background: color-mix(in srgb, var(--hbar-host-background) 68%, transparent);
 }

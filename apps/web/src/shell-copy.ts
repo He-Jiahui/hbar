@@ -17,6 +17,12 @@ import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 export type ShellLocale = 'zh-CN' | 'en-US'
 interface ShellCopy {
   readonly shell: HbarWorkspaceShellLabels
+  readonly windowControls: {
+    readonly minimize: string
+    readonly maximize: string
+    readonly restore: string
+    readonly close: string
+  }
   readonly empty: { readonly title: string; readonly description: string }
   readonly session: HbarSessionWorkspaceLabels
   readonly settings: HbarSettingsWorkspaceLabels
@@ -1515,6 +1521,12 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       archiveSession: '归档',
       error: (code) => `加载失败：${code}`,
     },
+    windowControls: {
+      minimize: '最小化窗口',
+      maximize: '最大化窗口',
+      restore: '还原窗口',
+      close: '关闭窗口',
+    },
     empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
     session: createSessionLabels('zh-CN'),
     settings: createSettingsLabels('zh-CN'),
@@ -1561,6 +1573,12 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       renameSession: 'Rename',
       archiveSession: 'Archive',
       error: (code) => `Loading failed: ${code}`,
+    },
+    windowControls: {
+      minimize: 'Minimize window',
+      maximize: 'Maximize window',
+      restore: 'Restore window',
+      close: 'Close window',
     },
     empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
     session: createSessionLabels('en-US'),

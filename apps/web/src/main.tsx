@@ -6,6 +6,7 @@ import { applyHbarAppUiAppearance } from 'hbar-app-ui/appearance'
 import App from './App'
 import { readAppearanceBootstrap } from './appearance'
 import { loadNativeConnection } from './native-connection'
+import { applyNativeWindowContext, readNativeWindowContext } from './native-window'
 import { resolveShellLocale } from './shell-copy'
 import { applyWebTheme, readThemeBootstrap, resolveWebTheme } from './theme'
 import './document.css'
@@ -24,8 +25,10 @@ const nativeConnection = await loadNativeConnection(window, window.location.orig
   console.error('Unable to read the native hbar connection', error)
   return null
 })
+const nativeWindow = nativeConnection ? readNativeWindowContext(new URL(window.location.href)) : null
+applyNativeWindowContext(document.documentElement, nativeWindow)
 createRoot(root).render(
   <StrictMode>
-    <App locale={locale} nativeConnection={nativeConnection ?? undefined} />
+    <App locale={locale} nativeConnection={nativeConnection ?? undefined} nativeWindow={nativeWindow ?? undefined} />
   </StrictMode>,
 )

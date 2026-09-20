@@ -17,7 +17,8 @@ import {
   useHbarRuntimeState,
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
-import { applyLumenAppearance, LumenProvider, LumenWorkbenchNotice } from '@lumen/app-ui'
+import { applyLumenAppearance, LumenProvider, LumenWindowTitlebar, LumenWorkbenchNotice } from '@lumen/app-ui'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
   HbarClient,
   createBrowserAttachmentController,
@@ -63,6 +64,7 @@ import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
 import type { HbarNativeConnection } from './native-connection'
+import type { HbarNativeWindowContext } from './native-window'
 import {
   applyWebTheme,
   readThemeBootstrap,
@@ -313,12 +315,69 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
   return null
 }
 
+function NativeWindowTitlebar({
+  context,
+  labels,
+  title,
+}: {
+  readonly context: HbarNativeWindowContext
+  readonly labels: {
+    readonly minimize: string
+    readonly maximize: string
+    readonly restore: string
+    readonly close: string
+  }
+  readonly title: string
+}) {
+  const nativeWindow = useMemo(() => getCurrentWindow(), [])
+  const [maximized, setMaximized] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    let unlisten: (() => void) | undefined
+    const syncMaximized = () => {
+      void nativeWindow
+        .isMaximized()
+        .then((value) => {
+          if (active) setMaximized(value)
+        })
+        .catch(() => undefined)
+    }
+    syncMaximized()
+    void nativeWindow
+      .onResized(syncMaximized)
+      .then((dispose) => {
+        if (active) unlisten = dispose
+        else dispose()
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+      unlisten?.()
+    }
+  }, [nativeWindow])
+
+  return (
+    <LumenWindowTitlebar
+      title={title}
+      platform={context.platform}
+      labels={labels}
+      maximized={maximized}
+      onMinimize={() => void nativeWindow.minimize().catch(() => undefined)}
+      onToggleMaximize={() => void nativeWindow.toggleMaximize().catch(() => undefined)}
+      onClose={() => void nativeWindow.close().catch(() => undefined)}
+    />
+  )
+}
+
 export default function App({
   locale,
   nativeConnection,
+  nativeWindow,
 }: {
   readonly locale: ShellLocale
   readonly nativeConnection?: HbarNativeConnection | undefined
+  readonly nativeWindow?: HbarNativeWindowContext | undefined
 }) {
   const copy = getShellCopy(locale)
   const clientUrl = nativeConnection?.url ?? window.location.origin
@@ -441,6 +500,11 @@ export default function App({
       <HbarRuntimeProvider view={runtime.view}>
         <HbarWorkspaceShell
           labels={copy.shell}
+          titlebar={
+            nativeWindow ? (
+              <NativeWindowTitlebar context={nativeWindow} labels={copy.windowControls} title={copy.shell.brand} />
+            ) : undefined
+          }
           sidebarWidthRem={sidebarLayout.size.preferredRem}
           toolWidthRem={toolLayout.size.preferredRem}
           connection={connection}

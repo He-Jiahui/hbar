@@ -11,6 +11,7 @@
     "@hbar/client": "workspace:*",
     "@lumen/app-ui": "workspace:*",
     "@mui/material": "9.4.0",
+    "@tauri-apps/api": "2.11.1",
     "hbar-app-ui": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",

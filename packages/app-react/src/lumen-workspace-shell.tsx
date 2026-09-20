@@ -69,6 +69,7 @@ export interface HbarWorkspaceShellProps {
   readonly toolWidthRem?: number
   readonly connection: 'connected' | 'connecting' | 'pairing' | 'disconnected'
   readonly onReconnect: () => void
+  readonly titlebar?: ReactNode
   readonly tool?: ReactNode
   readonly toolLabel?: string
   readonly overlay?: ReactNode
@@ -261,6 +262,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   return (
     <LumenAppShell
       label={props.labels.main}
+      titlebar={props.titlebar}
       sidebarWidthRem={props.sidebarWidthRem}
       {...(props.toolWidthRem === undefined ? {} : { toolWidthRem: props.toolWidthRem })}
       sidebarOpen={presentation.sidebarOpen}

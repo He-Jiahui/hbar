@@ -12,6 +12,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    window::{Effect, EffectsBuilder},
     Manager, WebviewUrl, WebviewWindowBuilder,
 };
 
@@ -167,20 +168,83 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
     }
 }
 
+#[cfg(target_os = "windows")]
+fn windows_supports_mica() -> bool {
+    #[repr(C)]
+    struct RtlOsVersionInfo {
+        size: u32,
+        major: u32,
+        minor: u32,
+        build: u32,
+        platform_id: u32,
+        service_pack: [u16; 128],
+    }
+
+    #[link(name = "ntdll")]
+    extern "system" {
+        fn RtlGetVersion(version: *mut RtlOsVersionInfo) -> i32;
+    }
+
+    let mut version = RtlOsVersionInfo {
+        size: std::mem::size_of::<RtlOsVersionInfo>() as u32,
+        major: 0,
+        minor: 0,
+        build: 0,
+        platform_id: 0,
+        service_pack: [0; 128],
+    };
+    // RtlGetVersion reports the actual kernel build even when compatibility
+    // manifests would make the public version helpers return an older value.
+    let status = unsafe { RtlGetVersion(&mut version) };
+    status >= 0 && version.major >= 10 && version.build >= 22_000
+}
+
+#[cfg(target_os = "windows")]
+fn native_window_profile() -> (&'static str, &'static str, Option<Effect>) {
+    if windows_supports_mica() {
+        ("windows", "mica", Some(Effect::Mica))
+    } else {
+        ("windows", "solid", None)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn native_window_profile() -> (&'static str, &'static str, Option<Effect>) {
+    ("macos", "vibrancy", Some(Effect::UnderWindowBackground))
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn native_window_profile() -> (&'static str, &'static str, Option<Effect>) {
+    ("linux", "solid", None)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![connection_info])
         .setup(|app| {
             let connection = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
-            let url = tauri::Url::parse(&connection.url)?;
+            let mut url = tauri::Url::parse(&connection.url)?;
+            let (platform, material, effect) = native_window_profile();
+            url.query_pairs_mut()
+                .append_pair("hbar-native", "1")
+                .append_pair("hbar-platform", platform)
+                .append_pair("hbar-material", material);
             app.manage(connection);
-            let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-                .title("hbar")
-                .inner_size(1440.0, 960.0)
-                .min_inner_size(900.0, 600.0)
-                .on_navigation(move |next| next.origin() == origin)
-                .build()?;
+            let mut window_builder =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+                    .title("hbar")
+                    .inner_size(1440.0, 960.0)
+                    .min_inner_size(900.0, 600.0)
+                    .decorations(false)
+                    .shadow(true)
+                    .on_navigation(move |next| next.origin() == origin);
+            if let Some(effect) = effect {
+                window_builder = window_builder
+                    .transparent(true)
+                    .effects(EffectsBuilder::new().effect(effect).build());
+            }
+            let window = window_builder.build()?;
             let handle = window.clone();
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
