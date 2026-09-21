@@ -22,7 +22,7 @@ dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-vie
   block-size: min(30rem, calc(100dvb - 2rem));
 }
 
-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[open]) {
+dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[data-open='true']) {
   block-size: min(42rem, calc(100dvb - 2rem));
 }
 

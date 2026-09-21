@@ -3,6 +3,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react'
 import {
   LumenBarSeries,
   LumenButton,
+  LumenActionMenu,
   LumenCheckBox,
   LumenCompactMetrics,
   LumenFormField,
@@ -14,6 +15,7 @@ import {
 } from '@lumen/app-ui'
 import type { StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 import './lumen-status-workspace.css'
 
 type PerformanceReport = NonNullable<StatusWorkspaceEntryState['performance']>
@@ -476,8 +478,7 @@ export function HbarStatusWorkspace({
               ))}
             </LumenSelect>
           </LumenFormField>
-          <details className="hbar-app-react-status-filter-details">
-            <summary>{labels.usage.advancedFilters}</summary>
+          <HbarLumenDisclosure className="hbar-app-react-status-filter-details" label={labels.usage.advancedFilters}>
             <div>
               <LumenFormField controlId="hbar-status-usage-aggregation" label={labels.usage.aggregation}>
                 <LumenSelect
@@ -526,30 +527,23 @@ export function HbarStatusWorkspace({
                 </LumenSelect>
               </LumenFormField>
             </div>
-          </details>
-          <details className="hbar-app-react-status-export-menu">
-            <summary>{labels.usage.export}</summary>
-            <div
-              className="hbar-app-ui-dialog-menu lumen-status-export-actions"
-              role="menu"
-              aria-label={labels.usage.export}
-            >
-              <LumenButton
-                role="menuitem"
-                disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
-                onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'json' })}
-              >
-                {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportJson}
-              </LumenButton>
-              <LumenButton
-                role="menuitem"
-                disabled={entry?.status === 'loading' || usageExport?.status === 'exporting'}
-                onClick={() => invoke('statusWorkspace.exportUsage', { instanceId, format: 'csv' })}
-              >
-                {usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportCsv}
-              </LumenButton>
-            </div>
-          </details>
+          </HbarLumenDisclosure>
+          <LumenActionMenu
+            label={labels.usage.export}
+            items={[
+              {
+                id: 'json',
+                label: usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportJson,
+                disabled: entry?.status === 'loading' || usageExport?.status === 'exporting',
+              },
+              {
+                id: 'csv',
+                label: usageExport?.status === 'exporting' ? labels.usage.exporting : labels.usage.exportCsv,
+                disabled: entry?.status === 'loading' || usageExport?.status === 'exporting',
+              },
+            ]}
+            onAction={(format) => invoke('statusWorkspace.exportUsage', { instanceId, format })}
+          />
           {usageExport?.status === 'succeeded' && usageExport.fileName && (
             <p role="status">
               {labels.usage.exported(usageExport.rowCount, usageExport.fileName)}
@@ -597,8 +591,7 @@ export function HbarStatusWorkspace({
               ))}
             </LumenSelect>
           </LumenFormField>
-          <details className="hbar-app-react-status-filter-details">
-            <summary>{labels.git.advancedFilters}</summary>
+          <HbarLumenDisclosure className="hbar-app-react-status-filter-details" label={labels.git.advancedFilters}>
             <div className="hbar-app-react-git-source-options" role="group" aria-label={labels.git.sources}>
               {(['auto', 'manual', 'external'] as const).map((source) => {
                 const checked = gitQuery.sources.includes(source)
@@ -613,7 +606,7 @@ export function HbarStatusWorkspace({
                 )
               })}
             </div>
-          </details>
+          </HbarLumenDisclosure>
         </div>
       )}
       {!entry || entry.status === 'loading' ? (
@@ -677,8 +670,7 @@ export function HbarStatusWorkspace({
             </div>
           </section>
           {includeHost && (
-            <details className="hbar-app-react-status-details">
-              <summary>{labels.process}</summary>
+            <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.process}>
               <LumenCompactMetrics
                 label={labels.process}
                 metrics={[
@@ -697,10 +689,9 @@ export function HbarStatusWorkspace({
                   },
                 ]}
               />
-            </details>
+            </HbarLumenDisclosure>
           )}
-          <details className="hbar-app-react-status-details">
-            <summary>{labels.io}</summary>
+          <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.io}>
             <LumenCompactMetrics
               label={labels.io}
               metrics={metrics([
@@ -710,7 +701,7 @@ export function HbarStatusWorkspace({
                   : []),
               ])}
             />
-          </details>
+          </HbarLumenDisclosure>
         </main>
       ) : section === 'usage' && usageReport ? (
         <main className="hbar-app-react-global-usage">
@@ -800,8 +791,7 @@ export function HbarStatusWorkspace({
               </ul>
             )}
           </section>
-          <details className="hbar-app-react-status-details">
-            <summary>{labels.usage.execution}</summary>
+          <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.usage.execution}>
             {usageReport.execution ? (
               <LumenCompactMetrics
                 label={labels.usage.execution}
@@ -834,7 +824,7 @@ export function HbarStatusWorkspace({
             ) : (
               <p>{labels.usage.executionUnavailable}</p>
             )}
-          </details>
+          </HbarLumenDisclosure>
         </main>
       ) : gitReport ? (
         <main className="hbar-app-react-git-status">
@@ -984,21 +974,25 @@ export function HbarStatusWorkspace({
                 ) : (
                   <div className="hbar-app-react-git-commits">
                     {visibleGitCommits.map((commit) => (
-                      <details key={commit.sha}>
-                        <summary>
-                          <code>{commit.shortSha}</code>
-                          <span>
-                            <strong>{commit.subject}</strong>
-                            <small>
-                              {labels.git.commitMetadata(
-                                labels.git[
-                                  commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source
-                                ],
-                                labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt),
-                              )}
-                            </small>
-                          </span>
-                        </summary>
+                      <HbarLumenDisclosure
+                        key={commit.sha}
+                        label={
+                          <>
+                            <code>{commit.shortSha}</code>
+                            <span>
+                              <strong>{commit.subject}</strong>
+                              <small>
+                                {labels.git.commitMetadata(
+                                  labels.git[
+                                    commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source
+                                  ],
+                                  labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt),
+                                )}
+                              </small>
+                            </span>
+                          </>
+                        }
+                      >
                         <dl>
                           <div>
                             <dt>{labels.git.commitAuthor}</dt>
@@ -1033,14 +1027,13 @@ export function HbarStatusWorkspace({
                             </div>
                           )}
                         </dl>
-                      </details>
+                      </HbarLumenDisclosure>
                     ))}
                   </div>
                 )}
                 {entry.gitHistoryTruncated && <p role="status">{labels.git.historyTruncated}</p>}
               </section>
-              <details className="hbar-app-react-status-details">
-                <summary>{labels.git.details}</summary>
+              <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.git.details}>
                 <LumenCompactMetrics
                   label={labels.git.details}
                   metrics={[
@@ -1073,7 +1066,7 @@ export function HbarStatusWorkspace({
                     },
                   ]}
                 />
-              </details>
+              </HbarLumenDisclosure>
             </>
           )}
         </main>

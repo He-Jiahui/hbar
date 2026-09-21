@@ -14,6 +14,7 @@ import {
 } from '@lumen/app-ui'
 import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 import './command-palette.css'
 
 type CommandParameterField = CommandPaletteItem['form']['fields'][number]
@@ -623,10 +624,9 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               <dd>{labels.scope(selected.descriptor.metadata.scope)}</dd>
             </div>
           </dl>
-          <details className="hbar-app-react-command-result-details">
-            <summary>{labels.technicalDetails}</summary>
+          <HbarLumenDisclosure className="hbar-app-react-command-result-details" label={labels.technicalDetails}>
             <pre>{palette.execution.result ?? palette.execution.error}</pre>
-          </details>
+          </HbarLumenDisclosure>
           <footer>
             <LumenButton variant="outlined" onClick={goBack}>
               {labels.backToParameters}

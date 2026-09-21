@@ -1,0 +1,14 @@
+.hbar-lumen-disclosure {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-lumen-disclosure-trigger {
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-lumen-disclosure-content {
+  min-inline-size: 0;
+}

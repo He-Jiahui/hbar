@@ -3,8 +3,7 @@
   margin: 0;
 }
 
-.hbar-app-react-session-monitoring h2,
-.hbar-app-react-session-monitoring summary {
+.hbar-app-react-session-monitoring h2 {
   font-size: 0.875rem;
   font-weight: 650;
 }
@@ -20,7 +19,7 @@
 }
 
 .hbar-app-react-session-monitoring section,
-.hbar-app-react-session-monitoring details {
+.hbar-app-react-session-monitoring .hbar-lumen-disclosure {
   display: flex;
   min-inline-size: 0;
   flex: 0 0 auto;
@@ -28,14 +27,13 @@
   gap: 0.5rem;
 }
 
-.hbar-app-react-session-monitoring summary {
+.hbar-app-react-session-monitoring .hbar-lumen-disclosure-trigger {
   padding-block: 0.5rem;
   border-block-end: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-ink);
-  cursor: pointer;
 }
 
-.hbar-app-react-session-monitoring details[open] summary {
+.hbar-app-react-session-monitoring .hbar-lumen-disclosure[data-open='true'] .hbar-lumen-disclosure-trigger {
   margin-block-end: 0.25rem;
 }
 

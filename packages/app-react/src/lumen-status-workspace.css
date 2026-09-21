@@ -25,7 +25,7 @@
 }
 
 .hbar-app-react-status-controls > .lumen-form-field,
-.hbar-app-react-status-filter-details > div > .lumen-form-field {
+.hbar-app-react-status-filter-details .lumen-form-field {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -52,8 +52,7 @@
   color: var(--lumen-warning);
 }
 
-.hbar-app-react-status-filter-details > summary,
-.hbar-app-react-status-export-menu > summary {
+.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-trigger {
   display: flex;
   min-block-size: 1.75rem;
   align-items: center;
@@ -62,31 +61,25 @@
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
   cursor: pointer;
-  list-style: none;
 }
 
 .hbar-app-react-status-filter-details {
   order: 3;
 }
 
-.hbar-app-react-status-filter-details > summary::-webkit-details-marker,
-.hbar-app-react-status-export-menu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.hbar-app-react-status-filter-details[open] {
+.hbar-app-react-status-filter-details[data-open='true'] {
   order: 5;
   flex-basis: 100%;
 }
 
-.hbar-app-react-status-filter-details > div {
+.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-content > div {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   padding-block-start: 0.5rem;
 }
 
-.hbar-app-react-status-filter-details > div > .lumen-form-field {
+.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-content > div > .lumen-form-field {
   flex: 1 1 14rem;
 }
 
@@ -98,30 +91,8 @@
   white-space: nowrap;
 }
 
-.hbar-app-react-status-export-menu {
-  position: relative;
+.hbar-app-react-status-controls > .lumen-action-menu {
   order: 4;
-}
-
-.hbar-app-react-status-export-menu > .hbar-app-ui-dialog-menu.lumen-status-export-actions {
-  position: absolute;
-  z-index: 20;
-  inset-block-start: calc(100% + 0.25rem);
-  inset-inline-end: 0;
-  display: flex;
-  min-inline-size: 10rem;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control);
-  background: var(--lumen-frost);
-  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--lumen-contrast) 72%, transparent);
-}
-
-.hbar-app-react-status-export-menu > .hbar-app-ui-dialog-menu.lumen-status-export-actions button {
-  inline-size: 100%;
-  justify-content: flex-start;
 }
 
 .hbar-app-react-status-workspace > nav {
@@ -157,7 +128,7 @@
 }
 
 .hbar-app-react-status-workspace > main > section > h2,
-.hbar-app-react-status-details > summary {
+.hbar-app-react-status-details > .hbar-lumen-disclosure-trigger {
   font-size: 0.875rem;
   font-weight: 650;
   line-height: 1.3;
@@ -175,12 +146,11 @@
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-status-details > summary {
+.hbar-app-react-status-details > .hbar-lumen-disclosure-trigger {
   padding-block: 0.75rem;
-  cursor: pointer;
 }
 
-.hbar-app-react-status-details[open] > summary {
+.hbar-app-react-status-details[data-open='true'] > .hbar-lumen-disclosure-trigger {
   color: var(--lumen-ink);
 }
 
@@ -306,35 +276,34 @@
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-git-commits details {
+.hbar-app-react-git-commits .hbar-lumen-disclosure {
   padding: 0.5rem 0;
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-git-commits summary {
+.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  cursor: pointer;
 }
 
-.hbar-app-react-git-commits summary code {
+.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger code {
   flex: 0 0 auto;
   color: var(--lumen-ink);
 }
 
-.hbar-app-react-git-commits summary > span {
+.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger > span:last-child {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.hbar-app-react-git-commits summary small {
+.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger small {
   color: var(--lumen-muted);
 }
 
-.hbar-app-react-git-commits summary span,
+.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger span,
 .hbar-app-react-git-commits dd {
   min-inline-size: 0;
   overflow-wrap: anywhere;

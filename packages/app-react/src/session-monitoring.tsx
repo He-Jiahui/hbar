@@ -1,6 +1,7 @@
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
 import { LumenBarSeries, LumenCompactMetrics, LumenToolPane } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 import './session-monitoring.css'
 
 export interface HbarSessionMonitoringLabels {
@@ -107,8 +108,7 @@ export function HbarSessionMonitoring({
               empty={<p>{labels.unavailable}</p>}
             />
           </section>
-          <details>
-            <summary>{labels.latency.title}</summary>
+          <HbarLumenDisclosure label={labels.latency.title}>
             <LumenCompactMetrics
               label={labels.latency.title}
               metrics={[
@@ -128,10 +128,9 @@ export function HbarSessionMonitoring({
                 ),
               ]}
             />
-          </details>
+          </HbarLumenDisclosure>
           {report.execution && (
-            <details>
-              <summary>{labels.execution.title}</summary>
+            <HbarLumenDisclosure label={labels.execution.title}>
               <LumenCompactMetrics
                 label={labels.execution.title}
                 metrics={[
@@ -176,10 +175,9 @@ export function HbarSessionMonitoring({
                   ),
                 ]}
               />
-            </details>
+            </HbarLumenDisclosure>
           )}
-          <details>
-            <summary>{labels.models}</summary>
+          <HbarLumenDisclosure label={labels.models}>
             {report.models.length ? (
               <ul>
                 {report.models.map((model) => (
@@ -195,7 +193,7 @@ export function HbarSessionMonitoring({
             ) : (
               <p>{labels.unavailable}</p>
             )}
-          </details>
+          </HbarLumenDisclosure>
         </main>
       )}
     </LumenToolPane>

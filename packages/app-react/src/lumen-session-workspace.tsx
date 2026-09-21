@@ -23,6 +23,7 @@ import {
 } from '@lumen/app-ui'
 import type { SessionAttachmentUpload, SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 import './lumen-session-workspace.css'
 
 type ContentBlock = SessionTimelineState['messages'][number]['content'][number]
@@ -118,24 +119,26 @@ function MessageBlocks({
     if (block.type === 'text') return <Markdown key={key} text={block.text} />
     if (block.type === 'thinking')
       return (
-        <details key={key} className="hbar-app-react-thinking">
-          <summary>{labels.thinking}</summary>
+        <HbarLumenDisclosure key={key} className="hbar-app-react-thinking" label={labels.thinking}>
           <Markdown text={block.text} />
-        </details>
+        </HbarLumenDisclosure>
       )
     if (block.type === 'tool_call')
       return (
-        <details key={key} className="hbar-app-react-tool-block">
-          <summary>{labels.toolCall(block.name)}</summary>
+        <HbarLumenDisclosure key={key} className="hbar-app-react-tool-block" label={labels.toolCall(block.name)}>
           <pre>{JSON.stringify(block.args, null, 2)}</pre>
-        </details>
+        </HbarLumenDisclosure>
       )
     if (block.type === 'tool_result')
       return (
-        <details key={key} className="hbar-app-react-tool-block" open={block.isError}>
-          <summary>{labels.toolResult(block.name, block.isError)}</summary>
+        <HbarLumenDisclosure
+          key={key}
+          className="hbar-app-react-tool-block"
+          defaultOpen={block.isError}
+          label={labels.toolResult(block.name, block.isError)}
+        >
           <pre>{block.text}</pre>
-        </details>
+        </HbarLumenDisclosure>
       )
     return (
       <p key={key} className="hbar-app-react-attachment-block">
@@ -279,10 +282,9 @@ export function HbarSessionWorkspace({
       children: (
         <>
           {stream.thinking && (
-            <details className="hbar-app-react-thinking">
-              <summary>{labels.thinking}</summary>
+            <HbarLumenDisclosure className="hbar-app-react-thinking" label={labels.thinking}>
               <Markdown text={stream.thinking} />
-            </details>
+            </HbarLumenDisclosure>
           )}
           {stream.text && <Markdown text={stream.text} />}
         </>

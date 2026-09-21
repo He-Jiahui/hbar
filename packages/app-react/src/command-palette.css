@@ -188,9 +188,8 @@
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-command-result-details > summary {
+.hbar-app-react-command-result-details > .hbar-lumen-disclosure-trigger {
   padding-block: 0.75rem;
-  cursor: pointer;
   font-weight: 650;
 }
 
