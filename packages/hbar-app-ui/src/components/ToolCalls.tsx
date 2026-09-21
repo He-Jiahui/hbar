@@ -1,73 +1,65 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {ToolActivity} from './tool-calls/ToolActivity'
 import {
-    HbarAppUiToolCallsProvider,
-    useHbarAppUiToolCallsContent,
-    type HbarAppUiToolCallsContent,
-} from './tool-calls/ToolCallsContent'
-import {ToolCallsFrame} from './tool-calls/ToolCallsPrimitives'
-import {ToolCommandOutput} from './tool-calls/ToolCommandOutput'
-import {ToolDiffResult} from './tool-calls/ToolDiffResult'
-import {ToolPermissions} from './tool-calls/ToolPermissions'
-import {ToolSearchResults} from './tool-calls/ToolSearchResults'
-import {ToolTrace} from './tool-calls/ToolTrace'
-import './tool-calls/ToolCallsSurface.css'
+  LumenToolCalls,
+  LumenToolCallsProvider as HbarAppUiToolCallsProvider,
+  selectLumenToolCallsItem as selectHbarAppUiToolCallsItem,
+  uniqueLumenToolCallsItems as uniqueHbarAppUiToolCallsItems,
+  type LumenToolCallsContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiToolCallsProps = HbarAppUiVariantProps & {
-    /** Direct content injection for one surface; catalog hosts normally use the provider. */
-    readonly toolCallsContent?: HbarAppUiToolCallsContent | undefined
+  readonly toolCallsContent?: LumenToolCallsContent | undefined
 }
 
-export {HbarAppUiToolCallsProvider}
+export { HbarAppUiToolCallsProvider, selectHbarAppUiToolCallsItem, uniqueHbarAppUiToolCallsItems }
+
 export type {
-    HbarAppUiToolCallsActivityContent,
-    HbarAppUiToolCallsActivityFilter,
-    HbarAppUiToolCallsActivityItem,
-    HbarAppUiToolCallsCommandContent,
-    HbarAppUiToolCallsContent,
-    HbarAppUiToolCallsDiffContent,
-    HbarAppUiToolCallsDiffFile,
-    HbarAppUiToolCallsDiffLine,
-    HbarAppUiToolCallsDiffLineKind,
-    HbarAppUiToolCallsListStrategy,
-    HbarAppUiToolCallsOutputTab,
-    HbarAppUiToolCallsPermissionAction,
-    HbarAppUiToolCallsPermissionGroup,
-    HbarAppUiToolCallsPermissionItem,
-    HbarAppUiToolCallsPermissionItemKind,
-    HbarAppUiToolCallsPermissionsContent,
-    HbarAppUiToolCallsProviderProps,
-    HbarAppUiToolCallsSearchContent,
-    HbarAppUiToolCallsSearchResult,
-    HbarAppUiToolCallsState,
-    HbarAppUiToolCallsTraceContent,
-    HbarAppUiToolCallsTraceItem,
-} from './tool-calls/ToolCallsContent'
-export {selectHbarAppUiToolCallsItem, uniqueHbarAppUiToolCallsItems} from './tool-calls/ToolCallsContent'
+  LumenToolCallsActivityContent as HbarAppUiToolCallsActivityContent,
+  LumenToolCallsActivityFilter as HbarAppUiToolCallsActivityFilter,
+  LumenToolCallsActivityItem as HbarAppUiToolCallsActivityItem,
+  LumenToolCallsCommandContent as HbarAppUiToolCallsCommandContent,
+  LumenToolCallsContent as HbarAppUiToolCallsContent,
+  LumenToolCallsDiffContent as HbarAppUiToolCallsDiffContent,
+  LumenToolCallsDiffFile as HbarAppUiToolCallsDiffFile,
+  LumenToolCallsDiffLine as HbarAppUiToolCallsDiffLine,
+  LumenToolCallsDiffLineKind as HbarAppUiToolCallsDiffLineKind,
+  LumenToolCallsListStrategy as HbarAppUiToolCallsListStrategy,
+  LumenToolCallsOutputTab as HbarAppUiToolCallsOutputTab,
+  LumenToolCallsPermissionAction as HbarAppUiToolCallsPermissionAction,
+  LumenToolCallsPermissionGroup as HbarAppUiToolCallsPermissionGroup,
+  LumenToolCallsPermissionItem as HbarAppUiToolCallsPermissionItem,
+  LumenToolCallsPermissionItemKind as HbarAppUiToolCallsPermissionItemKind,
+  LumenToolCallsPermissionsContent as HbarAppUiToolCallsPermissionsContent,
+  LumenToolCallsProviderProps as HbarAppUiToolCallsProviderProps,
+  LumenToolCallsSearchContent as HbarAppUiToolCallsSearchContent,
+  LumenToolCallsSearchResult as HbarAppUiToolCallsSearchResult,
+  LumenToolCallsState as HbarAppUiToolCallsState,
+  LumenToolCallsTraceContent as HbarAppUiToolCallsTraceContent,
+  LumenToolCallsTraceItem as HbarAppUiToolCallsTraceItem,
+} from '@lumen/app-ui'
 
-function emptyToolCallsSurface({spec, onAction}: HbarAppUiVariantProps) {
-    return <ToolCallsFrame spec={spec} onAction={onAction} className="hbar-app-ui-tool-calls-empty">{null}</ToolCallsFrame>
-}
-
-/** Category dispatcher; every public pattern has an independent TSX surface. */
-export function ToolCalls({spec, onAction, toolCallsContent}: HbarAppUiToolCallsProps) {
-    const providerContent = useHbarAppUiToolCallsContent()
-    const content = toolCallsContent ?? providerContent
-
-    switch (spec.variant) {
-        case 1:
-            return content?.trace ? <ToolTrace spec={spec} onAction={onAction} content={content.trace}/> : emptyToolCallsSurface({spec, onAction})
-        case 2:
-            return content?.activity ? <ToolActivity spec={spec} onAction={onAction} content={content.activity}/> : emptyToolCallsSurface({spec, onAction})
-        case 3:
-            return content?.diff ? <ToolDiffResult spec={spec} onAction={onAction} content={content.diff}/> : emptyToolCallsSurface({spec, onAction})
-        case 4:
-            return content?.search ? <ToolSearchResults spec={spec} onAction={onAction} content={content.search}/> : emptyToolCallsSurface({spec, onAction})
-        case 5:
-            return content?.command ? <ToolCommandOutput spec={spec} onAction={onAction} content={content.command}/> : emptyToolCallsSurface({spec, onAction})
-        case 6:
-            return content?.permissions ? <ToolPermissions spec={spec} onAction={onAction} content={content.permissions}/> : emptyToolCallsSurface({spec, onAction})
-        default:
-            return emptyToolCallsSurface({spec, onAction})
-    }
+/** Thin legacy-contract adapter; tool workflow rendering and state are Lumen-owned. */
+export function ToolCalls({ spec, onAction, toolCallsContent, className }: HbarAppUiToolCallsProps) {
+  return (
+    <LumenToolCalls
+      variant={spec.variant}
+      variantId={spec.id}
+      content={toolCallsContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(
+                value === undefined
+                  ? { variantId: spec.id, actionId }
+                  : { variantId: spec.id, actionId, value },
+              )
+          : undefined
+      }
+    />
+  )
 }
