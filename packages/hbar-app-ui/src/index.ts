@@ -292,6 +292,25 @@ export type {
   HbarAppUiSchedulingTimelineEvent,
   HbarAppUiSchedulingTimeRangeContent,
 } from './components/Scheduling'
+export { HbarAppUiChatProvider, selectHbarAppUiChatItem, uniqueHbarAppUiChatItems } from './components/Chat'
+export type {
+  HbarAppUiChatAction,
+  HbarAppUiChatAttachment,
+  HbarAppUiChatChoice,
+  HbarAppUiChatContact,
+  HbarAppUiChatContent,
+  HbarAppUiChatDirectContent,
+  HbarAppUiChatGroupContent,
+  HbarAppUiChatListStrategy,
+  HbarAppUiChatLiveContent,
+  HbarAppUiChatLiveMessage,
+  HbarAppUiChatMessage,
+  HbarAppUiChatParticipant,
+  HbarAppUiChatProviderProps,
+  HbarAppUiChatSocialContent,
+  HbarAppUiChatSupportContent,
+  HbarAppUiChatTeamContent,
+} from './components/Chat'
 export {
   HbarAppUiSettingsFormProvider,
   selectHbarAppUiSettingsItem,
