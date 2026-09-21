@@ -1,18 +1,27 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {Fragment, useMemo, useState} from 'react'
 import {Bell, Mail, Smartphone} from 'lucide-react'
 import {
+    type DeliveryChannel,
     deliveryGroups,
     NotificationButton,
     NotificationFrame,
+    type NotificationSurfaceProps,
     NotificationToggle,
     reportNotificationAction,
-    type DeliveryChannel,
-    type NotificationSurfaceProps,
 } from './NotificationsPrimitives'
 
-const deliveryChannels: readonly {readonly id: DeliveryChannel; readonly label: string; readonly Icon: typeof Bell}[] = [
+const deliveryChannels: readonly {
+    readonly id: DeliveryChannel;
+    readonly label: string;
+    readonly Icon: typeof Bell
+}[] = [
     {id: 'inApp', label: 'In-app', Icon: Bell},
     {id: 'email', label: 'Email', Icon: Mail},
     {id: 'push', label: 'Push', Icon: Smartphone},
@@ -40,43 +49,43 @@ export function DeliveryPreferences({spec, onAction}: NotificationSurfaceProps) 
     }
 
     return <NotificationFrame spec={spec} onAction={onAction} className="hbar-app-ui-notifications-preferences">
-        <header className="hbar-app-ui-notifications-preferences-header"><h1>Notification preferences</h1>
-            <p>{enabledCount} of 21 deliveries enabled for this workspace.</p></header>
-        <main className="hbar-app-ui-notifications-preferences-main">
-            <div className="hbar-app-ui-notifications-preferences-scroll">
-                <table aria-label="Notification delivery preferences">
-                    <thead>
-                    <tr>
-                        <th scope="col">Event</th>
+        <LumenFrame as="header" className="hbar-app-ui-notifications-preferences-header"><LumenText as="h1">Notification preferences</LumenText>
+            <LumenText as="p">{enabledCount} of 21 deliveries enabled for this workspace.</LumenText></LumenFrame>
+        <LumenFrame as="main" className="hbar-app-ui-notifications-preferences-main">
+            <LumenFrame className="hbar-app-ui-notifications-preferences-scroll">
+                <LumenCollection as="table" aria-label="Notification delivery preferences">
+                    <LumenCollection as="thead">
+                    <LumenCollectionItem as="tr">
+                        <LumenCollectionItem as="th" scope="col">Event</LumenCollectionItem>
                         {deliveryChannels.map((channel) => {
                             const Icon = channel.Icon
-                            return <th key={channel.id} scope="col"><HbarAppUiIcon icon={Icon} tier="sm"  strokeWidth={1.5}/>{channel.label}
-                            </th>
-                        })}</tr>
-                    </thead>
-                    <tbody>{deliveryGroups.map((group) => <Fragment key={group.id}>
-                        <tr className="hbar-app-ui-notifications-preference-group">
-                            <th scope="row">{group.label}</th>
-                            {deliveryChannels.map((channel) => <td
-                                key={channel.id}>{group.summaries[channel.id]}</td>)}</tr>
-                        {group.entries.map((entry) => <tr key={entry.id}>
-                            <th scope="row"><strong>{entry.label}</strong><small>{entry.detail}</small></th>
+                            return <LumenCollectionItem as="th" key={channel.id} scope="col"><HbarAppUiIcon icon={Icon} tier="sm"  strokeWidth={1.5}/>{channel.label}
+                            </LumenCollectionItem>
+                        })}</LumenCollectionItem>
+                    </LumenCollection>
+                    <LumenCollection as="tbody">{deliveryGroups.map((group) => <Fragment key={group.id}>
+                        <LumenCollectionItem as="tr" className="hbar-app-ui-notifications-preference-group">
+                            <LumenCollectionItem as="th" scope="row">{group.label}</LumenCollectionItem>
+                            {deliveryChannels.map((channel) => <LumenCollectionItem as="td"
+                                key={channel.id}>{group.summaries[channel.id]}</LumenCollectionItem>)}</LumenCollectionItem>
+                        {group.entries.map((entry) => <LumenCollectionItem as="tr" key={entry.id}>
+                            <LumenCollectionItem as="th" scope="row"><LumenText as="strong">{entry.label}</LumenText><LumenText as="small">{entry.detail}</LumenText></LumenCollectionItem>
                             {deliveryChannels.map((channel) => {
                                 const key = `${entry.id}-${channel.id}`
-                                return <td key={channel.id}><NotificationToggle
+                                return <LumenCollectionItem as="td" key={channel.id}><NotificationToggle
                                     label={`${entry.label}: ${channel.label}`} checked={values[key] ?? false}
-                                    onChange={() => toggle(entry.id, channel.id)}/></td>
-                            })}</tr>)}</Fragment>)}</tbody>
-                </table>
-                <section className="hbar-app-ui-notifications-quiet-hours">
-                    <div><h2>Quiet hours</h2><p>Hold email and push between 20:00 and 08:00. In-app stays on.</p></div>
+                                    onChange={() => toggle(entry.id, channel.id)}/></LumenCollectionItem>
+                            })}</LumenCollectionItem>)}</Fragment>)}</LumenCollection>
+                </LumenCollection>
+                <LumenFrame as="section" className="hbar-app-ui-notifications-quiet-hours">
+                    <LumenFrame><LumenText as="h2">Quiet hours</LumenText><LumenText as="p">Hold email and push between 20:00 and 08:00. In-app stays on.</LumenText></LumenFrame>
                     <NotificationToggle label="Quiet hours"
                                         checked={quietHours} onChange={() => {
                         setQuietHours((current) => !current)
                         setSaved(false)
                         reportNotificationAction(onAction, spec, 'quiet-hours')
                     }}/>
-                    <div className="hbar-app-ui-notifications-quiet-days"
+                    <LumenFrame className="hbar-app-ui-notifications-quiet-days"
                          aria-label="Quiet hour days">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) =>
                         <LumenButton
                             type="button" key={day} aria-pressed={days.has(day)}
@@ -89,13 +98,13 @@ export function DeliveryPreferences({spec, onAction}: NotificationSurfaceProps) 
                             })
                             setSaved(false)
                             reportNotificationAction(onAction, spec, 'quiet-day', day)
-                        }}>{day}</LumenButton>)}</div>
-                </section>
-            </div>
-        </main>
-        <footer className="hbar-app-ui-notifications-save-bar">
-            <span>{saved ? 'All changes saved' : 'Unsaved changes'}</span>
-            <div><NotificationButton
+                        }}>{day}</LumenButton>)}</LumenFrame>
+                </LumenFrame>
+            </LumenFrame>
+        </LumenFrame>
+        <LumenFrame as="footer" className="hbar-app-ui-notifications-save-bar">
+            <LumenText as="span">{saved ? 'All changes saved' : 'Unsaved changes'}</LumenText>
+            <LumenFrame><NotificationButton
                 onClick={() => {
                     setValues(initialPreferences())
                     setQuietHours(true)
@@ -105,6 +114,7 @@ export function DeliveryPreferences({spec, onAction}: NotificationSurfaceProps) 
                 }}>Reset</NotificationButton><NotificationButton tone="light" disabled={saved} onClick={() => {
                 setSaved(true)
                 reportNotificationAction(onAction, spec, 'save')
-            }}>Save preferences</NotificationButton></div></footer>
+            }}>Save preferences</NotificationButton></LumenFrame>
+        </LumenFrame>
     </NotificationFrame>
 }

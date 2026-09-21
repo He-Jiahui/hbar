@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
@@ -13,7 +16,7 @@ export type NotificationEntry = {
     readonly id: string
     readonly kind: NotificationKind
     readonly time: string
-    readonly line: readonly {readonly text: string; readonly emphasis?: boolean}[]
+    readonly line: readonly { readonly text: string; readonly emphasis?: boolean }[]
     readonly detail?: string
     readonly unread: boolean
     readonly mention?: boolean
@@ -265,11 +268,14 @@ export function reportNotificationAction(
 }
 
 export function NotificationFrame({
-    spec,
-    onAction,
-    className,
-    children,
-}: NotificationSurfaceProps & {readonly className: string; readonly children: ReactNode}) {
+                                      spec,
+                                      onAction,
+                                      className,
+                                      children,
+                                  }: NotificationSurfaceProps & {
+    readonly className: string;
+    readonly children: ReactNode
+}) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className={`hbar-app-ui-notifications-surface ${className}`}>{children}</ActionSurfaceFrame>
 }
@@ -287,43 +293,45 @@ export function NotificationButton({
 }
 
 export function NotificationIconButton({
-    label,
-    className = '',
-    children,
-    ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {readonly label: string}) {
-    return <NotificationButton {...props} className={`hbar-app-ui-notifications-icon-button${className ? ` ${className}` : ''}`}
-                               aria-label={props['aria-label'] ?? label} title={props.title ?? label}>{children}</NotificationButton>
+                                           label,
+                                           className = '',
+                                           children,
+                                           ...props
+                                       }: ButtonHTMLAttributes<HTMLButtonElement> & { readonly label: string }) {
+    return <NotificationButton {...props}
+                               className={`hbar-app-ui-notifications-icon-button${className ? ` ${className}` : ''}`}
+                               aria-label={props['aria-label'] ?? label}
+                               title={props.title ?? label}>{children}</NotificationButton>
 }
 
 export function NotificationToggle({
-    label,
-    checked,
-    onChange,
-}: {
+                                       label,
+                                       checked,
+                                       onChange,
+                                   }: {
     readonly label: string
     readonly checked: boolean
     readonly onChange: () => void
 }) {
     return <LumenButton type="button" role="switch" aria-label={label} aria-checked={checked}
-                   className={`hbar-app-ui-notifications-toggle${checked ? ' is-on' : ''}`} onClick={onChange}><span
+                   className={`hbar-app-ui-notifications-toggle${checked ? ' is-on' : ''}`} onClick={onChange}><LumenText as="span"
         aria-hidden="true"/></LumenButton>
 }
 
 export function NotificationTabs<T extends string>({
-    label,
-    value,
-    options,
-    onChange,
-}: {
+                                                       label,
+                                                       value,
+                                                       options,
+                                                       onChange,
+                                                   }: {
     readonly label: string
     readonly value: T
-    readonly options: readonly {readonly id: T; readonly label: string; readonly count?: number}[]
+    readonly options: readonly { readonly id: T; readonly label: string; readonly count?: number }[]
     readonly onChange: (value: T) => void
 }) {
-    return <div className="hbar-app-ui-notifications-tabs" role="tablist" aria-label={label}>{options.map((option) =>
+    return <LumenFrame className="hbar-app-ui-notifications-tabs" role="tablist" aria-label={label}>{options.map((option) =>
         <LumenButton type="button" role="tab" aria-selected={option.id === value} key={option.id}
                 className={option.id === value ? 'is-selected' : ''} onClick={() => onChange(option.id)}>
-            <span>{option.label}</span>{option.count !== undefined &&
-            <small>{option.count}</small>}</LumenButton>)}</div>
+            <LumenText as="span">{option.label}</LumenText>{option.count !== undefined &&
+            <LumenText as="small">{option.count}</LumenText>}</LumenButton>)}</LumenFrame>
 }

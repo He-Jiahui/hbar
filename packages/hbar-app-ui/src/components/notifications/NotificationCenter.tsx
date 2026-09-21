@@ -1,34 +1,39 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useMemo, useState} from 'react'
 import {AtSign, Check, CheckCheck, GitPullRequest, MessageSquare, ShieldCheck, UserRoundPlus, X} from 'lucide-react'
 import {
-    notificationGroups,
-    NotificationFrame,
-    NotificationIconButton,
-    NotificationTabs,
-    reportNotificationAction,
     type NotificationEntry,
+    NotificationFrame,
+    notificationGroups,
+    NotificationIconButton,
     type NotificationKind,
     type NotificationSurfaceProps,
+    NotificationTabs,
+    reportNotificationAction,
 } from './NotificationsPrimitives'
 
 type NotificationFilter = 'all' | 'unread' | 'mentions'
 
-function EntryIcon({kind}: {readonly kind: NotificationKind}) {
+function EntryIcon({kind}: { readonly kind: NotificationKind }) {
     const Icon = kind === 'mention' ? AtSign
         : kind === 'review' ? GitPullRequest
             : kind === 'reply' || kind === 'comment' ? MessageSquare
                 : kind === 'member' ? UserRoundPlus
                     : kind === 'security' ? ShieldCheck
                         : Check
-    return <span className="hbar-app-ui-notifications-entry-icon" aria-hidden="true"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.6}/></span>
+    return <LumenText as="span" className="hbar-app-ui-notifications-entry-icon" aria-hidden="true"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.6}/></LumenText>
 }
 
-function NotificationLine({entry}: {readonly entry: NotificationEntry}) {
-    return <p>{entry.line.map((part, index) => part.emphasis
-        ? <strong key={`${entry.id}-${index}`}>{part.text}</strong>
-        : <span key={`${entry.id}-${index}`}>{part.text}</span>)}</p>
+function NotificationLine({entry}: { readonly entry: NotificationEntry }) {
+    return <LumenText as="p">{entry.line.map((part, index) => part.emphasis
+        ? <LumenText as="strong" key={`${entry.id}-${index}`}>{part.text}</LumenText>
+        : <LumenText as="span" key={`${entry.id}-${index}`}>{part.text}</LumenText>)}</LumenText>
 }
 
 export function NotificationCenter({spec, onAction}: NotificationSurfaceProps) {
@@ -69,34 +74,42 @@ export function NotificationCenter({spec, onAction}: NotificationSurfaceProps) {
     const unreadCount = notificationGroups.flatMap((group) => group.entries).filter((entry) => !readIds.has(entry.id) && !dismissedIds.has(entry.id)).length
 
     return <NotificationFrame spec={spec} onAction={onAction} className="hbar-app-ui-notifications-center">
-        <header className="hbar-app-ui-notifications-page-header">
-            <h1>Notifications <span>{unreadCount}</span></h1>
+        <LumenFrame as="header" className="hbar-app-ui-notifications-page-header">
+            <LumenText as="h1">Notifications <LumenText as="span">{unreadCount}</LumenText></LumenText>
             <LumenButton type="button" className="hbar-app-ui-notifications-mark-all" onClick={() => {
                 setReadIds(new Set(notificationGroups.flatMap((group) => group.entries.map((entry) => entry.id))))
                 reportNotificationAction(onAction, spec, 'read-all')
             }}><HbarAppUiIcon icon={CheckCheck} tier="sm"  strokeWidth={1.7}/>Mark all read
             </LumenButton>
-        </header>
-        <main className="hbar-app-ui-notifications-center-main">
+        </LumenFrame>
+        <LumenFrame as="main" className="hbar-app-ui-notifications-center-main">
             <NotificationTabs label="Notifications" value={filter} onChange={selectFilter} options={[
                 {id: 'all', label: 'All', count: 8},
                 {id: 'unread', label: 'Unread', count: unreadCount},
                 {id: 'mentions', label: 'Mentions', count: 2},
             ]}/>
-            <div className="hbar-app-ui-notifications-feed">{groups.map((group) => <section key={group.label}>
-                <h2>{group.label}</h2>
-                <ul>{group.entries.map((entry) => {
+            <LumenFrame className="hbar-app-ui-notifications-feed">{groups.map((group) => <LumenFrame as="section" key={group.label}>
+                <LumenText as="h2">{group.label}</LumenText>
+                <LumenCollection as="ul">{group.entries.map((entry) => {
                     const isRead = readIds.has(entry.id)
-                    return <li key={entry.id} className={isRead ? 'is-read' : 'is-unread'}>
-                        <EntryIcon kind={entry.kind}/><div className="hbar-app-ui-notifications-entry-copy"><NotificationLine entry={entry}/>{entry.detail &&
-                            <small>{entry.detail}</small>}</div><time>{entry.time}</time><div
-                            className="hbar-app-ui-notifications-entry-actions"><NotificationIconButton label={isRead ? 'Mark unread' : 'Mark as read'}
-                                                                                                       onClick={() => setReadState(entry, !isRead)}>{isRead
-                                ? <HbarAppUiIcon icon={AtSign} tier="sm"  strokeWidth={1.6}/>
-                                : <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={1.6}/>}</NotificationIconButton><NotificationIconButton
-                                label="Dismiss notification" onClick={() => dismiss(entry.id)}><HbarAppUiIcon icon={X} tier="sm"  strokeWidth={1.6}/></NotificationIconButton></div></li>
-                })}</ul>
-            </section>)}</div>
-        </main>
+                    return <LumenCollectionItem key={entry.id} className={isRead ? 'is-read' : 'is-unread'}>
+                        <EntryIcon kind={entry.kind}/>
+                        <LumenFrame className="hbar-app-ui-notifications-entry-copy"><NotificationLine
+                            entry={entry}/>{entry.detail &&
+                            <LumenText as="small">{entry.detail}</LumenText>}</LumenFrame>
+                        <LumenText as="time">{entry.time}</LumenText>
+                        <LumenFrame
+                            className="hbar-app-ui-notifications-entry-actions"><NotificationIconButton
+                            label={isRead ? 'Mark unread' : 'Mark as read'}
+                            onClick={() => setReadState(entry, !isRead)}>{isRead
+                            ? <HbarAppUiIcon icon={AtSign} tier="sm"  strokeWidth={1.6}/>
+                            : <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={1.6}/>}</NotificationIconButton><NotificationIconButton
+                            label="Dismiss notification" onClick={() => dismiss(entry.id)}><HbarAppUiIcon icon={X} tier="sm"
+                                                                                              strokeWidth={1.6}/></NotificationIconButton>
+                        </LumenFrame>
+                    </LumenCollectionItem>
+                })}</LumenCollection>
+            </LumenFrame>)}</LumenFrame>
+        </LumenFrame>
     </NotificationFrame>
 }
