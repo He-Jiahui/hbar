@@ -17,6 +17,7 @@ export interface CliArgs {
   idempotencyKey?: string | undefined
   requestId?: string | undefined
   expectedRevision?: string | undefined
+  planRevision?: string | undefined
   inputJson?: string | undefined
   inputFile?: string | undefined
   text?: string | undefined
@@ -168,6 +169,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'idempotency-key': { type: 'string' },
       'request-id': { type: 'string' },
       'expected-revision': { type: 'string' },
+      'plan-revision': { type: 'string' },
       'input-json': { type: 'string' },
       'input-file': { type: 'string' },
       text: { type: 'string' },
@@ -263,6 +265,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     idempotencyKey: values['idempotency-key'] as string | undefined,
     requestId: values['request-id'] as string | undefined,
     expectedRevision: values['expected-revision'] as string | undefined,
+    planRevision: values['plan-revision'] as string | undefined,
     inputJson: values['input-json'] as string | undefined,
     inputFile: values['input-file'] as string | undefined,
     text: values.text as string | undefined,

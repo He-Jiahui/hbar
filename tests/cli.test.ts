@@ -33,6 +33,12 @@ async function run(args: string[], stdin?: string): Promise<CommandResult> {
   return { code, stdout, stderr }
 }
 
+async function runGit(cwd: string, ...args: string[]) {
+  const child = Bun.spawn(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' })
+  const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
+  if (code !== 0) throw new Error(`git ${args.join(' ')} failed: ${stderr}`)
+}
+
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'hbar-cli-'))
   dataRoot = join(root, 'data')
@@ -419,6 +425,108 @@ test('exec workflow commands drive evidence-gated state through the real CLI', a
   const queried = await run([...target, 'exec', 'workflow.get'])
   expect(queried.code).toBe(0)
   expect(JSON.parse(queried.stdout)).toMatchObject({ workflow: { workflowId, status: 'completed' } })
+})
+
+test('exec agent patch commands isolate, query, apply, and report conflicts through the real CLI', async () => {
+  const isolated = await mkdtemp(join(tmpdir(), 'hbar-cli-agent-patch-'))
+  const isolatedProject = join(isolated, 'project')
+  const isolatedData = join(isolated, 'data')
+  const isolatedCache = join(isolated, 'cache')
+  await mkdir(isolatedProject)
+  let pid = 0
+  try {
+    await writeFile(join(isolatedProject, 'patch.txt'), 'parent\n')
+    await runGit(isolatedProject, 'init')
+    await runGit(isolatedProject, 'config', 'user.name', 'hbar CLI test')
+    await runGit(isolatedProject, 'config', 'user.email', 'hbar-cli@example.invalid')
+    await runGit(isolatedProject, 'add', 'patch.txt')
+    await runGit(isolatedProject, 'commit', '-m', 'patch fixture')
+    const common = ['--demo', '--data-root', isolatedData, '--cache-root', isolatedCache, '--project', isolatedProject]
+    const created = await run([...common, 'session', 'new'])
+    expect(created.code).toBe(0)
+    const session = JSON.parse(created.stdout) as { id: string }
+    const target = [...common, '--session', session.id]
+    const createAgent = async (key: string, text: string) => {
+      const result = await run([
+        ...target,
+        'exec',
+        'agent.create',
+        '--input-json',
+        JSON.stringify({
+          objective: `/tool write_file ${JSON.stringify({ path: 'patch.txt', text })}`,
+          modelId: 'local-fixture',
+          approval: 'allow',
+          patchTask: {
+            itemId: 'cli-patch',
+            planRevision: 1,
+            scope: { readPaths: ['patch.txt'], writePaths: ['patch.txt'], tools: ['write_file'] },
+            acceptanceChecks: [],
+          },
+        }),
+        '--idempotency-key',
+        key,
+      ])
+      expect(result.code).toBe(0)
+      return JSON.parse(result.stdout) as { agentId: string }
+    }
+    const waitForPatch = async (agentId: string) => {
+      const deadline = Date.now() + 10_000
+      for (;;) {
+        const result = await run([...target, 'exec', 'agent.result.get', agentId])
+        expect(result.code).toBe(0)
+        const record = JSON.parse(result.stdout) as { patch?: { status: string } | null }
+        if (record.patch) return record
+        if (Date.now() > deadline) throw new Error('Timed out waiting for CLI agent patch')
+        await Bun.sleep(25)
+      }
+    }
+
+    const first = await createAgent('cli-patch-ready', 'child\n')
+    expect(await waitForPatch(first.agentId)).toMatchObject({ patch: { status: 'ready' } })
+    expect(await readFile(join(isolatedProject, 'patch.txt'), 'utf8')).toBe('parent\n')
+    const applied = await run([
+      ...target,
+      'exec',
+      'agent.patch.apply',
+      first.agentId,
+      '--plan-revision',
+      '1',
+      '--idempotency-key',
+      'cli-apply-ready',
+    ])
+    expect(applied.code).toBe(0)
+    expect(JSON.parse(applied.stdout)).toMatchObject({ patch: { status: 'applied' } })
+    expect(await readFile(join(isolatedProject, 'patch.txt'), 'utf8')).toBe('child\n')
+
+    const second = await createAgent('cli-patch-conflict', 'second child\n')
+    expect(await waitForPatch(second.agentId)).toMatchObject({ patch: { status: 'ready' } })
+    await writeFile(join(isolatedProject, 'patch.txt'), 'parent changed concurrently\n')
+    const conflict = await run([
+      ...target,
+      'exec',
+      'agent.patch.apply',
+      second.agentId,
+      '--plan-revision',
+      '1',
+      '--idempotency-key',
+      'cli-apply-conflict',
+    ])
+    expect(conflict.code).not.toBe(0)
+    expect(JSON.parse(conflict.stdout)).toMatchObject({ patch: { status: 'conflict' } })
+    expect(conflict.stderr).toContain('Agent patch conflicts with the parent workspace')
+    expect(await readFile(join(isolatedProject, 'patch.txt'), 'utf8')).toBe('parent changed concurrently\n')
+    pid = (JSON.parse(await readFile(join(isolatedData, 'settings', 'connection.json'), 'utf8')) as { pid: number }).pid
+  } finally {
+    if (pid) {
+      try {
+        process.kill(pid, 'SIGTERM')
+      } catch {
+        /* Host may have already exited. */
+      }
+      await Bun.sleep(200)
+    }
+    await rm(isolated, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+  }
 })
 
 test('exec browser commands navigate, inspect, and close the selected session page', async () => {
@@ -1050,15 +1158,7 @@ test('performance metrics are queryable from the CLI without a GUI', async () =>
     process: { platform: process.platform },
     current: { readings: { hostRssBytes: { availability: 'available', unit: 'bytes' } } },
   })
-  const queried = await run([
-    ...common,
-    'exec',
-    'metrics.query',
-    '--bucket-ms',
-    '100',
-    '--max-points',
-    '10',
-  ])
+  const queried = await run([...common, 'exec', 'metrics.query', '--bucket-ms', '100', '--max-points', '10'])
   expect(queried.code).toBe(0)
   expect(JSON.parse(queried.stdout)).toMatchObject({ intervalMs: 1000, retentionSamples: 3600 })
   expect((JSON.parse(queried.stdout) as { points: unknown[] }).points.length).toBeGreaterThan(0)

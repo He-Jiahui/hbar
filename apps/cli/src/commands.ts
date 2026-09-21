@@ -681,14 +681,18 @@ export async function runAgentCommand(
   }
   if (action === 'agent.patch.apply') {
     if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
+    if (args.planRevision !== undefined) argv.push('--plan-revision', args.planRevision)
     const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
     if (!input.success) throw validationError('INVALID_INPUT', input.error)
-    output(
-      await commands.execute(action, input.data, {
-        idempotencyKey: args.idempotencyKey,
-        ...(args.requestId ? { requestId: args.requestId } : {}),
-      }),
-    )
+    const result = await commands.execute(action, input.data, {
+      idempotencyKey: args.idempotencyKey,
+      ...(args.requestId ? { requestId: args.requestId } : {}),
+    })
+    output(result)
+    if (result.patch?.status === 'conflict')
+      throw new CommandError('AGENT_PATCH_CONFLICT', 'Agent patch conflicts with the parent workspace')
+    if (result.patch?.status === 'rejected')
+      throw new CommandError('AGENT_PATCH_INVALID', 'Agent patch failed integrity validation')
     return
   }
   const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
