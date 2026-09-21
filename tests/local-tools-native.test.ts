@@ -119,6 +119,40 @@ test('native cache detects same-size edits even when modification time is restor
   expect(changed.cache).toMatchObject({ contentMisses: 1, contentHits: 0 })
 })
 
+test('native cache detects replacement files with restored size and modification time', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-native-replace-'))
+  roots.push(root)
+  const path = join(root, 'same.txt')
+  const replacement = join(root, 'replacement.tmp')
+  const backup = join(root, 'backup.tmp')
+  await writeFile(path, 'alpha value\n', 'utf8')
+  const before = await stat(path)
+  const query = new NativeWorkspaceQuery(1024 * 1024)
+  const request = {
+    workspace: root,
+    path: '.',
+    include: ['**/*.txt'],
+    exclude: [],
+    includeHidden: false,
+    blocked: [],
+    limit: 20,
+    pattern: 'alpha',
+    literal: true,
+    caseMode: 'sensitive' as const,
+    beforeContext: 0,
+    afterContext: 0,
+  }
+  expect((await query.search(request, crypto.randomUUID())).matches).toHaveLength(1)
+  await writeFile(replacement, 'bravo value\n', 'utf8')
+  await utimes(replacement, before.atime, before.mtime)
+  await rename(path, backup)
+  await rename(replacement, path)
+  await unlink(backup)
+  const changed = await query.search({ ...request, pattern: 'bravo' }, crypto.randomUUID())
+  expect(changed.matches[0]?.text).toBe('bravo value')
+  expect(changed.cache).toMatchObject({ contentMisses: 1, contentHits: 0 })
+})
+
 test('native discovery re-reads ignore rules and observes additions, renames, and deletions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-native-discovery-'))
   roots.push(root)
@@ -222,6 +256,32 @@ test('native cache remains bounded and isolates identical paths in different wor
   expect(first.matches[0]?.text).toBe('first workspace')
   expect(second.matches[0]?.text).toBe('second workspace')
   expect(query.cacheStats().bytes).toBeLessThanOrEqual(16)
+})
+
+test('native cache does not retain incomplete per-file match results', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-native-incomplete-'))
+  roots.push(root)
+  await writeFile(join(root, 'many.txt'), `${'needle\n'.repeat(1_100)}`, 'utf8')
+  const query = new NativeWorkspaceQuery(1024 * 1024)
+  const request = {
+    workspace: root,
+    path: '.',
+    include: ['**/*.txt'],
+    exclude: [],
+    includeHidden: false,
+    blocked: [],
+    limit: 1_000,
+    pattern: 'needle',
+    literal: true,
+    caseMode: 'sensitive' as const,
+    beforeContext: 0,
+    afterContext: 0,
+  }
+  const first = await query.search(request, crypto.randomUUID())
+  const second = await query.search(request, crypto.randomUUID())
+  expect(first).toMatchObject({ truncated: true, cache: { matchMisses: 1, matchHits: 0 } })
+  expect(second).toMatchObject({ truncated: true, cache: { matchMisses: 1, matchHits: 0 } })
+  expect(query.cacheStats().matchEntries).toBe(0)
 })
 
 test('native asynchronous queries accept cancellation before traversal completes', async () => {

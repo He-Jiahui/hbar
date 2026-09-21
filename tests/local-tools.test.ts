@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
@@ -81,6 +81,17 @@ test('workspace AI tools search, find, list, and read ranges through the managed
     isError: false,
     details: { entryCount: 2, truncated: true },
   })
+  if (listed.type !== 'tool_result') throw new Error('Expected a list_directory result')
+  const nextCursor = (listed.details as { nextCursor?: unknown } | undefined)?.nextCursor
+  if (typeof nextCursor !== 'string') throw new Error('Expected a list_directory cursor')
+  const nextPage = await invoke(kernel, session.id, 'list_directory', {
+    path: '.',
+    after: nextCursor,
+    limit: 2,
+  })
+  expect(nextPage).toMatchObject({ type: 'tool_result', isError: false, details: { entryCount: 2 } })
+  if (nextPage.type !== 'tool_result') throw new Error('Expected a list_directory result')
+  for (const firstPageEntry of listed.text.trim().split('\n')) expect(nextPage.text).not.toContain(`${firstPageEntry}\n`)
 
   const range = await invoke(kernel, session.id, 'read_file', {
     path: 'alpha.ts',
@@ -104,6 +115,26 @@ test('workspace AI tools report invalid patterns and denied paths without spawni
   const denied = await invoke(kernel, session.id, 'find_files', { path: '..' })
   expect(denied).toMatchObject({ type: 'tool_result', isError: true })
   expect(denied.type === 'tool_result' ? denied.text : '').toContain('outside the workspace')
+})
+
+test('workspace AI tools deny protected runtime data and symlinks escaping the workspace', async () => {
+  const { root, kernel, session } = await fixture()
+  const protectedResult = await invoke(kernel, session.id, 'find_files', { path: '.hbar-data' })
+  expect(protectedResult).toMatchObject({ type: 'tool_result', isError: true })
+  expect(protectedResult.type === 'tool_result' ? protectedResult.text : '').toContain('runtime data is protected')
+
+  const outside = await mkdtemp(join(tmpdir(), 'hbar-local-tools-outside-'))
+  const link = join(root, 'escape')
+  try {
+    await writeFile(join(outside, 'secret.txt'), 'secret\n', 'utf8')
+    await symlink(outside, link, process.platform === 'win32' ? 'junction' : 'dir')
+    const escaped = await invoke(kernel, session.id, 'find_files', { path: 'escape' })
+    expect(escaped).toMatchObject({ type: 'tool_result', isError: true })
+    expect(escaped.type === 'tool_result' ? escaped.text : '').toContain('outside the workspace')
+  } finally {
+    await unlink(link).catch(() => undefined)
+    await rm(outside, { recursive: true, force: true })
+  }
 })
 
 test('workspace search text is capped at 64 KiB and reports truncation', async () => {

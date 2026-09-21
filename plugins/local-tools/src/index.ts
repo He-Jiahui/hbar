@@ -382,7 +382,9 @@ export default definePlugin({
         effect: 'read',
         execute: async (args, c) => {
           const input = workspaceListInputSchema.parse(args)
-          const entries = await execution.list(c.workspace.path, input.path)
+          const entries = (await execution.list(c.workspace.path, input.path)).sort((left, right) =>
+            left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+          )
           const filtered = input.after ? entries.filter((entry) => entry.path > input.after!) : entries
           const selected = filtered.slice(0, input.limit)
           const nextCursor = filtered.length > input.limit ? selected.at(-1)?.path : undefined

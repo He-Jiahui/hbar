@@ -7,9 +7,10 @@ interface Observation {
   cpuMs?: number
   maxRssBytes?: number
   bytesRead?: number
+  matchCount?: number
 }
 
-interface Sample extends Required<Pick<Observation, 'cpuMs'>> {
+interface Sample extends Required<Pick<Observation, 'cpuMs' | 'matchCount'>> {
   wallMs: number
   maxRssBytes: number
   bytesRead: number
@@ -63,6 +64,13 @@ const summary = (values: Sample[]) => ({
     ),
     max: Math.max(...values.map((value) => value.bytesRead)),
   },
+  matchCount: {
+    p50: percentile(
+      values.map((value) => value.matchCount),
+      0.5,
+    ),
+    max: Math.max(...values.map((value) => value.matchCount)),
+  },
 })
 
 const numericSummary = (values: number[]) => ({
@@ -82,6 +90,7 @@ async function measure(operation: () => Promise<Observation>): Promise<Sample> {
     cpuMs: observation.cpuMs ?? (cpu.user + cpu.system) / 1_000,
     maxRssBytes: observation.maxRssBytes ?? process.memoryUsage.rss(),
     bytesRead: observation.bytesRead ?? 0,
+    matchCount: observation.matchCount ?? 0,
   }
 }
 
@@ -94,12 +103,17 @@ async function collect(operation: () => Promise<Observation>): Promise<Sample[]>
 }
 
 async function runChild(argv: string[]): Promise<Observation> {
-  const child = Bun.spawn(argv, { stdout: 'ignore', stderr: 'pipe', stdin: 'ignore', windowsHide: true })
-  const code = await child.exited
-  if (code !== 0) throw new Error(`Benchmark process failed (${code}): ${await new Response(child.stderr).text()}`)
+  const child = Bun.spawn(argv, { stdout: 'pipe', stderr: 'pipe', stdin: 'ignore', windowsHide: true })
+  const [code, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ])
+  if (code !== 0) throw new Error(`Benchmark process failed (${code}): ${stderr}`)
   const usage = child.resourceUsage()
   return {
     ...(usage ? { cpuMs: Number(usage.cpuTime.total) / 1_000, maxRssBytes: usage.maxRSS } : {}),
+    matchCount: stdout.split(/\r?\n/u).filter(Boolean).length,
   }
 }
 
@@ -135,11 +149,11 @@ function nativeOperation(query: NativeWorkspaceQuery, directory: string) {
       },
       crypto.randomUUID(),
     )
-    return { bytesRead: result.cache.bytesRead }
+    return { bytesRead: result.cache.bytesRead, matchCount: result.matches.length }
   }
 }
 
-async function corpusBenchmark(directory: string) {
+async function corpusBenchmark(directory: string, fileCount: number) {
   const direct = () =>
     runChild(['rg', '--no-heading', '--color', 'never', '--glob', '*.txt', '--', 'needle', directory])
   const powershellDirectory = directory.replaceAll("'", "''")
@@ -161,17 +175,24 @@ async function corpusBenchmark(directory: string) {
   const embeddedNoCache = summary(await collect(noCacheOperation))
   const cold = await measure(cachedOperation)
   const warm = await collect(cachedOperation)
+  const embeddedWarm = summary(warm)
   const target = join(directory, '00000.txt')
   const before = await stat(target)
   await writeFile(target, 'file 0 contains NEEDLE\n', 'utf8')
   await utimes(target, before.atime, before.mtime)
   const modified = await measure(cachedOperation)
+  const expectedMatchCount = Math.ceil(fileCount / 100)
+  for (const [name, result] of Object.entries({ powershellRg, directRg, embeddedNoCache, embeddedWarm })) {
+    if (result.matchCount.p50 !== expectedMatchCount || result.matchCount.max !== expectedMatchCount)
+      throw new Error(`${name} returned an unexpected match count for ${directory}`)
+  }
   return {
+    expectedMatchCount,
     powershellRg,
     directRg,
     embeddedNoCache,
     embeddedCold: cold,
-    embeddedWarm: summary(warm),
+    embeddedWarm,
     embeddedAfterSameSizeEdit: modified,
   }
 }
@@ -245,8 +266,8 @@ try {
       nativeCacheBytes: 64 * 1024 * 1024,
       childCpuScope: 'top-level spawned process',
     },
-    small: await corpusBenchmark(small),
-    large: await corpusBenchmark(large),
+    small: await corpusBenchmark(small, 100),
+    large: await corpusBenchmark(large, largeFileCount),
     cancellation: await cancellationBenchmark(large),
   }
   await mkdir(join(process.cwd(), 'artifacts'), { recursive: true })

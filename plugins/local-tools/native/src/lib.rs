@@ -4,6 +4,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use grep_matcher::Matcher;
@@ -30,6 +31,20 @@ struct FileVersion {
     creation_time: i64,
     write_time: i64,
     change_time: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FallbackVersion {
+    size: u64,
+    modified: Option<SystemTime>,
+}
+
+fn fallback_version(file: &File) -> std::io::Result<FallbackVersion> {
+    let metadata = file.metadata()?;
+    Ok(FallbackVersion {
+        size: metadata.len(),
+        modified: metadata.modified().ok(),
+    })
 }
 
 #[cfg(windows)]
@@ -341,7 +356,7 @@ struct OperationCacheStats {
 struct CachedContent {
     bytes: Arc<Vec<u8>>,
     line_starts: Arc<Vec<usize>>,
-    version: FileVersion,
+    version: Option<FileVersion>,
     hit: bool,
 }
 
@@ -786,12 +801,14 @@ fn read_cached(
     state: &EngineState,
     path: &Path,
     operation: &mut OperationCacheStats,
+    cancel: &AtomicBool,
 ) -> ComputeResult<CachedContent> {
     let mut file =
         File::open(path).map_err(|error| format!("could not open {}: {error}", path.display()))?;
-    let before = file_version(&file)
+    let fallback_before = fallback_version(&file)
         .map_err(|error| format!("could not inspect {}: {error}", path.display()))?;
-    if before.size > MAX_FILE_BYTES {
+    let before = file_version(&file).ok();
+    if fallback_before.size > MAX_FILE_BYTES {
         return Err(format!("file exceeds {MAX_FILE_BYTES} bytes"));
     }
     {
@@ -800,8 +817,8 @@ fn read_cached(
             .lock()
             .map_err(|_| "cache lock poisoned".to_owned())?;
         let used = cache.tick();
-        if let Some(entry) = cache.content.get_mut(path) {
-            if entry.version == before {
+        if let (Some(entry), Some(before)) = (cache.content.get_mut(path), before.as_ref()) {
+            if &entry.version == before {
                 entry.last_used = used;
                 let bytes = entry.bytes.clone();
                 let line_starts = entry.line_starts.clone();
@@ -810,7 +827,7 @@ fn read_cached(
                 return Ok(CachedContent {
                     bytes,
                     line_starts,
-                    version: before,
+                    version: Some(before.clone()),
                     hit: true,
                 });
             }
@@ -819,16 +836,40 @@ fn read_cached(
         operation.content_misses += 1;
         cache.invalidate(path);
     }
-    let mut bytes = Vec::with_capacity(before.size as usize);
-    file.read_to_end(&mut bytes)
-        .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+    let mut bytes = Vec::with_capacity(fallback_before.size as usize);
+    let mut chunk = [0_u8; 64 * 1024];
+    loop {
+        cancelled(cancel)?;
+        let count = file
+            .read(&mut chunk)
+            .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+        if count == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk[..count]);
+        if bytes.len() as u64 > MAX_FILE_BYTES {
+            return Err(format!("file exceeds {MAX_FILE_BYTES} bytes"));
+        }
+    }
+    cancelled(cancel)?;
     let after_file = File::open(path)
         .map_err(|error| format!("could not re-open {}: {error}", path.display()))?;
-    let after = file_version(&after_file)
+    let fallback_after = fallback_version(&after_file)
         .map_err(|error| format!("could not re-inspect {}: {error}", path.display()))?;
-    if before != after || bytes.len() as u64 != after.size {
+    let after = file_version(&after_file).ok();
+    if fallback_before != fallback_after
+        || before
+            .as_ref()
+            .zip(after.as_ref())
+            .is_some_and(|(left, right)| left != right)
+        || bytes.len() as u64 != fallback_after.size
+    {
         return Err(format!("file changed while reading: {}", path.display()));
     }
+    let reliable_version = before
+        .zip(after)
+        .filter(|(left, right)| left == right)
+        .map(|(_, right)| right);
     let line_starts = Arc::new(index_lines(&bytes)?);
     let bytes = Arc::new(bytes);
     let estimated_bytes = bytes.len() + line_starts.len() * std::mem::size_of::<usize>();
@@ -836,25 +877,29 @@ fn read_cached(
         .cache
         .lock()
         .map_err(|_| "cache lock poisoned".to_owned())?;
-    let used = cache.tick();
-    cache.bytes = cache.bytes.saturating_add(estimated_bytes);
     cache.bytes_read = cache.bytes_read.saturating_add(bytes.len() as u64);
     operation.bytes_read = operation.bytes_read.saturating_add(bytes.len() as u64);
-    cache.content.insert(
-        path.to_owned(),
-        ContentEntry {
-            version: after.clone(),
-            bytes: bytes.clone(),
-            line_starts: line_starts.clone(),
-            estimated_bytes,
-            last_used: used,
-        },
-    );
-    cache.evict();
+    if let Some(version) = reliable_version.as_ref() {
+        let used = cache.tick();
+        cache.bytes = cache.bytes.saturating_add(estimated_bytes);
+        if let Some(previous) = cache.content.insert(
+            path.to_owned(),
+            ContentEntry {
+                version: version.clone(),
+                bytes: bytes.clone(),
+                line_starts: line_starts.clone(),
+                estimated_bytes,
+                last_used: used,
+            },
+        ) {
+            cache.bytes = cache.bytes.saturating_sub(previous.estimated_bytes);
+        }
+        cache.evict();
+    }
     Ok(CachedContent {
         bytes,
         line_starts,
-        version: after,
+        version: reliable_version,
         hit: false,
     })
 }
@@ -887,12 +932,13 @@ impl Sink for LineSink {
 fn matched_lines(
     state: &EngineState,
     path: &Path,
-    version: &FileVersion,
+    version: Option<&FileVersion>,
     bytes: &[u8],
-    matcher_key: &str,
-    matcher: &RegexMatcher,
+    matcher: (&str, &RegexMatcher),
     operation: &mut OperationCacheStats,
+    cancel: &AtomicBool,
 ) -> ComputeResult<(Arc<Vec<u64>>, bool)> {
+    let (matcher_key, matcher) = matcher;
     let key = format!("{}\0{matcher_key}", path.to_string_lossy());
     {
         let mut cache = state
@@ -900,7 +946,7 @@ fn matched_lines(
             .lock()
             .map_err(|_| "cache lock poisoned".to_owned())?;
         let used = cache.tick();
-        if let Some(entry) = cache.matches.get_mut(&key) {
+        if let (Some(entry), Some(version)) = (cache.matches.get_mut(&key), version) {
             if &entry.version == version {
                 entry.last_used = used;
                 let lines = entry.lines.clone();
@@ -921,28 +967,34 @@ fn matched_lines(
         lines: Vec::new(),
         complete: true,
     };
+    cancelled(cancel)?;
     searcher
         .search_slice(matcher, bytes, &mut sink)
         .map_err(|error| format!("search failed for {}: {error}", path.display()))?;
+    cancelled(cancel)?;
     let lines = Arc::new(sink.lines);
     let estimated_bytes = lines.len() * std::mem::size_of::<u64>();
-    let mut cache = state
-        .cache
-        .lock()
-        .map_err(|_| "cache lock poisoned".to_owned())?;
-    let used = cache.tick();
-    cache.bytes = cache.bytes.saturating_add(estimated_bytes);
-    cache.matches.insert(
-        key,
-        MatchEntry {
-            version: version.clone(),
-            lines: lines.clone(),
-            complete: sink.complete,
-            estimated_bytes,
-            last_used: used,
-        },
-    );
-    cache.evict();
+    if let Some(version) = version.filter(|_| sink.complete) {
+        let mut cache = state
+            .cache
+            .lock()
+            .map_err(|_| "cache lock poisoned".to_owned())?;
+        let used = cache.tick();
+        cache.bytes = cache.bytes.saturating_add(estimated_bytes);
+        if let Some(previous) = cache.matches.insert(
+            key,
+            MatchEntry {
+                version: version.clone(),
+                lines: lines.clone(),
+                complete: true,
+                estimated_bytes,
+                last_used: used,
+            },
+        ) {
+            cache.bytes = cache.bytes.saturating_sub(previous.estimated_bytes);
+        }
+        cache.evict();
+    }
     Ok((lines, sink.complete))
 }
 
@@ -993,7 +1045,7 @@ fn search(
     let files_checked = files.len();
     for (path, relative) in files {
         cancelled(cancel)?;
-        let content = match read_cached(state, &path, &mut operation) {
+        let content = match read_cached(state, &path, &mut operation, cancel) {
             Ok(value) => value,
             Err(error) if error.contains("not valid UTF-8") => continue,
             Err(error) => return Err(error),
@@ -1006,11 +1058,11 @@ fn search(
         let (line_numbers, complete) = matched_lines(
             state,
             &path,
-            &content.version,
+            content.version.as_ref(),
             &bytes,
-            &matcher_key,
-            &matcher,
+            (&matcher_key, &matcher),
             &mut operation,
+            cancel,
         )?;
         for line_number in line_numbers.iter().copied() {
             cancelled(cancel)?;
@@ -1070,7 +1122,7 @@ fn read(state: &EngineState, request: ReadRequest, cancel: &AtomicBool) -> Compu
         return Err("read path is not an accessible workspace file".to_owned());
     }
     let mut operation = OperationCacheStats::default();
-    let content = read_cached(state, &path, &mut operation)?;
+    let content = read_cached(state, &path, &mut operation, cancel)?;
     let bytes = content.bytes;
     let line_starts = content.line_starts;
     cancelled(cancel)?;
