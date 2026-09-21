@@ -644,6 +644,20 @@ export type {
   HbarAppUiAppSidebarTreeNode,
 } from './components/AppSidebar'
 export {
+  HbarAppUiAiChatProvider,
+  selectHbarAppUiAiChatItem,
+  uniqueHbarAppUiAiChatItems,
+} from './components/AiChat'
+export type {
+  HbarAppUiAiChatAction,
+  HbarAppUiAiChatChoice,
+  HbarAppUiAiChatContent,
+  HbarAppUiAiChatListStrategy,
+  HbarAppUiAiChatMessage,
+  HbarAppUiAiChatProviderChoice,
+  HbarAppUiAiChatProviderProps,
+} from './components/AiChat'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,
