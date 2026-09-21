@@ -1,30 +1,60 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {ActivityInbox} from './notifications/ActivityInbox'
-import {AppBarBell} from './notifications/AppBarBell'
-import {DeliveryPreferences} from './notifications/DeliveryPreferences'
-import {NotificationCenter} from './notifications/NotificationCenter'
-import {SystemMessages} from './notifications/SystemMessages'
-import {ToastStack} from './notifications/ToastStack'
-import './notifications/NotificationsSurface.css'
+import {
+  LumenNotifications,
+  LumenNotificationsProvider as HbarAppUiNotificationsProvider,
+  type LumenNotificationsContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
-type NotificationProps = HbarAppUiVariantProps
+export type HbarAppUiNotificationsProps = HbarAppUiVariantProps & {
+  readonly notificationsContent?: LumenNotificationsContent | undefined
+}
+export { HbarAppUiNotificationsProvider }
+export {
+  selectLumenNotificationsItem as selectHbarAppUiNotificationsItem,
+  uniqueLumenNotificationsItems as uniqueHbarAppUiNotificationsItems,
+  useLumenNotificationsContent as useHbarAppUiNotificationsContent,
+} from '@lumen/app-ui'
+export type {
+  LumenNotificationActivityContent as HbarAppUiNotificationActivityContent,
+  LumenNotificationActivityEntry as HbarAppUiNotificationActivityEntry,
+  LumenNotificationBellContent as HbarAppUiNotificationBellContent,
+  LumenNotificationBellMessage as HbarAppUiNotificationBellMessage,
+  LumenNotificationCenterContent as HbarAppUiNotificationCenterContent,
+  LumenNotificationChannel as HbarAppUiNotificationChannel,
+  LumenNotificationEntry as HbarAppUiNotificationEntry,
+  LumenNotificationFact as HbarAppUiNotificationFact,
+  LumenNotificationGroup as HbarAppUiNotificationGroup,
+  LumenNotificationPreference as HbarAppUiNotificationPreference,
+  LumenNotificationPreferenceGroup as HbarAppUiNotificationPreferenceGroup,
+  LumenNotificationPreferencesContent as HbarAppUiNotificationPreferencesContent,
+  LumenNotificationsAction as HbarAppUiNotificationsAction,
+  LumenNotificationsChoice as HbarAppUiNotificationsChoice,
+  LumenNotificationsContent as HbarAppUiNotificationsContent,
+  LumenNotificationsListStrategy as HbarAppUiNotificationsListStrategy,
+  LumenNotificationsProviderProps as HbarAppUiNotificationsProviderProps,
+  LumenNotificationSystemContent as HbarAppUiNotificationSystemContent,
+  LumenNotificationSystemMessage as HbarAppUiNotificationSystemMessage,
+  LumenNotificationToastChoice as HbarAppUiNotificationToastChoice,
+  LumenNotificationToastsContent as HbarAppUiNotificationToastsContent,
+} from '@lumen/app-ui'
 
-/** Category dispatcher; each notification surface owns an independent module. */
-export function Notifications({spec, onAction}: NotificationProps) {
-    switch (spec.variant) {
-        case 1:
-            return <NotificationCenter spec={spec} onAction={onAction}/>
-        case 2:
-            return <ToastStack spec={spec} onAction={onAction}/>
-        case 3:
-            return <DeliveryPreferences spec={spec} onAction={onAction}/>
-        case 4:
-            return <ActivityInbox spec={spec} onAction={onAction}/>
-        case 5:
-            return <SystemMessages spec={spec} onAction={onAction}/>
-        case 6:
-            return <AppBarBell spec={spec} onAction={onAction}/>
-        default:
-            return <NotificationCenter spec={spec} onAction={onAction}/>
-    }
+export function Notifications({ spec, onAction, notificationsContent, className }: HbarAppUiNotificationsProps) {
+  return (
+    <LumenNotifications
+      variant={spec.variant}
+      variantId={spec.id}
+      content={notificationsContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(value === undefined ? { variantId: spec.id, actionId } : { variantId: spec.id, actionId, value })
+          : undefined
+      }
+    />
+  )
 }

@@ -516,6 +516,34 @@ export type {
   HbarAppUiAppDialogWizardStep,
 } from './components/AppDialog'
 export {
+  HbarAppUiNotificationsProvider,
+  selectHbarAppUiNotificationsItem,
+  uniqueHbarAppUiNotificationsItems,
+} from './components/Notifications'
+export type {
+  HbarAppUiNotificationActivityContent,
+  HbarAppUiNotificationActivityEntry,
+  HbarAppUiNotificationBellContent,
+  HbarAppUiNotificationBellMessage,
+  HbarAppUiNotificationCenterContent,
+  HbarAppUiNotificationChannel,
+  HbarAppUiNotificationEntry,
+  HbarAppUiNotificationFact,
+  HbarAppUiNotificationGroup,
+  HbarAppUiNotificationPreference,
+  HbarAppUiNotificationPreferenceGroup,
+  HbarAppUiNotificationPreferencesContent,
+  HbarAppUiNotificationsAction,
+  HbarAppUiNotificationsChoice,
+  HbarAppUiNotificationsContent,
+  HbarAppUiNotificationsListStrategy,
+  HbarAppUiNotificationsProviderProps,
+  HbarAppUiNotificationSystemContent,
+  HbarAppUiNotificationSystemMessage,
+  HbarAppUiNotificationToastChoice,
+  HbarAppUiNotificationToastsContent,
+} from './components/Notifications'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,

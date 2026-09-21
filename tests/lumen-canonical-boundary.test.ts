@@ -25,6 +25,7 @@ const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/list.tsx',
   'hbar-ui/packages/lumen-app-ui/src/monitoring.tsx',
   'hbar-ui/packages/lumen-app-ui/src/navbar.tsx',
+  'hbar-ui/packages/lumen-app-ui/src/notifications.tsx',
   'hbar-ui/packages/lumen-app-ui/src/onboarding.tsx',
   'hbar-ui/packages/lumen-app-ui/src/paywall.tsx',
   'hbar-ui/packages/lumen-app-ui/src/prompt-input.tsx',
