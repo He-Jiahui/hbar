@@ -23,6 +23,7 @@ import {
   HbarAppUiSchedulingProvider,
   HbarAppUiChatProvider,
   HbarAppUiPromptInputProvider,
+  HbarAppUiCardProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -110,6 +111,7 @@ import { HBAR_APP_UI_COMMENTS_FIXTURES } from '../../../tests/fixtures/hbar-app-
 import { HBAR_APP_UI_SCHEDULING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
 import { HBAR_APP_UI_CHAT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-chat-fixtures'
 import { HBAR_APP_UI_PROMPT_INPUT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-prompt-input-fixtures'
+import { HBAR_APP_UI_CARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-card-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -283,6 +285,7 @@ function PreviewApp() {
   const schedulingContent = useMemo(() => HBAR_APP_UI_SCHEDULING_FIXTURES, [])
   const chatContent = useMemo(() => HBAR_APP_UI_CHAT_FIXTURES, [])
   const promptInputContent = useMemo(() => HBAR_APP_UI_PROMPT_INPUT_FIXTURES, [])
+  const cardContent = useMemo(() => HBAR_APP_UI_CARD_FIXTURES, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -363,29 +366,31 @@ function PreviewApp() {
                       <HbarAppUiSchedulingProvider content={schedulingContent}>
                         <HbarAppUiChatProvider content={chatContent}>
                           <HbarAppUiPromptInputProvider content={promptInputContent}>
-                            <HbarAppUiPaywallProvider content={paywallContent}>
-                              <PlanPreviewHost content={agentPlanContent}>
-                                <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
-                                  <HbarAppUiAgentActivityProvider content={agentActivityContent}>
-                                    <HbarAppUiToolCallsProvider content={toolCallsContent}>
-                                      <HbarAppUiNavbarProvider content={navbarContent}>
-                                        <HbarAppUiEditorProvider content={editorContent}>
-                                          <ShellPreviewHost spec={selected.spec} onAction={handleAction}>
-                                            <ConversationPreviewHost spec={selected.spec} onAction={handleAction}>
-                                              <UsagePreviewHost spec={selected.spec} onAction={handleAction}>
-                                                <CommandPreviewHost spec={selected.spec} onAction={handleAction}>
-                                                  <SelectedComponent spec={selected.spec} onAction={handleAction} />
-                                                </CommandPreviewHost>
-                                              </UsagePreviewHost>
-                                            </ConversationPreviewHost>
-                                          </ShellPreviewHost>
-                                        </HbarAppUiEditorProvider>
-                                      </HbarAppUiNavbarProvider>
-                                    </HbarAppUiToolCallsProvider>
-                                  </HbarAppUiAgentActivityProvider>
-                                </HbarAppUiAgentApprovalProvider>
-                              </PlanPreviewHost>
-                            </HbarAppUiPaywallProvider>
+                            <HbarAppUiCardProvider content={cardContent}>
+                              <HbarAppUiPaywallProvider content={paywallContent}>
+                                <PlanPreviewHost content={agentPlanContent}>
+                                  <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
+                                    <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+                                      <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                                        <HbarAppUiNavbarProvider content={navbarContent}>
+                                          <HbarAppUiEditorProvider content={editorContent}>
+                                            <ShellPreviewHost spec={selected.spec} onAction={handleAction}>
+                                              <ConversationPreviewHost spec={selected.spec} onAction={handleAction}>
+                                                <UsagePreviewHost spec={selected.spec} onAction={handleAction}>
+                                                  <CommandPreviewHost spec={selected.spec} onAction={handleAction}>
+                                                    <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                                                  </CommandPreviewHost>
+                                                </UsagePreviewHost>
+                                              </ConversationPreviewHost>
+                                            </ShellPreviewHost>
+                                          </HbarAppUiEditorProvider>
+                                        </HbarAppUiNavbarProvider>
+                                      </HbarAppUiToolCallsProvider>
+                                    </HbarAppUiAgentActivityProvider>
+                                  </HbarAppUiAgentApprovalProvider>
+                                </PlanPreviewHost>
+                              </HbarAppUiPaywallProvider>
+                            </HbarAppUiCardProvider>
                           </HbarAppUiPromptInputProvider>
                         </HbarAppUiChatProvider>
                       </HbarAppUiSchedulingProvider>
@@ -524,38 +529,43 @@ function PreviewApp() {
                                 <HbarAppUiSchedulingProvider content={schedulingContent}>
                                   <HbarAppUiChatProvider content={chatContent}>
                                     <HbarAppUiPromptInputProvider content={promptInputContent}>
-                                      <HbarAppUiPaywallProvider content={paywallContent}>
-                                        <PlanPreviewHost content={agentPlanContent}>
-                                          <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
-                                            <HbarAppUiAgentActivityProvider content={agentActivityContent}>
-                                              <HbarAppUiToolCallsProvider content={toolCallsContent}>
-                                                <HbarAppUiNavbarProvider content={navbarContent}>
-                                                  <HbarAppUiEditorProvider content={editorContent}>
-                                                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}>
-                                                      <ConversationPreviewHost
-                                                        spec={selected.spec}
-                                                        onAction={handleAction}
-                                                      >
-                                                        <UsagePreviewHost spec={selected.spec} onAction={handleAction}>
-                                                          <CommandPreviewHost
+                                      <HbarAppUiCardProvider content={cardContent}>
+                                        <HbarAppUiPaywallProvider content={paywallContent}>
+                                          <PlanPreviewHost content={agentPlanContent}>
+                                            <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
+                                              <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+                                                <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                                                  <HbarAppUiNavbarProvider content={navbarContent}>
+                                                    <HbarAppUiEditorProvider content={editorContent}>
+                                                      <ShellPreviewHost spec={selected.spec} onAction={handleAction}>
+                                                        <ConversationPreviewHost
+                                                          spec={selected.spec}
+                                                          onAction={handleAction}
+                                                        >
+                                                          <UsagePreviewHost
                                                             spec={selected.spec}
                                                             onAction={handleAction}
                                                           >
-                                                            <SelectedComponent
+                                                            <CommandPreviewHost
                                                               spec={selected.spec}
                                                               onAction={handleAction}
-                                                            />
-                                                          </CommandPreviewHost>
-                                                        </UsagePreviewHost>
-                                                      </ConversationPreviewHost>
-                                                    </ShellPreviewHost>
-                                                  </HbarAppUiEditorProvider>
-                                                </HbarAppUiNavbarProvider>
-                                              </HbarAppUiToolCallsProvider>
-                                            </HbarAppUiAgentActivityProvider>
-                                          </HbarAppUiAgentApprovalProvider>
-                                        </PlanPreviewHost>
-                                      </HbarAppUiPaywallProvider>
+                                                            >
+                                                              <SelectedComponent
+                                                                spec={selected.spec}
+                                                                onAction={handleAction}
+                                                              />
+                                                            </CommandPreviewHost>
+                                                          </UsagePreviewHost>
+                                                        </ConversationPreviewHost>
+                                                      </ShellPreviewHost>
+                                                    </HbarAppUiEditorProvider>
+                                                  </HbarAppUiNavbarProvider>
+                                                </HbarAppUiToolCallsProvider>
+                                              </HbarAppUiAgentActivityProvider>
+                                            </HbarAppUiAgentApprovalProvider>
+                                          </PlanPreviewHost>
+                                        </HbarAppUiPaywallProvider>
+                                      </HbarAppUiCardProvider>
                                     </HbarAppUiPromptInputProvider>
                                   </HbarAppUiChatProvider>
                                 </HbarAppUiSchedulingProvider>
