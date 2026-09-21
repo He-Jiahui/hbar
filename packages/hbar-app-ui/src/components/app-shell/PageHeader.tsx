@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { HbarAppUiShellIcon, type HbarAppUiShellIconName } from './AppShell'
 import './PageHeader.css'
@@ -61,7 +62,7 @@ export function HbarAppUiPageAction({
   readonly selected?: boolean
 }) {
   return (
-    <button
+    <LumenButton
       {...props}
       type="button"
       className={`hbar-app-ui-page-action${className ? ` ${className}` : ''}`}
@@ -70,6 +71,6 @@ export function HbarAppUiPageAction({
       title={props.title ?? label}
     >
       <HbarAppUiShellIcon name={icon} tier="sm" />
-    </button>
+    </LumenButton>
   )
 }

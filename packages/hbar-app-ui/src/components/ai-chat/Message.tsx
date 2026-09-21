@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { Check, Copy, LoaderCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
@@ -31,9 +32,9 @@ export function HbarAppUiMessage(props: HbarAppUiMessageProps) {
       <div className="message-body">{props.children}</div>
       {props.onCopy && (
         <footer className="message-actions">
-          <button type="button" title={props.copyLabel} aria-label={props.copyLabel} onClick={props.onCopy}>
+          <LumenButton type="button" title={props.copyLabel} aria-label={props.copyLabel} onClick={props.onCopy}>
             <HbarAppUiIcon icon={props.copied ? Check : Copy} tier="sm" />
-          </button>
+          </LumenButton>
         </footer>
       )}
     </article>

@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {LucideIcon} from 'lucide-react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -12,8 +13,11 @@ export function FeedbackFrame({spec, onAction, className, children}: HbarAppUiVa
     </ActionSurfaceFrame>
 }
 
-export function FeedbackButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {readonly tone?: 'neutral' | 'accent'}) {
-    return <button {...props} className={`hbar-app-ui-feedback-button hbar-app-ui-feedback-button-${tone} ${props.className ?? ''}`}>{children}</button>
+export function FeedbackButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
+    readonly tone?: 'neutral' | 'accent'
+}) {
+    return <LumenButton {...props}
+                   className={`hbar-app-ui-feedback-button hbar-app-ui-feedback-button-${tone} ${props.className ?? ''}`}>{children}</LumenButton>
 }
 
 export function FeedbackIcon({icon: Icon, tier = 'sm'}: {readonly icon: LucideIcon; readonly tier?: HbarAppUiFeedbackIconTier}) {

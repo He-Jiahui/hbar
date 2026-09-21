@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {ChevronDown, Download, ListFilter, RotateCcw, TriangleAlert} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -55,7 +56,7 @@ export function RecoveryBilling({spec, onAction, content}: HbarAppUiVariantProps
                         <span className="hbar-app-ui-billing-data-cell" role="columnheader">{content.labels.retryColumn}</span>
                     </div>
                     {subscriptions.length ? subscriptions.map((subscription) => <div className="hbar-app-ui-billing-subscription-row" role="row" key={subscription.id} data-hbar-app-ui-item-id={subscription.id}>
-                        <button className="hbar-app-ui-billing-subscription-trigger" type="button" aria-expanded={expandedId === subscription.id} aria-label={subscription.actionLabel}
+                        <LumenButton className="hbar-app-ui-billing-subscription-trigger" type="button" aria-expanded={expandedId === subscription.id} aria-label={subscription.actionLabel}
                                 onClick={() => toggleSubscription(subscription)}>
                             <BillingIcon tier="sm"><ChevronDown/></BillingIcon>
                             <div className="hbar-app-ui-billing-subscription-details">
@@ -66,7 +67,7 @@ export function RecoveryBilling({spec, onAction, content}: HbarAppUiVariantProps
                                 <span className="is-amount"><strong>{subscription.amount}</strong><small>{subscription.paymentMethod}</small></span>
                                 <span><strong>{subscription.nextRetry}</strong><small>{subscription.attemptSummary}</small></span>
                             </div>
-                        </button>
+                        </LumenButton>
                         {expandedId === subscription.id && <section className="hbar-app-ui-billing-retry-attempts">
                             <header><div><strong>{subscription.retryTitle}</strong><p>{subscription.retryDescription}</p></div><span>{subscription.invoice}</span></header>
                             {subscription.attempts.map((attempt, index) => <div className="hbar-app-ui-billing-retry-attempt" key={attempt.id}>

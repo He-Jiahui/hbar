@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import {useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import type {HbarAppUiPaywallReadsContent} from './PaywallContent'
@@ -12,12 +13,21 @@ export function MeteredReadsPaywall({spec, onAction, content}: HbarAppUiVariantP
             <p className="hbar-app-ui-paywall-eyebrow">{labels.eyebrow}</p>
             <h2>{labels.title}</h2>
             <p>{labels.description}</p>
-            <form className="hbar-app-ui-paywall-reads-form" onSubmit={(event) => {event.preventDefault(); if (email.trim()) onAction?.({variantId: spec.id, actionId: 'keep-reading', value: email.trim()})}}>
-                <input aria-label={labels.emailLabel} type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={labels.emailPlaceholder} />
+            <form className="hbar-app-ui-paywall-reads-form" onSubmit={(event) => {
+                event.preventDefault();
+                if (email.trim()) onAction?.({variantId: spec.id, actionId: 'keep-reading', value: email.trim()})
+            }}>
+                <LumenInput aria-label={labels.emailLabel} type="email" value={email}
+                       onChange={(event) => setEmail(event.target.value)} placeholder={labels.emailPlaceholder}/>
                 <PaywallButton tone="accent" type="submit" disabled={!email.trim()}>{labels.keepReading}</PaywallButton>
             </form>
-            <p className="hbar-app-ui-paywall-reads-subscribe"><span>{labels.alreadySubscribed}</span><button type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'sign-in'})}>{labels.signIn}</button></p>
-            <ul className="hbar-app-ui-paywall-reads-assurances" data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{assurances.map((assurance, index) => <li key={`${index}-${assurance}`}>{assurance}</li>)}</ul>
+            <p className="hbar-app-ui-paywall-reads-subscribe"><span>{labels.alreadySubscribed}</span>
+                <LumenButton type="button"
+                        onClick={() => onAction?.({variantId: spec.id, actionId: 'sign-in'})}>{labels.signIn}</LumenButton>
+            </p>
+            <ul className="hbar-app-ui-paywall-reads-assurances"
+                data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{assurances.map((assurance, index) => <li
+                key={`${index}-${assurance}`}>{assurance}</li>)}</ul>
         </section>
     </PaywallFrame>
 }

@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import type {HbarAppUiSettingsWorkspaceContent} from './SettingsContent'
@@ -22,7 +23,9 @@ export function WorkspaceSettings({spec, onAction, content}: HbarAppUiVariantPro
                     <p className="hbar-app-ui-settings-subtle">{content.labels.accountName}</p>
                 </div>
                 <nav className="hbar-app-ui-settings-sidebar-nav" aria-label={content.labels.navigation}>
-                    {content.navigation.map((item) => <button type="button" key={item.id} className={selectedNavigation?.id === item.id ? 'is-selected' : ''} onClick={() => setActiveNavigationId(item.id)}>{item.label}</button>)}
+                    {content.navigation.map((item) => <LumenButton type="button" key={item.id}
+                                                              className={selectedNavigation?.id === item.id ? 'is-selected' : ''}
+                                                              onClick={() => setActiveNavigationId(item.id)}>{item.label}</LumenButton>)}
                 </nav>
             </aside>
             <main className="hbar-app-ui-settings-workspace-main">

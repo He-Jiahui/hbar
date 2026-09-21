@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import { useState } from 'react'
 import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui'
 import type { HbarAppUiEvent, HbarAppUiProfileControl, HbarAppUiVariantSpec } from 'hbar-app-ui/catalog'
@@ -61,7 +62,7 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
             {controlLabels[control]}
           </HbarAppUiButton>
           {openControl === control && control === 'search' && (
-            <input
+            <LumenInput
               aria-label={`${spec.title} search`}
               placeholder="Search within this surface"
               value={input}
@@ -69,7 +70,7 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
             />
           )}
           {openControl === control && control === 'picker' && (
-            <select
+            <LumenSelect
               aria-label={`${spec.title} selection`}
               defaultValue="default"
               onChange={(event) => onAction({ variantId: spec.id, actionId: control, value: event.target.value })}
@@ -77,19 +78,19 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
               <option value="default">Default scope</option>
               <option value="local">Local workspace</option>
               <option value="shared">Shared workspace</option>
-            </select>
+            </LumenSelect>
           )}
           {openControl === control && control === 'tabs' && (
             <div className="hbar-app-ui-profile-subtabs" role="group" aria-label={`${spec.title} views`}>
               {['Overview', 'Details', 'Activity'].map((view) => (
-                <button type="button" key={view} onClick={() => onAction({ variantId: spec.id, actionId: control, value: view })}>
+                <LumenButton type="button" key={view} onClick={() => onAction({ variantId: spec.id, actionId: control, value: view })}>
                   {view}
-                </button>
+                </LumenButton>
               ))}
             </div>
           )}
           {openControl === control && control === 'compose' && (
-            <textarea
+            <LumenTextarea
               aria-label={`${spec.title} composer`}
               placeholder="Add a note"
               value={input}

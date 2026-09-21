@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import {useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import type {HbarAppUiSettingsDangerContent} from './SettingsContent'
@@ -23,8 +24,17 @@ export function DangerSettings({spec, onAction, content}: HbarAppUiVariantProps 
                     <header><strong>{content.labels.deleteTitle}</strong><p>{content.labels.deleteDescription}</p></header>
                     <strong>{content.labels.deleteSummary.replace('{count}', String(content.memberCount))}</strong>
                     <ul>{content.consequences.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>
-                    <label className="hbar-app-ui-settings-danger-copy"><strong>{content.labels.typePrompt.replace('{workspace}', content.workspaceName)}</strong><input value={confirmation} onChange={(event) => setConfirmation(event.currentTarget.value)} aria-label={content.labels.confirmationLabel} /></label>
-                    <div className="hbar-app-ui-settings-actions"><SettingsButton type="button" onClick={() => { setConfirmation(''); setNotice(undefined) }}>{content.labels.cancel}</SettingsButton><SettingsButton type="button" tone="danger" disabled={!matches} onClick={() => action('delete', content.labels.deleteSuccess)}>{content.labels.deleteAction}</SettingsButton></div>
+                    <label
+                        className="hbar-app-ui-settings-danger-copy"><strong>{content.labels.typePrompt.replace('{workspace}', content.workspaceName)}</strong><LumenInput
+                        value={confirmation} onChange={(event) => setConfirmation(event.currentTarget.value)}
+                        aria-label={content.labels.confirmationLabel}/></label>
+                    <div className="hbar-app-ui-settings-actions"><SettingsButton type="button" onClick={() => {
+                        setConfirmation('');
+                        setNotice(undefined)
+                    }}>{content.labels.cancel}</SettingsButton><SettingsButton type="button" tone="danger"
+                                                                               disabled={!matches}
+                                                                               onClick={() => action('delete', content.labels.deleteSuccess)}>{content.labels.deleteAction}</SettingsButton>
+                    </div>
                 </section>
                 {notice && <p className="hbar-app-ui-settings-danger-footer" role="status">{notice}</p>}
                 <p className="hbar-app-ui-settings-danger-footer">{content.labels.footerNote}</p>

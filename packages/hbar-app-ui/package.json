@@ -60,6 +60,7 @@
     "./run-activity": "./src/components/RunActivity.tsx"
   },
   "dependencies": {
+    "@lumen/app-ui": "workspace:*",
     "@tanstack/react-virtual": "3.14.11",
     "lucide-react": "1.43.0"
   },

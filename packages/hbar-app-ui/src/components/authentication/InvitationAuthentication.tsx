@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import {Folder, Users} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -29,7 +30,7 @@ export function InvitationAuthentication({spec, onAction, content}: HbarAppUiVar
                     label={content.labels.fullNameLabel} placeholder={content.labels.fullNamePlaceholder}
                     value={fullName} onChange={setFullName}/>
                 <div className="hbar-app-ui-auth-field"><span>{content.labels.passwordLabel}</span>
-                    <div className="hbar-app-ui-auth-input-wrap"><input type={visible ? 'text' : 'password'}
+                    <div className="hbar-app-ui-auth-input-wrap"><LumenInput type={visible ? 'text' : 'password'}
                                                                         placeholder={content.labels.passwordPlaceholder}
                                                                         value={password}
                                                                         onChange={(event) => setPassword(event.currentTarget.value)}/><AuthPasswordButton
@@ -41,10 +42,10 @@ export function InvitationAuthentication({spec, onAction, content}: HbarAppUiVar
                     variantId: spec.id,
                     actionId: 'accept'
                 })}>{content.labels.accept}</AuthButton>
-                <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
+                <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
                     variantId: spec.id,
                     actionId: 'decline'
-                })}>{content.labels.decline}</button>
+                })}>{content.labels.decline}</LumenButton>
             </main>
             <aside><span className="hbar-app-ui-auth-eyebrow">{content.labels.whatJoining}</span>
                 <div className="hbar-app-ui-auth-org-header"><span

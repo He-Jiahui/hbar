@@ -1,3 +1,4 @@
+import { LumenInput, LumenTextarea } from '@lumen/app-ui'
 import { HbarAppUiButton } from '../../primitives'
 import type { ReactNode } from 'react'
 import './ObjectiveForm.css'
@@ -51,7 +52,7 @@ export function HbarAppUiObjectiveForm(content: HbarAppUiObjectiveFormProps) {
       )}
       <label>
         {content.labels.objective}
-        <textarea
+        <LumenTextarea
           value={content.objective}
           maxLength={content.objectiveMaximum}
           placeholder={content.labels.objectiveHint}
@@ -61,7 +62,7 @@ export function HbarAppUiObjectiveForm(content: HbarAppUiObjectiveFormProps) {
       </label>
       <label>
         {content.labels.budget}
-        <input
+        <LumenInput
           type="number"
           min={1}
           step={1}

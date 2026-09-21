@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon} from 'lucide-react'
 import type {ButtonHTMLAttributes, CSSProperties, ReactNode} from 'react'
@@ -31,7 +32,8 @@ export function AgentApprovalFrame({spec, onAction, className, children}: AgentA
 export function AgentApprovalButton({children, className = '', type = 'button', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
     readonly children: ReactNode
 }) {
-    return <button {...props} className={`hbar-app-ui-agent-approval-button ${className}`} type={type}>{children}</button>
+    return <LumenButton {...props} className={`hbar-app-ui-agent-approval-button ${className}`}
+                   type={type}>{children}</LumenButton>
 }
 
 export function AgentApprovalGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentApprovalIconTier}) { return <HbarAppUiIcon icon={Icon} tier={tier} /> }

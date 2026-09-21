@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import { ArrowDown, ArrowUp, CornerUpLeft, Play, Plus, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
@@ -57,13 +58,13 @@ export function HbarAppUiPlanEditor({
                     </span>
                     {control.editing ? (
                       <div className="hbar-app-ui-plan-step-fields">
-                        <input
+                        <LumenInput
                           aria-label={control.editing.titleLabel(index + 1)}
                           value={step.title}
                           disabled={control.busy}
                           onChange={(event) => control.editing?.onTitleChange(step.id, event.target.value)}
                         />
-                        <select
+                        <LumenSelect
                           aria-label={control.editing.statusLabel(index + 1)}
                           value={step.state}
                           disabled={control.busy}
@@ -77,13 +78,13 @@ export function HbarAppUiPlanEditor({
                               {status.label}
                             </option>
                           ))}
-                        </select>
+                        </LumenSelect>
                       </div>
                     ) : (
                       <span className="hbar-app-ui-agent-plan-step-title">{step.title}</span>
                     )}
                     <div className="hbar-app-ui-agent-plan-row-actions">
-                      <button
+                      <LumenButton
                         type="button"
                         className="hbar-app-ui-agent-plan-button"
                         aria-label={labels.moveUp(step.title)}
@@ -91,8 +92,8 @@ export function HbarAppUiPlanEditor({
                         onClick={() => control.onMove(step.id, -1)}
                       >
                         <HbarAppUiIcon icon={ArrowUp} tier="sm" />
-                      </button>
-                      <button
+                      </LumenButton>
+                      <LumenButton
                         type="button"
                         className="hbar-app-ui-agent-plan-button"
                         aria-label={labels.moveDown(step.title)}
@@ -100,8 +101,8 @@ export function HbarAppUiPlanEditor({
                         onClick={() => control.onMove(step.id, 1)}
                       >
                         <HbarAppUiIcon icon={ArrowDown} tier="sm" />
-                      </button>
-                      <button
+                      </LumenButton>
+                      <LumenButton
                         type="button"
                         className="hbar-app-ui-agent-plan-button"
                         aria-label={step.state === 'skipped' ? labels.restore(step.title) : labels.skip(step.title)}
@@ -109,7 +110,7 @@ export function HbarAppUiPlanEditor({
                         onClick={() => control.onRemove(step.id)}
                       >
                         <HbarAppUiIcon icon={step.state === 'skipped' ? CornerUpLeft : X} tier="sm" />
-                      </button>
+                      </LumenButton>
                     </div>
                   </li>
                 ))}
@@ -126,17 +127,17 @@ export function HbarAppUiPlanEditor({
             if (control.canAdd && !control.busy) control.onAdd()
           }}
         >
-          <input
+          <LumenInput
             aria-label={labels.addPlaceholder}
             placeholder={labels.addPlaceholder}
             value={control.draft}
             onChange={(event) => control.onDraftChange(event.target.value)}
             disabled={control.busy || !control.canAdd}
           />
-          <button className="hbar-app-ui-agent-plan-button" type="submit" disabled={control.busy || !control.canAdd}>
+          <LumenButton className="hbar-app-ui-agent-plan-button" type="submit" disabled={control.busy || !control.canAdd}>
             <HbarAppUiIcon icon={Plus} tier="sm" />
             <span>{labels.add}</span>
-          </button>
+          </LumenButton>
         </form>
       </main>
       {control.after}
@@ -145,7 +146,7 @@ export function HbarAppUiPlanEditor({
         <p className="hbar-app-ui-agent-plan-editable-review">{labels.review}</p>
         <div className="hbar-app-ui-plan-editor-actions">
           {control.actions}
-          <button
+          <LumenButton
             type="button"
             className="hbar-app-ui-agent-plan-button is-primary"
             disabled={control.busy || !control.canSubmit}
@@ -153,7 +154,7 @@ export function HbarAppUiPlanEditor({
           >
             <HbarAppUiIcon icon={Play} tier="sm" />
             <span>{labels.start(steps.filter((step) => step.state !== 'skipped').length)}</span>
-          </button>
+          </LumenButton>
         </div>
       </footer>
     </section>

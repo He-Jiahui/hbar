@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Check, ChevronRight, Copy, Mail} from 'lucide-react'
@@ -20,8 +21,8 @@ function ProfileSetup({spec, onAction}: OnboardingProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-onboarding-variant-1">
         <div className="hbar-app-ui-onboarding-split">
             <main><HbarAppUiToolbar title="Set up your profile"
-                                    detail="Your teammates will see this information"/><label>Name<input value={name}
-                                                                                                         onChange={(event) => setName(event.target.value)}/></label><label>Role<input
+                                    detail="Your teammates will see this information"/><label>Name<LumenInput value={name}
+                                                                                                         onChange={(event) => setName(event.target.value)}/></label><label>Role<LumenInput
                 defaultValue="Workspace operator"/></label><HbarAppUiButton tone="accent" onClick={() => onAction?.({
                 variantId: spec.id,
                 actionId: 'save',
@@ -42,7 +43,7 @@ function SixStep({spec, onAction}: OnboardingProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-onboarding-variant-2"><HbarAppUiToolbar title="Getting started"
                                                                                               detail={`${step} of ${labels.length}`}/>
-        <div className="hbar-app-ui-vertical-stepper">{labels.map((label, index) => <button type="button"
+        <div className="hbar-app-ui-vertical-stepper">{labels.map((label, index) => <LumenButton type="button"
                                                                                             className={index < step ? 'is-complete' : index === step ? 'is-active' : ''}
                                                                                             key={label}
                                                                                             onClick={() => setStep(index)}>
@@ -50,7 +51,7 @@ function SixStep({spec, onAction}: OnboardingProps) {
             <div>
                 <strong>{label}</strong><small>{index < step ? 'Complete' : index === step ? 'Current step' : 'Not started'}</small>
             </div>
-            <HbarAppUiIcon icon={ChevronRight} tier="sm" /></button>)}</div>
+            <HbarAppUiIcon icon={ChevronRight} tier="sm" /></LumenButton>)}</div>
         <HbarAppUiSpotlight><strong>{labels[step] ?? labels[0]}</strong><p>Complete this step to unlock the next part of
             your workspace.</p><HbarAppUiButton tone="accent" onClick={() => {
             setStep(Math.min(labels.length - 1, step + 1));
@@ -82,9 +83,9 @@ function UseCasePicker({spec, onAction}: OnboardingProps) {
                                className="hbar-app-ui-onboarding-variant-4"><HbarAppUiToolbar
         title="Choose your use case" detail="Tailor the workspace to your team"/>
         <div className="hbar-app-ui-option-tiles">{['Product', 'Engineering', 'Support', 'Research'].map((item) =>
-            <button type="button" className={useCase === item ? 'is-selected' : ''} key={item}
+            <LumenButton type="button" className={useCase === item ? 'is-selected' : ''} key={item}
                     onClick={() => setUseCase(item)}><strong>{item}</strong><small>Recommended workflows</small>
-            </button>)}</div>
+            </LumenButton>)}</div>
         <HbarAppUiTabs label="Team size" value={size}
                        options={['1', '2–10', '11–50', '51+'].map((id) => ({id, label: id}))}
                        onChange={setSize}/><HbarAppUiButton tone="accent" onClick={() => onAction?.({
@@ -99,11 +100,11 @@ function InviteTeam({spec, onAction}: OnboardingProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-onboarding-variant-5"><HbarAppUiToolbar title="Invite teammates"
                                                                                               detail="Roles and shareable link"/>
-        <div className="hbar-app-ui-invite-row"><input type="email" placeholder="teammate@workspace.test"/><select
+        <div className="hbar-app-ui-invite-row"><LumenInput type="email" placeholder="teammate@workspace.test"/><LumenSelect
             aria-label="Invite role">
             <option>Member</option>
             <option>Admin</option>
-        </select><HbarAppUiButton tone="accent"
+        </LumenSelect><HbarAppUiButton tone="accent"
                                   onClick={() => onAction?.({variantId: spec.id, actionId: 'invite'})}><HbarAppUiIcon icon={Mail} tier="sm" />Send
             invite</HbarAppUiButton></div>
         <div className="hbar-app-ui-invite-list"><HbarAppUiSpotlight><span
@@ -150,8 +151,8 @@ function SlugStepper({spec, onAction}: OnboardingProps) {
                                                                                                label: id
                                                                                            }))}
                                                                                            onChange={setStep}/><HbarAppUiSpotlight><HbarAppUiToolbar
-        title={step} detail="Live URL slug preview"/><label>Workspace name<input
-        defaultValue="Project Atlas"/></label><label>URL slug<input value={slug}
+        title={step} detail="Live URL slug preview"/><label>Workspace name<LumenInput
+        defaultValue="Project Atlas"/></label><label>URL slug<LumenInput value={slug}
                                                                     onChange={(event) => setSlug(event.target.value)}/></label><span
         className="hbar-app-ui-slug-preview">hbar.local/{slug}</span></HbarAppUiSpotlight><HbarAppUiButton tone="accent"
                                                                                                            onClick={() => onAction?.({

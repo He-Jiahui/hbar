@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {
   Activity,
   Bot,
@@ -65,7 +66,7 @@ export function HbarAppUiAppShell({
       {sidebar && (
         <div className="hbar-app-ui-app-sidebar-drawer" data-open={sidebarOpen}>
           <div className="hbar-app-ui-app-sidebar-drawer-panel">{sidebar}</div>
-          <button
+          <LumenButton
             type="button"
             className="hbar-app-ui-app-sidebar-backdrop"
             aria-label={closeSidebarLabel}

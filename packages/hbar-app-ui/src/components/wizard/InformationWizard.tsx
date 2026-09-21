@@ -1,3 +1,4 @@
+import { LumenInput, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {ArrowLeft, ArrowRight, Check, CreditCard} from 'lucide-react'
@@ -56,17 +57,56 @@ export function InformationWizard({spec, onAction}: WizardSurfaceProps) {
                 event.preventDefault()
                 move(1)
             }}>
-                <WizardField label="First name" required><input value={values.firstName} onChange={(event) => update('firstName', event.target.value)}/></WizardField>
-                <WizardField label="Last name" required><input value={values.lastName} onChange={(event) => update('lastName', event.target.value)}/></WizardField>
-                <WizardField label="Company" required><input value={values.company} onChange={(event) => update('company', event.target.value)}/></WizardField>
-                <WizardField label="Public handle"><div className="hbar-app-ui-wizard-input-prefix"><span aria-hidden="true">@</span><input value={values.handle} onChange={(event) => update('handle', event.target.value)}/></div></WizardField>
-                <WizardField label="Role"><select value={values.role} onChange={(event) => update('role', event.target.value)}><option>Procurement owner</option><option>Finance</option><option>Engineering</option><option>Founder</option></select></WizardField>
-                <WizardField label="Country"><select value={values.country} onChange={(event) => update('country', event.target.value)}><option>United States</option><option>Portugal</option><option>Germany</option><option>Japan</option></select></WizardField>
-                <WizardField label="Email address" required><input type="email" value={values.email} onChange={(event) => update('email', event.target.value)}/></WizardField>
-                <WizardField label="Mobile"><div className="hbar-app-ui-wizard-input-prefix"><span>US</span><input value={values.mobile} onChange={(event) => update('mobile', event.target.value)}/></div></WizardField>
+                <WizardField label="First name" required><LumenInput value={values.firstName}
+                                                                onChange={(event) => update('firstName', event.target.value)}/></WizardField>
+                <WizardField label="Last name" required><LumenInput value={values.lastName}
+                                                               onChange={(event) => update('lastName', event.target.value)}/></WizardField>
+                <WizardField label="Company" required><LumenInput value={values.company}
+                                                             onChange={(event) => update('company', event.target.value)}/></WizardField>
+                <WizardField label="Public handle">
+                    <div className="hbar-app-ui-wizard-input-prefix"><span aria-hidden="true">@</span><LumenInput
+                        value={values.handle} onChange={(event) => update('handle', event.target.value)}/></div>
+                </WizardField>
+                <WizardField label="Role"><LumenSelect value={values.role}
+                                                  onChange={(event) => update('role', event.target.value)}>
+                    <option>Procurement owner</option>
+                    <option>Finance</option>
+                    <option>Engineering</option>
+                    <option>Founder</option>
+                </LumenSelect></WizardField>
+                <WizardField label="Country"><LumenSelect value={values.country}
+                                                     onChange={(event) => update('country', event.target.value)}>
+                    <option>United States</option>
+                    <option>Portugal</option>
+                    <option>Germany</option>
+                    <option>Japan</option>
+                </LumenSelect></WizardField>
+                <WizardField label="Email address" required><LumenInput type="email" value={values.email}
+                                                                   onChange={(event) => update('email', event.target.value)}/></WizardField>
+                <WizardField label="Mobile">
+                    <div className="hbar-app-ui-wizard-input-prefix"><span>US</span><LumenInput value={values.mobile}
+                                                                                           onChange={(event) => update('mobile', event.target.value)}/>
+                    </div>
+                </WizardField>
             </form>
             <p className="hbar-app-ui-wizard-information-note">Receipts and payment failures go to this address.</p>
-        </>}{step === 1 && <section className="hbar-app-ui-wizard-payment-step"><header><h1>Payment details</h1><p>Add a payment method for future receipts. Nothing is charged during setup.</p></header><WizardField label="Card number" required><div className="hbar-app-ui-wizard-input-prefix"><HbarAppUiIcon icon={CreditCard} tier="sm"  aria-hidden="true"/><input inputMode="numeric" placeholder="4242 4242 4242 4242"/></div></WizardField><div className="hbar-app-ui-wizard-payment-fields"><WizardField label="Expiry" required><input placeholder="MM / YY"/></WizardField><WizardField label="CVC" required><input placeholder="123"/></WizardField></div></section>}{step === 2 && <section className="hbar-app-ui-wizard-complete-step"><span><HbarAppUiIcon icon={Check} tier="md" /></span><header><h1>All set</h1><p>Your billing owner profile is ready. You can update these details later in settings.</p></header></section>}</main>
-        <WizardFooter><WizardButton disabled={step === 0} onClick={() => move(step - 1)}><HbarAppUiIcon icon={ArrowLeft} tier="sm" />Back</WizardButton><WizardButton tone="light" onClick={() => move(step + 1)}>{step === 2 ? 'Done' : 'Next step'}{step < 2 && <HbarAppUiIcon icon={ArrowRight} tier="sm" />}</WizardButton></WizardFooter>
+        </>}{step === 1 && <section className="hbar-app-ui-wizard-payment-step">
+            <header><h1>Payment details</h1><p>Add a payment method for future receipts. Nothing is charged during
+                setup.</p></header>
+            <WizardField label="Card number" required>
+                <div className="hbar-app-ui-wizard-input-prefix"><HbarAppUiIcon icon={CreditCard} tier="sm"  aria-hidden="true"/><LumenInput
+                    inputMode="numeric" placeholder="4242 4242 4242 4242"/></div>
+            </WizardField>
+            <div className="hbar-app-ui-wizard-payment-fields"><WizardField label="Expiry" required><LumenInput
+                placeholder="MM / YY"/></WizardField><WizardField label="CVC" required><LumenInput
+                placeholder="123"/></WizardField></div>
+        </section>}{step === 2 && <section className="hbar-app-ui-wizard-complete-step"><span><HbarAppUiIcon icon={Check} tier="md" /></span>
+            <header><h1>All set</h1><p>Your billing owner profile is ready. You can update these details later in
+                settings.</p></header>
+        </section>}</main>
+        <WizardFooter><WizardButton disabled={step === 0} onClick={() => move(step - 1)}><HbarAppUiIcon icon={ArrowLeft} tier="sm"
+            />Back</WizardButton><WizardButton tone="light"
+                                                        onClick={() => move(step + 1)}>{step === 2 ? 'Done' : 'Next step'}{step < 2 &&
+            <HbarAppUiIcon icon={ArrowRight} tier="sm" />}</WizardButton></WizardFooter>
     </WizardFrame>
 }

@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useMemo, useState} from 'react'
 import {Plus, Search} from 'lucide-react'
@@ -45,10 +46,23 @@ export function TaskInboxMobile({spec, onAction}: MobileSurfaceProps): React.JSX
             reportMobileAction(onAction, spec, 'search')
         }}><HbarAppUiIcon icon={Search} tier="md"  strokeWidth={1.7}/></MobileIconButton></div></header>
         <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-task-content">
-            {searchOpen && <label className="hbar-app-ui-mobile-task-search"><HbarAppUiIcon icon={Search} tier="sm"  aria-hidden="true"/><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" aria-label="Search tasks"/></label>}
+            {searchOpen &&
+                <label className="hbar-app-ui-mobile-task-search"><HbarAppUiIcon icon={Search} tier="sm"  aria-hidden="true"/><LumenInput autoFocus
+                                                                                                               value={query}
+                                                                                                               onChange={(event) => setQuery(event.target.value)}
+                                                                                                               placeholder="Search tasks"
+                                                                                                               aria-label="Search tasks"/></label>}
             <p className="hbar-app-ui-mobile-eyebrow">{openTasks.length} OPEN</p>
-            {visibleTasks.length ? <ul className="hbar-app-ui-mobile-task-list">{visibleTasks.map((task) => <li key={task.id}><button type="button" aria-pressed={task.complete} onClick={() => toggleTask(task.id)}><span className="hbar-app-ui-mobile-task-check" aria-hidden="true"/><span><strong>{task.title}</strong><small>{task.due}</small></span></button></li>)}</ul> : <p className="hbar-app-ui-mobile-no-results">No open tasks match this search.</p>}
+            {visibleTasks.length ?
+                <ul className="hbar-app-ui-mobile-task-list">{visibleTasks.map((task) => <li key={task.id}>
+                    <LumenButton type="button" aria-pressed={task.complete} onClick={() => toggleTask(task.id)}><span
+                        className="hbar-app-ui-mobile-task-check"
+                        aria-hidden="true"/><span><strong>{task.title}</strong><small>{task.due}</small></span></LumenButton>
+                </li>)}</ul> : <p className="hbar-app-ui-mobile-no-results">No open tasks match this search.</p>}
         </main>
-        <footer className="hbar-app-ui-mobile-task-footer"><button type="button" className="hbar-app-ui-mobile-primary-round" aria-label="Add task" title="Add task" onClick={addTask}><HbarAppUiIcon icon={Plus} tier="xl"  strokeWidth={1.6}/></button></footer>
+        <footer className="hbar-app-ui-mobile-task-footer">
+            <LumenButton type="button" className="hbar-app-ui-mobile-primary-round" aria-label="Add task" title="Add task"
+                    onClick={addTask}><HbarAppUiIcon icon={Plus} tier="xl"  strokeWidth={1.6}/></LumenButton>
+        </footer>
     </MobilePhone></MobileFrame>
 }

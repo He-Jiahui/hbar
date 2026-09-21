@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import {Laptop, Smartphone} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -19,7 +20,7 @@ export function PasswordResetAuthentication({spec, onAction, content}: HbarAppUi
             tier="lg"><AuthCheck/></AuthIcon><h1>{content.labels.title}</h1>
             <p>{content.labels.description(content.email)}</p>
             <div className="hbar-app-ui-auth-field"><span>{content.labels.newPassword}</span>
-                <div className="hbar-app-ui-auth-input-wrap"><input type={visible ? 'text' : 'password'}
+                <div className="hbar-app-ui-auth-input-wrap"><LumenInput type={visible ? 'text' : 'password'}
                                                                     placeholder={content.labels.newPasswordPlaceholder}
                                                                     value={password}
                                                                     onChange={(event) => setPassword(event.currentTarget.value)}/><AuthPasswordButton
@@ -33,7 +34,7 @@ export function PasswordResetAuthentication({spec, onAction, content}: HbarAppUi
                 key={label}>{checks[index] && <AuthCheck/>}{label}</span>)}</div>
             <AuthField label={content.labels.confirmPassword} placeholder={content.labels.confirmPlaceholder}
                        value={confirmation} onChange={setConfirmation} helper={content.labels.confirmHelper}/><label
-                className="hbar-app-ui-auth-check"><input type="checkbox" checked={signOutOther}
+                className="hbar-app-ui-auth-check"><LumenInput type="checkbox" checked={signOutOther}
                                                           onChange={() => setSignOutOther((current) => !current)}/>{content.labels.signOutOther}
             </label>
             <div

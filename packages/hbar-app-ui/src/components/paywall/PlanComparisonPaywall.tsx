@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {Check} from 'lucide-react'
 import {useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -11,8 +12,11 @@ export function PlanComparisonPaywall({spec, onAction, content}: HbarAppUiVarian
         <header className="hbar-app-ui-paywall-plans-head">
             <div><h2>{labels.title}</h2><p>{labels.description}</p></div>
             <div className="hbar-app-ui-paywall-period" role="group" aria-label={labels.billingPeriod}>
-                <button type="button" className={period === 'monthly' ? 'is-selected' : ''} aria-pressed={period === 'monthly'} onClick={() => setPeriod('monthly')}>{labels.monthly}</button>
-                <button type="button" className={period === 'yearly' ? 'is-selected' : ''} aria-pressed={period === 'yearly'} onClick={() => setPeriod('yearly')}>{labels.yearly}</button>
+                <LumenButton type="button" className={period === 'monthly' ? 'is-selected' : ''}
+                        aria-pressed={period === 'monthly'}
+                        onClick={() => setPeriod('monthly')}>{labels.monthly}</LumenButton>
+                <LumenButton type="button" className={period === 'yearly' ? 'is-selected' : ''}
+                        aria-pressed={period === 'yearly'} onClick={() => setPeriod('yearly')}>{labels.yearly}</LumenButton>
             </div>
         </header>
         <p className="hbar-app-ui-paywall-plans-note">{labels.yearlyNote}</p>

@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Check, FileText, FolderOpen, HelpCircle, RefreshCw, Search, Upload, X} from 'lucide-react'
@@ -33,17 +34,17 @@ function NoResults({spec, onAction}: EmptyProps) {
     const [chips, setChips] = useState(['Status: blocked', 'Owner: me']);
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-empty-variant-2"><HbarAppUiToolbar
         title="No results" detail="The query is echoed below"/>
-        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><LumenInput value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}/>
         </div>
         <div className="hbar-app-ui-no-results"><HbarAppUiIcon icon={Search} tier="xl" /><strong>No matches for “{query}”</strong><p>Try a
             broader search or remove one of the filters.</p>
-            <div className="hbar-app-ui-filter-chips">{chips.map((chip) => <button type="button" key={chip}
+            <div className="hbar-app-ui-filter-chips">{chips.map((chip) => <LumenButton type="button" key={chip}
                                                                                    onClick={() => setChips((current) => current.filter((item) => item !== chip))}>{chip}<HbarAppUiIcon icon={X} tier="xs"
-                /></button>)}</div>
+                /></LumenButton>)}</div>
             <div className="hbar-app-ui-suggested-searches"><span>Suggested searches</span>
-                <button type="button" onClick={() => setQuery('workspace')}>workspace</button>
-                <button type="button" onClick={() => setQuery('review')}>review</button>
+                <LumenButton type="button" onClick={() => setQuery('workspace')}>workspace</LumenButton>
+                <LumenButton type="button" onClick={() => setQuery('review')}>review</LumenButton>
             </div>
         </div>
     </ActionSurfaceFrame>

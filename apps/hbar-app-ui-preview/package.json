@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@lumen/app-ui": "workspace:*",
     "hbar-app-ui": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",

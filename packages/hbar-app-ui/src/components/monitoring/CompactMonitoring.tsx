@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type { ReactNode } from 'react'
 import { uniqueItems } from '../../collection'
 import './CompactMonitoring.css'
@@ -64,7 +65,7 @@ export function HbarAppUiBarSeries({
           blockSize: `${Math.max(0, Math.min(1, Number.isFinite(point.value) ? point.value / scale : 0)) * 100}%`,
         }
         return onSelect ? (
-          <button
+          <LumenButton
             key={point.id}
             type="button"
             title={point.label}

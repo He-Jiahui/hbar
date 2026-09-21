@@ -1,3 +1,4 @@
+import { LumenInput, LumenSelect } from '@lumen/app-ui'
 import {MoreHorizontal, Plus} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -37,8 +38,15 @@ export function MembersSettings({spec, onAction, content}: HbarAppUiVariantProps
                 <section className="hbar-app-ui-settings-invite">
                     <div className="hbar-app-ui-settings-invite-copy"><strong>{content.labels.inviteTitle}</strong><small>{content.labels.inviteDescription}</small></div>
                     <div className="hbar-app-ui-settings-invite-fields">
-                        <label><span className="hbar-app-ui-settings-visually-hidden">{content.labels.emailLabel}</span><input type="email" value={email} placeholder={content.labels.emailPlaceholder} aria-label={content.labels.emailLabel} onChange={(event) => setEmail(event.currentTarget.value)} /></label>
-                        <label><span className="hbar-app-ui-settings-visually-hidden">{content.labels.roleLabel}</span><select value={role} aria-label={content.labels.roleLabel} onChange={(event) => setRole(event.currentTarget.value)}>{content.inviteRoles.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>
+                        <label><span className="hbar-app-ui-settings-visually-hidden">{content.labels.emailLabel}</span><LumenInput
+                            type="email" value={email} placeholder={content.labels.emailPlaceholder}
+                            aria-label={content.labels.emailLabel}
+                            onChange={(event) => setEmail(event.currentTarget.value)}/></label>
+                        <label><span
+                            className="hbar-app-ui-settings-visually-hidden">{content.labels.roleLabel}</span><LumenSelect
+                            value={role} aria-label={content.labels.roleLabel}
+                            onChange={(event) => setRole(event.currentTarget.value)}>{content.inviteRoles.map((choice) =>
+                            <option key={choice.id} value={choice.id}>{choice.label}</option>)}</LumenSelect></label>
                     </div>
                     <SettingsButton type="button" tone="accent" onClick={sendInvite}><SettingsIcon><Plus /></SettingsIcon>{content.labels.sendInvite}</SettingsButton>
                 </section>
@@ -50,8 +58,14 @@ export function MembersSettings({spec, onAction, content}: HbarAppUiVariantProps
                             <SettingsIconButton type="button" label={content.labels.actions(member.name)} onClick={() => onAction?.({variantId: spec.id, actionId: 'member-actions', value: member.id})}><SettingsIcon><MoreHorizontal /></SettingsIcon></SettingsIconButton>
                         </div>
                         <div className="hbar-app-ui-settings-member-secondary">
-                            <span className={`hbar-app-ui-settings-member-status ${member.status === 'invited' ? 'is-invited' : ''}`}>{member.status === 'invited' ? content.labels.invited : content.labels.active}</span>
-                            <label className="hbar-app-ui-settings-member-role"><span className="hbar-app-ui-settings-visually-hidden">{content.labels.roleLabel}</span>{member.roleChoices.length > 1 ? <select defaultValue={member.roleId} aria-label={content.labels.roleLabel}>{member.roleChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select> : <span className="hbar-app-ui-settings-muted">{member.role}</span>}</label>
+                            <span
+                                className={`hbar-app-ui-settings-member-status ${member.status === 'invited' ? 'is-invited' : ''}`}>{member.status === 'invited' ? content.labels.invited : content.labels.active}</span>
+                            <label className="hbar-app-ui-settings-member-role"><span
+                                className="hbar-app-ui-settings-visually-hidden">{content.labels.roleLabel}</span>{member.roleChoices.length > 1 ?
+                                <LumenSelect defaultValue={member.roleId}
+                                        aria-label={content.labels.roleLabel}>{member.roleChoices.map((choice) =>
+                                    <option key={choice.id} value={choice.id}>{choice.label}</option>)}</LumenSelect> :
+                                <span className="hbar-app-ui-settings-muted">{member.role}</span>}</label>
                         </div>
                     </article>)}
                     {!visibleMembers.length && <p className="hbar-app-ui-settings-empty">{content.labels.empty}</p>}

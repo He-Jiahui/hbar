@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import {useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import type {HbarAppUiAuthTwoStepContent} from './AuthContent'
@@ -38,7 +39,7 @@ export function TwoStepAuthentication({spec, onAction, content}: HbarAppUiVarian
                         <div><strong>{email}</strong><small>{content.labels.matchedAccount}</small></div>
                     </div>
                     <div className="hbar-app-ui-auth-field"><span>{content.labels.passwordLabel}</span>
-                        <div className="hbar-app-ui-auth-input-wrap"><input type={visible ? 'text' : 'password'}
+                        <div className="hbar-app-ui-auth-input-wrap"><LumenInput type={visible ? 'text' : 'password'}
                                                                             value={password}
                                                                             placeholder={content.labels.passwordPlaceholder}
                                                                             onChange={(event) => setPassword(event.currentTarget.value)}/><AuthPasswordButton
@@ -51,15 +52,15 @@ export function TwoStepAuthentication({spec, onAction, content}: HbarAppUiVarian
                         actionId: 'sign-in',
                         value: email
                     })}>{content.labels.signIn}</AuthButton>
-                    <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => setStep(1)}><AuthArrow
-                        back/>{content.labels.useAnother}</button>
+                    <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => setStep(1)}><AuthArrow
+                        back/>{content.labels.useAnother}</LumenButton>
                 </>}
             </AuthCard>
             <p className="hbar-app-ui-auth-footer-note">{content.labels.needAccount}
-                <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
+                <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
                     variantId: spec.id,
                     actionId: 'create-account'
-                })}>{content.labels.createAccount}</button>
+                })}>{content.labels.createAccount}</LumenButton>
             </p>
         </div>
     </AuthFrame>

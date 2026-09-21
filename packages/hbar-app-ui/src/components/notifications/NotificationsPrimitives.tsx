@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
@@ -274,13 +275,15 @@ export function NotificationFrame({
 }
 
 export function NotificationButton({
-    tone = 'neutral',
-    className = '',
-    children,
-    ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {readonly tone?: NotificationActionTone}) {
-    return <button {...props} type={props.type ?? 'button'}
-                   className={`hbar-app-ui-notifications-button hbar-app-ui-notifications-button-${tone}${className ? ` ${className}` : ''}`}>{children}</button>
+                                       tone = 'neutral',
+                                       className = '',
+                                       children,
+                                       ...props
+                                   }: ButtonHTMLAttributes<HTMLButtonElement> & {
+    readonly tone?: NotificationActionTone
+}) {
+    return <LumenButton {...props} type={props.type ?? 'button'}
+                   className={`hbar-app-ui-notifications-button hbar-app-ui-notifications-button-${tone}${className ? ` ${className}` : ''}`}>{children}</LumenButton>
 }
 
 export function NotificationIconButton({
@@ -302,9 +305,9 @@ export function NotificationToggle({
     readonly checked: boolean
     readonly onChange: () => void
 }) {
-    return <button type="button" role="switch" aria-label={label} aria-checked={checked}
+    return <LumenButton type="button" role="switch" aria-label={label} aria-checked={checked}
                    className={`hbar-app-ui-notifications-toggle${checked ? ' is-on' : ''}`} onClick={onChange}><span
-        aria-hidden="true"/></button>
+        aria-hidden="true"/></LumenButton>
 }
 
 export function NotificationTabs<T extends string>({
@@ -319,7 +322,8 @@ export function NotificationTabs<T extends string>({
     readonly onChange: (value: T) => void
 }) {
     return <div className="hbar-app-ui-notifications-tabs" role="tablist" aria-label={label}>{options.map((option) =>
-        <button type="button" role="tab" aria-selected={option.id === value} key={option.id}
-                className={option.id === value ? 'is-selected' : ''} onClick={() => onChange(option.id)}><span>{option.label}</span>{option.count !== undefined &&
-            <small>{option.count}</small>}</button>)}</div>
+        <LumenButton type="button" role="tab" aria-selected={option.id === value} key={option.id}
+                className={option.id === value ? 'is-selected' : ''} onClick={() => onChange(option.id)}>
+            <span>{option.label}</span>{option.count !== undefined &&
+            <small>{option.count}</small>}</LumenButton>)}</div>
 }

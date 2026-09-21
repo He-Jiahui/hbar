@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
@@ -25,8 +26,8 @@ export function BillingIcon({children, tier = 'sm', label}: {
 export function BillingButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
     readonly tone?: 'neutral' | 'accent' | 'quiet'
 }) {
-    return <button {...props}
-                   className={`hbar-app-ui-billing-button hbar-app-ui-billing-button-${tone} ${props.className ?? ''}`}>{children}</button>
+    return <LumenButton {...props}
+                   className={`hbar-app-ui-billing-button hbar-app-ui-billing-button-${tone} ${props.className ?? ''}`}>{children}</LumenButton>
 }
 
 export function BillingIconButton({children, label, ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {

@@ -1,3 +1,4 @@
+import { LumenTextarea } from '@lumen/app-ui'
 import {useEffect, useState} from 'react'
 import {Columns2, Eye, Pencil} from 'lucide-react'
 import type {HbarAppUiMarkdownMode, HbarAppUiMarkdownWorkspaceContent} from './EditorContent'
@@ -56,7 +57,8 @@ export function MarkdownWorkspace({spec, onAction, content}: MarkdownWorkspacePr
         <main className="hbar-app-ui-editor-markdown-main">
             {(mode === 'write' || mode === 'split') && <section className="hbar-app-ui-editor-markdown-source">
                 <header><span>{content.labels.sourcePanelLabel}</span></header>
-                <textarea aria-label={content.labels.sourceInputLabel} value={source} readOnly={content.onSourceChange === undefined}
+                <LumenTextarea aria-label={content.labels.sourceInputLabel} value={source}
+                          readOnly={content.onSourceChange === undefined}
                           onChange={(event) => changeSource(event.target.value)} spellCheck={false}/>
             </section>}
             {(mode === 'preview' || mode === 'split') && <section className="hbar-app-ui-editor-markdown-preview">

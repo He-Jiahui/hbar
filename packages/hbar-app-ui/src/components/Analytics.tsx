@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {ArrowDown, ArrowUp, Crosshair, Info, MousePointer2, SlidersHorizontal} from 'lucide-react'
@@ -99,7 +100,7 @@ function DonutAnalytics({spec, onAction}: AnalyticsProps) {
             <div className="hbar-app-ui-donut">
                 <strong>{hover === 'Runs' ? '2,418' : hover === 'Reviews' ? '384' : '62'}</strong><small>{hover}</small>
             </div>
-            <div className="hbar-app-ui-donut-legend">{items.map(([name, percent]) => <button type="button"
+            <div className="hbar-app-ui-donut-legend">{items.map(([name, percent]) => <LumenButton type="button"
                                                                                               className={hover === name ? 'is-selected' : ''}
                                                                                               key={name}
                                                                                               onMouseEnter={() => setHover(name)}
@@ -109,7 +110,7 @@ function DonutAnalytics({spec, onAction}: AnalyticsProps) {
                                                                                                   actionId: 'select',
                                                                                                   value: name
                                                                                               })}>
-                <i/>{name}<b>{percent}</b></button>)}</div>
+                <i/>{name}<b>{percent}</b></LumenButton>)}</div>
         </div>
     </ActionSurfaceFrame>
 }
@@ -140,11 +141,11 @@ function SparklineGrid({spec, onAction}: AnalyticsProps) {
         onClick={() => setDetail(detail === 'Throughput' ? 'Quality' : 'Throughput')}>Promote {detail === 'Throughput' ? 'quality' : 'throughput'}</HbarAppUiButton>
         <div
             className="hbar-app-ui-sparkline-cards">{['Throughput', 'Quality', 'Latency', 'Cost'].map((metric, index) =>
-            <button type="button" className={detail === metric ? 'is-selected' : ''} key={metric}
+            <LumenButton type="button" className={detail === metric ? 'is-selected' : ''} key={metric}
                     onClick={() => setDetail(metric)}>
                 <small>{metric}</small><strong>{index === 2 ? '1.8s' : `${24 + index * 15}`}</strong><span
                 className={index === 2 ? 'is-down' : 'is-up'}>{index === 2 ? <HbarAppUiIcon icon={ArrowDown} tier="xs" /> :
-                <HbarAppUiIcon icon={ArrowUp} tier="xs" />} {index + 4}%</span></button>)}</div>
+                <HbarAppUiIcon icon={ArrowUp} tier="xs" />} {index + 4}%</span></LumenButton>)}</div>
         <HbarAppUiSpotlight><strong>{detail} detail</strong><p>Selected metric is promoted into the detail panel.</p>
         </HbarAppUiSpotlight></ActionSurfaceFrame>
 }
@@ -174,7 +175,7 @@ function Heatmap({spec, onAction}: AnalyticsProps) {
                                                                                              detail="Keyboard cursor and day tooltips"/><HbarAppUiButton
         onClick={() => setCursor(cursor === 'Wed 18' ? 'Fri 20' : 'Wed 18')}><HbarAppUiIcon icon={MousePointer2} tier="sm" />Cursor: {cursor}
     </HbarAppUiButton>
-        <div className="hbar-app-ui-heatmap">{Array.from({length: 35}, (_, index) => <button type="button"
+        <div className="hbar-app-ui-heatmap">{Array.from({length: 35}, (_, index) => <LumenButton type="button"
                                                                                              className={`heat-${(spec.profile.seed + index) % 5}`}
                                                                                              aria-label={`Day ${index + 1}`}
                                                                                              key={index}
@@ -251,7 +252,7 @@ function Scatter({spec, onAction}: AnalyticsProps) {
             onAction?.({variantId: spec.id, actionId: 'select', value: 'nearest-point'})
         }}><HbarAppUiIcon icon={MousePointer2} tier="sm" />Nearest point</HbarAppUiButton>
         <div className="hbar-app-ui-scatter-plot"><span className="hbar-app-ui-quadrant-v"/><span
-            className="hbar-app-ui-quadrant-h"/>{values(spec.profile.seed, 12).map((value, index) => <button
+            className="hbar-app-ui-quadrant-h"/>{values(spec.profile.seed, 12).map((value, index) => <LumenButton
             type="button" className={point === index ? 'is-selected' : ''} style={{
             left: `${10 + (value + index * 7) % 80}%`,
             top: `${12 + (value * 2 + index * 11) % 72}%`,

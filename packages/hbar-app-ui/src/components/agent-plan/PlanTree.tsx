@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {ChevronDown, ChevronRight, RotateCcw} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiAgentPlanTreeContent} from './AgentPlanContent'
@@ -25,27 +26,37 @@ export function PlanTree({spec, onAction, content}: AgentPlanSurfaceProps & {rea
             <span>{content.labels.progress(done, total)}</span>
         </header>
         <main className="hbar-app-ui-agent-plan-tree-pane" data-hbar-app-ui-list-strategy={content.listStrategy.kind}>
-            {groups.length ? <div className="hbar-app-ui-agent-plan-inset-card"><ul>
-                {groups.map((group) => {
-                    const open = openIds.has(group.id)
-                    const items = uniqueHbarAppUiAgentPlanItems(group.items)
-                    return <li key={group.id}>
-                        <button aria-expanded={open} aria-label={open ? content.labels.collapse(group.title) : content.labels.expand(group.title)} className="hbar-app-ui-agent-plan-tree-group" type="button" onClick={() => toggle(group.id)}>
-                            <span className="hbar-app-ui-agent-plan-tree-toggle"><AgentPlanIcon icon={open ? ChevronDown : ChevronRight} tier="sm"/></span>
-                            <span className="hbar-app-ui-agent-plan-tree-group-title">{group.title}</span>
-                            <span className="hbar-app-ui-agent-plan-tree-group-progress">{group.progressLabel}</span>
-                        </button>
-                        {open && <ol className="hbar-app-ui-agent-plan-tree-children">
-                            {items.map((item, index) => <li key={item.id}>
-                                <AgentPlanNumber value={index + 1}/>
-                                <span className="hbar-app-ui-agent-plan-step-title">{item.title}</span>
-                                {item.state === 'failed' && <AgentPlanButton onClick={() => reportAgentPlanAction(onAction, spec, 'retry-plan-step', item.id)}><AgentPlanIcon icon={RotateCcw} tier="xs"/><span>{content.labels.retry}</span></AgentPlanButton>}
-                                <AgentPlanStatus state={item.state} label={item.stateLabel}/>
-                            </li>)}
-                        </ol>}
-                    </li>
-                })}
-            </ul></div> : <p className="hbar-app-ui-agent-plan-empty">{content.labels.empty}</p>}
+            {groups.length ? <div className="hbar-app-ui-agent-plan-inset-card">
+                <ul>
+                    {groups.map((group) => {
+                        const open = openIds.has(group.id)
+                        const items = uniqueHbarAppUiAgentPlanItems(group.items)
+                        return <li key={group.id}>
+                            <LumenButton aria-expanded={open}
+                                    aria-label={open ? content.labels.collapse(group.title) : content.labels.expand(group.title)}
+                                    className="hbar-app-ui-agent-plan-tree-group" type="button"
+                                    onClick={() => toggle(group.id)}>
+                                <span className="hbar-app-ui-agent-plan-tree-toggle"><AgentPlanIcon
+                                    icon={open ? ChevronDown : ChevronRight} tier="sm"/></span>
+                                <span className="hbar-app-ui-agent-plan-tree-group-title">{group.title}</span>
+                                <span
+                                    className="hbar-app-ui-agent-plan-tree-group-progress">{group.progressLabel}</span>
+                            </LumenButton>
+                            {open && <ol className="hbar-app-ui-agent-plan-tree-children">
+                                {items.map((item, index) => <li key={item.id}>
+                                    <AgentPlanNumber value={index + 1}/>
+                                    <span className="hbar-app-ui-agent-plan-step-title">{item.title}</span>
+                                    {item.state === 'failed' && <AgentPlanButton
+                                        onClick={() => reportAgentPlanAction(onAction, spec, 'retry-plan-step', item.id)}><AgentPlanIcon
+                                        icon={RotateCcw}
+                                        tier="xs"/><span>{content.labels.retry}</span></AgentPlanButton>}
+                                    <AgentPlanStatus state={item.state} label={item.stateLabel}/>
+                                </li>)}
+                            </ol>}
+                        </li>
+                    })}
+                </ul>
+            </div> : <p className="hbar-app-ui-agent-plan-empty">{content.labels.empty}</p>}
         </main>
     </AgentPlanFrame>
 }

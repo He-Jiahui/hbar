@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiConversation, useHbarAppUiConversationContent } from './ai-chat/Conversation'
 import { HbarAppUiIcon } from '../icon'
 import {useState, type ReactNode} from 'react'
@@ -71,8 +72,8 @@ function ArtifactThread({spec, onAction}: ChatProps) {
                     /><strong>handoff.ts</strong><span>{version}</span></div>
                 <pre>{`export function handoff() {\n  return { status: '${version}', ready: true }\n}`}</pre>
                 <div className="hbar-app-ui-artifact-files">
-                    <button type="button"><HbarAppUiIcon icon={FileCode2} tier="sm" />Code</button>
-                    <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" />Document</button>
+                    <LumenButton type="button"><HbarAppUiIcon icon={FileCode2} tier="sm" />Code</LumenButton>
+                    <LumenButton type="button"><HbarAppUiIcon icon={FileText} tier="sm" />Document</LumenButton>
                 </div>
             </HbarAppUiSpotlight></div>
     </ActionSurfaceFrame>
@@ -109,7 +110,7 @@ function ContextChat({spec, onAction}: ChatProps) {
     const used = seededNumber(spec.profile.seed, 34, 42)
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-ai-chat-context"><HbarAppUiToolbar
         title="Context-aware chat" detail={`${model} · ${used}% context used`}/><HbarAppUiButton
-        onClick={() => setSettingsOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm" />Settings</HbarAppUiButton><select
+        onClick={() => setSettingsOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm" />Settings</HbarAppUiButton><LumenSelect
         aria-label="Model" value={model} onChange={(event) => {
         setModel(event.target.value);
         onAction?.({variantId: spec.id, actionId: 'picker', value: event.target.value})
@@ -117,9 +118,9 @@ function ContextChat({spec, onAction}: ChatProps) {
         <option>Balanced assistant</option>
         <option>Fast assistant</option>
         <option>Reasoning assistant</option>
-    </select>{settingsOpen &&
-        <HbarAppUiSpotlight className="hbar-app-ui-chat-popover"><strong>Conversation settings</strong><label><input
-            type="checkbox" defaultChecked/>Include workspace context</label><label><input type="checkbox"/>Show tool
+    </LumenSelect>{settingsOpen &&
+        <HbarAppUiSpotlight className="hbar-app-ui-chat-popover"><strong>Conversation settings</strong><label><LumenInput
+            type="checkbox" defaultChecked/>Include workspace context</label><label><LumenInput type="checkbox"/>Show tool
             details</label></HbarAppUiSpotlight>}
         <div className="hbar-app-ui-token-meter">
             <div><span>Context window</span><strong>{used}%</strong></div>
@@ -170,12 +171,12 @@ function MultiAgentChat({spec, onAction}: ChatProps) {
         onAction?.({variantId: spec.id, actionId: 'handoff', value: agent})
     }}><HbarAppUiIcon icon={GitBranch} tier="sm" />Handoff</HbarAppUiButton>
         <div className="hbar-app-ui-multi-agent-grid">
-            <aside><strong>Agents</strong>{['Planner', 'Builder', 'Reviewer'].map((name) => <button type="button"
+            <aside><strong>Agents</strong>{['Planner', 'Builder', 'Reviewer'].map((name) => <LumenButton type="button"
                                                                                                     className={agent === name ? 'is-active' : ''}
                                                                                                     key={name}
                                                                                                     onClick={() => setAgent(name)}>
                 <span className="hbar-app-ui-avatar">{name[0]}</span>{name}<HbarAppUiStatus
-                value={name === agent ? 'Active' : 'Ready'} tone={name === agent ? 'warning' : 'positive'}/></button>)}
+                value={name === agent ? 'Active' : 'Ready'} tone={name === agent ? 'warning' : 'positive'}/></LumenButton>)}
             </aside>
             <main className="hbar-app-ui-chat-transcript"><ChatBubble author={agent} tone="positive">I’m handling the
                 next part of the task and will hand the result to the reviewer.</ChatBubble><HbarAppUiSpotlight
@@ -193,10 +194,10 @@ function CitationChat({spec, onAction}: ChatProps) {
                                className="hbar-app-ui-ai-chat-citations"><HbarAppUiToolbar title="Evidence-linked chat"
                                                                                            detail="Pinned context follows every answer"/><HbarAppUiButton
         onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'context'})}><HbarAppUiIcon icon={FileText} tier="sm" />Context</HbarAppUiButton>
-        <div className="hbar-app-ui-pinned-context"><strong>Pinned sources</strong>{citations.map((citation) => <button
+        <div className="hbar-app-ui-pinned-context"><strong>Pinned sources</strong>{citations.map((citation) => <LumenButton
             type="button" key={citation}
             onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: citation})}><HbarAppUiIcon icon={FileText} tier="sm"
-            />{citation}</button>)}</div>
+            />{citation}</LumenButton>)}</div>
         <div className="hbar-app-ui-chat-transcript"><ChatBubble author="hbar" tone="positive">The run is ready for
             review <sup>[1]</sup>. The policy permits a retry <sup>[2]</sup> and the unmatched rows begin at line
             82 <sup>[3]</sup>.</ChatBubble></div>
@@ -246,13 +247,13 @@ function ModelPickerChat({spec, onAction}: ChatProps) {
         />Use selection</HbarAppUiButton>
         <div className="hbar-app-ui-provider-layout">
             <div className="hbar-app-ui-provider-list">
-                <strong>Providers</strong>{['Local provider', 'Cloud balanced', 'Cloud reasoning'].map((name) => <button
+                <strong>Providers</strong>{['Local provider', 'Cloud balanced', 'Cloud reasoning'].map((name) => <LumenButton
                 type="button" className={provider === name ? 'is-selected' : ''} key={name} onClick={() => {
                 setProvider(name);
                 onAction?.({variantId: spec.id, actionId: 'picker', value: name})
             }}><HbarAppUiIcon icon={Bot} tier="sm"
                 /><span>{name}<small>{name === 'Local provider' ? 'Private · 0.0 credits' : 'Shared · metered'}</small></span>
-            </button>)}</div>
+            </LumenButton>)}</div>
             <HbarAppUiSpotlight className="hbar-app-ui-provider-detail">
                 <div><strong>{provider}</strong><HbarAppUiStatus value="Available" tone="positive"/></div>
                 <dl>
@@ -265,14 +266,14 @@ function ModelPickerChat({spec, onAction}: ChatProps) {
                         <dd>{provider === 'Local provider' ? 'Free' : '$0.02 / 1k'}</dd>
                     </div>
                 </dl>
-                <label>Reasoning effort<select value={effort} onChange={(event) => {
+                <label>Reasoning effort<LumenSelect value={effort} onChange={(event) => {
                     setEffort(event.target.value);
                     onAction?.({variantId: spec.id, actionId: 'effort', value: event.target.value})
                 }}>
                     <option>Fast</option>
                     <option>Balanced</option>
                     <option>Deep</option>
-                </select></label></HbarAppUiSpotlight></div>
+                </LumenSelect></label></HbarAppUiSpotlight></div>
         <HbarAppUiComposer placeholder="Start with this assistant" onSubmit={(value) => onAction?.({
             variantId: spec.id,
             actionId: 'send',

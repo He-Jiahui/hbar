@@ -1,3 +1,4 @@
+import { LumenButton, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {ChevronDown, GripVertical, MessageCircle, MoreHorizontal, Palette, Paperclip, Plus, ShieldAlert} from 'lucide-react'
@@ -90,10 +91,15 @@ function StatusBoard({spec, onAction}: KanbanProps) {
         </header>
         <main className="hbar-app-ui-kanban-board" aria-label="Platform board columns">
             {statusColumns.map((column) => <section className="hbar-app-ui-kanban-column" key={column}>
-                <header><h3>{column}</h3><span>{column === 'In progress' ? `${columns[column].length}/4` : column === 'In review' ? `${columns[column].length}/3` : columns[column].length}</span><button
-                    type="button" aria-label={`Add a card to ${column}`} onClick={() => addCard(column)}><HbarAppUiIcon icon={Plus} tier="sm" /></button></header>
+                <header><h3>{column}</h3>
+                    <span>{column === 'In progress' ? `${columns[column].length}/4` : column === 'In review' ? `${columns[column].length}/3` : columns[column].length}</span>
+                    <LumenButton
+                        type="button" aria-label={`Add a card to ${column}`} onClick={() => addCard(column)}><HbarAppUiIcon icon={Plus} tier="sm"
+                        /></LumenButton>
+                </header>
                 <ul className="hbar-app-ui-kanban-cards">{columns[column].map((card, index) => <li key={card.id}>
-                    <button type="button" draggable className={`hbar-app-ui-kanban-card${selected === card.id ? ' is-selected' : ''}`}
+                    <LumenButton type="button" draggable
+                            className={`hbar-app-ui-kanban-card${selected === card.id ? ' is-selected' : ''}`}
                             aria-label={`${card.id}: ${card.title}`} onClick={() => {
                         setSelected(card.id)
                         onAction?.({variantId: spec.id, actionId: 'open', value: card.id})
@@ -105,15 +111,17 @@ function StatusBoard({spec, onAction}: KanbanProps) {
                     }}>
                         <span className="hbar-app-ui-kanban-card-top"><i className={index === 0 ? 'is-current' : ''}/><span>{card.id}</span><HbarAppUiIcon icon={GripVertical} tier="sm" /></span>
                         <strong>{card.title}</strong>
-                        <footer><span>{card.tag}</span>{card.comments !== undefined && <small><HbarAppUiIcon icon={MessageCircle} tier="xs" />{card.comments}</small>}{card.files !== undefined && <small><HbarAppUiIcon icon={Paperclip} tier="xs" />{card.files}</small>}<i>{card.avatar}</i></footer>
-                    </button>
+                        <footer><span>{card.tag}</span>{card.comments !== undefined &&
+                            <small><HbarAppUiIcon icon={MessageCircle} tier="xs" />{card.comments}</small>}{card.files !== undefined &&
+                            <small><HbarAppUiIcon icon={Paperclip} tier="xs" />{card.files}</small>}<i>{card.avatar}</i></footer>
+                    </LumenButton>
                 </li>)}</ul>
             </section>)}
         </main>
-        <button type="button" className="hbar-app-ui-kanban-theme" onClick={() => {
+        <LumenButton type="button" className="hbar-app-ui-kanban-theme" onClick={() => {
             setSubdued((value) => !value)
             onAction?.({variantId: spec.id, actionId: 'theme', value: subdued ? 'standard' : 'subdued'})
-        }}><HbarAppUiIcon icon={Palette} tier="sm" />{subdued ? 'Standard' : 'Theme'}</button>
+        }}><HbarAppUiIcon icon={Palette} tier="sm" />{subdued ? 'Standard' : 'Theme'}</LumenButton>
     </ActionSurfaceFrame>
 }
 
@@ -126,8 +134,8 @@ function Swimlanes({spec, onAction}: KanbanProps) {
         <div className="hbar-app-ui-swimlanes">
             <header><span>Workstream</span><span>Todo</span><span>Doing</span><span>Done</span></header>
             {Object.keys(open).map((lane) => <div className="hbar-app-ui-swimlane" key={lane}>
-                <button type="button" onClick={() => setOpen((current) => ({...current, [lane]: !current[lane]}))}>
-                    <HbarAppUiIcon icon={ChevronDown} tier="sm"  className={open[lane] ? '' : 'is-collapsed'}/>{lane}</button>
+                <LumenButton type="button" onClick={() => setOpen((current) => ({...current, [lane]: !current[lane]}))}>
+                    <HbarAppUiIcon icon={ChevronDown} tier="sm"  className={open[lane] ? '' : 'is-collapsed'}/>{lane}</LumenButton>
                 {open[lane] && <>
                     <HbarAppUiSpotlight><span>{lane} discovery</span></HbarAppUiSpotlight><HbarAppUiSpotlight><span>{lane} implementation</span></HbarAppUiSpotlight><HbarAppUiSpotlight><span>{lane} shipped</span></HbarAppUiSpotlight></>}
             </div>)}</div>
@@ -161,18 +169,18 @@ function DetailBoard({spec, onAction}: KanbanProps) {
             <main><HbarAppUiToolbar title="Work board" detail="Select a card for details"/><HbarAppUiButton
                 onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'new'})}><HbarAppUiIcon icon={Plus} tier="sm" />Add
                 card</HbarAppUiButton>{['Build activity panel', 'Validate response', 'Publish notes'].map((item) =>
-                <button type="button" className={selected === item ? 'is-selected' : ''} key={item}
-                        onClick={() => setSelected(item)}><strong>{item}</strong><small>In progress</small></button>)}
+                <LumenButton type="button" className={selected === item ? 'is-selected' : ''} key={item}
+                        onClick={() => setSelected(item)}><strong>{item}</strong><small>In progress</small></LumenButton>)}
             </main>
             <aside><HbarAppUiToolbar title={selected} detail="Properties and activity"/><HbarAppUiStatus
-                value="In progress" tone="warning"/><label>Assignee<select defaultValue="Avery">
+                value="In progress" tone="warning"/><label>Assignee<LumenSelect defaultValue="Avery">
                 <option>Avery</option>
                 <option>Mina</option>
-            </select></label><label>Priority<select defaultValue="High">
+            </LumenSelect></label><label>Priority<LumenSelect defaultValue="High">
                 <option>High</option>
                 <option>Medium</option>
                 <option>Low</option>
-            </select></label><p>Activity · moved to In progress 4m ago</p><HbarAppUiButton tone="accent"
+            </LumenSelect></label><p>Activity · moved to In progress 4m ago</p><HbarAppUiButton tone="accent"
                                                                                            onClick={() => onAction?.({
                                                                                                variantId: spec.id,
                                                                                                actionId: 'save',

@@ -1,3 +1,4 @@
+import { LumenInput, LumenTextarea } from '@lumen/app-ui'
 import {useEffect, useState} from 'react'
 import {Bold, ChevronDown, Code2, Italic, Link2, Redo2, Strikethrough, Undo2} from 'lucide-react'
 import type {HbarAppUiEditorFormattingAction, HbarAppUiRichTextEditorContent} from './EditorContent'
@@ -66,10 +67,12 @@ export function RichTextEditor({spec, onAction, content}: RichTextEditorProps) {
         </EditorToolbar>
         <main className="hbar-app-ui-editor-rich-main">
             <section className="hbar-app-ui-editor-rich-document" aria-label={content.labels.documentEditorLabel}>
-                <input aria-label={content.labels.documentTitleLabel} value={draft.title} readOnly={content.onChange === undefined}
+                <LumenInput aria-label={content.labels.documentTitleLabel} value={draft.title}
+                       readOnly={content.onChange === undefined}
                        onChange={(event) => edit('title', event.target.value)}/>
                 <p className="hbar-app-ui-editor-rich-meta">{content.document.metadata}</p>
-                <textarea aria-label={content.labels.documentBodyLabel} value={draft.body} readOnly={content.onChange === undefined}
+                <LumenTextarea aria-label={content.labels.documentBodyLabel} value={draft.body}
+                          readOnly={content.onChange === undefined}
                           onChange={(event) => edit('body', event.target.value)} spellCheck={false}/>
             </section>
         </main>

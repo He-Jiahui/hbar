@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {CalendarDays, ChevronLeft, ChevronRight, Clock3, Filter, Paperclip, Plus, Users} from 'lucide-react'
@@ -17,11 +18,11 @@ function MonthAgenda({spec, onAction}: SchedulingProps) {
         <div className="hbar-app-ui-month-agenda">
             <div className="hbar-app-ui-month-grid">
                 <header><HbarAppUiIcon icon={ChevronLeft} tier="sm" /><strong>September 2026</strong><HbarAppUiIcon icon={ChevronRight} tier="sm" /></header>
-                {Array.from({length: 30}, (_, index) => <button type="button"
+                {Array.from({length: 30}, (_, index) => <LumenButton type="button"
                                                                 className={day === index + 1 ? 'is-selected' : ''}
                                                                 key={index}
                                                                 onClick={() => setDay(index + 1)}>{index + 1}{[4, 11, 18, 24].includes(index + 1) &&
-                    <i/>}</button>)}</div>
+                    <i/>}</LumenButton>)}</div>
             <aside><strong>Thursday,
                 Sep {day}</strong>{['Workspace review · 09:00', 'Design sync · 11:30', 'Run handoff · 16:00'].map((event) =>
                 <HbarAppUiSpotlight key={event}><HbarAppUiIcon icon={CalendarDays} tier="sm"
@@ -35,18 +36,18 @@ function TimeRange({spec, onAction}: SchedulingProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-scheduling-variant-2"><HbarAppUiToolbar title="Time range"
                                                                                               detail="Start, end and duration chips"/>
-        <div className="hbar-app-ui-time-selects"><label>Start<select defaultValue="09:00">
+        <div className="hbar-app-ui-time-selects"><label>Start<LumenSelect defaultValue="09:00">
             <option>09:00</option>
             <option>11:30</option>
             <option>14:00</option>
-        </select></label><span>to</span><label>End<select defaultValue="10:00">
+        </LumenSelect></label><span>to</span><label>End<LumenSelect defaultValue="10:00">
             <option>10:00</option>
             <option>12:30</option>
             <option>15:00</option>
-        </select></label></div>
-        <div className="hbar-app-ui-duration-chips">{['30 min', '60 min', '90 min', '2 hours'].map((item) => <button
+        </LumenSelect></label></div>
+        <div className="hbar-app-ui-duration-chips">{['30 min', '60 min', '90 min', '2 hours'].map((item) => <LumenButton
             type="button" className={duration === item ? 'is-selected' : ''} key={item}
-            onClick={() => setDuration(item)}>{item}</button>)}</div>
+            onClick={() => setDuration(item)}>{item}</LumenButton>)}</div>
         <HbarAppUiButton tone="accent" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'select',
@@ -58,17 +59,17 @@ function NewSchedule({spec, onAction}: SchedulingProps) {
     const [attendees, setAttendees] = useState(['Avery']);
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-scheduling-variant-3"><HbarAppUiToolbar title="Schedule a run"
-                                                                                              detail="Attendees · date · notes"/><label>Title<input
-        defaultValue="Workspace review"/></label><label>Date<input type="date" defaultValue="2026-09-24"/></label>
+                                                                                              detail="Attendees · date · notes"/><label>Title<LumenInput
+        defaultValue="Workspace review"/></label><label>Date<LumenInput type="date" defaultValue="2026-09-24"/></label>
         <div className="hbar-app-ui-attendee-chips">{attendees.map((attendee) => <span key={attendee}>{attendee}
-            <button type="button"
-                    onClick={() => setAttendees((current) => current.filter((item) => item !== attendee))}>×</button></span>)}<HbarAppUiButton
+            <LumenButton type="button"
+                    onClick={() => setAttendees((current) => current.filter((item) => item !== attendee))}>×</LumenButton></span>)}<HbarAppUiButton
             onClick={() => setAttendees((current) => [...current, 'Mina'])}><HbarAppUiIcon icon={Users} tier="sm" />Add
             attendee</HbarAppUiButton></div>
-        <div className="hbar-app-ui-two-column-form"><label>Start<input type="time"
-                                                                        defaultValue="09:00"/></label><label>End<input
+        <div className="hbar-app-ui-two-column-form"><label>Start<LumenInput type="time"
+                                                                        defaultValue="09:00"/></label><label>End<LumenInput
             type="time" defaultValue="10:00"/></label></div>
-        <label><HbarAppUiIcon icon={Paperclip} tier="sm" />Attachments<input type="file"/></label><textarea
+        <label><HbarAppUiIcon icon={Paperclip} tier="sm" />Attachments<LumenInput type="file"/></label><LumenTextarea
             placeholder="Notes"/><HbarAppUiButton tone="accent" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'schedule',
@@ -86,12 +87,12 @@ function DeadlinePicker({spec, onAction}: SchedulingProps) {
             onClick={() => setPreset(item)}>{item}</HbarAppUiButton>)}</div>
         <div className="hbar-app-ui-deadline-layout">
             <div className="hbar-app-ui-mini-calendar"><strong>September
-                2026</strong>{Array.from({length: 14}, (_, index) => <button type="button"
-                                                                             key={index}>{index + 17}</button>)}</div>
-            <div className="hbar-app-ui-time-slots">{['09:00', '10:30', '13:00', '15:30'].map((time) => <button
+                2026</strong>{Array.from({length: 14}, (_, index) => <LumenButton type="button"
+                                                                             key={index}>{index + 17}</LumenButton>)}</div>
+            <div className="hbar-app-ui-time-slots">{['09:00', '10:30', '13:00', '15:30'].map((time) => <LumenButton
                 type="button" key={time}
                 onClick={() => onAction?.({variantId: spec.id, actionId: 'select', value: `${preset}:${time}`})}><HbarAppUiIcon icon={Clock3} tier="sm"
-                />{time}</button>)}</div>
+                />{time}</LumenButton>)}</div>
         </div>
     </ActionSurfaceFrame>
 }
@@ -102,10 +103,10 @@ function Availability({spec, onAction}: SchedulingProps) {
                                className="hbar-app-ui-scheduling-variant-5"><HbarAppUiToolbar
         title="Weekly availability" detail="Bookable intervals per day"/>
         <div className="hbar-app-ui-availability">{Object.entries(days).map(([day, enabled]) => <div key={day}>
-            <button type="button" role="switch" aria-checked={enabled}
+            <LumenButton type="button" role="switch" aria-checked={enabled}
                     className={`hbar-app-ui-switch ${enabled ? 'is-on' : ''}`}
-                    onClick={() => setDays((current) => ({...current, [day]: !enabled}))}><i/></button>
-            <strong>{day}</strong>{enabled ? <><input type="time" defaultValue="09:00"/><span>–</span><input type="time"
+                    onClick={() => setDays((current) => ({...current, [day]: !enabled}))}><i/></LumenButton>
+            <strong>{day}</strong>{enabled ? <><LumenInput type="time" defaultValue="09:00"/><span>–</span><LumenInput type="time"
                                                                                                              defaultValue="17:00"/><HbarAppUiButton><HbarAppUiIcon icon={Plus} tier="xs"
             /></HbarAppUiButton></> : <em>Unavailable</em>}</div>)}</div>
         <HbarAppUiButton tone="accent" onClick={() => onAction?.({variantId: spec.id, actionId: 'save'})}>Save
@@ -139,15 +140,15 @@ function BookingPage({spec, onAction}: SchedulingProps) {
         title="Book a workspace review" detail="Meeting summary · day strip · slots"/><HbarAppUiSpotlight><strong>30-minute
         review</strong><span>With Avery Chen · Project Atlas</span><small>Timezone ·
         Asia/Shanghai</small></HbarAppUiSpotlight>
-        <div className="hbar-app-ui-day-strip">{['Tue 22', 'Wed 23', 'Thu 24', 'Fri 25', 'Sat 26'].map((item) => <button
+        <div className="hbar-app-ui-day-strip">{['Tue 22', 'Wed 23', 'Thu 24', 'Fri 25', 'Sat 26'].map((item) => <LumenButton
             type="button" className={day === item ? 'is-selected' : ''} key={item}
-            onClick={() => setDay(item)}>{item}</button>)}</div>
-        <div className="hbar-app-ui-booking-slots">{['09:00', '09:30', '10:00', '14:00', '15:30'].map((time) => <button
+            onClick={() => setDay(item)}>{item}</LumenButton>)}</div>
+        <div className="hbar-app-ui-booking-slots">{['09:00', '09:30', '10:00', '14:00', '15:30'].map((time) => <LumenButton
             type="button" key={time} onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'book',
             value: `${day}:${time}`
-        })}>{time}</button>)}</div>
+        })}>{time}</LumenButton>)}</div>
     </ActionSurfaceFrame>
 }
 

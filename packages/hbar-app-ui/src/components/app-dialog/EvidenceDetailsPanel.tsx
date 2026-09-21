@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Archive, Download} from 'lucide-react'
@@ -25,10 +26,13 @@ export function EvidenceDetailsPanel({spec, onAction}: AppDialogProps): React.JS
         reportDialogAction(onAction, spec, 'close')
     }
     return <DialogFrame spec={spec} onAction={onAction} className="hbar-app-ui-dialog-variant-6">
-        <button type="button" className={`hbar-app-ui-dialog-trigger hbar-app-ui-side-trigger ${open ? 'is-hidden' : ''}`} onClick={() => {
-            setOpen(true)
-            reportDialogAction(onAction, spec, 'open')
-        }}>View evidence details</button>
+        <LumenButton type="button"
+                className={`hbar-app-ui-dialog-trigger hbar-app-ui-side-trigger ${open ? 'is-hidden' : ''}`}
+                onClick={() => {
+                    setOpen(true)
+                    reportDialogAction(onAction, spec, 'open')
+                }}>View evidence details
+        </LumenButton>
         {open && <DialogBackdrop className="hbar-app-ui-dialog-side-backdrop">
             <aside className="hbar-app-ui-side-panel hbar-app-ui-side-panel-evidence" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
                 <header className="hbar-app-ui-side-panel-header"><h2 id={`${spec.id}-title`}>SOC 2 Type II report</h2><DialogCloseButton onClose={close}/></header>

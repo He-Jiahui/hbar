@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import {Check} from 'lucide-react'
@@ -30,13 +31,13 @@ export function WizardFrame({
 }
 
 export function WizardButton({
-    tone = 'neutral',
-    className = '',
-    children,
-    ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {readonly tone?: WizardButtonTone}) {
-    return <button {...props} type={props.type ?? 'button'}
-                   className={`hbar-app-ui-wizard-button hbar-app-ui-wizard-button-${tone}${className ? ` ${className}` : ''}`}>{children}</button>
+                                 tone = 'neutral',
+                                 className = '',
+                                 children,
+                                 ...props
+                             }: ButtonHTMLAttributes<HTMLButtonElement> & { readonly tone?: WizardButtonTone }) {
+    return <LumenButton {...props} type={props.type ?? 'button'}
+                   className={`hbar-app-ui-wizard-button hbar-app-ui-wizard-button-${tone}${className ? ` ${className}` : ''}`}>{children}</LumenButton>
 }
 
 export type WizardStep = {
@@ -58,9 +59,14 @@ export function WizardStepRail({
     return <nav className={`hbar-app-ui-wizard-step-rail${compact ? ' is-compact' : ''}`} aria-label="Wizard progress">{steps.map((step, index) => {
         const complete = index < current
         const active = index === current
-        return <div className={`hbar-app-ui-wizard-step${active ? ' is-active' : ''}${complete ? ' is-complete' : ''}`} key={step.id}>
-            <button type="button" aria-current={active ? 'step' : undefined} aria-label={`${index + 1} ${step.label}`} disabled={!onSelect}
-                    onClick={() => onSelect?.(index)}><span className="hbar-app-ui-wizard-step-index">{complete ? <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={2}/> : index + 1}</span><span className="hbar-app-ui-wizard-step-label">{step.label}</span></button>{index < steps.length - 1 &&
+        return <div className={`hbar-app-ui-wizard-step${active ? ' is-active' : ''}${complete ? ' is-complete' : ''}`}
+                    key={step.id}>
+            <LumenButton type="button" aria-current={active ? 'step' : undefined} aria-label={`${index + 1} ${step.label}`}
+                    disabled={!onSelect}
+                    onClick={() => onSelect?.(index)}><span className="hbar-app-ui-wizard-step-index">{complete ?
+                <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={2}/> : index + 1}</span><span
+                className="hbar-app-ui-wizard-step-label">{step.label}</span></LumenButton>
+            {index < steps.length - 1 &&
                 <i aria-hidden="true"/>}
         </div>
     })}</nav>

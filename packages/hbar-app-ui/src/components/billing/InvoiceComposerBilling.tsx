@@ -1,3 +1,4 @@
+import { LumenInput, LumenSelect } from '@lumen/app-ui'
 import {ArrowRight, Check, X} from 'lucide-react'
 import {useMemo, useState, type ChangeEvent} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -31,11 +32,11 @@ function renderControl(field: HbarAppUiBillingInvoiceField, value: string, onCha
     }
     switch (field.kind as HbarAppUiBillingFieldKind) {
         case 'select':
-            return <select {...common}>{(field.choices ?? []).map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select>
+            return <LumenSelect {...common}>{(field.choices ?? []).map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</LumenSelect>
         case 'date':
         case 'text':
         default:
-            return <input {...common} type={field.kind}/>
+            return <LumenInput {...common} type={field.kind}/>
     }
 }
 

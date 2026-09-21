@@ -32,6 +32,22 @@ test('production app sources use only the Lumen component boundary', async () =>
   expect(violations).toEqual([])
 })
 
+test('the compatibility catalog and preview render controls through Lumen', async () => {
+  const roots = ['packages/hbar-app-ui/src', 'apps/hbar-app-ui-preview/src']
+  const files = (await Promise.all(roots.map((root) => collectSourceFiles(root)))).flat()
+  const violations: string[] = []
+  for (const file of files) {
+    const source = await readFile(file, 'utf8')
+    if (/@mui\/material(?:\/|['"])/.test(source)) {
+      violations.push(`${relative('.', file)}:mui-import`)
+    }
+    if (/<\s*(?:button|input|select|textarea)(?:\s|>)/.test(source)) {
+      violations.push(`${relative('.', file)}:native-control`)
+    }
+  }
+  expect(violations).toEqual([])
+})
+
 test('retired app-react implementation files are absent from the production package', async () => {
   const retired = [
     'agent-workspace.tsx',

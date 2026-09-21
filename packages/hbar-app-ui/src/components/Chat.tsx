@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Bell, Heart, Image, Paperclip, Users} from 'lucide-react'
@@ -11,19 +12,19 @@ function TeamChannel({spec, onAction}: ChatProps) {
     const [channel, setChannel] = useState('operations');
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-chat-variant-1">
         <div className="hbar-app-ui-team-chat">
-            <aside><strong>Channels</strong>{['operations', 'releases', 'support'].map((item) => <button type="button"
+            <aside><strong>Channels</strong>{['operations', 'releases', 'support'].map((item) => <LumenButton type="button"
                                                                                                          className={channel === item ? 'is-selected' : ''}
                                                                                                          key={item}
-                                                                                                         onClick={() => setChannel(item)}># {item}</button>)}<strong>Direct</strong>
-                <button type="button">hbar</button>
+                                                                                                         onClick={() => setChannel(item)}># {item}</LumenButton>)}<strong>Direct</strong>
+                <LumenButton type="button">hbar</LumenButton>
             </aside>
             <main><HbarAppUiToolbar title={`# ${channel}`} detail="Threaded messages"/><HbarAppUiSpotlight><span
                 className="hbar-app-ui-avatar">A</span>
-                <div><strong>Avery</strong><p>Deployment is ready for review.</p><small>10:18 · <button type="button">
-                    <HbarAppUiIcon icon={Heart} tier="xs" /> 2</button></small></div>
+                <div><strong>Avery</strong><p>Deployment is ready for review.</p><small>10:18 · <LumenButton type="button">
+                    <HbarAppUiIcon icon={Heart} tier="xs" /> 2</LumenButton></small></div>
             </HbarAppUiSpotlight><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">M</span>
-                <div><strong>Mina</strong><p>I’ll check the activity panel and reply here.</p><small>10:22 · <button
-                    type="button">Reply</button></small></div>
+                <div><strong>Mina</strong><p>I’ll check the activity panel and reply here.</p><small>10:22 · <LumenButton
+                    type="button">Reply</LumenButton></small></div>
             </HbarAppUiSpotlight><HbarAppUiComposer placeholder={`Message #${channel}`}
                                                     onSubmit={(value) => onAction?.({
                                                         variantId: spec.id,
@@ -40,10 +41,10 @@ function DirectInbox({spec, onAction}: ChatProps) {
         <div className="hbar-app-ui-direct-chat">
             <aside><HbarAppUiToolbar title="Messages"
                                      detail="Direct inbox"/>{['Mina Patel', 'Jon Bell', 'Sam Rivera'].map((name) =>
-                <button type="button" className={contact === name ? 'is-selected' : ''} key={name}
+                <LumenButton type="button" className={contact === name ? 'is-selected' : ''} key={name}
                         onClick={() => setContact(name)}><span
                     className="hbar-app-ui-avatar">{name[0]}</span><span><strong>{name}</strong><small>Last message · 2m</small></span>
-                </button>)}</aside>
+                </LumenButton>)}</aside>
             <main><HbarAppUiToolbar title={contact} detail="Read receipts"/><HbarAppUiSpotlight><p>Can you review the
                 latest run?</p><small>Seen 10:22</small></HbarAppUiSpotlight><HbarAppUiSpotlight><p>Yes — I’ll send
                 notes shortly.</p><small>Delivered 10:24</small></HbarAppUiSpotlight><HbarAppUiComposer
@@ -60,12 +61,12 @@ function SocialThread({spec, onAction}: ChatProps) {
         className="hbar-app-ui-lead-post"><span className="hbar-app-ui-avatar hbar-app-ui-avatar-large">A</span>
         <div><strong>Avery Chen</strong><small>10m ago</small><p>What should we improve in the next workspace
             release?</p>
-            <button type="button" onClick={() => setLikes((value) => value + 1)}><HbarAppUiIcon icon={Heart} tier="sm" /> {likes}</button>
+            <LumenButton type="button" onClick={() => setLikes((value) => value + 1)}><HbarAppUiIcon icon={Heart} tier="sm" /> {likes}</LumenButton>
         </div>
     </HbarAppUiSpotlight>
         <div className="hbar-app-ui-nested-replies"><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">M</span>
-            <div><strong>Mina</strong><p>Faster recovery feedback.</p><small>3m ago · <button type="button"><HbarAppUiIcon icon={Heart} tier="xs"
-                /> 2</button></small></div>
+            <div><strong>Mina</strong><p>Faster recovery feedback.</p><small>3m ago · <LumenButton type="button"><HbarAppUiIcon icon={Heart} tier="xs"
+                /> 2</LumenButton></small></div>
         </HbarAppUiSpotlight><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">J</span>
             <div><strong>Jon</strong><p>Keyboard navigation for queues.</p><small>1m ago</small></div>
         </HbarAppUiSpotlight></div>
@@ -91,11 +92,11 @@ function SupportWidget({spec, onAction}: ChatProps) {
         <div className="hbar-app-ui-chat-attachments"><HbarAppUiButton
             onClick={() => onAction?.({variantId: spec.id, actionId: 'attach', value: 'screenshot.png'})}><HbarAppUiIcon icon={Paperclip} tier="sm"
             />Attach</HbarAppUiButton><span>screenshot.png</span></div>
-        <div className="hbar-app-ui-rating">{[1, 2, 3, 4, 5].map((value) => <button type="button"
+        <div className="hbar-app-ui-rating">{[1, 2, 3, 4, 5].map((value) => <LumenButton type="button"
                                                                                     className={rating >= value ? 'is-selected' : ''}
                                                                                     key={value}
                                                                                     onClick={() => setRating(value)}
-                                                                                    aria-label={`${value} stars`}>★</button>)}</div>
+                                                                                    aria-label={`${value} stars`}>★</LumenButton>)}</div>
         <HbarAppUiComposer placeholder="Ask support" onSubmit={(value) => onAction?.({
             variantId: spec.id,
             actionId: 'send',
@@ -114,8 +115,8 @@ function GroupChat({spec, onAction}: ChatProps) {
             <div><strong>Mina</strong><p>Sharing the updated architecture diagram.</p>
                 <div className="hbar-app-ui-message-attachment"><HbarAppUiIcon icon={Image} tier="sm" />architecture.png</div>
                 <small>
-                    <button type="button" onClick={() => setReaction((value) => value + 1)}><HbarAppUiIcon icon={Heart} tier="xs"
-                        /> {reaction}</button>
+                    <LumenButton type="button" onClick={() => setReaction((value) => value + 1)}><HbarAppUiIcon icon={Heart} tier="xs"
+                        /> {reaction}</LumenButton>
                     · 3 replies</small></div>
         </HbarAppUiSpotlight><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">J</span>
             <div><strong>Jon</strong><p>Looks good — I left a note in the thread.</p><small>2 replies</small></div>

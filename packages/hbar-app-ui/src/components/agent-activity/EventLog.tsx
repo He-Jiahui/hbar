@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiVirtualList } from '../../VirtualList'
 import './EventLog.css'
 
@@ -41,9 +42,9 @@ export function HbarAppUiEventLog({
       {error && (
         <div role="alert">
           <p>{error}</p>
-          <button type="button" onClick={onRetry}>
+          <LumenButton type="button" onClick={onRetry}>
             {labels.retry}
-          </button>
+          </LumenButton>
         </div>
       )}
       <HbarAppUiVirtualList
@@ -51,7 +52,7 @@ export function HbarAppUiEventLog({
         label={labels.title}
         empty={<p>{labels.empty}</p>}
         renderRow={(item) => (
-          <button
+          <LumenButton
             type="button"
             className="hbar-app-ui-event-row"
             aria-current={selectedId === item.id ? 'true' : undefined}
@@ -60,7 +61,7 @@ export function HbarAppUiEventLog({
             <span>{item.sequence}</span>
             <code>{item.type}</code>
             <time>{item.time}</time>
-          </button>
+          </LumenButton>
         )}
       />
     </section>

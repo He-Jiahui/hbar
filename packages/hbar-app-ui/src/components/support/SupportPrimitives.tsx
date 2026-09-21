@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type {ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
@@ -34,7 +35,8 @@ export function SupportIconButton({
     readonly children: ReactNode
     readonly onClick: () => void
 }): React.JSX.Element {
-    return <button type="button" className="hbar-app-ui-support-icon-button" aria-label={label} title={label} onClick={onClick}>{children}</button>
+    return <LumenButton type="button" className="hbar-app-ui-support-icon-button" aria-label={label} title={label}
+                   onClick={onClick}>{children}</LumenButton>
 }
 
 export function SupportChip({children, tone = 'neutral'}: {readonly children: ReactNode; readonly tone?: 'neutral' | 'light' | 'warning'}): React.JSX.Element {

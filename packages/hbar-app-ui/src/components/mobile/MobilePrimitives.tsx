@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import type {ReactNode} from 'react'
 import type {LucideIcon} from 'lucide-react'
@@ -53,7 +54,8 @@ export function MobileIconButton({
     readonly onClick: () => void
     readonly pressed?: boolean
 }): React.JSX.Element {
-    return <button type="button" className="hbar-app-ui-mobile-icon-button" aria-label={label} title={label} aria-pressed={pressed} onClick={onClick}>{children}</button>
+    return <LumenButton type="button" className="hbar-app-ui-mobile-icon-button" aria-label={label} title={label}
+                   aria-pressed={pressed} onClick={onClick}>{children}</LumenButton>
 }
 
 export function MobileBottomTabs({
@@ -67,7 +69,12 @@ export function MobileBottomTabs({
     readonly onChange: (value: string) => void
     readonly label: string
 }): React.JSX.Element {
-    return <nav className="hbar-app-ui-mobile-bottom-tabs" role="tablist" aria-label={label}>{tabs.map(({id, label: tabLabel, icon: Icon, badge}) => <button
+    return <nav className="hbar-app-ui-mobile-bottom-tabs" role="tablist" aria-label={label}>{tabs.map(({
+                                                                                                            id,
+                                                                                                            label: tabLabel,
+                                                                                                            icon: Icon,
+                                                                                                            badge
+                                                                                                        }) => <LumenButton
         type="button"
         role="tab"
         aria-selected={value === id}
@@ -77,5 +84,5 @@ export function MobileBottomTabs({
     >
         <span className="hbar-app-ui-mobile-tab-icon"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.8} aria-hidden="true"/>{badge && <small>{badge}</small>}</span>
         <span>{tabLabel}</span>
-    </button>)}</nav>
+    </LumenButton>)}</nav>
 }

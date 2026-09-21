@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import { Archive, GitBranch, MessageSquare, Pencil, Plus, Search } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiVirtualList } from '../../VirtualList'
@@ -48,7 +49,7 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
     <section className="hbar-app-ui-session-navigator session-nav" aria-label={labels.title}>
       <header>
         <strong>{labels.title}</strong>
-        <button
+        <LumenButton
           type="button"
           aria-label={labels.archiveFilter}
           title={labels.archiveFilter}
@@ -56,11 +57,11 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
           onClick={props.onToggleArchive}
         >
           <HbarAppUiIcon icon={Archive} tier="sm" />
-        </button>
+        </LumenButton>
       </header>
       <label className="hbar-app-ui-session-search">
         <HbarAppUiIcon icon={Search} tier="sm" />
-        <input
+        <LumenInput
           type="search"
           value={props.query}
           onChange={(event) => props.onQuery(event.target.value)}
@@ -82,7 +83,7 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
                   props.onSave(row.id)
                 }}
               >
-                <input
+                <LumenInput
                   aria-label={labels.name}
                   value={props.draft.title}
                   onChange={(event) => props.onDraftChange(event.target.value)}
@@ -90,16 +91,16 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
                   autoFocus
                 />
                 <div>
-                  <button type="submit" disabled={row.busy || !props.draft.title.trim()}>
+                  <LumenButton type="submit" disabled={row.busy || !props.draft.title.trim()}>
                     {labels.save}
-                  </button>
-                  <button type="button" onClick={props.onCancel} disabled={row.busy}>
+                  </LumenButton>
+                  <LumenButton type="button" onClick={props.onCancel} disabled={row.busy}>
                     {labels.cancel}
-                  </button>
+                  </LumenButton>
                 </div>
               </form>
             ) : (
-              <button
+              <LumenButton
                 type="button"
                 className="session-select"
                 aria-current={row.id === props.selectedId ? 'true' : undefined}
@@ -111,10 +112,10 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
                   <strong>{row.title}</strong>
                   <small>{row.detail}</small>
                 </span>
-              </button>
+              </LumenButton>
             )}
             <div className="hbar-app-ui-session-actions">
-              <button
+              <LumenButton
                 type="button"
                 aria-label={labels.rename(row.title)}
                 title={labels.rename(row.title)}
@@ -122,8 +123,8 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
                 onClick={() => props.onRename(row.id)}
               >
                 <HbarAppUiIcon icon={Pencil} tier="xs" />
-              </button>
-              <button
+              </LumenButton>
+              <LumenButton
                 type="button"
                 aria-label={labels.fork(row.title)}
                 title={labels.fork(row.title)}
@@ -131,8 +132,8 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
                 onClick={() => props.onFork(row.id)}
               >
                 <HbarAppUiIcon icon={GitBranch} tier="xs" />
-              </button>
-              <button
+              </LumenButton>
+              <LumenButton
                 type="button"
                 aria-label={labels.archive(row.title)}
                 title={labels.archive(row.title)}
@@ -140,17 +141,17 @@ export function HbarAppUiSessionNavigator(props: HbarAppUiSessionNavigatorProps)
                 onClick={() => props.onArchive(row.id)}
               >
                 <HbarAppUiIcon icon={Archive} tier="xs" />
-              </button>
+              </LumenButton>
             </div>
             {row.error && <p role="alert">{row.error}</p>}
           </article>
         )}
       />
       <footer>
-        <button type="button" className="new-session" onClick={props.onCreate}>
+        <LumenButton type="button" className="new-session" onClick={props.onCreate}>
           <HbarAppUiIcon icon={Plus} />
           {labels.create}
-        </button>
+        </LumenButton>
       </footer>
     </section>
   )

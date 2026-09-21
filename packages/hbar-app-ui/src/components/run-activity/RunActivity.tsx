@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { RotateCcw, Square } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiEmptyState, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
@@ -82,14 +83,14 @@ export function HbarAppUiRunActivity({
     return (
       <article className={`hbar-app-ui-run-activity-item hbar-app-ui-run-status-${run.status}`}>
         {onSelectRun ? (
-          <button
+          <LumenButton
             type="button"
             className={selectedRunId === run.id ? 'is-selected' : ''}
             aria-current={selectedRunId === run.id ? 'true' : undefined}
             onClick={() => onSelectRun(run.id)}
           >
             {content}
-          </button>
+          </LumenButton>
         ) : (
           <div className="hbar-app-ui-run-activity-static">{content}</div>
         )}

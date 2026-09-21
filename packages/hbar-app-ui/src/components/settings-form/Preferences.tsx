@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import { useId } from 'react'
 import { uniqueItems } from '../../collection'
 import { HbarAppUiButton } from '../../primitives'
@@ -22,7 +23,7 @@ function Choice({
   const items = uniqueItems(choices),
     valid = items.some((item) => item.id === value)
   return (
-    <select
+    <LumenSelect
       value={valid ? value : ''}
       aria-label={label}
       disabled={disabled}
@@ -36,7 +37,7 @@ function Choice({
           {item.label}
         </option>
       ))}
-    </select>
+    </LumenSelect>
   )
 }
 /** Finite host-defined preferences grow with their content. No values are copied into component state. */
@@ -67,7 +68,7 @@ export function HbarAppUiPreferencesSettings(content: HbarAppUiSettingsPreferenc
                   className={`hbar-app-ui-settings-choice ${content.themeId === theme.id ? 'is-selected' : ''}`}
                   key={theme.id}
                 >
-                  <input
+                  <LumenInput
                     type="radio"
                     name={groupName}
                     checked={content.themeId === theme.id}
@@ -127,7 +128,7 @@ export function HbarAppUiPreferencesSettings(content: HbarAppUiSettingsPreferenc
                   {item.changed && <small>{labels.changed}</small>}
                   <small>{item.description}</small>
                 </div>
-                <button
+                <LumenButton
                   type="button"
                   role="switch"
                   aria-label={item.label}
@@ -137,7 +138,7 @@ export function HbarAppUiPreferencesSettings(content: HbarAppUiSettingsPreferenc
                   onClick={() => content.onChange({ type: 'toggle', id: item.id, enabled: !item.enabled })}
                 >
                   <i aria-hidden="true" />
-                </button>
+                </LumenButton>
               </div>
             ))}
             {content.checkbox && (
@@ -145,7 +146,7 @@ export function HbarAppUiPreferencesSettings(content: HbarAppUiSettingsPreferenc
                 <label className="hbar-app-ui-settings-toggle-copy">
                   <strong>{content.checkbox.label}</strong>
                   <small>{content.checkbox.description}</small>
-                  <input
+                  <LumenInput
                     type="checkbox"
                     checked={content.checkbox.enabled}
                     disabled={busy}

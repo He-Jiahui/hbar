@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useMemo, useState} from 'react'
 import {Check, ChevronRight, Columns3, Edit3, LoaderCircle, Search, SlidersHorizontal, X} from 'lucide-react'
@@ -15,15 +16,15 @@ function FacetedTable({spec, onAction}: TableProps) {
     const rows = workspaceRows.filter((row) => (filter === 'All' || row.status === filter) && `${row.name} ${row.detail}`.toLowerCase().includes(query.toLowerCase()));
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-table-variant-1"><HbarAppUiToolbar
         title="Records" detail="Faceted filters and column visibility"/>
-        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><LumenInput value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}
                                                                              placeholder="Search records"/></div>
-        <select aria-label="Status filter" value={filter} onChange={(event) => setFilter(event.target.value)}>
+        <LumenSelect aria-label="Status filter" value={filter} onChange={(event) => setFilter(event.target.value)}>
             <option>All</option>
             <option>Healthy</option>
             <option>Running</option>
             <option>Blocked</option>
-        </select><HbarAppUiButton onClick={() => setColumns(columns === 'All' ? 'Compact' : 'All')}><HbarAppUiIcon icon={Columns3} tier="sm"
+        </LumenSelect><HbarAppUiButton onClick={() => setColumns(columns === 'All' ? 'Compact' : 'All')}><HbarAppUiIcon icon={Columns3} tier="sm"
             />{columns} columns</HbarAppUiButton><HbarAppUiDataTable
             rows={columns === 'Compact' ? rows.map((row) => ({...row, detail: ''})) : rows}
             onSelect={(id) => onAction?.({variantId: spec.id, actionId: 'open', value: id})}/></ActionSurfaceFrame>
@@ -35,14 +36,14 @@ function SelectableTable({spec, onAction}: TableProps) {
     const rows = workspaceRows.slice((page - 1) * 3, page * 3);
     const all = selected.length === rows.length;
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-table-variant-2"><HbarAppUiToolbar
-        title="Selectable records" detail={`${selected.length} selected`}/><label><input type="checkbox" checked={all}
+        title="Selectable records" detail={`${selected.length} selected`}/><label><LumenInput type="checkbox" checked={all}
                                                                                          onChange={() => setSelected(all ? [] : rows.map((row) => row.id))}/>Select
         page</label>{selected.length > 0 && <div className="hbar-app-ui-bulk-bar"><HbarAppUiButton onClick={() => {
         onAction?.({variantId: spec.id, actionId: 'archive', value: String(selected.length)});
         setSelected([])
     }}>Archive</HbarAppUiButton><HbarAppUiButton onClick={() => setSelected([])}><HbarAppUiIcon icon={X} tier="sm" />Clear</HbarAppUiButton>
     </div>}
-        <div className="hbar-app-ui-simple-table">{rows.map((row) => <label key={row.id}><input type="checkbox"
+        <div className="hbar-app-ui-simple-table">{rows.map((row) => <label key={row.id}><LumenInput type="checkbox"
                                                                                                 checked={selected.includes(row.id)}
                                                                                                 onChange={() => setSelected((current) => current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id])}/><span><strong>{row.name}</strong><small>{row.detail}</small></span><HbarAppUiStatus
             value={row.status}
@@ -61,7 +62,7 @@ function InlineEditTable({spec, onAction}: TableProps) {
         value={saved.length ? `${saved.length} saved` : 'No pending changes'}
         tone={saved.length ? 'positive' : 'neutral'}/>
         <div className="hbar-app-ui-inline-edit-table">{workspaceRows.slice(0, 4).map((row) => <div key={row.id}>
-            <span><strong>{row.name}</strong><small>{row.status}</small></span>{editing === row.id ? <><input
+            <span><strong>{row.name}</strong><small>{row.status}</small></span>{editing === row.id ? <><LumenInput
             defaultValue={row.value} aria-label={`${row.name} value`}/><HbarAppUiButton tone="accent" onClick={() => {
             setSaved((current) => [...current, row.id]);
             setEditing(undefined);
@@ -77,10 +78,10 @@ function ExpandableTable({spec, onAction}: TableProps) {
         title="Expandable records" detail="Details open in place"/><HbarAppUiButton onClick={() => setOpen(undefined)}>Collapse
         all</HbarAppUiButton>
         <div className="hbar-app-ui-expandable-table">{workspaceRows.slice(0, 5).map((row) => <div key={row.id}>
-            <button type="button" onClick={() => setOpen(open === row.id ? undefined : row.id)}><HbarAppUiIcon icon={ChevronRight} tier="sm"
+            <LumenButton type="button" onClick={() => setOpen(open === row.id ? undefined : row.id)}><HbarAppUiIcon icon={ChevronRight} tier="sm"
                                                                                                               className={open === row.id ? 'is-open' : ''}/><strong>{row.name}</strong><HbarAppUiStatus
                 value={row.status} tone={row.status === 'Healthy' ? 'positive' : 'warning'}/><span>{row.value}</span>
-            </button>
+            </LumenButton>
             {open === row.id &&
                 <HbarAppUiSpotlight><p>{row.detail}</p><code>record:{row.id} · updated just now</code><HbarAppUiButton
                     onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: row.id})}>Open
@@ -111,11 +112,11 @@ function MasterDetailTable({spec, onAction}: TableProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-table-variant-6">
         <div className="hbar-app-ui-master-detail">
             <aside><HbarAppUiToolbar title="Records" detail="Select one to inspect"/>{workspaceRows.map((item) =>
-                <button type="button" className={item.id === selected ? 'is-selected' : ''} key={item.id}
+                <LumenButton type="button" className={item.id === selected ? 'is-selected' : ''} key={item.id}
                         onClick={() => {
                             setSelected(item.id);
                             onAction?.({variantId: spec.id, actionId: 'open', value: item.id})
-                        }}>{item.name}<small>{item.status}</small></button>)}</aside>
+                        }}>{item.name}<small>{item.status}</small></LumenButton>)}</aside>
             <main><HbarAppUiToolbar title={row?.name ?? 'Record'} detail="Synchronized detail panel"/><HbarAppUiStatus
                 value={row?.status ?? 'Unknown'} tone="positive"/><HbarAppUiSpotlight><strong>{row?.value}</strong>
                 <p>{row?.detail}</p><HbarAppUiButton tone="accent" onClick={() => onAction?.({
@@ -159,7 +160,7 @@ function WideTable({spec, onAction}: TableProps) {
     const rows = useMemo(() => workspaceRows.filter((row) => row.name.toLowerCase().includes(query.toLowerCase())), [query]);
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-table-variant-8"><HbarAppUiToolbar
         title="Wide data table" detail="Sticky first column · horizontal scroll"/>
-        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><LumenInput value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}
                                                                              placeholder="Search"/></div>
         <HbarAppUiButton onClick={() => onAction?.({variantId: spec.id, actionId: 'scroll'})}>Show scroll

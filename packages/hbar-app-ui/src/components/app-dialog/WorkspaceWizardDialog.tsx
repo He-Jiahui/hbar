@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import {useState} from 'react'
 import {DialogBackdrop, DialogButton, DialogCloseButton, DialogField, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
 
@@ -18,10 +19,11 @@ export function WorkspaceWizardDialog({spec, onAction}: AppDialogProps): React.J
         reportDialogAction(onAction, spec, 'next', String(step + 1))
     }
     return <DialogFrame spec={spec} onAction={onAction} className="hbar-app-ui-dialog-variant-4">
-        <button type="button" className={`hbar-app-ui-dialog-trigger ${open ? 'is-hidden' : ''}`} onClick={() => {
+        <LumenButton type="button" className={`hbar-app-ui-dialog-trigger ${open ? 'is-hidden' : ''}`} onClick={() => {
             setOpen(true)
             reportDialogAction(onAction, spec, 'open')
-        }}>New workspace</button>
+        }}>New workspace
+        </LumenButton>
         {open && <DialogBackdrop>
             <section className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-wizard" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
                 <header className="hbar-app-ui-dialog-header">
@@ -31,11 +33,25 @@ export function WorkspaceWizardDialog({spec, onAction}: AppDialogProps): React.J
                 <div className="hbar-app-ui-dialog-content hbar-app-ui-dialog-wizard-content">
                     <div className="hbar-app-ui-dialog-progress" aria-label={`Step ${step} of 3`}>{[1, 2, 3].map((part) => <span className={part <= step ? 'is-active' : ''} key={part}/>)}</div>
                     {step === 1 && <div className="hbar-app-ui-dialog-wizard-body">
-                        <DialogField label="Workspace name"><input defaultValue="Northwind" aria-label="Workspace name"/></DialogField>
-                        <div className="hbar-app-ui-dialog-readonly-field"><span>Workspace URL</span><div><span>northwind.app/</span><strong>northwind</strong></div><small>You can change this later in settings.</small></div>
+                        <DialogField label="Workspace name"><LumenInput defaultValue="Northwind"
+                                                                   aria-label="Workspace name"/></DialogField>
+                        <div className="hbar-app-ui-dialog-readonly-field"><span>Workspace URL</span>
+                            <div><span>northwind.app/</span><strong>northwind</strong></div>
+                            <small>You can change this later in settings.</small></div>
                     </div>}
-                    {step === 2 && <div className="hbar-app-ui-dialog-wizard-body"><DialogField label="Default environment"><select defaultValue="Production" aria-label="Default environment"><option>Production</option><option>Staging</option><option>Development</option></select></DialogField><p className="hbar-app-ui-dialog-note">You can add more environments later.</p></div>}
-                    {step === 3 && <div className="hbar-app-ui-dialog-wizard-body"><p className="hbar-app-ui-dialog-review-line"><span>Workspace</span><strong>Northwind</strong></p><p className="hbar-app-ui-dialog-review-line"><span>URL</span><strong>northwind.app/northwind</strong></p></div>}
+                    {step === 2 &&
+                        <div className="hbar-app-ui-dialog-wizard-body"><DialogField label="Default environment"><LumenSelect
+                            defaultValue="Production" aria-label="Default environment">
+                            <option>Production</option>
+                            <option>Staging</option>
+                            <option>Development</option>
+                        </LumenSelect></DialogField><p className="hbar-app-ui-dialog-note">You can add more environments
+                            later.</p></div>}
+                    {step === 3 &&
+                        <div className="hbar-app-ui-dialog-wizard-body"><p className="hbar-app-ui-dialog-review-line">
+                            <span>Workspace</span><strong>Northwind</strong></p><p
+                            className="hbar-app-ui-dialog-review-line">
+                            <span>URL</span><strong>northwind.app/northwind</strong></p></div>}
                 </div>
                 <footer className="hbar-app-ui-dialog-footer">
                     <DialogButton onClick={close}>Cancel</DialogButton>

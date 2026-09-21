@@ -1,4 +1,5 @@
-import {Grid2X2, House, Filter, MoreHorizontal, SlidersHorizontal, UserPlus} from 'lucide-react'
+import { LumenButton } from '@lumen/app-ui'
+import {Filter, Grid2X2, House, MoreHorizontal, SlidersHorizontal, UserPlus} from 'lucide-react'
 import type {HbarAppUiNavbarTaskListContent} from './NavbarContent'
 import {uniqueHbarAppUiNavbarItems} from './NavbarContent'
 import {NavbarButton, NavbarFrame, NavbarGlyph, NavbarIconOnly, reportNavbarAction, type NavbarSurfaceProps} from './NavbarPrimitives'
@@ -21,7 +22,11 @@ export function TaskListNavbar({spec, onAction, content}: NavbarSurfaceProps & {
         </header>
         <main className="hbar-app-ui-navbar-task-main" data-hbar-app-ui-list-strategy={content.listStrategy.kind} data-hbar-app-ui-expected-maximum={content.listStrategy.expectedMaximum}>
             <p>{content.labels.sortedBy}</p>
-            <ol>{rows.map((row) => <li key={row.id}><button type="button" onClick={() => reportNavbarAction(onAction, spec, 'open', row.id)}><strong>{row.title}</strong><span>{row.sprint}{content.labels.metadataSeparator}{row.owner}</span></button></li>)}</ol>
+            <ol>{rows.map((row) => <li key={row.id}>
+                <LumenButton type="button" onClick={() => reportNavbarAction(onAction, spec, 'open', row.id)}>
+                    <strong>{row.title}</strong><span>{row.sprint}{content.labels.metadataSeparator}{row.owner}</span>
+                </LumenButton>
+            </li>)}</ol>
         </main>
     </NavbarFrame>
 }

@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { MoreHorizontal, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
@@ -68,7 +69,7 @@ export function HbarAppUiSettingsList({
         <ol>
           {items.map((item) => (
             <li key={item.id}>
-              <button
+              <LumenButton
                 type="button"
                 className="hbar-app-ui-settings-list-row"
                 aria-label={item.editLabel}
@@ -84,7 +85,7 @@ export function HbarAppUiSettingsList({
                   </span>
                 </span>
                 {item.status && <HbarAppUiStatus value={item.status.label} tone={item.status.tone} />}
-              </button>
+              </LumenButton>
               {item.removeLabel && onRemove && (
                 <details
                   className="hbar-app-ui-settings-list-menu"
@@ -99,10 +100,10 @@ export function HbarAppUiSettingsList({
                     <HbarAppUiIcon icon={MoreHorizontal} tier="sm" />
                   </summary>
                   <div className="hbar-app-ui-dialog-menu" role="menu" aria-label={item.menuLabel}>
-                    <button type="button" role="menuitem" onClick={() => onRemove(item.id)}>
+                    <LumenButton type="button" role="menuitem" onClick={() => onRemove(item.id)}>
                       <HbarAppUiIcon icon={Trash2} tier="sm" />
                       {item.removeLabel}
-                    </button>
+                    </LumenButton>
                   </div>
                 </details>
               )}

@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Filter, Minus, Plus, Search, SlidersHorizontal, Star, X} from 'lucide-react'
@@ -15,8 +16,8 @@ function ProductRail({spec, onAction}: FilteringProps) {
         onClick={() => setPrice(60)}>Clear</HbarAppUiButton>
         <aside className="hbar-app-ui-filter-rail">
             <strong>Category</strong>{['All products', 'Workspace', 'Automation', 'Reports'].map((item, index) => <label
-            key={item}><input type="checkbox"
-                              defaultChecked={index === 0}/>{item}<small>{42 - index * 8}</small></label>)}<strong>Price</strong><input
+            key={item}><LumenInput type="checkbox"
+                              defaultChecked={index === 0}/>{item}<small>{42 - index * 8}</small></label>)}<strong>Price</strong><LumenInput
             type="range" min="10" max="100" value={price}
             onChange={(event) => setPrice(Number(event.target.value))}/><span>Up to ${price}</span><strong>Finish</strong>
             <div className="hbar-app-ui-swatch-row"><i className="is-blue"/><i className="is-purple"/><i
@@ -32,22 +33,22 @@ function FilterDrawer({spec, onAction}: FilteringProps) {
                                                                                           detail="Scrollable body · sticky result count"/><HbarAppUiButton
         onClick={() => setOpen((value) => !value)}><HbarAppUiIcon icon={SlidersHorizontal} tier="sm"
         />{open ? 'Hide filters' : 'Show filters'}</HbarAppUiButton>{open &&
-        <div className="hbar-app-ui-filter-drawer"><label>Search<input placeholder="Filter records"/></label><label>Status<select>
+        <div className="hbar-app-ui-filter-drawer"><label>Search<LumenInput placeholder="Filter records"/></label><label>Status<LumenSelect>
             <option>All statuses</option>
             <option>Running</option>
             <option>Blocked</option>
-        </select></label><label>Owner<select>
+        </LumenSelect></label><label>Owner<LumenSelect>
             <option>Everyone</option>
             <option>My team</option>
-        </select></label><HbarAppUiButton tone="accent" onClick={() => onAction?.({
+        </LumenSelect></label><HbarAppUiButton tone="accent" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'filter',
             value: 'apply'
         })}>Apply filters</HbarAppUiButton></div>}
-        <div className="hbar-app-ui-sticky-count">128 results <button type="button" onClick={() => onAction?.({
+        <div className="hbar-app-ui-sticky-count">128 results <LumenButton type="button" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'reset'
-        })}>Reset</button></div>
+        })}>Reset</LumenButton></div>
     </ActionSurfaceFrame>
 }
 
@@ -59,9 +60,9 @@ function QueryBuilder({spec, onAction}: FilteringProps) {
         onClick={() => setRules((current) => [...current, {field: 'Owner', operator: 'is', value: 'My team'}])}><HbarAppUiIcon icon={Plus} tier="sm"
         />Add rule</HbarAppUiButton>
         <div className="hbar-app-ui-query-chips">{rules.map((rule, index) => <span
-            key={`${rule.field}-${index}`}><strong>{rule.field}</strong> {rule.operator} <b>{rule.value}</b><button
+            key={`${rule.field}-${index}`}><strong>{rule.field}</strong> {rule.operator} <b>{rule.value}</b><LumenButton
             type="button"
-            onClick={() => setRules((current) => current.filter((_, itemIndex) => itemIndex !== index))}><HbarAppUiIcon icon={X} tier="xs" /></button></span>)}</div>
+            onClick={() => setRules((current) => current.filter((_, itemIndex) => itemIndex !== index))}><HbarAppUiIcon icon={X} tier="xs" /></LumenButton></span>)}</div>
         <div className="hbar-app-ui-query-results">{['Workspace sync', 'Agent queue', 'Review gate'].map((row) =>
             <HbarAppUiSpotlight key={row}><strong>{row}</strong><HbarAppUiStatus value="Running" tone="warning"/><small>Matched
                 by current query</small></HbarAppUiSpotlight>)}</div>
@@ -78,11 +79,11 @@ function LogExplorer({spec, onAction}: FilteringProps) {
             setLevel(item);
             onAction?.({variantId: spec.id, actionId: 'filter', value: item})
         }}><HbarAppUiIcon icon={Filter} tier="xs" />{item}</HbarAppUiButton>)}</div>
-        <select aria-label="Service">
+        <LumenSelect aria-label="Service">
             <option>All services</option>
             <option>API gateway</option>
             <option>Worker pool</option>
-        </select>
+        </LumenSelect>
         <div className="hbar-app-ui-volume-histogram">{Array.from({length: 18}, (_, index) => <i
             style={{height: `${12 + ((index * 13) % 42)}px`}} key={index}/>)}</div>
         <div className="hbar-app-ui-log-lines"><code>10:24:18 {level} request
@@ -102,18 +103,18 @@ function PropertySearch({spec, onAction}: FilteringProps) {
         />Search homes</HbarAppUiButton>
         <div className="hbar-app-ui-stepper-filters"><label>Bedrooms
             <div>
-                <button type="button" onClick={() => setBeds(Math.max(0, beds - 1))}><HbarAppUiIcon icon={Minus} tier="xs" /></button>
+                <LumenButton type="button" onClick={() => setBeds(Math.max(0, beds - 1))}><HbarAppUiIcon icon={Minus} tier="xs" /></LumenButton>
                 <b>{beds}</b>
-                <button type="button" onClick={() => setBeds(beds + 1)}><HbarAppUiIcon icon={Plus} tier="xs" /></button>
+                <LumenButton type="button" onClick={() => setBeds(beds + 1)}><HbarAppUiIcon icon={Plus} tier="xs" /></LumenButton>
             </div>
         </label><label>Bathrooms
             <div>
-                <button type="button" onClick={() => setBaths(Math.max(0, baths - 1))}><HbarAppUiIcon icon={Minus} tier="xs" /></button>
+                <LumenButton type="button" onClick={() => setBaths(Math.max(0, baths - 1))}><HbarAppUiIcon icon={Minus} tier="xs" /></LumenButton>
                 <b>{baths}</b>
-                <button type="button" onClick={() => setBaths(baths + 1)}><HbarAppUiIcon icon={Plus} tier="xs" /></button>
+                <LumenButton type="button" onClick={() => setBaths(baths + 1)}><HbarAppUiIcon icon={Plus} tier="xs" /></LumenButton>
             </div>
         </label></div>
-        <label>Price range<input type="range" min="100" max="1000" defaultValue="640"/></label>
+        <label>Price range<LumenInput type="range" min="100" max="1000" defaultValue="640"/></label>
         <div className="hbar-app-ui-amenities"><span>Pet friendly</span><span>Parking</span><span>Workspace</span></div>
     </ActionSurfaceFrame>
 }
@@ -124,19 +125,19 @@ function CandidateSearch({spec, onAction}: FilteringProps) {
                                className="hbar-app-ui-filter-variant-6"><HbarAppUiToolbar title="Candidate search"
                                                                                           detail="Skill tokens · pay range · seniority"/>
         <div className="hbar-app-ui-token-input">{skills.map((skill) => <span key={skill}>{skill}
-            <button type="button" onClick={() => setSkills((current) => current.filter((item) => item !== skill))}><HbarAppUiIcon icon={X} tier="xs"
-                /></button></span>)}<input placeholder="Add skill" onKeyDown={(event) => {
+            <LumenButton type="button" onClick={() => setSkills((current) => current.filter((item) => item !== skill))}><HbarAppUiIcon icon={X} tier="xs"
+                /></LumenButton></span>)}<LumenInput placeholder="Add skill" onKeyDown={(event) => {
             if (event.key === 'Enter' && event.currentTarget.value.trim()) {
                 setSkills((current) => [...current, event.currentTarget.value.trim()]);
                 event.currentTarget.value = '';
                 onAction?.({variantId: spec.id, actionId: 'skill'})
             }
         }}/></div>
-        <select aria-label="Seniority">
+        <LumenSelect aria-label="Seniority">
             <option>Any level</option>
             <option>Senior</option>
             <option>Staff</option>
-        </select>
+        </LumenSelect>
         <div className="hbar-app-ui-candidate-results">{['Avery Chen', 'Mina Patel', 'Jon Bell'].map((name, index) =>
             <HbarAppUiSpotlight key={name}><span className="hbar-app-ui-avatar">{name[0]}</span>
                 <div><strong>{name}</strong><small>{index + 4} years · ${120 + index * 20}k</small></div>
@@ -151,9 +152,9 @@ function FacetBar({spec, onAction}: FilteringProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-filter-variant-7"><HbarAppUiToolbar title="Asset facets"
                                                                                           detail="Horizontal filters over a mixed grid"/>
-        <div className="hbar-app-ui-facet-bar">{['All', 'Images', 'Documents', 'Code'].map((item) => <button
+        <div className="hbar-app-ui-facet-bar">{['All', 'Images', 'Documents', 'Code'].map((item) => <LumenButton
             type="button" className={facet === item ? 'is-selected' : ''} key={item}
-            onClick={() => setFacet(item)}>{item}</button>)}</div>
+            onClick={() => setFacet(item)}>{item}</LumenButton>)}</div>
         <div className="hbar-app-ui-mixed-asset-grid">{visibleAssets.map((asset) => <HbarAppUiSpotlight
             key={asset}><FileIcon name={asset}/><strong>{asset}</strong><small>Updated
             today</small></HbarAppUiSpotlight>)}</div>
@@ -193,14 +194,14 @@ function CuisineFilters({spec, onAction}: FilteringProps) {
                                className="hbar-app-ui-filter-variant-9"><HbarAppUiToolbar title="Cuisine search"
                                                                                           detail="Pills, ratings, price and diet"/>
         <div className="hbar-app-ui-cuisine-pills">{['All', 'Japanese', 'Italian', 'Mexican', 'Vegan'].map((item) =>
-            <button type="button" key={item} onClick={() => onAction?.({
+            <LumenButton type="button" key={item} onClick={() => onAction?.({
                 variantId: spec.id,
                 actionId: 'filter',
                 value: item
-            })}>{item}</button>)}</div>
-        <div className="hbar-app-ui-rating-filter"><strong>Rating</strong>{[1, 2, 3, 4, 5].map((value) => <button
+            })}>{item}</LumenButton>)}</div>
+        <div className="hbar-app-ui-rating-filter"><strong>Rating</strong>{[1, 2, 3, 4, 5].map((value) => <LumenButton
             type="button" className={value <= rating ? 'is-selected' : ''} key={value} onClick={() => setRating(value)}>
-            <HbarAppUiIcon icon={Star} tier="sm" /></button>)}<span>{rating}+ stars</span></div>
+            <HbarAppUiIcon icon={Star} tier="sm" /></LumenButton>)}<span>{rating}+ stars</span></div>
         <div className="hbar-app-ui-price-level"><span>$</span><span>$$</span><span>$$$</span><span>$$$$</span></div>
     </ActionSurfaceFrame>
 }

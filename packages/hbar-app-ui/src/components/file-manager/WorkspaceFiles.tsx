@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { ChevronLeft, ChevronRight, FileCode2, Folder, RefreshCw } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
@@ -72,11 +73,11 @@ export function HbarAppUiWorkspaceFiles({
           empty={loading ? null : <p>{labels.empty}</p>}
           className="file-list"
           renderRow={(item) => (
-            <button type="button" title={item.id} onClick={() => onOpen(item.id)}>
+            <LumenButton type="button" title={item.id} onClick={() => onOpen(item.id)}>
               <HbarAppUiIcon icon={item.directory ? Folder : FileCode2} tier="sm" />
               <span>{item.name}</span>
               {item.directory && <HbarAppUiIcon icon={ChevronRight} tier="sm" />}
-            </button>
+            </LumenButton>
           )}
         />
       )}

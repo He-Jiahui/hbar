@@ -1,3 +1,4 @@
+import { LumenButton, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {AlertCircle, Bell, Check, ChevronDown, Filter, Pause, Play, RefreshCw, ShieldCheck} from 'lucide-react'
@@ -64,7 +65,7 @@ function IncidentDetail({spec, onAction}: MonitoringProps) {
     const [status, setStatus] = useState('Investigating');
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-monitoring-variant-3"><HbarAppUiToolbar title="Incident detail"
-                                                                                              detail="Response timeline · responders"/><select
+                                                                                              detail="Response timeline · responders"/><LumenSelect
         aria-label="Incident status" value={status} onChange={(event) => {
         setStatus(event.target.value);
         onAction?.({variantId: spec.id, actionId: 'status', value: event.target.value})
@@ -73,7 +74,7 @@ function IncidentDetail({spec, onAction}: MonitoringProps) {
         <option>Identified</option>
         <option>Monitoring</option>
         <option>Resolved</option>
-    </select><HbarAppUiSpotlight className="hbar-app-ui-incident-summary"><HbarAppUiIcon icon={AlertCircle} tier="md" />
+    </LumenSelect><HbarAppUiSpotlight className="hbar-app-ui-incident-summary"><HbarAppUiIcon icon={AlertCircle} tier="md" />
         <div><strong>Queue latency above threshold</strong><p>Started 10 minutes ago · 3 services affected.</p></div>
         <HbarAppUiStatus value={status} tone={status === 'Resolved' ? 'positive' : 'warning'}/></HbarAppUiSpotlight>
         <ol className="hbar-app-ui-response-timeline">
@@ -81,7 +82,7 @@ function IncidentDetail({spec, onAction}: MonitoringProps) {
             <li><b>10:18</b><span>Avery acknowledged</span></li>
             <li><b>10:22</b><span>Mitigation deployed</span></li>
         </ol>
-        <textarea placeholder="Post an incident update" onKeyDown={(event) => {
+        <LumenTextarea placeholder="Post an incident update" onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 onAction?.({variantId: spec.id, actionId: 'update', value: event.currentTarget.value});
@@ -124,7 +125,7 @@ function LogTail({spec, onAction}: MonitoringProps) {
             setPaused((value) => !value);
             onAction?.({variantId: spec.id, actionId: paused ? 'resume' : 'pause'})
         }}>{paused ? 'Follow' : 'Pause'}</HbarAppUiButton>
-        <div className="hbar-app-ui-log-tail" role="log">{[0, 1, 2, 3, 4].map((index) => <button type="button"
+        <div className="hbar-app-ui-log-tail" role="log">{[0, 1, 2, 3, 4].map((index) => <LumenButton type="button"
                                                                                                  key={index}
                                                                                                  onClick={() => onAction?.({
                                                                                                      variantId: spec.id,
@@ -132,7 +133,7 @@ function LogTail({spec, onAction}: MonitoringProps) {
                                                                                                      value: String(index)
                                                                                                  })}>
             <code>10:24:{18 + index}</code><b>{level}</b><span>request completed</span><HbarAppUiIcon icon={ChevronDown} tier="xs" />
-        </button>)}</div>
+        </LumenButton>)}</div>
     </ActionSurfaceFrame>
 }
 
@@ -145,7 +146,7 @@ function UptimeGrid({spec, onAction}: MonitoringProps) {
         onChange={(value) => setDays(Number(value))}/>
         <div
             className="hbar-app-ui-uptime-grid">{['API gateway', 'Worker pool', 'Storage', 'Scheduler'].map((service, row) =>
-            <div key={service}><strong>{service}</strong>{Array.from({length: days === 7 ? 7 : 10}, (_, day) => <button
+            <div key={service}><strong>{service}</strong>{Array.from({length: days === 7 ? 7 : 10}, (_, day) => <LumenButton
                 type="button" className={(row === 1 && day === 4) ? 'is-degraded' : 'is-up'}
                 aria-label={`${service} day ${day + 1}`} key={day}
                 onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: `${service}:${day + 1}`})}/>)}

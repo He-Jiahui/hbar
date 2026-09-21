@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import {useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import type {HbarAppUiAuthSignInContent} from './AuthContent'
@@ -30,12 +31,12 @@ export function SignInAuthentication({spec, onAction, content}: HbarAppUiVariant
                            onChange={setEmail}/>
                 <div className="hbar-app-ui-auth-field">
                     <div className="hbar-app-ui-auth-help-row"><span>{content.labels.passwordLabel}</span>
-                        <button type="button" onClick={() => onAction?.({
+                        <LumenButton type="button" onClick={() => onAction?.({
                             variantId: spec.id,
                             actionId: 'forgot-password'
-                        })}>{content.labels.forgotPassword}</button>
+                        })}>{content.labels.forgotPassword}</LumenButton>
                     </div>
-                    <div className="hbar-app-ui-auth-input-wrap"><input type={visible ? 'text' : 'password'}
+                    <div className="hbar-app-ui-auth-input-wrap"><LumenInput type={visible ? 'text' : 'password'}
                                                                         placeholder={content.labels.passwordPlaceholder}
                                                                         value={password}
                                                                         onChange={(event) => setPassword(event.currentTarget.value)}/><AuthPasswordButton
@@ -43,7 +44,7 @@ export function SignInAuthentication({spec, onAction, content}: HbarAppUiVariant
                         hideLabel={content.labels.hidePassword} onToggle={() => setVisible((current) => !current)}/>
                     </div>
                 </div>
-                <label className="hbar-app-ui-auth-check"><input type="checkbox" checked={remember}
+                <label className="hbar-app-ui-auth-check"><LumenInput type="checkbox" checked={remember}
                                                                  onChange={() => setRemember((current) => !current)}/><span>{content.labels.rememberLabel}</span></label>
                 <AuthButton type="button" tone="accent" onClick={() => onAction?.({
                     variantId: spec.id,
@@ -59,10 +60,10 @@ export function SignInAuthentication({spec, onAction, content}: HbarAppUiVariant
                                      })}/>
             </AuthCard>
             <p className="hbar-app-ui-auth-footer-note">{content.labels.noAccount}
-                <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
+                <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
                     variantId: spec.id,
                     actionId: 'create-account'
-                })}>{content.labels.createAccount}</button>
+                })}>{content.labels.createAccount}</LumenButton>
             </p>
             <AuthFooterLinks links={[content.labels.privacy, content.labels.terms, content.labels.status]}
                              onSelect={(value) => onAction?.({variantId: spec.id, actionId: 'footer-link', value})}/>

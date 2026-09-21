@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
@@ -365,7 +366,7 @@ function PreviewApp() {
         <aside className="hbar-app-ui-preview-sidebar" aria-label="hbar-app-ui categories">
           <label className="hbar-app-ui-preview-search">
             <Search size={15} aria-hidden="true" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search components" aria-label="Search components" />
+            <LumenInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search components" aria-label="Search components" />
             {query && <HbarAppUiIconButton label="Clear search" onClick={() => setQuery('')}><X size={14} /></HbarAppUiIconButton>}
           </label>
           <div className="hbar-app-ui-preview-catalog-heading">
@@ -373,7 +374,7 @@ function PreviewApp() {
             <small>{filteredEntries.length} / 300 variants</small>
           </div>
           <nav className="hbar-app-ui-preview-category-list">
-            {visibleCategories.map((category) => <button className={selected.spec.category === category ? 'is-selected' : ''} key={category} type="button" onClick={() => chooseCategory(category)}><span>{category}</span><small>{HBAR_APP_UI_CATEGORY_COUNTS[category]}</small></button>)}
+            {visibleCategories.map((category) => <LumenButton className={selected.spec.category === category ? 'is-selected' : ''} key={category} type="button" onClick={() => chooseCategory(category)}><span>{category}</span><small>{HBAR_APP_UI_CATEGORY_COUNTS[category]}</small></LumenButton>)}
             {!visibleCategories.length && <p className="hbar-app-ui-preview-no-results">No matching components.</p>}
           </nav>
         </aside>
@@ -433,7 +434,7 @@ function PreviewApp() {
               <div className="hbar-app-ui-preview-inspector-section">
                 <div className="hbar-app-ui-preview-section-heading"><strong>Variants</strong><small>{filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).length} shown</small></div>
                 <div className="hbar-app-ui-preview-variant-list">
-                  {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).map((entry) => <button className={entry.spec.id === selected.spec.id ? 'is-selected' : ''} key={entry.spec.id} type="button" onClick={() => chooseEntry(entry)}><span>{entry.spec.title}</span><small>{entry.spec.layout}</small></button>)}
+                  {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).map((entry) => <LumenButton className={entry.spec.id === selected.spec.id ? 'is-selected' : ''} key={entry.spec.id} type="button" onClick={() => chooseEntry(entry)}><span>{entry.spec.title}</span><small>{entry.spec.layout}</small></LumenButton>)}
                 </div>
               </div>
               <VariantHarness spec={selected.spec} onAction={handleAction} />

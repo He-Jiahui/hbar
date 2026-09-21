@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import {ArrowRight} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -46,7 +47,7 @@ export function ChangePlanBilling({spec, onAction, content}: HbarAppUiVariantPro
                     <BillingWorkflowSteps steps={content.steps} activeId={stepId}/>
                     <div className="hbar-app-ui-billing-change-choices" role="radiogroup" aria-label={content.labels.planSelection}>
                         {choices.map((choice) => <label className="hbar-app-ui-billing-change-choice" key={choice.id}>
-                            <input type="radio" name={`hbar-app-ui-billing-plan-${spec.id}`} value={choice.id} checked={choice.id === selectedChoice?.id}
+                            <LumenInput type="radio" name={`hbar-app-ui-billing-plan-${spec.id}`} value={choice.id} checked={choice.id === selectedChoice?.id}
                                    aria-label={choice.accessibleLabel} onChange={() => choose(choice.id)}/>
                             <span><strong>{choice.name}</strong>{choice.marker && <em>{choice.marker}</em>}<small>{choice.description}</small></span>
                             <b>{choice.price}<small>{choice.priceSuffix}</small></b>

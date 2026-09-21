@@ -1,3 +1,4 @@
+import { LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import type {HbarAppUiSettingsField} from './SettingsContent'
 import {SettingsBadge} from './SettingsPrimitives'
 
@@ -5,14 +6,25 @@ export function SettingsField({field, value, changedLabel, onChange}: {readonly 
     const controlId = `hbar-app-ui-settings-field-${field.id}`
     const describedBy = field.error ? `${controlId}-error` : field.note ? `${controlId}-note` : undefined
     const control = field.kind === 'select'
-        ? <select id={controlId} value={value} onChange={(event) => onChange(event.currentTarget.value)} aria-label={field.label} aria-describedby={describedBy}>
+        ? <LumenSelect id={controlId} value={value} onChange={(event) => onChange(event.currentTarget.value)}
+                  aria-label={field.label} aria-describedby={describedBy}>
             {(field.options ?? []).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-        </select>
+        </LumenSelect>
         : field.kind === 'textarea'
-            ? <textarea id={controlId} value={value} maxLength={field.maxLength} onChange={(event) => onChange(event.currentTarget.value)} aria-label={field.label} aria-describedby={describedBy} />
+            ? <LumenTextarea id={controlId} value={value} maxLength={field.maxLength}
+                        onChange={(event) => onChange(event.currentTarget.value)} aria-label={field.label}
+                        aria-describedby={describedBy}/>
             : field.prefix
-                ? <div className="hbar-app-ui-settings-prefix-control"><span>{field.prefix}</span><input id={controlId} type="text" value={value} onChange={(event) => onChange(event.currentTarget.value)} aria-label={field.label} aria-describedby={describedBy} /></div>
-                : <input id={controlId} type="text" value={value} onChange={(event) => onChange(event.currentTarget.value)} aria-label={field.label} aria-describedby={describedBy} />
+                ? <div className="hbar-app-ui-settings-prefix-control"><span>{field.prefix}</span><LumenInput id={controlId}
+                                                                                                         type="text"
+                                                                                                         value={value}
+                                                                                                         onChange={(event) => onChange(event.currentTarget.value)}
+                                                                                                         aria-label={field.label}
+                                                                                                         aria-describedby={describedBy}/>
+                </div>
+                : <LumenInput id={controlId} type="text" value={value}
+                         onChange={(event) => onChange(event.currentTarget.value)} aria-label={field.label}
+                         aria-describedby={describedBy}/>
 
     return <div className="hbar-app-ui-settings-row">
         <div className="hbar-app-ui-settings-row-copy">

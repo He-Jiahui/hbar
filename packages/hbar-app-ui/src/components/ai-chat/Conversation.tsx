@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { ChevronDown } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
@@ -262,10 +263,10 @@ export function HbarAppUiConversation(props: HbarAppUiConversationProps) {
         </div>
       </div>
       {hasNewContent && props.latestLabel && (
-        <button type="button" className="hbar-app-ui-conversation-latest" onClick={showLatest}>
+        <LumenButton type="button" className="hbar-app-ui-conversation-latest" onClick={showLatest}>
           <HbarAppUiIcon icon={ChevronDown} tier="sm" />
           {props.latestLabel}
-        </button>
+        </LumenButton>
       )}
       {props.composer}
     </section>

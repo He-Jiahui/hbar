@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { MoreHorizontal } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import './ActionMenu.css'
@@ -39,7 +40,7 @@ export function HbarAppUiActionMenu<ActionId extends string = string>({
       </summary>
       <div className="hbar-app-ui-dialog-menu hbar-app-ui-action-menu-popup" role="menu" aria-label={label}>
         {items.map((item) => (
-          <button
+          <LumenButton
             key={item.id}
             type="button"
             role="menuitem"
@@ -51,7 +52,7 @@ export function HbarAppUiActionMenu<ActionId extends string = string>({
             }}
           >
             {item.label}
-          </button>
+          </LumenButton>
         ))}
       </div>
     </details>

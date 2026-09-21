@@ -1,3 +1,4 @@
+import { LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import {
   forwardRef,
   createContext,
@@ -144,7 +145,7 @@ export const HbarAppUiInput = forwardRef<HTMLInputElement, HbarAppUiInputProps>(
 ) {
   const field = useContext(FieldAccessibility)
   return (
-    <input
+    <LumenInput
       {...props}
       ref={ref}
       className={controlClass(className)}
@@ -162,7 +163,7 @@ export const HbarAppUiTextarea = forwardRef<HTMLTextAreaElement, HbarAppUiTextar
 ) {
   const field = useContext(FieldAccessibility)
   return (
-    <textarea
+    <LumenTextarea
       {...props}
       ref={ref}
       className={controlClass(className)}
@@ -180,7 +181,7 @@ export const HbarAppUiSelect = forwardRef<HTMLSelectElement, HbarAppUiSelectProp
 ) {
   const field = useContext(FieldAccessibility)
   return (
-    <select
+    <LumenSelect
       {...props}
       ref={ref}
       className={controlClass(className)}
@@ -190,7 +191,7 @@ export const HbarAppUiSelect = forwardRef<HTMLSelectElement, HbarAppUiSelectProp
       aria-invalid={props['aria-invalid'] ?? (field.invalid || undefined)}
     >
       {children}
-    </select>
+    </LumenSelect>
   )
 })
 
@@ -202,6 +203,24 @@ export interface HbarAppUiCheckBoxProps extends Omit<
   readonly description?: string
   readonly size?: HbarAppUiSize
 }
+
+export interface HbarAppUiCheckBoxControlProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
+  readonly size?: HbarAppUiSize
+}
+
+export const HbarAppUiCheckBoxControl = forwardRef<HTMLInputElement, HbarAppUiCheckBoxControlProps>(
+  function HbarAppUiCheckBoxControl({ size, className = '', ...props }, ref) {
+    return (
+      <LumenInput
+        {...props}
+        ref={ref}
+        type="checkbox"
+        className={`hbar-app-ui-checkbox-control${className ? ` ${className}` : ''}`}
+        data-size={size}
+      />
+    )
+  },
+)
 
 export const HbarAppUiCheckBox = forwardRef<HTMLInputElement, HbarAppUiCheckBoxProps>(function HbarAppUiCheckBox(
   { label, description, size, className = '', ...props },

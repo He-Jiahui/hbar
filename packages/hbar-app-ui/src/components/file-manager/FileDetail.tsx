@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {Copy, Download, Link, Share2} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -12,12 +13,24 @@ export function FileDetail({spec, onAction, content}: HbarAppUiVariantProps & {r
         <section className="hbar-app-ui-file-manager-detail">
             <div className="hbar-app-ui-file-manager-detail-layout">
                 <section className="hbar-app-ui-file-manager-detail-left">
-                    <header className="hbar-app-ui-file-manager-detail-header"><div><h2>{content.labels.title}</h2><p>{content.labels.summary}</p></div></header>
-                    <nav className="hbar-app-ui-file-manager-detail-list" aria-label={content.labels.title} data-hbar-app-ui-list-strategy={content.listStrategy.kind}>
-                        {items.map((item) => <button type="button" className={activeItem?.id === item.id ? 'is-selected' : ''} aria-label={content.labels.openItem(item.name)} key={item.id} onClick={() => {
-                            setActiveItemId(item.id)
-                            onAction?.({variantId: spec.id, actionId: 'open-item', value: item.id})
-                        }}><FileManagerIcon kind={item.kind} tier="xs" /><span>{item.name}</span><small>{content.labels.itemSummary(item.format, item.size)}</small></button>)}
+                    <header className="hbar-app-ui-file-manager-detail-header">
+                        <div><h2>{content.labels.title}</h2><p>{content.labels.summary}</p></div>
+                    </header>
+                    <nav className="hbar-app-ui-file-manager-detail-list" aria-label={content.labels.title}
+                         data-hbar-app-ui-list-strategy={content.listStrategy.kind}>
+                        {items.map((item) => <LumenButton type="button"
+                                                     className={activeItem?.id === item.id ? 'is-selected' : ''}
+                                                     aria-label={content.labels.openItem(item.name)} key={item.id}
+                                                     onClick={() => {
+                                                         setActiveItemId(item.id)
+                                                         onAction?.({
+                                                             variantId: spec.id,
+                                                             actionId: 'open-item',
+                                                             value: item.id
+                                                         })
+                                                     }}><FileManagerIcon kind={item.kind}
+                                                                         tier="xs"/><span>{item.name}</span><small>{content.labels.itemSummary(item.format, item.size)}</small>
+                        </LumenButton>)}
                         {!items.length && <p className="hbar-app-ui-file-manager-empty">{content.labels.empty}</p>}
                     </nav>
                 </section>

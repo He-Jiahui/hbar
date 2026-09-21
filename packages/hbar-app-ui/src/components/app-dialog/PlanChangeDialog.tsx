@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {useState} from 'react'
 import {DialogBackdrop, DialogButton, DialogCloseButton, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
 
@@ -22,10 +23,11 @@ export function PlanChangeDialog({spec, onAction}: AppDialogProps): React.JSX.El
         reportDialogAction(onAction, spec, 'close')
     }
     return <DialogFrame spec={spec} onAction={onAction} className="hbar-app-ui-dialog-variant-1">
-        <button type="button" className={`hbar-app-ui-dialog-trigger ${open ? 'is-hidden' : ''}`} onClick={() => {
+        <LumenButton type="button" className={`hbar-app-ui-dialog-trigger ${open ? 'is-hidden' : ''}`} onClick={() => {
             setOpen(true)
             reportDialogAction(onAction, spec, 'open')
-        }}>Change plan</button>
+        }}>Change plan
+        </LumenButton>
         {open && <DialogBackdrop>
             <section className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-plan" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
                 <header className="hbar-app-ui-dialog-header">

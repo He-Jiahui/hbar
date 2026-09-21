@@ -1,3 +1,4 @@
+import { LumenTextarea } from '@lumen/app-ui'
 import {Building2, LockKeyhole} from 'lucide-react'
 import {useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -21,7 +22,8 @@ export function SeatRequestPaywall({spec, onAction, content}: HbarAppUiVariantPr
             </section>
             <section className="hbar-app-ui-paywall-seat-card">
                 <label htmlFor={`${spec.id}-reason`}>{labels.reasonLabel}</label>
-                <textarea id={`${spec.id}-reason`} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={labels.reasonPlaceholder} />
+                <LumenTextarea id={`${spec.id}-reason`} value={reason} onChange={(event) => setReason(event.target.value)}
+                          placeholder={labels.reasonPlaceholder}/>
             </section>
             <footer className="hbar-app-ui-paywall-seat-actions"><PaywallButton type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'compare'})}>{labels.compare}</PaywallButton><PaywallButton tone="accent" type="button" disabled={!reason.trim()} onClick={() => onAction?.({variantId: spec.id, actionId: 'send', value: reason.trim()})}>{labels.send}</PaywallButton></footer>
         </section>

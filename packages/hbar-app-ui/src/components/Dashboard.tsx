@@ -1,3 +1,4 @@
+import { LumenButton, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {ArrowDown, ArrowUp, Check, ChevronRight, CircleAlert, MoreHorizontal, RefreshCw} from 'lucide-react'
@@ -78,10 +79,10 @@ function WidgetGrid({spec, onAction}: DashboardProps) {
                     onClick={() => setMenu(menu === name ? undefined : name)}><HbarAppUiIcon icon={MoreHorizontal} tier="sm"
                     /></HbarAppUiButton></header>
                 <b>{[24, 8, '64%', '98%', 4][index]}</b>{menu === name && <div className="hbar-app-ui-widget-menu">
-                <button type="button"
+                <LumenButton type="button"
                         onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: name})}>Open details
-                </button>
-                <button type="button">Remove widget</button>
+                </LumenButton>
+                <LumenButton type="button">Remove widget</LumenButton>
             </div>}</HbarAppUiSpotlight>)}</div>
     </ActionSurfaceFrame>
 }
@@ -247,7 +248,7 @@ function Scorecard({spec, onAction}: DashboardProps) {
     const [quarter, setQuarter] = useState('Q3');
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-dashboard-variant-13"><HbarAppUiToolbar
-        title="Quarterly scorecard" detail="Objectives and key results"/><select aria-label="Quarter" value={quarter}
+        title="Quarterly scorecard" detail="Objectives and key results"/><LumenSelect aria-label="Quarter" value={quarter}
                                                                                  onChange={(event) => {
                                                                                      setQuarter(event.target.value);
                                                                                      onAction?.({
@@ -259,7 +260,7 @@ function Scorecard({spec, onAction}: DashboardProps) {
         <option>Q2</option>
         <option>Q3</option>
         <option>Q4</option>
-    </select>
+    </LumenSelect>
         <div
             className="hbar-app-ui-scorecard">{['Ship reliable runs', 'Improve review time', 'Grow shared usage'].map((objective, index) =>
             <HbarAppUiSpotlight key={objective}><strong>{objective}</strong><small>Key
@@ -273,10 +274,10 @@ function ServiceDetail({spec, onAction}: DashboardProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-dashboard-variant-14">
         <div className="hbar-app-ui-service-detail">
             <aside><strong>Services</strong>{['API gateway', 'Worker pool', 'Event stream', 'Storage'].map((item) =>
-                <button type="button" className={service === item ? 'is-selected' : ''} key={item} onClick={() => {
+                <LumenButton type="button" className={service === item ? 'is-selected' : ''} key={item} onClick={() => {
                     setService(item);
                     onAction?.({variantId: spec.id, actionId: 'open', value: item})
-                }}>{item}<HbarAppUiIcon icon={ChevronRight} tier="sm" /></button>)}</aside>
+                }}>{item}<HbarAppUiIcon icon={ChevronRight} tier="sm" /></LumenButton>)}</aside>
             <main><HbarAppUiToolbar title={service} detail="Metrics, chart and activity"/><HbarAppUiStatus
                 value="Healthy" tone="positive"/><HbarAppUiMetricStrip
                 metrics={[{label: 'Requests', value: `${1_240 + service.length * 8}`}, {

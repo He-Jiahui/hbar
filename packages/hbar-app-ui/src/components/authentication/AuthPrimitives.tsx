@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import {
     Apple,
     ArrowLeft,
@@ -46,8 +47,8 @@ export function AuthIcon({children, tier = 'sm'}: {
 export function AuthButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
     readonly tone?: 'neutral' | 'accent' | 'danger'
 }) {
-    return <button {...props}
-                   className={`hbar-app-ui-auth-button hbar-app-ui-auth-button-${tone} ${props.className ?? ''}`}>{children}</button>
+    return <LumenButton {...props}
+                   className={`hbar-app-ui-auth-button hbar-app-ui-auth-button-${tone} ${props.className ?? ''}`}>{children}</LumenButton>
 }
 
 export function AuthIconButton({label, children, ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -71,9 +72,9 @@ export function AuthFooterLinks({links, onSelect}: {
     readonly links: readonly string[];
     readonly onSelect: (value: string) => void
 }) {
-    return <nav className="hbar-app-ui-auth-footer-links" aria-label={links.join(', ')}>{links.map((link) => <button
+    return <nav className="hbar-app-ui-auth-footer-links" aria-label={links.join(', ')}>{links.map((link) => <LumenButton
         type="button" className="hbar-app-ui-auth-inline-link" key={link}
-        onClick={() => onSelect(link)}>{link}</button>)}</nav>
+        onClick={() => onSelect(link)}>{link}</LumenButton>)}</nav>
 }
 
 export function AuthField({label, placeholder, value, type = 'text', onChange, children, helper}: {
@@ -86,7 +87,7 @@ export function AuthField({label, placeholder, value, type = 'text', onChange, c
     readonly helper?: ReactNode
 }) {
     return <label className="hbar-app-ui-auth-field"><span>{label}</span>
-        <div className="hbar-app-ui-auth-input-wrap"><input type={type} value={value} placeholder={placeholder}
+        <div className="hbar-app-ui-auth-input-wrap"><LumenInput type={type} value={value} placeholder={placeholder}
                                                             onChange={(event) => onChange?.(event.currentTarget.value)}/>{children}
         </div>
         {helper && <small>{helper}</small>}</label>

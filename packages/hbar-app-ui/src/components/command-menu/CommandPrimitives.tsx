@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { LumenButton } from '@lumen/app-ui'
 import type { ReactNode } from 'react'
 import type { HbarAppUiVariantProps } from '../../types'
 import { ActionSurfaceFrame } from '../SurfaceFrame'
@@ -29,7 +29,7 @@ export function CommandBackdrop({
 }): React.JSX.Element {
   return (
     <div className="hbar-app-ui-dialog-backdrop hbar-app-ui-command-backdrop">
-      <button
+      <LumenButton
         type="button"
         className="hbar-app-ui-command-backdrop-dismiss"
         aria-label={closeLabel}

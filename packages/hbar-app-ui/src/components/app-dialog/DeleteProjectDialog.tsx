@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import {useState} from 'react'
 import {DialogBackdrop, DialogButton, DialogCloseButton, DialogField, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
 
@@ -16,10 +17,11 @@ export function DeleteProjectDialog({spec, onAction}: AppDialogProps): React.JSX
         reportDialogAction(onAction, spec, 'close')
     }
     return <DialogFrame spec={spec} onAction={onAction} className="hbar-app-ui-dialog-variant-2">
-        <button type="button" className={`hbar-app-ui-dialog-trigger ${open ? 'is-hidden' : ''}`} onClick={() => {
+        <LumenButton type="button" className={`hbar-app-ui-dialog-trigger ${open ? 'is-hidden' : ''}`} onClick={() => {
             setOpen(true)
             reportDialogAction(onAction, spec, 'open')
-        }}>Delete project</button>
+        }}>Delete project
+        </LumenButton>
         {open && <DialogBackdrop>
             <section className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-delete" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
                 <header className="hbar-app-ui-dialog-header">
@@ -32,7 +34,8 @@ export function DeleteProjectDialog({spec, onAction}: AppDialogProps): React.JSX
                     </dl>
                     <div className="hbar-app-ui-dialog-delete-form">
                         <DialogField label={<>Type <strong>atlas-production</strong> to confirm</>}>
-                            <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="atlas-production" aria-label="atlas-production"/>
+                            <LumenInput value={confirmation} onChange={(event) => setConfirmation(event.target.value)}
+                                   placeholder="atlas-production" aria-label="atlas-production"/>
                         </DialogField>
                     </div>
                 </div>

@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {HbarAppUiWorkbenchShell, useHbarAppUiShellContent} from './app-shell/WorkbenchShell'
@@ -21,9 +22,9 @@ function ShellSidebar({spec, onAction}: ShellProps) {
         <div className="hbar-app-ui-shell-layout">
             <aside>
                 <div className="hbar-app-ui-shell-brand"><HbarAppUiIcon icon={Sparkles} tier="sm" /><strong>hbar workspace</strong></div>
-                <button type="button" onClick={() => setOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
+                <LumenButton type="button" onClick={() => setOpen((value) => !value)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
                                                                                               className={open ? '' : 'is-collapsed'}/>Workspace
-                </button>
+                </LumenButton>
                 {open && <nav><span
                     className="is-active">Overview</span><span>Sessions <small>12</small></span><span>Files</span><span>Settings</span>
                 </nav>}</aside>
@@ -47,12 +48,12 @@ function ShellRails({spec, onAction}: ShellProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-shell-variant-2">
         <div className="hbar-app-ui-three-pane">
             <nav className="hbar-app-ui-icon-rail">
-                <button type="button" aria-label="Overview" className={area === 'Overview' ? 'is-active' : ''}
-                        onClick={() => setArea('Overview')}><HbarAppUiIcon icon={LayoutDashboard} tier="sm" /></button>
-                <button type="button" aria-label="Sessions" className={area === 'Sessions' ? 'is-active' : ''}
-                        onClick={() => setArea('Sessions')}><HbarAppUiIcon icon={FileText} tier="sm" /></button>
-                <button type="button" aria-label="Settings" className={area === 'Settings' ? 'is-active' : ''}
-                        onClick={() => setArea('Settings')}><HbarAppUiIcon icon={Settings2} tier="sm" /></button>
+                <LumenButton type="button" aria-label="Overview" className={area === 'Overview' ? 'is-active' : ''}
+                        onClick={() => setArea('Overview')}><HbarAppUiIcon icon={LayoutDashboard} tier="sm" /></LumenButton>
+                <LumenButton type="button" aria-label="Sessions" className={area === 'Sessions' ? 'is-active' : ''}
+                        onClick={() => setArea('Sessions')}><HbarAppUiIcon icon={FileText} tier="sm" /></LumenButton>
+                <LumenButton type="button" aria-label="Settings" className={area === 'Settings' ? 'is-active' : ''}
+                        onClick={() => setArea('Settings')}><HbarAppUiIcon icon={Settings2} tier="sm" /></LumenButton>
             </nav>
             <aside><strong>{area}</strong><span
                 className="is-active">Pinned workspace</span><span>Recent run</span><span>Shared files</span></aside>
@@ -95,17 +96,17 @@ function ShellTriage({spec, onAction}: ShellProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-shell-variant-5">
         <div className="hbar-app-ui-triage">
             <nav className="hbar-app-ui-icon-rail">
-                <button type="button" className="is-active"><HbarAppUiIcon icon={LayoutDashboard} tier="sm" /></button>
-                <button type="button"><HbarAppUiIcon icon={FileText} tier="sm" /></button>
+                <LumenButton type="button" className="is-active"><HbarAppUiIcon icon={LayoutDashboard} tier="sm" /></LumenButton>
+                <LumenButton type="button"><HbarAppUiIcon icon={FileText} tier="sm" /></LumenButton>
             </nav>
             <aside>
-                <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input placeholder="Filter records"
+                <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><LumenInput placeholder="Filter records"
                                                                                      aria-label="Filter records"/></div>
-                {records.map((record) => <button type="button" className={selected === record ? 'is-selected' : ''}
+                {records.map((record) => <LumenButton type="button" className={selected === record ? 'is-selected' : ''}
                                                  key={record} onClick={() => {
                     setSelected(record);
                     onAction?.({variantId: spec.id, actionId: 'open', value: record})
-                }}>{record}<small>2m</small></button>)}</aside>
+                }}>{record}<small>2m</small></LumenButton>)}</aside>
             <main><HbarAppUiToolbar title={selected} detail="Reading pane"/><HbarAppUiStatus value="Needs review"
                                                                                              tone="warning"/><HbarAppUiSpotlight>
                 <h3>{selected}</h3><p>Review details, related events and the latest response in this pane.</p>
@@ -120,19 +121,19 @@ function ShellDocument({spec, onAction}: ShellProps) {
         onClick={() => onAction?.({variantId: spec.id, actionId: 'save'})}>Save</HbarAppUiButton>
         <div className="hbar-app-ui-document-shell">
             <aside><strong>Files</strong>
-                <button type="button" className="is-active">README.md</button>
-                <button type="button">docs/</button>
-                <button type="button"> architecture.md</button>
-                <button type="button"> testing.md</button>
+                <LumenButton type="button" className="is-active">README.md</LumenButton>
+                <LumenButton type="button">docs/</LumenButton>
+                <LumenButton type="button"> architecture.md</LumenButton>
+                <LumenButton type="button"> testing.md</LumenButton>
             </aside>
             <main>
                 <div className="hbar-app-ui-format-toolbar">
-                    <button type="button"><strong>B</strong></button>
-                    <button type="button"><em>I</em></button>
-                    <button type="button">Code</button>
-                    <button type="button">Link</button>
+                    <LumenButton type="button"><strong>B</strong></LumenButton>
+                    <LumenButton type="button"><em>I</em></LumenButton>
+                    <LumenButton type="button">Code</LumenButton>
+                    <LumenButton type="button">Link</LumenButton>
                 </div>
-                <textarea defaultValue={'# Workspace notes\n\nCapture decisions and context here.'}/></main>
+                <LumenTextarea defaultValue={'# Workspace notes\n\nCapture decisions and context here.'}/></main>
         </div>
     </ActionSurfaceFrame>
 }
@@ -142,14 +143,14 @@ function ShellScope({spec, onAction}: ShellProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-shell-variant-7"><HbarAppUiToolbar
         title="Scoped workspace" detail="Organization · project · environment"/>
         <div className="hbar-app-ui-scope-pickers">{['Organization', 'Project', 'Environment'].map((label) => <label
-            key={label}>{label}<select value={label === 'Environment' ? scope : 'Default'} onChange={(event) => {
+            key={label}>{label}<LumenSelect value={label === 'Environment' ? scope : 'Default'} onChange={(event) => {
             if (label === 'Environment') setScope(event.target.value);
             onAction?.({variantId: spec.id, actionId: 'picker', value: `${label}:${event.target.value}`})
         }}>
             <option>Default</option>
             <option>Staging</option>
             <option>Production</option>
-        </select></label>)}</div>
+        </LumenSelect></label>)}</div>
         <HbarAppUiSpotlight><strong>Showing {scope}</strong><p>Changing a scope updates the entire screen and keeps the
             active record visible.</p></HbarAppUiSpotlight></ActionSurfaceFrame>
 }
@@ -172,9 +173,9 @@ function ShellAdaptive({spec, onAction}: ShellProps) {
             <main><HbarAppUiSpotlight><strong>{view} content</strong><p>One module identity remains available at every
                 breakpoint.</p></HbarAppUiSpotlight></main>
             <nav>
-                <button type="button">Home</button>
-                <button type="button">Activity</button>
-                <button type="button">More</button>
+                <LumenButton type="button">Home</LumenButton>
+                <LumenButton type="button">Activity</LumenButton>
+                <LumenButton type="button">More</LumenButton>
             </nav>
         </div>
     </ActionSurfaceFrame>
@@ -185,11 +186,11 @@ function ShellChat({spec, onAction}: ShellProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-shell-variant-9">
         <div className="hbar-app-ui-chat-shell">
             <aside><strong>Threads</strong>
-                <button type="button" className="is-active">October reconciliation</button>
-                <button type="button">Release handoff</button>
-                <button type="button">Recent activity</button>
+                <LumenButton type="button" className="is-active">October reconciliation</LumenButton>
+                <LumenButton type="button">Release handoff</LumenButton>
+                <LumenButton type="button">Recent activity</LumenButton>
             </aside>
-            <main><HbarAppUiToolbar title="AI workspace" detail="Pinned and recent threads"/><select aria-label="Model"
+            <main><HbarAppUiToolbar title="AI workspace" detail="Pinned and recent threads"/><LumenSelect aria-label="Model"
                                                                                                      value={model}
                                                                                                      onChange={(event) => {
                                                                                                          setModel(event.target.value);
@@ -202,11 +203,11 @@ function ShellChat({spec, onAction}: ShellProps) {
                 <option>Balanced</option>
                 <option>Fast</option>
                 <option>Reasoning</option>
-            </select>
+            </LumenSelect>
                 <div className="hbar-app-ui-chat-shell-messages"><p>How can I help with this workspace?</p>
                     <HbarAppUiSpotlight><strong>Pinned
                         context</strong><span>3 files · 1 active run</span></HbarAppUiSpotlight></div>
-                <textarea placeholder="Ask the workspace assistant" onKeyDown={(event) => {
+                <LumenTextarea placeholder="Ask the workspace assistant" onKeyDown={(event) => {
                     if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault();
                         onAction?.({variantId: spec.id, actionId: 'send', value: event.currentTarget.value});

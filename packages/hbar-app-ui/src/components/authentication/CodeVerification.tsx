@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import { useRef, type ReactNode } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
@@ -57,7 +58,7 @@ export function HbarAppUiCodeVerification(content: HbarAppUiCodeVerificationProp
         {content.presentation === 'single' ? (
           <label>
             {content.labels.code}
-            <input
+            <LumenInput
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={length}
@@ -70,7 +71,7 @@ export function HbarAppUiCodeVerification(content: HbarAppUiCodeVerificationProp
           <fieldset className="hbar-app-ui-verification-digits" disabled={content.busy || !length}>
             <legend>{content.labels.code}</legend>
             {Array.from({ length }, (_, index) => (
-              <input
+              <LumenInput
                 key={index}
                 ref={(element) => {
                   fields.current[index] = element

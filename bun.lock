@@ -36,6 +36,7 @@
         "@hbar/storage": "workspace:*",
         "@hbar/ui-sdk": "workspace:*",
         "@hbar/usage": "workspace:*",
+        "@lumen/app-ui": "workspace:*",
         "@opentui/core": "0.4.5",
         "@opentui/keymap": "0.4.5",
         "@tanstack/react-virtual": "3.14.11",
@@ -100,6 +101,7 @@
     "apps/hbar-app-ui-preview": {
       "name": "@hbar/app-ui-preview",
       "dependencies": {
+        "@lumen/app-ui": "workspace:*",
         "hbar-app-ui": "workspace:*",
         "lucide-react": "1.43.0",
         "react": "19.2.8",
@@ -137,7 +139,7 @@
     },
     "hbar-ui/packages/lumen-app-ui": {
       "name": "@lumen/app-ui",
-      "version": "0.11.0",
+      "version": "0.12.0",
       "peerDependencies": {
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.0",
@@ -203,6 +205,7 @@
       "name": "hbar-app-ui",
       "version": "0.1.0",
       "dependencies": {
+        "@lumen/app-ui": "workspace:*",
         "@tanstack/react-virtual": "3.14.11",
         "lucide-react": "1.43.0",
       },
@@ -274,6 +277,7 @@
       "name": "@hbar/terminal",
       "version": "0.1.0",
       "dependencies": {
+        "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",
       },
     },

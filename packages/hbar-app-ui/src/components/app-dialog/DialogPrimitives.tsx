@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import type {ReactNode} from 'react'
 import {X} from 'lucide-react'
@@ -33,8 +34,9 @@ export function DialogBackdrop({children, className = ''}: {readonly children: R
     return <div className={`hbar-app-ui-dialog-backdrop ${className}`}>{children}</div>
 }
 
-export function DialogCloseButton({onClose}: {readonly onClose: () => void}): ReactNode {
-    return <button type="button" className="hbar-app-ui-dialog-close" aria-label="Close dialog" onClick={onClose}><HbarAppUiIcon icon={X} tier="md" /></button>
+export function DialogCloseButton({onClose}: { readonly onClose: () => void }): ReactNode {
+    return <LumenButton type="button" className="hbar-app-ui-dialog-close" aria-label="Close dialog" onClick={onClose}><HbarAppUiIcon icon={X} tier="md"
+        /></LumenButton>
 }
 
 export function DialogButton({
@@ -50,7 +52,9 @@ export function DialogButton({
     readonly onClick: () => void
     readonly className?: string
 }): ReactNode {
-    return <button type="button" className={`hbar-app-ui-dialog-button hbar-app-ui-dialog-button-${tone} ${className}`.trim()} disabled={disabled} onClick={onClick}>{children}</button>
+    return <LumenButton type="button"
+                   className={`hbar-app-ui-dialog-button hbar-app-ui-dialog-button-${tone} ${className}`.trim()}
+                   disabled={disabled} onClick={onClick}>{children}</LumenButton>
 }
 
 export function DialogField({

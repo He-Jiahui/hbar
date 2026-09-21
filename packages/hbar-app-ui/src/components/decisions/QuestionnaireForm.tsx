@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import { Check, LoaderCircle } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiSpotlight, HbarAppUiStatus } from '../../primitives'
@@ -43,7 +44,7 @@ export function HbarAppUiQuestionnaire({
               <div className="hbar-app-ui-questionnaire-options">
                 {options.map((option) => (
                   <label className="hbar-app-ui-questionnaire-option" key={option.value}>
-                    <input
+                    <LumenInput
                       type="radio"
                       name={`${requestId}:${question.id}`}
                       value={option.value}
@@ -58,7 +59,7 @@ export function HbarAppUiQuestionnaire({
                 ))}
                 {hasOptions && question.acceptsCustomAnswer && (
                   <label className="hbar-app-ui-questionnaire-option">
-                    <input
+                    <LumenInput
                       type="radio"
                       name={`${requestId}:${question.id}`}
                       checked={answer?.kind === 'custom'}
@@ -67,7 +68,7 @@ export function HbarAppUiQuestionnaire({
                     <span>
                       <strong>{labels.customAnswerLabel}</strong>
                       {answer?.kind === 'custom' && (
-                        <input
+                        <LumenInput
                           aria-label={`${question.header} ${labels.customAnswerLabel}`}
                           type={question.secret ? 'password' : 'text'}
                           value={answer.value}
@@ -84,7 +85,7 @@ export function HbarAppUiQuestionnaire({
                   <label className="hbar-app-ui-questionnaire-option hbar-app-ui-questionnaire-freeform">
                     <span>
                       <strong>{labels.freeformLabel}</strong>
-                      <input
+                      <LumenInput
                         aria-label={`${question.header} ${labels.freeformLabel}`}
                         type={question.secret ? 'password' : 'text'}
                         value={answer?.value ?? ''}

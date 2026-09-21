@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {BookOpen, GitBranch, Menu, Moon, Search} from 'lucide-react'
 import type {HbarAppUiNavbarDocsContent} from './NavbarContent'
 import {NavbarButton, NavbarFrame, NavbarGlyph, NavbarIconOnly, reportNavbarAction, type NavbarSurfaceProps} from './NavbarPrimitives'
@@ -6,8 +7,20 @@ export function DocsNavbar({spec, onAction, content}: NavbarSurfaceProps & {read
     return <NavbarFrame spec={spec} onAction={onAction} className="hbar-app-ui-navbar-docs">
         <header><NavbarIconOnly className="hbar-app-ui-navbar-docs-menu" label={content.labels.openNavigation} icon={Menu} tier="sm" onClick={() => reportNavbarAction(onAction, spec, 'menu')}/><div className="hbar-app-ui-navbar-docs-brand"><span><NavbarGlyph icon={BookOpen} tier="md"/></span><strong>{content.brand}</strong></div><NavbarButton className="hbar-app-ui-navbar-docs-version" onClick={() => reportNavbarAction(onAction, spec, 'version')}><span>{content.version}</span></NavbarButton><nav aria-label={content.brand}>{content.navItems.map((item, index) => <NavbarButton key={`${index}-${item}`} onClick={() => reportNavbarAction(onAction, spec, 'navigate', item)}>{item}</NavbarButton>)}</nav><div className="hbar-app-ui-navbar-docs-actions"><NavbarButton className="hbar-app-ui-navbar-docs-search" onClick={() => reportNavbarAction(onAction, spec, 'search')}><NavbarGlyph icon={Search} tier="sm"/><span>{content.labels.search}</span><kbd>{content.labels.searchShortcut}</kbd></NavbarButton><NavbarIconOnly label={content.labels.switchTheme} icon={Moon} tier="sm" onClick={() => reportNavbarAction(onAction, spec, 'theme')}/><NavbarIconOnly label={content.labels.sourceRepository} icon={GitBranch} tier="sm" onClick={() => reportNavbarAction(onAction, spec, 'repository')}/></div></header>
         <main>
-            <aside data-hbar-app-ui-list-strategy={content.sidebarStrategy.kind} data-hbar-app-ui-expected-maximum={content.sidebarStrategy.expectedMaximum}>{content.sidebar.map((group, groupIndex) => <section key={`${groupIndex}-${group.group}`}><p>{group.group}</p><ul>{group.items.map((item, itemIndex) => <li key={`${itemIndex}-${item}`}><button type="button" onClick={() => reportNavbarAction(onAction, spec, 'navigate', item)}>{item}</button></li>)}</ul></section>)}</aside>
-            <article data-hbar-app-ui-list-strategy={content.linkStrategy.kind} data-hbar-app-ui-expected-maximum={content.linkStrategy.expectedMaximum}><p>{content.labels.documentMeta(content.brand, content.version, content.labels.latest)}</p><h1>{content.title}</h1><p>{content.description}</p>{content.links.map((link, index) => <button type="button" key={`${index}-${link}`} onClick={() => reportNavbarAction(onAction, spec, 'open', link)}><span>{link}</span><span>{content.labels.nextMarker}</span></button>)}</article>
+            <aside data-hbar-app-ui-list-strategy={content.sidebarStrategy.kind}
+                   data-hbar-app-ui-expected-maximum={content.sidebarStrategy.expectedMaximum}>{content.sidebar.map((group, groupIndex) =>
+                <section key={`${groupIndex}-${group.group}`}><p>{group.group}</p>
+                    <ul>{group.items.map((item, itemIndex) => <li key={`${itemIndex}-${item}`}>
+                        <LumenButton type="button"
+                                onClick={() => reportNavbarAction(onAction, spec, 'navigate', item)}>{item}</LumenButton>
+                    </li>)}</ul>
+                </section>)}</aside>
+            <article data-hbar-app-ui-list-strategy={content.linkStrategy.kind}
+                     data-hbar-app-ui-expected-maximum={content.linkStrategy.expectedMaximum}>
+                <p>{content.labels.documentMeta(content.brand, content.version, content.labels.latest)}</p>
+                <h1>{content.title}</h1><p>{content.description}</p>{content.links.map((link, index) => <LumenButton
+                type="button" key={`${index}-${link}`} onClick={() => reportNavbarAction(onAction, spec, 'open', link)}>
+                <span>{link}</span><span>{content.labels.nextMarker}</span></LumenButton>)}</article>
         </main>
     </NavbarFrame>
 }

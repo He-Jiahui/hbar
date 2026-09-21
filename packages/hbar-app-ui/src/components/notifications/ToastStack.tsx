@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useEffect, useState} from 'react'
 import {CheckCircle2, CircleAlert, Info, LoaderCircle, X} from 'lucide-react'
@@ -52,11 +53,17 @@ export function ToastStack({spec, onAction}: NotificationSurfaceProps) {
                 setPaused(true)
                 reportNotificationAction(onAction, spec, 'pause')
             }} onPointerLeave={() => setPaused(false)}>{toasts.length ? <ul>{toasts.map((toast) => <li key={toast.id}
-                                                                                                           className={`is-${toast.tone}`}><ToastGlyph
-                tone={toast.tone}/><span><strong>{toast.label}</strong><small>{isPaused ? 'Timer paused' : 'Dismisses automatically'}</small></span><NotificationIconButton
-                label={`Dismiss ${toast.label}`} onClick={() => setToasts((current) => current.filter((entry) => entry.id !== toast.id))}><HbarAppUiIcon icon={X} tier="sm"
-                /></NotificationIconButton></li>)}</ul> : <div className="hbar-app-ui-notifications-no-toasts"><span>No active toasts</span><button
-                type="button" disabled>Clear all</button></div>}</section>
+                                                                                                       className={`is-${toast.tone}`}>
+                    <ToastGlyph
+                        tone={toast.tone}/><span><strong>{toast.label}</strong><small>{isPaused ? 'Timer paused' : 'Dismisses automatically'}</small></span><NotificationIconButton
+                    label={`Dismiss ${toast.label}`}
+                    onClick={() => setToasts((current) => current.filter((entry) => entry.id !== toast.id))}><HbarAppUiIcon icon={X} tier="sm"
+                    /></NotificationIconButton></li>)}</ul> :
+                <div className="hbar-app-ui-notifications-no-toasts"><span>No active toasts</span>
+                    <LumenButton
+                        type="button" disabled>Clear all
+                    </LumenButton>
+                </div>}</section>
         </main>
     </NotificationFrame>
 }

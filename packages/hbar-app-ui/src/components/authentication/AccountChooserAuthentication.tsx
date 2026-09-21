@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {Check, Plus} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -16,19 +17,19 @@ export function AccountChooserAuthentication({spec, onAction, content}: HbarAppU
             label={content.labels.brand} compact/><h1>{content.labels.title}</h1><p>{content.labels.description}</p>
             <div
                 className={`hbar-app-ui-auth-account-list ${content.listStrategy.kind === 'pane-scroll' ? 'hbar-app-ui-auth-list-scroll' : ''}`}
-                data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{accounts.map((account) => <button
+                data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{accounts.map((account) => <LumenButton
                 type="button"
                 className={`hbar-app-ui-auth-account-row ${account.id === selected?.id ? 'is-selected' : ''}`}
                 key={account.id} onClick={() => setSelectedId(account.id)}><span
                 className="hbar-app-ui-auth-avatar">{account.initials}</span><span
                 className="hbar-app-ui-auth-account-copy"><strong>{account.name}</strong><small>{account.email}</small><AuthStatus
                 label={account.status} tone={account.statusTone}/></span>{account.id === selected?.id &&
-                <AuthIcon><Check/></AuthIcon>}</button>)}
-                <button type="button" className="hbar-app-ui-auth-account-row"
+                <AuthIcon><Check/></AuthIcon>}</LumenButton>)}
+                <LumenButton type="button" className="hbar-app-ui-auth-account-row"
                         onClick={() => onAction?.({variantId: spec.id, actionId: 'use-another'})}><span
                     className="hbar-app-ui-auth-avatar"><AuthIcon><Plus/></AuthIcon></span><span
                     className="hbar-app-ui-auth-account-copy"><strong>{content.labels.useAnother}</strong><small>{content.labels.useAnotherDescription}</small></span>
-                </button>
+                </LumenButton>
                 {!accounts.length && <p className="hbar-app-ui-auth-empty">{content.labels.emptyAccounts}</p>}</div>
             <AuthButton type="button" tone="accent" disabled={!selected} onClick={() => selected && onAction?.({
                 variantId: spec.id,
@@ -38,10 +39,10 @@ export function AccountChooserAuthentication({spec, onAction, content}: HbarAppU
                 className="hbar-app-ui-auth-footer-note">{selected ? content.labels.signingInAs(selected.email) : content.labels.useAnotherDescription}</p>
         </AuthCard>
             <p className="hbar-app-ui-auth-footer-note">{content.labels.finished}
-                <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
+                <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
                     variantId: spec.id,
                     actionId: 'sign-out-all'
-                })}>{content.labels.signOutAll}</button>
+                })}>{content.labels.signOutAll}</LumenButton>
             </p>
         </div>
     </AuthFrame>

@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon, LucideProps} from 'lucide-react'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
@@ -37,8 +38,8 @@ export function EditorButton({
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
     readonly kind?: 'neutral' | 'light' | 'icon' | 'quiet'
 }) {
-    return <button {...props} type={props.type ?? 'button'}
-                   className={`hbar-app-ui-editor-button hbar-app-ui-editor-button-${kind}${className ? ` ${className}` : ''}`}>{children}</button>
+    return <LumenButton {...props} type={props.type ?? 'button'}
+                   className={`hbar-app-ui-editor-button hbar-app-ui-editor-button-${kind}${className ? ` ${className}` : ''}`}>{children}</LumenButton>
 }
 
 export function EditorIconButton({
@@ -80,8 +81,8 @@ export function EditorInlineText({
             case 'emphasis':
                 return <em key={key}>{segment.value}</em>
             case 'suggestion':
-                return <button type="button" className="hbar-app-ui-editor-inline-suggestion" key={key}
-                               onClick={() => onOpenSuggestion?.(segment.suggestionId)}>{segment.value}</button>
+                return <LumenButton type="button" className="hbar-app-ui-editor-inline-suggestion" key={key}
+                               onClick={() => onOpenSuggestion?.(segment.suggestionId)}>{segment.value}</LumenButton>
         }
     })}</>
 }

@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import {ChevronRight} from 'lucide-react'
 import {useEffect, useMemo, useState} from 'react'
 import type {HbarAppUiAgentApprovalPermissionContent} from './AgentApprovalContent'
@@ -20,15 +21,19 @@ export function PermissionApproval({spec, onAction, content}: AgentApprovalSurfa
                     <h2>{content.requestTitle}</h2>
                     <p>{content.description}</p>
                 </div>
-                {requestOpen && <div aria-label={content.labels.scopes} className="hbar-app-ui-agent-approval-scope-list" role="group"><p className="hbar-app-ui-agent-approval-scope-heading">{content.labels.scopes}</p>
-                    {scopes.map((scope) => <label key={scope.id} htmlFor={`hbar-app-ui-approval-scope-${scope.id}`}>
-                        <input checked={checked.includes(scope.id)} id={`hbar-app-ui-approval-scope-${scope.id}`} onChange={() => {
-                            setChecked((current) => current.includes(scope.id) ? current.filter((id) => id !== scope.id) : [...current, scope.id])
-                            reportAgentApprovalAction(onAction, spec, 'toggle-permission-scope', scope.id)
-                        }} type="checkbox"/>
-                        <span><strong>{scope.title}</strong><small>{scope.description}</small></span>
-                    </label>)}
-                </div>}
+                {requestOpen &&
+                    <div aria-label={content.labels.scopes} className="hbar-app-ui-agent-approval-scope-list"
+                         role="group"><p
+                        className="hbar-app-ui-agent-approval-scope-heading">{content.labels.scopes}</p>
+                        {scopes.map((scope) => <label key={scope.id} htmlFor={`hbar-app-ui-approval-scope-${scope.id}`}>
+                            <LumenInput checked={checked.includes(scope.id)} id={`hbar-app-ui-approval-scope-${scope.id}`}
+                                   onChange={() => {
+                                       setChecked((current) => current.includes(scope.id) ? current.filter((id) => id !== scope.id) : [...current, scope.id])
+                                       reportAgentApprovalAction(onAction, spec, 'toggle-permission-scope', scope.id)
+                                   }} type="checkbox"/>
+                            <span><strong>{scope.title}</strong><small>{scope.description}</small></span>
+                        </label>)}
+                    </div>}
                 <footer className="hbar-app-ui-agent-approval-action-row">
                     <AgentApprovalButton aria-expanded={requestOpen} onClick={() => {
                         setRequestOpen((current) => !current)

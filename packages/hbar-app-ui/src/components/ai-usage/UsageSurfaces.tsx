@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import { useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, ChevronDown, Gauge, Search, SlidersHorizontal } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
@@ -61,7 +62,7 @@ function Choice({ choice, disabled = false }: { readonly choice: UsageChoice; re
   return (
     <label>
       {choice.label}
-      <select
+      <LumenSelect
         aria-label={choice.label}
         value={choice.options.some((option) => option.id === choice.value) ? choice.value : ''}
         disabled={disabled}
@@ -73,7 +74,7 @@ function Choice({ choice, disabled = false }: { readonly choice: UsageChoice; re
             {option.label}
           </option>
         ))}
-      </select>
+      </LumenSelect>
     </label>
   )
 }
@@ -194,7 +195,7 @@ export function HbarAppUiSeatUsage(content: HbarAppUiSeatUsageContent) {
     <Frame content={content} variant={4}>
       <div className="hbar-app-ui-inline-search">
         <HbarAppUiIcon icon={Search} tier="sm" />
-        <input
+        <LumenInput
           value={content.query}
           onChange={(event) => content.onQueryChange(event.target.value)}
           placeholder={content.searchLabel}
@@ -235,7 +236,7 @@ export function HbarAppUiBudgetSettings(content: HbarAppUiBudgetSettingsContent)
         <label>
           {content.labels.cap}
           <output>{content.cap.display}</output>
-          <input
+          <LumenInput
             aria-label={content.labels.cap}
             type={content.cap.input}
             min={content.cap.minimum}
@@ -250,7 +251,7 @@ export function HbarAppUiBudgetSettings(content: HbarAppUiBudgetSettingsContent)
         {content.hardStop && (
           <label className="hbar-app-ui-toggle-row">
             <span>{content.hardStop.label}</span>
-            <button
+            <LumenButton
               type="button"
               role="switch"
               aria-label={content.hardStop.label}
@@ -260,7 +261,7 @@ export function HbarAppUiBudgetSettings(content: HbarAppUiBudgetSettingsContent)
               onClick={() => content.hardStop?.onChange(!content.hardStop.checked)}
             >
               <i />
-            </button>
+            </LumenButton>
           </label>
         )}
         {content.error && <p role="alert">{content.error}</p>}
@@ -298,7 +299,7 @@ export function HbarAppUiUsageRequestLog(content: HbarAppUiUsageRequestLogConten
         items={content.rows}
         render={(row) => (
           <div className={`hbar-app-ui-request-row ${row.id === openId ? 'is-open' : ''}`}>
-            <button
+            <LumenButton
               type="button"
               aria-label={row.expandLabel}
               aria-expanded={openId === row.id}
@@ -309,7 +310,7 @@ export function HbarAppUiUsageRequestLog(content: HbarAppUiUsageRequestLogConten
               <span>{row.tokens}</span>
               <span>{row.latency}</span>
               <b>{row.cost}</b>
-            </button>
+            </LumenButton>
             {openId === row.id && <pre>{row.details}</pre>}
           </div>
         )}

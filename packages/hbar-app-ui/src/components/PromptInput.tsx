@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import { HbarAppUiPromptComposer, useHbarAppUiPromptContent } from './prompt-input/Composer'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
@@ -28,7 +29,7 @@ function PromptInputTwo({spec, onAction}: PromptProps) {
     const tokenCount = seededNumber(spec.profile.seed, 420, 420)
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-prompt-variant-2"><HbarAppUiToolbar title="Prompt box"
-                                                                                          detail={`${tokenCount} tokens estimated`}/><select
+                                                                                          detail={`${tokenCount} tokens estimated`}/><LumenSelect
         aria-label="Model selector" value={model} onChange={(event) => {
         setModel(event.target.value);
         onAction?.({variantId: spec.id, actionId: 'model', value: event.target.value})
@@ -36,7 +37,7 @@ function PromptInputTwo({spec, onAction}: PromptProps) {
         <option>Fast</option>
         <option>Balanced</option>
         <option>Reasoning</option>
-    </select><span className="hbar-app-ui-token-count">{tokenCount} / 8k</span>
+    </LumenSelect><span className="hbar-app-ui-token-count">{tokenCount} / 8k</span>
         <div className="hbar-app-ui-tool-toggles">{['Search', 'Browser', 'Files'].map((tool) => <HbarAppUiButton
             key={tool} className={tools.includes(tool) ? 'is-selected' : ''}
             onClick={() => setTools((current) => current.includes(tool) ? current.filter((item) => item !== tool) : [...current, tool])}>{tools.includes(tool) ?
@@ -63,8 +64,8 @@ function PromptInputThree({spec, onAction}: PromptProps) {
             <HbarAppUiComposer placeholder="Describe what you need"
                                onSubmit={(value) => onAction?.({variantId: spec.id, actionId: 'send', value})}/>
             <div className="hbar-app-ui-recent-prompts"><strong>Recent prompts</strong>
-                <button type="button">Review yesterday's run</button>
-                <button type="button">Prepare a handoff note</button>
+                <LumenButton type="button">Review yesterday's run</LumenButton>
+                <LumenButton type="button">Prepare a handoff note</LumenButton>
             </div>
         </div>
     </ActionSurfaceFrame>
@@ -79,7 +80,7 @@ function PromptInputFour({spec, onAction}: PromptProps) {
         setValid(true);
         onAction?.({variantId: spec.id, actionId: 'save'})
     }}><HbarAppUiIcon icon={Check} tier="sm" />Save template</HbarAppUiButton>
-        <div className="hbar-app-ui-template-editor"><label>Template name<input defaultValue="Release summary"/></label><label>Prompt<textarea
+        <div className="hbar-app-ui-template-editor"><label>Template name<LumenInput defaultValue="Release summary"/></label><label>Prompt<LumenTextarea
             defaultValue="Summarise {{workspace}} for {{audience}} by {{deadline}}."
             onChange={(event) => setValid(event.target.value.includes('{{') && event.target.value.includes('}}'))}/></label>
             <div className="hbar-app-ui-variable-list">
@@ -122,7 +123,7 @@ function PromptInputSix({spec, onAction}: PromptProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className="hbar-app-ui-prompt-variant-6"><HbarAppUiToolbar title="Scoped prompt bar"
                                                                                           detail="Mention a source to narrow context"/><HbarAppUiButton
-        onClick={() => setMentionOpen((value) => !value)}><HbarAppUiIcon icon={AtSign} tier="sm" />Mention</HbarAppUiButton><select
+        onClick={() => setMentionOpen((value) => !value)}><HbarAppUiIcon icon={AtSign} tier="sm" />Mention</HbarAppUiButton><LumenSelect
         aria-label="Context scope" value={scope} onChange={(event) => {
         setScope(event.target.value);
         onAction?.({variantId: spec.id, actionId: 'picker', value: event.target.value})
@@ -130,14 +131,14 @@ function PromptInputSix({spec, onAction}: PromptProps) {
         <option>Workspace</option>
         <option>Current file</option>
         <option>Selected run</option>
-    </select>{mentionOpen && <HbarAppUiSpotlight className="hbar-app-ui-mention-menu">
-        <button type="button" onClick={() => setMentionOpen(false)}><HbarAppUiIcon icon={AtSign} tier="sm" />activity.log</button>
-        <button type="button" onClick={() => setMentionOpen(false)}><HbarAppUiIcon icon={AtSign} tier="sm" />README.md</button>
+    </LumenSelect>{mentionOpen && <HbarAppUiSpotlight className="hbar-app-ui-mention-menu">
+        <LumenButton type="button" onClick={() => setMentionOpen(false)}><HbarAppUiIcon icon={AtSign} tier="sm" />activity.log</LumenButton>
+        <LumenButton type="button" onClick={() => setMentionOpen(false)}><HbarAppUiIcon icon={AtSign} tier="sm" />README.md</LumenButton>
     </HbarAppUiSpotlight>}
         <div className="hbar-app-ui-source-pills"><span><HbarAppUiIcon icon={FileText} tier="xs" />{scope}</span><span><HbarAppUiIcon icon={FileText} tier="xs" />run-2026-09</span>
-            <button type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'clear-context'})}><HbarAppUiIcon icon={X} tier="xs"
+            <LumenButton type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'clear-context'})}><HbarAppUiIcon icon={X} tier="xs"
                 />Clear
-            </button>
+            </LumenButton>
         </div>
         <HbarAppUiComposer placeholder="Ask with scoped context" onSubmit={(value) => onAction?.({
             variantId: spec.id,

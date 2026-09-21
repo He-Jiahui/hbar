@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { useEffect, useId, useRef, type ReactNode, type RefObject, type KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
@@ -97,9 +98,9 @@ export function HbarAppUiDialog({
       {!chromeless && (
         <header>
           <h2 id={titleId}>{title}</h2>
-          <button type="button" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
+          <LumenButton type="button" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
             <HbarAppUiIcon icon={X} />
-          </button>
+          </LumenButton>
         </header>
       )}
       <div className="hbar-app-ui-native-dialog-body">{children}</div>

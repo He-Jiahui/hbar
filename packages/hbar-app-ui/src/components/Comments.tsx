@@ -1,3 +1,4 @@
+import { LumenButton, LumenTextarea } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {
@@ -38,16 +39,16 @@ function ThreadedDiscussion({spec, onAction}: CommentsProps) {
         onAction?.({variantId: spec.id, actionId: 'resolve', value: String(!resolved)})
     }}>{resolved ? <HbarAppUiIcon icon={Check} tier="sm" /> : null}{resolved ? 'Resolved' : 'Resolve'}</HbarAppUiButton>
         <div className="hbar-app-ui-comment-thread"><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">A</span>
-            <div><strong>Avery</strong><p>Can we keep this state local to the session?</p><small>5m ago · <button
-                type="button"><HbarAppUiIcon icon={Heart} tier="xs" /> 2</button></small></div>
+            <div><strong>Avery</strong><p>Can we keep this state local to the session?</p><small>5m ago · <LumenButton
+                type="button"><HbarAppUiIcon icon={Heart} tier="xs" /> 2</LumenButton></small></div>
             <HbarAppUiIcon icon={MoreHorizontal} tier="sm" /></HbarAppUiSpotlight>
             <div className="hbar-app-ui-comment-replies"><HbarAppUiSpotlight><span
                 className="hbar-app-ui-avatar">M</span>
                 <div><strong>Mina</strong><p>Agreed — the action feedback is beside the row now.</p><small>2m ago
-                    · <button type="button"><HbarAppUiIcon icon={Smile} tier="xs" /> 1</button></small></div>
+                    · <LumenButton type="button"><HbarAppUiIcon icon={Smile} tier="xs" /> 1</LumenButton></small></div>
             </HbarAppUiSpotlight></div>
         </div>
-        <textarea placeholder="Reply to this thread" onKeyDown={(event) => {
+        <LumenTextarea placeholder="Reply to this thread" onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 onAction?.({variantId: spec.id, actionId: 'reply', value: event.currentTarget.value});
@@ -63,14 +64,14 @@ function Annotation({spec, onAction}: CommentsProps) {
                                                                                             detail="Click a highlighted range"/>
         <div className="hbar-app-ui-annotation-layout">
             <article>
-                <p>Keep <button type="button" className={range === 'state local' ? 'is-highlighted' : ''}
-                                onClick={() => setRange('state local')}>this state local</button> to the session and
+                <p>Keep <LumenButton type="button" className={range === 'state local' ? 'is-highlighted' : ''}
+                                onClick={() => setRange('state local')}>this state local</LumenButton> to the session and
                     show the result beside the action.
                 </p>
-                <p>When the operation fails, <button type="button"
+                <p>When the operation fails, <LumenButton type="button"
                                                      className={range === 'operation fails' ? 'is-highlighted' : ''}
                                                      onClick={() => setRange('operation fails')}>explain
-                    why</button> and offer a recovery path.
+                    why</LumenButton> and offer a recovery path.
                 </p>
             </article>
             <aside><HbarAppUiSpotlight><span className="hbar-app-ui-avatar">A</span><strong>{range}</strong>
@@ -115,9 +116,9 @@ function MentionComposer({spec, onAction}: CommentsProps) {
             /></HbarAppUiIconButton><HbarAppUiIconButton label="Attach"><HbarAppUiIcon icon={Paperclip} tier="sm"
             /></HbarAppUiIconButton></div>
         {mention && <HbarAppUiSpotlight className="hbar-app-ui-mention-menu">
-            <button type="button" onClick={() => setMention(false)}>Avery Chen</button>
-            <button type="button" onClick={() => setMention(false)}>Mina Patel</button>
-        </HbarAppUiSpotlight>}<textarea placeholder="Write a comment…"/>
+            <LumenButton type="button" onClick={() => setMention(false)}>Avery Chen</LumenButton>
+            <LumenButton type="button" onClick={() => setMention(false)}>Mina Patel</LumenButton>
+        </HbarAppUiSpotlight>}<LumenTextarea placeholder="Write a comment…"/>
         <div className="hbar-app-ui-composer-actions"><span>Markdown supported</span><HbarAppUiButton tone="accent"
                                                                                                       onClick={() => onAction?.({
                                                                                                           variantId: spec.id,
@@ -153,10 +154,10 @@ function CanvasComments({spec, onAction}: CommentsProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-comments-variant-6">
         <div className="hbar-app-ui-canvas-comments">
             <main>
-                <div className="hbar-app-ui-canvas-art"><span>Workspace canvas</span>{[1, 2, 3].map((number) => <button
+                <div className="hbar-app-ui-canvas-art"><span>Workspace canvas</span>{[1, 2, 3].map((number) => <LumenButton
                     type="button" className={pin === number ? 'is-active' : ''}
                     style={{left: `${20 + number * 22}%`, top: `${24 + number * 15}%`}} key={number}
-                    onClick={() => setPin(number)}>{number}</button>)}</div>
+                    onClick={() => setPin(number)}>{number}</LumenButton>)}</div>
             </main>
             <aside><HbarAppUiToolbar title="Comments" detail={`Pin ${pin} selected`}/><HbarAppUiSpotlight><span
                 className="hbar-app-ui-avatar">{pin}</span><strong>Comment on pin {pin}</strong><p>Keep this region

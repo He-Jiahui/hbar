@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import {Bolt, Database, Layers3, Pencil, Plus, Shield, Sparkles, Users} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -93,7 +94,7 @@ export function PlansBilling({spec, onAction, content}: HbarAppUiVariantProps & 
                             const checked = toggleValues[key] ?? toggle.enabled
                             return <label className="hbar-app-ui-billing-toggle-row" key={toggle.id}>
                                 <span>{toggle.label}</span>
-                                <input type="checkbox" role="switch" aria-label={content.labels.togglePlan(plan.name, toggle.label)} aria-checked={checked} checked={checked}
+                                <LumenInput type="checkbox" role="switch" aria-label={content.labels.togglePlan(plan.name, toggle.label)} aria-checked={checked} checked={checked}
                                        onChange={(event) => updateToggle(plan.id, toggle.id, event.target.checked)}/>
                             </label>
                         })}

@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
 import type {LucideIcon} from 'lucide-react'
 import type {ButtonHTMLAttributes, CSSProperties, ReactNode} from 'react'
@@ -31,7 +32,8 @@ export function AgentActivityFrame({spec, onAction, className, children}: AgentA
 export function AgentActivityButton({children, className = '', type = 'button', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
     readonly children: ReactNode
 }) {
-    return <button {...props} className={`hbar-app-ui-agent-activity-button ${className}`} type={type}>{children}</button>
+    return <LumenButton {...props} className={`hbar-app-ui-agent-activity-button ${className}`}
+                   type={type}>{children}</LumenButton>
 }
 
 export function AgentActivityGlyph({icon: Icon, tier = 'md'}: {readonly icon: LucideIcon; readonly tier?: AgentActivityIconTier}) { return <HbarAppUiIcon icon={Icon} tier={tier} /> }

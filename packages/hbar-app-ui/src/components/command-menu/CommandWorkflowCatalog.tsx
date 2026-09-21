@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type { HbarAppUiVariantProps } from '../../types'
 import { CommandBackdrop, CommandFrame, useCommandEscape } from './CommandPrimitives'
 import { useCommandMenuContent } from './CommandContent'
@@ -11,9 +12,9 @@ export function CommandWorkflowCatalog(props: HbarAppUiVariantProps) {
     <CommandFrame {...props} className={`hbar-app-ui-command-variant-${props.spec.variant}`}>
       {content && (
         <>
-          <button type="button" className="hbar-app-ui-command-trigger" onClick={content.onOpen}>
+          <LumenButton type="button" className="hbar-app-ui-command-trigger" onClick={content.onOpen}>
             {content.trigger}
-          </button>
+          </LumenButton>
           {content.open && (
             <CommandBackdrop closeLabel={content.closeLabel} onClose={content.onClose}>
               <section

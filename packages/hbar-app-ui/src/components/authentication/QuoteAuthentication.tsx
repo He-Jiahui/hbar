@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import {type HbarAppUiAuthQuoteContent, uniqueHbarAppUiAuthItems} from './AuthContent'
@@ -35,12 +36,12 @@ export function QuoteAuthentication({spec, onAction, content}: HbarAppUiVariantP
                            onChange={setEmail}/>
                 <div className="hbar-app-ui-auth-field">
                     <div className="hbar-app-ui-auth-help-row"><span>{content.labels.passwordLabel}</span>
-                        <button type="button" onClick={() => onAction?.({
+                        <LumenButton type="button" onClick={() => onAction?.({
                             variantId: spec.id,
                             actionId: 'forgot-password'
-                        })}>{content.labels.forgotPassword}</button>
+                        })}>{content.labels.forgotPassword}</LumenButton>
                     </div>
-                    <div className="hbar-app-ui-auth-input-wrap"><input type={visible ? 'text' : 'password'}
+                    <div className="hbar-app-ui-auth-input-wrap"><LumenInput type={visible ? 'text' : 'password'}
                                                                         value={password}
                                                                         placeholder={content.labels.passwordPlaceholder}
                                                                         onChange={(event) => setPassword(event.currentTarget.value)}/><AuthPasswordButton
@@ -62,10 +63,10 @@ export function QuoteAuthentication({spec, onAction, content}: HbarAppUiVariantP
                                                                                   })}/>
             </AuthCard>
                 <p className="hbar-app-ui-auth-footer-note">{content.labels.newAccount}
-                    <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
+                    <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
                         variantId: spec.id,
                         actionId: 'create-account'
-                    })}>{content.labels.createAccount}</button>
+                    })}>{content.labels.createAccount}</LumenButton>
                 </p>
             </main>
             <aside><span className="hbar-app-ui-auth-eyebrow">{content.labels.quoteEyebrow}</span>{quote &&
@@ -79,12 +80,12 @@ export function QuoteAuthentication({spec, onAction, content}: HbarAppUiVariantP
                         className="hbar-app-ui-auth-metric" key={`${metric.label}-${metric.value}`}>
                         <strong>{metric.value}</strong><small>{metric.label}</small></div>)}</div>
                     <div className="hbar-app-ui-auth-inline-actions">
-                        <button type="button" className="hbar-app-ui-auth-inline-link"
+                        <LumenButton type="button" className="hbar-app-ui-auth-inline-link"
                                 aria-label={content.labels.previousQuote}
-                                onClick={() => moveQuote(-1)}>{content.labels.previousQuote}</button>
-                        <button type="button" className="hbar-app-ui-auth-inline-link"
+                                onClick={() => moveQuote(-1)}>{content.labels.previousQuote}</LumenButton>
+                        <LumenButton type="button" className="hbar-app-ui-auth-inline-link"
                                 aria-label={content.labels.nextQuote}
-                                onClick={() => moveQuote(1)}>{content.labels.nextQuote}</button>
+                                onClick={() => moveQuote(1)}>{content.labels.nextQuote}</LumenButton>
                     </div>
                 </div>}</aside>
         </div>

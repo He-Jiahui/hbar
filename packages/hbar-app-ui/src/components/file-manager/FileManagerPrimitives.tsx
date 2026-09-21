@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import {Archive, File, FileImage, FileText, Folder} from 'lucide-react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -11,8 +12,11 @@ export function FileManagerFrame({spec, onAction, className, children}: HbarAppU
     </ActionSurfaceFrame>
 }
 
-export function FileManagerButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {readonly tone?: 'neutral' | 'accent'}) {
-    return <button {...props} className={`hbar-app-ui-file-manager-button hbar-app-ui-file-manager-button-${tone} ${props.className ?? ''}`}>{children}</button>
+export function FileManagerButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
+    readonly tone?: 'neutral' | 'accent'
+}) {
+    return <LumenButton {...props}
+                   className={`hbar-app-ui-file-manager-button hbar-app-ui-file-manager-button-${tone} ${props.className ?? ''}`}>{children}</LumenButton>
 }
 
 export function FileManagerIcon({kind, tier = 'sm', label}: {readonly kind: HbarAppUiFileKind; readonly tier?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'; readonly label?: string | undefined}) {

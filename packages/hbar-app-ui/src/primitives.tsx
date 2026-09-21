@@ -1,4 +1,11 @@
 import {
+    LumenButton,
+    LumenIconButton,
+    LumenNavigationButton,
+    LumenTextarea,
+    LumenText,
+} from '@lumen/app-ui'
+import {
     type ButtonHTMLAttributes,
     type ElementType,
     type HTMLAttributes,
@@ -55,7 +62,7 @@ export function HbarAppUiButton({
   ...props
 }: HbarAppUiButtonProps) {
   return (
-    <button
+    <LumenButton
       {...props}
       type={props.type ?? 'button'}
       className={`hbar-app-ui-button${className ? ` ${className}` : ''}`}
@@ -66,7 +73,7 @@ export function HbarAppUiButton({
       disabled={disabled || loading}
     >
       {children}
-    </button>
+    </LumenButton>
   )
 }
 
@@ -253,7 +260,7 @@ export function HbarAppUiComposer({placeholder = 'Write a message', onSubmit}: {
     return <form className="hbar-app-ui-composer" onSubmit={(event) => {
         event.preventDefault();
         submit()
-    }}><textarea value={value} placeholder={placeholder} onChange={(event) => setValue(event.target.value)}
+    }}><LumenTextarea className="hbar-app-ui-composer-input" value={value} placeholder={placeholder} onChange={(event) => setValue(event.target.value)}
                  onKeyDown={(event) => {
                      if (event.key === 'Enter' && !event.shiftKey) {
                          event.preventDefault();

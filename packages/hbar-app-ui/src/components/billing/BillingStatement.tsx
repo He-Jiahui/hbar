@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import {ArrowUpRight, Download, MoreHorizontal, Search} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -65,7 +66,7 @@ export function BillingStatement({spec, onAction, content}: HbarAppUiVariantProp
                         <label className="hbar-app-ui-billing-search-field">
                             <span className="hbar-app-ui-billing-visually-hidden">{content.labels.searchLabel}</span>
                             <BillingIcon tier="sm"><Search/></BillingIcon>
-                            <input type="search" value={query} aria-label={content.labels.searchLabel} placeholder={content.labels.searchPlaceholder}
+                            <LumenInput type="search" value={query} aria-label={content.labels.searchLabel} placeholder={content.labels.searchPlaceholder}
                                    onChange={(event) => setQuery(event.target.value)}/>
                         </label>
                         <BillingButton tone="accent" type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'new-invoice'})}>{content.labels.newInvoice}</BillingButton>

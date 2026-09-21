@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import type {HbarAppUiAuthProviderFirstContent} from './AuthContent'
@@ -37,11 +38,11 @@ export function ProviderFirstAuthentication({spec, onAction, content}: HbarAppUi
                     <AuthDivider label={content.labels.divider}/>
                     <div className="hbar-app-ui-auth-help-row">
                         <span>{isSso ? content.labels.ssoLabel : content.labels.emailLabel}</span>
-                        <button type="button" onClick={() => {
+                        <LumenButton type="button" onClick={() => {
                             const next = isSso ? content.emailProviderId : content.ssoProviderId;
                             setProviderId(next);
                             onAction?.({variantId: spec.id, actionId: 'toggle-provider', value: next})
-                        }}>{isSso ? content.labels.emailLabel : content.labels.singleSignOn}</button>
+                        }}>{isSso ? content.labels.emailLabel : content.labels.singleSignOn}</LumenButton>
                     </div>
                     <AuthField label={isSso ? content.labels.ssoLabel : content.labels.emailLabel}
                                placeholder={isSso ? content.labels.ssoPlaceholder : content.labels.emailPlaceholder}
@@ -52,15 +53,15 @@ export function ProviderFirstAuthentication({spec, onAction, content}: HbarAppUi
                         value: provider?.id ?? providerId
                     })}>{content.labels.continueLabel}</AuthButton>
                     <p className="hbar-app-ui-auth-footer-note">{content.labels.termsPrefix}
-                        <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
+                        <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
                             variantId: spec.id,
                             actionId: 'terms'
-                        })}>{content.labels.terms}</button>
+                        })}>{content.labels.terms}</LumenButton>
                         {content.labels.privacyPrefix}
-                        <button type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
+                        <LumenButton type="button" className="hbar-app-ui-auth-inline-link" onClick={() => onAction?.({
                             variantId: spec.id,
                             actionId: 'privacy'
-                        })}>{content.labels.privacy}</button>
+                        })}>{content.labels.privacy}</LumenButton>
                     </p>
                 </div>
             </main>

@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Bookmark, Check, Download, FileText, GitBranch} from 'lucide-react'
@@ -40,11 +41,11 @@ function IntegrationCard({spec, onAction}: CardProps) {
                 <div>
                     <strong>{name}</strong><small>{connected && index === 0 ? 'Connected to Project Atlas' : 'Connect this service'}</small>
                 </div>
-                <button type="button" role="switch" aria-checked={connected && index === 0}
+                <LumenButton type="button" role="switch" aria-checked={connected && index === 0}
                         className={`hbar-app-ui-switch ${connected && index === 0 ? 'is-on' : ''}`} onClick={() => {
                     setConnected((value) => !value);
                     onAction?.({variantId: spec.id, actionId: 'connect', value: name})
-                }}><i/></button>
+                }}><i/></LumenButton>
             </HbarAppUiSpotlight>)}</div>
     </ActionSurfaceFrame>
 }
@@ -60,10 +61,10 @@ function OnboardingCards({spec, onAction}: CardProps) {
         <div className="hbar-app-ui-onboarding-columns">{items.map((item, index) => <HbarAppUiSpotlight
             className={index < done ? 'is-complete' : ''} key={item}><span>{index < done ?
             <HbarAppUiIcon icon={Check} tier="sm" /> : index + 1}</span><strong>{item}</strong>
-            <button type="button" onClick={() => {
+            <LumenButton type="button" onClick={() => {
                 setDone(Math.max(done, index + 1));
                 onAction?.({variantId: spec.id, actionId: 'step', value: item})
-            }}>{index < done ? 'Done' : 'Start'}</button>
+            }}>{index < done ? 'Done' : 'Start'}</LumenButton>
         </HbarAppUiSpotlight>)}</div>
     </ActionSurfaceFrame>
 }
@@ -152,9 +153,9 @@ function FileTiles({spec, onAction}: CardProps) {
         selection</HbarAppUiButton>
         <div
             className="hbar-app-ui-file-tile-grid">{['README.md', 'report.csv', 'design.fig', 'archive.zip'].map((file) =>
-            <button type="button" className={selected === file ? 'is-selected' : ''} key={file}
+            <LumenButton type="button" className={selected === file ? 'is-selected' : ''} key={file}
                     onClick={() => setSelected(file)}><HbarAppUiIcon icon={FileText} tier="lg" /><strong>{file}</strong><small>Updated
-                today</small></button>)}</div>
+                today</small></LumenButton>)}</div>
         <HbarAppUiSpotlight className="hbar-app-ui-file-preview"><HbarAppUiIcon icon={FileText} tier="md" />
             <div><strong>{selected}</strong><p>Preview and metadata appear here for the selected asset.</p></div>
         </HbarAppUiSpotlight></ActionSurfaceFrame>

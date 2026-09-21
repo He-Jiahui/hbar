@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import {ArrowDownUp, Ellipsis, Share2, Trash2} from 'lucide-react'
 import {useMemo, useState} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
@@ -36,17 +37,37 @@ export function AssetLibrary({spec, onAction, content}: HbarAppUiVariantProps & 
                 <p>{content.labels.breadcrumb}</p>
                 <div><h2>{content.labels.title}</h2><span>{content.labels.summary}</span></div>
                 <div className="hbar-app-ui-file-manager-asset-controls">
-                    <div className="hbar-app-ui-file-manager-filter-row" role="group" aria-label={content.labels.title}>{options.map((option) => <button type="button" key={option.id} aria-pressed={filter === option.id} className={filter === option.id ? 'is-selected' : ''} onClick={() => setFilter(option.id)}>{option.label}</button>)}</div>
-                    <FileManagerButton type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'sort'})}><ArrowDownUp className="hbar-app-ui-file-manager-icon hbar-app-ui-icon-xs" aria-hidden="true" />{content.labels.sort}</FileManagerButton>
+                    <div className="hbar-app-ui-file-manager-filter-row" role="group"
+                         aria-label={content.labels.title}>{options.map((option) => <LumenButton type="button"
+                                                                                            key={option.id}
+                                                                                            aria-pressed={filter === option.id}
+                                                                                            className={filter === option.id ? 'is-selected' : ''}
+                                                                                            onClick={() => setFilter(option.id)}>{option.label}</LumenButton>)}</div>
+                    <FileManagerButton type="button" onClick={() => onAction?.({variantId: spec.id, actionId: 'sort'})}><ArrowDownUp
+                        className="hbar-app-ui-file-manager-icon hbar-app-ui-icon-xs"
+                        aria-hidden="true"/>{content.labels.sort}</FileManagerButton>
                 </div>
             </header>
             <section className="hbar-app-ui-file-manager-asset-section" aria-label={content.labels.folders}>
                 <h3>{content.labels.folders}</h3>
-                <div className="hbar-app-ui-file-manager-folder-cards" data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{folders.map((folder) => <button type="button" key={folder.id} onClick={() => onAction?.({variantId: spec.id, actionId: 'open-folder', value: folder.id})}><FileManagerIcon kind={folder.kind ?? 'folder'} tier="sm" /><span>{folder.name}</span>{folder.detail && <small>{folder.detail}</small>}</button>)}</div>
+                <div className="hbar-app-ui-file-manager-folder-cards"
+                     data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{folders.map((folder) => <LumenButton
+                    type="button" key={folder.id}
+                    onClick={() => onAction?.({variantId: spec.id, actionId: 'open-folder', value: folder.id})}>
+                    <FileManagerIcon kind={folder.kind ?? 'folder'}
+                                     tier="sm"/><span>{folder.name}</span>{folder.detail &&
+                    <small>{folder.detail}</small>}</LumenButton>)}</div>
             </section>
             <section className="hbar-app-ui-file-manager-asset-section hbar-app-ui-file-manager-asset-files" aria-label={content.labels.files}>
                 <h3>{content.labels.files}</h3>
-                <div className="hbar-app-ui-file-manager-asset-grid" data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{visibleAssets.map((asset) => <button type="button" className={selectedIds.includes(asset.id) ? 'is-selected' : ''} aria-label={content.labels.selectAsset(asset.name)} key={asset.id} onClick={() => toggleSelection(asset.id)}><span className="hbar-app-ui-file-manager-asset-preview"><FileManagerIcon kind={asset.kind} tier="md" /></span><span>{asset.name}</span><small>{content.labels.assetSummary(asset.format, asset.size)}</small></button>)}</div>
+                <div className="hbar-app-ui-file-manager-asset-grid"
+                     data-hbar-app-ui-list-strategy={content.listStrategy.kind}>{visibleAssets.map((asset) => <LumenButton
+                    type="button" className={selectedIds.includes(asset.id) ? 'is-selected' : ''}
+                    aria-label={content.labels.selectAsset(asset.name)} key={asset.id}
+                    onClick={() => toggleSelection(asset.id)}><span
+                    className="hbar-app-ui-file-manager-asset-preview"><FileManagerIcon kind={asset.kind}
+                                                                                        tier="md"/></span><span>{asset.name}</span><small>{content.labels.assetSummary(asset.format, asset.size)}</small>
+                </LumenButton>)}</div>
                 {!visibleAssets.length && <p className="hbar-app-ui-file-manager-empty">{content.labels.empty}</p>}
             </section>
             <footer className="hbar-app-ui-file-manager-selection-footer">

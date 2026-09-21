@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../icon'
 import {useState} from 'react'
 import {Archive, ChevronDown, ChevronRight, Filter, Inbox, RotateCcw, Search, Undo2} from 'lucide-react'
@@ -21,10 +22,10 @@ function ExpandMetrics({spec, onAction}: ListProps) {
         <div
             className="hbar-app-ui-metric-rows">{['Active runs', 'Review time', 'Success rate', 'Queue depth'].map((metric, index) =>
             <div key={metric}>
-                <button type="button" onClick={() => setOpen(open === metric ? undefined : metric)}><HbarAppUiIcon icon={ChevronRight} tier="sm"
+                <LumenButton type="button" onClick={() => setOpen(open === metric ? undefined : metric)}><HbarAppUiIcon icon={ChevronRight} tier="sm"
 
                     className={open === metric ? 'is-open' : ''}/><strong>{metric}</strong><b>{[24, '2.4h', '98.4%', 8][index]}</b>
-                </button>
+                </LumenButton>
                 {open === metric &&
                     <HbarAppUiSpotlight><p>Computed from the current workspace projection over the selected period.</p>
                         <code>definition:
@@ -44,10 +45,10 @@ function SpendList({spec, onAction}: ListProps) {
                                                              }, {id: '30d', label: '30d'}]}
                                                              onChange={(value) => setPeriod(value)}/>
         <div className="hbar-app-ui-ranked-list">{['Workspace', 'Automation', 'Review', 'Archive'].map((name, index) =>
-            <button type="button" className={selected === name ? 'is-selected' : ''} key={name}
+            <LumenButton type="button" className={selected === name ? 'is-selected' : ''} key={name}
                     onClick={() => setSelected(name)}><span>{index + 1}</span><strong>{name}</strong><HbarAppUiProgress
                 value={72 - index * 13} label={`${name} spend`} tone="accent"/><b>${(32 - index * 5.2).toFixed(2)}</b>
-            </button>)}</div>
+            </LumenButton>)}</div>
         <HbarAppUiButton tone="accent" onClick={() => onAction?.({
             variantId: spec.id,
             actionId: 'open',
@@ -96,8 +97,8 @@ function ReorderQueue({spec, onAction}: ListProps) {
                                                                                         tone="positive"/>
         <ol className="hbar-app-ui-reorder-list">{items.map((item, index) => <li key={item}>
             <span>{index + 1}</span><strong>{item}</strong>
-            <button type="button" aria-label={`Move ${item} up`} onClick={() => move(index, -1)}>↑</button>
-            <button type="button" aria-label={`Move ${item} down`} onClick={() => move(index, 1)}>↓</button>
+            <LumenButton type="button" aria-label={`Move ${item} up`} onClick={() => move(index, -1)}>↑</LumenButton>
+            <LumenButton type="button" aria-label={`Move ${item} down`} onClick={() => move(index, 1)}>↓</LumenButton>
         </li>)}</ol>
         <p className="hbar-app-ui-live-note" aria-live="polite">Drag or use the arrow buttons to change order.</p>
     </ActionSurfaceFrame>
@@ -109,7 +110,7 @@ function AssetLibrary({spec, onAction}: ListProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-list-variant-5"><HbarAppUiToolbar
         title="Asset library" detail={`${selected.length} selected`}/><HbarAppUiButton
         onClick={() => setSelected([])}><HbarAppUiIcon icon={Undo2} tier="sm" />Clear</HbarAppUiButton>
-        <div className="hbar-app-ui-asset-list">{assets.map((asset) => <label key={asset}><input type="checkbox"
+        <div className="hbar-app-ui-asset-list">{assets.map((asset) => <label key={asset}><LumenInput type="checkbox"
                                                                                                  checked={selected.includes(asset)}
                                                                                                  onChange={() => setSelected((current) => current.includes(asset) ? current.filter((item) => item !== asset) : [...current, asset])}/><span>{asset}<small>Updated today</small></span></label>)}</div>
         {selected.length > 0 && <div className="hbar-app-ui-bulk-bar"><HbarAppUiButton onClick={() => onAction?.({
@@ -127,10 +128,10 @@ function WebhookLog({spec, onAction}: ListProps) {
         only</HbarAppUiButton>
         <div className="hbar-app-ui-webhook-log">{['delivery_91a2', 'delivery_91a3', 'delivery_91a4'].map((id, index) =>
             <div key={id}>
-                <button type="button" onClick={() => setOpen(open === id ? undefined : id)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
+                <LumenButton type="button" onClick={() => setOpen(open === id ? undefined : id)}><HbarAppUiIcon icon={ChevronDown} tier="sm"
                                                                                                          className={open === id ? 'is-open' : ''}/><code>{id}</code><HbarAppUiStatus
                     value={index === 1 ? 'Failed' : 'Delivered'}
-                    tone={index === 1 ? 'danger' : 'positive'}/><span>/events/run.updated</span></button>
+                    tone={index === 1 ? 'danger' : 'positive'}/><span>/events/run.updated</span></LumenButton>
                 {open === id && <HbarAppUiSpotlight>
                     <pre>{'{"event":"run.updated","attempt":2,"duration":320}'}</pre>
                     <HbarAppUiButton
@@ -144,7 +145,7 @@ function SupplierDirectory({spec, onAction}: ListProps) {
     const suppliers = ['Avery Systems', 'Mina Cloud', 'Jon Logistics', 'Sam Studio'];
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-list-variant-7"><HbarAppUiToolbar
         title="Supplier directory" detail="Search and category filter"/>
-        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><input value={query}
+        <div className="hbar-app-ui-inline-search"><HbarAppUiIcon icon={Search} tier="sm" /><LumenInput value={query}
                                                                              onChange={(event) => setQuery(event.target.value)}
                                                                              placeholder="Search suppliers"/></div>
         <HbarAppUiButton onClick={() => onAction?.({
@@ -199,10 +200,10 @@ function Contacts({spec, onAction}: ListProps) {
         value: 'relationship'
     })}>Relationship</HbarAppUiButton>
         <div className="hbar-app-ui-contact-layout">
-            <nav>{['A', 'I', 'J', 'L', 'M', 'S'].map((item) => <button type="button"
+            <nav>{['A', 'I', 'J', 'L', 'M', 'S'].map((item) => <LumenButton type="button"
                                                                        className={letter === item ? 'is-active' : ''}
                                                                        key={item}
-                                                                       onClick={() => setLetter(item)}>{item}</button>)}</nav>
+                                                                       onClick={() => setLetter(item)}>{item}</LumenButton>)}</nav>
             <div>{contacts.filter((contact) => contact.startsWith(letter)).map((contact) => <HbarAppUiSpotlight
                 key={contact}><span
                 className="hbar-app-ui-avatar">{contact[0]}</span><strong>{contact}</strong><small>Teammate</small></HbarAppUiSpotlight>)}</div>
@@ -218,14 +219,14 @@ function Runbook({spec, onAction}: ListProps) {
         value={done === steps.length ? 'Resolved' : 'In progress'}
         tone={done === steps.length ? 'positive' : 'warning'}/><HbarAppUiProgress value={done / steps.length * 100}
                                                                                   label="Runbook progress"/>
-        <div className="hbar-app-ui-runbook-list">{steps.map((step, index) => <button type="button"
+        <div className="hbar-app-ui-runbook-list">{steps.map((step, index) => <LumenButton type="button"
                                                                                       className={index < done ? 'is-complete' : ''}
                                                                                       key={step} onClick={() => {
             setDone(Math.max(done, index + 1));
             onAction?.({variantId: spec.id, actionId: 'step', value: step})
         }}>
             <span>{index < done ? '✓' : index + 1}</span><strong>{step}</strong><small>{index < done ? 'Done' : 'Pending'}</small>
-        </button>)}</div>
+        </LumenButton>)}</div>
     </ActionSurfaceFrame>
 }
 
@@ -254,21 +255,21 @@ function FileTree({spec, onAction}: ListProps) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className="hbar-app-ui-list-variant-12"><HbarAppUiToolbar
         title="File tree" detail="Keyboard traversal and indent guides"/>
         <div className="hbar-app-ui-file-tree">
-            <button type="button" onClick={() => toggle('src')}><HbarAppUiIcon icon={ChevronDown} tier="sm"
+            <LumenButton type="button" onClick={() => toggle('src')}><HbarAppUiIcon icon={ChevronDown} tier="sm"
                                                                              className={open.src ? '' : 'is-collapsed'}/>src/
-            </button>
+            </LumenButton>
             {open.src && <div>
-                <button type="button"
+                <LumenButton type="button"
                         onClick={() => onAction?.({variantId: spec.id, actionId: 'open', value: 'App.tsx'})}> App.tsx
-                </button>
-                <button type="button"> ActivityPanel.tsx</button>
+                </LumenButton>
+                <LumenButton type="button"> ActivityPanel.tsx</LumenButton>
             </div>}
-            <button type="button" onClick={() => toggle('docs')}><HbarAppUiIcon icon={ChevronDown} tier="sm"
+            <LumenButton type="button" onClick={() => toggle('docs')}><HbarAppUiIcon icon={ChevronDown} tier="sm"
                                                                               className={open.docs ? '' : 'is-collapsed'}/>docs/
-            </button>
+            </LumenButton>
             {open.docs && <div>
-                <button type="button"> architecture.md</button>
-                <button type="button"> testing.md</button>
+                <LumenButton type="button"> architecture.md</LumenButton>
+                <LumenButton type="button"> testing.md</LumenButton>
             </div>}</div>
     </ActionSurfaceFrame>
 }

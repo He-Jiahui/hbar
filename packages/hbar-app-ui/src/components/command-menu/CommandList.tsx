@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput } from '@lumen/app-ui'
 import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Command, Search, ChevronRight } from 'lucide-react'
@@ -78,7 +79,7 @@ export function HbarAppUiCommandList(content: HbarAppUiCommandListProps) {
     if (selectedIndex >= 0) virtual.scrollToIndex(selectedIndex, { align: 'auto' })
   }, [content.query, selectedIndex, content.listStrategy, virtual])
   const renderRow = (item: HbarAppUiCommandItem, index: number) => (
-    <button
+    <LumenButton
       type="button"
       role="option"
       id={`${listId}-${encodeURIComponent(item.id)}`}
@@ -99,7 +100,7 @@ export function HbarAppUiCommandList(content: HbarAppUiCommandListProps) {
       </span>
       {item.shortcut && <kbd>{item.shortcut}</kbd>}
       {item.navigates && <HbarAppUiIcon icon={ChevronRight} tier="sm" />}
-    </button>
+    </LumenButton>
   )
   const rows = virtual.getVirtualItems(),
     first = rows[0]?.start ?? 0,
@@ -108,7 +109,7 @@ export function HbarAppUiCommandList(content: HbarAppUiCommandListProps) {
     <div className={`hbar-app-ui-controlled-commands is-${content.listStrategy}`}>
       <label className="hbar-app-ui-command-query">
         <HbarAppUiIcon icon={Search} tier="md" />
-        <input
+        <LumenInput
           ref={content.inputRef}
           type="search"
           aria-label={content.labels.search}

@@ -1,3 +1,4 @@
+import { LumenButton, LumenInput, LumenTextarea } from '@lumen/app-ui'
 import { ArrowUp, FileText, LoaderCircle, Paperclip, Square, X } from 'lucide-react'
 import { createContext, useContext, useRef, type ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
@@ -85,7 +86,7 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
                 <HbarAppUiIcon icon={FileText} />
               )}
               <span title={attachment.name}>{attachment.name}</span>
-              <button
+              <LumenButton
                 type="button"
                 title={props.labels.removeAttachment(attachment)}
                 aria-label={props.labels.removeAttachment(attachment)}
@@ -93,12 +94,12 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
                 disabled={props.submitting}
               >
                 <HbarAppUiIcon icon={X} tier="xs" />
-              </button>
+              </LumenButton>
             </div>
           ))}
         </div>
       )}
-      <textarea
+      <LumenTextarea
         aria-label={props.labels.input}
         placeholder={props.labels.placeholder}
         disabled={props.disabled}
@@ -127,7 +128,7 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
         <div className="composer-left">
           {props.onAddAttachments && (
             <>
-              <input
+              <LumenInput
                 ref={fileInput}
                 className="attachment-input"
                 type="file"
@@ -139,7 +140,7 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
                   if (files.length > 0) props.onAddAttachments?.(files)
                 }}
               />
-              <button
+              <LumenButton
                 type="button"
                 className="attachment-button"
                 title={props.labels.addAttachment}
@@ -148,7 +149,7 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
                 onClick={() => fileInput.current?.click()}
               >
                 <HbarAppUiIcon icon={Paperclip} tier="sm" />
-              </button>
+              </LumenButton>
             </>
           )}
           {props.controls}
@@ -161,7 +162,7 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
         <div className="composer-right">
           {props.modelPicker}
           {props.canStop && (
-            <button
+            <LumenButton
               type="button"
               className="stop-button"
               title={props.labels.stop}
@@ -170,9 +171,9 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
               onClick={props.onStop}
             >
               <HbarAppUiIcon icon={Square} tier="sm" fill="currentColor" />
-            </button>
+            </LumenButton>
           )}
-          <button
+          <LumenButton
             className="send-button"
             type="submit"
             title={props.labels.submitTitle}
@@ -180,7 +181,7 @@ export function HbarAppUiPromptComposer(props: HbarAppUiPromptProps) {
             disabled={blocked}
           >
             <HbarAppUiIcon icon={props.submitting ? LoaderCircle : ArrowUp} />
-          </button>
+          </LumenButton>
         </div>
       </div>
     </form>

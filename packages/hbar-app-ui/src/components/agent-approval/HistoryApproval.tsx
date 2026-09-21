@@ -1,3 +1,4 @@
+import { LumenInput } from '@lumen/app-ui'
 import {Download, Search} from 'lucide-react'
 import {useEffect, useMemo, useState} from 'react'
 import type {HbarAppUiAgentApprovalHistoryContent} from './AgentApprovalContent'
@@ -21,7 +22,9 @@ export function HistoryApproval({spec, onAction, content}: AgentApprovalSurfaceP
     return <AgentApprovalFrame spec={spec} onAction={onAction} className="hbar-app-ui-agent-approval-history">
         <header className="hbar-app-ui-agent-approval-global-heading"><h2>{content.labels.title}</h2><AgentApprovalButton onClick={() => reportAgentApprovalAction(onAction, spec, 'export-approval-history')}><AgentApprovalGlyph icon={Download} tier="sm"/><span>{content.labels.export}</span></AgentApprovalButton></header>
         <div className="hbar-app-ui-agent-approval-history-toolbar">
-            <label className="hbar-app-ui-agent-approval-search"><AgentApprovalGlyph icon={Search} tier="sm"/><input aria-label={content.labels.searchLabel} placeholder={content.searchPlaceholder} value={query} onChange={(event) => setQuery(event.target.value)}/></label>
+            <label className="hbar-app-ui-agent-approval-search"><AgentApprovalGlyph icon={Search} tier="sm"/><LumenInput
+                aria-label={content.labels.searchLabel} placeholder={content.searchPlaceholder} value={query}
+                onChange={(event) => setQuery(event.target.value)}/></label>
             <nav aria-label={content.labels.filtersLabel} role="tablist">
                 {filters.map((filter) => <AgentApprovalButton aria-selected={filter.id === activeFilter?.id} className={filter.id === activeFilter?.id ? 'is-selected' : ''} key={filter.id} onClick={() => {
                     setActiveFilterId(filter.id)

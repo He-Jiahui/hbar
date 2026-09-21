@@ -1,3 +1,4 @@
+import { LumenInput, LumenSelect } from '@lumen/app-ui'
 import { useId } from 'react'
 import { ArrowLeft, MessageSquare, Search, SearchX } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
@@ -123,7 +124,7 @@ export function HbarAppUiInviteCommand(content: HbarAppUiInviteCommandProps) {
       </header>
       <label>
         {content.labels.email}
-        <input
+        <LumenInput
           type="email"
           value={content.email}
           disabled={content.busy}
@@ -132,7 +133,7 @@ export function HbarAppUiInviteCommand(content: HbarAppUiInviteCommandProps) {
       </label>
       <label>
         {content.labels.role}
-        <select
+        <LumenSelect
           value={valid ? content.roleId : ''}
           disabled={content.busy}
           onChange={(event) => content.onRoleChange(event.currentTarget.value)}
@@ -145,7 +146,7 @@ export function HbarAppUiInviteCommand(content: HbarAppUiInviteCommandProps) {
               {role.label}
             </option>
           ))}
-        </select>
+        </LumenSelect>
       </label>
       {content.error && <p role="alert">{content.error}</p>}
       <footer>
@@ -188,7 +189,7 @@ export function HbarAppUiAssistantCommands(content: HbarAppUiAssistantCommandsPr
     >
       <label>
         <HbarAppUiIcon icon={Search} tier="md" />
-        <input
+        <LumenInput
           type="search"
           aria-label={content.labels.search}
           value={content.query}

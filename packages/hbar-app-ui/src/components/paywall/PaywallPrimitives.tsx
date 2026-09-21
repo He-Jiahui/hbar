@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
@@ -13,8 +14,11 @@ export function PaywallIcon({children, label, tier = 'sm'}: {readonly children: 
     return <span className={`hbar-app-ui-paywall-icon hbar-app-ui-icon-${tier}`} aria-label={label}>{children}</span>
 }
 
-export function PaywallButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {readonly tone?: 'neutral' | 'accent'}) {
-    return <button {...props} className={`hbar-app-ui-paywall-button hbar-app-ui-paywall-button-${tone} ${props.className ?? ''}`}>{children}</button>
+export function PaywallButton({children, tone = 'neutral', ...props}: ButtonHTMLAttributes<HTMLButtonElement> & {
+    readonly tone?: 'neutral' | 'accent'
+}) {
+    return <LumenButton {...props}
+                   className={`hbar-app-ui-paywall-button hbar-app-ui-paywall-button-${tone} ${props.className ?? ''}`}>{children}</LumenButton>
 }
 
 export function PaywallListStrategy({kind}: {readonly kind: 'content-grown' | 'pane-scroll' | 'virtualized'}) {

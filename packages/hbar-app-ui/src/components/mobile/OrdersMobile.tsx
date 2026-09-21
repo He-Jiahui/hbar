@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Box, ChevronRight, ChevronUp, Home, MessageSquare} from 'lucide-react'
@@ -29,8 +30,21 @@ export function OrdersMobile({spec, onAction}: MobileSurfaceProps): React.JSX.El
     const [activeTab, setActiveTab] = useState('Home')
 
     return <MobileFrame spec={spec} onAction={onAction} className="hbar-app-ui-mobile-orders-surface"><MobilePhone>
-        <header className="hbar-app-ui-mobile-phone-header"><p className="hbar-app-ui-mobile-phone-title">Northwind Supply</p><div className="hbar-app-ui-mobile-header-actions"><MobileAvatar>NS</MobileAvatar></div></header>
-        <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-orders-content"><p className="hbar-app-ui-mobile-eyebrow">Recent orders</p><ul className="hbar-app-ui-mobile-orders-list">{orders.map((order) => <li key={order.id}><button type="button" aria-label={`${order.account}, ${order.detail}`} onClick={() => reportMobileAction(onAction, spec, 'open', order.id)}><span><strong>{order.account}</strong><small>{order.detail}</small></span><HbarAppUiIcon icon={ChevronRight} tier="md"  strokeWidth={1.5} aria-hidden="true"/></button></li>)}</ul></main>
+        <header className="hbar-app-ui-mobile-phone-header"><p className="hbar-app-ui-mobile-phone-title">Northwind
+            Supply</p>
+            <div className="hbar-app-ui-mobile-header-actions"><MobileAvatar>NS</MobileAvatar></div>
+        </header>
+        <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-orders-content"><p
+            className="hbar-app-ui-mobile-eyebrow">Recent orders</p>
+            <ul className="hbar-app-ui-mobile-orders-list">{orders.map((order) => <li key={order.id}>
+                <LumenButton type="button" aria-label={`${order.account}, ${order.detail}`}
+                        onClick={() => reportMobileAction(onAction, spec, 'open', order.id)}>
+                    <span><strong>{order.account}</strong><small>{order.detail}</small></span><HbarAppUiIcon icon={ChevronRight} tier="md"
+                                                                                                            strokeWidth={1.5}
+                                                                                                            aria-hidden="true"/>
+                </LumenButton>
+            </li>)}</ul>
+        </main>
         <MobileBottomTabs tabs={tabs} value={activeTab} label="Order navigation" onChange={(value) => {
             setActiveTab(value)
             reportMobileAction(onAction, spec, 'tabs', value)

@@ -1,3 +1,4 @@
+import { LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useMemo, useState} from 'react'
 import {AtSign, Check, CheckCheck, GitPullRequest, MessageSquare, ShieldCheck, UserRoundPlus, X} from 'lucide-react'
@@ -70,10 +71,11 @@ export function NotificationCenter({spec, onAction}: NotificationSurfaceProps) {
     return <NotificationFrame spec={spec} onAction={onAction} className="hbar-app-ui-notifications-center">
         <header className="hbar-app-ui-notifications-page-header">
             <h1>Notifications <span>{unreadCount}</span></h1>
-            <button type="button" className="hbar-app-ui-notifications-mark-all" onClick={() => {
+            <LumenButton type="button" className="hbar-app-ui-notifications-mark-all" onClick={() => {
                 setReadIds(new Set(notificationGroups.flatMap((group) => group.entries.map((entry) => entry.id))))
                 reportNotificationAction(onAction, spec, 'read-all')
-            }}><HbarAppUiIcon icon={CheckCheck} tier="sm"  strokeWidth={1.7}/>Mark all read</button>
+            }}><HbarAppUiIcon icon={CheckCheck} tier="sm"  strokeWidth={1.7}/>Mark all read
+            </LumenButton>
         </header>
         <main className="hbar-app-ui-notifications-center-main">
             <NotificationTabs label="Notifications" value={filter} onChange={selectFilter} options={[
