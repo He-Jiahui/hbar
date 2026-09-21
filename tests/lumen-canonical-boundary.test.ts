@@ -5,6 +5,7 @@ const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/agent-activity.tsx',
   'hbar-ui/packages/lumen-app-ui/src/agent-approval.tsx',
   'hbar-ui/packages/lumen-app-ui/src/agent-plan.tsx',
+  'hbar-ui/packages/lumen-app-ui/src/analytics.tsx',
   'hbar-ui/packages/lumen-app-ui/src/authentication.tsx',
   'hbar-ui/packages/lumen-app-ui/src/billing.tsx',
   'hbar-ui/packages/lumen-app-ui/src/card.tsx',
