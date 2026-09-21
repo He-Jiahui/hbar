@@ -1,5 +1,10 @@
 import { useCallback, useEffect } from 'react'
-import { LumenButton, LumenStatus } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenStatus } from '@lumen/app-ui'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './extension-workspace.css'
@@ -74,14 +79,14 @@ export function HbarExtensionWorkspace({
   }
 
   return (
-    <section className="hbar-app-react-extension-workspace" aria-labelledby={`${instanceId}-extensions-title`}>
-      <header className="hbar-app-react-extension-heading">
-        <div>
-          <h2 id={`${instanceId}-extensions-title`}>{labels.title}</h2>
-          <p>{labels.description}</p>
-          <small>{labels.hostWide}</small>
-        </div>
-        <div>
+    <LumenFrame as="section" className="hbar-app-react-extension-workspace" aria-labelledby={`${instanceId}-extensions-title`}>
+      <LumenFrame as="header" className="hbar-app-react-extension-heading">
+        <LumenFrame>
+          <LumenText as="h2" id={`${instanceId}-extensions-title`}>{labels.title}</LumenText>
+          <LumenText as="p">{labels.description}</LumenText>
+          <LumenText as="small">{labels.hostWide}</LumenText>
+        </LumenFrame>
+        <LumenFrame>
           <LumenButton
             variant="outlined"
             disabled={!connected || entry?.status === 'loading'}
@@ -92,62 +97,62 @@ export function HbarExtensionWorkspace({
           <LumenButton variant="outlined" onClick={() => openCommands('system.')}>
             {labels.openSystemCommands}
           </LumenButton>
-        </div>
-      </header>
+        </LumenFrame>
+      </LumenFrame>
 
       {!entry || entry.status === 'loading' ? (
-        <p className="hbar-app-react-extension-state" role="status">
+        <LumenText as="p" className="hbar-app-react-extension-state" role="status">
           {labels.loading}
-        </p>
+        </LumenText>
       ) : entry.error ? (
-        <p className="hbar-app-react-extension-state" role="alert">
+        <LumenText as="p" className="hbar-app-react-extension-state" role="alert">
           {labels.error(entry.error)}
-        </p>
+        </LumenText>
       ) : (
         <>
-          <section className="hbar-app-react-extension-section">
-            <header>
-              <h3>{labels.plugins}</h3>
-              <small>{labels.pluginCount(entry.plugins.length)}</small>
-            </header>
+          <LumenFrame as="section" className="hbar-app-react-extension-section">
+            <LumenFrame as="header">
+              <LumenText as="h3">{labels.plugins}</LumenText>
+              <LumenText as="small">{labels.pluginCount(entry.plugins.length)}</LumenText>
+            </LumenFrame>
             {entry.plugins.length === 0 ? (
-              <p className="hbar-app-react-extension-empty">{labels.noPlugins}</p>
+              <LumenText as="p" className="hbar-app-react-extension-empty">{labels.noPlugins}</LumenText>
             ) : (
-              <ul className="hbar-app-react-extension-list">
+              <LumenCollection as="ul" className="hbar-app-react-extension-list">
                 {entry.plugins.map((plugin) => {
                   const action = entry.actions[plugin.id]
                   const query = plugin.contributes?.commands[0]?.id ?? plugin.provides[0] ?? plugin.id
                   const source = plugin.packageName ?? plugin.path ?? plugin.id
                   return (
-                    <li key={plugin.id} className="hbar-app-react-extension-plugin">
-                      <header>
-                        <div>
-                          <strong>{plugin.name}</strong>
-                          <small>{labels.pluginMetadata(plugin.id, plugin.version)}</small>
-                        </div>
+                    <LumenCollectionItem key={plugin.id} className="hbar-app-react-extension-plugin">
+                      <LumenFrame as="header">
+                        <LumenFrame>
+                          <LumenText as="strong">{plugin.name}</LumenText>
+                          <LumenText as="small">{labels.pluginMetadata(plugin.id, plugin.version)}</LumenText>
+                        </LumenFrame>
                         <LumenStatus value={labels.status[plugin.status]} tone={tone(plugin.status)} />
-                      </header>
-                      <p>{plugin.description}</p>
-                      <dl>
-                        <div>
-                          <dt>{labels.source}</dt>
-                          <dd>{source}</dd>
-                        </div>
-                        <div>
-                          <dt>{labels.provides}</dt>
-                          <dd>{plugin.provides.join(', ') || labels.unavailable}</dd>
-                        </div>
-                        <div>
-                          <dt>{labels.commands}</dt>
-                          <dd>{plugin.contributes?.commands.length ?? plugin.terminalCommands?.length ?? 0}</dd>
-                        </div>
-                        <div>
-                          <dt>{labels.panels}</dt>
-                          <dd>{plugin.contributes?.panels.length ?? 0}</dd>
-                        </div>
-                      </dl>
-                      {action?.error && <p role="alert">{labels.error(action.error)}</p>}
-                      <footer>
+                      </LumenFrame>
+                      <LumenText as="p">{plugin.description}</LumenText>
+                      <LumenCollection as="dl">
+                        <LumenFrame>
+                          <LumenCollectionItem as="dt">{labels.source}</LumenCollectionItem>
+                          <LumenCollectionItem as="dd">{source}</LumenCollectionItem>
+                        </LumenFrame>
+                        <LumenFrame>
+                          <LumenCollectionItem as="dt">{labels.provides}</LumenCollectionItem>
+                          <LumenCollectionItem as="dd">{plugin.provides.join(', ') || labels.unavailable}</LumenCollectionItem>
+                        </LumenFrame>
+                        <LumenFrame>
+                          <LumenCollectionItem as="dt">{labels.commands}</LumenCollectionItem>
+                          <LumenCollectionItem as="dd">{plugin.contributes?.commands.length ?? plugin.terminalCommands?.length ?? 0}</LumenCollectionItem>
+                        </LumenFrame>
+                        <LumenFrame>
+                          <LumenCollectionItem as="dt">{labels.panels}</LumenCollectionItem>
+                          <LumenCollectionItem as="dd">{plugin.contributes?.panels.length ?? 0}</LumenCollectionItem>
+                        </LumenFrame>
+                      </LumenCollection>
+                      {action?.error && <LumenText as="p" role="alert">{labels.error(action.error)}</LumenText>}
+                      <LumenFrame as="footer">
                         <LumenButton variant="text" onClick={() => openCommands(query)}>
                           {labels.openCommands}
                         </LumenButton>
@@ -179,38 +184,38 @@ export function HbarExtensionWorkspace({
                             </LumenButton>
                           )
                         )}
-                        {plugin.required && <small>{labels.required}</small>}
-                      </footer>
-                    </li>
+                        {plugin.required && <LumenText as="small">{labels.required}</LumenText>}
+                      </LumenFrame>
+                    </LumenCollectionItem>
                   )
                 })}
-              </ul>
+              </LumenCollection>
             )}
-          </section>
-          <section className="hbar-app-react-extension-section">
-            <header>
-              <h3>{labels.skills}</h3>
-              <small>{labels.skillCount(entry.skills.length)}</small>
-            </header>
+          </LumenFrame>
+          <LumenFrame as="section" className="hbar-app-react-extension-section">
+            <LumenFrame as="header">
+              <LumenText as="h3">{labels.skills}</LumenText>
+              <LumenText as="small">{labels.skillCount(entry.skills.length)}</LumenText>
+            </LumenFrame>
             {entry.skills.length === 0 ? (
-              <p className="hbar-app-react-extension-empty">{labels.noSkills}</p>
+              <LumenText as="p" className="hbar-app-react-extension-empty">{labels.noSkills}</LumenText>
             ) : (
-              <ul className="hbar-app-react-extension-list hbar-app-react-extension-skill-list">
+              <LumenCollection as="ul" className="hbar-app-react-extension-list hbar-app-react-extension-skill-list">
                 {entry.skills.map((skill) => (
-                  <li key={skill.id}>
-                    <div>
-                      <strong>{skill.id}</strong>
-                      <small title={skill.path}>{skill.path}</small>
-                      <span>{labels.skillScope}</span>
-                    </div>
+                  <LumenCollectionItem key={skill.id}>
+                    <LumenFrame>
+                      <LumenText as="strong">{skill.id}</LumenText>
+                      <LumenText as="small" title={skill.path}>{skill.path}</LumenText>
+                      <LumenText as="span">{labels.skillScope}</LumenText>
+                    </LumenFrame>
                     <LumenStatus value={labels.discovered} tone="neutral" />
-                  </li>
+                  </LumenCollectionItem>
                 ))}
-              </ul>
+              </LumenCollection>
             )}
-          </section>
+          </LumenFrame>
         </>
       )}
-    </section>
+    </LumenFrame>
   )
 }

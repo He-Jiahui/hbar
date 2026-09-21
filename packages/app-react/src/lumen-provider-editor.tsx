@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ProviderEditorState } from '@hbar/app-runtime'
 import {
+  LumenFrame,
+  LumenOption,
+  LumenText,
   LumenButton,
   LumenCheckBox,
   LumenComboBox,
@@ -159,10 +162,10 @@ const protocols: readonly ProviderEditorState['draft']['protocol'][] = [
 
 function SectionHeading({ title, description }: { readonly title: string; readonly description: string }) {
   return (
-    <header className="hbar-app-react-provider-section-heading">
-      <h2>{title}</h2>
-      <p>{description}</p>
-    </header>
+    <LumenFrame as="header" className="hbar-app-react-provider-section-heading">
+      <LumenText as="h2">{title}</LumenText>
+      <LumenText as="p">{description}</LumenText>
+    </LumenFrame>
   )
 }
 
@@ -254,7 +257,7 @@ function ProviderPresetPicker({
       detail: labels.preset.detail(preset.protocol, preset.baseUrl, preset.modelCount),
     }))
   return (
-    <section className="hbar-app-react-provider-section">
+    <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.preset} description={labels.sections.presetDescription} />
       <LumenFormField controlId="provider-preset" label={labels.preset.label}>
         <LumenComboBox
@@ -287,7 +290,7 @@ function ProviderPresetPicker({
           onValueChange={(presetId) => onIntent({ kind: 'apply-preset', presetId })}
         />
       </LumenFormField>
-    </section>
+    </LumenFrame>
   )
 }
 
@@ -304,9 +307,9 @@ function ProviderConnectionForm({
 }) {
   const set = (field: ProviderField, value: string | boolean) => onIntent({ kind: 'set-provider-field', field, value })
   return (
-    <section className="hbar-app-react-provider-section">
+    <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.connection} description={labels.sections.connectionDescription} />
-      <div className="hbar-app-react-provider-field-row">
+      <LumenFrame className="hbar-app-react-provider-field-row">
         <LumenFormField
           controlId="provider-id"
           label={labels.provider.id}
@@ -337,8 +340,8 @@ function ProviderConnectionForm({
             onChange={(event) => set('name', event.currentTarget.value)}
           />
         </LumenFormField>
-      </div>
-      <div className="hbar-app-react-provider-field-row">
+      </LumenFrame>
+      <LumenFrame className="hbar-app-react-provider-field-row">
         <LumenFormField
           controlId="provider-protocol"
           label={labels.provider.protocol}
@@ -353,9 +356,9 @@ function ProviderConnectionForm({
             onChange={(event) => set('protocol', event.currentTarget.value)}
           >
             {protocols.map((protocol) => (
-              <option key={protocol} value={protocol}>
+              <LumenOption key={protocol} value={protocol}>
                 {labels.protocol(protocol)}
-              </option>
+              </LumenOption>
             ))}
           </LumenSelect>
         </LumenFormField>
@@ -374,7 +377,7 @@ function ProviderConnectionForm({
             onChange={(event) => set('baseUrl', event.currentTarget.value)}
           />
         </LumenFormField>
-      </div>
+      </LumenFrame>
       <LumenCheckBox
         checked={editor.draft.visible}
         disabled={disabled}
@@ -382,7 +385,7 @@ function ProviderConnectionForm({
         description={labels.provider.visibleDescription}
         onChange={(event) => set('visible', event.currentTarget.checked)}
       />
-    </section>
+    </LumenFrame>
   )
 }
 
@@ -398,7 +401,7 @@ function ProviderCredentials({
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
   return (
-    <section className="hbar-app-react-provider-section">
+    <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.credentials} description={labels.sections.credentialsDescription} />
       <LumenFormField
         controlId="provider-api-key"
@@ -416,7 +419,7 @@ function ProviderCredentials({
           onChange={(event) => onIntent({ kind: 'set-secret', value: event.currentTarget.value })}
         />
       </LumenFormField>
-    </section>
+    </LumenFrame>
   )
 }
 
@@ -504,10 +507,10 @@ function ModelList({
     setCustomModelId('')
   }
   return (
-    <aside className="hbar-app-react-provider-model-list" aria-label={labels.sections.models}>
-      <div className="hbar-app-react-provider-model-list-items">
+    <LumenFrame as="aside" className="hbar-app-react-provider-model-list" aria-label={labels.sections.models}>
+      <LumenFrame className="hbar-app-react-provider-model-list-items">
         {editor.draft.models.length === 0 ? (
-          <p>{labels.models.empty}</p>
+          <LumenText as="p">{labels.models.empty}</LumenText>
         ) : (
           editor.draft.models.map((model) => (
             <LumenNavigationButton
@@ -518,29 +521,29 @@ function ModelList({
               disabled={disabled}
               onClick={() => onIntent({ kind: 'select-model', modelId: model.id })}
             >
-              <span>
-                <strong>{model.name}</strong>
-                <small>{model.id}</small>
-              </span>
-              <span className="hbar-app-react-provider-model-markers">
+              <LumenText as="span">
+                <LumenText as="strong">{model.name}</LumenText>
+                <LumenText as="small">{model.id}</LumenText>
+              </LumenText>
+              <LumenText as="span" className="hbar-app-react-provider-model-markers">
                 {editor.draft.model === model.id && (
-                  <span title={labels.models.default} aria-label={labels.models.default}>
+                  <LumenText as="span" title={labels.models.default} aria-label={labels.models.default}>
                     <LumenIcon icon={Check} tier="sm" />
-                  </span>
+                  </LumenText>
                 )}
                 {!model.visible && (
-                  <span title={labels.models.hidden} aria-label={labels.models.hidden}>
+                  <LumenText as="span" title={labels.models.hidden} aria-label={labels.models.hidden}>
                     <LumenIcon icon={EyeOff} tier="sm" />
-                  </span>
+                  </LumenText>
                 )}
-              </span>
+              </LumenText>
             </LumenNavigationButton>
           ))
         )}
-      </div>
+      </LumenFrame>
       <ModelCatalogPicker editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
       <LumenFormField controlId="provider-custom-model" label={labels.models.customId}>
-        <div className="hbar-app-react-provider-inline-action">
+        <LumenFrame className="hbar-app-react-provider-inline-action">
           <LumenInput
             id="provider-custom-model"
             value={customModelId}
@@ -562,9 +565,9 @@ function ModelList({
           >
             <LumenIcon icon={Plus} tier="sm" />
           </LumenButton>
-        </div>
+        </LumenFrame>
       </LumenFormField>
-    </aside>
+    </LumenFrame>
   )
 }
 
@@ -585,17 +588,17 @@ function ModelEditor({
   const model = editor.draft.models[modelIndex]
   if (!model)
     return (
-      <div className="hbar-app-react-provider-model-empty">
-        <p>{labels.models.empty}</p>
-      </div>
+      <LumenFrame className="hbar-app-react-provider-model-empty">
+        <LumenText as="p">{labels.models.empty}</LumenText>
+      </LumenFrame>
     )
   const set = (field: ModelField, value: string | number | boolean) =>
     onIntent({ kind: 'set-model-field', modelId: model.id, field, value })
   const path = (field: string) => `models.${modelIndex}.${field}`
   const levelOptions = thinkingLevels.map((level) => ({ id: level, label: labels.thinkingLevel(level) }))
   return (
-    <div className="hbar-app-react-provider-model-editor">
-      <div className="hbar-app-react-provider-model-actions">
+    <LumenFrame className="hbar-app-react-provider-model-editor">
+      <LumenFrame className="hbar-app-react-provider-model-actions">
         <LumenButton
           disabled={disabled || editor.draft.model === model.id}
           onClick={() => onIntent({ kind: 'set-default-model', modelId: model.id })}
@@ -611,8 +614,8 @@ function ModelEditor({
           <LumenIcon icon={Trash2} tier="sm" />
           {labels.models.remove}
         </LumenButton>
-      </div>
-      <div className="hbar-app-react-provider-field-row">
+      </LumenFrame>
+      <LumenFrame className="hbar-app-react-provider-field-row">
         <LumenFormField
           controlId="provider-model-id"
           label={labels.models.id}
@@ -641,7 +644,7 @@ function ModelEditor({
             onChange={(event) => set('name', event.currentTarget.value)}
           />
         </LumenFormField>
-      </div>
+      </LumenFrame>
       <LumenCheckBox
         checked={model.visible}
         disabled={disabled}
@@ -649,7 +652,7 @@ function ModelEditor({
         description={labels.models.visibleDescription}
         onChange={(event) => set('visible', event.currentTarget.checked)}
       />
-      <div className="hbar-app-react-provider-field-row">
+      <LumenFrame className="hbar-app-react-provider-field-row">
         <LumenFormField
           controlId="provider-model-context"
           label={labels.models.contextWindow}
@@ -678,8 +681,8 @@ function ModelEditor({
             onCommit={(value) => set('maxOutput', value)}
           />
         </LumenFormField>
-      </div>
-      <div className="hbar-app-react-provider-field-row">
+      </LumenFrame>
+      <LumenFrame className="hbar-app-react-provider-field-row">
         <LumenFormField
           controlId="provider-model-input-price"
           label={labels.models.inputPrice}
@@ -704,8 +707,8 @@ function ModelEditor({
             onCommit={(value) => set('outputPrice', value)}
           />
         </LumenFormField>
-      </div>
-      <div className="hbar-app-react-provider-capabilities">
+      </LumenFrame>
+      <LumenFrame className="hbar-app-react-provider-capabilities">
         <LumenCheckBox
           checked={model.imageInput}
           disabled={disabled}
@@ -720,7 +723,7 @@ function ModelEditor({
           description={labels.models.reasoningDescription}
           onChange={(event) => set('reasoning', event.currentTarget.checked)}
         />
-      </div>
+      </LumenFrame>
       <LumenFormField
         controlId="provider-model-thinking-levels"
         label={labels.models.thinkingLevels}
@@ -760,13 +763,13 @@ function ModelEditor({
           onChange={(event) => set('defaultThinkingLevel', event.currentTarget.value)}
         >
           {model.thinkingLevels.map((level) => (
-            <option key={level} value={level}>
+            <LumenOption key={level} value={level}>
               {labels.thinkingLevel(level)}
-            </option>
+            </LumenOption>
           ))}
         </LumenSelect>
       </LumenFormField>
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -782,16 +785,16 @@ function ProviderModels({
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
   return (
-    <section className="hbar-app-react-provider-section hbar-app-react-provider-model-section">
+    <LumenFrame as="section" className="hbar-app-react-provider-section hbar-app-react-provider-model-section">
       <SectionHeading title={labels.sections.models} description={labels.sections.modelsDescription} />
-      <div className="hbar-app-react-provider-model-workspace">
+      <LumenFrame className="hbar-app-react-provider-model-workspace">
         <ModelList editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
-        <section className="hbar-app-react-provider-model-details" aria-label={labels.sections.modelDetails}>
+        <LumenFrame as="section" className="hbar-app-react-provider-model-details" aria-label={labels.sections.modelDetails}>
           <SectionHeading title={labels.sections.modelDetails} description={labels.sections.modelDetailsDescription} />
           <ModelEditor editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
-        </section>
-      </div>
-    </section>
+        </LumenFrame>
+      </LumenFrame>
+    </LumenFrame>
   )
 }
 
@@ -848,41 +851,41 @@ export function HbarProviderEditorView({
       })
   }, [compatiblePreset, editor.presets.selectedPresetId, editor.presets.status, editor.providerId, onIntent])
   return (
-    <section className="hbar-app-react-provider-dialog" aria-label={title} aria-busy={busy}>
-      <header className="hbar-app-react-provider-page-header">
+    <LumenFrame as="section" className="hbar-app-react-provider-dialog" aria-label={title} aria-busy={busy}>
+      <LumenFrame as="header" className="hbar-app-react-provider-page-header">
         <LumenButton className="hbar-app-react-provider-back" onClick={onBack}>
           <LumenIcon icon={ArrowLeft} tier="sm" />
           {labels.back}
         </LumenButton>
-        <div>
-          <h1>{title}</h1>
-          <p>{labels.description}</p>
-        </div>
-      </header>
-      <main>
-        <div className="hbar-app-react-provider-primary-column">
+        <LumenFrame>
+          <LumenText as="h1">{title}</LumenText>
+          <LumenText as="p">{labels.description}</LumenText>
+        </LumenFrame>
+      </LumenFrame>
+      <LumenFrame as="main">
+        <LumenFrame className="hbar-app-react-provider-primary-column">
           {!editor.providerId && (
             <ProviderPresetPicker editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
           )}
           <ProviderConnectionForm editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
           <ProviderCredentials editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
-        </div>
+        </LumenFrame>
         <ProviderModels editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
-      </main>
+      </LumenFrame>
       {(actionError || editor.error) && (
-        <p className="hbar-app-react-provider-error" role="alert">
+        <LumenText as="p" className="hbar-app-react-provider-error" role="alert">
           {labels.error(actionError ?? editor.error ?? 'EXECUTION_FAILED')}
-        </p>
+        </LumenText>
       )}
-      <footer>
-        <span role="status">
+      <LumenFrame as="footer">
+        <LumenText as="span" role="status">
           {editor.form.status === 'succeeded' && dirtyCount === 0
             ? labels.saved
             : dirtyCount > 0
               ? labels.unsaved(dirtyCount)
               : null}
-        </span>
-        <div>
+        </LumenText>
+        <LumenFrame>
           {dirtyCount > 0 && !unknown && (
             <LumenButton disabled={disabled} onClick={() => onIntent({ kind: 'reset-draft' })}>
               <LumenIcon icon={RotateCcw} tier="sm" />
@@ -908,8 +911,8 @@ export function HbarProviderEditorView({
               {labels.save}
             </LumenButton>
           )}
-        </div>
-      </footer>
+        </LumenFrame>
+      </LumenFrame>
       <LumenDialog
         open={confirmingDelete}
         title={labels.deleteConfirmTitle(editor.draft.name || editor.draft.id)}
@@ -930,10 +933,10 @@ export function HbarProviderEditorView({
           </>
         }
       >
-        <p className="hbar-app-react-provider-delete-copy">
+        <LumenText as="p" className="hbar-app-react-provider-delete-copy">
           {labels.deleteConfirmDescription(editor.draft.name || editor.draft.id)}
-        </p>
+        </LumenText>
       </LumenDialog>
-    </section>
+    </LumenFrame>
   )
 }

@@ -216,7 +216,7 @@ test('settings workspace composes client groups from the app.openSettings sectio
       'model',
     )
     expect(html).toContain('aria-current="page" type="button"')
-    expect(html).toContain('data-variant="text" data-tone="neutral" data-size="s"')
+    expect(html).toContain('data-lumen-variant="text" data-tone="neutral" data-size="s"')
     expect(html).toContain('>外观<span data-edge="right" data-state="selected"')
     expect(html).toContain('设备全局外观')
     expect(html).toContain('<option value="appearance" selected="">外观</option>')

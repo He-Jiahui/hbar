@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { LumenButton, LumenDialog, LumenSettingsList } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenDialog, LumenSettingsList } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   HbarProviderEditorView,
@@ -72,18 +75,18 @@ export function HbarProviderSettings({
   }
   if (providers.status === 'idle' || providers.status === 'loading')
     return (
-      <p className="hbar-app-react-provider-state" role="status">
+      <LumenText as="p" className="hbar-app-react-provider-state" role="status">
         {labels.loading}
-      </p>
+      </LumenText>
     )
   if (providers.status === 'error' || !providers.listSchema || !providers.list)
     return (
-      <div className="hbar-app-react-provider-state">
-        <p role="alert">{labels.error(actionError ?? providers.error ?? 'CAPABILITY_UNAVAILABLE')}</p>
+      <LumenFrame className="hbar-app-react-provider-state">
+        <LumenText as="p" role="alert">{labels.error(actionError ?? providers.error ?? 'CAPABILITY_UNAVAILABLE')}</LumenText>
         <LumenButton variant="outlined" disabled={!connected} onClick={refresh}>
           {labels.refresh}
         </LumenButton>
-      </div>
+      </LumenFrame>
     )
   const items = providers.list.draft.map((item) => {
     const id = String(item.providerId)
@@ -117,7 +120,7 @@ export function HbarProviderSettings({
       .finally(() => setRemoving(false))
   }
   return (
-    <div className="hbar-app-react-provider-list">
+    <LumenFrame className="hbar-app-react-provider-list">
       <LumenSettingsList
         label={labels.title}
         description={labels.description}
@@ -135,7 +138,7 @@ export function HbarProviderSettings({
           if (item) setRemoveTarget({ id, name: item.title })
         }}
       />
-      {actionError && <p role="alert">{labels.error(actionError)}</p>}
+      {actionError && <LumenText as="p" role="alert">{labels.error(actionError)}</LumenText>}
       <LumenDialog
         open={Boolean(removeTarget)}
         title={labels.deleteConfirmTitle(removeTarget?.name ?? '')}
@@ -152,11 +155,11 @@ export function HbarProviderSettings({
           </>
         }
       >
-        <p className="hbar-app-react-provider-delete-copy">
+        <LumenText as="p" className="hbar-app-react-provider-delete-copy">
           {labels.deleteConfirmDescription(removeTarget?.name ?? '')}
-        </p>
+        </LumenText>
       </LumenDialog>
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -279,14 +282,14 @@ export function HbarProviderDialog({
   )
   if (!editor)
     return (
-      <section className="hbar-app-react-provider-dialog hbar-app-react-provider-state">
-        <p role={providers.status === 'error' ? 'alert' : 'status'}>
+      <LumenFrame as="section" className="hbar-app-react-provider-dialog hbar-app-react-provider-state">
+        <LumenText as="p" role={providers.status === 'error' ? 'alert' : 'status'}>
           {providers.status === 'error' ? labels.error(providers.error ?? 'FORM_NOT_READY') : labels.loading}
-        </p>
+        </LumenText>
         <LumenButton variant="outlined" onClick={back}>
           {labels.back}
         </LumenButton>
-      </section>
+      </LumenFrame>
     )
   const save = (reconcile: boolean) => {
     setActionError(null)
