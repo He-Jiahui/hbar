@@ -38,10 +38,12 @@
     "./commands/system": "./src/commands/system.ts",
     "./commands/usage": "./src/commands/usage.ts",
     "./commands/workspaces": "./src/commands/workspaces.ts",
+    "./commands/workflows": "./src/commands/workflows.ts",
     "./directory": "./src/state/directory.ts",
     "./metrics": "./src/metrics.ts",
     "./workspace-query": "./src/workspace-query.ts",
-    "./usage": "./src/usage.ts"
+    "./usage": "./src/usage.ts",
+    "./workflow": "./src/workflow.ts"
   },
   "dependencies": {
     "@hbar/commands": "workspace:*",

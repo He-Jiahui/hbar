@@ -230,6 +230,7 @@ export { statusWorkspaceCommands } from './status-workspace'
 export { clientPersistenceCommands } from './client-persistence'
 export { terminalApplicationCommands } from './terminal-application'
 export { sessionTimelineCommands } from './session-timeline'
+export { workflowCommands } from './workflows'
 export const applicationCommands = {
   ...directoryCommands,
   ...navigationCommands,

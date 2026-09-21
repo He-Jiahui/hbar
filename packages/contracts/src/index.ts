@@ -226,7 +226,10 @@ export type GitStatsBucket = z.infer<typeof gitStatsBucketSchema>
 export const gitStatsReportSchema = z.object({
   accountingVersion: z.literal('git-stats-v1'),
   repoId: z.string().min(1).max(4_000),
-  head: z.string().regex(/^[0-9a-f]{40}$/i).nullable(),
+  head: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/i)
+    .nullable(),
   observedAt: z.number().int().nonnegative(),
   from: z.number().int().nonnegative(),
   to: z.number().int().positive(),
@@ -1283,3 +1286,5 @@ export class HbarError extends Error {
     this.name = 'HbarError'
   }
 }
+
+export * from './workflow'
