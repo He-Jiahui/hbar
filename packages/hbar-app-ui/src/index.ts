@@ -658,6 +658,22 @@ export type {
   HbarAppUiAiChatProviderProps,
 } from './components/AiChat'
 export {
+  HbarAppUiKanbanProvider,
+  selectHbarAppUiKanbanItem,
+  uniqueHbarAppUiKanbanItems,
+} from './components/Kanban'
+export type {
+  HbarAppUiKanbanAction,
+  HbarAppUiKanbanCard,
+  HbarAppUiKanbanChoice,
+  HbarAppUiKanbanColumn,
+  HbarAppUiKanbanContent,
+  HbarAppUiKanbanLane,
+  HbarAppUiKanbanListStrategy,
+  HbarAppUiKanbanMetric,
+  HbarAppUiKanbanProviderProps,
+} from './components/Kanban'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,
