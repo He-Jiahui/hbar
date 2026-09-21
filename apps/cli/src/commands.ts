@@ -48,7 +48,7 @@ import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-a
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
 import { systemCommands } from '@hbar/contracts/commands/system'
 import { usageCommands, type UsageScope } from '@hbar/contracts/commands/usage'
-import { workflowCoreCommands } from '@hbar/contracts/commands/workflows'
+import { workflowCommands } from '@hbar/contracts/commands/workflows'
 import { decodePath } from '@hbar/schema-core'
 import type { CliArgs } from './args.ts'
 import type { CliRuntime } from './runtime.ts'
@@ -460,8 +460,8 @@ export function isGoalPlanCommand(value: string | undefined): value is keyof typ
   return Boolean(value && Object.hasOwn(goalPlanCommands, value))
 }
 
-export function isWorkflowCommand(value: string | undefined): value is keyof typeof workflowCoreCommands {
-  return Boolean(value && Object.hasOwn(workflowCoreCommands, value))
+export function isWorkflowCommand(value: string | undefined): value is keyof typeof workflowCommands {
+  return Boolean(value && Object.hasOwn(workflowCommands, value))
 }
 
 export function isModelCommand(value: string | undefined): value is keyof typeof modelCommands {
@@ -907,7 +907,7 @@ export async function runWorkflowCommand(
   const value = { ...raw, sessionId: runtime.session.id }
   if (action === 'workflow.start') {
     if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
-    const parsed = workflowCoreCommands[action].input.safeParse(value)
+    const parsed = workflowCommands[action].input.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     output(
       await commands.execute(action, parsed.data, {
@@ -918,27 +918,27 @@ export async function runWorkflowCommand(
     return
   }
   if (action === 'workflow.plan.save') {
-    const parsed = workflowCoreCommands[action].input.safeParse(value)
+    const parsed = workflowCommands[action].input.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     output(await commands.execute(action, parsed.data))
   } else if (action === 'workflow.activate') {
-    const parsed = workflowCoreCommands[action].input.safeParse(value)
+    const parsed = workflowCommands[action].input.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     output(await commands.execute(action, parsed.data))
   } else if (action === 'workflow.expandScope') {
-    const parsed = workflowCoreCommands[action].input.safeParse(value)
+    const parsed = workflowCommands[action].input.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     output(await commands.execute(action, parsed.data))
   } else if (action === 'workflow.checkpoint') {
-    const parsed = workflowCoreCommands[action].input.safeParse(value)
+    const parsed = workflowCommands[action].input.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     output(await commands.execute(action, parsed.data))
   } else if (action === 'workflow.acceptCheck') {
-    const parsed = workflowCoreCommands[action].input.safeParse(value)
+    const parsed = workflowCommands[action].input.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     output(await commands.execute(action, parsed.data))
   } else {
-    const parsed = workflowCoreCommands[action].input.safeParse(value)
+    const parsed = workflowCommands[action].input.safeParse(value)
     if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
     output(await commands.execute(action, parsed.data))
   }

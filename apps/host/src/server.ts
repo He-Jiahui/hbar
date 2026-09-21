@@ -42,7 +42,7 @@ import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
-import { workflowCoreCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
+import { workflowCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
 import {
   directoryCommands as directoryDefinitions,

@@ -64,7 +64,7 @@ test('workflow commands expose the core catalog and preserve start idempotency a
   const ids = catalog.items.map((item) => item.metadata.id)
   expect(ids).toContain('workflow.start')
   expect(ids).toContain('workflow.complete')
-  expect(ids).not.toContain('workflow.delegate')
+  expect(ids).toContain('workflow.delegate')
 
   const input = startInput(session.id)
   const [first, duplicate] = await Promise.all([

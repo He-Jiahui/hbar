@@ -229,6 +229,13 @@ export interface WorkflowService {
     nextItemId: string | null | undefined,
     expectedRevision: number,
   ): Promise<WorkflowSnapshot>
+  delegate(
+    sessionId: string,
+    itemIds: string[],
+    modelId: string,
+    tokenBudget: number | undefined,
+    expectedRevision: number,
+  ): Promise<WorkflowSnapshot>
   acceptCheck(
     sessionId: string,
     itemId: string,

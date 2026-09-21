@@ -91,6 +91,7 @@ Usage:
   hbar exec questionnaire.answer <requestId> --input-json <answers> --session <id|name>
   hbar exec goal.get|goal.create|goal.set|goal.update|goal.clear --session <id|name>
   hbar exec plan.get|plan.update|plan.clear --session <id|name>
+  hbar exec workflow.get|workflow.start|workflow.activate|workflow.expandScope|workflow.checkpoint|workflow.delegate|workflow.acceptCheck|workflow.complete --session <id|name>
   hbar exec model.list
   hbar exec session.getModel|session.setModel|session.setThinkingLevel --session <id|name>
   hbar exec permission.get|permission.set

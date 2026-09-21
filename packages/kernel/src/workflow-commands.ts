@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
-import { workflowCoreCommands } from '@hbar/contracts/commands/workflows'
+import { workflowCommands } from '@hbar/contracts/commands/workflows'
 import type { WorkflowService } from '@hbar/plugin-sdk'
 
 export function createWorkflowCommands(service: WorkflowService) {
@@ -15,15 +15,15 @@ export function createWorkflowCommands(service: WorkflowService) {
     }
   }
 
-  registry.register(workflowCoreCommands['workflow.get'], ({ sessionId }) => translate(() => service.get(sessionId)))
+  registry.register(workflowCommands['workflow.get'], ({ sessionId }) => translate(() => service.get(sessionId)))
   registry.register(
-    workflowCoreCommands['workflow.plan.save'],
+    workflowCommands['workflow.plan.save'],
     ({ sessionId, objective, items, expectedRevision }) =>
       translate(() => service.savePlan(sessionId, objective, items, expectedRevision)),
     { durable: true },
   )
   registry.register(
-    workflowCoreCommands['workflow.start'],
+    workflowCommands['workflow.start'],
     ({ sessionId, objective, items, tokenBudget }, context) =>
       translate(() => {
         if (!context.actorId || !context.idempotencyKey)
@@ -41,25 +41,31 @@ export function createWorkflowCommands(service: WorkflowService) {
     { durable: true },
   )
   registry.register(
-    workflowCoreCommands['workflow.activate'],
+    workflowCommands['workflow.activate'],
     ({ sessionId, planRevision, tokenBudget }) =>
       translate(() => service.activate(sessionId, planRevision, tokenBudget)),
     { durable: true },
   )
   registry.register(
-    workflowCoreCommands['workflow.expandScope'],
+    workflowCommands['workflow.expandScope'],
     ({ sessionId, itemId, scope, reason, expectedRevision }) =>
       translate(() => service.expandScope(sessionId, itemId, scope, reason, expectedRevision)),
     { durable: true },
   )
   registry.register(
-    workflowCoreCommands['workflow.checkpoint'],
+    workflowCommands['workflow.checkpoint'],
     ({ sessionId, itemId, outcome, summary, nextItemId, expectedRevision }) =>
       translate(() => service.checkpoint(sessionId, itemId, outcome, summary, nextItemId, expectedRevision)),
     { durable: true },
   )
   registry.register(
-    workflowCoreCommands['workflow.acceptCheck'],
+    workflowCommands['workflow.delegate'],
+    ({ sessionId, itemIds, modelId, tokenBudget, expectedRevision }) =>
+      translate(() => service.delegate(sessionId, itemIds, modelId, tokenBudget, expectedRevision)),
+    { durable: true },
+  )
+  registry.register(
+    workflowCommands['workflow.acceptCheck'],
     ({ sessionId, itemId, checkId, decision, note, expectedRevision }, context) =>
       translate(() => {
         if (!context.actorId) throw new HbarError('INVALID_INPUT', 'Authenticated actor is required')
@@ -68,13 +74,13 @@ export function createWorkflowCommands(service: WorkflowService) {
     { durable: true },
   )
   registry.register(
-    workflowCoreCommands['workflow.complete'],
+    workflowCommands['workflow.complete'],
     ({ sessionId, expectedRevision }) => translate(() => service.complete(sessionId, expectedRevision)),
     { durable: true },
   )
 
   return {
-    ...createCommandClient(workflowCoreCommands, registry),
+    ...createCommandClient(workflowCommands, registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

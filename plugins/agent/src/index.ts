@@ -542,7 +542,7 @@ export class AgentRuntime implements AgentService {
       patch,
       status: outcome,
     })
-    if (outcome === 'applied') await this.removeWorktree(seed)
+    if (outcome === 'applied' || outcome === 'rejected') await this.removeWorktree(seed)
     this.api.changed('agents')
     return this.record(seed)
   }
@@ -559,6 +559,17 @@ export class AgentRuntime implements AgentService {
     }
     const direct = (await this.children(parentSessionId)).find(({ record }) => record.agentId === agentId)
     if (!direct) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not a direct child of the target session')
+    if (direct.record.patch && ['ready', 'conflict'].includes(direct.record.patch.status)) {
+      const patch = agentPatchSchema.parse({ ...direct.record.patch, status: 'rejected' })
+      await this.persistPatch(direct.seed, patch)
+      await this.api.hooks.dispatch('agent.patch', {
+        parentSessionId,
+        agentId,
+        patch,
+        status: 'rejected',
+      })
+      await this.removeWorktree(direct.seed)
+    }
     await visit(direct.record.sessionId)
     for (const record of [...descendants.reverse(), direct.record]) {
       if (record.runId && ['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(record.status))

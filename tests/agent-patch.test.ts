@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarClient, createAgentCommandClient } from '@hbar/client'
@@ -171,4 +171,21 @@ test('a parent conflict rejects the whole patch without partially writing other 
   expect(conflict.patch?.status).toBe('conflict')
   expect(await readFile(join(resource.root, 'src', 'first.txt'), 'utf8')).toBe('parent first\n')
   expect(await readFile(join(resource.root, 'src', 'second.txt'), 'utf8')).toBe('parent changed concurrently\n')
+})
+
+test('patch apply rejects isolated content that no longer matches the captured artifact hash', async () => {
+  const resource = await fixture()
+  const ready = await createPatchAgent(resource, 'isolated-integrity')
+  const isolatedSession = await resource.kernel.storage.call('session', ready.sessionId)
+  const isolatedWorkspace = await resource.kernel.storage.call('workspace', isolatedSession.workspaceId)
+  await writeFile(join(isolatedWorkspace.path, 'src', 'first.txt'), 'tampered after capture\n')
+  const rejected = await resource.commands.execute(
+    'agent.patch.apply',
+    { parentSessionId: resource.parent.id, agentId: ready.agentId, planRevision: 3 },
+    { idempotencyKey: 'apply-tampered' },
+  )
+  expect(rejected.patch?.status).toBe('rejected')
+  expect(await readFile(join(resource.root, 'src', 'first.txt'), 'utf8')).toBe('parent first\n')
+  expect(await readFile(join(resource.root, 'src', 'second.txt'), 'utf8')).toBe('parent second\n')
+  await expect(stat(isolatedWorkspace.path)).rejects.toMatchObject({ code: 'ENOENT' })
 })

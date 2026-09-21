@@ -1,9 +1,9 @@
 import { createCommandClient, COMMAND_PROTOCOL_VERSION } from '@hbar/commands'
-import { workflowCoreCommands } from '@hbar/contracts/commands/workflows'
+import { workflowCommands } from '@hbar/contracts/commands/workflows'
 import type { ClientTransport } from './transport'
 
 export function createWorkflowCommandClient(client: ClientTransport) {
-  return createCommandClient(workflowCoreCommands, {
+  return createCommandClient(workflowCommands, {
     execute(commandId, input, options) {
       return client.call('command.execute', {
         protocol: COMMAND_PROTOCOL_VERSION,

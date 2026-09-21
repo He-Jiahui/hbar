@@ -26,12 +26,14 @@ import type {
 } from '@hbar/contracts'
 import {
   workflowCheckpointInputSchema,
+  workflowDelegateInputSchema,
   workflowExpandScopeInputSchema,
   workflowPlanSaveInputSchema,
   workflowStartInputSchema,
 } from '@hbar/contracts/commands/workflows'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
+  AgentService,
   GoalService,
   HbarAPI,
   ModelRequest,
@@ -44,6 +46,9 @@ import type {
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
 const CONTROL_TOOLS = new Set([
+  'apply_agent_patch',
+  'delegate_work',
+  'get_agent_result',
   'get_goal',
   'get_workflow',
   'workflow_start',
@@ -54,6 +59,7 @@ const CONTROL_TOOLS = new Set([
 
 export const workflowConfigSchema = z.object({
   maxExplorationCalls: z.number().int().min(1).max(32).default(8),
+  maxConcurrentAgents: z.number().int().min(1).max(8).default(3),
   maxRestoreEvents: z.number().int().min(1_000).max(MAX_RESTORE_EVENTS).default(MAX_RESTORE_EVENTS),
 })
 export type WorkflowConfig = z.output<typeof workflowConfigSchema>
@@ -76,6 +82,26 @@ function mergeScope(current: WorkflowScope, addition: WorkflowScope): WorkflowSc
     writePaths: unique([...current.writePaths, ...addition.writePaths]),
     tools: unique([...current.tools, ...addition.tools]),
   })
+}
+
+function normalizedScopePath(value: string) {
+  return value.replaceAll('\\', '/').replace(/^\.\//, '').replace(/\/$/, '') || '.'
+}
+
+function pathsOverlap(left: string, right: string) {
+  const first = normalizedScopePath(left)
+  const second = normalizedScopePath(right)
+  return (
+    first === '.' ||
+    second === '.' ||
+    first === second ||
+    first.startsWith(`${second}/`) ||
+    second.startsWith(`${first}/`)
+  )
+}
+
+function scopesOverlap(left: WorkflowScope, right: WorkflowScope) {
+  return left.writePaths.some((first) => right.writePaths.some((second) => pathsOverlap(first, second)))
 }
 
 function checksOf(item: WorkflowPlanItem, now: number): WorkflowAcceptanceCheck[] {
@@ -189,6 +215,7 @@ export class WorkflowRuntime implements WorkflowService {
   constructor(
     private api: HbarAPI,
     private goals: GoalService,
+    private agents: AgentService,
     private config: WorkflowConfig,
   ) {}
 
@@ -488,7 +515,8 @@ export class WorkflowRuntime implements WorkflowService {
     nextItemId: string | null | undefined,
     expectedRevision: number,
   ) {
-    return this.serial(sessionId, async () => {
+    const cancelAgentIds: string[] = []
+    await this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
       const item = current.workItems.find((candidate) => candidate.id === itemId)
       if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The workflow item does not exist')
@@ -522,6 +550,16 @@ export class WorkflowRuntime implements WorkflowService {
           return { ...candidate, status: 'in_progress' as const, startedAt: candidate.startedAt ?? now }
         return candidate
       })
+      const delegations = current.delegations.map((delegation) => {
+        if (
+          outcome !== 'revise' ||
+          delegation.itemId !== itemId ||
+          ['applied', 'cancelled', 'failed'].includes(delegation.status)
+        )
+          return delegation
+        if (delegation.agentId) cancelAgentIds.push(delegation.agentId)
+        return { ...delegation, status: 'cancelled' as const, updatedAt: now }
+      })
       const workflow = workflowStateSchema.parse({
         ...current,
         revision: current.revision + 1,
@@ -529,9 +567,273 @@ export class WorkflowRuntime implements WorkflowService {
         activeItemId: outcome === 'blocked' ? itemId : (requestedNext?.id ?? (outcome === 'complete' ? null : itemId)),
         explorationCount: 0,
         workItems,
+        delegations,
         updatedAt: now,
       })
       return this.persistWorkflow(workflow, undefined, { checkpoint: { kind: outcome, itemId, summary } })
+    })
+    for (const agentId of cancelAgentIds) await this.agents.cancel(sessionId, agentId)
+    return this.snapshot(sessionId)
+  }
+
+  private focusPackage(workflow: WorkflowState, item: WorkflowWorkItem) {
+    return [
+      `Goal: ${this.plans.get(workflow.sessionId)?.objective ?? item.title}`,
+      `Work item: ${item.title}`,
+      `Item id: ${item.id}`,
+      `Plan revision: ${workflow.planRevision}`,
+      `Read paths: ${item.scope.readPaths.join(', ') || 'none'}`,
+      `Write paths: ${item.scope.writePaths.join(', ') || 'none'}`,
+      `Allowed tools: ${item.scope.tools.join(', ') || 'none'}`,
+      `Acceptance: ${item.acceptanceChecks.map((check) => `${check.id}: ${check.description}`).join('; ') || 'none'}`,
+      'Work only on this item. Return a bounded patch and a concise result summary.',
+    ].join('\n')
+  }
+
+  private async startQueuedLocked(initial: WorkflowState) {
+    let workflow = initial
+    for (;;) {
+      const running = workflow.delegations.filter((delegation) => delegation.status === 'running').length
+      const queued = workflow.delegations.find((delegation) => delegation.status === 'queued')
+      if (!queued || running >= this.config.maxConcurrentAgents) return workflow
+      const item = workflow.workItems.find((candidate) => candidate.id === queued.itemId)
+      if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'Queued delegation item no longer exists')
+      let agentId: string | null = null
+      let status: 'running' | 'failed' = 'running'
+      try {
+        const agent = await this.agents.create(
+          {
+            parentSessionId: workflow.sessionId,
+            objective: this.focusPackage(workflow, item),
+            title: item.title,
+            modelId: queued.modelId,
+            tokenBudget: queued.tokenBudget ?? undefined,
+            approval: 'allow',
+            patchTask: {
+              itemId: item.id,
+              planRevision: workflow.planRevision,
+              scope: item.scope,
+              acceptanceChecks: item.acceptanceChecks.map(({ id, description, required, verifier }) => ({
+                id,
+                description,
+                required,
+                verifier,
+              })),
+            },
+          },
+          {
+            actorId: `workflow:${workflow.workflowId}`,
+            idempotencyKey: queued.delegationId,
+            requestId: `delegation-${queued.delegationId}`,
+          },
+        )
+        agentId = agent.agentId
+        if (agent.status === 'failed') status = 'failed'
+      } catch {
+        status = 'failed'
+      }
+      const now = Date.now()
+      const delegations = workflow.delegations.map((delegation) =>
+        delegation.delegationId === queued.delegationId
+          ? { ...delegation, agentId, status, updatedAt: now }
+          : delegation,
+      )
+      const workItems = workflow.workItems.map((candidate) =>
+        candidate.id === item.id
+          ? {
+              ...candidate,
+              status: status === 'failed' ? ('in_progress' as const) : ('delegated' as const),
+              owner: agentId ? { kind: 'agent' as const, agentId } : { kind: 'main' as const },
+              startedAt: candidate.startedAt ?? now,
+            }
+          : candidate,
+      )
+      workflow = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        status: status === 'failed' ? 'active' : workflow.status,
+        activeItemId: status === 'failed' ? item.id : workflow.activeItemId,
+        delegations,
+        workItems,
+        updatedAt: now,
+      })
+      await this.persistWorkflow(workflow, undefined, {
+        delegation: { delegationId: queued.delegationId, agentId, status },
+      })
+    }
+  }
+
+  async delegate(
+    sessionId: string,
+    itemIds: string[],
+    modelId: string,
+    tokenBudget: number | undefined,
+    expectedRevision: number,
+  ) {
+    return this.serial(sessionId, async () => {
+      const current = this.current(sessionId, expectedRevision)
+      if (new Set(itemIds).size !== itemIds.length)
+        throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', 'Delegated item ids must be unique')
+      const items = itemIds.map((itemId) => {
+        const item = current.workItems.find((candidate) => candidate.id === itemId)
+        if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', `Workflow item ${itemId} does not exist`)
+        if (!['pending', 'in_progress'].includes(item.status))
+          throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', `Workflow item ${itemId} is not available to delegate`)
+        if (!item.scope.writePaths.length)
+          throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', `Workflow item ${itemId} has no patch write scope`)
+        if (!item.acceptanceChecks.length)
+          throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', `Workflow item ${itemId} has no acceptance checks`)
+        return item
+      })
+      for (let index = 0; index < items.length; index++)
+        for (let other = index + 1; other < items.length; other++)
+          if (scopesOverlap(items[index]!.scope, items[other]!.scope))
+            throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', 'Delegated write scopes overlap')
+      const unsettled = current.delegations.filter(
+        (delegation) => !['applied', 'cancelled', 'failed'].includes(delegation.status),
+      )
+      for (const item of items)
+        for (const delegation of unsettled) {
+          const delegatedItem = current.workItems.find((candidate) => candidate.id === delegation.itemId)
+          if (delegatedItem && scopesOverlap(item.scope, delegatedItem.scope))
+            throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', 'Write scope overlaps an unsettled delegation')
+        }
+      const goal = await this.goals.get(sessionId)
+      const reserved = current.delegations
+        .filter((delegation) => !['cancelled', 'failed'].includes(delegation.status))
+        .reduce((total, delegation) => total + (delegation.tokenBudget ?? 0), 0)
+      const available = goal.remainingTokens === null ? null : goal.remainingTokens - reserved
+      const perAgent =
+        tokenBudget ?? (available === null ? null : Math.floor(available / Math.max(2, items.length + 1)))
+      if (available !== null && (perAgent === null || perAgent < 1 || perAgent * items.length > available))
+        throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', 'Delegated token budgets exceed the Goal remainder')
+      const now = Date.now()
+      const additions = items.map((item) => ({
+        delegationId: crypto.randomUUID(),
+        itemId: item.id,
+        agentId: null,
+        modelId,
+        tokenBudget: perAgent,
+        status: 'queued' as const,
+        patchId: null,
+        createdAt: now,
+        updatedAt: now,
+      }))
+      let workItems = current.workItems.map((candidate) =>
+        itemIds.includes(candidate.id)
+          ? {
+              ...candidate,
+              status: 'delegated' as const,
+              owner: { kind: 'main' as const },
+              startedAt: candidate.startedAt ?? now,
+            }
+          : candidate,
+      )
+      let next = workItems.find((candidate) => candidate.owner.kind === 'main' && candidate.status === 'in_progress')
+      if (!next) {
+        next = workItems.find((candidate) => candidate.owner.kind === 'main' && candidate.status === 'pending')
+        if (next)
+          workItems = workItems.map((candidate) =>
+            candidate.id === next!.id
+              ? { ...candidate, status: 'in_progress' as const, startedAt: candidate.startedAt ?? now }
+              : candidate,
+          )
+      }
+      const workflow = workflowStateSchema.parse({
+        ...current,
+        revision: current.revision + 1,
+        status: next ? 'active' : 'waiting',
+        activeItemId: next?.id ?? null,
+        explorationCount: 0,
+        workItems,
+        delegations: [...current.delegations, ...additions],
+        updatedAt: now,
+      })
+      await this.persistWorkflow(workflow, undefined, {
+        delegation: { queued: additions.map((entry) => entry.delegationId) },
+      })
+      await this.startQueuedLocked(workflow)
+      return this.snapshot(sessionId)
+    })
+  }
+
+  async handleAgentPatch(event: {
+    parentSessionId: string
+    agentId: string
+    patch: import('@hbar/contracts').AgentPatch | null
+    status: 'ready' | 'applied' | 'conflict' | 'rejected'
+  }) {
+    if (!this.workflows.has(event.parentSessionId)) return
+    await this.serial(event.parentSessionId, async () => {
+      const current = this.workflows.get(event.parentSessionId)
+      if (!current || current.status === 'completed') return
+      const delegation = current.delegations.find((candidate) => candidate.agentId === event.agentId)
+      if (!delegation) return
+      if (delegation.status === 'cancelled') {
+        await this.startQueuedLocked(current)
+        return
+      }
+      const status =
+        event.status === 'ready'
+          ? ('patch_ready' as const)
+          : event.status === 'rejected'
+            ? ('failed' as const)
+            : event.status
+      const now = Date.now()
+      const workflow = workflowStateSchema.parse({
+        ...current,
+        revision: current.revision + 1,
+        status: 'active',
+        activeItemId: delegation.itemId,
+        delegations: current.delegations.map((candidate) =>
+          candidate.delegationId === delegation.delegationId
+            ? { ...candidate, status, patchId: event.patch?.patchId ?? candidate.patchId, updatedAt: now }
+            : candidate,
+        ),
+        workItems: current.workItems.map((item) =>
+          item.id === delegation.itemId
+            ? {
+                ...item,
+                status:
+                  status === 'patch_ready' || status === 'applied' ? ('verifying' as const) : ('in_progress' as const),
+                owner: { kind: 'main' as const },
+              }
+            : item,
+        ),
+        updatedAt: now,
+      })
+      await this.persistWorkflow(workflow, undefined, {
+        delegation: { delegationId: delegation.delegationId, patchId: event.patch?.patchId ?? null, status },
+      })
+      await this.startQueuedLocked(workflow)
+    })
+  }
+
+  async resumeDelegations() {
+    for (const [sessionId, workflow] of this.workflows)
+      if (workflow.status !== 'completed' && workflow.delegations.some((delegation) => delegation.status === 'queued'))
+        await this.serial(sessionId, () => this.startQueuedLocked(this.workflows.get(sessionId) ?? workflow))
+  }
+
+  async agentResult(sessionId: string, agentId: string) {
+    const workflow = this.workflows.get(sessionId)
+    if (!workflow?.delegations.some((delegation) => delegation.agentId === agentId))
+      throw new HbarError('AGENT_NOT_FOUND', 'Agent is not delegated by this workflow')
+    return this.agents.result(sessionId, agentId)
+  }
+
+  async applyAgentPatch(sessionId: string, agentId: string, planRevision: number) {
+    const workflow = this.workflows.get(sessionId)
+    const delegation = workflow?.delegations.find((candidate) => candidate.agentId === agentId)
+    if (!workflow || !delegation) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not delegated by this workflow')
+    if (workflow.planRevision !== planRevision)
+      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The agent patch belongs to a stale workflow plan')
+    if (!delegation.patchId || !['patch_ready', 'conflict'].includes(delegation.status))
+      throw new HbarError('AGENT_PATCH_UNAVAILABLE', 'The delegated agent has no patch ready to apply')
+    return this.agents.applyPatch(sessionId, agentId, planRevision, {
+      actorId: `workflow:${workflow.workflowId}`,
+      idempotencyKey: `${delegation.delegationId}:${delegation.patchId}`,
+      requestId: `apply-${delegation.patchId}`,
     })
   }
 
@@ -654,6 +956,7 @@ export class WorkflowRuntime implements WorkflowService {
     const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
     const checks =
       item?.acceptanceChecks.filter((check) => check.required && !['passed', 'accepted'].includes(check.status)) ?? []
+    const recentFailures = workflow.evidence.filter((entry) => entry.outcome === 'failed').slice(-3)
     const prompt = [
       '<focus_workflow>',
       `Status: ${workflow.status}`,
@@ -664,6 +967,8 @@ export class WorkflowRuntime implements WorkflowService {
       `Allowed write paths: ${item?.scope.writePaths.map(escapeXml).join(', ') || 'none'}`,
       `Allowed tools: ${item?.scope.tools.map(escapeXml).join(', ') || 'none'}`,
       `Pending required checks: ${checks.map((check) => escapeXml(check.description)).join('; ') || 'none'}`,
+      `Delegations: ${workflow.delegations.map((entry) => `${escapeXml(entry.itemId)}=${entry.status}`).join(', ') || 'none'}`,
+      `Recent failed checks: ${recentFailures.map((entry) => escapeXml(entry.checkId)).join(', ') || 'none'}`,
       'Stay on the current item. Expand scope explicitly with a reason before accessing anything outside it.',
       'Use the stable loop: orient, bounded exploration, act or delegate, verify, checkpoint.',
       '</focus_workflow>',
@@ -788,6 +1093,12 @@ export class WorkflowRuntime implements WorkflowService {
 
 const startToolSchema = workflowStartInputSchema.omit({ sessionId: true })
 const savePlanToolSchema = workflowPlanSaveInputSchema.omit({ sessionId: true })
+const delegateToolSchema = workflowDelegateInputSchema.omit({ sessionId: true })
+const agentResultToolSchema = z.strictObject({ agentId: z.string().min(1).max(160) })
+const applyPatchToolSchema = z.strictObject({
+  agentId: z.string().min(1).max(160),
+  planRevision: z.number().int().positive(),
+})
 const updateToolSchema = z.discriminatedUnion('action', [
   workflowExpandScopeInputSchema.omit({ sessionId: true }).extend({ action: z.literal('expand_scope') }),
   workflowCheckpointInputSchema.omit({ sessionId: true }).extend({ action: z.literal('checkpoint') }),
@@ -870,6 +1181,45 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
         return { text: JSON.stringify(result), details: result }
       },
     },
+    {
+      name: 'delegate_work',
+      description: 'Delegate independent workflow items to isolated child agents with bounded scopes and budgets.',
+      inputSchema: delegateToolSchema,
+      effect: 'read',
+      execute: async (args, context) => {
+        const parsed = delegateToolSchema.parse(args)
+        const result = await runtime.delegate(
+          context.session.id,
+          parsed.itemIds,
+          parsed.modelId,
+          parsed.tokenBudget,
+          parsed.expectedRevision,
+        )
+        return { text: JSON.stringify(result), details: result }
+      },
+    },
+    {
+      name: 'get_agent_result',
+      description: 'Read the durable result and patch metadata for one agent delegated by this workflow.',
+      inputSchema: agentResultToolSchema,
+      effect: 'read',
+      execute: async (args, context) => {
+        const parsed = agentResultToolSchema.parse(args)
+        const result = await runtime.agentResult(context.session.id, parsed.agentId)
+        return { text: JSON.stringify(result), details: result }
+      },
+    },
+    {
+      name: 'apply_agent_patch',
+      description: 'Apply a ready isolated agent patch after Host scope, revision, integrity, and conflict checks.',
+      inputSchema: applyPatchToolSchema,
+      effect: 'write',
+      execute: async (args, context) => {
+        const parsed = applyPatchToolSchema.parse(args)
+        const result = await runtime.applyAgentPatch(context.session.id, parsed.agentId, parsed.planRevision)
+        return { text: JSON.stringify(result), details: result }
+      },
+    },
   ]
 }
 
@@ -884,14 +1234,20 @@ export const workflowPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { workflow: '1.0.0' },
-    requires: { goal: '^1.0.0', storage: '^1.0.0' },
+    requires: { agent: '^1.0.0', goal: '^1.0.0', storage: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: workflowConfigSchema,
   async apply(ctx, rawConfig) {
     const api = ctx.hbar.api
-    const runtime = new WorkflowRuntime(api, api.service<GoalService>('goal'), workflowConfigSchema.parse(rawConfig))
+    const runtime = new WorkflowRuntime(
+      api,
+      api.service<GoalService>('goal'),
+      api.service<AgentService>('agent'),
+      workflowConfigSchema.parse(rawConfig),
+    )
     await runtime.restore()
+    await runtime.resumeDelegations()
     provide<WorkflowService>(ctx, 'workflow', runtime)
     api.hooks.on('run.start', (event) => runtime.autoActivate(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
@@ -903,6 +1259,7 @@ export const workflowPlugin = definePlugin({
       runtime.settleTool(event.name, event.args, event.result, event.context, event.tool),
     )
     api.hooks.on('goal.beforeComplete', (event) => runtime.guardCompletion(event.sessionId, event.goal.goalId))
+    api.hooks.on('agent.patch', (event) => runtime.handleAgentPatch(event))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },
 })

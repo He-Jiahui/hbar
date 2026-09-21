@@ -201,7 +201,8 @@ export type AgentPatch = z.output<typeof agentPatchSchema>
 export const workflowDelegationSchema = z.strictObject({
   delegationId: idSchema,
   itemId: idSchema,
-  agentId: idSchema,
+  agentId: idSchema.nullable(),
+  modelId: idSchema,
   tokenBudget: z.number().int().positive().max(1_000_000_000).nullable(),
   status: z.enum(['queued', 'running', 'patch_ready', 'applied', 'conflict', 'cancelled', 'failed']),
   patchId: idSchema.nullable(),
