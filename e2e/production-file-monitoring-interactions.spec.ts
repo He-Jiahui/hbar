@@ -167,8 +167,7 @@ test('executes the real file and session monitoring tool flows', async ({ browse
       'monitoring.latency.toggle',
       { role: 'button', name: 'Latency p95', description: 'latency details disclosure' },
       async () => {
-        const summary = page.locator('.hbar-app-react-session-monitoring summary').filter({ hasText: 'Latency p95' })
-        await summary.click()
+        await page.getByRole('button', { name: 'Latency p95', exact: true }).click()
         await expect(page.getByText('First text token')).toBeVisible()
         return {
           ui: [
@@ -185,10 +184,7 @@ test('executes the real file and session monitoring tool flows', async ({ browse
       'monitoring.executions.toggle',
       { role: 'button', name: 'Execution statistics', description: 'execution details disclosure' },
       async () => {
-        const summary = page
-          .locator('.hbar-app-react-session-monitoring summary')
-          .filter({ hasText: 'Execution statistics' })
-        await summary.click()
+        await page.getByRole('button', { name: 'Execution statistics', exact: true }).click()
         await expect(page.getByText('Peak request concurrency')).toBeVisible()
         return {
           ui: [
@@ -205,8 +201,7 @@ test('executes the real file and session monitoring tool flows', async ({ browse
       'monitoring.models.toggle',
       { role: 'button', name: 'Model usage', description: 'model usage disclosure' },
       async () => {
-        const summary = page.locator('.hbar-app-react-session-monitoring summary').filter({ hasText: 'Model usage' })
-        await summary.click()
+        await page.getByRole('button', { name: 'Model usage', exact: true }).click()
         await expect(page.getByText('fixture / fixture')).toBeVisible()
         return {
           ui: [

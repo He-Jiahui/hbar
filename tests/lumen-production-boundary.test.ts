@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
+import { expect, test } from 'bun:test'
 
 async function collectSourceFiles(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true })

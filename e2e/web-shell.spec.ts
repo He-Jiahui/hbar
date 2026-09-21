@@ -690,7 +690,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
         }, view),
       ).toBe(true)
     await expectFileToolLayout('browser')
-    await expect(page.locator('.hbar-app-react-file-workspace .hbar-app-ui-session-tool-pane-heading span')).toHaveText(
+    await expect(page.locator('.hbar-app-react-file-workspace .lumen-tool-pane-heading h2')).toHaveText(
       fixture.ready.workspaceName,
     )
     await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/list-1440.png', fullPage: true })
@@ -836,7 +836,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
         .evaluate(() => {
           const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
           const monitoring = document.querySelector<HTMLElement>('.hbar-app-react-session-monitoring')
-          const bars = [...document.querySelectorAll<HTMLElement>('.hbar-app-ui-bar-series i')]
+          const bars = [...document.querySelectorAll<HTMLElement>('.lumen-bar-series i')]
           const header = monitoring?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
           const body = monitoring?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
           if (!drawer || !monitoring || !header || !body || !bars.length) return null
@@ -958,13 +958,13 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       })
     await expectMonitoringLayout()
     await expect(
-      page.locator('.hbar-app-react-session-monitoring .hbar-app-ui-session-tool-pane-heading span'),
+      page.locator('.hbar-app-react-session-monitoring .lumen-tool-pane-heading h2'),
     ).toHaveText(fixture.ready.sessionTitle)
     await expect(page.getByText('Total tokens')).toBeVisible()
     await expect(page.getByText('Token timeline')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
     await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/desktop-1440.png', fullPage: true })
-    await page.locator('.hbar-app-react-session-monitoring summary').filter({ hasText: 'Execution statistics' }).click()
+    await page.getByRole('button', { name: 'Execution statistics', exact: true }).click()
     await expect(page.getByText('Peak request concurrency')).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/desktop-1440-expanded.png', fullPage: true })
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
@@ -1005,7 +1005,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: 'Git repository' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: 'Activity summary' })).toBeVisible()
     await expect(
-      page.locator('.hbar-app-ui-compact-metrics').getByText('Automatic commits', { exact: true }),
+      page.locator('.lumen-compact-metrics').getByText('Automatic commits', { exact: true }),
     ).toBeVisible()
     await expect(page.getByText('More filters', { exact: true })).toBeVisible()
     await expect(page.getByText('Repository and accounting details', { exact: true })).toBeAttached()
@@ -1016,7 +1016,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('checkbox', { name: 'Automatic commits' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/git/after/desktop-1440-filters.png', fullPage: true })
     await page.getByText('More filters', { exact: true }).click()
-    const commitBuckets = page.locator('.hbar-app-react-git-charts .is-commits .hbar-app-ui-bar-series button')
+    const commitBuckets = page.locator('.hbar-app-react-git-charts .is-commits .lumen-bar-series button')
     await commitBuckets.last().click()
     await expect(commitBuckets.last()).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByText(/Showing 1 commits from the .* bucket\./)).toBeVisible()
@@ -1036,7 +1036,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: 'Child agent management' })).toBeVisible()
     await expectAgentLayout('list')
     await expect(
-      page.locator('.hbar-app-react-agent-workspace .hbar-app-ui-session-tool-pane-heading span'),
+      page.locator('.hbar-app-react-agent-workspace .lumen-tool-pane-heading h2'),
     ).toHaveText(fixture.ready.sessionTitle)
     await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-empty.png', fullPage: true })
     await page.getByRole('button', { name: 'Create child agent' }).click()
@@ -1063,7 +1063,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 2, name: 'Goals and plans' })).toBeVisible()
     await expectGoalPlanLayout('overview')
     await expect(
-      page.locator('.hbar-app-react-goal-plan-workspace .hbar-app-ui-session-tool-pane-heading span'),
+      page.locator('.hbar-app-react-goal-plan-workspace .lumen-tool-pane-heading h2'),
     ).toHaveText(fixture.ready.sessionTitle)
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-empty.png', fullPage: true })
     await page.getByRole('button', { name: 'Set goal' }).click()
@@ -1155,7 +1155,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expectMonitoringLayout()
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/mobile-390.png', fullPage: true })
-    await page.locator('.hbar-app-react-session-monitoring summary').filter({ hasText: 'Execution statistics' }).click()
+    await page.getByRole('button', { name: 'Execution statistics', exact: true }).click()
     await expect(page.getByText('Peak request concurrency')).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/mobile-390-expanded.png', fullPage: true })
     await page.getByRole('button', { name: 'Close session monitoring' }).click()
@@ -1251,7 +1251,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     const executionDetails = page.getByText('Execution statistics', { exact: true })
     await executionDetails.evaluate((element) => element.scrollIntoView({ block: 'start' }))
     await executionDetails.click()
-    const toolCalls = page.locator('.hbar-app-ui-compact-metrics > div').filter({ hasText: 'Tool calls' })
+    const toolCalls = page.locator('.lumen-compact-metrics > div').filter({ hasText: 'Tool calls' })
     await expect(toolCalls).toContainText('1')
     await expect(toolCalls).toContainText('1 succeeded · 0 failed · 0 unknown')
     await expect(page.getByText('Peak request concurrency')).toBeVisible()
@@ -1273,7 +1273,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
     const settingsScope = page.getByRole('combobox', { name: 'Settings scope' })
     await settingsScope.selectOption('session')
-    await expect(page.locator('.hbar-app-ui-page-heading p')).toHaveText(
+    await expect(page.locator('.lumen-page-heading p')).toHaveText(
       `Session settings · ${fixture.ready.sessionTitle}`,
     )
     const settingsModel = page.getByRole('combobox', { name: 'Model' })
