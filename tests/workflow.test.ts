@@ -14,7 +14,7 @@ afterEach(async () => {
   }
 })
 
-async function fixture(maxExplorationCalls = 8) {
+async function fixture(maxExplorationCalls = 8, autoContinue = false) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-workflow-'))
   const kernel = await Kernel.create({
     home: join(root, 'data'),
@@ -23,7 +23,10 @@ async function fixture(maxExplorationCalls = 8) {
     secrets: new MemorySecrets(),
   })
   resources.push({ root, kernel })
-  await kernel.changePlugin('goal.codex', true, { autoContinue: false, maxContinuations: 0 })
+  await kernel.changePlugin('goal.codex', true, {
+    autoContinue,
+    maxContinuations: autoContinue ? 8 : 0,
+  })
   await kernel.changePlugin('workflow.focus', true, { maxExplorationCalls })
   const workspace = (await kernel.storage.call('workspaces'))[0]!
   const session = await kernel.createSession(workspace.id)
@@ -85,6 +88,22 @@ test('workflow plans activate on the next user run and survive Host restart', as
   expect(await restarted.plugins.get<WorkflowService>('workflow').get(session.id)).toMatchObject({
     plan: { revision: 1, phase: 'active' },
     workflow: { status: 'active', revision: 1 },
+  })
+})
+
+test('Goal auto-continuation pauses while the focused workflow waits for user evidence', async () => {
+  const { kernel, session, workflows } = await fixture(8, true)
+  await workflows.start(session.id, 'Wait for external acceptance', [userVerifiedItem])
+  await kernel.submit(
+    session.id,
+    'workflow-user-evidence',
+    { text: 'Implement the current item', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.snapshot(session.id)).runs).toHaveLength(1)
+  expect(await workflows.get(session.id)).toMatchObject({
+    workflow: { status: 'active', activeItemId: 'ship' },
   })
 })
 

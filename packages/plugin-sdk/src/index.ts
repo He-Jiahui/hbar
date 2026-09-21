@@ -412,6 +412,7 @@ export interface HookEvents {
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'goal.beforeComplete': { sessionId: string; runId?: string | undefined; goal: ThreadGoal }
+  'goal.beforeContinue': { sessionId: string; runId: string; goal: ThreadGoal; allowed: boolean }
   'agent.patch': {
     parentSessionId: string
     agentId: string

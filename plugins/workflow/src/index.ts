@@ -915,6 +915,17 @@ export class WorkflowRuntime implements WorkflowService {
     this.assertCompletable(workflow)
   }
 
+  canAutoContinue(sessionId: string) {
+    const workflow = this.workflows.get(sessionId)
+    if (!workflow || workflow.status === 'completed') return true
+    if (workflow.status !== 'active' || !workflow.activeItemId) return false
+    const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
+    if (!item || item.owner.kind !== 'main' || ['blocked', 'delegated', 'completed'].includes(item.status)) return false
+    return !item.acceptanceChecks.some(
+      (check) => check.required && check.verifier.kind === 'user' && check.status === 'pending',
+    )
+  }
+
   async complete(sessionId: string, expectedRevision: number, runId?: string) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
@@ -1259,6 +1270,10 @@ export const workflowPlugin = definePlugin({
       runtime.settleTool(event.name, event.args, event.result, event.context, event.tool),
     )
     api.hooks.on('goal.beforeComplete', (event) => runtime.guardCompletion(event.sessionId, event.goal.goalId))
+    api.hooks.on('goal.beforeContinue', (event) => ({
+      ...event,
+      allowed: event.allowed && runtime.canAutoContinue(event.sessionId),
+    }))
     api.hooks.on('agent.patch', (event) => runtime.handleAgentPatch(event))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },

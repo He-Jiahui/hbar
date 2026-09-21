@@ -516,6 +516,13 @@ class GoalRuntime implements GoalService {
         goal.status === 'active' &&
         goal.continuationCount < this.config.maxContinuations
       ) {
+        const continuation = await this.api.hooks.dispatch('goal.beforeContinue', {
+          sessionId: event.sessionId,
+          runId: event.runId,
+          goal: publicGoal(goal),
+          allowed: true,
+        })
+        if (!continuation.allowed) return
         const next: PersistedGoal = { ...goal, continuationCount: goal.continuationCount + 1, updatedAt: Date.now() }
         await this.persist(next, event.runId)
         try {
