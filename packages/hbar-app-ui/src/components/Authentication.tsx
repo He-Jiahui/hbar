@@ -1,91 +1,67 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {AccountChooserAuthentication} from './authentication/AccountChooserAuthentication'
-import {CodeAuthentication} from './authentication/CodeAuthentication'
-import {EnterpriseAuthentication} from './authentication/EnterpriseAuthentication'
-import {InvitationAuthentication} from './authentication/InvitationAuthentication'
-import {MagicLinkAuthentication} from './authentication/MagicLinkAuthentication'
-import {PasskeyAuthentication} from './authentication/PasskeyAuthentication'
-import {PasswordResetAuthentication} from './authentication/PasswordResetAuthentication'
-import {ProviderFirstAuthentication} from './authentication/ProviderFirstAuthentication'
-import {QuoteAuthentication} from './authentication/QuoteAuthentication'
-import {SignInApprovalAuthentication} from './authentication/SignInApprovalAuthentication'
-import {SignInAuthentication} from './authentication/SignInAuthentication'
-import {SignUpAuthentication} from './authentication/SignUpAuthentication'
-import {TwoStepAuthentication} from './authentication/TwoStepAuthentication'
-import {WorkspacePickerAuthentication} from './authentication/WorkspacePickerAuthentication'
-import {AuthFrame} from './authentication/AuthPrimitives'
-import {useHbarAppUiAuthenticationContent} from './authentication/AuthContent'
-import './authentication/AuthenticationSurface.css'
+import {
+  LumenAuthentication,
+  LumenAuthenticationProvider as HbarAppUiAuthenticationProvider,
+  type LumenAuthContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiAuthenticationProps = HbarAppUiVariantProps & {
-    readonly authenticationContent?: import('./authentication/AuthContent').HbarAppUiAuthContent | undefined
+  readonly authenticationContent?: LumenAuthContent | undefined
 }
 
-export {HbarAppUiAuthenticationProvider, selectHbarAppUiAuthItem, uniqueHbarAppUiAuthItems} from './authentication/AuthContent'
+export { HbarAppUiAuthenticationProvider }
+export {
+  selectLumenAuthItem as selectHbarAppUiAuthItem,
+  uniqueLumenAuthItems as uniqueHbarAppUiAuthItems,
+  useLumenAuthenticationContent as useHbarAppUiAuthenticationContent,
+} from '@lumen/app-ui'
 export type {
-    HbarAppUiAuthAccount,
-    HbarAppUiAuthAccountContent,
-    HbarAppUiAuthApprovalContent,
-    HbarAppUiAuthChoice,
-    HbarAppUiAuthCodeContent,
-    HbarAppUiAuthContent,
-    HbarAppUiAuthDevice,
-    HbarAppUiAuthEnterpriseContent,
-    HbarAppUiAuthInvitationContent,
-    HbarAppUiAuthListStrategy,
-    HbarAppUiAuthMagicLinkContent,
-    HbarAppUiAuthMember,
-    HbarAppUiAuthPasskey,
-    HbarAppUiAuthPasskeyContent,
-    HbarAppUiAuthPasswordResetContent,
-    HbarAppUiAuthProject,
-    HbarAppUiAuthProviderChoice,
-    HbarAppUiAuthProviderFirstContent,
-    HbarAppUiAuthProviderProps,
-    HbarAppUiAuthQuote,
-    HbarAppUiAuthQuoteContent,
-    HbarAppUiAuthRecentSignIn,
-    HbarAppUiAuthSignInContent,
-    HbarAppUiAuthSignUpContent,
-    HbarAppUiAuthTwoStepContent,
-    HbarAppUiAuthWorkspace,
-    HbarAppUiAuthWorkspaceContent,
-} from './authentication/AuthContent'
+  LumenAuthAccount as HbarAppUiAuthAccount,
+  LumenAuthAccountContent as HbarAppUiAuthAccountContent,
+  LumenAuthApprovalContent as HbarAppUiAuthApprovalContent,
+  LumenAuthChoice as HbarAppUiAuthChoice,
+  LumenAuthCodeContent as HbarAppUiAuthCodeContent,
+  LumenAuthContent as HbarAppUiAuthContent,
+  LumenAuthDevice as HbarAppUiAuthDevice,
+  LumenAuthEnterpriseContent as HbarAppUiAuthEnterpriseContent,
+  LumenAuthInvitationContent as HbarAppUiAuthInvitationContent,
+  LumenAuthListStrategy as HbarAppUiAuthListStrategy,
+  LumenAuthMagicLinkContent as HbarAppUiAuthMagicLinkContent,
+  LumenAuthMember as HbarAppUiAuthMember,
+  LumenAuthPasskey as HbarAppUiAuthPasskey,
+  LumenAuthPasskeyContent as HbarAppUiAuthPasskeyContent,
+  LumenAuthPasswordResetContent as HbarAppUiAuthPasswordResetContent,
+  LumenAuthProject as HbarAppUiAuthProject,
+  LumenAuthProviderChoice as HbarAppUiAuthProviderChoice,
+  LumenAuthProviderFirstContent as HbarAppUiAuthProviderFirstContent,
+  LumenAuthProviderProps as HbarAppUiAuthProviderProps,
+  LumenAuthQuote as HbarAppUiAuthQuote,
+  LumenAuthQuoteContent as HbarAppUiAuthQuoteContent,
+  LumenAuthRecentSignIn as HbarAppUiAuthRecentSignIn,
+  LumenAuthSignInContent as HbarAppUiAuthSignInContent,
+  LumenAuthSignUpContent as HbarAppUiAuthSignUpContent,
+  LumenAuthTwoStepContent as HbarAppUiAuthTwoStepContent,
+  LumenAuthWorkspace as HbarAppUiAuthWorkspace,
+  LumenAuthWorkspaceContent as HbarAppUiAuthWorkspaceContent,
+} from '@lumen/app-ui'
 
-export function Authentication({spec, onAction, authenticationContent}: HbarAppUiAuthenticationProps) {
-    const providerContent = useHbarAppUiAuthenticationContent()
-    const content = authenticationContent ?? providerContent
-    if (!content) return <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-    switch (spec.variant) {
-        case 1:
-            return content.signIn ? <SignInAuthentication spec={spec} onAction={onAction} content={content.signIn} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 2:
-            return content.providerFirst ? <ProviderFirstAuthentication spec={spec} onAction={onAction} content={content.providerFirst} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 3:
-            return content.quote ? <QuoteAuthentication spec={spec} onAction={onAction} content={content.quote} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 4:
-            return content.twoStep ? <TwoStepAuthentication spec={spec} onAction={onAction} content={content.twoStep} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 5:
-            return content.magicLink ? <MagicLinkAuthentication spec={spec} onAction={onAction} content={content.magicLink} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 6:
-            return content.code ? <CodeAuthentication spec={spec} onAction={onAction} content={content.code} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 7:
-            return content.signUp ? <SignUpAuthentication spec={spec} onAction={onAction} content={content.signUp} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 8:
-            return content.enterprise ? <EnterpriseAuthentication spec={spec} onAction={onAction} content={content.enterprise} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 9:
-            return content.passkey ? <PasskeyAuthentication spec={spec} onAction={onAction} content={content.passkey} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 10:
-            return content.account ? <AccountChooserAuthentication spec={spec} onAction={onAction} content={content.account} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 11:
-            return content.workspace ? <WorkspacePickerAuthentication spec={spec} onAction={onAction} content={content.workspace} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 12:
-            return content.invitation ? <InvitationAuthentication spec={spec} onAction={onAction} content={content.invitation} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 13:
-            return content.passwordReset ? <PasswordResetAuthentication spec={spec} onAction={onAction} content={content.passwordReset} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        case 14:
-            return content.approval ? <SignInApprovalAuthentication spec={spec} onAction={onAction} content={content.approval} /> : <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-        default:
-            return <AuthFrame spec={spec} onAction={onAction}>{null}</AuthFrame>
-    }
+export function Authentication({ spec, onAction, authenticationContent, className }: HbarAppUiAuthenticationProps) {
+  return (
+    <LumenAuthentication
+      variant={spec.variant}
+      variantId={spec.id}
+      content={authenticationContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(value === undefined ? { variantId: spec.id, actionId } : { variantId: spec.id, actionId, value })
+          : undefined
+      }
+    />
+  )
 }
