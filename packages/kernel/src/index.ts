@@ -940,7 +940,8 @@ export class Kernel {
     const tool = scope.tools.get(name)
     if (!tool) throw new HbarError('TOOL_NOT_FOUND', name)
     let result: ToolResult,
-      started = false
+      started = false,
+      executedArgs: Record<string, unknown> | undefined
     try {
       context.signal.throwIfAborted()
       const initial = tool.inputSchema.parse(rawArgs) as Record<string, unknown>
@@ -951,6 +952,7 @@ export class Kernel {
         tool,
       })
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
+      executedArgs = args
       const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       const mode = context.run.input.approval ?? this.permissionModeValue
       if (decision === 'deny' || (decision === 'ask' && mode === 'deny'))
@@ -983,6 +985,10 @@ export class Kernel {
       : null
     this.publishEvent(event)
     if (settled) this.publishEvent(settled)
+    if (settled && executedArgs)
+      await scope.hooks
+        .dispatch('tool.settled', { name, args: executedArgs, result, context, tool })
+        .catch((error) => console.error('Tool settlement observer failed:', error))
     return result
   }
   private async requestApproval(tool: string, args: Record<string, unknown>, context: ToolContext) {

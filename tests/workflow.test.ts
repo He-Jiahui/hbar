@@ -198,3 +198,123 @@ test('scope and checkpoint updates reject stale revisions', async () => {
     code: 'WORKFLOW_REVISION_CONFLICT',
   })
 })
+
+test('successful tool results become durable acceptance evidence only after settlement', async () => {
+  const { root, kernel, session, workflows, goals } = await fixture()
+  await writeFile(join(root, 'verified.txt'), 'verified content', 'utf8')
+  await workflows.start(session.id, 'Verify with a real tool result', [
+    {
+      id: 'verify',
+      title: 'Read the verification fixture',
+      scope: { readPaths: ['verified.txt'], writePaths: [], tools: ['read_file'] },
+      acceptanceChecks: [
+        {
+          id: 'read-proof',
+          description: 'The declared file is read successfully',
+          verifier: { kind: 'tool', toolName: 'read_file', expectedArguments: { path: 'verified.txt' } },
+        },
+      ],
+    },
+  ])
+
+  await kernel.submit(
+    session.id,
+    'verification-read',
+    { text: '/tool read_file {"path":"verified.txt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const snapshot = await workflows.get(session.id)
+  expect(snapshot.workflow?.workItems[0]?.acceptanceChecks[0]).toMatchObject({ status: 'passed' })
+  expect(snapshot.workflow?.evidence[0]).toMatchObject({
+    source: 'tool',
+    outcome: 'passed',
+    toolName: 'read_file',
+  })
+  const events = await kernel.storage.call('events', session.id, 0, 10_000)
+  const toolResultIndex = events.findIndex(
+    (event) =>
+      event.type === 'message.committed' &&
+      JSON.stringify(event.data).includes('read_file') &&
+      JSON.stringify(event.data).includes('tool_result'),
+  )
+  const evidenceIndex = events.findIndex(
+    (event) =>
+      event.type === 'workflow.updated' &&
+      typeof event.data === 'object' &&
+      event.data !== null &&
+      Object.hasOwn(event.data, 'verification'),
+  )
+  expect(toolResultIndex).toBeGreaterThanOrEqual(0)
+  expect(evidenceIndex).toBeGreaterThan(toolResultIndex)
+
+  const itemCompleted = await workflows.checkpoint(
+    session.id,
+    'verify',
+    'complete',
+    'The tool evidence is committed',
+    null,
+    3,
+  )
+  const completed = await workflows.complete(session.id, itemCompleted.workflow!.revision)
+  expect(completed.workflow?.status).toBe('completed')
+  expect((await goals.get(session.id)).goal?.status).toBe('complete')
+
+  await kernel.close()
+  resources.splice(
+    resources.findIndex((entry) => entry.kernel === kernel),
+    1,
+  )
+  const restarted = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  resources.push({ root, kernel: restarted })
+  expect(await restarted.plugins.get<WorkflowService>('workflow').get(session.id)).toMatchObject({
+    workflow: { status: 'completed', evidence: [{ source: 'tool', outcome: 'passed' }] },
+  })
+})
+
+test('three identical verifier failures block the work item instead of retrying forever', async () => {
+  const { kernel, session, workflows } = await fixture()
+  await workflows.start(session.id, 'Stop repeated failed verification', [
+    {
+      id: 'verify',
+      title: 'Read a required file',
+      scope: { readPaths: ['missing.txt'], writePaths: [], tools: ['read_file'] },
+      acceptanceChecks: [
+        {
+          id: 'missing-proof',
+          description: 'The required file can be read',
+          verifier: { kind: 'tool', toolName: 'read_file', expectedArguments: { path: 'missing.txt' } },
+        },
+      ],
+    },
+  ])
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await kernel.submit(
+      session.id,
+      `failed-verification-${attempt}`,
+      { text: '/tool read_file {"path":"missing.txt"}', images: [] },
+      'local-fixture',
+    )
+    await kernel.waitForIdle()
+  }
+  const snapshot = await workflows.get(session.id)
+  expect(snapshot.workflow).toMatchObject({ status: 'blocked' })
+  expect(snapshot.workflow?.workItems[0]).toMatchObject({ status: 'blocked' })
+  expect(snapshot.workflow?.evidence).toHaveLength(3)
+  expect(snapshot.workflow?.evidence.every((entry) => entry.outcome === 'failed')).toBeTrue()
+
+  await kernel.submit(
+    session.id,
+    'blocked-fourth-attempt',
+    { text: '/tool read_file {"path":"missing.txt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect((await workflows.get(session.id)).workflow?.evidence).toHaveLength(3)
+})

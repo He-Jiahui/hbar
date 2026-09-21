@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import {
   HbarError,
+  MAX_WORKFLOW_EVIDENCE,
   WORKFLOW_SCHEMA_VERSION,
   workflowPlanItemSchema,
   workflowPlanSchema,
@@ -28,7 +30,15 @@ import {
   workflowStartInputSchema,
 } from '@hbar/contracts/commands/workflows'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { GoalService, HbarAPI, ModelRequest, ToolContext, ToolDefinition, WorkflowService } from '@hbar/plugin-sdk'
+import type {
+  GoalService,
+  HbarAPI,
+  ModelRequest,
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+  WorkflowService,
+} from '@hbar/plugin-sdk'
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
@@ -49,7 +59,7 @@ export type WorkflowConfig = z.output<typeof workflowConfigSchema>
 
 const planSavedEventSchema = z.strictObject({ plan: workflowPlanSchema })
 const workflowStartedEventSchema = z.strictObject({ plan: workflowPlanSchema, workflow: workflowStateSchema })
-const workflowUpdatedEventSchema = z.strictObject({ workflow: workflowStateSchema })
+const workflowUpdatedEventSchema = z.object({ workflow: workflowStateSchema })
 
 function escapeXml(value: string) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -114,6 +124,59 @@ function pathAllowed(path: string, allowed: readonly string[]) {
     const normalized = entry.replaceAll('\\', '/').replace(/^\.\//, '').replace(/\/$/, '') || '.'
     return normalized === '.' || path === normalized || path.startsWith(`${normalized}/`)
   })
+}
+
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, canonical(entry)]),
+  )
+}
+
+function hashValue(value: unknown) {
+  return createHash('sha256')
+    .update(JSON.stringify(canonical(value)))
+    .digest('hex')
+}
+
+function expectedArgumentsMatch(expected: Record<string, unknown> | undefined, actual: Record<string, unknown>) {
+  if (!expected) return true
+  return Object.entries(expected).every(
+    ([key, value]) =>
+      Object.hasOwn(actual, key) && JSON.stringify(canonical(actual[key])) === JSON.stringify(canonical(value)),
+  )
+}
+
+function evaluateToolCheck(
+  check: WorkflowAcceptanceCheck,
+  name: string,
+  args: Record<string, unknown>,
+  result: ToolResult,
+): 'passed' | 'failed' | null {
+  if (check.verifier.kind === 'tool') {
+    if (check.verifier.toolName !== name || !expectedArgumentsMatch(check.verifier.expectedArguments, args)) return null
+    return result.isError ? 'failed' : 'passed'
+  }
+  if (check.verifier.kind === 'workspace') {
+    if (name !== 'read_file' || args.path !== check.verifier.path) return null
+    if (result.isError) return 'failed'
+    if (check.verifier.expectation.kind === 'exists') return 'passed'
+    if (check.verifier.expectation.kind === 'textContains')
+      return result.text.includes(check.verifier.expectation.value) ? 'passed' : 'failed'
+    return createHash('sha256').update(result.text).digest('hex') === check.verifier.expectation.value
+      ? 'passed'
+      : 'failed'
+  }
+  if (check.verifier.kind === 'browser')
+    return name.startsWith('browser_')
+      ? !result.isError && result.text.includes(check.verifier.assertion)
+        ? 'passed'
+        : 'failed'
+      : null
+  return null
 }
 
 export class WorkflowRuntime implements WorkflowService {
@@ -237,7 +300,12 @@ export class WorkflowRuntime implements WorkflowService {
     return this.publish(workflow.sessionId)
   }
 
-  async savePlan(sessionId: string, objective: string, items: WorkflowPlanItemInput[], expectedRevision?: number | null) {
+  async savePlan(
+    sessionId: string,
+    objective: string,
+    items: WorkflowPlanItemInput[],
+    expectedRevision?: number | null,
+  ) {
     return this.serial(sessionId, async () => {
       const current = this.plans.get(sessionId)
       if ((expectedRevision ?? null) !== (current?.revision ?? null))
@@ -583,6 +651,8 @@ export class WorkflowRuntime implements WorkflowService {
     if (CONTROL_TOOLS.has(name)) return
     const workflow = this.workflows.get(context.session.id)
     if (!workflow || workflow.status === 'completed') return
+    if (workflow.status === 'blocked')
+      throw new HbarError('WORKFLOW_CHECKPOINT_REQUIRED', 'Revise the blocked workflow item before using more tools')
     const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
     if (!item) throw new HbarError('WORKFLOW_CHECKPOINT_REQUIRED', 'Select an active workflow item before using tools')
     if (!item.scope.tools.includes(name))
@@ -609,6 +679,85 @@ export class WorkflowRuntime implements WorkflowService {
         updatedAt: Date.now(),
       })
       await this.persistWorkflow(next, context.run.id)
+    })
+  }
+
+  async settleTool(
+    name: string,
+    args: Record<string, unknown>,
+    result: ToolResult,
+    context: ToolContext,
+    tool: ToolDefinition,
+  ) {
+    await this.serial(context.session.id, async () => {
+      const current = this.workflows.get(context.session.id)
+      if (!current || current.status === 'completed' || !current.activeItemId) return
+      const item = current.workItems.find((candidate) => candidate.id === current.activeItemId)
+      if (!item) return
+      const evaluations = item.acceptanceChecks.flatMap((check) => {
+        if (check.verifier.kind === 'user') return []
+        const outcome = evaluateToolCheck(check, name, args, result)
+        return outcome ? [{ check, outcome }] : []
+      })
+      const marksVerification = tool.effect !== 'read' && !result.isError
+      if (!evaluations.length && !marksVerification) return
+      const now = Date.now()
+      const argumentsHash = hashValue(args)
+      const resultHash = hashValue({ text: result.text, isError: Boolean(result.isError), details: result.details })
+      const evidence = evaluations.map(({ check, outcome }) => ({
+        evidenceId: crypto.randomUUID(),
+        itemId: item.id,
+        checkId: check.id,
+        planRevision: current.planRevision,
+        workspaceRevision: null,
+        createdAt: now,
+        source: 'tool' as const,
+        outcome,
+        runId: context.run.id,
+        callId: context.callId,
+        toolName: name,
+        argumentsHash,
+        resultHash,
+      }))
+      const evidenceByCheck = new Map(evidence.map((entry) => [entry.checkId, entry]))
+      const blocksItem = evidence.some((entry) => {
+        if (entry.outcome !== 'failed') return false
+        let streak = 1
+        for (let index = current.evidence.length - 1; index >= 0; index--) {
+          const prior = current.evidence[index]
+          if (!prior || prior.checkId !== entry.checkId) continue
+          if (prior.source !== 'tool' || prior.outcome !== 'failed' || prior.resultHash !== entry.resultHash) break
+          streak++
+        }
+        return streak >= 3
+      })
+      const workItems = current.workItems.map((candidate) => {
+        if (candidate.id !== item.id) return candidate
+        return {
+          ...candidate,
+          status: blocksItem ? ('blocked' as const) : marksVerification ? ('verifying' as const) : candidate.status,
+          acceptanceChecks: candidate.acceptanceChecks.map((check) => {
+            const proof = evidenceByCheck.get(check.id)
+            return proof ? { ...check, status: proof.outcome, evidenceId: proof.evidenceId, updatedAt: now } : check
+          }),
+        }
+      })
+      const workflow = workflowStateSchema.parse({
+        ...current,
+        revision: current.revision + 1,
+        status: blocksItem ? 'blocked' : current.status,
+        workItems,
+        evidence: [...current.evidence, ...evidence].slice(-MAX_WORKFLOW_EVIDENCE),
+        updatedAt: now,
+      })
+      await this.persistWorkflow(workflow, context.run.id, {
+        verification: {
+          name,
+          callId: context.callId,
+          checks: evaluations.map(({ check }) => check.id),
+          blocked: blocksItem,
+        },
+      })
     })
   }
 }
@@ -726,6 +875,9 @@ export const workflowPlugin = definePlugin({
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)
       return event
     })
+    api.hooks.on('tool.settled', (event) =>
+      runtime.settleTool(event.name, event.args, event.result, event.context, event.tool),
+    )
     api.hooks.on('goal.beforeComplete', (event) => runtime.guardCompletion(event.sessionId, event.goal.goalId))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },

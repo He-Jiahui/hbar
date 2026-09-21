@@ -383,6 +383,13 @@ export interface HookEvents {
   'model.request': ModelRequest
   'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
   'tool.after': { name: string; result: ToolResult; context: ToolContext }
+  'tool.settled': {
+    name: string
+    args: Record<string, unknown>
+    result: ToolResult
+    context: ToolContext
+    tool: ToolDefinition
+  }
   'step.end': { sessionId: string; runId: string; stepId: string }
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
