@@ -12,6 +12,7 @@ const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/editor.tsx',
   'hbar-ui/packages/lumen-app-ui/src/feedback-workflows.tsx',
   'hbar-ui/packages/lumen-app-ui/src/file-manager.tsx',
+  'hbar-ui/packages/lumen-app-ui/src/integrations.tsx',
   'hbar-ui/packages/lumen-app-ui/src/paywall.tsx',
   'hbar-ui/packages/lumen-app-ui/src/session-components.tsx',
   'hbar-ui/packages/lumen-app-ui/src/settings-form.tsx',
@@ -27,8 +28,11 @@ test('canonical Lumen compositions use the Lumen control boundary', async () => 
   const billingFiles = (await readdir('hbar-ui/packages/lumen-app-ui/src/billing'))
     .filter((file) => file.endsWith('.tsx'))
     .map((file) => `hbar-ui/packages/lumen-app-ui/src/billing/${file}`)
+  const integrationFiles = (await readdir('hbar-ui/packages/lumen-app-ui/src/integrations'))
+    .filter((file) => file.endsWith('.tsx'))
+    .map((file) => `hbar-ui/packages/lumen-app-ui/src/integrations/${file}`)
 
-  for (const file of [...canonicalCompositions, ...authenticationFiles, ...billingFiles]) {
+  for (const file of [...canonicalCompositions, ...authenticationFiles, ...billingFiles, ...integrationFiles]) {
     const source = await readFile(file, 'utf8')
     if (/@mui\/material(?:\/|['"])/.test(source)) violations.push(`${file}:mui-import`)
     if (/<\s*(?:button|select|textarea|details|summary)(?:\s|>)/.test(source)) {

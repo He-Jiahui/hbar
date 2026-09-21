@@ -18,6 +18,7 @@ import {
   HbarAppUiFileManagerProvider,
   HbarAppUiFeedbackProvider,
   HbarAppUiBillingProvider,
+  HbarAppUiIntegrationProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -91,6 +92,11 @@ import {
   createHbarAppUiBillingOverflowFixtures,
   HBAR_APP_UI_BILLING_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-billing-fixtures'
+import {
+  createHbarAppUiIntegrationsLocalizedFixtures,
+  createHbarAppUiIntegrationsOverflowFixtures,
+  HBAR_APP_UI_INTEGRATIONS_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-integrations-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -249,6 +255,17 @@ function PreviewApp() {
         return HBAR_APP_UI_BILLING_FIXTURES
     }
   }, [])
+  const integrationsContent = useMemo(() => {
+    switch (new URLSearchParams(window.location.search).get('integrationsFixture')) {
+      case 'overflow':
+        return createHbarAppUiIntegrationsOverflowFixtures()
+      case 'localized':
+        return createHbarAppUiIntegrationsLocalizedFixtures()
+      case null:
+      default:
+        return HBAR_APP_UI_INTEGRATIONS_FIXTURES
+    }
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -319,6 +336,7 @@ function PreviewApp() {
         <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
         <AuthenticationPreviewHost content={authenticationContent} spec={selected.spec} onAction={handleAction}>
         <HbarAppUiBillingProvider content={billingContent}>
+        <HbarAppUiIntegrationProvider content={integrationsContent}>
         <HbarAppUiPaywallProvider content={paywallContent}>
           <PlanPreviewHost content={agentPlanContent}>
           <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -334,6 +352,7 @@ function PreviewApp() {
           </HbarAppUiAgentApprovalProvider>
         </PlanPreviewHost>
         </HbarAppUiPaywallProvider>
+        </HbarAppUiIntegrationProvider>
         </HbarAppUiBillingProvider>
         </AuthenticationPreviewHost>
         </SettingsPreviewHost>
@@ -406,6 +425,7 @@ function PreviewApp() {
                   <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
                   <AuthenticationPreviewHost content={authenticationContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiBillingProvider content={billingContent}>
+                  <HbarAppUiIntegrationProvider content={integrationsContent}>
                   <HbarAppUiPaywallProvider content={paywallContent}>
                     <PlanPreviewHost content={agentPlanContent}>
                     <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
@@ -421,6 +441,7 @@ function PreviewApp() {
                     </HbarAppUiAgentApprovalProvider>
                   </PlanPreviewHost>
                   </HbarAppUiPaywallProvider>
+                  </HbarAppUiIntegrationProvider>
                   </HbarAppUiBillingProvider>
                   </AuthenticationPreviewHost>
                   </SettingsPreviewHost>

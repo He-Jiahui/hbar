@@ -187,6 +187,31 @@ export type {
     HbarAppUiBillingValueRow,
     HbarAppUiBillingWorkflowStep,
 } from './components/Billing'
+export {HbarAppUiIntegrationProvider, selectHbarAppUiIntegrationItem, uniqueHbarAppUiIntegrationItems} from './components/Integrations'
+export type {
+    HbarAppUiIntegrationActivity,
+    HbarAppUiIntegrationApiKey,
+    HbarAppUiIntegrationApiKeysContent,
+    HbarAppUiIntegrationCategory,
+    HbarAppUiIntegrationConnectionContent,
+    HbarAppUiIntegrationConsentContent,
+    HbarAppUiIntegrationConsentPermission,
+    HbarAppUiIntegrationContent,
+    HbarAppUiIntegrationDelivery,
+    HbarAppUiIntegrationEndpoint,
+    HbarAppUiIntegrationListStrategy,
+    HbarAppUiIntegrationMarketplaceContent,
+    HbarAppUiIntegrationMarketplaceItem,
+    HbarAppUiIntegrationProviderProps,
+    HbarAppUiIntegrationScope,
+    HbarAppUiIntegrationSyncContent,
+    HbarAppUiIntegrationSyncMetric,
+    HbarAppUiIntegrationSyncSource,
+    HbarAppUiIntegrationTone,
+    HbarAppUiIntegrationWebhookContent,
+    HbarAppUiIntegrationWorkspace,
+    HbarAppUiIntegrationsProps,
+} from './components/Integrations'
 export {HbarAppUiSettingsFormProvider, selectHbarAppUiSettingsItem, uniqueHbarAppUiSettingsItems} from './components/SettingsForm'
 export type {
     HbarAppUiSettingsApiKeysContent,
