@@ -314,6 +314,7 @@ struct ReadResponse {
     start_line: usize,
     end_line: usize,
     total_lines: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
     next_line: Option<usize>,
     cache_hit: bool,
 }
@@ -568,6 +569,8 @@ fn walk_files(
         .git_ignore(true)
         .git_exclude(true)
         .ignore(true)
+        .require_git(false)
+        .add_custom_ignore_filename(".rgignore")
         .parents(true);
     let mut files = Vec::new();
     for entry in builder.build() {

@@ -9,6 +9,15 @@ import type {
 } from '@hbar/contracts/workspace-query'
 import type { WorkspaceQueryProvider } from '@hbar/plugin-sdk'
 import { NativeWorkspaceQuery } from './native-query'
+import type {
+  NativeCacheStats,
+  NativeCommonRequest,
+  NativeFindResponse,
+  NativeReadRequest,
+  NativeReadResponse,
+  NativeSearchRequest,
+  NativeSearchResponse,
+} from './native-query'
 
 const QUERY_TIMEOUT_MS = 30_000
 const MAX_RUNNING_QUERIES = 2
@@ -26,13 +35,18 @@ class BoundedQueryQueue {
   readonly #running = new Set<RunnableJob>()
   #disposed = false
 
+  constructor(
+    private readonly maxRunning: number,
+    private readonly maxQueued: number,
+  ) {}
+
   enqueue(job: RunnableJob): void {
     if (this.#disposed) throw new HbarError('QUERY_UNAVAILABLE', 'Workspace query service is closed')
-    if (this.#running.size < MAX_RUNNING_QUERIES) {
+    if (this.#running.size < this.maxRunning) {
       this.#launch(job)
       return
     }
-    if (this.#waiting.length >= MAX_QUEUED_QUERIES) throw new HbarError('QUERY_BUSY', 'Workspace query queue is full')
+    if (this.#waiting.length >= this.maxQueued) throw new HbarError('QUERY_BUSY', 'Workspace query queue is full')
     this.#waiting.push(job)
   }
 
@@ -80,6 +94,7 @@ class SharedQuery<Result> implements RunnableJob {
     private readonly queue: BoundedQueryQueue,
     private readonly operation: (id: string) => Promise<Result>,
     private readonly cancelNative: (id: string) => void,
+    timeoutMs: number,
     onSettled: () => void,
   ) {
     this.promise = new Promise<Result>((resolve, reject) => {
@@ -96,7 +111,7 @@ class SharedQuery<Result> implements RunnableJob {
         this.#timedOut = true
         this.cancelNative(this.id)
       }
-    }, QUERY_TIMEOUT_MS)
+    }, timeoutMs)
   }
 
   subscribe(signal: AbortSignal): Promise<Result> {
@@ -176,9 +191,28 @@ function queryError(error: unknown): HbarError {
 
 type ResolveWorkspacePath = (workspace: string, path: string) => Promise<string>
 
+export interface NativeWorkspaceQueryAdapter {
+  search(request: NativeSearchRequest, cancelId: string): Promise<NativeSearchResponse>
+  find(request: NativeCommonRequest, cancelId: string): Promise<NativeFindResponse>
+  read(request: NativeReadRequest, cancelId: string): Promise<NativeReadResponse>
+  cancel(cancelId: string): boolean
+  invalidate(absolutePath: string): void
+  clear(): void
+  cacheStats(): NativeCacheStats
+}
+
+export interface WorkspaceQueryRuntimeOptions {
+  maxCacheBytes?: number
+  timeoutMs?: number
+  maxRunning?: number
+  maxQueued?: number
+  native?: NativeWorkspaceQueryAdapter
+}
+
 export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
-  readonly #native: NativeWorkspaceQuery
-  readonly #queue = new BoundedQueryQueue()
+  readonly #native: NativeWorkspaceQueryAdapter
+  readonly #queue: BoundedQueryQueue
+  readonly #timeoutMs: number
   readonly #searches = new Map<string, SharedQuery<WorkspaceSearchResult>>()
   readonly #finds = new Map<string, SharedQuery<WorkspaceFindResult>>()
   readonly #reads = new Map<string, SharedQuery<WorkspaceReadResult>>()
@@ -186,9 +220,14 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
   constructor(
     private readonly blocked: string[],
     private readonly resolvePath: ResolveWorkspacePath,
-    maxCacheBytes = 64 * 1024 * 1024,
+    options: WorkspaceQueryRuntimeOptions = {},
   ) {
-    this.#native = new NativeWorkspaceQuery(maxCacheBytes)
+    this.#native = options.native ?? new NativeWorkspaceQuery(options.maxCacheBytes ?? 64 * 1024 * 1024)
+    this.#queue = new BoundedQueryQueue(
+      options.maxRunning ?? MAX_RUNNING_QUERIES,
+      options.maxQueued ?? MAX_QUEUED_QUERIES,
+    )
+    this.#timeoutMs = options.timeoutMs ?? QUERY_TIMEOUT_MS
   }
 
   async search(
@@ -240,6 +279,10 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
     this.#reads.clear()
   }
 
+  cacheStats(): NativeCacheStats {
+    return this.#native.cacheStats()
+  }
+
   async #scope(workspace: string, requested: string): Promise<{ root: string; path: string }> {
     const [root, target] = await Promise.all([this.resolvePath(workspace, '.'), this.resolvePath(workspace, requested)])
     return { root, path: relative(root, target) || '.' }
@@ -256,7 +299,10 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
       job = new SharedQuery(
         this.#queue,
         operation,
-        (id) => this.#native.cancel(id),
+        (id) => {
+          this.#native.cancel(id)
+        },
+        this.#timeoutMs,
         () => {
           if (jobs.get(key) === job) jobs.delete(key)
         },

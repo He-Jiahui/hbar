@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { ContentBlock } from '@hbar/contracts'
+import { LocalExecution } from '@hbar/local-tools'
 
 const resources: { root: string; kernel: Kernel }[] = []
 
@@ -103,4 +104,37 @@ test('workspace AI tools report invalid patterns and denied paths without spawni
   const denied = await invoke(kernel, session.id, 'find_files', { path: '..' })
   expect(denied).toMatchObject({ type: 'tool_result', isError: true })
   expect(denied.type === 'tool_result' ? denied.text : '').toContain('outside the workspace')
+})
+
+test('workspace search text is capped at 64 KiB and reports truncation', async () => {
+  const { root, kernel, session } = await fixture()
+  await writeFile(join(root, 'large.ts'), `needle ${'界'.repeat(100_000)}\n`, 'utf8')
+  const result = await invoke(kernel, session.id, 'search_text', {
+    pattern: 'needle',
+    literal: true,
+    include: ['large.ts'],
+  })
+  expect(result.type).toBe('tool_result')
+  if (result.type !== 'tool_result') throw new Error('Expected tool result')
+  expect(Buffer.byteLength(result.text)).toBeLessThanOrEqual(64 * 1024)
+  expect(result.text).toEndWith('[tool output truncated]')
+  expect(result.details).toMatchObject({ matchCount: 1, truncated: true })
+})
+
+test('local writes immediately invalidate cached ranged reads', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-local-write-cache-'))
+  const execution = new LocalExecution()
+  try {
+    await writeFile(join(root, 'value.txt'), 'before\n', 'utf8')
+    await execution.workspaceQuery.readRange(root, 'value.txt', 1, 1, new AbortController().signal)
+    expect(
+      (await execution.workspaceQuery.readRange(root, 'value.txt', 1, 1, new AbortController().signal)).cacheHit,
+    ).toBe(true)
+    await execution.write(root, 'value.txt', 'after\n')
+    const changed = await execution.workspaceQuery.readRange(root, 'value.txt', 1, 1, new AbortController().signal)
+    expect(changed).toMatchObject({ text: 'after\n', cacheHit: false })
+  } finally {
+    execution.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
 })
