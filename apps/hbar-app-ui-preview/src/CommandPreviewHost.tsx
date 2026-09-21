@@ -1,3 +1,4 @@
+import { LumenFrame, LumenText } from '@lumen/app-ui'
 import { useState, type ReactNode } from 'react'
 import { HbarAppUiButton } from 'hbar-app-ui'
 import { HbarAppUiCommandMenuProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
@@ -93,7 +94,7 @@ export function CommandPreviewHost({
       })
     },
     breadcrumb: project && (
-      <div className="hbar-app-ui-command-breadcrumb">
+      <LumenFrame className="hbar-app-ui-command-breadcrumb">
         <HbarAppUiButton
           onClick={() => {
             setProject(false)
@@ -102,8 +103,8 @@ export function CommandPreviewHost({
         >
           {COMMAND_PROJECT_LABELS.home}
         </HbarAppUiButton>
-        <strong>{COMMAND_PROJECT_LABELS.project}</strong>
-      </div>
+        <LumenText as="strong">{COMMAND_PROJECT_LABELS.project}</LumenText>
+      </LumenFrame>
     ),
   }
   return (

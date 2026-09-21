@@ -1,3 +1,4 @@
+import { LumenFrame, LumenText } from '@lumen/app-ui'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HbarAppUiButton, HbarAppUiPromptComposer, type HbarAppUiComposerAttachment } from 'hbar-app-ui'
@@ -22,7 +23,7 @@ function PromptAudit() {
   const [submitted, setSubmitted] = useState('')
   const [running, setRunning] = useState(scenario === 'running')
   return (
-    <main className="prompt-audit-host">
+    <LumenFrame as="main" className="prompt-audit-host">
       <HbarAppUiPromptComposer
         value={value}
         labels={copy.labels}
@@ -50,8 +51,8 @@ function PromptAudit() {
         }}
         onStop={() => setRunning(false)}
       />
-      <output aria-label={copy.submitted}>{submitted}</output>
-    </main>
+      <LumenText as="output" aria-label={copy.submitted}>{submitted}</LumenText>
+    </LumenFrame>
   )
 }
 

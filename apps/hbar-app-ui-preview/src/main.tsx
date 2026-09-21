@@ -1,4 +1,9 @@
-import { LumenButton, LumenInput } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenInput } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
@@ -401,7 +406,7 @@ function PreviewApp() {
 
   if (isolated) {
     return (
-      <div
+      <LumenFrame
         className="hbar-app-ui-canvas hbar-app-ui-isolated-canvas"
         data-hbar-app-ui-theme={theme}
         style={previewLayoutStyle}
@@ -515,26 +520,26 @@ function PreviewApp() {
             </HbarAppUiAppSidebarProvider>
           </HbarAppUiAiChatProvider>
         </HbarAppUiKanbanProvider>
-      </div>
+      </LumenFrame>
     )
   }
 
   return (
-    <div
+    <LumenFrame
       className="hbar-app-ui-canvas hbar-app-ui-preview"
       data-hbar-app-ui-theme={theme}
       style={previewLayoutStyle}
       ref={previewRef}
     >
-      <header className="hbar-app-ui-preview-header">
-        <div className="hbar-app-ui-preview-brand">
-          <span className="hbar-app-ui-preview-mark">h</span>
-          <div>
-            <strong>hbar-app-ui</strong>
-            <small>Application UI catalog</small>
-          </div>
-        </div>
-        <div className="hbar-app-ui-preview-header-actions">
+      <LumenFrame as="header" className="hbar-app-ui-preview-header">
+        <LumenFrame className="hbar-app-ui-preview-brand">
+          <LumenText as="span" className="hbar-app-ui-preview-mark">h</LumenText>
+          <LumenFrame>
+            <LumenText as="strong">hbar-app-ui</LumenText>
+            <LumenText as="small">Application UI catalog</LumenText>
+          </LumenFrame>
+        </LumenFrame>
+        <LumenFrame className="hbar-app-ui-preview-header-actions">
           <HbarAppUiIconButton
             label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
             onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
@@ -550,12 +555,12 @@ function PreviewApp() {
           >
             <Maximize2 size={16} />
           </HbarAppUiIconButton>
-        </div>
-      </header>
+        </LumenFrame>
+      </LumenFrame>
 
-      <div className="hbar-app-ui-preview-body">
-        <aside className="hbar-app-ui-preview-sidebar" aria-label="hbar-app-ui categories">
-          <label className="hbar-app-ui-preview-search">
+      <LumenFrame className="hbar-app-ui-preview-body">
+        <LumenFrame as="aside" className="hbar-app-ui-preview-sidebar" aria-label="hbar-app-ui categories">
+          <LumenFrame as="label" className="hbar-app-ui-preview-search">
             <Search size={15} aria-hidden="true" />
             <LumenInput
               value={query}
@@ -568,12 +573,12 @@ function PreviewApp() {
                 <X size={14} />
               </HbarAppUiIconButton>
             )}
-          </label>
-          <div className="hbar-app-ui-preview-catalog-heading">
-            <span>Categories</span>
-            <small>{filteredEntries.length} / 300 variants</small>
-          </div>
-          <nav className="hbar-app-ui-preview-category-list">
+          </LumenFrame>
+          <LumenFrame className="hbar-app-ui-preview-catalog-heading">
+            <LumenText as="span">Categories</LumenText>
+            <LumenText as="small">{filteredEntries.length} / 300 variants</LumenText>
+          </LumenFrame>
+          <LumenFrame as="nav" className="hbar-app-ui-preview-category-list">
             {visibleCategories.map((category) => (
               <LumenButton
                 className={selected.spec.category === category ? 'is-selected' : ''}
@@ -581,21 +586,21 @@ function PreviewApp() {
                 type="button"
                 onClick={() => chooseCategory(category)}
               >
-                <span>{category}</span>
-                <small>{HBAR_APP_UI_CATEGORY_COUNTS[category]}</small>
+                <LumenText as="span">{category}</LumenText>
+                <LumenText as="small">{HBAR_APP_UI_CATEGORY_COUNTS[category]}</LumenText>
               </LumenButton>
             ))}
-            {!visibleCategories.length && <p className="hbar-app-ui-preview-no-results">No matching components.</p>}
-          </nav>
-        </aside>
+            {!visibleCategories.length && <LumenText as="p" className="hbar-app-ui-preview-no-results">No matching components.</LumenText>}
+          </LumenFrame>
+        </LumenFrame>
 
-        <main className="hbar-app-ui-preview-main">
-          <div className="hbar-app-ui-preview-toolbar">
-            <div>
-              <span className="hbar-app-ui-preview-eyebrow">{selected.spec.category}</span>
-              <h1>{selected.spec.title}</h1>
-            </div>
-            <div className="hbar-app-ui-preview-viewports" role="group" aria-label="Preview viewport">
+        <LumenFrame as="main" className="hbar-app-ui-preview-main">
+          <LumenFrame className="hbar-app-ui-preview-toolbar">
+            <LumenFrame>
+              <LumenText as="span" className="hbar-app-ui-preview-eyebrow">{selected.spec.category}</LumenText>
+              <LumenText as="h1">{selected.spec.title}</LumenText>
+            </LumenFrame>
+            <LumenFrame className="hbar-app-ui-preview-viewports" role="group" aria-label="Preview viewport">
               {(Object.keys(viewportWidths) as Viewport[]).map((option) => (
                 <HbarAppUiButton
                   key={option}
@@ -606,23 +611,23 @@ function PreviewApp() {
                   {option}
                 </HbarAppUiButton>
               ))}
-            </div>
-          </div>
+            </LumenFrame>
+          </LumenFrame>
 
-          <div className="hbar-app-ui-preview-content">
-            <section className="hbar-app-ui-preview-stage" aria-label="Selected component preview">
-              <div className="hbar-app-ui-preview-stage-meta">
+          <LumenFrame className="hbar-app-ui-preview-content">
+            <LumenFrame as="section" className="hbar-app-ui-preview-stage" aria-label="Selected component preview">
+              <LumenFrame className="hbar-app-ui-preview-stage-meta">
                 <HbarAppUiStatus
                   value={`${selected.spec.variant} of ${HBAR_APP_UI_CATEGORY_COUNTS[selected.spec.category]}`}
                   tone="positive"
                 />
-                <code>{selected.spec.id}</code>
-              </div>
-              <div
+                <LumenText as="code">{selected.spec.id}</LumenText>
+              </LumenFrame>
+              <LumenFrame
                 className={`hbar-app-ui-preview-frame hbar-app-ui-preview-frame-${viewport}`}
                 style={{ maxWidth: viewportWidths[viewport] }}
               >
-                <div
+                <LumenFrame
                   className={`hbar-app-ui-preview-component-canvas hbar-app-ui-surface-${selected.spec.profile.surface} hbar-app-ui-state-${selected.spec.profile.initialState} hbar-app-ui-visual-${selected.spec.profile.visualMode}`}
                   data-hbar-app-ui-variant={selected.spec.id}
                   data-hbar-app-ui-profile={selected.spec.profile.key}
@@ -753,19 +758,19 @@ function PreviewApp() {
                       </HbarAppUiAppSidebarProvider>
                     </HbarAppUiAiChatProvider>
                   </HbarAppUiKanbanProvider>
-                </div>
-              </div>
-            </section>
+                </LumenFrame>
+              </LumenFrame>
+            </LumenFrame>
 
-            <aside className="hbar-app-ui-preview-inspector" aria-label="Variant inspector">
-              <div className="hbar-app-ui-preview-inspector-section">
-                <div className="hbar-app-ui-preview-section-heading">
-                  <strong>Variants</strong>
-                  <small>
+            <LumenFrame as="aside" className="hbar-app-ui-preview-inspector" aria-label="Variant inspector">
+              <LumenFrame className="hbar-app-ui-preview-inspector-section">
+                <LumenFrame className="hbar-app-ui-preview-section-heading">
+                  <LumenText as="strong">Variants</LumenText>
+                  <LumenText as="small">
                     {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).length} shown
-                  </small>
-                </div>
-                <div className="hbar-app-ui-preview-variant-list">
+                  </LumenText>
+                </LumenFrame>
+                <LumenFrame className="hbar-app-ui-preview-variant-list">
                   {filteredEntries
                     .filter(({ spec }) => spec.category === selected.spec.category)
                     .map((entry) => (
@@ -775,54 +780,54 @@ function PreviewApp() {
                         type="button"
                         onClick={() => chooseEntry(entry)}
                       >
-                        <span>{entry.spec.title}</span>
-                        <small>{entry.spec.layout}</small>
+                        <LumenText as="span">{entry.spec.title}</LumenText>
+                        <LumenText as="small">{entry.spec.layout}</LumenText>
                       </LumenButton>
                     ))}
-                </div>
-              </div>
+                </LumenFrame>
+              </LumenFrame>
               <VariantHarness spec={selected.spec} onAction={handleAction} />
-              <div className="hbar-app-ui-preview-inspector-section">
-                <div className="hbar-app-ui-preview-section-heading">
-                  <strong>Interaction log</strong>
-                  <small>{eventLog.length} events</small>
-                </div>
+              <LumenFrame className="hbar-app-ui-preview-inspector-section">
+                <LumenFrame className="hbar-app-ui-preview-section-heading">
+                  <LumenText as="strong">Interaction log</LumenText>
+                  <LumenText as="small">{eventLog.length} events</LumenText>
+                </LumenFrame>
                 {eventLog.length ? (
-                  <ol className="hbar-app-ui-preview-events">
+                  <LumenCollection as="ol" className="hbar-app-ui-preview-events">
                     {eventLog.map((event, index) => (
-                      <li key={`${event.variantId}-${event.actionId}-${index}`}>
-                        <code>{event.actionId}</code>
-                        {event.value && <span>{event.value}</span>}
-                      </li>
+                      <LumenCollectionItem key={`${event.variantId}-${event.actionId}-${index}`}>
+                        <LumenText as="code">{event.actionId}</LumenText>
+                        {event.value && <LumenText as="span">{event.value}</LumenText>}
+                      </LumenCollectionItem>
                     ))}
-                  </ol>
+                  </LumenCollection>
                 ) : (
-                  <p className="hbar-app-ui-preview-muted">Use the selected component to observe action events.</p>
+                  <LumenText as="p" className="hbar-app-ui-preview-muted">Use the selected component to observe action events.</LumenText>
                 )}
-              </div>
-              <div className="hbar-app-ui-preview-inspector-section hbar-app-ui-preview-contract">
-                <div className="hbar-app-ui-preview-section-heading">
-                  <strong>Variant contract</strong>
-                  <small>{selected.spec.density}</small>
-                </div>
-                <dl>
-                  <dt>Entry</dt>
-                  <dd>
-                    <code>{selected.spec.entry}</code>
-                  </dd>
-                  <dt>Behavior</dt>
-                  <dd>{selected.spec.behavior.join(' / ')}</dd>
-                  <dt>Observation</dt>
-                  <dd>{selected.spec.observation.join(' / ')}</dd>
-                  <dt>Visual checks</dt>
-                  <dd>{selected.spec.visualValidation.join(' / ')}</dd>
-                </dl>
-              </div>
-            </aside>
-          </div>
-        </main>
-      </div>
-    </div>
+              </LumenFrame>
+              <LumenFrame className="hbar-app-ui-preview-inspector-section hbar-app-ui-preview-contract">
+                <LumenFrame className="hbar-app-ui-preview-section-heading">
+                  <LumenText as="strong">Variant contract</LumenText>
+                  <LumenText as="small">{selected.spec.density}</LumenText>
+                </LumenFrame>
+                <LumenCollection as="dl">
+                  <LumenCollectionItem as="dt">Entry</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">
+                    <LumenText as="code">{selected.spec.entry}</LumenText>
+                  </LumenCollectionItem>
+                  <LumenCollectionItem as="dt">Behavior</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">{selected.spec.behavior.join(' / ')}</LumenCollectionItem>
+                  <LumenCollectionItem as="dt">Observation</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">{selected.spec.observation.join(' / ')}</LumenCollectionItem>
+                  <LumenCollectionItem as="dt">Visual checks</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">{selected.spec.visualValidation.join(' / ')}</LumenCollectionItem>
+                </LumenCollection>
+              </LumenFrame>
+            </LumenFrame>
+          </LumenFrame>
+        </LumenFrame>
+      </LumenFrame>
+    </LumenFrame>
   )
 }
 

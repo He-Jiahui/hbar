@@ -1,3 +1,4 @@
+import { LumenFrame, LumenOption, LumenText } from '@lumen/app-ui'
 import { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
@@ -53,14 +54,14 @@ function FormControlsAudit() {
   const disabled = scenario === 'disabled'
 
   return (
-    <main className="form-controls-audit-host">
-      <section className="form-controls-audit-panel" aria-labelledby="form-controls-title">
-        <header>
-          <h1 id="form-controls-title">{copy.title}</h1>
-          <p>{copy.description}</p>
-        </header>
-        <form onSubmit={(event) => event.preventDefault()}>
-          <div className="form-controls-audit-row">
+    <LumenFrame as="main" className="form-controls-audit-host">
+      <LumenFrame as="section" className="form-controls-audit-panel" aria-labelledby="form-controls-title">
+        <LumenFrame as="header">
+          <LumenText as="h1" id="form-controls-title">{copy.title}</LumenText>
+          <LumenText as="p">{copy.description}</LumenText>
+        </LumenFrame>
+        <LumenFrame as="form" onSubmit={(event) => event.preventDefault()}>
+          <LumenFrame className="form-controls-audit-row">
             <HbarAppUiField
               controlId="provider-name"
               label={copy.providerLabel}
@@ -83,13 +84,13 @@ function FormControlsAudit() {
                 onChange={(event) => setProtocol(event.currentTarget.value)}
               >
                 {copy.protocols.map((option) => (
-                  <option key={option.id} value={option.id}>
+                  <LumenOption key={option.id} value={option.id}>
                     {option.label}
-                  </option>
+                  </LumenOption>
                 ))}
               </HbarAppUiSelect>
             </HbarAppUiField>
-          </div>
+          </LumenFrame>
           <HbarAppUiField controlId="provider-model" label={copy.modelLabel} description={copy.modelDescription}>
             <HbarAppUiComboBox
               id="provider-model"
@@ -157,7 +158,7 @@ function FormControlsAudit() {
               }}
             />
           </HbarAppUiField>
-          <div className="form-controls-audit-checks">
+          <LumenFrame className="form-controls-audit-checks">
             <HbarAppUiCheckBox
               checked={visible}
               disabled={disabled}
@@ -172,11 +173,11 @@ function FormControlsAudit() {
               description={copy.imageDescription}
               onChange={(event) => setImageInput(event.currentTarget.checked)}
             />
-          </div>
-        </form>
-        <output aria-label={copy.selectedLabel}>{selected?.label ?? query}</output>
-      </section>
-    </main>
+          </LumenFrame>
+        </LumenFrame>
+        <LumenText as="output" aria-label={copy.selectedLabel}>{selected?.label ?? query}</LumenText>
+      </LumenFrame>
+    </LumenFrame>
   )
 }
 

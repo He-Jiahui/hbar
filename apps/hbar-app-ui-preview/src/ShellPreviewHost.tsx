@@ -1,3 +1,4 @@
+import { LumenFrame } from '@lumen/app-ui'
 import { useState, type ReactNode } from 'react'
 import { HbarAppUiNavigation, HbarAppUiToolbar } from 'hbar-app-ui'
 import { HbarAppUiShellProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
@@ -38,7 +39,7 @@ export function ShellPreviewHost({
         onAddWorkspace: () => report('add-workspace'),
         onOpenCommands: () => report('search'),
         children: (
-          <div className="hbar-app-ui-shell-preview-body">
+          <LumenFrame className="hbar-app-ui-shell-preview-body">
             {sidebarOpen && (
               <HbarAppUiNavigation
                 label={SHELL_FIXTURE.labels.navigation}
@@ -49,7 +50,7 @@ export function ShellPreviewHost({
                 }}
               />
             )}
-            <main>
+            <LumenFrame as="main">
               <HbarAppUiToolbar
                 title={SHELL_FIXTURE.navigation.find((item) => item.id === pageId)?.label ?? SHELL_FIXTURE.title}
                 detail={SHELL_FIXTURE.detail}
@@ -57,8 +58,8 @@ export function ShellPreviewHost({
               {pageId === 'sessions' && <SessionPreviewHost />}
               {pageId === 'files' && <FilePreviewHost />}
               {pageId === 'activity' && <ObjectivePreviewHost />}
-            </main>
-          </div>
+            </LumenFrame>
+          </LumenFrame>
         ),
       }}
     >

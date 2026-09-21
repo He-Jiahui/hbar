@@ -1,3 +1,4 @@
+import { LumenFrame, LumenText } from '@lumen/app-ui'
 import { useState } from 'react'
 import { HbarAppUiWorkspaceFiles, HbarAppUiFileDocument } from 'hbar-app-ui'
 import {
@@ -16,7 +17,7 @@ export function FilePreviewHost() {
           .filter((id) => id.startsWith(`${path}/`))
           .map((id) => ({ id, name: id.slice(path.length + 1), directory: false }))
   return (
-    <div className="hbar-app-ui-shell-preview-body">
+    <LumenFrame className="hbar-app-ui-shell-preview-body">
       <HbarAppUiWorkspaceFiles
         path={path}
         items={rows}
@@ -36,9 +37,9 @@ export function FilePreviewHost() {
           labels={WORKSPACE_FILE_LABELS}
           onRetry={() => setSelected(selected)}
         >
-          <pre>{WORKSPACE_FILE_SOURCES[selected]}</pre>
+          <LumenText as="pre">{WORKSPACE_FILE_SOURCES[selected]}</LumenText>
         </HbarAppUiFileDocument>
       )}
-    </div>
+    </LumenFrame>
   )
 }

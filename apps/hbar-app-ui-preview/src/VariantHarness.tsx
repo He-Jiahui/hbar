@@ -1,4 +1,8 @@
-import { LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenOption,
+  LumenText,
+ LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import { useState } from 'react'
 import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui'
 import type { HbarAppUiEvent, HbarAppUiProfileControl, HbarAppUiVariantSpec } from 'hbar-app-ui/catalog'
@@ -50,9 +54,9 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
   }
 
   return (
-    <div className="hbar-app-ui-profile-controls" aria-label="Variant controls">
+    <LumenFrame className="hbar-app-ui-profile-controls" aria-label="Variant controls">
       {spec.profile.controls.map((control) => (
-        <div className="hbar-app-ui-profile-control" key={control}>
+        <LumenFrame className="hbar-app-ui-profile-control" key={control}>
           <HbarAppUiButton
             type="button"
             className={activated === control ? 'is-active' : ''}
@@ -75,19 +79,19 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
               defaultValue="default"
               onChange={(event) => onAction({ variantId: spec.id, actionId: control, value: event.target.value })}
             >
-              <option value="default">Default scope</option>
-              <option value="local">Local workspace</option>
-              <option value="shared">Shared workspace</option>
+              <LumenOption value="default">Default scope</LumenOption>
+              <LumenOption value="local">Local workspace</LumenOption>
+              <LumenOption value="shared">Shared workspace</LumenOption>
             </LumenSelect>
           )}
           {openControl === control && control === 'tabs' && (
-            <div className="hbar-app-ui-profile-subtabs" role="group" aria-label={`${spec.title} views`}>
+            <LumenFrame className="hbar-app-ui-profile-subtabs" role="group" aria-label={`${spec.title} views`}>
               {['Overview', 'Details', 'Activity'].map((view) => (
                 <LumenButton type="button" key={view} onClick={() => onAction({ variantId: spec.id, actionId: control, value: view })}>
                   {view}
                 </LumenButton>
               ))}
-            </div>
+            </LumenFrame>
           )}
           {openControl === control && control === 'compose' && (
             <LumenTextarea
@@ -98,13 +102,13 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
             />
           )}
           {openControl === control && feedbackControls.has(control) && (
-            <small className="hbar-app-ui-profile-feedback" aria-live="polite">
+            <LumenText as="small" className="hbar-app-ui-profile-feedback" aria-live="polite">
               {controlLabels[control]} ready · {spec.profile.initialState}
-            </small>
+            </LumenText>
           )}
-        </div>
+        </LumenFrame>
       ))}
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -120,23 +124,23 @@ type VariantHarnessProps = {
 export function VariantHarness({ spec, onAction }: VariantHarnessProps) {
   const { profile } = spec
   return (
-    <section
+    <LumenFrame as="section"
       className="hbar-app-ui-preview-scenario"
       data-hbar-app-ui-harness={spec.id}
       data-hbar-app-ui-controls={profile.controls.join(',')}
       aria-label={`${spec.title} preview controls`}
     >
-      <div className="hbar-app-ui-preview-scenario-heading">
-        <strong>Scenario controls</strong>
+      <LumenFrame className="hbar-app-ui-preview-scenario-heading">
+        <LumenText as="strong">Scenario controls</LumenText>
         <HbarAppUiStatus value={profile.initialState} tone={profileTone(profile.initialState)} />
-      </div>
-      <div className="hbar-app-ui-preview-profile-meta">
-        <span>{profile.surface}</span>
-        <small>{profile.itemCount} seeded items</small>
-        <code>{profile.key}</code>
-      </div>
+      </LumenFrame>
+      <LumenFrame className="hbar-app-ui-preview-profile-meta">
+        <LumenText as="span">{profile.surface}</LumenText>
+        <LumenText as="small">{profile.itemCount} seeded items</LumenText>
+        <LumenText as="code">{profile.key}</LumenText>
+      </LumenFrame>
       <VariantProfileControls spec={spec} onAction={onAction} />
-    </section>
+    </LumenFrame>
   )
 }
 
