@@ -3,10 +3,12 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   LumenAgentApproval01,
+  LumenAgentApproval06,
   LumenAgentApprovalProvider,
   selectLumenAgentApprovalItem,
   uniqueLumenAgentApprovalItems,
 } from '@lumen/app-ui'
+import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiAgentApprovalProvider,
   selectHbarAppUiAgentApprovalItem,
@@ -18,6 +20,7 @@ test('agent approval compatibility exports are canonical Lumen contracts', () =>
   expect(HbarAppUiAgentApprovalProvider).toBe(LumenAgentApprovalProvider)
   expect(selectHbarAppUiAgentApprovalItem).toBe(selectLumenAgentApprovalItem)
   expect(uniqueHbarAppUiAgentApprovalItems).toBe(uniqueLumenAgentApprovalItems)
+  expect(getLumenVariantComponent('hbar-app-ui-agent-approval-6')).toBe(LumenAgentApproval06)
 })
 
 test('the canonical Lumen entry renders approval content and controls', () => {
