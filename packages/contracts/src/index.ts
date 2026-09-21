@@ -855,6 +855,10 @@ export type WireNotification =
   | { method: 'goal.cleared'; params: { sessionId: string } }
   | { method: 'plan.updated'; params: PlanState }
   | { method: 'plan.cleared'; params: { sessionId: string } }
+  | {
+      method: 'workflow.updated'
+      params: { sessionId: string; snapshot: import('./workflow').WorkflowSnapshot }
+    }
   | { method: 'mode.changed'; params: { sessionId: string; mode: RunMode } }
   | { method: 'budget.updated'; params: { sessionId: string; runId: string | null; budget: SessionBudget } }
   | { method: 'budget.cleared'; params: { sessionId: string } }

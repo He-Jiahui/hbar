@@ -35,6 +35,9 @@ import type {
   UIContribution,
   Usage,
   Workspace,
+  WorkflowPlanItemInput,
+  WorkflowScope,
+  WorkflowSnapshot,
 } from '@hbar/contracts'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { AgentCreateInput, AgentPage, AgentRecord } from '@hbar/contracts/commands/agents'
@@ -191,6 +194,48 @@ export interface PlanService {
   update(sessionId: string, plan: PlanStep[], explanation?: string | null, turnId?: string | null): Promise<PlanState>
   clear(sessionId: string): Promise<{ cleared: boolean }>
 }
+export interface WorkflowService {
+  get(sessionId: string): Promise<WorkflowSnapshot>
+  savePlan(
+    sessionId: string,
+    objective: string,
+    items: WorkflowPlanItemInput[],
+    expectedRevision?: number | null,
+  ): Promise<WorkflowSnapshot>
+  start(
+    sessionId: string,
+    objective: string,
+    items: WorkflowPlanItemInput[],
+    tokenBudget?: number,
+    run?: Run,
+  ): Promise<WorkflowSnapshot>
+  activate(sessionId: string, planRevision: number, tokenBudget?: number, run?: Run): Promise<WorkflowSnapshot>
+  expandScope(
+    sessionId: string,
+    itemId: string,
+    scope: WorkflowScope,
+    reason: string,
+    expectedRevision: number,
+  ): Promise<WorkflowSnapshot>
+  checkpoint(
+    sessionId: string,
+    itemId: string,
+    outcome: 'progress' | 'revise' | 'complete' | 'blocked',
+    summary: string,
+    nextItemId: string | null | undefined,
+    expectedRevision: number,
+  ): Promise<WorkflowSnapshot>
+  acceptCheck(
+    sessionId: string,
+    itemId: string,
+    checkId: string,
+    decision: 'accepted' | 'rejected',
+    note: string | null | undefined,
+    expectedRevision: number,
+    actorId: string,
+  ): Promise<WorkflowSnapshot>
+  complete(sessionId: string, expectedRevision: number, runId?: string): Promise<WorkflowSnapshot>
+}
 export interface ModeService {
   get(sessionId: string): Promise<{ mode: RunMode }>
   set(sessionId: string, mode: RunMode): Promise<{ mode: RunMode }>
@@ -341,6 +386,7 @@ export interface HookEvents {
   'step.end': { sessionId: string; runId: string; stepId: string }
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
+  'goal.beforeComplete': { sessionId: string; runId?: string | undefined; goal: ThreadGoal }
 }
 export interface HookRegistry {
   on<K extends keyof HookEvents>(

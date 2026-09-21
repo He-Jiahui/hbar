@@ -57,6 +57,7 @@ import gitPlugin from '@hbar/git'
 import browserPlugin from '@hbar/browser-use'
 import computerPlugin from '@hbar/computer-use'
 import agentPlugin from '@hbar/agent'
+import workflowPlugin from '@hbar/workflow'
 import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
@@ -485,6 +486,7 @@ export class Kernel {
     this.plugins.add(planPlugin)
     this.plugins.add(budgetPlugin)
     this.plugins.add(agentPlugin)
+    this.plugins.add(workflowPlugin)
     this.plugins.add(gitPlugin)
     this.plugins.add(browserPlugin)
     this.plugins.add(computerPlugin)

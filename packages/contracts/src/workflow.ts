@@ -88,6 +88,7 @@ export const workflowPlanItemSchema = z.strictObject({
   scope: workflowScopeSchema,
   acceptanceChecks: z.array(workflowAcceptanceDefinitionSchema).max(MAX_WORKFLOW_ACCEPTANCE_CHECKS),
 })
+export type WorkflowPlanItemInput = z.input<typeof workflowPlanItemSchema>
 export type WorkflowPlanItem = z.output<typeof workflowPlanItemSchema>
 
 export const workflowPlanSchema = z.strictObject({

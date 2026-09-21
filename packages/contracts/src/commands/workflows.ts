@@ -44,7 +44,7 @@ export const workflowExpandScopeInputSchema = z.strictObject({
 export const workflowCheckpointInputSchema = z.strictObject({
   sessionId: idSchema,
   itemId: idSchema,
-  outcome: z.enum(['progress', 'revise', 'blocked']),
+  outcome: z.enum(['progress', 'revise', 'complete', 'blocked']),
   summary: z.string().trim().min(1).max(4_000),
   nextItemId: idSchema.nullable().optional(),
   expectedRevision: expectedRevisionSchema,

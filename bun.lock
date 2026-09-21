@@ -36,6 +36,7 @@
         "@hbar/storage": "workspace:*",
         "@hbar/ui-sdk": "workspace:*",
         "@hbar/usage": "workspace:*",
+        "@hbar/workflow": "workspace:*",
         "@lumen/app-ui": "workspace:*",
         "@opentui/core": "0.4.5",
         "@opentui/keymap": "0.4.5",
@@ -224,6 +225,7 @@
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
         "@hbar/usage": "workspace:*",
+        "@hbar/workflow": "workspace:*",
       },
     },
     "packages/metrics": {
@@ -368,6 +370,15 @@
     },
     "plugins/plan": {
       "name": "@hbar/plan",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "zod": "^4.5.4",
+      },
+    },
+    "plugins/workflow": {
+      "name": "@hbar/workflow",
       "version": "0.1.0",
       "dependencies": {
         "@hbar/contracts": "workspace:*",
@@ -664,6 +675,8 @@
     "@hbar/usage": ["@hbar/usage@workspace:packages/usage"],
 
     "@hbar/web": ["@hbar/web@workspace:apps/web"],
+
+    "@hbar/workflow": ["@hbar/workflow@workspace:plugins/workflow"],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 

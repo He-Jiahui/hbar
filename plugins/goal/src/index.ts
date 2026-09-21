@@ -424,6 +424,12 @@ class GoalRuntime implements GoalService {
       else await this.accountActiveRunsUnlocked(sessionId, mode)
       const existing = this.goals.get(sessionId)
       if (!existing) throw new HbarError('GOAL_NOT_FOUND', 'Cannot update a thread without a goal')
+      if (status === 'complete')
+        await this.api.hooks.dispatch('goal.beforeComplete', {
+          sessionId,
+          ...(runId ? { runId } : {}),
+          goal: publicGoal(existing),
+        })
       const goal: PersistedGoal = {
         ...existing,
         status: existing.status === 'budget_limited' && status === 'blocked' ? 'budget_limited' : status,
