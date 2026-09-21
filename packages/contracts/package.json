@@ -23,6 +23,7 @@
     "./commands/extension-workspace": "./src/commands/extension-workspace.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/goal-plan-workspace": "./src/commands/goal-plan-workspace.ts",
+    "./commands/workflow-workspace": "./src/commands/workflow-workspace.ts",
     "./commands/interaction": "./src/commands/interaction.ts",
     "./commands/interaction-draft": "./src/commands/interaction-draft.ts",
     "./commands/metrics": "./src/commands/metrics.ts",

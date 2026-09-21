@@ -21,6 +21,7 @@ import { commandPaletteCommands } from '@hbar/contracts/commands/command-palette
 import { fileWorkspaceCommands } from '@hbar/contracts/commands/file-workspace'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
+import { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'
 import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-workspace'
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
 import { clientPersistenceCommands } from '@hbar/contracts/commands/client-persistence'
@@ -41,6 +42,7 @@ import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
 import { createAgentWorkspace } from './agent-workspace'
 import { createGoalPlanWorkspace } from './goal-plan-workspace'
+import { createWorkflowWorkspace } from './workflow-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
 import { createStatusWorkspace } from './status-workspace'
 import { createClientPersistence } from './client-persistence'
@@ -99,6 +101,10 @@ export type {
   GoalPlanPlanDraftState,
   GoalPlanWorkspaceEntryState,
   GoalPlanWorkspaceState,
+  WorkflowWorkspaceActionState,
+  WorkflowWorkspaceEntryState,
+  WorkflowWorkspacePort,
+  WorkflowWorkspaceState,
   ExtensionWorkspaceActionState,
   ExtensionWorkspaceEntryState,
   ExtensionWorkspaceState,
@@ -212,6 +218,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
   )
   const goalPlanWorkspace = createGoalPlanWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
+  const workflowWorkspace = createWorkflowWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
   const extensionWorkspace = createExtensionWorkspace(
     local,
     options,
@@ -255,6 +262,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(fileWorkspaceCommands, name) ||
         Object.hasOwn(agentWorkspaceCommands, name) ||
         Object.hasOwn(goalPlanWorkspaceCommands, name) ||
+        Object.hasOwn(workflowWorkspaceCommands, name) ||
         Object.hasOwn(extensionWorkspaceCommands, name) ||
         Object.hasOwn(statusWorkspaceCommands, name) ||
         Object.hasOwn(clientPersistenceCommands, name) ||
@@ -294,6 +302,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       files: fileWorkspace.reader,
       agents: agentWorkspace.reader,
       goals: goalPlanWorkspace.reader,
+      workflows: workflowWorkspace.reader,
       extensions: extensionWorkspace.reader,
       status: statusWorkspace.reader,
       layout: clientPersistence.layout,
@@ -328,6 +337,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       fileWorkspace.dispose()
       agentWorkspace.dispose()
       goalPlanWorkspace.dispose()
+      workflowWorkspace.dispose()
       extensionWorkspace.dispose()
       statusWorkspace.dispose()
       clientPersistence.dispose()

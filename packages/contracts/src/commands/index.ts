@@ -14,6 +14,7 @@ import { commandPaletteCommands } from './command-palette'
 import { fileWorkspaceCommands } from './file-workspace'
 import { agentWorkspaceCommands } from './agent-workspace'
 import { goalPlanWorkspaceCommands } from './goal-plan-workspace'
+import { workflowWorkspaceCommands } from './workflow-workspace'
 import { extensionWorkspaceCommands } from './extension-workspace'
 import { statusWorkspaceCommands } from './status-workspace'
 import { clientPersistenceCommands } from './client-persistence'
@@ -225,6 +226,7 @@ export { commandPaletteCommands } from './command-palette'
 export { fileWorkspaceCommands } from './file-workspace'
 export { agentWorkspaceCommands } from './agent-workspace'
 export { goalPlanWorkspaceCommands } from './goal-plan-workspace'
+export { workflowWorkspaceCommands } from './workflow-workspace'
 export { extensionWorkspaceCommands } from './extension-workspace'
 export { statusWorkspaceCommands } from './status-workspace'
 export { clientPersistenceCommands } from './client-persistence'
@@ -249,6 +251,7 @@ export const applicationCommands = {
   ...fileWorkspaceCommands,
   ...agentWorkspaceCommands,
   ...goalPlanWorkspaceCommands,
+  ...workflowWorkspaceCommands,
   ...extensionWorkspaceCommands,
   ...statusWorkspaceCommands,
   ...clientPersistenceCommands,

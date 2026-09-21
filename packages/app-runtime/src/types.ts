@@ -96,6 +96,7 @@ export interface RuntimeOptions {
   readonly files?: CommandExecutor
   readonly agents?: CommandExecutor
   readonly goals?: CommandExecutor
+  readonly workflows?: WorkflowWorkspacePort
   readonly extensions?: CommandExecutor
   readonly metrics?: CommandExecutor
   readonly git?: CommandExecutor
@@ -235,6 +236,30 @@ export interface GoalPlanWorkspaceEntryState {
 
 export interface GoalPlanWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<GoalPlanWorkspaceEntryState>>>
+}
+
+export interface WorkflowWorkspacePort extends CommandExecutor {
+  watch?(sessionId: string, listener: (snapshot: import('@hbar/contracts').WorkflowSnapshot) => void): () => void
+}
+
+export interface WorkflowWorkspaceActionState {
+  readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
+  readonly error: string | null
+}
+
+export interface WorkflowWorkspaceEntryState {
+  readonly instanceId: string
+  readonly sessionId: string
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly snapshot: Readonly<import('@hbar/contracts').WorkflowSnapshot>
+  readonly agents: Readonly<Record<string, Readonly<AgentRecord>>>
+  readonly visibleEvidence: number
+  readonly actions: Readonly<Record<string, Readonly<WorkflowWorkspaceActionState>>>
+  readonly error: string | null
+}
+
+export interface WorkflowWorkspaceState {
+  readonly entries: Readonly<Record<string, Readonly<WorkflowWorkspaceEntryState>>>
 }
 
 export interface ExtensionWorkspaceActionState {
