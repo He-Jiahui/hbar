@@ -490,6 +490,32 @@ export type {
   HbarAppUiFormsSurveyContent,
 } from './components/Forms'
 export {
+  HbarAppUiAppDialogProvider,
+  selectHbarAppUiAppDialogItem,
+  uniqueHbarAppUiAppDialogItems,
+} from './components/AppDialog'
+export type {
+  HbarAppUiAppDialogAction,
+  HbarAppUiAppDialogAlertContent,
+  HbarAppUiAppDialogChoice,
+  HbarAppUiAppDialogContent,
+  HbarAppUiAppDialogControl,
+  HbarAppUiAppDialogDeleteContent,
+  HbarAppUiAppDialogDetail,
+  HbarAppUiAppDialogEvidenceContent,
+  HbarAppUiAppDialogHistory,
+  HbarAppUiAppDialogInviteContent,
+  HbarAppUiAppDialogListStrategy,
+  HbarAppUiAppDialogMenuContent,
+  HbarAppUiAppDialogMenuItem,
+  HbarAppUiAppDialogMetric,
+  HbarAppUiAppDialogPlanContent,
+  HbarAppUiAppDialogProviderProps,
+  HbarAppUiAppDialogRow,
+  HbarAppUiAppDialogWizardContent,
+  HbarAppUiAppDialogWizardStep,
+} from './components/AppDialog'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,
