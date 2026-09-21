@@ -243,16 +243,12 @@
   font-size: 0.75rem;
 }
 
-.hbar-app-react-workflow-items details,
-.hbar-app-react-workflow-agents details {
+.hbar-app-react-workflow-disclosure {
   margin-block-start: 0.5rem;
 }
 
-.hbar-app-react-workflow-items summary,
-.hbar-app-react-workflow-agents summary {
-  cursor: pointer;
+.hbar-app-react-workflow-disclosure > :first-child {
   color: var(--lumen-subtle);
-  font-size: 0.75rem;
 }
 
 .hbar-app-react-workflow-items dl {

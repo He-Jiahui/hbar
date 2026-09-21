@@ -1,5 +1,5 @@
 import { Bot, Focus, GitPullRequestArrow, ShieldCheck } from 'lucide-react'
-import { LumenButton, LumenIcon, LumenStatus } from '@lumen/app-ui'
+import { LumenButton, LumenDisclosure, LumenIcon, LumenStatus } from '@lumen/app-ui'
 import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
 
 type WorkflowState = NonNullable<WorkflowWorkspaceEntryState['snapshot']['workflow']>
@@ -145,8 +145,7 @@ export function HbarWorkflowOverview({
                     <LumenStatus value={labels.itemStatuses[state]} tone={tone(state)} />
                     <span>{owner.kind === 'main' ? labels.ownerMain : labels.ownerAgent(owner.agentId)}</span>
                   </div>
-                  <details>
-                    <summary>{labels.scope}</summary>
+                  <LumenDisclosure className="hbar-app-react-workflow-disclosure" summary={labels.scope}>
                     <dl>
                       <div>
                         <dt>{labels.readPaths}</dt>
@@ -161,7 +160,7 @@ export function HbarWorkflowOverview({
                         <dd>{item.scope.tools.join(', ') || labels.none}</dd>
                       </div>
                     </dl>
-                  </details>
+                  </LumenDisclosure>
                   <div className="hbar-app-react-workflow-checks">
                     <span>{labels.acceptance}</span>
                     <ul>
@@ -244,14 +243,17 @@ export function HbarWorkflowOverview({
                   </div>
                   {agent?.resultSummary && <p>{agent.resultSummary}</p>}
                   {agent?.patch && (
-                    <details open={delegation.status === 'conflict'}>
-                      <summary>{labels.patchFiles(agent.patch.files.length)}</summary>
+                    <LumenDisclosure
+                      className="hbar-app-react-workflow-disclosure"
+                      summary={labels.patchFiles(agent.patch.files.length)}
+                      {...(delegation.status === 'conflict' ? { open: true } : {})}
+                    >
                       <ul>
                         {agent.patch.files.map((file) => (
                           <li key={file.path}>{file.path}</li>
                         ))}
                       </ul>
-                    </details>
+                    </LumenDisclosure>
                   )}
                   <div className="hbar-app-react-workflow-agent-actions">
                     {delegation.status === 'patch_ready' && delegation.agentId && (

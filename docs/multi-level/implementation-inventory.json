@@ -504,6 +504,10 @@
     "statusWorkspace.setUsageQuery",
     "timeline.loadOlder",
     "timeline.retry",
+    "workflowWorkspace.acceptCheck",
+    "workflowWorkspace.applyPatch",
+    "workflowWorkspace.loadMoreEvidence",
+    "workflowWorkspace.refresh",
     "workspace.open"
   ],
   "uiExemptions": [
