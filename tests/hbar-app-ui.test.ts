@@ -309,6 +309,7 @@ describe('hbar-app-ui registry', () => {
     expect(markup).toContain('按顺序完成变更。')
     expect(markup).toContain('计划:in_progress')
     expect(markup).toContain('hbar-app-ui-run-status-running')
+    expect(markup.match(/hbar-app-ui-run-activity-actions/g) ?? []).toHaveLength(4)
     expect(markup).not.toContain('hbar-app-ui-preview')
     expect(markup).not.toContain('hbar-app-ui-profile-controls')
   })
