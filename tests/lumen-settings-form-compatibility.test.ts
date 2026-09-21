@@ -4,10 +4,12 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
   LumenPreferencesSettings,
   LumenSettingsForm01,
+  LumenSettingsForm06,
   LumenSettingsFormProvider,
   selectLumenSettingsItem,
   uniqueLumenSettingsItems,
 } from '@lumen/app-ui'
+import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiSettingsFormProvider,
   selectHbarAppUiSettingsItem,
@@ -21,6 +23,7 @@ test('settings compatibility exports are canonical Lumen contracts', () => {
   expect(HbarAppUiPreferencesSettings).toBe(LumenPreferencesSettings)
   expect(selectHbarAppUiSettingsItem).toBe(selectLumenSettingsItem)
   expect(uniqueHbarAppUiSettingsItems).toBe(uniqueLumenSettingsItems)
+  expect(getLumenVariantComponent('hbar-app-ui-settings-form-6')).toBe(LumenSettingsForm06)
 })
 
 test('the canonical Lumen entry renders settings content and controls', () => {
