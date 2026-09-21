@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { approvalModeSchema, idSchema, thinkingLevelSchema } from '../index'
+import { agentPatchSchema, workflowAcceptanceDefinitionSchema, workflowScopeSchema } from '../workflow'
 
 export const agentStatusSchema = z.enum([
   'created',
@@ -24,8 +25,17 @@ export const agentRecordSchema = z.strictObject({
   tokenBudget: z.number().int().positive().max(1_000_000_000).nullable(),
   status: agentStatusSchema,
   error: z.string().max(4_000).nullable(),
+  patch: agentPatchSchema.nullable().optional(),
+  resultSummary: z.string().max(4_000).nullable().optional(),
+  isolated: z.boolean().optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
+})
+export const agentPatchTaskSchema = z.strictObject({
+  itemId: idSchema,
+  planRevision: z.number().int().positive(),
+  scope: workflowScopeSchema,
+  acceptanceChecks: z.array(workflowAcceptanceDefinitionSchema).max(32),
 })
 export const agentCreateInputSchema = z.strictObject({
   parentSessionId: idSchema,
@@ -35,6 +45,7 @@ export const agentCreateInputSchema = z.strictObject({
   tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
   thinkingLevel: thinkingLevelSchema.optional(),
   approval: approvalModeSchema.default('deny'),
+  patchTask: agentPatchTaskSchema.optional(),
 })
 export const agentListInputSchema = z.strictObject({
   parentSessionId: idSchema,
@@ -107,8 +118,38 @@ export const agentCommands = {
     z.strictObject({ parentSessionId: idSchema, agentId: idSchema }),
     agentRecordSchema,
   ),
+  'agent.result.get': defineCommand(
+    {
+      ...metadata('agent.result.get', 'query'),
+      cli: {
+        arguments: [
+          { field: 'agentId', type: 'string' as const, position: 0 },
+          { field: 'parentSessionId', type: 'string' as const, flag: 'session' },
+        ],
+      },
+    },
+    z.strictObject({ parentSessionId: idSchema, agentId: idSchema }),
+    agentRecordSchema,
+  ),
+  'agent.patch.apply': defineCommand(
+    {
+      ...metadata('agent.patch.apply', 'command'),
+      idempotency: 'required',
+      stateEffect: 'external',
+      cli: {
+        arguments: [
+          { field: 'agentId', type: 'string' as const, position: 0 },
+          { field: 'parentSessionId', type: 'string' as const, flag: 'session' },
+          { field: 'planRevision', type: 'number' as const, flag: 'plan-revision' },
+        ],
+      },
+    },
+    z.strictObject({ parentSessionId: idSchema, agentId: idSchema, planRevision: z.number().int().positive() }),
+    agentRecordSchema,
+  ),
 }
 
 export type AgentRecord = z.output<typeof agentRecordSchema>
 export type AgentCreateInput = z.output<typeof agentCreateInputSchema>
+export type AgentPatchTask = z.output<typeof agentPatchTaskSchema>
 export type AgentPage = z.output<typeof agentPageSchema>

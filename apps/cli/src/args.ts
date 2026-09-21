@@ -112,7 +112,7 @@ Usage:
   hbar exec metrics.current|metrics.query [--from <ms> --to <ms> --bucket-ms <ms>]
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>
-  hbar exec agent.create|agent.list|agent.cancel --session <id|name>
+  hbar exec agent.create|agent.list|agent.cancel|agent.result.get|agent.patch.apply --session <id|name>
   hbar exec browser.status|browser.navigate|browser.snapshot|browser.close --session <id|name>
   hbar exec computer.status|computer.screenshot|computer.click|computer.type --session <id|name>
   hbar exec git.info|git.status|git.diff|git.log|git.diffToRemote [--cwd <path>]

@@ -257,6 +257,8 @@ export class Kernel {
           submit: (...args) => this.submit(...args),
           cancel: (id) => this.cancel(id),
           snapshot: (id) => this.snapshot(id),
+          workspace: (id) => this.storage.call('workspace', id),
+          createWorkspace: (path) => this.createWorkspace(path),
           append: (id, type, data, runId, stepId) => this.append(id, type, data, runId, stepId),
         },
         userInput: {

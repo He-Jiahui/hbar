@@ -27,6 +27,23 @@ export function createAgentCommands(service: AgentService) {
       }),
     { durable: true },
   )
+  registry.register(agentCommands['agent.result.get'], ({ parentSessionId, agentId }) =>
+    translate(() => service.result(parentSessionId, agentId)),
+  )
+  registry.register(
+    agentCommands['agent.patch.apply'],
+    ({ parentSessionId, agentId, planRevision }, context) =>
+      translate(() => {
+        if (!context.actorId || !context.idempotencyKey)
+          throw new HbarError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+        return service.applyPatch(parentSessionId, agentId, planRevision, {
+          actorId: context.actorId,
+          idempotencyKey: context.idempotencyKey,
+          requestId: context.requestId,
+        })
+      }),
+    { durable: true },
+  )
   registry.register(agentCommands['agent.list'], ({ parentSessionId, after, limit }) =>
     translate(() => service.list(parentSessionId, after, limit)),
   )

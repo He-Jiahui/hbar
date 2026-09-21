@@ -648,12 +648,20 @@ export async function runAgentCommand(
   const argv = [...args.commandArgs.slice(1), '--session', runtime.session.id]
   if (action === 'agent.create') {
     if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
-    argv.push('--model', args.model ? selectModel(runtime.bootstrap, args.model) : runtime.modelId)
-    if (args.title !== undefined) argv.push('--title', args.title)
-    if (args.tokenBudget !== undefined) argv.push('--token-budget', args.tokenBudget)
-    if (args.thinkingExplicit) argv.push('--thinking', args.thinking)
-    argv.push('--approval', args.approval)
-    const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
+    const candidate = args.inputJson
+      ? {
+          ...objectOption(args.inputJson, '--input-json'),
+          parentSessionId: runtime.session.id,
+        }
+      : (() => {
+          argv.push('--model', args.model ? selectModel(runtime.bootstrap, args.model) : runtime.modelId)
+          if (args.title !== undefined) argv.push('--title', args.title)
+          if (args.tokenBudget !== undefined) argv.push('--token-budget', args.tokenBudget)
+          if (args.thinkingExplicit) argv.push('--thinking', args.thinking)
+          argv.push('--approval', args.approval)
+          return parseArguments(agentCommands[action].metadata, argv)
+        })()
+    const input = agentCommands[action].input.safeParse(candidate)
     if (!input.success) throw validationError('INVALID_INPUT', input.error)
     output(
       await commands.execute(action, input.data, {
@@ -669,6 +677,18 @@ export async function runAgentCommand(
     const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
     if (!input.success) throw validationError('INVALID_INPUT', input.error)
     output(await commands.execute(action, input.data))
+    return
+  }
+  if (action === 'agent.patch.apply') {
+    if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
+    const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    output(
+      await commands.execute(action, input.data, {
+        idempotencyKey: args.idempotencyKey,
+        ...(args.requestId ? { requestId: args.requestId } : {}),
+      }),
+    )
     return
   }
   const input = agentCommands[action].input.safeParse(parseArguments(agentCommands[action].metadata, argv))

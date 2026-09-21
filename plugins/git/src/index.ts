@@ -840,7 +840,7 @@ export class GitRuntime implements GitService {
       return result ? parseWorktrees(result.stdout) : []
     }
     if (!('path' in operation)) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations')
-    const root = await this.worktreeRootPromise
+    const root = this.config.worktreeRoot ? await this.worktreeRootPromise : resolve(path, '.hbar-worktrees')
     await mkdir(root, { recursive: true })
     const target = resolve(root, operation.path)
     if (!inside(root, target) || target === (await this.rootPromise)) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree path must be inside the configured worktree root')

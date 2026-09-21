@@ -169,6 +169,8 @@ export interface SessionService {
   submit(sessionId: string, requestId: string, input: UserInput, modelId: string): Promise<Run>
   cancel(runId: string): Promise<void>
   snapshot(sessionId: string): Promise<SessionSnapshot>
+  workspace(workspaceId: string): Promise<Workspace>
+  createWorkspace(path: string): Promise<Workspace>
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): Promise<SessionEvent>
 }
 export interface GoalSetInput {
@@ -259,6 +261,13 @@ export interface AgentService {
   ): Promise<AgentRecord>
   list(parentSessionId: string, after?: string, limit?: number): Promise<AgentPage>
   cancel(parentSessionId: string, agentId: string): Promise<AgentRecord>
+  result(parentSessionId: string, agentId: string): Promise<AgentRecord>
+  applyPatch(
+    parentSessionId: string,
+    agentId: string,
+    planRevision: number,
+    context: { actorId: string; idempotencyKey: string; requestId: string },
+  ): Promise<AgentRecord>
 }
 export interface GitDiffOptions {
   cached?: boolean | undefined
@@ -396,6 +405,12 @@ export interface HookEvents {
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'goal.beforeComplete': { sessionId: string; runId?: string | undefined; goal: ThreadGoal }
+  'agent.patch': {
+    parentSessionId: string
+    agentId: string
+    patch: import('@hbar/contracts').AgentPatch | null
+    status: 'ready' | 'applied' | 'conflict' | 'rejected'
+  }
 }
 export interface HookRegistry {
   on<K extends keyof HookEvents>(
