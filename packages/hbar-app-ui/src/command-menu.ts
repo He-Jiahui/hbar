@@ -1,14 +1,15 @@
 export {
-  HbarAppUiCommandList,
-  HbarAppUiCommandDialog,
-  type HbarAppUiCommandListProps,
-  type HbarAppUiCommandItem,
-} from './components/command-menu/CommandList'
-export {
-  HbarAppUiSearchCommands,
-  HbarAppUiInviteCommand,
-  HbarAppUiAssistantCommands,
-  type HbarAppUiSearchCommandsProps,
-  type HbarAppUiInviteCommandProps,
-  type HbarAppUiAssistantCommandsProps,
-} from './components/command-menu/CommandWorkflows'
+  LumenAssistantCommands as HbarAppUiAssistantCommands,
+  LumenCommandDialog as HbarAppUiCommandDialog,
+  LumenCommandList as HbarAppUiCommandList,
+  LumenInviteCommand as HbarAppUiInviteCommand,
+  LumenSearchCommands as HbarAppUiSearchCommands,
+} from '@lumen/app-ui'
+
+export type {
+  LumenAssistantCommandsProps as HbarAppUiAssistantCommandsProps,
+  LumenCommandItem as HbarAppUiCommandItem,
+  LumenCommandListProps as HbarAppUiCommandListProps,
+  LumenInviteCommandProps as HbarAppUiInviteCommandProps,
+  LumenSearchCommandsProps as HbarAppUiSearchCommandsProps,
+} from '@lumen/app-ui'
