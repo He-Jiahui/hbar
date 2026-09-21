@@ -630,6 +630,20 @@ export type {
   HbarAppUiAppShellScope,
 } from './components/AppShell'
 export {
+  HbarAppUiAppSidebarProvider,
+  selectHbarAppUiAppSidebarItem,
+  uniqueHbarAppUiAppSidebarItems,
+} from './components/AppSidebar'
+export type {
+  HbarAppUiAppSidebarAction,
+  HbarAppUiAppSidebarContent,
+  HbarAppUiAppSidebarGroup,
+  HbarAppUiAppSidebarItem,
+  HbarAppUiAppSidebarListStrategy,
+  HbarAppUiAppSidebarProviderProps,
+  HbarAppUiAppSidebarTreeNode,
+} from './components/AppSidebar'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,
