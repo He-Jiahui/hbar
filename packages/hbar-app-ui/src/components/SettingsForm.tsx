@@ -1,56 +1,58 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {useHbarAppUiSettingsFormContent} from './settings-form/SettingsContent'
-import {ApiKeysSettings} from './settings-form/ApiKeysSettings'
-import {DangerSettings} from './settings-form/DangerSettings'
-import {MembersSettings} from './settings-form/MembersSettings'
-import {PreferencesSettings} from './settings-form/PreferencesSettings'
-import {ProfileSettings} from './settings-form/ProfileSettings'
-import {SettingsFrame} from './settings-form/SettingsPrimitives'
-import {WorkspaceSettings} from './settings-form/WorkspaceSettings'
-import './settings-form/SettingsSurface.css'
+import {
+  LumenSettingsForm,
+  LumenSettingsFormProvider as HbarAppUiSettingsFormProvider,
+  selectLumenSettingsItem as selectHbarAppUiSettingsItem,
+  uniqueLumenSettingsItems as uniqueHbarAppUiSettingsItems,
+  type LumenSettingsFormContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiSettingsFormProps = HbarAppUiVariantProps & {
-    readonly settingsFormContent?: import('./settings-form/SettingsContent').HbarAppUiSettingsFormContent | undefined
+  readonly settingsFormContent?: LumenSettingsFormContent | undefined
 }
 
-export {HbarAppUiSettingsFormProvider, selectHbarAppUiSettingsItem, uniqueHbarAppUiSettingsItems} from './settings-form/SettingsContent'
+export { HbarAppUiSettingsFormProvider, selectHbarAppUiSettingsItem, uniqueHbarAppUiSettingsItems }
+
 export type {
-    HbarAppUiSettingsApiKeysContent,
-    HbarAppUiSettingsChoice,
-    HbarAppUiSettingsDangerContent,
-    HbarAppUiSettingsField,
-    HbarAppUiSettingsFormContent,
-    HbarAppUiSettingsFormProviderProps,
-    HbarAppUiSettingsIntegration,
-    HbarAppUiSettingsListStrategy,
-    HbarAppUiSettingsMember,
-    HbarAppUiSettingsMembersContent,
-    HbarAppUiSettingsPreferenceToggle,
-    HbarAppUiSettingsPreferencesContent,
-    HbarAppUiSettingsProfileContent,
-    HbarAppUiSettingsSecret,
-    HbarAppUiSettingsWorkspaceContent,
-} from './settings-form/SettingsContent'
+  LumenSettingsApiKeysContent as HbarAppUiSettingsApiKeysContent,
+  LumenSettingsChoice as HbarAppUiSettingsChoice,
+  LumenSettingsDangerContent as HbarAppUiSettingsDangerContent,
+  LumenSettingsField as HbarAppUiSettingsField,
+  LumenSettingsFormContent as HbarAppUiSettingsFormContent,
+  LumenSettingsFormProviderProps as HbarAppUiSettingsFormProviderProps,
+  LumenSettingsIntegration as HbarAppUiSettingsIntegration,
+  LumenSettingsListStrategy as HbarAppUiSettingsListStrategy,
+  LumenSettingsMember as HbarAppUiSettingsMember,
+  LumenSettingsMembersContent as HbarAppUiSettingsMembersContent,
+  LumenSettingsPreferenceToggle as HbarAppUiSettingsPreferenceToggle,
+  LumenSettingsPreferencesContent as HbarAppUiSettingsPreferencesContent,
+  LumenSettingsProfileContent as HbarAppUiSettingsProfileContent,
+  LumenSettingsSecret as HbarAppUiSettingsSecret,
+  LumenSettingsWorkspaceContent as HbarAppUiSettingsWorkspaceContent,
+} from '@lumen/app-ui'
 
-export function SettingsForm({spec, onAction, settingsFormContent}: HbarAppUiSettingsFormProps) {
-    const providerContent = useHbarAppUiSettingsFormContent()
-    const content = settingsFormContent ?? providerContent
-    if (!content) return <SettingsFrame spec={spec} onAction={onAction} className="hbar-app-ui-settings-empty-surface">{null}</SettingsFrame>
-
-    switch (spec.variant) {
-        case 1:
-            return content.workspace ? <WorkspaceSettings spec={spec} onAction={onAction} content={content.workspace} /> : <SettingsFrame spec={spec} onAction={onAction}>{null}</SettingsFrame>
-        case 2:
-            return content.profile ? <ProfileSettings spec={spec} onAction={onAction} content={content.profile} /> : <SettingsFrame spec={spec} onAction={onAction}>{null}</SettingsFrame>
-        case 3:
-            return content.preferences ? <PreferencesSettings spec={spec} onAction={onAction} content={content.preferences} /> : <SettingsFrame spec={spec} onAction={onAction}>{null}</SettingsFrame>
-        case 4:
-            return content.members ? <MembersSettings spec={spec} onAction={onAction} content={content.members} /> : <SettingsFrame spec={spec} onAction={onAction}>{null}</SettingsFrame>
-        case 5:
-            return content.apiKeys ? <ApiKeysSettings spec={spec} onAction={onAction} content={content.apiKeys} /> : <SettingsFrame spec={spec} onAction={onAction}>{null}</SettingsFrame>
-        case 6:
-            return content.danger ? <DangerSettings spec={spec} onAction={onAction} content={content.danger} /> : <SettingsFrame spec={spec} onAction={onAction}>{null}</SettingsFrame>
-        default:
-            return <SettingsFrame spec={spec} onAction={onAction}>{null}</SettingsFrame>
-    }
+/** Thin legacy-contract adapter; settings workflows and their controls are Lumen-owned. */
+export function SettingsForm({ spec, onAction, settingsFormContent, className }: HbarAppUiSettingsFormProps) {
+  return (
+    <LumenSettingsForm
+      variant={spec.variant}
+      variantId={spec.id}
+      content={settingsFormContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(
+                value === undefined
+                  ? { variantId: spec.id, actionId }
+                  : { variantId: spec.id, actionId, value },
+              )
+          : undefined
+      }
+    />
+  )
 }
