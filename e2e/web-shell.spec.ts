@@ -260,7 +260,7 @@ test('long session history preserves reading anchors, follows new content on dem
     await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
-    const viewport = page.locator('.lumen-conversation-messages')
+    const viewport = page.locator('.hbar-app-ui-conversation-messages')
     const virtual = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
     await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '60')
     await expect(page.locator('[data-message-id="history-180"]')).toBeVisible()
@@ -614,13 +614,13 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     const expectSessionLayout = async () =>
       expect(
         await page.evaluate(() => {
-          const header = document.querySelector<HTMLElement>('.lumen-page-header')
-          const actions = [...document.querySelectorAll<HTMLElement>('.lumen-page-actions > *')]
+          const header = document.querySelector<HTMLElement>('.hbar-app-ui-page-header')
+          const actions = [...document.querySelectorAll<HTMLElement>('.hbar-app-ui-page-action')]
           const sessionMain = document.querySelector<HTMLElement>('.hbar-app-react-session-main')
-          const conversation = document.querySelector<HTMLElement>('.lumen-conversation')
-          const timeline = document.querySelector<HTMLElement>('.lumen-conversation-content')
+          const conversation = document.querySelector<HTMLElement>('.hbar-app-ui-conversation')
+          const timeline = document.querySelector<HTMLElement>('.hbar-app-ui-conversation-content')
           const composer = document.querySelector<HTMLElement>('.hbar-app-react-session-footer')
-          const usage = document.querySelector<HTMLElement>('.lumen-inline-usage')
+          const usage = document.querySelector<HTMLElement>('.hbar-app-ui-inline-usage')
           if (!header || actions.length !== 5 || !sessionMain || !conversation || !timeline || !composer || !usage)
             return false
           const actionTops = actions.map((action) => action.getBoundingClientRect().top)
@@ -636,12 +636,11 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
             Math.abs(sessionMainRect.left - conversationRect.left) <= 1 &&
             Math.abs(sessionMainRect.right - conversationRect.right) <= 1 &&
             Math.abs(conversationRect.bottom - composerRect.bottom) <= 1 &&
-            timelineRect.left <= composerRect.left + 1 &&
-            timelineRect.right >= composerRect.right - 1 &&
+            Math.abs(timelineRect.left - composerRect.left) <= 1 &&
+            Math.abs(timelineRect.right - composerRect.right) <= 1 &&
             Math.abs(timelineRect.left - conversationRect.left - (conversationRect.right - timelineRect.right)) <= 1 &&
             composerRect.width >= Math.min(conversationRect.width, 800) &&
-            usage.getBoundingClientRect().height > 0 &&
-            usage.getBoundingClientRect().height <= (window.innerWidth <= 560 ? 320 : 160)
+            usage.getBoundingClientRect().height <= 48
           )
         }),
       ).toBe(true)
@@ -692,7 +691,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       ).toBe(true)
     await expectFileToolLayout('browser')
     await expect(page.locator('.hbar-app-react-file-workspace .lumen-tool-pane-heading h2')).toHaveText(
-      'File manager',
+      fixture.ready.workspaceName,
     )
     await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/list-1440.png', fullPage: true })
     await page.getByRole('button', { name: 'browser-e2e.md' }).click()
@@ -960,7 +959,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expectMonitoringLayout()
     await expect(
       page.locator('.hbar-app-react-session-monitoring .lumen-tool-pane-heading h2'),
-    ).toHaveText('Session monitoring')
+    ).toHaveText(fixture.ready.sessionTitle)
     await expect(page.getByText('Total tokens')).toBeVisible()
     await expect(page.getByText('Token timeline')).toBeVisible()
     await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
@@ -977,7 +976,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     const usageExecution = page.getByText('Execution statistics', { exact: true })
     await expect(usageExecution).toBeAttached()
     await expect(page.getByText('More filters', { exact: true })).toBeVisible()
-    await expect(page.locator('summary[aria-label="Export"]')).toBeVisible()
+    await expect(page.getByText('Export', { exact: true })).toBeVisible()
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/web-b6/usage.png', fullPage: true })
     await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/desktop-1440.png', fullPage: true })
@@ -985,10 +984,10 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('Aggregation', { exact: true })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/desktop-1440-filters.png', fullPage: true })
     await page.getByText('More filters', { exact: true }).click()
-    await page.locator('summary[aria-label="Export"]').click()
+    await page.getByText('Export', { exact: true }).click()
     await expect(page.getByRole('menuitem', { name: 'Export JSON' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/desktop-1440-export.png', fullPage: true })
-    await page.keyboard.press('Escape')
+    await page.getByText('Export', { exact: true }).click()
     await page.setViewportSize({ width: 1024, height: 768 })
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/tablet-1024.png', fullPage: true })
@@ -1018,7 +1017,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.screenshot({ path: 'artifacts/ui-redesign/git/after/desktop-1440-filters.png', fullPage: true })
     await page.getByText('More filters', { exact: true }).click()
     const commitBuckets = page.locator('.hbar-app-react-git-charts .is-commits .lumen-bar-series button')
-    await commitBuckets.last().dispatchEvent('click')
+    await commitBuckets.last().click()
     await expect(commitBuckets.last()).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByText(/Showing 1 commits from the .* bucket\./)).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/git/after/desktop-1440-selected.png', fullPage: true })
@@ -1038,7 +1037,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expectAgentLayout('list')
     await expect(
       page.locator('.hbar-app-react-agent-workspace .lumen-tool-pane-heading h2'),
-    ).toHaveText('Child agent management')
+    ).toHaveText(fixture.ready.sessionTitle)
     await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-empty.png', fullPage: true })
     await page.getByRole('button', { name: 'Create child agent' }).click()
     await expect(page.getByRole('heading', { level: 2, name: 'Create child agent' })).toBeVisible()
@@ -1065,7 +1064,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expectGoalPlanLayout('overview')
     await expect(
       page.locator('.hbar-app-react-goal-plan-workspace .lumen-tool-pane-heading h2'),
-    ).toHaveText('Goals and plans')
+    ).toHaveText(fixture.ready.sessionTitle)
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-empty.png', fullPage: true })
     await page.getByRole('button', { name: 'Set goal' }).click()
     await expectGoalPlanLayout('goal')
@@ -1842,14 +1841,3 @@ test('global appearance saves through preferences, survives reload, and restores
     await rm(root, { recursive: true, force: true })
   }
 })
-
-
-
-
-
-
-
-
-
-
-
