@@ -312,6 +312,27 @@ export type {
   HbarAppUiChatTeamContent,
 } from './components/Chat'
 export {
+  HbarAppUiPromptInputProvider,
+  selectHbarAppUiPromptInputItem,
+  uniqueHbarAppUiPromptInputItems,
+} from './components/PromptInput'
+export type {
+  HbarAppUiPromptInputAction,
+  HbarAppUiPromptInputChoice,
+  HbarAppUiPromptInputContent,
+  HbarAppUiPromptInputHeroContent,
+  HbarAppUiPromptInputListStrategy,
+  HbarAppUiPromptInputModeContent,
+  HbarAppUiPromptInputProviderProps,
+  HbarAppUiPromptInputScopeContent,
+  HbarAppUiPromptInputSource,
+  HbarAppUiPromptInputTemplateContent,
+  HbarAppUiPromptInputToolContent,
+  HbarAppUiPromptInputUpload,
+  HbarAppUiPromptInputUploadContent,
+  HbarAppUiPromptInputVariable,
+} from './components/PromptInput'
+export {
   HbarAppUiSettingsFormProvider,
   selectHbarAppUiSettingsItem,
   uniqueHbarAppUiSettingsItems,
