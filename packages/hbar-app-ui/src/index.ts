@@ -358,6 +358,27 @@ export type {
   HbarAppUiCardProviderProps,
 } from './components/Card'
 export {
+  HbarAppUiDataTableProvider,
+  selectHbarAppUiDataTableItem,
+  uniqueHbarAppUiDataTableItems,
+} from './components/DataTable'
+export type {
+  HbarAppUiDataTableAction,
+  HbarAppUiDataTableChoice,
+  HbarAppUiDataTableContent,
+  HbarAppUiDataTableEditContent,
+  HbarAppUiDataTableExpandableContent,
+  HbarAppUiDataTableFacetedContent,
+  HbarAppUiDataTableGroupedContent,
+  HbarAppUiDataTableListStrategy,
+  HbarAppUiDataTableMasterDetailContent,
+  HbarAppUiDataTableProviderProps,
+  HbarAppUiDataTableRow,
+  HbarAppUiDataTableSelectableContent,
+  HbarAppUiDataTableStatesContent,
+  HbarAppUiDataTableWideContent,
+} from './components/DataTable'
+export {
   HbarAppUiSettingsFormProvider,
   selectHbarAppUiSettingsItem,
   uniqueHbarAppUiSettingsItems,
