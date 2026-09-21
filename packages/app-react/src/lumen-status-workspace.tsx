@@ -1,6 +1,11 @@
 import { useCallback, useEffect } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenOption,
+  LumenText,
   LumenBarSeries,
   LumenButton,
   LumenActionMenu,
@@ -277,7 +282,7 @@ export function HbarStatusWorkspace({
           label: `${labels.observedAt(point.start)} · ${formatMetric(metric, labels)}`,
         }
       })}
-      empty={<p className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</p>}
+      empty={<LumenText as="p" className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</LumenText>}
     />
   )
   const usageItem = (id: string, label: string, metric: UsageMetric, format: (value: number) => string) =>
@@ -356,7 +361,7 @@ export function HbarStatusWorkspace({
   }
 
   return (
-    <section className="hbar-app-react-status-workspace">
+    <LumenFrame as="section" className="hbar-app-react-status-workspace">
       <LumenPageHeader
         title={labels.title}
         context={labels.description}
@@ -376,7 +381,7 @@ export function HbarStatusWorkspace({
           </LumenIconButton>
         }
       />
-      <nav aria-label={labels.tabs}>
+      <LumenFrame as="nav" aria-label={labels.tabs}>
         {(['dashboard', 'usage', 'git'] as const).map((item) => (
           <LumenNavigationButton
             key={item}
@@ -387,9 +392,9 @@ export function HbarStatusWorkspace({
             {labels.sections[item]}
           </LumenNavigationButton>
         ))}
-      </nav>
+      </LumenFrame>
       {section === 'dashboard' && performanceQuery && (
-        <div className="hbar-app-react-status-controls" role="group" aria-label={labels.performanceFilters.label}>
+        <LumenFrame className="hbar-app-react-status-controls" role="group" aria-label={labels.performanceFilters.label}>
           <LumenFormField controlId="hbar-status-performance-window" label={labels.performanceFilters.timeWindow}>
             <LumenSelect
               id="hbar-status-performance-window"
@@ -404,9 +409,9 @@ export function HbarStatusWorkspace({
               }
             >
               {(['2m', '15m', '1h'] as const).map((window) => (
-                <option key={window} value={window}>
+                <LumenOption key={window} value={window}>
                   {labels.performanceFilters.windows[window]}
-                </option>
+                </LumenOption>
               ))}
             </LumenSelect>
           </LumenFormField>
@@ -424,16 +429,16 @@ export function HbarStatusWorkspace({
               }
             >
               {(['all', 'system', 'host'] as const).map((target) => (
-                <option key={target} value={target}>
+                <LumenOption key={target} value={target}>
                   {labels.performanceFilters.targets[target]}
-                </option>
+                </LumenOption>
               ))}
             </LumenSelect>
           </LumenFormField>
-        </div>
+        </LumenFrame>
       )}
       {section === 'usage' && usageQuery && (
-        <div
+        <LumenFrame
           className="hbar-app-react-status-controls hbar-app-react-usage-controls"
           role="group"
           aria-label={labels.usage.filters}
@@ -446,13 +451,13 @@ export function HbarStatusWorkspace({
               onChange={(event) => setUsageQuery({ scope: event.currentTarget.value as typeof usageQuery.scope })}
             >
               {(['global', 'workspace', 'session'] as const).map((scope) => (
-                <option
+                <LumenOption
                   key={scope}
                   value={scope}
                   disabled={(scope === 'workspace' && !panel.workspaceId) || (scope === 'session' && !panel.sessionId)}
                 >
                   {labels.usage.scopes[scope]}
-                </option>
+                </LumenOption>
               ))}
             </LumenSelect>
           </LumenFormField>
@@ -472,14 +477,14 @@ export function HbarStatusWorkspace({
               onChange={(event) => setUsageQuery({ window: event.currentTarget.value as typeof usageQuery.window })}
             >
               {(['1h', '24h', '7d', '30d'] as const).map((window) => (
-                <option key={window} value={window}>
+                <LumenOption key={window} value={window}>
                   {labels.usage.windows[window]}
-                </option>
+                </LumenOption>
               ))}
             </LumenSelect>
           </LumenFormField>
           <HbarLumenDisclosure className="hbar-app-react-status-filter-details" label={labels.usage.advancedFilters}>
-            <div>
+            <LumenFrame>
               <LumenFormField controlId="hbar-status-usage-aggregation" label={labels.usage.aggregation}>
                 <LumenSelect
                   id="hbar-status-usage-aggregation"
@@ -490,9 +495,9 @@ export function HbarStatusWorkspace({
                   }
                 >
                   {(['minute', 'hour', 'day'] as const).map((aggregation) => (
-                    <option key={aggregation} value={aggregation}>
+                    <LumenOption key={aggregation} value={aggregation}>
                       {labels.usage.aggregations[aggregation]}
-                    </option>
+                    </LumenOption>
                   ))}
                 </LumenSelect>
               </LumenFormField>
@@ -503,11 +508,11 @@ export function HbarStatusWorkspace({
                   disabled={entry?.status === 'loading'}
                   onChange={(event) => setUsageQuery({ providerId: event.currentTarget.value || null, modelId: null })}
                 >
-                  <option value="">{labels.usage.allProviders}</option>
+                  <LumenOption value="">{labels.usage.allProviders}</LumenOption>
                   {usageProviders.map((providerId) => (
-                    <option key={providerId} value={providerId}>
+                    <LumenOption key={providerId} value={providerId}>
                       {providerId}
-                    </option>
+                    </LumenOption>
                   ))}
                 </LumenSelect>
               </LumenFormField>
@@ -518,15 +523,15 @@ export function HbarStatusWorkspace({
                   disabled={entry?.status === 'loading'}
                   onChange={(event) => setUsageQuery({ modelId: event.currentTarget.value || null })}
                 >
-                  <option value="">{labels.usage.allModels}</option>
+                  <LumenOption value="">{labels.usage.allModels}</LumenOption>
                   {usageModels.map((modelId) => (
-                    <option key={modelId} value={modelId}>
+                    <LumenOption key={modelId} value={modelId}>
                       {modelId}
-                    </option>
+                    </LumenOption>
                   ))}
                 </LumenSelect>
               </LumenFormField>
-            </div>
+            </LumenFrame>
           </HbarLumenDisclosure>
           <LumenActionMenu
             label={labels.usage.export}
@@ -545,20 +550,20 @@ export function HbarStatusWorkspace({
             onAction={(format) => invoke('statusWorkspace.exportUsage', { instanceId, format })}
           />
           {usageExport?.status === 'succeeded' && usageExport.fileName && (
-            <p role="status">
+            <LumenText as="p" role="status">
               {labels.usage.exported(usageExport.rowCount, usageExport.fileName)}
               {usageExport.incomplete && (
-                <span className="hbar-app-react-status-export-warning">{labels.usage.incompleteExport}</span>
+                <LumenText as="span" className="hbar-app-react-status-export-warning">{labels.usage.incompleteExport}</LumenText>
               )}
-            </p>
+            </LumenText>
           )}
           {usageExport?.status === 'failed' && usageExport.error && (
-            <p role="alert">{labels.error(usageExport.error)}</p>
+            <LumenText as="p" role="alert">{labels.error(usageExport.error)}</LumenText>
           )}
-        </div>
+        </LumenFrame>
       )}
       {section === 'git' && gitQuery?.workspaceId && (
-        <div
+        <LumenFrame
           className="hbar-app-react-status-controls hbar-app-react-git-controls"
           role="group"
           aria-label={labels.git.filters}
@@ -571,9 +576,9 @@ export function HbarStatusWorkspace({
               onChange={(event) => setGitQuery({ workspaceId: event.currentTarget.value })}
             >
               {gitWorkspaces.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
+                <LumenOption key={workspace.id} value={workspace.id}>
                   {workspace.name}
-                </option>
+                </LumenOption>
               ))}
             </LumenSelect>
           </LumenFormField>
@@ -585,14 +590,14 @@ export function HbarStatusWorkspace({
               onChange={(event) => setGitQuery({ window: event.currentTarget.value as typeof gitQuery.window })}
             >
               {(['7d', '30d', '90d', '1y'] as const).map((window) => (
-                <option key={window} value={window}>
+                <LumenOption key={window} value={window}>
                   {labels.git.windows[window]}
-                </option>
+                </LumenOption>
               ))}
             </LumenSelect>
           </LumenFormField>
           <HbarLumenDisclosure className="hbar-app-react-status-filter-details" label={labels.git.advancedFilters}>
-            <div className="hbar-app-react-git-source-options" role="group" aria-label={labels.git.sources}>
+            <LumenFrame className="hbar-app-react-git-source-options" role="group" aria-label={labels.git.sources}>
               {(['auto', 'manual', 'external'] as const).map((source) => {
                 const checked = gitQuery.sources.includes(source)
                 return (
@@ -605,28 +610,28 @@ export function HbarStatusWorkspace({
                   />
                 )
               })}
-            </div>
+            </LumenFrame>
           </HbarLumenDisclosure>
-        </div>
+        </LumenFrame>
       )}
       {!entry || entry.status === 'loading' ? (
-        <p className="hbar-app-react-status-loading">{labels.loading}</p>
+        <LumenText as="p" className="hbar-app-react-status-loading">{labels.loading}</LumenText>
       ) : entry.error ||
         (section === 'dashboard' && !report) ||
         (section === 'usage' && !usageReport) ||
         (section === 'git' && !gitReport) ? (
-        <p className="hbar-app-react-status-loading" role="alert">
+        <LumenText as="p" className="hbar-app-react-status-loading" role="alert">
           {labels.error(entry.error ?? 'CAPABILITY_UNAVAILABLE')}
-        </p>
+        </LumenText>
       ) : section === 'dashboard' && report ? (
-        <main className="hbar-app-react-performance">
+        <LumenFrame as="main" className="hbar-app-react-performance">
           {report.gap && (
-            <p className="hbar-app-react-status-gap" role="status">
+            <LumenText as="p" className="hbar-app-react-status-gap" role="status">
               {labels.gap(report.skippedSamples)}
-            </p>
+            </LumenText>
           )}
-          <section>
-            <h2>{labels.resources}</h2>
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.resources}</LumenText>
             <LumenCompactMetrics
               label={labels.resources}
               metrics={metrics([
@@ -636,10 +641,10 @@ export function HbarStatusWorkspace({
                 ...(includeHost ? (['hostCpuPercent', 'hostRssBytes', 'hostHeapUsedBytes'] as const) : []),
               ])}
             />
-          </section>
+          </LumenFrame>
           {includeHost && (
-            <section>
-              <h2>{labels.runtime}</h2>
+            <LumenFrame as="section">
+              <LumenText as="h2">{labels.runtime}</LumenText>
               <LumenCompactMetrics
                 label={labels.runtime}
                 metrics={metrics([
@@ -650,25 +655,25 @@ export function HbarStatusWorkspace({
                   'managedChildProcesses',
                 ])}
               />
-            </section>
+            </LumenFrame>
           )}
-          <section>
-            <h2>{labels.trends}</h2>
-            <div className="hbar-app-react-performance-charts">
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.trends}</LumenText>
+            <LumenFrame className="hbar-app-react-performance-charts">
               {includeSystem && (
-                <article>
-                  <h3>{labels.readings.systemCpuPercent}</h3>
+                <LumenFrame as="article">
+                  <LumenText as="h3">{labels.readings.systemCpuPercent}</LumenText>
                   {chart('systemCpuPercent')}
-                </article>
+                </LumenFrame>
               )}
               {includeHost && (
-                <article>
-                  <h3>{labels.readings.hostCpuPercent}</h3>
+                <LumenFrame as="article">
+                  <LumenText as="h3">{labels.readings.hostCpuPercent}</LumenText>
                   {chart('hostCpuPercent')}
-                </article>
+                </LumenFrame>
               )}
-            </div>
-          </section>
+            </LumenFrame>
+          </LumenFrame>
           {includeHost && (
             <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.process}>
               <LumenCompactMetrics
@@ -702,16 +707,16 @@ export function HbarStatusWorkspace({
               ])}
             />
           </HbarLumenDisclosure>
-        </main>
+        </LumenFrame>
       ) : section === 'usage' && usageReport ? (
-        <main className="hbar-app-react-global-usage">
+        <LumenFrame as="main" className="hbar-app-react-global-usage">
           {usageReport.gap && (
-            <p className="hbar-app-react-status-gap" role="status">
+            <LumenText as="p" className="hbar-app-react-status-gap" role="status">
               {labels.usage.gap}
-            </p>
+            </LumenText>
           )}
-          <section>
-            <h2>{labels.usage.title}</h2>
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.usage.title}</LumenText>
             <LumenCompactMetrics
               label={labels.usage.title}
               metrics={[
@@ -739,9 +744,9 @@ export function HbarStatusWorkspace({
                 usageItem('cache-hit', labels.usage.cacheHit, usageReport.cacheHitRate, labels.percent),
               ]}
             />
-          </section>
-          <section>
-            <h2>{labels.usage.rates}</h2>
+          </LumenFrame>
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.usage.rates}</LumenText>
             <LumenCompactMetrics
               label={labels.usage.rates}
               metrics={[
@@ -750,9 +755,9 @@ export function HbarStatusWorkspace({
                 usageItem('total-rate', labels.usage.totalRate, usageReport.rates.total, labels.tokenRate),
               ]}
             />
-          </section>
-          <section className="hbar-app-react-usage-latency">
-            <h2>{labels.usage.latency}</h2>
+          </LumenFrame>
+          <LumenFrame as="section" className="hbar-app-react-usage-latency">
+            <LumenText as="h2">{labels.usage.latency}</LumenText>
             <LumenCompactMetrics
               label={labels.usage.latency}
               metrics={[
@@ -762,9 +767,9 @@ export function HbarStatusWorkspace({
                 latencyItem('response', labels.usage.response, usageReport.latency.response),
               ]}
             />
-          </section>
-          <section>
-            <h2>{labels.usage.timeline}</h2>
+          </LumenFrame>
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.usage.timeline}</LumenText>
             <LumenBarSeries
               label={labels.usage.timeline}
               points={usageReport.series.map((point) => ({
@@ -772,25 +777,25 @@ export function HbarStatusWorkspace({
                 value: point.billableTokens,
                 label: `${labels.observedAt(point.start)} · ${labels.tokenCount(point.billableTokens)}`,
               }))}
-              empty={<p className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</p>}
+              empty={<LumenText as="p" className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</LumenText>}
             />
-          </section>
-          <section>
-            <h2>{labels.usage.models}</h2>
+          </LumenFrame>
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.usage.models}</LumenText>
             {usageReport.models.length === 0 ? (
-              <p>{labels.unavailable(null)}</p>
+              <LumenText as="p">{labels.unavailable(null)}</LumenText>
             ) : (
-              <ul className="hbar-app-react-usage-models">
+              <LumenCollection as="ul" className="hbar-app-react-usage-models">
                 {usageReport.models.map((model) => (
-                  <li key={model.modelSelectionId}>
-                    <strong>{labels.usage.model(model.providerId, model.modelId)}</strong>
-                    <span>{labels.tokenCount(model.input + model.output)}</span>
-                    <span>{usageValue(model.cost, labels, labels.currency)}</span>
-                  </li>
+                  <LumenCollectionItem key={model.modelSelectionId}>
+                    <LumenText as="strong">{labels.usage.model(model.providerId, model.modelId)}</LumenText>
+                    <LumenText as="span">{labels.tokenCount(model.input + model.output)}</LumenText>
+                    <LumenText as="span">{usageValue(model.cost, labels, labels.currency)}</LumenText>
+                  </LumenCollectionItem>
                 ))}
-              </ul>
+              </LumenCollection>
             )}
-          </section>
+          </LumenFrame>
           <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.usage.execution}>
             {usageReport.execution ? (
               <LumenCompactMetrics
@@ -822,23 +827,23 @@ export function HbarStatusWorkspace({
                 ]}
               />
             ) : (
-              <p>{labels.usage.executionUnavailable}</p>
+              <LumenText as="p">{labels.usage.executionUnavailable}</LumenText>
             )}
           </HbarLumenDisclosure>
-        </main>
+        </LumenFrame>
       ) : gitReport ? (
-        <main className="hbar-app-react-git-status">
+        <LumenFrame as="main" className="hbar-app-react-git-status">
           {gitReport.gap && (
-            <p className="hbar-app-react-status-gap" role="status">
+            <LumenText as="p" className="hbar-app-react-status-gap" role="status">
               {labels.git.gap}
-            </p>
+            </LumenText>
           )}
-          <section>
-            <h2>{labels.git.title}</h2>
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.git.title}</LumenText>
             {!gitStatus?.root ? (
-              <p className="hbar-app-react-git-empty" role="status">
+              <LumenText as="p" className="hbar-app-react-git-empty" role="status">
                 {labels.git.noRepository}
-              </p>
+              </LumenText>
             ) : (
               <LumenCompactMetrics
                 label={labels.git.repositoryStatus}
@@ -859,12 +864,12 @@ export function HbarStatusWorkspace({
                 ]}
               />
             )}
-          </section>
+          </LumenFrame>
           {gitStatus?.root && (
             <>
-              <section>
-                <h2>{labels.git.activity}</h2>
-                {!gitReport.head && <p className="hbar-app-react-git-empty">{labels.git.emptyHistory}</p>}
+              <LumenFrame as="section">
+                <LumenText as="h2">{labels.git.activity}</LumenText>
+                {!gitReport.head && <LumenText as="p" className="hbar-app-react-git-empty">{labels.git.emptyHistory}</LumenText>}
                 <LumenCompactMetrics
                   label={labels.git.activity}
                   metrics={[
@@ -897,15 +902,15 @@ export function HbarStatusWorkspace({
                     },
                   ]}
                 />
-              </section>
-              <section>
-                <h2>{labels.git.timeline}</h2>
+              </LumenFrame>
+              <LumenFrame as="section">
+                <LumenText as="h2">{labels.git.timeline}</LumenText>
                 {gitReport.totals.commits === 0 ? (
-                  <p>{labels.git.noCommits}</p>
+                  <LumenText as="p">{labels.git.noCommits}</LumenText>
                 ) : (
-                  <div className="hbar-app-react-git-charts">
-                    <article className="is-commits">
-                      <h3>{labels.git.commits}</h3>
+                  <LumenFrame className="hbar-app-react-git-charts">
+                    <LumenFrame as="article" className="is-commits">
+                      <LumenText as="h3">{labels.git.commits}</LumenText>
                       <LumenBarSeries
                         label={labels.git.commits}
                         points={gitReport.points.map((point) => ({
@@ -916,11 +921,11 @@ export function HbarStatusWorkspace({
                         selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
                         selectLabel={(point) => labels.git.selectBucket(point.label)}
                         onSelect={selectGitBucket}
-                        empty={<p>{labels.git.noCommits}</p>}
+                        empty={<LumenText as="p">{labels.git.noCommits}</LumenText>}
                       />
-                    </article>
-                    <article className="is-files">
-                      <h3>{labels.git.files}</h3>
+                    </LumenFrame>
+                    <LumenFrame as="article" className="is-files">
+                      <LumenText as="h3">{labels.git.files}</LumenText>
                       <LumenBarSeries
                         label={labels.git.files}
                         points={gitReport.points.map((point) => ({
@@ -931,11 +936,11 @@ export function HbarStatusWorkspace({
                         selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
                         selectLabel={(point) => labels.git.selectBucket(point.label)}
                         onSelect={selectGitBucket}
-                        empty={<p>{labels.git.noCommits}</p>}
+                        empty={<LumenText as="p">{labels.git.noCommits}</LumenText>}
                       />
-                    </article>
-                    <article className="is-changes">
-                      <h3>{labels.git.changes}</h3>
+                    </LumenFrame>
+                    <LumenFrame as="article" className="is-changes">
+                      <LumenText as="h3">{labels.git.changes}</LumenText>
                       <LumenBarSeries
                         label={labels.git.changes}
                         points={gitReport.points.map((point) => ({
@@ -946,93 +951,93 @@ export function HbarStatusWorkspace({
                         selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
                         selectLabel={(point) => labels.git.selectBucket(point.label)}
                         onSelect={selectGitBucket}
-                        empty={<p>{labels.git.noCommits}</p>}
+                        empty={<LumenText as="p">{labels.git.noCommits}</LumenText>}
                       />
-                    </article>
-                  </div>
+                    </LumenFrame>
+                  </LumenFrame>
                 )}
-              </section>
-              <section>
-                <h2>{labels.git.recentCommits}</h2>
+              </LumenFrame>
+              <LumenFrame as="section">
+                <LumenText as="h2">{labels.git.recentCommits}</LumenText>
                 {selectedGitPoint && (
-                  <div className="hbar-app-react-git-bucket-filter" role="status">
-                    <span>
+                  <LumenFrame className="hbar-app-react-git-bucket-filter" role="status">
+                    <LumenText as="span">
                       {labels.git.selectedBucket(
                         labels.git.formatCommitDate(new Date(selectedGitPoint.start).toISOString()),
                         visibleGitCommits.length,
                       )}
-                    </span>
+                    </LumenText>
                     <LumenButton
                       onClick={() => invoke('statusWorkspace.selectGitBucket', { instanceId, bucketStart: null })}
                     >
                       {labels.git.showAllCommits}
                     </LumenButton>
-                  </div>
+                  </LumenFrame>
                 )}
                 {visibleGitCommits.length === 0 ? (
-                  <p>{labels.git.noCommits}</p>
+                  <LumenText as="p">{labels.git.noCommits}</LumenText>
                 ) : (
-                  <div className="hbar-app-react-git-commits">
+                  <LumenFrame className="hbar-app-react-git-commits">
                     {visibleGitCommits.map((commit) => (
                       <HbarLumenDisclosure
                         key={commit.sha}
                         label={
                           <>
-                            <code>{commit.shortSha}</code>
-                            <span>
-                              <strong>{commit.subject}</strong>
-                              <small>
+                            <LumenText as="code">{commit.shortSha}</LumenText>
+                            <LumenText as="span">
+                              <LumenText as="strong">{commit.subject}</LumenText>
+                              <LumenText as="small">
                                 {labels.git.commitMetadata(
                                   labels.git[
                                     commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source
                                   ],
                                   labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt),
                                 )}
-                              </small>
-                            </span>
+                              </LumenText>
+                            </LumenText>
                           </>
                         }
                       >
-                        <dl>
-                          <div>
-                            <dt>{labels.git.commitAuthor}</dt>
-                            <dd>{commit.author}</dd>
-                          </div>
-                          <div>
-                            <dt>{labels.git.commitDate}</dt>
-                            <dd>{labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt)}</dd>
-                          </div>
-                          <div>
-                            <dt>{labels.git.commitSource}</dt>
-                            <dd>
+                        <LumenCollection as="dl">
+                          <LumenFrame>
+                            <LumenCollectionItem as="dt">{labels.git.commitAuthor}</LumenCollectionItem>
+                            <LumenCollectionItem as="dd">{commit.author}</LumenCollectionItem>
+                          </LumenFrame>
+                          <LumenFrame>
+                            <LumenCollectionItem as="dt">{labels.git.commitDate}</LumenCollectionItem>
+                            <LumenCollectionItem as="dd">{labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt)}</LumenCollectionItem>
+                          </LumenFrame>
+                          <LumenFrame>
+                            <LumenCollectionItem as="dt">{labels.git.commitSource}</LumenCollectionItem>
+                            <LumenCollectionItem as="dd">
                               {labels.git[commit.provenance.source === 'auto' ? 'automatic' : commit.provenance.source]}
-                            </dd>
-                          </div>
+                            </LumenCollectionItem>
+                          </LumenFrame>
                           {commit.provenance.sessionId && (
-                            <div>
-                              <dt>{labels.git.session}</dt>
-                              <dd>{commit.provenance.sessionId}</dd>
-                            </div>
+                            <LumenFrame>
+                              <LumenCollectionItem as="dt">{labels.git.session}</LumenCollectionItem>
+                              <LumenCollectionItem as="dd">{commit.provenance.sessionId}</LumenCollectionItem>
+                            </LumenFrame>
                           )}
                           {commit.provenance.runId && (
-                            <div>
-                              <dt>{labels.git.run}</dt>
-                              <dd>{commit.provenance.runId}</dd>
-                            </div>
+                            <LumenFrame>
+                              <LumenCollectionItem as="dt">{labels.git.run}</LumenCollectionItem>
+                              <LumenCollectionItem as="dd">{commit.provenance.runId}</LumenCollectionItem>
+                            </LumenFrame>
                           )}
                           {commit.provenance.operationId && (
-                            <div>
-                              <dt>{labels.git.operation}</dt>
-                              <dd>{commit.provenance.operationId}</dd>
-                            </div>
+                            <LumenFrame>
+                              <LumenCollectionItem as="dt">{labels.git.operation}</LumenCollectionItem>
+                              <LumenCollectionItem as="dd">{commit.provenance.operationId}</LumenCollectionItem>
+                            </LumenFrame>
                           )}
-                        </dl>
+                        </LumenCollection>
                       </HbarLumenDisclosure>
                     ))}
-                  </div>
+                  </LumenFrame>
                 )}
-                {entry.gitHistoryTruncated && <p role="status">{labels.git.historyTruncated}</p>}
-              </section>
+                {entry.gitHistoryTruncated && <LumenText as="p" role="status">{labels.git.historyTruncated}</LumenText>}
+              </LumenFrame>
               <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.git.details}>
                 <LumenCompactMetrics
                   label={labels.git.details}
@@ -1069,8 +1074,8 @@ export function HbarStatusWorkspace({
               </HbarLumenDisclosure>
             </>
           )}
-        </main>
+        </LumenFrame>
       ) : null}
-    </section>
+    </LumenFrame>
   )
 }
