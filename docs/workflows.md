@@ -57,6 +57,8 @@ Plan Mode 使用模型工具 `save_workflow_plan` 保存草案。草案不会在
 
 这个循环是稳定的控制骨架，并不规定每项必须执行相同数量的读取、工具调用或 Agent。简单项可以直接执行和验证；遇到新证据时可以扩展范围、修订或阻塞，而不需要继续无效探索。
 
+Goal 的自动续跑在每次提交下一 Run 前经过 Workflow hook。只有 Workflow 仍为 `active`、存在主任务焦点且没有等待用户 Evidence 时才继续；`waiting`、`blocked`、等待用户或没有焦点时暂停，等 Host 状态变化或用户操作后再推进。
+
 ## 外部验收与完成门禁
 
 模型的完成陈述不是验收证据。工具型验收只在工具结果已经结算后记录，并保存 Run、Call、工具名、参数哈希和结果哈希。用户型验收必须通过 `workflow.acceptCheck` 或 Goals and plans 面板的 Accept/Reject 操作写入。Agent Evidence 绑定 Agent 和结果哈希。
