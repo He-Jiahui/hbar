@@ -82,20 +82,32 @@ function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabel
     },
     controlSize: {
       label: choose('控件尺寸', 'Control size'),
-      description: choose('控制按钮、输入框和选择器的默认高度与内边距。', 'Controls default height and padding for buttons, inputs, and selects.'),
+      description: choose(
+        '控制按钮、输入框和选择器的默认高度与内边距。',
+        'Controls default height and padding for buttons, inputs, and selects.',
+      ),
     },
     textSize: {
       label: choose('文本尺寸', 'Text size'),
-      description: choose('控制正文、标签和辅助文字的默认字号与行高。', 'Controls the default size and line height for body, label, and supporting text.'),
+      description: choose(
+        '控制正文、标签和辅助文字的默认字号与行高。',
+        'Controls the default size and line height for body, label, and supporting text.',
+      ),
     },
     cornerSize: {
       label: choose('圆角尺寸', 'Corner size'),
-      description: choose('控制通用按钮、输入框和面板的默认圆角。', 'Controls the default corner radius for shared buttons, fields, and panels.'),
+      description: choose(
+        '控制通用按钮、输入框和面板的默认圆角。',
+        'Controls the default corner radius for shared buttons, fields, and panels.',
+      ),
     },
     sizeOption: (dimension, size) => `${sizeNames[size]} · ${sizeDetails[dimension][size]}`,
     preview: {
       title: choose('实时预览', 'Live preview'),
-      description: choose('草稿只影响此预览；保存后才应用到整个应用。', 'The draft affects this preview only and applies to the app after saving.'),
+      description: choose(
+        '草稿只影响此预览；保存后才应用到整个应用。',
+        'The draft affects this preview only and applies to the app after saving.',
+      ),
       label: choose('示例标签', 'Example label'),
       input: choose('示例输入内容', 'Example input value'),
       select: choose('示例选择器', 'Example select'),
@@ -1101,11 +1113,61 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
   const planStatuses: HbarGoalPlanWorkspaceLabels['plan']['statuses'] = zh
     ? { pending: '待处理', in_progress: '进行中', completed: '已完成' }
     : { pending: 'Pending', in_progress: 'In progress', completed: 'Completed' }
+  const workflowStatuses: HbarGoalPlanWorkspaceLabels['workflow']['statuses'] = zh
+    ? { none: '未启用', draft: '草案', active: '专注中', waiting: '等待中', blocked: '已阻塞', completed: '已完成' }
+    : {
+        none: 'Not enabled',
+        draft: 'Draft',
+        active: 'Focused',
+        waiting: 'Waiting',
+        blocked: 'Blocked',
+        completed: 'Completed',
+      }
+  const workflowItemStatuses: HbarGoalPlanWorkspaceLabels['workflow']['itemStatuses'] = zh
+    ? {
+        pending: '待处理',
+        in_progress: '进行中',
+        delegated: '已派发',
+        verifying: '验证中',
+        completed: '已完成',
+        blocked: '已阻塞',
+      }
+    : {
+        pending: 'Pending',
+        in_progress: 'In progress',
+        delegated: 'Delegated',
+        verifying: 'Verifying',
+        completed: 'Completed',
+        blocked: 'Blocked',
+      }
+  const acceptanceStatuses: HbarGoalPlanWorkspaceLabels['workflow']['acceptanceStatuses'] = zh
+    ? { pending: '待验证', passed: '已通过', failed: '未通过', accepted: '已接受', rejected: '已拒绝' }
+    : { pending: 'Pending', passed: 'Passed', failed: 'Failed', accepted: 'Accepted', rejected: 'Rejected' }
+  const delegationStatuses: HbarGoalPlanWorkspaceLabels['workflow']['delegationStatuses'] = zh
+    ? {
+        queued: '排队中',
+        running: '执行中',
+        patch_ready: '补丁待应用',
+        applied: '已应用',
+        conflict: '有冲突',
+        cancelled: '已取消',
+        failed: '失败',
+      }
+    : {
+        queued: 'Queued',
+        running: 'Running',
+        patch_ready: 'Patch ready',
+        applied: 'Applied',
+        conflict: 'Conflict',
+        cancelled: 'Cancelled',
+        failed: 'Failed',
+      }
+  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
   return {
     title: choose('目标与计划', 'Goals and plans'),
     description: choose(
-      '管理当前会话的持久目标、Token 预算和分步计划。',
-      'Manage the session goal, token budget, and persisted step-by-step plan.',
+      '管理当前会话的持久目标、结构化计划、专注范围和外部验收。',
+      'Manage the session goal, structured plan, focus scope, and external acceptance.',
     ),
     close: choose('关闭目标与计划', 'Close goals and plans'),
     refresh: choose('刷新', 'Refresh'),
@@ -1158,6 +1220,62 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       stepTitle: (index) => choose(`步骤 ${index} 内容`, `Step ${index} title`),
       stepStatus: (index) => choose(`步骤 ${index} 状态`, `Step ${index} status`),
       statuses: planStatuses,
+    },
+    workflow: {
+      title: choose('专注工作流', 'Focused workflow'),
+      loading: choose('正在加载工作流…', 'Loading workflow…'),
+      empty: choose('当前会话尚未启用专注工作流。', 'This session does not have a focused workflow.'),
+      draft: choose(
+        '结构化草案将在下一次执行请求时激活。',
+        'The structured draft activates on the next execution request.',
+      ),
+      focus: choose('当前焦点', 'Current focus'),
+      staleFocus: choose('焦点已过期，请刷新或记录检查点。', 'The focus is stale; refresh or record a checkpoint.'),
+      todo: choose('TODO', 'TODO'),
+      acceptance: choose('验收清单', 'Acceptance checks'),
+      scope: choose('查看允许范围', 'Show allowed scope'),
+      readPaths: choose('读取路径', 'Read paths'),
+      writePaths: choose('写入路径', 'Write paths'),
+      tools: choose('工具', 'Tools'),
+      none: choose('无', 'None'),
+      agents: choose('子 Agent 与补丁', 'Child agents and patches'),
+      noAgents: choose('当前没有派发中的子任务。', 'There are no delegated tasks.'),
+      evidence: choose('验收证据', 'Acceptance evidence'),
+      noEvidence: choose('尚未记录外部验收证据。', 'No external acceptance evidence is recorded.'),
+      loadMore: choose('加载更多证据', 'Load more evidence'),
+      applyPatch: choose('应用补丁', 'Apply patch'),
+      applyingPatch: choose('正在应用…', 'Applying…'),
+      reconcilePatch: choose('核对应用结果', 'Reconcile apply result'),
+      coordinate: choose('进入冲突协调', 'Coordinate conflict'),
+      accept: choose('接受', 'Accept'),
+      reject: choose('拒绝', 'Reject'),
+      actionSucceeded: choose('操作已由 Host 确认。', 'The Host confirmed the operation.'),
+      error: (code) => choose(`工作流操作失败：${code}`, `Workflow operation failed: ${code}`),
+      statuses: workflowStatuses,
+      itemStatuses: workflowItemStatuses,
+      acceptanceStatuses,
+      delegationStatuses,
+      ownerMain: choose('主任务', 'Main task'),
+      ownerAgent: (agentId) => choose(`Agent ${agentId}`, `Agent ${agentId}`),
+      itemCount: (count) => choose(`${number.format(count)} 项`, `${number.format(count)} items`),
+      evidenceCount: (visible, total) =>
+        choose(
+          `显示 ${number.format(visible)} / ${number.format(total)}`,
+          `Showing ${number.format(visible)} of ${number.format(total)}`,
+        ),
+      patchFiles: (count) =>
+        choose(`${number.format(count)} 个补丁文件`, `${number.format(count)} patch ${count === 1 ? 'file' : 'files'}`),
+      acceptanceAction: (decision, check) =>
+        decision === 'accepted'
+          ? choose(`接受验收项：${check}`, `Accept check: ${check}`)
+          : choose(`拒绝验收项：${check}`, `Reject check: ${check}`),
+      evidenceLabel: (evidence) => {
+        const outcome = acceptanceStatuses[evidence.outcome]
+        if (evidence.source === 'tool') return `${evidence.checkId} · ${evidence.toolName} · ${outcome}`
+        if (evidence.source === 'agent') return `${evidence.checkId} · ${evidence.agentId} · ${outcome}`
+        return `${evidence.checkId} · ${evidence.actorId} · ${outcome}`
+      },
+      timestamp: (value) => date.format(value),
     },
     number: (value) => number.format(value),
     duration: (seconds) => choose(`${number.format(seconds)} 秒`, `${number.format(seconds)} s`),

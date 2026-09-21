@@ -28,6 +28,7 @@ export { HbarFileWorkspace, type HbarFileWorkspaceLabels } from './lumen-file-wo
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
 export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './lumen-agent-workspace'
 export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'
+export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export type { HbarRuntimeView } from './runtime'

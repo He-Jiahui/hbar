@@ -139,3 +139,211 @@
 .hbar-app-react-goal-plan-workspace [role='status'] {
   color: var(--lumen-success);
 }
+
+.hbar-app-react-workflow-overview,
+.hbar-app-react-workflow-group,
+.hbar-app-react-workflow-items,
+.hbar-app-react-workflow-checks,
+.hbar-app-react-workflow-checks ul,
+.hbar-app-react-workflow-agents,
+.hbar-app-react-workflow-evidence {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-react-workflow-overview,
+.hbar-app-react-workflow-group {
+  gap: 0.75rem;
+}
+
+.hbar-app-react-workflow-overview > header,
+.hbar-app-react-workflow-item-heading,
+.hbar-app-react-workflow-agents > li > div:first-child,
+.hbar-app-react-workflow-group > h3 {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-workflow-overview > header {
+  justify-content: space-between;
+}
+
+.hbar-app-react-workflow-group > h3 {
+  margin: 0;
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-workflow-group > h3 > span:last-child {
+  margin-inline-start: auto;
+  font-weight: 400;
+}
+
+.hbar-app-react-workflow-focus {
+  display: grid;
+  min-inline-size: 0;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.375rem;
+  background: var(--lumen-glass);
+}
+
+.hbar-app-react-workflow-focus strong,
+.hbar-app-react-workflow-item-heading strong,
+.hbar-app-react-workflow-agents strong,
+.hbar-app-react-workflow-agents p,
+.hbar-app-react-workflow-evidence span,
+.hbar-app-react-workflow-items dd {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-workflow-draft {
+  color: var(--lumen-warning);
+}
+
+.hbar-app-react-workflow-items,
+.hbar-app-react-workflow-checks ul,
+.hbar-app-react-workflow-agents,
+.hbar-app-react-workflow-evidence {
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-app-react-workflow-items > li,
+.hbar-app-react-workflow-agents > li,
+.hbar-app-react-workflow-evidence > li {
+  min-inline-size: 0;
+  padding-block: 0.625rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-react-workflow-items > li[data-active='true'] {
+  padding-inline: 0.5rem;
+  border-inline-start: 0.125rem solid var(--lumen-accent);
+  background: var(--lumen-glass);
+}
+
+.hbar-app-react-workflow-item-heading strong,
+.hbar-app-react-workflow-agents strong {
+  flex: 1 1 12rem;
+}
+
+.hbar-app-react-workflow-item-heading > span:last-child {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-workflow-items details,
+.hbar-app-react-workflow-agents details {
+  margin-block-start: 0.5rem;
+}
+
+.hbar-app-react-workflow-items summary,
+.hbar-app-react-workflow-agents summary {
+  cursor: pointer;
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-workflow-items dl {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0.5rem 0 0;
+}
+
+.hbar-app-react-workflow-items dl > div {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.3fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.hbar-app-react-workflow-items dt {
+  color: var(--lumen-muted);
+}
+
+.hbar-app-react-workflow-items dd {
+  margin: 0;
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+}
+
+.hbar-app-react-workflow-checks {
+  gap: 0.375rem;
+  margin-block-start: 0.625rem;
+}
+
+.hbar-app-react-workflow-checks > span {
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hbar-app-react-workflow-checks li {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding-block: 0.375rem;
+}
+
+.hbar-app-react-workflow-checks li > span:first-child {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-workflow-check-actions,
+.hbar-app-react-workflow-agent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-workflow-agents p {
+  margin-block-start: 0.5rem;
+  color: var(--lumen-subtle);
+}
+
+.hbar-app-react-workflow-agents details ul {
+  margin-block: 0.375rem 0;
+  padding-inline-start: 1.25rem;
+}
+
+.hbar-app-react-workflow-agent-actions {
+  margin-block-start: 0.5rem;
+}
+
+.hbar-app-react-workflow-evidence > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-workflow-evidence time {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 42rem) {
+  .hbar-app-react-workflow-focus,
+  .hbar-app-react-workflow-evidence > li,
+  .hbar-app-react-workflow-items dl > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hbar-app-react-workflow-group > h3 > span:last-child {
+    inline-size: 100%;
+    margin-inline-start: 0;
+  }
+}

@@ -17,6 +17,7 @@ import {
 } from '@lumen/app-ui'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 import './goal-plan-workspace.css'
 
 type GoalStatus = GoalPlanGoalDraftState['status']
@@ -63,6 +64,7 @@ export interface HbarGoalPlanWorkspaceLabels {
     readonly stepStatus: (index: number) => string
     readonly statuses: Readonly<Record<PlanStepStatus, string>>
   }
+  readonly workflow: HbarWorkflowOverviewLabels
   readonly number: (value: number) => string
   readonly duration: (seconds: number) => string
   readonly issue: (field: string) => string
@@ -107,9 +109,11 @@ export function HbarGoalPlanWorkspace({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const goals = useHbarRuntimeState(runtime.state.goals)
+  const workflows = useHbarRuntimeState(runtime.state.workflows)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const entry = instanceId ? goals.entries[instanceId] : undefined
+  const workflowEntry = instanceId ? workflows.entries[instanceId] : undefined
   const invoke = useCallback(
     (name: string, input: unknown) =>
       void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input).catch(
@@ -118,13 +122,17 @@ export function HbarGoalPlanWorkspace({
     [runtime.commands],
   )
   useEffect(() => {
-    if (instanceId && panel?.panelId === 'goals' && panel.sessionId && entry?.sessionId !== panel.sessionId)
-      invoke('goalPlanWorkspace.refresh', { instanceId })
-  }, [entry?.sessionId, instanceId, invoke, panel?.panelId, panel?.sessionId])
+    if (!instanceId || panel?.panelId !== 'goals' || !panel.sessionId) return
+    if (entry?.sessionId !== panel.sessionId) invoke('goalPlanWorkspace.refresh', { instanceId })
+    if (workflowEntry?.sessionId !== panel.sessionId) invoke('workflowWorkspace.refresh', { instanceId })
+  }, [entry?.sessionId, instanceId, invoke, panel?.panelId, panel?.sessionId, workflowEntry?.sessionId])
   if (!instanceId || panel?.panelId !== 'goals') return null
 
   const goalBusy = entry?.goalAction.status === 'submitting' || entry?.goalAction.status === 'unknown'
   const planBusy = entry?.planAction.status === 'submitting' || entry?.planAction.status === 'unknown'
+  const workflowBusy = Object.values(workflowEntry?.actions ?? {}).some(
+    (action) => action.status === 'submitting' || action.status === 'unknown',
+  )
   const view = entry?.view ?? 'overview'
   const setGoalField = (field: string, value: string) =>
     invoke('goalPlanWorkspace.setGoalField', { instanceId, field, value })
@@ -147,13 +155,16 @@ export function HbarGoalPlanWorkspace({
       closeLabel={labels.close}
       onBack={view === 'overview' ? undefined : back}
       onClose={() => invoke('app.closePanel', { instanceId })}
-      busy={Boolean(!entry || entry.status === 'loading' || goalBusy || planBusy)}
+      busy={Boolean(!entry || entry.status === 'loading' || goalBusy || planBusy || workflowBusy)}
       actions={
         <>
           <LumenIconButton
             label={labels.refresh}
             disabled={!connected || entry?.status === 'loading'}
-            onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}
+            onClick={() => {
+              invoke('goalPlanWorkspace.refresh', { instanceId })
+              invoke('workflowWorkspace.refresh', { instanceId })
+            }}
           >
             <LumenIcon icon={RefreshCw} tier="sm" />
           </LumenIconButton>
@@ -398,6 +409,13 @@ export function HbarGoalPlanWorkspace({
               )}
             </footer>
           </section>
+          <HbarWorkflowOverview
+            entry={workflowEntry}
+            labels={labels.workflow}
+            connected={connected}
+            instanceId={instanceId}
+            invoke={invoke}
+          />
         </main>
       )}
     </LumenToolPane>
