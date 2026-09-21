@@ -21,7 +21,7 @@ async function git(root: string, ...args: string[]) {
   if (code !== 0) throw new Error(`git ${args.join(' ')} failed: ${stderr}`)
 }
 
-async function fixture() {
+async function fixture(usePatchDriver = true) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-agent-patch-'))
   await mkdir(join(root, 'src'))
   await writeFile(join(root, 'src', 'first.txt'), 'parent first\n')
@@ -61,7 +61,7 @@ async function fixture() {
       workspace: root,
       demo: true,
       secrets: new MemorySecrets(),
-      profile: { replacements: { 'driver.pi': driver } },
+      ...(usePatchDriver ? { profile: { replacements: { 'driver.pi': driver } } } : {}),
     })
   let kernel = await open()
   let workspace = (await kernel.storage.call('workspaces')).find((entry) => entry.path === root)!
@@ -188,4 +188,42 @@ test('patch apply rejects isolated content that no longer matches the captured a
   expect(await readFile(join(resource.root, 'src', 'first.txt'), 'utf8')).toBe('parent first\n')
   expect(await readFile(join(resource.root, 'src', 'second.txt'), 'utf8')).toBe('parent second\n')
   await expect(stat(isolatedWorkspace.path)).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('isolated patch agents reject process tools that cannot be confined to declared file paths', async () => {
+  const resource = await fixture(false)
+  const record = await resource.commands.execute(
+    'agent.create',
+    {
+      parentSessionId: resource.parent.id,
+      objective: '/tool shell {"command":"echo should-not-run"}',
+      modelId: 'local-fixture',
+      approval: 'allow',
+      patchTask: {
+        itemId: 'implementation',
+        planRevision: 3,
+        scope: { readPaths: ['src'], writePaths: ['src'], tools: ['shell'] },
+        acceptanceChecks: [],
+      },
+    },
+    { idempotencyKey: 'isolated-process-denied' },
+  )
+  await resource.kernel.waitForIdle()
+  const snapshot = await resource.kernel.snapshot(record.sessionId)
+  expect(
+    snapshot.messages
+      .flatMap((message) => message.content)
+      .some(
+        (block) =>
+          block.type === 'tool_result' &&
+          block.isError &&
+          block.text.includes('cannot be confined to the delegated file scope'),
+      ),
+  ).toBeTrue()
+  expect(
+    await resource.commands.execute('agent.result.get', {
+      parentSessionId: resource.parent.id,
+      agentId: record.agentId,
+    }),
+  ).toMatchObject({ patch: null })
 })

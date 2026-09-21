@@ -441,6 +441,11 @@ export class AgentRuntime implements AgentService {
     if (!seed?.patchTask || !seed.isolation) return
     if (!seed.patchTask.scope.tools.includes(name))
       throw new HbarError('AGENT_PATCH_SCOPE', `Tool ${name} is outside the delegated scope`)
+    if (tool.effect === 'process')
+      throw new HbarError(
+        'AGENT_PATCH_SCOPE',
+        `Process tool ${name} cannot be confined to the delegated file scope; run external verification in the parent workflow`,
+      )
     const allowed =
       tool.effect === 'read'
         ? [...seed.patchTask.scope.readPaths, ...seed.patchTask.scope.writePaths]
