@@ -28,6 +28,7 @@ test('hbar-app-ui compatibility catalog re-exports the canonical Lumen inventory
   expect(getLumenVariant('hbar-app-ui-paywall-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-authentication-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-comments-1')?.status).toBe('migrated')
+  expect(getLumenVariant('hbar-app-ui-scheduling-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-integrations-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-editor-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-billing-1')?.status).toBe('migrated')
