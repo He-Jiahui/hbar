@@ -1,51 +1,61 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {AssetLibrary} from './file-manager/AssetLibrary'
-import {FileDetail} from './file-manager/FileDetail'
-import {DriveExplorer} from './file-manager/DriveExplorer'
-import {HbarAppUiFileManagerProvider, useHbarAppUiFileManagerContent} from './file-manager/FileManagerContent'
-import {UploadQueue} from './file-manager/UploadQueue'
+import {
+  LumenFileManager,
+  LumenFileManagerProvider as HbarAppUiFileManagerProvider,
+  selectLumenFileManagerItem as selectHbarAppUiFileManagerItem,
+  uniqueLumenFileManagerItems as uniqueHbarAppUiFileManagerItems,
+  type LumenFileManagerContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
-export {HbarAppUiFileManagerProvider}
-export type {
-    HbarAppUiFileKind,
-    HbarAppUiFileManagerAsset,
-    HbarAppUiFileManagerAssetContent,
-    HbarAppUiFileManagerActivity,
-    HbarAppUiFileManagerCollaborator,
-    HbarAppUiFileManagerContent,
-    HbarAppUiFileManagerDetailContent,
-    HbarAppUiFileManagerDetailItem,
-    HbarAppUiFileManagerDriveContent,
-    HbarAppUiFileManagerDriveRow,
-    HbarAppUiFileManagerFolder,
-    HbarAppUiFileManagerListStrategy,
-    HbarAppUiFileManagerMetadata,
-    HbarAppUiFileManagerOwner,
-    HbarAppUiFileManagerProviderProps,
-    HbarAppUiFileManagerUploadContent,
-    HbarAppUiFileManagerUploadItem,
-    HbarAppUiFileManagerUploadState,
-} from './file-manager/FileManagerContent'
-export {selectHbarAppUiFileManagerItem, uniqueHbarAppUiFileManagerItems} from './file-manager/FileManagerContent'
-
-function EmptyFileManagerSurface({spec}: Pick<HbarAppUiVariantProps, 'spec'>) {
-    return <section className="hbar-app-ui-variant hbar-app-ui-file-manager-surface hbar-app-ui-file-manager-empty-surface" data-hbar-app-ui-component={spec.id} data-hbar-app-ui-state={spec.profile.initialState} />
+export type HbarAppUiFileManagerProps = HbarAppUiVariantProps & {
+  readonly fileManagerContent?: LumenFileManagerContent | undefined
 }
 
-/** Each file-management pattern renders from host-owned, locale-aware content. */
-export function FileManager({spec, onAction}: HbarAppUiVariantProps) {
-    const content = useHbarAppUiFileManagerContent()
-    if (!content) return <EmptyFileManagerSurface spec={spec} />
-    switch (spec.variant) {
-        case 1:
-            return content.drive ? <DriveExplorer spec={spec} onAction={onAction} content={content.drive} /> : <EmptyFileManagerSurface spec={spec} />
-        case 2:
-            return content.assets ? <AssetLibrary spec={spec} onAction={onAction} content={content.assets} /> : <EmptyFileManagerSurface spec={spec} />
-        case 3:
-            return content.detail ? <FileDetail spec={spec} onAction={onAction} content={content.detail} /> : <EmptyFileManagerSurface spec={spec} />
-        case 4:
-            return content.upload ? <UploadQueue spec={spec} onAction={onAction} content={content.upload} /> : <EmptyFileManagerSurface spec={spec} />
-        default:
-            return <EmptyFileManagerSurface spec={spec} />
-    }
+export { HbarAppUiFileManagerProvider, selectHbarAppUiFileManagerItem, uniqueHbarAppUiFileManagerItems }
+
+export type {
+  LumenFileKind as HbarAppUiFileKind,
+  LumenFileManagerActivity as HbarAppUiFileManagerActivity,
+  LumenFileManagerAsset as HbarAppUiFileManagerAsset,
+  LumenFileManagerAssetContent as HbarAppUiFileManagerAssetContent,
+  LumenFileManagerCollaborator as HbarAppUiFileManagerCollaborator,
+  LumenFileManagerContent as HbarAppUiFileManagerContent,
+  LumenFileManagerDetailContent as HbarAppUiFileManagerDetailContent,
+  LumenFileManagerDetailItem as HbarAppUiFileManagerDetailItem,
+  LumenFileManagerDriveContent as HbarAppUiFileManagerDriveContent,
+  LumenFileManagerDriveRow as HbarAppUiFileManagerDriveRow,
+  LumenFileManagerFolder as HbarAppUiFileManagerFolder,
+  LumenFileManagerListStrategy as HbarAppUiFileManagerListStrategy,
+  LumenFileManagerMetadata as HbarAppUiFileManagerMetadata,
+  LumenFileManagerOwner as HbarAppUiFileManagerOwner,
+  LumenFileManagerProviderProps as HbarAppUiFileManagerProviderProps,
+  LumenFileManagerUploadContent as HbarAppUiFileManagerUploadContent,
+  LumenFileManagerUploadItem as HbarAppUiFileManagerUploadItem,
+  LumenFileManagerUploadState as HbarAppUiFileManagerUploadState,
+} from '@lumen/app-ui'
+
+/** Thin legacy-contract adapter; file workflow rendering and interaction controls are Lumen-owned. */
+export function FileManager({ spec, onAction, fileManagerContent, className }: HbarAppUiFileManagerProps) {
+  return (
+    <LumenFileManager
+      variant={spec.variant}
+      variantId={spec.id}
+      content={fileManagerContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(
+                value === undefined
+                  ? { variantId: spec.id, actionId }
+                  : { variantId: spec.id, actionId, value },
+              )
+          : undefined
+      }
+    />
+  )
 }
