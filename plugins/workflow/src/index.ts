@@ -20,6 +20,7 @@ import type {
   WorkflowPlanItemInput,
   WorkflowScope,
   WorkflowSnapshot,
+  WorkflowStartCommand,
   WorkflowState,
   WorkflowWorkItem,
 } from '@hbar/contracts'
@@ -339,7 +340,13 @@ export class WorkflowRuntime implements WorkflowService {
     return current.goal
   }
 
-  private stateFor(sessionId: string, plan: WorkflowPlan, goalId: string, now: number): WorkflowState {
+  private stateFor(
+    sessionId: string,
+    plan: WorkflowPlan,
+    goalId: string,
+    now: number,
+    startCommand: WorkflowStartCommand | null,
+  ): WorkflowState {
     return workflowStateSchema.parse({
       schemaVersion: WORKFLOW_SCHEMA_VERSION,
       workflowId: crypto.randomUUID(),
@@ -355,14 +362,31 @@ export class WorkflowRuntime implements WorkflowService {
       scopeExpansions: [],
       delegations: [],
       evidence: [],
+      startCommand,
       createdAt: now,
       updatedAt: now,
     })
   }
 
-  async start(sessionId: string, objective: string, items: WorkflowPlanItemInput[], tokenBudget?: number, run?: Run) {
+  async start(
+    sessionId: string,
+    objective: string,
+    items: WorkflowPlanItemInput[],
+    tokenBudget?: number,
+    run?: Run,
+    command?: WorkflowStartCommand,
+  ) {
     return this.serial(sessionId, async () => {
       const existing = this.workflows.get(sessionId)
+      if (
+        command &&
+        existing?.startCommand?.actorId === command.actorId &&
+        existing.startCommand.idempotencyKey === command.idempotencyKey
+      ) {
+        if (existing.startCommand.inputHash !== command.inputHash)
+          throw new HbarError('IDEMPOTENCY_CONFLICT', 'Workflow key was used with different input')
+        return this.snapshot(sessionId)
+      }
       if (existing && existing.status !== 'completed')
         throw new HbarError('WORKFLOW_EXISTS', 'An unfinished workflow already exists for this session')
       const parsedItems = z.array(workflowPlanItemSchema).min(1).parse(items)
@@ -381,7 +405,7 @@ export class WorkflowRuntime implements WorkflowService {
       })
       const goal = await this.goalFor(sessionId, plan.objective, tokenBudget, run)
       if (!goal) throw new HbarError('WORKFLOW_GOAL', 'Workflow goal creation returned no goal')
-      const workflow = this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now)
+      const workflow = this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now, command ?? null)
       return this.persistStarted(plan, workflow, run?.id)
     })
   }
@@ -403,7 +427,7 @@ export class WorkflowRuntime implements WorkflowService {
       const plan = workflowPlanSchema.parse({ ...current, phase: 'active', updatedAt: now })
       const goal = await this.goalFor(sessionId, plan.objective, tokenBudget, run)
       if (!goal) throw new HbarError('WORKFLOW_GOAL', 'Workflow goal creation returned no goal')
-      const workflow = this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now)
+      const workflow = this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now, null)
       return this.persistStarted(plan, workflow, run?.id)
     })
   }

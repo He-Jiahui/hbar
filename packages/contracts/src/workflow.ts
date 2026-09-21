@@ -213,6 +213,14 @@ export type WorkflowDelegation = z.output<typeof workflowDelegationSchema>
 export const workflowStatusSchema = z.enum(['draft', 'active', 'waiting', 'blocked', 'completed'])
 export type WorkflowStatus = z.output<typeof workflowStatusSchema>
 
+export const workflowStartCommandSchema = z.strictObject({
+  actorId: idSchema,
+  idempotencyKey: z.string().min(1).max(128),
+  requestId: idSchema,
+  inputHash: sha256Schema,
+})
+export type WorkflowStartCommand = z.output<typeof workflowStartCommandSchema>
+
 export const workflowStateSchema = z.strictObject({
   schemaVersion: z.literal(WORKFLOW_SCHEMA_VERSION),
   workflowId: idSchema,
@@ -228,6 +236,7 @@ export const workflowStateSchema = z.strictObject({
   scopeExpansions: z.array(workflowScopeExpansionSchema).max(MAX_WORKFLOW_SCOPE_ENTRIES),
   delegations: z.array(workflowDelegationSchema).max(MAX_WORKFLOW_DELEGATIONS),
   evidence: z.array(workflowEvidenceSchema).max(MAX_WORKFLOW_EVIDENCE),
+  startCommand: workflowStartCommandSchema.nullable().default(null),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
 })

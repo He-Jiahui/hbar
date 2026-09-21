@@ -75,6 +75,7 @@ export { createGitCommands } from './git-commands'
 export { createWorkspaceSessionCommands } from './workspace-session-commands'
 export { createSettingsCommands } from './settings-commands'
 export { createUsageCommands } from './usage-commands'
+export { createWorkflowCommands } from './workflow-commands'
 export {
   SettingsService,
   HBAR_SETTINGS_DEFINITIONS,

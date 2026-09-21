@@ -38,7 +38,7 @@ async function fixture() {
 test('goal and plan commands preserve plugin rules, explicit targets and query reconciliation', async () => {
   const { client, session, other } = await fixture()
   const commands = createGoalPlanCommandClient(client)
-  const catalog = await client.call('command.catalog', { category: 'agent.goal.plan', limit: 20 })
+  const catalog = await client.call('command.catalog', { category: 'agent.goal.plan', limit: 50 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'agent.cancel',
     'agent.create',
@@ -53,6 +53,14 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'plan.clear',
     'plan.get',
     'plan.update',
+    'workflow.acceptCheck',
+    'workflow.activate',
+    'workflow.checkpoint',
+    'workflow.complete',
+    'workflow.expandScope',
+    'workflow.get',
+    'workflow.plan.save',
+    'workflow.start',
   ])
   expect(await commands.execute('goal.get', { sessionId: session.id })).toEqual({
     goal: null,

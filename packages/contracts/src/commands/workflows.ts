@@ -119,4 +119,15 @@ export const workflowCommands = {
   ),
 }
 
+export const workflowCoreCommands = {
+  'workflow.get': workflowCommands['workflow.get'],
+  'workflow.plan.save': workflowCommands['workflow.plan.save'],
+  'workflow.start': workflowCommands['workflow.start'],
+  'workflow.activate': workflowCommands['workflow.activate'],
+  'workflow.expandScope': workflowCommands['workflow.expandScope'],
+  'workflow.checkpoint': workflowCommands['workflow.checkpoint'],
+  'workflow.acceptCheck': workflowCommands['workflow.acceptCheck'],
+  'workflow.complete': workflowCommands['workflow.complete'],
+}
+
 export type WorkflowCommandId = keyof typeof workflowCommands

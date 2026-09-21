@@ -38,6 +38,7 @@ import type {
   WorkflowPlanItemInput,
   WorkflowScope,
   WorkflowSnapshot,
+  WorkflowStartCommand,
 } from '@hbar/contracts'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { AgentCreateInput, AgentPage, AgentRecord } from '@hbar/contracts/commands/agents'
@@ -208,6 +209,7 @@ export interface WorkflowService {
     items: WorkflowPlanItemInput[],
     tokenBudget?: number,
     run?: Run,
+    command?: WorkflowStartCommand,
   ): Promise<WorkflowSnapshot>
   activate(sessionId: string, planRevision: number, tokenBudget?: number, run?: Run): Promise<WorkflowSnapshot>
   expandScope(

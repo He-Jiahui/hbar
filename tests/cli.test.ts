@@ -327,6 +327,100 @@ test('exec agent commands create and list child sessions through the shared comm
   expect((JSON.parse(duplicate.stdout) as { agentId: string }).agentId).toBe(agent.agentId)
 })
 
+test('exec workflow commands drive evidence-gated state through the real CLI', async () => {
+  const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
+  const created = await run([...common, 'session', 'new'])
+  expect(created.code).toBe(0)
+  const session = JSON.parse(created.stdout) as { id: string }
+  const target = [...common, '--session', session.id]
+  const startInput = {
+    objective: 'Complete a CLI workflow',
+    items: [
+      {
+        id: 'ship',
+        title: 'Ship through the CLI',
+        scope: { readPaths: ['.'], writePaths: [], tools: ['read_file'] },
+        acceptanceChecks: [
+          {
+            id: 'review',
+            description: 'The CLI user accepts the result',
+            verifier: { kind: 'user' },
+          },
+        ],
+      },
+    ],
+  }
+  const startArgs = [
+    ...target,
+    'exec',
+    'workflow.start',
+    '--input-json',
+    JSON.stringify(startInput),
+    '--idempotency-key',
+    'cli-workflow',
+  ]
+  const started = await run(startArgs)
+  expect(started.code).toBe(0)
+  const workflowId = (JSON.parse(started.stdout) as { workflow: { workflowId: string } }).workflow.workflowId
+  const duplicate = await run(startArgs)
+  expect(duplicate.code).toBe(0)
+  expect((JSON.parse(duplicate.stdout) as { workflow: { workflowId: string } }).workflow.workflowId).toBe(workflowId)
+
+  const pending = await run([
+    ...target,
+    'exec',
+    'workflow.complete',
+    '--input-json',
+    JSON.stringify({ expectedRevision: 1 }),
+  ])
+  expect(pending.code).not.toBe(0)
+  expect(pending.stderr).toContain('requires')
+
+  const accepted = await run([
+    ...target,
+    'exec',
+    'workflow.acceptCheck',
+    '--input-json',
+    JSON.stringify({
+      itemId: 'ship',
+      checkId: 'review',
+      decision: 'accepted',
+      note: 'Accepted from the CLI',
+      expectedRevision: 1,
+    }),
+  ])
+  expect(accepted.code).toBe(0)
+  expect(JSON.parse(accepted.stdout)).toMatchObject({
+    workflow: { revision: 2, evidence: [{ source: 'user', outcome: 'accepted' }] },
+  })
+  const checkpoint = await run([
+    ...target,
+    'exec',
+    'workflow.checkpoint',
+    '--input-json',
+    JSON.stringify({
+      itemId: 'ship',
+      outcome: 'complete',
+      summary: 'CLI acceptance is recorded',
+      nextItemId: null,
+      expectedRevision: 2,
+    }),
+  ])
+  expect(checkpoint.code).toBe(0)
+  const completed = await run([
+    ...target,
+    'exec',
+    'workflow.complete',
+    '--input-json',
+    JSON.stringify({ expectedRevision: 3 }),
+  ])
+  expect(completed.code).toBe(0)
+  expect(JSON.parse(completed.stdout)).toMatchObject({ workflow: { status: 'completed', revision: 4 } })
+  const queried = await run([...target, 'exec', 'workflow.get'])
+  expect(queried.code).toBe(0)
+  expect(JSON.parse(queried.stdout)).toMatchObject({ workflow: { workflowId, status: 'completed' } })
+})
+
 test('exec browser commands navigate, inspect, and close the selected session page', async () => {
   const page = Bun.serve({
     port: 0,

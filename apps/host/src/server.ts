@@ -24,6 +24,7 @@ import {
   createRunCommands,
   createSettingsCommands,
   createUsageCommands,
+  createWorkflowCommands,
 } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
@@ -41,6 +42,7 @@ import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
+import { workflowCoreCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
 import {
   directoryCommands as directoryDefinitions,
@@ -57,6 +59,7 @@ import type {
   GoalService,
   ModeService,
   PlanService,
+  WorkflowService,
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
@@ -145,6 +148,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
+  const workflowCommands = createWorkflowCommands(kernel.plugins.get<WorkflowService>('workflow'))
   const commandServices = [
     { definitions: agentDefinitions, service: agentCommands },
     { definitions: browserDefinitions, service: browserCommands },
@@ -163,6 +167,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: runDefinitions, service: runCommands },
     { definitions: settingsDefinitions, service: settingsCommands },
     { definitions: usageDefinitions, service: usageCommands },
+    { definitions: workflowDefinitions, service: workflowCommands },
   ]
   const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
     commandServices.flatMap(({ definitions, service }) =>
@@ -1160,6 +1165,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       budgetCommands.dispose()
       fileCommands.dispose()
       goalPlanCommands.dispose()
+      workflowCommands.dispose()
       interactionCommands.dispose()
       modelCommands.dispose()
       metricsCommands.dispose()

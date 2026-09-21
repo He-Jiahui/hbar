@@ -82,7 +82,7 @@ async function until(check: () => Promise<boolean>) {
 test('agent commands create one budgeted child session per actor key and recover from events', async () => {
   const resource = await fixture()
   const { root, kernel, workspace, parent, client, commands } = resource
-  const catalog = await client.call('command.catalog', { category: 'agent.goal.plan', limit: 30 })
+  const catalog = await client.call('command.catalog', { category: 'agent.goal.plan', limit: 50 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'agent.cancel',
     'agent.create',
@@ -97,6 +97,14 @@ test('agent commands create one budgeted child session per actor key and recover
     'plan.clear',
     'plan.get',
     'plan.update',
+    'workflow.acceptCheck',
+    'workflow.activate',
+    'workflow.checkpoint',
+    'workflow.complete',
+    'workflow.expandScope',
+    'workflow.get',
+    'workflow.plan.save',
+    'workflow.start',
   ])
   const input = {
     parentSessionId: parent.id,
