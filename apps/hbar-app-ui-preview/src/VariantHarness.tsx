@@ -1,10 +1,15 @@
 import {
+  LumenButton,
   LumenFrame,
+  LumenInput,
+  LumenNavigationButton,
   LumenOption,
+  LumenSelect,
   LumenText,
- LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
+  LumenTextarea,
+} from '@lumen/app-ui'
 import { useState } from 'react'
-import { HbarAppUiButton, HbarAppUiStatus } from 'hbar-app-ui'
+import { HbarAppUiStatus } from 'hbar-app-ui'
 import type { HbarAppUiEvent, HbarAppUiProfileControl, HbarAppUiVariantSpec } from 'hbar-app-ui/catalog'
 
 const controlLabels: Readonly<Record<HbarAppUiProfileControl, string>> = {
@@ -57,14 +62,15 @@ function VariantProfileControls({ spec, onAction }: VariantProfileControlsProps)
     <LumenFrame className="hbar-app-ui-profile-controls" aria-label="Variant controls">
       {spec.profile.controls.map((control) => (
         <LumenFrame className="hbar-app-ui-profile-control" key={control}>
-          <HbarAppUiButton
-            type="button"
-            className={activated === control ? 'is-active' : ''}
+          <LumenNavigationButton
+            size="s"
+            selected={activated === control}
+            indicatorEdge="bottom"
             data-hbar-app-ui-control={control}
             onClick={() => trigger(control)}
           >
             {controlLabels[control]}
-          </HbarAppUiButton>
+          </LumenNavigationButton>
           {openControl === control && control === 'search' && (
             <LumenInput
               aria-label={`${spec.title} search`}

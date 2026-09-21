@@ -1,0 +1,173 @@
+import { readdir, readFile } from 'node:fs/promises'
+import { extname, join, relative, resolve } from 'node:path'
+
+export interface DesignSystemViolation {
+  readonly file: string
+  readonly line: number
+  readonly rule: 'native-control' | 'native-element' | 'numeric-size' | 'primitive-style' | 'primitive-state-style'
+  readonly detail: string
+}
+
+const primitiveSelector = /\.hbar-app-ui-(?:button|icon-button|control|label|text)(?![A-Za-z0-9_-])/
+const forbiddenPrimitiveProperty = /(?:^|;)\s*(?:font(?:-size|-family)?|line-height|min-block-size|block-size|height|border(?:-[\w-]+)?|background(?:-[\w-]+)?|color|padding(?:-[\w-]+)?|outline(?:-[\w-]+)?|box-shadow)\s*:/m
+const forbiddenPrimitiveState = /:(?:hover|focus|focus-visible|disabled)\b/
+const nativeControls = new Set(['button', 'input', 'select', 'textarea'])
+const nativeVisibleElements = new Set([
+  'a',
+  'article',
+  'aside',
+  'b',
+  'blockquote',
+  'button',
+  'canvas',
+  'code',
+  'dd',
+  'details',
+  'dialog',
+  'div',
+  'dl',
+  'dt',
+  'em',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'i',
+  'iframe',
+  'img',
+  'input',
+  'kbd',
+  'label',
+  'legend',
+  'li',
+  'main',
+  'mark',
+  'nav',
+  'ol',
+  'option',
+  'output',
+  'p',
+  'picture',
+  'pre',
+  's',
+  'section',
+  'select',
+  'small',
+  'span',
+  'strong',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'textarea',
+  'tfoot',
+  'th',
+  'thead',
+  'time',
+  'tr',
+  'ul',
+  'video',
+])
+
+function lineAt(source: string, offset: number): number {
+  return source.slice(0, offset).split('\n').length
+}
+
+export function auditProductionTsx(file: string, source: string): readonly DesignSystemViolation[] {
+  const violations: DesignSystemViolation[] = []
+  for (const match of source.matchAll(/<([a-z][a-z0-9-]*)\b/g)) {
+    const element = match[1]
+    if (!element || !nativeVisibleElements.has(element)) continue
+    violations.push({
+      file,
+      line: lineAt(source, match.index),
+      rule: nativeControls.has(element) ? 'native-control' : 'native-element',
+      detail: `Render <${element}> through an @lumen/app-ui component`,
+    })
+  }
+  for (const match of source.matchAll(/\bsize=\{\s*\d+(?:\.\d+)?\s*\}/g))
+    violations.push({
+      file,
+      line: lineAt(source, match.index),
+      rule: 'numeric-size',
+      detail: 'Use the semantic S/M/L component size',
+    })
+  return violations
+}
+
+export function auditProductionCss(file: string, source: string): readonly DesignSystemViolation[] {
+  const violations: DesignSystemViolation[] = []
+  for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = match[1] ?? ''
+    const declarations = match[2] ?? ''
+    if (!primitiveSelector.test(selector)) continue
+    if (forbiddenPrimitiveState.test(selector))
+      violations.push({
+        file,
+        line: lineAt(source, match.index),
+        rule: 'primitive-state-style',
+        detail: `State styling belongs to hbar-app-ui: ${selector.trim()}`,
+      })
+    if (forbiddenPrimitiveProperty.test(declarations))
+      violations.push({
+        file,
+        line: lineAt(source, match.index),
+        rule: 'primitive-style',
+        detail: `Visual primitive styling belongs to hbar-app-ui: ${selector.trim()}`,
+      })
+  }
+  return violations
+}
+
+async function sourceFiles(directory: string): Promise<readonly string[]> {
+  const files: string[] = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) files.push(...(await sourceFiles(path)))
+    else if (entry.isFile() && ['.css', '.tsx'].includes(extname(entry.name))) files.push(path)
+  }
+  return files
+}
+
+export async function auditProductionDesignSystem(root = process.cwd()): Promise<readonly DesignSystemViolation[]> {
+  const violations: DesignSystemViolation[] = []
+  for (const directory of [
+    'packages/app-react/src',
+    'apps/web/src',
+    'packages/hbar-app-ui/src',
+    'apps/hbar-app-ui-preview/src',
+  ]) {
+    for (const file of await sourceFiles(resolve(root, directory))) {
+      const source = await readFile(file, 'utf8')
+      const display = relative(root, file).replaceAll('\\', '/')
+      violations.push(
+        ...(extname(file) === '.css' && !directory.startsWith('packages/hbar-app-ui')
+          ? auditProductionCss(display, source)
+          : extname(file) === '.tsx'
+            ? auditProductionTsx(display, source)
+            : []),
+      )
+    }
+  }
+  return violations
+}
+
+if (import.meta.main) {
+  const violations = await auditProductionDesignSystem()
+  if (violations.length > 0) {
+    for (const violation of violations)
+      console.error(`${violation.file}:${violation.line} [${violation.rule}] ${violation.detail}`)
+    process.exitCode = 1
+  } else {
+    console.log('Production design-system boundary guard passed.')
+  }
+}

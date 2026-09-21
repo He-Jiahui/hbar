@@ -2,8 +2,11 @@ import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
+  LumenIcon,
+  LumenInput,
+  LumenNavigationButton,
   LumenText,
- LumenButton, LumenInput } from '@lumen/app-ui'
+} from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
@@ -16,7 +19,6 @@ import { Maximize2, Moon, RotateCcw, Search, Sun, X } from 'lucide-react'
 import {
   HBAR_APP_UI_CATEGORIES,
   HBAR_APP_UI_CATEGORY_COUNTS,
-  HbarAppUiButton,
   HbarAppUiAppShellProvider,
   HbarAppUiAppSidebarProvider,
   HbarAppUiAiChatProvider,
@@ -544,16 +546,16 @@ function PreviewApp() {
             label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
             onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
           >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            {theme === 'dark' ? <LumenIcon icon={Sun} tier="sm" /> : <LumenIcon icon={Moon} tier="sm" />}
           </HbarAppUiIconButton>
           <HbarAppUiIconButton label="Reset preview" onClick={resetPreview}>
-            <RotateCcw size={16} />
+            <LumenIcon icon={RotateCcw} tier="sm" />
           </HbarAppUiIconButton>
           <HbarAppUiIconButton
             label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             onClick={() => void toggleFullscreen()}
           >
-            <Maximize2 size={16} />
+            <LumenIcon icon={Maximize2} tier="sm" />
           </HbarAppUiIconButton>
         </LumenFrame>
       </LumenFrame>
@@ -561,7 +563,7 @@ function PreviewApp() {
       <LumenFrame className="hbar-app-ui-preview-body">
         <LumenFrame as="aside" className="hbar-app-ui-preview-sidebar" aria-label="hbar-app-ui categories">
           <LumenFrame as="label" className="hbar-app-ui-preview-search">
-            <Search size={15} aria-hidden="true" />
+            <LumenIcon icon={Search} tier="sm" />
             <LumenInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -570,7 +572,7 @@ function PreviewApp() {
             />
             {query && (
               <HbarAppUiIconButton label="Clear search" onClick={() => setQuery('')}>
-                <X size={14} />
+                <LumenIcon icon={X} tier="sm" />
               </HbarAppUiIconButton>
             )}
           </LumenFrame>
@@ -580,15 +582,16 @@ function PreviewApp() {
           </LumenFrame>
           <LumenFrame as="nav" className="hbar-app-ui-preview-category-list">
             {visibleCategories.map((category) => (
-              <LumenButton
-                className={selected.spec.category === category ? 'is-selected' : ''}
+              <LumenNavigationButton
                 key={category}
-                type="button"
+                size="s"
+                selected={selected.spec.category === category}
+                indicatorEdge="right"
                 onClick={() => chooseCategory(category)}
               >
                 <LumenText as="span">{category}</LumenText>
                 <LumenText as="small">{HBAR_APP_UI_CATEGORY_COUNTS[category]}</LumenText>
-              </LumenButton>
+              </LumenNavigationButton>
             ))}
             {!visibleCategories.length && <LumenText as="p" className="hbar-app-ui-preview-no-results">No matching components.</LumenText>}
           </LumenFrame>
@@ -602,14 +605,15 @@ function PreviewApp() {
             </LumenFrame>
             <LumenFrame className="hbar-app-ui-preview-viewports" role="group" aria-label="Preview viewport">
               {(Object.keys(viewportWidths) as Viewport[]).map((option) => (
-                <HbarAppUiButton
+                <LumenNavigationButton
                   key={option}
-                  className={viewport === option ? 'is-selected' : ''}
-                  aria-pressed={viewport === option}
+                  size="s"
+                  selected={viewport === option}
+                  indicatorEdge="bottom"
                   onClick={() => setViewport(option)}
                 >
                   {option}
-                </HbarAppUiButton>
+                </LumenNavigationButton>
               ))}
             </LumenFrame>
           </LumenFrame>
@@ -774,15 +778,16 @@ function PreviewApp() {
                   {filteredEntries
                     .filter(({ spec }) => spec.category === selected.spec.category)
                     .map((entry) => (
-                      <LumenButton
-                        className={entry.spec.id === selected.spec.id ? 'is-selected' : ''}
+                      <LumenNavigationButton
                         key={entry.spec.id}
-                        type="button"
+                        size="s"
+                        selected={entry.spec.id === selected.spec.id}
+                        indicatorEdge="left"
                         onClick={() => chooseEntry(entry)}
                       >
                         <LumenText as="span">{entry.spec.title}</LumenText>
                         <LumenText as="small">{entry.spec.layout}</LumenText>
-                      </LumenButton>
+                      </LumenNavigationButton>
                     ))}
                 </LumenFrame>
               </LumenFrame>
