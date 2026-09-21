@@ -1,71 +1,63 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {FeatureRequestBoard} from './feedback/FeatureRequestBoard'
-import {FeedbackInbox} from './feedback/FeedbackInbox'
 import {
-    HbarAppUiFeedbackProvider,
-    useHbarAppUiFeedbackContent,
-    type HbarAppUiFeedbackContent,
-} from './feedback/FeedbackContent'
-import {FeedbackInsights} from './feedback/FeedbackInsights'
-import {FeedbackFrame} from './feedback/FeedbackPrimitives'
-import {PostResolutionFeedback} from './feedback/PostResolutionFeedback'
-import {SurveyFeedback} from './feedback/SurveyFeedback'
-import {FeedbackWidget} from './feedback/FeedbackWidget'
+  LumenFeedback,
+  LumenFeedbackProvider as HbarAppUiFeedbackProvider,
+  selectLumenFeedbackItem as selectHbarAppUiFeedbackItem,
+  uniqueLumenFeedbackItems as uniqueHbarAppUiFeedbackItems,
+  type LumenFeedbackContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiFeedbackProps = HbarAppUiVariantProps & {
-    readonly feedbackContent?: HbarAppUiFeedbackContent | undefined
+  readonly feedbackContent?: LumenFeedbackContent | undefined
 }
 
-export {HbarAppUiFeedbackProvider}
+export { HbarAppUiFeedbackProvider, selectHbarAppUiFeedbackItem, uniqueHbarAppUiFeedbackItems }
+
 export type {
-    HbarAppUiFeedbackContent,
-    HbarAppUiFeedbackFeatureBoardContent,
-    HbarAppUiFeedbackInboxContent,
-    HbarAppUiFeedbackInboxDetail,
-    HbarAppUiFeedbackInboxMetric,
-    HbarAppUiFeedbackInboxThread,
-    HbarAppUiFeedbackInsightsContent,
-    HbarAppUiFeedbackListStrategy,
-    HbarAppUiFeedbackMetric,
-    HbarAppUiFeedbackPostResolutionContent,
-    HbarAppUiFeedbackRatingOption,
-    HbarAppUiFeedbackRequest,
-    HbarAppUiFeedbackRequestStatus,
-    HbarAppUiFeedbackSentiment,
-    HbarAppUiFeedbackSurveyContent,
-    HbarAppUiFeedbackSurveyReason,
-    HbarAppUiFeedbackTicket,
-    HbarAppUiFeedbackTheme,
-    HbarAppUiFeedbackType,
-    HbarAppUiFeedbackTypeOption,
-    HbarAppUiFeedbackVolumePoint,
-    HbarAppUiFeedbackWidgetContent,
-    HbarAppUiFeedbackProviderProps,
-} from './feedback/FeedbackContent'
-export {selectHbarAppUiFeedbackItem, uniqueHbarAppUiFeedbackItems} from './feedback/FeedbackContent'
+  LumenFeedbackAttachment as HbarAppUiFeedbackAttachment,
+  LumenFeedbackContent as HbarAppUiFeedbackContent,
+  LumenFeedbackFeatureBoardContent as HbarAppUiFeedbackFeatureBoardContent,
+  LumenFeedbackInboxContent as HbarAppUiFeedbackInboxContent,
+  LumenFeedbackInboxDetail as HbarAppUiFeedbackInboxDetail,
+  LumenFeedbackInboxMetric as HbarAppUiFeedbackInboxMetric,
+  LumenFeedbackInboxThread as HbarAppUiFeedbackInboxThread,
+  LumenFeedbackInsightsContent as HbarAppUiFeedbackInsightsContent,
+  LumenFeedbackListStrategy as HbarAppUiFeedbackListStrategy,
+  LumenFeedbackMetric as HbarAppUiFeedbackMetric,
+  LumenFeedbackPostResolutionContent as HbarAppUiFeedbackPostResolutionContent,
+  LumenFeedbackProviderProps as HbarAppUiFeedbackProviderProps,
+  LumenFeedbackRatingOption as HbarAppUiFeedbackRatingOption,
+  LumenFeedbackRequest as HbarAppUiFeedbackRequest,
+  LumenFeedbackRequestStatus as HbarAppUiFeedbackRequestStatus,
+  LumenFeedbackSentiment as HbarAppUiFeedbackSentiment,
+  LumenFeedbackSurveyContent as HbarAppUiFeedbackSurveyContent,
+  LumenFeedbackSurveyReason as HbarAppUiFeedbackSurveyReason,
+  LumenFeedbackTheme as HbarAppUiFeedbackTheme,
+  LumenFeedbackTicket as HbarAppUiFeedbackTicket,
+  LumenFeedbackType as HbarAppUiFeedbackType,
+  LumenFeedbackTypeOption as HbarAppUiFeedbackTypeOption,
+  LumenFeedbackVolumePoint as HbarAppUiFeedbackVolumePoint,
+  LumenFeedbackWidgetContent as HbarAppUiFeedbackWidgetContent,
+} from '@lumen/app-ui'
 
-function emptyFeedbackSurface({spec}: Pick<HbarAppUiVariantProps, 'spec'>) {
-    return <FeedbackFrame spec={spec} className="hbar-app-ui-feedback-empty-surface"><span className="hbar-app-ui-feedback-empty" /></FeedbackFrame>
-}
-
-/** Dispatches each feedback workflow to its independently maintained surface. */
-export function Feedback({spec, onAction, feedbackContent}: HbarAppUiFeedbackProps) {
-    const providerContent = useHbarAppUiFeedbackContent()
-    const content = feedbackContent ?? providerContent
-    switch (spec.variant) {
-        case 1:
-            return content?.widget ? <FeedbackWidget spec={spec} onAction={onAction} content={content.widget} /> : emptyFeedbackSurface({spec})
-        case 2:
-            return content?.survey ? <SurveyFeedback spec={spec} onAction={onAction} content={content.survey} /> : emptyFeedbackSurface({spec})
-        case 3:
-            return content?.postResolution ? <PostResolutionFeedback spec={spec} onAction={onAction} content={content.postResolution} /> : emptyFeedbackSurface({spec})
-        case 4:
-            return content?.featureBoard ? <FeatureRequestBoard spec={spec} onAction={onAction} content={content.featureBoard} /> : emptyFeedbackSurface({spec})
-        case 5:
-            return content?.inbox ? <FeedbackInbox spec={spec} onAction={onAction} content={content.inbox} /> : emptyFeedbackSurface({spec})
-        case 6:
-            return content?.insights ? <FeedbackInsights spec={spec} onAction={onAction} content={content.insights} /> : emptyFeedbackSurface({spec})
-        default:
-            return emptyFeedbackSurface({spec})
-    }
+/** Thin legacy-contract adapter; feedback rendering and interaction state are Lumen-owned. */
+export function Feedback({ spec, onAction, feedbackContent, className }: HbarAppUiFeedbackProps) {
+  return (
+    <LumenFeedback
+      variant={spec.variant}
+      variantId={spec.id}
+      content={feedbackContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(value === undefined ? { variantId: spec.id, actionId } : { variantId: spec.id, actionId, value })
+          : undefined
+      }
+    />
+  )
 }
