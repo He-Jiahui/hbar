@@ -4,8 +4,21 @@ import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { ExecutionProvider, ToolResult } from '@hbar/plugin-sdk'
 import { HbarError } from '@hbar/contracts'
+import {
+  workspaceFindInputSchema,
+  workspaceFindToolInputSchema,
+  workspaceListInputSchema,
+  workspaceListToolInputSchema,
+  workspaceReadInputSchema,
+  workspaceSearchInputSchema,
+  workspaceSearchToolInputSchema,
+} from '@hbar/contracts/workspace-query'
+import type { WorkspaceSearchResult } from '@hbar/contracts/workspace-query'
+import { WorkspaceQueryRuntime } from './workspace-query'
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+const MAX_TOOL_TEXT_BYTES = 64 * 1024
+const TRUNCATED_MARKER = '\n[tool output truncated]'
 
 function imageMime(bytes: Uint8Array): string | undefined {
   const header = Buffer.from(bytes.buffer, bytes.byteOffset, Math.min(bytes.byteLength, 12))
@@ -23,6 +36,42 @@ function decodeUtf8(bytes: Uint8Array): string {
   } catch {
     throw new HbarError('UNSUPPORTED_TYPE', 'File is neither valid UTF-8 text nor a supported image')
   }
+}
+
+function byteBoundedText(parts: readonly string[], limit = MAX_TOOL_TEXT_BYTES): { text: string; truncated: boolean } {
+  const budget = limit - Buffer.byteLength(TRUNCATED_MARKER)
+  let text = ''
+  let bytes = 0
+  for (const part of parts) {
+    const partBytes = Buffer.byteLength(part)
+    if (bytes + partBytes <= budget) {
+      text += part
+      bytes += partBytes
+      continue
+    }
+    let low = 0
+    let high = part.length
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2)
+      if (Buffer.byteLength(part.slice(0, middle)) <= budget - bytes) low = middle
+      else high = middle - 1
+    }
+    return { text: `${text}${part.slice(0, low)}${TRUNCATED_MARKER}`, truncated: true }
+  }
+  return { text, truncated: false }
+}
+
+function searchText(result: WorkspaceSearchResult): { text: string; truncated: boolean } {
+  const lines: string[] = []
+  for (const match of result.matches) {
+    const firstContextLine = match.line - match.before.length
+    match.before.forEach((line, index) => lines.push(`${match.path}-${firstContextLine + index}-${line}\n`))
+    lines.push(`${match.path}:${match.line}:${match.column}:${match.text}\n`)
+    match.after.forEach((line, index) => lines.push(`${match.path}-${match.line + index + 1}-${line}\n`))
+  }
+  if (!lines.length) lines.push('No matches found.\n')
+  const bounded = byteBoundedText(lines)
+  return { text: bounded.text, truncated: result.truncated || bounded.truncated }
 }
 
 export async function workspacePath(
@@ -64,7 +113,13 @@ export async function workspacePath(
 }
 
 export class LocalExecution implements ExecutionProvider {
-  constructor(private blocked: string[] = []) {}
+  readonly workspaceQuery: WorkspaceQueryRuntime
+
+  constructor(private blocked: string[] = []) {
+    this.workspaceQuery = new WorkspaceQueryRuntime(blocked, (workspace, path) =>
+      workspacePath(workspace, path, false, blocked),
+    )
+  }
   async list(workspace: string, requested: string) {
     const path = await workspacePath(workspace, requested, false, this.blocked)
     return (await readdir(path, { withFileTypes: true }))
@@ -102,6 +157,7 @@ export class LocalExecution implements ExecutionProvider {
       await writeFile(temporary, text, { flag: 'wx', mode: 0o600 })
       await workspacePath(workspace, requested, true, this.blocked)
       await rename(temporary, path)
+      await this.workspaceQuery.invalidate(workspace, requested)
     } finally {
       await Bun.file(temporary)
         .delete()
@@ -191,24 +247,34 @@ export class LocalExecution implements ExecutionProvider {
       signal.removeEventListener('abort', onAbort)
     }
   }
+
+  dispose(): void {
+    this.workspaceQuery.dispose()
+  }
 }
 
-export const executionPlugin = definePlugin({
-  manifest: {
-    id: 'execution.local',
-    name: 'Local execution',
-    version: '1.0.0',
-    apiVersion: '^1.0.0',
-    description: 'Workspace files and managed local processes',
-    scope: 'host',
-    required: true,
-    provides: { execution: '1.0.0' },
-    permissions: ['fs', 'process'],
-  },
-  apply(ctx) {
-    provide(ctx, 'execution', new LocalExecution())
-  },
-})
+export function localExecutionPlugin(blocked: string[] = []) {
+  return definePlugin({
+    manifest: {
+      id: 'execution.local',
+      name: 'Local execution',
+      version: '1.0.0',
+      apiVersion: '^1.0.0',
+      description: 'Workspace files and managed local processes',
+      scope: 'host',
+      required: true,
+      provides: { execution: '1.0.0' },
+      permissions: ['fs', 'process'],
+    },
+    apply(ctx) {
+      const execution = new LocalExecution(blocked)
+      ctx.effect(() => () => execution.dispose())
+      provide(ctx, 'execution', execution)
+    },
+  })
+}
+
+export const executionPlugin = localExecutionPlugin()
 export default definePlugin({
   manifest: {
     id: 'tools.workspace',
@@ -225,11 +291,36 @@ export default definePlugin({
     const register = ctx.hbar.api.tools.register
     register({
       name: 'read_file',
-      description: 'Read a UTF-8 text file or supported image (PNG, JPEG, WebP, or GIF) inside the workspace.',
-      inputSchema: z.object({ path: z.string().min(1) }),
+      description: execution.workspaceQuery
+        ? 'Read a UTF-8 text file or supported image inside the workspace. Use startLine and lineCount together for a bounded text range.'
+        : 'Read a UTF-8 text file or supported image (PNG, JPEG, WebP, or GIF) inside the workspace.',
+      inputSchema: execution.workspaceQuery ? workspaceReadInputSchema : z.object({ path: z.string().min(1) }),
       effect: 'read',
       execute: async (args, c) => {
-        const path = args.path as string
+        const input = workspaceReadInputSchema.parse(args)
+        const path = input.path
+        if (input.startLine !== undefined && input.lineCount !== undefined) {
+          if (!execution.workspaceQuery) throw new HbarError('QUERY_UNAVAILABLE', 'Ranged reads are unavailable')
+          const result = await execution.workspaceQuery.readRange(
+            c.workspace.path,
+            path,
+            input.startLine,
+            input.lineCount,
+            c.signal,
+          )
+          const bounded = byteBoundedText([result.text])
+          return {
+            text: bounded.text,
+            details: {
+              startLine: result.startLine,
+              endLine: result.endLine,
+              totalLines: result.totalLines,
+              nextLine: result.nextLine,
+              cacheHit: result.cacheHit,
+              truncated: bounded.truncated,
+            },
+          }
+        }
         const bytes = await execution.readBytes(c.workspace.path, path)
         const mimeType = imageMime(bytes)
         if (mimeType)
@@ -243,6 +334,70 @@ export default definePlugin({
         return { text: decodeUtf8(bytes) }
       },
     })
+    if (execution.workspaceQuery) {
+      const query = execution.workspaceQuery
+      register({
+        name: 'search_text',
+        description:
+          'Search workspace UTF-8 files in process. Prefer this over shell rg/grep for bounded code and text searches.',
+        inputSchema: workspaceSearchToolInputSchema,
+        effect: 'read',
+        execute: async (args, c) => {
+          const result = await query.search(c.workspace.path, workspaceSearchInputSchema.parse(args), c.signal)
+          const formatted = searchText(result)
+          return {
+            text: formatted.text,
+            details: {
+              matchCount: result.matches.length,
+              filesChecked: result.filesChecked,
+              truncated: formatted.truncated,
+              cache: result.cache,
+            },
+          }
+        },
+      })
+      register({
+        name: 'find_files',
+        description:
+          'Find workspace files by include and exclude globs in process. Prefer this over shell rg --files or find.',
+        inputSchema: workspaceFindToolInputSchema,
+        effect: 'read',
+        execute: async (args, c) => {
+          const result = await query.find(c.workspace.path, workspaceFindInputSchema.parse(args), c.signal)
+          const bounded = byteBoundedText([result.paths.length ? `${result.paths.join('\n')}\n` : 'No files found.\n'])
+          return {
+            text: bounded.text,
+            details: {
+              fileCount: result.paths.length,
+              filesChecked: result.filesChecked,
+              truncated: result.truncated || bounded.truncated,
+            },
+          }
+        },
+      })
+      register({
+        name: 'list_directory',
+        description: 'List one workspace directory with stable, bounded pagination without starting a shell process.',
+        inputSchema: workspaceListToolInputSchema,
+        effect: 'read',
+        execute: async (args, c) => {
+          const input = workspaceListInputSchema.parse(args)
+          const entries = await execution.list(c.workspace.path, input.path)
+          const filtered = input.after ? entries.filter((entry) => entry.path > input.after!) : entries
+          const selected = filtered.slice(0, input.limit)
+          const nextCursor = filtered.length > input.limit ? selected.at(-1)?.path : undefined
+          const bounded = byteBoundedText(selected.map((entry) => `${entry.path}${entry.directory ? '/' : ''}\n`))
+          return {
+            text: bounded.text || 'Directory is empty.\n',
+            details: {
+              entryCount: selected.length,
+              nextCursor,
+              truncated: nextCursor !== undefined || bounded.truncated,
+            },
+          }
+        },
+      })
+    }
     register({
       name: 'write_file',
       description: 'Write a UTF-8 file inside the workspace. Requires user approval.',

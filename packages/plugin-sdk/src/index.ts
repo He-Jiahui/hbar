@@ -38,6 +38,13 @@ import type {
 } from '@hbar/contracts'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { AgentCreateInput, AgentPage, AgentRecord } from '@hbar/contracts/commands/agents'
+import type {
+  ParsedWorkspaceFindInput,
+  ParsedWorkspaceSearchInput,
+  WorkspaceFindResult,
+  WorkspaceReadResult,
+  WorkspaceSearchResult,
+} from '@hbar/contracts/workspace-query'
 
 export { Context }
 export type Disposer = () => void | Promise<void>
@@ -87,6 +94,25 @@ export interface ExecutionProvider {
   readBytes(workspace: string, path: string): Promise<Uint8Array>
   write(workspace: string, path: string, text: string): Promise<{ before: string; after: string; path: string }>
   exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult>
+  workspaceQuery?: WorkspaceQueryProvider
+  dispose?(): void | Promise<void>
+}
+export interface WorkspaceQueryProvider {
+  search(
+    workspace: string,
+    input: ParsedWorkspaceSearchInput,
+    signal: AbortSignal,
+  ): Promise<WorkspaceSearchResult>
+  find(workspace: string, input: ParsedWorkspaceFindInput, signal: AbortSignal): Promise<WorkspaceFindResult>
+  readRange(
+    workspace: string,
+    path: string,
+    startLine: number,
+    lineCount: number,
+    signal: AbortSignal,
+  ): Promise<WorkspaceReadResult>
+  invalidate(workspace: string, path: string): Promise<void>
+  dispose(): void
 }
 export interface PolicyProvider {
   decide(tool: ToolDefinition, args: Record<string, unknown>, context: ToolContext): Promise<'allow' | 'ask' | 'deny'>

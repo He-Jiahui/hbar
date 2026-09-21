@@ -49,7 +49,7 @@ import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
 import type { RunCommandRecord } from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
-import localTools, { executionPlugin, LocalExecution } from '@hbar/local-tools'
+import localTools, { localExecutionPlugin } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
 import planPlugin from '@hbar/plan'
 import budgetPlugin from '@hbar/budget'
@@ -433,10 +433,7 @@ export class Kernel {
       }),
     )
     this.plugins.add(piPlugin)
-    this.plugins.add({
-      ...executionPlugin,
-      apply: (ctx) => provide(ctx, 'execution', new LocalExecution([this.options.layout.dataRoot])),
-    })
+    this.plugins.add(localExecutionPlugin([this.options.layout.dataRoot]))
     this.plugins.add(
       definePlugin({
         manifest: {

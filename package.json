@@ -14,10 +14,10 @@
     "hbar-ui/packages/lumen-app-ui"
   ],
   "scripts": {
-    "dev": "bun scripts/dev.ts",
-    "host": "bun apps/host/src/main.ts",
-    "cli": "bun apps/cli/src/main.ts",
-    "hbar": "bun apps/cli/src/main.ts",
+    "dev": "bun run native:build && bun scripts/dev.ts",
+    "host": "bun run native:build && bun apps/host/src/main.ts",
+    "cli": "bun run native:build && bun apps/cli/src/main.ts",
+    "hbar": "bun run native:build && bun apps/cli/src/main.ts",
     "pair": "bun scripts/pair.ts",
     "web": "vite --config apps/web/vite.config.ts",
     "app-ui:preview": "vite --config apps/hbar-app-ui-preview/vite.config.ts",
@@ -37,10 +37,11 @@
     "app-ui:billing:verify": "bun scripts/verify-hbar-app-ui-billing.ts",
     "app-ui:visual-capture": "bun scripts/capture-hbar-app-ui-visual-baseline.ts",
     "build": "vite build --config apps/web/vite.config.ts",
-    "build:cli": "bun build --compile apps/cli/src/main.ts --outfile dist/hbar.exe",
+    "native:build": "bun scripts/build-native-tools.ts",
+    "build:cli": "bun run native:build && bun build --compile apps/cli/src/main.ts --outfile dist/hbar.exe",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
-    "test": "bun test tests --timeout 20000",
+    "test": "bun run native:build && bun test tests --timeout 20000",
     "test:e2e": "playwright test",
     "bench": "bun scripts/benchmark.ts",
     "desktop": "bun scripts/desktop.ts dev",
@@ -48,7 +49,7 @@
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run lint && bun run typecheck && bun test tests --timeout 20000"
+    "check": "bun run native:build && bun run lint && bun run typecheck && bun test tests --timeout 20000"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",

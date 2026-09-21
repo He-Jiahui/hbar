@@ -40,6 +40,7 @@
     "./commands/workspaces": "./src/commands/workspaces.ts",
     "./directory": "./src/state/directory.ts",
     "./metrics": "./src/metrics.ts",
+    "./workspace-query": "./src/workspace-query.ts",
     "./usage": "./src/usage.ts"
   },
   "dependencies": {

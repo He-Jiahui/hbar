@@ -1,9 +1,11 @@
 import { cp, mkdir, copyFile, rm } from 'node:fs/promises'
 import { resolve, join, relative } from 'node:path'
 import './icons'
+import './build-native-tools'
 
 const project = resolve(import.meta.dir, '..')
 const output = resolve(project, 'dist/desktop-resources')
+const nativeOutput = resolve(project, 'dist/native')
 // Playwright loads these optional BiDi mappers only for BiDi connections.
 const external = [
   '@aws-sdk/client-s3',
@@ -28,6 +30,11 @@ for (const [entry, name] of [
   if (!build.success) throw new AggregateError(build.logs, `Failed to build ${entry}`)
 }
 await copyFile(process.execPath, join(output, process.platform === 'win32' ? 'bun.exe' : 'bun'))
+await mkdir(nativeOutput, { recursive: true })
+await copyFile(
+  resolve(project, 'plugins/local-tools/native/hbar_workspace_query.node'),
+  join(nativeOutput, 'hbar_workspace_query.node'),
+)
 const webOutput = join(output, 'web')
 if (relative(output, webOutput) !== 'web') throw new Error('Invalid generated asset path')
 await rm(webOutput, { recursive: true, force: true })
