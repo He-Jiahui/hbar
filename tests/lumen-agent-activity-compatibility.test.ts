@@ -1,15 +1,36 @@
 import { expect, test } from 'bun:test'
-import { LumenAgentActivityProvider, selectLumenAgentActivityItem, uniqueLumenAgentActivityItems } from '@lumen/app-ui'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import {
+  LumenAgentActivity01,
+  LumenAgentActivityProvider,
+  selectLumenAgentActivityItem,
+  uniqueLumenAgentActivityItems,
+} from '@lumen/app-ui'
 import {
   HbarAppUiAgentActivityProvider,
   selectHbarAppUiAgentActivityItem,
   uniqueHbarAppUiAgentActivityItems,
 } from '../packages/hbar-app-ui/src/index'
+import { HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES } from './fixtures/hbar-app-ui-agent-activity-fixtures'
 
 test('agent activity compatibility exports are canonical Lumen contracts', () => {
   expect(HbarAppUiAgentActivityProvider).toBe(LumenAgentActivityProvider)
   expect(selectHbarAppUiAgentActivityItem).toBe(selectLumenAgentActivityItem)
   expect(uniqueHbarAppUiAgentActivityItems).toBe(uniqueLumenAgentActivityItems)
+})
+
+test('the canonical Lumen entry renders the family without the compatibility implementation', () => {
+  const markup = renderToStaticMarkup(
+    createElement(LumenAgentActivityProvider, {
+      content: HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES,
+      children: createElement(LumenAgentActivity01),
+    }),
+  )
+
+  expect(markup).toContain('data-lumen-component="agent-activity"')
+  expect(markup).toContain('hbar-app-ui-agent-activity-live')
+  expect(markup).toContain('data-lumen-variant="outlined"')
 })
 
 test('the legacy agent activity implementations and visual stylesheet are retired', async () => {
