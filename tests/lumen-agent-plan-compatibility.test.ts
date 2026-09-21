@@ -3,11 +3,13 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   LumenAgentPlan01,
+  LumenAgentPlan06,
   LumenAgentPlanProvider,
   LumenPlanEditor,
   selectLumenAgentPlanItem,
   uniqueLumenAgentPlanItems,
 } from '@lumen/app-ui'
+import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiAgentPlanProvider,
   selectHbarAppUiAgentPlanItem,
@@ -21,6 +23,7 @@ test('agent plan compatibility exports are canonical Lumen contracts', () => {
   expect(HbarAppUiPlanEditor).toBe(LumenPlanEditor)
   expect(selectHbarAppUiAgentPlanItem).toBe(selectLumenAgentPlanItem)
   expect(uniqueHbarAppUiAgentPlanItems).toBe(uniqueLumenAgentPlanItems)
+  expect(getLumenVariantComponent('hbar-app-ui-agent-plan-6')).toBe(LumenAgentPlan06)
 })
 
 test('the canonical Lumen entry renders planning content and controls', () => {
