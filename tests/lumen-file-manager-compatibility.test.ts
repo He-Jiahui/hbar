@@ -4,11 +4,13 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
   LumenFileDocument,
   LumenFileManager01,
+  LumenFileManager04,
   LumenFileManagerProvider,
   LumenWorkspaceFiles,
   selectLumenFileManagerItem,
   uniqueLumenFileManagerItems,
 } from '@lumen/app-ui'
+import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiFileManagerProvider,
   selectHbarAppUiFileManagerItem,
@@ -26,6 +28,7 @@ test('file compatibility exports are canonical Lumen contracts', () => {
   expect(HbarAppUiFileDocument).toBe(LumenFileDocument)
   expect(selectHbarAppUiFileManagerItem).toBe(selectLumenFileManagerItem)
   expect(uniqueHbarAppUiFileManagerItems).toBe(uniqueLumenFileManagerItems)
+  expect(getLumenVariantComponent('hbar-app-ui-file-manager-4')).toBe(LumenFileManager04)
 })
 
 test('the canonical Lumen entry renders file workflow content and controls', () => {
