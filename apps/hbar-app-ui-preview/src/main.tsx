@@ -19,6 +19,7 @@ import {
   HbarAppUiFeedbackProvider,
   HbarAppUiBillingProvider,
   HbarAppUiIntegrationProvider,
+  HbarAppUiCommentsProvider,
   HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
@@ -26,7 +27,12 @@ import {
   HbarAppUiStatus,
   listHbarAppUiVariants,
 } from 'hbar-app-ui/catalog'
-import type { HbarAppUiEvent, HbarAppUiRegistryEntry, HbarAppUiVariantComponent, HbarAppUiCategory } from 'hbar-app-ui/catalog'
+import type {
+  HbarAppUiEvent,
+  HbarAppUiRegistryEntry,
+  HbarAppUiVariantComponent,
+  HbarAppUiCategory,
+} from 'hbar-app-ui/catalog'
 import 'hbar-app-ui/theme.css'
 import './preview.css'
 import { VariantHarness } from './VariantHarness'
@@ -97,6 +103,7 @@ import {
   createHbarAppUiIntegrationsOverflowFixtures,
   HBAR_APP_UI_INTEGRATIONS_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-integrations-fixtures'
+import { HBAR_APP_UI_COMMENTS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-comments-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -266,11 +273,14 @@ function PreviewApp() {
         return HBAR_APP_UI_INTEGRATIONS_FIXTURES
     }
   }, [])
+  const commentsContent = useMemo(() => HBAR_APP_UI_COMMENTS_FIXTURES, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     if (!normalized) return allEntries
-    return allEntries.filter(({ spec }) => `${spec.title} ${spec.category} ${spec.description} ${spec.id}`.toLowerCase().includes(normalized))
+    return allEntries.filter(({ spec }) =>
+      `${spec.title} ${spec.category} ${spec.description} ${spec.id}`.toLowerCase().includes(normalized),
+    )
   }, [query])
 
   const visibleCategories = useMemo(() => {
@@ -294,7 +304,9 @@ function PreviewApp() {
   }, [selected.spec.id])
 
   const chooseCategory = (category: HbarAppUiCategory) => {
-    const first = filteredEntries.find(({ spec }) => spec.category === category) ?? allEntries.find(({ spec }) => spec.category === category)
+    const first =
+      filteredEntries.find(({ spec }) => spec.category === category) ??
+      allEntries.find(({ spec }) => spec.category === category)
     if (first) setSelected(first)
   }
 
@@ -328,42 +340,58 @@ function PreviewApp() {
     return (
       <div
         className="hbar-app-ui-canvas hbar-app-ui-isolated-canvas"
-        data-hbar-app-ui-theme={theme} style={previewLayoutStyle}
+        data-hbar-app-ui-theme={theme}
+        style={previewLayoutStyle}
         data-hbar-app-ui-variant={selected.spec.id}
       >
         <HbarAppUiFileManagerProvider content={fileManagerContent}>
-        <HbarAppUiFeedbackProvider content={feedbackContent}>
-        <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
-        <AuthenticationPreviewHost content={authenticationContent} spec={selected.spec} onAction={handleAction}>
-        <HbarAppUiBillingProvider content={billingContent}>
-        <HbarAppUiIntegrationProvider content={integrationsContent}>
-        <HbarAppUiPaywallProvider content={paywallContent}>
-          <PlanPreviewHost content={agentPlanContent}>
-          <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
-            <HbarAppUiAgentActivityProvider content={agentActivityContent}>
-              <HbarAppUiToolCallsProvider content={toolCallsContent}>
-                <HbarAppUiNavbarProvider content={navbarContent}>
-                  <HbarAppUiEditorProvider content={editorContent}>
-                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><CommandPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></CommandPreviewHost></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
-                  </HbarAppUiEditorProvider>
-                </HbarAppUiNavbarProvider>
-              </HbarAppUiToolCallsProvider>
-            </HbarAppUiAgentActivityProvider>
-          </HbarAppUiAgentApprovalProvider>
-        </PlanPreviewHost>
-        </HbarAppUiPaywallProvider>
-        </HbarAppUiIntegrationProvider>
-        </HbarAppUiBillingProvider>
-        </AuthenticationPreviewHost>
-        </SettingsPreviewHost>
-        </HbarAppUiFeedbackProvider>
+          <HbarAppUiFeedbackProvider content={feedbackContent}>
+            <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
+              <AuthenticationPreviewHost content={authenticationContent} spec={selected.spec} onAction={handleAction}>
+                <HbarAppUiBillingProvider content={billingContent}>
+                  <HbarAppUiIntegrationProvider content={integrationsContent}>
+                    <HbarAppUiCommentsProvider content={commentsContent}>
+                      <HbarAppUiPaywallProvider content={paywallContent}>
+                        <PlanPreviewHost content={agentPlanContent}>
+                          <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
+                            <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+                              <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                                <HbarAppUiNavbarProvider content={navbarContent}>
+                                  <HbarAppUiEditorProvider content={editorContent}>
+                                    <ShellPreviewHost spec={selected.spec} onAction={handleAction}>
+                                      <ConversationPreviewHost spec={selected.spec} onAction={handleAction}>
+                                        <UsagePreviewHost spec={selected.spec} onAction={handleAction}>
+                                          <CommandPreviewHost spec={selected.spec} onAction={handleAction}>
+                                            <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                                          </CommandPreviewHost>
+                                        </UsagePreviewHost>
+                                      </ConversationPreviewHost>
+                                    </ShellPreviewHost>
+                                  </HbarAppUiEditorProvider>
+                                </HbarAppUiNavbarProvider>
+                              </HbarAppUiToolCallsProvider>
+                            </HbarAppUiAgentActivityProvider>
+                          </HbarAppUiAgentApprovalProvider>
+                        </PlanPreviewHost>
+                      </HbarAppUiPaywallProvider>
+                    </HbarAppUiCommentsProvider>
+                  </HbarAppUiIntegrationProvider>
+                </HbarAppUiBillingProvider>
+              </AuthenticationPreviewHost>
+            </SettingsPreviewHost>
+          </HbarAppUiFeedbackProvider>
         </HbarAppUiFileManagerProvider>
       </div>
     )
   }
 
   return (
-    <div className="hbar-app-ui-canvas hbar-app-ui-preview" data-hbar-app-ui-theme={theme} style={previewLayoutStyle} ref={previewRef}>
+    <div
+      className="hbar-app-ui-canvas hbar-app-ui-preview"
+      data-hbar-app-ui-theme={theme}
+      style={previewLayoutStyle}
+      ref={previewRef}
+    >
       <header className="hbar-app-ui-preview-header">
         <div className="hbar-app-ui-preview-brand">
           <span className="hbar-app-ui-preview-mark">h</span>
@@ -373,11 +401,21 @@ function PreviewApp() {
           </div>
         </div>
         <div className="hbar-app-ui-preview-header-actions">
-          <HbarAppUiIconButton label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>
+          <HbarAppUiIconButton
+            label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
+            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+          >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </HbarAppUiIconButton>
-          <HbarAppUiIconButton label="Reset preview" onClick={resetPreview}><RotateCcw size={16} /></HbarAppUiIconButton>
-          <HbarAppUiIconButton label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} onClick={() => void toggleFullscreen()}><Maximize2 size={16} /></HbarAppUiIconButton>
+          <HbarAppUiIconButton label="Reset preview" onClick={resetPreview}>
+            <RotateCcw size={16} />
+          </HbarAppUiIconButton>
+          <HbarAppUiIconButton
+            label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            onClick={() => void toggleFullscreen()}
+          >
+            <Maximize2 size={16} />
+          </HbarAppUiIconButton>
         </div>
       </header>
 
@@ -385,15 +423,34 @@ function PreviewApp() {
         <aside className="hbar-app-ui-preview-sidebar" aria-label="hbar-app-ui categories">
           <label className="hbar-app-ui-preview-search">
             <Search size={15} aria-hidden="true" />
-            <LumenInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search components" aria-label="Search components" />
-            {query && <HbarAppUiIconButton label="Clear search" onClick={() => setQuery('')}><X size={14} /></HbarAppUiIconButton>}
+            <LumenInput
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search components"
+              aria-label="Search components"
+            />
+            {query && (
+              <HbarAppUiIconButton label="Clear search" onClick={() => setQuery('')}>
+                <X size={14} />
+              </HbarAppUiIconButton>
+            )}
           </label>
           <div className="hbar-app-ui-preview-catalog-heading">
             <span>Categories</span>
             <small>{filteredEntries.length} / 300 variants</small>
           </div>
           <nav className="hbar-app-ui-preview-category-list">
-            {visibleCategories.map((category) => <LumenButton className={selected.spec.category === category ? 'is-selected' : ''} key={category} type="button" onClick={() => chooseCategory(category)}><span>{category}</span><small>{HBAR_APP_UI_CATEGORY_COUNTS[category]}</small></LumenButton>)}
+            {visibleCategories.map((category) => (
+              <LumenButton
+                className={selected.spec.category === category ? 'is-selected' : ''}
+                key={category}
+                type="button"
+                onClick={() => chooseCategory(category)}
+              >
+                <span>{category}</span>
+                <small>{HBAR_APP_UI_CATEGORY_COUNTS[category]}</small>
+              </LumenButton>
+            ))}
             {!visibleCategories.length && <p className="hbar-app-ui-preview-no-results">No matching components.</p>}
           </nav>
         </aside>
@@ -405,14 +462,32 @@ function PreviewApp() {
               <h1>{selected.spec.title}</h1>
             </div>
             <div className="hbar-app-ui-preview-viewports" role="group" aria-label="Preview viewport">
-              {(Object.keys(viewportWidths) as Viewport[]).map((option) => <HbarAppUiButton key={option} className={viewport === option ? 'is-selected' : ''} aria-pressed={viewport === option} onClick={() => setViewport(option)}>{option}</HbarAppUiButton>)}
+              {(Object.keys(viewportWidths) as Viewport[]).map((option) => (
+                <HbarAppUiButton
+                  key={option}
+                  className={viewport === option ? 'is-selected' : ''}
+                  aria-pressed={viewport === option}
+                  onClick={() => setViewport(option)}
+                >
+                  {option}
+                </HbarAppUiButton>
+              ))}
             </div>
           </div>
 
           <div className="hbar-app-ui-preview-content">
             <section className="hbar-app-ui-preview-stage" aria-label="Selected component preview">
-              <div className="hbar-app-ui-preview-stage-meta"><HbarAppUiStatus value={`${selected.spec.variant} of ${HBAR_APP_UI_CATEGORY_COUNTS[selected.spec.category]}`} tone="positive" /><code>{selected.spec.id}</code></div>
-              <div className={`hbar-app-ui-preview-frame hbar-app-ui-preview-frame-${viewport}`} style={{ maxWidth: viewportWidths[viewport] }}>
+              <div className="hbar-app-ui-preview-stage-meta">
+                <HbarAppUiStatus
+                  value={`${selected.spec.variant} of ${HBAR_APP_UI_CATEGORY_COUNTS[selected.spec.category]}`}
+                  tone="positive"
+                />
+                <code>{selected.spec.id}</code>
+              </div>
+              <div
+                className={`hbar-app-ui-preview-frame hbar-app-ui-preview-frame-${viewport}`}
+                style={{ maxWidth: viewportWidths[viewport] }}
+              >
                 <div
                   className={`hbar-app-ui-preview-component-canvas hbar-app-ui-surface-${selected.spec.profile.surface} hbar-app-ui-state-${selected.spec.profile.initialState} hbar-app-ui-visual-${selected.spec.profile.visualMode}`}
                   data-hbar-app-ui-variant={selected.spec.id}
@@ -421,31 +496,45 @@ function PreviewApp() {
                   data-hbar-app-ui-state={selected.spec.profile.initialState}
                 >
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
-                  <HbarAppUiFeedbackProvider content={feedbackContent}>
-                  <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
-                  <AuthenticationPreviewHost content={authenticationContent} spec={selected.spec} onAction={handleAction}>
-                  <HbarAppUiBillingProvider content={billingContent}>
-                  <HbarAppUiIntegrationProvider content={integrationsContent}>
-                  <HbarAppUiPaywallProvider content={paywallContent}>
-                    <PlanPreviewHost content={agentPlanContent}>
-                    <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
-                      <HbarAppUiAgentActivityProvider content={agentActivityContent}>
-                        <HbarAppUiToolCallsProvider content={toolCallsContent}>
-                          <HbarAppUiNavbarProvider content={navbarContent}>
-                            <HbarAppUiEditorProvider content={editorContent}>
-                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}><ConversationPreviewHost spec={selected.spec} onAction={handleAction}><UsagePreviewHost spec={selected.spec} onAction={handleAction}><CommandPreviewHost spec={selected.spec} onAction={handleAction}><SelectedComponent spec={selected.spec} onAction={handleAction} /></CommandPreviewHost></UsagePreviewHost></ConversationPreviewHost></ShellPreviewHost>
-                            </HbarAppUiEditorProvider>
-                          </HbarAppUiNavbarProvider>
-                        </HbarAppUiToolCallsProvider>
-                      </HbarAppUiAgentActivityProvider>
-                    </HbarAppUiAgentApprovalProvider>
-                  </PlanPreviewHost>
-                  </HbarAppUiPaywallProvider>
-                  </HbarAppUiIntegrationProvider>
-                  </HbarAppUiBillingProvider>
-                  </AuthenticationPreviewHost>
-                  </SettingsPreviewHost>
-                  </HbarAppUiFeedbackProvider>
+                    <HbarAppUiFeedbackProvider content={feedbackContent}>
+                      <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
+                        <AuthenticationPreviewHost
+                          content={authenticationContent}
+                          spec={selected.spec}
+                          onAction={handleAction}
+                        >
+                          <HbarAppUiBillingProvider content={billingContent}>
+                            <HbarAppUiIntegrationProvider content={integrationsContent}>
+                              <HbarAppUiCommentsProvider content={commentsContent}>
+                                <HbarAppUiPaywallProvider content={paywallContent}>
+                                  <PlanPreviewHost content={agentPlanContent}>
+                                    <HbarAppUiAgentApprovalProvider content={agentApprovalContent}>
+                                      <HbarAppUiAgentActivityProvider content={agentActivityContent}>
+                                        <HbarAppUiToolCallsProvider content={toolCallsContent}>
+                                          <HbarAppUiNavbarProvider content={navbarContent}>
+                                            <HbarAppUiEditorProvider content={editorContent}>
+                                              <ShellPreviewHost spec={selected.spec} onAction={handleAction}>
+                                                <ConversationPreviewHost spec={selected.spec} onAction={handleAction}>
+                                                  <UsagePreviewHost spec={selected.spec} onAction={handleAction}>
+                                                    <CommandPreviewHost spec={selected.spec} onAction={handleAction}>
+                                                      <SelectedComponent spec={selected.spec} onAction={handleAction} />
+                                                    </CommandPreviewHost>
+                                                  </UsagePreviewHost>
+                                                </ConversationPreviewHost>
+                                              </ShellPreviewHost>
+                                            </HbarAppUiEditorProvider>
+                                          </HbarAppUiNavbarProvider>
+                                        </HbarAppUiToolCallsProvider>
+                                      </HbarAppUiAgentActivityProvider>
+                                    </HbarAppUiAgentApprovalProvider>
+                                  </PlanPreviewHost>
+                                </HbarAppUiPaywallProvider>
+                              </HbarAppUiCommentsProvider>
+                            </HbarAppUiIntegrationProvider>
+                          </HbarAppUiBillingProvider>
+                        </AuthenticationPreviewHost>
+                      </SettingsPreviewHost>
+                    </HbarAppUiFeedbackProvider>
                   </HbarAppUiFileManagerProvider>
                 </div>
               </div>
@@ -453,19 +542,64 @@ function PreviewApp() {
 
             <aside className="hbar-app-ui-preview-inspector" aria-label="Variant inspector">
               <div className="hbar-app-ui-preview-inspector-section">
-                <div className="hbar-app-ui-preview-section-heading"><strong>Variants</strong><small>{filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).length} shown</small></div>
+                <div className="hbar-app-ui-preview-section-heading">
+                  <strong>Variants</strong>
+                  <small>
+                    {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).length} shown
+                  </small>
+                </div>
                 <div className="hbar-app-ui-preview-variant-list">
-                  {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).map((entry) => <LumenButton className={entry.spec.id === selected.spec.id ? 'is-selected' : ''} key={entry.spec.id} type="button" onClick={() => chooseEntry(entry)}><span>{entry.spec.title}</span><small>{entry.spec.layout}</small></LumenButton>)}
+                  {filteredEntries
+                    .filter(({ spec }) => spec.category === selected.spec.category)
+                    .map((entry) => (
+                      <LumenButton
+                        className={entry.spec.id === selected.spec.id ? 'is-selected' : ''}
+                        key={entry.spec.id}
+                        type="button"
+                        onClick={() => chooseEntry(entry)}
+                      >
+                        <span>{entry.spec.title}</span>
+                        <small>{entry.spec.layout}</small>
+                      </LumenButton>
+                    ))}
                 </div>
               </div>
               <VariantHarness spec={selected.spec} onAction={handleAction} />
               <div className="hbar-app-ui-preview-inspector-section">
-                <div className="hbar-app-ui-preview-section-heading"><strong>Interaction log</strong><small>{eventLog.length} events</small></div>
-                {eventLog.length ? <ol className="hbar-app-ui-preview-events">{eventLog.map((event, index) => <li key={`${event.variantId}-${event.actionId}-${index}`}><code>{event.actionId}</code>{event.value && <span>{event.value}</span>}</li>)}</ol> : <p className="hbar-app-ui-preview-muted">Use the selected component to observe action events.</p>}
+                <div className="hbar-app-ui-preview-section-heading">
+                  <strong>Interaction log</strong>
+                  <small>{eventLog.length} events</small>
+                </div>
+                {eventLog.length ? (
+                  <ol className="hbar-app-ui-preview-events">
+                    {eventLog.map((event, index) => (
+                      <li key={`${event.variantId}-${event.actionId}-${index}`}>
+                        <code>{event.actionId}</code>
+                        {event.value && <span>{event.value}</span>}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="hbar-app-ui-preview-muted">Use the selected component to observe action events.</p>
+                )}
               </div>
               <div className="hbar-app-ui-preview-inspector-section hbar-app-ui-preview-contract">
-                <div className="hbar-app-ui-preview-section-heading"><strong>Variant contract</strong><small>{selected.spec.density}</small></div>
-                <dl><dt>Entry</dt><dd><code>{selected.spec.entry}</code></dd><dt>Behavior</dt><dd>{selected.spec.behavior.join(' / ')}</dd><dt>Observation</dt><dd>{selected.spec.observation.join(' / ')}</dd><dt>Visual checks</dt><dd>{selected.spec.visualValidation.join(' / ')}</dd></dl>
+                <div className="hbar-app-ui-preview-section-heading">
+                  <strong>Variant contract</strong>
+                  <small>{selected.spec.density}</small>
+                </div>
+                <dl>
+                  <dt>Entry</dt>
+                  <dd>
+                    <code>{selected.spec.entry}</code>
+                  </dd>
+                  <dt>Behavior</dt>
+                  <dd>{selected.spec.behavior.join(' / ')}</dd>
+                  <dt>Observation</dt>
+                  <dd>{selected.spec.observation.join(' / ')}</dd>
+                  <dt>Visual checks</dt>
+                  <dd>{selected.spec.visualValidation.join(' / ')}</dd>
+                </dl>
               </div>
             </aside>
           </div>
