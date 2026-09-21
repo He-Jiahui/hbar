@@ -1,77 +1,74 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {DeploymentActivity} from './agent-activity/DeploymentActivity'
 import {
-    HbarAppUiAgentActivityProvider,
-    useHbarAppUiAgentActivityContent,
-    type HbarAppUiAgentActivityContent,
-} from './agent-activity/AgentActivityContent'
-import {FailureActivity} from './agent-activity/FailureActivity'
-import {HistoryActivity} from './agent-activity/HistoryActivity'
-import {LiveActivity} from './agent-activity/LiveActivity'
-import {LogActivity} from './agent-activity/LogActivity'
-import {NestedActivity} from './agent-activity/NestedActivity'
-import {AgentActivityFrame} from './agent-activity/AgentActivityPrimitives'
-import {WorkersActivity} from './agent-activity/WorkersActivity'
-import './agent-activity/AgentActivitySurface.css'
+  LumenAgentActivity,
+  LumenAgentActivityProvider as HbarAppUiAgentActivityProvider,
+  selectLumenAgentActivityItem as selectHbarAppUiAgentActivityItem,
+  uniqueLumenAgentActivityItems as uniqueHbarAppUiAgentActivityItems,
+  type LumenAgentActivityContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
+/** Compatibility props retained while the implementation lives in @lumen/app-ui. */
 export type HbarAppUiAgentActivityProps = HbarAppUiVariantProps & {
-    /** Direct content injection for one surface; catalog hosts normally use the provider. */
-    readonly agentActivityContent?: HbarAppUiAgentActivityContent | undefined
+  readonly agentActivityContent?: LumenAgentActivityContent | undefined
 }
 
-export {HbarAppUiAgentActivityProvider}
+export { HbarAppUiAgentActivityProvider, selectHbarAppUiAgentActivityItem, uniqueHbarAppUiAgentActivityItems }
+
 export type {
-    HbarAppUiAgentActivityAttempt,
-    HbarAppUiAgentActivityContent,
-    HbarAppUiAgentActivityDeploymentContent,
-    HbarAppUiAgentActivityDeploymentStep,
-    HbarAppUiAgentActivityFailureContent,
-    HbarAppUiAgentActivityHistoryContent,
-    HbarAppUiAgentActivityHistoryRow,
-    HbarAppUiAgentActivityInput,
-    HbarAppUiAgentActivityListStrategy,
-    HbarAppUiAgentActivityLiveContent,
-    HbarAppUiAgentActivityLiveStep,
-    HbarAppUiAgentActivityLogContent,
-    HbarAppUiAgentActivityLogEntry,
-    HbarAppUiAgentActivityLogFilter,
-    HbarAppUiAgentActivityLogLevel,
-    HbarAppUiAgentActivityNestedChild,
-    HbarAppUiAgentActivityNestedContent,
-    HbarAppUiAgentActivityNestedGroup,
-    HbarAppUiAgentActivityOutput,
-    HbarAppUiAgentActivityProviderProps,
-    HbarAppUiAgentActivityState,
-    HbarAppUiAgentActivityWorker,
-    HbarAppUiAgentActivityWorkersContent,
-} from './agent-activity/AgentActivityContent'
-export {selectHbarAppUiAgentActivityItem, uniqueHbarAppUiAgentActivityItems} from './agent-activity/AgentActivityContent'
+  LumenAgentActivityAttempt as HbarAppUiAgentActivityAttempt,
+  LumenAgentActivityContent as HbarAppUiAgentActivityContent,
+  LumenAgentActivityDeploymentContent as HbarAppUiAgentActivityDeploymentContent,
+  LumenAgentActivityDeploymentStep as HbarAppUiAgentActivityDeploymentStep,
+  LumenAgentActivityFailureContent as HbarAppUiAgentActivityFailureContent,
+  LumenAgentActivityHistoryContent as HbarAppUiAgentActivityHistoryContent,
+  LumenAgentActivityHistoryRow as HbarAppUiAgentActivityHistoryRow,
+  LumenAgentActivityInput as HbarAppUiAgentActivityInput,
+  LumenAgentActivityListStrategy as HbarAppUiAgentActivityListStrategy,
+  LumenAgentActivityLiveContent as HbarAppUiAgentActivityLiveContent,
+  LumenAgentActivityLiveStep as HbarAppUiAgentActivityLiveStep,
+  LumenAgentActivityLogContent as HbarAppUiAgentActivityLogContent,
+  LumenAgentActivityLogEntry as HbarAppUiAgentActivityLogEntry,
+  LumenAgentActivityLogFilter as HbarAppUiAgentActivityLogFilter,
+  LumenAgentActivityLogLevel as HbarAppUiAgentActivityLogLevel,
+  LumenAgentActivityNestedChild as HbarAppUiAgentActivityNestedChild,
+  LumenAgentActivityNestedContent as HbarAppUiAgentActivityNestedContent,
+  LumenAgentActivityNestedGroup as HbarAppUiAgentActivityNestedGroup,
+  LumenAgentActivityOutput as HbarAppUiAgentActivityOutput,
+  LumenAgentActivityProviderProps as HbarAppUiAgentActivityProviderProps,
+  LumenAgentActivityState as HbarAppUiAgentActivityState,
+  LumenAgentActivityWorker as HbarAppUiAgentActivityWorker,
+  LumenAgentActivityWorkersContent as HbarAppUiAgentActivityWorkersContent,
+} from '@lumen/app-ui'
 
-function emptyAgentActivitySurface({spec, onAction}: HbarAppUiVariantProps) {
-    return <AgentActivityFrame spec={spec} onAction={onAction} className="hbar-app-ui-agent-activity-empty">{null}</AgentActivityFrame>
-}
-
-/** Category dispatcher; every execution-flow pattern owns an independent TSX surface. */
-export function AgentActivity({spec, onAction, agentActivityContent}: HbarAppUiAgentActivityProps) {
-    const providerContent = useHbarAppUiAgentActivityContent()
-    const content = agentActivityContent ?? providerContent
-
-    switch (spec.variant) {
-        case 1:
-            return content?.live ? <LiveActivity spec={spec} onAction={onAction} content={content.live}/> : emptyAgentActivitySurface({spec, onAction})
-        case 2:
-            return content?.nested ? <NestedActivity spec={spec} onAction={onAction} content={content.nested}/> : emptyAgentActivitySurface({spec, onAction})
-        case 3:
-            return content?.deployment ? <DeploymentActivity spec={spec} onAction={onAction} content={content.deployment}/> : emptyAgentActivitySurface({spec, onAction})
-        case 4:
-            return content?.history ? <HistoryActivity spec={spec} onAction={onAction} content={content.history}/> : emptyAgentActivitySurface({spec, onAction})
-        case 5:
-            return content?.log ? <LogActivity spec={spec} onAction={onAction} content={content.log}/> : emptyAgentActivitySurface({spec, onAction})
-        case 6:
-            return content?.workers ? <WorkersActivity spec={spec} onAction={onAction} content={content.workers}/> : emptyAgentActivitySurface({spec, onAction})
-        case 7:
-            return content?.failure ? <FailureActivity spec={spec} onAction={onAction} content={content.failure}/> : emptyAgentActivitySurface({spec, onAction})
-        default:
-            return emptyAgentActivitySurface({spec, onAction})
-    }
+/** Thin legacy-contract adapter; rendering, interaction state, and styling are Lumen-owned. */
+export function AgentActivity({ spec, onAction, agentActivityContent, className }: HbarAppUiAgentActivityProps) {
+  return (
+    <LumenAgentActivity
+      variant={spec.variant}
+      variantId={spec.id}
+      content={agentActivityContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(
+                value === undefined
+                  ? {
+                      variantId: spec.id,
+                      actionId,
+                    }
+                  : {
+                      variantId: spec.id,
+                      actionId,
+                      value,
+                    },
+              )
+          : undefined
+      }
+    />
+  )
 }
