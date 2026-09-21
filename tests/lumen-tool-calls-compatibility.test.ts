@@ -3,10 +3,12 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   LumenToolCalls01,
+  LumenToolCalls06,
   LumenToolCallsProvider,
   selectLumenToolCallsItem,
   uniqueLumenToolCallsItems,
 } from '@lumen/app-ui'
+import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiToolCallsProvider,
   selectHbarAppUiToolCallsItem,
@@ -18,6 +20,7 @@ test('tool calls compatibility exports are canonical Lumen contracts', () => {
   expect(HbarAppUiToolCallsProvider).toBe(LumenToolCallsProvider)
   expect(selectHbarAppUiToolCallsItem).toBe(selectLumenToolCallsItem)
   expect(uniqueHbarAppUiToolCallsItems).toBe(uniqueLumenToolCallsItems)
+  expect(getLumenVariantComponent('hbar-app-ui-tool-calls-6')).toBe(LumenToolCalls06)
 })
 
 test('the canonical Lumen entry renders tool workflow content and controls', () => {
