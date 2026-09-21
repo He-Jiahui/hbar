@@ -5,10 +5,12 @@ import {
   LumenAssistantCommands,
   LumenCommandList,
   LumenCommandMenu01,
+  LumenCommandMenu06,
   LumenCommandMenuProvider,
   LumenInviteCommand,
   LumenSearchCommands,
 } from '@lumen/app-ui'
+import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import { HbarAppUiCommandMenuProvider } from '../packages/hbar-app-ui/src/catalog'
 import {
   HbarAppUiAssistantCommands,
@@ -24,6 +26,7 @@ test('command compatibility exports are canonical Lumen components', () => {
   expect(HbarAppUiSearchCommands).toBe(LumenSearchCommands)
   expect(HbarAppUiInviteCommand).toBe(LumenInviteCommand)
   expect(HbarAppUiAssistantCommands).toBe(LumenAssistantCommands)
+  expect(getLumenVariantComponent('hbar-app-ui-command-menu-6')).toBe(LumenCommandMenu06)
 })
 
 test('the canonical Lumen entry renders command content and controls', () => {

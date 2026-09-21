@@ -21,4 +21,5 @@ test('hbar-app-ui compatibility catalog re-exports the canonical Lumen inventory
   expect(getLumenVariant('hbar-app-ui-agent-approval-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-agent-plan-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-ai-usage-1')?.status).toBe('migrated')
+  expect(getLumenVariant('hbar-app-ui-command-menu-1')?.status).toBe('migrated')
 })
