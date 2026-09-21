@@ -52,6 +52,13 @@ hbar exec goal.clear --session <Session ID|名称>
 hbar exec plan.update --session <Session ID|名称> --input-json '{"explanation":"先验证","plan":[{"step":"检查","status":"in_progress"}]}'
 hbar exec plan.get --session <Session ID|名称>
 hbar exec plan.clear --session <Session ID|名称>
+hbar exec workflow.get --session <Session ID|名称>
+hbar exec workflow.start --session <Session ID|名称> --input-json '<workflow JSON>' --idempotency-key <稳定键>
+hbar exec workflow.checkpoint --session <Session ID|名称> --input-json '<检查点 JSON>'
+hbar exec workflow.acceptCheck --session <Session ID|名称> --input-json '<验收 JSON>'
+hbar exec agent.result.get <Agent ID> --session <Session ID|名称>
+hbar exec agent.patch.apply <Agent ID> --session <Session ID|名称> --plan-revision <revision> --idempotency-key <稳定键>
+hbar exec workflow.complete --session <Session ID|名称> --input-json '{"expectedRevision":4}'
 hbar exec model.list
 hbar exec session.getModel --session <Session ID|名称>
 hbar exec session.setModel <Model ID> --session <Session ID|名称> --baseline-json '<版本向量 JSON>' --idempotency-key <稳定键>
@@ -99,6 +106,8 @@ hbar --headless \
 `approval.resolve` 只接受 `allowed` 或 `denied`，并核对 Approval 的真实 Session 归属；首次决定持久化后，重复或相反决定只返回已存在的终态。`questionnaire.answer` 的 `--input-json` 是 question ID 到 `{ "answers": [...] }` 的对象，答案仍由原请求约束验证。只有当前仍在等待且属于所选 Session 的 request 会返回 `accepted: true`；过期、重复或错误 Session 返回 `false`，不会回答另一个会话。两者都走统一 Host command，TUI `/approve`、`/deny` 与无头自动审批使用相同 handler。
 
 Goal 与 Plan 命令直接调用 Host 中已有的 goal/plan 插件，不在 CLI 保存第二份状态。`goal.create` 的 objective 是位置参数，可选 `--token-budget`；已有未完成 Goal 时会拒绝创建。`goal.set` 用 `--input-json` 修改 objective、status 或 tokenBudget，自动化应传查询返回的 `goalId` 作为 `expectedGoalId`，防止把较新的 Goal 当成旧目标修改。`goal.update` 只接受领域状态机允许的 `complete` 或 `blocked`，暂停、恢复和编辑使用 `goal.set`。`plan.update` 的 JSON 含 `plan` 数组及可选 explanation/turnId，并由同一 Plan schema 验证。此类写入没有独立重放键；若连接在响应前中断，先用对应 `.get` 查询持久状态，再决定是否重试，避免生成重复事件。clear 是收敛操作，重复执行返回 `cleared: false`。
+
+多步修改、外部验收和子 Agent 补丁使用[专注工作流](workflows.md)。Workflow 命令要求当前 revision，完成前会检查全部 TODO、必需验收项和委派。`agent.patch.apply` 还要求 `--plan-revision`；成功时 stdout 返回 `applied` 补丁 JSON，父工作区冲突或完整性失败时 stdout 仍返回结构化结果并以非零状态退出，自动化不得把非零结果当成已应用。
 
 `model.list` 返回已归一的 provider/model ID、能力、思考等级和 `hasKey`，不返回凭据。Session 的模型与思考等级保存在 settings-core 的 `provider.model` / `provider.thinkingLevel` 路径；`session.getModel` 同时返回有效值、来源和完整版本向量。`session.setModel` 会验证 Model ID；切换到不支持当前显式思考等级的模型时，在同一原子 ChangeSet 中改为目标模型默认等级。`session.setThinkingLevel` 校验所选模型能力。两种写入均要求幂等键；自动化重试还应复用第一次查询所得的 `--baseline-json`。CLI/TUI 和无头 Run 在未显式传 `--model` / `--thinking` 时读取该 Session 配置；显式参数只覆盖本次 Run，不另写设置。`hbar model use` 是 `session.setModel` 的兼容语法，也要求 `--idempotency-key`。
 

@@ -2,6 +2,8 @@
 
 > 2026-09-19 命令优先重构状态：第一阶段的命令、无 UI runtime、分层设置和 Host 能力已闭环；第二阶段已将生产 Web/Tauri 工作台接入只读 app-runtime 投影。旧 `apps/web` 业务页面、共享可写 store 和占位面板已移除。当前组合与验证见 [Web 说明](../apps/web/README.md)，实施证据见 [进度记录](multi-level/implementation-progress.md)。
 
+长任务的 Goal、结构化 TODO、焦点范围、外部 Evidence 和隔离 Agent 补丁由 Host 的[专注工作流](workflows.md)统一管理。
+
 ## 进程和依赖方向
 
 ```mermaid
