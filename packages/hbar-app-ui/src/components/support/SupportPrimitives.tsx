@@ -1,4 +1,6 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import type {ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
@@ -18,19 +20,23 @@ export function reportSupportAction(
 }
 
 export function SupportFrame({
-    spec,
-    onAction,
-    className,
-    children,
-}: SupportSurfaceProps & {readonly className: string; readonly children: ReactNode}): React.JSX.Element {
-    return <ActionSurfaceFrame spec={spec} onAction={onAction} className={`hbar-app-ui-support-surface ${className}`}>{children}</ActionSurfaceFrame>
+                                 spec,
+                                 onAction,
+                                 className,
+                                 children,
+                             }: SupportSurfaceProps & {
+    readonly className: string;
+    readonly children: ReactNode
+}): React.JSX.Element {
+    return <ActionSurfaceFrame spec={spec} onAction={onAction}
+                               className={`hbar-app-ui-support-surface ${className}`}>{children}</ActionSurfaceFrame>
 }
 
 export function SupportIconButton({
-    label,
-    children,
-    onClick,
-}: {
+                                      label,
+                                      children,
+                                      onClick,
+                                  }: {
     readonly label: string
     readonly children: ReactNode
     readonly onClick: () => void
@@ -39,6 +45,9 @@ export function SupportIconButton({
                    onClick={onClick}>{children}</LumenButton>
 }
 
-export function SupportChip({children, tone = 'neutral'}: {readonly children: ReactNode; readonly tone?: 'neutral' | 'light' | 'warning'}): React.JSX.Element {
-    return <span className={`hbar-app-ui-support-chip hbar-app-ui-support-chip-${tone}`}>{children}</span>
+export function SupportChip({children, tone = 'neutral'}: {
+    readonly children: ReactNode;
+    readonly tone?: 'neutral' | 'light' | 'warning'
+}): React.JSX.Element {
+    return <LumenText as="span" className={`hbar-app-ui-support-chip hbar-app-ui-support-chip-${tone}`}>{children}</LumenText>
 }

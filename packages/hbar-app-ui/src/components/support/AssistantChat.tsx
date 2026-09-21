@@ -1,4 +1,7 @@
-import { LumenButton, LumenTextarea } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenTextarea } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {ArrowRight, FileText, Send, Sparkles, X} from 'lucide-react'
@@ -30,33 +33,33 @@ export function AssistantChat({spec, onAction}: SupportSurfaceProps): React.JSX.
     </SupportFrame>
 
     return <SupportFrame spec={spec} onAction={onAction} className="hbar-app-ui-support-assistant">
-        <section className="hbar-app-ui-support-assistant-panel" role="dialog" aria-modal="true"
+        <LumenFrame as="section" className="hbar-app-ui-support-assistant-panel" role="dialog" aria-modal="true"
                  aria-label="Northwind Assistant">
-            <header><span className="hbar-app-ui-support-assistant-mark"><HbarAppUiIcon icon={Sparkles} tier="md" /></span><span><strong>Northwind Assistant</strong><small>Answers from your workspace and the docs</small></span><SupportIconButton
+            <LumenFrame as="header"><LumenText as="span" className="hbar-app-ui-support-assistant-mark"><HbarAppUiIcon icon={Sparkles} tier="md" /></LumenText><LumenText as="span"><LumenText as="strong">Northwind Assistant</LumenText><LumenText as="small">Answers from your workspace and the docs</LumenText></LumenText><SupportIconButton
                 label="Close chat" onClick={() => {
                 setOpen(false);
                 reportSupportAction(onAction, spec, 'close')
-            }}><HbarAppUiIcon icon={X} tier="md" /></SupportIconButton></header>
-            <main>
-                <div className="hbar-app-ui-support-assistant-transcript">
-                    <div className="hbar-app-ui-support-chat-bubble is-assistant">Hi Priya. I can look things up in your
+            }}><HbarAppUiIcon icon={X} tier="md" /></SupportIconButton></LumenFrame>
+            <LumenFrame as="main">
+                <LumenFrame className="hbar-app-ui-support-assistant-transcript">
+                    <LumenFrame className="hbar-app-ui-support-chat-bubble is-assistant">Hi Priya. I can look things up in your
                         workspace and in the docs. What are you running into?
-                    </div>
-                    <div className="hbar-app-ui-support-chat-bubble is-user">Our Monday export came through with no rows
+                    </LumenFrame>
+                    <LumenFrame className="hbar-app-ui-support-chat-bubble is-user">Our Monday export came through with no rows
                         in it.
-                    </div>
-                    <div className="hbar-app-ui-support-chat-bubble is-assistant">Run 1104 finished at 06:00 and
+                    </LumenFrame>
+                    <LumenFrame className="hbar-app-ui-support-chat-bubble is-assistant">Run 1104 finished at 06:00 and
                         returned 0 rows. The saved view it uses was edited on Sunday at 17:41 and its date range is now
                         a single day, which is the usual cause.
-                    </div>
-                    {sent && <div className="hbar-app-ui-support-chat-bubble is-user">{sent}</div>}
-                    <div className="hbar-app-ui-support-chat-related">{relatedArticles.map((article) => <LumenButton
+                    </LumenFrame>
+                    {sent && <LumenFrame className="hbar-app-ui-support-chat-bubble is-user">{sent}</LumenFrame>}
+                    <LumenFrame className="hbar-app-ui-support-chat-related">{relatedArticles.map((article) => <LumenButton
                         type="button" key={article}
                         onClick={() => reportSupportAction(onAction, spec, 'open', article)}><HbarAppUiIcon icon={FileText} tier="sm"
-                        />{article}</LumenButton>)}</div>
-                </div>
-                <div className="hbar-app-ui-support-assistant-actions">
-                    <div className="hbar-app-ui-support-chat-actions">
+                        />{article}</LumenButton>)}</LumenFrame>
+                </LumenFrame>
+                <LumenFrame className="hbar-app-ui-support-assistant-actions">
+                    <LumenFrame className="hbar-app-ui-support-chat-actions">
                         <LumenButton type="button"
                                 onClick={() => reportSupportAction(onAction, spec, 'run', 'restore-date-range')}>Restore
                             the previous date range
@@ -69,21 +72,21 @@ export function AssistantChat({spec, onAction}: SupportSurfaceProps): React.JSX.
                             setHandoff(true);
                             reportSupportAction(onAction, spec, 'handoff')
                         }}>Talk to a person <HbarAppUiIcon icon={ArrowRight} tier="sm" /></LumenButton>
-                    </div>
-                    {handoff && <p className="hbar-app-ui-support-assistant-handoff">A support specialist will join this
-                        conversation.</p>}
-                    <form className="hbar-app-ui-support-assistant-composer" onSubmit={(event) => {
+                    </LumenFrame>
+                    {handoff && <LumenText as="p" className="hbar-app-ui-support-assistant-handoff">A support specialist will join this
+                        conversation.</LumenText>}
+                    <LumenFrame as="form" className="hbar-app-ui-support-assistant-composer" onSubmit={(event) => {
                         event.preventDefault();
                         submit()
                     }}><LumenTextarea rows={1} value={message} onChange={(event) => setMessage(event.target.value)}
                                  placeholder="Ask about your workspace" aria-label="Ask about your workspace"/>
-                        <footer><small>AI answers, checked against your data</small>
+                        <LumenFrame as="footer"><LumenText as="small">AI answers, checked against your data</LumenText>
                             <LumenButton type="submit" aria-label="Send message" disabled={!message.trim()}><HbarAppUiIcon icon={Send} tier="md" />
                             </LumenButton>
-                        </footer>
-                    </form>
-                </div>
-            </main>
-        </section>
+                        </LumenFrame>
+                    </LumenFrame>
+                </LumenFrame>
+            </LumenFrame>
+        </LumenFrame>
     </SupportFrame>
 }
