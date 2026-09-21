@@ -379,6 +379,27 @@ export type {
   HbarAppUiDataTableWideContent,
 } from './components/DataTable'
 export {
+  HbarAppUiOnboardingProvider,
+  selectHbarAppUiOnboardingItem,
+  uniqueHbarAppUiOnboardingItems,
+} from './components/Onboarding'
+export type {
+  HbarAppUiOnboardingAction,
+  HbarAppUiOnboardingChecklistContent,
+  HbarAppUiOnboardingChoice,
+  HbarAppUiOnboardingCompleteContent,
+  HbarAppUiOnboardingContent,
+  HbarAppUiOnboardingInviteContent,
+  HbarAppUiOnboardingInvitee,
+  HbarAppUiOnboardingListStrategy,
+  HbarAppUiOnboardingMetric,
+  HbarAppUiOnboardingProfileContent,
+  HbarAppUiOnboardingProviderProps,
+  HbarAppUiOnboardingSlugContent,
+  HbarAppUiOnboardingStepsContent,
+  HbarAppUiOnboardingUseCaseContent,
+} from './components/Onboarding'
+export {
   HbarAppUiSettingsFormProvider,
   selectHbarAppUiSettingsItem,
   uniqueHbarAppUiSettingsItems,
