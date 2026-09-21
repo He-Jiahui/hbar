@@ -1,4 +1,4 @@
-import { LumenButton } from '@lumen/app-ui'
+import { LumenButton, LumenDisclosure } from '@lumen/app-ui'
 import { RotateCcw, Square } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiEmptyState, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
@@ -41,11 +41,15 @@ export function HbarAppUiRunActivity({
     const steps = uniqueItems(value.steps)
     const completed = steps.filter((step) => step.status === 'completed').length
     return (
-      <details className="hbar-app-ui-run-activity-plan">
-        <summary>
-          <strong>{labels.planTitle}</strong>
-          <span>{labels.planProgress(completed, steps.length)}</span>
-        </summary>
+      <LumenDisclosure
+        className="hbar-app-ui-run-activity-plan"
+        summary={
+          <>
+            <strong>{labels.planTitle}</strong>
+            <span>{labels.planProgress(completed, steps.length)}</span>
+          </>
+        }
+      >
         {value.explanation && <p>{value.explanation}</p>}
         {steps.length > 0 && (
           <ol>
@@ -58,7 +62,7 @@ export function HbarAppUiRunActivity({
             ))}
           </ol>
         )}
-      </details>
+      </LumenDisclosure>
     )
   }
   function renderRow(run: HbarAppUiRunActivityItem) {
