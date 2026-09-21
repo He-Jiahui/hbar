@@ -544,6 +544,27 @@ export type {
   HbarAppUiNotificationToastsContent,
 } from './components/Notifications'
 export {
+  HbarAppUiMobileProvider,
+  selectHbarAppUiMobileItem,
+  uniqueHbarAppUiMobileItems,
+} from './components/Mobile'
+export type {
+  HbarAppUiMobileAction,
+  HbarAppUiMobileActivityContent,
+  HbarAppUiMobileContent,
+  HbarAppUiMobileFeedItem,
+  HbarAppUiMobileHomeContent,
+  HbarAppUiMobileListStrategy,
+  HbarAppUiMobileOrder,
+  HbarAppUiMobileOrdersContent,
+  HbarAppUiMobileProviderProps,
+  HbarAppUiMobileRun,
+  HbarAppUiMobileRunsContent,
+  HbarAppUiMobileTab,
+  HbarAppUiMobileTask,
+  HbarAppUiMobileTasksContent,
+} from './components/Mobile'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,
