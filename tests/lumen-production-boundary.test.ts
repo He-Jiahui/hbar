@@ -41,7 +41,7 @@ test('the compatibility catalog and preview render controls through Lumen', asyn
     if (/@mui\/material(?:\/|['"])/.test(source)) {
       violations.push(`${relative('.', file)}:mui-import`)
     }
-    if (/<\s*(?:button|input|select|textarea)(?:\s|>)/.test(source)) {
+    if (/<\s*(?:button|input|select|textarea|details|summary)(?:\s|>)/.test(source)) {
       violations.push(`${relative('.', file)}:native-control`)
     }
   }
