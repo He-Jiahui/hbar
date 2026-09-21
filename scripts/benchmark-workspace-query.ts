@@ -15,6 +15,12 @@ interface Sample extends Required<Pick<Observation, 'cpuMs'>> {
   bytesRead: number
 }
 
+interface CancellationSample {
+  accepted: boolean
+  acceptanceMs: number
+  exitMs: number
+}
+
 const samples = Math.max(3, Number(process.env.HBAR_WORKSPACE_QUERY_BENCH_SAMPLES ?? 10))
 const largeFileCount = Math.max(10_000, Number(process.env.HBAR_WORKSPACE_QUERY_BENCH_FILES ?? 10_000))
 const root = await mkdtemp(join(tmpdir(), 'hbar-workspace-query-bench-'))
@@ -57,6 +63,12 @@ const summary = (values: Sample[]) => ({
     ),
     max: Math.max(...values.map((value) => value.bytesRead)),
   },
+})
+
+const numericSummary = (values: number[]) => ({
+  p50: percentile(values, 0.5),
+  p95: percentile(values, 0.95),
+  max: Math.max(...values),
 })
 
 async function measure(operation: () => Promise<Observation>): Promise<Sample> {
@@ -164,6 +176,53 @@ async function corpusBenchmark(directory: string) {
   }
 }
 
+async function cancellationBenchmark(directory: string) {
+  const query = new NativeWorkspaceQuery(0)
+  const observations: CancellationSample[] = []
+  for (let index = 0; index < samples; index += 1) {
+    const cancelId = crypto.randomUUID()
+    const startedAt = performance.now()
+    const pending = query.search(
+      {
+        workspace: directory,
+        path: '.',
+        include: ['**/*.txt'],
+        exclude: [],
+        includeHidden: false,
+        blocked: [],
+        limit: 1_000,
+        pattern: `absent-cancellation-pattern-${index}`,
+        literal: true,
+        caseMode: 'sensitive',
+        beforeContext: 0,
+        afterContext: 0,
+      },
+      cancelId,
+    )
+    const cancelStartedAt = performance.now()
+    const accepted = query.cancel(cancelId)
+    const acceptanceMs = performance.now() - cancelStartedAt
+    let cancelled = false
+    try {
+      await pending
+    } catch (error) {
+      cancelled = String(error).toLowerCase().includes('cancel')
+    }
+    if (!accepted || !cancelled)
+      throw new Error(`Native cancellation did not complete as expected (accepted=${accepted}, cancelled=${cancelled})`)
+    observations.push({ accepted, acceptanceMs, exitMs: performance.now() - startedAt })
+  }
+  const acceptance = numericSummary(observations.map((value) => value.acceptanceMs))
+  return {
+    samples: observations.length,
+    accepted: observations.every((value) => value.accepted),
+    acceptanceMs: acceptance,
+    taskExitMs: numericSummary(observations.map((value) => value.exitMs)),
+    acceptanceP95TargetMs: 100,
+    meetsAcceptanceP95Target: acceptance.p95 < 100,
+  }
+}
+
 try {
   const small = join(root, 'small')
   const large = join(root, 'large')
@@ -188,10 +247,17 @@ try {
     },
     small: await corpusBenchmark(small),
     large: await corpusBenchmark(large),
+    cancellation: await cancellationBenchmark(large),
   }
   await mkdir(join(process.cwd(), 'artifacts'), { recursive: true })
   await writeFile(artifact, `${JSON.stringify(output, null, 2)}\n`, 'utf8')
-  console.log(JSON.stringify({ artifact, small: output.small, large: output.large }, null, 2))
+  console.log(
+    JSON.stringify(
+      { artifact, small: output.small, large: output.large, cancellation: output.cancellation },
+      null,
+      2,
+    ),
+  )
 } finally {
   await rm(root, { recursive: true, force: true })
 }

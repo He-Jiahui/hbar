@@ -66,6 +66,9 @@ const cacheStatsSchema = operationCacheStatsSchema.extend({
   contentEntries: z.number().int().nonnegative(),
   matchEntries: z.number().int().nonnegative(),
   matcherEntries: z.number().int().nonnegative(),
+  globEntries: z.number().int().nonnegative(),
+  lineIndexEntries: z.number().int().nonnegative(),
+  lineIndexBytes: z.number().int().nonnegative(),
   bytes: z.number().int().nonnegative(),
   maxBytes: z.number().int().nonnegative(),
 })

@@ -96,6 +96,8 @@ fn file_version(file: &File) -> std::io::Result<FileVersion> {
 struct ContentEntry {
     version: FileVersion,
     bytes: Arc<Vec<u8>>,
+    line_starts: Arc<Vec<usize>>,
+    estimated_bytes: usize,
     last_used: u64,
 }
 
@@ -113,10 +115,16 @@ struct MatcherEntry {
     last_used: u64,
 }
 
+struct GlobEntry {
+    glob: Arc<GlobSet>,
+    last_used: u64,
+}
+
 struct Cache {
     content: HashMap<PathBuf, ContentEntry>,
     matches: HashMap<String, MatchEntry>,
     matchers: HashMap<String, MatcherEntry>,
+    globs: HashMap<String, GlobEntry>,
     bytes: usize,
     max_bytes: usize,
     clock: u64,
@@ -133,6 +141,7 @@ impl Cache {
             content: HashMap::new(),
             matches: HashMap::new(),
             matchers: HashMap::new(),
+            globs: HashMap::new(),
             bytes: 0,
             max_bytes,
             clock: 0,
@@ -164,7 +173,7 @@ impl Cache {
             match (oldest_content, oldest_match) {
                 (Some((key, used)), Some((_match_key, match_used))) if used <= match_used => {
                     if let Some(value) = self.content.remove(&key) {
-                        self.bytes = self.bytes.saturating_sub(value.bytes.len());
+                        self.bytes = self.bytes.saturating_sub(value.estimated_bytes);
                     }
                 }
                 (_, Some((key, _))) => {
@@ -174,7 +183,7 @@ impl Cache {
                 }
                 (Some((key, _)), None) => {
                     if let Some(value) = self.content.remove(&key) {
-                        self.bytes = self.bytes.saturating_sub(value.bytes.len());
+                        self.bytes = self.bytes.saturating_sub(value.estimated_bytes);
                     }
                 }
                 (None, None) => break,
@@ -184,7 +193,7 @@ impl Cache {
 
     fn invalidate(&mut self, path: &Path) {
         if let Some(value) = self.content.remove(path) {
-            self.bytes = self.bytes.saturating_sub(value.bytes.len());
+            self.bytes = self.bytes.saturating_sub(value.estimated_bytes);
         }
         let prefix = format!("{}\0", path.to_string_lossy());
         let keys: Vec<String> = self
@@ -329,12 +338,22 @@ struct OperationCacheStats {
     bytes_read: u64,
 }
 
+struct CachedContent {
+    bytes: Arc<Vec<u8>>,
+    line_starts: Arc<Vec<usize>>,
+    version: FileVersion,
+    hit: bool,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CacheStats {
     content_entries: usize,
     match_entries: usize,
     matcher_entries: usize,
+    glob_entries: usize,
+    line_index_entries: usize,
+    line_index_bytes: usize,
     bytes: usize,
     max_bytes: usize,
     content_hits: u64,
@@ -368,7 +387,7 @@ impl Task for QueryTask {
             .ok_or_else(|| Error::from_reason("query already executed"))?;
         let result = match query {
             Query::Search(request) => search(&self.state, request, &self.cancel),
-            Query::Find(request) => find(request, &self.cancel),
+            Query::Find(request) => find(&self.state, request, &self.cancel),
             Query::Read(request) => read(&self.state, request, &self.cancel),
         };
         result.map_err(Error::from_reason)
@@ -464,6 +483,13 @@ impl WorkspaceQueryEngine {
             content_entries: cache.content.len(),
             match_entries: cache.matches.len(),
             matcher_entries: cache.matchers.len(),
+            glob_entries: cache.globs.len(),
+            line_index_entries: cache.content.len(),
+            line_index_bytes: cache
+                .content
+                .values()
+                .map(|entry| entry.line_starts.len() * std::mem::size_of::<usize>())
+                .sum(),
             bytes: cache.bytes,
             max_bytes: cache.max_bytes,
             content_hits: cache.content_hits,
@@ -550,7 +576,55 @@ fn glob_set(patterns: &[String]) -> ComputeResult<Option<GlobSet>> {
         .map_err(|error| format!("could not compile glob set: {error}"))
 }
 
+fn compiled_glob_set(
+    state: &EngineState,
+    kind: &str,
+    patterns: &[String],
+) -> ComputeResult<Option<Arc<GlobSet>>> {
+    if patterns.is_empty() {
+        return Ok(None);
+    }
+    let key = format!("{kind}\0{}", patterns.join("\0"));
+    {
+        let mut cache = state
+            .cache
+            .lock()
+            .map_err(|_| "cache lock poisoned".to_owned())?;
+        let used = cache.tick();
+        if let Some(entry) = cache.globs.get_mut(&key) {
+            entry.last_used = used;
+            return Ok(Some(entry.glob.clone()));
+        }
+    }
+    let compiled = Arc::new(glob_set(patterns)?.expect("non-empty patterns produce a glob set"));
+    let mut cache = state
+        .cache
+        .lock()
+        .map_err(|_| "cache lock poisoned".to_owned())?;
+    let used = cache.tick();
+    cache.globs.insert(
+        key,
+        GlobEntry {
+            glob: compiled.clone(),
+            last_used: used,
+        },
+    );
+    while cache.globs.len() > MAX_COMPILED_PATTERNS {
+        let Some(oldest) = cache
+            .globs
+            .iter()
+            .min_by_key(|(_, value)| value.last_used)
+            .map(|(key, _)| key.clone())
+        else {
+            break;
+        };
+        cache.globs.remove(&oldest);
+    }
+    Ok(Some(compiled))
+}
+
 fn walk_files(
+    state: &EngineState,
     request: &CommonRequest,
     cancel: &AtomicBool,
 ) -> ComputeResult<Vec<(PathBuf, String)>> {
@@ -559,8 +633,8 @@ fn walk_files(
     if is_blocked(&scope, &blocked) {
         return Err("Host runtime data is protected".to_owned());
     }
-    let include = glob_set(&request.include)?;
-    let exclude = glob_set(&request.exclude)?;
+    let include = compiled_glob_set(state, "include", &request.include)?;
+    let exclude = compiled_glob_set(state, "exclude", &request.exclude)?;
     let mut builder = WalkBuilder::new(&scope);
     builder
         .hidden(!request.include_hidden)
@@ -607,11 +681,11 @@ fn walk_files(
     Ok(files)
 }
 
-fn find(request: CommonRequest, cancel: &AtomicBool) -> ComputeResult<String> {
+fn find(state: &EngineState, request: CommonRequest, cancel: &AtomicBool) -> ComputeResult<String> {
     if request.limit == 0 || request.limit > 1000 {
         return Err("find limit must be between 1 and 1000".to_owned());
     }
-    let files = walk_files(&request, cancel)?;
+    let files = walk_files(state, &request, cancel)?;
     let files_checked = files.len();
     let truncated = files_checked > request.limit;
     let paths = files
@@ -712,7 +786,7 @@ fn read_cached(
     state: &EngineState,
     path: &Path,
     operation: &mut OperationCacheStats,
-) -> ComputeResult<(Arc<Vec<u8>>, FileVersion, bool)> {
+) -> ComputeResult<CachedContent> {
     let mut file =
         File::open(path).map_err(|error| format!("could not open {}: {error}", path.display()))?;
     let before = file_version(&file)
@@ -730,9 +804,15 @@ fn read_cached(
             if entry.version == before {
                 entry.last_used = used;
                 let bytes = entry.bytes.clone();
+                let line_starts = entry.line_starts.clone();
                 cache.content_hits += 1;
                 operation.content_hits += 1;
-                return Ok((bytes, before, true));
+                return Ok(CachedContent {
+                    bytes,
+                    line_starts,
+                    version: before,
+                    hit: true,
+                });
             }
         }
         cache.content_misses += 1;
@@ -749,13 +829,15 @@ fn read_cached(
     if before != after || bytes.len() as u64 != after.size {
         return Err(format!("file changed while reading: {}", path.display()));
     }
+    let line_starts = Arc::new(index_lines(&bytes)?);
     let bytes = Arc::new(bytes);
+    let estimated_bytes = bytes.len() + line_starts.len() * std::mem::size_of::<usize>();
     let mut cache = state
         .cache
         .lock()
         .map_err(|_| "cache lock poisoned".to_owned())?;
     let used = cache.tick();
-    cache.bytes = cache.bytes.saturating_add(bytes.len());
+    cache.bytes = cache.bytes.saturating_add(estimated_bytes);
     cache.bytes_read = cache.bytes_read.saturating_add(bytes.len() as u64);
     operation.bytes_read = operation.bytes_read.saturating_add(bytes.len() as u64);
     cache.content.insert(
@@ -763,11 +845,18 @@ fn read_cached(
         ContentEntry {
             version: after.clone(),
             bytes: bytes.clone(),
+            line_starts: line_starts.clone(),
+            estimated_bytes,
             last_used: used,
         },
     );
     cache.evict();
-    Ok((bytes, after, false))
+    Ok(CachedContent {
+        bytes,
+        line_starts,
+        version: after,
+        hit: false,
+    })
 }
 
 struct LineSink {
@@ -857,9 +946,32 @@ fn matched_lines(
     Ok((lines, sink.complete))
 }
 
-fn text_lines(bytes: &[u8]) -> ComputeResult<Vec<&str>> {
-    let text = std::str::from_utf8(bytes).map_err(|_| "file is not valid UTF-8 text".to_owned())?;
-    Ok(text.lines().collect())
+fn index_lines(bytes: &[u8]) -> ComputeResult<Vec<usize>> {
+    std::str::from_utf8(bytes).map_err(|_| "file is not valid UTF-8 text".to_owned())?;
+    if bytes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut starts = vec![0];
+    for (index, byte) in bytes.iter().enumerate() {
+        if *byte == b'\n' && index + 1 < bytes.len() {
+            starts.push(index + 1);
+        }
+    }
+    Ok(starts)
+}
+
+fn line_text<'a>(bytes: &'a [u8], starts: &[usize], index: usize) -> ComputeResult<&'a str> {
+    let start = *starts
+        .get(index)
+        .ok_or_else(|| "line index is outside the file".to_owned())?;
+    let mut end = starts.get(index + 1).copied().unwrap_or(bytes.len());
+    if end > start && bytes.get(end - 1) == Some(&b'\n') {
+        end -= 1;
+    }
+    if end > start && bytes.get(end - 1) == Some(&b'\r') {
+        end -= 1;
+    }
+    std::str::from_utf8(&bytes[start..end]).map_err(|_| "file is not valid UTF-8 text".to_owned())
 }
 
 fn search(
@@ -877,28 +989,29 @@ fn search(
     let mut matches = Vec::new();
     let mut truncated = false;
     let mut operation = OperationCacheStats::default();
-    let files = walk_files(&request.common, cancel)?;
+    let files = walk_files(state, &request.common, cancel)?;
     let files_checked = files.len();
     for (path, relative) in files {
         cancelled(cancel)?;
-        let (bytes, version, _) = match read_cached(state, &path, &mut operation) {
+        let content = match read_cached(state, &path, &mut operation) {
             Ok(value) => value,
             Err(error) if error.contains("not valid UTF-8") => continue,
             Err(error) => return Err(error),
         };
-        if bytes.contains(&0) || std::str::from_utf8(&bytes).is_err() {
+        let bytes = content.bytes;
+        let line_starts = content.line_starts;
+        if bytes.contains(&0) {
             continue;
         }
         let (line_numbers, complete) = matched_lines(
             state,
             &path,
-            &version,
+            &content.version,
             &bytes,
             &matcher_key,
             &matcher,
             &mut operation,
         )?;
-        let lines = text_lines(&bytes)?;
         for line_number in line_numbers.iter().copied() {
             cancelled(cancel)?;
             if matches.len() == request.common.limit {
@@ -906,28 +1019,27 @@ fn search(
                 break;
             }
             let index = line_number.saturating_sub(1) as usize;
-            let Some(text) = lines.get(index) else {
+            if index >= line_starts.len() {
                 continue;
-            };
+            }
+            let text = line_text(&bytes, &line_starts, index)?;
             let column = matcher
                 .find(text.as_bytes())
                 .map_err(|error| format!("search matcher failed: {error}"))?
                 .map_or(1, |matched| matched.start() + 1);
             let before_start = index.saturating_sub(request.before_context);
-            let after_end = lines.len().min(index + request.after_context + 1);
+            let after_end = line_starts.len().min(index + request.after_context + 1);
             matches.push(SearchMatch {
                 path: relative.clone(),
                 line: line_number,
                 column,
-                text: (*text).to_owned(),
-                before: lines[before_start..index]
-                    .iter()
-                    .map(|value| (*value).to_owned())
-                    .collect(),
-                after: lines[index + 1..after_end]
-                    .iter()
-                    .map(|value| (*value).to_owned())
-                    .collect(),
+                text: text.to_owned(),
+                before: (before_start..index)
+                    .map(|line| line_text(&bytes, &line_starts, line).map(str::to_owned))
+                    .collect::<ComputeResult<Vec<_>>>()?,
+                after: (index + 1..after_end)
+                    .map(|line| line_text(&bytes, &line_starts, line).map(str::to_owned))
+                    .collect::<ComputeResult<Vec<_>>>()?,
             });
         }
         if !complete && matches.len() >= request.common.limit {
@@ -958,25 +1070,32 @@ fn read(state: &EngineState, request: ReadRequest, cancel: &AtomicBool) -> Compu
         return Err("read path is not an accessible workspace file".to_owned());
     }
     let mut operation = OperationCacheStats::default();
-    let (bytes, _, cache_hit) = read_cached(state, &path, &mut operation)?;
+    let content = read_cached(state, &path, &mut operation)?;
+    let bytes = content.bytes;
+    let line_starts = content.line_starts;
     cancelled(cancel)?;
     if bytes.contains(&0) {
         return Err("file is binary".to_owned());
     }
-    let lines = text_lines(&bytes)?;
-    let start = request.start_line.saturating_sub(1).min(lines.len());
-    let end = lines.len().min(start.saturating_add(request.line_count));
-    let mut text = lines[start..end].join("\n");
-    if end > start && bytes.ends_with(b"\n") && end == lines.len() {
+    let start = request.start_line.saturating_sub(1).min(line_starts.len());
+    let end = line_starts
+        .len()
+        .min(start.saturating_add(request.line_count));
+    let mut selected = Vec::with_capacity(end.saturating_sub(start));
+    for index in start..end {
+        selected.push(line_text(&bytes, &line_starts, index)?);
+    }
+    let mut text = selected.join("\n");
+    if end > start && bytes.ends_with(b"\n") && end == line_starts.len() {
         text.push('\n');
     }
     json(&ReadResponse {
         text,
         start_line: start + 1,
         end_line: end,
-        total_lines: lines.len(),
-        next_line: (end < lines.len()).then_some(end + 1),
-        cache_hit,
+        total_lines: line_starts.len(),
+        next_line: (end < line_starts.len()).then_some(end + 1),
+        cache_hit: content.hit,
     })
 }
 
@@ -1015,5 +1134,33 @@ mod tests {
         let set = glob_set(&["**/*.ts".to_owned()]).unwrap().unwrap();
         assert!(set.is_match("packages/query/index.ts"));
         assert!(!set.is_match("packages/query/index.rs"));
+    }
+
+    #[test]
+    fn compiled_glob_sets_are_reused() {
+        let state = EngineState {
+            cache: Mutex::new(Cache::new(1024 * 1024)),
+            cancellations: Mutex::new(HashMap::new()),
+        };
+        let patterns = vec!["**/*.ts".to_owned()];
+        let first = compiled_glob_set(&state, "include", &patterns)
+            .unwrap()
+            .unwrap();
+        let second = compiled_glob_set(&state, "include", &patterns)
+            .unwrap()
+            .unwrap();
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(state.cache.lock().unwrap().globs.len(), 1);
+    }
+
+    #[test]
+    fn line_index_preserves_lines_and_rejects_invalid_utf8() {
+        let bytes = b"first\r\nsecond\n\n";
+        let starts = index_lines(bytes).unwrap();
+        assert_eq!(starts, vec![0, 7, 14]);
+        assert_eq!(line_text(bytes, &starts, 0).unwrap(), "first");
+        assert_eq!(line_text(bytes, &starts, 1).unwrap(), "second");
+        assert_eq!(line_text(bytes, &starts, 2).unwrap(), "");
+        assert!(index_lines(&[b'a', 0xff]).is_err());
     }
 }

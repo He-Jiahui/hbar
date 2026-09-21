@@ -80,7 +80,14 @@ test('native workspace query searches, finds, reads ranges, and validates cached
       crypto.randomUUID(),
     ),
   ).toMatchObject({ text: 'HELLO 世界', startLine: 2, endLine: 2, totalLines: 3, cacheHit: true })
-  expect(query.cacheStats()).toMatchObject({ contentEntries: 1, matchEntries: 1 })
+  const stats = query.cacheStats()
+  expect(stats).toMatchObject({
+    contentEntries: 1,
+    matchEntries: 1,
+    globEntries: 1,
+    lineIndexEntries: 1,
+  })
+  expect(stats.lineIndexBytes).toBeGreaterThan(0)
 })
 
 test('native cache detects same-size edits even when modification time is restored', async () => {
@@ -163,6 +170,7 @@ test('native search handles CRLF and Unicode while skipping binary, empty, and h
   await writeFile(join(root, '.hidden.ts'), '你好 needle\n', 'utf8')
   await writeFile(join(root, 'empty.ts'), '', 'utf8')
   await writeFile(join(root, 'binary.ts'), new Uint8Array([0, 110, 101, 101, 100, 108, 101]))
+  await writeFile(join(root, 'invalid.ts'), new Uint8Array([0xff, 110, 101, 101, 100, 108, 101]))
   const query = new NativeWorkspaceQuery(1024 * 1024)
   const request = {
     workspace: root,
