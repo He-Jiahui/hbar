@@ -15,8 +15,8 @@ test('canonical Lumen catalog covers every stable source variant without oversta
   const migrated = LUMEN_VARIANT_REGISTRY.filter((entry) => entry.status === 'migrated')
   expect(migrated.map((entry) => entry.id)).toEqual([...LUMEN_MIGRATED_VARIANT_IDS])
   expect(migrated.every((entry) => entry.component)).toBe(true)
-  expect(LUMEN_MIGRATED_VARIANT_IDS).toHaveLength(278)
-  expect(LUMEN_VARIANT_REGISTRY.filter((entry) => entry.status === 'source')).toHaveLength(22)
+  expect(LUMEN_MIGRATED_VARIANT_IDS).toHaveLength(285)
+  expect(LUMEN_VARIANT_REGISTRY.filter((entry) => entry.status === 'source')).toHaveLength(15)
 })
 
 test('canonical Lumen catalog resolves stable IDs and leaves source-only IDs unimplemented', () => {
@@ -156,8 +156,12 @@ test('canonical Lumen catalog resolves stable IDs and leaves source-only IDs uni
   expect(appShell?.status).toBe('migrated')
   expect(getLumenVariantComponent('hbar-app-ui-app-shell-9')).toBeFunction()
 
-  const sourceOnly = getLumenVariant('hbar-app-ui-app-sidebar-1')
+  const appSidebar = getLumenVariant('hbar-app-ui-app-sidebar-7')
+  expect(appSidebar?.status).toBe('migrated')
+  expect(getLumenVariantComponent('hbar-app-ui-app-sidebar-7')).toBeFunction()
+
+  const sourceOnly = getLumenVariant('hbar-app-ui-ai-chat-1')
   expect(sourceOnly?.status).toBe('source')
-  expect(getLumenVariantComponent('hbar-app-ui-app-sidebar-1')).toBeUndefined()
+  expect(getLumenVariantComponent('hbar-app-ui-ai-chat-1')).toBeUndefined()
   expect(getLumenVariant('missing-variant')).toBeUndefined()
 })

@@ -49,4 +49,5 @@ test('hbar-app-ui compatibility catalog re-exports the canonical Lumen inventory
   expect(getLumenVariant('hbar-app-ui-support-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-wizard-1')?.status).toBe('migrated')
   expect(getLumenVariant('hbar-app-ui-app-shell-1')?.status).toBe('migrated')
+  expect(getLumenVariant('hbar-app-ui-app-sidebar-1')?.status).toBe('migrated')
 })
