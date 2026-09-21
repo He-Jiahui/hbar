@@ -1,4 +1,4 @@
-import { LumenButton } from '@lumen/app-ui'
+import { LumenButton, LumenDisclosure } from '@lumen/app-ui'
 import { MoreHorizontal, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
@@ -87,7 +87,8 @@ export function HbarAppUiSettingsList({
                 {item.status && <HbarAppUiStatus value={item.status.label} tone={item.status.tone} />}
               </LumenButton>
               {item.removeLabel && onRemove && (
-                <details
+                <LumenDisclosure
+                  summary={<HbarAppUiIcon icon={MoreHorizontal} tier="sm" />}
                   className="hbar-app-ui-settings-list-menu"
                   onKeyDown={(event) => {
                     if (event.key !== 'Escape') return
@@ -105,7 +106,7 @@ export function HbarAppUiSettingsList({
                       {item.removeLabel}
                     </LumenButton>
                   </div>
-                </details>
+                </LumenDisclosure>
               )}
             </li>
           ))}

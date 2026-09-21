@@ -1,4 +1,4 @@
-import { LumenButton } from '@lumen/app-ui'
+import { LumenButton, LumenDisclosure } from '@lumen/app-ui'
 import { MoreHorizontal } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import './ActionMenu.css'
@@ -23,7 +23,8 @@ export function HbarAppUiActionMenu<ActionId extends string = string>({
   onAction,
 }: HbarAppUiActionMenuProps<ActionId>) {
   return (
-    <details
+    <LumenDisclosure
+      summary={<HbarAppUiIcon icon={MoreHorizontal} tier="sm" />}
       className="hbar-app-ui-action-menu"
       onToggle={(event) => {
         if (event.currentTarget.open) event.currentTarget.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
@@ -55,6 +56,6 @@ export function HbarAppUiActionMenu<ActionId extends string = string>({
           </LumenButton>
         ))}
       </div>
-    </details>
+    </LumenDisclosure>
   )
 }

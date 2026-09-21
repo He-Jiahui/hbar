@@ -1,4 +1,5 @@
 import { Check, ShieldCheck, X } from 'lucide-react'
+import { LumenDisclosure } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiSpotlight, HbarAppUiStatus } from '../../primitives'
 import type { HbarAppUiApprovalRequestProps } from '../../decision-types'
@@ -41,10 +42,9 @@ export function HbarAppUiApprovalRequest({
       <div className="hbar-app-ui-approval-request-target">
         <strong>{summary}</strong>
         {details && (
-          <details>
-            <summary>{labels.detailsLabel}</summary>
+          <LumenDisclosure summary={labels.detailsLabel}>
             <pre>{details}</pre>
-          </details>
+          </LumenDisclosure>
         )}
       </div>
       {state.error && (
