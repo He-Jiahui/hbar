@@ -268,6 +268,31 @@ export type {
   HbarAppUiCommentsReviewContent,
 } from './components/Comments'
 export {
+  HbarAppUiSchedulingProvider,
+  selectHbarAppUiSchedulingItem,
+  uniqueHbarAppUiSchedulingItems,
+} from './components/Scheduling'
+export type {
+  HbarAppUiSchedulingAction,
+  HbarAppUiSchedulingAgendaEvent,
+  HbarAppUiSchedulingAttendee,
+  HbarAppUiSchedulingAvailabilityContent,
+  HbarAppUiSchedulingAvailabilityDay,
+  HbarAppUiSchedulingBookingContent,
+  HbarAppUiSchedulingChoice,
+  HbarAppUiSchedulingContent,
+  HbarAppUiSchedulingDeadlineContent,
+  HbarAppUiSchedulingDeadlineDay,
+  HbarAppUiSchedulingFormContent,
+  HbarAppUiSchedulingListStrategy,
+  HbarAppUiSchedulingMonthContent,
+  HbarAppUiSchedulingMonthDay,
+  HbarAppUiSchedulingProviderProps,
+  HbarAppUiSchedulingTimelineContent,
+  HbarAppUiSchedulingTimelineEvent,
+  HbarAppUiSchedulingTimeRangeContent,
+} from './components/Scheduling'
+export {
   HbarAppUiSettingsFormProvider,
   selectHbarAppUiSettingsItem,
   uniqueHbarAppUiSettingsItems,
