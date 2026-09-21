@@ -106,7 +106,7 @@ test('appearance settings renders host copy and shared design-system primitives'
       onReset={() => Promise.resolve({ revision: 1 })}
     />,
   )
-  expect(html).toContain('<h2>Appearance</h2>')
+  expect(html).toContain('data-variant="body">Appearance</h2>')
   expect(html).toContain('Applies globally on this device')
   expect(html).toContain('aria-label="Live preview"')
   expect(html).toContain('data-lumen-mode="dark"')

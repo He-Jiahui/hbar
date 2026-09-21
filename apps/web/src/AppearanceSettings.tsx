@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Palette } from 'lucide-react'
 import {
   LumenButton,
+  LumenFrame,
   LumenFormField,
   LumenIcon,
   LumenIconButton,
   LumenInput,
+  LumenOption,
   LumenSelect,
   LumenText,
   type LumenSize,
@@ -156,29 +158,29 @@ export function WebAppearanceSettings({
         onChange={(event) => change(dimension, event.currentTarget.value as LumenSize)}
       >
         {(['s', 'm', 'l'] as const).map((size) => (
-          <option key={size} value={size}>
+          <LumenOption key={size} value={size}>
             {labels.sizeOption(dimension, size)}
-          </option>
+          </LumenOption>
         ))}
       </LumenSelect>
     </LumenFormField>
   )
 
   return (
-    <form className="hbar-web-appearance-settings" onSubmit={submit}>
-      <header className="hbar-web-appearance-heading">
-        <div>
-          <h2>{labels.title}</h2>
+    <LumenFrame as="form" className="hbar-web-appearance-settings" onSubmit={submit}>
+      <LumenFrame as="header" className="hbar-web-appearance-heading">
+        <LumenFrame>
+          <LumenText as="h2">{labels.title}</LumenText>
           <LumenText as="p" tone="muted" variant="supporting">
             {labels.description}
           </LumenText>
-        </div>
+        </LumenFrame>
         <LumenText as="p" className="hbar-web-appearance-scope" tone="subtle" variant="supporting">
           {labels.deviceScope}
         </LumenText>
-      </header>
+      </LumenFrame>
 
-      <div className="hbar-web-appearance-fields">
+      <LumenFrame className="hbar-web-appearance-fields">
         <LumenFormField
           controlId="hbar-appearance-theme"
           label={labels.theme.label}
@@ -191,18 +193,18 @@ export function WebAppearanceSettings({
             onChange={(event) => change('theme', event.currentTarget.value as WebThemePreference)}
           >
             {(['system', 'light', 'dark'] as const).map((theme) => (
-              <option key={theme} value={theme}>
+              <LumenOption key={theme} value={theme}>
                 {themeOptionLabel(labels, theme)}
-              </option>
+              </LumenOption>
             ))}
           </LumenSelect>
         </LumenFormField>
         {sizeField('controlSize', labels.controlSize)}
         {sizeField('textSize', labels.textSize)}
         {sizeField('cornerSize', labels.cornerSize)}
-      </div>
+      </LumenFrame>
 
-      <section
+      <LumenFrame as="section"
         className="hbar-web-appearance-preview"
         aria-label={labels.preview.title}
         data-lumen-mode={previewTheme}
@@ -212,18 +214,18 @@ export function WebAppearanceSettings({
         data-lumen-shape="rounded"
         style={{ colorScheme: previewTheme }}
       >
-        <header>
-          <h3>{labels.preview.title}</h3>
+        <LumenFrame as="header">
+          <LumenText as="h3">{labels.preview.title}</LumenText>
           <LumenText as="p" tone="muted" variant="supporting">
             {labels.preview.description}
           </LumenText>
-        </header>
-        <div className="hbar-web-appearance-preview-controls">
+        </LumenFrame>
+        <LumenFrame className="hbar-web-appearance-preview-controls">
           <LumenFormField controlId="hbar-appearance-preview-input" label={labels.preview.label}>
             <LumenInput id="hbar-appearance-preview-input" readOnly value={labels.preview.input} />
           </LumenFormField>
           <LumenSelect aria-label={labels.preview.select} value="preview" onChange={() => undefined}>
-            <option value="preview">{labels.preview.select}</option>
+            <LumenOption value="preview">{labels.preview.select}</LumenOption>
           </LumenSelect>
           <LumenButton type="button" tone="primary">
             {labels.preview.button}
@@ -231,10 +233,10 @@ export function WebAppearanceSettings({
           <LumenIconButton type="button" label={labels.preview.iconButton}>
             <LumenIcon icon={Palette} tier="sm" />
           </LumenIconButton>
-        </div>
-      </section>
+        </LumenFrame>
+      </LumenFrame>
 
-      <footer className="hbar-web-appearance-actions">
+      <LumenFrame as="footer" className="hbar-web-appearance-actions">
         <LumenText as="span" role={error ? 'alert' : 'status'} tone={error ? 'danger' : 'muted'} variant="supporting">
           {!ready
             ? labels.loading
@@ -246,15 +248,15 @@ export function WebAppearanceSettings({
                   ? labels.saved
                   : null}
         </LumenText>
-        <div>
+        <LumenFrame>
           <LumenButton type="button" variant="outlined" disabled={!ready || busy || !canReset} onClick={reset}>
             {labels.reset}
           </LumenButton>
           <LumenButton type="submit" tone="primary" loading={busy} disabled={!ready || !dirty}>
             {labels.save}
           </LumenButton>
-        </div>
-      </footer>
-    </form>
+        </LumenFrame>
+      </LumenFrame>
+    </LumenFrame>
   )
 }

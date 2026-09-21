@@ -19,6 +19,7 @@ import {
   LumenAppShell,
   LumenAppSidebar,
   LumenButton,
+  LumenFrame,
   LumenIcon,
   LumenIconButton,
   LumenNavigationButton,
@@ -269,12 +270,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
       header={
-        <div className="hbar-app-react-shell-header">
+        <LumenFrame className="hbar-app-react-shell-header">
           <LumenIconButton label={props.labels.showSidebar} onClick={() => setSidebarVisible(true)}>
             <WorkspaceShellIcon name="menu" />
           </LumenIconButton>
-          <strong>{props.labels.brand}</strong>
-        </div>
+          <LumenText as="strong">{props.labels.brand}</LumenText>
+        </LumenFrame>
       }
       tool={props.tool}
       toolLabel={props.toolLabel}
@@ -291,7 +292,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             </LumenIconButton>
           }
           primaryActions={
-            <div className="hbar-app-react-sidebar-primary">
+            <LumenFrame className="hbar-app-react-sidebar-primary">
               <WorkspaceSidebarAction
                 icon="plus"
                 label={props.labels.newSession}
@@ -306,7 +307,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 selected={presentation.modalInstanceId === 'commands'}
                 onClick={() => openPanel('commands')}
               />
-            </div>
+            </LumenFrame>
           }
           treeAction={
             <LumenIconButton
@@ -318,7 +319,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             </LumenIconButton>
           }
           actions={
-            <div className="hbar-app-react-sidebar-actions">
+            <LumenFrame className="hbar-app-react-sidebar-actions">
               {props.connection !== 'connected' && (
                 <WorkspaceSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
               )}
@@ -334,20 +335,20 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 selected={presentation.page.kind === 'settings'}
                 onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
               />
-            </div>
+            </LumenFrame>
           }
         >
-          <nav className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
+          <LumenFrame as="nav" className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
             {workspaces.length === 0 && (
-              <p>{loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}</p>
+              <LumenText as="p">{loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}</LumenText>
             )}
             {workspaces.map((workspace) => {
               const isExpanded = expanded.has(workspace.id)
               const sessions = sessionsByWorkspace.get(workspace.id) ?? []
               const nextSessionCursor = sessionCursors[workspace.id]
               return (
-                <section key={workspace.id}>
-                  <div className="hbar-app-react-workspace-line">
+                <LumenFrame as="section" key={workspace.id}>
+                  <LumenFrame className="hbar-app-react-workspace-line">
                     <LumenButton
                       className="hbar-app-react-workspace-row"
                       size="s"
@@ -378,16 +379,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       items={[{ id: 'new-session', label: props.labels.newSessionInWorkspace }]}
                       onAction={() => openCommandForm('app.createSession', { workspaceId: workspace.id })}
                     />
-                  </div>
+                  </LumenFrame>
                   {isExpanded && (
-                    <div className="hbar-app-react-session-list">
+                    <LumenFrame className="hbar-app-react-session-list">
                       {loading.has(workspace.id) && sessions.length === 0 ? (
-                        <p>{props.labels.loading}</p>
+                        <LumenText as="p">{props.labels.loading}</LumenText>
                       ) : sessions.length === 0 ? (
-                        <p>{props.labels.noSessions}</p>
+                        <LumenText as="p">{props.labels.noSessions}</LumenText>
                       ) : (
                         sessions.map((session) => (
-                          <div
+                          <LumenFrame
                             key={session.id}
                             className="hbar-app-react-session-row"
                             data-selected={navigation.sessionId === session.id}
@@ -403,14 +404,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                               onClick={() => openSession(session.id)}
                             >
                               <WorkspaceShellIcon name="message" tier="sm" />
-                              <span className="hbar-app-react-session-label">
+                              <LumenText as="span" className="hbar-app-react-session-label">
                                 <LumenText size="s" variant="label">
                                   {session.title}
                                 </LumenText>
                                 <LumenText as="small" size="s" tone="subtle" variant="supporting">
                                   {props.labels.sessionUpdatedAt(session.updatedAt)}
                                 </LumenText>
-                              </span>
+                              </LumenText>
                             </LumenNavigationButton>
                             <LumenActionMenu
                               label={props.labels.sessionActions(session.title)}
@@ -431,7 +432,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                                   })
                               }}
                             />
-                          </div>
+                          </LumenFrame>
                         ))
                       )}
                       {nextSessionCursor && (
@@ -445,9 +446,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           {props.labels.loadMore}
                         </LumenButton>
                       )}
-                    </div>
+                    </LumenFrame>
                   )}
-                </section>
+                </LumenFrame>
               )
             })}
             {workspaceCursor && (
@@ -461,8 +462,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 {props.labels.loadMore}
               </LumenButton>
             )}
-          </nav>
-          {error && <p role="alert">{props.labels.error(error)}</p>}
+          </LumenFrame>
+          {error && <LumenText as="p" role="alert">{props.labels.error(error)}</LumenText>}
         </LumenAppSidebar>
       }
     >
