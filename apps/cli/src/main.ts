@@ -96,7 +96,7 @@ async function attached(args: CliArgs) {
 }
 
 if (Bun.argv[2] === INTERNAL_HOST_ROLE) {
-  const { runHost } = await import('../../host/src/main.ts')
+  const { runHost } = await import('@hbar/host')
   await runHost(Bun.argv.slice(3), internalHostCommand())
   await new Promise<never>(() => {})
 }

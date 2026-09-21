@@ -1,14 +1,13 @@
 import { Bot, Focus, GitPullRequestArrow, ShieldCheck } from 'lucide-react'
 import { LumenButton, LumenIcon, LumenStatus } from '@lumen/app-ui'
-import type {
-  WorkflowAcceptanceStatus,
-  WorkflowEvidence,
-  WorkflowStatus,
-  WorkflowWorkItem,
-  WorkflowWorkItemStatus,
-} from '@hbar/contracts'
 import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
 
+type WorkflowState = NonNullable<WorkflowWorkspaceEntryState['snapshot']['workflow']>
+type WorkflowStatus = WorkflowState['status']
+type WorkflowEvidence = WorkflowState['evidence'][number]
+type WorkflowWorkItem = WorkflowState['workItems'][number]
+type WorkflowWorkItemStatus = WorkflowWorkItem['status']
+type WorkflowAcceptanceStatus = WorkflowWorkItem['acceptanceChecks'][number]['status']
 type DelegationStatus = NonNullable<
   WorkflowWorkspaceEntryState['snapshot']['workflow']
 >['delegations'][number]['status']
