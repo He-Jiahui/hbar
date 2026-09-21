@@ -27,7 +27,7 @@ interface CommandResult {
 async function runCommand(command: string[], cwd: string, env?: Record<string, string>): Promise<CommandResult> {
   const child = Bun.spawn(command, {
     cwd,
-    env: env ? { ...process.env, ...env } : undefined,
+    ...(env ? { env: { ...process.env, ...env } } : {}),
     stdin: 'ignore',
     stdout: 'pipe',
     stderr: 'pipe',
