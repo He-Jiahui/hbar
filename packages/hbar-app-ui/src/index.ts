@@ -615,6 +615,21 @@ export type {
   HbarAppUiWizardUpgradeContent,
 } from './components/Wizard'
 export {
+  HbarAppUiAppShellProvider,
+  selectHbarAppUiAppShellItem,
+  uniqueHbarAppUiAppShellItems,
+} from './components/AppShell'
+export type {
+  HbarAppUiAppShellAction,
+  HbarAppUiAppShellChoice,
+  HbarAppUiAppShellContent,
+  HbarAppUiAppShellListStrategy,
+  HbarAppUiAppShellMetric,
+  HbarAppUiAppShellProviderProps,
+  HbarAppUiAppShellRecord,
+  HbarAppUiAppShellScope,
+} from './components/AppShell'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,
