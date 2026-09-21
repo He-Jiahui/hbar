@@ -1,4 +1,9 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import type { ReactNode } from 'react'
 import { uniqueItems } from '../../collection'
 import './CompactMonitoring.css'
@@ -18,15 +23,15 @@ export function HbarAppUiCompactMetrics({
   readonly metrics: readonly HbarAppUiCompactMetric[]
 }) {
   return (
-    <dl className="hbar-app-ui-compact-metrics" aria-label={label}>
+    <LumenCollection as="dl" className="hbar-app-ui-compact-metrics" aria-label={label}>
       {uniqueItems(metrics).map((metric) => (
-        <div key={metric.id}>
-          <dt>{metric.label}</dt>
-          <dd>{metric.value}</dd>
-          {metric.detail && <small>{metric.detail}</small>}
-        </div>
+        <LumenFrame key={metric.id}>
+          <LumenCollectionItem as="dt">{metric.label}</LumenCollectionItem>
+          <LumenCollectionItem as="dd">{metric.value}</LumenCollectionItem>
+          {metric.detail && <LumenText as="small">{metric.detail}</LumenText>}
+        </LumenFrame>
       ))}
-    </dl>
+    </LumenCollection>
   )
 }
 
@@ -59,7 +64,7 @@ export function HbarAppUiBarSeries({
       ? maximum
       : Math.max(1, ...records.map((point) => (Number.isFinite(point.value) ? point.value : 0)))
   return records.length ? (
-    <div className="hbar-app-ui-bar-series" role="img" aria-label={label}>
+    <LumenFrame className="hbar-app-ui-bar-series" role="img" aria-label={label}>
       {records.map((point) => {
         const style = {
           blockSize: `${Math.max(0, Math.min(1, Number.isFinite(point.value) ? point.value / scale : 0)) * 100}%`,
@@ -75,10 +80,10 @@ export function HbarAppUiBarSeries({
             onClick={() => onSelect(point.id)}
           />
         ) : (
-          <i key={point.id} title={point.label} style={style} />
+          <LumenFrame as="i" key={point.id} title={point.label} style={style} />
         )
       })}
-    </div>
+    </LumenFrame>
   ) : (
     <>{empty}</>
   )

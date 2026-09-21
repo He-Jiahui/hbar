@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { ChevronDown } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
@@ -215,30 +218,30 @@ export function HbarAppUiConversation(props: HbarAppUiConversationProps) {
   }
 
   return (
-    <section className="hbar-app-ui-conversation" aria-label={props.title}>
+    <LumenFrame as="section" className="hbar-app-ui-conversation" aria-label={props.title}>
       {props.header === undefined ? (
-        <header>
-          <h2>{props.title}</h2>
-        </header>
+        <LumenFrame as="header">
+          <LumenText as="h2">{props.title}</LumenText>
+        </LumenFrame>
       ) : (
         props.header
       )}
-      <div ref={viewport} className="hbar-app-ui-conversation-messages" onScroll={onScroll}>
-        <div className="hbar-app-ui-conversation-content">
+      <LumenFrame ref={viewport} className="hbar-app-ui-conversation-messages" onScroll={onScroll}>
+        <LumenFrame className="hbar-app-ui-conversation-content">
           {props.beforeMessages}
           {messages.length ? (
             virtualized ? (
-              <div
+              <LumenFrame
                 className="hbar-app-ui-conversation-virtual"
                 role="list"
                 data-hbar-app-ui-list-strategy="virtualized"
                 data-hbar-app-ui-message-count={messages.length}
               >
-                <div aria-hidden="true" style={{ blockSize: leading }} />
+                <LumenFrame aria-hidden="true" style={{ blockSize: leading }} />
                 {visible.map((item) => {
                   const message = messages[item.index]
                   return message ? (
-                    <div
+                    <LumenFrame
                       key={message.id}
                       data-index={item.index}
                       ref={virtual.measureElement}
@@ -248,11 +251,11 @@ export function HbarAppUiConversation(props: HbarAppUiConversationProps) {
                       aria-setsize={messages.length}
                     >
                       <HbarAppUiMessage {...message} />
-                    </div>
+                    </LumenFrame>
                   ) : null
                 })}
-                <div aria-hidden="true" style={{ blockSize: trailing }} />
-              </div>
+                <LumenFrame aria-hidden="true" style={{ blockSize: trailing }} />
+              </LumenFrame>
             ) : (
               messages.map((message) => <HbarAppUiMessage {...message} key={message.id} />)
             )
@@ -260,8 +263,8 @@ export function HbarAppUiConversation(props: HbarAppUiConversationProps) {
             props.empty
           )}
           {props.afterMessages}
-        </div>
-      </div>
+        </LumenFrame>
+      </LumenFrame>
       {hasNewContent && props.latestLabel && (
         <LumenButton type="button" className="hbar-app-ui-conversation-latest" onClick={showLatest}>
           <HbarAppUiIcon icon={ChevronDown} tier="sm" />
@@ -269,7 +272,7 @@ export function HbarAppUiConversation(props: HbarAppUiConversationProps) {
         </LumenButton>
       )}
       {props.composer}
-    </section>
+    </LumenFrame>
   )
 }
 const ConversationContext = createContext<HbarAppUiConversationProps | undefined>(undefined)

@@ -6,6 +6,7 @@ import {
   HbarAppUiButton,
   HbarAppUiIconButton,
   HbarAppUiLabel,
+  HbarAppUiNavigationButton,
   HbarAppUiText,
   type HbarAppUiButtonSize,
   type HbarAppUiButtonTone,
@@ -25,6 +26,7 @@ test('button primitives expose semantic tone, size, state, and host-owned labels
       <HbarAppUiIconButton label="打开设置">
         <HbarAppUiIcon icon={Settings} tier="md" />
       </HbarAppUiIconButton>
+      <HbarAppUiNavigationButton selected>外观</HbarAppUiNavigationButton>
     </section>,
   )
 
@@ -39,6 +41,11 @@ test('button primitives expose semantic tone, size, state, and host-owned labels
   expect(markup).toContain('class="hbar-app-ui-button hbar-app-ui-icon-button"')
   expect(markup).toContain('aria-label="打开设置"')
   expect(markup).toContain('title="打开设置"')
+  expect(markup).toContain('class="hbar-app-ui-button hbar-app-ui-navigation-button"')
+  expect(markup).toContain('data-size="s"')
+  expect(markup).toContain('aria-current="page"')
+  expect(markup).toContain('data-variant="ghost"')
+  expect(markup).toContain('data-lumen-variant="text"')
 })
 
 test('button primitives preserve explicit native button behavior and accessible overrides', () => {

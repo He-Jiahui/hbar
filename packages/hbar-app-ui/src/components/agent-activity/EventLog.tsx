@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiVirtualList } from '../../VirtualList'
 import './EventLog.css'
 
@@ -33,24 +36,24 @@ export function HbarAppUiEventLog({
   onRetry,
 }: HbarAppUiEventLogProps) {
   return (
-    <section className="hbar-app-ui-event-log" aria-label={labels.title} aria-busy={loading}>
-      <header>
-        <strong>{labels.title}</strong>
-        <small>{labels.scope}</small>
-      </header>
-      {loading && <p role="status">{labels.loading}</p>}
+    <LumenFrame as="section" className="hbar-app-ui-event-log" aria-label={labels.title} aria-busy={loading}>
+      <LumenFrame as="header">
+        <LumenText as="strong">{labels.title}</LumenText>
+        <LumenText as="small">{labels.scope}</LumenText>
+      </LumenFrame>
+      {loading && <LumenText as="p" role="status">{labels.loading}</LumenText>}
       {error && (
-        <div role="alert">
-          <p>{error}</p>
+        <LumenFrame role="alert">
+          <LumenText as="p">{error}</LumenText>
           <LumenButton type="button" onClick={onRetry}>
             {labels.retry}
           </LumenButton>
-        </div>
+        </LumenFrame>
       )}
       <HbarAppUiVirtualList
         items={items}
         label={labels.title}
-        empty={<p>{labels.empty}</p>}
+        empty={<LumenText as="p">{labels.empty}</LumenText>}
         renderRow={(item) => (
           <LumenButton
             type="button"
@@ -58,12 +61,12 @@ export function HbarAppUiEventLog({
             aria-current={selectedId === item.id ? 'true' : undefined}
             onClick={() => onSelect(item.id)}
           >
-            <span>{item.sequence}</span>
-            <code>{item.type}</code>
-            <time>{item.time}</time>
+            <LumenText as="span">{item.sequence}</LumenText>
+            <LumenText as="code">{item.type}</LumenText>
+            <LumenText as="time">{item.time}</LumenText>
           </LumenButton>
         )}
       />
-    </section>
+    </LumenFrame>
   )
 }

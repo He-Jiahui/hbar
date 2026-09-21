@@ -1,4 +1,6 @@
-import { LumenButton, LumenDisclosure } from '@lumen/app-ui'
+import {
+  LumenFrame,
+ LumenButton, LumenDisclosure } from '@lumen/app-ui'
 import { MoreHorizontal } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import './ActionMenu.css'
@@ -26,6 +28,7 @@ export function HbarAppUiActionMenu<ActionId extends string = string>({
     <LumenDisclosure
       summary={<HbarAppUiIcon icon={MoreHorizontal} tier="sm" />}
       className="hbar-app-ui-action-menu"
+      aria-label={label}
       onToggle={(event) => {
         if (event.currentTarget.open) event.currentTarget.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
       }}
@@ -36,10 +39,7 @@ export function HbarAppUiActionMenu<ActionId extends string = string>({
         event.currentTarget.querySelector('summary')?.focus()
       }}
     >
-      <summary aria-label={label} title={label} aria-haspopup="menu">
-        <HbarAppUiIcon icon={MoreHorizontal} tier="sm" />
-      </summary>
-      <div className="hbar-app-ui-dialog-menu hbar-app-ui-action-menu-popup" role="menu" aria-label={label}>
+      <LumenFrame className="hbar-app-ui-dialog-menu hbar-app-ui-action-menu-popup" role="menu" aria-label={label}>
         {items.map((item) => (
           <LumenButton
             key={item.id}
@@ -55,7 +55,7 @@ export function HbarAppUiActionMenu<ActionId extends string = string>({
             {item.label}
           </LumenButton>
         ))}
-      </div>
+      </LumenFrame>
     </LumenDisclosure>
   )
 }

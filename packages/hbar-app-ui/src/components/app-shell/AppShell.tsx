@@ -1,4 +1,9 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import {
   Activity,
   Bot,
@@ -20,8 +25,9 @@ import {
   Target,
   type LucideIcon,
 } from 'lucide-react'
-import { useId, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react'
+import { useId, type CSSProperties, type ReactNode } from 'react'
 import { HbarAppUiIcon, type HbarAppUiIconTier } from '../../icon'
+import { HbarAppUiButton, HbarAppUiText, type HbarAppUiButtonProps } from '../../primitives'
 import './AppShell.css'
 
 export interface HbarAppUiAppShellProps {
@@ -62,33 +68,33 @@ export function HbarAppUiAppShell({
     '--hbar-app-ui-tool-size': `${toolWidthRem}rem`,
   }
   return (
-    <div className="hbar-app-ui-app-shell" data-hbar-app-ui-shell="app" data-sidebar-open={sidebarOpen} style={style}>
+    <LumenFrame className="hbar-app-ui-app-shell" data-hbar-app-ui-shell="app" data-sidebar-open={sidebarOpen} style={style}>
       {sidebar && (
-        <div className="hbar-app-ui-app-sidebar-drawer" data-open={sidebarOpen}>
-          <div className="hbar-app-ui-app-sidebar-drawer-panel">{sidebar}</div>
+        <LumenFrame className="hbar-app-ui-app-sidebar-drawer" data-open={sidebarOpen}>
+          <LumenFrame className="hbar-app-ui-app-sidebar-drawer-panel">{sidebar}</LumenFrame>
           <LumenButton
             type="button"
             className="hbar-app-ui-app-sidebar-backdrop"
             aria-label={closeSidebarLabel}
             onClick={onCloseSidebar}
           />
-        </div>
+        </LumenFrame>
       )}
-      <div className="hbar-app-ui-app-frame">
-        {header && <div className="hbar-app-ui-app-header">{header}</div>}
-        <div className="hbar-app-ui-app-body">
-          <main className="hbar-app-ui-app-main" aria-label={label}>
+      <LumenFrame className="hbar-app-ui-app-frame">
+        {header && <LumenFrame className="hbar-app-ui-app-header">{header}</LumenFrame>}
+        <LumenFrame className="hbar-app-ui-app-body">
+          <LumenFrame as="main" className="hbar-app-ui-app-main" aria-label={label}>
             {children}
-          </main>
+          </LumenFrame>
           {tool && (
-            <aside className="hbar-app-ui-app-tool-drawer" aria-label={toolLabel}>
+            <LumenFrame as="aside" className="hbar-app-ui-app-tool-drawer" aria-label={toolLabel}>
               {tool}
-            </aside>
+            </LumenFrame>
           )}
-        </div>
-      </div>
+        </LumenFrame>
+      </LumenFrame>
       {overlay}
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -150,23 +156,28 @@ export function HbarAppUiSidebarAction({
   selected = false,
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
+}: HbarAppUiButtonProps & {
   readonly icon: HbarAppUiShellIconName
   readonly label: string
   readonly detail?: string
   readonly selected?: boolean
 }) {
   return (
-    <button
+    <HbarAppUiButton
       {...props}
       type="button"
       className={`hbar-app-ui-app-sidebar-action${className ? ` ${className}` : ''}`}
       aria-current={selected ? 'page' : undefined}
+      variant={props.variant ?? 'ghost'}
     >
       <HbarAppUiShellIcon name={icon} />
-      <span>{label}</span>
-      {detail && <small>{detail}</small>}
-    </button>
+      <HbarAppUiText as="span">{label}</HbarAppUiText>
+      {detail && (
+        <HbarAppUiText as="small" size="s" tone="subtle" variant="supporting">
+          {detail}
+        </HbarAppUiText>
+      )}
+    </HbarAppUiButton>
   )
 }
 
@@ -200,30 +211,30 @@ export function HbarAppUiAppSidebar({
 }: HbarAppUiAppSidebarProps) {
   const titleId = useId()
   return (
-    <aside className="hbar-app-ui-app-sidebar" aria-labelledby={titleId}>
-      <header>
-        <div className="hbar-app-ui-app-brand-row">
-          <strong className="hbar-app-ui-app-brand">{brand}</strong>
+    <LumenFrame as="aside" className="hbar-app-ui-app-sidebar" aria-labelledby={titleId}>
+      <LumenFrame as="header">
+        <LumenFrame className="hbar-app-ui-app-brand-row">
+          <LumenText as="strong" className="hbar-app-ui-app-brand">{brand}</LumenText>
           {brandAction}
-        </div>
+        </LumenFrame>
         {primaryActions}
-      </header>
-      <div className="hbar-app-ui-app-sidebar-title">
-        <h2 id={titleId}>{title}</h2>
+      </LumenFrame>
+      <LumenFrame className="hbar-app-ui-app-sidebar-title">
+        <LumenText as="h2" id={titleId}>{title}</LumenText>
         {treeAction}
-      </div>
-      <div className="hbar-app-ui-app-sidebar-content">{children ?? <p>{emptyLabel}</p>}</div>
-      <footer>
-        <dl className="hbar-app-ui-app-host-status" data-tone={status.tone}>
-          <dt>
-            <i aria-hidden="true" />
+      </LumenFrame>
+      <LumenFrame className="hbar-app-ui-app-sidebar-content">{children ?? <LumenText as="p">{emptyLabel}</LumenText>}</LumenFrame>
+      <LumenFrame as="footer">
+        <LumenCollection as="dl" className="hbar-app-ui-app-host-status" data-tone={status.tone}>
+          <LumenCollectionItem as="dt">
+            <LumenFrame as="i" aria-hidden="true" />
             {status.label}
-          </dt>
-          <dd>{status.value}</dd>
-        </dl>
+          </LumenCollectionItem>
+          <LumenCollectionItem as="dd">{status.value}</LumenCollectionItem>
+        </LumenCollection>
         {actions}
-      </footer>
-    </aside>
+      </LumenFrame>
+    </LumenFrame>
   )
 }
 
@@ -236,17 +247,17 @@ export interface HbarAppUiWorkbenchNoticeProps {
 export function HbarAppUiWorkbenchNotice({ title, description, command }: HbarAppUiWorkbenchNoticeProps) {
   const titleId = useId()
   return (
-    <section className="hbar-app-ui-workbench-notice" aria-labelledby={titleId}>
-      <h1 id={titleId}>{title}</h1>
-      <p>{description}</p>
+    <LumenFrame as="section" className="hbar-app-ui-workbench-notice" aria-labelledby={titleId}>
+      <LumenText as="h1" id={titleId}>{title}</LumenText>
+      <LumenText as="p">{description}</LumenText>
       {command && (
-        <div className="hbar-app-ui-workbench-command">
-          <p>{command.label}</p>
-          <pre>
-            <code>{command.value}</code>
-          </pre>
-        </div>
+        <LumenFrame className="hbar-app-ui-workbench-command">
+          <LumenText as="p">{command.label}</LumenText>
+          <LumenText as="pre">
+            <LumenText as="code">{command.value}</LumenText>
+          </LumenText>
+        </LumenFrame>
       )}
-    </section>
+    </LumenFrame>
   )
 }

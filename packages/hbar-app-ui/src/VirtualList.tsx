@@ -1,3 +1,4 @@
+import { LumenFrame } from '@lumen/app-ui'
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { uniqueItems } from './collection'
@@ -38,7 +39,7 @@ export function HbarAppUiVirtualList<T extends { readonly id: string }>({
   const leading = visible[0]?.start ?? 0
   const trailing = Math.max(0, virtual.getTotalSize() - (visible.at(-1)?.end ?? 0))
   return (
-    <div
+    <LumenFrame
       ref={viewport}
       className={`hbar-app-ui-virtual-list ${className}`}
       role="region"
@@ -46,12 +47,12 @@ export function HbarAppUiVirtualList<T extends { readonly id: string }>({
       tabIndex={0}
     >
       {rows.length ? (
-        <div role="list">
-          <div aria-hidden="true" style={{ blockSize: leading }} />
+        <LumenFrame role="list">
+          <LumenFrame aria-hidden="true" style={{ blockSize: leading }} />
           {visible.map((item) => {
             const row = rows[item.index]
             return row ? (
-              <div
+              <LumenFrame
                 role="listitem"
                 aria-posinset={item.index + 1}
                 aria-setsize={rows.length}
@@ -60,14 +61,14 @@ export function HbarAppUiVirtualList<T extends { readonly id: string }>({
                 ref={virtual.measureElement}
               >
                 {renderRow(row)}
-              </div>
+              </LumenFrame>
             ) : null
           })}
-          <div aria-hidden="true" style={{ blockSize: trailing }} />
-        </div>
+          <LumenFrame aria-hidden="true" style={{ blockSize: trailing }} />
+        </LumenFrame>
       ) : (
         empty
       )}
-    </div>
+    </LumenFrame>
   )
 }

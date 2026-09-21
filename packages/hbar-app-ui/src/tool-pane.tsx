@@ -1,3 +1,4 @@
+import { LumenFrame, LumenText } from '@lumen/app-ui'
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { ArrowLeft, X } from 'lucide-react'
@@ -47,61 +48,61 @@ export function HbarAppUiToolPane({
   className = '',
 }: HbarAppUiToolPaneProps) {
   return (
-    <section
+    <LumenFrame as="section"
       className={`hbar-app-ui-session-tool-pane${className ? ` ${className}` : ''}`}
       aria-label={title}
       aria-busy={busy}
     >
-      <header className="hbar-app-ui-session-tool-pane-header" data-tool-pane-slot="header">
-        <div className="hbar-app-ui-session-tool-pane-start">
+      <LumenFrame as="header" className="hbar-app-ui-session-tool-pane-header" data-tool-pane-slot="header">
+        <LumenFrame className="hbar-app-ui-session-tool-pane-start">
           {onBack && backLabel && (
             <HbarAppUiIconButton label={backLabel} onClick={onBack}>
               <HbarAppUiIcon icon={ArrowLeft} tier="sm" />
             </HbarAppUiIconButton>
           )}
           {icon && <HbarAppUiIcon icon={icon} tier="md" className="hbar-app-ui-session-tool-pane-icon" />}
-          <div className="hbar-app-ui-session-tool-pane-copy">
-            <div className="hbar-app-ui-session-tool-pane-heading">
-              <h2>{title}</h2>
-              {targetLabel && <span title={targetLabel}>{targetLabel}</span>}
-            </div>
-            {description && <p>{description}</p>}
-          </div>
-        </div>
+          <LumenFrame className="hbar-app-ui-session-tool-pane-copy">
+            <LumenFrame className="hbar-app-ui-session-tool-pane-heading">
+              <LumenText as="h2">{title}</LumenText>
+              {targetLabel && <LumenText as="span" title={targetLabel}>{targetLabel}</LumenText>}
+            </LumenFrame>
+            {description && <LumenText as="p">{description}</LumenText>}
+          </LumenFrame>
+        </LumenFrame>
         {(actions || (onClose && closeLabel)) && (
-          <div className="hbar-app-ui-session-tool-pane-actions">
+          <LumenFrame className="hbar-app-ui-session-tool-pane-actions">
             {actions}
             {onClose && closeLabel && (
               <HbarAppUiIconButton label={closeLabel} onClick={onClose}>
                 <HbarAppUiIcon icon={X} tier="sm" />
               </HbarAppUiIconButton>
             )}
-          </div>
+          </LumenFrame>
         )}
-      </header>
+      </LumenFrame>
       {toolbar && (
-        <div className="hbar-app-ui-session-tool-pane-toolbar" data-tool-pane-slot="toolbar">
+        <LumenFrame className="hbar-app-ui-session-tool-pane-toolbar" data-tool-pane-slot="toolbar">
           {toolbar}
-        </div>
+        </LumenFrame>
       )}
       {status && (
-        <div className="hbar-app-ui-session-tool-pane-status" data-tool-pane-slot="status">
+        <LumenFrame className="hbar-app-ui-session-tool-pane-status" data-tool-pane-slot="status">
           {status}
-        </div>
+        </LumenFrame>
       )}
       {error && (
-        <div className="hbar-app-ui-session-tool-pane-error" data-tool-pane-slot="error" role="alert">
+        <LumenFrame className="hbar-app-ui-session-tool-pane-error" data-tool-pane-slot="error" role="alert">
           {error}
-        </div>
+        </LumenFrame>
       )}
-      <div className="hbar-app-ui-session-tool-pane-body" data-tool-pane-slot="body">
+      <LumenFrame className="hbar-app-ui-session-tool-pane-body" data-tool-pane-slot="body">
         {children}
-      </div>
+      </LumenFrame>
       {footer && (
-        <footer className="hbar-app-ui-session-tool-pane-footer" data-tool-pane-slot="footer">
+        <LumenFrame as="footer" className="hbar-app-ui-session-tool-pane-footer" data-tool-pane-slot="footer">
           {footer}
-        </footer>
+        </LumenFrame>
       )}
-    </section>
+    </LumenFrame>
   )
 }

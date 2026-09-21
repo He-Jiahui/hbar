@@ -1,6 +1,7 @@
 export { HbarAppUiObjectiveForm, type HbarAppUiObjectiveFormProps } from './components/forms/ObjectiveForm'
 export {
   HbarAppUiCheckBox,
+  HbarAppUiCheckBoxControl,
   HbarAppUiComboBox,
   HbarAppUiField,
   HbarAppUiInput,
@@ -10,6 +11,7 @@ export {
 } from './components/forms/FormControls'
 export type {
   HbarAppUiCheckBoxProps,
+  HbarAppUiCheckBoxControlProps,
   HbarAppUiComboBoxLabels,
   HbarAppUiComboBoxProps,
   HbarAppUiControlOption,

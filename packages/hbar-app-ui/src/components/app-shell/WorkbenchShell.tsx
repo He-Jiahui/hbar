@@ -1,4 +1,8 @@
-import { LumenButton, LumenSelect } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenOption,
+  LumenText,
+ LumenButton, LumenSelect } from '@lumen/app-ui'
 import { Command, PanelLeftClose, PanelLeftOpen, Plus, type LucideIcon } from 'lucide-react'
 import { createContext, useContext, type ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
@@ -43,9 +47,9 @@ export function HbarAppUiWorkbenchShell(props: HbarAppUiShellProps) {
   const workspaces = [...new Map(props.workspaces.map((item) => [item.id, item])).values()]
   const selectedWorkspace = workspaces.some((item) => item.id === props.workspaceId) ? props.workspaceId : ''
   return (
-    <div className={`hbar-app-ui-workbench ${props.className ?? ''}`} data-hbar-app-ui-shell="workbench">
-      <header className="hbar-app-ui-workbench-header">
-        <strong className="hbar-app-ui-workbench-brand">{props.brand}</strong>
+    <LumenFrame className={`hbar-app-ui-workbench ${props.className ?? ''}`} data-hbar-app-ui-shell="workbench">
+      <LumenFrame as="header" className="hbar-app-ui-workbench-header">
+        <LumenText as="strong" className="hbar-app-ui-workbench-brand">{props.brand}</LumenText>
         <LumenButton
           type="button"
           aria-label={labels.toggleSidebar}
@@ -60,13 +64,13 @@ export function HbarAppUiWorkbenchShell(props: HbarAppUiShellProps) {
           value={selectedWorkspace}
           onChange={(event) => props.onWorkspaceChange(event.target.value)}
         >
-          <option value="" disabled>
+          <LumenOption value="" disabled>
             {labels.workspace}
-          </option>
+          </LumenOption>
           {workspaces.map((workspace) => (
-            <option key={workspace.id} value={workspace.id}>
+            <LumenOption key={workspace.id} value={workspace.id}>
               {workspace.label}
-            </option>
+            </LumenOption>
           ))}
         </LumenSelect>
         <LumenButton
@@ -84,15 +88,15 @@ export function HbarAppUiWorkbenchShell(props: HbarAppUiShellProps) {
           aria-label={labels.commands}
         >
           <HbarAppUiIcon icon={Command} />
-          <span>{labels.commands}</span>
+          <LumenText as="span">{labels.commands}</LumenText>
         </LumenButton>
-        <span className="hbar-app-ui-workbench-connection" data-connected={props.connection.connected} role="status">
-          <i aria-hidden="true" />
+        <LumenText as="span" className="hbar-app-ui-workbench-connection" data-connected={props.connection.connected} role="status">
+          <LumenFrame as="i" aria-hidden="true" />
           {props.connection.label}
-        </span>
-      </header>
+        </LumenText>
+      </LumenFrame>
       {props.children}
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -110,7 +114,7 @@ export function HbarAppUiNavigation({
 }) {
   const unique = [...new Map(items.map((item) => [item.id, item])).values()]
   return (
-    <nav className={`hbar-app-ui-workbench-navigation${compact ? ' is-compact' : ''}`} aria-label={label}>
+    <LumenFrame as="nav" className={`hbar-app-ui-workbench-navigation${compact ? ' is-compact' : ''}`} aria-label={label}>
       {unique.map((item) => (
         <LumenButton
           key={item.id}
@@ -122,11 +126,11 @@ export function HbarAppUiNavigation({
           onClick={() => onSelect(item.id)}
         >
           <HbarAppUiIcon icon={item.icon} />
-          <span>{item.label}</span>
-          {item.badge && <small>{item.badge}</small>}
+          <LumenText as="span">{item.label}</LumenText>
+          {item.badge && <LumenText as="small">{item.badge}</LumenText>}
         </LumenButton>
       ))}
-    </nav>
+    </LumenFrame>
   )
 }
 

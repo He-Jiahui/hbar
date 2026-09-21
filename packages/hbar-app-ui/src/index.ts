@@ -968,6 +968,7 @@ export {
   HbarAppUiEmptyState,
   HbarAppUiIconButton,
   HbarAppUiMetricStrip,
+  HbarAppUiNavigationButton,
   HbarAppUiProgress,
   HbarAppUiSpotlight,
   HbarAppUiStatus,

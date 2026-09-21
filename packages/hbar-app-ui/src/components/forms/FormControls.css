@@ -102,7 +102,7 @@ select.hbar-app-ui-control {
 }
 
 .hbar-app-ui-control:disabled,
-.hbar-app-ui-checkbox input:disabled {
+.hbar-app-ui-checkbox-control:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -125,13 +125,27 @@ select.hbar-app-ui-control {
   cursor: pointer;
 }
 
-.hbar-app-ui-checkbox input {
+.hbar-app-ui-checkbox-control {
   inline-size: var(--hbar-app-ui-icon-md);
   block-size: var(--hbar-app-ui-icon-md);
   flex: 0 0 auto;
-  margin: var(--hbar-app-ui-space-xs) 0 0;
+  margin: 0;
   cursor: pointer;
   accent-color: var(--hbar-app-ui-accent);
+}
+
+.hbar-app-ui-checkbox-control[data-size='s'] {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+}
+
+.hbar-app-ui-checkbox-control[data-size='l'] {
+  inline-size: var(--hbar-app-ui-icon-lg);
+  block-size: var(--hbar-app-ui-icon-lg);
+}
+
+.hbar-app-ui-checkbox > .hbar-app-ui-checkbox-control {
+  margin-block-start: var(--hbar-app-ui-space-xs);
 }
 
 .hbar-app-ui-checkbox-copy {

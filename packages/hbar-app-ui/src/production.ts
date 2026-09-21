@@ -33,6 +33,7 @@ export {
   HbarAppUiEmptyState,
   HbarAppUiIconButton,
   HbarAppUiMetricStrip,
+  HbarAppUiNavigationButton,
   HbarAppUiProgress,
   HbarAppUiSpotlight,
   HbarAppUiStatus,
@@ -77,3 +78,4 @@ export * from './settings-form'
 export * from './authentication'
 export * from './forms'
 export * from './command-menu'
+export { HbarAppUiToolPane, type HbarAppUiToolPaneProps } from './components/app-shell/ToolPane'

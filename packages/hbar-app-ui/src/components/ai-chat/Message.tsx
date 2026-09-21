@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { Check, Copy, LoaderCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'
@@ -18,25 +21,25 @@ export interface HbarAppUiMessageProps {
 
 export function HbarAppUiMessage(props: HbarAppUiMessageProps) {
   return (
-    <article className={`message message-${props.role}`} data-message-id={props.id}>
+    <LumenFrame as="article" className={`message message-${props.role}`} data-message-id={props.id}>
       {props.role !== 'tool' && (
-        <header className="message-heading">
-          <span className={`avatar${props.role === 'user' ? ' avatar-user' : ''}`} aria-hidden="true">
+        <LumenFrame as="header" className="message-heading">
+          <LumenText as="span" className={`avatar${props.role === 'user' ? ' avatar-user' : ''}`} aria-hidden="true">
             {props.avatar}
-          </span>
-          <span>{props.author}</span>
-          {props.timestamp && <time>{props.timestamp}</time>}
+          </LumenText>
+          <LumenText as="span">{props.author}</LumenText>
+          {props.timestamp && <LumenText as="time">{props.timestamp}</LumenText>}
           {props.streaming && <HbarAppUiIcon icon={LoaderCircle} tier="sm" className="spinning" />}
-        </header>
+        </LumenFrame>
       )}
-      <div className="message-body">{props.children}</div>
+      <LumenFrame className="message-body">{props.children}</LumenFrame>
       {props.onCopy && (
-        <footer className="message-actions">
+        <LumenFrame as="footer" className="message-actions">
           <LumenButton type="button" title={props.copyLabel} aria-label={props.copyLabel} onClick={props.onCopy}>
             <HbarAppUiIcon icon={props.copied ? Check : Copy} tier="sm" />
           </LumenButton>
-        </footer>
+        </LumenFrame>
       )}
-    </article>
+    </LumenFrame>
   )
 }

@@ -1,0 +1,45 @@
+.hbar-app-ui-tool-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  color: var(--hbar-app-ui-text);
+  background: var(--hbar-app-ui-surface-0);
+}
+.hbar-app-ui-tool-pane > header {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-md);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  flex: 0 0 auto;
+}
+.hbar-app-ui-tool-pane > header > div {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hbar-app-ui-tool-pane h2 {
+  font-size: var(--hbar-app-ui-font-section);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-tool-pane > header p {
+  margin: 0;
+  color: var(--hbar-app-ui-muted);
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-tool-toolbar,
+.hbar-app-ui-tool-status {
+  flex: 0 0 auto;
+  padding: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-tool-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: auto;
+}

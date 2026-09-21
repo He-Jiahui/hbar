@@ -3,6 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   HbarAppUiCheckBox,
+  HbarAppUiCheckBoxControl,
   HbarAppUiComboBox,
   HbarAppUiField,
   HbarAppUiInput,
@@ -35,6 +36,8 @@ test('controlled form primitives connect host-owned field copy and validation me
         </HbarAppUiSelect>
       </HbarAppUiField>
       <HbarAppUiCheckBox checked readOnly label="在模型选择器中显示" description="隐藏后已有会话仍可继续运行。" />
+      <label htmlFor="schema-enabled">启用 Schema</label>
+      <HbarAppUiCheckBoxControl id="schema-enabled" size="l" checked readOnly />
     </section>,
   )
 
@@ -48,6 +51,7 @@ test('controlled form primitives connect host-owned field copy and validation me
   expect(markup).toContain('data-size="s"')
   expect(markup).toContain('aria-describedby="notes-hint"')
   expect(markup).toContain('type="checkbox"')
+  expect(markup).toContain('class="hbar-app-ui-checkbox-control lumen-control" data-size="l"')
   expect(markup).toContain('在模型选择器中显示')
   expect(markup).not.toContain('Write a message')
 })

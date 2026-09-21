@@ -1,4 +1,9 @@
-import { LumenButton, LumenDisclosure } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenDisclosure } from '@lumen/app-ui'
 import { MoreHorizontal, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
 import { HbarAppUiButton, HbarAppUiIconButton, HbarAppUiStatus } from '../../primitives'
@@ -47,13 +52,13 @@ export function HbarAppUiSettingsList({
   onRemove,
 }: HbarAppUiSettingsListProps) {
   return (
-    <section className="hbar-app-ui-settings-list" aria-label={label} aria-busy={busy || undefined}>
-      <header>
-        <div>
-          <h2>{label}</h2>
-          {description && <p>{description}</p>}
-        </div>
-        <div className="hbar-app-ui-settings-list-header-actions">
+    <LumenFrame as="section" className="hbar-app-ui-settings-list" aria-label={label} aria-busy={busy || undefined}>
+      <LumenFrame as="header">
+        <LumenFrame>
+          <LumenText as="h2">{label}</LumenText>
+          {description && <LumenText as="p">{description}</LumenText>}
+        </LumenFrame>
+        <LumenFrame className="hbar-app-ui-settings-list-header-actions">
           <HbarAppUiIconButton label={refreshLabel} disabled={disabled || busy} onClick={onRefresh}>
             <HbarAppUiIcon icon={RefreshCw} tier="sm" />
           </HbarAppUiIconButton>
@@ -61,14 +66,14 @@ export function HbarAppUiSettingsList({
             <HbarAppUiIcon icon={Plus} tier="sm" />
             {addLabel}
           </HbarAppUiButton>
-        </div>
-      </header>
+        </LumenFrame>
+      </LumenFrame>
       {items.length === 0 ? (
-        <p className="hbar-app-ui-settings-list-empty">{empty}</p>
+        <LumenText as="p" className="hbar-app-ui-settings-list-empty">{empty}</LumenText>
       ) : (
-        <ol>
+        <LumenCollection as="ol">
           {items.map((item) => (
-            <li key={item.id}>
+            <LumenCollectionItem key={item.id}>
               <LumenButton
                 type="button"
                 className="hbar-app-ui-settings-list-row"
@@ -76,20 +81,21 @@ export function HbarAppUiSettingsList({
                 disabled={disabled || busy}
                 onClick={() => onOpen(item.id)}
               >
-                <span className="hbar-app-ui-settings-list-copy">
-                  <strong>{item.title}</strong>
-                  <span className="hbar-app-ui-settings-list-metadata">
+                <LumenText as="span" className="hbar-app-ui-settings-list-copy">
+                  <LumenText as="strong">{item.title}</LumenText>
+                  <LumenText as="span" className="hbar-app-ui-settings-list-metadata">
                     {item.metadata.map((value, index) => (
-                      <small key={`${item.id}:${index}`}>{value}</small>
+                      <LumenText as="small" key={`${item.id}:${index}`}>{value}</LumenText>
                     ))}
-                  </span>
-                </span>
+                  </LumenText>
+                </LumenText>
                 {item.status && <HbarAppUiStatus value={item.status.label} tone={item.status.tone} />}
               </LumenButton>
               {item.removeLabel && onRemove && (
                 <LumenDisclosure
                   summary={<HbarAppUiIcon icon={MoreHorizontal} tier="sm" />}
                   className="hbar-app-ui-settings-list-menu"
+                  aria-label={item.menuLabel}
                   onKeyDown={(event) => {
                     if (event.key !== 'Escape') return
                     event.preventDefault()
@@ -97,21 +103,18 @@ export function HbarAppUiSettingsList({
                     event.currentTarget.querySelector('summary')?.focus()
                   }}
                 >
-                  <summary aria-label={item.menuLabel} title={item.menuLabel}>
-                    <HbarAppUiIcon icon={MoreHorizontal} tier="sm" />
-                  </summary>
-                  <div className="hbar-app-ui-dialog-menu" role="menu" aria-label={item.menuLabel}>
+                  <LumenFrame className="hbar-app-ui-dialog-menu" role="menu" aria-label={item.menuLabel}>
                     <LumenButton type="button" role="menuitem" onClick={() => onRemove(item.id)}>
                       <HbarAppUiIcon icon={Trash2} tier="sm" />
                       {item.removeLabel}
                     </LumenButton>
-                  </div>
+                  </LumenFrame>
                 </LumenDisclosure>
               )}
-            </li>
+            </LumenCollectionItem>
           ))}
-        </ol>
+        </LumenCollection>
       )}
-    </section>
+    </LumenFrame>
   )
 }

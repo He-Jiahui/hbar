@@ -1,4 +1,7 @@
-import { LumenInput, LumenTextarea } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenInput, LumenTextarea } from '@lumen/app-ui'
 import { HbarAppUiButton } from '../../primitives'
 import type { ReactNode } from 'react'
 import './ObjectiveForm.css'
@@ -32,7 +35,7 @@ export interface HbarAppUiObjectiveFormProps {
 /** The host owns the objective draft, optional token limit, validation and persistence. */
 export function HbarAppUiObjectiveForm(content: HbarAppUiObjectiveFormProps) {
   return (
-    <form
+    <LumenFrame as="form"
       className="hbar-app-ui-objective-form"
       aria-label={content.labels.title}
       aria-busy={content.busy}
@@ -43,14 +46,14 @@ export function HbarAppUiObjectiveForm(content: HbarAppUiObjectiveFormProps) {
     >
       {content.summary}
       {content.stale && (
-        <div role="status">
-          <p>{content.labels.stale}</p>
+        <LumenFrame role="status">
+          <LumenText as="p">{content.labels.stale}</LumenText>
           <HbarAppUiButton disabled={content.busy} onClick={content.onReset}>
             {content.labels.reset}
           </HbarAppUiButton>
-        </div>
+        </LumenFrame>
       )}
-      <label>
+      <LumenFrame as="label">
         {content.labels.objective}
         <LumenTextarea
           value={content.objective}
@@ -59,8 +62,8 @@ export function HbarAppUiObjectiveForm(content: HbarAppUiObjectiveFormProps) {
           disabled={content.busy}
           onChange={(event) => content.onObjectiveChange(event.currentTarget.value)}
         />
-      </label>
-      <label>
+      </LumenFrame>
+      <LumenFrame as="label">
         {content.labels.budget}
         <LumenInput
           type="number"
@@ -71,14 +74,14 @@ export function HbarAppUiObjectiveForm(content: HbarAppUiObjectiveFormProps) {
           disabled={content.busy}
           onChange={(event) => content.onBudgetChange(event.currentTarget.value)}
         />
-      </label>
-      {content.error && <p role="alert">{content.error}</p>}
-      <footer>
+      </LumenFrame>
+      {content.error && <LumenText as="p" role="alert">{content.error}</LumenText>}
+      <LumenFrame as="footer">
         {content.actions}
         <HbarAppUiButton type="submit" tone="accent" disabled={content.busy || content.stale || !content.canSave}>
           {content.labels.save}
         </HbarAppUiButton>
-      </footer>
-    </form>
+      </LumenFrame>
+    </LumenFrame>
   )
 }

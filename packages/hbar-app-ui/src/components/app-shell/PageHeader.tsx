@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { HbarAppUiShellIcon, type HbarAppUiShellIconName } from './AppShell'
 import './PageHeader.css'
@@ -27,26 +30,26 @@ export function HbarAppUiPageHeader({
   actions,
 }: HbarAppUiPageHeaderProps) {
   return (
-    <header className="hbar-app-ui-page-header">
-      {leading && <div className="hbar-app-ui-page-header-leading">{leading}</div>}
-      <div className="hbar-app-ui-page-heading">
-        <h1 title={title}>{title}</h1>
-        {context && <p title={context}>{context}</p>}
-      </div>
-      <div className="hbar-app-ui-page-header-end">
+    <LumenFrame as="header" className="hbar-app-ui-page-header">
+      {leading && <LumenFrame className="hbar-app-ui-page-header-leading">{leading}</LumenFrame>}
+      <LumenFrame className="hbar-app-ui-page-heading">
+        <LumenText as="h1" title={title}>{title}</LumenText>
+        {context && <LumenText as="p" title={context}>{context}</LumenText>}
+      </LumenFrame>
+      <LumenFrame className="hbar-app-ui-page-header-end">
         {status && (
-          <span className="hbar-app-ui-page-status" data-tone={status.tone}>
-            <i aria-hidden="true" />
+          <LumenText as="span" className="hbar-app-ui-page-status" data-tone={status.tone}>
+            <LumenFrame as="i" aria-hidden="true" />
             {status.label}
-          </span>
+          </LumenText>
         )}
         {actions && (
-          <div className="hbar-app-ui-page-actions" role="group" aria-label={actionsLabel}>
+          <LumenFrame className="hbar-app-ui-page-actions" role="group" aria-label={actionsLabel}>
             {actions}
-          </div>
+          </LumenFrame>
         )}
-      </div>
-    </header>
+      </LumenFrame>
+    </LumenFrame>
   )
 }
 

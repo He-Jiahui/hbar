@@ -1,4 +1,7 @@
-import { LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import {
   forwardRef,
   createContext,
@@ -64,14 +67,14 @@ export function HbarAppUiField({
   const descriptionId = description ? `${controlId}-description` : undefined
   const messageId = error ? `${controlId}-error` : hint ? `${controlId}-hint` : undefined
   return (
-    <div
+    <LumenFrame
       className={`hbar-app-ui-field${error ? ' is-invalid' : ''}${className ? ` ${className}` : ''}`}
       data-description-id={descriptionId}
       data-message-id={messageId}
     >
       <HbarAppUiLabel htmlFor={controlId} {...(size ? { size } : {})}>
         {label}
-        {required && requiredIndicator && <span aria-hidden="true">{requiredIndicator}</span>}
+        {required && requiredIndicator && <LumenText as="span" aria-hidden="true">{requiredIndicator}</LumenText>}
       </HbarAppUiLabel>
       {description && (
         <HbarAppUiText as="p" id={descriptionId} tone="muted" variant="supporting" {...(size ? { size } : {})}>
@@ -105,7 +108,7 @@ export function HbarAppUiField({
           </HbarAppUiText>
         )
       )}
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -228,8 +231,8 @@ export const HbarAppUiCheckBox = forwardRef<HTMLInputElement, HbarAppUiCheckBoxP
 ) {
   return (
     <HbarAppUiLabel className={`hbar-app-ui-checkbox${className ? ` ${className}` : ''}`} {...(size ? { size } : {})}>
-      <input {...props} ref={ref} type="checkbox" />
-      <span className="hbar-app-ui-checkbox-copy">
+      <HbarAppUiCheckBoxControl {...props} ref={ref} {...(size ? { size } : {})} />
+      <LumenText as="span" className="hbar-app-ui-checkbox-copy">
         <HbarAppUiText as="span" variant="label" {...(size ? { size } : {})}>
           {label}
         </HbarAppUiText>
@@ -238,7 +241,7 @@ export const HbarAppUiCheckBox = forwardRef<HTMLInputElement, HbarAppUiCheckBoxP
             {description}
           </HbarAppUiText>
         )}
-      </span>
+      </LumenText>
     </HbarAppUiLabel>
   )
 })
@@ -346,8 +349,8 @@ export function HbarAppUiComboBox({
   }
 
   return (
-    <div ref={root} className="hbar-app-ui-combobox">
-      <div
+    <LumenFrame ref={root} className="hbar-app-ui-combobox">
+      <LumenFrame
         className="hbar-app-ui-combobox-control"
         data-size={resolvedSize}
         data-variant={variant}
@@ -388,10 +391,10 @@ export function HbarAppUiComboBox({
         >
           <HbarAppUiIcon icon={ChevronsUpDown} tier="xs" />
         </HbarAppUiIconButton>
-      </div>
+      </LumenFrame>
       {open && !disabled && (
-        <div className="hbar-app-ui-dialog-menu hbar-app-ui-combobox-popup">
-          <div id={listboxId} role="listbox">
+        <LumenFrame className="hbar-app-ui-dialog-menu hbar-app-ui-combobox-popup">
+          <LumenFrame id={listboxId} role="listbox">
             {loading ? (
               <HbarAppUiText as="p" tone="muted" variant="supporting">
                 {labels.loading}
@@ -415,15 +418,15 @@ export function HbarAppUiComboBox({
                   onClick={() => select(option)}
                   {...(resolvedSize ? { size: resolvedSize } : {})}
                 >
-                  <span>
-                    <strong>{option.label}</strong>
-                    {option.detail && <small>{option.detail}</small>}
-                  </span>
+                  <LumenText as="span">
+                    <LumenText as="strong">{option.label}</LumenText>
+                    {option.detail && <LumenText as="small">{option.detail}</LumenText>}
+                  </LumenText>
                   {value === option.id && <HbarAppUiIcon icon={Check} tier="xs" />}
                 </HbarAppUiButton>
               ))
             )}
-          </div>
+          </LumenFrame>
           {loadMoreLabel && onLoadMore && (
             <HbarAppUiButton
               className="hbar-app-ui-combobox-load-more"
@@ -434,9 +437,9 @@ export function HbarAppUiComboBox({
               {loadMoreLabel}
             </HbarAppUiButton>
           )}
-        </div>
+        </LumenFrame>
       )}
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -470,11 +473,11 @@ export function HbarAppUiMultiSelect({
   )
   const available = uniqueOptionItems.filter((option) => !uniqueValues.includes(option.id))
   return (
-    <div className={`hbar-app-ui-multi-select${disabled ? ' is-disabled' : ''}`} data-size={size}>
+    <LumenFrame className={`hbar-app-ui-multi-select${disabled ? ' is-disabled' : ''}`} data-size={size}>
       {selected.length > 0 && (
-        <div className="hbar-app-ui-multi-select-values">
+        <LumenFrame className="hbar-app-ui-multi-select-values">
           {selected.map((option) => (
-            <span key={option.id}>
+            <LumenText as="span" key={option.id}>
               {option.label}
               <HbarAppUiIconButton
                 label={labels.remove(option.label)}
@@ -485,9 +488,9 @@ export function HbarAppUiMultiSelect({
               >
                 <HbarAppUiIcon icon={X} tier="xs" />
               </HbarAppUiIconButton>
-            </span>
+            </LumenText>
           ))}
-        </div>
+        </LumenFrame>
       )}
       <HbarAppUiComboBox
         {...comboBox}
@@ -498,6 +501,6 @@ export function HbarAppUiMultiSelect({
         {...(disabled === undefined ? {} : { disabled })}
         onValueChange={(value) => onValuesChange([...uniqueValues, value])}
       />
-    </div>
+    </LumenFrame>
   )
 }

@@ -1,3 +1,4 @@
+import { LumenFrame } from '@lumen/app-ui'
 import type {ReactNode} from 'react'
 import type {HbarAppUiVariantProps} from '../types'
 
@@ -33,14 +34,14 @@ function frameClassName(spec: SurfaceFrameProps['spec'], className: string): str
  */
 export function SurfaceFrame({spec, children, className = ''}: SurfaceFrameProps) {
     return (
-        <section
+        <LumenFrame as="section"
             className={frameClassName(spec, className)}
             data-hbar-app-ui-component={spec.id}
             data-hbar-app-ui-surface={spec.profile.surface}
             data-hbar-app-ui-state={spec.profile.initialState}
         >
             {children}
-        </section>
+        </LumenFrame>
     )
 }
 
