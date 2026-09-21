@@ -15,8 +15,8 @@ test('canonical Lumen catalog covers every stable source variant without oversta
   const migrated = LUMEN_VARIANT_REGISTRY.filter((entry) => entry.status === 'migrated')
   expect(migrated.map((entry) => entry.id)).toEqual([...LUMEN_MIGRATED_VARIANT_IDS])
   expect(migrated.every((entry) => entry.component)).toBe(true)
-  expect(LUMEN_MIGRATED_VARIANT_IDS).toHaveLength(133)
-  expect(LUMEN_VARIANT_REGISTRY.filter((entry) => entry.status === 'source')).toHaveLength(167)
+  expect(LUMEN_MIGRATED_VARIANT_IDS).toHaveLength(140)
+  expect(LUMEN_VARIANT_REGISTRY.filter((entry) => entry.status === 'source')).toHaveLength(160)
 })
 
 test('canonical Lumen catalog resolves stable IDs and leaves source-only IDs unimplemented', () => {
@@ -47,6 +47,10 @@ test('canonical Lumen catalog resolves stable IDs and leaves source-only IDs uni
   const commandMenu = getLumenVariant('hbar-app-ui-command-menu-6')
   expect(commandMenu?.status).toBe('migrated')
   expect(getLumenVariantComponent('hbar-app-ui-command-menu-6')).toBeFunction()
+
+  const promptInput = getLumenVariant('hbar-app-ui-prompt-input-7')
+  expect(promptInput?.status).toBe('migrated')
+  expect(getLumenVariantComponent('hbar-app-ui-prompt-input-7')).toBeFunction()
 
   const navbar = getLumenVariant('hbar-app-ui-navbar-14')
   expect(navbar?.status).toBe('migrated')
