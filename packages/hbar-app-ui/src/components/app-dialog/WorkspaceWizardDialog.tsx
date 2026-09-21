@@ -1,6 +1,18 @@
-import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenOption,
+  LumenText,
+ LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import {useState} from 'react'
-import {DialogBackdrop, DialogButton, DialogCloseButton, DialogField, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
+import {
+    type AppDialogProps,
+    DialogBackdrop,
+    DialogButton,
+    DialogCloseButton,
+    DialogField,
+    DialogFrame,
+    reportDialogAction
+} from './DialogPrimitives'
 
 export function WorkspaceWizardDialog({spec, onAction}: AppDialogProps): React.JSX.Element {
     const [open, setOpen] = useState(true)
@@ -25,39 +37,45 @@ export function WorkspaceWizardDialog({spec, onAction}: AppDialogProps): React.J
         }}>New workspace
         </LumenButton>
         {open && <DialogBackdrop>
-            <section className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-wizard" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
-                <header className="hbar-app-ui-dialog-header">
-                    <div><p className="hbar-app-ui-dialog-step">Step {step} of 3</p><h2 id={`${spec.id}-title`}>{step === 1 ? 'Workspace' : step === 2 ? 'Environment' : 'Review'}</h2></div>
+            <LumenFrame as="section" className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-wizard" role="dialog"
+                     aria-modal="true" aria-labelledby={`${spec.id}-title`}>
+                <LumenFrame as="header" className="hbar-app-ui-dialog-header">
+                    <LumenFrame><LumenText as="p" className="hbar-app-ui-dialog-step">Step {step} of 3</LumenText><LumenText as="h2"
+                        id={`${spec.id}-title`}>{step === 1 ? 'Workspace' : step === 2 ? 'Environment' : 'Review'}</LumenText>
+                    </LumenFrame>
                     <DialogCloseButton onClose={close}/>
-                </header>
-                <div className="hbar-app-ui-dialog-content hbar-app-ui-dialog-wizard-content">
-                    <div className="hbar-app-ui-dialog-progress" aria-label={`Step ${step} of 3`}>{[1, 2, 3].map((part) => <span className={part <= step ? 'is-active' : ''} key={part}/>)}</div>
-                    {step === 1 && <div className="hbar-app-ui-dialog-wizard-body">
+                </LumenFrame>
+                <LumenFrame className="hbar-app-ui-dialog-content hbar-app-ui-dialog-wizard-content">
+                    <LumenFrame className="hbar-app-ui-dialog-progress"
+                         aria-label={`Step ${step} of 3`}>{[1, 2, 3].map((part) => <LumenText as="span"
+                        className={part <= step ? 'is-active' : ''} key={part}/>)}</LumenFrame>
+                    {step === 1 && <LumenFrame className="hbar-app-ui-dialog-wizard-body">
                         <DialogField label="Workspace name"><LumenInput defaultValue="Northwind"
                                                                    aria-label="Workspace name"/></DialogField>
-                        <div className="hbar-app-ui-dialog-readonly-field"><span>Workspace URL</span>
-                            <div><span>northwind.app/</span><strong>northwind</strong></div>
-                            <small>You can change this later in settings.</small></div>
-                    </div>}
+                        <LumenFrame className="hbar-app-ui-dialog-readonly-field"><LumenText as="span">Workspace URL</LumenText>
+                            <LumenFrame><LumenText as="span">northwind.app/</LumenText><LumenText as="strong">northwind</LumenText></LumenFrame>
+                            <LumenText as="small">You can change this later in settings.</LumenText></LumenFrame>
+                    </LumenFrame>}
                     {step === 2 &&
-                        <div className="hbar-app-ui-dialog-wizard-body"><DialogField label="Default environment"><LumenSelect
+                        <LumenFrame className="hbar-app-ui-dialog-wizard-body"><DialogField label="Default environment"><LumenSelect
                             defaultValue="Production" aria-label="Default environment">
-                            <option>Production</option>
-                            <option>Staging</option>
-                            <option>Development</option>
-                        </LumenSelect></DialogField><p className="hbar-app-ui-dialog-note">You can add more environments
-                            later.</p></div>}
+                            <LumenOption>Production</LumenOption>
+                            <LumenOption>Staging</LumenOption>
+                            <LumenOption>Development</LumenOption>
+                        </LumenSelect></DialogField><LumenText as="p" className="hbar-app-ui-dialog-note">You can add more environments
+                            later.</LumenText></LumenFrame>}
                     {step === 3 &&
-                        <div className="hbar-app-ui-dialog-wizard-body"><p className="hbar-app-ui-dialog-review-line">
-                            <span>Workspace</span><strong>Northwind</strong></p><p
+                        <LumenFrame className="hbar-app-ui-dialog-wizard-body"><LumenText as="p" className="hbar-app-ui-dialog-review-line">
+                            <LumenText as="span">Workspace</LumenText><LumenText as="strong">Northwind</LumenText></LumenText><LumenText as="p"
                             className="hbar-app-ui-dialog-review-line">
-                            <span>URL</span><strong>northwind.app/northwind</strong></p></div>}
-                </div>
-                <footer className="hbar-app-ui-dialog-footer">
+                            <LumenText as="span">URL</LumenText><LumenText as="strong">northwind.app/northwind</LumenText></LumenText></LumenFrame>}
+                </LumenFrame>
+                <LumenFrame as="footer" className="hbar-app-ui-dialog-footer">
                     <DialogButton onClick={close}>Cancel</DialogButton>
-                    <DialogButton tone="accent" onClick={continueStep}>{step === 3 ? 'Create workspace' : 'Continue'}</DialogButton>
-                </footer>
-            </section>
+                    <DialogButton tone="accent"
+                                  onClick={continueStep}>{step === 3 ? 'Create workspace' : 'Continue'}</DialogButton>
+                </LumenFrame>
+            </LumenFrame>
         </DialogBackdrop>}
     </DialogFrame>
 }

@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import type {ReactNode} from 'react'
 import {X} from 'lucide-react'
@@ -22,16 +25,22 @@ export function reportDialogAction(
 }
 
 export function DialogFrame({
-    spec,
-    onAction,
-    className,
-    children,
-}: AppDialogProps & {readonly children: ReactNode; readonly className: string}): ReactNode {
+                                spec,
+                                onAction,
+                                className,
+                                children,
+                            }: AppDialogProps & {
+    readonly children: ReactNode;
+    readonly className: string
+}): ReactNode {
     return <ActionSurfaceFrame spec={spec} onAction={onAction} className={className}>{children}</ActionSurfaceFrame>
 }
 
-export function DialogBackdrop({children, className = ''}: {readonly children: ReactNode; readonly className?: string}): ReactNode {
-    return <div className={`hbar-app-ui-dialog-backdrop ${className}`}>{children}</div>
+export function DialogBackdrop({children, className = ''}: {
+    readonly children: ReactNode;
+    readonly className?: string
+}): ReactNode {
+    return <LumenFrame className={`hbar-app-ui-dialog-backdrop ${className}`}>{children}</LumenFrame>
 }
 
 export function DialogCloseButton({onClose}: { readonly onClose: () => void }): ReactNode {
@@ -40,12 +49,12 @@ export function DialogCloseButton({onClose}: { readonly onClose: () => void }): 
 }
 
 export function DialogButton({
-    children,
-    tone = 'neutral',
-    disabled = false,
-    onClick,
-    className = '',
-}: {
+                                 children,
+                                 tone = 'neutral',
+                                 disabled = false,
+                                 onClick,
+                                 className = '',
+                             }: {
     readonly children: ReactNode
     readonly tone?: AppDialogButtonTone
     readonly disabled?: boolean
@@ -58,13 +67,14 @@ export function DialogButton({
 }
 
 export function DialogField({
-    label,
-    children,
-    hint,
-}: {
+                                label,
+                                children,
+                                hint,
+                            }: {
     readonly label: ReactNode
     readonly children: ReactNode
     readonly hint?: string
 }): ReactNode {
-    return <label className="hbar-app-ui-dialog-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>
+    return <LumenFrame as="label" className="hbar-app-ui-dialog-field"><LumenText as="span">{label}</LumenText>{children}{hint && <LumenText as="small">{hint}</LumenText>}
+    </LumenFrame>
 }

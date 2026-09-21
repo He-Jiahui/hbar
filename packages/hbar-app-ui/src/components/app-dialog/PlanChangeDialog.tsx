@@ -1,6 +1,18 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import {useState} from 'react'
-import {DialogBackdrop, DialogButton, DialogCloseButton, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
+import {
+    type AppDialogProps,
+    DialogBackdrop,
+    DialogButton,
+    DialogCloseButton,
+    DialogFrame,
+    reportDialogAction
+} from './DialogPrimitives'
 
 type PlanRow = {
     readonly label: string
@@ -29,24 +41,29 @@ export function PlanChangeDialog({spec, onAction}: AppDialogProps): React.JSX.El
         }}>Change plan
         </LumenButton>
         {open && <DialogBackdrop>
-            <section className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-plan" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
-                <header className="hbar-app-ui-dialog-header">
-                    <div><h2 id={`${spec.id}-title`}>Apply plan change</h2><p>Your workspace moves to the Scale plan at the next renewal on Jul 1. Nothing is charged today.</p></div>
+            <LumenFrame as="section" className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-plan" role="dialog" aria-modal="true"
+                     aria-labelledby={`${spec.id}-title`}>
+                <LumenFrame as="header" className="hbar-app-ui-dialog-header">
+                    <LumenFrame><LumenText as="h2" id={`${spec.id}-title`}>Apply plan change</LumenText><LumenText as="p">Your workspace moves to the Scale plan at
+                        the next renewal on Jul 1. Nothing is charged today.</LumenText></LumenFrame>
                     <DialogCloseButton onClose={close}/>
-                </header>
-                <div className="hbar-app-ui-dialog-content hbar-app-ui-dialog-plan-content">
-                    <dl className="hbar-app-ui-dialog-plan-rows">
-                        {planRows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd><s>{row.from}</s><span aria-hidden="true">→</span><strong>{row.to}</strong></dd></div>)}
-                    </dl>
-                </div>
-                <footer className="hbar-app-ui-dialog-footer">
+                </LumenFrame>
+                <LumenFrame className="hbar-app-ui-dialog-content hbar-app-ui-dialog-plan-content">
+                    <LumenCollection as="dl" className="hbar-app-ui-dialog-plan-rows">
+                        {planRows.map((row) => <LumenFrame key={row.label}>
+                            <LumenCollectionItem as="dt">{row.label}</LumenCollectionItem>
+                            <LumenCollectionItem as="dd"><LumenText as="s">{row.from}</LumenText><LumenText as="span" aria-hidden="true">→</LumenText><LumenText as="strong">{row.to}</LumenText></LumenCollectionItem>
+                        </LumenFrame>)}
+                    </LumenCollection>
+                </LumenFrame>
+                <LumenFrame as="footer" className="hbar-app-ui-dialog-footer">
                     <DialogButton onClick={close}>Cancel</DialogButton>
                     <DialogButton tone="accent" onClick={() => {
                         setOpen(false)
                         reportDialogAction(onAction, spec, 'confirm', 'plan-change')
                     }}>Apply change</DialogButton>
-                </footer>
-            </section>
+                </LumenFrame>
+            </LumenFrame>
         </DialogBackdrop>}
     </DialogFrame>
 }

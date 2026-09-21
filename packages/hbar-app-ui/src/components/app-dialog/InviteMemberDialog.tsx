@@ -1,6 +1,18 @@
-import { LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenOption,
+  LumenText,
+ LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
 import {useState} from 'react'
-import {DialogBackdrop, DialogButton, DialogCloseButton, DialogField, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
+import {
+    type AppDialogProps,
+    DialogBackdrop,
+    DialogButton,
+    DialogCloseButton,
+    DialogField,
+    DialogFrame,
+    reportDialogAction
+} from './DialogPrimitives'
 
 export function InviteMemberDialog({spec, onAction}: AppDialogProps): React.JSX.Element {
     const [open, setOpen] = useState(true)
@@ -15,12 +27,14 @@ export function InviteMemberDialog({spec, onAction}: AppDialogProps): React.JSX.
         }}>Invite member
         </LumenButton>
         {open && <DialogBackdrop>
-            <section className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-invite" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
-                <header className="hbar-app-ui-dialog-header">
-                    <div><h2 id={`${spec.id}-title`}>Invite a member</h2><p>They'll get an email invite to join the Northwind workspace.</p></div>
+            <LumenFrame as="section" className="hbar-app-ui-dialog-panel hbar-app-ui-dialog-panel-invite" role="dialog"
+                     aria-modal="true" aria-labelledby={`${spec.id}-title`}>
+                <LumenFrame as="header" className="hbar-app-ui-dialog-header">
+                    <LumenFrame><LumenText as="h2" id={`${spec.id}-title`}>Invite a member</LumenText><LumenText as="p">They'll get an email invite to join the
+                        Northwind workspace.</LumenText></LumenFrame>
                     <DialogCloseButton onClose={close}/>
-                </header>
-                <div className="hbar-app-ui-dialog-content hbar-app-ui-dialog-form-body">
+                </LumenFrame>
+                <LumenFrame className="hbar-app-ui-dialog-content hbar-app-ui-dialog-form-body">
                     <DialogField label="Full name"><LumenInput placeholder="Jordan Ellis"
                                                           aria-label="Full name"/></DialogField>
                     <DialogField label="Work email" hint="Invites expire after 7 days."><LumenInput type="email"
@@ -28,21 +42,21 @@ export function InviteMemberDialog({spec, onAction}: AppDialogProps): React.JSX.
                                                                                                aria-label="Work email"/></DialogField>
                     <DialogField label="Role" hint="Editors can change content but not billing.">
                         <LumenSelect defaultValue="Editor" aria-label="Role">
-                            <option>Admin</option>
-                            <option>Editor</option>
-                            <option>Viewer</option>
-                            <option>Billing</option>
+                            <LumenOption>Admin</LumenOption>
+                            <LumenOption>Editor</LumenOption>
+                            <LumenOption>Viewer</LumenOption>
+                            <LumenOption>Billing</LumenOption>
                         </LumenSelect>
                     </DialogField>
-                </div>
-                <footer className="hbar-app-ui-dialog-footer">
+                </LumenFrame>
+                <LumenFrame as="footer" className="hbar-app-ui-dialog-footer">
                     <DialogButton onClick={close}>Cancel</DialogButton>
                     <DialogButton tone="accent" onClick={() => {
                         setOpen(false)
                         reportDialogAction(onAction, spec, 'confirm', 'invite')
                     }}>Send invite</DialogButton>
-                </footer>
-            </section>
+                </LumenFrame>
+            </LumenFrame>
         </DialogBackdrop>}
     </DialogFrame>
 }

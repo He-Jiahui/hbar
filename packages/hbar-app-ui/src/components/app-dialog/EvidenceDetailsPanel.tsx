@@ -1,8 +1,20 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Archive, Download} from 'lucide-react'
-import {DialogBackdrop, DialogButton, DialogCloseButton, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
+import {
+    type AppDialogProps,
+    DialogBackdrop,
+    DialogButton,
+    DialogCloseButton,
+    DialogFrame,
+    reportDialogAction
+} from './DialogPrimitives'
 
 const evidenceDetails = [
     ['Owner', 'Priya Raman'],
@@ -34,17 +46,36 @@ export function EvidenceDetailsPanel({spec, onAction}: AppDialogProps): React.JS
                 }}>View evidence details
         </LumenButton>
         {open && <DialogBackdrop className="hbar-app-ui-dialog-side-backdrop">
-            <aside className="hbar-app-ui-side-panel hbar-app-ui-side-panel-evidence" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
-                <header className="hbar-app-ui-side-panel-header"><h2 id={`${spec.id}-title`}>SOC 2 Type II report</h2><DialogCloseButton onClose={close}/></header>
-                <div className="hbar-app-ui-side-panel-body">
-                    <p className="hbar-app-ui-evidence-status"><i aria-hidden="true"/><span>Current <b aria-hidden="true">·</b> SOC2-2024</span></p>
-                    <p className="hbar-app-ui-evidence-description">Independent audit of security, availability, and confidentiality controls for the 2024 reporting period.</p>
-                    <dl className="hbar-app-ui-evidence-details">{evidenceDetails.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-                    <section className="hbar-app-ui-evidence-controls"><h3>Controls covered</h3><div>{controls.map(([code, label]) => <span key={code}><strong>{code}</strong> {label}</span>)}</div></section>
-                    <section className="hbar-app-ui-evidence-history"><h3>History</h3><p><time>Jun 18, 2024</time><span>Report uploaded by Priya Raman</span></p></section>
-                </div>
-                <footer className="hbar-app-ui-dialog-footer hbar-app-ui-side-panel-footer"><DialogButton onClick={() => reportDialogAction(onAction, spec, 'archive')}><HbarAppUiIcon icon={Archive} tier="md" />Archive</DialogButton><DialogButton tone="accent" onClick={() => reportDialogAction(onAction, spec, 'download')}><HbarAppUiIcon icon={Download} tier="md" />Download</DialogButton></footer>
-            </aside>
+            <LumenFrame as="aside" className="hbar-app-ui-side-panel hbar-app-ui-side-panel-evidence" role="dialog" aria-modal="true"
+                   aria-labelledby={`${spec.id}-title`}>
+                <LumenFrame as="header" className="hbar-app-ui-side-panel-header"><LumenText as="h2" id={`${spec.id}-title`}>SOC 2 Type II report</LumenText>
+                    <DialogCloseButton onClose={close}/></LumenFrame>
+                <LumenFrame className="hbar-app-ui-side-panel-body">
+                    <LumenText as="p" className="hbar-app-ui-evidence-status"><LumenFrame as="i" aria-hidden="true"/><LumenText as="span">Current <LumenText as="b"
+                        aria-hidden="true">·</LumenText> SOC2-2024</LumenText></LumenText>
+                    <LumenText as="p" className="hbar-app-ui-evidence-description">Independent audit of security, availability, and
+                        confidentiality controls for the 2024 reporting period.</LumenText>
+                    <LumenCollection as="dl" className="hbar-app-ui-evidence-details">{evidenceDetails.map(([label, value]) => <LumenFrame
+                        key={label}>
+                        <LumenCollectionItem as="dt">{label}</LumenCollectionItem>
+                        <LumenCollectionItem as="dd">{value}</LumenCollectionItem>
+                    </LumenFrame>)}</LumenCollection>
+                    <LumenFrame as="section" className="hbar-app-ui-evidence-controls"><LumenText as="h3">Controls covered</LumenText>
+                        <LumenFrame>{controls.map(([code, label]) => <LumenText as="span"
+                            key={code}><LumenText as="strong">{code}</LumenText> {label}</LumenText>)}</LumenFrame>
+                    </LumenFrame>
+                    <LumenFrame as="section" className="hbar-app-ui-evidence-history"><LumenText as="h3">History</LumenText>
+                        <LumenText as="p">
+                            <LumenText as="time">Jun 18, 2024</LumenText>
+                            <LumenText as="span">Report uploaded by Priya Raman</LumenText></LumenText>
+                    </LumenFrame>
+                </LumenFrame>
+                <LumenFrame as="footer" className="hbar-app-ui-dialog-footer hbar-app-ui-side-panel-footer"><DialogButton
+                    onClick={() => reportDialogAction(onAction, spec, 'archive')}><HbarAppUiIcon icon={Archive} tier="md"
+                    />Archive</DialogButton><DialogButton tone="accent"
+                                                                   onClick={() => reportDialogAction(onAction, spec, 'download')}><HbarAppUiIcon icon={Download} tier="md"
+                    />Download</DialogButton></LumenFrame>
+            </LumenFrame>
         </DialogBackdrop>}
     </DialogFrame>
 }

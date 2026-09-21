@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { useEffect, useId, useRef, type ReactNode, type RefObject, type KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
 import { HbarAppUiIcon } from '../../icon'
@@ -72,7 +75,7 @@ export function HbarAppUiDialog({
     }
   }, [open, initialFocus])
   return (
-    <dialog
+    <LumenFrame as="dialog"
       ref={ref}
       className={`hbar-app-ui-native-dialog${chromeless ? ' is-chromeless' : ''}${className ? ` ${className}` : ''}`}
       aria-label={chromeless ? title : undefined}
@@ -96,15 +99,15 @@ export function HbarAppUiDialog({
       }}
     >
       {!chromeless && (
-        <header>
-          <h2 id={titleId}>{title}</h2>
+        <LumenFrame as="header">
+          <LumenText as="h2" id={titleId}>{title}</LumenText>
           <LumenButton type="button" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
             <HbarAppUiIcon icon={X} />
           </LumenButton>
-        </header>
+        </LumenFrame>
       )}
-      <div className="hbar-app-ui-native-dialog-body">{children}</div>
-      {footer && <footer>{footer}</footer>}
-    </dialog>
+      <LumenFrame className="hbar-app-ui-native-dialog-body">{children}</LumenFrame>
+      {footer && <LumenFrame as="footer">{footer}</LumenFrame>}
+    </LumenFrame>
   )
 }

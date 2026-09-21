@@ -1,6 +1,18 @@
-import { LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenOption,
+  LumenText,
+ LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
 import {useState} from 'react'
-import {DialogBackdrop, DialogButton, DialogCloseButton, DialogField, DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
+import {
+    type AppDialogProps,
+    DialogBackdrop,
+    DialogButton,
+    DialogCloseButton,
+    DialogField,
+    DialogFrame,
+    reportDialogAction
+} from './DialogPrimitives'
 
 export function AlertRuleDrawer({spec, onAction}: AppDialogProps): React.JSX.Element {
     const [open, setOpen] = useState(true)
@@ -18,35 +30,38 @@ export function AlertRuleDrawer({spec, onAction}: AppDialogProps): React.JSX.Ele
                 }}>Edit alert rule
         </LumenButton>
         {open && <DialogBackdrop className="hbar-app-ui-dialog-side-backdrop">
-            <aside className="hbar-app-ui-side-panel hbar-app-ui-side-panel-alert" role="dialog" aria-modal="true" aria-labelledby={`${spec.id}-title`}>
-                <header className="hbar-app-ui-side-panel-header"><h2 id={`${spec.id}-title`}>Edit alert rule</h2><DialogCloseButton onClose={close}/></header>
-                <div className="hbar-app-ui-side-panel-body">
-                    <div className="hbar-app-ui-side-readonly-field"><span>Rule name</span>
-                        <div>Error rate spike</div>
-                    </div>
+            <LumenFrame as="aside" className="hbar-app-ui-side-panel hbar-app-ui-side-panel-alert" role="dialog" aria-modal="true"
+                   aria-labelledby={`${spec.id}-title`}>
+                <LumenFrame as="header" className="hbar-app-ui-side-panel-header"><LumenText as="h2" id={`${spec.id}-title`}>Edit alert rule</LumenText>
+                    <DialogCloseButton onClose={close}/></LumenFrame>
+                <LumenFrame className="hbar-app-ui-side-panel-body">
+                    <LumenFrame className="hbar-app-ui-side-readonly-field"><LumenText as="span">Rule name</LumenText>
+                        <LumenFrame>Error rate spike</LumenFrame>
+                    </LumenFrame>
                     <DialogField label="Deliver to"><LumenSelect defaultValue="Slack" aria-label="Deliver to">
-                        <option>Email</option>
-                        <option>Slack</option>
-                        <option>PagerDuty</option>
-                        <option>Webhook</option>
+                        <LumenOption>Email</LumenOption>
+                        <LumenOption>Slack</LumenOption>
+                        <LumenOption>PagerDuty</LumenOption>
+                        <LumenOption>Webhook</LumenOption>
                     </LumenSelect></DialogField>
                     <DialogField label="Trigger threshold"><LumenInput defaultValue="5% / 5 min"
                                                                   aria-label="Trigger threshold"/></DialogField>
                     <DialogField label="Note"><LumenTextarea defaultValue="Page the on-call engineer when errors climb."
                                                         aria-label="Note"/></DialogField>
-                    <label className="hbar-app-ui-side-toggle-row"><span><strong>Rule enabled</strong><small>Turn off to pause without deleting.</small></span>
+                    <LumenFrame as="label" className="hbar-app-ui-side-toggle-row"><LumenText as="span"><LumenText as="strong">Rule enabled</LumenText><LumenText as="small">Turn off to pause without deleting.</LumenText></LumenText>
                         <LumenButton type="button" role="switch" aria-checked={enabled} className={enabled ? 'is-on' : ''}
                                 onClick={() => {
                                     setEnabled((current) => !current)
                                     reportDialogAction(onAction, spec, 'toggle', enabled ? 'disabled' : 'enabled')
-                                }}><i/></LumenButton>
-                    </label>
-                </div>
-                <footer className="hbar-app-ui-dialog-footer hbar-app-ui-side-panel-footer"><DialogButton onClick={close}>Cancel</DialogButton><DialogButton tone="accent" onClick={() => {
+                                }}><LumenFrame as="i"/></LumenButton>
+                    </LumenFrame>
+                </LumenFrame>
+                <LumenFrame as="footer" className="hbar-app-ui-dialog-footer hbar-app-ui-side-panel-footer"><DialogButton
+                    onClick={close}>Cancel</DialogButton><DialogButton tone="accent" onClick={() => {
                     setOpen(false)
                     reportDialogAction(onAction, spec, 'save')
-                }}>Save changes</DialogButton></footer>
-            </aside>
+                }}>Save changes</DialogButton></LumenFrame>
+            </LumenFrame>
         </DialogBackdrop>}
     </DialogFrame>
 }

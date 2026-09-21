@@ -1,8 +1,11 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Archive, ChevronDown, ChevronRight, Copy, FileText, Link, Pencil, Trash2} from 'lucide-react'
-import {DialogFrame, reportDialogAction, type AppDialogProps} from './DialogPrimitives'
+import {type AppDialogProps, DialogFrame, reportDialogAction} from './DialogPrimitives'
 
 type MenuItem = {
     readonly id: string
@@ -25,29 +28,29 @@ const menuItems: readonly MenuItem[] = [
 export function AppDialogActionsMenu({spec, onAction}: AppDialogProps): React.JSX.Element {
     const [open, setOpen] = useState(true)
     return <DialogFrame spec={spec} onAction={onAction} className="hbar-app-ui-dialog-variant-7">
-        <div className="hbar-app-ui-dialog-menu-stage">
-            <div className="hbar-app-ui-dialog-menu-anchor">
+        <LumenFrame className="hbar-app-ui-dialog-menu-stage">
+            <LumenFrame className="hbar-app-ui-dialog-menu-anchor">
                 <LumenButton type="button" className="hbar-app-ui-dialog-trigger hbar-app-ui-menu-trigger"
                         aria-expanded={open} aria-haspopup="menu" onClick={() => {
                     setOpen((current) => !current)
                     reportDialogAction(onAction, spec, 'toggle', open ? 'closed' : 'open')
                 }}>Report actions <HbarAppUiIcon icon={ChevronDown} tier="sm" /></LumenButton>
-                {open && <div className="hbar-app-ui-dialog-menu" role="menu" aria-label="Report actions">
+                {open && <LumenFrame className="hbar-app-ui-dialog-menu" role="menu" aria-label="Report actions">
                     {menuItems.map((item, index) => {
                         const Icon = item.icon
-                        return <div key={item.id}>
-                            {index === 2 || index === 4 ? <hr/> : null}
+                        return <LumenFrame key={item.id}>
+                            {index === 2 || index === 4 ? <LumenFrame as="hr"/> : null}
                             <LumenButton type="button"
                                     className={`${index === 0 ? 'is-selected ' : ''}${item.danger ? 'is-danger' : ''}`.trim()}
                                     role="menuitem" onClick={() => reportDialogAction(onAction, spec, item.id)}>
-                                <HbarAppUiIcon icon={Icon} tier="md" /><span>{item.label}</span>{item.shortcut &&
-                                <kbd>{item.shortcut}</kbd>}{item.submenu &&
+                                <HbarAppUiIcon icon={Icon} tier="md" /><LumenText as="span">{item.label}</LumenText>{item.shortcut &&
+                                <LumenText as="kbd">{item.shortcut}</LumenText>}{item.submenu &&
                                 <HbarAppUiIcon icon={ChevronRight} tier="sm" className="hbar-app-ui-dialog-menu-chevron" />}
                             </LumenButton>
-                        </div>
+                        </LumenFrame>
                     })}
-                </div>}
-            </div>
-        </div>
+                </LumenFrame>}
+            </LumenFrame>
+        </LumenFrame>
     </DialogFrame>
 }
