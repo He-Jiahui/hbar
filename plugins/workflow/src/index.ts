@@ -5,7 +5,7 @@ import {
   HbarError,
   MAX_WORKFLOW_EVIDENCE,
   WORKFLOW_SCHEMA_VERSION,
-  workflowPlanItemSchema,
+  workflowPlanItemsSchema,
   workflowPlanSchema,
   workflowScopeSchema,
   workflowSnapshotSchema,
@@ -339,7 +339,7 @@ export class WorkflowRuntime implements WorkflowService {
       if ((expectedRevision ?? null) !== (current?.revision ?? null))
         throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The workflow plan changed before this update was applied')
       const now = Date.now()
-      const parsedItems = z.array(workflowPlanItemSchema).min(1).parse(items)
+      const parsedItems = workflowPlanItemsSchema.parse(items)
       const plan = workflowPlanSchema.parse({
         schemaVersion: WORKFLOW_SCHEMA_VERSION,
         planId: current?.planId ?? crypto.randomUUID(),
@@ -416,7 +416,7 @@ export class WorkflowRuntime implements WorkflowService {
       }
       if (existing && existing.status !== 'completed')
         throw new HbarError('WORKFLOW_EXISTS', 'An unfinished workflow already exists for this session')
-      const parsedItems = z.array(workflowPlanItemSchema).min(1).parse(items)
+      const parsedItems = workflowPlanItemsSchema.parse(items)
       const now = Date.now()
       const currentPlan = this.plans.get(sessionId)
       const plan = workflowPlanSchema.parse({

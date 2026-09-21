@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, MAX_GOAL_OBJECTIVE_LENGTH } from '../index'
-import { MAX_WORKFLOW_ITEMS, workflowPlanItemSchema, workflowScopeSchema, workflowSnapshotSchema } from '../workflow'
+import { workflowPlanItemsSchema, workflowScopeSchema, workflowSnapshotSchema } from '../workflow'
 
 const sessionArgument = { field: 'sessionId', type: 'string' as const, flag: 'session' }
 const expectedRevisionSchema = z.number().int().positive()
@@ -22,14 +22,14 @@ const metadata = (id: string, kind: 'command' | 'query') => ({
 export const workflowPlanSaveInputSchema = z.strictObject({
   sessionId: idSchema,
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
-  items: z.array(workflowPlanItemSchema).min(1).max(MAX_WORKFLOW_ITEMS),
+  items: workflowPlanItemsSchema,
   expectedRevision: expectedRevisionSchema.nullable().optional(),
 })
 
 export const workflowStartInputSchema = z.strictObject({
   sessionId: idSchema,
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
-  items: z.array(workflowPlanItemSchema).min(1).max(MAX_WORKFLOW_ITEMS),
+  items: workflowPlanItemsSchema,
   tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
 })
 

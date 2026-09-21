@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
 import { describeCommand } from '@hbar/commands'
 import {
+  MAX_WORKFLOW_DELEGATIONS,
+  MAX_WORKFLOW_EVIDENCE,
+  MAX_WORKFLOW_ITEMS,
   WORKFLOW_SCHEMA_VERSION,
   agentPatchSchema,
   workflowPlanSchema,
@@ -126,4 +129,110 @@ test('agent patches bind every file to before and after hashes', () => {
       appliedAt: null,
     }).success,
   ).toBeFalse()
+})
+
+test('workflow TODO contracts enforce empty, single, capacity, overflow, and duplicate-ID boundaries', () => {
+  const input = workflowCommands['workflow.start'].input
+  const parseItems = (items: unknown[]) =>
+    input.safeParse({ sessionId: 'session-1', objective: 'Exercise TODO capacity', items })
+  const items = Array.from({ length: MAX_WORKFLOW_ITEMS }, (_, index) => ({
+    ...item,
+    id: `item-${index}`,
+    title: `Item ${index}`,
+  }))
+
+  expect(parseItems([]).success).toBeFalse()
+  expect(parseItems([item]).success).toBeTrue()
+  expect(parseItems(items).success).toBeTrue()
+  expect(parseItems([...items, { ...item, id: 'overflow' }]).success).toBeFalse()
+  expect(
+    parseItems([
+      { ...item, id: 'duplicate' },
+      { ...item, id: 'duplicate' },
+    ]).success,
+  ).toBeFalse()
+  expect(
+    parseItems([
+      {
+        ...item,
+        acceptanceChecks: [item.acceptanceChecks[0], item.acceptanceChecks[0]],
+      },
+    ]).success,
+  ).toBeFalse()
+})
+
+test('workflow evidence and Agent lists accept capacity and reject overflow or duplicate IDs', () => {
+  const workItem = {
+    ...item,
+    status: 'in_progress' as const,
+    owner: { kind: 'main' as const },
+    acceptanceChecks: item.acceptanceChecks.map((check) => ({
+      ...check,
+      required: true,
+      status: 'pending' as const,
+      evidenceId: null,
+      updatedAt: 1,
+    })),
+    startedAt: 1,
+    completedAt: null,
+  }
+  const baseState = {
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
+    workflowId: 'workflow-capacity',
+    sessionId: 'session-1',
+    goalId: null,
+    planId: 'plan-capacity',
+    planRevision: 1,
+    revision: 1,
+    status: 'active' as const,
+    activeItemId: item.id,
+    explorationCount: 0,
+    workItems: [workItem],
+    scopeExpansions: [],
+    delegations: [],
+    evidence: [],
+    createdAt: 1,
+    updatedAt: 1,
+  }
+  const delegations = Array.from({ length: MAX_WORKFLOW_DELEGATIONS }, (_, index) => ({
+    delegationId: `delegation-${index}`,
+    itemId: item.id,
+    agentId: null,
+    modelId: 'local-fixture',
+    tokenBudget: null,
+    status: 'queued' as const,
+    patchId: null,
+    createdAt: 1,
+    updatedAt: 1,
+  }))
+  const evidence = Array.from({ length: MAX_WORKFLOW_EVIDENCE }, (_, index) => ({
+    evidenceId: `evidence-${index}`,
+    itemId: item.id,
+    checkId: 'contracts-test',
+    planRevision: 1,
+    workspaceRevision: null,
+    createdAt: 1,
+    source: 'user' as const,
+    outcome: 'accepted' as const,
+    actorId: 'user-1',
+    note: null,
+  }))
+
+  expect(workflowStateSchema.safeParse({ ...baseState, delegations, evidence }).success).toBeTrue()
+  expect(
+    workflowStateSchema.safeParse({
+      ...baseState,
+      delegations: [...delegations, { ...delegations[0]!, delegationId: 'delegation-overflow' }],
+    }).success,
+  ).toBeFalse()
+  expect(
+    workflowStateSchema.safeParse({
+      ...baseState,
+      evidence: [...evidence, { ...evidence[0]!, evidenceId: 'evidence-overflow' }],
+    }).success,
+  ).toBeFalse()
+  expect(
+    workflowStateSchema.safeParse({ ...baseState, delegations: [delegations[0]!, delegations[0]!] }).success,
+  ).toBeFalse()
+  expect(workflowStateSchema.safeParse({ ...baseState, evidence: [evidence[0]!, evidence[0]!] }).success).toBeFalse()
 })

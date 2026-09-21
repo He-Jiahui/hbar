@@ -12,6 +12,26 @@ const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/)
 const idSchema = z.string().min(1).max(160)
 const workflowTextSchema = z.string().trim().min(1).max(4_000)
 
+function requireUniqueIds<T extends Record<K, string>, K extends string>(
+  values: T[],
+  key: K,
+  context: z.RefinementCtx,
+): void {
+  const indexes = new Map<string, number>()
+  values.forEach((value, index) => {
+    const previous = indexes.get(value[key])
+    if (previous === undefined) {
+      indexes.set(value[key], index)
+      return
+    }
+    context.addIssue({
+      code: 'custom',
+      message: `${key} must be unique; it duplicates index ${previous}`,
+      path: [index, key],
+    })
+  })
+}
+
 export const workflowPathSchema = z
   .string()
   .trim()
@@ -86,10 +106,19 @@ export const workflowPlanItemSchema = z.strictObject({
   id: idSchema,
   title: workflowTextSchema,
   scope: workflowScopeSchema,
-  acceptanceChecks: z.array(workflowAcceptanceDefinitionSchema).max(MAX_WORKFLOW_ACCEPTANCE_CHECKS),
+  acceptanceChecks: z
+    .array(workflowAcceptanceDefinitionSchema)
+    .max(MAX_WORKFLOW_ACCEPTANCE_CHECKS)
+    .superRefine((checks, context) => requireUniqueIds(checks, 'id', context)),
 })
 export type WorkflowPlanItemInput = z.input<typeof workflowPlanItemSchema>
 export type WorkflowPlanItem = z.output<typeof workflowPlanItemSchema>
+
+export const workflowPlanItemsSchema = z
+  .array(workflowPlanItemSchema)
+  .min(1)
+  .max(MAX_WORKFLOW_ITEMS)
+  .superRefine((items, context) => requireUniqueIds(items, 'id', context))
 
 export const workflowPlanSchema = z.strictObject({
   schemaVersion: z.literal(WORKFLOW_SCHEMA_VERSION),
@@ -98,7 +127,7 @@ export const workflowPlanSchema = z.strictObject({
   revision: z.number().int().positive(),
   phase: z.enum(['draft', 'active', 'archived']),
   objective: workflowTextSchema,
-  items: z.array(workflowPlanItemSchema).min(1).max(MAX_WORKFLOW_ITEMS),
+  items: workflowPlanItemsSchema,
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
 })
@@ -125,7 +154,10 @@ export const workflowWorkItemSchema = z.strictObject({
   status: workflowWorkItemStatusSchema,
   scope: workflowScopeSchema,
   owner: workflowOwnerSchema,
-  acceptanceChecks: z.array(workflowAcceptanceCheckSchema).max(MAX_WORKFLOW_ACCEPTANCE_CHECKS),
+  acceptanceChecks: z
+    .array(workflowAcceptanceCheckSchema)
+    .max(MAX_WORKFLOW_ACCEPTANCE_CHECKS)
+    .superRefine((checks, context) => requireUniqueIds(checks, 'id', context)),
   startedAt: z.number().int().nonnegative().nullable(),
   completedAt: z.number().int().nonnegative().nullable(),
 })
@@ -233,10 +265,23 @@ export const workflowStateSchema = z.strictObject({
   status: workflowStatusSchema,
   activeItemId: idSchema.nullable(),
   explorationCount: z.number().int().nonnegative(),
-  workItems: z.array(workflowWorkItemSchema).min(1).max(MAX_WORKFLOW_ITEMS),
-  scopeExpansions: z.array(workflowScopeExpansionSchema).max(MAX_WORKFLOW_SCOPE_ENTRIES),
-  delegations: z.array(workflowDelegationSchema).max(MAX_WORKFLOW_DELEGATIONS),
-  evidence: z.array(workflowEvidenceSchema).max(MAX_WORKFLOW_EVIDENCE),
+  workItems: z
+    .array(workflowWorkItemSchema)
+    .min(1)
+    .max(MAX_WORKFLOW_ITEMS)
+    .superRefine((items, context) => requireUniqueIds(items, 'id', context)),
+  scopeExpansions: z
+    .array(workflowScopeExpansionSchema)
+    .max(MAX_WORKFLOW_SCOPE_ENTRIES)
+    .superRefine((entries, context) => requireUniqueIds(entries, 'expansionId', context)),
+  delegations: z
+    .array(workflowDelegationSchema)
+    .max(MAX_WORKFLOW_DELEGATIONS)
+    .superRefine((entries, context) => requireUniqueIds(entries, 'delegationId', context)),
+  evidence: z
+    .array(workflowEvidenceSchema)
+    .max(MAX_WORKFLOW_EVIDENCE)
+    .superRefine((entries, context) => requireUniqueIds(entries, 'evidenceId', context)),
   startCommand: workflowStartCommandSchema.nullable().default(null),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
