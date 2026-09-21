@@ -3,8 +3,7 @@ import { readFile } from 'node:fs/promises'
 export const RESTART_EXIT_CODE = 75
 
 export interface HostSupervisorOptions {
-  readonly executable: string
-  readonly entrypoint: string
+  readonly command: readonly [string, ...string[]]
   readonly hostArgs: readonly string[]
   readonly connectionFile: string
   readonly stdio?: 'inherit' | 'ignore'
@@ -55,7 +54,7 @@ export function createHostSupervisor(options: HostSupervisorOptions) {
       let port: number | undefined
       while (!stopped) {
         const output = options.stdio ?? 'inherit'
-        child = Bun.spawn([options.executable, options.entrypoint, ...supervisedArguments(options.hostArgs, port)], {
+        child = Bun.spawn([...options.command, ...supervisedArguments(options.hostArgs, port)], {
           stdin: 'ignore',
           stdout: output,
           stderr: output,

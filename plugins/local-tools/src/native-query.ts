@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module'
 import { z } from 'zod'
 
 export interface NativeCommonRequest {
@@ -96,8 +95,6 @@ interface NativeModule {
   WorkspaceQueryEngine: NativeEngineConstructor
   nativeVersion(): string
 }
-
-const require = createRequire(import.meta.url)
 
 function loadNativeModule(): NativeModule {
   let candidate: unknown

@@ -8,130 +8,136 @@ import { resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
 
-const { values } = parseArgs({
-  args: Bun.argv.slice(2),
-  options: {
-    home: { type: 'string' },
-    'data-root': { type: 'string' },
-    'cache-root': { type: 'string' },
-    host: { type: 'string' },
-    port: { type: 'string' },
-    workspace: { type: 'string' },
-    origin: { type: 'string', multiple: true },
-    demo: { type: 'boolean' },
-    desktop: { type: 'boolean' },
-    cert: { type: 'string' },
-    key: { type: 'string' },
-    'web-root': { type: 'string' },
-    profile: { type: 'string' },
-    supervisor: { type: 'boolean' },
-    supervised: { type: 'boolean' },
-  },
-})
-const layout = await resolvePathLayout({
-  home: values.home ?? process.env.HBAR_HOME,
-  dataRoot: values['data-root'] ?? process.env.HBAR_DATA_ROOT,
-  cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
-})
-const home = layout.dataRoot
-if (values.supervisor) {
-  const supervisor = createHostSupervisor({
-    executable: process.execPath,
-    entrypoint: import.meta.path,
-    hostArgs: Bun.argv.slice(2),
-    connectionFile: layout.connectionFile,
-  })
-  const stopSupervisor = () => supervisor.stop()
-  process.on('SIGINT', stopSupervisor)
-  process.on('SIGTERM', stopSupervisor)
-  process.exit(await supervisor.run())
-}
-await mkdir(home, { recursive: true })
-const lock = layout.hostLock
-await mkdir(resolve(lock, '..'), { recursive: true })
-try {
-  await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
-} catch (error) {
-  if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-  const previous = JSON.parse(await readFile(lock, 'utf8')) as { pid: number }
-  let alive = true
-  try {
-    process.kill(previous.pid, 0)
-  } catch (check) {
-    if ((check as NodeJS.ErrnoException).code === 'ESRCH') alive = false
-    else throw check
-  }
-  if (alive) throw new Error(`A host already owns this data directory (PID ${previous.pid})`, { cause: error })
-  await rm(lock)
-  await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
-}
-let cleanup: (() => Promise<void>) | undefined
-let kernel: Kernel | undefined
-let requestShutdown: ((exitCode: number) => void) | undefined
-try {
-  const profile = values.profile
-    ? ((await import(pathToFileURL(resolve(values.profile)).href)) as { default: KernelProfile }).default
-    : undefined
-  kernel = await Kernel.create({
-    layout,
-    ...(values.demo !== undefined ? { demo: values.demo } : {}),
-    ...(values.workspace ? { workspace: values.workspace } : {}),
-    ...(profile ? { profile } : {}),
-  })
-  const host = await startServer(kernel, {
-    ...(values.host ? { hostname: values.host } : {}),
-    ...(values.port ? { port: Number(values.port) } : {}),
-    ...(values.origin ? { origins: values.origin } : {}),
-    ...(values.cert ? { cert: values.cert } : {}),
-    ...(values.key ? { key: values.key } : {}),
-    ...((values['web-root'] ?? process.env.HBAR_WEB_ROOT)
-      ? { staticRoot: values['web-root'] ?? process.env.HBAR_WEB_ROOT! }
-      : {}),
-    restart() {
-      if (!values.supervised || !requestShutdown) return false
-      setTimeout(() => requestShutdown?.(RESTART_EXIT_CODE), 100)
-      return true
+export async function runHost(
+  args: string[] = Bun.argv.slice(2),
+  supervisorCommand: readonly [string, ...string[]] = [process.execPath, import.meta.path],
+): Promise<void> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      home: { type: 'string' },
+      'data-root': { type: 'string' },
+      'cache-root': { type: 'string' },
+      host: { type: 'string' },
+      port: { type: 'string' },
+      workspace: { type: 'string' },
+      origin: { type: 'string', multiple: true },
+      demo: { type: 'boolean' },
+      desktop: { type: 'boolean' },
+      cert: { type: 'string' },
+      key: { type: 'string' },
+      'web-root': { type: 'string' },
+      profile: { type: 'string' },
+      supervisor: { type: 'boolean' },
+      supervised: { type: 'boolean' },
     },
   })
-  if (values.desktop) {
-    const device = await host.auth.createDevice('hbar desktop')
-    await writeFile(
-      layout.connectionFile,
-      JSON.stringify({
-        url: `${values.cert ? 'https' : 'http'}://127.0.0.1:${host.server.port}`,
-        token: device.token,
-        pid: process.pid,
-        instanceId: kernel.instanceId,
-      }),
-      { mode: 0o600 },
-    )
+  const layout = await resolvePathLayout({
+    home: values.home ?? process.env.HBAR_HOME,
+    dataRoot: values['data-root'] ?? process.env.HBAR_DATA_ROOT,
+    cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
+  })
+  const home = layout.dataRoot
+  if (values.supervisor) {
+    const supervisor = createHostSupervisor({
+      command: supervisorCommand,
+      hostArgs: args,
+      connectionFile: layout.connectionFile,
+    })
+    const stopSupervisor = () => supervisor.stop()
+    process.on('SIGINT', stopSupervisor)
+    process.on('SIGTERM', stopSupervisor)
+    process.exit(await supervisor.run())
   }
-  console.log(`hbar ${host.info().version} | ${home}`)
-  for (const address of host.info().addresses) console.log(`  ${address}`)
-  console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
-  cleanup = async () => {
-    await host.close()
+  await mkdir(home, { recursive: true })
+  const lock = layout.hostLock
+  await mkdir(resolve(lock, '..'), { recursive: true })
+  try {
+    await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    const previous = JSON.parse(await readFile(lock, 'utf8')) as { pid: number }
+    let alive = true
+    try {
+      process.kill(previous.pid, 0)
+    } catch (check) {
+      if ((check as NodeJS.ErrnoException).code === 'ESRCH') alive = false
+      else throw check
+    }
+    if (alive) throw new Error(`A host already owns this data directory (PID ${previous.pid})`, { cause: error })
+    await rm(lock)
+    await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
+  }
+  let cleanup: (() => Promise<void>) | undefined
+  let kernel: Kernel | undefined
+  let requestShutdown: ((exitCode: number) => void) | undefined
+  try {
+    const profile = values.profile
+      ? ((await import(pathToFileURL(resolve(values.profile)).href)) as { default: KernelProfile }).default
+      : undefined
+    kernel = await Kernel.create({
+      layout,
+      ...(values.demo !== undefined ? { demo: values.demo } : {}),
+      ...(values.workspace ? { workspace: values.workspace } : {}),
+      ...(profile ? { profile } : {}),
+    })
+    const host = await startServer(kernel, {
+      ...(values.host ? { hostname: values.host } : {}),
+      ...(values.port ? { port: Number(values.port) } : {}),
+      ...(values.origin ? { origins: values.origin } : {}),
+      ...(values.cert ? { cert: values.cert } : {}),
+      ...(values.key ? { key: values.key } : {}),
+      ...((values['web-root'] ?? process.env.HBAR_WEB_ROOT)
+        ? { staticRoot: values['web-root'] ?? process.env.HBAR_WEB_ROOT! }
+        : {}),
+      restart() {
+        if (!values.supervised || !requestShutdown) return false
+        setTimeout(() => requestShutdown?.(RESTART_EXIT_CODE), 100)
+        return true
+      },
+    })
+    if (values.desktop) {
+      const device = await host.auth.createDevice('hbar desktop')
+      await writeFile(
+        layout.connectionFile,
+        JSON.stringify({
+          url: `${values.cert ? 'https' : 'http'}://127.0.0.1:${host.server.port}`,
+          token: device.token,
+          pid: process.pid,
+          instanceId: kernel.instanceId,
+        }),
+        { mode: 0o600 },
+      )
+    }
+    console.log(`hbar ${host.info().version} | ${home}`)
+    for (const address of host.info().addresses) console.log(`  ${address}`)
+    console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
+    cleanup = async () => {
+      await host.close()
+      await kernel?.close()
+      await rm(lock, { force: true })
+    }
+    let closing = false
+    const stop = async (exitCode = 0) => {
+      if (closing) return
+      closing = true
+      await cleanup?.()
+      process.exit(exitCode)
+    }
+    requestShutdown = (exitCode) => {
+      void stop(exitCode)
+    }
+    process.on('SIGINT', () => {
+      void stop()
+    })
+    process.on('SIGTERM', () => {
+      void stop()
+    })
+  } catch (error) {
     await kernel?.close()
     await rm(lock, { force: true })
+    throw error
   }
-  let closing = false
-  const stop = async (exitCode = 0) => {
-    if (closing) return
-    closing = true
-    await cleanup?.()
-    process.exit(exitCode)
-  }
-  requestShutdown = (exitCode) => {
-    void stop(exitCode)
-  }
-  process.on('SIGINT', () => {
-    void stop()
-  })
-  process.on('SIGTERM', () => {
-    void stop()
-  })
-} catch (error) {
-  await kernel?.close()
-  await rm(lock, { force: true })
-  throw error
 }
+
+if (import.meta.main) await runHost()

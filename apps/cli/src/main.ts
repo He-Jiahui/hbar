@@ -30,6 +30,7 @@ import {
 import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
 import { runRepl } from './repl.ts'
+import { hostProcessCommand, internalHostCommand, INTERNAL_HOST_ROLE } from './host-process.ts'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
@@ -60,17 +61,14 @@ function completion(shell: string | undefined) {
 }
 
 async function serve(args: CliArgs) {
-  const host = resolve(import.meta.dir, '../../host/src/main.ts')
-  const command = [
-    process.execPath,
-    host,
+  const command = hostProcessCommand([
     '--supervisor',
     '--desktop',
     ...(args.dataRoot ? ['--data-root', args.dataRoot] : []),
     ...(args.cacheRoot ? ['--cache-root', args.cacheRoot] : []),
     ...(args.project ? ['--workspace', resolve(args.project)] : []),
     ...(args.demo ? ['--demo'] : []),
-  ]
+  ])
   const child = spawn(command[0]!, command.slice(1), { stdio: 'inherit', windowsHide: false })
   return new Promise<number>((resolveExit, reject) => {
     child.once('error', reject)
@@ -95,6 +93,12 @@ async function attached(args: CliArgs) {
     }
   }
   await runTui(runtime, args.message, args)
+}
+
+if (Bun.argv[2] === INTERNAL_HOST_ROLE) {
+  const { runHost } = await import('../../host/src/main.ts')
+  await runHost(Bun.argv.slice(3), internalHostCommand())
+  await new Promise<never>(() => {})
 }
 
 let parsed: CliArgs | undefined
@@ -300,8 +304,7 @@ try {
       const runs = createRunCommandClient(runtime.client)
       let activeOperationId = ''
       const interrupt = () => {
-        if (activeOperationId)
-          void runs.execute('operation.cancel', { operationId: activeOperationId }).catch(() => {})
+        if (activeOperationId) void runs.execute('operation.cancel', { operationId: activeOperationId }).catch(() => {})
       }
       process.once('SIGINT', interrupt)
       try {

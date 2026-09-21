@@ -12,6 +12,7 @@ import {
 } from '@hbar/client'
 import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
+import { hostProcessCommand } from './host-process.ts'
 import type {
   ApprovalMode,
   Bootstrap,
@@ -85,29 +86,28 @@ async function connection(layout: CliRuntime['layout']): Promise<ConnectionFile 
 
 async function startHost(layout: CliRuntime['layout'], project: string, demo: boolean) {
   await mkdir(layout.dataRoot, { recursive: true })
-  const hostScript = resolve(import.meta.dir, '../../host/src/main.ts')
   const logPath = join(layout.diagnostics, 'host.log')
   await mkdir(layout.diagnostics, { recursive: true })
   const log = openSync(logPath, 'a', 0o600)
-  const child = spawn(
-    process.execPath,
-    [
-      hostScript,
-      '--desktop',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      '0',
-      '--data-root',
-      layout.dataRoot,
-      '--cache-root',
-      layout.cacheRoot,
-      '--workspace',
-      project,
-      ...(demo ? ['--demo'] : []),
-    ],
-    { detached: true, stdio: ['ignore', log, log], windowsHide: true },
-  )
+  const command = hostProcessCommand([
+    '--desktop',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    '0',
+    '--data-root',
+    layout.dataRoot,
+    '--cache-root',
+    layout.cacheRoot,
+    '--workspace',
+    project,
+    ...(demo ? ['--demo'] : []),
+  ])
+  const child = spawn(command[0], command.slice(1), {
+    detached: true,
+    stdio: ['ignore', log, log],
+    windowsHide: true,
+  })
   child.unref()
   const until = Date.now() + 30_000
   while (Date.now() < until) {

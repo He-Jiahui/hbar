@@ -29,13 +29,19 @@ export class Storage {
   private pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>()
   private stopped = false
   constructor(path: string, layout?: PathLayout) {
-    this.worker = new Worker(process.env.HBAR_STORAGE_WORKER ?? new URL('./worker.ts', import.meta.url), {
+    const options = {
       workerData: {
         path,
         sessions: layout?.sessions,
         diagnostics: layout?.diagnostics,
       },
-    })
+    }
+    this.worker = process.env.HBAR_STORAGE_WORKER
+      ? new Worker(process.env.HBAR_STORAGE_WORKER, options)
+      : Bun.isStandaloneExecutable
+        ? // Bun only embeds Worker entrypoints referenced by a direct path literal matching the build input.
+          new Worker('./packages/storage/src/worker.ts', options)
+        : new Worker(new URL('./worker.ts', import.meta.url), options)
     this.exited = new Promise((resolve) => {
       this.worker.once('exit', () => resolve())
     })

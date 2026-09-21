@@ -30,8 +30,7 @@ process.exit(0)
 `,
   )
   const supervisor = createHostSupervisor({
-    executable: process.execPath,
-    entrypoint,
+    command: [process.execPath, entrypoint],
     hostArgs: ['--port', '0', '--demo'],
     connectionFile,
     stdio: 'ignore',
@@ -53,8 +52,7 @@ test('supervisor returns an ordinary Host exit without restarting it', async () 
   const connectionFile = join(root, 'connection.json')
   await writeFile(entrypoint, 'process.exit(23)\n')
   const supervisor = createHostSupervisor({
-    executable: process.execPath,
-    entrypoint,
+    command: [process.execPath, entrypoint],
     hostArgs: [],
     connectionFile,
     stdio: 'ignore',
