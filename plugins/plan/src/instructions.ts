@@ -94,6 +94,15 @@ Use the \`request_user_input\` tool only for decisions that materially change th
 
 Only output the final plan when it is decision complete and leaves no decisions to the implementer.
 
+Before emitting the final plan, call \`save_workflow_plan\` with the latest complete version. The saved draft must contain:
+
+* A concise objective
+* A structured TODO list with stable item ids and titles
+* A bounded read path, write path, and tool scope for every TODO
+* At least one external acceptance check for every TODO; model self-assessment is not evidence
+
+Do not emit a \`<proposed_plan>\` block if the structured draft fails to save. Correct the draft or continue planning. The saved revision is the execution handoff: the first Default-mode execution request activates that exact revision, so do not rely on the prose response as the only copy of the plan.
+
 When you present the official plan, wrap it in a \`<proposed_plan>\` block so the client can render it specially:
 
 1) The opening tag must be on its own line.
@@ -114,6 +123,8 @@ plan content should be human and agent digestible. The final plan must be plan-o
 * A brief summary section
 * Important changes or additions to public APIs/interfaces/types
 * Test cases and scenarios
+* A TODO checklist whose items correspond to the saved structured draft
+* A final acceptance checklist based on external tools, workspace facts, browser assertions, or explicit user acceptance
 * Explicit assumptions and defaults chosen where needed
 
 When possible, prefer a compact structure with 3-5 short sections, usually: Summary, Key Changes or Implementation Changes, Test Plan, and Assumptions. Do not include a separate Scope section unless scope boundaries are genuinely important to avoid mistakes.

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { userInputQuestionSchema, userInputResponseSchema } from '@hbar/contracts'
-import type { PlanService } from '@hbar/plugin-sdk'
+import type { PlanService, WorkflowService } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from '../plugins/plan/src/instructions.ts'
 
 const resources: Array<{ root: string; kernel: Kernel }> = []
@@ -18,7 +18,12 @@ afterEach(async () => {
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'hbar-plan-'))
-  const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, demo: true, secrets: new MemorySecrets() })
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
   resources.push({ root, kernel })
   const workspace = (await kernel.storage.call('workspaces'))[0]!
   const session = await kernel.createSession(workspace.id)
@@ -43,7 +48,10 @@ test('plan accepts an empty update and broadcasts a clear notification', async (
 
 test('plan mode state survives a host restart', async () => {
   const { root, kernel, session } = await fixture()
-  const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>; get(id: string): Promise<{ mode: 'plan' | 'default' }> }>('mode')
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>
+    get(id: string): Promise<{ mode: 'plan' | 'default' }>
+  }>('mode')
   await mode.set(session.id, 'plan')
   await kernel.close()
   const index = resources.findIndex((entry) => entry.kernel === kernel)
@@ -60,6 +68,38 @@ test('plan mode exposes the Codex collaboration rules separately from update_pla
   expect(PLAN_MODE_INSTRUCTIONS).toContain('does not enter or exit Plan Mode')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('mutating')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('<proposed_plan>')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('save_workflow_plan')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('structured TODO list')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('external acceptance check')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('final acceptance checklist')
+})
+
+test('plan mode can save a structured workflow draft without mutating workspace files', async () => {
+  const { kernel, session } = await fixture()
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>
+  }>('mode')
+  await mode.set(session.id, 'plan')
+  await kernel.submit(
+    session.id,
+    'save-structured-workflow',
+    {
+      mode: 'plan',
+      text: '/tool save_workflow_plan {"objective":"Ship verified work","items":[{"id":"implement","title":"Implement the change","scope":{"readPaths":["src"],"writePaths":["src"],"tools":["read_file","write_file"]},"acceptanceChecks":[{"id":"test","description":"The integration test passes","required":true,"verifier":{"kind":"tool","toolName":"run_command"}}]}]}',
+      images: [],
+    },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect(await kernel.plugins.get<WorkflowService>('workflow').get(session.id)).toMatchObject({
+    plan: {
+      phase: 'draft',
+      revision: 1,
+      objective: 'Ship verified work',
+      items: [{ id: 'implement', acceptanceChecks: [{ id: 'test' }] }],
+    },
+    workflow: null,
+  })
 })
 
 test('request user input contracts preserve free-text wire questions and answer-only responses', () => {
@@ -78,12 +118,19 @@ test('request user input contracts preserve free-text wire questions and answer-
 
 test('plan mode uses medium reasoning unless the caller explicitly chooses an effort', async () => {
   const { kernel, session } = await fixture()
-  const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }> }>('mode')
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>
+  }>('mode')
   await mode.set(session.id, 'plan')
   const inherited = await kernel.submit(session.id, 'plan-medium', { text: 'inspect', images: [] }, 'local-fixture')
   expect((await kernel.storage.call('run', inherited.id)).input.thinking).toBe('medium')
   await kernel.waitForIdle()
-  const explicit = await kernel.submit(session.id, 'plan-high', { text: 'inspect', images: [], thinking: 'high' }, 'local-fixture')
+  const explicit = await kernel.submit(
+    session.id,
+    'plan-high',
+    { text: 'inspect', images: [], thinking: 'high' },
+    'local-fixture',
+  )
   expect((await kernel.storage.call('run', explicit.id)).input.thinking).toBe('high')
   await kernel.waitForIdle()
 })
@@ -91,7 +138,9 @@ test('plan mode uses medium reasoning unless the caller explicitly chooses an ef
 test('plan mode request_user_input pauses the run and resumes with validated answers', async () => {
   const { kernel, session } = await fixture()
   await kernel.setPermissionMode('allow')
-  const mode = kernel.plugins.get<{ set(id: string, value: 'default' | 'plan'): Promise<{ mode: 'default' | 'plan' }> }>('mode')
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'default' | 'plan'): Promise<{ mode: 'default' | 'plan' }>
+  }>('mode')
   await mode.set(session.id, 'plan')
   const run = await kernel.submit(
     session.id,
@@ -115,7 +164,13 @@ test('plan mode request_user_input pauses the run and resumes with validated ans
   await kernel.waitForIdle()
   const snapshot = await kernel.snapshot(session.id)
   expect(snapshot.userInputs).toHaveLength(0)
-  expect(snapshot.messages.flatMap((message) => message.content).some((block) => block.type === 'tool_result' && block.name === 'request_user_input' && block.text.includes('App'))).toBeTrue()
+  expect(
+    snapshot.messages
+      .flatMap((message) => message.content)
+      .some(
+        (block) => block.type === 'tool_result' && block.name === 'request_user_input' && block.text.includes('App'),
+      ),
+  ).toBeTrue()
   const responseBlock = snapshot.messages
     .flatMap((message) => message.content)
     .find((block) => block.type === 'tool_result' && block.name === 'request_user_input')
