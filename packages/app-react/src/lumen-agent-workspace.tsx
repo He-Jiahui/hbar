@@ -1,6 +1,11 @@
 import { useCallback, useEffect } from 'react'
 import { Bot, ExternalLink, Plus, RefreshCw } from 'lucide-react'
 import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenOption,
+  LumenText,
   LumenButton,
   LumenCompactMetrics,
   LumenFormField,
@@ -152,19 +157,19 @@ export function HbarAgentWorkspace({
       className="hbar-app-react-agent-workspace"
     >
       {view === 'create' && entry ? (
-        <main className="hbar-app-react-agent-create-view">
-          <div>
-            <h2>{labels.createTitle}</h2>
-            <p>{labels.createScope}</p>
-          </div>
-          <form
+        <LumenFrame as="main" className="hbar-app-react-agent-create-view">
+          <LumenFrame>
+            <LumenText as="h2">{labels.createTitle}</LumenText>
+            <LumenText as="p">{labels.createScope}</LumenText>
+          </LumenFrame>
+          <LumenFrame as="form"
             className="hbar-app-react-agent-create"
             onSubmit={(event) => {
               event.preventDefault()
               invoke('agentWorkspace.create', { instanceId })
             }}
           >
-            <fieldset disabled={!connected || creationBusy}>
+            <LumenFrame as="fieldset" disabled={!connected || creationBusy}>
               <LumenFormField
                 controlId={`${instanceId}-agent-objective`}
                 label={labels.objective}
@@ -229,14 +234,14 @@ export function HbarAgentWorkspace({
                   onChange={(event) => setField('approval', event.currentTarget.value)}
                 >
                   {(['deny', 'ask', 'allow'] as const).map((option) => (
-                    <option key={option} value={option}>
+                    <LumenOption key={option} value={option}>
                       {labels.approvalOptions[option]}
-                    </option>
+                    </LumenOption>
                   ))}
                 </LumenSelect>
               </LumenFormField>
-            </fieldset>
-            {entry.creation.error && <p role="alert">{labels.error(entry.creation.error)}</p>}
+            </LumenFrame>
+            {entry.creation.error && <LumenText as="p" role="alert">{labels.error(entry.creation.error)}</LumenText>}
             <LumenButton
               disabled={!connected || entry.creation.status === 'submitting'}
               tone="primary"
@@ -248,21 +253,21 @@ export function HbarAgentWorkspace({
                   ? labels.retryCreate
                   : labels.create}
             </LumenButton>
-          </form>
-        </main>
+          </LumenFrame>
+        </LumenFrame>
       ) : selectedAgent && entry ? (
-        <main className="hbar-app-react-agent-detail">
-          <div className="hbar-app-react-agent-detail-heading">
-            <h2>{labels.detailTitle}</h2>
+        <LumenFrame as="main" className="hbar-app-react-agent-detail">
+          <LumenFrame className="hbar-app-react-agent-detail-heading">
+            <LumenText as="h2">{labels.detailTitle}</LumenText>
             <LumenStatus value={labels.status(selectedAgent.status)} tone={tone(selectedAgent.status)} />
-          </div>
+          </LumenFrame>
           {entry.creation.status === 'succeeded' && entry.selectedAgentId === selectedAgent.agentId && (
-            <p role="status">{labels.created}</p>
+            <LumenText as="p" role="status">{labels.created}</LumenText>
           )}
-          <section>
-            <h3>{labels.objective}</h3>
-            <p>{selectedAgent.objective}</p>
-          </section>
+          <LumenFrame as="section">
+            <LumenText as="h3">{labels.objective}</LumenText>
+            <LumenText as="p">{selectedAgent.objective}</LumenText>
+          </LumenFrame>
           <LumenCompactMetrics
             label={labels.detailTitle}
             metrics={[
@@ -276,12 +281,12 @@ export function HbarAgentWorkspace({
               { id: 'created', label: labels.createdAt, value: labels.timestamp(selectedAgent.createdAt) },
             ]}
           />
-          {selectedAgent.error && <p role="alert">{selectedAgent.error}</p>}
-          {selectedAction?.error && <p role="alert">{labels.error(selectedAction.error)}</p>}
-          <footer>
+          {selectedAgent.error && <LumenText as="p" role="alert">{selectedAgent.error}</LumenText>}
+          {selectedAction?.error && <LumenText as="p" role="alert">{labels.error(selectedAction.error)}</LumenText>}
+          <LumenFrame as="footer">
             <LumenButton tone="primary" onClick={() => openSession(selectedAgent.sessionId)}>
               <LumenIcon icon={ExternalLink} tier="sm" />
-              <span>{labels.openSession}</span>
+              <LumenText as="span">{labels.openSession}</LumenText>
             </LumenButton>
             {!terminal(selectedAgent.status) && (
               <LumenButton
@@ -296,46 +301,46 @@ export function HbarAgentWorkspace({
                     : labels.cancel}
               </LumenButton>
             )}
-          </footer>
-        </main>
+          </LumenFrame>
+        </LumenFrame>
       ) : (
-        <main className="hbar-app-react-agent-list" aria-label={labels.title}>
-          <header>
-            <h2>{labels.count(entry?.items.length ?? 0)}</h2>
-          </header>
+        <LumenFrame as="main" className="hbar-app-react-agent-list" aria-label={labels.title}>
+          <LumenFrame as="header">
+            <LumenText as="h2">{labels.count(entry?.items.length ?? 0)}</LumenText>
+          </LumenFrame>
           {!entry || entry.status === 'loading' ? (
-            <p>{labels.loading}</p>
+            <LumenText as="p">{labels.loading}</LumenText>
           ) : entry.error ? (
-            <p role="alert">{labels.error(entry.error)}</p>
+            <LumenText as="p" role="alert">{labels.error(entry.error)}</LumenText>
           ) : entry.items.length === 0 ? (
-            <p className="hbar-app-react-agent-empty">{labels.empty}</p>
+            <LumenText as="p" className="hbar-app-react-agent-empty">{labels.empty}</LumenText>
           ) : (
-            <ul>
+            <LumenCollection as="ul">
               {entry.items.map((agent) => (
-                <li key={agent.agentId}>
+                <LumenCollectionItem key={agent.agentId}>
                   <LumenButton
                     className="hbar-app-react-agent-row"
                     variant="outlined"
                     aria-label={labels.showDetails(agent.objective)}
                     onClick={() => invoke('agentWorkspace.showAgent', { instanceId, agentId: agent.agentId })}
                   >
-                    <span>
-                      <strong>{agent.objective}</strong>
+                    <LumenText as="span">
+                      <LumenText as="strong">{agent.objective}</LumenText>
                       <LumenStatus value={labels.status(agent.status)} tone={tone(agent.status)} />
-                    </span>
-                    <small>{labels.summary(agent.modelId, agent.tokenBudget)}</small>
-                    <time dateTime={new Date(agent.createdAt).toISOString()}>{labels.timestamp(agent.createdAt)}</time>
+                    </LumenText>
+                    <LumenText as="small">{labels.summary(agent.modelId, agent.tokenBudget)}</LumenText>
+                    <LumenText as="time" dateTime={new Date(agent.createdAt).toISOString()}>{labels.timestamp(agent.createdAt)}</LumenText>
                   </LumenButton>
-                </li>
+                </LumenCollectionItem>
               ))}
-            </ul>
+            </LumenCollection>
           )}
           {entry?.nextCursor && (
             <LumenButton onClick={() => invoke('agentWorkspace.loadMore', { instanceId })}>
               {labels.loadMore}
             </LumenButton>
           )}
-        </main>
+        </LumenFrame>
       )}
     </LumenToolPane>
   )

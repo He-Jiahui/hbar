@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import {
+  LumenFrame,
+  LumenText,
   LumenApprovalRequest,
   LumenButton,
   LumenCompactUsage,
@@ -126,7 +128,7 @@ function MessageBlocks({
     if (block.type === 'tool_call')
       return (
         <HbarLumenDisclosure key={key} className="hbar-app-react-tool-block" label={labels.toolCall(block.name)}>
-          <pre>{JSON.stringify(block.args, null, 2)}</pre>
+          <LumenText as="pre">{JSON.stringify(block.args, null, 2)}</LumenText>
         </HbarLumenDisclosure>
       )
     if (block.type === 'tool_result')
@@ -137,13 +139,13 @@ function MessageBlocks({
           defaultOpen={block.isError}
           label={labels.toolResult(block.name, block.isError)}
         >
-          <pre>{block.text}</pre>
+          <LumenText as="pre">{block.text}</LumenText>
         </HbarLumenDisclosure>
       )
     return (
-      <p key={key} className="hbar-app-react-attachment-block">
+      <LumenText as="p" key={key} className="hbar-app-react-attachment-block">
         {labels.attachment(block.type, block.artifact.name)}
-      </p>
+      </LumenText>
     )
   })
 }
@@ -294,7 +296,7 @@ export function HbarSessionWorkspace({
 
   const activity: ReactNode =
     timeline.runs.length > 0 || timeline.approvals.length > 0 || timeline.userInputs.length > 0 ? (
-      <div className="hbar-app-react-session-activity">
+      <LumenFrame className="hbar-app-react-session-activity">
         {timeline.runs.length > 0 && (
           <LumenRunActivity
             runs={timeline.runs.map((run) => ({
@@ -396,31 +398,31 @@ export function HbarSessionWorkspace({
             />
           )
         })}
-      </div>
+      </LumenFrame>
     ) : null
 
   const retryTimeline = () => sessionId && invoke('timeline.retry', { sessionId })
   const loadOlder = () => sessionId && invoke('timeline.loadOlder', { sessionId })
   const historyNotices = sessionId ? (
-    <div className="hbar-app-react-session-history-controls">
-      {!connected && <p role="status">{labels.disconnected}</p>}
-      {timeline.status === 'loading' && timeline.messages.length > 0 && <p role="status">{labels.refreshing}</p>}
+    <LumenFrame className="hbar-app-react-session-history-controls">
+      {!connected && <LumenText as="p" role="status">{labels.disconnected}</LumenText>}
+      {timeline.status === 'loading' && timeline.messages.length > 0 && <LumenText as="p" role="status">{labels.refreshing}</LumenText>}
       {timeline.status === 'error' && timeline.messages.length > 0 && (
-        <div className="hbar-app-react-session-history-error" role="alert">
-          <span>{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</span>
+        <LumenFrame className="hbar-app-react-session-history-error" role="alert">
+          <LumenText as="span">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
           {connected && (
             <LumenButton size="s" onClick={retryTimeline}>
               {labels.retryTimeline}
             </LumenButton>
           )}
-        </div>
+        </LumenFrame>
       )}
       {timeline.olderStatus === 'limit' ? (
-        <p role="status">{labels.historyLimit}</p>
+        <LumenText as="p" role="status">{labels.historyLimit}</LumenText>
       ) : timeline.hasOlder || timeline.olderStatus === 'error' ? (
-        <div className="hbar-app-react-session-history-page">
+        <LumenFrame className="hbar-app-react-session-history-page">
           {timeline.olderStatus === 'error' && (
-            <span role="alert">{labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}</span>
+            <LumenText as="span" role="alert">{labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}</LumenText>
           )}
           <LumenButton size="s" disabled={!connected || timeline.olderStatus === 'loading'} onClick={loadOlder}>
             {timeline.olderStatus === 'loading'
@@ -429,26 +431,26 @@ export function HbarSessionWorkspace({
                 ? labels.retryHistory
                 : labels.loadOlder}
           </LumenButton>
-        </div>
+        </LumenFrame>
       ) : null}
-    </div>
+    </LumenFrame>
   ) : null
 
   const emptyTimeline = (
-    <div className="hbar-app-react-session-empty">
-      <p>
+    <LumenFrame className="hbar-app-react-session-empty">
+      <LumenText as="p">
         {timeline.status === 'loading' ? labels.loading : timeline.error ? labels.error(timeline.error) : labels.empty}
-      </p>
+      </LumenText>
       {connected && timeline.status === 'error' && sessionId && (
         <LumenButton size="s" onClick={retryTimeline}>
           {labels.retryTimeline}
         </LumenButton>
       )}
-    </div>
+    </LumenFrame>
   )
 
   const composer: ReactNode = sessionId ? (
-    <div className="hbar-app-react-session-footer">
+    <LumenFrame className="hbar-app-react-session-footer">
       <LumenPromptComposer
         value={draft?.text ?? ''}
         labels={labels.prompt}
@@ -485,9 +487,9 @@ export function HbarSessionWorkspace({
                 : undefined
         }
         context={
-          <span className="hbar-app-react-model-status">
+          <LumenText as="span" className="hbar-app-react-model-status">
             {configured ? labels.model(model.model!.modelName, model.thinkingLevel) : labels.modelUnavailable}
-          </span>
+          </LumenText>
         }
         onChange={(text) => invoke('draft.setText', { sessionId, text })}
         onAddAttachments={prepareAttachment ? addAttachments : undefined}
@@ -517,11 +519,11 @@ export function HbarSessionWorkspace({
         }}
       />
       <LumenCompactUsage {...usageContent(controls, labels.usage)} />
-    </div>
+    </LumenFrame>
   ) : null
 
   return (
-    <div className="hbar-app-react-session-workspace">
+    <LumenFrame className="hbar-app-react-session-workspace">
       <LumenPageHeader
         title={sessionTitle}
         context={workspaceName}
@@ -570,7 +572,7 @@ export function HbarSessionWorkspace({
           ) : undefined
         }
       />
-      <div className="hbar-app-react-session-main">
+      <LumenFrame className="hbar-app-react-session-main">
         <LumenConversation
           title={labels.conversationTitle(sessionTitle)}
           header={null}
@@ -586,7 +588,7 @@ export function HbarSessionWorkspace({
             .join(',')}`}
           latestLabel={labels.latest}
         />
-      </div>
-    </div>
+      </LumenFrame>
+    </LumenFrame>
   )
 }

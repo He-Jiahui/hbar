@@ -1,6 +1,8 @@
 import { FolderTree } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
+  LumenFrame,
+  LumenText,
   LumenButton,
   LumenDialog,
   LumenFileDocument,
@@ -90,7 +92,7 @@ export function HbarFileWorkspace({
         busy={Boolean(!entry || entry.status === 'loading' || busy)}
         className="hbar-app-react-file-workspace"
       >
-        <div className="hbar-app-react-file-layout" data-view={document ? 'document' : 'browser'}>
+        <LumenFrame className="hbar-app-react-file-layout" data-view={document ? 'document' : 'browser'}>
           {document ? (
             <LumenFileDocument
               path={document.path}
@@ -115,10 +117,10 @@ export function HbarFileWorkspace({
                 disabled={!connected || unknown}
                 onChange={(event) => invoke('fileWorkspace.setText', { instanceId, text: event.currentTarget.value })}
               />
-              <footer>
-                <span role="status">
+              <LumenFrame as="footer">
+                <LumenText as="span" role="status">
                   {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
-                </span>
+                </LumenText>
                 {unknown ? (
                   <LumenButton
                     disabled={!connected}
@@ -135,10 +137,10 @@ export function HbarFileWorkspace({
                     {busy ? labels.saving : labels.save}
                   </LumenButton>
                 )}
-              </footer>
+              </LumenFrame>
             </LumenFileDocument>
           ) : (
-            <div className="hbar-app-react-file-browser">
+            <LumenFrame className="hbar-app-react-file-browser">
               <LumenWorkspaceFiles
                 items={(entry?.items ?? []).map((item) => ({
                   id: item.path,
@@ -167,9 +169,9 @@ export function HbarFileWorkspace({
                   {labels.loadMore}
                 </LumenButton>
               )}
-            </div>
+            </LumenFrame>
           )}
-        </div>
+        </LumenFrame>
       </LumenToolPane>
       <LumenDialog
         open={reloadTarget !== null}
@@ -185,7 +187,7 @@ export function HbarFileWorkspace({
           </>
         }
       >
-        <p className="hbar-app-react-file-reload-description">{labels.reloadDescription}</p>
+        <LumenText as="p" className="hbar-app-react-file-reload-description">{labels.reloadDescription}</LumenText>
       </LumenDialog>
     </>
   )

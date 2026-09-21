@@ -1,5 +1,10 @@
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { LumenBarSeries, LumenCompactMetrics, LumenToolPane } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenBarSeries, LumenCompactMetrics, LumenToolPane } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './session-monitoring.css'
@@ -77,13 +82,13 @@ export function HbarSessionMonitoring({
       className="hbar-app-react-session-monitoring"
     >
       {!report ? (
-        <p className="hbar-app-react-monitoring-empty">{labels.empty}</p>
+        <LumenText as="p" className="hbar-app-react-monitoring-empty">{labels.empty}</LumenText>
       ) : (
-        <main>
+        <LumenFrame as="main">
           {report.gap && (
-            <p className="hbar-app-react-monitoring-gap" role="status">
+            <LumenText as="p" className="hbar-app-react-monitoring-gap" role="status">
               {labels.gap}
-            </p>
+            </LumenText>
           )}
           <LumenCompactMetrics
             label={labels.title}
@@ -96,8 +101,8 @@ export function HbarSessionMonitoring({
               metric('cache', labels.totals.cache, value(report.cacheHitRate, labels.percent)),
             ]}
           />
-          <section>
-            <h2>{labels.series}</h2>
+          <LumenFrame as="section">
+            <LumenText as="h2">{labels.series}</LumenText>
             <LumenBarSeries
               label={labels.series}
               points={report.series.map((point) => ({
@@ -105,9 +110,9 @@ export function HbarSessionMonitoring({
                 value: point.billableTokens,
                 label: labels.tokens(point.billableTokens),
               }))}
-              empty={<p>{labels.unavailable}</p>}
+              empty={<LumenText as="p">{labels.unavailable}</LumenText>}
             />
-          </section>
+          </LumenFrame>
           <HbarLumenDisclosure label={labels.latency.title}>
             <LumenCompactMetrics
               label={labels.latency.title}
@@ -179,22 +184,22 @@ export function HbarSessionMonitoring({
           )}
           <HbarLumenDisclosure label={labels.models}>
             {report.models.length ? (
-              <ul>
+              <LumenCollection as="ul">
                 {report.models.map((model) => (
-                  <li key={model.modelSelectionId}>
-                    <strong title={labels.model(model.providerId, model.modelId)}>
+                  <LumenCollectionItem key={model.modelSelectionId}>
+                    <LumenText as="strong" title={labels.model(model.providerId, model.modelId)}>
                       {labels.model(model.providerId, model.modelId)}
-                    </strong>
-                    <span>{labels.tokens(model.input + model.output)}</span>
-                    <span>{value(model.cost, labels.currency)}</span>
-                  </li>
+                    </LumenText>
+                    <LumenText as="span">{labels.tokens(model.input + model.output)}</LumenText>
+                    <LumenText as="span">{value(model.cost, labels.currency)}</LumenText>
+                  </LumenCollectionItem>
                 ))}
-              </ul>
+              </LumenCollection>
             ) : (
-              <p>{labels.unavailable}</p>
+              <LumenText as="p">{labels.unavailable}</LumenText>
             )}
           </HbarLumenDisclosure>
-        </main>
+        </LumenFrame>
       )}
     </LumenToolPane>
   )
