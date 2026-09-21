@@ -1,6 +1,9 @@
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { LumenButton, LumenIcon } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenIcon } from '@lumen/app-ui'
 import './lumen-disclosure.css'
 
 export interface HbarLumenDisclosureProps {
@@ -30,7 +33,7 @@ export function HbarLumenDisclosure({
     onOpenChange?.(next)
   }
   return (
-    <section className={['hbar-lumen-disclosure', className].filter(Boolean).join(' ')} data-open={open}>
+    <LumenFrame as="section" className={['hbar-lumen-disclosure', className].filter(Boolean).join(' ')} data-open={open}>
       <LumenButton
         className="hbar-lumen-disclosure-trigger"
         type="button"
@@ -41,11 +44,11 @@ export function HbarLumenDisclosure({
         onClick={toggle}
       >
         <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
-        <span>{label}</span>
+        <LumenText as="span">{label}</LumenText>
       </LumenButton>
-      <div id={contentId} className="hbar-lumen-disclosure-content" hidden={!open}>
+      <LumenFrame id={contentId} className="hbar-lumen-disclosure-content" hidden={!open}>
         {children}
-      </div>
-    </section>
+      </LumenFrame>
+    </LumenFrame>
   )
 }

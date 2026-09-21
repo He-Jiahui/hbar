@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ArrowLeft, RefreshCw, X } from 'lucide-react'
 import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenOption,
+  LumenText,
   LumenButton,
   LumenCheckBox,
   LumenCommandList,
@@ -151,7 +156,7 @@ function KnownTargetParameter({
   const [custom, setCustom] = useState(() => typeof value === 'string' && value.length > 0 && !known)
   const customValue = custom && typeof value === 'string' && !known ? value : ''
   return (
-    <div className="hbar-app-react-known-target">
+    <LumenFrame className="hbar-app-react-known-target">
       <LumenSelect
         id={id}
         value={custom ? CUSTOM_IDENTIFIER : typeof value === 'string' ? value : ''}
@@ -171,15 +176,15 @@ function KnownTargetParameter({
           }
         }}
       >
-        <option value="" disabled={field.required}>
+        <LumenOption value="" disabled={field.required}>
           {field.required ? labels.chooseKnownTarget : labels.unset}
-        </option>
+        </LumenOption>
         {options.map((option) => (
-          <option key={option.id} value={option.id}>
+          <LumenOption key={option.id} value={option.id}>
             {option.label}
-          </option>
+          </LumenOption>
         ))}
-        <option value={CUSTOM_IDENTIFIER}>{labels.customIdentifierOption}</option>
+        <LumenOption value={CUSTOM_IDENTIFIER}>{labels.customIdentifierOption}</LumenOption>
       </LumenSelect>
       {custom && (
         <LumenInput
@@ -194,7 +199,7 @@ function KnownTargetParameter({
           onChange={(event) => onChange(event.currentTarget.value)}
         />
       )}
-    </div>
+    </LumenFrame>
   )
 }
 
@@ -351,9 +356,9 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               else setParameter(field.name, next === 'true')
             }}
           >
-            <option value="">{labels.unset}</option>
-            <option value="true">{labels.trueValue}</option>
-            <option value="false">{labels.falseValue}</option>
+            <LumenOption value="">{labels.unset}</LumenOption>
+            <LumenOption value="true">{labels.trueValue}</LumenOption>
+            <LumenOption value="false">{labels.falseValue}</LumenOption>
           </LumenSelect>
         )
       return (
@@ -379,16 +384,16 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             else setParameter(field.name, next)
           }}
         >
-          {!field.required && <option value="">{labels.unset}</option>}
+          {!field.required && <LumenOption value="">{labels.unset}</LumenOption>}
           {field.required && value === undefined && (
-            <option value="" disabled>
+            <LumenOption value="" disabled>
               {labels.required}
-            </option>
+            </LumenOption>
           )}
           {field.choices.map((choice) => (
-            <option key={`${typeof choice}:${String(choice)}`} value={String(choice)}>
+            <LumenOption key={`${typeof choice}:${String(choice)}`} value={String(choice)}>
               {labels.option(field, choice)}
-            </option>
+            </LumenOption>
           ))}
         </LumenSelect>
       )
@@ -476,10 +481,10 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
   )
 
   return (
-    <section className="hbar-app-react-command-palette" data-view={palette.view}>
+    <LumenFrame as="section" className="hbar-app-react-command-palette" data-view={palette.view}>
       {header}
       {palette.view === 'search' ? (
-        <div className="hbar-app-react-command-search">
+        <LumenFrame className="hbar-app-react-command-search">
           <LumenCommandList
             inputRef={search}
             inputId="hbar-command-search"
@@ -507,36 +512,36 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             listStrategy={listItems.length > 40 ? 'virtual' : 'content-grown'}
             error={palette.status === 'error' && palette.error ? labels.error(palette.error) : undefined}
           />
-          {palette.truncated && <p className="hbar-app-react-command-truncated">{labels.truncated}</p>}
+          {palette.truncated && <LumenText as="p" className="hbar-app-react-command-truncated">{labels.truncated}</LumenText>}
           {actionError && (
-            <p className="hbar-app-react-command-action-error" role="alert">
+            <LumenText as="p" className="hbar-app-react-command-action-error" role="alert">
               {labels.error(actionError)}
-            </p>
+            </LumenText>
           )}
-        </div>
+        </LumenFrame>
       ) : palette.view === 'parameters' && selected && palette.draft ? (
-        <main className="hbar-app-react-command-parameters">
-          <form
+        <LumenFrame as="main" className="hbar-app-react-command-parameters">
+          <LumenFrame as="form"
             onSubmit={(event) => {
               event.preventDefault()
               if (canExecute) executeCommand()
             }}
           >
-            <div className="hbar-app-react-command-form-body">
-              <dl className="hbar-app-react-command-metadata">
-                <div>
-                  <dt>{labels.kind(selected.descriptor.metadata.kind)}</dt>
-                  <dd>{selected.descriptor.metadata.id}</dd>
-                </div>
-                <div>
-                  <dt>{labels.execution(selected.descriptor.metadata.execution)}</dt>
-                  <dd>{labels.scope(selected.descriptor.metadata.scope)}</dd>
-                </div>
-              </dl>
-              <fieldset disabled={busy}>
-                <legend>{labels.parameters}</legend>
+            <LumenFrame className="hbar-app-react-command-form-body">
+              <LumenCollection as="dl" className="hbar-app-react-command-metadata">
+                <LumenFrame>
+                  <LumenCollectionItem as="dt">{labels.kind(selected.descriptor.metadata.kind)}</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
+                </LumenFrame>
+                <LumenFrame>
+                  <LumenCollectionItem as="dt">{labels.execution(selected.descriptor.metadata.execution)}</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
+                </LumenFrame>
+              </LumenCollection>
+              <LumenFrame as="fieldset" disabled={busy}>
+                <LumenText as="legend">{labels.parameters}</LumenText>
                 {selected.form.fields.length === 0 ? (
-                  <p>{labels.noParameters}</p>
+                  <LumenText as="p">{labels.noParameters}</LumenText>
                 ) : (
                   selected.form.fields.map((field) => {
                     const issue = fieldIssue(field.name)
@@ -551,7 +556,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                         ((field.name === 'sessionId' || field.name === 'parentSessionId') && sessionTargets.length > 0))
                     const controlId = `hbar-command-${field.name}`
                     return (
-                      <div key={field.name} className="hbar-app-react-command-field">
+                      <LumenFrame key={field.name} className="hbar-app-react-command-field">
                         <LumenFormField
                           controlId={controlId}
                           label={label}
@@ -571,21 +576,21 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                             {labels.unset}
                           </LumenButton>
                         )}
-                      </div>
+                      </LumenFrame>
                     )
                   })
                 )}
-              </fieldset>
+              </LumenFrame>
               {(!selected.available || hostDisconnected) && (
-                <p role="status">
+                <LumenText as="p" role="status">
                   {labels.unavailableReason(
                     hostDisconnected ? 'HOST_DISCONNECTED' : (selected.unavailableReason ?? 'CAPABILITY_UNAVAILABLE'),
                   )}
-                </p>
+                </LumenText>
               )}
-              {actionError && <p role="alert">{labels.error(actionError)}</p>}
-            </div>
-            <footer>
+              {actionError && <LumenText as="p" role="alert">{labels.error(actionError)}</LumenText>}
+            </LumenFrame>
+            <LumenFrame as="footer">
               <LumenButton
                 type="button"
                 variant="outlined"
@@ -597,53 +602,53 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               <LumenButton type="submit" tone="primary" disabled={!canExecute}>
                 {busy ? labels.executing : labels.execute}
               </LumenButton>
-            </footer>
-          </form>
-        </main>
+            </LumenFrame>
+          </LumenFrame>
+        </LumenFrame>
       ) : palette.view === 'result' && selected ? (
-        <main className="hbar-app-react-command-result-view">
-          <section
+        <LumenFrame as="main" className="hbar-app-react-command-result-view">
+          <LumenFrame as="section"
             className="hbar-app-react-command-result-summary"
             data-tone={palette.execution.status === 'succeeded' ? 'success' : 'danger'}
             role={palette.execution.status === 'succeeded' ? 'status' : 'alert'}
           >
-            <strong>
+            <LumenText as="strong">
               {palette.execution.status === 'succeeded'
                 ? labels.succeeded
                 : labels.error(palette.execution.error ?? 'EXECUTION_FAILED')}
-            </strong>
-            <p>{labels.resultSummary(commandTitle)}</p>
-          </section>
-          <dl className="hbar-app-react-command-metadata">
-            <div>
-              <dt>{labels.kind(selected.descriptor.metadata.kind)}</dt>
-              <dd>{selected.descriptor.metadata.id}</dd>
-            </div>
-            <div>
-              <dt>{labels.execution(selected.descriptor.metadata.execution)}</dt>
-              <dd>{labels.scope(selected.descriptor.metadata.scope)}</dd>
-            </div>
-          </dl>
+            </LumenText>
+            <LumenText as="p">{labels.resultSummary(commandTitle)}</LumenText>
+          </LumenFrame>
+          <LumenCollection as="dl" className="hbar-app-react-command-metadata">
+            <LumenFrame>
+              <LumenCollectionItem as="dt">{labels.kind(selected.descriptor.metadata.kind)}</LumenCollectionItem>
+              <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
+            </LumenFrame>
+            <LumenFrame>
+              <LumenCollectionItem as="dt">{labels.execution(selected.descriptor.metadata.execution)}</LumenCollectionItem>
+              <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
+            </LumenFrame>
+          </LumenCollection>
           <HbarLumenDisclosure className="hbar-app-react-command-result-details" label={labels.technicalDetails}>
-            <pre>{palette.execution.result ?? palette.execution.error}</pre>
+            <LumenText as="pre">{palette.execution.result ?? palette.execution.error}</LumenText>
           </HbarLumenDisclosure>
-          <footer>
+          <LumenFrame as="footer">
             <LumenButton variant="outlined" onClick={goBack}>
               {labels.backToParameters}
             </LumenButton>
             <LumenButton tone="primary" onClick={closePanel}>
               {labels.close}
             </LumenButton>
-          </footer>
-        </main>
+          </LumenFrame>
+        </LumenFrame>
       ) : (
-        <main className="hbar-app-react-command-missing">
-          <p role="status">{labels.empty}</p>
+        <LumenFrame as="main" className="hbar-app-react-command-missing">
+          <LumenText as="p" role="status">{labels.empty}</LumenText>
           <LumenButton variant="outlined" onClick={goBack}>
             {labels.backToCommands}
           </LumenButton>
-        </main>
+        </LumenFrame>
       )}
-    </section>
+    </LumenFrame>
   )
 }

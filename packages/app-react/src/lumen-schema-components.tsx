@@ -11,6 +11,7 @@ import {
   type SchemaFieldRendererProps,
 } from '@hbar/schema-react'
 import {
+  LumenFrame,
   LumenButton,
   LumenCheckBoxControl,
   LumenComboBox,
@@ -227,7 +228,7 @@ function ResourcePicker(props: SchemaFieldRendererProps) {
   if (!resource) return null
   const reference = typeof props.value === 'string' ? decodeResourceReference(props.value) : null
   return (
-    <div className="hbar-app-react-schema-resource">
+    <LumenFrame className="hbar-app-react-schema-resource">
       <LumenInput
         id={`hbar-schema-field-${props.field.name}`}
         name={props.field.name}
@@ -245,7 +246,7 @@ function ResourcePicker(props: SchemaFieldRendererProps) {
       >
         {props.labels.pickResource(resource.kind)}
       </LumenButton>
-    </div>
+    </LumenFrame>
   )
 }
 
