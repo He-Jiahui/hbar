@@ -520,8 +520,8 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       await page.locator('[data-hbar-app-ui-shell="app"]').evaluate((element) => {
         const styles = getComputedStyle(element)
         return {
-          sidebar: styles.getPropertyValue('--hbar-app-ui-sidebar-size').trim(),
-          tool: styles.getPropertyValue('--hbar-app-ui-tool-size').trim(),
+          sidebar: styles.getPropertyValue('--lumen-sidebar-size').trim(),
+          tool: styles.getPropertyValue('--lumen-tool-size').trim(),
         }
       }),
     ).toEqual({ sidebar: '17rem', tool: '24rem' })
