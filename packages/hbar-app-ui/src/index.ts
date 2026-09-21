@@ -589,6 +589,32 @@ export type {
   HbarAppUiSupportTopic,
 } from './components/Support'
 export {
+  HbarAppUiWizardProvider,
+  selectHbarAppUiWizardItem,
+  uniqueHbarAppUiWizardItems,
+} from './components/Wizard'
+export type {
+  HbarAppUiWizardAction,
+  HbarAppUiWizardChoice,
+  HbarAppUiWizardContent,
+  HbarAppUiWizardEnvironmentContent,
+  HbarAppUiWizardFieldValue,
+  HbarAppUiWizardInformationContent,
+  HbarAppUiWizardInvoiceContent,
+  HbarAppUiWizardListStrategy,
+  HbarAppUiWizardMigrationContent,
+  HbarAppUiWizardMigrationItem,
+  HbarAppUiWizardPlan,
+  HbarAppUiWizardProviderProps,
+  HbarAppUiWizardReviewContent,
+  HbarAppUiWizardReviewSection,
+  HbarAppUiWizardService,
+  HbarAppUiWizardShippingContent,
+  HbarAppUiWizardStep,
+  HbarAppUiWizardSummaryRow,
+  HbarAppUiWizardUpgradeContent,
+} from './components/Wizard'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,

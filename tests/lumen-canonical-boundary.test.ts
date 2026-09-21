@@ -36,6 +36,7 @@ const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/support.tsx',
   'hbar-ui/packages/lumen-app-ui/src/tool-calls.tsx',
   'hbar-ui/packages/lumen-app-ui/src/usage.tsx',
+  'hbar-ui/packages/lumen-app-ui/src/wizard.tsx',
 ]
 
 test('canonical Lumen compositions use the Lumen control boundary', async () => {

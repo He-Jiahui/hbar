@@ -1,33 +1,54 @@
-import type {HbarAppUiVariantProps} from '../types'
-import {BillingUpgradeWizard} from './wizard/BillingUpgradeWizard'
-import {EnvironmentWizard} from './wizard/EnvironmentWizard'
-import {InformationWizard} from './wizard/InformationWizard'
-import {InvoiceWizard} from './wizard/InvoiceWizard'
-import {MigrationWizard} from './wizard/MigrationWizard'
-import {ReviewWizard} from './wizard/ReviewWizard'
-import {ShippingQuestion} from './wizard/ShippingQuestion'
-import './wizard/WizardSurface.css'
+import { LumenWizard, LumenWizardProvider as HbarAppUiWizardProvider, type LumenWizardContent } from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
-type WizardProps = HbarAppUiVariantProps
+export type HbarAppUiWizardProps = HbarAppUiVariantProps & {
+  readonly wizardContent?: LumenWizardContent | undefined
+}
+export { HbarAppUiWizardProvider }
+export {
+  selectLumenWizardItem as selectHbarAppUiWizardItem,
+  uniqueLumenWizardItems as uniqueHbarAppUiWizardItems,
+  useLumenWizardContent as useHbarAppUiWizardContent,
+} from '@lumen/app-ui'
+export type {
+  LumenWizardAction as HbarAppUiWizardAction,
+  LumenWizardChoice as HbarAppUiWizardChoice,
+  LumenWizardContent as HbarAppUiWizardContent,
+  LumenWizardEnvironmentContent as HbarAppUiWizardEnvironmentContent,
+  LumenWizardFieldValue as HbarAppUiWizardFieldValue,
+  LumenWizardInformationContent as HbarAppUiWizardInformationContent,
+  LumenWizardInvoiceContent as HbarAppUiWizardInvoiceContent,
+  LumenWizardListStrategy as HbarAppUiWizardListStrategy,
+  LumenWizardMigrationContent as HbarAppUiWizardMigrationContent,
+  LumenWizardMigrationItem as HbarAppUiWizardMigrationItem,
+  LumenWizardPlan as HbarAppUiWizardPlan,
+  LumenWizardProviderProps as HbarAppUiWizardProviderProps,
+  LumenWizardReviewContent as HbarAppUiWizardReviewContent,
+  LumenWizardReviewSection as HbarAppUiWizardReviewSection,
+  LumenWizardService as HbarAppUiWizardService,
+  LumenWizardShippingContent as HbarAppUiWizardShippingContent,
+  LumenWizardStep as HbarAppUiWizardStep,
+  LumenWizardSummaryRow as HbarAppUiWizardSummaryRow,
+  LumenWizardUpgradeContent as HbarAppUiWizardUpgradeContent,
+} from '@lumen/app-ui'
 
-/** Category dispatcher; each workflow variant has its own semantic surface. */
-export function Wizard({spec, onAction}: WizardProps) {
-    switch (spec.variant) {
-        case 1:
-            return <InformationWizard spec={spec} onAction={onAction}/>
-        case 2:
-            return <InvoiceWizard spec={spec} onAction={onAction}/>
-        case 3:
-            return <BillingUpgradeWizard spec={spec} onAction={onAction}/>
-        case 4:
-            return <EnvironmentWizard spec={spec} onAction={onAction}/>
-        case 5:
-            return <ReviewWizard spec={spec} onAction={onAction}/>
-        case 6:
-            return <MigrationWizard spec={spec} onAction={onAction}/>
-        case 7:
-            return <ShippingQuestion spec={spec} onAction={onAction}/>
-        default:
-            return <InformationWizard spec={spec} onAction={onAction}/>
-    }
+export function Wizard({ spec, onAction, wizardContent, className }: HbarAppUiWizardProps) {
+  return (
+    <LumenWizard
+      variant={spec.variant}
+      variantId={spec.id}
+      content={wizardContent}
+      className={className}
+      density={spec.density}
+      surface={spec.profile.surface}
+      state={spec.profile.initialState}
+      visualMode={spec.profile.visualMode}
+      onAction={
+        onAction
+          ? ({ actionId, value }) =>
+              onAction(value === undefined ? { variantId: spec.id, actionId } : { variantId: spec.id, actionId, value })
+          : undefined
+      }
+    />
+  )
 }
