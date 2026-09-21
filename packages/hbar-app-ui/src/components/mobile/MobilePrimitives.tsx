@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import type {ReactNode} from 'react'
 import type {LucideIcon} from 'lucide-react'
@@ -27,28 +30,35 @@ export function reportMobileAction(
 }
 
 export function MobileFrame({
-    spec,
-    onAction,
-    className,
-    children,
-}: MobileSurfaceProps & {readonly className: string; readonly children: ReactNode}): React.JSX.Element {
-    return <ActionSurfaceFrame spec={spec} onAction={onAction} className={`hbar-app-ui-mobile-surface ${className}`}>{children}</ActionSurfaceFrame>
+                                spec,
+                                onAction,
+                                className,
+                                children,
+                            }: MobileSurfaceProps & {
+    readonly className: string;
+    readonly children: ReactNode
+}): React.JSX.Element {
+    return <ActionSurfaceFrame spec={spec} onAction={onAction}
+                               className={`hbar-app-ui-mobile-surface ${className}`}>{children}</ActionSurfaceFrame>
 }
 
-export function MobilePhone({children, className = ''}: {readonly children: ReactNode; readonly className?: string}): React.JSX.Element {
-    return <section className={`hbar-app-ui-mobile-phone${className ? ` ${className}` : ''}`}>{children}</section>
+export function MobilePhone({children, className = ''}: {
+    readonly children: ReactNode;
+    readonly className?: string
+}): React.JSX.Element {
+    return <LumenFrame as="section" className={`hbar-app-ui-mobile-phone${className ? ` ${className}` : ''}`}>{children}</LumenFrame>
 }
 
-export function MobileAvatar({children}: {readonly children: ReactNode}): React.JSX.Element {
-    return <span className="hbar-app-ui-mobile-avatar" aria-hidden="true">{children}</span>
+export function MobileAvatar({children}: { readonly children: ReactNode }): React.JSX.Element {
+    return <LumenText as="span" className="hbar-app-ui-mobile-avatar" aria-hidden="true">{children}</LumenText>
 }
 
 export function MobileIconButton({
-    label,
-    children,
-    onClick,
-    pressed,
-}: {
+                                     label,
+                                     children,
+                                     onClick,
+                                     pressed,
+                                 }: {
     readonly label: string
     readonly children: ReactNode
     readonly onClick: () => void
@@ -59,17 +69,17 @@ export function MobileIconButton({
 }
 
 export function MobileBottomTabs({
-    tabs,
-    value,
-    onChange,
-    label,
-}: {
+                                     tabs,
+                                     value,
+                                     onChange,
+                                     label,
+                                 }: {
     readonly tabs: readonly MobileTab[]
     readonly value: string
     readonly onChange: (value: string) => void
     readonly label: string
 }): React.JSX.Element {
-    return <nav className="hbar-app-ui-mobile-bottom-tabs" role="tablist" aria-label={label}>{tabs.map(({
+    return <LumenFrame as="nav" className="hbar-app-ui-mobile-bottom-tabs" role="tablist" aria-label={label}>{tabs.map(({
                                                                                                             id,
                                                                                                             label: tabLabel,
                                                                                                             icon: Icon,
@@ -82,7 +92,8 @@ export function MobileBottomTabs({
         key={id}
         onClick={() => onChange(id)}
     >
-        <span className="hbar-app-ui-mobile-tab-icon"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.8} aria-hidden="true"/>{badge && <small>{badge}</small>}</span>
-        <span>{tabLabel}</span>
-    </LumenButton>)}</nav>
+        <LumenText as="span" className="hbar-app-ui-mobile-tab-icon"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.8} aria-hidden="true"/>{badge &&
+            <LumenText as="small">{badge}</LumenText>}</LumenText>
+        <LumenText as="span">{tabLabel}</LumenText>
+    </LumenButton>)}</LumenFrame>
 }

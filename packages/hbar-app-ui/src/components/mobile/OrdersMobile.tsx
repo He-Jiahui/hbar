@@ -1,8 +1,20 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Box, ChevronRight, ChevronUp, Home, MessageSquare} from 'lucide-react'
-import {MobileAvatar, MobileBottomTabs, MobileFrame, MobilePhone, reportMobileAction, type MobileSurfaceProps} from './MobilePrimitives'
+import {
+    MobileAvatar,
+    MobileBottomTabs,
+    MobileFrame,
+    MobilePhone,
+    type MobileSurfaceProps,
+    reportMobileAction
+} from './MobilePrimitives'
 
 type Order = {
     readonly id: string
@@ -30,21 +42,21 @@ export function OrdersMobile({spec, onAction}: MobileSurfaceProps): React.JSX.El
     const [activeTab, setActiveTab] = useState('Home')
 
     return <MobileFrame spec={spec} onAction={onAction} className="hbar-app-ui-mobile-orders-surface"><MobilePhone>
-        <header className="hbar-app-ui-mobile-phone-header"><p className="hbar-app-ui-mobile-phone-title">Northwind
-            Supply</p>
-            <div className="hbar-app-ui-mobile-header-actions"><MobileAvatar>NS</MobileAvatar></div>
-        </header>
-        <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-orders-content"><p
-            className="hbar-app-ui-mobile-eyebrow">Recent orders</p>
-            <ul className="hbar-app-ui-mobile-orders-list">{orders.map((order) => <li key={order.id}>
+        <LumenFrame as="header" className="hbar-app-ui-mobile-phone-header"><LumenText as="p" className="hbar-app-ui-mobile-phone-title">Northwind
+            Supply</LumenText>
+            <LumenFrame className="hbar-app-ui-mobile-header-actions"><MobileAvatar>NS</MobileAvatar></LumenFrame>
+        </LumenFrame>
+        <LumenFrame as="main" className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-orders-content"><LumenText as="p"
+            className="hbar-app-ui-mobile-eyebrow">Recent orders</LumenText>
+            <LumenCollection as="ul" className="hbar-app-ui-mobile-orders-list">{orders.map((order) => <LumenCollectionItem key={order.id}>
                 <LumenButton type="button" aria-label={`${order.account}, ${order.detail}`}
                         onClick={() => reportMobileAction(onAction, spec, 'open', order.id)}>
-                    <span><strong>{order.account}</strong><small>{order.detail}</small></span><HbarAppUiIcon icon={ChevronRight} tier="md"
+                    <LumenText as="span"><LumenText as="strong">{order.account}</LumenText><LumenText as="small">{order.detail}</LumenText></LumenText><HbarAppUiIcon icon={ChevronRight} tier="md"
                                                                                                             strokeWidth={1.5}
                                                                                                             aria-hidden="true"/>
                 </LumenButton>
-            </li>)}</ul>
-        </main>
+            </LumenCollectionItem>)}</LumenCollection>
+        </LumenFrame>
         <MobileBottomTabs tabs={tabs} value={activeTab} label="Order navigation" onChange={(value) => {
             setActiveTab(value)
             reportMobileAction(onAction, spec, 'tabs', value)

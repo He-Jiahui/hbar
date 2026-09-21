@@ -1,8 +1,21 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useMemo, useState} from 'react'
 import {Bell, Bookmark, ChevronRight, Home, Search, SlidersHorizontal, UserRound} from 'lucide-react'
-import {MobileAvatar, MobileBottomTabs, MobileFrame, MobileIconButton, MobilePhone, reportMobileAction, type MobileSurfaceProps} from './MobilePrimitives'
+import {
+    MobileAvatar,
+    MobileBottomTabs,
+    MobileFrame,
+    MobileIconButton,
+    MobilePhone,
+    type MobileSurfaceProps,
+    reportMobileAction
+} from './MobilePrimitives'
 
 type ActivityItem = {
     readonly id: string
@@ -40,30 +53,31 @@ export function ActivityFeedMobile({spec, onAction}: MobileSurfaceProps): React.
     }
 
     return <MobileFrame spec={spec} onAction={onAction} className="hbar-app-ui-mobile-activity-surface"><MobilePhone>
-        <header className="hbar-app-ui-mobile-phone-header">
-            <p className="hbar-app-ui-mobile-phone-title">Meridian</p>
-            <div className="hbar-app-ui-mobile-header-actions"><MobileIconButton label={dealsOnly ? 'Show all activity' : 'Show deal activity'} pressed={dealsOnly} onClick={() => {
+        <LumenFrame as="header" className="hbar-app-ui-mobile-phone-header">
+            <LumenText as="p" className="hbar-app-ui-mobile-phone-title">Meridian</LumenText>
+            <LumenFrame className="hbar-app-ui-mobile-header-actions"><MobileIconButton
+                label={dealsOnly ? 'Show all activity' : 'Show deal activity'} pressed={dealsOnly} onClick={() => {
                 setDealsOnly((value) => !value)
                 reportMobileAction(onAction, spec, 'filter', dealsOnly ? 'all' : 'deals')
-            }}><HbarAppUiIcon icon={SlidersHorizontal} tier="md"  strokeWidth={1.7}/></MobileIconButton><MobileAvatar>AR</MobileAvatar></div>
-        </header>
-        <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-activity-content">
+            }}><HbarAppUiIcon icon={SlidersHorizontal} tier="md"  strokeWidth={1.7}/></MobileIconButton><MobileAvatar>AR</MobileAvatar></LumenFrame>
+        </LumenFrame>
+        <LumenFrame as="main" className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-activity-content">
             {activeTab === 'Home' ? <>
-                <section className="hbar-app-ui-mobile-activity-heading"><h1>Today</h1>
-                    <p>{dealsOnly ? 'Deal updates since you last looked' : '4 updates since you last looked'}</p>
-                </section>
-                <ul className="hbar-app-ui-mobile-activity-list">{visibleItems.map((item) => <li key={item.id}>
+                <LumenFrame as="section" className="hbar-app-ui-mobile-activity-heading"><LumenText as="h1">Today</LumenText>
+                    <LumenText as="p">{dealsOnly ? 'Deal updates since you last looked' : '4 updates since you last looked'}</LumenText>
+                </LumenFrame>
+                <LumenCollection as="ul" className="hbar-app-ui-mobile-activity-list">{visibleItems.map((item) => <LumenCollectionItem key={item.id}>
                     <LumenButton type="button" aria-label={`${item.title}, ${item.detail}`}
                             onClick={() => reportMobileAction(onAction, spec, 'open', item.id)}>
-                        <span><strong>{item.title}</strong><small>{item.detail}</small></span><HbarAppUiIcon icon={ChevronRight} tier="md"
+                        <LumenText as="span"><LumenText as="strong">{item.title}</LumenText><LumenText as="small">{item.detail}</LumenText></LumenText><HbarAppUiIcon icon={ChevronRight} tier="md"
                                                                                                             strokeWidth={1.5}
                                                                                                             aria-hidden="true"/>
                     </LumenButton>
-                </li>)}</ul>
-            </> : <section className="hbar-app-ui-mobile-route-empty"><h1>{activeTab}</h1>
-                <p>{activeTab === 'Activity' ? 'Three unread updates are ready to review.' : `Open ${activeTab.toLowerCase()} from the mobile workspace.`}</p>
-            </section>}
-        </main>
+                </LumenCollectionItem>)}</LumenCollection>
+            </> : <LumenFrame as="section" className="hbar-app-ui-mobile-route-empty"><LumenText as="h1">{activeTab}</LumenText>
+                <LumenText as="p">{activeTab === 'Activity' ? 'Three unread updates are ready to review.' : `Open ${activeTab.toLowerCase()} from the mobile workspace.`}</LumenText>
+            </LumenFrame>}
+        </LumenFrame>
         <MobileBottomTabs tabs={tabs} value={activeTab} label="Primary navigation" onChange={selectTab}/>
     </MobilePhone></MobileFrame>
 }

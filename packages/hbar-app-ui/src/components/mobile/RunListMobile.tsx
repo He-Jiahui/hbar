@@ -1,8 +1,19 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useEffect, useMemo, useState} from 'react'
 import {Menu, Play, Plus, X} from 'lucide-react'
-import {MobileFrame, MobileIconButton, MobilePhone, reportMobileAction, type MobileSurfaceProps} from './MobilePrimitives'
+import {
+    MobileFrame,
+    MobileIconButton,
+    MobilePhone,
+    type MobileSurfaceProps,
+    reportMobileAction
+} from './MobilePrimitives'
 
 type Run = {
     readonly id: string
@@ -41,7 +52,12 @@ export function RunListMobile({spec, onAction}: MobileSurfaceProps): React.JSX.E
 
     const createRun = () => {
         const id = `queued-run-${queuedRuns.length + 1}`
-        setQueuedRuns((current) => [...current, {id, title: 'New workspace run', detail: 'Queued · Ready to start', state: 'Queue'}])
+        setQueuedRuns((current) => [...current, {
+            id,
+            title: 'New workspace run',
+            detail: 'Queued · Ready to start',
+            state: 'Queue'
+        }])
         setActiveTab('Queue')
         reportMobileAction(onAction, spec, 'open', id)
     }
@@ -51,36 +67,38 @@ export function RunListMobile({spec, onAction}: MobileSurfaceProps): React.JSX.E
         reportMobileAction(onAction, spec, 'tabs', tab)
     }
 
-    return <MobileFrame spec={spec} onAction={onAction} className="hbar-app-ui-mobile-runs-surface"><MobilePhone className="hbar-app-ui-mobile-runs-phone">
-        <header className="hbar-app-ui-mobile-phone-header hbar-app-ui-mobile-runs-header"><MobileIconButton label="Open menu" onClick={() => {
+    return <MobileFrame spec={spec} onAction={onAction} className="hbar-app-ui-mobile-runs-surface"><MobilePhone
+        className="hbar-app-ui-mobile-runs-phone">
+        <LumenFrame as="header" className="hbar-app-ui-mobile-phone-header hbar-app-ui-mobile-runs-header"><MobileIconButton
+            label="Open menu" onClick={() => {
             setMenuOpen(true)
             reportMobileAction(onAction, spec, 'expand', 'menu')
-        }}><HbarAppUiIcon icon={Menu} tier="lg"  strokeWidth={1.7}/></MobileIconButton><p className="hbar-app-ui-mobile-phone-title">Runs</p>
+        }}><HbarAppUiIcon icon={Menu} tier="lg"  strokeWidth={1.7}/></MobileIconButton><LumenText as="p" className="hbar-app-ui-mobile-phone-title">Runs</LumenText>
             <MobileIconButton label="New run" onClick={createRun}><HbarAppUiIcon icon={Plus} tier="lg"  strokeWidth={1.7}/></MobileIconButton>
-        </header>
-        <nav className="hbar-app-ui-mobile-run-tabs" role="tablist" aria-label="Run status">{tabs.map((tab) => <LumenButton
+        </LumenFrame>
+        <LumenFrame as="nav" className="hbar-app-ui-mobile-run-tabs" role="tablist" aria-label="Run status">{tabs.map((tab) => <LumenButton
             type="button" role="tab" aria-selected={activeTab === tab}
             className={activeTab === tab ? 'is-selected' : ''} key={tab}
-            onClick={() => selectTab(tab)}>{tab}</LumenButton>)}</nav>
-        <main className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-runs-content">{visibleRuns.length ?
-            <ul className="hbar-app-ui-mobile-runs-list">{visibleRuns.map((run) => <li key={run.id}>
-                <LumenButton type="button" onClick={() => reportMobileAction(onAction, spec, 'open', run.id)}><span
+            onClick={() => selectTab(tab)}>{tab}</LumenButton>)}</LumenFrame>
+        <LumenFrame as="main" className="hbar-app-ui-mobile-phone-content hbar-app-ui-mobile-runs-content">{visibleRuns.length ?
+            <LumenCollection as="ul" className="hbar-app-ui-mobile-runs-list">{visibleRuns.map((run) => <LumenCollectionItem key={run.id}>
+                <LumenButton type="button" onClick={() => reportMobileAction(onAction, spec, 'open', run.id)}><LumenText as="span"
                     className="hbar-app-ui-mobile-run-icon" aria-hidden="true"><HbarAppUiIcon icon={Play} tier="md"
-                                                                                     strokeWidth={1.5}/></span><span><strong>{run.title}</strong><small><i
-                    aria-hidden="true"/>{run.detail}</small></span></LumenButton>
-            </li>)}</ul> : <section className="hbar-app-ui-mobile-route-empty"><h1>{activeTab}</h1>
-                <p>{activeTab === 'Queue' ? 'Create a run to add it to the queue.' : 'No completed runs are available yet.'}</p>
-            </section>}</main>
-        {menuOpen && <section className="hbar-app-ui-mobile-runs-menu" role="dialog" aria-modal="true"
+                                                                                     strokeWidth={1.5}/></LumenText><LumenText as="span"><LumenText as="strong">{run.title}</LumenText><LumenText as="small"><LumenFrame as="i"
+                    aria-hidden="true"/>{run.detail}</LumenText></LumenText></LumenButton>
+            </LumenCollectionItem>)}</LumenCollection> : <LumenFrame as="section" className="hbar-app-ui-mobile-route-empty"><LumenText as="h1">{activeTab}</LumenText>
+                <LumenText as="p">{activeTab === 'Queue' ? 'Create a run to add it to the queue.' : 'No completed runs are available yet.'}</LumenText>
+            </LumenFrame>}</LumenFrame>
+        {menuOpen && <LumenFrame as="section" className="hbar-app-ui-mobile-runs-menu" role="dialog" aria-modal="true"
                               aria-label="Run navigation">
-            <header><p className="hbar-app-ui-mobile-phone-title">Menu</p><MobileIconButton label="Close menu"
+            <LumenFrame as="header"><LumenText as="p" className="hbar-app-ui-mobile-phone-title">Menu</LumenText><MobileIconButton label="Close menu"
                                                                                             onClick={() => {
                                                                                                 setMenuOpen(false)
                                                                                                 reportMobileAction(onAction, spec, 'close', 'menu')
                                                                                             }}><HbarAppUiIcon icon={X} tier="lg"
                                                                                                   strokeWidth={1.7}/></MobileIconButton>
-            </header>
-            <div>
+            </LumenFrame>
+            <LumenFrame>
                 <LumenButton type="button" onClick={() => {
                     setMenuOpen(false)
                     selectTab('Running')
@@ -96,7 +114,7 @@ export function RunListMobile({spec, onAction}: MobileSurfaceProps): React.JSX.E
                     selectTab('Done')
                 }}>Completed runs
                 </LumenButton>
-            </div>
-        </section>}
+            </LumenFrame>
+        </LumenFrame>}
     </MobilePhone></MobileFrame>
 }
