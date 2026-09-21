@@ -3,10 +3,12 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   LumenFeedback01,
+  LumenFeedback06,
   LumenFeedbackProvider,
   selectLumenFeedbackItem,
   uniqueLumenFeedbackItems,
 } from '@lumen/app-ui'
+import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiFeedbackProvider,
   selectHbarAppUiFeedbackItem,
@@ -18,6 +20,7 @@ test('feedback compatibility exports are canonical Lumen contracts', () => {
   expect(HbarAppUiFeedbackProvider).toBe(LumenFeedbackProvider)
   expect(selectHbarAppUiFeedbackItem).toBe(selectLumenFeedbackItem)
   expect(uniqueHbarAppUiFeedbackItems).toBe(uniqueLumenFeedbackItems)
+  expect(getLumenVariantComponent('hbar-app-ui-feedback-6')).toBe(LumenFeedback06)
 })
 
 test('the canonical Lumen entry renders host-owned feedback content', () => {
