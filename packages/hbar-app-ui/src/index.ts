@@ -565,6 +565,30 @@ export type {
   HbarAppUiMobileTasksContent,
 } from './components/Mobile'
 export {
+  HbarAppUiSupportProvider,
+  selectHbarAppUiSupportItem,
+  uniqueHbarAppUiSupportItems,
+} from './components/Support'
+export type {
+  HbarAppUiSupportAction,
+  HbarAppUiSupportArticle,
+  HbarAppUiSupportAssistantAction,
+  HbarAppUiSupportAssistantContent,
+  HbarAppUiSupportChatMessage,
+  HbarAppUiSupportChoice,
+  HbarAppUiSupportContent,
+  HbarAppUiSupportHelpContent,
+  HbarAppUiSupportListStrategy,
+  HbarAppUiSupportMessage,
+  HbarAppUiSupportProviderProps,
+  HbarAppUiSupportRequest,
+  HbarAppUiSupportRequestsContent,
+  HbarAppUiSupportThreadContent,
+  HbarAppUiSupportTicketContext,
+  HbarAppUiSupportTicketFormContent,
+  HbarAppUiSupportTopic,
+} from './components/Support'
+export {
   HbarAppUiOnboardingProvider,
   selectHbarAppUiOnboardingItem,
   uniqueHbarAppUiOnboardingItems,
