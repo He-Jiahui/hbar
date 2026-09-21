@@ -10,6 +10,7 @@ const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/editor.tsx',
   'hbar-ui/packages/lumen-app-ui/src/feedback-workflows.tsx',
   'hbar-ui/packages/lumen-app-ui/src/file-manager.tsx',
+  'hbar-ui/packages/lumen-app-ui/src/paywall.tsx',
   'hbar-ui/packages/lumen-app-ui/src/session-components.tsx',
   'hbar-ui/packages/lumen-app-ui/src/settings-form.tsx',
   'hbar-ui/packages/lumen-app-ui/src/tool-calls.tsx',
