@@ -1,85 +1,45 @@
-import type {HbarAppUiVariantProps} from '../types'
 import {
-    HbarAppUiEditorProvider,
-    useHbarAppUiEditorContent,
-    type HbarAppUiEditorContent,
-} from './editor/EditorContent'
-import {CodeWorkspace} from './editor/CodeWorkspace'
-import {LongDocumentReader} from './editor/LongDocumentReader'
-import {MarkdownWorkspace} from './editor/MarkdownWorkspace'
-import {EditorFrame} from './editor/EditorPrimitives'
-import {RichTextEditor} from './editor/RichTextEditor'
-import {SuggestionReview} from './editor/SuggestionReview'
-import './editor/EditorSurface.css'
+  LumenEditor,
+  LumenEditorProvider as HbarAppUiEditorProvider,
+  type LumenEditorContent,
+} from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiEditorProps = HbarAppUiVariantProps & {
-    /** Direct injection for a single mount; a provider supports catalog mounts. */
-    readonly editorContent?: HbarAppUiEditorContent | undefined
+  readonly editorContent?: LumenEditorContent | undefined
 }
-
-export {HbarAppUiEditorProvider}
+export { HbarAppUiEditorProvider }
 export type {
-    HbarAppUiCodeFile,
-    HbarAppUiCodeWorkspaceContent,
-    HbarAppUiCodeWorkspaceFooter,
-    HbarAppUiCodeWorkspaceLabels,
-    HbarAppUiEditorContent,
-    HbarAppUiEditorFormattingAction,
-    HbarAppUiEditorInlineSegment,
-    HbarAppUiEditorListStrategy,
-    HbarAppUiEditorProviderProps,
-    HbarAppUiLongDocumentReaderContent,
-    HbarAppUiLongDocumentReaderLabels,
-    HbarAppUiMarkdownDocument,
-    HbarAppUiMarkdownMode,
-    HbarAppUiMarkdownWorkspaceContent,
-    HbarAppUiMarkdownWorkspaceLabels,
-    HbarAppUiReaderSection,
-    HbarAppUiRichTextChange,
-    HbarAppUiRichTextDocument,
-    HbarAppUiRichTextEditorContent,
-    HbarAppUiRichTextEditorLabels,
-    HbarAppUiSuggestion,
-    HbarAppUiSuggestionAction,
-    HbarAppUiSuggestionDocumentParagraph,
-    HbarAppUiSuggestionReviewContent,
-    HbarAppUiSuggestionReviewDocument,
-    HbarAppUiSuggestionReviewLabels,
-} from './editor/EditorContent'
+  LumenCodeFile as HbarAppUiCodeFile,
+  LumenCodeWorkspaceContent as HbarAppUiCodeWorkspaceContent,
+  LumenCodeWorkspaceFooter as HbarAppUiCodeWorkspaceFooter,
+  LumenCodeWorkspaceLabels as HbarAppUiCodeWorkspaceLabels,
+  LumenEditorContent as HbarAppUiEditorContent,
+  LumenEditorFormattingAction as HbarAppUiEditorFormattingAction,
+  LumenEditorInlineSegment as HbarAppUiEditorInlineSegment,
+  LumenEditorListStrategy as HbarAppUiEditorListStrategy,
+  LumenEditorProviderProps as HbarAppUiEditorProviderProps,
+  LumenLongDocumentReaderContent as HbarAppUiLongDocumentReaderContent,
+  LumenLongDocumentReaderLabels as HbarAppUiLongDocumentReaderLabels,
+  LumenMarkdownDocument as HbarAppUiMarkdownDocument,
+  LumenMarkdownMode as HbarAppUiMarkdownMode,
+  LumenMarkdownWorkspaceContent as HbarAppUiMarkdownWorkspaceContent,
+  LumenMarkdownWorkspaceLabels as HbarAppUiMarkdownWorkspaceLabels,
+  LumenReaderSection as HbarAppUiReaderSection,
+  LumenRichTextChange as HbarAppUiRichTextChange,
+  LumenRichTextDocument as HbarAppUiRichTextDocument,
+  LumenRichTextEditorContent as HbarAppUiRichTextEditorContent,
+  LumenRichTextEditorLabels as HbarAppUiRichTextEditorLabels,
+  LumenSuggestion as HbarAppUiSuggestion,
+  LumenSuggestionAction as HbarAppUiSuggestionAction,
+  LumenSuggestionDocumentParagraph as HbarAppUiSuggestionDocumentParagraph,
+  LumenSuggestionReviewContent as HbarAppUiSuggestionReviewContent,
+  LumenSuggestionReviewDocument as HbarAppUiSuggestionReviewDocument,
+  LumenSuggestionReviewLabels as HbarAppUiSuggestionReviewLabels,
+} from '@lumen/app-ui'
 
-function emptyEditorSurface({spec, onAction}: HbarAppUiVariantProps) {
-    const className = {
-        1: 'hbar-app-ui-editor-rich-text',
-        2: 'hbar-app-ui-editor-markdown',
-        3: 'hbar-app-ui-editor-code',
-        4: 'hbar-app-ui-editor-suggestions',
-        5: 'hbar-app-ui-editor-reader',
-    }[spec.variant] ?? 'hbar-app-ui-editor-rich-text'
-    return <EditorFrame spec={spec} onAction={onAction} className={className}>{null}</EditorFrame>
-}
-
-/** Category dispatcher; each editor workflow owns an independent TSX surface. */
-export function Editor({spec, onAction, editorContent}: HbarAppUiEditorProps) {
-    const providerContent = useHbarAppUiEditorContent()
-    const content = editorContent ?? providerContent
-
-    switch (spec.variant) {
-        case 1:
-            return content?.richText ? <RichTextEditor spec={spec} onAction={onAction} content={content.richText}/>
-                : emptyEditorSurface({spec, onAction})
-        case 2:
-            return content?.markdown ? <MarkdownWorkspace spec={spec} onAction={onAction} content={content.markdown}/>
-                : emptyEditorSurface({spec, onAction})
-        case 3:
-            return content?.code ? <CodeWorkspace spec={spec} onAction={onAction} content={content.code}/>
-                : emptyEditorSurface({spec, onAction})
-        case 4:
-            return content?.suggestions ? <SuggestionReview spec={spec} onAction={onAction} content={content.suggestions}/>
-                : emptyEditorSurface({spec, onAction})
-        case 5:
-            return content?.reader ? <LongDocumentReader spec={spec} onAction={onAction} content={content.reader}/>
-                : emptyEditorSurface({spec, onAction})
-        default:
-            return emptyEditorSurface({spec, onAction})
-    }
+export function Editor({ spec, onAction, editorContent, className }: HbarAppUiEditorProps) {
+  return <LumenEditor variant={spec.variant} variantId={spec.id} content={editorContent} className={className}
+    density={spec.density} surface={spec.profile.surface} state={spec.profile.initialState} visualMode={spec.profile.visualMode}
+    onAction={onAction ? ({actionId,value}) => onAction(value === undefined ? {variantId:spec.id,actionId} : {variantId:spec.id,actionId,value}) : undefined} />
 }
