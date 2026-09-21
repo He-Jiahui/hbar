@@ -1,5 +1,8 @@
 import { RUN_LABELS } from './fixtures/hbar-app-ui-run-fixtures'
 import { APPROVAL_LABELS, QUESTION_LABELS } from './fixtures/hbar-app-ui-decision-fixtures'
+import { HBAR_APP_UI_NOTIFICATIONS_FIXTURES } from './fixtures/hbar-app-ui-notifications-fixtures'
+import { HBAR_APP_UI_SUPPORT_FIXTURES } from './fixtures/hbar-app-ui-support-fixtures'
+import { HBAR_APP_UI_WIZARD_FIXTURES } from './fixtures/hbar-app-ui-wizard-fixtures'
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -24,8 +27,11 @@ import {
   HBAR_APP_UI_VARIANT_EXPORTS,
   HBAR_APP_UI_VARIANT_SPECS,
   HbarAppUiApprovalRequest,
+  HbarAppUiNotificationsProvider,
   HbarAppUiQuestionnaire,
   HbarAppUiRunActivity,
+  HbarAppUiSupportProvider,
+  HbarAppUiWizardProvider,
   Dashboard,
   DataTable,
   Editor,
@@ -142,16 +148,21 @@ describe('hbar-app-ui registry', () => {
 
   test('keeps support variants as separate semantic hbar-app-ui surfaces', () => {
     const markup = Array.from({ length: 5 }, (_, index) =>
-      renderToStaticMarkup(createElement(getHbarAppUiVariant('support', index + 1).component, {})),
+      renderToStaticMarkup(
+        createElement(HbarAppUiSupportProvider, {
+          content: HBAR_APP_UI_SUPPORT_FIXTURES,
+          children: createElement(getHbarAppUiVariant('support', index + 1).component, {}),
+        }),
+      ),
     )
 
     expect(markup[0]).toContain('aria-label="Help topics"')
     expect(markup[1]).toContain('<fieldset')
     expect(markup[1]).toContain('Area')
-    expect(markup[2]).toContain('hbar-app-ui-support-messages')
-    expect(markup[2]).toContain('hbar-app-ui-support-reply')
+    expect(markup[2]).toContain('lumen-support-messages')
+    expect(markup[2]).toContain('lumen-support-reply')
     expect(markup[3]).toContain('role="dialog"')
-    expect(markup[3]).toContain('hbar-app-ui-support-assistant-transcript')
+    expect(markup[3]).toContain('lumen-support-transcript')
     expect(markup[4]).toContain('role="tablist"')
     expect(markup[4]).toContain('aria-label="Support requests"')
     expect(new Set(markup).size).toBe(5)
@@ -163,20 +174,25 @@ describe('hbar-app-ui registry', () => {
 
   test('keeps notification variants split by semantic surface and free of legacy naming', () => {
     const markup = Array.from({ length: 6 }, (_, index) =>
-      renderToStaticMarkup(createElement(getHbarAppUiVariant('notifications', index + 1).component, {})),
+      renderToStaticMarkup(
+        createElement(HbarAppUiNotificationsProvider, {
+          content: HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
+          children: createElement(getHbarAppUiVariant('notifications', index + 1).component, {}),
+        }),
+      ),
     )
 
-    expect(markup[0]).toContain('hbar-app-ui-notifications-feed')
+    expect(markup[0]).toContain('lumen-notifications-feed')
     expect(markup[0]).toContain('role="tablist"')
-    expect(markup[1]).toContain('hbar-app-ui-notifications-toast-choices')
+    expect(markup[1]).toContain('lumen-notifications-toast-choices')
     expect(markup[1]).toContain('No active toasts')
     expect(markup[2]).toContain('role="switch"')
-    expect(markup[2]).toContain('Notification delivery preferences')
-    expect(markup[3]).toContain('hbar-app-ui-notifications-activity-layout')
+    expect(markup[2]).toContain('Notification preferences')
+    expect(markup[3]).toContain('lumen-notifications-activity')
     expect(markup[3]).toContain('Cedar Labs billing')
-    expect(markup[4]).toContain('hbar-app-ui-notifications-system-list')
+    expect(markup[4]).toContain('lumen-notifications-system')
     expect(markup[4]).toContain('System messages')
-    expect(markup[5]).toContain('hbar-app-ui-notifications-bell-trigger')
+    expect(markup[5]).toContain('lumen-notifications-bell')
     expect(markup[5]).toContain('Open the bell to review recent activity')
     expect(new Set(markup).size).toBe(6)
     for (const surface of markup) {
@@ -187,7 +203,12 @@ describe('hbar-app-ui registry', () => {
 
   test('keeps wizard variants split by workflow semantics and free of legacy naming', () => {
     const markup = Array.from({ length: 7 }, (_, index) =>
-      renderToStaticMarkup(createElement(getHbarAppUiVariant('wizard', index + 1).component, {})),
+      renderToStaticMarkup(
+        createElement(HbarAppUiWizardProvider, {
+          content: HBAR_APP_UI_WIZARD_FIXTURES,
+          children: createElement(getHbarAppUiVariant('wizard', index + 1).component, {}),
+        }),
+      ),
     )
 
     expect(markup[0]).toContain('hbar-app-ui-wizard-information-form')
