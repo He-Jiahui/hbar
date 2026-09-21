@@ -1,21 +1,38 @@
-import { LumenButton, LumenInput } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenInput } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {ArrowLeft, ArrowRight, Check} from 'lucide-react'
-import {
-    WizardButton,
-    WizardFooter,
-    WizardFrame,
-    reportWizardAction,
-    type WizardSurfaceProps,
-} from './WizardPrimitives'
+import {reportWizardAction, WizardButton, WizardFooter, WizardFrame, type WizardSurfaceProps,} from './WizardPrimitives'
 
 const questions = [
-    {title: 'What do you sell?', detail: 'We tailor your workspace defaults.', options: ['Physical goods', 'Digital goods', 'Services', 'A little of everything']},
-    {title: 'Where do you ship to?', detail: 'We enable the right customs forms.', options: ['Domestic only', 'Europe', 'Worldwide', 'Not sure yet']},
-    {title: 'How often do you ship?', detail: 'This helps us set sensible limits.', options: ['A few times a month', 'Weekly', 'Daily', 'Not sure yet']},
-    {title: 'Who manages fulfilment?', detail: 'Choose the team that owns delivery.', options: ['Our team', 'A partner', 'Both', 'Not sure yet']},
-    {title: 'Ready to continue?', detail: 'You can change these answers later.', options: ['Yes, continue', 'I need to review', 'Not sure yet', 'Skip setup']},
+    {
+        title: 'What do you sell?',
+        detail: 'We tailor your workspace defaults.',
+        options: ['Physical goods', 'Digital goods', 'Services', 'A little of everything']
+    },
+    {
+        title: 'Where do you ship to?',
+        detail: 'We enable the right customs forms.',
+        options: ['Domestic only', 'Europe', 'Worldwide', 'Not sure yet']
+    },
+    {
+        title: 'How often do you ship?',
+        detail: 'This helps us set sensible limits.',
+        options: ['A few times a month', 'Weekly', 'Daily', 'Not sure yet']
+    },
+    {
+        title: 'Who manages fulfilment?',
+        detail: 'Choose the team that owns delivery.',
+        options: ['Our team', 'A partner', 'Both', 'Not sure yet']
+    },
+    {
+        title: 'Ready to continue?',
+        detail: 'You can change these answers later.',
+        options: ['Yes, continue', 'I need to review', 'Not sure yet', 'Skip setup']
+    },
 ] as const
 
 export function ShippingQuestion({spec, onAction}: WizardSurfaceProps) {
@@ -29,27 +46,27 @@ export function ShippingQuestion({spec, onAction}: WizardSurfaceProps) {
     }
 
     return <WizardFrame spec={spec} onAction={onAction} className="hbar-app-ui-wizard-question">
-        <main className="hbar-app-ui-wizard-question-card">
-            <header className="hbar-app-ui-wizard-question-header">
-                <nav aria-label="Questions">{questions.map((item, index) => <LumenButton type="button" key={item.title}
+        <LumenFrame as="main" className="hbar-app-ui-wizard-question-card">
+            <LumenFrame as="header" className="hbar-app-ui-wizard-question-header">
+                <LumenFrame as="nav" aria-label="Questions">{questions.map((item, index) => <LumenButton type="button" key={item.title}
                                                                                     aria-label={`Go to question ${index + 1}`}
                                                                                     className={index === step ? 'is-active' : index < step ? 'is-complete' : ''}
                                                                                     onClick={() => move(index)}>
-                    <span>{index < step ? <HbarAppUiIcon icon={Check} tier="xs" /> : ''}</span></LumenButton>)}</nav>
-                <span>{step + 1} of {questions.length}</span></header>
-            <section><h1>{question.title}</h1><p>{question.detail}</p>
-                <div className="hbar-app-ui-wizard-question-options" role="radiogroup"
-                     aria-label={question.title}>{question.options.map((option) => <label
+                    <LumenText as="span">{index < step ? <HbarAppUiIcon icon={Check} tier="xs" /> : ''}</LumenText></LumenButton>)}</LumenFrame>
+                <LumenText as="span">{step + 1} of {questions.length}</LumenText></LumenFrame>
+            <LumenFrame as="section"><LumenText as="h1">{question.title}</LumenText><LumenText as="p">{question.detail}</LumenText>
+                <LumenFrame className="hbar-app-ui-wizard-question-options" role="radiogroup"
+                     aria-label={question.title}>{question.options.map((option) => <LumenFrame as="label"
                     className={answer === option ? 'is-selected' : ''} key={option}><LumenInput type="radio"
                                                                                            name="shipping-answer"
                                                                                            checked={answer === option}
                                                                                            onChange={() => {
                                                                                                setAnswer(option)
                                                                                                reportWizardAction(onAction, spec, 'answer', option)
-                                                                                           }}/><span
+                                                                                           }}/><LumenText as="span"
                     className="hbar-app-ui-wizard-question-radio" aria-hidden="true">{answer === option &&
-                    <HbarAppUiIcon icon={Check} tier="xs" />}</span><strong>{option}</strong></label>)}</div>
-            </section>
+                    <HbarAppUiIcon icon={Check} tier="xs" />}</LumenText><LumenText as="strong">{option}</LumenText></LumenFrame>)}</LumenFrame>
+            </LumenFrame>
             <WizardFooter><WizardButton aria-label="Previous question" title="Previous question" disabled={step === 0}
                                         onClick={() => move(step - 1)}><HbarAppUiIcon icon={ArrowLeft} tier="sm"
                 /></WizardButton><WizardButton tone="light"
@@ -58,6 +75,6 @@ export function ShippingQuestion({spec, onAction}: WizardSurfaceProps) {
             <LumenButton type="button" className="hbar-app-ui-wizard-question-skip"
                     onClick={() => reportWizardAction(onAction, spec, 'skip')}>Skip and use defaults
             </LumenButton>
-        </main>
+        </LumenFrame>
     </WizardFrame>
 }

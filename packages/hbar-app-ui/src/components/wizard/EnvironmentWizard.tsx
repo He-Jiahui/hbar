@@ -1,12 +1,27 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
-import {ArrowLeft, Archive, Check, Database, FolderArchive, Gauge, HardDrive, Layers3, Search, ServerCog, Zap} from 'lucide-react'
 import {
+    Archive,
+    ArrowLeft,
+    Check,
+    Database,
+    FolderArchive,
+    Gauge,
+    HardDrive,
+    Layers3,
+    Search,
+    ServerCog,
+    Zap
+} from 'lucide-react'
+import {
+    reportWizardAction,
     WizardButton,
     WizardFrame,
     WizardStepRail,
-    reportWizardAction,
     type WizardSurfaceProps,
 } from './WizardPrimitives'
 
@@ -42,45 +57,45 @@ export function EnvironmentWizard({spec, onAction}: WizardSurfaceProps) {
     }
 
     return <WizardFrame spec={spec} onAction={onAction} className="hbar-app-ui-wizard-environment">
-        <header className="hbar-app-ui-wizard-environment-header">
-            <div className="hbar-app-ui-wizard-environment-title"><WizardButton aria-label="Back to region"
+        <LumenFrame as="header" className="hbar-app-ui-wizard-environment-header">
+            <LumenFrame className="hbar-app-ui-wizard-environment-title"><WizardButton aria-label="Back to region"
                                                                                 title="Back to region"
                                                                                 className="hbar-app-ui-wizard-environment-back"
                                                                                 onClick={() => {
                                                                                     setStep(0)
                                                                                     reportWizardAction(onAction, spec, 'back')
                                                                                 }}><HbarAppUiIcon icon={ArrowLeft} tier="md" /></WizardButton>
-                <div><h1>New environment</h1><p>staging · eu-west</p></div>
-            </div>
+                <LumenFrame><LumenText as="h1">New environment</LumenText><LumenText as="p">staging · eu-west</LumenText></LumenFrame>
+            </LumenFrame>
             <WizardButton onClick={() => reportWizardAction(onAction, spec, 'save-exit')}>Save and
                 exit</WizardButton><WizardStepRail steps={steps} current={step} onSelect={(index) => {
             setStep(index)
             reportWizardAction(onAction, spec, 'step', String(index + 1))
-        }}/></header>
-        <main className="hbar-app-ui-wizard-environment-main">
-            <header><h2>Pick the services this environment runs</h2><p>Anything left out can be attached later without a
-                rebuild.</p></header>
-            <div className="hbar-app-ui-wizard-service-grid" role="group"
+        }}/></LumenFrame>
+        <LumenFrame as="main" className="hbar-app-ui-wizard-environment-main">
+            <LumenFrame as="header"><LumenText as="h2">Pick the services this environment runs</LumenText><LumenText as="p">Anything left out can be attached later without a
+                rebuild.</LumenText></LumenFrame>
+            <LumenFrame className="hbar-app-ui-wizard-service-grid" role="group"
                  aria-label="Environment services">{services.map((service) => {
                 const isSelected = selected.has(service.id)
                 const Icon = service.Icon
                 return <LumenButton type="button" role="checkbox" aria-checked={isSelected}
                                className={isSelected ? 'is-selected' : ''} key={service.id}
-                               onClick={() => toggle(service.id)}><span
-                    className="hbar-app-ui-wizard-service-icon"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.6}/></span><span
+                               onClick={() => toggle(service.id)}><LumenText as="span"
+                    className="hbar-app-ui-wizard-service-icon"><HbarAppUiIcon icon={Icon} tier="md"  strokeWidth={1.6}/></LumenText><LumenText as="span"
                     className="hbar-app-ui-wizard-service-check" aria-hidden="true">{isSelected && <HbarAppUiIcon icon={Check} tier="xs"
-                                                                                                          strokeWidth={2}/>}</span><strong>{service.label}</strong><small>{service.detail}</small>
+                                                                                                          strokeWidth={2}/>}</LumenText><LumenText as="strong">{service.label}</LumenText><LumenText as="small">{service.detail}</LumenText>
                 </LumenButton>
-            })}</div>
-            <aside className="hbar-app-ui-wizard-environment-note"><HbarAppUiIcon icon={HardDrive} tier="md"  aria-hidden="true"/><p>Every
+            })}</LumenFrame>
+            <LumenFrame as="aside" className="hbar-app-ui-wizard-environment-note"><HbarAppUiIcon icon={HardDrive} tier="md"  aria-hidden="true"/><LumenText as="p">Every
                 selected service is provisioned inside the same private network. Nothing is exposed publicly until you
-                add a route.</p></aside>
-        </main>
-        <footer className="hbar-app-ui-wizard-environment-footer">
-            <div><strong>{selected.size} of 8 selected</strong><small>Adds about 24s to each deploy</small></div>
+                add a route.</LumenText></LumenFrame>
+        </LumenFrame>
+        <LumenFrame as="footer" className="hbar-app-ui-wizard-environment-footer">
+            <LumenFrame><LumenText as="strong">{selected.size} of 8 selected</LumenText><LumenText as="small">Adds about 24s to each deploy</LumenText></LumenFrame>
             <WizardButton tone="light" onClick={() => {
                 setStep(2)
                 reportWizardAction(onAction, spec, 'limits')
-            }}>Set limits</WizardButton></footer>
+            }}>Set limits</WizardButton></LumenFrame>
     </WizardFrame>
 }

@@ -1,4 +1,7 @@
-import { LumenButton } from '@lumen/app-ui'
+import {
+  LumenFrame,
+  LumenText,
+ LumenButton } from '@lumen/app-ui'
 import { HbarAppUiIcon } from '../../icon'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import {Check} from 'lucide-react'
@@ -21,11 +24,11 @@ export function reportWizardAction(
 }
 
 export function WizardFrame({
-    spec,
-    onAction,
-    className,
-    children,
-}: WizardSurfaceProps & {readonly className: string; readonly children: ReactNode}) {
+                                spec,
+                                onAction,
+                                className,
+                                children,
+                            }: WizardSurfaceProps & { readonly className: string; readonly children: ReactNode }) {
     return <ActionSurfaceFrame spec={spec} onAction={onAction}
                                className={`hbar-app-ui-wizard-surface ${className}`}>{children}</ActionSurfaceFrame>
 }
@@ -46,44 +49,49 @@ export type WizardStep = {
 }
 
 export function WizardStepRail({
-    steps,
-    current,
-    onSelect,
-    compact = false,
-}: {
+                                   steps,
+                                   current,
+                                   onSelect,
+                                   compact = false,
+                               }: {
     readonly steps: readonly WizardStep[]
     readonly current: number
     readonly onSelect?: ((index: number) => void) | undefined
     readonly compact?: boolean
 }) {
-    return <nav className={`hbar-app-ui-wizard-step-rail${compact ? ' is-compact' : ''}`} aria-label="Wizard progress">{steps.map((step, index) => {
+    return <LumenFrame as="nav" className={`hbar-app-ui-wizard-step-rail${compact ? ' is-compact' : ''}`}
+                aria-label="Wizard progress">{steps.map((step, index) => {
         const complete = index < current
         const active = index === current
-        return <div className={`hbar-app-ui-wizard-step${active ? ' is-active' : ''}${complete ? ' is-complete' : ''}`}
+        return <LumenFrame className={`hbar-app-ui-wizard-step${active ? ' is-active' : ''}${complete ? ' is-complete' : ''}`}
                     key={step.id}>
             <LumenButton type="button" aria-current={active ? 'step' : undefined} aria-label={`${index + 1} ${step.label}`}
                     disabled={!onSelect}
-                    onClick={() => onSelect?.(index)}><span className="hbar-app-ui-wizard-step-index">{complete ?
-                <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={2}/> : index + 1}</span><span
-                className="hbar-app-ui-wizard-step-label">{step.label}</span></LumenButton>
+                    onClick={() => onSelect?.(index)}><LumenText as="span" className="hbar-app-ui-wizard-step-index">{complete ?
+                <HbarAppUiIcon icon={Check} tier="sm"  strokeWidth={2}/> : index + 1}</LumenText><LumenText as="span"
+                className="hbar-app-ui-wizard-step-label">{step.label}</LumenText></LumenButton>
             {index < steps.length - 1 &&
-                <i aria-hidden="true"/>}
-        </div>
-    })}</nav>
+                <LumenFrame as="i" aria-hidden="true"/>}
+        </LumenFrame>
+    })}</LumenFrame>
 }
 
 export function WizardField({
-    label,
-    required = false,
-    children,
-}: {
+                                label,
+                                required = false,
+                                children,
+                            }: {
     readonly label: string
     readonly required?: boolean
     readonly children: ReactNode
 }) {
-    return <label className="hbar-app-ui-wizard-field"><span>{label}{required && <b aria-hidden="true">*</b>}</span>{children}</label>
+    return <LumenFrame as="label" className="hbar-app-ui-wizard-field"><LumenText as="span">{label}{required &&
+        <LumenText as="b" aria-hidden="true">*</LumenText>}</LumenText>{children}</LumenFrame>
 }
 
-export function WizardFooter({children, className = ''}: {readonly children: ReactNode; readonly className?: string}) {
-    return <footer className={`hbar-app-ui-wizard-footer${className ? ` ${className}` : ''}`}>{children}</footer>
+export function WizardFooter({children, className = ''}: {
+    readonly children: ReactNode;
+    readonly className?: string
+}) {
+    return <LumenFrame as="footer" className={`hbar-app-ui-wizard-footer${className ? ` ${className}` : ''}`}>{children}</LumenFrame>
 }
