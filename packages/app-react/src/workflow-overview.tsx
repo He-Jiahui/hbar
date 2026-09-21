@@ -1,5 +1,10 @@
 import { Bot, Focus, GitPullRequestArrow, ShieldCheck } from 'lucide-react'
-import { LumenButton, LumenDisclosure, LumenIcon, LumenStatus } from '@lumen/app-ui'
+import {
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenText,
+ LumenButton, LumenDisclosure, LumenIcon, LumenStatus } from '@lumen/app-ui'
 import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
 
 type WorkflowState = NonNullable<WorkflowWorkspaceEntryState['snapshot']['workflow']>
@@ -75,26 +80,26 @@ export function HbarWorkflowOverview({
 }) {
   if (!entry || entry.status === 'loading')
     return (
-      <section className="hbar-app-react-workflow-overview">
-        <p className="hbar-app-react-goal-plan-loading">{labels.loading}</p>
-      </section>
+      <LumenFrame as="section" className="hbar-app-react-workflow-overview">
+        <LumenText as="p" className="hbar-app-react-goal-plan-loading">{labels.loading}</LumenText>
+      </LumenFrame>
     )
   if (entry.error)
     return (
-      <section className="hbar-app-react-workflow-overview">
-        <p role="alert">{labels.error(entry.error)}</p>
-      </section>
+      <LumenFrame as="section" className="hbar-app-react-workflow-overview">
+        <LumenText as="p" role="alert">{labels.error(entry.error)}</LumenText>
+      </LumenFrame>
     )
   const { plan, workflow } = entry.snapshot
   if (!plan && !workflow)
     return (
-      <section className="hbar-app-react-workflow-overview">
-        <header>
-          <h2>{labels.title}</h2>
+      <LumenFrame as="section" className="hbar-app-react-workflow-overview">
+        <LumenFrame as="header">
+          <LumenText as="h2">{labels.title}</LumenText>
           <LumenStatus value={labels.statuses.none} tone="neutral" />
-        </header>
-        <p className="hbar-app-react-goal-plan-empty">{labels.empty}</p>
-      </section>
+        </LumenFrame>
+        <LumenText as="p" className="hbar-app-react-goal-plan-empty">{labels.empty}</LumenText>
+      </LumenFrame>
     )
   const status = workflow?.status ?? 'draft'
   const active = workflow?.workItems.find((item) => item.id === workflow.activeItemId)
@@ -116,64 +121,64 @@ export function HbarWorkflowOverview({
     []
   const evidence = workflow?.evidence.slice(-entry.visibleEvidence).reverse() ?? []
   return (
-    <section className="hbar-app-react-workflow-overview">
-      <header>
-        <h2>{labels.title}</h2>
+    <LumenFrame as="section" className="hbar-app-react-workflow-overview">
+      <LumenFrame as="header">
+        <LumenText as="h2">{labels.title}</LumenText>
         <LumenStatus value={labels.statuses[status]} tone={tone(status)} />
-      </header>
-      {!workflow && <p className="hbar-app-react-workflow-draft">{labels.draft}</p>}
+      </LumenFrame>
+      {!workflow && <LumenText as="p" className="hbar-app-react-workflow-draft">{labels.draft}</LumenText>}
       {workflow && (
-        <div className="hbar-app-react-workflow-focus">
+        <LumenFrame className="hbar-app-react-workflow-focus">
           <LumenIcon icon={Focus} tier="sm" />
-          <span>{labels.focus}</span>
-          <strong>{active?.title ?? labels.staleFocus}</strong>
-        </div>
+          <LumenText as="span">{labels.focus}</LumenText>
+          <LumenText as="strong">{active?.title ?? labels.staleFocus}</LumenText>
+        </LumenFrame>
       )}
-      <div className="hbar-app-react-workflow-group">
-        <h3>
-          {labels.todo} <span>{labels.itemCount(items.length)}</span>
-        </h3>
+      <LumenFrame className="hbar-app-react-workflow-group">
+        <LumenText as="h3">
+          {labels.todo} <LumenText as="span">{labels.itemCount(items.length)}</LumenText>
+        </LumenText>
         {items.length ? (
-          <ol className="hbar-app-react-workflow-items">
+          <LumenCollection as="ol" className="hbar-app-react-workflow-items">
             {items.map((item, index) => {
               const state = item.status
               const owner = item.owner
               return (
-                <li key={`${item.id}:${index}`} data-active={workflow?.activeItemId === item.id || undefined}>
-                  <div className="hbar-app-react-workflow-item-heading">
-                    <strong>{item.title}</strong>
+                <LumenCollectionItem key={`${item.id}:${index}`} data-active={workflow?.activeItemId === item.id || undefined}>
+                  <LumenFrame className="hbar-app-react-workflow-item-heading">
+                    <LumenText as="strong">{item.title}</LumenText>
                     <LumenStatus value={labels.itemStatuses[state]} tone={tone(state)} />
-                    <span>{owner.kind === 'main' ? labels.ownerMain : labels.ownerAgent(owner.agentId)}</span>
-                  </div>
+                    <LumenText as="span">{owner.kind === 'main' ? labels.ownerMain : labels.ownerAgent(owner.agentId)}</LumenText>
+                  </LumenFrame>
                   <LumenDisclosure className="hbar-app-react-workflow-disclosure" summary={labels.scope}>
-                    <dl>
-                      <div>
-                        <dt>{labels.readPaths}</dt>
-                        <dd>{item.scope.readPaths.join(', ') || labels.none}</dd>
-                      </div>
-                      <div>
-                        <dt>{labels.writePaths}</dt>
-                        <dd>{item.scope.writePaths.join(', ') || labels.none}</dd>
-                      </div>
-                      <div>
-                        <dt>{labels.tools}</dt>
-                        <dd>{item.scope.tools.join(', ') || labels.none}</dd>
-                      </div>
-                    </dl>
+                    <LumenCollection as="dl">
+                      <LumenFrame>
+                        <LumenCollectionItem as="dt">{labels.readPaths}</LumenCollectionItem>
+                        <LumenCollectionItem as="dd">{item.scope.readPaths.join(', ') || labels.none}</LumenCollectionItem>
+                      </LumenFrame>
+                      <LumenFrame>
+                        <LumenCollectionItem as="dt">{labels.writePaths}</LumenCollectionItem>
+                        <LumenCollectionItem as="dd">{item.scope.writePaths.join(', ') || labels.none}</LumenCollectionItem>
+                      </LumenFrame>
+                      <LumenFrame>
+                        <LumenCollectionItem as="dt">{labels.tools}</LumenCollectionItem>
+                        <LumenCollectionItem as="dd">{item.scope.tools.join(', ') || labels.none}</LumenCollectionItem>
+                      </LumenFrame>
+                    </LumenCollection>
                   </LumenDisclosure>
-                  <div className="hbar-app-react-workflow-checks">
-                    <span>{labels.acceptance}</span>
-                    <ul>
+                  <LumenFrame className="hbar-app-react-workflow-checks">
+                    <LumenText as="span">{labels.acceptance}</LumenText>
+                    <LumenCollection as="ul">
                       {item.acceptanceChecks.map((check, checkIndex) => {
                         const checkStatus = check.status
                         const actionKey = `accept:${item.id}:${check.id}`
                         const action = entry.actions[actionKey]
                         return (
-                          <li key={`${check.id}:${checkIndex}`}>
-                            <span>{check.description}</span>
+                          <LumenCollectionItem key={`${check.id}:${checkIndex}`}>
+                            <LumenText as="span">{check.description}</LumenText>
                             <LumenStatus value={labels.acceptanceStatuses[checkStatus]} tone={tone(checkStatus)} />
                             {check.verifier.kind === 'user' && !['accepted', 'passed'].includes(checkStatus) && (
-                              <div className="hbar-app-react-workflow-check-actions">
+                              <LumenFrame className="hbar-app-react-workflow-check-actions">
                                 <LumenButton
                                   disabled={
                                     !connected || action?.status === 'submitting' || action?.status === 'unknown'
@@ -207,55 +212,55 @@ export function HbarWorkflowOverview({
                                 >
                                   {labels.reject}
                                 </LumenButton>
-                              </div>
+                              </LumenFrame>
                             )}
-                            {action?.status === 'succeeded' && <span role="status">{labels.actionSucceeded}</span>}
-                            {action?.error && <span role="alert">{labels.error(action.error)}</span>}
-                          </li>
+                            {action?.status === 'succeeded' && <LumenText as="span" role="status">{labels.actionSucceeded}</LumenText>}
+                            {action?.error && <LumenText as="span" role="alert">{labels.error(action.error)}</LumenText>}
+                          </LumenCollectionItem>
                         )
                       })}
-                    </ul>
-                  </div>
-                </li>
+                    </LumenCollection>
+                  </LumenFrame>
+                </LumenCollectionItem>
               )
             })}
-          </ol>
+          </LumenCollection>
         ) : (
-          <p className="hbar-app-react-goal-plan-empty">{labels.none}</p>
+          <LumenText as="p" className="hbar-app-react-goal-plan-empty">{labels.none}</LumenText>
         )}
-      </div>
-      <div className="hbar-app-react-workflow-group">
-        <h3>
+      </LumenFrame>
+      <LumenFrame className="hbar-app-react-workflow-group">
+        <LumenText as="h3">
           <LumenIcon icon={Bot} tier="sm" /> {labels.agents}
-        </h3>
+        </LumenText>
         {workflow?.delegations.length ? (
-          <ul className="hbar-app-react-workflow-agents">
+          <LumenCollection as="ul" className="hbar-app-react-workflow-agents">
             {workflow.delegations.map((delegation, index) => {
               const agent = delegation.agentId ? entry.agents[delegation.agentId] : undefined
               const action = delegation.agentId ? entry.actions[`apply:${delegation.agentId}`] : undefined
               return (
-                <li key={`${delegation.delegationId}:${index}`}>
-                  <div>
-                    <strong>
+                <LumenCollectionItem key={`${delegation.delegationId}:${index}`}>
+                  <LumenFrame>
+                    <LumenText as="strong">
                       {workflow.workItems.find((item) => item.id === delegation.itemId)?.title ?? delegation.itemId}
-                    </strong>
+                    </LumenText>
                     <LumenStatus value={labels.delegationStatuses[delegation.status]} tone={tone(delegation.status)} />
-                  </div>
-                  {agent?.resultSummary && <p>{agent.resultSummary}</p>}
+                  </LumenFrame>
+                  {agent?.resultSummary && <LumenText as="p">{agent.resultSummary}</LumenText>}
                   {agent?.patch && (
                     <LumenDisclosure
                       className="hbar-app-react-workflow-disclosure"
                       summary={labels.patchFiles(agent.patch.files.length)}
                       {...(delegation.status === 'conflict' ? { open: true } : {})}
                     >
-                      <ul>
+                      <LumenCollection as="ul">
                         {agent.patch.files.map((file) => (
-                          <li key={file.path}>{file.path}</li>
+                          <LumenCollectionItem key={file.path}>{file.path}</LumenCollectionItem>
                         ))}
-                      </ul>
+                      </LumenCollection>
                     </LumenDisclosure>
                   )}
-                  <div className="hbar-app-react-workflow-agent-actions">
+                  <LumenFrame className="hbar-app-react-workflow-agent-actions">
                     {delegation.status === 'patch_ready' && delegation.agentId && (
                       <LumenButton
                         tone="primary"
@@ -276,41 +281,41 @@ export function HbarWorkflowOverview({
                         {labels.coordinate}
                       </LumenButton>
                     )}
-                  </div>
-                  {action?.status === 'succeeded' && <p role="status">{labels.actionSucceeded}</p>}
-                  {action?.error && <p role="alert">{labels.error(action.error)}</p>}
-                </li>
+                  </LumenFrame>
+                  {action?.status === 'succeeded' && <LumenText as="p" role="status">{labels.actionSucceeded}</LumenText>}
+                  {action?.error && <LumenText as="p" role="alert">{labels.error(action.error)}</LumenText>}
+                </LumenCollectionItem>
               )
             })}
-          </ul>
+          </LumenCollection>
         ) : (
-          <p className="hbar-app-react-goal-plan-empty">{labels.noAgents}</p>
+          <LumenText as="p" className="hbar-app-react-goal-plan-empty">{labels.noAgents}</LumenText>
         )}
-      </div>
-      <div className="hbar-app-react-workflow-group">
-        <h3>
+      </LumenFrame>
+      <LumenFrame className="hbar-app-react-workflow-group">
+        <LumenText as="h3">
           <LumenIcon icon={ShieldCheck} tier="sm" /> {labels.evidence}
-          <span>{labels.evidenceCount(evidence.length, workflow?.evidence.length ?? 0)}</span>
-        </h3>
+          <LumenText as="span">{labels.evidenceCount(evidence.length, workflow?.evidence.length ?? 0)}</LumenText>
+        </LumenText>
         {evidence.length ? (
-          <ol className="hbar-app-react-workflow-evidence">
+          <LumenCollection as="ol" className="hbar-app-react-workflow-evidence">
             {evidence.map((proof, index) => (
-              <li key={`${proof.evidenceId}:${index}`}>
+              <LumenCollectionItem key={`${proof.evidenceId}:${index}`}>
                 <LumenIcon icon={GitPullRequestArrow} tier="sm" />
-                <span>{labels.evidenceLabel(proof)}</span>
-                <time dateTime={new Date(proof.createdAt).toISOString()}>{labels.timestamp(proof.createdAt)}</time>
-              </li>
+                <LumenText as="span">{labels.evidenceLabel(proof)}</LumenText>
+                <LumenText as="time" dateTime={new Date(proof.createdAt).toISOString()}>{labels.timestamp(proof.createdAt)}</LumenText>
+              </LumenCollectionItem>
             ))}
-          </ol>
+          </LumenCollection>
         ) : (
-          <p className="hbar-app-react-goal-plan-empty">{labels.noEvidence}</p>
+          <LumenText as="p" className="hbar-app-react-goal-plan-empty">{labels.noEvidence}</LumenText>
         )}
         {workflow && entry.visibleEvidence < workflow.evidence.length && (
           <LumenButton onClick={() => invoke('workflowWorkspace.loadMoreEvidence', { instanceId })}>
             {labels.loadMore}
           </LumenButton>
         )}
-      </div>
-    </section>
+      </LumenFrame>
+    </LumenFrame>
   )
 }
