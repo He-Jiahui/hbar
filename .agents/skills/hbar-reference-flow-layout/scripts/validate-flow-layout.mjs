@@ -95,7 +95,7 @@ function isOverlaySelector(path, selector) {
   if (!/packages\/lumen-app-ui\/src\/(?:materials|primitives)\.module\.css$/.test(path.replaceAll('\\', '/'))) {
     return (
       /packages\/lumen-app-ui\/src\/forms\.css$/.test(path.replaceAll('\\', '/')) &&
-      /(?:^|,)\s*\.lumen-combobox-popup(?:[\s\[:.#>+~]|$)/.test(selector)
+      /(?:^|,)\s*\.lumen-(?:combobox-popup|checkbox-input|toggle-input)(?:[\s\[:.#>+~]|$)/.test(selector)
     )
   }
   return /(?:^|,)\s*(?:\.surface\s*>\s*\.indicator|\.field\s*>\s*\.indicator|\.button\s*>\s*\[data-edge|\.iconButton\s*>\s*\[data-edge|\.glass|\.filter|\.halo)(?:[=\]\s\[:.#>+~]|$)/.test(
@@ -230,6 +230,20 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   if (lumenComboboxOverlay.length !== 0) {
     console.error(
       `Flow layout guard self-test expected Lumen combobox overlay exception, got: ${lumenComboboxOverlay.join('; ')}`,
+    )
+    process.exit(1)
+  }
+  const lumenNativeControlOverlay = validateCss(
+    'packages/lumen-app-ui/src/forms.css',
+    `.lumen-checkbox-input,
+.lumen-toggle-input {
+  position: absolute;
+  inset: 0;
+}`,
+  )
+  if (lumenNativeControlOverlay.length !== 0) {
+    console.error(
+      `Flow layout guard self-test expected Lumen native control overlay exception, got: ${lumenNativeControlOverlay.join('; ')}`,
     )
     process.exit(1)
   }
