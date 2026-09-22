@@ -136,7 +136,10 @@ import {
 import { HBAR_APP_UI_COMMENTS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-comments-fixtures'
 import { HBAR_APP_UI_SCHEDULING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
 import { HBAR_APP_UI_CHAT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-chat-fixtures'
-import { HBAR_APP_UI_PROMPT_INPUT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-prompt-input-fixtures'
+import {
+  createHbarAppUiPromptInputLocalizedFixtures,
+  HBAR_APP_UI_PROMPT_INPUT_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-prompt-input-fixtures'
 import { HBAR_APP_UI_CARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-card-fixtures'
 import { HBAR_APP_UI_DATA_TABLE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-data-table-fixtures'
 import { HBAR_APP_UI_DASHBOARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-dashboard-fixtures'
@@ -149,7 +152,10 @@ import { HBAR_APP_UI_SUPPORT_FIXTURES } from '../../../tests/fixtures/hbar-app-u
 import { HBAR_APP_UI_WIZARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-shell-fixtures'
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-fixtures'
-import { HBAR_APP_UI_AI_CHAT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-ai-chat-fixtures'
+import {
+  createHbarAppUiAiChatLocalizedFixtures,
+  HBAR_APP_UI_AI_CHAT_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-ai-chat-fixtures'
 import { HBAR_APP_UI_KANBAN_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-kanban-fixtures'
 import { HBAR_APP_UI_ONBOARDING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-onboarding-fixtures'
 import { HBAR_APP_UI_LIST_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-list-fixtures'
@@ -327,7 +333,13 @@ function PreviewApp() {
   const commentsContent = useMemo(() => HBAR_APP_UI_COMMENTS_FIXTURES, [])
   const schedulingContent = useMemo(() => HBAR_APP_UI_SCHEDULING_FIXTURES, [])
   const chatContent = useMemo(() => HBAR_APP_UI_CHAT_FIXTURES, [])
-  const promptInputContent = useMemo(() => HBAR_APP_UI_PROMPT_INPUT_FIXTURES, [])
+  const promptInputContent = useMemo(
+    () =>
+      new URLSearchParams(window.location.search).get('promptInputFixture') === 'localized'
+        ? createHbarAppUiPromptInputLocalizedFixtures()
+        : HBAR_APP_UI_PROMPT_INPUT_FIXTURES,
+    [],
+  )
   const cardContent = useMemo(() => HBAR_APP_UI_CARD_FIXTURES, [])
   const dataTableContent = useMemo(() => HBAR_APP_UI_DATA_TABLE_FIXTURES, [])
   const dashboardContent = useMemo(() => HBAR_APP_UI_DASHBOARD_FIXTURES, [])
@@ -340,7 +352,13 @@ function PreviewApp() {
   const wizardContent = useMemo(() => HBAR_APP_UI_WIZARD_FIXTURES, [])
   const appShellContent = useMemo(() => HBAR_APP_UI_APP_SHELL_FIXTURES, [])
   const appSidebarContent = useMemo(() => HBAR_APP_UI_APP_SIDEBAR_FIXTURES, [])
-  const aiChatContent = useMemo(() => HBAR_APP_UI_AI_CHAT_FIXTURES, [])
+  const aiChatContent = useMemo(
+    () =>
+      new URLSearchParams(window.location.search).get('aiChatFixture') === 'localized'
+        ? createHbarAppUiAiChatLocalizedFixtures()
+        : HBAR_APP_UI_AI_CHAT_FIXTURES,
+    [],
+  )
   const kanbanContent = useMemo(() => HBAR_APP_UI_KANBAN_FIXTURES, [])
   const onboardingContent = useMemo(() => HBAR_APP_UI_ONBOARDING_FIXTURES, [])
   const listContent = useMemo(() => HBAR_APP_UI_LIST_FIXTURES, [])
@@ -410,439 +428,449 @@ function PreviewApp() {
 
   if (isolated) {
     return (
-      <LumenProvider
-        appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }}
-        withCssBaseline={false}
-      >
+      <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }} withCssBaseline={false}>
         <LumenFrame
           className="hbar-app-ui-canvas hbar-app-ui-isolated-canvas"
           data-hbar-app-ui-theme={theme}
           style={previewLayoutStyle}
           data-hbar-app-ui-variant={selected.spec.id}
         >
-        <HbarAppUiKanbanProvider content={kanbanContent}>
-          <HbarAppUiAiChatProvider content={aiChatContent}>
-            <HbarAppUiAppSidebarProvider content={appSidebarContent}>
-              <HbarAppUiAppShellProvider content={appShellContent}>
-                <HbarAppUiFileManagerProvider content={fileManagerContent}>
-                  <HbarAppUiFeedbackProvider content={feedbackContent}>
-                    <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
-                      <AuthenticationPreviewHost
-                        content={authenticationContent}
-                        spec={selected.spec}
-                        onAction={handleAction}
-                      >
-                        <HbarAppUiBillingProvider content={billingContent}>
-                          <HbarAppUiIntegrationProvider content={integrationsContent}>
-                            <HbarAppUiCommentsProvider content={commentsContent}>
-                              <HbarAppUiSchedulingProvider content={schedulingContent}>
-                                <HbarAppUiChatProvider content={chatContent}>
-                                  <HbarAppUiPromptInputProvider content={promptInputContent}>
-                                    <HbarAppUiCardProvider content={cardContent}>
-                                      <HbarAppUiDataTableProvider content={dataTableContent}>
-                                        <HbarAppUiDashboardProvider content={dashboardContent}>
-                                          <HbarAppUiAnalyticsProvider content={analyticsContent}>
-                                            <HbarAppUiFormsProvider content={formsContent}>
-                                              <HbarAppUiAppDialogProvider content={appDialogContent}>
-                                                <HbarAppUiNotificationsProvider content={notificationsContent}>
-                                                  <HbarAppUiMobileProvider content={mobileContent}>
-                                                    <HbarAppUiSupportProvider content={supportContent}>
-                                                      <HbarAppUiWizardProvider content={wizardContent}>
-                                                        <HbarAppUiOnboardingProvider content={onboardingContent}>
-                                                          <HbarAppUiListProvider content={listContent}>
-                                                            <HbarAppUiFilteringProvider content={filteringContent}>
-                                                              <HbarAppUiMonitoringProvider content={monitoringContent}>
-                                                                <HbarAppUiPaywallProvider content={paywallContent}>
-                                                                  <PlanPreviewHost content={agentPlanContent}>
-                                                                    <HbarAppUiAgentApprovalProvider
-                                                                      content={agentApprovalContent}
-                                                                    >
-                                                                      <HbarAppUiAgentActivityProvider
-                                                                        content={agentActivityContent}
+          <HbarAppUiKanbanProvider content={kanbanContent}>
+            <HbarAppUiAiChatProvider content={aiChatContent}>
+              <HbarAppUiAppSidebarProvider content={appSidebarContent}>
+                <HbarAppUiAppShellProvider content={appShellContent}>
+                  <HbarAppUiFileManagerProvider content={fileManagerContent}>
+                    <HbarAppUiFeedbackProvider content={feedbackContent}>
+                      <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
+                        <AuthenticationPreviewHost
+                          content={authenticationContent}
+                          spec={selected.spec}
+                          onAction={handleAction}
+                        >
+                          <HbarAppUiBillingProvider content={billingContent}>
+                            <HbarAppUiIntegrationProvider content={integrationsContent}>
+                              <HbarAppUiCommentsProvider content={commentsContent}>
+                                <HbarAppUiSchedulingProvider content={schedulingContent}>
+                                  <HbarAppUiChatProvider content={chatContent}>
+                                    <HbarAppUiPromptInputProvider content={promptInputContent}>
+                                      <HbarAppUiCardProvider content={cardContent}>
+                                        <HbarAppUiDataTableProvider content={dataTableContent}>
+                                          <HbarAppUiDashboardProvider content={dashboardContent}>
+                                            <HbarAppUiAnalyticsProvider content={analyticsContent}>
+                                              <HbarAppUiFormsProvider content={formsContent}>
+                                                <HbarAppUiAppDialogProvider content={appDialogContent}>
+                                                  <HbarAppUiNotificationsProvider content={notificationsContent}>
+                                                    <HbarAppUiMobileProvider content={mobileContent}>
+                                                      <HbarAppUiSupportProvider content={supportContent}>
+                                                        <HbarAppUiWizardProvider content={wizardContent}>
+                                                          <HbarAppUiOnboardingProvider content={onboardingContent}>
+                                                            <HbarAppUiListProvider content={listContent}>
+                                                              <HbarAppUiFilteringProvider content={filteringContent}>
+                                                                <HbarAppUiMonitoringProvider
+                                                                  content={monitoringContent}
+                                                                >
+                                                                  <HbarAppUiPaywallProvider content={paywallContent}>
+                                                                    <PlanPreviewHost content={agentPlanContent}>
+                                                                      <HbarAppUiAgentApprovalProvider
+                                                                        content={agentApprovalContent}
                                                                       >
-                                                                        <HbarAppUiToolCallsProvider
-                                                                          content={toolCallsContent}
+                                                                        <HbarAppUiAgentActivityProvider
+                                                                          content={agentActivityContent}
                                                                         >
-                                                                          <HbarAppUiNavbarProvider
-                                                                            content={navbarContent}
+                                                                          <HbarAppUiToolCallsProvider
+                                                                            content={toolCallsContent}
                                                                           >
-                                                                            <HbarAppUiEditorProvider
-                                                                              content={editorContent}
+                                                                            <HbarAppUiNavbarProvider
+                                                                              content={navbarContent}
                                                                             >
-                                                                              <ShellPreviewHost
-                                                                                spec={selected.spec}
-                                                                                onAction={handleAction}
+                                                                              <HbarAppUiEditorProvider
+                                                                                content={editorContent}
                                                                               >
-                                                                                <ConversationPreviewHost
+                                                                                <ShellPreviewHost
                                                                                   spec={selected.spec}
                                                                                   onAction={handleAction}
                                                                                 >
-                                                                                  <UsagePreviewHost
+                                                                                  <ConversationPreviewHost
                                                                                     spec={selected.spec}
                                                                                     onAction={handleAction}
                                                                                   >
-                                                                                    <CommandPreviewHost
+                                                                                    <UsagePreviewHost
                                                                                       spec={selected.spec}
                                                                                       onAction={handleAction}
                                                                                     >
-                                                                                      <SelectedComponent
+                                                                                      <CommandPreviewHost
                                                                                         spec={selected.spec}
                                                                                         onAction={handleAction}
-                                                                                      />
-                                                                                    </CommandPreviewHost>
-                                                                                  </UsagePreviewHost>
-                                                                                </ConversationPreviewHost>
-                                                                              </ShellPreviewHost>
-                                                                            </HbarAppUiEditorProvider>
-                                                                          </HbarAppUiNavbarProvider>
-                                                                        </HbarAppUiToolCallsProvider>
-                                                                      </HbarAppUiAgentActivityProvider>
-                                                                    </HbarAppUiAgentApprovalProvider>
-                                                                  </PlanPreviewHost>
-                                                                </HbarAppUiPaywallProvider>
-                                                              </HbarAppUiMonitoringProvider>
-                                                            </HbarAppUiFilteringProvider>
-                                                          </HbarAppUiListProvider>
-                                                        </HbarAppUiOnboardingProvider>
-                                                      </HbarAppUiWizardProvider>
-                                                    </HbarAppUiSupportProvider>
-                                                  </HbarAppUiMobileProvider>
-                                                </HbarAppUiNotificationsProvider>
-                                              </HbarAppUiAppDialogProvider>
-                                            </HbarAppUiFormsProvider>
-                                          </HbarAppUiAnalyticsProvider>
-                                        </HbarAppUiDashboardProvider>
-                                      </HbarAppUiDataTableProvider>
-                                    </HbarAppUiCardProvider>
-                                  </HbarAppUiPromptInputProvider>
-                                </HbarAppUiChatProvider>
-                              </HbarAppUiSchedulingProvider>
-                            </HbarAppUiCommentsProvider>
-                          </HbarAppUiIntegrationProvider>
-                        </HbarAppUiBillingProvider>
-                      </AuthenticationPreviewHost>
-                    </SettingsPreviewHost>
-                  </HbarAppUiFeedbackProvider>
-                </HbarAppUiFileManagerProvider>
-              </HbarAppUiAppShellProvider>
-            </HbarAppUiAppSidebarProvider>
-          </HbarAppUiAiChatProvider>
-        </HbarAppUiKanbanProvider>
+                                                                                      >
+                                                                                        <SelectedComponent
+                                                                                          spec={selected.spec}
+                                                                                          onAction={handleAction}
+                                                                                        />
+                                                                                      </CommandPreviewHost>
+                                                                                    </UsagePreviewHost>
+                                                                                  </ConversationPreviewHost>
+                                                                                </ShellPreviewHost>
+                                                                              </HbarAppUiEditorProvider>
+                                                                            </HbarAppUiNavbarProvider>
+                                                                          </HbarAppUiToolCallsProvider>
+                                                                        </HbarAppUiAgentActivityProvider>
+                                                                      </HbarAppUiAgentApprovalProvider>
+                                                                    </PlanPreviewHost>
+                                                                  </HbarAppUiPaywallProvider>
+                                                                </HbarAppUiMonitoringProvider>
+                                                              </HbarAppUiFilteringProvider>
+                                                            </HbarAppUiListProvider>
+                                                          </HbarAppUiOnboardingProvider>
+                                                        </HbarAppUiWizardProvider>
+                                                      </HbarAppUiSupportProvider>
+                                                    </HbarAppUiMobileProvider>
+                                                  </HbarAppUiNotificationsProvider>
+                                                </HbarAppUiAppDialogProvider>
+                                              </HbarAppUiFormsProvider>
+                                            </HbarAppUiAnalyticsProvider>
+                                          </HbarAppUiDashboardProvider>
+                                        </HbarAppUiDataTableProvider>
+                                      </HbarAppUiCardProvider>
+                                    </HbarAppUiPromptInputProvider>
+                                  </HbarAppUiChatProvider>
+                                </HbarAppUiSchedulingProvider>
+                              </HbarAppUiCommentsProvider>
+                            </HbarAppUiIntegrationProvider>
+                          </HbarAppUiBillingProvider>
+                        </AuthenticationPreviewHost>
+                      </SettingsPreviewHost>
+                    </HbarAppUiFeedbackProvider>
+                  </HbarAppUiFileManagerProvider>
+                </HbarAppUiAppShellProvider>
+              </HbarAppUiAppSidebarProvider>
+            </HbarAppUiAiChatProvider>
+          </HbarAppUiKanbanProvider>
         </LumenFrame>
       </LumenProvider>
     )
   }
 
   return (
-    <LumenProvider
-      appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }}
-      withCssBaseline={false}
-    >
+    <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }} withCssBaseline={false}>
       <LumenFrame
         className="hbar-app-ui-canvas hbar-app-ui-preview"
         data-hbar-app-ui-theme={theme}
         style={previewLayoutStyle}
         ref={previewRef}
       >
-      <LumenFrame as="header" className="hbar-app-ui-preview-header">
-        <LumenFrame className="hbar-app-ui-preview-brand">
-          <LumenText as="span" className="hbar-app-ui-preview-mark">h</LumenText>
-          <LumenFrame>
-            <LumenText as="strong">hbar-app-ui</LumenText>
-            <LumenText as="small">Application UI catalog</LumenText>
-          </LumenFrame>
-        </LumenFrame>
-        <LumenFrame className="hbar-app-ui-preview-header-actions">
-          <HbarAppUiIconButton
-            label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
-            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-          >
-            {theme === 'dark' ? <LumenIcon icon={Sun} tier="sm" /> : <LumenIcon icon={Moon} tier="sm" />}
-          </HbarAppUiIconButton>
-          <HbarAppUiIconButton label="Reset preview" onClick={resetPreview}>
-            <LumenIcon icon={RotateCcw} tier="sm" />
-          </HbarAppUiIconButton>
-          <HbarAppUiIconButton
-            label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            onClick={() => void toggleFullscreen()}
-          >
-            <LumenIcon icon={Maximize2} tier="sm" />
-          </HbarAppUiIconButton>
-        </LumenFrame>
-      </LumenFrame>
-
-      <LumenFrame className="hbar-app-ui-preview-body">
-        <LumenFrame as="aside" className="hbar-app-ui-preview-sidebar" aria-label="hbar-app-ui categories">
-          <LumenFrame as="label" className="hbar-app-ui-preview-search">
-            <LumenIcon icon={Search} tier="sm" />
-            <LumenInput
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search components"
-              aria-label="Search components"
-            />
-            {query && (
-              <HbarAppUiIconButton label="Clear search" onClick={() => setQuery('')}>
-                <LumenIcon icon={X} tier="sm" />
-              </HbarAppUiIconButton>
-            )}
-          </LumenFrame>
-          <LumenFrame className="hbar-app-ui-preview-catalog-heading">
-            <LumenText as="span">Categories</LumenText>
-            <LumenText as="small">{filteredEntries.length} / 300 variants</LumenText>
-          </LumenFrame>
-          <LumenFrame as="nav" className="hbar-app-ui-preview-category-list">
-            {visibleCategories.map((category) => (
-              <LumenNavigationButton
-                key={category}
-                size="s"
-                selected={selected.spec.category === category}
-                indicatorEdge="right"
-                onClick={() => chooseCategory(category)}
-              >
-                <LumenText as="span">{category}</LumenText>
-                <LumenText as="small">{HBAR_APP_UI_CATEGORY_COUNTS[category]}</LumenText>
-              </LumenNavigationButton>
-            ))}
-            {!visibleCategories.length && <LumenText as="p" className="hbar-app-ui-preview-no-results">No matching components.</LumenText>}
-          </LumenFrame>
-        </LumenFrame>
-
-        <LumenFrame as="main" className="hbar-app-ui-preview-main">
-          <LumenFrame className="hbar-app-ui-preview-toolbar">
+        <LumenFrame as="header" className="hbar-app-ui-preview-header">
+          <LumenFrame className="hbar-app-ui-preview-brand">
+            <LumenText as="span" className="hbar-app-ui-preview-mark">
+              h
+            </LumenText>
             <LumenFrame>
-              <LumenText as="span" className="hbar-app-ui-preview-eyebrow">{selected.spec.category}</LumenText>
-              <LumenText as="h1">{selected.spec.title}</LumenText>
+              <LumenText as="strong">hbar-app-ui</LumenText>
+              <LumenText as="small">Application UI catalog</LumenText>
             </LumenFrame>
-            <LumenFrame className="hbar-app-ui-preview-viewports" role="group" aria-label="Preview viewport">
-              {(Object.keys(viewportWidths) as Viewport[]).map((option) => (
+          </LumenFrame>
+          <LumenFrame className="hbar-app-ui-preview-header-actions">
+            <HbarAppUiIconButton
+              label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
+              onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+            >
+              {theme === 'dark' ? <LumenIcon icon={Sun} tier="sm" /> : <LumenIcon icon={Moon} tier="sm" />}
+            </HbarAppUiIconButton>
+            <HbarAppUiIconButton label="Reset preview" onClick={resetPreview}>
+              <LumenIcon icon={RotateCcw} tier="sm" />
+            </HbarAppUiIconButton>
+            <HbarAppUiIconButton
+              label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              onClick={() => void toggleFullscreen()}
+            >
+              <LumenIcon icon={Maximize2} tier="sm" />
+            </HbarAppUiIconButton>
+          </LumenFrame>
+        </LumenFrame>
+
+        <LumenFrame className="hbar-app-ui-preview-body">
+          <LumenFrame as="aside" className="hbar-app-ui-preview-sidebar" aria-label="hbar-app-ui categories">
+            <LumenFrame as="label" className="hbar-app-ui-preview-search">
+              <LumenIcon icon={Search} tier="sm" />
+              <LumenInput
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search components"
+                aria-label="Search components"
+              />
+              {query && (
+                <HbarAppUiIconButton label="Clear search" onClick={() => setQuery('')}>
+                  <LumenIcon icon={X} tier="sm" />
+                </HbarAppUiIconButton>
+              )}
+            </LumenFrame>
+            <LumenFrame className="hbar-app-ui-preview-catalog-heading">
+              <LumenText as="span">Categories</LumenText>
+              <LumenText as="small">{filteredEntries.length} / 300 variants</LumenText>
+            </LumenFrame>
+            <LumenFrame as="nav" className="hbar-app-ui-preview-category-list">
+              {visibleCategories.map((category) => (
                 <LumenNavigationButton
-                  key={option}
+                  key={category}
                   size="s"
-                  selected={viewport === option}
-                  indicatorEdge="bottom"
-                  onClick={() => setViewport(option)}
+                  selected={selected.spec.category === category}
+                  indicatorEdge="right"
+                  onClick={() => chooseCategory(category)}
                 >
-                  {option}
+                  <LumenText as="span">{category}</LumenText>
+                  <LumenText as="small">{HBAR_APP_UI_CATEGORY_COUNTS[category]}</LumenText>
                 </LumenNavigationButton>
               ))}
+              {!visibleCategories.length && (
+                <LumenText as="p" className="hbar-app-ui-preview-no-results">
+                  No matching components.
+                </LumenText>
+              )}
             </LumenFrame>
           </LumenFrame>
 
-          <LumenFrame className="hbar-app-ui-preview-content">
-            <LumenFrame as="section" className="hbar-app-ui-preview-stage" aria-label="Selected component preview">
-              <LumenFrame className="hbar-app-ui-preview-stage-meta">
-                <HbarAppUiStatus
-                  value={`${selected.spec.variant} of ${HBAR_APP_UI_CATEGORY_COUNTS[selected.spec.category]}`}
-                  tone="positive"
-                />
-                <LumenText as="code">{selected.spec.id}</LumenText>
+          <LumenFrame as="main" className="hbar-app-ui-preview-main">
+            <LumenFrame className="hbar-app-ui-preview-toolbar">
+              <LumenFrame>
+                <LumenText as="span" className="hbar-app-ui-preview-eyebrow">
+                  {selected.spec.category}
+                </LumenText>
+                <LumenText as="h1">{selected.spec.title}</LumenText>
               </LumenFrame>
-              <LumenFrame
-                className={`hbar-app-ui-preview-frame hbar-app-ui-preview-frame-${viewport}`}
-                style={{ maxWidth: viewportWidths[viewport] }}
-              >
+              <LumenFrame className="hbar-app-ui-preview-viewports" role="group" aria-label="Preview viewport">
+                {(Object.keys(viewportWidths) as Viewport[]).map((option) => (
+                  <LumenNavigationButton
+                    key={option}
+                    size="s"
+                    selected={viewport === option}
+                    indicatorEdge="bottom"
+                    onClick={() => setViewport(option)}
+                  >
+                    {option}
+                  </LumenNavigationButton>
+                ))}
+              </LumenFrame>
+            </LumenFrame>
+
+            <LumenFrame className="hbar-app-ui-preview-content">
+              <LumenFrame as="section" className="hbar-app-ui-preview-stage" aria-label="Selected component preview">
+                <LumenFrame className="hbar-app-ui-preview-stage-meta">
+                  <HbarAppUiStatus
+                    value={`${selected.spec.variant} of ${HBAR_APP_UI_CATEGORY_COUNTS[selected.spec.category]}`}
+                    tone="positive"
+                  />
+                  <LumenText as="code">{selected.spec.id}</LumenText>
+                </LumenFrame>
                 <LumenFrame
-                  className={`hbar-app-ui-preview-component-canvas hbar-app-ui-surface-${selected.spec.profile.surface} hbar-app-ui-state-${selected.spec.profile.initialState} hbar-app-ui-visual-${selected.spec.profile.visualMode}`}
-                  data-hbar-app-ui-variant={selected.spec.id}
-                  data-hbar-app-ui-profile={selected.spec.profile.key}
-                  data-hbar-app-ui-surface={selected.spec.profile.surface}
-                  data-hbar-app-ui-state={selected.spec.profile.initialState}
+                  className={`hbar-app-ui-preview-frame hbar-app-ui-preview-frame-${viewport}`}
+                  style={{ maxWidth: viewportWidths[viewport] }}
                 >
-                  <HbarAppUiKanbanProvider content={kanbanContent}>
-                    <HbarAppUiAiChatProvider content={aiChatContent}>
-                      <HbarAppUiAppSidebarProvider content={appSidebarContent}>
-                        <HbarAppUiAppShellProvider content={appShellContent}>
-                          <HbarAppUiFileManagerProvider content={fileManagerContent}>
-                            <HbarAppUiFeedbackProvider content={feedbackContent}>
-                              <SettingsPreviewHost
-                                content={settingsFormContent}
-                                spec={selected.spec}
-                                onAction={handleAction}
-                              >
-                                <AuthenticationPreviewHost
-                                  content={authenticationContent}
+                  <LumenFrame
+                    className={`hbar-app-ui-preview-component-canvas hbar-app-ui-surface-${selected.spec.profile.surface} hbar-app-ui-state-${selected.spec.profile.initialState} hbar-app-ui-visual-${selected.spec.profile.visualMode}`}
+                    data-hbar-app-ui-variant={selected.spec.id}
+                    data-hbar-app-ui-profile={selected.spec.profile.key}
+                    data-hbar-app-ui-surface={selected.spec.profile.surface}
+                    data-hbar-app-ui-state={selected.spec.profile.initialState}
+                  >
+                    <HbarAppUiKanbanProvider content={kanbanContent}>
+                      <HbarAppUiAiChatProvider content={aiChatContent}>
+                        <HbarAppUiAppSidebarProvider content={appSidebarContent}>
+                          <HbarAppUiAppShellProvider content={appShellContent}>
+                            <HbarAppUiFileManagerProvider content={fileManagerContent}>
+                              <HbarAppUiFeedbackProvider content={feedbackContent}>
+                                <SettingsPreviewHost
+                                  content={settingsFormContent}
                                   spec={selected.spec}
                                   onAction={handleAction}
                                 >
-                                  <HbarAppUiBillingProvider content={billingContent}>
-                                    <HbarAppUiIntegrationProvider content={integrationsContent}>
-                                      <HbarAppUiCommentsProvider content={commentsContent}>
-                                        <HbarAppUiSchedulingProvider content={schedulingContent}>
-                                          <HbarAppUiChatProvider content={chatContent}>
-                                            <HbarAppUiPromptInputProvider content={promptInputContent}>
-                                              <HbarAppUiCardProvider content={cardContent}>
-                                                <HbarAppUiDataTableProvider content={dataTableContent}>
-                                                  <HbarAppUiDashboardProvider content={dashboardContent}>
-                                                    <HbarAppUiAnalyticsProvider content={analyticsContent}>
-                                                      <HbarAppUiFormsProvider content={formsContent}>
-                                                        <HbarAppUiAppDialogProvider content={appDialogContent}>
-                                                          <HbarAppUiNotificationsProvider
-                                                            content={notificationsContent}
-                                                          >
-                                                            <HbarAppUiMobileProvider content={mobileContent}>
-                                                              <HbarAppUiSupportProvider content={supportContent}>
-                                                                <HbarAppUiWizardProvider content={wizardContent}>
-                                                                  <HbarAppUiOnboardingProvider
-                                                                    content={onboardingContent}
-                                                                  >
-                                                                    <HbarAppUiListProvider content={listContent}>
-                                                                      <HbarAppUiFilteringProvider
-                                                                        content={filteringContent}
-                                                                      >
-                                                                        <HbarAppUiMonitoringProvider
-                                                                          content={monitoringContent}
+                                  <AuthenticationPreviewHost
+                                    content={authenticationContent}
+                                    spec={selected.spec}
+                                    onAction={handleAction}
+                                  >
+                                    <HbarAppUiBillingProvider content={billingContent}>
+                                      <HbarAppUiIntegrationProvider content={integrationsContent}>
+                                        <HbarAppUiCommentsProvider content={commentsContent}>
+                                          <HbarAppUiSchedulingProvider content={schedulingContent}>
+                                            <HbarAppUiChatProvider content={chatContent}>
+                                              <HbarAppUiPromptInputProvider content={promptInputContent}>
+                                                <HbarAppUiCardProvider content={cardContent}>
+                                                  <HbarAppUiDataTableProvider content={dataTableContent}>
+                                                    <HbarAppUiDashboardProvider content={dashboardContent}>
+                                                      <HbarAppUiAnalyticsProvider content={analyticsContent}>
+                                                        <HbarAppUiFormsProvider content={formsContent}>
+                                                          <HbarAppUiAppDialogProvider content={appDialogContent}>
+                                                            <HbarAppUiNotificationsProvider
+                                                              content={notificationsContent}
+                                                            >
+                                                              <HbarAppUiMobileProvider content={mobileContent}>
+                                                                <HbarAppUiSupportProvider content={supportContent}>
+                                                                  <HbarAppUiWizardProvider content={wizardContent}>
+                                                                    <HbarAppUiOnboardingProvider
+                                                                      content={onboardingContent}
+                                                                    >
+                                                                      <HbarAppUiListProvider content={listContent}>
+                                                                        <HbarAppUiFilteringProvider
+                                                                          content={filteringContent}
                                                                         >
-                                                                          <HbarAppUiPaywallProvider
-                                                                            content={paywallContent}
+                                                                          <HbarAppUiMonitoringProvider
+                                                                            content={monitoringContent}
                                                                           >
-                                                                            <PlanPreviewHost content={agentPlanContent}>
-                                                                              <HbarAppUiAgentApprovalProvider
-                                                                                content={agentApprovalContent}
+                                                                            <HbarAppUiPaywallProvider
+                                                                              content={paywallContent}
+                                                                            >
+                                                                              <PlanPreviewHost
+                                                                                content={agentPlanContent}
                                                                               >
-                                                                                <HbarAppUiAgentActivityProvider
-                                                                                  content={agentActivityContent}
+                                                                                <HbarAppUiAgentApprovalProvider
+                                                                                  content={agentApprovalContent}
                                                                                 >
-                                                                                  <HbarAppUiToolCallsProvider
-                                                                                    content={toolCallsContent}
+                                                                                  <HbarAppUiAgentActivityProvider
+                                                                                    content={agentActivityContent}
                                                                                   >
-                                                                                    <HbarAppUiNavbarProvider
-                                                                                      content={navbarContent}
+                                                                                    <HbarAppUiToolCallsProvider
+                                                                                      content={toolCallsContent}
                                                                                     >
-                                                                                      <HbarAppUiEditorProvider
-                                                                                        content={editorContent}
+                                                                                      <HbarAppUiNavbarProvider
+                                                                                        content={navbarContent}
                                                                                       >
-                                                                                        <ShellPreviewHost
-                                                                                          spec={selected.spec}
-                                                                                          onAction={handleAction}
+                                                                                        <HbarAppUiEditorProvider
+                                                                                          content={editorContent}
                                                                                         >
-                                                                                          <ConversationPreviewHost
+                                                                                          <ShellPreviewHost
                                                                                             spec={selected.spec}
                                                                                             onAction={handleAction}
                                                                                           >
-                                                                                            <UsagePreviewHost
+                                                                                            <ConversationPreviewHost
                                                                                               spec={selected.spec}
                                                                                               onAction={handleAction}
                                                                                             >
-                                                                                              <CommandPreviewHost
+                                                                                              <UsagePreviewHost
                                                                                                 spec={selected.spec}
                                                                                                 onAction={handleAction}
                                                                                               >
-                                                                                                <SelectedComponent
+                                                                                                <CommandPreviewHost
                                                                                                   spec={selected.spec}
                                                                                                   onAction={
                                                                                                     handleAction
                                                                                                   }
-                                                                                                />
-                                                                                              </CommandPreviewHost>
-                                                                                            </UsagePreviewHost>
-                                                                                          </ConversationPreviewHost>
-                                                                                        </ShellPreviewHost>
-                                                                                      </HbarAppUiEditorProvider>
-                                                                                    </HbarAppUiNavbarProvider>
-                                                                                  </HbarAppUiToolCallsProvider>
-                                                                                </HbarAppUiAgentActivityProvider>
-                                                                              </HbarAppUiAgentApprovalProvider>
-                                                                            </PlanPreviewHost>
-                                                                          </HbarAppUiPaywallProvider>
-                                                                        </HbarAppUiMonitoringProvider>
-                                                                      </HbarAppUiFilteringProvider>
-                                                                    </HbarAppUiListProvider>
-                                                                  </HbarAppUiOnboardingProvider>
-                                                                </HbarAppUiWizardProvider>
-                                                              </HbarAppUiSupportProvider>
-                                                            </HbarAppUiMobileProvider>
-                                                          </HbarAppUiNotificationsProvider>
-                                                        </HbarAppUiAppDialogProvider>
-                                                      </HbarAppUiFormsProvider>
-                                                    </HbarAppUiAnalyticsProvider>
-                                                  </HbarAppUiDashboardProvider>
-                                                </HbarAppUiDataTableProvider>
-                                              </HbarAppUiCardProvider>
-                                            </HbarAppUiPromptInputProvider>
-                                          </HbarAppUiChatProvider>
-                                        </HbarAppUiSchedulingProvider>
-                                      </HbarAppUiCommentsProvider>
-                                    </HbarAppUiIntegrationProvider>
-                                  </HbarAppUiBillingProvider>
-                                </AuthenticationPreviewHost>
-                              </SettingsPreviewHost>
-                            </HbarAppUiFeedbackProvider>
-                          </HbarAppUiFileManagerProvider>
-                        </HbarAppUiAppShellProvider>
-                      </HbarAppUiAppSidebarProvider>
-                    </HbarAppUiAiChatProvider>
-                  </HbarAppUiKanbanProvider>
+                                                                                                >
+                                                                                                  <SelectedComponent
+                                                                                                    spec={selected.spec}
+                                                                                                    onAction={
+                                                                                                      handleAction
+                                                                                                    }
+                                                                                                  />
+                                                                                                </CommandPreviewHost>
+                                                                                              </UsagePreviewHost>
+                                                                                            </ConversationPreviewHost>
+                                                                                          </ShellPreviewHost>
+                                                                                        </HbarAppUiEditorProvider>
+                                                                                      </HbarAppUiNavbarProvider>
+                                                                                    </HbarAppUiToolCallsProvider>
+                                                                                  </HbarAppUiAgentActivityProvider>
+                                                                                </HbarAppUiAgentApprovalProvider>
+                                                                              </PlanPreviewHost>
+                                                                            </HbarAppUiPaywallProvider>
+                                                                          </HbarAppUiMonitoringProvider>
+                                                                        </HbarAppUiFilteringProvider>
+                                                                      </HbarAppUiListProvider>
+                                                                    </HbarAppUiOnboardingProvider>
+                                                                  </HbarAppUiWizardProvider>
+                                                                </HbarAppUiSupportProvider>
+                                                              </HbarAppUiMobileProvider>
+                                                            </HbarAppUiNotificationsProvider>
+                                                          </HbarAppUiAppDialogProvider>
+                                                        </HbarAppUiFormsProvider>
+                                                      </HbarAppUiAnalyticsProvider>
+                                                    </HbarAppUiDashboardProvider>
+                                                  </HbarAppUiDataTableProvider>
+                                                </HbarAppUiCardProvider>
+                                              </HbarAppUiPromptInputProvider>
+                                            </HbarAppUiChatProvider>
+                                          </HbarAppUiSchedulingProvider>
+                                        </HbarAppUiCommentsProvider>
+                                      </HbarAppUiIntegrationProvider>
+                                    </HbarAppUiBillingProvider>
+                                  </AuthenticationPreviewHost>
+                                </SettingsPreviewHost>
+                              </HbarAppUiFeedbackProvider>
+                            </HbarAppUiFileManagerProvider>
+                          </HbarAppUiAppShellProvider>
+                        </HbarAppUiAppSidebarProvider>
+                      </HbarAppUiAiChatProvider>
+                    </HbarAppUiKanbanProvider>
+                  </LumenFrame>
                 </LumenFrame>
               </LumenFrame>
-            </LumenFrame>
 
-            <LumenFrame as="aside" className="hbar-app-ui-preview-inspector" aria-label="Variant inspector">
-              <LumenFrame className="hbar-app-ui-preview-inspector-section">
-                <LumenFrame className="hbar-app-ui-preview-section-heading">
-                  <LumenText as="strong">Variants</LumenText>
-                  <LumenText as="small">
-                    {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).length} shown
-                  </LumenText>
+              <LumenFrame as="aside" className="hbar-app-ui-preview-inspector" aria-label="Variant inspector">
+                <LumenFrame className="hbar-app-ui-preview-inspector-section">
+                  <LumenFrame className="hbar-app-ui-preview-section-heading">
+                    <LumenText as="strong">Variants</LumenText>
+                    <LumenText as="small">
+                      {filteredEntries.filter(({ spec }) => spec.category === selected.spec.category).length} shown
+                    </LumenText>
+                  </LumenFrame>
+                  <LumenFrame className="hbar-app-ui-preview-variant-list">
+                    {filteredEntries
+                      .filter(({ spec }) => spec.category === selected.spec.category)
+                      .map((entry) => (
+                        <LumenNavigationButton
+                          key={entry.spec.id}
+                          size="s"
+                          selected={entry.spec.id === selected.spec.id}
+                          indicatorEdge="left"
+                          onClick={() => chooseEntry(entry)}
+                        >
+                          <LumenText as="span">{entry.spec.title}</LumenText>
+                          <LumenText as="small">{entry.spec.layout}</LumenText>
+                        </LumenNavigationButton>
+                      ))}
+                  </LumenFrame>
                 </LumenFrame>
-                <LumenFrame className="hbar-app-ui-preview-variant-list">
-                  {filteredEntries
-                    .filter(({ spec }) => spec.category === selected.spec.category)
-                    .map((entry) => (
-                      <LumenNavigationButton
-                        key={entry.spec.id}
-                        size="s"
-                        selected={entry.spec.id === selected.spec.id}
-                        indicatorEdge="left"
-                        onClick={() => chooseEntry(entry)}
-                      >
-                        <LumenText as="span">{entry.spec.title}</LumenText>
-                        <LumenText as="small">{entry.spec.layout}</LumenText>
-                      </LumenNavigationButton>
-                    ))}
+                <VariantHarness spec={selected.spec} onAction={handleAction} />
+                <LumenFrame className="hbar-app-ui-preview-inspector-section">
+                  <LumenFrame className="hbar-app-ui-preview-section-heading">
+                    <LumenText as="strong">Interaction log</LumenText>
+                    <LumenText as="small">{eventLog.length} events</LumenText>
+                  </LumenFrame>
+                  {eventLog.length ? (
+                    <LumenCollection as="ol" className="hbar-app-ui-preview-events">
+                      {eventLog.map((event, index) => (
+                        <LumenCollectionItem key={`${event.variantId}-${event.actionId}-${index}`}>
+                          <LumenText as="code">{event.actionId}</LumenText>
+                          {event.value && <LumenText as="span">{event.value}</LumenText>}
+                        </LumenCollectionItem>
+                      ))}
+                    </LumenCollection>
+                  ) : (
+                    <LumenText as="p" className="hbar-app-ui-preview-muted">
+                      Use the selected component to observe action events.
+                    </LumenText>
+                  )}
                 </LumenFrame>
-              </LumenFrame>
-              <VariantHarness spec={selected.spec} onAction={handleAction} />
-              <LumenFrame className="hbar-app-ui-preview-inspector-section">
-                <LumenFrame className="hbar-app-ui-preview-section-heading">
-                  <LumenText as="strong">Interaction log</LumenText>
-                  <LumenText as="small">{eventLog.length} events</LumenText>
-                </LumenFrame>
-                {eventLog.length ? (
-                  <LumenCollection as="ol" className="hbar-app-ui-preview-events">
-                    {eventLog.map((event, index) => (
-                      <LumenCollectionItem key={`${event.variantId}-${event.actionId}-${index}`}>
-                        <LumenText as="code">{event.actionId}</LumenText>
-                        {event.value && <LumenText as="span">{event.value}</LumenText>}
-                      </LumenCollectionItem>
-                    ))}
+                <LumenFrame className="hbar-app-ui-preview-inspector-section hbar-app-ui-preview-contract">
+                  <LumenFrame className="hbar-app-ui-preview-section-heading">
+                    <LumenText as="strong">Variant contract</LumenText>
+                    <LumenText as="small">{selected.spec.density}</LumenText>
+                  </LumenFrame>
+                  <LumenCollection as="dl">
+                    <LumenCollectionItem as="dt">Entry</LumenCollectionItem>
+                    <LumenCollectionItem as="dd">
+                      <LumenText as="code">{selected.spec.entry}</LumenText>
+                    </LumenCollectionItem>
+                    <LumenCollectionItem as="dt">Behavior</LumenCollectionItem>
+                    <LumenCollectionItem as="dd">{selected.spec.behavior.join(' / ')}</LumenCollectionItem>
+                    <LumenCollectionItem as="dt">Observation</LumenCollectionItem>
+                    <LumenCollectionItem as="dd">{selected.spec.observation.join(' / ')}</LumenCollectionItem>
+                    <LumenCollectionItem as="dt">Visual checks</LumenCollectionItem>
+                    <LumenCollectionItem as="dd">{selected.spec.visualValidation.join(' / ')}</LumenCollectionItem>
                   </LumenCollection>
-                ) : (
-                  <LumenText as="p" className="hbar-app-ui-preview-muted">Use the selected component to observe action events.</LumenText>
-                )}
-              </LumenFrame>
-              <LumenFrame className="hbar-app-ui-preview-inspector-section hbar-app-ui-preview-contract">
-                <LumenFrame className="hbar-app-ui-preview-section-heading">
-                  <LumenText as="strong">Variant contract</LumenText>
-                  <LumenText as="small">{selected.spec.density}</LumenText>
                 </LumenFrame>
-                <LumenCollection as="dl">
-                  <LumenCollectionItem as="dt">Entry</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">
-                    <LumenText as="code">{selected.spec.entry}</LumenText>
-                  </LumenCollectionItem>
-                  <LumenCollectionItem as="dt">Behavior</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{selected.spec.behavior.join(' / ')}</LumenCollectionItem>
-                  <LumenCollectionItem as="dt">Observation</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{selected.spec.observation.join(' / ')}</LumenCollectionItem>
-                  <LumenCollectionItem as="dt">Visual checks</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{selected.spec.visualValidation.join(' / ')}</LumenCollectionItem>
-                </LumenCollection>
               </LumenFrame>
             </LumenFrame>
           </LumenFrame>
         </LumenFrame>
-      </LumenFrame>
       </LumenFrame>
     </LumenProvider>
   )
