@@ -511,7 +511,7 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
             candidate.rect.width > 0 &&
             candidate.rect.height > 0 &&
             (candidate.rect.width < rootRect.width * 0.95 || candidate.semanticSignal) &&
-            candidate.rect.height < rootRect.height * 0.95 &&
+            (candidate.rect.height < rootRect.height * 0.95 || candidate.primaryContentSignal) &&
             candidate.style.position !== 'fixed',
         )
         .sort(
