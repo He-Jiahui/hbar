@@ -705,8 +705,16 @@ async function captureSource(
   const referenceUrl = referencePageUrl(reference, options)
   await gotoStable(page, referenceUrl)
   await enforceReferenceTheme(page, theme)
-  const frame = await previewFrame(page)
-  const selector = await componentSelector(frame, '#preview-root')
+  let frame = await previewFrame(page)
+  let selector: string
+  try {
+    selector = await componentSelector(frame, '#preview-root')
+  } catch {
+    await gotoStable(page, referenceUrl)
+    await enforceReferenceTheme(page, theme)
+    frame = await previewFrame(page)
+    selector = await componentSelector(frame, '#preview-root')
+  }
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const directory = join(outputRoot, 'source', reference.id, theme)
@@ -748,7 +756,13 @@ async function captureLocal(
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
   await gotoStable(page, target)
   const rootSelector = `[data-hbar-app-ui-component="${spec.id}"]`
-  const selector = await componentSelector(page, rootSelector)
+  let selector: string
+  try {
+    selector = await componentSelector(page, rootSelector)
+  } catch {
+    await gotoStable(page, target)
+    selector = await componentSelector(page, rootSelector)
+  }
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const directory = join(outputRoot, 'local', spec.id, theme)
