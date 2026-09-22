@@ -113,18 +113,6 @@
     background: var(--hbar-app-ui-surface-0);
 }
 
-.hbar-app-ui-tabs .hbar-app-ui-button {
-    border-color: transparent;
-    background: transparent;
-    color: var(--hbar-app-ui-muted);
-}
-
-.hbar-app-ui-tabs .hbar-app-ui-button.is-selected {
-    border-color: var(--hbar-app-ui-border-strong);
-    background: var(--hbar-app-ui-surface-2);
-    color: var(--hbar-app-ui-text);
-}
-
 .hbar-app-ui-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -1821,44 +1809,6 @@
     overflow-wrap: anywhere;
 }
 
-.hbar-app-ui-variant input:not([type='checkbox']):not([type='radio']):not([type='range']),
-.hbar-app-ui-variant select, .hbar-app-ui-variant textarea {
-    min-width: 0;
-    min-height: 34px;
-    padding: 7px 9px;
-    border: 1px solid var(--hbar-app-ui-border);
-    border-radius: var(--hbar-app-ui-radius-small);
-    outline: 0;
-    background: var(--hbar-app-ui-surface-1);
-    color: var(--hbar-app-ui-text);
-    font: 12px var(--hbar-app-ui-font);
-}
-
-.hbar-app-ui-variant textarea {
-    resize: vertical;
-}
-
-.hbar-app-ui-variant input:focus, .hbar-app-ui-variant select:focus,
-.hbar-app-ui-variant textarea:focus {
-    border-color: var(--hbar-app-ui-accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--hbar-app-ui-accent) 16%, transparent);
-}
-
-.hbar-app-ui-variant button:not(.hbar-app-ui-button) {
-    border: 0;
-    border-radius: var(--hbar-app-ui-radius-small);
-    background: transparent;
-    color: var(--hbar-app-ui-muted);
-    cursor: pointer;
-    font: inherit;
-}
-
-.hbar-app-ui-variant button:not(.hbar-app-ui-button):hover,
-.hbar-app-ui-variant button:not(.hbar-app-ui-button).is-selected,
-.hbar-app-ui-variant button:not(.hbar-app-ui-button).is-active {
-    color: var(--hbar-app-ui-text);
-}
-
 .hbar-app-ui-activity-card, .hbar-app-ui-run-detail-grid,
 .hbar-app-ui-parallel-lanes, .hbar-app-ui-nested-timeline,
 .hbar-app-ui-tool-list, .hbar-app-ui-search-results,
@@ -2913,16 +2863,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
-}
-
-.hbar-app-ui-attachment-tray > button:not(.hbar-app-ui-button) {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 7px;
-    border: 1px solid var(--hbar-app-ui-border);
-    color: var(--hbar-app-ui-muted);
-    font-size: 10px;
 }
 
 .hbar-app-ui-provider-layout {

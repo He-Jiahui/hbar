@@ -1,6 +1,15 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { expect, test } from 'bun:test'
 
+async function collectFiles(root: string, suffix: string): Promise<string[]> {
+  const entries = await readdir(root, { withFileTypes: true })
+  const files = await Promise.all(entries.map(async (entry) => {
+    const path = `${root}/${entry.name}`
+    return entry.isDirectory() ? collectFiles(path, suffix) : path.endsWith(suffix) ? [path] : []
+  }))
+  return files.flat()
+}
+
 const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/agent-activity.tsx',
   'hbar-ui/packages/lumen-app-ui/src/agent-approval.tsx',
@@ -75,5 +84,52 @@ test('canonical Lumen compositions use the Lumen control boundary', async () => 
     }
   }
 
+  expect(violations).toEqual([])
+})
+
+test('hbar compatibility code cannot recreate Lumen control visuals', async () => {
+  const violations: string[] = []
+  const componentFiles = await collectFiles('packages/hbar-app-ui/src', '.tsx')
+
+  for (const file of componentFiles) {
+    const source = await readFile(file, 'utf8')
+    if (/<\s*(?:button|select|textarea)(?:\s|>)/.test(source)) {
+      violations.push(`${file}:native-visible-control`)
+    }
+    for (const match of source.matchAll(/<input\b[^>]*>/g)) {
+      if (!/type=["']file["']/.test(match[0])) violations.push(`${file}:native-input`)
+    }
+    if (/role=["']switch["']/.test(source)) violations.push(`${file}:private-switch`)
+  }
+
+  const cssFiles = [
+    'packages/hbar-app-ui/src/theme.css',
+    'packages/hbar-app-ui/src/components/forms/FormControls.css',
+  ]
+  const sharedControl = /\.hbar-app-ui-(?:button|input|textarea|select|checkbox|toggle|combobox|field)(?![\w-])/
+  const forbiddenVisual = /\b(?:border(?:-[\w-]+)?|background|outline|box-shadow)\s*:/
+
+  for (const file of cssFiles) {
+    const source = await readFile(file, 'utf8')
+    for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const selector = match[1] ?? ''
+      const declarations = match[2] ?? ''
+      const ownsSharedControl = sharedControl.test(selector)
+      const ownsGenericControl = /\.hbar-app-ui-variant\s+(?:button|input|select|textarea)\b/.test(selector)
+      if ((ownsSharedControl || ownsGenericControl) && forbiddenVisual.test(declarations)) {
+        violations.push(`${file}:${selector.trim()}`)
+      }
+    }
+  }
+
+  expect(violations).toEqual([])
+})
+
+test('canonical family roots no longer depend on the legacy variant box', async () => {
+  const violations: string[] = []
+  for (const file of await collectFiles('hbar-ui/packages/lumen-app-ui/src', '.tsx')) {
+    const source = await readFile(file, 'utf8')
+    if (source.includes("'hbar-app-ui-variant'")) violations.push(file)
+  }
   expect(violations).toEqual([])
 })
