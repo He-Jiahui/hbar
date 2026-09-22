@@ -17,6 +17,12 @@ export function createWorkflowCommands(service: WorkflowService) {
 
   registry.register(workflowCommands['workflow.get'], ({ sessionId }) => translate(() => service.get(sessionId)))
   registry.register(
+    workflowCommands['workflow.focus.set'],
+    ({ sessionId, stepIndex, item, completionPolicy, expectedPlanRevision }) =>
+      translate(() => service.focus(sessionId, stepIndex, item, completionPolicy, expectedPlanRevision)),
+    { durable: true },
+  )
+  registry.register(
     workflowCommands['workflow.plan.save'],
     ({ sessionId, objective, items, expectedRevision }) =>
       translate(() => service.savePlan(sessionId, objective, items, expectedRevision)),

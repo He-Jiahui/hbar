@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema } from '../index'
+import { workflowStatusSchema } from '../workflow'
 
 const instanceId = z.string().min(1).max(160)
 const actionStatus = z.enum(['idle', 'submitting', 'succeeded', 'failed', 'unknown'])
@@ -8,7 +9,7 @@ const summary = z.strictObject({
   instanceId,
   sessionId: idSchema,
   status: z.enum(['loading', 'ready', 'error']),
-  workflowStatus: z.enum(['draft', 'active', 'waiting', 'blocked', 'completed']).nullable(),
+  workflowStatus: workflowStatusSchema.nullable(),
   actionStatus,
   visibleEvidence: z.number().int().nonnegative(),
   error: z.string().nullable(),

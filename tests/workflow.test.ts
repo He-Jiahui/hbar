@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import type { GoalService, WorkflowService } from '@hbar/plugin-sdk'
+import type { GoalService, PlanService, WorkflowService } from '@hbar/plugin-sdk'
 
 const resources: { root: string; kernel: Kernel }[] = []
 
@@ -36,6 +36,7 @@ async function fixture(maxExplorationCalls = 8, autoContinue = false) {
     session,
     workflows: kernel.plugins.get<WorkflowService>('workflow'),
     goals: kernel.plugins.get<GoalService>('goal'),
+    plans: kernel.plugins.get<PlanService>('plan'),
   }
 }
 
@@ -61,17 +62,20 @@ async function rejection(promise: Promise<unknown>) {
   }
 }
 
-test('workflow plans activate on the next user run and survive Host restart', async () => {
-  const { root, kernel, session, workflows } = await fixture()
+test('legacy workflow drafts do not compete with Agent Plan focus and focus survives Host restart', async () => {
+  const { root, kernel, session, workflows, plans } = await fixture()
   const draft = await workflows.savePlan(session.id, 'Deliver the verified workflow', [userVerifiedItem], null)
   expect(draft.plan).toMatchObject({ revision: 1, phase: 'draft' })
 
   await kernel.submit(session.id, 'execute-draft', { text: 'Execute the saved plan', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
   expect(await workflows.get(session.id)).toMatchObject({
-    plan: { revision: 1, phase: 'active' },
-    workflow: { status: 'active', planRevision: 1, activeItemId: 'ship' },
+    plan: { revision: 1, phase: 'draft' },
+    workflow: null,
   })
+
+  const agentPlan = await plans.update(session.id, [{ step: userVerifiedItem.title, status: 'in_progress' }])
+  await workflows.focus(session.id, 0, userVerifiedItem, 'user', agentPlan.revision)
 
   await kernel.close()
   resources.splice(
@@ -115,20 +119,36 @@ test('goal completion is gated by Host-recorded acceptance state', async () => {
   expect(await rejection(goals.update(session.id, 'complete'))).toMatchObject({
     code: 'WORKFLOW_ACCEPTANCE_PENDING',
   })
+  const waiting = await workflows.checkpoint(
+    session.id,
+    'ship',
+    'complete',
+    'Ready for the explicitly configured user review',
+    null,
+    1,
+  )
   const accepted = await workflows.acceptCheck(
     session.id,
     'ship',
     'user-review',
     'accepted',
     'Reviewed in the test',
-    1,
+    waiting.workflow!.revision,
     'test-user',
   )
   expect(accepted.workflow?.evidence).toMatchObject([{ source: 'user', actorId: 'test-user', outcome: 'accepted' }])
-  const checkpoint = await workflows.checkpoint(session.id, 'ship', 'complete', 'Acceptance is recorded', null, 2)
+  const checkpoint = await workflows.checkpoint(
+    session.id,
+    'ship',
+    'complete',
+    'Acceptance is recorded',
+    null,
+    accepted.workflow!.revision,
+  )
   expect(checkpoint.workflow?.workItems[0]?.status).toBe('completed')
-  const completed = await workflows.complete(session.id, 3)
-  expect(completed.workflow?.status).toBe('completed')
+  expect(checkpoint.workflow?.status).toBe('completed')
+  expect((await goals.get(session.id)).goal?.status).toBe('active')
+  await goals.update(session.id, 'complete')
   expect((await goals.get(session.id)).goal?.status).toBe('complete')
 })
 
@@ -165,9 +185,9 @@ test('tool scope and exploration checkpoints are enforced before execution', asy
     'inspect',
     { readPaths: ['outside.txt'], writePaths: [], tools: [] },
     'The second fixture is required',
-    1,
+    (await workflows.get(session.id)).workflow!.revision,
   )
-  expect(expanded.workflow?.revision).toBe(2)
+  expect(expanded.workflow?.revision).toBe(3)
   await kernel.submit(
     session.id,
     'allowed-read',
@@ -197,9 +217,9 @@ test('tool scope and exploration checkpoints are enforced before execution', asy
     'progress',
     'The required files are now known',
     null,
-    3,
+    (await workflows.get(session.id)).workflow!.revision,
   )
-  expect(checkpoint.workflow).toMatchObject({ revision: 4, explorationCount: 0 })
+  expect(checkpoint.workflow).toMatchObject({ explorationCount: 0 })
 })
 
 test('scope and checkpoint updates reject stale revisions', async () => {
@@ -275,9 +295,9 @@ test('successful tool results become durable acceptance evidence only after sett
     null,
     3,
   )
-  const completed = await workflows.complete(session.id, itemCompleted.workflow!.revision)
-  expect(completed.workflow?.status).toBe('completed')
-  expect((await goals.get(session.id)).goal?.status).toBe('complete')
+  expect(itemCompleted.workflow?.status).toBe('completed')
+  expect((await goals.get(session.id)).goal?.status).toBe('active')
+  await goals.update(session.id, 'complete')
 
   await kernel.close()
   resources.splice(
@@ -323,7 +343,7 @@ test('three identical verifier failures block the work item instead of retrying 
     await kernel.waitForIdle()
   }
   const snapshot = await workflows.get(session.id)
-  expect(snapshot.workflow).toMatchObject({ status: 'blocked' })
+  expect(snapshot.workflow).toMatchObject({ status: 'needs_revision' })
   expect(snapshot.workflow?.workItems[0]).toMatchObject({ status: 'blocked' })
   expect(snapshot.workflow?.evidence).toHaveLength(3)
   expect(snapshot.workflow?.evidence.every((entry) => entry.outcome === 'failed')).toBeTrue()

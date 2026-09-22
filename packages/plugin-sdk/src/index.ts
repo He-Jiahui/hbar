@@ -36,6 +36,7 @@ import type {
   Usage,
   Workspace,
   WorkflowPlanItemInput,
+  WorkflowCompletionPolicy,
   WorkflowScope,
   WorkflowSnapshot,
   WorkflowStartCommand,
@@ -75,11 +76,20 @@ export interface ToolContext {
   signal: AbortSignal
   callId: string
 }
+export type ToolWorkspaceAccess =
+  | { kind: 'none' }
+  | {
+      kind: 'paths'
+      arguments: readonly { field: string; access: 'read' | 'write' }[]
+    }
+  | { kind: 'workspace' }
 export interface ToolDefinition {
   name: string
   description: string
   inputSchema: z.ZodType
   effect: 'read' | 'write' | 'process' | 'network'
+  /** Explicit workspace access used by Workflow. Omission means no workspace path access. */
+  workspaceAccess?: ToolWorkspaceAccess
   execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult>
 }
 export interface ToolRegistry {
@@ -205,6 +215,13 @@ export interface PlanService {
 }
 export interface WorkflowService {
   get(sessionId: string): Promise<WorkflowSnapshot>
+  focus(
+    sessionId: string,
+    stepIndex: number,
+    item: WorkflowPlanItemInput,
+    completionPolicy: WorkflowCompletionPolicy,
+    expectedPlanRevision: number,
+  ): Promise<WorkflowSnapshot>
   savePlan(
     sessionId: string,
     objective: string,

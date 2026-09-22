@@ -1,7 +1,13 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, MAX_GOAL_OBJECTIVE_LENGTH } from '../index'
-import { workflowPlanItemsSchema, workflowScopeSchema, workflowSnapshotSchema } from '../workflow'
+import {
+  workflowCompletionPolicySchema,
+  workflowPlanItemSchema,
+  workflowPlanItemsSchema,
+  workflowScopeSchema,
+  workflowSnapshotSchema,
+} from '../workflow'
 
 const sessionArgument = { field: 'sessionId', type: 'string' as const, flag: 'session' }
 const expectedRevisionSchema = z.number().int().positive()
@@ -31,6 +37,14 @@ export const workflowStartInputSchema = z.strictObject({
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
   items: workflowPlanItemsSchema,
   tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
+})
+
+export const workflowFocusInputSchema = z.strictObject({
+  sessionId: idSchema,
+  stepIndex: z.number().int().nonnegative().max(99),
+  item: workflowPlanItemSchema,
+  completionPolicy: workflowCompletionPolicySchema.default('agent'),
+  expectedPlanRevision: expectedRevisionSchema,
 })
 
 export const workflowExpandScopeInputSchema = z.strictObject({
@@ -71,6 +85,11 @@ export const workflowCommands = {
   'workflow.get': defineCommand(
     { ...metadata('workflow.get', 'query'), cli: { arguments: [sessionArgument] } },
     z.strictObject({ sessionId: idSchema }),
+    workflowSnapshotSchema,
+  ),
+  'workflow.focus.set': defineCommand(
+    metadata('workflow.focus.set', 'command'),
+    workflowFocusInputSchema,
     workflowSnapshotSchema,
   ),
   'workflow.plan.save': defineCommand(
@@ -121,6 +140,7 @@ export const workflowCommands = {
 
 export const workflowCoreCommands = {
   'workflow.get': workflowCommands['workflow.get'],
+  'workflow.focus.set': workflowCommands['workflow.focus.set'],
   'workflow.plan.save': workflowCommands['workflow.plan.save'],
   'workflow.start': workflowCommands['workflow.start'],
   'workflow.activate': workflowCommands['workflow.activate'],

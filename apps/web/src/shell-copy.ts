@@ -1114,14 +1114,31 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
     ? { pending: '待处理', in_progress: '进行中', completed: '已完成' }
     : { pending: 'Pending', in_progress: 'In progress', completed: 'Completed' }
   const workflowStatuses: HbarGoalPlanWorkspaceLabels['workflow']['statuses'] = zh
-    ? { none: '未启用', draft: '草案', active: '专注中', waiting: '等待中', blocked: '已阻塞', completed: '已完成' }
+    ? {
+        none: '未启用',
+        draft: '草案',
+        active: '专注中',
+        verifying: '验证中',
+        waiting: '等待中',
+        waiting_review: '等待复核',
+        waiting_user: '等待人工验收',
+        blocked: '已阻塞',
+        needs_revision: '需要自主修订',
+        completed: '已完成',
+        cancelled: '已取消',
+      }
     : {
         none: 'Not enabled',
         draft: 'Draft',
         active: 'Focused',
+        verifying: 'Verifying',
         waiting: 'Waiting',
+        waiting_review: 'Waiting for review',
+        waiting_user: 'Waiting for user review',
         blocked: 'Blocked',
+        needs_revision: 'Needs autonomous revision',
         completed: 'Completed',
+        cancelled: 'Cancelled',
       }
   const workflowItemStatuses: HbarGoalPlanWorkspaceLabels['workflow']['itemStatuses'] = zh
     ? {

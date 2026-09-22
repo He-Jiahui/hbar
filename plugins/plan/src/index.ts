@@ -152,6 +152,8 @@ class PlanRuntime implements PlanService {
       // Codex accepts an empty checklist; an empty update is the wire-level
       // equivalent of clearing the current plan.
       const parsedSteps = z.array(planStepSchema).max(100).parse(steps)
+      if (parsedSteps.filter((step) => step.status === 'in_progress').length > 1)
+        throw new HbarError('PLAN_INVALID', 'An Agent Plan can have at most one in-progress step')
       const state = planStateSchema.parse({
         sessionId,
         revision: (current?.revision ?? 0) + 1,

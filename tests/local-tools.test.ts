@@ -52,6 +52,11 @@ test('workspace AI tools search, find, list, and read ranges through the managed
   const { kernel, session } = await fixture()
   const tools = kernel.tools.list().map((tool) => tool.name)
   for (const name of ['search_text', 'find_files', 'list_directory', 'read_file']) expect(tools).toContain(name)
+  expect(kernel.tools.get('read_file')?.workspaceAccess).toEqual({
+    kind: 'paths',
+    arguments: [{ field: 'path', access: 'read' }],
+  })
+  expect(kernel.tools.get('shell')?.workspaceAccess).toEqual({ kind: 'workspace' })
 
   const search = await invoke(kernel, session.id, 'search_text', {
     pattern: 'needle',
@@ -91,7 +96,8 @@ test('workspace AI tools search, find, list, and read ranges through the managed
   })
   expect(nextPage).toMatchObject({ type: 'tool_result', isError: false, details: { entryCount: 2 } })
   if (nextPage.type !== 'tool_result') throw new Error('Expected a list_directory result')
-  for (const firstPageEntry of listed.text.trim().split('\n')) expect(nextPage.text).not.toContain(`${firstPageEntry}\n`)
+  for (const firstPageEntry of listed.text.trim().split('\n'))
+    expect(nextPage.text).not.toContain(`${firstPageEntry}\n`)
 
   const range = await invoke(kernel, session.id, 'read_file', {
     path: 'alpha.ts',

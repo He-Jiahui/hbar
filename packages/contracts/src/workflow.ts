@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const WORKFLOW_SCHEMA_VERSION = 1
+export const WORKFLOW_SCHEMA_VERSION = 2
 export const MAX_WORKFLOW_ITEMS = 100
 export const MAX_WORKFLOW_ACCEPTANCE_CHECKS = 32
 export const MAX_WORKFLOW_SCOPE_ENTRIES = 128
@@ -39,8 +39,13 @@ export const workflowPathSchema = z
   .max(4_000)
   .refine((value) => {
     const normalized = value.replaceAll('\\', '/')
-    return !normalized.startsWith('/') && !/^[a-zA-Z]:\//.test(normalized) && !normalized.split('/').includes('..')
-  }, 'Workflow paths must be workspace-relative and cannot traverse parent directories')
+    return (
+      !normalized.startsWith('/') &&
+      !/^[a-zA-Z]:\//.test(normalized) &&
+      !normalized.split('/').includes('..') &&
+      !normalized.includes('*')
+    )
+  }, 'Workflow paths must be workspace-relative directory prefixes without parent traversal or globs')
 
 export const workflowToolNameSchema = z
   .string()
@@ -91,6 +96,9 @@ export const workflowAcceptanceDefinitionSchema = z.strictObject({
   verifier: workflowAcceptanceVerifierSchema,
 })
 export type WorkflowAcceptanceDefinition = z.output<typeof workflowAcceptanceDefinitionSchema>
+
+export const workflowCompletionPolicySchema = z.enum(['agent', 'review_agent', 'user'])
+export type WorkflowCompletionPolicy = z.output<typeof workflowCompletionPolicySchema>
 
 export const workflowAcceptanceStatusSchema = z.enum(['pending', 'passed', 'failed', 'accepted', 'rejected'])
 export type WorkflowAcceptanceStatus = z.output<typeof workflowAcceptanceStatusSchema>
@@ -243,8 +251,44 @@ export const workflowDelegationSchema = z.strictObject({
 })
 export type WorkflowDelegation = z.output<typeof workflowDelegationSchema>
 
-export const workflowStatusSchema = z.enum(['draft', 'active', 'waiting', 'blocked', 'completed'])
+export const workflowStatusSchema = z.enum([
+  'draft',
+  'active',
+  'verifying',
+  'waiting',
+  'waiting_review',
+  'waiting_user',
+  'blocked',
+  'needs_revision',
+  'completed',
+  'cancelled',
+])
 export type WorkflowStatus = z.output<typeof workflowStatusSchema>
+
+export const workflowRejectionSchema = z.strictObject({
+  fingerprint: sha256Schema,
+  toolName: workflowToolNameSchema,
+  path: workflowPathSchema.nullable(),
+  reason: workflowTextSchema,
+  count: z.number().int().positive(),
+  updatedAt: z.number().int().nonnegative(),
+})
+export type WorkflowRejection = z.output<typeof workflowRejectionSchema>
+
+export const workflowTransitionIntentSchema = z.strictObject({
+  operationId: idSchema,
+  planRevision: z.number().int().positive(),
+  stepIndex: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_WORKFLOW_ITEMS - 1),
+  stepTextHash: sha256Schema,
+  itemId: idSchema,
+  summary: workflowTextSchema,
+  createdAt: z.number().int().nonnegative(),
+})
+export type WorkflowTransitionIntent = z.output<typeof workflowTransitionIntentSchema>
 
 export const workflowStartCommandSchema = z.strictObject({
   actorId: idSchema,
@@ -256,11 +300,20 @@ export type WorkflowStartCommand = z.output<typeof workflowStartCommandSchema>
 
 export const workflowStateSchema = z.strictObject({
   schemaVersion: z.literal(WORKFLOW_SCHEMA_VERSION),
+  executionModel: z.enum(['legacy', 'focus_v2']).default('legacy'),
   workflowId: idSchema,
   sessionId: idSchema,
   goalId: idSchema.nullable(),
   planId: idSchema,
   planRevision: z.number().int().positive(),
+  activeStepIndex: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_WORKFLOW_ITEMS - 1)
+    .nullable()
+    .default(null),
+  activeStepTextHash: sha256Schema.nullable().default(null),
   revision: z.number().int().positive(),
   status: workflowStatusSchema,
   activeItemId: idSchema.nullable(),
@@ -282,6 +335,9 @@ export const workflowStateSchema = z.strictObject({
     .array(workflowEvidenceSchema)
     .max(MAX_WORKFLOW_EVIDENCE)
     .superRefine((entries, context) => requireUniqueIds(entries, 'evidenceId', context)),
+  completionPolicy: workflowCompletionPolicySchema.default('agent'),
+  rejection: workflowRejectionSchema.nullable().default(null),
+  transitionIntent: workflowTransitionIntentSchema.nullable().default(null),
   startCommand: workflowStartCommandSchema.nullable().default(null),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),

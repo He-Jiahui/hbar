@@ -38,6 +38,21 @@ test('plan accepts an empty update and broadcasts a clear notification', async (
   try {
     const first = await plans.update(session.id, [{ step: 'inspect', status: 'pending' }])
     expect(first.revision).toBe(1)
+    try {
+      await plans.update(
+        session.id,
+        [
+          { step: 'first', status: 'in_progress' },
+          { step: 'second', status: 'in_progress' },
+        ],
+        null,
+        null,
+        1,
+      )
+      throw new Error('Expected multiple in-progress steps to reject')
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'PLAN_INVALID' })
+    }
     expect((await plans.update(session.id, [], null, null, 1)).revision).toBe(2)
     try {
       await plans.update(session.id, [], null, null, 1)

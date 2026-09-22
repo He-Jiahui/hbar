@@ -63,6 +63,7 @@ test('workflow commands expose the core catalog and preserve start idempotency a
   const catalog = await client.call('command.catalog', { category: 'agent.goal.plan', limit: 100 })
   const ids = catalog.items.map((item) => item.metadata.id)
   expect(ids).toContain('workflow.start')
+  expect(ids).toContain('workflow.focus.set')
   expect(ids).toContain('workflow.complete')
   expect(ids).toContain('workflow.delegate')
 
@@ -80,13 +81,21 @@ test('workflow commands expose the core catalog and preserve start idempotency a
     ),
   ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
 
+  const waiting = await commands.execute('workflow.checkpoint', {
+    sessionId: session.id,
+    itemId: 'ship',
+    outcome: 'complete',
+    summary: 'The result is ready for explicit review',
+    nextItemId: null,
+    expectedRevision: 1,
+  })
   const accepted = await commands.execute('workflow.acceptCheck', {
     sessionId: session.id,
     itemId: 'ship',
     checkId: 'review',
     decision: 'accepted',
     note: 'Accepted through the authenticated command',
-    expectedRevision: 1,
+    expectedRevision: waiting.workflow!.revision,
   })
   expect(accepted.workflow?.evidence[0]).toMatchObject({ source: 'user', outcome: 'accepted' })
   const checkpoint = await commands.execute('workflow.checkpoint', {
@@ -95,13 +104,9 @@ test('workflow commands expose the core catalog and preserve start idempotency a
     outcome: 'complete',
     summary: 'The required acceptance is durable',
     nextItemId: null,
-    expectedRevision: 2,
+    expectedRevision: accepted.workflow!.revision,
   })
-  const completed = await commands.execute('workflow.complete', {
-    sessionId: session.id,
-    expectedRevision: checkpoint.workflow!.revision,
-  })
-  expect(completed.workflow?.status).toBe('completed')
+  expect(checkpoint.workflow?.status).toBe('completed')
 
   client.disconnect()
   await host.close()

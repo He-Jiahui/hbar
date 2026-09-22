@@ -296,6 +296,7 @@ export default definePlugin({
         : 'Read a UTF-8 text file or supported image (PNG, JPEG, WebP, or GIF) inside the workspace.',
       inputSchema: execution.workspaceQuery ? workspaceReadInputSchema : z.object({ path: z.string().min(1) }),
       effect: 'read',
+      workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'read' }] },
       execute: async (args, c) => {
         const input = workspaceReadInputSchema.parse(args)
         const path = input.path
@@ -342,6 +343,7 @@ export default definePlugin({
           'Search workspace UTF-8 files in process. Prefer this over shell rg/grep for bounded code and text searches.',
         inputSchema: workspaceSearchToolInputSchema,
         effect: 'read',
+        workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'read' }] },
         execute: async (args, c) => {
           const result = await query.search(c.workspace.path, workspaceSearchInputSchema.parse(args), c.signal)
           const formatted = searchText(result)
@@ -362,6 +364,7 @@ export default definePlugin({
           'Find workspace files by include and exclude globs in process. Prefer this over shell rg --files or find.',
         inputSchema: workspaceFindToolInputSchema,
         effect: 'read',
+        workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'read' }] },
         execute: async (args, c) => {
           const result = await query.find(c.workspace.path, workspaceFindInputSchema.parse(args), c.signal)
           const bounded = byteBoundedText([result.paths.length ? `${result.paths.join('\n')}\n` : 'No files found.\n'])
@@ -380,6 +383,7 @@ export default definePlugin({
         description: 'List one workspace directory with stable, bounded pagination without starting a shell process.',
         inputSchema: workspaceListToolInputSchema,
         effect: 'read',
+        workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'read' }] },
         execute: async (args, c) => {
           const input = workspaceListInputSchema.parse(args)
           const entries = (await execution.list(c.workspace.path, input.path)).sort((left, right) =>
@@ -405,6 +409,7 @@ export default definePlugin({
       description: 'Write a UTF-8 file inside the workspace. Requires user approval.',
       inputSchema: z.object({ path: z.string().min(1), text: z.string() }),
       effect: 'write',
+      workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'write' }] },
       execute: async (args, c) => {
         c.signal.throwIfAborted()
         const details = await execution.write(c.workspace.path, args.path as string, args.text as string)
@@ -416,6 +421,7 @@ export default definePlugin({
       description: 'Replace one exact occurrence of text in a workspace file. Requires approval.',
       inputSchema: z.object({ path: z.string().min(1), oldText: z.string().min(1), newText: z.string() }),
       effect: 'write',
+      workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'write' }] },
       execute: async (args, c) => {
         const before = await execution.read(c.workspace.path, args.path as string)
         const oldText = args.oldText as string
@@ -435,6 +441,7 @@ export default definePlugin({
       description: 'Execute a shell command in the workspace. Requires user approval.',
       inputSchema: z.object({ command: z.string().min(1).max(16000) }),
       effect: 'process',
+      workspaceAccess: { kind: 'workspace' },
       execute: (args, c) => execution.exec(c.workspace.path, args.command as string, c.signal),
     })
   },

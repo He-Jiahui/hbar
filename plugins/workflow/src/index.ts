@@ -6,6 +6,7 @@ import {
   MAX_WORKFLOW_EVIDENCE,
   WORKFLOW_SCHEMA_VERSION,
   workflowPlanItemsSchema,
+  workflowPlanItemSchema,
   workflowPlanSchema,
   workflowScopeSchema,
   workflowSnapshotSchema,
@@ -15,6 +16,7 @@ import type {
   Run,
   SessionEvent,
   WorkflowAcceptanceCheck,
+  WorkflowCompletionPolicy,
   WorkflowPlan,
   WorkflowPlanItem,
   WorkflowPlanItemInput,
@@ -28,8 +30,7 @@ import {
   workflowCheckpointInputSchema,
   workflowDelegateInputSchema,
   workflowExpandScopeInputSchema,
-  workflowPlanSaveInputSchema,
-  workflowStartInputSchema,
+  workflowFocusInputSchema,
 } from '@hbar/contracts/commands/workflows'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
@@ -40,6 +41,7 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
+  PlanService,
   WorkflowService,
 } from '@hbar/plugin-sdk'
 
@@ -50,7 +52,12 @@ const CONTROL_TOOLS = new Set([
   'delegate_work',
   'get_agent_result',
   'get_goal',
+  'create_goal',
+  'update_goal',
+  'get_plan',
+  'update_plan',
   'get_workflow',
+  'workflow_focus',
   'workflow_start',
   'workflow_update',
   'save_workflow_plan',
@@ -86,6 +93,18 @@ function mergeScope(current: WorkflowScope, addition: WorkflowScope): WorkflowSc
 
 function normalizedScopePath(value: string) {
   return value.replaceAll('\\', '/').replace(/^\.\//, '').replace(/\/$/, '') || '.'
+}
+
+function normalizeLegacyScopePath(value: string) {
+  const normalized = normalizedScopePath(value)
+  if (normalized === '*' || normalized === '**' || normalized === '**/*') return '.'
+  return normalized.replace(/\/(?:\*\*\/\*|\*\*|\*)$/, '') || '.'
+}
+
+function normalizeToolName(api: HbarAPI, value: string) {
+  if (api.tools.get(value)) return value
+  const unqualified = value.startsWith('functions.') ? value.slice('functions.'.length) : value
+  return api.tools.get(unqualified) ? unqualified : value
 }
 
 function pathsOverlap(left: string, right: string) {
@@ -124,12 +143,6 @@ function workItemsOf(items: WorkflowPlanItem[], now: number): WorkflowWorkItem[]
   }))
 }
 
-function requiredChecksPass(item: WorkflowWorkItem) {
-  return item.acceptanceChecks
-    .filter((check) => check.required)
-    .every((check) => check.status === 'passed' || check.status === 'accepted')
-}
-
 function relativeToolPath(workspace: string, value: string) {
   const absolute = resolve(workspace, value)
   const path = relative(workspace, absolute).replaceAll('\\', '/') || '.'
@@ -138,12 +151,21 @@ function relativeToolPath(workspace: string, value: string) {
   return path
 }
 
-function argumentPaths(workspace: string, value: unknown, key = ''): string[] {
-  if (typeof value === 'string' && ['path', 'paths', 'cwd', 'root', 'directory'].includes(key.toLowerCase()))
-    return [relativeToolPath(workspace, value)]
-  if (Array.isArray(value)) return value.flatMap((entry) => argumentPaths(workspace, entry, key))
-  if (!value || typeof value !== 'object') return []
-  return Object.entries(value).flatMap(([childKey, entry]) => argumentPaths(workspace, entry, childKey))
+function workspaceAccessPaths(
+  workspace: string,
+  args: Record<string, unknown>,
+  tool: ToolDefinition,
+): { path: string; access: 'read' | 'write' }[] {
+  if (!tool.workspaceAccess || tool.workspaceAccess.kind === 'none') return []
+  if (tool.workspaceAccess.kind === 'workspace')
+    return [{ path: '.', access: tool.effect === 'read' ? 'read' : 'write' }]
+  return tool.workspaceAccess.arguments.flatMap((argument) => {
+    const value = args[argument.field]
+    const values = value === undefined ? ['.'] : Array.isArray(value) ? value : [value]
+    return values.flatMap((entry) =>
+      typeof entry === 'string' ? [{ path: relativeToolPath(workspace, entry), access: argument.access }] : [],
+    )
+  })
 }
 
 function pathAllowed(path: string, allowed: readonly string[]) {
@@ -167,6 +189,30 @@ function hashValue(value: unknown) {
   return createHash('sha256')
     .update(JSON.stringify(canonical(value)))
     .digest('hex')
+}
+
+function normalizeLegacyEventValue(value: unknown, key = ''): unknown {
+  if (Array.isArray(value)) {
+    const entries = value as unknown[]
+    if (key === 'readPaths' || key === 'writePaths')
+      return entries.map((entry) => (typeof entry === 'string' ? normalizeLegacyScopePath(entry) : entry))
+    if (key === 'tools')
+      return entries.map((entry) =>
+        typeof entry === 'string' && entry.startsWith('functions.') ? entry.slice('functions.'.length) : entry,
+      )
+    return entries.map((entry) => normalizeLegacyEventValue(entry))
+  }
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value).map(([childKey, entry]) => [
+      childKey,
+      childKey === 'schemaVersion' && entry === 1
+        ? WORKFLOW_SCHEMA_VERSION
+        : childKey === 'toolName' && typeof entry === 'string' && entry.startsWith('functions.')
+          ? entry.slice('functions.'.length)
+          : normalizeLegacyEventValue(entry, childKey),
+    ]),
+  )
 }
 
 function expectedArgumentsMatch(expected: Record<string, unknown> | undefined, actual: Record<string, unknown>) {
@@ -211,13 +257,17 @@ export class WorkflowRuntime implements WorkflowService {
   private workflows = new Map<string, WorkflowState>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
+  private agentPlans: PlanService
 
   constructor(
     private api: HbarAPI,
     private goals: GoalService,
     private agents: AgentService,
     private config: WorkflowConfig,
-  ) {}
+    agentPlans?: PlanService,
+  ) {
+    this.agentPlans = agentPlans ?? api.service<PlanService>('plan')
+  }
 
   async restore() {
     const sessions = await this.api.sessions.list()
@@ -236,18 +286,139 @@ export class WorkflowRuntime implements WorkflowService {
         `Workflow replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
       )
     for (const event of events) this.applyEvent(sessionId, event)
+    await this.migrateLegacySession(sessionId)
+    await this.recoverTransition(sessionId)
+  }
+
+  private async migrateLegacySession(sessionId: string) {
+    const workflow = this.workflows.get(sessionId)
+    const legacyPlan = this.plans.get(sessionId)
+    if (
+      !workflow ||
+      !legacyPlan ||
+      workflow.activeStepIndex !== null ||
+      workflow.executionModel === 'focus_v2' ||
+      ['completed', 'cancelled'].includes(workflow.status)
+    )
+      return
+    let agentPlan = await this.agentPlans.get(sessionId)
+    if (!agentPlan) {
+      const activeId = workflow.activeItemId
+      let selected = false
+      agentPlan = await this.agentPlans.update(
+        sessionId,
+        workflow.workItems.map((item) => {
+          if (item.status === 'completed') return { step: item.title, status: 'completed' as const }
+          if (!selected && (item.id === activeId || item.status === 'in_progress')) {
+            selected = true
+            return { step: item.title, status: 'in_progress' as const }
+          }
+          return { step: item.title, status: 'pending' as const }
+        }),
+        `Migrated legacy Workflow plan ${legacyPlan.planId}`,
+        null,
+        0,
+      )
+    }
+    const active = workflow.workItems.find((item) => item.id === workflow.activeItemId)
+    const stepIndex = active ? agentPlan.plan.findIndex((step) => step.step === active.title) : -1
+    const compatible = stepIndex >= 0
+    const migrated = workflowStateSchema.parse({
+      ...workflow,
+      executionModel: 'focus_v2',
+      planRevision: agentPlan.revision,
+      activeStepIndex: compatible ? stepIndex : null,
+      activeStepTextHash: compatible ? hashValue(agentPlan.plan[stepIndex]!.step) : null,
+      status: compatible ? workflow.status : 'needs_revision',
+      updatedAt: Date.now(),
+    })
+    await this.api.sessions.append(sessionId, 'workflow.migrated.v2', { workflow: migrated })
+    this.workflows.set(sessionId, migrated)
+  }
+
+  private async recoverTransition(sessionId: string) {
+    const workflow = this.workflows.get(sessionId)
+    const intent = workflow?.transitionIntent
+    if (!workflow || !intent) return
+    let agentPlan = await this.agentPlans.get(sessionId)
+    if (
+      agentPlan?.revision === intent.planRevision &&
+      hashValue(agentPlan.plan[intent.stepIndex]?.step ?? '') === intent.stepTextHash
+    ) {
+      const followingIndex = agentPlan.plan.findIndex(
+        (step, index) => index > intent.stepIndex && step.status === 'pending',
+      )
+      agentPlan = await this.agentPlans.update(
+        sessionId,
+        agentPlan.plan.map((step, index) => ({
+          ...step,
+          status:
+            index === intent.stepIndex
+              ? ('completed' as const)
+              : index === followingIndex
+                ? ('in_progress' as const)
+                : step.status,
+        })),
+        intent.summary,
+        agentPlan.turnId,
+        agentPlan.revision,
+      )
+    }
+    const transitionApplied =
+      agentPlan?.revision === intent.planRevision + 1 &&
+      agentPlan.plan[intent.stepIndex]?.status === 'completed' &&
+      hashValue(agentPlan.plan[intent.stepIndex]?.step ?? '') === intent.stepTextHash
+    const now = Date.now()
+    const recovered = workflowStateSchema.parse({
+      ...workflow,
+      revision: workflow.revision + 1,
+      planRevision: transitionApplied ? agentPlan!.revision : workflow.planRevision,
+      status: transitionApplied
+        ? agentPlan!.plan.every((step) => step.status === 'completed')
+          ? 'completed'
+          : 'active'
+        : 'needs_revision',
+      activeItemId: transitionApplied ? null : workflow.activeItemId,
+      activeStepIndex: transitionApplied ? null : workflow.activeStepIndex,
+      activeStepTextHash: transitionApplied ? null : workflow.activeStepTextHash,
+      workItems: transitionApplied
+        ? workflow.workItems.map((item) =>
+            item.id === intent.itemId
+              ? { ...item, status: 'completed' as const, completedAt: item.completedAt ?? now }
+              : item,
+          )
+        : workflow.workItems,
+      transitionIntent: null,
+      updatedAt: now,
+    })
+    await this.api.sessions.append(sessionId, 'workflow.updated', {
+      workflow: recovered,
+      transition: { operationId: intent.operationId, status: transitionApplied ? 'recovered' : 'stale' },
+    })
+    this.workflows.set(sessionId, recovered)
+    const projection = this.plans.get(sessionId)
+    if (projection && transitionApplied)
+      this.plans.set(
+        sessionId,
+        workflowPlanSchema.parse({
+          ...projection,
+          revision: agentPlan!.revision,
+          phase: recovered.status === 'completed' ? 'archived' : 'active',
+          updatedAt: agentPlan!.updatedAt,
+        }),
+      )
   }
 
   private applyEvent(sessionId: string, event: SessionEvent) {
     if (event.type === 'workflow.plan.saved') {
-      const parsed = planSavedEventSchema.safeParse(event.data)
+      const parsed = planSavedEventSchema.safeParse(normalizeLegacyEventValue(event.data))
       if (!parsed.success || parsed.data.plan.sessionId !== sessionId)
         throw new HbarError('WORKFLOW_REPLAY', `Invalid workflow.plan.saved event in ${sessionId}`)
       this.plans.set(sessionId, parsed.data.plan)
       return
     }
     if (event.type === 'workflow.started') {
-      const parsed = workflowStartedEventSchema.safeParse(event.data)
+      const parsed = workflowStartedEventSchema.safeParse(normalizeLegacyEventValue(event.data))
       if (
         !parsed.success ||
         parsed.data.plan.sessionId !== sessionId ||
@@ -259,10 +430,18 @@ export class WorkflowRuntime implements WorkflowService {
       this.workflows.set(sessionId, parsed.data.workflow)
       return
     }
-    if (event.type === 'workflow.updated') {
-      const parsed = workflowUpdatedEventSchema.safeParse(event.data)
+    if (event.type === 'workflow.updated' || event.type === 'workflow.migrated.v2') {
+      const parsed = workflowUpdatedEventSchema.safeParse(normalizeLegacyEventValue(event.data))
       if (!parsed.success || parsed.data.workflow.sessionId !== sessionId)
         throw new HbarError('WORKFLOW_REPLAY', `Invalid workflow.updated event in ${sessionId}`)
+      this.workflows.set(sessionId, parsed.data.workflow)
+      return
+    }
+    if (event.type === 'workflow.focus.set') {
+      const parsed = workflowStartedEventSchema.safeParse(normalizeLegacyEventValue(event.data))
+      if (!parsed.success || parsed.data.workflow.sessionId !== sessionId)
+        throw new HbarError('WORKFLOW_REPLAY', `Invalid workflow.focus.set event in ${sessionId}`)
+      this.plans.set(sessionId, parsed.data.plan)
       this.workflows.set(sessionId, parsed.data.workflow)
     }
   }
@@ -299,7 +478,136 @@ export class WorkflowRuntime implements WorkflowService {
   async get(sessionId: string) {
     await this.ready()
     await this.api.sessions.get(sessionId)
+    const plan = await this.agentPlans.get(sessionId)
+    const workflow = this.workflows.get(sessionId)
+    if (
+      plan &&
+      workflow &&
+      !['completed', 'cancelled', 'needs_revision'].includes(workflow.status) &&
+      workflow.planRevision !== plan.revision
+    )
+      await this.markNeedsRevision(sessionId, workflow, 'The authoritative Agent Plan changed; replace the focus.')
     return this.snapshot(sessionId)
+  }
+
+  private normalizeFocusItem(value: WorkflowPlanItemInput) {
+    const normalized = workflowPlanItemSchema.parse({
+      ...value,
+      scope: {
+        readPaths: unique((value.scope.readPaths ?? []).map(normalizedScopePath)),
+        writePaths: unique((value.scope.writePaths ?? []).map(normalizedScopePath)),
+        tools: unique((value.scope.tools ?? []).map((name) => normalizeToolName(this.api, name))),
+      },
+      acceptanceChecks: value.acceptanceChecks.map((check) => ({
+        ...check,
+        verifier:
+          check.verifier.kind === 'tool'
+            ? { ...check.verifier, toolName: normalizeToolName(this.api, check.verifier.toolName) }
+            : check.verifier.kind === 'workspace'
+              ? { ...check.verifier, path: normalizedScopePath(check.verifier.path) }
+              : check.verifier,
+      })),
+    })
+    for (const name of normalized.scope.tools) {
+      const tool = this.api.tools.get(name)
+      if (!tool) throw new HbarError('WORKFLOW_TOOL_UNKNOWN', `Tool ${name} is not registered`)
+      if (
+        tool.workspaceAccess?.kind === 'workspace' &&
+        tool.effect !== 'read' &&
+        !normalized.scope.writePaths.includes('.')
+      )
+        throw new HbarError(
+          'WORKFLOW_SCOPE_REQUIRED',
+          `Workspace-wide tool ${name} requires an explicit write prefix of .`,
+        )
+    }
+    for (const check of normalized.acceptanceChecks)
+      if (check.verifier.kind === 'tool' && !this.api.tools.get(check.verifier.toolName))
+        throw new HbarError('WORKFLOW_TOOL_UNKNOWN', `Verifier tool ${check.verifier.toolName} is not registered`)
+    return normalized
+  }
+
+  private async markNeedsRevision(sessionId: string, current: WorkflowState, reason: string) {
+    return this.serial(sessionId, async () => {
+      const latest = this.workflows.get(sessionId)
+      if (!latest || latest.workflowId !== current.workflowId || latest.status === 'needs_revision')
+        return this.snapshot(sessionId)
+      const next = workflowStateSchema.parse({
+        ...latest,
+        revision: latest.revision + 1,
+        status: 'needs_revision',
+        updatedAt: Date.now(),
+      })
+      return this.persistWorkflow(next, undefined, { diagnosis: reason })
+    })
+  }
+
+  async focus(
+    sessionId: string,
+    stepIndex: number,
+    itemValue: WorkflowPlanItemInput,
+    completionPolicy: WorkflowCompletionPolicy,
+    expectedPlanRevision: number,
+  ) {
+    return this.serial(sessionId, async () => {
+      const agentPlan = await this.agentPlans.get(sessionId)
+      if (!agentPlan)
+        throw new HbarError('WORKFLOW_PLAN_REQUIRED', 'Publish an Agent Plan before setting workflow focus')
+      if (agentPlan.revision !== expectedPlanRevision)
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The Agent Plan changed before focus was applied')
+      const step = agentPlan.plan[stepIndex]
+      if (!step) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The Agent Plan step does not exist')
+      if (step.status === 'completed')
+        throw new HbarError('WORKFLOW_ITEM_COMPLETE', 'A completed Agent Plan step cannot become the active focus')
+      const item = this.normalizeFocusItem({ ...itemValue, title: step.step })
+      if (completionPolicy !== 'user' && item.acceptanceChecks.some((check) => check.verifier.kind === 'user'))
+        throw new HbarError(
+          'WORKFLOW_CHECK_INVALID',
+          'User acceptance checks require the explicitly selected user completion policy',
+        )
+      const now = Date.now()
+      const goal = await this.goals.get(sessionId)
+      const current = this.workflows.get(sessionId)
+      const plan = workflowPlanSchema.parse({
+        schemaVersion: WORKFLOW_SCHEMA_VERSION,
+        planId: `agent-plan-${sessionId}`,
+        sessionId,
+        revision: agentPlan.revision,
+        phase: 'active',
+        objective: goal.goal?.objective ?? agentPlan.explanation ?? step.step,
+        items: [item],
+        createdAt: current?.createdAt ?? now,
+        updatedAt: agentPlan.updatedAt,
+      })
+      const workflow = workflowStateSchema.parse({
+        schemaVersion: WORKFLOW_SCHEMA_VERSION,
+        executionModel: 'focus_v2',
+        workflowId: current?.workflowId ?? crypto.randomUUID(),
+        sessionId,
+        goalId: goal.goal ? (goal.goal.goalId ?? goal.goal.threadId) : null,
+        planId: plan.planId,
+        planRevision: agentPlan.revision,
+        activeStepIndex: stepIndex,
+        activeStepTextHash: hashValue(step.step),
+        revision: (current?.revision ?? 0) + 1,
+        status: 'active',
+        activeItemId: item.id,
+        explorationCount: 0,
+        workItems: workItemsOf([item], now),
+        scopeExpansions: current?.scopeExpansions ?? [],
+        delegations: current?.delegations ?? [],
+        evidence: [],
+        completionPolicy,
+        rejection: null,
+        startCommand: null,
+        createdAt: current?.createdAt ?? now,
+        updatedAt: now,
+      })
+      await this.api.sessions.append(sessionId, 'workflow.focus.set', { plan, workflow })
+      this.plans.set(sessionId, plan)
+      this.workflows.set(sessionId, workflow)
+      return this.publish(sessionId)
+    })
   }
 
   private publish(sessionId: string) {
@@ -367,6 +675,17 @@ export class WorkflowRuntime implements WorkflowService {
     return current.goal
   }
 
+  private async publishLegacyAgentPlan(sessionId: string, plan: WorkflowPlan) {
+    const current = await this.agentPlans.get(sessionId)
+    return this.agentPlans.update(
+      sessionId,
+      plan.items.map((item, index) => ({ step: item.title, status: index === 0 ? 'in_progress' : 'pending' })),
+      `Migrated legacy Workflow plan ${plan.planId}`,
+      null,
+      current?.revision ?? 0,
+    )
+  }
+
   private stateFor(
     sessionId: string,
     plan: WorkflowPlan,
@@ -432,7 +751,20 @@ export class WorkflowRuntime implements WorkflowService {
       })
       const goal = await this.goalFor(sessionId, plan.objective, tokenBudget, run)
       if (!goal) throw new HbarError('WORKFLOW_GOAL', 'Workflow goal creation returned no goal')
-      const workflow = this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now, command ?? null)
+      const agentPlan = await this.publishLegacyAgentPlan(sessionId, plan)
+      const workflow = workflowStateSchema.parse({
+        ...this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now, command ?? null),
+        executionModel: 'focus_v2',
+        planRevision: agentPlan.revision,
+        activeStepIndex: 0,
+        activeStepTextHash: hashValue(agentPlan.plan[0]?.step ?? ''),
+        completionPolicy: plan.items.some((item) =>
+          item.acceptanceChecks.some((check) => check.verifier.kind === 'user'),
+        )
+          ? 'user'
+          : 'agent',
+      })
+      plan.revision = agentPlan.revision
       return this.persistStarted(plan, workflow, run?.id)
     })
   }
@@ -454,7 +786,20 @@ export class WorkflowRuntime implements WorkflowService {
       const plan = workflowPlanSchema.parse({ ...current, phase: 'active', updatedAt: now })
       const goal = await this.goalFor(sessionId, plan.objective, tokenBudget, run)
       if (!goal) throw new HbarError('WORKFLOW_GOAL', 'Workflow goal creation returned no goal')
-      const workflow = this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now, null)
+      const agentPlan = await this.publishLegacyAgentPlan(sessionId, plan)
+      const workflow = workflowStateSchema.parse({
+        ...this.stateFor(sessionId, plan, goal.goalId ?? goal.threadId, now, null),
+        executionModel: 'focus_v2',
+        planRevision: agentPlan.revision,
+        activeStepIndex: 0,
+        activeStepTextHash: hashValue(agentPlan.plan[0]?.step ?? ''),
+        completionPolicy: plan.items.some((item) =>
+          item.acceptanceChecks.some((check) => check.verifier.kind === 'user'),
+        )
+          ? 'user'
+          : 'agent',
+      })
+      plan.revision = agentPlan.revision
       return this.persistStarted(plan, workflow, run?.id)
     })
   }
@@ -464,7 +809,8 @@ export class WorkflowRuntime implements WorkflowService {
     if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'No workflow exists for this session')
     if (workflow.revision !== expectedRevision)
       throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The workflow changed before this update was applied')
-    if (workflow.status === 'completed') throw new HbarError('WORKFLOW_COMPLETE', 'The workflow is already complete')
+    if (['completed', 'cancelled'].includes(workflow.status))
+      throw new HbarError('WORKFLOW_COMPLETE', 'The workflow is already settled')
     return workflow
   }
 
@@ -477,21 +823,39 @@ export class WorkflowRuntime implements WorkflowService {
   ) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
-      const scope = workflowScopeSchema.parse(scopeValue)
+      const scope = workflowScopeSchema.parse({
+        readPaths: unique(scopeValue.readPaths.map(normalizedScopePath)),
+        writePaths: unique(scopeValue.writePaths.map(normalizedScopePath)),
+        tools: unique(scopeValue.tools.map((name) => normalizeToolName(this.api, name))),
+      })
       const item = current.workItems.find((candidate) => candidate.id === itemId)
       if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The workflow item does not exist')
+      const mergedScope = mergeScope(item.scope, scope)
+      this.normalizeFocusItem({
+        id: item.id,
+        title: item.title,
+        scope: mergedScope,
+        acceptanceChecks: item.acceptanceChecks.map(({ id, description, required, verifier }) => ({
+          id,
+          description,
+          required,
+          verifier,
+        })),
+      })
+      if (JSON.stringify(canonical(mergedScope)) === JSON.stringify(canonical(item.scope)))
+        throw new HbarError('WORKFLOW_SCOPE_NOOP', 'The requested scope expansion adds no capability')
       const now = Date.now()
       const workflow = workflowStateSchema.parse({
         ...current,
         revision: current.revision + 1,
-        status: current.status === 'blocked' ? 'active' : current.status,
+        status: ['blocked', 'needs_revision'].includes(current.status) ? 'active' : current.status,
         activeItemId: itemId,
         explorationCount: 0,
         workItems: current.workItems.map((candidate) =>
           candidate.id === itemId
             ? {
                 ...candidate,
-                scope: mergeScope(candidate.scope, scope),
+                scope: mergedScope,
                 status: 'in_progress',
                 startedAt: candidate.startedAt ?? now,
               }
@@ -501,6 +865,7 @@ export class WorkflowRuntime implements WorkflowService {
           ...current.scopeExpansions,
           { expansionId: crypto.randomUUID(), itemId, scope, reason, createdAt: now },
         ],
+        rejection: null,
         updatedAt: now,
       })
       return this.persistWorkflow(workflow, undefined, { checkpoint: { kind: 'scope', itemId, reason } })
@@ -520,8 +885,40 @@ export class WorkflowRuntime implements WorkflowService {
       const current = this.current(sessionId, expectedRevision)
       const item = current.workItems.find((candidate) => candidate.id === itemId)
       if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The workflow item does not exist')
-      if (outcome === 'complete' && !requiredChecksPass(item))
-        throw new HbarError('WORKFLOW_ACCEPTANCE_PENDING', 'Required acceptance checks are not satisfied')
+      const pendingRequired = item.acceptanceChecks.filter(
+        (check) => check.required && !['passed', 'accepted'].includes(check.status),
+      )
+      if (outcome === 'complete' && pendingRequired.some((check) => check.verifier.kind !== 'user'))
+        throw new HbarError('WORKFLOW_ACCEPTANCE_PENDING', 'Required automated checks are not satisfied')
+      if (
+        outcome === 'complete' &&
+        current.completionPolicy === 'user' &&
+        pendingRequired.some((check) => check.verifier.kind === 'user')
+      ) {
+        const now = Date.now()
+        await this.persistWorkflow(
+          workflowStateSchema.parse({
+            ...current,
+            revision: current.revision + 1,
+            status: 'waiting_user',
+            workItems: current.workItems.map((candidate) =>
+              candidate.id === itemId ? { ...candidate, status: 'verifying' as const } : candidate,
+            ),
+            updatedAt: now,
+          }),
+          undefined,
+          { checkpoint: { kind: 'waiting_user', itemId, summary } },
+        )
+        return
+      }
+      const agentPlan = await this.agentPlans.get(sessionId)
+      if (
+        !agentPlan ||
+        agentPlan.revision !== current.planRevision ||
+        current.activeStepIndex === null ||
+        hashValue(agentPlan.plan[current.activeStepIndex]?.step ?? '') !== current.activeStepTextHash
+      )
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The workflow focus belongs to a stale Agent Plan')
       const now = Date.now()
       const remaining = current.workItems.filter(
         (candidate) => candidate.id !== itemId && candidate.status !== 'completed',
@@ -560,14 +957,66 @@ export class WorkflowRuntime implements WorkflowService {
         if (delegation.agentId) cancelAgentIds.push(delegation.agentId)
         return { ...delegation, status: 'cancelled' as const, updatedAt: now }
       })
+      let nextPlan = agentPlan
+      let transitionBase = current
+      if (outcome === 'complete') {
+        const operationId = crypto.randomUUID()
+        transitionBase = workflowStateSchema.parse({
+          ...current,
+          revision: current.revision + 1,
+          transitionIntent: {
+            operationId,
+            planRevision: agentPlan.revision,
+            stepIndex: current.activeStepIndex!,
+            stepTextHash: current.activeStepTextHash!,
+            itemId,
+            summary,
+            createdAt: now,
+          },
+          updatedAt: now,
+        })
+        await this.persistWorkflow(transitionBase, undefined, {
+          transition: { operationId, status: 'intent_recorded' },
+        })
+        const followingIndex = agentPlan.plan.findIndex(
+          (step, index) => index > current.activeStepIndex! && step.status === 'pending',
+        )
+        const plan = agentPlan.plan.map((step, index) => ({
+          ...step,
+          status:
+            index === current.activeStepIndex
+              ? ('completed' as const)
+              : index === followingIndex
+                ? ('in_progress' as const)
+                : step.status,
+        }))
+        nextPlan = await this.agentPlans.update(sessionId, plan, summary, agentPlan.turnId, agentPlan.revision)
+        const projection = this.plans.get(sessionId)
+        if (projection)
+          this.plans.set(
+            sessionId,
+            workflowPlanSchema.parse({
+              ...projection,
+              revision: nextPlan.revision,
+              phase: plan.every((step) => step.status === 'completed') ? 'archived' : 'active',
+              updatedAt: nextPlan.updatedAt,
+            }),
+          )
+      }
+      const planCompleted = nextPlan.plan.every((step) => step.status === 'completed')
       const workflow = workflowStateSchema.parse({
-        ...current,
-        revision: current.revision + 1,
-        status: outcome === 'blocked' ? 'blocked' : 'active',
-        activeItemId: outcome === 'blocked' ? itemId : (requestedNext?.id ?? (outcome === 'complete' ? null : itemId)),
+        ...transitionBase,
+        revision: transitionBase.revision + 1,
+        planRevision: nextPlan.revision,
+        status: outcome === 'blocked' ? 'blocked' : outcome === 'complete' && planCompleted ? 'completed' : 'active',
+        activeItemId: outcome === 'blocked' ? itemId : outcome === 'complete' ? null : (requestedNext?.id ?? itemId),
+        activeStepIndex: outcome === 'complete' ? null : current.activeStepIndex,
+        activeStepTextHash: outcome === 'complete' ? null : current.activeStepTextHash,
         explorationCount: 0,
         workItems,
         delegations,
+        rejection: null,
+        transitionIntent: null,
         updatedAt: now,
       })
       return this.persistWorkflow(workflow, undefined, { checkpoint: { kind: outcome, itemId, summary } })
@@ -815,6 +1264,37 @@ export class WorkflowRuntime implements WorkflowService {
         await this.serial(sessionId, () => this.startQueuedLocked(this.workflows.get(sessionId) ?? workflow))
   }
 
+  async cancelForGoal(sessionId: string, goalId: string) {
+    const cancel: string[] = []
+    await this.serial(sessionId, async () => {
+      const current = this.workflows.get(sessionId)
+      if (!current || current.goalId !== goalId || ['completed', 'cancelled'].includes(current.status)) return
+      for (const delegation of current.delegations)
+        if (delegation.agentId && !['applied', 'cancelled', 'failed'].includes(delegation.status))
+          cancel.push(delegation.agentId)
+      const now = Date.now()
+      await this.persistWorkflow(
+        workflowStateSchema.parse({
+          ...current,
+          revision: current.revision + 1,
+          status: 'cancelled',
+          activeItemId: null,
+          activeStepIndex: null,
+          activeStepTextHash: null,
+          delegations: current.delegations.map((delegation) =>
+            ['applied', 'cancelled', 'failed'].includes(delegation.status)
+              ? delegation
+              : { ...delegation, status: 'cancelled' as const, updatedAt: now },
+          ),
+          updatedAt: now,
+        }),
+        undefined,
+        { cancelledForGoal: goalId },
+      )
+    })
+    for (const agentId of cancel) await this.agents.cancel(sessionId, agentId)
+  }
+
   async agentResult(sessionId: string, agentId: string) {
     const workflow = this.workflows.get(sessionId)
     if (!workflow?.delegations.some((delegation) => delegation.agentId === agentId))
@@ -848,6 +1328,11 @@ export class WorkflowRuntime implements WorkflowService {
   ) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
+      if (current.completionPolicy !== 'user' || current.status !== 'waiting_user' || current.activeItemId !== itemId)
+        throw new HbarError(
+          'WORKFLOW_CHECK_INVALID',
+          'Manual acceptance is limited to the current focus while it is waiting for user review',
+        )
       const item = current.workItems.find((candidate) => candidate.id === itemId)
       const check = item?.acceptanceChecks.find((candidate) => candidate.id === checkId)
       if (!item || !check) throw new HbarError('WORKFLOW_CHECK_NOT_FOUND', 'The acceptance check does not exist')
@@ -858,6 +1343,7 @@ export class WorkflowRuntime implements WorkflowService {
       const workflow = workflowStateSchema.parse({
         ...current,
         revision: current.revision + 1,
+        status: decision === 'accepted' ? 'verifying' : 'needs_revision',
         workItems: current.workItems.map((candidate) =>
           candidate.id === itemId
             ? {
@@ -917,8 +1403,9 @@ export class WorkflowRuntime implements WorkflowService {
 
   canAutoContinue(sessionId: string) {
     const workflow = this.workflows.get(sessionId)
-    if (!workflow || workflow.status === 'completed') return true
-    if (workflow.status !== 'active' || !workflow.activeItemId) return false
+    if (!workflow || ['completed', 'cancelled'].includes(workflow.status)) return true
+    if (workflow.status !== 'active') return false
+    if (!workflow.activeItemId) return true
     const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
     if (!item || item.owner.kind !== 'main' || ['blocked', 'delegated', 'completed'].includes(item.status)) return false
     return !item.acceptanceChecks.some(
@@ -930,7 +1417,6 @@ export class WorkflowRuntime implements WorkflowService {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
       this.assertCompletable(current)
-      await this.goals.update(sessionId, 'complete', runId)
       const now = Date.now()
       const workflow = workflowStateSchema.parse({
         ...current,
@@ -987,22 +1473,68 @@ export class WorkflowRuntime implements WorkflowService {
     return { ...request, system: `${request.system}\n\n${prompt}` }
   }
 
+  private async rejectTool(
+    name: string,
+    path: string | null,
+    reason: string,
+    context: ToolContext,
+    workflow: WorkflowState,
+  ) {
+    const fingerprint = hashValue({
+      name,
+      path,
+      reason,
+      planRevision: workflow.planRevision,
+      activeStepTextHash: workflow.activeStepTextHash,
+    })
+    await this.serial(context.session.id, async () => {
+      const current = this.workflows.get(context.session.id)
+      if (!current || current.workflowId !== workflow.workflowId) return
+      const count = current.rejection?.fingerprint === fingerprint ? current.rejection.count + 1 : 1
+      const next = workflowStateSchema.parse({
+        ...current,
+        revision: current.revision + 1,
+        status: count >= 3 ? 'needs_revision' : current.status,
+        rejection: { fingerprint, toolName: name, path, reason, count, updatedAt: Date.now() },
+        updatedAt: Date.now(),
+      })
+      await this.persistWorkflow(next, context.run.id, { rejection: { fingerprint, count, reason } })
+    })
+    throw new HbarError(
+      'WORKFLOW_SCOPE_REQUIRED',
+      `${reason}${workflow.rejection?.count === 2 ? '; repeated denial moved the workflow to needs_revision' : ''}`,
+    )
+  }
+
   async beforeTool(name: string, args: Record<string, unknown>, context: ToolContext, tool: ToolDefinition) {
     if (CONTROL_TOOLS.has(name)) return
     const workflow = this.workflows.get(context.session.id)
-    if (!workflow || workflow.status === 'completed') return
-    if (workflow.status === 'blocked')
+    if (!workflow || ['completed', 'cancelled'].includes(workflow.status)) return
+    if (['blocked', 'needs_revision'].includes(workflow.status))
       throw new HbarError('WORKFLOW_CHECKPOINT_REQUIRED', 'Revise the blocked workflow item before using more tools')
+    const plan = await this.agentPlans.get(context.session.id)
+    if (!plan || plan.revision !== workflow.planRevision) {
+      await this.markNeedsRevision(context.session.id, workflow, 'The authoritative Agent Plan changed.')
+      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Replace workflow focus for the current Agent Plan revision')
+    }
     const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
     if (!item) throw new HbarError('WORKFLOW_CHECKPOINT_REQUIRED', 'Select an active workflow item before using tools')
     if (!item.scope.tools.includes(name))
-      throw new HbarError('WORKFLOW_SCOPE_REQUIRED', `Tool ${name} is outside the current workflow scope`)
-    const allowedPaths =
-      tool.effect === 'read' ? [...item.scope.readPaths, ...item.scope.writePaths] : item.scope.writePaths
-    const paths = argumentPaths(context.workspace.path, args)
-    const rejected = paths.find((path) => !pathAllowed(path, allowedPaths))
+      return this.rejectTool(name, null, `Tool ${name} is outside the current workflow scope`, context, workflow)
+    const paths = workspaceAccessPaths(context.workspace.path, args, tool)
+    const rejected = paths.find(({ path, access }) => {
+      const allowedPaths =
+        access === 'read' ? [...item.scope.readPaths, ...item.scope.writePaths] : item.scope.writePaths
+      return !pathAllowed(path, allowedPaths)
+    })
     if (rejected)
-      throw new HbarError('WORKFLOW_SCOPE_REQUIRED', `Path ${rejected} is outside the current workflow scope`)
+      return this.rejectTool(
+        name,
+        rejected.path,
+        `Path ${rejected.path} is outside the current workflow scope (${rejected.access})`,
+        context,
+        workflow,
+      )
     if (tool.effect !== 'read') return
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
@@ -1040,7 +1572,19 @@ export class WorkflowRuntime implements WorkflowService {
         return outcome ? [{ check, outcome }] : []
       })
       const marksVerification = tool.effect !== 'read' && !result.isError
-      if (!evaluations.length && !marksVerification) return
+      if (!evaluations.length && !marksVerification) {
+        if (current.rejection)
+          await this.persistWorkflow(
+            workflowStateSchema.parse({
+              ...current,
+              revision: current.revision + 1,
+              rejection: null,
+              updatedAt: Date.now(),
+            }),
+            context.run.id,
+          )
+        return
+      }
       const now = Date.now()
       const argumentsHash = hashValue(args)
       const resultHash = hashValue({ text: result.text, isError: Boolean(result.isError), details: result.details })
@@ -1085,9 +1629,10 @@ export class WorkflowRuntime implements WorkflowService {
       const workflow = workflowStateSchema.parse({
         ...current,
         revision: current.revision + 1,
-        status: blocksItem ? 'blocked' : current.status,
+        status: blocksItem ? 'needs_revision' : marksVerification ? 'verifying' : current.status,
         workItems,
         evidence: [...current.evidence, ...evidence].slice(-MAX_WORKFLOW_EVIDENCE),
+        rejection: null,
         updatedAt: now,
       })
       await this.persistWorkflow(workflow, context.run.id, {
@@ -1102,8 +1647,7 @@ export class WorkflowRuntime implements WorkflowService {
   }
 }
 
-const startToolSchema = workflowStartInputSchema.omit({ sessionId: true })
-const savePlanToolSchema = workflowPlanSaveInputSchema.omit({ sessionId: true })
+const focusToolSchema = workflowFocusInputSchema.omit({ sessionId: true })
 const delegateToolSchema = workflowDelegateInputSchema.omit({ sessionId: true })
 const agentResultToolSchema = z.strictObject({ agentId: z.string().min(1).max(160) })
 const applyPatchToolSchema = z.strictObject({
@@ -1120,7 +1664,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
   return [
     {
       name: 'get_workflow',
-      description: 'Read the current focused workflow, TODO items, scope, evidence, and revision.',
+      description: 'Read the authoritative Agent Plan and its current workflow focus, scope, evidence, and revision.',
       inputSchema: z.object({}),
       effect: 'read',
       execute: async (_args, context) => {
@@ -1129,35 +1673,19 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
       },
     },
     {
-      name: 'save_workflow_plan',
-      description: 'Save a decision-complete workflow draft with TODO items, bounded scope, and acceptance checks.',
-      inputSchema: savePlanToolSchema,
-      effect: 'read',
-      execute: async (args, context) => {
-        const parsed = savePlanToolSchema.parse(args)
-        const result = await runtime.savePlan(
-          context.session.id,
-          parsed.objective,
-          parsed.items,
-          parsed.expectedRevision,
-        )
-        return { text: JSON.stringify(result), details: result }
-      },
-    },
-    {
-      name: 'workflow_start',
+      name: 'workflow_focus',
       description:
-        'Start a focused workflow when the task is multi-step and requires changes, verification, or delegation. Keep simple tasks lightweight.',
-      inputSchema: startToolSchema,
+        'Set or replace the bounded execution focus for one current Agent Plan step. Tool names and path prefixes are validated before persistence.',
+      inputSchema: focusToolSchema,
       effect: 'read',
       execute: async (args, context) => {
-        const parsed = startToolSchema.parse(args)
-        const result = await runtime.start(
+        const parsed = focusToolSchema.parse(args)
+        const result = await runtime.focus(
           context.session.id,
-          parsed.objective,
-          parsed.items,
-          parsed.tokenBudget,
-          context.run,
+          parsed.stepIndex,
+          parsed.item,
+          parsed.completionPolicy,
+          parsed.expectedPlanRevision,
         )
         return { text: JSON.stringify(result), details: result }
       },
@@ -1245,7 +1773,7 @@ export const workflowPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { workflow: '1.0.0' },
-    requires: { agent: '^1.0.0', goal: '^1.0.0', storage: '^1.0.0' },
+    requires: { agent: '^1.0.0', goal: '^1.0.0', plan: '^1.0.0', storage: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: workflowConfigSchema,
@@ -1256,11 +1784,11 @@ export const workflowPlugin = definePlugin({
       api.service<GoalService>('goal'),
       api.service<AgentService>('agent'),
       workflowConfigSchema.parse(rawConfig),
+      api.service<PlanService>('plan'),
     )
     await runtime.restore()
     await runtime.resumeDelegations()
     provide<WorkflowService>(ctx, 'workflow', runtime)
-    api.hooks.on('run.start', (event) => runtime.autoActivate(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     api.hooks.on('tool.before', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)
@@ -1274,6 +1802,12 @@ export const workflowPlugin = definePlugin({
       ...event,
       allowed: event.allowed && runtime.canAutoContinue(event.sessionId),
     }))
+    api.hooks.on('goal.replaced', (event) =>
+      runtime.cancelForGoal(event.sessionId, event.previous.goalId ?? event.previous.threadId),
+    )
+    api.hooks.on('goal.cleared', (event) =>
+      runtime.cancelForGoal(event.sessionId, event.previous.goalId ?? event.previous.threadId),
+    )
     api.hooks.on('agent.patch', (event) => runtime.handleAgentPatch(event))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },

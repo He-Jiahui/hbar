@@ -84,7 +84,7 @@ test('workflow contracts describe versioned plans, focus state, and command meta
 
 test('workflow scopes reject paths outside the workspace', () => {
   const input = workflowCommands['workflow.start'].input
-  for (const path of ['../secrets.txt', 'C:/secrets.txt', '/etc/passwd']) {
+  for (const path of ['../secrets.txt', 'C:/secrets.txt', '/etc/passwd', 'apps/web/**', '**/*']) {
     expect(
       input.safeParse({
         sessionId: 'session-1',
