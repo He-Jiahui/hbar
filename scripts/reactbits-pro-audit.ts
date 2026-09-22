@@ -136,6 +136,8 @@ type AuditOptions = Readonly<{
   themes: readonly AuditTheme[]
   outputRoot: string
   referenceRoot: string | undefined
+  sourceCaptureRoot: string | undefined
+  localOnly: boolean
   offline: boolean
   workers: number
   strict: boolean
@@ -208,6 +210,8 @@ function parseOptions(): AuditOptions {
     themes,
     outputRoot,
     referenceRoot: optionValue(args, '--reference-root') ?? process.env.HBAR_APP_UI_REFERENCE_ROOT,
+    sourceCaptureRoot: optionValue(args, '--source-output') ?? process.env.HBAR_APP_UI_SOURCE_CAPTURE_ROOT,
+    localOnly: args.includes('--local-only'),
     offline:
       args.includes('--offline') || process.env.HBAR_APP_UI_OFFLINE === '1' || process.env.HBAR_APP_UI_OFFLINE === 'true',
     workers,
@@ -454,6 +458,11 @@ async function previewFrame(page: Page): Promise<Frame> {
   return frame
 }
 
+async function gotoStable(page: Page, url: string): Promise<void> {
+  await page.goto(url, { waitUntil: 'commit', timeout: 30_000 })
+  await page.waitForLoadState('domcontentloaded', { timeout: 30_000 }).catch(() => undefined)
+}
+
 async function componentSelector(container: Locator | Page | Frame, rootSelector: string): Promise<string> {
   const selection = await container
     .locator(rootSelector)
@@ -692,7 +701,7 @@ async function captureSource(
   const errorStart = pageErrors.length
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
   const referenceUrl = referencePageUrl(reference, options)
-  await page.goto(referenceUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await gotoStable(page, referenceUrl)
   await enforceReferenceTheme(page, theme)
   const frame = await previewFrame(page)
   const selector = await componentSelector(frame, '#preview-root')
@@ -735,7 +744,7 @@ async function captureLocal(
   const errorStart = pageErrors.length
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
-  await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await gotoStable(page, target)
   const rootSelector = `[data-hbar-app-ui-component="${spec.id}"]`
   const selector = await componentSelector(page, rootSelector)
   const root = page.locator(selector).first()
@@ -869,7 +878,7 @@ async function replayInteraction(
 ): Promise<InteractionCapture> {
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
-  await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await gotoStable(page, target)
   const selector = await componentSelector(page, `[data-hbar-app-ui-component="${spec.id}"]`)
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
@@ -919,7 +928,7 @@ async function replayReferenceInteraction(
   outputRoot: string,
 ): Promise<InteractionCapture> {
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
-  await page.goto(referencePageUrl(reference, options), { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await gotoStable(page, referencePageUrl(reference, options))
   await enforceReferenceTheme(page, theme)
   const frame = await previewFrame(page)
   const selector = await componentSelector(frame, '#preview-root')
@@ -965,6 +974,15 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
   const selected = selectedLocalSpecs(options)
   await writeLocalInventory(options.outputRoot)
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
+  const cachedSourceRecords: readonly CaptureRecord[] = options.localOnly
+    ? await (async () => {
+        if (!options.sourceCaptureRoot) throw new Error('--local-only requires --source-output or HBAR_APP_UI_SOURCE_CAPTURE_ROOT')
+        const cachePath = join(resolve(options.sourceCaptureRoot), 'capture-manifest.json')
+        if (!(await Bun.file(cachePath).exists())) throw new Error(`Source capture manifest is missing: ${cachePath}`)
+        const cached = await readJson<{ records: readonly CaptureRecord[] }>(cachePath)
+        return cached.records.filter((record) => record.kind === 'source')
+      })()
+    : []
   const server = await waitForLocalPreview()
   const records: CaptureRecord[] = []
   let cursor = 0
@@ -992,9 +1010,10 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
         if (!reference) throw new Error(`Missing React Bits reference for ${spec.id}`)
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
-            records.push(
-              await captureSource(sourcePage, reference, options, viewport, theme, options.outputRoot, sourceErrors),
-            )
+            if (!options.localOnly)
+              records.push(
+                await captureSource(sourcePage, reference, options, viewport, theme, options.outputRoot, sourceErrors),
+              )
             records.push(await captureLocal(localPage, spec, viewport, theme, options.outputRoot, localErrors))
           }
         }
@@ -1007,6 +1026,16 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
     await Promise.all(Array.from({ length: Math.min(options.workers, selected.length) }, () => worker()))
   } finally {
     server?.kill()
+  }
+  if (options.localOnly) {
+    const selectedIds = new Set(selected.map((spec) => spec.id))
+    const selectedViewports = new Set<string>(options.viewports.map((viewport) => viewport.id))
+    const selectedThemes = new Set<string>(options.themes)
+    records.push(
+      ...cachedSourceRecords.filter(
+        (record) => selectedIds.has(record.id) && selectedViewports.has(record.viewport) && selectedThemes.has(record.theme),
+      ),
+    )
   }
   await writeJson(join(options.outputRoot, 'capture-manifest.json'), {
     schemaVersion: 1,
@@ -1062,10 +1091,7 @@ async function _runInteractionsLegacy(
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
             await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
-            await sourcePage.goto(referencePageUrl(reference, options), {
-              waitUntil: 'domcontentloaded',
-              timeout: 60_000,
-            })
+            await gotoStable(sourcePage, referencePageUrl(reference, options))
             await enforceReferenceTheme(sourcePage, theme)
             const frame = await previewFrame(sourcePage)
             const sourceSelector = await componentSelector(frame, '#preview-root')
@@ -1178,7 +1204,7 @@ async function runInteractionsParallel(
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
             await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
-            await sourcePage.goto(referencePageUrl(reference, options), { waitUntil: 'domcontentloaded', timeout: 60_000 })
+            await gotoStable(sourcePage, referencePageUrl(reference, options))
             await enforceReferenceTheme(sourcePage, theme)
             const frame = await previewFrame(sourcePage)
             const sourceSelector = await componentSelector(frame, '#preview-root')
