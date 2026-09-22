@@ -464,6 +464,8 @@ async function gotoStable(page: Page, url: string): Promise<void> {
 }
 
 async function componentSelector(container: Locator | Page | Frame, rootSelector: string): Promise<string> {
+  const rootLocator = container.locator(rootSelector).first()
+  await rootLocator.waitFor({ state: 'attached', timeout: 60_000 })
   const selection = await container
     .locator(rootSelector)
     .first()
