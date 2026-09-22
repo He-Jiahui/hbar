@@ -478,10 +478,23 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
           const rect = element.getBoundingClientRect()
           const style = getComputedStyle(element)
           const textLength = (element.textContent ?? '').trim().length
+          const classNames = [...element.classList]
+          const stableClass = classNames.find((name) => name.startsWith('lumen-'))
+          // Prefer the component's semantic content wrapper over nested panes,
+          // rows, controls, and headings.  LumenSurface intentionally exposes
+          // a stable `lumen-*` content class, while its child `<main>`/`<nav>`
+          // nodes are merely internal layout regions.  Selecting the latter
+          // silently drops the heading and makes every comparison structurally
+          // incomparable to the React Bits preview.
+          const primaryContentSignal = Boolean(
+            stableClass &&
+              !/(?:^|-)\b(?:root|surface|pane|list|row|heading|header|footer|body|content|group|cell|table|form|nav)\b(?:-|$)/i.test(
+                stableClass,
+              ),
+          )
           const semanticSignal =
             element.matches('[data-lumen-component], [class*="lumen-"], article, main, form, nav, [role]')
           const dataComponent = element.getAttribute('data-lumen-component')
-          const stableClass = [...element.classList].find((name) => name.startsWith('lumen-'))
           const path: number[] = []
           let current: Element | null = element
           while (current && current !== root) {
@@ -490,7 +503,7 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
             path.unshift(Array.from(parent.children).indexOf(current))
             current = parent
           }
-          return { rect, style, textLength, path, semanticSignal, dataComponent, stableClass }
+          return { rect, style, textLength, path, semanticSignal, primaryContentSignal, dataComponent, stableClass }
         })
         .filter(
           (candidate) =>
@@ -503,6 +516,7 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
         )
         .sort(
           (left, right) =>
+            Number(right.primaryContentSignal) - Number(left.primaryContentSignal) ||
             Number(right.semanticSignal) - Number(left.semanticSignal) ||
             left.path.length - right.path.length ||
             right.textLength - left.textLength,
