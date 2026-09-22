@@ -35,6 +35,7 @@ import {
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   AgentService,
+  GitService,
   GoalService,
   HbarAPI,
   ModelRequest,
@@ -58,6 +59,7 @@ const CONTROL_TOOLS = new Set([
   'update_plan',
   'get_workflow',
   'workflow_focus',
+  'workflow_review_submit',
   'workflow_start',
   'workflow_update',
   'save_workflow_plan',
@@ -67,6 +69,7 @@ const CONTROL_TOOLS = new Set([
 export const workflowConfigSchema = z.object({
   maxExplorationCalls: z.number().int().min(1).max(32).default(8),
   maxConcurrentAgents: z.number().int().min(1).max(8).default(3),
+  reviewTokenBudget: z.number().int().min(1).max(1_000_000).default(16_000),
   maxRestoreEvents: z.number().int().min(1_000).max(MAX_RESTORE_EVENTS).default(MAX_RESTORE_EVENTS),
 })
 export type WorkflowConfig = z.output<typeof workflowConfigSchema>
@@ -223,6 +226,20 @@ function expectedArgumentsMatch(expected: Record<string, unknown> | undefined, a
   )
 }
 
+function valueAtPath(value: unknown, path: readonly (string | number)[]) {
+  let current = value
+  for (const segment of path) {
+    if (typeof segment === 'number') {
+      if (!Array.isArray(current)) return undefined
+      current = current[segment]
+      continue
+    }
+    if (!current || typeof current !== 'object' || !Object.hasOwn(current, segment)) return undefined
+    current = (current as Record<string, unknown>)[segment]
+  }
+  return current
+}
+
 function evaluateToolCheck(
   check: WorkflowAcceptanceCheck,
   name: string,
@@ -231,7 +248,13 @@ function evaluateToolCheck(
 ): 'passed' | 'failed' | null {
   if (check.verifier.kind === 'tool') {
     if (check.verifier.toolName !== name || !expectedArgumentsMatch(check.verifier.expectedArguments, args)) return null
-    return result.isError ? 'failed' : 'passed'
+    if (result.isError) return 'failed'
+    const predicate = check.verifier.result
+    if (predicate.kind === 'success') return 'passed'
+    if (predicate.kind === 'textContains') return result.text.includes(predicate.value) ? 'passed' : 'failed'
+    const actual = valueAtPath(result.details, predicate.path)
+    if (predicate.kind === 'booleanTrue') return actual === true ? 'passed' : 'failed'
+    return JSON.stringify(canonical(actual)) === JSON.stringify(canonical(predicate.value)) ? 'passed' : 'failed'
   }
   if (check.verifier.kind === 'workspace') {
     if (name !== 'read_file' || args.path !== check.verifier.path) return null
@@ -243,12 +266,9 @@ function evaluateToolCheck(
       ? 'passed'
       : 'failed'
   }
-  if (check.verifier.kind === 'browser')
-    return name.startsWith('browser_')
-      ? !result.isError && result.text.includes(check.verifier.assertion)
-        ? 'passed'
-        : 'failed'
-      : null
+  // Browser string assertions are retained only for v1 replay. New focus
+  // definitions must use structured tool results or agent/reviewer judgment.
+  if (check.verifier.kind === 'browser') return null
   return null
 }
 
@@ -258,6 +278,7 @@ export class WorkflowRuntime implements WorkflowService {
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
   private agentPlans: PlanService
+  private git: GitService | null
 
   constructor(
     private api: HbarAPI,
@@ -265,8 +286,10 @@ export class WorkflowRuntime implements WorkflowService {
     private agents: AgentService,
     private config: WorkflowConfig,
     agentPlans?: PlanService,
+    git?: GitService,
   ) {
     this.agentPlans = agentPlans ?? api.service<PlanService>('plan')
+    this.git = git ?? null
   }
 
   async restore() {
@@ -522,24 +545,37 @@ export class WorkflowRuntime implements WorkflowService {
         )
     }
     for (const check of normalized.acceptanceChecks)
-      if (check.verifier.kind === 'tool' && !this.api.tools.get(check.verifier.toolName))
+      if (check.verifier.kind === 'browser')
+        throw new HbarError(
+          'WORKFLOW_CHECK_INVALID',
+          'Browser string assertions are legacy history; use a structured tool predicate or agent review',
+        )
+      else if (check.verifier.kind === 'tool' && !this.api.tools.get(check.verifier.toolName))
         throw new HbarError('WORKFLOW_TOOL_UNKNOWN', `Verifier tool ${check.verifier.toolName} is not registered`)
     return normalized
   }
 
   private async markNeedsRevision(sessionId: string, current: WorkflowState, reason: string) {
-    return this.serial(sessionId, async () => {
+    let reviewerAgentId: string | null = null
+    const result = await this.serial(sessionId, async () => {
       const latest = this.workflows.get(sessionId)
       if (!latest || latest.workflowId !== current.workflowId || latest.status === 'needs_revision')
         return this.snapshot(sessionId)
+      if (latest.review?.reviewerAgentId && ['queued', 'running'].includes(latest.review.status))
+        reviewerAgentId = latest.review.reviewerAgentId
       const next = workflowStateSchema.parse({
         ...latest,
         revision: latest.revision + 1,
         status: 'needs_revision',
+        review: latest.review
+          ? { ...latest.review, status: 'stale' as const, summary: reason, updatedAt: Date.now() }
+          : null,
         updatedAt: Date.now(),
       })
       return this.persistWorkflow(next, undefined, { diagnosis: reason })
     })
+    if (reviewerAgentId) await this.agents.cancel(sessionId, reviewerAgentId).catch(() => {})
+    return result
   }
 
   async focus(
@@ -872,6 +908,122 @@ export class WorkflowRuntime implements WorkflowService {
     })
   }
 
+  private async workspaceFingerprint(sessionId: string) {
+    if (!this.git) throw new HbarError('WORKFLOW_REVIEW_UNAVAILABLE', 'Git service is required for review agents')
+    const session = await this.api.sessions.get(sessionId)
+    const workspace = await this.api.sessions.workspace(session.workspaceId)
+    const [status, diff] = await Promise.all([this.git.status(workspace.path), this.git.diff(workspace.path)])
+    return hashValue({ head: status.head, entries: status.entries, diff: diff.diff, truncated: diff.truncated })
+  }
+
+  private async startReviewLocked(
+    current: WorkflowState,
+    item: WorkflowWorkItem,
+    summary: string,
+    evidenceIds: string[],
+    modelId: string,
+  ) {
+    const fingerprint = await this.workspaceFingerprint(current.sessionId)
+    const reviewId = crypto.randomUUID()
+    const now = Date.now()
+    const evidenceId = crypto.randomUUID()
+    const waiting = workflowStateSchema.parse({
+      ...current,
+      revision: current.revision + 1,
+      status: 'waiting_review',
+      evidence: [
+        ...current.evidence,
+        {
+          evidenceId,
+          itemId: item.id,
+          checkId: 'agent-conclusion',
+          planRevision: current.planRevision,
+          workspaceRevision: fingerprint,
+          createdAt: now,
+          source: 'agent',
+          outcome: 'passed',
+          agentId: 'main',
+          resultHash: hashValue({ summary, evidenceIds }),
+        },
+      ].slice(-MAX_WORKFLOW_EVIDENCE),
+      review: {
+        reviewId,
+        planRevision: current.planRevision,
+        stepTextHash: current.activeStepTextHash!,
+        workspaceFingerprint: fingerprint,
+        resumeModelId: modelId,
+        reviewerAgentId: null,
+        status: 'queued',
+        summary: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      updatedAt: now,
+    })
+    await this.persistWorkflow(waiting, undefined, { review: { reviewId, status: 'queued' } })
+    const readTools = item.scope.tools.filter((name) => this.api.tools.get(name)?.effect === 'read')
+    const goal = await this.goals.get(current.sessionId)
+    const reviewBudget =
+      goal.remainingTokens === null
+        ? this.config.reviewTokenBudget
+        : Math.min(this.config.reviewTokenBudget, goal.remainingTokens)
+    if (reviewBudget < 1)
+      throw new HbarError('WORKFLOW_REVIEW_BUDGET', 'No Goal budget remains for reviewer verification')
+    const reviewer = await this.agents.create(
+      {
+        parentSessionId: current.sessionId,
+        objective: [
+          `Review the completed Agent Plan step: ${item.title}`,
+          `Review id: ${reviewId}`,
+          `Plan revision: ${current.planRevision}`,
+          `Agent conclusion: ${summary}`,
+          `Evidence ids: ${evidenceIds.join(', ') || 'none'}`,
+          'Inspect only the provided read scope. Do not modify files or run processes.',
+          'Finish by calling workflow_review_submit with this review id, an approved or rejected verdict, and a concise summary.',
+        ].join('\n'),
+        title: `Review: ${item.title}`.slice(0, 160),
+        modelId,
+        tokenBudget: reviewBudget,
+        approval: 'deny',
+        reviewTask: {
+          reviewId,
+          planRevision: current.planRevision,
+          stepTextHash: current.activeStepTextHash!,
+          workspaceFingerprint: fingerprint,
+          scope: {
+            readPaths: unique([...item.scope.readPaths, ...item.scope.writePaths]),
+            writePaths: [],
+            tools: unique([...readTools, 'workflow_review_submit']),
+          },
+        },
+      },
+      {
+        actorId: `workflow:${current.workflowId}`,
+        idempotencyKey: reviewId,
+        requestId: `review-${reviewId}`,
+      },
+    )
+    const latest = this.workflows.get(current.sessionId)
+    if (!latest?.review || latest.review.reviewId !== reviewId) return this.snapshot(current.sessionId)
+    const failed = reviewer.status === 'failed'
+    const updated = workflowStateSchema.parse({
+      ...latest,
+      revision: latest.revision + 1,
+      status: failed ? 'active' : 'waiting_review',
+      review: {
+        ...latest.review,
+        reviewerAgentId: reviewer.agentId,
+        status: failed ? 'rejected' : 'running',
+        summary: failed ? (reviewer.error ?? 'Reviewer failed to start') : null,
+        updatedAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    })
+    return this.persistWorkflow(updated, undefined, {
+      review: { reviewId, reviewerAgentId: reviewer.agentId, status: updated.review!.status },
+    })
+  }
+
   async checkpoint(
     sessionId: string,
     itemId: string,
@@ -879,6 +1031,8 @@ export class WorkflowRuntime implements WorkflowService {
     summary: string,
     nextItemId: string | null | undefined,
     expectedRevision: number,
+    evidenceIds: string[] = [],
+    reviewModelId?: string,
   ) {
     const cancelAgentIds: string[] = []
     await this.serial(sessionId, async () => {
@@ -890,6 +1044,19 @@ export class WorkflowRuntime implements WorkflowService {
       )
       if (outcome === 'complete' && pendingRequired.some((check) => check.verifier.kind !== 'user'))
         throw new HbarError('WORKFLOW_ACCEPTANCE_PENDING', 'Required automated checks are not satisfied')
+      if (outcome === 'complete') {
+        const validEvidence = new Set(
+          current.evidence
+            .filter((entry) => entry.itemId === itemId && entry.planRevision === current.planRevision)
+            .map((entry) => entry.evidenceId),
+        )
+        const invalidEvidence = evidenceIds.find((evidenceId) => !validEvidence.has(evidenceId))
+        if (invalidEvidence)
+          throw new HbarError(
+            'WORKFLOW_EVIDENCE_STALE',
+            `Evidence ${invalidEvidence} does not belong to the current Plan focus`,
+          )
+      }
       if (
         outcome === 'complete' &&
         current.completionPolicy === 'user' &&
@@ -909,6 +1076,15 @@ export class WorkflowRuntime implements WorkflowService {
           undefined,
           { checkpoint: { kind: 'waiting_user', itemId, summary } },
         )
+        return
+      }
+      if (outcome === 'complete' && current.completionPolicy === 'review_agent') {
+        if (!reviewModelId)
+          throw new HbarError(
+            'WORKFLOW_REVIEW_UNAVAILABLE',
+            'A review model is required to start reviewer verification',
+          )
+        await this.startReviewLocked(current, item, summary, evidenceIds, reviewModelId)
         return
       }
       const agentPlan = await this.agentPlans.get(sessionId)
@@ -964,6 +1140,24 @@ export class WorkflowRuntime implements WorkflowService {
         transitionBase = workflowStateSchema.parse({
           ...current,
           revision: current.revision + 1,
+          evidence:
+            current.completionPolicy === 'agent'
+              ? [
+                  ...current.evidence,
+                  {
+                    evidenceId: crypto.randomUUID(),
+                    itemId,
+                    checkId: 'agent-conclusion',
+                    planRevision: current.planRevision,
+                    workspaceRevision: null,
+                    createdAt: now,
+                    source: 'agent' as const,
+                    outcome: 'passed' as const,
+                    agentId: 'main',
+                    resultHash: hashValue({ summary, evidenceIds }),
+                  },
+                ].slice(-MAX_WORKFLOW_EVIDENCE)
+              : current.evidence,
           transitionIntent: {
             operationId,
             planRevision: agentPlan.revision,
@@ -1258,6 +1452,43 @@ export class WorkflowRuntime implements WorkflowService {
     })
   }
 
+  async handleAgentSettled(event: {
+    parentSessionId: string
+    agentId: string
+    status: import('@hbar/contracts/commands/agents').AgentRecord['status']
+  }) {
+    if (!['cancelRequested', 'cancelled', 'failed', 'interrupted'].includes(event.status)) return
+    if (!this.workflows.has(event.parentSessionId)) return
+    await this.serial(event.parentSessionId, async () => {
+      const current = this.workflows.get(event.parentSessionId)
+      const review = current?.review
+      if (
+        !current ||
+        !review ||
+        review.reviewerAgentId !== event.agentId ||
+        !['queued', 'running'].includes(review.status)
+      )
+        return
+      const now = Date.now()
+      await this.persistWorkflow(
+        workflowStateSchema.parse({
+          ...current,
+          revision: current.revision + 1,
+          status: 'active',
+          review: {
+            ...review,
+            status: 'cancelled',
+            summary: event.status,
+            updatedAt: now,
+          },
+          updatedAt: now,
+        }),
+        undefined,
+        { review: { reviewId: review.reviewId, status: 'cancelled' } },
+      )
+    })
+  }
+
   async resumeDelegations() {
     for (const [sessionId, workflow] of this.workflows)
       if (workflow.status !== 'completed' && workflow.delegations.some((delegation) => delegation.status === 'queued'))
@@ -1272,6 +1503,8 @@ export class WorkflowRuntime implements WorkflowService {
       for (const delegation of current.delegations)
         if (delegation.agentId && !['applied', 'cancelled', 'failed'].includes(delegation.status))
           cancel.push(delegation.agentId)
+      if (current.review?.reviewerAgentId && ['queued', 'running'].includes(current.review.status))
+        cancel.push(current.review.reviewerAgentId)
       const now = Date.now()
       await this.persistWorkflow(
         workflowStateSchema.parse({
@@ -1286,6 +1519,7 @@ export class WorkflowRuntime implements WorkflowService {
               ? delegation
               : { ...delegation, status: 'cancelled' as const, updatedAt: now },
           ),
+          review: current.review ? { ...current.review, status: 'cancelled' as const, updatedAt: now } : null,
           updatedAt: now,
         }),
         undefined,
@@ -1375,6 +1609,173 @@ export class WorkflowRuntime implements WorkflowService {
       })
       return this.persistWorkflow(workflow)
     })
+  }
+
+  async submitReview(reviewerSessionId: string, reviewId: string, verdict: 'approved' | 'rejected', summary: string) {
+    const target = [...this.workflows.entries()].find(([, workflow]) => workflow.review?.reviewId === reviewId)
+    if (!target) throw new HbarError('WORKFLOW_REVIEW_NOT_FOUND', 'The review request does not exist')
+    const [sessionId] = target
+    const reviewerSession = await this.api.sessions.get(reviewerSessionId)
+    if (reviewerSession.parentId !== sessionId)
+      throw new HbarError('WORKFLOW_REVIEW_FORBIDDEN', 'Only the assigned direct review agent can submit this verdict')
+    let resumeModelId: string | null = null
+    let result!: WorkflowSnapshot
+    await this.serial(sessionId, async () => {
+      const current = this.workflows.get(sessionId)
+      const review = current?.review
+      if (!current || !review || review.reviewId !== reviewId)
+        throw new HbarError('WORKFLOW_REVIEW_NOT_FOUND', 'The review request is no longer current')
+      if (review.reviewerAgentId && review.reviewerAgentId !== reviewerSessionId)
+        throw new HbarError('WORKFLOW_REVIEW_FORBIDDEN', 'The verdict came from a different review agent')
+      if (review.status !== 'running' && review.status !== 'queued')
+        throw new HbarError('WORKFLOW_REVIEW_SETTLED', 'The review request is already settled')
+      const plan = await this.agentPlans.get(sessionId)
+      const fingerprint = await this.workspaceFingerprint(sessionId)
+      const stale =
+        !plan ||
+        plan.revision !== review.planRevision ||
+        current.activeStepTextHash !== review.stepTextHash ||
+        fingerprint !== review.workspaceFingerprint
+      const now = Date.now()
+      if (stale) {
+        result = await this.persistWorkflow(
+          workflowStateSchema.parse({
+            ...current,
+            revision: current.revision + 1,
+            status: 'needs_revision',
+            review: { ...review, status: 'stale', summary, updatedAt: now },
+            updatedAt: now,
+          }),
+          undefined,
+          { review: { reviewId, status: 'stale' } },
+        )
+        return
+      }
+      const item = current.workItems.find((candidate) => candidate.id === current.activeItemId)
+      if (!item || current.activeStepIndex === null)
+        throw new HbarError('WORKFLOW_REVIEW_STALE', 'The reviewed focus is no longer active')
+      const reviewerEvidence = {
+        evidenceId: crypto.randomUUID(),
+        itemId: item.id,
+        checkId: 'review-verdict',
+        planRevision: current.planRevision,
+        workspaceRevision: fingerprint,
+        createdAt: now,
+        source: 'reviewer' as const,
+        outcome: verdict,
+        reviewId,
+        agentId: reviewerSessionId,
+        summary,
+        resultHash: hashValue({ verdict, summary, fingerprint }),
+      }
+      if (verdict === 'rejected') {
+        resumeModelId = review.resumeModelId
+        result = await this.persistWorkflow(
+          workflowStateSchema.parse({
+            ...current,
+            revision: current.revision + 1,
+            status: 'active',
+            evidence: [...current.evidence, reviewerEvidence].slice(-MAX_WORKFLOW_EVIDENCE),
+            review: { ...review, status: 'rejected', summary, updatedAt: now },
+            updatedAt: now,
+          }),
+          undefined,
+          { review: { reviewId, status: 'rejected', summary } },
+        )
+        return
+      }
+      const operationId = crypto.randomUUID()
+      const transition = workflowStateSchema.parse({
+        ...current,
+        revision: current.revision + 1,
+        evidence: [...current.evidence, reviewerEvidence].slice(-MAX_WORKFLOW_EVIDENCE),
+        review: { ...review, status: 'approved', summary, updatedAt: now },
+        transitionIntent: {
+          operationId,
+          planRevision: plan.revision,
+          stepIndex: current.activeStepIndex,
+          stepTextHash: current.activeStepTextHash!,
+          itemId: item.id,
+          summary,
+          createdAt: now,
+        },
+        updatedAt: now,
+      })
+      await this.persistWorkflow(transition, undefined, {
+        transition: { operationId, status: 'review_approved' },
+      })
+      const followingIndex = plan.plan.findIndex(
+        (step, index) => index > current.activeStepIndex! && step.status === 'pending',
+      )
+      const updatedPlan = await this.agentPlans.update(
+        sessionId,
+        plan.plan.map((step, index) => ({
+          ...step,
+          status:
+            index === current.activeStepIndex
+              ? ('completed' as const)
+              : index === followingIndex
+                ? ('in_progress' as const)
+                : step.status,
+        })),
+        summary,
+        plan.turnId,
+        plan.revision,
+      )
+      const completed = updatedPlan.plan.every((step) => step.status === 'completed')
+      const projection = this.plans.get(sessionId)
+      if (projection)
+        this.plans.set(
+          sessionId,
+          workflowPlanSchema.parse({
+            ...projection,
+            revision: updatedPlan.revision,
+            phase: completed ? 'archived' : 'active',
+            updatedAt: updatedPlan.updatedAt,
+          }),
+        )
+      resumeModelId = review.resumeModelId
+      result = await this.persistWorkflow(
+        workflowStateSchema.parse({
+          ...transition,
+          revision: transition.revision + 1,
+          planRevision: updatedPlan.revision,
+          status: completed ? 'completed' : 'active',
+          activeItemId: null,
+          activeStepIndex: null,
+          activeStepTextHash: null,
+          workItems: transition.workItems.map((candidate) =>
+            candidate.id === item.id
+              ? { ...candidate, status: 'completed' as const, completedAt: candidate.completedAt ?? now }
+              : candidate,
+          ),
+          transitionIntent: null,
+          updatedAt: now,
+        }),
+        undefined,
+        { review: { reviewId, status: 'approved', summary } },
+      )
+    })
+    const current = result.workflow
+    if (resumeModelId && current && current.review?.status !== 'stale') {
+      const goal = await this.goals.get(sessionId)
+      if (goal.goal?.status === 'active' && (goal.remainingTokens === null || goal.remainingTokens > 0))
+        await this.api.sessions.submit(
+          sessionId,
+          `workflow-review-${reviewId}`,
+          {
+            text:
+              verdict === 'approved'
+                ? `Independent review approved the prior focus: ${summary}. Continue the authoritative Agent Plan and Goal.`
+                : `Independent review rejected the prior focus: ${summary}. Revise the focus and continue without asking the user to decide.`,
+            images: [],
+            files: [],
+            source: 'goal',
+          },
+          resumeModelId,
+        )
+    }
+    return result
   }
 
   private assertCompletable(workflow: WorkflowState) {
@@ -1650,6 +2051,11 @@ export class WorkflowRuntime implements WorkflowService {
 const focusToolSchema = workflowFocusInputSchema.omit({ sessionId: true })
 const delegateToolSchema = workflowDelegateInputSchema.omit({ sessionId: true })
 const agentResultToolSchema = z.strictObject({ agentId: z.string().min(1).max(160) })
+const reviewSubmitToolSchema = z.strictObject({
+  reviewId: z.string().min(1).max(160),
+  verdict: z.enum(['approved', 'rejected']),
+  summary: z.string().trim().min(1).max(4_000),
+})
 const applyPatchToolSchema = z.strictObject({
   agentId: z.string().min(1).max(160),
   planRevision: z.number().int().positive(),
@@ -1691,6 +2097,18 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
       },
     },
     {
+      name: 'workflow_review_submit',
+      description: 'Submit the assigned read-only workflow review verdict. Available only to the review agent.',
+      inputSchema: reviewSubmitToolSchema,
+      effect: 'read',
+      workspaceAccess: { kind: 'none' },
+      execute: async (args, context) => {
+        const parsed = reviewSubmitToolSchema.parse(args)
+        const result = await runtime.submitReview(context.session.id, parsed.reviewId, parsed.verdict, parsed.summary)
+        return { text: JSON.stringify(result), details: result }
+      },
+    },
+    {
       name: 'workflow_update',
       description:
         'Expand the current focus scope, record a checkpoint, complete a verified work item, or complete the workflow.',
@@ -1715,6 +2133,8 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
                   parsed.summary,
                   parsed.nextItemId,
                   parsed.expectedRevision,
+                  parsed.evidenceIds,
+                  context.run.modelId,
                 )
               : await runtime.complete(context.session.id, parsed.expectedRevision, context.run.id)
         return { text: JSON.stringify(result), details: result }
@@ -1773,7 +2193,7 @@ export const workflowPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { workflow: '1.0.0' },
-    requires: { agent: '^1.0.0', goal: '^1.0.0', plan: '^1.0.0', storage: '^1.0.0' },
+    requires: { agent: '^1.0.0', git: '^1.0.0', goal: '^1.0.0', plan: '^1.0.0', storage: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: workflowConfigSchema,
@@ -1785,6 +2205,7 @@ export const workflowPlugin = definePlugin({
       api.service<AgentService>('agent'),
       workflowConfigSchema.parse(rawConfig),
       api.service<PlanService>('plan'),
+      api.service<GitService>('git'),
     )
     await runtime.restore()
     await runtime.resumeDelegations()
@@ -1809,6 +2230,7 @@ export const workflowPlugin = definePlugin({
       runtime.cancelForGoal(event.sessionId, event.previous.goalId ?? event.previous.threadId),
     )
     api.hooks.on('agent.patch', (event) => runtime.handleAgentPatch(event))
+    api.hooks.on('agent.settled', (event) => runtime.handleAgentSettled(event))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },
 })

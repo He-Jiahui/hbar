@@ -65,6 +65,24 @@ const toolVerifierSchema = z.strictObject({
   kind: z.literal('tool'),
   toolName: workflowToolNameSchema,
   expectedArguments: z.record(z.string(), z.unknown()).optional(),
+  result: z
+    .discriminatedUnion('kind', [
+      z.strictObject({ kind: z.literal('success') }),
+      z.strictObject({ kind: z.literal('textContains'), value: z.string().min(1).max(4_000) }),
+      z.strictObject({
+        kind: z.literal('jsonPathEquals'),
+        path: z.array(z.union([z.string().max(256), z.number().int().nonnegative()])).max(32),
+        value: z.unknown(),
+      }),
+      z.strictObject({
+        kind: z.literal('booleanTrue'),
+        path: z
+          .array(z.union([z.string().max(256), z.number().int().nonnegative()]))
+          .max(32)
+          .default([]),
+      }),
+    ])
+    .default({ kind: 'success' }),
 })
 const workspaceVerifierSchema = z.strictObject({
   kind: z.literal('workspace'),
@@ -202,6 +220,14 @@ export const workflowEvidenceSchema = z.discriminatedUnion('source', [
     agentId: idSchema,
     resultHash: sha256Schema,
   }),
+  workflowEvidenceBaseSchema.extend({
+    source: z.literal('reviewer'),
+    outcome: z.enum(['approved', 'rejected']),
+    reviewId: idSchema,
+    agentId: idSchema,
+    summary: workflowTextSchema,
+    resultHash: sha256Schema,
+  }),
 ])
 export type WorkflowEvidence = z.output<typeof workflowEvidenceSchema>
 
@@ -290,6 +316,20 @@ export const workflowTransitionIntentSchema = z.strictObject({
 })
 export type WorkflowTransitionIntent = z.output<typeof workflowTransitionIntentSchema>
 
+export const workflowReviewSchema = z.strictObject({
+  reviewId: idSchema,
+  planRevision: z.number().int().positive(),
+  stepTextHash: sha256Schema,
+  workspaceFingerprint: sha256Schema,
+  resumeModelId: idSchema,
+  reviewerAgentId: idSchema.nullable(),
+  status: z.enum(['queued', 'running', 'approved', 'rejected', 'cancelled', 'stale']),
+  summary: z.string().max(4_000).nullable(),
+  createdAt: z.number().int().nonnegative(),
+  updatedAt: z.number().int().nonnegative(),
+})
+export type WorkflowReview = z.output<typeof workflowReviewSchema>
+
 export const workflowStartCommandSchema = z.strictObject({
   actorId: idSchema,
   idempotencyKey: z.string().min(1).max(128),
@@ -338,6 +378,7 @@ export const workflowStateSchema = z.strictObject({
   completionPolicy: workflowCompletionPolicySchema.default('agent'),
   rejection: workflowRejectionSchema.nullable().default(null),
   transitionIntent: workflowTransitionIntentSchema.nullable().default(null),
+  review: workflowReviewSchema.nullable().default(null),
   startCommand: workflowStartCommandSchema.nullable().default(null),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),

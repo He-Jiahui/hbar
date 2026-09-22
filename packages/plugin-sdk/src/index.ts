@@ -251,6 +251,8 @@ export interface WorkflowService {
     summary: string,
     nextItemId: string | null | undefined,
     expectedRevision: number,
+    evidenceIds?: string[],
+    reviewModelId?: string,
   ): Promise<WorkflowSnapshot>
   delegate(
     sessionId: string,
@@ -443,6 +445,11 @@ export interface HookEvents {
     agentId: string
     patch: import('@hbar/contracts').AgentPatch | null
     status: 'ready' | 'applied' | 'conflict' | 'rejected'
+  }
+  'agent.settled': {
+    parentSessionId: string
+    agentId: string
+    status: import('@hbar/contracts/commands/agents').AgentRecord['status']
   }
 }
 export interface HookRegistry {

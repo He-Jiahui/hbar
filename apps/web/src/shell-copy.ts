@@ -1287,6 +1287,10 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
           ? choose(`接受验收项：${check}`, `Accept check: ${check}`)
           : choose(`拒绝验收项：${check}`, `Reject check: ${check}`),
       evidenceLabel: (evidence) => {
+        if (evidence.source === 'reviewer')
+          return `${evidence.checkId} · ${evidence.agentId} · ${
+            evidence.outcome === 'approved' ? choose('已批准', 'Approved') : choose('已拒绝', 'Rejected')
+          }`
         const outcome = acceptanceStatuses[evidence.outcome]
         if (evidence.source === 'tool') return `${evidence.checkId} · ${evidence.toolName} · ${outcome}`
         if (evidence.source === 'agent') return `${evidence.checkId} · ${evidence.agentId} · ${outcome}`

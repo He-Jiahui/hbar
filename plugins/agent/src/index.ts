@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { agentPatchSchema, HbarError } from '@hbar/contracts'
 import type { AgentPatch, Run, WorkflowScope } from '@hbar/contracts'
-import { agentCreateInputSchema, agentPatchTaskSchema, agentRecordSchema } from '@hbar/contracts/commands/agents'
+import {
+  agentCreateInputSchema,
+  agentPatchTaskSchema,
+  agentRecordSchema,
+  agentReviewTaskSchema,
+} from '@hbar/contracts/commands/agents'
 import type { AgentCreateInput, AgentPatchTask, AgentRecord } from '@hbar/contracts/commands/agents'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
@@ -55,6 +60,7 @@ const createdSchema = z.strictObject({
   modelId: z.string().min(1).max(160),
   tokenBudget: z.number().int().positive().max(1_000_000_000).nullable(),
   patchTask: agentPatchTaskSchema.optional(),
+  reviewTask: agentReviewTaskSchema.optional(),
   isolation: isolationSchema.optional(),
   createdAt: z.number().int().nonnegative(),
   command: commandSchema,
@@ -306,6 +312,7 @@ export class AgentRuntime implements AgentService {
         objective: parsed.objective,
         modelId: parsed.modelId,
         tokenBudget: parsed.tokenBudget ?? null,
+        reviewTask: parsed.reviewTask,
         createdAt: Date.now(),
         command: { ...context, inputHash: hash },
       })
@@ -383,6 +390,14 @@ export class AgentRuntime implements AgentService {
 
   async finish(event: { sessionId: string; runId: string; status: Run['status'] }) {
     const seed = await this.created(event.sessionId)
+    if (seed?.reviewTask) {
+      await this.api.hooks.dispatch('agent.settled', {
+        parentSessionId: seed.parentSessionId,
+        agentId: seed.agentId,
+        status: event.status,
+      })
+      return
+    }
     if (!seed?.patchTask || !seed.isolation) return
     const snapshot = await this.sessions.snapshot(event.sessionId)
     if (seed.requestId !== snapshot.runs.find((run) => run.id === event.runId)?.requestId) return
@@ -438,6 +453,18 @@ export class AgentRuntime implements AgentService {
 
   async beforeTool(name: string, args: Record<string, unknown>, context: ToolContext, tool: ToolDefinition) {
     const seed = await this.created(context.session.id)
+    if (seed?.reviewTask) {
+      if (!seed.reviewTask.scope.tools.includes(name))
+        throw new HbarError('AGENT_REVIEW_SCOPE', `Tool ${name} is outside the read-only review scope`)
+      if (name === 'workflow_review_submit') return
+      if (tool.effect !== 'read')
+        throw new HbarError('AGENT_REVIEW_SCOPE', `Review agents cannot use ${tool.effect} tools`)
+      const rejected = argumentPaths(context.workspace.path, args).find(
+        (path) => !pathAllowed(path, seed.reviewTask!.scope.readPaths),
+      )
+      if (rejected) throw new HbarError('AGENT_REVIEW_SCOPE', `Path ${rejected} is outside the read-only review scope`)
+      return
+    }
     if (!seed?.patchTask || !seed.isolation) return
     if (!seed.patchTask.scope.tools.includes(name))
       throw new HbarError('AGENT_PATCH_SCOPE', `Tool ${name} is outside the delegated scope`)
@@ -582,7 +609,14 @@ export class AgentRuntime implements AgentService {
     }
     await this.sessions.append(parentSessionId, 'agent.cancelRequested', { agentId })
     this.api.changed('agents')
-    return this.record(direct.seed)
+    const updated = await this.record(direct.seed)
+    if (direct.seed.reviewTask)
+      await this.api.hooks.dispatch('agent.settled', {
+        parentSessionId,
+        agentId,
+        status: updated.status,
+      })
+    return updated
   }
 }
 

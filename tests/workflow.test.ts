@@ -311,9 +311,12 @@ test('successful tool results become durable acceptance evidence only after sett
     secrets: new MemorySecrets(),
   })
   resources.push({ root, kernel: restarted })
-  expect(await restarted.plugins.get<WorkflowService>('workflow').get(session.id)).toMatchObject({
-    workflow: { status: 'completed', evidence: [{ source: 'tool', outcome: 'passed' }] },
-  })
+  const replayed = await restarted.plugins.get<WorkflowService>('workflow').get(session.id)
+  expect(replayed.workflow?.status).toBe('completed')
+  expect(replayed.workflow?.evidence).toMatchObject([
+    { source: 'tool', outcome: 'passed' },
+    { source: 'agent', outcome: 'passed' },
+  ])
 })
 
 test('three identical verifier failures block the work item instead of retrying forever', async () => {

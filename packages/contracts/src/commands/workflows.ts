@@ -60,6 +60,7 @@ export const workflowCheckpointInputSchema = z.strictObject({
   itemId: idSchema,
   outcome: z.enum(['progress', 'revise', 'complete', 'blocked']),
   summary: z.string().trim().min(1).max(4_000),
+  evidenceIds: z.array(idSchema).max(128).default([]),
   nextItemId: idSchema.nullable().optional(),
   expectedRevision: expectedRevisionSchema,
 })

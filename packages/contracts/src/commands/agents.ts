@@ -37,16 +37,28 @@ export const agentPatchTaskSchema = z.strictObject({
   scope: workflowScopeSchema,
   acceptanceChecks: z.array(workflowAcceptanceDefinitionSchema).max(32),
 })
-export const agentCreateInputSchema = z.strictObject({
-  parentSessionId: idSchema,
-  objective: z.string().trim().min(1).max(4_000),
-  modelId: idSchema,
-  title: z.string().trim().min(1).max(160).optional(),
-  tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
-  thinkingLevel: thinkingLevelSchema.optional(),
-  approval: approvalModeSchema.default('deny'),
-  patchTask: agentPatchTaskSchema.optional(),
+export const agentReviewTaskSchema = z.strictObject({
+  reviewId: idSchema,
+  planRevision: z.number().int().positive(),
+  stepTextHash: z.string().regex(/^[a-f0-9]{64}$/),
+  workspaceFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  scope: workflowScopeSchema,
 })
+export const agentCreateInputSchema = z
+  .strictObject({
+    parentSessionId: idSchema,
+    objective: z.string().trim().min(1).max(4_000),
+    modelId: idSchema,
+    title: z.string().trim().min(1).max(160).optional(),
+    tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
+    thinkingLevel: thinkingLevelSchema.optional(),
+    approval: approvalModeSchema.default('deny'),
+    patchTask: agentPatchTaskSchema.optional(),
+    reviewTask: agentReviewTaskSchema.optional(),
+  })
+  .refine((value) => !(value.patchTask && value.reviewTask), {
+    message: 'patchTask and reviewTask are mutually exclusive',
+  })
 export const agentListInputSchema = z.strictObject({
   parentSessionId: idSchema,
   after: idSchema.optional(),
@@ -152,4 +164,5 @@ export const agentCommands = {
 export type AgentRecord = z.output<typeof agentRecordSchema>
 export type AgentCreateInput = z.output<typeof agentCreateInputSchema>
 export type AgentPatchTask = z.output<typeof agentPatchTaskSchema>
+export type AgentReviewTask = z.output<typeof agentReviewTaskSchema>
 export type AgentPage = z.output<typeof agentPageSchema>

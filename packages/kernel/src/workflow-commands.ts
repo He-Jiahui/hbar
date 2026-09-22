@@ -60,8 +60,10 @@ export function createWorkflowCommands(service: WorkflowService) {
   )
   registry.register(
     workflowCommands['workflow.checkpoint'],
-    ({ sessionId, itemId, outcome, summary, nextItemId, expectedRevision }) =>
-      translate(() => service.checkpoint(sessionId, itemId, outcome, summary, nextItemId, expectedRevision)),
+    ({ sessionId, itemId, outcome, summary, evidenceIds, nextItemId, expectedRevision }) =>
+      translate(() =>
+        service.checkpoint(sessionId, itemId, outcome, summary, nextItemId, expectedRevision, evidenceIds),
+      ),
     { durable: true },
   )
   registry.register(

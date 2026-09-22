@@ -105,6 +105,7 @@ test('agent commands create one budgeted child session per actor key and recover
     'workflow.complete',
     'workflow.delegate',
     'workflow.expandScope',
+    'workflow.focus.set',
     'workflow.get',
     'workflow.plan.save',
     'workflow.start',
