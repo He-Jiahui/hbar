@@ -467,6 +467,8 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
           const rect = element.getBoundingClientRect()
           const style = getComputedStyle(element)
           const textLength = (element.textContent ?? '').trim().length
+          const semanticSignal =
+            element.matches('[data-lumen-component], [class*="lumen-"], article, main, form, nav, [role]')
           const path: number[] = []
           let current: Element | null = element
           while (current && current !== root) {
@@ -475,18 +477,23 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
             path.unshift(Array.from(parent.children).indexOf(current))
             current = parent
           }
-          return { rect, style, textLength, path }
+          return { rect, style, textLength, path, semanticSignal }
         })
         .filter(
           (candidate) =>
-            candidate.textLength >= rootTextLength * 0.8 &&
+            candidate.textLength >= rootTextLength * 0.5 &&
             candidate.rect.width > 0 &&
             candidate.rect.height > 0 &&
-            candidate.rect.width < rootRect.width * 0.95 &&
+            (candidate.rect.width < rootRect.width * 0.95 || candidate.semanticSignal) &&
             candidate.rect.height < rootRect.height * 0.95 &&
             candidate.style.position !== 'fixed',
         )
-        .sort((left, right) => left.path.length - right.path.length || right.textLength - left.textLength)
+        .sort(
+          (left, right) =>
+            Number(right.semanticSignal) - Number(left.semanticSignal) ||
+            left.path.length - right.path.length ||
+            right.textLength - left.textLength,
+        )
       return {
         path: candidates[0]?.path ?? [],
         useRoot: candidates.length === 0 && root.hasAttribute('data-lumen-component'),
@@ -650,6 +657,20 @@ function referencePageUrl(reference: ReactBitsProReferenceVariant, options: Audi
   return pathToFileURL(cached).href
 }
 
+async function screenshotStable(locator: Locator, path: string): Promise<void> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await locator.screenshot({ path, animations: 'disabled' })
+      return
+    } catch (error) {
+      lastError = error
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 150 * (attempt + 1)))
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`Could not capture stable screenshot: ${path}`)
+}
+
 async function captureSource(
   page: Page,
   reference: ReactBitsProReferenceVariant,
@@ -673,7 +694,7 @@ async function captureSource(
   const screenshot = join(directory, `${viewport.id}.png`)
   const contextScreenshot = join(directory, `${viewport.id}-context.png`)
   const snapshot = join(directory, `${viewport.id}.json`)
-  await root.screenshot({ path: screenshot, animations: 'disabled' })
+  await screenshotStable(root, screenshot)
   await page.screenshot({ path: contextScreenshot, animations: 'disabled' })
   const semantic = await snapshotRoot(frame, selector)
   await writeJson(snapshot, semantic)
@@ -715,7 +736,7 @@ async function captureLocal(
   const screenshot = join(directory, `${viewport.id}.png`)
   const contextScreenshot = join(directory, `${viewport.id}-context.png`)
   const snapshot = join(directory, `${viewport.id}.json`)
-  await root.screenshot({ path: screenshot, animations: 'disabled' })
+  await screenshotStable(root, screenshot)
   await page.screenshot({ path: contextScreenshot, animations: 'disabled' })
   const semantic = await localSnapshot(page, selector)
   await writeJson(snapshot, semantic)
@@ -858,7 +879,7 @@ async function replayInteraction(
   const after = join(directory, 'after.png')
   const beforeSnapshot = join(directory, 'before.json')
   const afterSnapshot = join(directory, 'after.json')
-  await root.screenshot({ path: before, animations: 'disabled' })
+  await screenshotStable(root, before)
   await writeJson(beforeSnapshot, await localSnapshot(page, selector))
   if (!control) {
     return {
@@ -874,7 +895,7 @@ async function replayInteraction(
   }
   await applyInteraction(control, interaction)
   await page.waitForTimeout(120)
-  await root.screenshot({ path: after, animations: 'disabled' })
+  await screenshotStable(root, after)
   await writeJson(afterSnapshot, await localSnapshot(page, selector))
   return { id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot }
 }
@@ -910,7 +931,7 @@ async function replayReferenceInteraction(
   const after = join(directory, 'after.png')
   const beforeSnapshot = join(directory, 'before.json')
   const afterSnapshot = join(directory, 'after.json')
-  await root.screenshot({ path: before, animations: 'disabled' })
+  await screenshotStable(root, before)
   await writeJson(beforeSnapshot, await snapshotRoot(frame, selector))
   if (!control) {
     return {
@@ -926,7 +947,7 @@ async function replayReferenceInteraction(
   }
   await applyInteraction(control, interaction)
   await page.waitForTimeout(120)
-  await root.screenshot({ path: after, animations: 'disabled' })
+  await screenshotStable(root, after)
   await writeJson(afterSnapshot, await snapshotRoot(frame, selector))
   return { id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot }
 }
@@ -1012,7 +1033,7 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
   )
 }
 
-async function runInteractions(
+async function _runInteractionsLegacy(
   options: AuditOptions,
   browser: Browser,
   inventory: ReactBitsProInventory,
@@ -1119,6 +1140,103 @@ async function runInteractions(
       outputRoot: options.outputRoot,
     }),
   )
+}
+
+void _runInteractionsLegacy
+
+async function runInteractionsParallel(
+  options: AuditOptions,
+  browser: Browser,
+  inventory: ReactBitsProInventory,
+): Promise<void> {
+  const selected = selectedLocalSpecs(options)
+  const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
+  const server = await waitForLocalPreview()
+  const results: Record<string, unknown>[] = []
+  let cursor = 0
+  const worker = async () => {
+    const context = await browser.newContext({ reducedMotion: 'reduce' })
+    const sourcePage = await context.newPage()
+    const localPage = await context.newPage()
+    try {
+      while (cursor < selected.length) {
+        const index = cursor
+        cursor += 1
+        const spec = selected[index]
+        if (!spec) continue
+        const reference = references.get(spec.id)
+        if (!reference) throw new Error(`Missing React Bits reference for ${spec.id}`)
+        for (const viewport of options.viewports) {
+          for (const theme of options.themes) {
+            await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
+            await sourcePage.goto(referencePageUrl(reference, options), { waitUntil: 'domcontentloaded', timeout: 60_000 })
+            await enforceReferenceTheme(sourcePage, theme)
+            const frame = await previewFrame(sourcePage)
+            const sourceSelector = await componentSelector(frame, '#preview-root')
+            const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
+            for (const interaction of interactionCases(sourceSnapshot, spec.id)) {
+              const source = await replayReferenceInteraction(sourcePage, reference, options, theme, viewport, interaction, options.outputRoot)
+              const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot)
+              const sourceDelta = await interactionDelta(source)
+              const localDelta = await interactionDelta(local)
+              const status = local.status === 'missing'
+                ? 'missing'
+                : sourceDelta?.changed === false && localDelta?.changed === false
+                  ? 'source-no-op'
+                  : sourceDelta?.signature === localDelta?.signature
+                    ? 'matched'
+                    : 'lumen-different'
+              const result = {
+                id: interaction.id,
+                action: interaction.action,
+                capability: interaction.action,
+                viewport: viewport.id,
+                theme,
+                control: interaction.control,
+                source,
+                local,
+                status,
+                feedback: {
+                  sourceChanged: sourceDelta?.changed ?? false,
+                  localChanged: localDelta?.changed ?? false,
+                  deltaMatched: sourceDelta?.signature === localDelta?.signature,
+                  sourceDelta,
+                  localDelta,
+                },
+              }
+              await writeJson(join(dirname(source.directory), 'source-state.json'), {
+                before: source.beforeSnapshot,
+                after: source.afterSnapshot,
+                status: source.status,
+              })
+              await writeJson(join(dirname(source.directory), 'lumen-state.json'), {
+                before: local.beforeSnapshot,
+                after: local.afterSnapshot,
+                status: local.status,
+              })
+              await writeJson(join(dirname(source.directory), 'comparison.json'), result)
+              results.push(result)
+            }
+          }
+        }
+      }
+    } finally {
+      await context.close()
+    }
+  }
+  try {
+    await Promise.all(Array.from({ length: Math.min(options.workers, selected.length) }, () => worker()))
+  } finally {
+    server?.kill()
+  }
+  await writeJson(join(options.outputRoot, 'interaction-report.json'), {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    selected: selected.map((spec) => spec.id),
+    discovered: results.length,
+    results,
+  })
+  console.log(JSON.stringify({ command: 'interactions', variants: selected.length, cases: results.length, outputRoot: options.outputRoot }))
 }
 
 async function runCompare(options: AuditOptions): Promise<void> {
@@ -1325,7 +1443,7 @@ async function main(): Promise<void> {
         : await loadOrDiscoverInventory(browser, options)
     if (options.command === 'capture' || options.command === 'audit') await runCapture(options, browser, inventory)
     if (options.command === 'interactions' || options.command === 'audit')
-      await runInteractions(options, browser, inventory)
+      await runInteractionsParallel(options, browser, inventory)
     if (options.command === 'compare' || options.command === 'audit') await runCompare(options)
   } finally {
     await browser.close()
