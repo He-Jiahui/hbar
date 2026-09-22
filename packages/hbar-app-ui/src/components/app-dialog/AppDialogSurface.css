@@ -565,32 +565,6 @@
     font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
 }
 
-.hbar-app-ui-side-toggle-row > button {
-    display: inline-flex !important;
-    inline-size: 2.25rem !important;
-    block-size: 1.25rem !important;
-    flex: 0 0 2.25rem;
-    align-items: center;
-    border: 0 !important;
-    border-radius: 999px !important;
-    padding: .125rem !important;
-    background: #454545 !important;
-    cursor: pointer;
-}
-
-.hbar-app-ui-side-toggle-row > button.is-on {
-    justify-content: flex-end;
-    background: #fff !important;
-}
-
-.hbar-app-ui-side-toggle-row > button i {
-    display: block;
-    inline-size: 1rem;
-    block-size: 1rem;
-    border-radius: 50%;
-    background: #171717;
-}
-
 .hbar-app-ui-side-panel-footer {
     flex: 0 0 auto;
 }

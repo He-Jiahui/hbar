@@ -1,7 +1,7 @@
 import {
   LumenFrame,
   LumenText,
- LumenButton } from '@lumen/app-ui'
+ LumenButton, LumenToggleControl } from '@lumen/app-ui'
 import type {ButtonHTMLAttributes, ReactNode} from 'react'
 import type {HbarAppUiEvent, HbarAppUiVariantProps} from '../../types'
 import {ActionSurfaceFrame} from '../SurfaceFrame'
@@ -313,9 +313,7 @@ export function NotificationToggle({
     readonly checked: boolean
     readonly onChange: () => void
 }) {
-    return <LumenButton type="button" role="switch" aria-label={label} aria-checked={checked}
-                   className={`hbar-app-ui-notifications-toggle${checked ? ' is-on' : ''}`} onClick={onChange}><LumenText as="span"
-        aria-hidden="true"/></LumenButton>
+    return <LumenToggleControl aria-label={label} checked={checked} onChange={onChange}/>
 }
 
 export function NotificationTabs<T extends string>({

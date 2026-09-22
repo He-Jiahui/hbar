@@ -2,7 +2,7 @@ import {
   LumenFrame,
   LumenOption,
   LumenText,
- LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
+ LumenButton, LumenInput, LumenTextarea, LumenSelect, LumenToggleControl } from '@lumen/app-ui'
 import {useState} from 'react'
 import {
     type AppDialogProps,
@@ -49,11 +49,12 @@ export function AlertRuleDrawer({spec, onAction}: AppDialogProps): React.JSX.Ele
                     <DialogField label="Note"><LumenTextarea defaultValue="Page the on-call engineer when errors climb."
                                                         aria-label="Note"/></DialogField>
                     <LumenFrame as="label" className="hbar-app-ui-side-toggle-row"><LumenText as="span"><LumenText as="strong">Rule enabled</LumenText><LumenText as="small">Turn off to pause without deleting.</LumenText></LumenText>
-                        <LumenButton type="button" role="switch" aria-checked={enabled} className={enabled ? 'is-on' : ''}
-                                onClick={() => {
-                                    setEnabled((current) => !current)
-                                    reportDialogAction(onAction, spec, 'toggle', enabled ? 'disabled' : 'enabled')
-                                }}><LumenFrame as="i"/></LumenButton>
+                        <LumenToggleControl checked={enabled} aria-label="Rule enabled"
+                                onChange={(event) => {
+                                    const next = event.currentTarget.checked
+                                    setEnabled(next)
+                                    reportDialogAction(onAction, spec, 'toggle', next ? 'enabled' : 'disabled')
+                                }}/>
                     </LumenFrame>
                 </LumenFrame>
                 <LumenFrame as="footer" className="hbar-app-ui-dialog-footer hbar-app-ui-side-panel-footer"><DialogButton

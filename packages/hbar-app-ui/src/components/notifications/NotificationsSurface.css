@@ -543,36 +543,6 @@
     border-radius: 0 .45rem .45rem 0;
 }
 
-.hbar-app-ui-notifications-toggle {
-    display: inline-flex;
-    inline-size: 2.25rem;
-    block-size: 1.25rem;
-    align-items: center;
-    border: 2px solid #454545;
-    border-radius: 999px;
-    padding: .1rem;
-    background: #292929;
-    cursor: pointer;
-}
-
-.hbar-app-ui-notifications-toggle span {
-    inline-size: .85rem;
-    block-size: .85rem;
-    border-radius: 50%;
-    background: #777;
-    transition: transform 150ms ease, background 150ms ease;
-}
-
-.hbar-app-ui-notifications-toggle.is-on {
-    justify-content: flex-end;
-    border-color: #f5f5f5;
-    background: #f5f5f5;
-}
-
-.hbar-app-ui-notifications-toggle.is-on span {
-    background: #111;
-}
-
 .hbar-app-ui-notifications-quiet-hours {
     display: flex;
     min-inline-size: 0;
@@ -1220,19 +1190,6 @@
 .hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-button-light:hover:not(:disabled) {
     border-color: #fff !important;
     background: #fff !important;
-}
-
-.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-toggle {
-    border: 2px solid #454545 !important;
-    border-radius: 999px !important;
-    background: #292929 !important;
-    color: #f5f5f5 !important;
-    cursor: pointer !important;
-}
-
-.hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-toggle.is-on {
-    border-color: #f5f5f5 !important;
-    background: #f5f5f5 !important;
 }
 
 .hbar-app-ui-variant.hbar-app-ui-notifications-surface button.hbar-app-ui-notifications-quiet-days-button,
