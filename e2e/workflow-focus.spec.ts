@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { createWorkflowCommandClient } from '@hbar/client'
+import { createGoalPlanCommandClient, createWorkflowCommandClient } from '@hbar/client'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 
-test('renders and accepts Host-owned focused workflow state at desktop and narrow widths', async ({ browser }) => {
+test('renders and accepts Host-owned focused workflow state at desktop, tablet, and narrow widths', async ({
+  browser,
+}) => {
   test.setTimeout(90_000)
   const root = await mkdtemp(join(tmpdir(), 'hbar-workflow-focus-'))
   const artifacts = 'artifacts/production-ui/web/workflow-focus'
@@ -14,33 +16,35 @@ test('renders and accepts Host-owned focused workflow state at desktop and narro
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
   try {
     host = await startWebSessionHost({ root })
+    const goals = createGoalPlanCommandClient(host.client)
     const workflows = createWorkflowCommandClient(host.client)
-    const started = await workflows.execute(
-      'workflow.start',
-      {
-        sessionId: host.ready.sessionId,
-        objective: 'Keep the browser task focused and externally verified',
-        items: [
+    const plan = await goals.execute('plan.update', {
+      sessionId: host.ready.sessionId,
+      explanation: 'Keep the browser task focused and externally verified',
+      plan: [{ step: 'Verify the focused workflow in the browser', status: 'in_progress' }],
+    })
+    const started = await workflows.execute('workflow.focus.set', {
+      sessionId: host.ready.sessionId,
+      stepIndex: 0,
+      item: {
+        id: 'browser-focus',
+        title: 'Ignored in favor of the Agent Plan step',
+        scope: {
+          readPaths: ['packages/app-react'],
+          writePaths: [],
+          tools: ['read_file'],
+        },
+        acceptanceChecks: [
           {
-            id: 'browser-focus',
-            title: 'Verify the focused workflow in the browser',
-            scope: {
-              readPaths: ['packages/app-react'],
-              writePaths: [],
-              tools: ['browser'],
-            },
-            acceptanceChecks: [
-              {
-                id: 'browser-review',
-                description: 'Browser acceptance confirms the focused result',
-                verifier: { kind: 'user' },
-              },
-            ],
+            id: 'browser-review',
+            description: 'Browser acceptance confirms the focused result',
+            verifier: { kind: 'user' },
           },
         ],
       },
-      { idempotencyKey: 'workflow-focus-e2e' },
-    )
+      completionPolicy: 'user',
+      expectedPlanRevision: plan.revision,
+    })
     expect(started.workflow).toMatchObject({ status: 'active', focus: { focusId: 'browser-focus' } })
     const waiting = await workflows.execute('workflow.checkpoint', {
       sessionId: host.ready.sessionId,
@@ -89,6 +93,12 @@ test('renders and accepts Host-owned focused workflow state at desktop and narro
       })
       .toEqual({ status: 'accepted', evidence: 1 })
     await page.screenshot({ path: `${artifacts}/desktop-accepted.png`, fullPage: true })
+
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expect(overview.getByRole('heading', { level: 2, name: 'Focused workflow' })).toBeVisible()
+    await expect(focusedTitle).toHaveCount(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: `${artifacts}/tablet-accepted.png`, fullPage: true })
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(overview.getByRole('heading', { level: 2, name: 'Focused workflow' })).toBeVisible()

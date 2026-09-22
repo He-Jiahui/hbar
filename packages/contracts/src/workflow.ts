@@ -405,8 +405,20 @@ export const workflowFocusSchema = z.strictObject({
 })
 export type WorkflowFocus = z.output<typeof workflowFocusSchema>
 
+export const workflowPublicStatusSchema = z.enum([
+  'active',
+  'verifying',
+  'waiting_review',
+  'waiting_user',
+  'needs_revision',
+  'completed',
+  'cancelled',
+])
+export type WorkflowPublicStatus = z.output<typeof workflowPublicStatusSchema>
+
 export const workflowPublicStateSchema = workflowStateSchema
   .omit({
+    status: true,
     activeItemId: true,
     activeStepIndex: true,
     activeStepTextHash: true,
@@ -415,7 +427,7 @@ export const workflowPublicStateSchema = workflowStateSchema
     planId: true,
     completionPolicy: true,
   })
-  .extend({ focus: workflowFocusSchema.nullable() })
+  .extend({ status: workflowPublicStatusSchema, focus: workflowFocusSchema.nullable() })
 export type WorkflowPublicState = z.output<typeof workflowPublicStateSchema>
 
 export const workflowSnapshotSchema = z.strictObject({

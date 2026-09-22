@@ -21,6 +21,7 @@ import type {
   WorkflowPlan,
   WorkflowPlanItem,
   WorkflowPlanItemInput,
+  WorkflowPublicState,
   WorkflowScope,
   WorkflowSnapshot,
   WorkflowStartCommand,
@@ -85,6 +86,11 @@ function escapeXml(value: string) {
 
 function unique(values: readonly string[]) {
   return [...new Set(values)]
+}
+
+function publicWorkflowStatus(status: WorkflowState['status']): WorkflowPublicState['status'] {
+  if (status === 'draft' || status === 'waiting' || status === 'blocked') return 'needs_revision'
+  return status
 }
 
 function mergeScope(current: WorkflowScope, addition: WorkflowScope): WorkflowScope {
@@ -514,6 +520,7 @@ export class WorkflowRuntime implements WorkflowService {
       const item = workItems.find((candidate) => candidate.id === activeItemId)
       workflow = {
         ...state,
+        status: publicWorkflowStatus(internal.status),
         focus:
           item && activeStepIndex !== null && activeStepTextHash
             ? {
@@ -1251,7 +1258,8 @@ export class WorkflowRuntime implements WorkflowService {
         ...transitionBase,
         revision: transitionBase.revision + 1,
         planRevision: nextPlan.revision,
-        status: outcome === 'blocked' ? 'blocked' : outcome === 'complete' && planCompleted ? 'completed' : 'active',
+        status:
+          outcome === 'blocked' ? 'needs_revision' : outcome === 'complete' && planCompleted ? 'completed' : 'active',
         activeItemId: outcome === 'blocked' ? itemId : outcome === 'complete' ? null : (requestedNext?.id ?? itemId),
         activeStepIndex: outcome === 'complete' ? null : current.activeStepIndex,
         activeStepTextHash: outcome === 'complete' ? null : current.activeStepTextHash,
@@ -1895,7 +1903,7 @@ export class WorkflowRuntime implements WorkflowService {
     if (!workflow || workflow.status === 'completed') {
       const guidance = [
         '<workflow_guidance>',
-        'For a multi-step task that needs repository changes, verification, or delegation, decide whether to call workflow_start.',
+        'For a multi-step task that needs repository changes, verification, or delegation, maintain one Agent Plan with get_plan and update_plan, then call workflow_focus for its current in_progress step.',
         'Keep simple questions and one-step reads lightweight.',
         '</workflow_guidance>',
       ].join('\n')

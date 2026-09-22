@@ -306,7 +306,7 @@ test('workflow workspace rejects duplicate ids and does not let an older row res
     const old = current
     current = workflowSnapshotSchema.parse({
       ...current,
-      workflow: { ...current.workflow!, revision: 3, focus: null, status: 'blocked' },
+      workflow: { ...current.workflow!, revision: 3, focus: null, status: 'needs_revision' },
     })
     listener?.(current)
     resolveAcceptance(
@@ -314,7 +314,7 @@ test('workflow workspace rejects duplicate ids and does not let an older row res
     )
     await pending
     const entry = runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]!
-    expect(entry.snapshot.workflow).toMatchObject({ revision: 3, status: 'blocked' })
+    expect(entry.snapshot.workflow).toMatchObject({ revision: 3, status: 'needs_revision' })
     expect(entry.actions['accept:implement:review']?.status).toBe('unknown')
 
     const duplicate: WorkflowSnapshot = {

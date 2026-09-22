@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import type { AgentService, GoalService, PlanService, WorkflowService } from '@hbar/plugin-sdk'
+import type { AgentService, GoalService, ModelRequest, PlanService, WorkflowService } from '@hbar/plugin-sdk'
 import { WorkflowRuntime } from '../plugins/workflow/src/index.ts'
 
 const resources: { root: string; kernel: Kernel }[] = []
@@ -50,6 +50,24 @@ async function rejection(operation: Promise<unknown>) {
     return error
   }
 }
+
+test('workflow bootstrap guidance uses the Codex Agent Plan and focus tools', async () => {
+  const { kernel, session, workflows } = await fixture()
+  const model = (await kernel.storage.call('providers'))[0]!
+  const request = {
+    system: 'base instructions',
+    messages: [],
+    model,
+    context: { sessionId: session.id },
+  } satisfies ModelRequest
+
+  const decorated = (workflows as WorkflowRuntime).decorate(request)
+
+  expect(decorated.system).toContain('get_plan and update_plan')
+  expect(decorated.system).toContain('workflow_focus')
+  expect(decorated.system).not.toContain('workflow_start')
+  expect(decorated.system).not.toContain('save_workflow_plan')
+})
 
 test('workflow focus normalizes registered tool aliases and escapes repeated scope denial', async () => {
   const { root, kernel, session, plans, workflows } = await fixture()
@@ -159,6 +177,37 @@ test('workflow focus normalizes registered tool aliases and escapes repeated sco
     status: 'active',
     planRevision: revisedPlan.revision,
     rejection: null,
+  })
+})
+
+test('blocked checkpoints request autonomous revision instead of exposing a legacy blocked workflow state', async () => {
+  const { session, plans, workflows } = await fixture()
+  const plan = await plans.update(session.id, [{ step: 'Recover the bounded task', status: 'in_progress' }])
+  const focused = await workflows.focus(
+    session.id,
+    0,
+    {
+      id: 'recover',
+      title: 'ignored',
+      scope: { readPaths: ['.'], writePaths: [], tools: ['read_file'] },
+      acceptanceChecks: [],
+    },
+    'agent',
+    plan.revision,
+  )
+
+  const blocked = await workflows.checkpoint(
+    session.id,
+    'recover',
+    'blocked',
+    'The focus must be revised before work can continue',
+    null,
+    focused.workflow!.revision,
+  )
+
+  expect(blocked.workflow).toMatchObject({
+    status: 'needs_revision',
+    focus: { focusId: 'recover', status: 'blocked' },
   })
 })
 

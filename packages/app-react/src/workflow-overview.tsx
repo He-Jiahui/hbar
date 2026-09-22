@@ -53,7 +53,7 @@ export interface HbarWorkflowOverviewLabels {
   readonly reject: string
   readonly actionSucceeded: string
   readonly error: (code: string) => string
-  readonly statuses: Readonly<Record<WorkflowStatus | 'none', string>>
+  readonly statuses: Readonly<Record<WorkflowStatus | 'draft' | 'none', string>>
   readonly focusStatuses: Readonly<Record<WorkflowFocusStatus, string>>
   readonly acceptanceStatuses: Readonly<Record<WorkflowAcceptanceStatus, string>>
   readonly delegationStatuses: Readonly<Record<DelegationStatus, string>>

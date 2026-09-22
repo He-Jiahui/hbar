@@ -339,12 +339,28 @@ test('exec workflow commands drive evidence-gated state through the real CLI', a
   expect(created.code).toBe(0)
   const session = JSON.parse(created.stdout) as { id: string }
   const target = [...common, '--session', session.id]
-  const startInput = {
-    objective: 'Complete a CLI workflow',
-    items: [
-      {
+  const plan = await run([
+    ...target,
+    'exec',
+    'plan.update',
+    '--input-json',
+    JSON.stringify({
+      explanation: 'Drive the real CLI through the authoritative Agent Plan',
+      plan: [{ step: 'Ship through the CLI', status: 'in_progress' }],
+    }),
+  ])
+  expect(plan.code).toBe(0)
+  const planRevision = (JSON.parse(plan.stdout) as { revision: number }).revision
+  const started = await run([
+    ...target,
+    'exec',
+    'workflow.focus.set',
+    '--input-json',
+    JSON.stringify({
+      stepIndex: 0,
+      item: {
         id: 'ship',
-        title: 'Ship through the CLI',
+        title: 'Ignored in favor of the Agent Plan step',
         scope: { readPaths: ['.'], writePaths: [], tools: ['read_file'] },
         acceptanceChecks: [
           {
@@ -354,23 +370,12 @@ test('exec workflow commands drive evidence-gated state through the real CLI', a
           },
         ],
       },
-    ],
-  }
-  const startArgs = [
-    ...target,
-    'exec',
-    'workflow.start',
-    '--input-json',
-    JSON.stringify(startInput),
-    '--idempotency-key',
-    'cli-workflow',
-  ]
-  const started = await run(startArgs)
+      completionPolicy: 'user',
+      expectedPlanRevision: planRevision,
+    }),
+  ])
   expect(started.code).toBe(0)
   const workflowId = (JSON.parse(started.stdout) as { workflow: { workflowId: string } }).workflow.workflowId
-  const duplicate = await run(startArgs)
-  expect(duplicate.code).toBe(0)
-  expect((JSON.parse(duplicate.stdout) as { workflow: { workflowId: string } }).workflow.workflowId).toBe(workflowId)
 
   const pending = await run([
     ...target,

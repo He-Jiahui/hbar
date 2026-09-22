@@ -146,35 +146,48 @@ test.skipIf(process.platform !== 'win32')(
       expect(created.code, created.stderr).toBe(0)
       const session = JSON.parse(created.stdout) as { id: string }
       const target = [...common, '--session', session.id]
-      const workflowStart = await runCommand(
+      const planUpdate = await runCommand(
         [
           ...target,
           'exec',
-          'workflow.start',
+          'plan.update',
           '--input-json',
           JSON.stringify({
-            objective: 'Complete a compiled CLI workflow',
-            items: [
-              {
-                id: 'ship',
-                title: 'Ship through the compiled CLI',
-                scope: { readPaths: ['.'], writePaths: [], tools: ['read_file'] },
-                acceptanceChecks: [
-                  {
-                    id: 'review',
-                    description: 'The compiled CLI user accepts the result',
-                    verifier: { kind: 'user' },
-                  },
-                ],
-              },
-            ],
+            explanation: 'Drive the compiled CLI through the authoritative Agent Plan',
+            plan: [{ step: 'Ship through the compiled CLI', status: 'in_progress' }],
           }),
-          '--idempotency-key',
-          'compiled-workflow',
         ],
         workspace,
       )
-      expect(workflowStart.code, workflowStart.stderr).toBe(0)
+      expect(planUpdate.code, planUpdate.stderr).toBe(0)
+      const planRevision = (JSON.parse(planUpdate.stdout) as { revision: number }).revision
+      const workflowFocus = await runCommand(
+        [
+          ...target,
+          'exec',
+          'workflow.focus.set',
+          '--input-json',
+          JSON.stringify({
+            stepIndex: 0,
+            item: {
+              id: 'ship',
+              title: 'Ignored in favor of the Agent Plan step',
+              scope: { readPaths: ['.'], writePaths: [], tools: ['read_file'] },
+              acceptanceChecks: [
+                {
+                  id: 'review',
+                  description: 'The compiled CLI user accepts the result',
+                  verifier: { kind: 'user' },
+                },
+              ],
+            },
+            completionPolicy: 'user',
+            expectedPlanRevision: planRevision,
+          }),
+        ],
+        workspace,
+      )
+      expect(workflowFocus.code, workflowFocus.stderr).toBe(0)
       const waiting = await runCommand(
         [
           ...target,

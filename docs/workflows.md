@@ -71,6 +71,7 @@ Plan revision 或步骤文本发生变化时，旧焦点、委派与 reviewer �
 CLI 示例：
 
 ```powershell
+hbar exec plan.update --session <Session ID> --input-json '<Agent Plan JSON>'
 hbar exec workflow.get --session <Session ID>
 hbar exec workflow.focus.set --session <Session ID> --input-json '<focus JSON>'
 hbar exec workflow.expandScope --session <Session ID> --input-json '<scope JSON>'
