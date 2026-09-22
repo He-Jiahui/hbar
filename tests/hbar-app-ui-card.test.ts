@@ -66,4 +66,15 @@ describe('hbar-app-ui card surfaces', () => {
     expect(render(4, content)).toContain('+4')
     expect(render(5, content)).toContain('No plans available')
   })
+
+  test('keeps the invoice variant source-shaped and content-owned', () => {
+    const value = render(11)
+    expect(value).toContain('INVOICE')
+    expect(value).toContain('Team seats')
+    expect(value).toContain('24 × $18.00')
+    expect(value).toContain('VAT (23%)')
+    expect(value).toContain('Total due')
+    expect(value).toContain('data-hbar-app-ui-list-strategy="content-grown"')
+    expect(value).not.toContain('INV-2026-09')
+  })
 })
