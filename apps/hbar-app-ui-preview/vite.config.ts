@@ -8,4 +8,13 @@ export default defineConfig({
   root: previewRoot,
   plugins: [react()],
   server: { port: 5180, strictPort: true },
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        formControlsAudit: fileURLToPath(new URL('./form-controls-audit.html', import.meta.url)),
+        promptAudit: fileURLToPath(new URL('./prompt-audit.html', import.meta.url)),
+      },
+    },
+  },
 })

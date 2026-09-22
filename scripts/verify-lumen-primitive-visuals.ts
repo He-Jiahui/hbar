@@ -1,4 +1,5 @@
 import { chromium, type Page } from '@playwright/test'
+import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/index'
 
 const port = 5191
 const baseUrl = `http://127.0.0.1:${port}`
@@ -95,10 +96,10 @@ async function inspect(page: Page, target: Target) {
       ].filter((element) => getComputedStyle(element).display !== 'none')
       const missingBoundary = controls.filter((element) => {
         if (element.matches('button')) return !element.querySelector('[data-edge]')
-        if (element.matches('input[type="checkbox"], [role="switch"]')) {
-          return !element.parentElement || element.parentElement.children.length < 2
-        }
-        return !element.closest('[data-boundary]')
+        if (element.closest('[data-boundary]')) return false
+        if (element.matches('input[type="checkbox"], input[type="radio"], [role="switch"]'))
+          return !element.closest('.lumen-checkbox-control, .lumen-toggle-control')
+        return true
       })
       const before = controls.find((element) => element.matches('input:not([type="checkbox"]), select, textarea'))
       const beforeRect = before?.getBoundingClientRect()
@@ -149,18 +150,28 @@ async function inspect(page: Page, target: Target) {
 async function run(): Promise<void> {
   let server: ReturnType<typeof Bun.spawn> | undefined
   try {
-    try {
-      await waitForPreview()
-    } catch {
-      server = Bun.spawn(['bun', 'run', 'app-ui:preview', '--host', '127.0.0.1', '--port', String(port)], {
-        stdout: 'ignore',
-        stderr: 'ignore',
-      })
-      await waitForPreview()
-    }
+    const build = Bun.spawn(['bun', 'run', 'app-ui:build'], { stdout: 'inherit', stderr: 'inherit' })
+    assert((await build.exited) === 0, 'The app-ui preview build failed')
+    server = Bun.spawn(
+      [
+        'node',
+        'node_modules/vite/bin/vite.js',
+        'preview',
+        '--config',
+        'apps/hbar-app-ui-preview/vite.config.ts',
+        '--host',
+        '127.0.0.1',
+        '--port',
+        String(port),
+      ],
+      { stdout: 'ignore', stderr: 'ignore' },
+    )
+    await waitForPreview()
     const browser = await chromium.launch({ headless: true, executablePath })
     const page = await browser.newPage()
     const results: Array<{ target: string; case: string; controls: number; lamps: number }> = []
+    let catalogControls = 0
+    let catalogLamps = 0
     try {
       for (const item of matrix) {
         await page.setViewportSize({ width: item.width, height: item.height })
@@ -200,12 +211,41 @@ async function run(): Promise<void> {
           results.push({ target: target.id, case: caseId, controls: audit.controlCount, lamps: audit.lampCount })
         }
       }
+
+      await page.setViewportSize({ width: 1280, height: 720 })
+      for (const spec of HBAR_APP_UI_VARIANT_SPECS) {
+        const parameters = new URLSearchParams({ variant: spec.id, mode: 'isolated', theme: 'dark' })
+        await page.goto(`${baseUrl}/?${parameters.toString()}`, { waitUntil: 'domcontentloaded' })
+        const audit = await inspect(page, {
+          id: spec.id,
+          root: `[data-hbar-app-ui-component="${spec.id}"]`,
+        })
+        assert(!audit.missingRoot, `${spec.id}: catalog root is missing`)
+        assert(!audit.rootVisibleBorder, `${spec.id}: catalog root regained a closed border`)
+        assert(audit.rootBoundary === 'horizontal', `${spec.id}: catalog root lamp boundary is missing`)
+        assert(audit.lampCount > 0, `${spec.id}: catalog surface rendered no Lumen lamps`)
+        assert(audit.closedControlCount === 0, `${spec.id}: a catalog control regained a closed border`)
+        assert(audit.missingBoundaryCount === 0, `${spec.id}: a catalog control bypassed its Lumen boundary`)
+        catalogControls += audit.controlCount
+        catalogLamps += audit.lampCount
+      }
     } finally {
       await browser.close()
     }
-    console.log(JSON.stringify({ cases: results.length, results }))
+    console.log(
+      JSON.stringify({
+        cases: results.length,
+        catalog: {
+          variants: HBAR_APP_UI_VARIANT_SPECS.length,
+          controls: catalogControls,
+          lamps: catalogLamps,
+        },
+        results,
+      }),
+    )
   } finally {
     server?.kill()
+    await server?.exited
   }
 }
 
