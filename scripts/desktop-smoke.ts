@@ -98,9 +98,9 @@ try {
     const control = document.querySelector<HTMLElement>('#hbar-appearance-controlSize')
     if (!control) throw new Error('Desktop appearance control is missing')
     return {
-      controlSize: document.documentElement.dataset.hbarAppUiControlSize,
-      textSize: document.documentElement.dataset.hbarAppUiTextSize,
-      cornerSize: document.documentElement.dataset.hbarAppUiCornerSize,
+      controlSize: document.documentElement.dataset.lumenControlSize,
+      textSize: document.documentElement.dataset.lumenTextSize,
+      cornerSize: document.documentElement.dataset.lumenCornerSize,
       height: Math.round(control.getBoundingClientRect().height),
     }
   })
@@ -108,7 +108,7 @@ try {
     largeAppearance.controlSize !== 'l' ||
     largeAppearance.textSize !== 'l' ||
     largeAppearance.cornerSize !== 'l' ||
-    largeAppearance.height !== 44
+    largeAppearance.height !== 42
   )
     throw new Error(`Desktop appearance did not apply the large scale: ${JSON.stringify(largeAppearance)}`)
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/appearance-large-default-window.png' })
@@ -117,7 +117,7 @@ try {
     .locator('footer')
     .getByText(/^(已连接|Connected)$/)
     .waitFor({ timeout: 15_000 })
-  await page.locator('html[data-hbar-app-ui-control-size="l"]').waitFor()
+  await page.locator('html[data-lumen-control-size="l"]').waitFor()
   await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
   await page.getByRole('button', { name: /^(外观|Appearance)$/ }).click()
   await page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ }).waitFor()
@@ -129,7 +129,7 @@ try {
     throw new Error('Desktop appearance preferences did not survive reload')
   await page.getByRole('button', { name: /^(恢复默认|Restore defaults)$/ }).click()
   await page.getByText(/^(外观偏好已保存|Appearance preferences saved)$/).waitFor()
-  await page.locator('html[data-hbar-app-ui-control-size="m"]').waitFor()
+  await page.locator('html[data-lumen-control-size="m"]').waitFor()
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/appearance-reset-default-window.png' })
   await page.getByRole('button', { name: /^(返回会话|Back to session)$/ }).click()
   await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
@@ -144,7 +144,7 @@ try {
   await createDialog.waitFor({ state: 'hidden' })
   await page.getByRole('heading', { level: 1, name: 'Tauri visual session' }).waitFor()
   const fileChooser = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: /^(添加附件|Add attachment)$/ }).click()
+  await page.locator('label.lumen-attachment-button').click()
   await (
     await fileChooser
   ).setFiles({
@@ -167,8 +167,8 @@ try {
         shell: rect('.hbar-app-ui-app-shell'),
         frame: rect('.hbar-app-ui-app-frame'),
         sessionMain: rect('.hbar-app-react-session-main'),
-        conversation: rect('.hbar-app-ui-conversation'),
-        timeline: rect('.hbar-app-ui-conversation-content'),
+        conversation: rect('.lumen-conversation'),
+        timeline: rect('.lumen-conversation-content'),
         composer: rect('.hbar-app-react-session-footer'),
       }
     })
@@ -181,8 +181,11 @@ try {
     )
       throw new Error(`${stage}: conversation does not fill the session main region: ${JSON.stringify(geometry)}`)
     if (
-      !within(geometry.timeline.left, geometry.composer.left) ||
-      !within(geometry.timeline.right, geometry.composer.right)
+      geometry.composer.width > geometry.timeline.width ||
+      !within(
+        geometry.composer.left - geometry.conversation.left,
+        geometry.conversation.right - geometry.composer.right,
+      )
     )
       throw new Error(`${stage}: timeline and composer edges differ: ${JSON.stringify(geometry)}`)
     const leftGutter = geometry.timeline.left - geometry.conversation.left
