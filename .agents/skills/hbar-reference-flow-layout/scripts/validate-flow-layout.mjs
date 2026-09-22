@@ -88,14 +88,22 @@ function parseRules(source) {
   return rules
 }
 
-function isOverlaySelector(selector) {
-  return /hbar-app-ui-(?:dialog-backdrop|dialog-menu|app-sidebar-drawer|app-tool-drawer)(?:[\s.:#>+~]|$)/.test(selector)
+function isOverlaySelector(path, selector) {
+  if (/hbar-app-ui-(?:dialog-backdrop|dialog-menu|app-sidebar-drawer|app-tool-drawer)(?:[\s.:#>+~]|$)/.test(selector)) {
+    return true
+  }
+  if (!/packages\/lumen-app-ui\/src\/(?:materials|primitives)\.module\.css$/.test(path.replaceAll('\\', '/'))) {
+    return false
+  }
+  return /(?:^|,)\s*(?:\.surface\s*>\s*\.indicator|\.field\s*>\s*\.indicator|\.button\s*>\s*\[data-edge|\.iconButton\s*>\s*\[data-edge|\.glass|\.filter|\.halo)(?:[=\]\s\[:.#>+~]|$)/.test(
+    selector,
+  )
 }
 
 function validateCss(path, source) {
   const errors = []
   for (const rule of parseRules(source)) {
-    const isOverlay = isOverlaySelector(rule.selector)
+    const isOverlay = isOverlaySelector(path, rule.selector)
     const lines = rule.body.split(/\r?\n/)
     for (const [offset, rawLine] of lines.entries()) {
       const match = rawLine.match(/^\s*([a-z-]+)\s*:\s*([^;]+);/)
@@ -171,6 +179,41 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   )
   if (overlay.length !== 0) {
     console.error(`Flow layout guard self-test expected overlay exception, got: ${overlay.join('; ')}`)
+    process.exit(1)
+  }
+  const lumenMaterialOverlay = validateCss(
+    'packages/lumen-app-ui/src/materials.module.css',
+    `.surface > .indicator {
+  position: absolute;
+  inset-block-start: 0;
+}
+.glass {
+  position: absolute;
+  inset: 0;
+}
+.button > [data-edge],
+.iconButton > [data-edge] {
+  position: absolute;
+  inset-block-start: 0;
+}`,
+  )
+  if (lumenMaterialOverlay.length !== 0) {
+    console.error(
+      `Flow layout guard self-test expected Lumen material overlay exception, got: ${lumenMaterialOverlay.join('; ')}`,
+    )
+    process.exit(1)
+  }
+  const leakedLumenOverlay = validateCss(
+    'packages/hbar-app-ui/src/feature.css',
+    `.surface > .indicator {
+  position: absolute;
+  inset: 0;
+}`,
+  )
+  if (leakedLumenOverlay.length < 2) {
+    console.error(
+      `Flow layout guard self-test expected Lumen material exception to remain path-scoped, got: ${leakedLumenOverlay.join('; ')}`,
+    )
     process.exit(1)
   }
   console.log('Flow layout guard self-test passed.')
