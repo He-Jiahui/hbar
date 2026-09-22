@@ -1149,6 +1149,7 @@ async function _runInteractionsLegacy(
                       ? 'matched'
                       : 'lumen-different'
               const result = {
+                variantId: spec.id,
                 id: interaction.id,
                 action: interaction.action,
                 capability: interaction.action,
@@ -1252,6 +1253,7 @@ async function runInteractionsParallel(
                     ? 'matched'
                     : 'lumen-different'
               const result = {
+                variantId: spec.id,
                 id: interaction.id,
                 action: interaction.action,
                 capability: interaction.action,
@@ -1411,12 +1413,12 @@ async function runCompare(options: AuditOptions): Promise<void> {
   const inventory = await readJson<ReactBitsProInventory>(inventoryPath(options))
   const interactionPath = join(options.outputRoot, 'interaction-report.json')
   const interactionReport = (await Bun.file(interactionPath).exists())
-    ? await readJson<{ results: readonly { id: string; status?: string }[] }>(interactionPath)
+    ? await readJson<{ results: readonly { variantId?: string; id: string; status?: string }[] }>(interactionPath)
     : { results: [] }
   const selectedIds = [...new Set(manifest.records.map((record) => record.id))]
   const ledger = selectedIds.map((id) => {
     const staticRows = comparisons.filter((comparison) => comparison.id === id)
-    const interactionRows = interactionReport.results.filter((result) => result.id.startsWith(`${id}:`))
+    const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
     const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
     const interactionFailures = interactionRows
       .filter((result) => result.status === 'missing' || result.status === 'lumen-different')
