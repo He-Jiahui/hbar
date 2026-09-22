@@ -19,6 +19,14 @@ The production entry is `hbar-app-ui`. Gallery hosts explicitly import
 `hbar-app-ui/catalog`; the 300 existing variant IDs remain stable. Production
 dependencies are checked by `tests/hbar-app-ui-entrypoints.test.ts`.
 
+Registration is not visual acceptance. A variant is only considered fully
+accepted after the live React Bits Pro audit in [app-ui-visual-audit.md](app-ui-visual-audit.md)
+has source/local records for every configured viewport and theme, every discovered
+interaction, no structural hard-gate failure, no page/console error, and a passed
+entry in the generated `review-ledger.json`. The audit commands are
+`bun run app-ui:reactbits:discover`, `bun run app-ui:reactbits:audit`, and the
+development filters documented in that guide.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

@@ -458,11 +458,7 @@ export type {
   HbarAppUiAnalyticsSeries,
   HbarAppUiAnalyticsStackedContent,
 } from './components/Analytics'
-export {
-  HbarAppUiFormsProvider,
-  selectHbarAppUiFormsItem,
-  uniqueHbarAppUiFormsItems,
-} from './components/Forms'
+export { HbarAppUiFormsProvider, selectHbarAppUiFormsItem, uniqueHbarAppUiFormsItems } from './components/Forms'
 export type {
   HbarAppUiFormsAction,
   HbarAppUiFormsApplicationContent,
@@ -543,11 +539,7 @@ export type {
   HbarAppUiNotificationToastChoice,
   HbarAppUiNotificationToastsContent,
 } from './components/Notifications'
-export {
-  HbarAppUiMobileProvider,
-  selectHbarAppUiMobileItem,
-  uniqueHbarAppUiMobileItems,
-} from './components/Mobile'
+export { HbarAppUiMobileProvider, selectHbarAppUiMobileItem, uniqueHbarAppUiMobileItems } from './components/Mobile'
 export type {
   HbarAppUiMobileAction,
   HbarAppUiMobileActivityContent,
@@ -564,11 +556,7 @@ export type {
   HbarAppUiMobileTask,
   HbarAppUiMobileTasksContent,
 } from './components/Mobile'
-export {
-  HbarAppUiSupportProvider,
-  selectHbarAppUiSupportItem,
-  uniqueHbarAppUiSupportItems,
-} from './components/Support'
+export { HbarAppUiSupportProvider, selectHbarAppUiSupportItem, uniqueHbarAppUiSupportItems } from './components/Support'
 export type {
   HbarAppUiSupportAction,
   HbarAppUiSupportArticle,
@@ -588,11 +576,7 @@ export type {
   HbarAppUiSupportTicketFormContent,
   HbarAppUiSupportTopic,
 } from './components/Support'
-export {
-  HbarAppUiWizardProvider,
-  selectHbarAppUiWizardItem,
-  uniqueHbarAppUiWizardItems,
-} from './components/Wizard'
+export { HbarAppUiWizardProvider, selectHbarAppUiWizardItem, uniqueHbarAppUiWizardItems } from './components/Wizard'
 export type {
   HbarAppUiWizardAction,
   HbarAppUiWizardChoice,
@@ -643,11 +627,7 @@ export type {
   HbarAppUiAppSidebarProviderProps,
   HbarAppUiAppSidebarTreeNode,
 } from './components/AppSidebar'
-export {
-  HbarAppUiAiChatProvider,
-  selectHbarAppUiAiChatItem,
-  uniqueHbarAppUiAiChatItems,
-} from './components/AiChat'
+export { HbarAppUiAiChatProvider, selectHbarAppUiAiChatItem, uniqueHbarAppUiAiChatItems } from './components/AiChat'
 export type {
   HbarAppUiAiChatAction,
   HbarAppUiAiChatChoice,
@@ -657,11 +637,7 @@ export type {
   HbarAppUiAiChatProviderChoice,
   HbarAppUiAiChatProviderProps,
 } from './components/AiChat'
-export {
-  HbarAppUiKanbanProvider,
-  selectHbarAppUiKanbanItem,
-  uniqueHbarAppUiKanbanItems,
-} from './components/Kanban'
+export { HbarAppUiKanbanProvider, selectHbarAppUiKanbanItem, uniqueHbarAppUiKanbanItems } from './components/Kanban'
 export type {
   HbarAppUiKanbanAction,
   HbarAppUiKanbanCard,
@@ -694,11 +670,7 @@ export type {
   HbarAppUiOnboardingStepsContent,
   HbarAppUiOnboardingUseCaseContent,
 } from './components/Onboarding'
-export {
-  HbarAppUiListProvider,
-  selectHbarAppUiListItem,
-  uniqueHbarAppUiListItems,
-} from './components/List'
+export { HbarAppUiListProvider, selectHbarAppUiListItem, uniqueHbarAppUiListItems } from './components/List'
 export type {
   HbarAppUiListAction,
   HbarAppUiListAsset,
@@ -1007,6 +979,11 @@ export type {
   HbarAppUiProfileState,
   HbarAppUiProfileSurface,
   HbarAppUiVariantProfile,
+  HbarAppUiAuditManifest,
+  HbarAppUiAuditStatus,
+  HbarAppUiInteractionCapability,
+  HbarAppUiInteractionResult,
+  HbarAppUiVariantReference,
 } from './types'
 
 export { HBAR_APP_UI_VARIANT_EXPORTS } from './variants'

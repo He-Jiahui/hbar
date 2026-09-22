@@ -133,6 +133,8 @@ def main() -> None:
         for source_path in sorted(source_root.glob("*/**/*.png")):
             relative = source_path.relative_to(source_root)
             local_path = local_root / relative
+            if Path(relative.parts[-1]).stem not in VIEWPORTS:
+                continue
             if not local_path.exists():
                 missing.append({"source": str(source_path), "local": str(local_path)})
                 continue
