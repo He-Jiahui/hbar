@@ -93,7 +93,10 @@ function isOverlaySelector(path, selector) {
     return true
   }
   if (!/packages\/lumen-app-ui\/src\/(?:materials|primitives)\.module\.css$/.test(path.replaceAll('\\', '/'))) {
-    return false
+    return (
+      /packages\/lumen-app-ui\/src\/forms\.css$/.test(path.replaceAll('\\', '/')) &&
+      /(?:^|,)\s*\.lumen-combobox-popup(?:[\s\[:.#>+~]|$)/.test(selector)
+    )
   }
   return /(?:^|,)\s*(?:\.surface\s*>\s*\.indicator|\.field\s*>\s*\.indicator|\.button\s*>\s*\[data-edge|\.iconButton\s*>\s*\[data-edge|\.glass|\.filter|\.halo)(?:[=\]\s\[:.#>+~]|$)/.test(
     selector,
@@ -213,6 +216,20 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   if (leakedLumenOverlay.length < 2) {
     console.error(
       `Flow layout guard self-test expected Lumen material exception to remain path-scoped, got: ${leakedLumenOverlay.join('; ')}`,
+    )
+    process.exit(1)
+  }
+  const lumenComboboxOverlay = validateCss(
+    'packages/lumen-app-ui/src/forms.css',
+    `.lumen-combobox-popup {
+  position: absolute;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline: 0;
+}`,
+  )
+  if (lumenComboboxOverlay.length !== 0) {
+    console.error(
+      `Flow layout guard self-test expected Lumen combobox overlay exception, got: ${lumenComboboxOverlay.join('; ')}`,
     )
     process.exit(1)
   }
