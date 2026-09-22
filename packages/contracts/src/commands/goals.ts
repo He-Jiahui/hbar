@@ -91,6 +91,7 @@ export const goalPlanCommands = {
     metadata('plan.update', 'command'),
     z.strictObject({
       sessionId: idSchema,
+      expectedRevision: z.number().int().nonnegative().optional(),
       turnId: idSchema.nullable().optional(),
       explanation: z.string().max(4_000).nullable().optional(),
       plan: z.array(planStepSchema).max(MAX_PLAN_STEPS),
@@ -99,7 +100,7 @@ export const goalPlanCommands = {
   ),
   'plan.clear': defineCommand(
     { ...metadata('plan.clear', 'command'), cli: { arguments: [sessionArgument] } },
-    z.strictObject({ sessionId: idSchema }),
+    z.strictObject({ sessionId: idSchema, expectedRevision: z.number().int().nonnegative().optional() }),
     clearedSchema,
   ),
 }

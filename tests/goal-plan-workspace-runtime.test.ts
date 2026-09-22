@@ -59,6 +59,7 @@ test('goal and plan workspace owns drafts and reconciles an unknown plan save fr
           planWrites += 1
           plan = {
             sessionId: session.id,
+            revision: (plan?.revision ?? 0) + 1,
             turnId: null,
             explanation: typeof value.explanation === 'string' ? value.explanation : null,
             plan: value.plan as PlanState['plan'],

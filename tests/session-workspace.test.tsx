@@ -146,6 +146,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     async plan() {
       return {
         sessionId: session.id,
+        revision: 1,
         turnId: 'run',
         explanation: 'Keep the plan attached to its run.',
         plan: [

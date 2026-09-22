@@ -194,8 +194,14 @@ export interface GoalService {
 }
 export interface PlanService {
   get(sessionId: string): Promise<PlanState | null>
-  update(sessionId: string, plan: PlanStep[], explanation?: string | null, turnId?: string | null): Promise<PlanState>
-  clear(sessionId: string): Promise<{ cleared: boolean }>
+  update(
+    sessionId: string,
+    plan: PlanStep[],
+    explanation?: string | null,
+    turnId?: string | null,
+    expectedRevision?: number,
+  ): Promise<PlanState>
+  clear(sessionId: string, expectedRevision?: number): Promise<{ cleared: boolean }>
 }
 export interface WorkflowService {
   get(sessionId: string): Promise<WorkflowSnapshot>
@@ -413,6 +419,8 @@ export interface HookEvents {
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'goal.beforeComplete': { sessionId: string; runId?: string | undefined; goal: ThreadGoal }
   'goal.beforeContinue': { sessionId: string; runId: string; goal: ThreadGoal; allowed: boolean }
+  'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal }
+  'goal.cleared': { sessionId: string; previous: ThreadGoal }
   'agent.patch': {
     parentSessionId: string
     agentId: string

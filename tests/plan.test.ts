@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { userInputQuestionSchema, userInputResponseSchema } from '@hbar/contracts'
-import type { PlanService, WorkflowService } from '@hbar/plugin-sdk'
+import type { PlanService } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from '../plugins/plan/src/instructions.ts'
 
 const resources: Array<{ root: string; kernel: Kernel }> = []
@@ -36,9 +36,16 @@ test('plan accepts an empty update and broadcasts a clear notification', async (
   const events: unknown[] = []
   const unsubscribe = kernel.subscribe((event) => events.push(event))
   try {
-    await plans.update(session.id, [{ step: 'inspect', status: 'pending' }])
-    expect((await plans.update(session.id, [])).plan).toEqual([])
-    expect(await plans.clear(session.id)).toEqual({ cleared: true })
+    const first = await plans.update(session.id, [{ step: 'inspect', status: 'pending' }])
+    expect(first.revision).toBe(1)
+    expect((await plans.update(session.id, [], null, null, 1)).revision).toBe(2)
+    try {
+      await plans.update(session.id, [], null, null, 1)
+      throw new Error('Expected stale plan update to reject')
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'PLAN_REVISION_CONFLICT' })
+    }
+    expect(await plans.clear(session.id, 2)).toEqual({ cleared: true })
     expect(events.some((event) => (event as { method?: string }).method === 'plan.updated')).toBeTrue()
     expect(events.some((event) => (event as { method?: string }).method === 'plan.cleared')).toBeTrue()
   } finally {
@@ -61,6 +68,27 @@ test('plan mode state survives a host restart', async () => {
   expect((await restarted.plugins.get<typeof mode>('mode').get(session.id)).mode).toBe('plan')
 })
 
+test('legacy plan events recover with monotonic revisions', async () => {
+  const { root, kernel, session } = await fixture()
+  await kernel.append(session.id, 'plan.updated', {
+    plan: {
+      sessionId: session.id,
+      turnId: null,
+      explanation: 'Legacy plan without a revision',
+      plan: [{ step: 'Recover the plan', status: 'in_progress' }],
+      updatedAt: 1,
+    },
+  })
+  await kernel.close()
+  const index = resources.findIndex((entry) => entry.kernel === kernel)
+  if (index >= 0) resources.splice(index, 1)
+  const restarted = await Kernel.create({ home: join(root, 'data'), demo: true, secrets: new MemorySecrets() })
+  resources.push({ root, kernel: restarted })
+  const plans = restarted.plugins.get<PlanService>('plan')
+  expect(await plans.get(session.id)).toMatchObject({ revision: 1, explanation: 'Legacy plan without a revision' })
+  expect((await plans.update(session.id, [{ step: 'Continue', status: 'in_progress' }])).revision).toBe(2)
+})
+
 test('plan mode exposes the Codex collaboration rules separately from update_plan', () => {
   expect(PLAN_MODE_INSTRUCTIONS).toContain('Plan Mode')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('developer message explicitly ends it.')
@@ -68,38 +96,8 @@ test('plan mode exposes the Codex collaboration rules separately from update_pla
   expect(PLAN_MODE_INSTRUCTIONS).toContain('does not enter or exit Plan Mode')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('mutating')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('<proposed_plan>')
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('save_workflow_plan')
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('structured TODO list')
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('external acceptance check')
+  expect(PLAN_MODE_INSTRUCTIONS).not.toContain('save_workflow_plan')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('final acceptance checklist')
-})
-
-test('plan mode can save a structured workflow draft without mutating workspace files', async () => {
-  const { kernel, session } = await fixture()
-  const mode = kernel.plugins.get<{
-    set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>
-  }>('mode')
-  await mode.set(session.id, 'plan')
-  await kernel.submit(
-    session.id,
-    'save-structured-workflow',
-    {
-      mode: 'plan',
-      text: '/tool save_workflow_plan {"objective":"Ship verified work","items":[{"id":"implement","title":"Implement the change","scope":{"readPaths":["src"],"writePaths":["src"],"tools":["read_file","write_file"]},"acceptanceChecks":[{"id":"test","description":"The integration test passes","required":true,"verifier":{"kind":"tool","toolName":"run_command"}}]}]}',
-      images: [],
-    },
-    'local-fixture',
-  )
-  await kernel.waitForIdle()
-  expect(await kernel.plugins.get<WorkflowService>('workflow').get(session.id)).toMatchObject({
-    plan: {
-      phase: 'draft',
-      revision: 1,
-      objective: 'Ship verified work',
-      items: [{ id: 'implement', acceptanceChecks: [{ id: 'test' }] }],
-    },
-    workflow: null,
-  })
 })
 
 test('request user input contracts preserve free-text wire questions and answer-only responses', () => {

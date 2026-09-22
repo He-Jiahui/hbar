@@ -29,6 +29,7 @@ const goal: ThreadGoal = {
 }
 const plan: PlanState = {
   sessionId: session.id,
+  revision: 1,
   turnId: null,
   explanation: 'Keep every slice reviewable.',
   plan: [

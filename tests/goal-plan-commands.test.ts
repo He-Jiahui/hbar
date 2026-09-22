@@ -79,8 +79,13 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     goal: { threadId: session.id, objective: 'finish the command migration', status: 'active', tokenBudget: 1_000 },
     remainingTokens: 1_000,
   })
+  const replacedByCreate = await commands.execute('goal.create', {
+    sessionId: session.id,
+    objective: 'replacement from create',
+  })
+  expect(replacedByCreate.goal).toMatchObject({ objective: 'replacement from create', tokensUsed: 0 })
   await expect(
-    commands.execute('goal.create', { sessionId: session.id, objective: 'duplicate' }),
+    commands.execute('goal.create', { sessionId: session.id, objective: 'replacement from create' }),
   ).rejects.toMatchObject({ code: 'GOAL_EXISTS' })
   await expect(
     commands.execute('goal.set', {
@@ -89,16 +94,19 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
       expectedGoalId: crypto.randomUUID(),
     }),
   ).rejects.toMatchObject({ code: 'GOAL_CONFLICT' })
-  const goalId = created.goal?.goalId
+  const goalId = replacedByCreate.goal?.goalId
   if (!goalId) throw new Error('Goal identity missing')
   const updated = await commands.execute('goal.set', {
     sessionId: session.id,
     objective: 'ship the command migration',
     expectedGoalId: goalId,
   })
-  expect(updated.goal).toMatchObject({ goalId, objective: 'ship the command migration' })
+  expect(updated.goal).toMatchObject({ objective: 'ship the command migration', tokensUsed: 0 })
+  expect(updated.goal?.goalId).not.toBe(goalId)
+  const updatedGoalId = updated.goal?.goalId
+  if (!updatedGoalId) throw new Error('Replacement goal identity missing')
   expect(await commands.execute('goal.update', { sessionId: session.id, status: 'blocked' })).toMatchObject({
-    goal: { goalId, status: 'blocked' },
+    goal: { goalId: updatedGoalId, status: 'blocked' },
   })
   expect(await commands.execute('goal.get', { sessionId: other.id })).toEqual({
     goal: null,
@@ -115,6 +123,7 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
   })
   expect(plan).toMatchObject({
     sessionId: session.id,
+    revision: 1,
     explanation: 'Keep the target explicit',
     plan: [
       { step: 'inspect', status: 'completed' },
@@ -122,7 +131,16 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     ],
   })
   expect(await commands.execute('plan.get', { sessionId: session.id })).toEqual(plan)
-  expect(await commands.execute('plan.clear', { sessionId: session.id })).toEqual({ cleared: true })
+  await expect(
+    commands.execute('plan.update', {
+      sessionId: session.id,
+      expectedRevision: 0,
+      plan: [{ step: 'stale', status: 'pending' }],
+    }),
+  ).rejects.toMatchObject({ code: 'PLAN_REVISION_CONFLICT' })
+  expect(await commands.execute('plan.clear', { sessionId: session.id, expectedRevision: 1 })).toEqual({
+    cleared: true,
+  })
   expect(await commands.execute('plan.clear', { sessionId: session.id })).toEqual({ cleared: false })
   expect(await commands.execute('plan.get', { sessionId: session.id })).toBeNull()
   expect(await commands.execute('goal.clear', { sessionId: session.id })).toEqual({ cleared: true })

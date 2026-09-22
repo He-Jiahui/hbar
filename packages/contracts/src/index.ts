@@ -89,6 +89,7 @@ export const planStepSchema = z.object({
 export type PlanStep = z.infer<typeof planStepSchema>
 export const planStateSchema = z.object({
   sessionId: idSchema,
+  revision: z.number().int().positive(),
   turnId: idSchema.nullable(),
   explanation: z.string().max(4_000).nullable(),
   plan: z.array(planStepSchema).max(MAX_PLAN_STEPS),

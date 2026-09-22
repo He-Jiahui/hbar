@@ -25,7 +25,8 @@ export const planConfigSchema = z.object({
 })
 export type PlanConfig = z.infer<typeof planConfigSchema>
 
-const planUpdatedEventSchema = z.object({ plan: planStateSchema })
+const restoredPlanSchema = planStateSchema.extend({ revision: z.number().int().positive().optional() })
+const planUpdatedEventSchema = z.object({ plan: restoredPlanSchema })
 const planClearedEventSchema = z.object({ sessionId: idSchema })
 const modeChangedEventSchema = z.object({ mode: runModeSchema })
 const updatePlanSchema = z.object({
@@ -63,7 +64,9 @@ class PlanRuntime implements PlanService {
   async restore() {
     const sessions = await this.api.sessions.list()
     for (let offset = 0; offset < sessions.length; offset += RESTORE_CONCURRENCY) {
-      await Promise.all(sessions.slice(offset, offset + RESTORE_CONCURRENCY).map((session) => this.restoreSession(session.id)))
+      await Promise.all(
+        sessions.slice(offset, offset + RESTORE_CONCURRENCY).map((session) => this.restoreSession(session.id)),
+      )
     }
     this.hydrated = true
   }
@@ -71,7 +74,10 @@ class PlanRuntime implements PlanService {
   private async restoreSession(sessionId: string) {
     const events = await this.api.sessions.events(sessionId, 0, this.config.maxRestoreEvents + 1)
     if (events.length > this.config.maxRestoreEvents)
-      throw new HbarError('PLAN_RESTORE_LIMIT', `Plan replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`)
+      throw new HbarError(
+        'PLAN_RESTORE_LIMIT',
+        `Plan replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
+      )
     for (const event of events) this.applyEvent(sessionId, event)
   }
 
@@ -80,7 +86,14 @@ class PlanRuntime implements PlanService {
       const parsed = planUpdatedEventSchema.safeParse(event.data)
       if (!parsed.success || parsed.data.plan.sessionId !== sessionId)
         throw new HbarError('PLAN_REPLAY', `Invalid plan.updated event in ${sessionId}`)
-      this.plans.set(sessionId, parsed.data.plan)
+      const previous = this.plans.get(sessionId)
+      this.plans.set(
+        sessionId,
+        planStateSchema.parse({
+          ...parsed.data.plan,
+          revision: parsed.data.plan.revision ?? (previous?.revision ?? 0) + 1,
+        }),
+      )
       return
     }
     if (event.type === 'plan.cleared') {
@@ -125,13 +138,23 @@ class PlanRuntime implements PlanService {
     return this.plans.get(sessionId) ?? null
   }
 
-  async update(sessionId: string, steps: PlanStep[], explanation?: string | null, turnId?: string | null) {
+  async update(
+    sessionId: string,
+    steps: PlanStep[],
+    explanation?: string | null,
+    turnId?: string | null,
+    expectedRevision?: number,
+  ) {
     return this.serial(sessionId, async () => {
+      const current = this.plans.get(sessionId)
+      if (expectedRevision !== undefined && expectedRevision !== (current?.revision ?? 0))
+        throw new HbarError('PLAN_REVISION_CONFLICT', 'The plan changed before this update was applied')
       // Codex accepts an empty checklist; an empty update is the wire-level
       // equivalent of clearing the current plan.
       const parsedSteps = z.array(planStepSchema).max(100).parse(steps)
       const state = planStateSchema.parse({
         sessionId,
+        revision: (current?.revision ?? 0) + 1,
         turnId: turnId ?? null,
         explanation: explanation === undefined ? null : explanation,
         plan: parsedSteps,
@@ -142,9 +165,12 @@ class PlanRuntime implements PlanService {
     })
   }
 
-  async clear(sessionId: string) {
+  async clear(sessionId: string, expectedRevision?: number) {
     return this.serial(sessionId, async () => {
-      if (!this.plans.has(sessionId)) return { cleared: false }
+      const current = this.plans.get(sessionId)
+      if (expectedRevision !== undefined && expectedRevision !== (current?.revision ?? 0))
+        throw new HbarError('PLAN_REVISION_CONFLICT', 'The plan changed before this update was applied')
+      if (!current) return { cleared: false }
       await this.api.sessions.append(sessionId, 'plan.cleared', { sessionId })
       this.plans.delete(sessionId)
       this.api.notify({ method: 'plan.cleared', params: { sessionId } })
@@ -180,7 +206,10 @@ class PlanRuntime implements PlanService {
     signal: AbortSignal,
   ) {
     if (!this.canRequestUserInput(mode))
-      throw new HbarError('PLAN_MODE', `request_user_input is unavailable in ${mode === 'plan' ? 'Plan' : 'Default'} mode`)
+      throw new HbarError(
+        'PLAN_MODE',
+        `request_user_input is unavailable in ${mode === 'plan' ? 'Plan' : 'Default'} mode`,
+      )
     const normalizedQuestions = questions.map((question) => ({
       ...question,
       // Codex defaults these optional controls to false on the wire. Preserve
@@ -229,19 +258,17 @@ class PlanRuntime implements PlanService {
           ...(current.explanation ? [`Notes: ${escapeXml(current.explanation)}`] : []),
         ].join('\n')
       : 'There is no saved plan yet.'
-    const prompt = [
-      '<plan_mode>',
-      PLAN_MODE_INSTRUCTIONS,
-      prior,
-      '</plan_mode>',
-    ].join('\n')
+    const prompt = ['<plan_mode>', PLAN_MODE_INSTRUCTIONS, prior, '</plan_mode>'].join('\n')
     return { ...request, system: `${request.system}\n\n${prompt}` }
   }
 
   enforceReadOnly(name: string, context: ToolContext, tool: ToolDefinition) {
     if (context.run.input.mode !== 'plan') return
     if (name !== 'update_plan' && tool.effect !== 'read')
-      throw new HbarError('PLAN_READ_ONLY', `Plan mode cannot execute ${name}; switch back to default mode to make changes`)
+      throw new HbarError(
+        'PLAN_READ_ONLY',
+        `Plan mode cannot execute ${name}; switch back to default mode to make changes`,
+      )
   }
 }
 
@@ -249,7 +276,8 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
   return [
     {
       name: 'update_plan',
-      description: 'Update the current TODO/checklist plan. Use concise steps, mark completed work accurately, and keep at most one in_progress step. This tool is not available in Plan mode.',
+      description:
+        'Update the current TODO/checklist plan. Use concise steps, mark completed work accurately, and keep at most one in_progress step. This tool is not available in Plan mode.',
       inputSchema: updatePlanSchema,
       effect: 'read',
       execute: async (args, context) => {
@@ -268,7 +296,10 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
       execute: async (args, context) => {
         const mode = context.run.input.mode ?? 'default'
         if (!runtime.canRequestUserInput(mode))
-          throw new HbarError('PLAN_MODE', `request_user_input is unavailable in ${mode === 'plan' ? 'Plan' : 'Default'} mode`)
+          throw new HbarError(
+            'PLAN_MODE',
+            `request_user_input is unavailable in ${mode === 'plan' ? 'Plan' : 'Default'} mode`,
+          )
         const parsed = requestUserInputSchema.parse(args)
         const response = await runtime.requestUserInput(
           context.session.id,
@@ -309,6 +340,12 @@ export const planPlugin = definePlugin({
     })
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))
     ctx.hbar.api.hooks.on('tool.before', ({ name, context, tool }) => runtime.enforceReadOnly(name, context, tool))
+    ctx.hbar.api.hooks.on('goal.replaced', async ({ sessionId }) => {
+      await runtime.clear(sessionId)
+    })
+    ctx.hbar.api.hooks.on('goal.cleared', async ({ sessionId }) => {
+      await runtime.clear(sessionId)
+    })
     for (const tool of planTools(runtime)) ctx.hbar.api.tools.register(tool)
   },
 })

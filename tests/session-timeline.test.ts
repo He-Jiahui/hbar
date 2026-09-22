@@ -99,6 +99,7 @@ test('timeline follows the selected session incrementally and rejects stale or m
       'session-one',
       {
         sessionId: 'session-one',
+        revision: 1,
         turnId: 'run-one',
         explanation: 'Initial plan',
         plan: [{ step: 'Inspect', status: 'in_progress' }],
@@ -190,6 +191,7 @@ test('timeline follows the selected session incrementally and rejects stale or m
         {
           plan: {
             sessionId: 'session-one',
+            revision: 2,
             turnId: 'run-one',
             explanation: 'Updated plan',
             plan: [
@@ -358,6 +360,7 @@ test('client timeline adapter filters notifications and releases its exact follo
       if (method === 'plan.get')
         return {
           sessionId: 'session-one',
+          revision: 1,
           turnId: 'run',
           explanation: null,
           plan: [{ step: 'Verify', status: 'in_progress' }],
