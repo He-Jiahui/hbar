@@ -27,6 +27,7 @@ describe('hbar-app-ui ai chat surfaces', () => {
     values.forEach((value, index) => {
       expect(value).toContain('data-lumen-component="ai-chat"')
       expect(value).toContain(`data-lumen-variant="${index + 1}"`)
+      expect(value).toContain('data-boundary="horizontal"')
       expect(value).not.toContain('lucide')
       expect(value).not.toContain('hbar-app-ui-button')
     })

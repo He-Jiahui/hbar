@@ -48,6 +48,7 @@ describe('hbar-app-ui prompt input surfaces', () => {
     values.forEach((value, index) => {
       expect(value).toContain('data-lumen-component="prompt-input"')
       expect(value).toContain(`data-lumen-variant="${index + 1}"`)
+      expect(value).toContain('data-boundary="horizontal"')
       expect(value).not.toContain('lucide')
       expect(value).not.toContain('hbar-app-ui-composer')
     })
@@ -56,6 +57,8 @@ describe('hbar-app-ui prompt input surfaces', () => {
   test('delegates the production compatibility composer to Lumen', () => {
     const value = renderToStaticMarkup(createElement(HbarAppUiPromptComposer, controlledComposer))
     expect(value).toContain('lumen-prompt-composer')
+    expect(value).toContain('<form')
+    expect(value).toContain('data-boundary="horizontal"')
     expect(value).toContain('Keep this host draft')
     expect(value).toContain('brief.md')
     expect(value).not.toContain('hbar-app-ui-prompt-composer')

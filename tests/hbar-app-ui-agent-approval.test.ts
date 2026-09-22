@@ -50,6 +50,7 @@ describe('hbar-app-ui agent approval surfaces', () => {
 
         for (const surface of markup) {
             const normalized = surface.toLocaleLowerCase()
+            expect(surface).toContain('data-boundary="horizontal"')
             expect(normalized).not.toContain('react-bits')
             expect(normalized).not.toContain('reactbits')
         }
