@@ -9,21 +9,21 @@
 .hbar-app-ui-variant.hbar-app-ui-dialog-variant-5,
 .hbar-app-ui-variant.hbar-app-ui-dialog-variant-6,
 .hbar-app-ui-variant.hbar-app-ui-dialog-variant-7 {
-  position: relative;
-  display: flex !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  min-block-size: min(100dvh, 40rem) !important;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden !important;
-  padding: 1.5rem !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: #0a0a0a !important;
-  box-shadow: none !important;
-  color: #fff !important;
-  font-family: ui-sans-serif, system-ui, sans-serif !important;
+    position: relative;
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-block-size: min(100dvh, 40rem) !important;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden !important;
+    padding: 1.5rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #0a0a0a !important;
+    box-shadow: none !important;
+    color: #fff !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-variant-1 *,
@@ -47,928 +47,864 @@
 .hbar-app-ui-dialog-variant-7 *,
 .hbar-app-ui-dialog-variant-7 *::before,
 .hbar-app-ui-dialog-variant-7 *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 .hbar-app-ui-dialog-trigger {
-  display: inline-flex !important;
-  min-block-size: 2.25rem !important;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border: 0 !important;
-  border-radius: 0.5rem !important;
-  padding: 0 0.75rem !important;
-  background: #fff !important;
-  color: #343434 !important;
-  cursor: pointer;
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: inline-flex !important;
+    min-block-size: 2.25rem !important;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 0 !important;
+    border-radius: .5rem !important;
+    padding: 0 .75rem !important;
+    background: #fff !important;
+    color: #343434 !important;
+    cursor: pointer;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-variant-2 .hbar-app-ui-dialog-trigger,
 .hbar-app-ui-dialog-variant-5 .hbar-app-ui-dialog-trigger,
 .hbar-app-ui-dialog-variant-6 .hbar-app-ui-dialog-trigger,
 .hbar-app-ui-dialog-variant-7 .hbar-app-ui-dialog-trigger {
-  border: 1px solid #2a2a2a !important;
-  background: #1a1a1a !important;
-  color: #fff !important;
+    border: 1px solid #2a2a2a !important;
+    background: #1a1a1a !important;
+    color: #fff !important;
 }
 
 .hbar-app-ui-dialog-trigger.is-hidden {
-  display: none !important;
+    display: none !important;
 }
 
 /* A backdrop is an overlay container; its children remain in normal flow. */
 .hbar-app-ui-variant .hbar-app-ui-dialog-backdrop {
-  position: absolute !important;
-  z-index: 1;
-  inset: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 1.5rem !important;
-  background: transparent !important;
+    position: absolute !important;
+    z-index: 1;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1.5rem !important;
+    background: transparent !important;
 }
 
 .hbar-app-ui-dialog-panel {
-  display: flex !important;
-  inline-size: min(28rem, 100%) !important;
-  max-width: 100% !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  border: 1px solid #2a2a2a !important;
-  max-block-size: 100%;
-  border-radius: 1.125rem !important;
-  background: #171717 !important;
-  color: #fff !important;
-  box-shadow: none !important;
+    display: flex !important;
+    inline-size: min(28rem, 100%) !important;
+    max-width: 100% !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border: 1px solid #2a2a2a !important;
+    max-block-size: 100%;
+    border-radius: 1.125rem !important;
+    background: #171717 !important;
+    color: #fff !important;
+    box-shadow: none !important;
 }
 
 .hbar-app-ui-dialog-panel-delete {
-  inline-size: min(24rem, 100%) !important;
+    inline-size: min(24rem, 100%) !important;
 }
 
 .hbar-app-ui-dialog-header {
-  display: flex !important;
-  min-width: 0;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1.5rem 1.5rem 0 !important;
+    display: flex !important;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: 1.5rem 1.5rem 0 !important;
 }
 
 .hbar-app-ui-dialog-header > div {
-  min-width: 0;
-  flex: 1;
+    min-width: 0;
+    flex: 1;
 }
 
 .hbar-app-ui-dialog-header h2 {
-  margin: 0 !important;
-  color: #f7f7f7 !important;
-  font:
-    500 16px/24px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
-  letter-spacing: -0.01em;
+    margin: 0 !important;
+    color: #f7f7f7 !important;
+    font: 500 16px/24px ui-sans-serif, system-ui, sans-serif !important;
+    letter-spacing: -.01em;
 }
 
 .hbar-app-ui-dialog-header p {
-  margin: 4px 0 0 !important;
-  color: #b5b5b5 !important;
-  font:
-    13px/21.125px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    margin: 4px 0 0 !important;
+    color: #b5b5b5 !important;
+    font: 13px/21.125px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-content {
-  display: grid !important;
-  min-width: 0;
-  align-content: start;
+    display: grid !important;
+    min-width: 0;
+    align-content: start;
 }
 
 .hbar-app-ui-dialog-close {
-  display: flex !important;
-  inline-size: 2rem !important;
-  block-size: 2rem !important;
-  flex: 0 0 2rem;
-  align-items: center;
-  justify-content: center;
-  border: 0 !important;
-  border-radius: 0.5rem !important;
-  padding: 0 !important;
-  background: #2a2a2a !important;
-  color: #8f8f8f !important;
-  cursor: pointer;
+    display: flex !important;
+    inline-size: 2rem !important;
+    block-size: 2rem !important;
+    flex: 0 0 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 0 !important;
+    border-radius: .5rem !important;
+    padding: 0 !important;
+    background: #2a2a2a !important;
+    color: #8f8f8f !important;
+    cursor: pointer;
 }
 
 .hbar-app-ui-dialog-close:hover,
 .hbar-app-ui-dialog-close:focus-visible {
-  background: #363636 !important;
-  color: #fff !important;
-  outline: 0;
+    background: #363636 !important;
+    color: #fff !important;
+    outline: 0;
 }
 
 .hbar-app-ui-dialog-close svg {
-  inline-size: 1rem;
-  block-size: 1rem;
+    inline-size: 1rem;
+    block-size: 1rem;
 }
 
 .hbar-app-ui-dialog-footer {
-  display: flex !important;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: auto;
-  padding: 1.25rem 1.5rem !important;
-  background: rgb(23 23 23 / 60%) !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .5rem;
+    margin-top: auto;
+    padding: 1.25rem 1.5rem !important;
+    background: rgb(23 23 23 / 60%) !important;
 }
 
 .hbar-app-ui-dialog-button {
-  display: inline-flex !important;
-  min-width: 0;
-  min-block-size: 2.5rem !important;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border: 1px solid #2a2a2a !important;
-  border-radius: 0.625rem !important;
-  padding: 0 1rem !important;
-  background: #171717 !important;
-  color: #fff !important;
-  cursor: pointer;
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
-  white-space: nowrap;
+    display: inline-flex !important;
+    min-width: 0;
+    min-block-size: 2.5rem !important;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid #2a2a2a !important;
+    border-radius: .625rem !important;
+    padding: 0 1rem !important;
+    background: #171717 !important;
+    color: #fff !important;
+    cursor: pointer;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+    white-space: nowrap;
 }
 
 .hbar-app-ui-dialog-button:hover:not(:disabled),
 .hbar-app-ui-dialog-button:focus-visible {
-  border-color: #555 !important;
-  background: #202020 !important;
-  outline: 0;
+    border-color: #555 !important;
+    background: #202020 !important;
+    outline: 0;
 }
 
 .hbar-app-ui-dialog-button-accent {
-  border-color: #fff !important;
-  background: #fff !important;
-  color: #292929 !important;
+    border-color: #fff !important;
+    background: #fff !important;
+    color: #292929 !important;
 }
 
 .hbar-app-ui-dialog-button-accent:hover:not(:disabled),
 .hbar-app-ui-dialog-button-accent:focus-visible {
-  border-color: #e4e4e4 !important;
-  background: #e4e4e4 !important;
-  color: #171717 !important;
+    border-color: #e4e4e4 !important;
+    background: #e4e4e4 !important;
+    color: #171717 !important;
 }
 
 .hbar-app-ui-dialog-button-danger {
-  border-color: #a80e14 !important;
-  background: #a80e14 !important;
-  color: #fff !important;
+    border-color: #a80e14 !important;
+    background: #a80e14 !important;
+    color: #fff !important;
 }
 
 .hbar-app-ui-dialog-button-danger:hover:not(:disabled),
 .hbar-app-ui-dialog-button-danger:focus-visible {
-  border-color: #c9161e !important;
-  background: #c9161e !important;
-  color: #fff !important;
+    border-color: #c9161e !important;
+    background: #c9161e !important;
+    color: #fff !important;
 }
 
 .hbar-app-ui-dialog-plan-rows {
-  display: grid !important;
-  gap: 0.375rem;
-  margin: 0 !important;
-  padding: 1.25rem 1.5rem !important;
+    display: grid !important;
+    gap: .375rem;
+    margin: 0 !important;
+    padding: 1.25rem 1.5rem !important;
 }
 
 .hbar-app-ui-dialog-plan-rows > div {
-  display: flex !important;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border-radius: 0.625rem !important;
-  padding: 0.625rem 0.75rem !important;
-  background: rgb(42 42 42 / 50%) !important;
+    display: flex !important;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-radius: .625rem !important;
+    padding: .625rem .75rem !important;
+    background: rgb(42 42 42 / 50%) !important;
 }
 
 .hbar-app-ui-dialog-plan-rows dt {
-  min-width: 0;
-  color: #b5b5b5 !important;
-  font:
-    13px/19.5px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
-  white-space: nowrap;
+    min-width: 0;
+    color: #b5b5b5 !important;
+    font: 13px/19.5px ui-sans-serif, system-ui, sans-serif !important;
+    white-space: nowrap;
 }
 
 .hbar-app-ui-dialog-plan-rows dd {
-  display: inline-flex !important;
-  min-width: 0;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 !important;
-  font:
-    13px/19.5px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
-  white-space: nowrap;
+    display: inline-flex !important;
+    min-width: 0;
+    align-items: center;
+    gap: .5rem;
+    margin: 0 !important;
+    font: 13px/19.5px ui-sans-serif, system-ui, sans-serif !important;
+    white-space: nowrap;
 }
 
 .hbar-app-ui-dialog-plan-rows dd > s {
-  overflow: hidden;
-  color: #707070 !important;
-  text-overflow: ellipsis;
+    overflow: hidden;
+    color: #707070 !important;
+    text-overflow: ellipsis;
 }
 
 .hbar-app-ui-dialog-plan-rows dd > span {
-  color: #666 !important;
+    color: #666 !important;
 }
 
 .hbar-app-ui-dialog-plan-rows dd > strong {
-  color: #fff !important;
-  font-weight: 500;
+    color: #fff !important;
+    font-weight: 500;
 }
 
 .hbar-app-ui-dialog-metrics {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem 1.5rem;
-  margin: 1.25rem 1.5rem 0 !important;
-  border-radius: 0.625rem !important;
-  padding: 0.875rem 1rem !important;
-  background: rgb(42 42 42 / 50%) !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .75rem 1.5rem;
+    margin: 1.25rem 1.5rem 0 !important;
+    border-radius: .625rem !important;
+    padding: .875rem 1rem !important;
+    background: rgb(42 42 42 / 50%) !important;
 }
 
 .hbar-app-ui-dialog-metrics > div {
-  min-width: 0;
+    min-width: 0;
 }
 
 .hbar-app-ui-dialog-metrics dd {
-  margin: 0 !important;
-  color: #fff !important;
-  font:
-    500 14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    margin: 0 !important;
+    color: #fff !important;
+    font: 500 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-metrics dt {
-  margin: 0.125rem 0 0 !important;
-  color: #a8a8a8 !important;
-  font:
-    12px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    margin: .125rem 0 0 !important;
+    color: #a8a8a8 !important;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-delete-form {
-  padding: 1rem 1.5rem 1.25rem !important;
+    padding: 1rem 1.5rem 1.25rem !important;
 }
 
 .hbar-app-ui-dialog-field {
-  display: grid !important;
-  min-width: 0;
-  gap: 0.375rem;
-  color: #eee !important;
-  font:
-    500 14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: grid !important;
+    min-width: 0;
+    gap: .375rem;
+    color: #eee !important;
+    font: 500 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-field > span {
-  min-width: 0;
+    min-width: 0;
 }
 
 .hbar-app-ui-dialog-field strong {
-  color: #fff !important;
-  font-weight: 600;
+    color: #fff !important;
+    font-weight: 600;
 }
 
 .hbar-app-ui-dialog-field input,
 .hbar-app-ui-dialog-field select {
-  display: block !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  min-block-size: 2.25rem !important;
-  border: 1px solid #2a2a2a !important;
-  border-radius: 0.5rem !important;
-  padding: 0 0.75rem !important;
-  outline: 0;
-  background: #0a0a0a !important;
-  color: #f7f7f7 !important;
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-block-size: 2.25rem !important;
+    border: 1px solid #2a2a2a !important;
+    border-radius: .5rem !important;
+    padding: 0 .75rem !important;
+    outline: 0;
+    background: #0a0a0a !important;
+    color: #f7f7f7 !important;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-field select {
-  padding-right: 2rem !important;
+    padding-right: 2rem !important;
 }
 
 .hbar-app-ui-dialog-field input::placeholder {
-  color: #777 !important;
-  opacity: 1;
+    color: #777 !important;
+    opacity: 1;
 }
 
 .hbar-app-ui-dialog-field input:focus,
 .hbar-app-ui-dialog-field select:focus {
-  border-color: #707070 !important;
+    border-color: #707070 !important;
 }
 
 .hbar-app-ui-dialog-field small {
-  color: #a8a8a8 !important;
-  font:
-    12px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    color: #a8a8a8 !important;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-form-body {
-  display: grid !important;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem !important;
+    display: grid !important;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem !important;
 }
 
 .hbar-app-ui-dialog-step {
-  margin: 0 !important;
-  color: #8f8f8f !important;
-  font:
-    12px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    margin: 0 !important;
+    color: #8f8f8f !important;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-progress {
-  display: flex !important;
-  gap: 0.375rem;
-  padding: 1rem 1.5rem 0 !important;
+    display: flex !important;
+    gap: .375rem;
+    padding: 1rem 1.5rem 0 !important;
 }
 
 .hbar-app-ui-dialog-progress span {
-  display: block;
-  min-block-size: 0.25rem;
-  flex: 1;
-  border-radius: 999px;
-  background: #2a2a2a;
+    display: block;
+    min-block-size: .25rem;
+    flex: 1;
+    border-radius: 999px;
+    background: #2a2a2a;
 }
 
 .hbar-app-ui-dialog-progress span.is-active {
-  background: #fff;
+    background: #fff;
 }
 
 .hbar-app-ui-dialog-wizard-body {
-  display: grid !important;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem !important;
+    display: grid !important;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem !important;
 }
 
 .hbar-app-ui-dialog-readonly-field {
-  display: grid !important;
-  gap: 0.375rem;
-  color: #fff !important;
-  font:
-    500 14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: grid !important;
+    gap: .375rem;
+    color: #fff !important;
+    font: 500 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-readonly-field > div {
-  display: flex !important;
-  min-block-size: 2.25rem;
-  align-items: center;
-  border-radius: 0.5rem;
-  padding: 0 0.75rem;
-  background: rgb(42 42 42 / 50%);
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: flex !important;
+    min-block-size: 2.25rem;
+    align-items: center;
+    border-radius: .5rem;
+    padding: 0 .75rem;
+    background: rgb(42 42 42 / 50%);
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-readonly-field > div > span {
-  color: #8f8f8f !important;
+    color: #8f8f8f !important;
 }
 
 .hbar-app-ui-dialog-readonly-field > div > strong {
-  color: #fff !important;
-  font-weight: 500;
+    color: #fff !important;
+    font-weight: 500;
 }
 
 .hbar-app-ui-dialog-readonly-field small,
 .hbar-app-ui-dialog-note {
-  margin: 0 !important;
-  color: #b5b5b5 !important;
-  font:
-    12px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    margin: 0 !important;
+    color: #b5b5b5 !important;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-review-line {
-  display: flex !important;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 !important;
-  border-radius: 0.5rem;
-  padding: 0.625rem 0.75rem;
-  background: rgb(42 42 42 / 50%);
-  color: #aaa;
-  font:
-    13px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 !important;
+    border-radius: .5rem;
+    padding: .625rem .75rem;
+    background: rgb(42 42 42 / 50%);
+    color: #aaa;
+    font: 13px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-review-line strong {
-  color: #fff;
-  font-weight: 500;
+    color: #fff;
+    font-weight: 500;
 }
 
 /* Full-height side panels: only the edge overlay is anchored. */
 .hbar-app-ui-variant.hbar-app-ui-dialog-variant-5,
 .hbar-app-ui-variant.hbar-app-ui-dialog-variant-6 {
-  justify-content: flex-end;
+    justify-content: flex-end;
 }
 
 .hbar-app-ui-variant.hbar-app-ui-dialog-variant-5,
 .hbar-app-ui-variant.hbar-app-ui-dialog-variant-6 {
-  padding: 0 !important;
+    padding: 0 !important;
 }
 
 .hbar-app-ui-variant .hbar-app-ui-dialog-side-backdrop {
-  align-items: stretch !important;
-  justify-content: flex-end !important;
-  padding: 0 !important;
-  background: transparent !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
+    padding: 0 !important;
+    background: transparent !important;
 }
 
 .hbar-app-ui-side-panel {
-  display: flex !important;
-  inline-size: min(28rem, 100%) !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  border: 1px solid #2a2a2a !important;
-  border-right: 0 !important;
-  border-radius: 1.125rem 0 0 1.125rem !important;
-  background: #171717 !important;
-  color: #fff !important;
+    display: flex !important;
+    inline-size: min(28rem, 100%) !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border: 1px solid #2a2a2a !important;
+    border-right: 0 !important;
+    border-radius: 1.125rem 0 0 1.125rem !important;
+    background: #171717 !important;
+    color: #fff !important;
 }
 
 .hbar-app-ui-side-panel-header {
-  display: flex !important;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem !important;
-  background: rgb(23 23 23 / 60%) !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .75rem 1.5rem !important;
+    background: rgb(23 23 23 / 60%) !important;
 }
 
 .hbar-app-ui-side-panel-header h2 {
-  margin: 0 !important;
-  color: #f7f7f7 !important;
-  font:
-    500 16px/24px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    margin: 0 !important;
+    color: #f7f7f7 !important;
+    font: 500 16px/24px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-side-panel-body {
-  display: grid !important;
-  min-height: 0;
-  flex: 1 1 auto;
-  align-content: start;
-  gap: 1rem;
-  overflow: auto;
-  padding: 1.25rem 1.5rem !important;
+    display: grid !important;
+    min-height: 0;
+    flex: 1 1 auto;
+    align-content: start;
+    gap: 1rem;
+    overflow: auto;
+    padding: 1.25rem 1.5rem !important;
 }
 
 .hbar-app-ui-side-readonly-field {
-  display: grid !important;
-  gap: 0.375rem;
-  color: #eee;
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: grid !important;
+    gap: .375rem;
+    color: #eee;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-side-readonly-field > span {
-  font-weight: 500;
+    font-weight: 500;
 }
 
 .hbar-app-ui-side-readonly-field > div {
-  display: flex !important;
-  min-block-size: 2.25rem;
-  align-items: center;
-  border-radius: 0.5rem;
-  padding: 0 0.75rem;
-  background: rgb(42 42 42 / 50%);
-  color: #fff;
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: flex !important;
+    min-block-size: 2.25rem;
+    align-items: center;
+    border-radius: .5rem;
+    padding: 0 .75rem;
+    background: rgb(42 42 42 / 50%);
+    color: #fff;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-side-panel-body .hbar-app-ui-dialog-field {
-  gap: 0.375rem;
+    gap: .375rem;
 }
 
 .hbar-app-ui-side-panel-body .hbar-app-ui-dialog-field textarea {
-  display: block !important;
-  width: 100% !important;
-  min-block-size: 5rem !important;
-  resize: vertical;
-  border: 1px solid #2a2a2a !important;
-  border-radius: 0.5rem !important;
-  padding: 0.5rem 0.75rem !important;
-  outline: 0;
-  background: #0a0a0a !important;
-  color: #f7f7f7 !important;
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: block !important;
+    width: 100% !important;
+    min-block-size: 5rem !important;
+    resize: vertical;
+    border: 1px solid #2a2a2a !important;
+    border-radius: .5rem !important;
+    padding: .5rem .75rem !important;
+    outline: 0;
+    background: #0a0a0a !important;
+    color: #f7f7f7 !important;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-side-toggle-row {
-  display: flex !important;
-  min-block-size: 2.375rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  color: #eee;
+    display: flex !important;
+    min-block-size: 2.375rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: #eee;
 }
 
 .hbar-app-ui-side-toggle-row > span {
-  display: grid !important;
-  gap: 0.125rem;
-  min-width: 0;
+    display: grid !important;
+    gap: .125rem;
+    min-width: 0;
 }
 
 .hbar-app-ui-side-toggle-row strong {
-  font:
-    14px/20px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
-  font-weight: 500;
+    font: 14px/20px ui-sans-serif, system-ui, sans-serif !important;
+    font-weight: 500;
 }
 
 .hbar-app-ui-side-toggle-row small {
-  color: #a8a8a8;
-  font:
-    12px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    color: #a8a8a8;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.hbar-app-ui-side-toggle-row > button {
+    display: inline-flex !important;
+    inline-size: 2.25rem !important;
+    block-size: 1.25rem !important;
+    flex: 0 0 2.25rem;
+    align-items: center;
+    border: 0 !important;
+    border-radius: 999px !important;
+    padding: .125rem !important;
+    background: #454545 !important;
+    cursor: pointer;
+}
+
+.hbar-app-ui-side-toggle-row > button.is-on {
+    justify-content: flex-end;
+    background: #fff !important;
+}
+
+.hbar-app-ui-side-toggle-row > button i {
+    display: block;
+    inline-size: 1rem;
+    block-size: 1rem;
+    border-radius: 50%;
+    background: #171717;
 }
 
 .hbar-app-ui-side-panel-footer {
-  flex: 0 0 auto;
+    flex: 0 0 auto;
 }
 
 .hbar-app-ui-evidence-status {
-  display: flex !important;
-  min-block-size: 1.25rem;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 !important;
-  color: #b5b5b5;
-  font:
-    13px/19.5px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: flex !important;
+    min-block-size: 1.25rem;
+    align-items: center;
+    gap: .5rem;
+    margin: 0 !important;
+    color: #b5b5b5;
+    font: 13px/19.5px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-evidence-status i {
-  inline-size: 0.375rem;
-  block-size: 0.375rem;
-  flex: 0 0 0.375rem;
-  border-radius: 50%;
-  background: #8a8a8a;
+    inline-size: .375rem;
+    block-size: .375rem;
+    flex: 0 0 .375rem;
+    border-radius: 50%;
+    background: #8a8a8a;
 }
 
 .hbar-app-ui-evidence-status b {
-  color: #666;
-  font-weight: 400;
+    color: #666;
+    font-weight: 400;
 }
 
 .hbar-app-ui-evidence-description {
-  margin: 0 !important;
-  color: #b5b5b5 !important;
-  font:
-    13px/21.125px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    margin: 0 !important;
+    color: #b5b5b5 !important;
+    font: 13px/21.125px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-evidence-details {
-  display: grid !important;
-  gap: 0.375rem;
-  margin: 0 !important;
+    display: grid !important;
+    gap: .375rem;
+    margin: 0 !important;
 }
 
 .hbar-app-ui-evidence-details > div {
-  display: flex !important;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-radius: 0.625rem;
-  padding: 0.625rem 0.75rem;
-  background: rgb(42 42 42 / 50%);
-  font:
-    13px/19.5px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    border-radius: .625rem;
+    padding: .625rem .75rem;
+    background: rgb(42 42 42 / 50%);
+    font: 13px/19.5px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-evidence-details dt {
-  color: #aaa;
+    color: #aaa;
 }
 
 .hbar-app-ui-evidence-details dd {
-  margin: 0;
-  color: #fff;
-  font-weight: 500;
+    margin: 0;
+    color: #fff;
+    font-weight: 500;
 }
 
 .hbar-app-ui-evidence-controls,
 .hbar-app-ui-evidence-history {
-  display: grid !important;
-  gap: 0.5rem;
+    display: grid !important;
+    gap: .5rem;
 }
 
 .hbar-app-ui-evidence-controls h3,
 .hbar-app-ui-evidence-history h3 {
-  margin: 0 !important;
-  color: #a8a8a8 !important;
-  font:
-    12px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
-  text-transform: uppercase;
+    margin: 0 !important;
+    color: #a8a8a8 !important;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
+    text-transform: uppercase;
 }
 
 .hbar-app-ui-evidence-controls > div {
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 0.375rem;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: .375rem;
 }
 
 .hbar-app-ui-evidence-controls span {
-  display: inline-flex !important;
-  align-items: center;
-  border-radius: 0.375rem;
-  padding: 0.375rem 0.5rem;
-  background: rgb(42 42 42 / 50%);
-  color: #b5b5b5;
-  font:
-    12px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: inline-flex !important;
+    align-items: center;
+    border-radius: .375rem;
+    padding: .375rem .5rem;
+    background: rgb(42 42 42 / 50%);
+    color: #b5b5b5;
+    font: 12px/16px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-evidence-controls strong {
-  margin-right: 0.25rem;
-  color: #fff;
-  font-weight: 500;
+    margin-right: .25rem;
+    color: #fff;
+    font-weight: 500;
 }
 
 .hbar-app-ui-evidence-history p {
-  display: flex !important;
-  gap: 1.75rem;
-  margin: 0 !important;
-  color: #aaa;
-  font:
-    13px/19.5px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    display: flex !important;
+    gap: 1.75rem;
+    margin: 0 !important;
+    color: #aaa;
+    font: 13px/19.5px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-evidence-history span {
-  color: #aaa;
+    color: #aaa;
 }
 
 /* Report action menu: the menu is anchored to its trigger, not to the canvas. */
 .hbar-app-ui-dialog-variant-7 {
-  align-items: center;
+    align-items: center;
 }
 
 .hbar-app-ui-dialog-menu-stage {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
 }
 
 .hbar-app-ui-dialog-menu-anchor {
-  position: relative;
-  display: inline-flex !important;
-  flex-direction: column;
-  align-items: center;
+    position: relative;
+    display: inline-flex !important;
+    flex-direction: column;
+    align-items: center;
 }
 
 .hbar-app-ui-menu-trigger {
-  background: #171717 !important;
-  color: #b5b5b5 !important;
+    background: #171717 !important;
+    color: #b5b5b5 !important;
 }
 
 .hbar-app-ui-dialog-menu {
-  position: absolute;
-  inset-block-start: 100%;
-  inset-inline-start: 50%;
-  z-index: 1;
-  display: grid !important;
-  gap: 0;
-  inline-size: 15rem !important;
-  margin-top: 0.625rem;
-  border: 1px solid #2a2a2a !important;
-  border-radius: 0.875rem !important;
-  padding: 0.375rem !important;
-  background: #171717 !important;
-  box-shadow: none !important;
-  transform: translateX(-50%);
+    position: absolute;
+    inset-block-start: 100%;
+    inset-inline-start: 50%;
+    z-index: 1;
+    display: grid !important;
+    gap: 0;
+    inline-size: 15rem !important;
+    margin-top: .625rem;
+    border: 1px solid #2a2a2a !important;
+    border-radius: .875rem !important;
+    padding: .375rem !important;
+    background: #171717 !important;
+    box-shadow: none !important;
+    transform: translateX(-50%);
 }
 
 .hbar-app-ui-dialog-menu > div {
-  display: block !important;
+    display: block !important;
 }
 
 .hbar-app-ui-dialog-menu hr {
-  block-size: 0;
-  margin: 0.25rem 0 !important;
-  border: 0 !important;
-  border-top: 1px solid #2a2a2a !important;
+    block-size: 0;
+    margin: .25rem 0 !important;
+    border: 0 !important;
+    border-top: 1px solid #2a2a2a !important;
 }
 
 .hbar-app-ui-dialog-menu button {
-  display: flex !important;
-  inline-size: 100% !important;
-  min-block-size: 2rem !important;
-  align-items: center;
-  gap: 0.625rem;
-  border: 0 !important;
-  border-radius: 0.5rem !important;
-  padding: 0 0.5rem !important;
-  background: transparent !important;
-  color: #f7f7f7 !important;
-  cursor: pointer;
-  font:
-    13px/19.5px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
-  text-align: left;
+    display: flex !important;
+    inline-size: 100% !important;
+    min-block-size: 2rem !important;
+    align-items: center;
+    gap: .625rem;
+    border: 0 !important;
+    border-radius: .5rem !important;
+    padding: 0 .5rem !important;
+    background: transparent !important;
+    color: #f7f7f7 !important;
+    cursor: pointer;
+    font: 13px/19.5px ui-sans-serif, system-ui, sans-serif !important;
+    text-align: left;
 }
 
 .hbar-app-ui-dialog-menu button.is-selected,
 .hbar-app-ui-dialog-menu button:hover,
 .hbar-app-ui-dialog-menu button:focus-visible {
-  background: #2a2a2a !important;
-  outline: 0;
+    background: #2a2a2a !important;
+    outline: 0;
 }
 
 .hbar-app-ui-dialog-menu button.is-danger {
-  color: #ff5a64 !important;
+    color: #ff5a64 !important;
 }
 
 .hbar-app-ui-dialog-menu button svg {
-  flex: 0 0 1rem;
-  color: #858585;
+    flex: 0 0 1rem;
+    color: #858585;
 }
 
 .hbar-app-ui-dialog-menu button.is-danger svg {
-  color: #ff5a64;
+    color: #ff5a64;
 }
 
 .hbar-app-ui-dialog-menu button span {
-  min-width: 0;
-  flex: 1;
+    min-width: 0;
+    flex: 1;
 }
 
 .hbar-app-ui-dialog-menu button kbd {
-  color: #8b8b8b;
-  font:
-    11px/16px ui-sans-serif,
-    system-ui,
-    sans-serif !important;
+    color: #8b8b8b;
+    font: 11px/16px ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .hbar-app-ui-dialog-menu .hbar-app-ui-dialog-menu-chevron {
-  margin-left: auto;
+    margin-left: auto;
 }
 
 @media (max-width: 40rem) {
-  .hbar-app-ui-variant.hbar-app-ui-dialog-variant-5,
-  .hbar-app-ui-variant.hbar-app-ui-dialog-variant-6 {
-    padding: 0 !important;
-  }
+    .hbar-app-ui-variant.hbar-app-ui-dialog-variant-5,
+    .hbar-app-ui-variant.hbar-app-ui-dialog-variant-6 {
+        padding: 0 !important;
+    }
 
-  .hbar-app-ui-variant .hbar-app-ui-dialog-backdrop {
-    padding: 1rem !important;
-  }
+    .hbar-app-ui-variant .hbar-app-ui-dialog-backdrop {
+        padding: 1rem !important;
+    }
 
-  .hbar-app-ui-variant .hbar-app-ui-dialog-side-backdrop {
-    padding: 0 !important;
-  }
+    .hbar-app-ui-variant .hbar-app-ui-dialog-side-backdrop {
+        padding: 0 !important;
+    }
 
-  .hbar-app-ui-dialog-panel {
-    width: 100% !important;
-  }
+    .hbar-app-ui-dialog-panel {
+        width: 100% !important;
+    }
 
-  .hbar-app-ui-dialog-header {
-    padding: 1.25rem 1.25rem 0 !important;
-  }
+    .hbar-app-ui-dialog-header {
+        padding: 1.25rem 1.25rem 0 !important;
+    }
 
-  .hbar-app-ui-dialog-footer {
-    flex-direction: column-reverse;
-    align-items: stretch;
-    padding: 1rem 1.25rem !important;
-  }
+    .hbar-app-ui-dialog-footer {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        padding: 1rem 1.25rem !important;
+    }
 
-  .hbar-app-ui-dialog-footer .hbar-app-ui-dialog-button {
-    width: 100%;
-  }
+    .hbar-app-ui-dialog-footer .hbar-app-ui-dialog-button {
+        width: 100%;
+    }
 
-  .hbar-app-ui-dialog-plan-rows {
-    gap: 0.375rem;
-    padding: 1rem 1.25rem 1.25rem !important;
-  }
+    .hbar-app-ui-dialog-plan-rows {
+        gap: .375rem;
+        padding: 1rem 1.25rem 1.25rem !important;
+    }
 
-  .hbar-app-ui-dialog-plan-rows > div {
-    gap: 0.5rem;
-  }
+    .hbar-app-ui-dialog-plan-rows > div {
+        gap: .5rem;
+    }
 
-  .hbar-app-ui-dialog-plan-rows dd {
-    max-inline-size: 8.125rem;
-  }
+    .hbar-app-ui-dialog-plan-rows dd {
+        max-inline-size: 8.125rem;
+    }
 
-  .hbar-app-ui-dialog-plan-rows dd > s,
-  .hbar-app-ui-dialog-plan-rows dd > strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+    .hbar-app-ui-dialog-plan-rows dd > s,
+    .hbar-app-ui-dialog-plan-rows dd > strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
-  .hbar-app-ui-dialog-metrics {
-    gap: 0.75rem 1.5rem;
-    margin: 1rem 1.25rem 0 !important;
-    padding: 0.875rem 1rem !important;
-  }
+    .hbar-app-ui-dialog-metrics {
+        gap: .75rem 1.5rem;
+        margin: 1rem 1.25rem 0 !important;
+        padding: .875rem 1rem !important;
+    }
 
-  .hbar-app-ui-dialog-form-body {
-    gap: 1rem;
-    padding: 1rem 1.25rem !important;
-  }
+    .hbar-app-ui-dialog-form-body {
+        gap: 1rem;
+        padding: 1rem 1.25rem !important;
+    }
 
-  .hbar-app-ui-dialog-progress {
-    padding: 1rem 1.25rem 0 !important;
-  }
+    .hbar-app-ui-dialog-progress {
+        padding: 1rem 1.25rem 0 !important;
+    }
 
-  .hbar-app-ui-dialog-wizard-body {
-    gap: 1rem;
-    padding: 1rem 1.25rem !important;
-  }
+    .hbar-app-ui-dialog-wizard-body {
+        gap: 1rem;
+        padding: 1rem 1.25rem !important;
+    }
 
-  .hbar-app-ui-side-panel {
-    width: 100% !important;
-    border-right: 1px solid #2a2a2a !important;
-    border-radius: 1.125rem !important;
-  }
+    .hbar-app-ui-side-panel {
+        width: 100% !important;
+        border-right: 1px solid #2a2a2a !important;
+        border-radius: 1.125rem !important;
+    }
 
-  .hbar-app-ui-side-panel-header {
-    padding: 0.75rem 1.25rem !important;
-  }
+    .hbar-app-ui-side-panel-header {
+        padding: .75rem 1.25rem !important;
+    }
 
-  .hbar-app-ui-side-panel-body {
-    gap: 1rem;
-    padding: 1rem 1.25rem !important;
-  }
+    .hbar-app-ui-side-panel-body {
+        gap: 1rem;
+        padding: 1rem 1.25rem !important;
+    }
 
-  .hbar-app-ui-side-panel-footer {
-    flex-direction: column-reverse;
-    align-items: stretch;
-    padding: 1rem 1.25rem !important;
-  }
+    .hbar-app-ui-side-panel-footer {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        padding: 1rem 1.25rem !important;
+    }
 
-  .hbar-app-ui-side-panel-footer .hbar-app-ui-dialog-button {
-    width: 100%;
-  }
+    .hbar-app-ui-side-panel-footer .hbar-app-ui-dialog-button {
+        width: 100%;
+    }
 
-  .hbar-app-ui-evidence-controls > div {
-    display: flex !important;
-    flex-direction: column;
-    align-items: flex-start;
-  }
+    .hbar-app-ui-evidence-controls > div {
+        display: flex !important;
+        flex-direction: column;
+        align-items: flex-start;
+    }
 
-  .hbar-app-ui-evidence-history p {
-    gap: 0.875rem;
-    flex-wrap: wrap;
-  }
+    .hbar-app-ui-evidence-history p {
+        gap: .875rem;
+        flex-wrap: wrap;
+    }
 }
