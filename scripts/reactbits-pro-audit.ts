@@ -460,7 +460,7 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
     .first()
     .evaluate((root) => {
       const rootTextLength = (root.textContent ?? '').trim().length
-      if (rootTextLength === 0) return { path: [], useRoot: false }
+      if (rootTextLength === 0) return { path: [], useRoot: false, stableSelector: null }
       const rootRect = root.getBoundingClientRect()
       const candidates = [...root.querySelectorAll('*')]
         .map((element) => {
@@ -469,6 +469,8 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
           const textLength = (element.textContent ?? '').trim().length
           const semanticSignal =
             element.matches('[data-lumen-component], [class*="lumen-"], article, main, form, nav, [role]')
+          const dataComponent = element.getAttribute('data-lumen-component')
+          const stableClass = [...element.classList].find((name) => name.startsWith('lumen-'))
           const path: number[] = []
           let current: Element | null = element
           while (current && current !== root) {
@@ -477,7 +479,7 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
             path.unshift(Array.from(parent.children).indexOf(current))
             current = parent
           }
-          return { rect, style, textLength, path, semanticSignal }
+          return { rect, style, textLength, path, semanticSignal, dataComponent, stableClass }
         })
         .filter(
           (candidate) =>
@@ -494,13 +496,20 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
             left.path.length - right.path.length ||
             right.textLength - left.textLength,
         )
+      const best = candidates[0]
       return {
-        path: candidates[0]?.path ?? [],
+        path: best?.path ?? [],
         useRoot: candidates.length === 0 && root.hasAttribute('data-lumen-component'),
+        stableSelector: best?.dataComponent
+          ? `[data-lumen-component="${best.dataComponent}"]`
+          : best?.stableClass
+            ? `.${best.stableClass}`
+            : null,
       }
     })
   const path = selection.path
   if (selection.useRoot) return rootSelector
+  if (selection.stableSelector) return `${rootSelector} ${selection.stableSelector}`
   if (path.length === 0) return `${rootSelector} > :not([aria-hidden='true']):not(svg)`
   return `${rootSelector}${path.map((index) => ` > :nth-child(${index + 1})`).join('')}`
 }
