@@ -1,10 +1,12 @@
 import {
+  DEFAULT_LUMEN_APPEARANCE,
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
   LumenIcon,
   LumenInput,
   LumenNavigationButton,
+  LumenProvider,
   LumenText,
 } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
@@ -408,12 +410,16 @@ function PreviewApp() {
 
   if (isolated) {
     return (
-      <LumenFrame
-        className="hbar-app-ui-canvas hbar-app-ui-isolated-canvas"
-        data-hbar-app-ui-theme={theme}
-        style={previewLayoutStyle}
-        data-hbar-app-ui-variant={selected.spec.id}
+      <LumenProvider
+        appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }}
+        withCssBaseline={false}
       >
+        <LumenFrame
+          className="hbar-app-ui-canvas hbar-app-ui-isolated-canvas"
+          data-hbar-app-ui-theme={theme}
+          style={previewLayoutStyle}
+          data-hbar-app-ui-variant={selected.spec.id}
+        >
         <HbarAppUiKanbanProvider content={kanbanContent}>
           <HbarAppUiAiChatProvider content={aiChatContent}>
             <HbarAppUiAppSidebarProvider content={appSidebarContent}>
@@ -522,17 +528,22 @@ function PreviewApp() {
             </HbarAppUiAppSidebarProvider>
           </HbarAppUiAiChatProvider>
         </HbarAppUiKanbanProvider>
-      </LumenFrame>
+        </LumenFrame>
+      </LumenProvider>
     )
   }
 
   return (
-    <LumenFrame
-      className="hbar-app-ui-canvas hbar-app-ui-preview"
-      data-hbar-app-ui-theme={theme}
-      style={previewLayoutStyle}
-      ref={previewRef}
+    <LumenProvider
+      appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }}
+      withCssBaseline={false}
     >
+      <LumenFrame
+        className="hbar-app-ui-canvas hbar-app-ui-preview"
+        data-hbar-app-ui-theme={theme}
+        style={previewLayoutStyle}
+        ref={previewRef}
+      >
       <LumenFrame as="header" className="hbar-app-ui-preview-header">
         <LumenFrame className="hbar-app-ui-preview-brand">
           <LumenText as="span" className="hbar-app-ui-preview-mark">h</LumenText>
@@ -832,7 +843,8 @@ function PreviewApp() {
           </LumenFrame>
         </LumenFrame>
       </LumenFrame>
-    </LumenFrame>
+      </LumenFrame>
+    </LumenProvider>
   )
 }
 

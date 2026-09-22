@@ -1,4 +1,10 @@
-import { LumenFrame, LumenOption, LumenText } from '@lumen/app-ui'
+import {
+  DEFAULT_LUMEN_APPEARANCE,
+  LumenFrame,
+  LumenOption,
+  LumenProvider,
+  LumenText,
+} from '@lumen/app-ui'
 import { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
@@ -18,8 +24,9 @@ const parameters = new URLSearchParams(location.search)
 const locale = parameters.get('locale') === 'zh-CN' ? 'zh-CN' : 'en-US'
 const scenario = parameters.get('scenario')
 const copy = formControlsAuditCopy[locale]
+const theme = parameters.get('theme') === 'light' ? 'light' : 'dark'
 document.documentElement.lang = locale
-document.documentElement.dataset.hbarAppUiTheme = parameters.get('theme') === 'light' ? 'light' : 'dark'
+document.documentElement.dataset.hbarAppUiTheme = theme
 
 function FormControlsAudit() {
   const initial = copy.models[0]!
@@ -183,4 +190,8 @@ function FormControlsAudit() {
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing visual audit root')
-createRoot(root).render(<FormControlsAudit />)
+createRoot(root).render(
+  <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }} withCssBaseline={false}>
+    <FormControlsAudit />
+  </LumenProvider>,
+)

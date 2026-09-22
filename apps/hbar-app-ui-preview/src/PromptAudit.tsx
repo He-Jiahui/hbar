@@ -1,4 +1,4 @@
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { DEFAULT_LUMEN_APPEARANCE, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HbarAppUiButton, HbarAppUiPromptComposer, type HbarAppUiComposerAttachment } from 'hbar-app-ui'
@@ -10,8 +10,9 @@ const parameters = new URLSearchParams(location.search)
 const locale = parameters.get('locale') === 'zh-CN' ? 'zh-CN' : 'en-US'
 const copy = promptAuditCopy[locale]
 const scenario = parameters.get('scenario')
+const theme = parameters.get('theme') === 'light' ? 'light' : 'dark'
 document.documentElement.lang = locale
-document.documentElement.dataset.hbarAppUiTheme = parameters.get('theme') === 'light' ? 'light' : 'dark'
+document.documentElement.dataset.hbarAppUiTheme = theme
 
 function PromptAudit() {
   const [value, setValue] = useState(
@@ -58,4 +59,8 @@ function PromptAudit() {
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing visual audit root')
-createRoot(root).render(<PromptAudit />)
+createRoot(root).render(
+  <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }} withCssBaseline={false}>
+    <PromptAudit />
+  </LumenProvider>,
+)

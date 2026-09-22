@@ -10,6 +10,8 @@ import {
   HbarAppUiMultiSelect,
   HbarAppUiSelect,
   HbarAppUiTextarea,
+  HbarAppUiToggle,
+  HbarAppUiToggleControl,
   type HbarAppUiControlOption,
 } from '../packages/hbar-app-ui/src/production'
 
@@ -51,7 +53,8 @@ test('controlled form primitives connect host-owned field copy and validation me
   expect(markup).toContain('data-size="s"')
   expect(markup).toContain('aria-describedby="notes-hint"')
   expect(markup).toContain('type="checkbox"')
-  expect(markup).toContain('class="hbar-app-ui-checkbox-control lumen-control" data-size="l"')
+  expect(markup).toContain('class="lumen-checkbox-control hbar-app-ui-checkbox-control" data-size="l"')
+  expect(markup).toContain('class="lumen-checkbox-input"')
   expect(markup).toContain('在模型选择器中显示')
   expect(markup).not.toContain('Write a message')
 })
@@ -83,7 +86,7 @@ test('controlled combo box renders every bounded host option and publishes acces
   expect(markup).toContain('aria-selected="true"')
   expect(markup).toContain('data-size="l"')
   expect(markup).toContain('data-variant="plain"')
-  expect(markup.match(/class="hbar-app-ui-button/g)).toHaveLength(121)
+  expect(markup.match(/data-length="action"/g)).toHaveLength(121)
   expect(markup).toContain('模型 119')
   expect(markup).toContain('247K 上下文')
 })
@@ -149,10 +152,24 @@ test('multi-select preserves stale host values, de-duplicates selections, and ex
     />,
   )
   expect(markup.match(/aria-label="移除 低"/g)).toHaveLength(1)
-  expect(markup).toContain('hbar-app-ui-multi-select" data-size="s"')
-  expect(markup).toContain('class="hbar-app-ui-button hbar-app-ui-icon-button"')
+  expect(markup).toContain('class="lumen-multi-select" data-size="s"')
   expect(markup).toContain('stale-level')
   expect(markup).toContain('aria-label="移除 stale-level"')
   expect(markup.match(/role="option"/g)).toHaveLength(2)
   expect(markup).toContain('加载更多等级')
+})
+
+test('toggle compatibility exports delegate switch semantics to Lumen', () => {
+  const markup = renderToStaticMarkup(
+    <section>
+      <HbarAppUiToggle label="启用同步" description="保持当前工作区同步。" checked readOnly size="l" />
+      <HbarAppUiToggleControl aria-label="启用当前规则" defaultChecked />
+    </section>,
+  )
+
+  expect(markup.match(/role="switch"/g)).toHaveLength(2)
+  expect(markup).toContain('class="lumen-toggle-control"')
+  expect(markup).toContain('class="lumen-toggle-control hbar-app-ui-toggle-control"')
+  expect(markup).toContain('启用同步')
+  expect(markup).toContain('保持当前工作区同步。')
 })

@@ -1,27 +1,32 @@
 import {
+  LumenButton,
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-    LumenButton,
-    LumenIconButton,
-    LumenNavigationButton,
-    LumenTextarea,
-    LumenText,
+  LumenIconButton,
+  LumenNavigationButton,
+  LumenSurface,
+  LumenText,
+  LumenTextarea,
 } from '@lumen/app-ui'
 import {
-    type ButtonHTMLAttributes,
-    type ElementType,
-    type HTMLAttributes,
-    type LabelHTMLAttributes,
-    type ReactNode,
-    useState
+  type ButtonHTMLAttributes,
+  type ElementType,
+  type HTMLAttributes,
+  type LabelHTMLAttributes,
+  type ReactNode,
+  useState,
 } from 'react'
-import type {HbarAppUiSize} from './appearance'
-import type {HbarAppUiDataRow, HbarAppUiMetric, HbarAppUiOption, HbarAppUiTimelineStep} from './types'
+import type { HbarAppUiSize } from './appearance'
+import type { HbarAppUiDataRow, HbarAppUiMetric, HbarAppUiOption, HbarAppUiTimelineStep } from './types'
 import './primitives.css'
 
-export function HbarAppUiSurface({className = '', children, ...props}: HTMLAttributes<HTMLDivElement>) {
-    return <LumenFrame {...props} className={`hbar-app-ui-surface${className ? ` ${className}` : ''}`}>{children}</LumenFrame>
+export function HbarAppUiSurface({ className = '', children, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <LumenSurface {...props} className={`hbar-app-ui-surface${className ? ` ${className}` : ''}`}>
+      {children}
+    </LumenSurface>
+  )
 }
 
 type HbarAppUiSpotlightProps = HTMLAttributes<HTMLElement> & { readonly as?: 'div' | 'form' | 'section' }

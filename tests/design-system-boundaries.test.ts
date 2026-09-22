@@ -27,10 +27,7 @@ test('design-system boundary guard rejects native visible elements, numeric size
     { file: 'fixture.tsx', line: 1, rule: 'numeric-size', detail: 'Use the semantic S/M/L component size' },
   ])
   expect(
-    auditProductionCss(
-      'fixture.css',
-      '.page .hbar-app-ui-button:hover { min-block-size: 31px; background: red; }',
-    ),
+    auditProductionCss('fixture.css', '.page .hbar-app-ui-button:hover { min-block-size: 31px; background: red; }'),
   ).toEqual([
     {
       file: 'fixture.css',
@@ -47,12 +44,11 @@ test('design-system boundary guard rejects native visible elements, numeric size
   ])
 })
 
-test('shared vertical navigation selection is a square line with an outer glow', async () => {
+test('compatibility controls leave visual state to canonical Lumen primitives', async () => {
   const css = await readFile('packages/hbar-app-ui/src/primitives.css', 'utf8')
-  const selectedRule = css.match(/\.hbar-app-ui-navigation-button\[aria-current='page'\]::before\s*\{([^}]*)\}/)?.[1]
+  const forms = await readFile('packages/hbar-app-ui/src/components/forms/FormControls.css', 'utf8')
 
-  expect(selectedRule).toBeDefined()
-  expect(selectedRule).toContain('border-radius: 0')
-  expect(selectedRule).toContain('background: var(--hbar-app-ui-accent)')
-  expect(selectedRule).toContain('box-shadow:')
+  expect(css).not.toMatch(/\.hbar-app-ui-button[^{}]*\{[^}]*(?:border|background|box-shadow|outline)\s*:/s)
+  expect(forms).not.toMatch(/\.hbar-app-ui-control[^{}]*\{/)
+  expect(forms).not.toMatch(/\.hbar-app-ui-(?:checkbox|combobox|multi-select)[^{}]*\{/)
 })

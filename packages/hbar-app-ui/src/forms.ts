@@ -8,6 +8,8 @@ export {
   HbarAppUiMultiSelect,
   HbarAppUiSelect,
   HbarAppUiTextarea,
+  HbarAppUiToggle,
+  HbarAppUiToggleControl,
 } from './components/forms/FormControls'
 export type {
   HbarAppUiCheckBoxProps,
@@ -22,4 +24,6 @@ export type {
   HbarAppUiMultiSelectProps,
   HbarAppUiSelectProps,
   HbarAppUiTextareaProps,
+  HbarAppUiToggleControlProps,
+  HbarAppUiToggleProps,
 } from './components/forms/FormControls'
