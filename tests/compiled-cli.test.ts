@@ -47,12 +47,21 @@ async function runGit(cwd: string, ...args: string[]): Promise<void> {
 }
 
 async function terminateProcess(pid: number): Promise<void> {
-  try {
-    process.kill(pid, 'SIGTERM')
-  } catch {
-    return
-  }
-  await Bun.sleep(200)
+  const result = await runCommand(
+    [
+      'pwsh',
+      '-NoProfile',
+      '-Command',
+      [
+        `$targetProcessId = ${pid}`,
+        'Stop-Process -Id $targetProcessId -Force -ErrorAction SilentlyContinue',
+        'Wait-Process -Id $targetProcessId -Timeout 10 -ErrorAction SilentlyContinue',
+        'if (Get-Process -Id $targetProcessId -ErrorAction SilentlyContinue) { throw "Process $targetProcessId is still running" }',
+      ].join('; '),
+    ],
+    resolve('.'),
+  )
+  if (result.code !== 0) throw new Error(`Compiled Host ${pid} did not terminate: ${result.stderr}`)
 }
 
 test.skipIf(process.platform !== 'win32')(
@@ -166,6 +175,24 @@ test.skipIf(process.platform !== 'win32')(
         workspace,
       )
       expect(workflowStart.code, workflowStart.stderr).toBe(0)
+      const waiting = await runCommand(
+        [
+          ...target,
+          'exec',
+          'workflow.checkpoint',
+          '--input-json',
+          JSON.stringify({
+            itemId: 'ship',
+            outcome: 'complete',
+            summary: 'Ready for explicit compiled CLI acceptance',
+            nextItemId: null,
+            expectedRevision: 1,
+          }),
+        ],
+        workspace,
+      )
+      expect(waiting.code, waiting.stderr).toBe(0)
+      expect(JSON.parse(waiting.stdout)).toMatchObject({ workflow: { revision: 2, status: 'waiting_user' } })
       const accepted = await runCommand(
         [
           ...target,
@@ -177,7 +204,7 @@ test.skipIf(process.platform !== 'win32')(
             checkId: 'review',
             decision: 'accepted',
             note: 'Accepted through the compiled CLI',
-            expectedRevision: 1,
+            expectedRevision: 2,
           }),
         ],
         workspace,
@@ -194,18 +221,13 @@ test.skipIf(process.platform !== 'win32')(
             outcome: 'complete',
             summary: 'Compiled CLI acceptance is recorded',
             nextItemId: null,
-            expectedRevision: 2,
+            expectedRevision: 3,
           }),
         ],
         workspace,
       )
       expect(checkpoint.code, checkpoint.stderr).toBe(0)
-      const completed = await runCommand(
-        [...target, 'exec', 'workflow.complete', '--input-json', JSON.stringify({ expectedRevision: 3 })],
-        workspace,
-      )
-      expect(completed.code, completed.stderr).toBe(0)
-      expect(JSON.parse(completed.stdout)).toMatchObject({ workflow: { status: 'completed' } })
+      expect(JSON.parse(checkpoint.stdout)).toMatchObject({ workflow: { revision: 5, status: 'completed' } })
 
       const createdAgent = await runCommand(
         [
@@ -290,6 +312,15 @@ test.skipIf(process.platform !== 'win32')(
         directChildCount: 0,
       })
     } finally {
+      if (!hostPid) {
+        try {
+          hostPid =
+            (JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as { pid?: number })
+              .pid ?? 0
+        } catch {
+          // The compiled CLI may have failed before starting its embedded Host.
+        }
+      }
       if (hostPid) await terminateProcess(hostPid)
       await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
     }

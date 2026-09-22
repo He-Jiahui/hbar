@@ -41,7 +41,17 @@ test('renders and accepts Host-owned focused workflow state at desktop and narro
       },
       { idempotencyKey: 'workflow-focus-e2e' },
     )
-    expect(started.workflow).toMatchObject({ status: 'active', activeItemId: 'browser-focus' })
+    expect(started.workflow).toMatchObject({ status: 'active', focus: { focusId: 'browser-focus' } })
+    const waiting = await workflows.execute('workflow.checkpoint', {
+      sessionId: host.ready.sessionId,
+      itemId: 'browser-focus',
+      outcome: 'complete',
+      summary: 'The explicitly requested browser review can begin',
+      evidenceIds: [],
+      nextItemId: null,
+      expectedRevision: started.workflow!.revision,
+    })
+    expect(waiting.workflow?.status).toBe('waiting_user')
 
     const authentication = await context.request.post(
       `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
@@ -58,9 +68,9 @@ test('renders and accepts Host-owned focused workflow state at desktop and narro
     await expect(overview.getByRole('heading', { level: 2, name: 'Focused workflow' })).toBeVisible()
     await expect(overview.getByText('Current focus', { exact: true })).toBeVisible()
     const focusedTitle = overview.getByText('Verify the focused workflow in the browser', { exact: true })
-    await expect(focusedTitle).toHaveCount(2)
+    await expect(focusedTitle).toHaveCount(1)
     await expect(focusedTitle.first()).toBeVisible()
-    await expect(overview.getByRole('heading', { level: 3, name: /TODO 1 items/ })).toBeVisible()
+    await expect(overview.getByText('Explicit user review', { exact: true })).toBeVisible()
     await expect(overview.getByText('Acceptance checks', { exact: true })).toBeVisible()
     await expect(overview.getByText('No external acceptance evidence is recorded.', { exact: true })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -73,7 +83,7 @@ test('renders and accepts Host-owned focused workflow state at desktop and narro
       .poll(async () => {
         const snapshot = await workflows.execute('workflow.get', { sessionId: host!.ready.sessionId })
         return {
-          status: snapshot.workflow?.workItems[0]?.acceptanceChecks[0]?.status,
+          status: snapshot.workflow?.focus?.acceptanceChecks[0]?.status,
           evidence: snapshot.workflow?.evidence.length,
         }
       })
@@ -82,7 +92,7 @@ test('renders and accepts Host-owned focused workflow state at desktop and narro
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(overview.getByRole('heading', { level: 2, name: 'Focused workflow' })).toBeVisible()
-    await expect(focusedTitle).toHaveCount(2)
+    await expect(focusedTitle).toHaveCount(1)
     await expect(focusedTitle.first()).toBeVisible()
     await expect(overview.getByText('Showing 1 of 1', { exact: true })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

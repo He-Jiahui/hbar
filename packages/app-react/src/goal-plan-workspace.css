@@ -184,9 +184,9 @@
 }
 
 .hbar-app-react-workflow-focus {
-  display: grid;
+  display: flex;
   min-inline-size: 0;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem;
@@ -200,9 +200,13 @@
 .hbar-app-react-workflow-agents strong,
 .hbar-app-react-workflow-agents p,
 .hbar-app-react-workflow-evidence span,
-.hbar-app-react-workflow-items dd {
+.hbar-app-react-workflow-scope dd {
   min-inline-size: 0;
   overflow-wrap: anywhere;
+}
+
+.hbar-app-react-workflow-focus strong {
+  flex: 1 1 12rem;
 }
 
 .hbar-app-react-workflow-draft {
@@ -251,23 +255,28 @@
   color: var(--lumen-subtle);
 }
 
-.hbar-app-react-workflow-items dl {
-  display: grid;
+.hbar-app-react-workflow-scope {
+  display: flex;
+  flex-direction: column;
   gap: 0.375rem;
   margin: 0.5rem 0 0;
 }
 
-.hbar-app-react-workflow-items dl > div {
-  display: grid;
-  grid-template-columns: minmax(5rem, 0.3fr) minmax(0, 1fr);
+.hbar-app-react-workflow-scope > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.hbar-app-react-workflow-items dt {
+.hbar-app-react-workflow-scope dt {
+  flex: 0 1 8rem;
   color: var(--lumen-muted);
 }
 
-.hbar-app-react-workflow-items dd {
+.hbar-app-react-workflow-scope dd {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
   margin: 0;
   font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
 }
@@ -305,6 +314,15 @@
   gap: 0.25rem;
 }
 
+.hbar-app-react-workflow-policy {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .hbar-app-react-workflow-agents p {
   margin-block-start: 0.5rem;
   color: var(--lumen-subtle);
@@ -320,8 +338,9 @@
 }
 
 .hbar-app-react-workflow-evidence > li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -332,10 +351,10 @@
 }
 
 @media (max-width: 42rem) {
-  .hbar-app-react-workflow-focus,
-  .hbar-app-react-workflow-evidence > li,
-  .hbar-app-react-workflow-items dl > div {
-    grid-template-columns: minmax(0, 1fr);
+  .hbar-app-react-workflow-focus strong,
+  .hbar-app-react-workflow-evidence > li > span,
+  .hbar-app-react-workflow-scope dd {
+    flex-basis: 100%;
   }
 
   .hbar-app-react-workflow-group > h3 > span:last-child {

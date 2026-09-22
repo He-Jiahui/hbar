@@ -61,6 +61,7 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'workflow.complete',
     'workflow.delegate',
     'workflow.expandScope',
+    'workflow.focus.set',
     'workflow.get',
     'workflow.plan.save',
     'workflow.start',

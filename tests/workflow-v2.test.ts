@@ -104,9 +104,12 @@ test('workflow focus normalizes registered tool aliases and escapes repeated sco
   )
   expect(focused.workflow).toMatchObject({
     status: 'active',
-    activeStepIndex: 0,
     planRevision: plan.revision,
-    workItems: [{ title: 'Inspect the bounded file', scope: { tools: ['read_file'] } }],
+    focus: {
+      stepIndex: 0,
+      title: 'Inspect the bounded file',
+      scope: { tools: ['read_file'] },
+    },
   })
   expect(
     await rejection(
@@ -193,7 +196,7 @@ test('workflow checkpoint advances the authoritative Agent Plan without completi
       { step: 'Verify the change', status: 'in_progress' },
     ],
   })
-  expect(advanced.workflow).toMatchObject({ status: 'active', activeItemId: null, activeStepIndex: null })
+  expect(advanced.workflow).toMatchObject({ status: 'active', focus: null })
 
   const secondPlan = (await plans.get(session.id))!
   const second = await workflows.focus(
@@ -285,7 +288,7 @@ test('typed tool predicates and the default Agent conclusion create durable evid
   )
   await kernel.waitForIdle()
   const verified = await workflows.get(session.id)
-  expect(verified.workflow?.workItems[0]?.acceptanceChecks.every((check) => check.status === 'passed')).toBeTrue()
+  expect(verified.workflow?.focus?.acceptanceChecks.every((check) => check.status === 'passed')).toBeTrue()
   const evidenceIds = verified.workflow!.evidence.map((entry) => entry.evidenceId)
   const completed = await workflows.checkpoint(
     session.id,
@@ -679,12 +682,10 @@ test('legacy namespaced tools and trailing globs migrate into a recoverable Agen
     workflow: {
       executionModel: 'focus_v2',
       status: 'active',
-      activeStepIndex: 0,
-      workItems: [
-        {
-          scope: { readPaths: ['apps/web'], writePaths: ['apps/web'], tools: ['read_file'] },
-        },
-      ],
+      focus: {
+        stepIndex: 0,
+        scope: { readPaths: ['apps/web'], writePaths: ['apps/web'], tools: ['read_file'] },
+      },
     },
   })
   expect(
@@ -709,17 +710,23 @@ test('recorded checkpoint intent completes idempotently after a Host restart', a
     'agent',
     plan.revision,
   )
-  const workflow = focused.workflow!
+  const focusEvent = (await kernel.storage.call('events', session.id, 0, 10_000)).findLast(
+    (event) => event.type === 'workflow.focus.set',
+  )
+  if (!focusEvent || !focusEvent.data || typeof focusEvent.data !== 'object' || !('workflow' in focusEvent.data))
+    throw new Error('Missing internal focus event')
+  const workflow = (focusEvent.data as { workflow: Record<string, unknown> }).workflow
+  const focus = focused.workflow!.focus!
   await kernel.storage.call('append', session.id, 'workflow.updated', {
     workflow: {
       ...workflow,
-      revision: workflow.revision + 1,
+      revision: Number(workflow.revision) + 1,
       transitionIntent: {
         operationId: 'recover-operation',
-        planRevision: workflow.planRevision,
-        stepIndex: workflow.activeStepIndex,
-        stepTextHash: workflow.activeStepTextHash,
-        itemId: workflow.activeItemId,
+        planRevision: focus.planRevision,
+        stepIndex: focus.stepIndex,
+        stepTextHash: focus.stepTextHash,
+        itemId: focus.focusId,
         summary: 'Complete after recovery',
         createdAt: Date.now(),
       },
@@ -742,6 +749,6 @@ test('recorded checkpoint intent completes idempotently after a Host restart', a
     plan: [{ step: 'Finish across restart', status: 'completed' }],
   })
   expect(await restarted.plugins.get<WorkflowService>('workflow').get(session.id)).toMatchObject({
-    workflow: { status: 'completed', transitionIntent: null, activeItemId: null },
+    workflow: { status: 'completed', transitionIntent: null, focus: null },
   })
 })

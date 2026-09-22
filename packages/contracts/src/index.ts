@@ -9,7 +9,10 @@ import {
   sessionGetInputSchema,
 } from './state/directory'
 import type { Workspace, Session, WorkspacePage, SessionPage } from './state/directory'
+import { MAX_PLAN_STEPS, planStepSchema } from './plan'
+import type { PlanState } from './plan'
 export * from './state/directory'
+export * from './plan'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
@@ -79,24 +82,6 @@ export const threadGoalSchema = z.object({
   updatedAt: z.number().int().nonnegative(),
 })
 export type ThreadGoal = z.infer<typeof threadGoalSchema>
-export const planStepStatusSchema = z.enum(['pending', 'in_progress', 'completed'])
-export type PlanStepStatus = z.infer<typeof planStepStatusSchema>
-export const MAX_PLAN_STEPS = 100
-export const planStepSchema = z.object({
-  step: z.string().min(1).max(4_000),
-  status: planStepStatusSchema,
-})
-export type PlanStep = z.infer<typeof planStepSchema>
-export const planStateSchema = z.object({
-  sessionId: idSchema,
-  revision: z.number().int().positive(),
-  turnId: idSchema.nullable(),
-  explanation: z.string().max(4_000).nullable(),
-  plan: z.array(planStepSchema).max(MAX_PLAN_STEPS),
-  updatedAt: z.number().int().nonnegative(),
-})
-export type PlanState = z.infer<typeof planStateSchema>
-
 const userInputIdSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
 export const userInputOptionSchema = z.object({
   label: z.string().trim().min(1).max(80),

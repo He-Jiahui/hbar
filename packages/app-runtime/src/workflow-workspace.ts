@@ -36,15 +36,12 @@ function duplicate(values: readonly string[]) {
 function validateSnapshot(snapshot: WorkflowSnapshot) {
   const workflow = snapshot.workflow
   if (!workflow) return
-  if (duplicate(workflow.workItems.map((item) => item.id)))
-    throw new CommandError('DUPLICATE_ID', 'Workflow contains duplicate work item ids')
   if (duplicate(workflow.delegations.map((delegation) => delegation.delegationId)))
     throw new CommandError('DUPLICATE_ID', 'Workflow contains duplicate delegation ids')
   if (duplicate(workflow.evidence.map((evidence) => evidence.evidenceId)))
     throw new CommandError('DUPLICATE_ID', 'Workflow contains duplicate evidence ids')
-  for (const item of workflow.workItems)
-    if (duplicate(item.acceptanceChecks.map((check) => check.id)))
-      throw new CommandError('DUPLICATE_ID', `Workflow item ${item.id} contains duplicate check ids`)
+  if (workflow.focus && duplicate(workflow.focus.acceptanceChecks.map((check) => check.id)))
+    throw new CommandError('DUPLICATE_ID', `Workflow focus ${workflow.focus.focusId} contains duplicate check ids`)
 }
 
 export function createWorkflowWorkspace(

@@ -14,6 +14,7 @@ import {
 } from '@hbar/contracts'
 import type {
   Run,
+  PlanState,
   SessionEvent,
   WorkflowAcceptanceCheck,
   WorkflowCompletionPolicy,
@@ -274,6 +275,7 @@ function evaluateToolCheck(
 
 export class WorkflowRuntime implements WorkflowService {
   private plans = new Map<string, WorkflowPlan>()
+  private agentPlanSnapshots = new Map<string, PlanState>()
   private workflows = new Map<string, WorkflowState>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
@@ -311,6 +313,8 @@ export class WorkflowRuntime implements WorkflowService {
     for (const event of events) this.applyEvent(sessionId, event)
     await this.migrateLegacySession(sessionId)
     await this.recoverTransition(sessionId)
+    const plan = await this.agentPlans.get(sessionId)
+    if (plan) this.agentPlanSnapshots.set(sessionId, plan)
   }
 
   private async migrateLegacySession(sessionId: string) {
@@ -346,6 +350,7 @@ export class WorkflowRuntime implements WorkflowService {
     const active = workflow.workItems.find((item) => item.id === workflow.activeItemId)
     const stepIndex = active ? agentPlan.plan.findIndex((step) => step.step === active.title) : -1
     const compatible = stepIndex >= 0
+    this.agentPlanSnapshots.set(sessionId, agentPlan)
     const migrated = workflowStateSchema.parse({
       ...workflow,
       executionModel: 'focus_v2',
@@ -391,6 +396,7 @@ export class WorkflowRuntime implements WorkflowService {
       agentPlan?.revision === intent.planRevision + 1 &&
       agentPlan.plan[intent.stepIndex]?.status === 'completed' &&
       hashValue(agentPlan.plan[intent.stepIndex]?.step ?? '') === intent.stepTextHash
+    if (agentPlan) this.agentPlanSnapshots.set(sessionId, agentPlan)
     const now = Date.now()
     const recovered = workflowStateSchema.parse({
       ...workflow,
@@ -492,9 +498,46 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   private snapshot(sessionId: string): WorkflowSnapshot {
+    const internal = this.workflows.get(sessionId)
+    let workflow: WorkflowSnapshot['workflow'] = null
+    if (internal) {
+      const {
+        activeItemId,
+        activeStepIndex,
+        activeStepTextHash,
+        workItems,
+        startCommand: _startCommand,
+        planId: _planId,
+        completionPolicy: _completionPolicy,
+        ...state
+      } = internal
+      const item = workItems.find((candidate) => candidate.id === activeItemId)
+      workflow = {
+        ...state,
+        focus:
+          item && activeStepIndex !== null && activeStepTextHash
+            ? {
+                focusId: item.id,
+                planRevision: internal.planRevision,
+                stepIndex: activeStepIndex,
+                stepTextHash: activeStepTextHash,
+                title: item.title,
+                status: item.status,
+                scope: item.scope,
+                acceptanceChecks: item.acceptanceChecks,
+                completionPolicy: internal.completionPolicy,
+                startedAt: item.startedAt,
+                completedAt: item.completedAt,
+              }
+            : null,
+      }
+      void _startCommand
+      void _planId
+      void _completionPolicy
+    }
     return workflowSnapshotSchema.parse({
-      plan: this.plans.get(sessionId) ?? null,
-      workflow: this.workflows.get(sessionId) ?? null,
+      plan: this.agentPlanSnapshots.get(sessionId) ?? null,
+      workflow,
     })
   }
 
@@ -502,6 +545,8 @@ export class WorkflowRuntime implements WorkflowService {
     await this.ready()
     await this.api.sessions.get(sessionId)
     const plan = await this.agentPlans.get(sessionId)
+    if (plan) this.agentPlanSnapshots.set(sessionId, plan)
+    else this.agentPlanSnapshots.delete(sessionId)
     const workflow = this.workflows.get(sessionId)
     if (
       plan &&
@@ -592,6 +637,7 @@ export class WorkflowRuntime implements WorkflowService {
       if (agentPlan.revision !== expectedPlanRevision)
         throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The Agent Plan changed before focus was applied')
       const step = agentPlan.plan[stepIndex]
+      this.agentPlanSnapshots.set(sessionId, agentPlan)
       if (!step) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The Agent Plan step does not exist')
       if (step.status === 'completed')
         throw new HbarError('WORKFLOW_ITEM_COMPLETE', 'A completed Agent Plan step cannot become the active focus')
@@ -713,13 +759,15 @@ export class WorkflowRuntime implements WorkflowService {
 
   private async publishLegacyAgentPlan(sessionId: string, plan: WorkflowPlan) {
     const current = await this.agentPlans.get(sessionId)
-    return this.agentPlans.update(
+    const updated = await this.agentPlans.update(
       sessionId,
       plan.items.map((item, index) => ({ step: item.title, status: index === 0 ? 'in_progress' : 'pending' })),
       `Migrated legacy Workflow plan ${plan.planId}`,
       null,
       current?.revision ?? 0,
     )
+    this.agentPlanSnapshots.set(sessionId, updated)
+    return updated
   }
 
   private stateFor(
@@ -1185,6 +1233,7 @@ export class WorkflowRuntime implements WorkflowService {
                 : step.status,
         }))
         nextPlan = await this.agentPlans.update(sessionId, plan, summary, agentPlan.turnId, agentPlan.revision)
+        this.agentPlanSnapshots.set(sessionId, nextPlan)
         const projection = this.plans.get(sessionId)
         if (projection)
           this.plans.set(
@@ -1722,6 +1771,7 @@ export class WorkflowRuntime implements WorkflowService {
         plan.turnId,
         plan.revision,
       )
+      this.agentPlanSnapshots.set(sessionId, updatedPlan)
       const completed = updatedPlan.plan.every((step) => step.status === 'completed')
       const projection = this.plans.get(sessionId)
       if (projection)

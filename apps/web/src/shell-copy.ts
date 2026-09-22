@@ -1140,7 +1140,7 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
         completed: 'Completed',
         cancelled: 'Cancelled',
       }
-  const workflowItemStatuses: HbarGoalPlanWorkspaceLabels['workflow']['itemStatuses'] = zh
+  const workflowFocusStatuses: HbarGoalPlanWorkspaceLabels['workflow']['focusStatuses'] = zh
     ? {
         pending: '待处理',
         in_progress: '进行中',
@@ -1156,6 +1156,26 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
         verifying: 'Verifying',
         completed: 'Completed',
         blocked: 'Blocked',
+      }
+  const completionPolicies: HbarGoalPlanWorkspaceLabels['workflow']['completionPolicies'] = zh
+    ? { agent: 'Agent 自主判定', review_agent: '独立 Agent 复核', user: '显式人工验收' }
+    : { agent: 'Agent judgment', review_agent: 'Independent agent review', user: 'Explicit user review' }
+  const reviewStatuses: HbarGoalPlanWorkspaceLabels['workflow']['reviewStatuses'] = zh
+    ? {
+        queued: '排队中',
+        running: '复核中',
+        approved: '已批准',
+        rejected: '已拒绝',
+        cancelled: '已取消',
+        stale: '已过期',
+      }
+    : {
+        queued: 'Queued',
+        running: 'Reviewing',
+        approved: 'Approved',
+        rejected: 'Rejected',
+        cancelled: 'Cancelled',
+        stale: 'Stale',
       }
   const acceptanceStatuses: HbarGoalPlanWorkspaceLabels['workflow']['acceptanceStatuses'] = zh
     ? { pending: '待验证', passed: '已通过', failed: '未通过', accepted: '已接受', rejected: '已拒绝' }
@@ -1243,18 +1263,24 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       loading: choose('正在加载工作流…', 'Loading workflow…'),
       empty: choose('当前会话尚未启用专注工作流。', 'This session does not have a focused workflow.'),
       draft: choose(
-        '结构化草案将在下一次执行请求时激活。',
-        'The structured draft activates on the next execution request.',
+        '执行计划已发布，当前尚未设置工作流焦点。',
+        'The Agent Plan is published without a current workflow focus.',
       ),
       focus: choose('当前焦点', 'Current focus'),
       staleFocus: choose('焦点已过期，请刷新或记录检查点。', 'The focus is stale; refresh or record a checkpoint.'),
-      todo: choose('TODO', 'TODO'),
+      completionPolicy: choose('完成策略', 'Completion policy'),
+      completionPolicies,
       acceptance: choose('验收清单', 'Acceptance checks'),
       scope: choose('查看允许范围', 'Show allowed scope'),
       readPaths: choose('读取路径', 'Read paths'),
       writePaths: choose('写入路径', 'Write paths'),
       tools: choose('工具', 'Tools'),
       none: choose('无', 'None'),
+      review: choose('独立复核', 'Independent review'),
+      reviewStatuses,
+      diagnosis: choose('自愈诊断', 'Recovery diagnosis'),
+      denialCount: (count) =>
+        choose(`相同拒绝已连续出现 ${number.format(count)} 次`, `${number.format(count)} consecutive matching denials`),
       agents: choose('子 Agent 与补丁', 'Child agents and patches'),
       noAgents: choose('当前没有派发中的子任务。', 'There are no delegated tasks.'),
       evidence: choose('验收证据', 'Acceptance evidence'),
@@ -1269,12 +1295,9 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       actionSucceeded: choose('操作已由 Host 确认。', 'The Host confirmed the operation.'),
       error: (code) => choose(`工作流操作失败：${code}`, `Workflow operation failed: ${code}`),
       statuses: workflowStatuses,
-      itemStatuses: workflowItemStatuses,
+      focusStatuses: workflowFocusStatuses,
       acceptanceStatuses,
       delegationStatuses,
-      ownerMain: choose('主任务', 'Main task'),
-      ownerAgent: (agentId) => choose(`Agent ${agentId}`, `Agent ${agentId}`),
-      itemCount: (count) => choose(`${number.format(count)} 项`, `${number.format(count)} items`),
       evidenceCount: (visible, total) =>
         choose(
           `显示 ${number.format(visible)} / ${number.format(total)}`,

@@ -1,137 +1,89 @@
-# 专注工作流
+# Goal、Agent Plan 与专注工作流
 
-hbar 的专注工作流把长任务的目标、当前焦点、允许范围、验收条件和外部证据保存到 Host。模型每轮都能重新读取这组事实，因此不需要仅靠对话上下文记住“正在做什么、做到哪里、什么才算完成”。简单问答和一次读取不必启动工作流；涉及多步修改、验证或委派的任务才使用它。
+hbar 的长任务状态与 Codex 语义保持一致，并且只存在一份执行计划。
 
-Goal、Plan 和 Workflow 各自承担不同职责：
+| 概念       | Host 持久事实                                                       | 不负责                       |
+| ---------- | ------------------------------------------------------------------- | ---------------------------- |
+| Goal       | 会话级 objective、停止状态、Token 预算、累计用量和耗时              | 步骤、文件范围、验收按钮     |
+| Agent Plan | 带单调 revision 的 `{ step, status }` 有序清单                      | 工具权限、路径范围、Evidence |
+| Workflow   | 当前 Plan 步骤的执行焦点、能力范围、验证策略、委派、诊断与 Evidence | 第二份 TODO 或 Goal 完成判定 |
 
-| 对象     | 负责的事实                                             | 不负责的事实                  |
-| -------- | ------------------------------------------------------ | ----------------------------- |
-| Goal     | 总体目标、状态、Token 预算、累计用量和耗时             | 文件范围、当前 TODO、验收证据 |
-| Plan     | 带版本的目标说明和结构化 TODO 草案                     | 正在执行的焦点和运行状态      |
-| Workflow | 当前 TODO、焦点、范围、探索计数、委派、补丁和 Evidence | 模型供应商配置、UI 临时状态   |
+Plan Mode 只在对话中产出 proposed plan。回到 Default mode 后，Agent 使用 `update_plan` 发布或修订唯一的 Agent Plan。Goals and plans 面板只读显示这份 Plan；生产 UI 不再提供 Plan 保存、清除或排序入口。兼容 Host 命令仍保留一个版本，但不再暴露给新模型流程。
 
-Workflow 是 Session 级 Host 真相源。Web、桌面端、CLI 和模型工具都通过同一组命令读取或修改它。前端 Zustand 只保存按 `sessionId + workflowId + revision` 投影的只读 ViewModel；较旧响应不能覆盖较新 Host 事实。
+## Goal 生命周期
 
-## 结构化计划
+不同 objective 会替换当前 Goal：生成新的 `goalId`，重置 Token/时间计量、自动续跑审计与关联 Workflow，并清除旧 Agent Plan。同一 objective 或省略 objective 时只更新状态或预算，保留累计用量。`expectedGoalId` 用于拒绝过期写入。
 
-每个 TODO 必须包含稳定且唯一的 `id`、标题、范围和验收清单：
+Workflow 完成最后一个 Plan 步骤后不会擅自完成 Goal。Agent 仍需根据 objective 的停止条件调用 `update_goal complete`。Goal 可以在没有 Workflow 时独立运行。
 
-```json
-{
-  "id": "implement-search",
-  "title": "Implement the bounded search path",
-  "scope": {
-    "readPaths": ["plugins/local-tools"],
-    "writePaths": ["plugins/local-tools"],
-    "tools": ["search_text", "read_file", "write_file"]
-  },
-  "acceptanceChecks": [
-    {
-      "id": "targeted-test",
-      "description": "The targeted integration test passes",
-      "verifier": {
-        "kind": "tool",
-        "toolName": "shell",
-        "expectedArguments": { "command": "bun test tests/local-tools.test.ts" }
-      }
-    }
-  ]
-}
-```
+## 焦点与范围
 
-路径必须相对工作区，不能使用绝对路径或 `..`。Plan 最少 1 项、最多 100 项；单项最多 32 个验收项；读取路径、写入路径和工具列表各最多 128 项。TODO、验收项、委派和 Evidence 的标识符必须唯一。Host 在命令入口和恢复状态时都会校验这些约束。
+`workflow.focus.set`（模型工具 `workflow_focus`）为某个 Agent Plan 步骤设置或完整替换焦点。焦点绑定：
 
-Plan Mode 使用模型工具 `save_workflow_plan` 保存草案。草案不会在 Plan Mode 内执行；下一次普通用户 Run 自动激活同一 revision。自动化也可以用 `workflow.plan.save` 和 `workflow.activate` 显式完成这两步。新的写入必须带读取到的 `expectedRevision`，避免旧计划或旧界面覆盖新状态。
+- Agent Plan revision；
+- 步骤索引；
+- 步骤文本 SHA-256；
+- 当前读/写目录前缀与工具集合；
+- 验收检查与完成策略。
 
-## 固定但可调整的循环
+路径是工作区相对文件或目录前缀，统一使用 `/`。新输入拒绝绝对路径、`..`、`*` 和 `**`。`apps/web/**` 等 v1 数据只在迁移时规范化为 `apps/web`；`**/*`、`**` 和 `*` 迁移为 `.`。
 
-活动工作流向模型重复注入当前焦点、revision、允许路径、允许工具、待验收项、委派状态和最近失败。正常循环为：
+工具名在持久化前与真实 ToolRegistry 核对。历史 `functions.read_file` 会在工具存在时规范化为 `read_file`；未知工具立即返回 `WORKFLOW_TOOL_UNKNOWN`。ToolDefinition 明确声明无工作区访问、结构化路径访问或 workspace-wide 访问，Workflow 不再猜测 `path`/`cwd` 字段。`shell` 与 Git 工具属于 workspace-wide；写入或进程工具必须显式拥有 `.` 写范围。
 
-1. 用 `get_workflow` 或 `workflow.get` 定位当前 TODO 和 revision。
-2. 只在声明的读取路径与工具内做有界探索。默认连续 8 次读取后，Host 要求先记录检查点。
-3. 直接执行当前项，或把互不重叠的可写项交给子 Agent。
-4. 通过实际工具结果、工作区结果、浏览器断言或明确的用户接受生成 Evidence。
-5. 用 `workflow_update` 或 `workflow.checkpoint` 记录 `progress`、`revise`、`complete` 或 `blocked`；检查点将探索计数归零并明确下一焦点。
+`workflow.expandScope` 只接受真实增量；重复扩展返回 `WORKFLOW_SCOPE_NOOP`，不消耗 revision。普通工具连续三次遇到相同工具、路径、Plan revision 和焦点拒绝时，Workflow 进入 `needs_revision` 并停止 Goal 自动续跑。`get_workflow`、`update_plan`、`workflow_focus`、`workflow_update` 与 Goal 控制工具始终可用，Agent 可以自行修订后继续，不需要用户选择。
 
-需要扩大范围时必须先调用 `workflow.expandScope`，给出新增范围、理由和当前 revision。Host 拒绝未声明工具及结构化参数中的越界路径。`revise` 会取消该 TODO 尚未结算的委派并清理相应隔离 worktree，让计划在保留历史证据的同时可以调整。
+## 检查点与恢复
 
-这个循环是稳定的控制骨架，并不规定每项必须执行相同数量的读取、工具调用或 Agent。简单项可以直接执行和验证；遇到新证据时可以扩展范围、修订或阻塞，而不需要继续无效探索。
+`workflow.checkpoint complete` 先写入带 operation ID 的 transition intent，再以 Plan CAS 完成当前步骤并把下一 pending 步骤设为 in_progress，最后结算 Workflow。Host 如果在任一步崩溃，恢复时会幂等补齐；若 Plan 已被其他写入改变，则进入 `needs_revision`，不会把旧结果写入新 Plan。
 
-Goal 的自动续跑在每次提交下一 Run 前经过 Workflow hook。只有 Workflow 仍为 `active`、存在主任务焦点且没有等待用户 Evidence 时才继续；`waiting`、`blocked`、等待用户或没有焦点时暂停，等 Host 状态变化或用户操作后再推进。
+Plan revision 或步骤文本发生变化时，旧焦点、委派与 reviewer 结果都会失效。Agent 使用 `workflow_focus` 为新 revision 建立焦点即可恢复。Workflow 最后一步完成只结算 Plan/Workflow，不修改 Goal。
 
-## 外部验收与完成门禁
+## 验收策略
 
-模型的完成陈述不是验收证据。工具型验收只在工具结果已经结算后记录，并保存 Run、Call、工具名、参数哈希和结果哈希。用户型验收必须通过 `workflow.acceptCheck` 或 Goals and plans 面板的 Accept/Reject 操作写入。Agent Evidence 绑定 Agent 和结果哈希。
+`completionPolicy` 有三种：
 
-同一个工具验收连续三次得到相同失败结果时，Host 把当前 TODO 和 Workflow 标记为 `blocked`，阻止继续调用普通工具，直到记录 `revise` 检查点。Evidence 最多保留 1,000 条；UI 每次显示 20 条并显式加载下一页。
+- `agent`（默认）：执行 Agent 提交结论、摘要和 Evidence 引用。Host 记录 Plan revision、Run/Call、参数/结果哈希；全过程不要求用户决断。
+- `review_agent`：Host 创建 `approval: deny` 的只读 reviewer。Reviewer 只能使用焦点允许的读工具和 `workflow_review_submit`。verdict 绑定 Plan revision、步骤哈希和 Git 工作区指纹；工作区变化后结果标记为 stale。批准推进 Plan；拒绝携带反馈自动恢复主 Agent；取消或失败也恢复主 Agent。
+- `user`：仅在用户或任务明确要求人工验收时使用。Accept/Reject 只对当前焦点且 `waiting_user` 状态有效，不能提前接受未来步骤。
 
-`workflow.complete` 只有在以下条件同时满足时才成功：
+工具检查支持规范工具名、参数子集以及类型化结果谓词：成功、文本包含、JSON 路径等于、布尔为真。浏览器自然语言字符串包含断言只保留为 v1 历史，不再产生有效自动证明。纯视觉质量应由 Agent、review agent 或显式人工策略判断。
 
-- 所有 TODO 都是 `completed`；
-- 所有必需验收项都是 `passed` 或 `accepted`；
-- 所有委派都已 `applied` 或 `cancelled`；
-- 调用方提供当前 Workflow revision。
+## Evidence 与委派
 
-成功后 Host 同步把关联 Goal 标记为完成。Goal 自身的完成入口也经过同一门禁，所以无法绕过 Workflow Evidence。
+工具 Evidence 在工具结果结算后写入，包含 Run、Call、工具、参数哈希和结果哈希。Agent 结论、reviewer verdict 和显式用户决断使用不同 source。Evidence 最多保留 1,000 条；UI 以每页 20 条增量显示。
 
-## 子 Agent 与补丁
+委派补丁继续在隔离 worktree 中运行，并绑定权威 Plan revision 与焦点。写范围不得重叠；预算不得超过 Goal 余量。补丁应用后由父 Workflow 执行集成验证。Goal 替换或清除会取消未结算委派和 reviewer，并把旧 Workflow 标记为 cancelled。
 
-`delegate_work` 或 `workflow.delegate` 只接受当前可执行的 TODO。Host 拒绝重复 item ID、互相重叠的写入范围、与未结算委派重叠的写入范围，以及超过 Goal 剩余 Token 的预算。默认最多同时运行 3 个隔离 Agent，其余保持 `queued`，有槽位后按队列启动；一条命令最多派发 8 项，持久状态最多保留 128 条委派记录。
+## 命令与模型工具
 
-每个委派在独立 Git worktree 和独立子 Session 中运行。Host 把 Goal、TODO、plan revision、范围、工具和验收项组成焦点包。隔离 Agent 只能调用显式列出的工具；文件工具还必须命中声明的读取或写入路径。通用 `process` 工具无法获得可靠的文件级 OS 沙箱，因此隔离补丁 Agent 会拒绝这类工具；构建和测试由父 Workflow 在补丁应用后运行并形成外部 Evidence。
+| Host 命令              | 作用                                     |
+| ---------------------- | ---------------------------------------- |
+| `workflow.get`         | 读取权威 Agent Plan 与当前 Workflow 焦点 |
+| `workflow.focus.set`   | 设置或替换某个 Plan 步骤的焦点           |
+| `workflow.expandScope` | 记录真实增量范围                         |
+| `workflow.checkpoint`  | 记录进度、修订、阻塞或完成步骤           |
+| `workflow.delegate`    | 创建有界隔离委派                         |
+| `workflow.acceptCheck` | 仅写入显式 user 策略的当前人工决断       |
+| `workflow.complete`    | 兼容 Workflow 结算命令；不完成 Goal      |
 
-Agent 完成后只生成持久补丁元数据，父工作区仍不变化。补丁记录每个文件的操作和前后 SHA-256，并绑定 Agent、TODO 与 plan revision。`apply_agent_patch` 或 `agent.patch.apply` 在一次应用前检查：
-
-- Agent 必须是目标 Session 的直接子 Agent；
-- plan revision 必须一致；
-- 文件仍位于委派写入范围；
-- 隔离内容仍匹配捕获的 artifact 哈希；
-- 父工作区的每个文件仍匹配派发时 baseline。
-
-任一父文件有并发变化时，整组补丁进入 `conflict`，不会部分写入。完整性失败进入 `rejected` 并清理 worktree。成功应用后才把委派标记为 `applied`。CLI 对冲突和完整性失败返回非零退出码，同时在 stdout 保留可解析的补丁 JSON。
-
-## 命令和模型工具
-
-Host 命令包括：
-
-| 命令                                   | 用途                              |
-| -------------------------------------- | --------------------------------- |
-| `workflow.get`                         | 读取 Plan 和 Workflow 快照        |
-| `workflow.plan.save`                   | 保存结构化草案                    |
-| `workflow.start` / `workflow.activate` | 直接启动或激活草案                |
-| `workflow.expandScope`                 | 记录有理由的范围扩展              |
-| `workflow.checkpoint`                  | 记录进度、修订、完成或阻塞        |
-| `workflow.delegate`                    | 创建有界委派队列                  |
-| `workflow.acceptCheck`                 | 写入用户接受或拒绝证据            |
-| `workflow.complete`                    | 在门禁通过后完成 Workflow 和 Goal |
-| `agent.result.get`                     | 读取子 Agent 结果与补丁状态       |
-| `agent.patch.apply`                    | 显式应用指定 revision 的补丁      |
-
-模型侧提供 `get_workflow`、`save_workflow_plan`、`workflow_start`、`workflow_update`、`delegate_work`、`get_agent_result` 和 `apply_agent_patch`。这些工具只是同一 Host 服务的模型入口，不维护第二份状态。
+`workflow.plan.save`、`workflow.start` 和 `workflow.activate` 仅作为 v1 兼容入口保留；新模型提示不再暴露它们。模型侧使用 `get_workflow`、`workflow_focus`、`workflow_update`、`delegate_work`、`get_agent_result`、`apply_agent_patch` 和 reviewer 专用 `workflow_review_submit`。
 
 CLI 示例：
 
-```text
+```powershell
 hbar exec workflow.get --session <Session ID>
-hbar exec workflow.start --session <Session ID> --input-json '<workflow JSON>' --idempotency-key workflow-1
-hbar exec workflow.acceptCheck --session <Session ID> --input-json <JSON>
-hbar exec workflow.checkpoint --session <Session ID> --input-json <JSON>
-hbar exec agent.result.get <Agent ID> --session <Session ID>
-hbar exec agent.patch.apply <Agent ID> --session <Session ID> --plan-revision <revision> --idempotency-key apply-1
-hbar exec workflow.complete --session <Session ID> --input-json '{"expectedRevision":4}'
+hbar exec workflow.focus.set --session <Session ID> --input-json '<focus JSON>'
+hbar exec workflow.expandScope --session <Session ID> --input-json '<scope JSON>'
+hbar exec workflow.checkpoint --session <Session ID> --input-json '<checkpoint JSON>'
 ```
 
-所有持久命令都在 Host 串行检查 revision。`workflow.start` 与补丁应用使用幂等键；网络结果未知时先用同一键重试或查询当前快照，不要换键重复写入。
+## 迁移与验证
 
-## 验证
+Host 不改写旧 SessionEvent，而是追加幂等 `workflow.migrated.v2`。有 Agent Plan 时以它为权威；没有时从 v1 workItems 派生一次 Plan。无法安全匹配的旧工具、范围、TODO 或提前验收会进入 `needs_revision`，不会静默扩大权限。
 
-核心验证覆盖状态恢复、范围门禁、探索上限、三次失败阻塞、并发 revision、委派队列、预算、隔离补丁、冲突、完整性、列表容量和旧响应抑制。发布版 CLI 测试会真实编译并运行 `hbar.exe`，验证其内嵌 Host、原生查询、Workflow、Agent Patch，并确认只存在一个该路径的 `hbar.exe` Host 且没有递归子进程。浏览器 E2E 从真实 Host 启动 Workflow，在桌面和 390×844 窄屏中执行接受操作，再从 Host 查询 Evidence。
+核心回归包含目标替换、Plan CAS、工具别名、Windows 路径、glob 迁移、workspace-wide Shell、三次拒绝自愈、提前人工验收、类型化谓词、review approve/reject/stale/cancel、重启恢复、预算边界和 transition intent：
 
-常用命令：
-
-```text
-bun test tests/workflow-contracts.test.ts tests/workflow.test.ts tests/workflow-delegation.test.ts
-bun test tests/agent-patch.test.ts tests/compiled-cli.test.ts --timeout 90000
-bun run build
+```powershell
+bun test tests/goal.test.ts tests/plan.test.ts tests/workflow-v2.test.ts tests/workflow.test.ts tests/workflow-delegation.test.ts
 bunx playwright test e2e/workflow-focus.spec.ts
 ```

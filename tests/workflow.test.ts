@@ -65,12 +65,12 @@ async function rejection(promise: Promise<unknown>) {
 test('legacy workflow drafts do not compete with Agent Plan focus and focus survives Host restart', async () => {
   const { root, kernel, session, workflows, plans } = await fixture()
   const draft = await workflows.savePlan(session.id, 'Deliver the verified workflow', [userVerifiedItem], null)
-  expect(draft.plan).toMatchObject({ revision: 1, phase: 'draft' })
+  expect(draft).toMatchObject({ plan: null, workflow: null })
 
   await kernel.submit(session.id, 'execute-draft', { text: 'Execute the saved plan', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
   expect(await workflows.get(session.id)).toMatchObject({
-    plan: { revision: 1, phase: 'draft' },
+    plan: null,
     workflow: null,
   })
 
@@ -90,7 +90,7 @@ test('legacy workflow drafts do not compete with Agent Plan focus and focus surv
   })
   resources.push({ root, kernel: restarted })
   expect(await restarted.plugins.get<WorkflowService>('workflow').get(session.id)).toMatchObject({
-    plan: { revision: 1, phase: 'active' },
+    plan: { revision: 1, plan: [{ step: userVerifiedItem.title, status: 'in_progress' }] },
     workflow: { status: 'active', revision: 1 },
   })
 })
@@ -107,7 +107,7 @@ test('Goal auto-continuation pauses while the focused workflow waits for user ev
   await kernel.waitForIdle()
   expect((await kernel.snapshot(session.id)).runs).toHaveLength(1)
   expect(await workflows.get(session.id)).toMatchObject({
-    workflow: { status: 'active', activeItemId: 'ship' },
+    workflow: { status: 'active', focus: { focusId: 'ship' } },
   })
 })
 
@@ -145,8 +145,8 @@ test('goal completion is gated by Host-recorded acceptance state', async () => {
     null,
     accepted.workflow!.revision,
   )
-  expect(checkpoint.workflow?.workItems[0]?.status).toBe('completed')
   expect(checkpoint.workflow?.status).toBe('completed')
+  expect(checkpoint.workflow?.focus).toBeNull()
   expect((await goals.get(session.id)).goal?.status).toBe('active')
   await goals.update(session.id, 'complete')
   expect((await goals.get(session.id)).goal?.status).toBe('complete')
@@ -264,7 +264,7 @@ test('successful tool results become durable acceptance evidence only after sett
   )
   await kernel.waitForIdle()
   const snapshot = await workflows.get(session.id)
-  expect(snapshot.workflow?.workItems[0]?.acceptanceChecks[0]).toMatchObject({ status: 'passed' })
+  expect(snapshot.workflow?.focus?.acceptanceChecks[0]).toMatchObject({ status: 'passed' })
   expect(snapshot.workflow?.evidence[0]).toMatchObject({
     source: 'tool',
     outcome: 'passed',
@@ -347,7 +347,7 @@ test('three identical verifier failures block the work item instead of retrying 
   }
   const snapshot = await workflows.get(session.id)
   expect(snapshot.workflow).toMatchObject({ status: 'needs_revision' })
-  expect(snapshot.workflow?.workItems[0]).toMatchObject({ status: 'blocked' })
+  expect(snapshot.workflow?.focus).toMatchObject({ status: 'blocked' })
   expect(snapshot.workflow?.evidence).toHaveLength(3)
   expect(snapshot.workflow?.evidence.every((entry) => entry.outcome === 'failed')).toBeTrue()
 

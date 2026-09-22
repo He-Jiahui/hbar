@@ -4,73 +4,66 @@ import { HbarWorkflowOverview } from '@hbar/app-react'
 import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
 import {
   WORKFLOW_SCHEMA_VERSION,
-  workflowPlanSchema,
+  planStateSchema,
+  workflowPublicStateSchema,
   workflowSnapshotSchema,
-  workflowStateSchema,
 } from '@hbar/contracts'
 import { agentRecordSchema } from '@hbar/contracts/commands/agents'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 function entry(evidenceCount = 1, activeItemId: string | null = 'implement'): WorkflowWorkspaceEntryState {
-  const plan = workflowPlanSchema.parse({
-    schemaVersion: WORKFLOW_SCHEMA_VERSION,
-    planId: 'plan',
+  const plan = planStateSchema.parse({
     sessionId: 'session',
     revision: 1,
-    phase: 'active',
-    objective: 'Ship verified work',
-    items: [
-      {
-        id: 'implement',
-        title: 'Implement a deliberately long focused workflow item that must wrap safely',
-        scope: {
-          readPaths: ['src/a/very/long/read/path/that/must/wrap'],
-          writePaths: ['src/a/very/long/write/path/that/must/wrap'],
-          tools: ['read_file', 'write_file'],
-        },
-        acceptanceChecks: [
-          {
-            id: 'review',
-            description: 'A reviewer accepts the integrated result after external verification',
-            required: true,
-            verifier: { kind: 'user' },
-          },
-        ],
-      },
+    turnId: null,
+    explanation: 'Ship verified work',
+    plan: [
+      { step: 'Implement a deliberately long focused workflow item that must wrap safely', status: 'in_progress' },
     ],
-    createdAt: 1,
     updatedAt: 1,
   })
   const snapshot = workflowSnapshotSchema.parse({
     plan,
-    workflow: workflowStateSchema.parse({
+    workflow: workflowPublicStateSchema.parse({
       schemaVersion: WORKFLOW_SCHEMA_VERSION,
+      executionModel: 'focus_v2',
       workflowId: 'workflow',
       sessionId: 'session',
       goalId: 'goal',
-      planId: 'plan',
       planRevision: 1,
       revision: 2,
-      status: 'active',
-      activeItemId,
+      status: 'waiting_user',
       explorationCount: 0,
-      workItems: [
-        {
-          ...plan.items[0]!,
-          status: 'verifying',
-          owner: { kind: 'main' },
-          acceptanceChecks: [
-            {
-              ...plan.items[0]!.acceptanceChecks[0]!,
-              status: 'pending',
-              evidenceId: null,
-              updatedAt: 1,
-            },
-          ],
-          startedAt: 1,
-          completedAt: null,
-        },
-      ],
+      focus:
+        activeItemId && activeItemId !== 'missing'
+          ? {
+              focusId: activeItemId,
+              planRevision: 1,
+              stepIndex: 0,
+              stepTextHash: 'a'.repeat(64),
+              title: plan.plan[0]!.step,
+              status: 'verifying',
+              completionPolicy: 'user',
+              scope: {
+                readPaths: ['src/a/very/long/read/path/that/must/wrap'],
+                writePaths: ['src/a/very/long/write/path/that/must/wrap'],
+                tools: ['read_file', 'write_file'],
+              },
+              acceptanceChecks: [
+                {
+                  id: 'review',
+                  description: 'A reviewer accepts the integrated result after external verification',
+                  required: true,
+                  verifier: { kind: 'user' },
+                  status: 'pending',
+                  evidenceId: null,
+                  updatedAt: 1,
+                },
+              ],
+              startedAt: 1,
+              completedAt: null,
+            }
+          : null,
       scopeExpansions: [],
       delegations: [
         {
@@ -97,7 +90,6 @@ function entry(evidenceCount = 1, activeItemId: string | null = 'implement'): Wo
         actorId: 'reviewer',
         note: null,
       })),
-      startCommand: null,
       createdAt: 1,
       updatedAt: 2,
     }),
@@ -151,7 +143,7 @@ function entry(evidenceCount = 1, activeItemId: string | null = 'implement'): Wo
   }
 }
 
-test('workflow overview renders host-supplied Chinese copy, scoped TODOs, checks, and conflict coordination', () => {
+test('workflow overview renders host-supplied Chinese copy, one scoped focus, checks, and conflict coordination', () => {
   const labels = getShellCopy('zh-CN').goals.workflow
   const html = renderToStaticMarkup(
     <HbarWorkflowOverview entry={entry()} labels={labels} connected instanceId="panel" invoke={() => undefined} />,
@@ -204,4 +196,48 @@ test('workflow overview covers empty, stale-focus, evidence boundary, and bounda
   expect(overBoundary).toContain(labels.title)
   expect(overBoundary).toContain('Showing 20 of 21')
   expect(overBoundary).toContain('Load more evidence')
+})
+
+test('autonomous workflow states expose review and recovery without manual acceptance controls', () => {
+  const labels = getShellCopy('en-US').goals.workflow
+  const value = entry()
+  const autonomous: WorkflowWorkspaceEntryState = {
+    ...value,
+    snapshot: {
+      ...value.snapshot,
+      workflow: {
+        ...value.snapshot.workflow!,
+        status: 'needs_revision',
+        focus: { ...value.snapshot.workflow!.focus!, completionPolicy: 'agent' },
+        review: {
+          reviewId: 'review',
+          planRevision: 1,
+          stepTextHash: 'a'.repeat(64),
+          workspaceFingerprint: 'b'.repeat(64),
+          resumeModelId: 'fixture',
+          reviewerAgentId: 'agent',
+          status: 'rejected',
+          summary: 'One assertion needs revision.',
+          createdAt: 1,
+          updatedAt: 2,
+        },
+        rejection: {
+          fingerprint: 'c'.repeat(64),
+          toolName: 'read_file',
+          path: 'src/a/very/long/read/path/that/must/wrap',
+          reason: 'The same bounded path was denied repeatedly.',
+          count: 3,
+          updatedAt: 2,
+        },
+      },
+    },
+  }
+  const html = renderToStaticMarkup(
+    <HbarWorkflowOverview entry={autonomous} labels={labels} connected instanceId="panel" invoke={() => undefined} />,
+  )
+  expect(html).toContain('Agent judgment')
+  expect(html).toContain('Independent review')
+  expect(html).toContain('Recovery diagnosis')
+  expect(html).toContain('3 consecutive matching denials')
+  expect(html).not.toContain('aria-label="Accept check:')
 })

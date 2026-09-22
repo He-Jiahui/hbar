@@ -39,7 +39,7 @@ const plan: PlanState = {
   updatedAt: 6,
 }
 
-test('goal and plan panel renders authoritative Host state through controlled editors', async () => {
+test('goal and plan panel keeps the Agent Plan authoritative and read-only', async () => {
   const runtime = createAppRuntime({
     instanceId: 'goal-plan-react',
     hostId: 'host',
@@ -77,7 +77,8 @@ test('goal and plan panel renders authoritative Host state through controlled ed
     expect(html).toContain('Build the runtime')
     expect(html).toContain('Connect the renderer')
     expect(html).toContain('Edit goal')
-    expect(html).toContain('Edit plan')
+    expect(html).not.toContain('Edit plan')
+    expect(html).not.toContain('Clear plan')
     expect(html).not.toContain('Save 2 steps')
 
     await runtime.view.commands.execute('goalPlanWorkspace.showGoalEditor', { instanceId: panel.instanceId })
@@ -95,7 +96,7 @@ test('goal and plan panel renders authoritative Host state through controlled ed
         <HbarGoalPlanWorkspace labels={getShellCopy('en-US').goals} connected />
       </HbarRuntimeProvider>,
     )
-    expect(planEditor).toContain('Save 2 steps')
+    expect(planEditor).not.toContain('Save 2 steps')
     expect(planEditor).toContain('Keep every slice reviewable.')
   } finally {
     runtime.dispose()

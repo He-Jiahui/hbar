@@ -51,7 +51,7 @@ Web 组合根通过 `apps/web/src/surface-manifest.ts` 声明可渲染 surface�
 
 `timeline.loadOlder` 和 `timeline.retry` 是 app-runtime 内部命令，不进入面向 CLI 的公共 catalog；它们仍遵守 UI 只通过命令修改客户端状态的约束。runtime 捕获当前 sessionId、generation 和 cursor，验证返回页后才合并只读投影。`run.retry` 是公开 Host 命令；React 只传原 operationId，app-runtime 负责生成并在 `RESULT_UNKNOWN` 后复用幂等键。
 
-Plan 折叠/展开属于 RunActivity 内部 UI 行为，不注册应用命令。Plan 数据来自公开 `plan.get` 查询和持久 SessionEvent；`turnId` 与当前 Run ID 相等时渲染在该 Run 内，否则渲染为会话级摘要。完整编辑仍从“目标与计划”工具执行 `goalPlanWorkspace.*` / `plan.update` 命令。
+Plan 折叠/展开属于 RunActivity 内部 UI 行为，不注册应用命令。Plan 数据来自公开 `plan.get` 查询和持久 SessionEvent；`turnId` 与当前 Run ID 相等时渲染在该 Run 内，否则渲染为会话级摘要。“目标与计划”工具只读展示同一 Plan，生产 UI 不再调用兼容的 `goalPlanWorkspace.savePlan` / `plan.update` 编辑入口。
 
 ## 3. 迁移与拒绝规则
 

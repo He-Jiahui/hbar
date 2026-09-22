@@ -2,9 +2,9 @@ import { expect, test } from 'bun:test'
 import { createAppRuntime } from '@hbar/app-runtime'
 import {
   WORKFLOW_SCHEMA_VERSION,
-  workflowPlanSchema,
+  planStateSchema,
+  workflowPublicStateSchema,
   workflowSnapshotSchema,
-  workflowStateSchema,
 } from '@hbar/contracts'
 import type { WorkflowSnapshot } from '@hbar/contracts'
 import { agentRecordSchema } from '@hbar/contracts/commands/agents'
@@ -23,29 +23,12 @@ const session = {
 }
 
 function snapshot(revision = 1, activeItemId: string | null = 'implement'): WorkflowSnapshot {
-  const plan = workflowPlanSchema.parse({
-    schemaVersion: WORKFLOW_SCHEMA_VERSION,
-    planId: 'plan',
+  const plan = planStateSchema.parse({
     sessionId: session.id,
     revision: 1,
-    phase: 'active',
-    objective: 'Ship verified work',
-    items: [
-      {
-        id: 'implement',
-        title: 'Implement the workflow',
-        scope: { readPaths: ['src'], writePaths: ['src/workflow.ts'], tools: ['read_file', 'write_file'] },
-        acceptanceChecks: [
-          {
-            id: 'review',
-            description: 'The user reviews the integrated result',
-            required: true,
-            verifier: { kind: 'user' },
-          },
-        ],
-      },
-    ],
-    createdAt: 10,
+    turnId: null,
+    explanation: 'Ship verified work',
+    plan: [{ step: 'Implement the workflow', status: 'in_progress' }],
     updatedAt: 10,
   })
   const evidence = Array.from({ length: 21 }, (_, index) => ({
@@ -62,34 +45,41 @@ function snapshot(revision = 1, activeItemId: string | null = 'implement'): Work
   }))
   return workflowSnapshotSchema.parse({
     plan,
-    workflow: workflowStateSchema.parse({
+    workflow: workflowPublicStateSchema.parse({
       schemaVersion: WORKFLOW_SCHEMA_VERSION,
+      executionModel: 'focus_v2',
       workflowId: 'workflow',
       sessionId: session.id,
       goalId: 'goal',
-      planId: plan.planId,
       planRevision: plan.revision,
       revision,
       status: 'active',
-      activeItemId,
       explorationCount: 0,
-      workItems: [
-        {
-          ...plan.items[0]!,
-          status: 'verifying',
-          owner: { kind: 'main' },
-          acceptanceChecks: [
-            {
-              ...plan.items[0]!.acceptanceChecks[0]!,
-              status: 'pending',
-              evidenceId: null,
-              updatedAt: 10,
-            },
-          ],
-          startedAt: 10,
-          completedAt: null,
-        },
-      ],
+      focus: activeItemId
+        ? {
+            focusId: activeItemId,
+            planRevision: plan.revision,
+            stepIndex: 0,
+            stepTextHash: 'a'.repeat(64),
+            title: 'Implement the workflow',
+            scope: { readPaths: ['src'], writePaths: ['src/workflow.ts'], tools: ['read_file', 'write_file'] },
+            completionPolicy: 'user',
+            status: 'verifying',
+            acceptanceChecks: [
+              {
+                id: 'review',
+                description: 'The user reviews the integrated result',
+                required: true,
+                verifier: { kind: 'user' },
+                status: 'pending',
+                evidenceId: null,
+                updatedAt: 10,
+              },
+            ],
+            startedAt: 10,
+            completedAt: null,
+          }
+        : null,
       scopeExpansions: [],
       delegations: [
         {
@@ -105,7 +95,6 @@ function snapshot(revision = 1, activeItemId: string | null = 'implement'): Work
         },
       ],
       evidence,
-      startCommand: null,
       createdAt: 10,
       updatedAt: 12,
     }),
@@ -186,14 +175,14 @@ test('workflow workspace projects Host facts, pages evidence, and reconciles row
           workflow: {
             ...current.workflow!,
             revision: current.workflow!.revision + 1,
-            workItems: current.workflow!.workItems.map((item) => ({
-              ...item,
-              acceptanceChecks: item.acceptanceChecks.map((check) => ({
+            focus: {
+              ...current.workflow!.focus!,
+              acceptanceChecks: current.workflow!.focus!.acceptanceChecks.map((check) => ({
                 ...check,
                 status: 'accepted' as const,
                 evidenceId: 'accepted',
               })),
-            })),
+            },
           },
         })
         listener?.(current)
@@ -251,7 +240,7 @@ test('workflow workspace projects Host facts, pages evidence, and reconciles row
       decision: 'accepted',
     })
     expect(
-      runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]!.snapshot.workflow?.workItems[0]
+      runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]!.snapshot.workflow?.focus
         ?.acceptanceChecks[0]?.status,
     ).toBe('accepted')
 
@@ -266,13 +255,13 @@ test('workflow workspace projects Host facts, pages evidence, and reconciles row
     listener?.(
       workflowSnapshotSchema.parse({
         ...current,
-        workflow: { ...current.workflow!, revision: 50, activeItemId: 'missing' },
+        workflow: { ...current.workflow!, revision: 50, focus: null },
       }),
     )
     await Bun.sleep(0)
     expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]!.snapshot.workflow).toMatchObject({
       revision: 50,
-      activeItemId: 'missing',
+      focus: null,
     })
   } finally {
     runtime.dispose()
@@ -317,7 +306,7 @@ test('workflow workspace rejects duplicate ids and does not let an older row res
     const old = current
     current = workflowSnapshotSchema.parse({
       ...current,
-      workflow: { ...current.workflow!, revision: 3, activeItemId: null, status: 'blocked' },
+      workflow: { ...current.workflow!, revision: 3, focus: null, status: 'blocked' },
     })
     listener?.(current)
     resolveAcceptance(
@@ -333,7 +322,10 @@ test('workflow workspace rejects duplicate ids and does not let an older row res
       workflow: {
         ...current.workflow!,
         revision: 4,
-        workItems: [current.workflow!.workItems[0]!, current.workflow!.workItems[0]!],
+        focus: {
+          ...old.workflow!.focus!,
+          acceptanceChecks: [old.workflow!.focus!.acceptanceChecks[0]!, old.workflow!.focus!.acceptanceChecks[0]!],
+        },
       },
     }
     listener?.(duplicate)

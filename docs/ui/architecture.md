@@ -52,7 +52,7 @@ interface PresentationState {
 
 `SessionViewContext` 当前只保存 workspaceId、sessionId 和 toolInstanceId。页面 scope、section 和表单目标继续存放在对应 `PanelSurface.params` 与模块投影中；消息、草稿、表单与请求不复制进 presentation。滚动锚点已经作为 `HbarAppUiConversation` 按 sessionId 保存的局部视觉状态实现，通用触发焦点恢复继续属于组件/NativeDialog 的局部行为；两者都不进入 presentation，DOM ref 也不进入持久化状态。
 
-`SessionTimelineState` 除消息、Run、审批和问卷外，还持有当前 `PlanState` 的只读投影。首次加载经可选 timeline port 查询 `plan.get`，增量更新来自同一会话事件流中的 `plan.updated` / `plan.cleared`。Plan 的 `turnId` 只用于关联已有 Run ID；没有可靠 ID 时保留会话级呈现，不根据时间或文案猜测归属。
+`SessionTimelineState` 除消息、Run、审批和问卷外，还持有当前 `PlanState` 的只读投影。首次加载经可选 timeline port 查询 `plan.get`，增量更新来自同一会话事件流中的 `plan.updated` / `plan.cleared`。Plan 的 `turnId` 只用于关联已有 Run ID；没有可靠 ID 时保留会话级呈现，不根据时间或文案猜测归属。Goal/Plan 工具页复用同一只读事实，不维护可竞争的 Workflow TODO。
 
 现有 surfaces 是实例和目标的事实源；presentation 是落点和活动关系的事实源。`focusedPanelId` 在迁移期只作为兼容派生值，不能再独立决定整个主页面。移除 `App.tsx` 中由一个 focusedPanelId 决定所有页面的串行分支。
 

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { planStateSchema } from './plan'
 
 export const WORKFLOW_SCHEMA_VERSION = 2
 export const MAX_WORKFLOW_ITEMS = 100
@@ -385,8 +386,40 @@ export const workflowStateSchema = z.strictObject({
 })
 export type WorkflowState = z.output<typeof workflowStateSchema>
 
+export const workflowFocusSchema = z.strictObject({
+  focusId: idSchema,
+  planRevision: z.number().int().positive(),
+  stepIndex: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_WORKFLOW_ITEMS - 1),
+  stepTextHash: sha256Schema,
+  title: workflowTextSchema,
+  status: workflowWorkItemStatusSchema,
+  scope: workflowScopeSchema,
+  acceptanceChecks: z.array(workflowAcceptanceCheckSchema).max(MAX_WORKFLOW_ACCEPTANCE_CHECKS),
+  completionPolicy: workflowCompletionPolicySchema,
+  startedAt: z.number().int().nonnegative().nullable(),
+  completedAt: z.number().int().nonnegative().nullable(),
+})
+export type WorkflowFocus = z.output<typeof workflowFocusSchema>
+
+export const workflowPublicStateSchema = workflowStateSchema
+  .omit({
+    activeItemId: true,
+    activeStepIndex: true,
+    activeStepTextHash: true,
+    workItems: true,
+    startCommand: true,
+    planId: true,
+    completionPolicy: true,
+  })
+  .extend({ focus: workflowFocusSchema.nullable() })
+export type WorkflowPublicState = z.output<typeof workflowPublicStateSchema>
+
 export const workflowSnapshotSchema = z.strictObject({
-  plan: workflowPlanSchema.nullable(),
-  workflow: workflowStateSchema.nullable(),
+  plan: planStateSchema.nullable(),
+  workflow: workflowPublicStateSchema.nullable(),
 })
 export type WorkflowSnapshot = z.output<typeof workflowSnapshotSchema>

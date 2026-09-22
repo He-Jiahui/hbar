@@ -382,6 +382,22 @@ test('exec workflow commands drive evidence-gated state through the real CLI', a
   expect(pending.code).not.toBe(0)
   expect(pending.stderr).toContain('requires')
 
+  const waiting = await run([
+    ...target,
+    'exec',
+    'workflow.checkpoint',
+    '--input-json',
+    JSON.stringify({
+      itemId: 'ship',
+      outcome: 'complete',
+      summary: 'Ready for explicit CLI acceptance',
+      nextItemId: null,
+      expectedRevision: 1,
+    }),
+  ])
+  expect(waiting.code).toBe(0)
+  expect(JSON.parse(waiting.stdout)).toMatchObject({ workflow: { revision: 2, status: 'waiting_user' } })
+
   const accepted = await run([
     ...target,
     'exec',
@@ -392,12 +408,12 @@ test('exec workflow commands drive evidence-gated state through the real CLI', a
       checkId: 'review',
       decision: 'accepted',
       note: 'Accepted from the CLI',
-      expectedRevision: 1,
+      expectedRevision: 2,
     }),
   ])
   expect(accepted.code).toBe(0)
   expect(JSON.parse(accepted.stdout)).toMatchObject({
-    workflow: { revision: 2, evidence: [{ source: 'user', outcome: 'accepted' }] },
+    workflow: { revision: 3, evidence: [{ source: 'user', outcome: 'accepted' }] },
   })
   const checkpoint = await run([
     ...target,
@@ -409,19 +425,11 @@ test('exec workflow commands drive evidence-gated state through the real CLI', a
       outcome: 'complete',
       summary: 'CLI acceptance is recorded',
       nextItemId: null,
-      expectedRevision: 2,
+      expectedRevision: 3,
     }),
   ])
   expect(checkpoint.code).toBe(0)
-  const completed = await run([
-    ...target,
-    'exec',
-    'workflow.complete',
-    '--input-json',
-    JSON.stringify({ expectedRevision: 3 }),
-  ])
-  expect(completed.code).toBe(0)
-  expect(JSON.parse(completed.stdout)).toMatchObject({ workflow: { status: 'completed', revision: 4 } })
+  expect(JSON.parse(checkpoint.stdout)).toMatchObject({ workflow: { status: 'completed', revision: 5 } })
   const queried = await run([...target, 'exec', 'workflow.get'])
   expect(queried.code).toBe(0)
   expect(JSON.parse(queried.stdout)).toMatchObject({ workflow: { workflowId, status: 'completed' } })
