@@ -131,5 +131,11 @@ test('canonical family roots no longer depend on the legacy variant box', async 
     const source = await readFile(file, 'utf8')
     if (source.includes("'hbar-app-ui-variant'")) violations.push(file)
   }
+  const compatibilityFrame = await readFile('packages/hbar-app-ui/src/components/SurfaceFrame.tsx', 'utf8')
+  if (compatibilityFrame.includes("'hbar-app-ui-variant'")) {
+    violations.push('packages/hbar-app-ui/src/components/SurfaceFrame.tsx')
+  }
+  expect(compatibilityFrame).toContain('<LumenSurface')
+  expect(compatibilityFrame).toContain('boundary="horizontal"')
   expect(violations).toEqual([])
 })

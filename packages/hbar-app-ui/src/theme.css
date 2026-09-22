@@ -1309,17 +1309,6 @@
     font-size: 10px;
 }
 
-.hbar-app-ui-auth-card input, .hbar-app-ui-feedback-form textarea, .hbar-app-ui-editor textarea {
-    min-height: 36px;
-    padding: 8px 9px;
-    border: 1px solid var(--hbar-app-ui-border);
-    border-radius: var(--hbar-app-ui-radius-small);
-    outline: 0;
-    background: var(--hbar-app-ui-surface-0);
-    color: var(--hbar-app-ui-text);
-    font-size: 12px;
-}
-
 .hbar-app-ui-auth-card label:has(> input[type='checkbox']) {
     display: flex;
     min-width: 0;
