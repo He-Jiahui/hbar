@@ -77,7 +77,7 @@ test('performance dashboard renders bounded Host process and availability facts'
     expect(html).toContain('lumen-bar-series')
     expect(html).toContain('block-size:42%')
     expect(html).toContain('class="hbar-lumen-disclosure hbar-app-react-status-details"')
-    expect(html).toContain('>Host process</span></button>')
+    expect(html).toContain('>Host process</span><span data-edge="bottom"')
     expect(html).not.toContain('hbar-app-ui-metric-strip')
     expect(html).toContain('Performance query filters')
     expect(html).toContain('Last hour')
