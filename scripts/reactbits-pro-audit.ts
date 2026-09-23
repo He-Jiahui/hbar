@@ -53,6 +53,7 @@ export type ReactBitsProInventory = Readonly<{
 
 export type ControlSnapshot = Readonly<{
   index: number
+  rect: Readonly<{ x: number; y: number; width: number; height: number }>
   tag: string
   role: string | null
   type: string | null
@@ -221,8 +222,8 @@ type AuditOptions = Readonly<{
 
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
-const captureProtocolVersion = 10
-const interactionProtocolVersion = 11
+const captureProtocolVersion = 11
+const interactionProtocolVersion = 12
 const sourceCanvasSelector = '#preview-root'
 const localCanvasSelector = '.hbar-app-ui-isolated-canvas'
 export const interactiveControlSelector = [
@@ -827,6 +828,7 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
     }
     const controls = [...element.querySelectorAll(controlSelector)].map((control, index) => ({
       index,
+      rect: rectOf(control),
       tag: control.tagName.toLowerCase(),
       role: control.getAttribute('role'),
       type: control.getAttribute('type'),
@@ -1310,6 +1312,7 @@ export function timedActivityDelta(
   action: HbarAppUiInteractionCapability,
 ): Readonly<{ changed: boolean; signature: string }> | null {
   const statuses = ['Running', 'Stopped', 'Done', 'Queued'] as const
+  const actionStatuses = ['Running', 'Stopped'] as const
   const counts = (snapshot: SemanticSnapshot) => {
     const items = [...snapshot.axSnapshot.matchAll(/^\s+- listitem: .+ (Running|Stopped|Done|Queued)$/gm)]
     if (items.length !== 7) return null
@@ -1328,7 +1331,7 @@ export function timedActivityDelta(
     after: control(after),
     statusDelta:
       controlChanged && (action === 'click' || action === 'press')
-        ? statuses.map((status) => (afterCounts[status] ?? 0) - (beforeCounts[status] ?? 0))
+        ? actionStatuses.map((status) => (afterCounts[status] ?? 0) - (beforeCounts[status] ?? 0))
         : null,
   })
   return { changed: controlChanged, signature }

@@ -70,7 +70,7 @@ def control_feedback_ratio(case_root: Path, kind: str) -> float | None:
     regions = []
     for snapshot in (before, after):
         tree = snapshot["tree"]
-        controls = [node for node in tree if node["tag"] == "button"]
+        controls = [control for control in snapshot["controls"] if control["tag"] == "button" and control["visible"]]
         if not tree or len(controls) != 1:
             return None
         origin = tree[0]["rect"]

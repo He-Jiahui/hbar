@@ -25,6 +25,7 @@ import {
 function control(index: number, overrides: Partial<ControlSnapshot> = {}): ControlSnapshot {
   return {
     index,
+    rect: { x: 12, y: 24, width: 70, height: 32 },
     tag: 'button',
     role: null,
     type: 'button',
@@ -249,6 +250,7 @@ describe('React Bits Pro visual audit contract', () => {
     const localStopped = {...first, controls: [control(0, {name: 'Run again'})], axSnapshot: steps(['Stopped', ...queued(6)])}
     expect(timedActivityDelta(first, later, 'hover')?.changed).toBe(false)
     expect(timedActivityDelta(later, stopped, 'click')?.signature).toBe(timedActivityDelta(first, localStopped, 'click')?.signature)
+    expect(timedActivityDelta(first, stopped, 'click')?.signature).toBe(timedActivityDelta(first, localStopped, 'click')?.signature)
     expect(timedActivityDelta(first, {...first, axSnapshot: ''}, 'hover')).toBeNull()
   })
 })
