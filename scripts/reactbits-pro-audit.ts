@@ -874,6 +874,10 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
   }
 }
 
+async function controlIsDisabled(control: Locator): Promise<boolean> {
+  return control.isDisabled().catch(() => false)
+}
+
 type InteractionCapture = Readonly<{
   id: string
   status: 'captured' | 'missing'
@@ -962,7 +966,7 @@ async function replayInteraction(
       reason: 'control-index-not-found',
     }
   }
-  await applyInteraction(control, interaction)
+  if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
   await page.waitForTimeout(120)
   await screenshotStable(root, after)
   await writeJson(afterSnapshot, await localSnapshot(page, selector))
@@ -1014,7 +1018,7 @@ async function replayReferenceInteraction(
       reason: 'control-index-not-found',
     }
   }
-  await applyInteraction(control, interaction)
+  if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
   await page.waitForTimeout(120)
   await screenshotStable(root, after)
   await writeJson(afterSnapshot, await snapshotRoot(frame, selector))
