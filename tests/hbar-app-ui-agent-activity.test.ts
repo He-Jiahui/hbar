@@ -44,6 +44,7 @@ function requiredLog(content: HbarAppUiAgentActivityContent): HbarAppUiAgentActi
 describe('hbar-app-ui agent activity surfaces', () => {
   test('renders seven independent flow surfaces from host-provided content', () => {
     const markup = Array.from({ length: 7 }, (_, index) => renderActivity(index + 1))
+    expect(markup.every((surface) => !surface.includes('<main'))).toBe(true)
 
     expect(markup[0]).toContain('hbar-app-ui-agent-activity-live')
     expect(markup[0]).toContain('Loaded October general ledger')
