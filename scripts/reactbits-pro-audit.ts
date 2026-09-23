@@ -51,13 +51,14 @@ export type ReactBitsProInventory = Readonly<{
   localVariantCount: number
 }>
 
-type ControlSnapshot = Readonly<{
+export type ControlSnapshot = Readonly<{
   index: number
   tag: string
   role: string | null
   type: string | null
   name: string
   disabled: boolean
+  visible?: boolean
   expanded: string | null
   pressed: string | null
   selected: string | null
@@ -114,6 +115,7 @@ type StructureComparison = Readonly<{
   structure: Readonly<{
     controlCountMatched: boolean
     controlShapeMatched: boolean
+    rootGeometryMatched: boolean
     truncationFree: boolean
     overflowFree: boolean
     errors: readonly string[]
@@ -121,7 +123,43 @@ type StructureComparison = Readonly<{
   }>
 }>
 
-type InteractionCase = Readonly<{
+type InteractionReportRow = Readonly<{
+  variantId?: string
+  id: string
+  theme: string
+  viewport: string
+  status?: string
+}>
+
+export function assessInteractionCoverage(
+  expected: readonly string[],
+  actual: readonly InteractionReportRow[],
+): Readonly<{ missing: readonly string[]; duplicate: readonly string[]; unexpected: readonly string[] }> {
+  const expectedSet = new Set(expected)
+  const seen = new Set<string>()
+  const duplicate: string[] = []
+  const unexpected: string[] = []
+  for (const row of actual) {
+    const key = `${row.theme}/${row.viewport}/${row.id}`
+    if (seen.has(key)) duplicate.push(key)
+    seen.add(key)
+    if (!expectedSet.has(key)) unexpected.push(key)
+  }
+  return { missing: expected.filter((key) => !seen.has(key)), duplicate, unexpected }
+}
+
+export function rootGeometryMatches(
+  source: Readonly<{ width: number; height: number }>,
+  local: Readonly<{ width: number; height: number }>,
+): boolean {
+  if (source.width <= 0 || source.height <= 0 || local.width <= 0 || local.height <= 0) return false
+  return (
+    Math.abs(local.width - source.width) / source.width <= 0.05 &&
+    Math.abs(local.height - source.height) / source.height <= 0.08
+  )
+}
+
+export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
@@ -213,7 +251,9 @@ function parseOptions(): AuditOptions {
     sourceCaptureRoot: optionValue(args, '--source-output') ?? process.env.HBAR_APP_UI_SOURCE_CAPTURE_ROOT,
     localOnly: args.includes('--local-only'),
     offline:
-      args.includes('--offline') || process.env.HBAR_APP_UI_OFFLINE === '1' || process.env.HBAR_APP_UI_OFFLINE === 'true',
+      args.includes('--offline') ||
+      process.env.HBAR_APP_UI_OFFLINE === '1' ||
+      process.env.HBAR_APP_UI_OFFLINE === 'true',
     workers,
     strict: args.includes('--strict') || command === 'audit',
   }
@@ -455,7 +495,34 @@ async function previewFrame(page: Page): Promise<Frame> {
   const frame = await handle.contentFrame()
   if (!frame) throw new Error('Preview iframe content frame is unavailable')
   await frame.locator('#preview-root').waitFor({ state: 'attached', timeout: 30_000 })
+  await frame.waitForFunction(
+    () => {
+      const root = document.querySelector('#preview-root')
+      return Boolean(
+        root &&
+        ((root.textContent ?? '').trim().length > 0 ||
+          root.querySelector('button,a,input,select,textarea,[role]') ||
+          root.querySelectorAll('*').length > 3),
+      )
+    },
+    undefined,
+    { timeout: 8_000 },
+  )
   return frame
+}
+
+async function loadReferencePreview(page: Page, url: string, theme: AuditTheme): Promise<Frame> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await gotoStable(page, url)
+      await enforceReferenceTheme(page, theme)
+      return await previewFrame(page)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`React Bits preview did not mount: ${url}`)
 }
 
 async function gotoStable(page: Page, url: string): Promise<void> {
@@ -481,7 +548,8 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
     .first()
     .evaluate((root) => {
       const rootTextLength = (root.textContent ?? '').trim().length
-      if (rootTextLength === 0) return { path: [], useRoot: false, stableSelector: null }
+      if (rootTextLength === 0 && root.querySelectorAll('*').length <= 3)
+        throw new Error('Reference preview root is empty')
       const rootRect = root.getBoundingClientRect()
       const candidates = [...root.querySelectorAll('*')]
         .map((element) => {
@@ -498,12 +566,13 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
           // incomparable to the React Bits preview.
           const primaryContentSignal = Boolean(
             stableClass &&
-              !/(?:^|-)\b(?:root|surface|pane|list|row|heading|header|footer|body|content|group|cell|table|form|nav)\b(?:-|$)/i.test(
-                stableClass,
-              ),
+            !/(?:^|-)\b(?:root|surface|pane|list|row|heading|header|footer|body|content|group|cell|table|form|nav)\b(?:-|$)/i.test(
+              stableClass,
+            ),
           )
-          const semanticSignal =
-            element.matches('[data-lumen-component], [class*="lumen-"], article, main, form, nav, [role]')
+          const semanticSignal = element.matches(
+            '[data-lumen-component], [class*="lumen-"], article, main, form, nav, [role]',
+          )
           const nativeContentSignal = element.matches('article, form, nav')
           const dataComponent = element.getAttribute('data-lumen-component')
           const path: number[] = []
@@ -626,9 +695,14 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       const type = control.getAttribute('type')
       if (tag === 'button' || tag === 'a' || role === 'button' || role === 'menuitem' || role === 'tab')
         capabilities.push('click', 'press')
-      if (tag === 'input' || tag === 'textarea') capabilities.push('fill')
+      if (
+        tag === 'textarea' ||
+        (tag === 'input' && !['checkbox', 'radio', 'file', 'button', 'submit', 'reset', 'hidden'].includes(type ?? ''))
+      )
+        capabilities.push('fill')
       if (tag === 'select' || role === 'combobox' || role === 'listbox') capabilities.push('select')
       if (type === 'checkbox' || type === 'radio' || role === 'switch') capabilities.push('toggle')
+      if (tag === 'input' && type === 'file') capabilities.push('upload')
       if (role === 'tab') capabilities.push('tab')
       if (role === 'menu' || role === 'menuitem') capabilities.push('menu')
       if (control.hasAttribute('aria-expanded')) capabilities.push('expand')
@@ -646,6 +720,11 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       name:
         control.getAttribute('aria-label') ?? (control.textContent ?? '').trim().replaceAll(/\s+/g, ' ').slice(0, 160),
       disabled: control.matches(':disabled') || control.getAttribute('aria-disabled') === 'true',
+      visible: (() => {
+        const rect = control.getBoundingClientRect()
+        const style = getComputedStyle(control)
+        return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+      })(),
       expanded: control.getAttribute('aria-expanded'),
       pressed: control.getAttribute('aria-pressed'),
       selected: control.getAttribute('aria-selected'),
@@ -739,16 +818,12 @@ async function captureSource(
   const errorStart = pageErrors.length
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
   const referenceUrl = referencePageUrl(reference, options)
-  await gotoStable(page, referenceUrl)
-  await enforceReferenceTheme(page, theme)
-  let frame = await previewFrame(page)
+  let frame = await loadReferencePreview(page, referenceUrl, theme)
   let selector: string
   try {
     selector = await componentSelector(frame, '#preview-root')
   } catch {
-    await gotoStable(page, referenceUrl)
-    await enforceReferenceTheme(page, theme)
-    frame = await previewFrame(page)
+    frame = await loadReferencePreview(page, referenceUrl, theme)
     selector = await componentSelector(frame, '#preview-root')
   }
   const root = frame.locator(selector).first()
@@ -827,34 +902,25 @@ async function captureLocal(
   }
 }
 
-function interactionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+export function interactionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
   const cases: InteractionCase[] = []
-  // Controls with the same semantic shape exercise the same browser and
-  // component feedback path.  Keep one deterministic representative for each
-  // action/shape pair so the all-variant matrix remains tractable while still
-  // covering every interaction type (including both Enter and Space).
-  const seenShapes = new Set<string>()
-  const add = (interaction: InteractionCase) => {
-    const shape = interaction.control
-    const key = `${interaction.action}:${interaction.key ?? ''}:${shape.tag}:${shape.type ?? ''}:${shape.role ?? ''}`
-    if (seenShapes.has(key)) return
-    seenShapes.add(key)
-    cases.push(interaction)
-  }
   for (const control of snapshot.controls) {
+    if (control.visible === false) continue
     const prefix = `${variantId}:${control.index}`
     for (const capability of control.capabilities) {
-      if (capability === 'no-op' || capability === 'download') continue
       if (capability === 'press') {
         for (const key of ['Enter', 'Space'] as const)
-          add({ id: `${prefix}:press-${key.toLowerCase()}`, action: 'press', key, control })
+          cases.push({ id: `${prefix}:press-${key.toLowerCase()}`, action: 'press', key, control })
         continue
       }
       if (capability === 'tab') {
-        add({ id: `${prefix}:tab-arrowright`, action: 'press', key: 'ArrowRight', control })
+        for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const)
+          cases.push({ id: `${prefix}:tab-${key.toLowerCase()}`, action: 'press', key, control })
         continue
       }
-      add({ id: `${prefix}:${capability}`, action: capability, control })
+      cases.push({ id: `${prefix}:${capability}`, action: capability, control })
+      if (capability === 'expand' || capability === 'menu')
+        cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control })
     }
   }
   return cases
@@ -872,12 +938,18 @@ async function controlLocator(root: Locator, control: ControlSnapshot) {
       tag: element.tagName.toLowerCase(),
       type: element.getAttribute('type'),
       name: (element.getAttribute('aria-label') ?? element.textContent ?? '').trim().replaceAll(/\s+/g, ' '),
+      visible: (() => {
+        const rect = element.getBoundingClientRect()
+        const style = getComputedStyle(element)
+        return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+      })(),
     })),
   )
   let best: { index: number; score: number } | undefined
   for (const candidate of candidates) {
+    if (!candidate.visible) continue
     const name = normalise(candidate.name)
-    let score = candidate.index === control.index ? 4 : 0
+    let score = -Math.abs(candidate.index - control.index)
     if (candidate.tag === control.tag) score += 40
     if (candidate.type === control.type) score += 20
     if (expectedName && name === expectedName) score += 100
@@ -892,16 +964,30 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
   if (interaction.action === 'hover') await control.hover()
   if (interaction.action === 'focus') await control.focus()
   if (interaction.action === 'click') await control.click({ timeout: 10_000 })
-  if (interaction.action === 'fill') await control.fill('audit sample')
+  if (interaction.action === 'fill') {
+    const type = await control.getAttribute('type')
+    const value = type === 'date' ? '2026-09-22' : type === 'time' ? '12:30' : type === 'number' ? '2' : 'audit sample'
+    await control.fill(value)
+  }
   if (interaction.action === 'select') {
     const values = await control
       .locator('option')
       .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))
-    if (values[0] !== undefined) await control.selectOption(values[0])
+    const current = await control.inputValue().catch(() => '')
+    const next = values.find((value) => value !== current)
+    if (next !== undefined) await control.selectOption(next)
+    else if (values.length === 0) await control.click({ timeout: 10_000 })
   }
   if (interaction.action === 'toggle') await control.click({ timeout: 10_000 })
   if (interaction.action === 'expand' || interaction.action === 'menu') await control.click({ timeout: 10_000 })
   if (interaction.action === 'drag') await control.dragTo(control)
+  if (interaction.action === 'upload')
+    await control.setInputFiles({
+      name: 'reactbits-audit.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('audit fixture'),
+    })
+  if (interaction.action === 'download') await control.click({ timeout: 10_000 })
   if (interaction.action === 'press') {
     await control.focus()
     await control.press(interaction.key ?? 'Enter')
@@ -1058,9 +1144,7 @@ async function replayReferenceInteraction(
   outputRoot: string,
 ): Promise<InteractionCapture> {
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
-  await gotoStable(page, referencePageUrl(reference, options))
-  await enforceReferenceTheme(page, theme)
-  const frame = await previewFrame(page)
+  const frame = await loadReferencePreview(page, referencePageUrl(reference, options), theme)
   const selector = await componentSelector(frame, '#preview-root')
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
@@ -1119,7 +1203,8 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
   const cachedSourceRecords: readonly CaptureRecord[] = options.localOnly
     ? await (async () => {
-        if (!options.sourceCaptureRoot) throw new Error('--local-only requires --source-output or HBAR_APP_UI_SOURCE_CAPTURE_ROOT')
+        if (!options.sourceCaptureRoot)
+          throw new Error('--local-only requires --source-output or HBAR_APP_UI_SOURCE_CAPTURE_ROOT')
         const cachePath = join(resolve(options.sourceCaptureRoot), 'capture-manifest.json')
         if (!(await Bun.file(cachePath).exists())) throw new Error(`Source capture manifest is missing: ${cachePath}`)
         const cached = await readJson<{ records: readonly CaptureRecord[] }>(cachePath)
@@ -1176,7 +1261,8 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
     const selectedThemes = new Set<string>(options.themes)
     records.push(
       ...cachedSourceRecords.filter(
-        (record) => selectedIds.has(record.id) && selectedViewports.has(record.viewport) && selectedThemes.has(record.theme),
+        (record) =>
+          selectedIds.has(record.id) && selectedViewports.has(record.viewport) && selectedThemes.has(record.theme),
       ),
     )
   }
@@ -1234,15 +1320,27 @@ async function _runInteractionsLegacy(
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
             await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
-            await gotoStable(sourcePage, referencePageUrl(reference, options))
-            await enforceReferenceTheme(sourcePage, theme)
-            const frame = await previewFrame(sourcePage)
+            const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
             const sourceSelector = await componentSelector(frame, '#preview-root')
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const cases = interactionCases(sourceSnapshot, spec.id)
             for (const interaction of cases) {
-              const sourceDirectory = interactionDirectory(options.outputRoot, 'source', reference.id, theme, viewport, interaction)
-              const localDirectory = interactionDirectory(options.outputRoot, 'local', spec.id, theme, viewport, interaction)
+              const sourceDirectory = interactionDirectory(
+                options.outputRoot,
+                'source',
+                reference.id,
+                theme,
+                viewport,
+                interaction,
+              )
+              const localDirectory = interactionDirectory(
+                options.outputRoot,
+                'local',
+                spec.id,
+                theme,
+                viewport,
+                interaction,
+              )
               const source = await replayReferenceInteraction(
                 sourcePage,
                 reference,
@@ -1252,9 +1350,14 @@ async function _runInteractionsLegacy(
                 interaction,
                 options.outputRoot,
               ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error))
-              const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot).catch(
-                (error) => errorInteractionCapture(interaction.id, localDirectory, error),
-              )
+              const local = await replayInteraction(
+                localPage,
+                spec,
+                theme,
+                viewport,
+                interaction,
+                options.outputRoot,
+              ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
               const sourceDelta = await interactionDelta(source)
               const localDelta = await interactionDelta(local)
               const status =
@@ -1262,11 +1365,11 @@ async function _runInteractionsLegacy(
                   ? 'error'
                   : local.status === 'missing'
                     ? 'missing'
-                  : sourceDelta?.changed === false && localDelta?.changed === false
-                    ? 'source-no-op'
-                    : sourceDelta?.signature === localDelta?.signature
-                      ? 'matched'
-                      : 'lumen-different'
+                    : sourceDelta?.changed === false && localDelta?.changed === false
+                      ? 'source-no-op'
+                      : sourceDelta?.signature === localDelta?.signature
+                        ? 'matched'
+                        : 'lumen-different'
               const result = {
                 variantId: spec.id,
                 id: interaction.id,
@@ -1316,7 +1419,7 @@ async function _runInteractionsLegacy(
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
     themes: options.themes,
-    coverage: 'semantic-shape-representatives',
+    coverage: 'all-visible-controls',
     discovered: results.length,
     results,
   })
@@ -1357,31 +1460,55 @@ async function runInteractionsParallel(
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
             await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
-            await gotoStable(sourcePage, referencePageUrl(reference, options))
-            await enforceReferenceTheme(sourcePage, theme)
-            const frame = await previewFrame(sourcePage)
+            const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
             const sourceSelector = await componentSelector(frame, '#preview-root')
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             for (const interaction of interactionCases(sourceSnapshot, spec.id)) {
-              const sourceDirectory = interactionDirectory(options.outputRoot, 'source', reference.id, theme, viewport, interaction)
-              const localDirectory = interactionDirectory(options.outputRoot, 'local', spec.id, theme, viewport, interaction)
-              const source = await replayReferenceInteraction(sourcePage, reference, options, theme, viewport, interaction, options.outputRoot).catch(
-                (error) => errorInteractionCapture(interaction.id, sourceDirectory, error),
+              const sourceDirectory = interactionDirectory(
+                options.outputRoot,
+                'source',
+                reference.id,
+                theme,
+                viewport,
+                interaction,
               )
-              const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot).catch(
-                (error) => errorInteractionCapture(interaction.id, localDirectory, error),
+              const localDirectory = interactionDirectory(
+                options.outputRoot,
+                'local',
+                spec.id,
+                theme,
+                viewport,
+                interaction,
               )
+              const source = await replayReferenceInteraction(
+                sourcePage,
+                reference,
+                options,
+                theme,
+                viewport,
+                interaction,
+                options.outputRoot,
+              ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error))
+              const local = await replayInteraction(
+                localPage,
+                spec,
+                theme,
+                viewport,
+                interaction,
+                options.outputRoot,
+              ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
               const sourceDelta = await interactionDelta(source)
               const localDelta = await interactionDelta(local)
-              const status = source.status === 'error' || local.status === 'error'
-                ? 'error'
-                : local.status === 'missing'
-                  ? 'missing'
-                : sourceDelta?.changed === false && localDelta?.changed === false
-                  ? 'source-no-op'
-                  : sourceDelta?.signature === localDelta?.signature
-                    ? 'matched'
-                    : 'lumen-different'
+              const status =
+                source.status === 'error' || local.status === 'error'
+                  ? 'error'
+                  : local.status === 'missing'
+                    ? 'missing'
+                    : sourceDelta?.changed === false && localDelta?.changed === false
+                      ? 'source-no-op'
+                      : sourceDelta?.signature === localDelta?.signature
+                        ? 'matched'
+                        : 'lumen-different'
               const result = {
                 variantId: spec.id,
                 id: interaction.id,
@@ -1432,18 +1559,31 @@ async function runInteractionsParallel(
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
     themes: options.themes,
-    coverage: 'semantic-shape-representatives',
+    coverage: 'all-visible-controls',
     discovered: results.length,
     results,
   })
-  console.log(JSON.stringify({ command: 'interactions', variants: selected.length, cases: results.length, outputRoot: options.outputRoot }))
+  console.log(
+    JSON.stringify({
+      command: 'interactions',
+      variants: selected.length,
+      cases: results.length,
+      outputRoot: options.outputRoot,
+    }),
+  )
 }
 
 async function runCompare(options: AuditOptions): Promise<void> {
   const capturePath = join(options.outputRoot, 'capture-manifest.json')
   if (!(await Bun.file(capturePath).exists())) throw new Error(`Missing capture manifest: ${capturePath}`)
-  const manifest = await readJson<{ records: readonly CaptureRecord[] }>(capturePath)
+  const manifest = await readJson<{
+    records: readonly CaptureRecord[]
+    selected: readonly string[]
+    viewports: readonly AuditViewport[]
+    themes: readonly AuditTheme[]
+  }>(capturePath)
   const comparisons: StructureComparison[] = []
+  const expectedInteractions = new Map<string, string[]>()
   for (const record of manifest.records) {
     const localRecord = manifest.records.find(
       (candidate) =>
@@ -1455,6 +1595,13 @@ async function runCompare(options: AuditOptions): Promise<void> {
     if (record.kind !== 'source' || !localRecord) continue
     const sourceSnapshot = await readJson<SemanticSnapshot>(record.snapshot)
     const localSnapshotValue = await readJson<SemanticSnapshot>(localRecord.snapshot)
+    const expected = expectedInteractions.get(record.id) ?? []
+    expected.push(
+      ...interactionCases(sourceSnapshot, record.id).map(
+        (interaction) => `${record.theme}/${record.viewport}/${interaction.id}`,
+      ),
+    )
+    expectedInteractions.set(record.id, expected)
     comparisons.push({
       id: record.id,
       theme: record.theme,
@@ -1474,6 +1621,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
         localRootRect: localSnapshotValue.rootRect,
         widthDelta: localSnapshotValue.rootRect.width - sourceSnapshot.rootRect.width,
         heightDelta: localSnapshotValue.rootRect.height - sourceSnapshot.rootRect.height,
+        rootGeometryMatched: rootGeometryMatches(sourceSnapshot.rootRect, localSnapshotValue.rootRect),
         sourceControls: sourceSnapshot.controls.length,
         localControls: localSnapshotValue.controls.length,
         sourceTextLength: sourceSnapshot.bodyTextLength,
@@ -1500,6 +1648,18 @@ async function runCompare(options: AuditOptions): Promise<void> {
           )
         }),
         controlCountMatched: sourceSnapshot.controls.length === localSnapshotValue.controls.length,
+        controlStateMatched: sourceSnapshot.controls.every((control, index) => {
+          const localControl = localSnapshotValue.controls[index]
+          return (
+            localControl?.disabled === control.disabled &&
+            localControl.expanded === control.expanded &&
+            localControl.pressed === control.pressed &&
+            localControl.selected === control.selected
+          )
+        }),
+        labelAssociationsMatched: sourceSnapshot.controls.every(
+          (control, index) => Boolean(control.labelFor) === Boolean(localSnapshotValue.controls[index]?.labelFor),
+        ),
         truncationFree: localSnapshotValue.truncatedTextCount <= sourceSnapshot.truncatedTextCount,
         truncationMatched: sourceSnapshot.truncatedTextCount === localSnapshotValue.truncatedTextCount,
         overflowFree: !sourceSnapshot.horizontalOverflow && !localSnapshotValue.horizontalOverflow,
@@ -1511,6 +1671,9 @@ async function runCompare(options: AuditOptions): Promise<void> {
       const failures: string[] = []
       if (!comparison.structure.controlCountMatched) failures.push('control-count-mismatch')
       if (!comparison.structure.controlShapeMatched) failures.push('control-shape-mismatch')
+      if (!comparison.structure.rootGeometryMatched) failures.push('root-geometry-mismatch')
+      if (!comparison.structure.controlStateMatched) failures.push('control-state-mismatch')
+      if (!comparison.structure.labelAssociationsMatched) failures.push('label-association-mismatch')
       if (!comparison.structure.truncationFree) failures.push('text-truncation')
       if (!comparison.structure.overflowFree) failures.push('horizontal-overflow')
       if (comparison.structure.errors.length > 0) failures.push('page-or-console-error')
@@ -1546,22 +1709,44 @@ async function runCompare(options: AuditOptions): Promise<void> {
   const inventory = await readJson<ReactBitsProInventory>(inventoryPath(options))
   const interactionPath = join(options.outputRoot, 'interaction-report.json')
   const interactionReport = (await Bun.file(interactionPath).exists())
-    ? await readJson<{ results: readonly { variantId?: string; id: string; status?: string }[] }>(interactionPath)
+    ? await readJson<{
+        selected?: readonly string[]
+        viewports?: readonly AuditViewport[]
+        themes?: readonly AuditTheme[]
+        coverage?: string
+        results: readonly InteractionReportRow[]
+      }>(interactionPath)
     : { results: [] }
   const selectedIds = [...new Set(manifest.records.map((record) => record.id))]
+  const matrixComplete =
+    interactionReport.coverage === 'all-visible-controls' &&
+    JSON.stringify([...(interactionReport.selected ?? [])].sort()) === JSON.stringify([...manifest.selected].sort()) &&
+    JSON.stringify(interactionReport.viewports) === JSON.stringify(manifest.viewports) &&
+    JSON.stringify(interactionReport.themes) === JSON.stringify(manifest.themes)
   const ledger = selectedIds.map((id) => {
     const staticRows = comparisons.filter((comparison) => comparison.id === id)
     const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
     const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
+    if (staticRows.length !== manifest.viewports.length * manifest.themes.length)
+      failures.push(`static-combinations-incomplete:${staticRows.length}`)
     const interactionFailures = interactionRows
-      .filter((result) => result.status === 'missing' || result.status === 'lumen-different' || result.status === 'error')
+      .filter((result) => result.status !== 'matched' && result.status !== 'source-no-op')
       .map((result) => `${result.id}:${result.status}`)
+    const coverage = assessInteractionCoverage(expectedInteractions.get(id) ?? [], interactionRows)
+    if (!matrixComplete) interactionFailures.push('interaction-matrix-incomplete')
+    if (coverage.missing.length > 0) interactionFailures.push(`interaction-cases-missing:${coverage.missing.length}`)
+    if (coverage.duplicate.length > 0)
+      interactionFailures.push(`interaction-cases-duplicate:${coverage.duplicate.length}`)
+    if (coverage.unexpected.length > 0)
+      interactionFailures.push(`interaction-cases-unexpected:${coverage.unexpected.length}`)
     const status = failures.length || interactionFailures.length ? 'needs-fix' : 'passed'
     return {
       id,
       category: inventory.variants.find((variant) => variant.id === id)?.category ?? 'unknown',
       staticCombinations: staticRows.length,
       interactionCases: interactionRows.length,
+      expectedInteractionCases: expectedInteractions.get(id)?.length ?? 0,
+      missingInteractionCases: coverage.missing.length,
       status,
       failures: [...failures, ...interactionFailures],
       manualReview: false,
