@@ -221,6 +221,10 @@ type AuditOptions = Readonly<{
 
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
+const captureProtocolVersion = 9
+const interactionProtocolVersion = 10
+const sourceCanvasSelector = '#preview-root'
+const localCanvasSelector = '.hbar-app-ui-isolated-canvas'
 
 function sourceIdFor(spec: HbarAppUiVariantSpec): string {
   return `${spec.category}-${spec.variant}`
@@ -727,96 +731,6 @@ async function gotoStable(page: Page, url: string): Promise<void> {
   throw lastError instanceof Error ? lastError : new Error(`Could not navigate to ${url}`)
 }
 
-async function componentSelector(container: Locator | Page | Frame, rootSelector: string): Promise<string> {
-  const rootLocator = container.locator(rootSelector).first()
-  await rootLocator.waitFor({ state: 'attached', timeout: 60_000 })
-  const selection = await container
-    .locator(rootSelector)
-    .first()
-    .evaluate((root) => {
-      const rootTextLength = (root.textContent ?? '').trim().length
-      if (rootTextLength === 0 && root.querySelectorAll('*').length <= 3)
-        throw new Error('Reference preview root is empty')
-      const rootRect = root.getBoundingClientRect()
-      const candidates = [...root.querySelectorAll('*')]
-        .map((element) => {
-          const rect = element.getBoundingClientRect()
-          const style = getComputedStyle(element)
-          const textLength = (element.textContent ?? '').trim().length
-          const classNames = [...element.classList]
-          const stableClass = classNames.find((name) => name.startsWith('lumen-'))
-          // Prefer the component's semantic content wrapper over nested panes,
-          // rows, controls, and headings.  LumenSurface intentionally exposes
-          // a stable `lumen-*` content class, while its child `<main>`/`<nav>`
-          // nodes are merely internal layout regions.  Selecting the latter
-          // silently drops the heading and makes every comparison structurally
-          // incomparable to the React Bits preview.
-          const primaryContentSignal = Boolean(
-            stableClass &&
-            !/(?:^|-)\b(?:root|surface|pane|list|row|heading|header|footer|body|content|group|cell|table|form|nav)\b(?:-|$)/i.test(
-              stableClass,
-            ),
-          )
-          const semanticSignal = element.matches(
-            '[data-lumen-component], [class*="lumen-"], article, main, form, nav, [role]',
-          )
-          const nativeContentSignal = element.matches('article, form, nav')
-          const dataComponent = element.getAttribute('data-lumen-component')
-          const path: number[] = []
-          let current: Element | null = element
-          while (current && current !== root) {
-            const parent: HTMLElement | null = current.parentElement
-            if (!parent) break
-            path.unshift(Array.from(parent.children).indexOf(current))
-            current = parent
-          }
-          return {
-            rect,
-            style,
-            textLength,
-            path,
-            semanticSignal,
-            nativeContentSignal,
-            primaryContentSignal,
-            dataComponent,
-            stableClass,
-          }
-        })
-        .filter(
-          (candidate) =>
-            candidate.textLength >= rootTextLength * 0.5 &&
-            candidate.rect.width > 0 &&
-            candidate.rect.height > 0 &&
-            (candidate.rect.width < rootRect.width * 0.95 || candidate.semanticSignal) &&
-            (candidate.rect.height < rootRect.height * 0.95 || candidate.primaryContentSignal) &&
-            candidate.style.position !== 'fixed',
-        )
-        .sort(
-          (left, right) =>
-            Number(right.nativeContentSignal) - Number(left.nativeContentSignal) ||
-            Number(right.primaryContentSignal) - Number(left.primaryContentSignal) ||
-            Number(right.semanticSignal) - Number(left.semanticSignal) ||
-            left.path.length - right.path.length ||
-            right.textLength - left.textLength,
-        )
-      const best = candidates[0]
-      return {
-        path: best?.path ?? [],
-        useRoot: candidates.length === 0 && root.hasAttribute('data-lumen-component'),
-        stableSelector: best?.dataComponent
-          ? `[data-lumen-component="${best.dataComponent}"]`
-          : best?.stableClass
-            ? `.${best.stableClass}`
-            : null,
-      }
-    })
-  const path = selection.path
-  if (selection.useRoot) return rootSelector
-  if (selection.stableSelector) return `${rootSelector} ${selection.stableSelector}`
-  if (path.length === 0) return `${rootSelector} > :not([aria-hidden='true']):not(svg)`
-  return `${rootSelector}${path.map((index) => ` > :nth-child(${index + 1})`).join('')}`
-}
-
 type SnapshotWithoutAx = Omit<SemanticSnapshot, 'axSnapshot'>
 
 async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise<SnapshotWithoutAx> {
@@ -1005,14 +919,8 @@ async function captureSource(
   const errorStart = pageErrors.length
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
   const referenceUrl = referencePageUrl(reference, options)
-  let frame = await loadReferencePreview(page, referenceUrl, theme)
-  let selector: string
-  try {
-    selector = await componentSelector(frame, '#preview-root')
-  } catch {
-    frame = await loadReferencePreview(page, referenceUrl, theme)
-    selector = await componentSelector(frame, '#preview-root')
-  }
+  const frame = await loadReferencePreview(page, referenceUrl, theme)
+  const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const referenceCanvas = await readReferenceCanvas(frame)
@@ -1057,14 +965,9 @@ async function captureLocal(
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
   await gotoStable(page, target)
   const rootSelector = `[data-hbar-app-ui-component="${spec.id}"]`
-  let selector: string
-  try {
-    selector = await componentSelector(page, rootSelector)
-  } catch {
-    await gotoStable(page, target)
-    selector = await componentSelector(page, rootSelector)
-  }
-  await applyLocalCanvas(page, referenceCanvas, selector, rootSelector)
+  await page.locator(rootSelector).first().waitFor({ state: 'visible', timeout: 30_000 })
+  await applyLocalCanvas(page, referenceCanvas, rootSelector, localCanvasSelector)
+  const selector = localCanvasSelector
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const directory = join(outputRoot, 'local', spec.id, theme)
@@ -1327,6 +1230,10 @@ async function interactionDelta(
     const timed = timedActivityDelta(before, after, interaction.action)
     if (timed) return timed
   }
+  if (interaction.id.startsWith('hbar-app-ui-agent-activity-1:')) {
+    const live = liveActivityDelta(before, after)
+    if (live) return live
+  }
   const state = (snapshot: SemanticSnapshot) => ({
     bodyTextLength: snapshot.bodyTextLength,
     horizontalOverflow: snapshot.horizontalOverflow,
@@ -1353,6 +1260,33 @@ async function interactionDelta(
   }
   const signature = JSON.stringify(changes)
   return { changed: JSON.stringify(beforeState) !== JSON.stringify(afterState), signature }
+}
+
+// The original live timeline keeps updating its elapsed seconds without an
+// action. A digit-width rollover changes the text length even on hover. The
+// Stop outcome is the status transition, disabled control, and stopped step.
+export function liveActivityDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+): Readonly<{ changed: boolean; signature: string }> | null {
+  const state = (snapshot: SemanticSnapshot) => {
+    if (snapshot.controls.length !== 1) return null
+    const status = /\s+- text: (Running|Stopped)\b/.exec(snapshot.axSnapshot)?.[1]
+    if (!status) return null
+    return {
+      name: snapshot.controls[0]!.name,
+      disabled: snapshot.controls[0]!.disabled,
+      status,
+      activeStepStopped: /^\s+- listitem: .+ Stopped$/m.test(snapshot.axSnapshot),
+    }
+  }
+  const beforeState = state(before)
+  const afterState = state(after)
+  if (!beforeState || !afterState) return null
+  return {
+    changed: JSON.stringify(beforeState) !== JSON.stringify(afterState),
+    signature: JSON.stringify({ before: beforeState, after: afterState }),
+  }
 }
 
 // The reference deployment demo advances its clock and step automatically even
@@ -1400,8 +1334,10 @@ async function replayInteraction(
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
   await page.setViewportSize({ width: referenceCanvas.width, height: referenceCanvas.height })
   await gotoStable(page, target)
-  const selector = await componentSelector(page, `[data-hbar-app-ui-component="${spec.id}"]`)
-  await applyLocalCanvas(page, referenceCanvas, selector, `[data-hbar-app-ui-component="${spec.id}"]`)
+  const componentRoot = `[data-hbar-app-ui-component="${spec.id}"]`
+  await page.locator(componentRoot).first().waitFor({ state: 'visible', timeout: 30_000 })
+  await applyLocalCanvas(page, referenceCanvas, componentRoot, localCanvasSelector)
+  const selector = localCanvasSelector
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const control = await controlLocator(root, interaction.control)
@@ -1466,7 +1402,7 @@ async function replayReferenceInteraction(
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
   const frame = await loadReferencePreview(page, referencePageUrl(reference, options), theme)
   await alignReferenceInteractionCanvas(page, frame, referenceCanvas)
-  const selector = await componentSelector(frame, '#preview-root')
+  const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const control = await controlLocator(root, interaction.control)
@@ -1529,7 +1465,9 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
           throw new Error('--local-only requires --source-output or HBAR_APP_UI_SOURCE_CAPTURE_ROOT')
         const cachePath = join(resolve(options.sourceCaptureRoot), 'capture-manifest.json')
         if (!(await Bun.file(cachePath).exists())) throw new Error(`Source capture manifest is missing: ${cachePath}`)
-        const cached = await readJson<{ records: readonly CaptureRecord[] }>(cachePath)
+        const cached = await readJson<{ captureProtocolVersion?: number; records: readonly CaptureRecord[] }>(cachePath)
+        if (cached.captureProtocolVersion !== captureProtocolVersion)
+          throw new Error(`Source capture uses an obsolete canvas protocol; recapture the live iframe: ${cachePath}`)
         return cached.records.filter((record) => record.kind === 'source')
       })()
     : []
@@ -1615,6 +1553,7 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
   }
   await writeJson(join(options.outputRoot, 'capture-manifest.json'), {
     schemaVersion: 1,
+    captureProtocolVersion,
     generatedAt: new Date().toISOString(),
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
@@ -1670,7 +1609,7 @@ async function _runInteractionsLegacy(
           for (const theme of options.themes) {
             await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
             const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
-            const sourceSelector = await componentSelector(frame, '#preview-root')
+            const sourceSelector = sourceCanvasSelector
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const referenceCanvas = await readReferenceCanvas(frame)
             const cases = interactionCases(sourceSnapshot, spec.id)
@@ -1767,6 +1706,7 @@ async function _runInteractionsLegacy(
   }
   await writeJson(join(options.outputRoot, 'interaction-report.json'), {
     schemaVersion: 1,
+    interactionProtocolVersion,
     generatedAt: new Date().toISOString(),
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
@@ -1796,8 +1736,10 @@ async function runInteractionsParallel(
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
   const staticCapturePath = join(resolve(options.sourceCaptureRoot ?? options.outputRoot), 'capture-manifest.json')
   const staticManifest = (await Bun.file(staticCapturePath).exists())
-    ? await readJson<{ sourceDirectoryHash: string; records: readonly CaptureRecord[] }>(staticCapturePath)
+    ? await readJson<{ captureProtocolVersion?: number; sourceDirectoryHash: string; records: readonly CaptureRecord[] }>(staticCapturePath)
     : undefined
+  if (staticManifest && staticManifest.captureProtocolVersion !== captureProtocolVersion)
+    throw new Error(`Static captures use an obsolete canvas protocol; recapture the live iframe: ${staticCapturePath}`)
   if (staticManifest && staticManifest.sourceDirectoryHash !== inventory.sourceDirectoryHash)
     throw new Error(`Static reference inventory differs from interaction inventory: ${staticCapturePath}`)
   const staticCanvases = new Map(
@@ -1816,7 +1758,7 @@ async function runInteractionsParallel(
   const implementationHash = await localImplementationHash()
   const runIdentity = {
     schemaVersion: 1,
-    captureProtocolVersion: 8,
+    captureProtocolVersion: interactionProtocolVersion,
     coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
     cases: options.cases,
     selected: selected.map((spec) => spec.id),
@@ -1857,7 +1799,7 @@ async function runInteractionsParallel(
           for (const theme of options.themes) {
             await discoveryPage.setViewportSize({ width: viewport.width, height: viewport.height })
             const frame = await loadReferencePreview(discoveryPage, referencePageUrl(reference, options), theme)
-            const sourceSelector = await componentSelector(frame, '#preview-root')
+            const sourceSelector = sourceCanvasSelector
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
@@ -1995,6 +1937,7 @@ async function runInteractionsParallel(
     throw new Error(`Requested interaction cases not found: ${missingRequested.join(', ')}`)
   await writeJson(join(options.outputRoot, 'interaction-report.json'), {
     schemaVersion: 1,
+    interactionProtocolVersion,
     generatedAt: new Date().toISOString(),
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
@@ -2028,6 +1971,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
   const capturePath = join(options.outputRoot, 'capture-manifest.json')
   if (!(await Bun.file(capturePath).exists())) throw new Error(`Missing capture manifest: ${capturePath}`)
   const manifest = await readJson<{
+    captureProtocolVersion?: number
     records: readonly CaptureRecord[]
     selected: readonly string[]
     viewports: readonly AuditViewport[]
@@ -2035,6 +1979,8 @@ async function runCompare(options: AuditOptions): Promise<void> {
     sourceDirectoryHash: string
     implementationHash?: string
   }>(capturePath)
+  if (manifest.captureProtocolVersion !== captureProtocolVersion)
+    throw new Error(`Static captures use an obsolete canvas protocol; recapture the live iframe: ${capturePath}`)
   const comparisons: StructureComparison[] = []
   const expectedInteractions = new Map<string, string[]>()
   for (const record of manifest.records) {
@@ -2193,6 +2139,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
         viewports?: readonly AuditViewport[]
         themes?: readonly AuditTheme[]
         coverage?: string
+        interactionProtocolVersion?: number
         sourceDirectoryHash?: string
         localSpecHash?: string
         implementationHash?: string
@@ -2208,6 +2155,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
       .map((record) => [`${record.id}/${record.theme}/${record.viewport}`, record.referenceCanvas!]),
   )
   const matrixComplete =
+    interactionReport.interactionProtocolVersion === interactionProtocolVersion &&
     interactionReport.coverage === 'all-visible-controls' &&
     interactionReport.sourceDirectoryHash === manifest.sourceDirectoryHash &&
     interactionReport.localSpecHash ===

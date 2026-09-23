@@ -10,6 +10,7 @@ import {
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
+  liveActivityDelta,
   rootGeometryMatches,
   selectInteractionCases,
   semanticRoleTree,
@@ -102,6 +103,19 @@ describe('React Bits Pro visual audit contract', () => {
     expect(semanticRoleTreeMatches(source, `- main:\n  ${translated.replaceAll('\n', '\n  ')}`)).toBe(false)
     expect(semanticRoleTreeMatches(source, translated.replace('cell', 'listitem'))).toBe(false)
     expect(semanticRoleTreeMatches('', '')).toBe(false)
+  })
+
+  test('attributes the live timeline clock to the source instead of a hover or Stop', () => {
+    const running = snapshot([control(0, { name: 'Stop' })])
+    const stopped = snapshot([control(0, { name: 'Stop', disabled: true })])
+    const before = { ...running, axSnapshot: '- banner:\n  - text: Running 9.9s\n  - button "Stop"\n- list:\n  - listitem: Reconciling flagged entries 9.9s' }
+    const rollover = { ...running, axSnapshot: '- banner:\n  - text: Running 10.0s\n  - button "Stop"\n- list:\n  - listitem: Reconciling flagged entries 10.0s' }
+    const after = { ...stopped, axSnapshot: '- banner:\n  - text: Stopped 10.0s\n  - button "Stop" [disabled]\n- list:\n  - listitem: Reconciling flagged entries Stopped' }
+    expect(liveActivityDelta(before, rollover)?.changed).toBe(false)
+    expect(liveActivityDelta(before, after)?.changed).toBe(true)
+    expect(liveActivityDelta(before, after)?.signature).toBe(
+      liveActivityDelta(rollover, after)?.signature,
+    )
   })
 
   test('uses the same visible-only control set for structure and interaction gates', () => {

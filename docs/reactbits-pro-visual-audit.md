@@ -8,6 +8,7 @@
 
 - 发现：38 个分类、300 个变体，并与 `packages/hbar-app-ui/src/specs.ts` 的本地注册表逐 ID 校验。
 - 静态截图：1440×900、1024×768、390×844、320×720 四个视口；dark/light 两个主题。
+- 完整预览根：源截图、结构快照和动作发现均取 iframe 的 `#preview-root`；本地取整个隔离画布。必须包括源变体的标题、状态、工具栏、筛选、内容与页脚，绝不能从内部 pane 猜测组件根节点。页面外的文档导航不属于组件。
 - 画布校准：记录原版 iframe 实际内容宽高和舞台 padding，并以相同可用空间渲染本地隔离预览；外窗宽度不能直接当成组件可用宽度。
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的 name/role/disabled/expanded/pressed/selected/state。
 - 交互截图：每个动作在新浏览器上下文中分别打开源 iframe 与本地预览，对每个真实可见控件逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag/upload/download；同构控件也分别保留 before/after，不以代表案例代替。CSS 隐藏控件不计入当前视口的结构数量或动作清单。
@@ -44,7 +45,7 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 和 Windows Chrome 路径。
 单变体调试可用 `--source-inventory <已捕获清单路径>` 避免每次重新访问 38 个类别页；
 此模式仍实时捕获变体 iframe，完整 `audit` 不复用旧清单。`--local-only` 的缓存还必须包含
-iframe 实际画布宽高与舞台 padding，旧缓存不能据此宣称几何验收通过。
+iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议版本；旧的内部 pane 裁剪缓存会被拒绝，不能据此宣称几何或交互验收通过。
 捕获、交互和比较必须使用同一输出目录、同一 `--variants` / 视口 / 主题集合与源清单；
 `--cases` 仅用于精确调试，结果标记为 `selected-cases`，不能产生完整交互通过结果。
 交互回放按源目录、画布、本地变体及实现哈希校验断点：相同运行可续跑，修改组件、宿主 fixture
