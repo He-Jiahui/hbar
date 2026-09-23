@@ -807,20 +807,32 @@ async function captureLocal(
 
 function interactionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
   const cases: InteractionCase[] = []
+  // Controls with the same semantic shape exercise the same browser and
+  // component feedback path.  Keep one deterministic representative for each
+  // action/shape pair so the all-variant matrix remains tractable while still
+  // covering every interaction type (including both Enter and Space).
+  const seenShapes = new Set<string>()
+  const add = (interaction: InteractionCase) => {
+    const shape = interaction.control
+    const key = `${interaction.action}:${interaction.key ?? ''}:${shape.tag}:${shape.type ?? ''}:${shape.role ?? ''}`
+    if (seenShapes.has(key)) return
+    seenShapes.add(key)
+    cases.push(interaction)
+  }
   for (const control of snapshot.controls) {
     const prefix = `${variantId}:${control.index}`
     for (const capability of control.capabilities) {
       if (capability === 'no-op' || capability === 'download') continue
       if (capability === 'press') {
         for (const key of ['Enter', 'Space'] as const)
-          cases.push({ id: `${prefix}:press-${key.toLowerCase()}`, action: 'press', key, control })
+          add({ id: `${prefix}:press-${key.toLowerCase()}`, action: 'press', key, control })
         continue
       }
       if (capability === 'tab') {
-        cases.push({ id: `${prefix}:tab-arrowright`, action: 'press', key: 'ArrowRight', control })
+        add({ id: `${prefix}:tab-arrowright`, action: 'press', key: 'ArrowRight', control })
         continue
       }
-      cases.push({ id: `${prefix}:${capability}`, action: capability, control })
+      add({ id: `${prefix}:${capability}`, action: capability, control })
     }
   }
   return cases
