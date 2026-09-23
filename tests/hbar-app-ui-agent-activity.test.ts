@@ -94,9 +94,11 @@ describe('hbar-app-ui agent activity surfaces', () => {
       'Compare row counts',
       'Check referential integrity',
     ])
-    expect(history).toContain('role="table"')
+    expect(history).toContain('<table class="hbar-app-ui-agent-activity-history-table"')
     expect(history).toContain('Run history, newest first.')
-    expect(history).toContain('hbar-app-ui-agent-activity-history-cell')
+    expect(history).toContain('hbar-app-ui-agent-activity-history-cards')
+    expect(history).not.toContain('<h2')
+    expect(history.match(/aria-label="Re-run /g)).toHaveLength(28)
     expect(failure).toContain('<dl class="hbar-app-ui-agent-activity-definition-list">')
     expect(failure).toContain('Warehouse write timed out')
     expect(failure).toContain('data-hbar-app-ui-list-strategy="content-grown"')
