@@ -117,7 +117,7 @@ export const HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES: HbarAppUiAgentActivityContent 
         listStrategy: {kind: 'pane-scroll', expectedMaximum: 5},
     },
     deployment: {
-        labels: {title: 'Deploy checkout-api', status: 'Running', currentStep: '1 of 7', elapsed: '0:02 / 0:36', stop: 'Stop'},
+        labels: {title: 'Deploy checkout-api', status: 'Running', currentStep: '1 of 7', elapsed: '0:02 / 0:36', stop: 'Stop', stopped: 'Stopped', runAgain: 'Run again'},
         steps: [
             {id: 'build', label: 'Build the container image', state: 'running', stateLabel: 'Running'},
             {id: 'tests', label: 'Run the test suite', state: 'queued', stateLabel: 'Queued'},
@@ -240,7 +240,7 @@ export function createHbarAppUiAgentActivityLocalizedFixtures(): HbarAppUiAgentA
         },
         deployment: base.deployment && {
             ...base.deployment,
-            labels: {...base.deployment.labels, stop: 'Bereitstellung anhalten', currentStep: 'Schritt 1 von 7'},
+            labels: {...base.deployment.labels, stop: 'Bereitstellung anhalten', stopped: 'Angehalten', runAgain: 'Erneut ausführen', currentStep: 'Schritt 1 von 7'},
         },
         history: base.history && {
             ...base.history,
