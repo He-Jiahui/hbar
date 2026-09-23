@@ -1,6 +1,6 @@
 import { chromium, type Browser, type Frame, type Locator, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
@@ -350,6 +350,26 @@ async function copyCachedSourceRecord(
 
 function stableHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+}
+
+async function localImplementationHash(): Promise<string> {
+  const hash = createHash('sha256')
+  for (const root of [
+    'hbar-ui/packages/lumen-app-ui/src',
+    'packages/hbar-app-ui/src',
+    'apps/hbar-app-ui-preview/src',
+    'tests/fixtures',
+  ]) {
+    const files = (await readdir(resolve(root), { recursive: true }))
+      .filter((file) => /\.(css|json|ts|tsx)$/.test(file))
+      .sort()
+    for (const file of files) {
+      const path = join(root, file)
+      hash.update(path)
+      hash.update(new Uint8Array(await Bun.file(path).arrayBuffer()))
+    }
+  }
+  return hash.digest('hex')
 }
 
 async function localCategoryCounts(): Promise<Readonly<Record<string, number>>> {
@@ -1416,6 +1436,7 @@ async function replayReferenceInteraction(
 
 async function runCapture(options: AuditOptions, browser: Browser, inventory: ReactBitsProInventory): Promise<void> {
   const selected = selectedLocalSpecs(options)
+  const implementationHash = await localImplementationHash()
   await writeLocalInventory(options.outputRoot)
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
   const cachedSourceRecords: readonly CaptureRecord[] = options.localOnly
@@ -1515,6 +1536,7 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
     viewports: options.viewports,
     themes: options.themes,
     sourceDirectoryHash: inventory.sourceDirectoryHash,
+    implementationHash,
     combinations: records.length,
     records: records.sort((a, b) =>
       `${a.id}/${a.theme}/${a.viewport}`.localeCompare(`${b.id}/${b.theme}/${b.viewport}`),
@@ -1526,6 +1548,7 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
     generatedAt: new Date().toISOString(),
     sourceUrl: inventory.sourceUrl,
     sourceDirectoryHash: inventory.sourceDirectoryHash,
+    implementationHash,
     selected: selected.map((spec) => spec.id),
     categories: [...new Set(selected.map((spec) => spec.category))].sort(),
     viewports: options.viewports,
@@ -1687,6 +1710,7 @@ async function runInteractionsParallel(
   const selected = selectedLocalSpecs(options)
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
   const metadataPath = join(options.outputRoot, 'interaction-run.json')
+  const implementationHash = await localImplementationHash()
   const runIdentity = {
     schemaVersion: 1,
     captureProtocolVersion: 3,
@@ -1697,6 +1721,7 @@ async function runInteractionsParallel(
     sourceDirectoryHash: inventory.sourceDirectoryHash,
     sourceUrl: inventory.sourceUrl,
     localSpecHash: stableHash(selected),
+    implementationHash,
   }
   const runHash = stableHash(runIdentity)
   if (await Bun.file(metadataPath).exists()) {
@@ -1858,6 +1883,7 @@ async function runInteractionsParallel(
     runHash,
     sourceDirectoryHash: inventory.sourceDirectoryHash,
     localSpecHash: stableHash(selected),
+    implementationHash,
     discovered: results.length,
     resumed,
     results,
@@ -1882,6 +1908,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
     viewports: readonly AuditViewport[]
     themes: readonly AuditTheme[]
     sourceDirectoryHash: string
+    implementationHash?: string
   }>(capturePath)
   const comparisons: StructureComparison[] = []
   const expectedInteractions = new Map<string, string[]>()
@@ -2029,15 +2056,19 @@ async function runCompare(options: AuditOptions): Promise<void> {
         coverage?: string
         sourceDirectoryHash?: string
         localSpecHash?: string
+        implementationHash?: string
         results: readonly InteractionReportRow[]
       }>(interactionPath)
     : { results: [] }
   const selectedIds = [...new Set(manifest.records.map((record) => record.id))]
+  const currentImplementationHash = await localImplementationHash()
   const matrixComplete =
     interactionReport.coverage === 'all-visible-controls' &&
     interactionReport.sourceDirectoryHash === manifest.sourceDirectoryHash &&
     interactionReport.localSpecHash ===
       stableHash(HBAR_APP_UI_VARIANT_SPECS.filter((spec) => manifest.selected.includes(spec.id))) &&
+    interactionReport.implementationHash === manifest.implementationHash &&
+    manifest.implementationHash === currentImplementationHash &&
     JSON.stringify([...(interactionReport.selected ?? [])].sort()) === JSON.stringify([...manifest.selected].sort()) &&
     JSON.stringify(interactionReport.viewports) === JSON.stringify(manifest.viewports) &&
     JSON.stringify(interactionReport.themes) === JSON.stringify(manifest.themes)
@@ -2045,6 +2076,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
     const staticRows = comparisons.filter((comparison) => comparison.id === id)
     const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
     const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
+    if (manifest.implementationHash !== currentImplementationHash) failures.push('stale-local-implementation')
     if (!fullAuditMatrixSelected(manifest.viewports, manifest.themes)) failures.push('full-audit-matrix-incomplete')
     if (staticRows.length !== manifest.viewports.length * manifest.themes.length)
       failures.push(`static-combinations-incomplete:${staticRows.length}`)
