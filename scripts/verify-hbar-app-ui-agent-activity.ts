@@ -71,13 +71,14 @@ async function run(): Promise<void> {
         assert(await nestedGroup.getAttribute('aria-expanded') === 'false', 'Nested activity group did not collapse')
 
         await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
-        assert(await page.getByRole('button').count() === 0, 'Desktop deployment invented step controls')
+        assert(await page.getByRole('button').count() === 1, 'Desktop deployment must expose the reference Stop action')
+        assert(await page.getByRole('button', {name: 'Stop', exact: true}).count() === 1, 'Desktop deployment omitted Stop')
         await page.setViewportSize({width: 390, height: 844})
         await page.reload({waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Stop', exact: true}).click()
-        assert(await page.getByText('Stopped', {exact: true}).count() === 1, 'Deployment stop did not update the active step')
+        assert(await page.getByText('Stopped', {exact: true}).count() === 2, 'Deployment stop did not update the header and active step')
         await page.getByRole('button', {name: 'Run again', exact: true}).click()
-        assert(await page.getByText('Running', {exact: true}).count() === 1, 'Deployment rerun did not restore the active step')
+        assert(await page.getByText('Running', {exact: true}).count() === 2, 'Deployment rerun did not restore the header and active step')
         await page.setViewportSize({width: 1192, height: 640})
 
         await page.goto(previewUrl(4), {waitUntil: 'networkidle'})
@@ -126,7 +127,7 @@ async function run(): Promise<void> {
 
         await page.goto(previewUrl(3, 'localized'), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Bereitstellung anhalten', exact: true}).click()
-        assert(await page.getByText('Angehalten', {exact: true}).count() === 1, 'Localized deployment state was not rendered from the host bundle')
+        assert(await page.getByText('Angehalten', {exact: true}).count() === 2, 'Localized deployment state was not rendered from the host bundle')
         assert(await page.getByRole('button', {name: 'Erneut ausführen', exact: true}).count() === 1, 'Localized rerun action was not rendered from the host bundle')
         await page.goto(previewUrl(1, 'localized'), {waitUntil: 'networkidle'})
         const localizedLiveStop = page.getByRole('button', {name: 'Ausführung sicher anhalten', exact: true})
