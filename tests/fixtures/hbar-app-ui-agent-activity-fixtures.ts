@@ -105,8 +105,14 @@ export const HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES: HbarAppUiAgentActivityContent 
                     {id: 'tests', label: 'Drop test accounts', duration: '2.1s', progress: 46},
                 ],
             },
-            {id: 'load', label: 'Load warehouse', duration: '5.1s', openByDefault: false, children: []},
-            {id: 'verify', label: 'Verify output', duration: '2.0s', openByDefault: false, children: []},
+            {id: 'load', label: 'Load warehouse', duration: '5.1s', openByDefault: false, children: [
+                {id: 'stage', label: 'Stage to temp table', duration: '1.8s', progress: 48},
+                {id: 'merge', label: 'Merge into reporting schema', duration: '3.3s', progress: 82},
+            ]},
+            {id: 'verify', label: 'Verify output', duration: '2.0s', openByDefault: false, children: [
+                {id: 'compare-counts', label: 'Compare row counts', duration: '0.9s', progress: 45},
+                {id: 'referential-integrity', label: 'Check referential integrity', duration: '1.1s', progress: 55},
+            ]},
         ],
         listStrategy: {kind: 'pane-scroll', expectedMaximum: 5},
     },

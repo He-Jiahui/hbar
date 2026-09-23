@@ -78,6 +78,20 @@ describe('hbar-app-ui agent activity surfaces', () => {
     expect(live).not.toContain('Reconcile October invoices')
     expect(live).not.toContain('aria-label="Stop"')
     expect(live).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    const nested = renderActivity(2)
+    expect(nested.match(/<button/g)).toHaveLength(5)
+    expect(nested.match(/aria-expanded="true"/g)).toHaveLength(3)
+    expect(nested.match(/aria-expanded="false"/g)).toHaveLength(2)
+    expect(nested).not.toContain('role="progressbar"')
+    expect(nested).not.toContain('Expand all')
+    expect(HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES.nested?.groups[3]?.children.map((child) => child.label)).toEqual([
+      'Stage to temp table',
+      'Merge into reporting schema',
+    ])
+    expect(HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES.nested?.groups[4]?.children.map((child) => child.label)).toEqual([
+      'Compare row counts',
+      'Check referential integrity',
+    ])
     expect(history).toContain('role="table"')
     expect(history).toContain('Run history, newest first.')
     expect(history).toContain('hbar-app-ui-agent-activity-history-cell')
