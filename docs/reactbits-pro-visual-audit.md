@@ -13,7 +13,7 @@
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的实际矩形与 name/role/disabled/expanded/pressed/selected/state。动作差分取控件自身矩形，不依赖它恰好落在 DOM 树的前五层。
 - 交互截图：每个动作在新浏览器上下文中分别打开源 iframe 与本地预览，对每个真实可见控件逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag/upload/download；同构控件也分别保留 before/after，不以代表案例代替。只读的 `progressbar`、`status`、`banner` 等 ARIA 角色参与语义树比较，但不冒充可操作控件。CSS 隐藏控件不计入当前视口的结构数量或动作清单。
 - 反馈比较：对静态图和交互图计算尺寸差、归一化 MAE/RMSE、变化像素比例，并比较源/本地交互前后反馈幅度。
-- 验收门禁：八组静态快照、全部真实可见动作及其成对截图必须齐全；可见控件的形态与状态、根尺寸、截断/水平溢出、页面错误、动作状态与截图反馈逐项通过。`review-ledger.json` 的 `passed` 只针对本次选定变体；绝不能把一个变体的通过推断成分类或全部 300 个通过。
+- 验收门禁：八组静态快照、全部真实可见动作及其成对截图必须齐全；可见控件的形态与状态、根尺寸、截断/水平溢出、页面错误、动作状态与截图反馈逐项通过。机器门禁通过后仍是 `needs-review`；逐一人工并排核对八组图、查看每类动作的反馈及自动逐案报告，再对单个变体显式签核，才可成为 `passed`。绝不能把一个变体的通过推断成分类或全部 300 个通过。
 
 ## 命令
 
@@ -35,7 +35,13 @@ bun run app-ui:reactbits:interactions -- `
 # 生成 structure-report.json、visual-report.json 和交互差异图
 bun run app-ui:reactbits:compare -- --output artifacts/reactbits-pro-visual-audit/card-11
 
-# 对全部 300 个变体依次执行发现、静态采集、交互回放和比较
+# 人工逐一核对后，为单个机器通过的变体签核；--note 写明实际查看的边界与反馈
+bun scripts/reactbits-pro-audit.ts review `
+  --variants hbar-app-ui-card-11 `
+  --output artifacts/reactbits-pro-visual-audit/card-11 `
+  --note "逐一核对八组静态图、窄宽度溢出和所有动作反馈报告"
+
+# 对全部 300 个变体生成机器证据；--strict 会等待每个变体的人工签核才最终通过
 bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/all --workers 2 --strict
 ```
 
@@ -48,6 +54,11 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议版本；旧的内部 pane 裁剪缓存会被拒绝，不能据此宣称几何或交互验收通过。
 捕获、交互和比较必须使用同一输出目录、同一 `--variants` / 视口 / 主题集合与源清单；
 `--cases` 仅用于精确调试，结果标记为 `selected-cases`，不能产生完整交互通过结果。
+`review` 每次只签一个明确 ID，不接受批量自动签核；必须先完成完整矩阵并运行 `compare`。
+签核存于被 Git 忽略的 `manual-review.json`，绑定本地实现、源目录、八组原始截图内容、
+所有动作结果与逐案视觉反馈。原图或反馈变化会使签核失效并回到 `needs-review`；
+代码或源目录变化还会使机器证据过期，必须重新采集与回放，状态为 `needs-fix`；
+`--strict` 在人工签核缺失时也会失败，不把机器绿灯当作完成。
 交互回放按源目录、画布、本地变体及实现哈希校验断点：相同运行可续跑，修改组件、宿主 fixture
 或预览实现后必须选新输出目录重新捕获。`--workers` 是有界并发选项；在单变体内也可并行不同动作，
 但每个动作仍有独立上下文；多变体运行时并发预算在变体之间分配，不把所有动作默认为串行。
@@ -59,7 +70,8 @@ iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议�
 - `structure-report.json`：根节点尺寸差、树节点/标签序列、控件数量、文本容量和溢出结果。
 - `visual-report.json`：静态配对、交互配对、差异图片路径，以及每种交互源/本地反馈幅度。
 - `interactions/<variant>/<theme>/<viewport>/<case>/{source,local}/`：可人工打开的真实 before/after 截图和快照。
-- `review-ledger.json`：每个已审变体的八组静态和交互覆盖、缺项、失败原因与最终状态；未跑或只跑部分案例明确为 `needs-fix`。
+- `manual-review.json`：逐变体人工签核的说明、时间、覆盖数量和证据指纹；不能替代原始截图。
+- `review-ledger.json`：每个已审变体的八组静态和交互覆盖、缺项、失败原因与最终状态；未跑或只跑部分案例为 `needs-fix`，机器完整但未签核为 `needs-review`。
 
 源颜色和本地颜色不强制像素一致；本项目保留 Lumen monochrome/glass token。门禁关注的是
 DOM/ARIA 语义、内容容量、流式布局、响应式边界和交互反馈是否与源变体同构。发现差异后，

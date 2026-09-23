@@ -208,7 +208,7 @@ export type InteractionCase = Readonly<{
 }>
 
 type AuditOptions = Readonly<{
-  command: 'discover' | 'capture' | 'interactions' | 'compare' | 'audit'
+  command: 'discover' | 'capture' | 'interactions' | 'compare' | 'review' | 'audit'
   variants: readonly string[]
   categories: readonly string[]
   cases: readonly string[]
@@ -222,7 +222,40 @@ type AuditOptions = Readonly<{
   offline: boolean
   workers: number
   strict: boolean
+  reviewNote: string | undefined
 }>
+
+type ManualReviewEntry = Readonly<{
+  fingerprint: string
+  reviewedAt: string
+  note: string
+  staticCombinations: number
+  interactionCases: number
+}>
+
+type ManualReviewFile = Readonly<{
+  schemaVersion: 1
+  entries: Readonly<Record<string, ManualReviewEntry>>
+}>
+
+export function manualReviewGate(
+  machineFailures: readonly string[],
+  fingerprint: string,
+  review: ManualReviewEntry | undefined,
+  staticCombinations: number,
+  interactionCases: number,
+): Readonly<{ status: 'needs-fix' | 'needs-review' | 'passed'; manualReview: boolean; reason?: string }> {
+  if (machineFailures.length > 0) return { status: 'needs-fix', manualReview: false }
+  if (!review) return { status: 'needs-review', manualReview: false, reason: 'manual-review-required' }
+  if (
+    review.fingerprint !== fingerprint ||
+    typeof review.note !== 'string' || review.note.trim().length < 12 ||
+    typeof review.reviewedAt !== 'string' || Number.isNaN(Date.parse(review.reviewedAt)) ||
+    review.staticCombinations !== staticCombinations ||
+    review.interactionCases !== interactionCases
+  ) return { status: 'needs-review', manualReview: false, reason: 'manual-review-stale' }
+  return { status: 'passed', manualReview: true }
+}
 
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
@@ -279,7 +312,7 @@ function optionValue(args: readonly string[], name: string): string | undefined 
 function parseOptions(): AuditOptions {
   const [commandArg, ...args] = process.argv.slice(2)
   const command = (commandArg ?? 'audit') as AuditOptions['command']
-  if (!['discover', 'capture', 'interactions', 'compare', 'audit'].includes(command)) {
+  if (!['discover', 'capture', 'interactions', 'compare', 'review', 'audit'].includes(command)) {
     throw new Error(`Unknown React Bits audit command: ${command}`)
   }
   const variants = parseList(optionValue(args, '--variants') ?? process.env.HBAR_APP_UI_VARIANTS)
@@ -314,6 +347,7 @@ function parseOptions(): AuditOptions {
       process.env.HBAR_APP_UI_OFFLINE === 'true',
     workers,
     strict: args.includes('--strict') || command === 'audit',
+    reviewNote: optionValue(args, '--note'),
   }
 }
 
@@ -370,6 +404,49 @@ async function copyCachedSourceRecord(
 
 function stableHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+}
+
+async function manualReviewFingerprint(
+  id: string,
+  manifest: Readonly<{
+    sourceDirectoryHash: string
+    implementationHash?: string
+    records: readonly CaptureRecord[]
+  }>,
+  interactions: readonly InteractionReportRow[],
+  visualPairs: readonly unknown[],
+): Promise<string> {
+  const staticPairs = await Promise.all(
+    manifest.records
+      .filter((record) => record.kind === 'source' && record.id === id)
+      .sort((left, right) => `${left.theme}/${left.viewport}`.localeCompare(`${right.theme}/${right.viewport}`))
+      .map(async (source) => {
+        const local = manifest.records.find(
+          (record) =>
+            record.kind === 'local' && record.id === id &&
+            record.theme === source.theme && record.viewport === source.viewport,
+        )
+        if (!local) throw new Error(`Missing local screenshot for manual review: ${id}/${source.theme}/${source.viewport}`)
+        const screenshotHash = async (path: string) =>
+          createHash('sha256').update(new Uint8Array(await Bun.file(path).arrayBuffer())).digest('hex')
+        return {
+          theme: source.theme,
+          viewport: source.viewport,
+          source: await screenshotHash(source.screenshot),
+          local: await screenshotHash(local.screenshot),
+        }
+      }),
+  )
+  return stableHash({
+    id,
+    sourceDirectoryHash: manifest.sourceDirectoryHash,
+    implementationHash: manifest.implementationHash,
+    staticPairs,
+    interactions: interactions.filter((row) => row.variantId === id),
+    visualPairs: visualPairs.filter((pair) =>
+      typeof pair === 'object' && pair !== null && 'id' in pair && pair.id === id,
+    ),
+  })
 }
 
 async function localImplementationHash(): Promise<string> {
@@ -2185,7 +2262,11 @@ async function runCompare(options: AuditOptions): Promise<void> {
     JSON.stringify([...(interactionReport.selected ?? [])].sort()) === JSON.stringify([...manifest.selected].sort()) &&
     JSON.stringify(interactionReport.viewports) === JSON.stringify(manifest.viewports) &&
     JSON.stringify(interactionReport.themes) === JSON.stringify(manifest.themes)
-  const ledger = selectedIds.map((id) => {
+  const manualReviewPath = join(options.outputRoot, 'manual-review.json')
+  const manualReviews = (await Bun.file(manualReviewPath).exists())
+    ? await readJson<ManualReviewFile>(manualReviewPath)
+    : undefined
+  const ledger = await Promise.all(selectedIds.map(async (id) => {
     const staticRows = comparisons.filter((comparison) => comparison.id === id)
     const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
     const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
@@ -2218,7 +2299,17 @@ async function runCompare(options: AuditOptions): Promise<void> {
       interactionFailures.push(`interaction-cases-duplicate:${coverage.duplicate.length}`)
     if (coverage.unexpected.length > 0)
       interactionFailures.push(`interaction-cases-unexpected:${coverage.unexpected.length}`)
-    const status = failures.length || interactionFailures.length ? 'needs-fix' : 'passed'
+    const machineFailures = [...failures, ...interactionFailures]
+    const fingerprint = machineFailures.length === 0
+      ? await manualReviewFingerprint(id, manifest, interactionReport.results, visualReport.interactionPairs)
+      : ''
+    const gate = manualReviewGate(
+      machineFailures,
+      fingerprint,
+      manualReviews?.schemaVersion === 1 ? manualReviews.entries[id] : undefined,
+      staticRows.length,
+      interactionRows.length,
+    )
     return {
       id,
       category: inventory.variants.find((variant) => variant.id === id)?.category ?? 'unknown',
@@ -2226,12 +2317,12 @@ async function runCompare(options: AuditOptions): Promise<void> {
       interactionCases: interactionRows.length,
       expectedInteractionCases: expectedInteractions.get(id)?.length ?? 0,
       missingInteractionCases: coverage.missing.length,
-      status,
-      failures: [...failures, ...interactionFailures],
-      manualReview: false,
+      status: gate.status,
+      failures: gate.reason ? [...machineFailures, gate.reason] : machineFailures,
+      manualReview: gate.manualReview,
       lastVerified: new Date().toISOString(),
     }
-  })
+  }))
   await writeJson(join(options.outputRoot, 'review-ledger.json'), {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -2241,6 +2332,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
       variants: ledger.length,
       passed: ledger.filter((entry) => entry.status === 'passed').length,
       needsFix: ledger.filter((entry) => entry.status === 'needs-fix').length,
+      needsReview: ledger.filter((entry) => entry.status === 'needs-review').length,
       staticCombinations: comparisons.length,
       interactionCases: interactionReport.results.length,
     },
@@ -2285,11 +2377,80 @@ async function runCompare(options: AuditOptions): Promise<void> {
   console.log(JSON.stringify({ command: 'compare', comparisons: comparisons.length, outputRoot: options.outputRoot }))
 }
 
+async function runManualReview(options: AuditOptions): Promise<void> {
+  const note = options.reviewNote?.trim()
+  if (!note || note.length < 12) throw new Error('Manual review requires a specific --note of at least 12 characters')
+  if (options.variants.length !== 1) throw new Error('Manual review requires exactly one --variants ID per sign-off')
+  const [spec] = selectedLocalSpecs(options)
+  if (!spec) throw new Error(`Unknown variant for manual review: ${options.variants[0]}`)
+  await runCompare(options)
+  const ledger = await readJson<{
+    variants: readonly {
+      id: string
+      status: string
+      failures: readonly string[]
+      staticCombinations: number
+      interactionCases: number
+      expectedInteractionCases: number
+    }[]
+  }>(join(options.outputRoot, 'review-ledger.json'))
+  const entry = ledger.variants.find((candidate) => candidate.id === spec.id)
+  if (
+    !entry ||
+    (entry.status !== 'needs-review' && entry.status !== 'passed') ||
+    entry.failures.some((failure) => failure !== 'manual-review-required' && failure !== 'manual-review-stale') ||
+    entry.staticCombinations !== REACTBITS_PRO_VIEWPORTS.length * REACTBITS_PRO_THEMES.length ||
+    entry.interactionCases !== entry.expectedInteractionCases
+  ) throw new Error(`Complete machine-passed evidence is required before manual review: ${spec.id}`)
+  const manifest = await readJson<{
+    sourceDirectoryHash: string
+    implementationHash?: string
+    records: readonly CaptureRecord[]
+  }>(join(options.outputRoot, 'capture-manifest.json'))
+  const interactionReport = await readJson<{ results: readonly InteractionReportRow[] }>(
+    join(options.outputRoot, 'interaction-report.json'),
+  )
+  const visualReport = await readJson<{ interactionPairs: readonly unknown[] }>(
+    join(options.outputRoot, 'visual-report.json'),
+  )
+  const reviewPath = join(options.outputRoot, 'manual-review.json')
+  const existing = (await Bun.file(reviewPath).exists())
+    ? await readJson<ManualReviewFile>(reviewPath)
+    : { schemaVersion: 1 as const, entries: {} }
+  if (existing.schemaVersion !== 1) throw new Error(`Unknown manual review schema: ${reviewPath}`)
+  await writeJson(reviewPath, {
+    schemaVersion: 1,
+    entries: {
+      ...existing.entries,
+      [spec.id]: {
+        fingerprint: await manualReviewFingerprint(
+          spec.id, manifest, interactionReport.results, visualReport.interactionPairs,
+        ),
+        reviewedAt: new Date().toISOString(),
+        note,
+        staticCombinations: entry.staticCombinations,
+        interactionCases: entry.interactionCases,
+      },
+    },
+  })
+  await runCompare(options)
+  const signed = await readJson<{ variants: readonly { id: string; status: string; manualReview: boolean }[] }>(
+    join(options.outputRoot, 'review-ledger.json'),
+  )
+  if (!signed.variants.some((candidate) => candidate.id === spec.id && candidate.status === 'passed' && candidate.manualReview))
+    throw new Error(`Manual sign-off did not validate: ${spec.id}`)
+  console.log(JSON.stringify({ command: 'review', variant: spec.id, outputRoot: options.outputRoot }))
+}
+
 async function main(): Promise<void> {
   const options = parseOptions()
   await ensureDirectory(options.outputRoot)
   if (options.command === 'compare') {
     await runCompare(options)
+    return
+  }
+  if (options.command === 'review') {
+    await runManualReview(options)
     return
   }
   const browser = await chromium.launch({ headless: true, executablePath })

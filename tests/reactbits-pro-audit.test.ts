@@ -13,6 +13,7 @@ import {
   interactionWorkersPerVariant,
   interactiveControlSelector,
   liveActivityDelta,
+  manualReviewGate,
   rootGeometryMatches,
   selectInteractionCases,
   semanticRoleTree,
@@ -245,6 +246,26 @@ describe('React Bits Pro visual audit contract', () => {
     expect(interactionFeedbackMatches(0.06, 0)).toBe(false)
     expect(interactionFeedbackMatches(0.32, 0.07)).toBe(false)
     expect(interactionFeedbackMatches(Number.NaN, 0)).toBe(false)
+  })
+
+  test('requires a current explicit visual sign-off after the complete machine audit', () => {
+    const review = {
+      fingerprint: 'paired-static-and-interaction-hash',
+      reviewedAt: '2026-09-23T00:00:00.000Z',
+      note: 'Compared all eight source/local viewports and interaction feedback.',
+      staticCombinations: 8,
+      interactionCases: 560,
+    }
+    expect(manualReviewGate([], review.fingerprint, undefined, 8, 560)).toEqual({
+      status: 'needs-review', manualReview: false, reason: 'manual-review-required',
+    })
+    expect(manualReviewGate([], review.fingerprint, review, 8, 560)).toEqual({
+      status: 'passed', manualReview: true,
+    })
+    expect(manualReviewGate([], 'changed-source-or-local-screenshot', review, 8, 560).reason).toBe('manual-review-stale')
+    expect(manualReviewGate([], review.fingerprint, review, 8, 561).status).toBe('needs-review')
+    expect(manualReviewGate([], review.fingerprint, { ...review, note: '' }, 8, 560).status).toBe('needs-review')
+    expect(manualReviewGate(['visual-feedback-mismatch'], review.fingerprint, review, 8, 560).status).toBe('needs-fix')
   })
 
   test('separates automatic deployment progress from Stop and rerun feedback', () => {
