@@ -206,6 +206,7 @@ type AuditOptions = Readonly<{
   command: 'discover' | 'capture' | 'interactions' | 'compare' | 'audit'
   variants: readonly string[]
   categories: readonly string[]
+  cases: readonly string[]
   viewports: readonly AuditViewport[]
   themes: readonly AuditTheme[]
   outputRoot: string
@@ -268,6 +269,7 @@ function parseOptions(): AuditOptions {
   const categories = parseList(
     optionValue(args, '--categories') ?? optionValue(args, '--category') ?? process.env.HBAR_APP_UI_CATEGORIES,
   )
+  const cases = (optionValue(args, '--cases') ?? '').split(/[\s,]+/).filter(Boolean)
   const viewports = parseViewports(optionValue(args, '--viewports') ?? process.env.HBAR_APP_UI_VIEWPORTS)
   const themes = parseThemes(optionValue(args, '--themes') ?? process.env.HBAR_APP_UI_THEMES)
   const outputRoot = resolve(
@@ -281,6 +283,7 @@ function parseOptions(): AuditOptions {
     command,
     variants,
     categories,
+    cases,
     viewports,
     themes,
     outputRoot,
@@ -651,6 +654,20 @@ async function readReferenceCanvas(frame: Frame): Promise<ReferenceCanvas> {
     }
     return { width: innerWidth, height: innerHeight, padding }
   })
+}
+
+async function alignReferenceInteractionCanvas(page: Page, frame: Frame, expected: ReferenceCanvas): Promise<void> {
+  const actual = await readReferenceCanvas(frame)
+  if (actual.width !== expected.width || actual.height !== expected.height) {
+    await page.locator('iframe[title="Preview"]').evaluate((element, canvas) => {
+      const iframe = element as HTMLElement
+      iframe.style.width = `${canvas.width}px`
+      iframe.style.height = `${canvas.height}px`
+    }, expected)
+    await frame.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height, expected, {
+      timeout: 5000,
+    })
+  }
 }
 
 async function applyLocalCanvas(
@@ -1101,6 +1118,15 @@ export function interactionCases(snapshot: SemanticSnapshot, variantId: string):
   return cases
 }
 
+export function selectInteractionCases(
+  cases: readonly InteractionCase[],
+  requestedIds: readonly string[],
+): readonly InteractionCase[] {
+  if (requestedIds.length === 0) return cases
+  const requested = new Set(requestedIds)
+  return cases.filter((interaction) => requested.has(interaction.id))
+}
+
 async function controlLocator(root: Locator, control: ControlSnapshot) {
   const controls = root.locator('button,a,input,select,textarea,[role]')
   const count = await controls.count()
@@ -1377,11 +1403,13 @@ async function replayReferenceInteraction(
   options: AuditOptions,
   theme: AuditTheme,
   viewport: AuditViewport,
+  referenceCanvas: ReferenceCanvas,
   interaction: InteractionCase,
   outputRoot: string,
 ): Promise<InteractionCapture> {
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
   const frame = await loadReferencePreview(page, referencePageUrl(reference, options), theme)
+  await alignReferenceInteractionCanvas(page, frame, referenceCanvas)
   const selector = await componentSelector(frame, '#preview-root')
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
@@ -1613,6 +1641,7 @@ async function _runInteractionsLegacy(
                 options,
                 theme,
                 viewport,
+                referenceCanvas,
                 interaction,
                 options.outputRoot,
               ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error))
@@ -1709,12 +1738,31 @@ async function runInteractionsParallel(
 ): Promise<void> {
   const selected = selectedLocalSpecs(options)
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
+  const staticCapturePath = join(resolve(options.sourceCaptureRoot ?? options.outputRoot), 'capture-manifest.json')
+  const staticManifest = (await Bun.file(staticCapturePath).exists())
+    ? await readJson<{ sourceDirectoryHash: string; records: readonly CaptureRecord[] }>(staticCapturePath)
+    : undefined
+  if (staticManifest && staticManifest.sourceDirectoryHash !== inventory.sourceDirectoryHash)
+    throw new Error(`Static reference inventory differs from interaction inventory: ${staticCapturePath}`)
+  const staticCanvases = new Map(
+    staticManifest?.records
+      .filter(
+        (record) =>
+          record.kind === 'source' &&
+          record.referenceCanvas &&
+          selected.some((spec) => spec.id === record.id) &&
+          options.themes.includes(record.theme) &&
+          options.viewports.some((viewport) => viewport.id === record.viewport),
+      )
+      .map((record) => [`${record.id}/${record.theme}/${record.viewport}`, record.referenceCanvas!]) ?? [],
+  )
   const metadataPath = join(options.outputRoot, 'interaction-run.json')
   const implementationHash = await localImplementationHash()
   const runIdentity = {
     schemaVersion: 1,
-    captureProtocolVersion: 3,
-    coverage: 'all-visible-controls',
+    captureProtocolVersion: 6,
+    coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
+    cases: options.cases,
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
     themes: options.themes,
@@ -1722,6 +1770,7 @@ async function runInteractionsParallel(
     sourceUrl: inventory.sourceUrl,
     localSpecHash: stableHash(selected),
     implementationHash,
+    staticCanvasHash: stableHash([...staticCanvases]),
   }
   const runHash = stableHash(runIdentity)
   if (await Bun.file(metadataPath).exists()) {
@@ -1754,8 +1803,12 @@ async function runInteractionsParallel(
             const frame = await loadReferencePreview(discoveryPage, referencePageUrl(reference, options), theme)
             const sourceSelector = await componentSelector(frame, '#preview-root')
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
-            const referenceCanvas = await readReferenceCanvas(frame)
-            for (const interaction of interactionCases(sourceSnapshot, spec.id)) {
+            const referenceCanvas =
+              staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
+            for (const interaction of selectInteractionCases(
+              interactionCases(sourceSnapshot, spec.id),
+              options.cases,
+            )) {
               const sourceDirectory = interactionDirectory(
                 options.outputRoot,
                 'source',
@@ -1800,6 +1853,7 @@ async function runInteractionsParallel(
                     options,
                     theme,
                     viewport,
+                    referenceCanvas,
                     interaction,
                     options.outputRoot,
                   ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error)),
@@ -1873,17 +1927,22 @@ async function runInteractionsParallel(
   } finally {
     server?.kill()
   }
+  const discoveredCases = new Set(results.map((result) => result.id))
+  const missingRequested = options.cases.filter((id) => !discoveredCases.has(id))
+  if (missingRequested.length > 0)
+    throw new Error(`Requested interaction cases not found: ${missingRequested.join(', ')}`)
   await writeJson(join(options.outputRoot, 'interaction-report.json'), {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
     themes: options.themes,
-    coverage: 'all-visible-controls',
+    coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
     runHash,
     sourceDirectoryHash: inventory.sourceDirectoryHash,
     localSpecHash: stableHash(selected),
     implementationHash,
+    staticCanvasHash: stableHash([...staticCanvases]),
     discovered: results.length,
     resumed,
     results,
@@ -2057,17 +2116,24 @@ async function runCompare(options: AuditOptions): Promise<void> {
         sourceDirectoryHash?: string
         localSpecHash?: string
         implementationHash?: string
+        staticCanvasHash?: string
         results: readonly InteractionReportRow[]
       }>(interactionPath)
     : { results: [] }
   const selectedIds = [...new Set(manifest.records.map((record) => record.id))]
   const currentImplementationHash = await localImplementationHash()
+  const captureCanvases = new Map(
+    manifest.records
+      .filter((record) => record.kind === 'source' && record.referenceCanvas)
+      .map((record) => [`${record.id}/${record.theme}/${record.viewport}`, record.referenceCanvas!]),
+  )
   const matrixComplete =
     interactionReport.coverage === 'all-visible-controls' &&
     interactionReport.sourceDirectoryHash === manifest.sourceDirectoryHash &&
     interactionReport.localSpecHash ===
       stableHash(HBAR_APP_UI_VARIANT_SPECS.filter((spec) => manifest.selected.includes(spec.id))) &&
     interactionReport.implementationHash === manifest.implementationHash &&
+    interactionReport.staticCanvasHash === stableHash([...captureCanvases]) &&
     manifest.implementationHash === currentImplementationHash &&
     JSON.stringify([...(interactionReport.selected ?? [])].sort()) === JSON.stringify([...manifest.selected].sort()) &&
     JSON.stringify(interactionReport.viewports) === JSON.stringify(manifest.viewports) &&

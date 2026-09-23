@@ -15,6 +15,11 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 默认矩阵为 38 个分类、300 个变体、4 个视口（1440×900、1024×768、390×844、320×720）
 和 dark/light 两种主题，即 2400 组静态 source/local 配对。开发期可以使用
 `--variants`、`--categories`、`--viewports`、`--themes` 缩小范围；缩小范围不能代替最终全量验收。
+调试单个真实动作可对 `interactions` 加 `--cases <完整案例 ID[,其他 ID]>`；报告标记为
+`selected-cases`，`compare` 永远不能把它当作全部可见控件的通过证据。
+交互重放优先读取同一输出目录的 `capture-manifest.json` 画布尺寸；若调试结果另存目录，可用
+`--source-output <静态捕获目录>` 指向对应的真实 source 清单。站点重载时 iframe 高度可能变化，
+动作前会强制回到静态参考画布；目录哈希、画布指纹或源/本地实现不一致时不能复用旧案例。
 浏览器外窗尺寸不等于原版 iframe 内容画布尺寸（例如 390 宽外窗中的 iframe 可能只有 356 宽）。
 每次 live 捕获会记录 iframe 实际宽高与参考舞台 padding，并在本地隔离预览中复用相同可用空间；
 本地组件自身已有的内边距会从舞台 padding 中扣除，避免同一空间重复计算。缺少这些元数据的

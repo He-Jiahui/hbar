@@ -11,6 +11,7 @@ import {
   interactionCheckpointMatches,
   interactionFeedbackMatches,
   rootGeometryMatches,
+  selectInteractionCases,
   type ControlSnapshot,
   type SemanticSnapshot,
 } from '../scripts/reactbits-pro-audit'
@@ -87,6 +88,13 @@ describe('React Bits Pro visual audit contract', () => {
       'card-1:1:press-enter',
       'card-1:1:press-space',
     ])
+  })
+
+  test('allows a development-only exact case filter without inventing interactions', () => {
+    const cases = interactionCases(snapshot([control(0), control(1)]), 'card-1')
+    expect(selectInteractionCases(cases, ['card-1:1:click']).map((item) => item.id)).toEqual(['card-1:1:click'])
+    expect(selectInteractionCases(cases, [])).toBe(cases)
+    expect(selectInteractionCases(cases, ['card-1:9:click'])).toEqual([])
   })
 
   test('retains download, upload, no-op, and applicable keyboard feedback cases', () => {
