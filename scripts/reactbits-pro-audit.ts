@@ -829,8 +829,29 @@ function interactionCases(snapshot: SemanticSnapshot, variantId: string): readon
 async function controlLocator(root: Locator, control: ControlSnapshot) {
   const controls = root.locator('button,a,input,select,textarea,[role]')
   const count = await controls.count()
-  if (control.index >= count) return undefined
-  return controls.nth(control.index)
+  if (count === 0) return undefined
+  const normalise = (value: string) => value.trim().replaceAll(/\s+/g, ' ').toLowerCase()
+  const expectedName = normalise(control.name)
+  const candidates = await controls.evaluateAll((elements) =>
+    elements.map((element, index) => ({
+      index,
+      tag: element.tagName.toLowerCase(),
+      type: element.getAttribute('type'),
+      name: (element.getAttribute('aria-label') ?? element.textContent ?? '').trim().replaceAll(/\s+/g, ' '),
+    })),
+  )
+  let best: { index: number; score: number } | undefined
+  for (const candidate of candidates) {
+    const name = normalise(candidate.name)
+    let score = candidate.index === control.index ? 4 : 0
+    if (candidate.tag === control.tag) score += 40
+    if (candidate.type === control.type) score += 20
+    if (expectedName && name === expectedName) score += 100
+    else if (expectedName && (name.includes(expectedName) || expectedName.includes(name))) score += 50
+    if (!best || score > best.score) best = { index: candidate.index, score }
+  }
+  if (!best || best.score < 40) return undefined
+  return controls.nth(best.index)
 }
 
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
