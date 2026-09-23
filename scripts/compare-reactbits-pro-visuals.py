@@ -63,6 +63,41 @@ def compare_pair(source_path: Path, local_path: Path, diff_path: Path) -> dict[s
     }
 
 
+def control_feedback_ratio(case_root: Path, kind: str) -> float | None:
+    directory = case_root / kind
+    before = json.loads((directory / "before.json").read_text(encoding="utf-8"))
+    after = json.loads((directory / "after.json").read_text(encoding="utf-8"))
+    regions = []
+    for snapshot in (before, after):
+        tree = snapshot["tree"]
+        controls = [node for node in tree if node["tag"] == "button"]
+        if not tree or len(controls) != 1:
+            return None
+        origin = tree[0]["rect"]
+        rect = controls[0]["rect"]
+        regions.append((
+            rect["x"] - origin["x"], rect["y"] - origin["y"],
+            rect["x"] - origin["x"] + rect["width"],
+            rect["y"] - origin["y"] + rect["height"],
+        ))
+    left = math.floor(min(region[0] for region in regions))
+    top = math.floor(min(region[1] for region in regions))
+    right = math.ceil(max(region[2] for region in regions))
+    bottom = math.ceil(max(region[3] for region in regions))
+    before_image = load_rgb(directory / "before.png")
+    after_image = load_rgb(directory / "after.png")
+    if before_image.size != after_image.size:
+        return None
+    box = (max(0, left), max(0, top), min(before_image.width, right), min(before_image.height, bottom))
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return None
+    difference = np.abs(
+        np.asarray(before_image.crop(box), dtype=np.float32)
+        - np.asarray(after_image.crop(box), dtype=np.float32)
+    )
+    return round(float(np.any(difference >= 12.0, axis=2).mean()), 6)
+
+
 def collect_interactions(root: Path) -> list[dict[str, object]]:
     interaction_root = root / "interactions"
     pairs: list[dict[str, object]] = []
@@ -105,6 +140,8 @@ def collect_interactions(root: Path) -> list[dict[str, object]]:
                 "feedback": {
                     "sourceChangedPixelRatio": source_feedback["changedPixelRatio"],
                     "localChangedPixelRatio": local_feedback["changedPixelRatio"],
+                    "sourceControlChangedPixelRatio": control_feedback_ratio(case_root, "source"),
+                    "localControlChangedPixelRatio": control_feedback_ratio(case_root, "local"),
                     "sourceFeedbackMae": source_feedback["normalizedMae"],
                     "localFeedbackMae": local_feedback["normalizedMae"],
                     "feedbackMagnitudeDelta": round(

@@ -12,6 +12,7 @@ import {
   interactionFeedbackMatches,
   rootGeometryMatches,
   selectInteractionCases,
+  timedActivityDelta,
   visibleControls,
   type ControlSnapshot,
   type SemanticSnapshot,
@@ -200,5 +201,18 @@ describe('React Bits Pro visual audit contract', () => {
     expect(interactionFeedbackMatches(0.06, 0)).toBe(false)
     expect(interactionFeedbackMatches(0.32, 0.07)).toBe(false)
     expect(interactionFeedbackMatches(Number.NaN, 0)).toBe(false)
+  })
+
+  test('separates automatic deployment progress from Stop and rerun feedback', () => {
+    const steps = (states: readonly string[]) => states.map((state, index) => `  - listitem: Step ${index} ${state}`).join('\n')
+    const running = snapshot([control(0, {name: 'Stop'})])
+    const queued = (count: number) => Array.from({length: count}, () => 'Queued')
+    const first = {...running, axSnapshot: steps(['Running', ...queued(6)])}
+    const later = {...running, axSnapshot: steps(['Done', 'Running', ...queued(5)])}
+    const stopped = {...later, controls: [control(0, {name: 'Run again'})], axSnapshot: steps(['Done', 'Stopped', ...queued(5)])}
+    const localStopped = {...first, controls: [control(0, {name: 'Run again'})], axSnapshot: steps(['Stopped', ...queued(6)])}
+    expect(timedActivityDelta(first, later, 'hover')?.changed).toBe(false)
+    expect(timedActivityDelta(later, stopped, 'click')?.signature).toBe(timedActivityDelta(first, localStopped, 'click')?.signature)
+    expect(timedActivityDelta(first, {...first, axSnapshot: ''}, 'hover')).toBeNull()
   })
 })

@@ -1303,10 +1303,15 @@ function interactionDirectory(
 
 async function interactionDelta(
   capture: InteractionCapture,
+  interaction: InteractionCase,
 ): Promise<Readonly<{ changed: boolean; signature: string }> | null> {
   if (capture.status !== 'captured' || !capture.afterSnapshot) return null
   const before = await readJson<SemanticSnapshot>(capture.beforeSnapshot)
   const after = await readJson<SemanticSnapshot>(capture.afterSnapshot)
+  if (interaction.id.startsWith('hbar-app-ui-agent-activity-3:')) {
+    const timed = timedActivityDelta(before, after, interaction.action)
+    if (timed) return timed
+  }
   const state = (snapshot: SemanticSnapshot) => ({
     bodyTextLength: snapshot.bodyTextLength,
     horizontalOverflow: snapshot.horizontalOverflow,
@@ -1333,6 +1338,39 @@ async function interactionDelta(
   }
   const signature = JSON.stringify(changes)
   return { changed: JSON.stringify(beforeState) !== JSON.stringify(afterState), signature }
+}
+
+// The reference deployment demo advances its clock and step automatically even
+// when the pointer is idle. Compare the action's control and status transition,
+// not a body-text length that depends on which step happened to be active.
+export function timedActivityDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+  action: HbarAppUiInteractionCapability,
+): Readonly<{ changed: boolean; signature: string }> | null {
+  const statuses = ['Running', 'Stopped', 'Done', 'Queued'] as const
+  const counts = (snapshot: SemanticSnapshot) => {
+    const items = [...snapshot.axSnapshot.matchAll(/^\s+- listitem: .+ (Running|Stopped|Done|Queued)$/gm)]
+    if (items.length !== 7) return null
+    return Object.fromEntries(statuses.map((status) => [status, items.filter((item) => item[1] === status).length]))
+  }
+  const beforeCounts = counts(before)
+  const afterCounts = counts(after)
+  if (!beforeCounts || !afterCounts || before.controls.length !== 1 || after.controls.length !== 1) return null
+  const control = (snapshot: SemanticSnapshot) => {
+    const item = snapshot.controls[0]!
+    return { name: item.name, disabled: item.disabled, expanded: item.expanded, pressed: item.pressed }
+  }
+  const controlChanged = JSON.stringify(control(before)) !== JSON.stringify(control(after))
+  const signature = JSON.stringify({
+    before: control(before),
+    after: control(after),
+    statusDelta:
+      controlChanged && (action === 'click' || action === 'press')
+        ? statuses.map((status) => (afterCounts[status] ?? 0) - (beforeCounts[status] ?? 0))
+        : null,
+  })
+  return { changed: controlChanged, signature }
 }
 
 async function replayInteraction(
@@ -1657,8 +1695,8 @@ async function _runInteractionsLegacy(
                 interaction,
                 options.outputRoot,
               ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
-              const sourceDelta = await interactionDelta(source)
-              const localDelta = await interactionDelta(local)
+              const sourceDelta = await interactionDelta(source, interaction)
+              const localDelta = await interactionDelta(local, interaction)
               const status =
                 source.status === 'error' || local.status === 'error'
                   ? 'error'
@@ -1763,7 +1801,7 @@ async function runInteractionsParallel(
   const implementationHash = await localImplementationHash()
   const runIdentity = {
     schemaVersion: 1,
-    captureProtocolVersion: 6,
+    captureProtocolVersion: 7,
     coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
     cases: options.cases,
     selected: selected.map((spec) => spec.id),
@@ -1876,8 +1914,8 @@ async function runInteractionsParallel(
                 } finally {
                   await actionContext.close()
                 }
-                const sourceDelta = await interactionDelta(source)
-                const localDelta = await interactionDelta(local)
+                const sourceDelta = await interactionDelta(source, interaction)
+                const localDelta = await interactionDelta(local, interaction)
                 const status =
                   source.status === 'error' || local.status === 'error'
                     ? 'error'
@@ -2114,7 +2152,12 @@ async function runCompare(options: AuditOptions): Promise<void> {
       theme: string
       viewport: string
       case: string
-      feedback: Readonly<{ sourceChangedPixelRatio: number; localChangedPixelRatio: number }>
+      feedback: Readonly<{
+        sourceChangedPixelRatio: number
+        localChangedPixelRatio: number
+        sourceControlChangedPixelRatio?: number | null
+        localControlChangedPixelRatio?: number | null
+      }>
     }[]
   }>(join(options.outputRoot, 'visual-report.json'))
   const visualInteractions = new Map(
@@ -2167,7 +2210,16 @@ async function runCompare(options: AuditOptions): Promise<void> {
     for (const result of interactionRows) {
       const pair = visualInteractions.get(`${id}/${result.theme}/${result.viewport}/${result.id.replaceAll(':', '_')}`)
       if (!pair) interactionFailures.push(`${result.id}:feedback-screenshots-missing`)
-      else if (!interactionFeedbackMatches(pair.feedback.sourceChangedPixelRatio, pair.feedback.localChangedPixelRatio))
+      else if (
+        !interactionFeedbackMatches(
+          id === 'hbar-app-ui-agent-activity-3'
+            ? (pair.feedback.sourceControlChangedPixelRatio ?? Number.NaN)
+            : pair.feedback.sourceChangedPixelRatio,
+          id === 'hbar-app-ui-agent-activity-3'
+            ? (pair.feedback.localControlChangedPixelRatio ?? Number.NaN)
+            : pair.feedback.localChangedPixelRatio,
+        )
+      )
         interactionFailures.push(`${result.id}:visual-feedback-mismatch`)
     }
     const coverage = assessInteractionCoverage(expectedInteractions.get(id) ?? [], interactionRows)
