@@ -175,7 +175,7 @@ export type HbarAppUiInteractionCapability =
   | 'no-op'
 
 export type HbarAppUiAuditStatus =
-  'matched' | 'lumen-different' | 'missing' | 'source-no-op' | 'blocked' | 'not-applicable'
+  'matched' | 'lumen-different' | 'missing' | 'source-no-op' | 'blocked' | 'not-applicable' | 'error'
 
 export interface HbarAppUiInteractionResult {
   readonly id: string

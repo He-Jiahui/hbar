@@ -880,7 +880,7 @@ async function controlIsDisabled(control: Locator): Promise<boolean> {
 
 type InteractionCapture = Readonly<{
   id: string
-  status: 'captured' | 'missing'
+  status: 'captured' | 'missing' | 'error'
   directory: string
   before: string
   after: string | null
@@ -966,7 +966,20 @@ async function replayInteraction(
       reason: 'control-index-not-found',
     }
   }
-  if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
+  try {
+    if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
+  } catch (error) {
+    return {
+      id: interaction.id,
+      status: 'error',
+      directory,
+      before,
+      after: null,
+      beforeSnapshot,
+      afterSnapshot: null,
+      reason: error instanceof Error ? error.message : String(error),
+    }
+  }
   await page.waitForTimeout(120)
   await screenshotStable(root, after)
   await writeJson(afterSnapshot, await localSnapshot(page, selector))
@@ -1018,7 +1031,20 @@ async function replayReferenceInteraction(
       reason: 'control-index-not-found',
     }
   }
-  if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
+  try {
+    if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
+  } catch (error) {
+    return {
+      id: interaction.id,
+      status: 'error',
+      directory,
+      before,
+      after: null,
+      beforeSnapshot,
+      afterSnapshot: null,
+      reason: error instanceof Error ? error.message : String(error),
+    }
+  }
   await page.waitForTimeout(120)
   await screenshotStable(root, after)
   await writeJson(afterSnapshot, await snapshotRoot(frame, selector))
@@ -1166,8 +1192,10 @@ async function _runInteractionsLegacy(
               const sourceDelta = await interactionDelta(source)
               const localDelta = await interactionDelta(local)
               const status =
-                local.status === 'missing'
-                  ? 'missing'
+                source.status === 'error' || local.status === 'error'
+                  ? 'error'
+                  : local.status === 'missing'
+                    ? 'missing'
                   : sourceDelta?.changed === false && localDelta?.changed === false
                     ? 'source-no-op'
                     : sourceDelta?.signature === localDelta?.signature
@@ -1270,8 +1298,10 @@ async function runInteractionsParallel(
               const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot)
               const sourceDelta = await interactionDelta(source)
               const localDelta = await interactionDelta(local)
-              const status = local.status === 'missing'
-                ? 'missing'
+              const status = source.status === 'error' || local.status === 'error'
+                ? 'error'
+                : local.status === 'missing'
+                  ? 'missing'
                 : sourceDelta?.changed === false && localDelta?.changed === false
                   ? 'source-no-op'
                   : sourceDelta?.signature === localDelta?.signature
