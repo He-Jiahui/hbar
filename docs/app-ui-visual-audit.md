@@ -33,6 +33,7 @@ live 参考可通过以下变量配置：
 - `HBAR_APP_UI_AUDIT_OUTPUT_ROOT`：报告输出目录；
 - `HBAR_APP_UI_VIEWPORTS` / `HBAR_APP_UI_THEMES`：开发期矩阵过滤；
 - `HBAR_APP_UI_AUDIT_WORKERS`：有界并发；
+- 单变体交互也按此上限并行重放不同动作，每个动作仍拥有独立浏览器上下文；多变体时按变体分配工作者，不叠乘并发数。
 - `HBAR_APP_UI_CHROME_PATH`：Windows Chrome 路径；
 - `HBAR_APP_UI_OFFLINE=1`：只使用已保存的 source inventory/cache，不猜测缺失映射。
 

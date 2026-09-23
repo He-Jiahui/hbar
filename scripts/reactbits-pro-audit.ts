@@ -1805,116 +1805,122 @@ async function runInteractionsParallel(
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
-            for (const interaction of selectInteractionCases(
-              interactionCases(sourceSnapshot, spec.id),
-              options.cases,
-            )) {
-              const sourceDirectory = interactionDirectory(
-                options.outputRoot,
-                'source',
-                reference.id,
-                theme,
-                viewport,
-                interaction,
-              )
-              const localDirectory = interactionDirectory(
-                options.outputRoot,
-                'local',
-                spec.id,
-                theme,
-                viewport,
-                interaction,
-              )
-              const caseHash = stableHash({ runHash, interaction, referenceCanvas, sourceHash: reference.sourceHash })
-              const comparisonPath = join(dirname(sourceDirectory), 'comparison.json')
-              const cached = await completedInteractionCheckpoint(comparisonPath, {
-                variantId: spec.id,
-                id: interaction.id,
-                theme,
-                viewport: viewport.id,
-                caseHash,
-              })
-              if (cached) {
-                results.push(cached)
-                resumed += 1
-                continue
+            const cases = selectInteractionCases(interactionCases(sourceSnapshot, spec.id), options.cases)
+            let caseCursor = 0
+            const actionWorker = async () => {
+              while (caseCursor < cases.length) {
+                const interaction = cases[caseCursor]
+                caseCursor += 1
+                if (!interaction) continue
+                const sourceDirectory = interactionDirectory(
+                  options.outputRoot,
+                  'source',
+                  reference.id,
+                  theme,
+                  viewport,
+                  interaction,
+                )
+                const localDirectory = interactionDirectory(
+                  options.outputRoot,
+                  'local',
+                  spec.id,
+                  theme,
+                  viewport,
+                  interaction,
+                )
+                const caseHash = stableHash({ runHash, interaction, referenceCanvas, sourceHash: reference.sourceHash })
+                const comparisonPath = join(dirname(sourceDirectory), 'comparison.json')
+                const cached = await completedInteractionCheckpoint(comparisonPath, {
+                  variantId: spec.id,
+                  id: interaction.id,
+                  theme,
+                  viewport: viewport.id,
+                  caseHash,
+                })
+                if (cached) {
+                  results.push(cached)
+                  resumed += 1
+                  continue
+                }
+                // An action is always replayed from a clean browser context on each side.
+                const actionContext = await browser.newContext({ reducedMotion: 'reduce' })
+                let source: InteractionCapture
+                let local: InteractionCapture
+                try {
+                  const sourcePage = await actionContext.newPage()
+                  const localPage = await actionContext.newPage()
+                  ;[source, local] = await Promise.all([
+                    replayReferenceInteraction(
+                      sourcePage,
+                      reference,
+                      options,
+                      theme,
+                      viewport,
+                      referenceCanvas,
+                      interaction,
+                      options.outputRoot,
+                    ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error)),
+                    replayInteraction(
+                      localPage,
+                      spec,
+                      theme,
+                      viewport,
+                      referenceCanvas,
+                      interaction,
+                      options.outputRoot,
+                    ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error)),
+                  ])
+                } finally {
+                  await actionContext.close()
+                }
+                const sourceDelta = await interactionDelta(source)
+                const localDelta = await interactionDelta(local)
+                const status =
+                  source.status === 'error' || local.status === 'error'
+                    ? 'error'
+                    : local.status === 'missing'
+                      ? 'missing'
+                      : sourceDelta?.changed === false && localDelta?.changed === false
+                        ? 'source-no-op'
+                        : sourceDelta?.signature === localDelta?.signature
+                          ? 'matched'
+                          : 'lumen-different'
+                const result = {
+                  variantId: spec.id,
+                  id: interaction.id,
+                  action: interaction.action,
+                  capability: interaction.action,
+                  caseHash,
+                  viewport: viewport.id,
+                  theme,
+                  control: interaction.control,
+                  source,
+                  local,
+                  status,
+                  feedback: {
+                    sourceChanged: sourceDelta?.changed ?? false,
+                    localChanged: localDelta?.changed ?? false,
+                    deltaMatched: sourceDelta?.signature === localDelta?.signature,
+                    sourceDelta,
+                    localDelta,
+                  },
+                }
+                await writeJson(join(dirname(source.directory), 'source-state.json'), {
+                  before: source.beforeSnapshot,
+                  after: source.afterSnapshot,
+                  status: source.status,
+                })
+                await writeJson(join(dirname(source.directory), 'lumen-state.json'), {
+                  before: local.beforeSnapshot,
+                  after: local.afterSnapshot,
+                  status: local.status,
+                })
+                await writeJson(comparisonPath, result)
+                results.push(result)
               }
-              // An action is always replayed from a clean browser context on each side.
-              const actionContext = await browser.newContext({ reducedMotion: 'reduce' })
-              let source: InteractionCapture
-              let local: InteractionCapture
-              try {
-                const sourcePage = await actionContext.newPage()
-                const localPage = await actionContext.newPage()
-                ;[source, local] = await Promise.all([
-                  replayReferenceInteraction(
-                    sourcePage,
-                    reference,
-                    options,
-                    theme,
-                    viewport,
-                    referenceCanvas,
-                    interaction,
-                    options.outputRoot,
-                  ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error)),
-                  replayInteraction(
-                    localPage,
-                    spec,
-                    theme,
-                    viewport,
-                    referenceCanvas,
-                    interaction,
-                    options.outputRoot,
-                  ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error)),
-                ])
-              } finally {
-                await actionContext.close()
-              }
-              const sourceDelta = await interactionDelta(source)
-              const localDelta = await interactionDelta(local)
-              const status =
-                source.status === 'error' || local.status === 'error'
-                  ? 'error'
-                  : local.status === 'missing'
-                    ? 'missing'
-                    : sourceDelta?.changed === false && localDelta?.changed === false
-                      ? 'source-no-op'
-                      : sourceDelta?.signature === localDelta?.signature
-                        ? 'matched'
-                        : 'lumen-different'
-              const result = {
-                variantId: spec.id,
-                id: interaction.id,
-                action: interaction.action,
-                capability: interaction.action,
-                caseHash,
-                viewport: viewport.id,
-                theme,
-                control: interaction.control,
-                source,
-                local,
-                status,
-                feedback: {
-                  sourceChanged: sourceDelta?.changed ?? false,
-                  localChanged: localDelta?.changed ?? false,
-                  deltaMatched: sourceDelta?.signature === localDelta?.signature,
-                  sourceDelta,
-                  localDelta,
-                },
-              }
-              await writeJson(join(dirname(source.directory), 'source-state.json'), {
-                before: source.beforeSnapshot,
-                after: source.afterSnapshot,
-                status: source.status,
-              })
-              await writeJson(join(dirname(source.directory), 'lumen-state.json'), {
-                before: local.beforeSnapshot,
-                after: local.afterSnapshot,
-                status: local.status,
-              })
-              await writeJson(comparisonPath, result)
-              results.push(result)
             }
+            const actionConcurrency = selected.length === 1 ? options.workers : 1
+            await Promise.all(Array.from({ length: Math.min(actionConcurrency, cases.length) }, () => actionWorker()))
           }
         }
       }
@@ -1945,7 +1951,11 @@ async function runInteractionsParallel(
     staticCanvasHash: stableHash([...staticCanvases]),
     discovered: results.length,
     resumed,
-    results,
+    results: results.sort((a, b) =>
+      `${a.variantId}/${a.theme}/${a.viewport}/${a.id}`.localeCompare(
+        `${b.variantId}/${b.theme}/${b.viewport}/${b.id}`,
+      ),
+    ),
   })
   console.log(
     JSON.stringify({
