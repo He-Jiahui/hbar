@@ -248,7 +248,7 @@ function parseThemes(value: string | undefined): readonly AuditTheme[] {
 
 function parseList(value: string | undefined): readonly string[] {
   return (value ?? '')
-    .split(',')
+    .split(/[\s,]+/)
     .map((item) => item.trim())
     .filter(Boolean)
 }
