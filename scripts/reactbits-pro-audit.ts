@@ -1600,8 +1600,11 @@ async function runCompare(options: AuditOptions): Promise<void> {
     interactionCases: interactionReport.results.length,
     errors: structuralFailures,
   })
-  if (options.strict && structuralFailures.length > 0) {
-    throw new Error(`React Bits structural audit failed: ${JSON.stringify(structuralFailures.slice(0, 20))}`)
+  const ledgerFailures = ledger.flatMap((entry) => entry.failures.map((failure) => `${entry.id}:${failure}`))
+  if (options.strict && (structuralFailures.length > 0 || ledgerFailures.length > 0)) {
+    throw new Error(
+      `React Bits audit failed: ${JSON.stringify([...structuralFailures, ...ledgerFailures].slice(0, 20))}`,
+    )
   }
   console.log(JSON.stringify({ command: 'compare', comparisons: comparisons.length, outputRoot: options.outputRoot }))
 }
