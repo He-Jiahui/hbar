@@ -10,6 +10,7 @@ import {
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
+  interactiveControlSelector,
   liveActivityDelta,
   rootGeometryMatches,
   selectInteractionCases,
@@ -77,6 +78,15 @@ describe('React Bits Pro visual audit contract', () => {
     expect(REACTBITS_PRO_VIEWPORTS.length * REACTBITS_PRO_THEMES.length).toBe(8)
     expect(fullAuditMatrixSelected(REACTBITS_PRO_VIEWPORTS, REACTBITS_PRO_THEMES)).toBe(true)
     expect(fullAuditMatrixSelected([REACTBITS_PRO_VIEWPORTS[2]], ['dark'])).toBe(false)
+  })
+
+  test('discovers actionable roles without treating passive landmarks and meters as controls', () => {
+    expect(interactiveControlSelector).toContain('[role="radio"]')
+    expect(interactiveControlSelector).toContain('[role="button"]')
+    expect(interactiveControlSelector).toContain('[aria-expanded]')
+    expect(interactiveControlSelector.split(',')).not.toContain('[role]')
+    expect(interactiveControlSelector).not.toContain('[role="progressbar"]')
+    expect(interactiveControlSelector).not.toContain('[role="status"]')
   })
 
   test('audits every visible control even when controls share the same shape', () => {

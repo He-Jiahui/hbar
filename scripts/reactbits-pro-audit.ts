@@ -221,10 +221,18 @@ type AuditOptions = Readonly<{
 
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
-const captureProtocolVersion = 9
-const interactionProtocolVersion = 10
+const captureProtocolVersion = 10
+const interactionProtocolVersion = 11
 const sourceCanvasSelector = '#preview-root'
 const localCanvasSelector = '.hbar-app-ui-isolated-canvas'
+export const interactiveControlSelector = [
+  'button', 'a', 'input', 'select', 'textarea', 'summary',
+  '[contenteditable="true"]', '[aria-expanded]', '[draggable="true"]', '[tabindex]:not([role])',
+  '[role="button"]', '[role="link"]', '[role="checkbox"]', '[role="radio"]', '[role="switch"]',
+  '[role="tab"]', '[role="menuitem"]', '[role="menuitemcheckbox"]', '[role="menuitemradio"]',
+  '[role="option"]', '[role="combobox"]', '[role="listbox"]', '[role="slider"]',
+  '[role="spinbutton"]', '[role="textbox"]', '[role="searchbox"]', '[role="treeitem"]',
+].join(',')
 
 function sourceIdFor(spec: HbarAppUiVariantSpec): string {
   return `${spec.category}-${spec.variant}`
@@ -734,7 +742,7 @@ async function gotoStable(page: Page, url: string): Promise<void> {
 type SnapshotWithoutAx = Omit<SemanticSnapshot, 'axSnapshot'>
 
 async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise<SnapshotWithoutAx> {
-  return locator.evaluate((element, shouldCheckBody) => {
+  return locator.evaluate((element, { shouldCheckBody, controlSelector }) => {
     const rectOf = (value: Element) => {
       const rect = value.getBoundingClientRect()
       return {
@@ -748,7 +756,7 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       const text = (value.textContent ?? '').trim()
       if (!text) return 'none'
       if (value.matches('h1,h2,h3,h4,h5,h6')) return 'heading'
-      if (value.matches('button,a,input,select,textarea,[role]')) return 'control'
+      if (value.matches(controlSelector)) return 'control'
       if (/^[\d$€£%.,:+\-/ ]+$/.test(text)) return 'numeric'
       return 'text'
     }
@@ -794,7 +802,10 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       const tag = control.tagName.toLowerCase()
       const role = control.getAttribute('role')
       const type = control.getAttribute('type')
-      if (tag === 'button' || tag === 'a' || role === 'button' || role === 'menuitem' || role === 'tab')
+      if (
+        tag === 'button' || tag === 'a' ||
+        ['button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'treeitem', 'option'].includes(role ?? '')
+      )
         capabilities.push('click', 'press')
       if (
         tag === 'textarea' ||
@@ -802,7 +813,8 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       )
         capabilities.push('fill')
       if (tag === 'select' || role === 'combobox' || role === 'listbox') capabilities.push('select')
-      if (type === 'checkbox' || type === 'radio' || role === 'switch') capabilities.push('toggle')
+      if (type === 'checkbox' || type === 'radio' || ['checkbox', 'radio', 'switch'].includes(role ?? ''))
+        capabilities.push('toggle')
       if (tag === 'input' && type === 'file') capabilities.push('upload')
       if (role === 'tab') capabilities.push('tab')
       if (role === 'menu' || role === 'menuitem') capabilities.push('menu')
@@ -813,7 +825,7 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       if (capabilities.length === 2) capabilities.push('no-op')
       return [...new Set(capabilities)]
     }
-    const controls = [...element.querySelectorAll('button,a,input,select,textarea,[role]')].map((control, index) => ({
+    const controls = [...element.querySelectorAll(controlSelector)].map((control, index) => ({
       index,
       tag: control.tagName.toLowerCase(),
       role: control.getAttribute('role'),
@@ -864,7 +876,7 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       tree,
       controls,
     }
-  }, bodyOverflow)
+  }, { shouldCheckBody: bodyOverflow, controlSelector: interactiveControlSelector })
 }
 
 async function snapshotRoot(frame: Frame, selector: string): Promise<SemanticSnapshot> {
@@ -1049,7 +1061,7 @@ export function selectInteractionCases(
 }
 
 async function controlLocator(root: Locator, control: ControlSnapshot) {
-  const controls = root.locator('button,a,input,select,textarea,[role]')
+  const controls = root.locator(interactiveControlSelector)
   const count = await controls.count()
   if (count === 0) return undefined
   const normalise = (value: string) => value.trim().replaceAll(/\s+/g, ' ').toLowerCase()
@@ -1758,7 +1770,7 @@ async function runInteractionsParallel(
   const implementationHash = await localImplementationHash()
   const runIdentity = {
     schemaVersion: 1,
-    captureProtocolVersion: interactionProtocolVersion,
+    interactionProtocolVersion,
     coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
     cases: options.cases,
     selected: selected.map((spec) => spec.id),

@@ -11,7 +11,7 @@
 - 完整预览根：源截图、结构快照和动作发现均取 iframe 的 `#preview-root`；本地取整个隔离画布。必须包括源变体的标题、状态、工具栏、筛选、内容与页脚，绝不能从内部 pane 猜测组件根节点。页面外的文档导航不属于组件。
 - 画布校准：记录原版 iframe 实际内容宽高和舞台 padding，并以相同可用空间渲染本地隔离预览；外窗宽度不能直接当成组件可用宽度。
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的 name/role/disabled/expanded/pressed/selected/state。
-- 交互截图：每个动作在新浏览器上下文中分别打开源 iframe 与本地预览，对每个真实可见控件逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag/upload/download；同构控件也分别保留 before/after，不以代表案例代替。CSS 隐藏控件不计入当前视口的结构数量或动作清单。
+- 交互截图：每个动作在新浏览器上下文中分别打开源 iframe 与本地预览，对每个真实可见控件逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag/upload/download；同构控件也分别保留 before/after，不以代表案例代替。只读的 `progressbar`、`status`、`banner` 等 ARIA 角色参与语义树比较，但不冒充可操作控件。CSS 隐藏控件不计入当前视口的结构数量或动作清单。
 - 反馈比较：对静态图和交互图计算尺寸差、归一化 MAE/RMSE、变化像素比例，并比较源/本地交互前后反馈幅度。
 - 验收门禁：八组静态快照、全部真实可见动作及其成对截图必须齐全；可见控件的形态与状态、根尺寸、截断/水平溢出、页面错误、动作状态与截图反馈逐项通过。`review-ledger.json` 的 `passed` 只针对本次选定变体；绝不能把一个变体的通过推断成分类或全部 300 个通过。
 
