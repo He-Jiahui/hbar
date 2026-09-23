@@ -15,11 +15,16 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 默认矩阵为 38 个分类、300 个变体、4 个视口（1440×900、1024×768、390×844、320×720）
 和 dark/light 两种主题，即 2400 组静态 source/local 配对。开发期可以使用
 `--variants`、`--categories`、`--viewports`、`--themes` 缩小范围；缩小范围不能代替最终全量验收。
+浏览器外窗尺寸不等于原版 iframe 内容画布尺寸（例如 390 宽外窗中的 iframe 可能只有 356 宽）。
+每次 live 捕获会记录 iframe 实际宽高与参考舞台 padding，并在本地隔离预览中复用相同可用空间；
+本地组件自身已有的内边距会从舞台 padding 中扣除，避免同一空间重复计算。缺少这些元数据的
+旧 source 缓存不能用于 `--local-only` 几何验收，必须重新捕获原版。
 
 live 参考可通过以下变量配置：
 
 - `HBAR_APP_UI_REFERENCE_URL`：React Bits Pro App UI 目录；
 - `HBAR_APP_UI_REFERENCE_ROOT`：offline 清单和静态变体缓存根目录；
+- `HBAR_APP_UI_SOURCE_INVENTORY` / `--source-inventory`：仅开发期复用已校验的 38/300 URL 清单，仍实时打开各变体原版 iframe；完整 `audit` 总是重新发现线上目录；
 - `HBAR_APP_UI_AUDIT_OUTPUT_ROOT`：报告输出目录；
 - `HBAR_APP_UI_VIEWPORTS` / `HBAR_APP_UI_THEMES`：开发期矩阵过滤；
 - `HBAR_APP_UI_AUDIT_WORKERS`：有界并发；

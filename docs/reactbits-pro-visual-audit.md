@@ -8,6 +8,7 @@
 
 - 发现：38 个分类、300 个变体，并与 `packages/hbar-app-ui/src/specs.ts` 的本地注册表逐 ID 校验。
 - 静态截图：1440×900、1024×768、390×844、320×720 四个视口；dark/light 两个主题。
+- 画布校准：记录原版 iframe 实际内容宽高和舞台 padding，并以相同可用空间渲染本地隔离预览；外窗宽度不能直接当成组件可用宽度。
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的 name/role/disabled/expanded/pressed/selected/state。
 - 交互截图：每个视口和主题重新加载源与本地页面，对每个真实可见控件逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag/upload/download；同构控件也分别保留 before/after，不以代表案例代替。
 - 反馈比较：对静态图和交互图计算尺寸差、归一化 MAE/RMSE、变化像素比例，并比较源/本地交互前后反馈幅度。
@@ -40,6 +41,9 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 `--categories` 可以只跑一个分类；`HBAR_APP_UI_REFERENCE_URL`、
 `HBAR_APP_UI_PREVIEW_URL` 和 `HBAR_APP_UI_CHROME_PATH` 可用于切换参考地址、本地预览地址
 和 Windows Chrome 路径。
+单变体调试可用 `--source-inventory <已捕获清单路径>` 避免每次重新访问 38 个类别页；
+此模式仍实时捕获变体 iframe，完整 `audit` 不复用旧清单。`--local-only` 的缓存还必须包含
+iframe 实际画布宽高与舞台 padding，旧缓存不能据此宣称几何验收通过。
 
 ## 结果阅读
 

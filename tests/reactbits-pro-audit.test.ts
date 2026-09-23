@@ -5,6 +5,7 @@ import {
   REACTBITS_PRO_THEMES,
   REACTBITS_PRO_VIEWPORTS,
   assessInteractionCoverage,
+  alignedCanvasPadding,
   interactionCases,
   rootGeometryMatches,
   type ControlSnapshot,
@@ -125,5 +126,14 @@ describe('React Bits Pro visual audit contract', () => {
     expect(rootGeometryMatches({ width: 400, height: 474 }, { width: 400, height: 471 })).toBe(true)
     expect(rootGeometryMatches({ width: 292, height: 474 }, { width: 366, height: 471 })).toBe(false)
     expect(rootGeometryMatches({ width: 0, height: 474 }, { width: 0, height: 474 })).toBe(false)
+  })
+
+  test('aligns the local stage to the real iframe content box without double padding', () => {
+    expect(
+      alignedCanvasPadding({ top: 32, right: 32, bottom: 32, left: 32 }, { top: 12, right: 12, bottom: 12, left: 12 }),
+    ).toEqual({ top: 20, right: 20, bottom: 20, left: 20 })
+    expect(
+      alignedCanvasPadding({ top: 24, right: 24, bottom: 24, left: 24 }, { top: 0, right: 0, bottom: 0, left: 0 }),
+    ).toEqual({ top: 24, right: 24, bottom: 24, left: 24 })
   })
 })

@@ -1,7 +1,7 @@
 import { chromium, type Browser, type Frame, type Locator, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { copyFile, mkdir, writeFile } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
 import type {
@@ -103,8 +103,26 @@ type CaptureRecord = Readonly<{
   contextScreenshot: string
   screenshot: string
   snapshot: string
+  referenceCanvas?: ReferenceCanvas
   errors: readonly string[]
 }>
+
+export type ReferenceCanvas = Readonly<{
+  width: number
+  height: number
+  padding: Readonly<{ top: number; right: number; bottom: number; left: number }>
+}>
+
+type CanvasPadding = ReferenceCanvas['padding']
+
+export function alignedCanvasPadding(reference: CanvasPadding, localInset: CanvasPadding): CanvasPadding {
+  return {
+    top: Math.max(0, reference.top - localInset.top),
+    right: Math.max(0, reference.right - localInset.right),
+    bottom: Math.max(0, reference.bottom - localInset.bottom),
+    left: Math.max(0, reference.left - localInset.left),
+  }
+}
 
 type StructureComparison = Readonly<{
   id: string
@@ -174,6 +192,7 @@ type AuditOptions = Readonly<{
   themes: readonly AuditTheme[]
   outputRoot: string
   referenceRoot: string | undefined
+  sourceInventoryPath: string | undefined
   sourceCaptureRoot: string | undefined
   localOnly: boolean
   offline: boolean
@@ -248,6 +267,7 @@ function parseOptions(): AuditOptions {
     themes,
     outputRoot,
     referenceRoot: optionValue(args, '--reference-root') ?? process.env.HBAR_APP_UI_REFERENCE_ROOT,
+    sourceInventoryPath: optionValue(args, '--source-inventory') ?? process.env.HBAR_APP_UI_SOURCE_INVENTORY,
     sourceCaptureRoot: optionValue(args, '--source-output') ?? process.env.HBAR_APP_UI_SOURCE_CAPTURE_ROOT,
     localOnly: args.includes('--local-only'),
     offline:
@@ -282,6 +302,32 @@ async function writeJson(path: string, value: unknown): Promise<void> {
 
 async function readJson<T>(path: string): Promise<T> {
   return (await Bun.file(path).json()) as T
+}
+
+async function copyCachedSourceRecord(
+  record: CaptureRecord,
+  sourceCaptureRoot: string,
+  outputRoot: string,
+): Promise<CaptureRecord> {
+  const sourceRoot = resolve(sourceCaptureRoot)
+  const destination = join(outputRoot, 'source', record.id, record.theme)
+  await ensureDirectory(destination)
+  const copyArtifact = async (path: string): Promise<string> => {
+    const absolute = resolve(path)
+    const withinSource = relative(sourceRoot, absolute)
+    if (withinSource.startsWith('..') || isAbsolute(withinSource))
+      throw new Error(`Cached source artifact escapes the provided capture root: ${absolute}`)
+    if (!(await Bun.file(absolute).exists())) throw new Error(`Cached source artifact is missing: ${absolute}`)
+    const target = join(destination, basename(absolute))
+    if (absolute !== target) await copyFile(absolute, target)
+    return target
+  }
+  const [screenshot, contextScreenshot, snapshot] = await Promise.all([
+    copyArtifact(record.screenshot),
+    copyArtifact(record.contextScreenshot),
+    copyArtifact(record.snapshot),
+  ])
+  return { ...record, screenshot, contextScreenshot, snapshot }
 }
 
 function stableHash(value: unknown): string {
@@ -435,6 +481,21 @@ async function discoverReferenceInventory(browser: Browser, options: AuditOption
 
 async function loadOrDiscoverInventory(browser: Browser, options: AuditOptions): Promise<ReactBitsProInventory> {
   const cachedPath = inventoryPath(options)
+  if (options.sourceInventoryPath && !options.offline) {
+    const sourcePath = resolve(options.sourceInventoryPath)
+    const inventory = await readJson<ReactBitsProInventory>(sourcePath)
+    const localCounts = await localCategoryCounts()
+    const localIds = new Set(HBAR_APP_UI_VARIANT_SPECS.map((spec) => spec.id))
+    if (
+      inventory.variants.length !== 300 ||
+      inventory.categories.length !== 38 ||
+      inventory.variants.some((variant) => !localIds.has(variant.id)) ||
+      Object.entries(localCounts).some(([category, count]) => inventory.categoryCounts[category] !== count)
+    )
+      throw new Error(`Cached React Bits inventory does not match the local 38/300 catalog: ${sourcePath}`)
+    if (sourcePath !== cachedPath) await writeJson(cachedPath, inventory)
+    return inventory
+  }
   if (options.offline) {
     const offlinePath = options.referenceRoot
       ? join(resolve(options.referenceRoot), 'source-inventory.json')
@@ -509,6 +570,56 @@ async function previewFrame(page: Page): Promise<Frame> {
     { timeout: 8_000 },
   )
   return frame
+}
+
+async function readReferenceCanvas(frame: Frame): Promise<ReferenceCanvas> {
+  return frame.locator('#preview-root').evaluate((root) => {
+    let stage = root.firstElementChild
+    let padding = { top: 0, right: 0, bottom: 0, left: 0 }
+    for (let depth = 0; stage && depth < 4; depth += 1) {
+      const style = getComputedStyle(stage)
+      const candidate = {
+        top: Number.parseFloat(style.paddingTop) || 0,
+        right: Number.parseFloat(style.paddingRight) || 0,
+        bottom: Number.parseFloat(style.paddingBottom) || 0,
+        left: Number.parseFloat(style.paddingLeft) || 0,
+      }
+      if (Object.values(candidate).some((value) => value > 0)) {
+        padding = candidate
+        break
+      }
+      stage = stage.children.length === 1 ? stage.firstElementChild : null
+    }
+    return { width: innerWidth, height: innerHeight, padding }
+  })
+}
+
+async function applyLocalCanvas(
+  page: Page,
+  canvas: ReferenceCanvas,
+  selector: string,
+  componentSelector: string,
+): Promise<void> {
+  const inset = await page
+    .locator(selector)
+    .first()
+    .evaluate((element, boundarySelector) => {
+      const value = { top: 0, right: 0, bottom: 0, left: 0 }
+      let ancestor = element.parentElement
+      while (ancestor && !ancestor.matches(boundarySelector)) {
+        const style = getComputedStyle(ancestor)
+        value.top += Number.parseFloat(style.paddingTop) || 0
+        value.right += Number.parseFloat(style.paddingRight) || 0
+        value.bottom += Number.parseFloat(style.paddingBottom) || 0
+        value.left += Number.parseFloat(style.paddingLeft) || 0
+        ancestor = ancestor.parentElement
+      }
+      return value
+    }, componentSelector)
+  const padding = alignedCanvasPadding(canvas.padding, inset)
+  await page.addStyleTag({
+    content: `.hbar-app-ui-isolated-canvas { padding: ${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px !important; }`,
+  })
 }
 
 async function loadReferencePreview(page: Page, url: string, theme: AuditTheme): Promise<Frame> {
@@ -828,6 +939,7 @@ async function captureSource(
   }
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  const referenceCanvas = await readReferenceCanvas(frame)
   const directory = join(outputRoot, 'source', reference.id, theme)
   await ensureDirectory(directory)
   const screenshot = join(directory, `${viewport.id}.png`)
@@ -850,6 +962,7 @@ async function captureSource(
     contextScreenshot,
     screenshot,
     snapshot,
+    referenceCanvas,
     errors: pageErrors.slice(errorStart),
   }
 }
@@ -860,10 +973,11 @@ async function captureLocal(
   viewport: AuditViewport,
   theme: AuditTheme,
   outputRoot: string,
+  referenceCanvas: ReferenceCanvas,
   pageErrors: string[] = [],
 ): Promise<CaptureRecord> {
   const errorStart = pageErrors.length
-  await page.setViewportSize({ width: viewport.width, height: viewport.height })
+  await page.setViewportSize({ width: referenceCanvas.width, height: referenceCanvas.height })
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
   await gotoStable(page, target)
   const rootSelector = `[data-hbar-app-ui-component="${spec.id}"]`
@@ -874,6 +988,7 @@ async function captureLocal(
     await gotoStable(page, target)
     selector = await componentSelector(page, rootSelector)
   }
+  await applyLocalCanvas(page, referenceCanvas, selector, rootSelector)
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const directory = join(outputRoot, 'local', spec.id, theme)
@@ -898,6 +1013,7 @@ async function captureLocal(
     contextScreenshot,
     screenshot,
     snapshot,
+    referenceCanvas,
     errors: pageErrors.slice(errorStart),
   }
 }
@@ -1076,13 +1192,15 @@ async function replayInteraction(
   spec: HbarAppUiVariantSpec,
   theme: AuditTheme,
   viewport: AuditViewport,
+  referenceCanvas: ReferenceCanvas,
   interaction: InteractionCase,
   outputRoot: string,
 ): Promise<InteractionCapture> {
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
-  await page.setViewportSize({ width: viewport.width, height: viewport.height })
+  await page.setViewportSize({ width: referenceCanvas.width, height: referenceCanvas.height })
   await gotoStable(page, target)
   const selector = await componentSelector(page, `[data-hbar-app-ui-component="${spec.id}"]`)
+  await applyLocalCanvas(page, referenceCanvas, selector, `[data-hbar-app-ui-component="${spec.id}"]`)
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   const control = await controlLocator(root, interaction.control)
@@ -1238,11 +1356,27 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
         if (!reference) throw new Error(`Missing React Bits reference for ${spec.id}`)
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
-            if (!options.localOnly)
-              records.push(
-                await captureSource(sourcePage, reference, options, viewport, theme, options.outputRoot, sourceErrors),
+            const sourceRecord = options.localOnly
+              ? cachedSourceRecords.find(
+                  (record) => record.id === spec.id && record.viewport === viewport.id && record.theme === theme,
+                )
+              : await captureSource(sourcePage, reference, options, viewport, theme, options.outputRoot, sourceErrors)
+            if (!sourceRecord?.referenceCanvas)
+              throw new Error(
+                `Reference canvas metadata is missing for ${spec.id}/${theme}/${viewport.id}; recapture the live source`,
               )
-            records.push(await captureLocal(localPage, spec, viewport, theme, options.outputRoot, localErrors))
+            if (!options.localOnly) records.push(sourceRecord)
+            records.push(
+              await captureLocal(
+                localPage,
+                spec,
+                viewport,
+                theme,
+                options.outputRoot,
+                sourceRecord.referenceCanvas,
+                localErrors,
+              ),
+            )
           }
         }
       }
@@ -1259,12 +1393,21 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
     const selectedIds = new Set(selected.map((spec) => spec.id))
     const selectedViewports = new Set<string>(options.viewports.map((viewport) => viewport.id))
     const selectedThemes = new Set<string>(options.themes)
-    records.push(
-      ...cachedSourceRecords.filter(
-        (record) =>
-          selectedIds.has(record.id) && selectedViewports.has(record.viewport) && selectedThemes.has(record.theme),
-      ),
+    const cached = cachedSourceRecords.filter(
+      (record) =>
+        selectedIds.has(record.id) && selectedViewports.has(record.viewport) && selectedThemes.has(record.theme),
     )
+    const sourceCaptureRoot = options.sourceCaptureRoot
+    if (!sourceCaptureRoot) throw new Error('The source capture root is unavailable')
+    for (let index = 0; index < cached.length; index += 16) {
+      records.push(
+        ...(await Promise.all(
+          cached
+            .slice(index, index + 16)
+            .map((record) => copyCachedSourceRecord(record, sourceCaptureRoot, options.outputRoot)),
+        )),
+      )
+    }
   }
   await writeJson(join(options.outputRoot, 'capture-manifest.json'), {
     schemaVersion: 1,
@@ -1323,6 +1466,7 @@ async function _runInteractionsLegacy(
             const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
             const sourceSelector = await componentSelector(frame, '#preview-root')
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
+            const referenceCanvas = await readReferenceCanvas(frame)
             const cases = interactionCases(sourceSnapshot, spec.id)
             for (const interaction of cases) {
               const sourceDirectory = interactionDirectory(
@@ -1355,6 +1499,7 @@ async function _runInteractionsLegacy(
                 spec,
                 theme,
                 viewport,
+                referenceCanvas,
                 interaction,
                 options.outputRoot,
               ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
@@ -1463,6 +1608,7 @@ async function runInteractionsParallel(
             const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
             const sourceSelector = await componentSelector(frame, '#preview-root')
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
+            const referenceCanvas = await readReferenceCanvas(frame)
             for (const interaction of interactionCases(sourceSnapshot, spec.id)) {
               const sourceDirectory = interactionDirectory(
                 options.outputRoot,
@@ -1494,6 +1640,7 @@ async function runInteractionsParallel(
                 spec,
                 theme,
                 viewport,
+                referenceCanvas,
                 interaction,
                 options.outputRoot,
               ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
@@ -1809,6 +1956,10 @@ async function runCompare(options: AuditOptions): Promise<void> {
 async function main(): Promise<void> {
   const options = parseOptions()
   await ensureDirectory(options.outputRoot)
+  if (options.command === 'compare') {
+    await runCompare(options)
+    return
+  }
   const browser = await chromium.launch({ headless: true, executablePath })
   try {
     if (options.command === 'discover') {
@@ -1832,7 +1983,7 @@ async function main(): Promise<void> {
     if (options.command === 'capture' || options.command === 'audit') await runCapture(options, browser, inventory)
     if (options.command === 'interactions' || options.command === 'audit')
       await runInteractionsParallel(options, browser, inventory)
-    if (options.command === 'compare' || options.command === 'audit') await runCompare(options)
+    if (options.command === 'audit') await runCompare(options)
   } finally {
     await browser.close()
   }
