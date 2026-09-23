@@ -37,13 +37,14 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 - `source-inventory.json` / `local-inventory.json`：38/300 发现与本地映射；
 - `capture-manifest.json`：每个 source/local 截图、上下文截图和语义快照；
 - `structure-report.json`：DOM/ARIA/几何/文本容量/溢出/截断/控件形状；
-- `interaction-report.json`：每个真实发现控件的操作前后状态；
+- `interaction-report.json`：从真实控件清单按语义控件形状覆盖的操作前后状态；完整控件清单仍保存在语义快照中；
 - `visual-report.json`：静态和交互截图差异、尺寸差、MAE/RMSE、变化像素和反馈幅度；
 - `review-ledger.json`：逐变体、逐交互的 passed/needs-fix 记录；
 - `report.html`：可人工浏览的汇总表。
 
-交互必须从 React Bits Pro iframe 真实 DOM 发现，不能只读取本地 `profile.controls`。每个
-动作都在新页面状态中回放，并保存 `before.png`、`after.png`、`source-state.json`、
+交互必须从 React Bits Pro iframe 真实 DOM 发现，不能只读取本地 `profile.controls`。每种
+交互动作按 `tag/type/role` 语义形状选取确定性代表，避免同一反馈路径被数十个同构控件重复放大；
+每个代表动作都在新页面状态中回放，并保存 `before.png`、`after.png`、`source-state.json`、
 `lumen-state.json` 和 `comparison.json`。结果分类为 `matched`、`lumen-different`、
 `missing`、`source-no-op`、`blocked` 或 `not-applicable`。
 

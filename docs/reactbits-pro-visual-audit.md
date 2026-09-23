@@ -9,7 +9,7 @@
 - 发现：38 个分类、300 个变体，并与 `packages/hbar-app-ui/src/specs.ts` 的本地注册表逐 ID 校验。
 - 静态截图：1440×900、1024×768、390×844、320×720 四个视口；dark/light 两个主题。
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的 name/role/disabled/expanded/pressed/selected/state。
-- 交互截图：每个视口和主题重新加载源与本地页面，针对每个可见控件逐一回放 hover、focus、click、文本填充和 Enter press（适用时），分别保存 before/after。
+- 交互截图：每个选定视口和主题重新加载源与本地页面，从真实可见控件中按 tag/type/role 形状逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag；同构控件的完整清单保留在快照中，截图动作选取确定性代表，分别保存 before/after。
 - 反馈比较：对静态图和交互图计算尺寸差、归一化 MAE/RMSE、变化像素比例，并比较源/本地交互前后反馈幅度。
 
 ## 命令
