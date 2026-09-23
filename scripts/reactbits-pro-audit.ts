@@ -504,6 +504,7 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
           )
           const semanticSignal =
             element.matches('[data-lumen-component], [class*="lumen-"], article, main, form, nav, [role]')
+          const nativeContentSignal = element.matches('article, form, nav')
           const dataComponent = element.getAttribute('data-lumen-component')
           const path: number[] = []
           let current: Element | null = element
@@ -513,7 +514,17 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
             path.unshift(Array.from(parent.children).indexOf(current))
             current = parent
           }
-          return { rect, style, textLength, path, semanticSignal, primaryContentSignal, dataComponent, stableClass }
+          return {
+            rect,
+            style,
+            textLength,
+            path,
+            semanticSignal,
+            nativeContentSignal,
+            primaryContentSignal,
+            dataComponent,
+            stableClass,
+          }
         })
         .filter(
           (candidate) =>
@@ -526,6 +537,7 @@ async function componentSelector(container: Locator | Page | Frame, rootSelector
         )
         .sort(
           (left, right) =>
+            Number(right.nativeContentSignal) - Number(left.nativeContentSignal) ||
             Number(right.primaryContentSignal) - Number(left.primaryContentSignal) ||
             Number(right.semanticSignal) - Number(left.semanticSignal) ||
             left.path.length - right.path.length ||
