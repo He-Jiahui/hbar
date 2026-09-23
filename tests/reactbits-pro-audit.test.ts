@@ -12,6 +12,8 @@ import {
   interactionFeedbackMatches,
   rootGeometryMatches,
   selectInteractionCases,
+  semanticRoleTree,
+  semanticRoleTreeMatches,
   timedActivityDelta,
   visibleControls,
   type ControlSnapshot,
@@ -90,6 +92,16 @@ describe('React Bits Pro visual audit contract', () => {
       'card-1:1:press-enter',
       'card-1:1:press-space',
     ])
+  })
+
+  test('gates semantic hierarchy independently of localized copy and control count', () => {
+    const source = '- table "Run history":\n  - rowgroup:\n    - row "Invoice":\n      - cell "Invoice":\n        - button "Re-run Invoice"'
+    const translated = '- table "Verlauf":\n  - rowgroup:\n    - row "Rechnung":\n      - cell "Rechnung":\n        - button "Erneut ausführen"'
+    expect(semanticRoleTree(source)).toEqual(['0:table', '1:rowgroup', '2:row', '3:cell', '4:button'])
+    expect(semanticRoleTreeMatches(source, translated)).toBe(true)
+    expect(semanticRoleTreeMatches(source, `- main:\n  ${translated.replaceAll('\n', '\n  ')}`)).toBe(false)
+    expect(semanticRoleTreeMatches(source, translated.replace('cell', 'listitem'))).toBe(false)
+    expect(semanticRoleTreeMatches('', '')).toBe(false)
   })
 
   test('uses the same visible-only control set for structure and interaction gates', () => {

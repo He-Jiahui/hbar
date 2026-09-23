@@ -1098,6 +1098,21 @@ export function visibleControls(snapshot: SemanticSnapshot): readonly ControlSna
   return snapshot.controls.filter((control) => control.visible)
 }
 
+export function semanticRoleTree(axSnapshot: string): readonly string[] {
+  return axSnapshot
+    .split('\n')
+    .flatMap((line) => {
+      const match = /^(\s*)-\s+([a-z][a-z0-9-]*)\b/.exec(line)
+      return match ? [`${Math.floor((match[1]?.length ?? 0) / 2)}:${match[2]}`] : []
+    })
+}
+
+export function semanticRoleTreeMatches(source: string, local: string): boolean {
+  const sourceRoles = semanticRoleTree(source)
+  const localRoles = semanticRoleTree(local)
+  return sourceRoles.length > 0 && JSON.stringify(sourceRoles) === JSON.stringify(localRoles)
+}
+
 export function interactionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
   const cases: InteractionCase[] = []
   for (const control of visibleControls(snapshot)) {
@@ -1801,7 +1816,7 @@ async function runInteractionsParallel(
   const implementationHash = await localImplementationHash()
   const runIdentity = {
     schemaVersion: 1,
-    captureProtocolVersion: 7,
+    captureProtocolVersion: 8,
     coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
     cases: options.cases,
     selected: selected.map((spec) => spec.id),
@@ -2072,6 +2087,12 @@ async function runCompare(options: AuditOptions): Promise<void> {
         localTruncatedTextCount: localSnapshotValue.truncatedTextCount,
         sourceAxSnapshot: sourceSnapshot.axSnapshot,
         localAxSnapshot: localSnapshotValue.axSnapshot,
+        sourceSemanticRoles: semanticRoleTree(sourceSnapshot.axSnapshot),
+        localSemanticRoles: semanticRoleTree(localSnapshotValue.axSnapshot),
+        semanticRoleTreeMatched: semanticRoleTreeMatches(
+          sourceSnapshot.axSnapshot,
+          localSnapshotValue.axSnapshot,
+        ),
         sourceTreeNodes: sourceSnapshot.tree.length,
         localTreeNodes: localSnapshotValue.tree.length,
         sourceTreeTags: sourceSnapshot.tree.map((node) => node.tag),
@@ -2111,6 +2132,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
       const failures: string[] = []
       if (!comparison.structure.controlCountMatched) failures.push('control-count-mismatch')
       if (!comparison.structure.controlShapeMatched) failures.push('control-shape-mismatch')
+      if (!comparison.structure.semanticRoleTreeMatched) failures.push('semantic-role-tree-mismatch')
       if (!comparison.structure.rootGeometryMatched) failures.push('root-geometry-mismatch')
       if (!comparison.structure.controlStateMatched) failures.push('control-state-mismatch')
       if (!comparison.structure.labelAssociationsMatched) failures.push('label-association-mismatch')
