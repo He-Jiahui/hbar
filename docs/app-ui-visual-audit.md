@@ -43,6 +43,7 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 - `capture-manifest.json`：每个 source/local 截图、上下文截图和语义快照；
 - `structure-report.json`：DOM/ARIA/几何/文本容量/溢出/截断/控件形状；
 - `interaction-report.json`：真实 iframe 每个可见控件、每个适用动作的操作前后状态；完整控件清单保存在语义快照中；
+- `interaction-run.json`：所选变体、视口、主题、源目录与本地规范的续跑指纹；同一输出目录仅在指纹一致时复用。每个动作在全新浏览器上下文中重放，只有源/本地截图和快照均完整、且动作/画布指纹未变化的 `comparison.json` 才能续用；错误和残缺案例重新测试。
 - `visual-report.json`：静态和交互截图差异、尺寸差、MAE/RMSE、变化像素和反馈幅度；
 - `review-ledger.json`：逐变体、逐交互的 passed/needs-fix 记录；
 - `report.html`：可人工浏览的汇总表。
@@ -55,8 +56,11 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 `semantic-shape-representatives` 报告只可用于定位问题，不能用于全量验收。
 
 `--strict` 至少阻断以下情况：缺失 source/local 配对、控件数量或类型不一致、横向溢出、文本
-截断、未分类交互和缺少交互反馈。Lumen token 的颜色、玻璃背景和阴影不作为通过依据，也不
-能屏蔽几何差异。
+截断、未分类交互和缺少交互反馈。原版文档页的导航/浮层在捕获时隐藏，iframe 保留原始内容画布；
+每一条交互还需要完整的前后截图，并比较原版与本地的变化像素比例（容差取 2 个百分点与原版
+变化幅度的 35% 中较大者）。仅 DOM 不变的 `source-no-op` 不能豁免视觉反馈差异；局部视口/
+主题的调试报告也不能标记为全矩阵 `passed`。Lumen token 的颜色、玻璃背景和阴影不作为通过
+依据，也不能屏蔽几何差异。
 
 ## 类别修复边界
 

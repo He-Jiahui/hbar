@@ -177,6 +177,24 @@ export function rootGeometryMatches(
   )
 }
 
+export function interactionFeedbackMatches(sourceChangedPixelRatio: number, localChangedPixelRatio: number): boolean {
+  if (!Number.isFinite(sourceChangedPixelRatio) || !Number.isFinite(localChangedPixelRatio)) return false
+  if (sourceChangedPixelRatio < 0 || localChangedPixelRatio < 0) return false
+  return Math.abs(sourceChangedPixelRatio - localChangedPixelRatio) <= Math.max(0.02, sourceChangedPixelRatio * 0.35)
+}
+
+export function fullAuditMatrixSelected(
+  viewports: readonly Readonly<{ id: string }>[],
+  themes: readonly string[],
+): boolean {
+  return (
+    viewports.length === REACTBITS_PRO_VIEWPORTS.length &&
+    themes.length === REACTBITS_PRO_THEMES.length &&
+    REACTBITS_PRO_VIEWPORTS.every((viewport) => viewports.some((candidate) => candidate.id === viewport.id)) &&
+    REACTBITS_PRO_THEMES.every((theme) => themes.includes(theme))
+  )
+}
+
 export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
@@ -551,6 +569,27 @@ async function enforceReferenceTheme(page: Page, theme: AuditTheme): Promise<voi
 async function previewFrame(page: Page): Promise<Frame> {
   const iframe = page.locator('iframe[title="Preview"]')
   await iframe.waitFor({ state: 'visible', timeout: 30_000 })
+  // Keep the live iframe's content size, but place it above the documentation
+  // site's sticky header and floating controls while capturing its component.
+  await iframe.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    let branch: Element = element
+    while (branch.parentElement) {
+      for (const sibling of branch.parentElement.children) {
+        if (sibling !== branch) (sibling as HTMLElement).style.visibility = 'hidden'
+      }
+      branch = branch.parentElement
+    }
+    Object.assign((element as HTMLElement).style, {
+      position: 'fixed',
+      top: '0px',
+      left: '0px',
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      zIndex: '2147483647',
+      margin: '0px',
+    })
+  })
   const handle = await iframe.elementHandle()
   if (!handle) throw new Error('Preview iframe element handle is unavailable')
   const frame = await handle.contentFrame()
@@ -1125,6 +1164,66 @@ type InteractionCapture = Readonly<{
   reason?: string
 }>
 
+type InteractionResult = Readonly<{
+  variantId: string
+  id: string
+  action: HbarAppUiInteractionCapability
+  viewport: string
+  theme: AuditTheme
+  caseHash: string
+  source: InteractionCapture
+  local: InteractionCapture
+  status: string
+  [key: string]: unknown
+}>
+
+export function interactionCheckpointMatches(
+  result: InteractionResult,
+  expected: Readonly<{ variantId: string; id: string; theme: AuditTheme; viewport: string; caseHash: string }>,
+): boolean {
+  return (
+    result.variantId === expected.variantId &&
+    result.id === expected.id &&
+    result.theme === expected.theme &&
+    result.viewport === expected.viewport &&
+    result.caseHash === expected.caseHash &&
+    result.source?.status === 'captured' &&
+    result.local?.status === 'captured' &&
+    result.source.after !== null &&
+    result.local.after !== null &&
+    result.source.afterSnapshot !== null &&
+    result.local.afterSnapshot !== null
+  )
+}
+
+async function completedInteractionCheckpoint(
+  path: string,
+  expected: Readonly<{ variantId: string; id: string; theme: AuditTheme; viewport: string; caseHash: string }>,
+): Promise<InteractionResult | undefined> {
+  if (!(await Bun.file(path).exists())) return undefined
+  let result: InteractionResult
+  try {
+    result = await readJson<InteractionResult>(path)
+  } catch {
+    return undefined
+  }
+  if (!interactionCheckpointMatches(result, expected)) return undefined
+  const artifacts = [result.source, result.local].flatMap((capture) => [
+    capture.before,
+    capture.after,
+    capture.beforeSnapshot,
+    capture.afterSnapshot,
+  ])
+  const root = resolve(dirname(path), '..', '..', '..', '..', '..')
+  for (const artifact of artifacts) {
+    if (!artifact) return undefined
+    const absolute = resolve(artifact)
+    const withinRoot = relative(root, absolute)
+    if (withinRoot.startsWith('..') || isAbsolute(withinRoot) || !(await Bun.file(absolute).exists())) return undefined
+  }
+  return result
+}
+
 async function errorInteractionCapture(id: string, directory: string, error: unknown): Promise<InteractionCapture> {
   await ensureDirectory(directory)
   const reason = error instanceof Error ? error.message : String(error)
@@ -1587,13 +1686,35 @@ async function runInteractionsParallel(
 ): Promise<void> {
   const selected = selectedLocalSpecs(options)
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
+  const metadataPath = join(options.outputRoot, 'interaction-run.json')
+  const runIdentity = {
+    schemaVersion: 1,
+    captureProtocolVersion: 3,
+    coverage: 'all-visible-controls',
+    selected: selected.map((spec) => spec.id),
+    viewports: options.viewports,
+    themes: options.themes,
+    sourceDirectoryHash: inventory.sourceDirectoryHash,
+    sourceUrl: inventory.sourceUrl,
+    localSpecHash: stableHash(selected),
+  }
+  const runHash = stableHash(runIdentity)
+  if (await Bun.file(metadataPath).exists()) {
+    const previous = await readJson<{ runHash: string }>(metadataPath)
+    if (previous.runHash !== runHash)
+      throw new Error('Interaction checkpoint belongs to another inventory, local spec, viewport or theme selection')
+  } else {
+    if (await Bun.file(join(options.outputRoot, 'interaction-report.json')).exists())
+      throw new Error('Legacy interaction report cannot be resumed; choose a fresh output directory')
+    await writeJson(metadataPath, { ...runIdentity, runHash, generatedAt: new Date().toISOString() })
+  }
   const server = await waitForLocalPreview()
-  const results: Record<string, unknown>[] = []
+  const results: InteractionResult[] = []
+  let resumed = 0
   let cursor = 0
   const worker = async () => {
-    const context = await browser.newContext({ reducedMotion: 'reduce' })
-    const sourcePage = await context.newPage()
-    const localPage = await context.newPage()
+    const discoveryContext = await browser.newContext({ reducedMotion: 'reduce' })
+    const discoveryPage = await discoveryContext.newPage()
     try {
       while (cursor < selected.length) {
         const index = cursor
@@ -1604,8 +1725,8 @@ async function runInteractionsParallel(
         if (!reference) throw new Error(`Missing React Bits reference for ${spec.id}`)
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
-            await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
-            const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
+            await discoveryPage.setViewportSize({ width: viewport.width, height: viewport.height })
+            const frame = await loadReferencePreview(discoveryPage, referencePageUrl(reference, options), theme)
             const sourceSelector = await componentSelector(frame, '#preview-root')
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const referenceCanvas = await readReferenceCanvas(frame)
@@ -1626,24 +1747,50 @@ async function runInteractionsParallel(
                 viewport,
                 interaction,
               )
-              const source = await replayReferenceInteraction(
-                sourcePage,
-                reference,
-                options,
+              const caseHash = stableHash({ runHash, interaction, referenceCanvas, sourceHash: reference.sourceHash })
+              const comparisonPath = join(dirname(sourceDirectory), 'comparison.json')
+              const cached = await completedInteractionCheckpoint(comparisonPath, {
+                variantId: spec.id,
+                id: interaction.id,
                 theme,
-                viewport,
-                interaction,
-                options.outputRoot,
-              ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error))
-              const local = await replayInteraction(
-                localPage,
-                spec,
-                theme,
-                viewport,
-                referenceCanvas,
-                interaction,
-                options.outputRoot,
-              ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
+                viewport: viewport.id,
+                caseHash,
+              })
+              if (cached) {
+                results.push(cached)
+                resumed += 1
+                continue
+              }
+              // An action is always replayed from a clean browser context on each side.
+              const actionContext = await browser.newContext({ reducedMotion: 'reduce' })
+              let source: InteractionCapture
+              let local: InteractionCapture
+              try {
+                const sourcePage = await actionContext.newPage()
+                const localPage = await actionContext.newPage()
+                ;[source, local] = await Promise.all([
+                  replayReferenceInteraction(
+                    sourcePage,
+                    reference,
+                    options,
+                    theme,
+                    viewport,
+                    interaction,
+                    options.outputRoot,
+                  ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error)),
+                  replayInteraction(
+                    localPage,
+                    spec,
+                    theme,
+                    viewport,
+                    referenceCanvas,
+                    interaction,
+                    options.outputRoot,
+                  ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error)),
+                ])
+              } finally {
+                await actionContext.close()
+              }
               const sourceDelta = await interactionDelta(source)
               const localDelta = await interactionDelta(local)
               const status =
@@ -1661,6 +1808,7 @@ async function runInteractionsParallel(
                 id: interaction.id,
                 action: interaction.action,
                 capability: interaction.action,
+                caseHash,
                 viewport: viewport.id,
                 theme,
                 control: interaction.control,
@@ -1685,14 +1833,14 @@ async function runInteractionsParallel(
                 after: local.afterSnapshot,
                 status: local.status,
               })
-              await writeJson(join(dirname(source.directory), 'comparison.json'), result)
+              await writeJson(comparisonPath, result)
               results.push(result)
             }
           }
         }
       }
     } finally {
-      await context.close()
+      await discoveryContext.close()
     }
   }
   try {
@@ -1707,7 +1855,11 @@ async function runInteractionsParallel(
     viewports: options.viewports,
     themes: options.themes,
     coverage: 'all-visible-controls',
+    runHash,
+    sourceDirectoryHash: inventory.sourceDirectoryHash,
+    localSpecHash: stableHash(selected),
     discovered: results.length,
+    resumed,
     results,
   })
   console.log(
@@ -1715,6 +1867,7 @@ async function runInteractionsParallel(
       command: 'interactions',
       variants: selected.length,
       cases: results.length,
+      resumed,
       outputRoot: options.outputRoot,
     }),
   )
@@ -1728,6 +1881,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
     selected: readonly string[]
     viewports: readonly AuditViewport[]
     themes: readonly AuditTheme[]
+    sourceDirectoryHash: string
   }>(capturePath)
   const comparisons: StructureComparison[] = []
   const expectedInteractions = new Map<string, string[]>()
@@ -1853,6 +2007,18 @@ async function runCompare(options: AuditOptions): Promise<void> {
   )
   const visualExitCode = await visualDiff.exited
   if (visualExitCode !== 0) throw new Error(`Visual comparison failed with exit code ${visualExitCode}`)
+  const visualReport = await readJson<{
+    interactionPairs: readonly {
+      id: string
+      theme: string
+      viewport: string
+      case: string
+      feedback: Readonly<{ sourceChangedPixelRatio: number; localChangedPixelRatio: number }>
+    }[]
+  }>(join(options.outputRoot, 'visual-report.json'))
+  const visualInteractions = new Map(
+    visualReport.interactionPairs.map((pair) => [`${pair.id}/${pair.theme}/${pair.viewport}/${pair.case}`, pair]),
+  )
   const inventory = await readJson<ReactBitsProInventory>(inventoryPath(options))
   const interactionPath = join(options.outputRoot, 'interaction-report.json')
   const interactionReport = (await Bun.file(interactionPath).exists())
@@ -1861,12 +2027,17 @@ async function runCompare(options: AuditOptions): Promise<void> {
         viewports?: readonly AuditViewport[]
         themes?: readonly AuditTheme[]
         coverage?: string
+        sourceDirectoryHash?: string
+        localSpecHash?: string
         results: readonly InteractionReportRow[]
       }>(interactionPath)
     : { results: [] }
   const selectedIds = [...new Set(manifest.records.map((record) => record.id))]
   const matrixComplete =
     interactionReport.coverage === 'all-visible-controls' &&
+    interactionReport.sourceDirectoryHash === manifest.sourceDirectoryHash &&
+    interactionReport.localSpecHash ===
+      stableHash(HBAR_APP_UI_VARIANT_SPECS.filter((spec) => manifest.selected.includes(spec.id))) &&
     JSON.stringify([...(interactionReport.selected ?? [])].sort()) === JSON.stringify([...manifest.selected].sort()) &&
     JSON.stringify(interactionReport.viewports) === JSON.stringify(manifest.viewports) &&
     JSON.stringify(interactionReport.themes) === JSON.stringify(manifest.themes)
@@ -1874,11 +2045,18 @@ async function runCompare(options: AuditOptions): Promise<void> {
     const staticRows = comparisons.filter((comparison) => comparison.id === id)
     const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
     const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
+    if (!fullAuditMatrixSelected(manifest.viewports, manifest.themes)) failures.push('full-audit-matrix-incomplete')
     if (staticRows.length !== manifest.viewports.length * manifest.themes.length)
       failures.push(`static-combinations-incomplete:${staticRows.length}`)
     const interactionFailures = interactionRows
       .filter((result) => result.status !== 'matched' && result.status !== 'source-no-op')
       .map((result) => `${result.id}:${result.status}`)
+    for (const result of interactionRows) {
+      const pair = visualInteractions.get(`${id}/${result.theme}/${result.viewport}/${result.id.replaceAll(':', '_')}`)
+      if (!pair) interactionFailures.push(`${result.id}:feedback-screenshots-missing`)
+      else if (!interactionFeedbackMatches(pair.feedback.sourceChangedPixelRatio, pair.feedback.localChangedPixelRatio))
+        interactionFailures.push(`${result.id}:visual-feedback-mismatch`)
+    }
     const coverage = assessInteractionCoverage(expectedInteractions.get(id) ?? [], interactionRows)
     if (!matrixComplete) interactionFailures.push('interaction-matrix-incomplete')
     if (coverage.missing.length > 0) interactionFailures.push(`interaction-cases-missing:${coverage.missing.length}`)

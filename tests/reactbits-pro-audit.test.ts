@@ -6,7 +6,10 @@ import {
   REACTBITS_PRO_VIEWPORTS,
   assessInteractionCoverage,
   alignedCanvasPadding,
+  fullAuditMatrixSelected,
   interactionCases,
+  interactionCheckpointMatches,
+  interactionFeedbackMatches,
   rootGeometryMatches,
   type ControlSnapshot,
   type SemanticSnapshot,
@@ -66,6 +69,8 @@ describe('React Bits Pro visual audit contract', () => {
       '320x720',
     ])
     expect(REACTBITS_PRO_VIEWPORTS.length * REACTBITS_PRO_THEMES.length).toBe(8)
+    expect(fullAuditMatrixSelected(REACTBITS_PRO_VIEWPORTS, REACTBITS_PRO_THEMES)).toBe(true)
+    expect(fullAuditMatrixSelected([REACTBITS_PRO_VIEWPORTS[2]], ['dark'])).toBe(false)
   })
 
   test('audits every visible control even when controls share the same shape', () => {
@@ -135,5 +140,47 @@ describe('React Bits Pro visual audit contract', () => {
     expect(
       alignedCanvasPadding({ top: 24, right: 24, bottom: 24, left: 24 }, { top: 0, right: 0, bottom: 0, left: 0 }),
     ).toEqual({ top: 24, right: 24, bottom: 24, left: 24 })
+  })
+
+  test('resumes only a matching case with complete paired before/after captures', () => {
+    const capture = {
+      id: 'card-11:0:click',
+      status: 'captured' as const,
+      directory: 'capture',
+      before: 'before.png',
+      after: 'after.png',
+      beforeSnapshot: 'before.json',
+      afterSnapshot: 'after.json',
+    }
+    const result = {
+      variantId: 'card-11',
+      id: capture.id,
+      theme: 'dark' as const,
+      viewport: 'mobile',
+      action: 'click' as const,
+      caseHash: 'source-and-control-hash',
+      source: capture,
+      local: capture,
+      status: 'matched',
+    }
+    const expected = {
+      variantId: result.variantId,
+      id: result.id,
+      theme: result.theme,
+      viewport: result.viewport,
+      caseHash: result.caseHash,
+    }
+    expect(interactionCheckpointMatches(result, expected)).toBe(true)
+    expect(interactionCheckpointMatches(result, { ...expected, caseHash: 'changed-source' })).toBe(false)
+    expect(interactionCheckpointMatches({ ...result, local: { ...capture, after: null } }, expected)).toBe(false)
+    expect(interactionCheckpointMatches({ ...result, source: { ...capture, status: 'error' } }, expected)).toBe(false)
+  })
+
+  test('gates visual interaction feedback even when DOM state is unchanged', () => {
+    expect(interactionFeedbackMatches(0.06, 0.07)).toBe(true)
+    expect(interactionFeedbackMatches(0, 0)).toBe(true)
+    expect(interactionFeedbackMatches(0.06, 0)).toBe(false)
+    expect(interactionFeedbackMatches(0.32, 0.07)).toBe(false)
+    expect(interactionFeedbackMatches(Number.NaN, 0)).toBe(false)
   })
 })
