@@ -30,7 +30,8 @@ test('the canonical Lumen entry renders the family without the compatibility imp
 
   expect(markup).toContain('data-lumen-component="agent-activity"')
   expect(markup).toContain('hbar-app-ui-agent-activity-live')
-  expect(markup).toContain('data-lumen-variant="outlined"')
+  expect(markup).toContain('data-lumen-variant="1"')
+  expect(markup).not.toContain('<button')
 })
 
 test('the legacy agent activity implementations and visual stylesheet are retired', async () => {
