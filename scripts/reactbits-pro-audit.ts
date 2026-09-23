@@ -1094,10 +1094,13 @@ async function captureLocal(
   }
 }
 
+export function visibleControls(snapshot: SemanticSnapshot): readonly ControlSnapshot[] {
+  return snapshot.controls.filter((control) => control.visible)
+}
+
 export function interactionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
   const cases: InteractionCase[] = []
-  for (const control of snapshot.controls) {
-    if (control.visible === false) continue
+  for (const control of visibleControls(snapshot)) {
     const prefix = `${variantId}:${control.index}`
     for (const capability of control.capabilities) {
       if (capability === 'press') {
@@ -1992,6 +1995,8 @@ async function runCompare(options: AuditOptions): Promise<void> {
     if (record.kind !== 'source' || !localRecord) continue
     const sourceSnapshot = await readJson<SemanticSnapshot>(record.snapshot)
     const localSnapshotValue = await readJson<SemanticSnapshot>(localRecord.snapshot)
+    const sourceVisibleControls = visibleControls(sourceSnapshot)
+    const localVisibleControls = visibleControls(localSnapshotValue)
     const expected = expectedInteractions.get(record.id) ?? []
     expected.push(
       ...interactionCases(sourceSnapshot, record.id).map(
@@ -2019,8 +2024,8 @@ async function runCompare(options: AuditOptions): Promise<void> {
         widthDelta: localSnapshotValue.rootRect.width - sourceSnapshot.rootRect.width,
         heightDelta: localSnapshotValue.rootRect.height - sourceSnapshot.rootRect.height,
         rootGeometryMatched: rootGeometryMatches(sourceSnapshot.rootRect, localSnapshotValue.rootRect),
-        sourceControls: sourceSnapshot.controls.length,
-        localControls: localSnapshotValue.controls.length,
+        sourceControls: sourceVisibleControls.length,
+        localControls: localVisibleControls.length,
         sourceTextLength: sourceSnapshot.bodyTextLength,
         localTextLength: localSnapshotValue.bodyTextLength,
         sourceTextLineCount: sourceSnapshot.textLineCount,
@@ -2036,17 +2041,17 @@ async function runCompare(options: AuditOptions): Promise<void> {
         sourceOverflow: sourceSnapshot.horizontalOverflow,
         localOverflow: localSnapshotValue.horizontalOverflow,
         errors: [...record.errors, ...localRecord.errors],
-        controlShapeMatched: sourceSnapshot.controls.every((control, index) => {
-          const localControl = localSnapshotValue.controls[index]
+        controlShapeMatched: sourceVisibleControls.every((control, index) => {
+          const localControl = localVisibleControls[index]
           return (
             localControl?.tag === control.tag &&
             localControl.role === control.role &&
             localControl.type === control.type
           )
         }),
-        controlCountMatched: sourceSnapshot.controls.length === localSnapshotValue.controls.length,
-        controlStateMatched: sourceSnapshot.controls.every((control, index) => {
-          const localControl = localSnapshotValue.controls[index]
+        controlCountMatched: sourceVisibleControls.length === localVisibleControls.length,
+        controlStateMatched: sourceVisibleControls.every((control, index) => {
+          const localControl = localVisibleControls[index]
           return (
             localControl?.disabled === control.disabled &&
             localControl.expanded === control.expanded &&
@@ -2054,8 +2059,8 @@ async function runCompare(options: AuditOptions): Promise<void> {
             localControl.selected === control.selected
           )
         }),
-        labelAssociationsMatched: sourceSnapshot.controls.every(
-          (control, index) => Boolean(control.labelFor) === Boolean(localSnapshotValue.controls[index]?.labelFor),
+        labelAssociationsMatched: sourceVisibleControls.every(
+          (control, index) => Boolean(control.labelFor) === Boolean(localVisibleControls[index]?.labelFor),
         ),
         truncationFree: localSnapshotValue.truncatedTextCount <= sourceSnapshot.truncatedTextCount,
         truncationMatched: sourceSnapshot.truncatedTextCount === localSnapshotValue.truncatedTextCount,

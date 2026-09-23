@@ -12,6 +12,7 @@ import {
   interactionFeedbackMatches,
   rootGeometryMatches,
   selectInteractionCases,
+  visibleControls,
   type ControlSnapshot,
   type SemanticSnapshot,
 } from '../scripts/reactbits-pro-audit'
@@ -88,6 +89,15 @@ describe('React Bits Pro visual audit contract', () => {
       'card-1:1:press-enter',
       'card-1:1:press-space',
     ])
+  })
+
+  test('uses the same visible-only control set for structure and interaction gates', () => {
+    const source = snapshot([control(0, { visible: false }), control(1)])
+    const local = snapshot([control(0, { visible: false }), control(1, { visible: false }), control(2)])
+    expect(visibleControls(source).map((item) => item.index)).toEqual([1])
+    expect(visibleControls(local).map((item) => item.index)).toEqual([2])
+    expect(visibleControls(source)).toHaveLength(visibleControls(local).length)
+    expect(interactionCases(source, 'card-1')).toHaveLength(5)
   })
 
   test('allows a development-only exact case filter without inventing interactions', () => {
