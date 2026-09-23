@@ -459,8 +459,18 @@ async function previewFrame(page: Page): Promise<Frame> {
 }
 
 async function gotoStable(page: Page, url: string): Promise<void> {
-  await page.goto(url, { waitUntil: 'commit', timeout: 30_000 })
-  await page.waitForLoadState('domcontentloaded', { timeout: 30_000 }).catch(() => undefined)
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: 'commit', timeout: 30_000 })
+      await page.waitForLoadState('domcontentloaded', { timeout: 30_000 }).catch(() => undefined)
+      return
+    } catch (error) {
+      lastError = error
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 250 * (attempt + 1)))
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`Could not navigate to ${url}`)
 }
 
 async function componentSelector(container: Locator | Page | Frame, rootSelector: string): Promise<string> {
@@ -901,6 +911,34 @@ type InteractionCapture = Readonly<{
   reason?: string
 }>
 
+async function errorInteractionCapture(id: string, directory: string, error: unknown): Promise<InteractionCapture> {
+  await ensureDirectory(directory)
+  const reason = error instanceof Error ? error.message : String(error)
+  const beforeSnapshot = join(directory, 'before.json')
+  await writeJson(join(directory, 'error.json'), { error: reason })
+  return {
+    id,
+    status: 'error',
+    directory,
+    before: join(directory, 'before.png'),
+    after: null,
+    beforeSnapshot,
+    afterSnapshot: null,
+    reason,
+  }
+}
+
+function interactionDirectory(
+  outputRoot: string,
+  kind: 'source' | 'local',
+  id: string,
+  theme: AuditTheme,
+  viewport: AuditViewport,
+  interaction: InteractionCase,
+): string {
+  return join(outputRoot, 'interactions', id, theme, viewport.id, interaction.id.replaceAll(':', '_'), kind)
+}
+
 async function interactionDelta(
   capture: InteractionCapture,
 ): Promise<Readonly<{ changed: boolean; signature: string }> | null> {
@@ -1191,6 +1229,8 @@ async function _runInteractionsLegacy(
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const cases = interactionCases(sourceSnapshot, spec.id)
             for (const interaction of cases) {
+              const sourceDirectory = interactionDirectory(options.outputRoot, 'source', reference.id, theme, viewport, interaction)
+              const localDirectory = interactionDirectory(options.outputRoot, 'local', spec.id, theme, viewport, interaction)
               const source = await replayReferenceInteraction(
                 sourcePage,
                 reference,
@@ -1199,8 +1239,10 @@ async function _runInteractionsLegacy(
                 viewport,
                 interaction,
                 options.outputRoot,
+              ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error))
+              const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot).catch(
+                (error) => errorInteractionCapture(interaction.id, localDirectory, error),
               )
-              const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot)
               const sourceDelta = await interactionDelta(source)
               const localDelta = await interactionDelta(local)
               const status =
@@ -1306,8 +1348,14 @@ async function runInteractionsParallel(
             const sourceSelector = await componentSelector(frame, '#preview-root')
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             for (const interaction of interactionCases(sourceSnapshot, spec.id)) {
-              const source = await replayReferenceInteraction(sourcePage, reference, options, theme, viewport, interaction, options.outputRoot)
-              const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot)
+              const sourceDirectory = interactionDirectory(options.outputRoot, 'source', reference.id, theme, viewport, interaction)
+              const localDirectory = interactionDirectory(options.outputRoot, 'local', spec.id, theme, viewport, interaction)
+              const source = await replayReferenceInteraction(sourcePage, reference, options, theme, viewport, interaction, options.outputRoot).catch(
+                (error) => errorInteractionCapture(interaction.id, sourceDirectory, error),
+              )
+              const local = await replayInteraction(localPage, spec, theme, viewport, interaction, options.outputRoot).catch(
+                (error) => errorInteractionCapture(interaction.id, localDirectory, error),
+              )
               const sourceDelta = await interactionDelta(source)
               const localDelta = await interactionDelta(local)
               const status = source.status === 'error' || local.status === 'error'
@@ -1488,7 +1536,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
     const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
     const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
     const interactionFailures = interactionRows
-      .filter((result) => result.status === 'missing' || result.status === 'lumen-different')
+      .filter((result) => result.status === 'missing' || result.status === 'lumen-different' || result.status === 'error')
       .map((result) => `${result.id}:${result.status}`)
     const status = failures.length || interactionFailures.length ? 'needs-fix' : 'passed'
     return {
