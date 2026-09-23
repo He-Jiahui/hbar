@@ -1302,6 +1302,9 @@ async function _runInteractionsLegacy(
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     selected: selected.map((spec) => spec.id),
+    viewports: options.viewports,
+    themes: options.themes,
+    coverage: 'semantic-shape-representatives',
     discovered: results.length,
     results,
   })
@@ -1415,6 +1418,9 @@ async function runInteractionsParallel(
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     selected: selected.map((spec) => spec.id),
+    viewports: options.viewports,
+    themes: options.themes,
+    coverage: 'semantic-shape-representatives',
     discovered: results.length,
     results,
   })
