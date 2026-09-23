@@ -64,7 +64,7 @@ const logEntries = [
 
 export const HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES: HbarAppUiAgentActivityContent = {
     live: {
-        labels: {title: 'Reconcile October invoices', status: 'Running', elapsed: '11.1s', separator: '·', stop: 'Stop'},
+        labels: {title: 'Reconcile October invoices', status: 'Running', elapsed: '11.1s', separator: '·', stop: 'Stop', stopped: 'Stopped'},
         steps: liveSteps.map(([id, label, duration, state]) => ({id, label, duration, state})),
         activeStepId: 'reconciling-entries',
         listStrategy: {kind: 'pane-scroll', expectedMaximum: 13},
@@ -232,7 +232,7 @@ export function createHbarAppUiAgentActivityLocalizedFixtures(): HbarAppUiAgentA
         ...base,
         live: base.live && {
             ...base.live,
-            labels: {title: 'Oktober-Abstimmung der Rechnungen mit besonders langem Arbeitsbereichstitel', status: 'Wird ausgeführt', elapsed: '11,1 Sek.', separator: '·', stop: 'Ausführung sicher anhalten'},
+            labels: {title: 'Oktober-Abstimmung der Rechnungen mit besonders langem Arbeitsbereichstitel', status: 'Wird ausgeführt', elapsed: '11,1 Sek.', separator: '·', stop: 'Ausführung sicher anhalten', stopped: 'Angehalten'},
         },
         nested: base.nested && {
             ...base.nested,

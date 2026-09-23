@@ -57,8 +57,12 @@ async function run(): Promise<void> {
 
     try {
         await page.goto(previewUrl(1), {waitUntil: 'networkidle'})
-        assert(await page.getByRole('button').count() === 0, 'Live activity invented an interactive step')
+        const liveStop = page.getByRole('button', {name: 'Stop', exact: true})
+        assert(await page.getByRole('button').count() === 1 && await liveStop.count() === 1, 'Live activity must expose the reference Stop action')
         assert(await page.getByText('Loaded October general ledger', {exact: true}).count() === 1, 'Live activity omitted its host step')
+        await liveStop.click()
+        assert(await liveStop.isDisabled(), 'Live Stop did not become disabled')
+        assert(await page.getByText('Stopped', {exact: true}).count() === 2, 'Live Stop did not update status and active step')
 
         await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
         const nestedGroup = page.locator('.hbar-app-ui-agent-activity-group-row').first()
@@ -124,12 +128,17 @@ async function run(): Promise<void> {
         await page.getByRole('button', {name: 'Bereitstellung anhalten', exact: true}).click()
         assert(await page.getByText('Angehalten', {exact: true}).count() === 1, 'Localized deployment state was not rendered from the host bundle')
         assert(await page.getByRole('button', {name: 'Erneut ausführen', exact: true}).count() === 1, 'Localized rerun action was not rendered from the host bundle')
+        await page.goto(previewUrl(1, 'localized'), {waitUntil: 'networkidle'})
+        const localizedLiveStop = page.getByRole('button', {name: 'Ausführung sicher anhalten', exact: true})
+        await localizedLiveStop.click()
+        assert(await localizedLiveStop.isDisabled(), 'Localized live Stop did not become disabled')
+        assert(await page.getByText('Angehalten', {exact: true}).count() === 2, 'Localized live Stop did not use the host-provided status')
         await page.goto(previewUrl(7, 'localized'), {waitUntil: 'networkidle'})
         assert(await page.getByText('Oktoberbuch-Export fehlgeschlagen', {exact: true}).count() === 1, 'Localized failure title was not rendered from the host bundle')
 
         assert(pageErrors.length === 0, `Agent activity preview reported page errors: ${pageErrors.join(' | ')}`)
         console.log(JSON.stringify({
-            liveStaticTimeline: true,
+            liveStopAndTimeline: true,
             nestedDisclosure: true,
             deploymentStopAndRerun: true,
             historyAction: true,

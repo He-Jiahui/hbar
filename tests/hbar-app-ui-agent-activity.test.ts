@@ -48,7 +48,9 @@ describe('hbar-app-ui agent activity surfaces', () => {
 
     expect(markup[0]).toContain('hbar-app-ui-agent-activity-live')
     expect(markup[0]).toContain('Loaded October general ledger')
-    expect(markup[0]).not.toContain('<button')
+    expect(markup[0]).toContain('<button')
+    expect(markup[0]).toContain('Reconcile October invoices')
+    expect(markup[0]).toContain('Running')
     expect(markup[1]).toContain('hbar-app-ui-agent-activity-nested')
     expect(markup[1]).toContain('Prepare export')
     expect(markup[2]).toContain('hbar-app-ui-agent-activity-deployment')
@@ -78,8 +80,9 @@ describe('hbar-app-ui agent activity surfaces', () => {
     const failure = renderActivity(7)
 
     expect(live).toContain('<ol class="lumen-agent-activity-list hbar-app-ui-agent-activity-live-list"')
-    expect(live).not.toContain('Reconcile October invoices')
-    expect(live).not.toContain('aria-label="Stop"')
+    expect(live).toContain('<header class="lumen-agent-activity-heading hbar-app-ui-agent-activity-live-heading"')
+    expect(live).toContain('Reconcile October invoices')
+    expect(live).toContain('>Stop<span data-edge="bottom"')
     expect(live).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
     const nested = renderActivity(2)
     expect(nested.match(/<button/g)).toHaveLength(5)
@@ -112,12 +115,12 @@ describe('hbar-app-ui agent activity surfaces', () => {
     const failure = renderActivity(7, localized)
 
     expect(live).toContain('Loaded October general ledger')
-    expect(live).not.toContain('Ausführung sicher anhalten')
+    expect(live).toContain('Ausführung sicher anhalten')
     expect(log).toContain('Ausführungsprotokoll mit absichtlich langem lokalisiertem Titel')
     expect(log).toContain('Alle Einträge')
     expect(failure).toContain('Oktoberbuch-Export fehlgeschlagen')
     expect(failure).toContain('Datei herunterladen')
-    expect(live).not.toContain('<button')
+    expect(live.match(/<button/g)).toHaveLength(1)
   })
 
   test('handles empty, stale, duplicate, boundary, and over-bound records without synthetic items', () => {
