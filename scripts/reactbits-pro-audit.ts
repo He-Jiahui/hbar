@@ -196,6 +196,10 @@ export function fullAuditMatrixSelected(
   )
 }
 
+export function interactionWorkersPerVariant(workers: number, selectedVariants: number): number {
+  return Math.max(1, Math.floor(workers / Math.max(1, Math.min(workers, selectedVariants))))
+}
+
 export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
@@ -1932,7 +1936,7 @@ async function runInteractionsParallel(
                 results.push(result)
               }
             }
-            const actionConcurrency = selected.length === 1 ? options.workers : 1
+            const actionConcurrency = interactionWorkersPerVariant(options.workers, selected.length)
             await Promise.all(Array.from({ length: Math.min(actionConcurrency, cases.length) }, () => actionWorker()))
           }
         }

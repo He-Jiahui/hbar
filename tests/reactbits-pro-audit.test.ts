@@ -10,6 +10,7 @@ import {
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
+  interactionWorkersPerVariant,
   interactiveControlSelector,
   liveActivityDelta,
   rootGeometryMatches,
@@ -79,6 +80,12 @@ describe('React Bits Pro visual audit contract', () => {
     expect(REACTBITS_PRO_VIEWPORTS.length * REACTBITS_PRO_THEMES.length).toBe(8)
     expect(fullAuditMatrixSelected(REACTBITS_PRO_VIEWPORTS, REACTBITS_PRO_THEMES)).toBe(true)
     expect(fullAuditMatrixSelected([REACTBITS_PRO_VIEWPORTS[2]], ['dark'])).toBe(false)
+  })
+
+  test('bounds parallel action replay across multiple selected variants', () => {
+    expect(interactionWorkersPerVariant(8, 1)).toBe(8)
+    expect(interactionWorkersPerVariant(8, 2)).toBe(4)
+    expect(interactionWorkersPerVariant(2, 3)).toBe(1)
   })
 
   test('discovers actionable roles without treating passive landmarks and meters as controls', () => {
