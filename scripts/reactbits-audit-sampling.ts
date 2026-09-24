@@ -417,6 +417,77 @@ const planReviewPlan: AuditSamplingPlan = {
   ],
 }
 
+const planTreePlan: AuditSamplingPlan = {
+  revision: 1,
+  lumenEntries: ['agent-plan.tsx', 'LumenProvider.tsx'],
+  samples: [
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: 'tree-shipping-open:3:click',
+      change:
+        'With completed groups collapsed, reveal staging beside shipping so all six previously missing subtasks are visible in a paired screenshot',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '0:click',
+      change: 'Collapse a completed group without changing its counts or the other group',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '3:click',
+      change: 'Reveal the three real shipping tasks and grow the scroll content',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '4:click',
+      change: 'Reveal the three distinct staging tasks, not an empty placeholder',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '2:click',
+      change: 'Retry replaces Failed with Running and removes only that retry action',
+    },
+    { viewport: 'desktop', theme: 'dark', suffix: '0:hover', change: 'Group row hover feedback' },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '2:hover',
+      change: 'Nested retry control and parent row hover feedback',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: '3:press-enter',
+      change: 'Narrow keyboard expansion preserves nested indentation and scrolling',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: '2:press-space',
+      change: 'Narrow keyboard retry retains the status column and lets the title expand',
+    },
+  ],
+  inferences: [
+    {
+      scope: 'Other disclosure combinations and repeated native gestures/themes',
+      basis:
+        'Groups share independent ID-keyed disclosure; their content is supplied separately. Eight static pairs cover responsive structure; selected dynamic pairs cover collapse, both previously missing groups, and narrow keyboard expansion.',
+      verification: 'inferred-not-replayed',
+    },
+    {
+      scope: 'Stale/duplicate targets, empty and over-bound trees, host retry failure and locale changes',
+      basis:
+        'State/render tests cover target isolation, busy and repeat guards, host failure/recovery, content bounds and localization. A local browser checks actual overflow, retained focus and long labels; these are not additional source/local screenshot claims.',
+      verification: 'inferred-not-replayed',
+    },
+  ],
+}
+
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
@@ -424,6 +495,7 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
   if (variantId === 'hbar-app-ui-agent-approval-6') return historyPlan
   if (variantId === 'hbar-app-ui-agent-plan-1') return checklistPlan
   if (variantId === 'hbar-app-ui-agent-plan-2') return planReviewPlan
+  if (variantId === 'hbar-app-ui-agent-plan-3') return planTreePlan
   return undefined
 }
 

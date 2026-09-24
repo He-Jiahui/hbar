@@ -241,6 +241,7 @@ export type InteractionCase = Readonly<{
     | 'plan-paused'
     | 'plan-draft'
     | 'plan-running'
+    | 'tree-shipping-open'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1468,6 +1469,15 @@ export function planReviewScenarioCases(
   ]
 }
 
+async function preparePlanTreeScenario(root: Locator): Promise<void> {
+  for (const title of ['Prepare the data 3 of 3', 'Apply the migration 2 of 4']) {
+    const group = root.getByRole('button', { name: title, exact: true })
+    if ((await group.getAttribute('aria-expanded')) === 'true') await group.click()
+  }
+  const shipping = root.getByRole('button', { name: 'Ship the change 0 of 3', exact: true })
+  if ((await shipping.getAttribute('aria-expanded')) !== 'true') await shipping.click()
+}
+
 async function preparePlanReviewScenario(root: Locator, scenario: 'plan-draft' | 'plan-running'): Promise<void> {
   await root
     .getByRole('textbox', { name: 'Add a step', exact: true })
@@ -2141,6 +2151,8 @@ async function replayInteraction(
     (interaction.scenario === 'history-match' || interaction.scenario === 'history-empty')
   )
     await prepareHistoryScenario(root, interaction.scenario)
+  if (spec.id === 'hbar-app-ui-agent-plan-3' && interaction.scenario === 'tree-shipping-open')
+    await preparePlanTreeScenario(root)
   if (spec.id === 'hbar-app-ui-agent-plan-1' && interaction.scenario === 'plan-paused')
     await root.getByRole('button', { name: 'Stop', exact: true }).click()
   if (
@@ -2248,6 +2260,8 @@ async function replayReferenceInteraction(
     (interaction.scenario === 'history-match' || interaction.scenario === 'history-empty')
   )
     await prepareHistoryScenario(root, interaction.scenario)
+  if (reference.id === 'hbar-app-ui-agent-plan-3' && interaction.scenario === 'tree-shipping-open')
+    await preparePlanTreeScenario(root)
   if (reference.id === 'hbar-app-ui-agent-plan-1' && interaction.scenario === 'plan-paused')
     await root.getByRole('button', { name: 'Stop', exact: true }).click()
   if (
@@ -2813,6 +2827,15 @@ async function runInteractionsParallel(
             ) {
               await sourceRoot.getByRole('button', { name: 'Stop', exact: true }).click()
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'plan-paused'))
+            }
+            if (
+              spec.id === 'hbar-app-ui-agent-plan-3' &&
+              (!sampleIds || sampleIds.some((id) => id.includes(':tree-shipping-open:')))
+            ) {
+              await preparePlanTreeScenario(sourceRoot)
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'tree-shipping-open'),
+              )
             }
             if (spec.id === 'hbar-app-ui-agent-plan-2') {
               for (const scenario of ['plan-draft', 'plan-running'] as const) {

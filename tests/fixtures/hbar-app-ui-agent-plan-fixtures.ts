@@ -40,8 +40,16 @@ const treeGroups = [
             {id: 'drop-legacy', title: 'Drop the legacy tier column', state: 'queued' as const, stateLabel: 'Queued'},
         ],
     },
-    {id: 'ship', title: 'Ship the change', done: 0, total: 3, progressLabel: '0 of 3', openByDefault: false, items: []},
-    {id: 'verify', title: 'Verify in staging', done: 0, total: 3, progressLabel: '0 of 3', openByDefault: false, items: []},
+    {id: 'ship', title: 'Ship the change', done: 0, total: 3, progressLabel: '0 of 3', openByDefault: false, items: [
+        {id: 'changelog', title: 'Update the changelog', state: 'queued', stateLabel: 'Queued'},
+        {id: 'tag-release', title: 'Tag the release', state: 'queued', stateLabel: 'Queued'},
+        {id: 'publish-registry', title: 'Publish the registry payloads', state: 'queued', stateLabel: 'Queued'},
+    ]},
+    {id: 'verify', title: 'Verify in staging', done: 0, total: 3, progressLabel: '0 of 3', openByDefault: false, items: [
+        {id: 'smoke-tests', title: 'Run the smoke tests', state: 'queued', stateLabel: 'Queued'},
+        {id: 'billing-dashboard', title: 'Check the billing dashboard', state: 'queued', stateLabel: 'Queued'},
+        {id: 'entitlement-counts', title: 'Compare the entitlement counts', state: 'queued', stateLabel: 'Queued'},
+    ]},
 ] as const
 
 const actualRows = [
@@ -107,9 +115,10 @@ export const HBAR_APP_UI_AGENT_PLAN_FIXTURES: HbarAppUiAgentPlanContent = {
         listStrategy: {kind: 'pane-scroll', expectedMaximum: 16},
     },
     tree: {
-        labels: {title: 'Migrate the entitlement tables', progress: (done, total) => `${done} of ${total} done`, expand: (title) => `Expand ${title}`, collapse: (title) => `Collapse ${title}`, retry: 'Retry', empty: 'No plan groups'},
+        runId: 'entitlement-migration',
+        labels: {title: 'Migrate the entitlement tables', progress: (done, total) => `${done} of ${total} done`, expand: (title) => `Expand ${title}`, collapse: (title) => `Collapse ${title}`, retry: 'Retry', running: 'Running', empty: 'No plan groups'},
         groups: treeGroups,
-        listStrategy: {kind: 'content-grown', expectedMaximum: 20},
+        listStrategy: {kind: 'pane-scroll', expectedMaximum: 20},
     },
     actual: {
         labels: {title: 'Plan vs actual', remaining: '1 step left', description: 'Planned versus actual duration for each step', step: 'Step', duration: 'Duration', planned: 'Planned', actual: 'Actual', drift: 'Drift', empty: 'No timing rows'},
@@ -156,7 +165,7 @@ export function createHbarAppUiAgentPlanLocalizedFixtures(): HbarAppUiAgentPlanC
         ...base,
         checklist: base.checklist && {...base.checklist, labels: {...base.checklist.labels, title: 'Abrechnung und Berechtigungen reparieren', stop: 'Ausführung stoppen', resume: 'Ausführung fortsetzen', paused: 'Pausiert', empty: 'Keine Planschritte', target: 'Zieldatei', estimate: 'Schätzung', progress: (done, total) => `${done} von ${total} Schritten abgeschlossen`, workingOn: (title) => `Aktiver Schritt: ${title}.`, pausedOn: (title) => `Pausierter Schritt: ${title}.`}},
         editable: base.editable && {...base.editable, labels: {...base.editable.labels, title: 'Plan vor dem Start prüfen', summary: '8 ausführen · 1 übersprungen', summaryCounts: (included, skipped) => `${included} ausführen${skipped ? ` · ${skipped} übersprungen` : ''}`, skippedSuffix: ': übersprungen', stop: 'Ausführung stoppen', runningReview: 'Läuft. Zum Bearbeiten zuerst stoppen.', moved: (title, position, total) => `${title} auf Position ${position} von ${total} verschoben.`, added: (title) => `${title} am Ende des Plans hinzugefügt.`, empty: 'Keine bearbeitbaren Schritte', review: 'Schritte neu ordnen oder überspringen und danach den Lauf starten.', addPlaceholder: 'Einen weiteren Schritt hinzufügen', add: 'Hinzufügen', start: (count) => `${count} Schritte starten`, moveUp: (title) => `${title} nach oben`, moveDown: (title) => `${title} nach unten`, skip: (title) => `${title} überspringen`, restore: (title) => `${title} wiederherstellen`, newStepStateLabel: 'Bereit'}},
-        tree: base.tree && {...base.tree, labels: {...base.tree.labels, title: 'Berechtigungstabellen migrieren', retry: 'Erneut versuchen'}},
+        tree: base.tree && {...base.tree, labels: {...base.tree.labels, title: 'Berechtigungstabellen migrieren', retry: 'Erneut versuchen', running: 'Wird ausgeführt', empty: 'Keine Plangruppen', progress: (done, total) => `${done} von ${total} abgeschlossen`}},
         actual: base.actual && {...base.actual, labels: {...base.actual.labels, title: 'Plan und Ist-Zeit vergleichen', remaining: 'Noch ein Schritt', description: 'Geplante und tatsächliche Dauer je Arbeitsschritt'}},
         board: base.board && {...base.board, labels: {...base.board.labels, title: 'Berechtigungen reparieren', empty: 'Keine Aufgaben in dieser Phase', separator: '·'}},
         summary: base.summary && {...base.summary, labels: {...base.summary.labels, title: 'Berechtigungen reparieren', stepCount: '10 Schritte', goal: 'Ziel', tools: 'Werkzeuge', breakdown: 'Aufschlüsselung', review: 'Plan vor dem Start prüfen.', edit: 'Plan bearbeiten', run: 'Plan ausführen'}, goal: 'Der Tier-Lookup fällt für abgelaufene Schlüssel auf die Verlängerungsfrist zurück, bevor der Zugriff widerrufen wird.', tools: ['Dateien lesen', 'Code suchen', 'Dateien bearbeiten', 'Tests ausführen', 'Shell-Befehle']},

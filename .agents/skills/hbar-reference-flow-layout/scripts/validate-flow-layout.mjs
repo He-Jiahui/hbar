@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Plan 3 has pointer-transparent fades above and below its ul-owned scroll area.
+  if (
+    /packages\/lumen-app-ui\/src\/agent-plan-tree\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.lumen-plan-tree-edge-overlay(?:\.is-(?:top|bottom)|\[data-visible=['"]true['"]\])?$/.test(selector.trim())
+  )
+    return true
   // Plan 2 uses the same observed pair around its div-owned scroll area.
   if (
     /packages\/lumen-app-ui\/src\/plan-review\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -290,6 +296,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     process.exit(1)
   }
   for (const suffix of ['', '.is-top', '.is-bottom', '[data-visible="true"]']) {
+    const treeErrors = validateCss(
+      'packages/lumen-app-ui/src/agent-plan-tree.css',
+      `.lumen-plan-tree-edge-overlay${suffix} {
+  position: absolute;
+  inset-inline: 0;
+}`,
+    )
+    if (treeErrors.length) {
+      console.error(`Flow layout guard rejected verified tree edge overlays: ${treeErrors.join('; ')}`)
+      process.exit(1)
+    }
     const reviewErrors = validateCss(
       'packages/lumen-app-ui/src/plan-review.css',
       `.lumen-plan-review-edge-overlay${suffix} {
@@ -314,6 +331,9 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     }
   }
   for (const [path, selector] of [
+    ['packages/lumen-app-ui/src/agent-plan.css', '.lumen-plan-tree-edge-overlay'],
+    ['packages/lumen-app-ui/src/agent-plan-tree.css', '.lumen-plan-tree-edge-overlay p'],
+    ['packages/lumen-app-ui/src/agent-plan-tree.css', '.lumen-plan-tree-edge-overlay > button'],
     ['packages/lumen-app-ui/src/agent-plan.css', '.lumen-plan-review-edge-overlay'],
     ['packages/lumen-app-ui/src/plan-review.css', '.lumen-plan-review-edge-overlay p'],
     ['packages/lumen-app-ui/src/plan-review.css', '.lumen-plan-review-edge-overlay > button'],

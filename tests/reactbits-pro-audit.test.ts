@@ -3,6 +3,21 @@ import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
 import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages/hbar-app-ui/src/types'
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
+
+test('plan tree sampling covers distinct disclosure content and retry without per-row gesture products', () => {
+  const id = 'hbar-app-ui-agent-plan-3'
+  expect(auditSamplingPlan(id)?.samples).toHaveLength(9)
+  expect(sampledInteractionIds(id, 'desktop', 'dark')).toEqual(
+    ['tree-shipping-open:3:click', '0:click', '3:click', '4:click', '2:click', '0:hover', '2:hover'].map(
+      (suffix) => `${id}:${suffix}`,
+    ),
+  )
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual(
+    ['3:press-enter', '2:press-space'].map((suffix) => `${id}:${suffix}`),
+  )
+  expect(sampledInteractionIds(id, 'tablet', 'dark')).toEqual([])
+  expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
 import { includesLumenAuditFile, lumenDependencyFiles } from '../scripts/reactbits-audit-scope'
 import {
   REACTBITS_PRO_THEMES,

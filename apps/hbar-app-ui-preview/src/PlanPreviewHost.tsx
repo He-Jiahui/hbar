@@ -3,6 +3,7 @@ import { useStore } from 'zustand'
 import { HbarAppUiAgentPlanProvider, type HbarAppUiAgentPlanContent } from 'hbar-app-ui/catalog'
 import { createChecklistPreviewStore, projectChecklistPreviewContent } from './checklist-preview-model'
 import { createPlanReviewPreviewStore, projectPlanReviewPreviewContent } from './plan-review-preview-model'
+import { createPlanTreePreviewStore, projectPlanTreePreviewContent } from './plan-tree-preview-model'
 
 export function PlanPreviewHost({
   content,
@@ -19,12 +20,17 @@ export function PlanPreviewHost({
   useLayoutEffect(() => reviewStore.getState().replace(content.editable), [content.editable, reviewStore])
   const reviewState = useStore(reviewStore)
   const editable = useMemo(() => projectPlanReviewPreviewContent(reviewState), [reviewState])
+  const [treeStore] = useState(() => createPlanTreePreviewStore(content.tree))
+  useLayoutEffect(() => treeStore.getState().replace(content.tree), [content.tree, treeStore])
+  const treeState = useStore(treeStore)
+  const tree = useMemo(() => projectPlanTreePreviewContent(treeState), [treeState])
   return (
     <HbarAppUiAgentPlanProvider
       content={{
         ...content,
         checklist,
         editable,
+        tree,
       }}
     >
       {children}
