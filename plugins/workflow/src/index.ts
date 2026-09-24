@@ -1853,11 +1853,23 @@ export class WorkflowRuntime implements WorkflowService {
       )
   }
 
-  guardCompletion(sessionId: string, goalId?: string) {
-    const workflow = this.workflows.get(sessionId)
-    if (!workflow || workflow.status === 'completed') return
-    if (goalId && workflow.goalId && workflow.goalId !== goalId) return
-    this.assertCompletable(workflow)
+  async guardCompletion(sessionId: string, goalId: string | undefined, commit: () => Promise<void>) {
+    const observed = this.workflows.get(sessionId)
+    const plan = await this.agentPlans.get(sessionId)
+    return () =>
+      this.serial(sessionId, async () => {
+        const workflow = this.workflows.get(sessionId)
+        if (workflow?.workflowId !== observed?.workflowId || workflow?.revision !== observed?.revision)
+          throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The workflow changed before goal completion')
+        await this.agentPlans.withRevision(sessionId, plan?.revision ?? null, async () => {
+          if (workflow && (!goalId || !workflow.goalId || workflow.goalId === goalId)) {
+            this.assertCompletable(workflow)
+            if (workflow.status !== 'completed' || workflow.planRevision !== plan?.revision)
+              throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Complete the current Agent Plan workflow first')
+          }
+          await commit()
+        })
+      })
   }
 
   canAutoContinue(sessionId: string) {
@@ -2276,7 +2288,10 @@ export const workflowPlugin = definePlugin({
     api.hooks.on('tool.settled', (event) =>
       runtime.settleTool(event.name, event.args, event.result, event.context, event.tool),
     )
-    api.hooks.on('goal.beforeComplete', (event) => runtime.guardCompletion(event.sessionId, event.goal.goalId))
+    api.hooks.on('goal.beforeComplete', async (event) => ({
+      ...event,
+      commit: await runtime.guardCompletion(event.sessionId, event.goal.goalId, event.commit),
+    }))
     api.hooks.on('goal.beforeContinue', (event) => ({
       ...event,
       allowed: event.allowed && runtime.canAutoContinue(event.sessionId),

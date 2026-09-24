@@ -43,7 +43,8 @@ test('goal creation, blocked audit, external resume, and persistence follow Code
   const created = await goals.create(session.id, '  finish the verified task  ', 100)
   expect(created.goal?.objective).toBe('finish the verified task')
   expect(created.goal?.status).toBe('active')
-  const replacement = await goals.create(session.id, 'another')
+  await expectRejected(goals.create(session.id, 'another'), 'unfinished goal')
+  const replacement = await goals.set(session.id, { objective: 'another', expectedGoalId: created.goal?.goalId })
   expect(replacement.goal).toMatchObject({ objective: 'another', tokensUsed: 0, status: 'active' })
   expect(replacement.goal?.goalId).not.toBe(created.goal?.goalId)
   await expectRejected(goals.create(session.id, 'another'), 'unfinished goal')
@@ -92,7 +93,12 @@ test('goal accounting uses input minus cache plus output and plan-mode runs are 
   expect(afterNormal.goal?.tokensUsed).toBeGreaterThan(0)
   expect(afterNormal.goal?.status).toBe('budget_limited')
 
-  await goals.set(session.id, { objective: 'plan work', status: 'active', tokenBudget: null })
+  await goals.set(session.id, {
+    objective: 'plan work',
+    status: 'active',
+    tokenBudget: null,
+    expectedGoalId: afterNormal.goal?.goalId,
+  })
   const planRun = await kernel.submit(
     session.id,
     'plan',
@@ -147,7 +153,11 @@ test('goal completion accounts the current run and stopped goals ignore later ru
   expect(afterCompletion.goal?.tokensUsed).toBe(completed.goal?.tokensUsed)
   expect(afterCompletion.goal?.timeUsedSeconds).toBe(completed.goal?.timeUsedSeconds)
 
-  await goals.set(session.id, { objective: 'pause before another run', status: 'paused' })
+  await goals.set(session.id, {
+    objective: 'pause before another run',
+    status: 'paused',
+    expectedGoalId: completed.goal?.goalId,
+  })
   const pausedBefore = await goals.get(session.id)
   const pausedRun = await kernel.submit(session.id, 'after-pause', { text: 'ignored', images: [] }, 'local-fixture')
   await kernel.waitForIdle()

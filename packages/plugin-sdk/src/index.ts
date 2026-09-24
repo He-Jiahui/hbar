@@ -204,6 +204,8 @@ export interface GoalService {
 }
 export interface PlanService {
   get(sessionId: string): Promise<PlanState | null>
+  /** Hold the observed plan revision stable while committing a dependent fact. */
+  withRevision(sessionId: string, revision: number | null, commit: () => Promise<void>): Promise<void>
   update(
     sessionId: string,
     plan: PlanStep[],
@@ -436,7 +438,13 @@ export interface HookEvents {
   'step.end': { sessionId: string; runId: string; stepId: string }
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
-  'goal.beforeComplete': { sessionId: string; runId?: string | undefined; goal: ThreadGoal }
+  'goal.beforeComplete': {
+    sessionId: string
+    runId?: string | undefined
+    goal: ThreadGoal
+    /** Validators may wrap this commit to keep their facts stable through persistence. */
+    commit: () => Promise<void>
+  }
   'goal.beforeContinue': { sessionId: string; runId: string; goal: ThreadGoal; allowed: boolean }
   'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal }
   'goal.cleared': { sessionId: string; previous: ThreadGoal }

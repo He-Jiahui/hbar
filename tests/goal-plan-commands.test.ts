@@ -80,11 +80,6 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     goal: { threadId: session.id, objective: 'finish the command migration', status: 'active', tokenBudget: 1_000 },
     remainingTokens: 1_000,
   })
-  const replacedByCreate = await commands.execute('goal.create', {
-    sessionId: session.id,
-    objective: 'replacement from create',
-  })
-  expect(replacedByCreate.goal).toMatchObject({ objective: 'replacement from create', tokensUsed: 0 })
   await expect(
     commands.execute('goal.create', { sessionId: session.id, objective: 'replacement from create' }),
   ).rejects.toMatchObject({ code: 'GOAL_EXISTS' })
@@ -95,7 +90,7 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
       expectedGoalId: crypto.randomUUID(),
     }),
   ).rejects.toMatchObject({ code: 'GOAL_CONFLICT' })
-  const goalId = replacedByCreate.goal?.goalId
+  const goalId = created.goal?.goalId
   if (!goalId) throw new Error('Goal identity missing')
   const updated = await commands.execute('goal.set', {
     sessionId: session.id,

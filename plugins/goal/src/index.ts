@@ -323,6 +323,24 @@ class GoalRuntime implements GoalService {
     this.api.changed('goals')
   }
 
+  private async persistTransition(existing: PersistedGoal, goal: PersistedGoal, runId?: string) {
+    const commit = async () => {
+      if (this.goals.get(existing.threadId)?.goalId !== existing.goalId)
+        throw new HbarError('GOAL_CONFLICT', 'The goal changed before this update was committed')
+      await this.persist(goal, runId)
+    }
+    if (goal.status === 'complete') {
+      const guarded = await this.api.hooks.dispatch('goal.beforeComplete', {
+        sessionId: existing.threadId,
+        ...(runId ? { runId } : {}),
+        goal: publicGoal(existing),
+        commit,
+      })
+      await guarded.commit()
+    } else await commit()
+    return response(goal, goal.status === 'complete' ? completionReport(goal) : undefined)
+  }
+
   async get(sessionId: string) {
     await this.ready()
     await this.api.sessions.get(sessionId)
@@ -334,8 +352,8 @@ class GoalRuntime implements GoalService {
       const objective = this.validateObjective(objectiveValue)
       const budget = this.validateBudget(tokenBudget ?? this.config.maxTokenBudget)
       const existing = this.goals.get(sessionId)
-      if (existing && existing.status !== 'complete' && existing.objective === objective)
-        throw new HbarError('GOAL_EXISTS', 'An unfinished goal with this objective already exists for this thread')
+      if (existing && existing.status !== 'complete')
+        throw new HbarError('GOAL_EXISTS', 'An unfinished goal already exists for this thread')
       const now = Date.now()
       const goal: PersistedGoal = {
         threadId: sessionId,
@@ -378,7 +396,11 @@ class GoalRuntime implements GoalService {
         ? this.validateBudget(input.tokenBudget ?? maxTokenBudget, maxTokenBudget)
         : undefined
       if (!existing) {
+        if (input.expectedGoalId)
+          throw new HbarError('GOAL_CONFLICT', 'The goal was cleared before this update was applied')
         if (objective === undefined) throw new HbarError('GOAL_NOT_FOUND', 'Cannot update a thread without a goal')
+        if (input.status === 'complete')
+          throw new HbarError('GOAL_INVALID', 'Create an active goal before marking it complete')
         const now = Date.now()
         const requestedStatus = input.status ?? 'active'
         const requestedBudget = budgetWasProvided ? (budget ?? null) : maxTokenBudget
@@ -405,6 +427,10 @@ class GoalRuntime implements GoalService {
       if (input.expectedGoalId && input.expectedGoalId !== existing.goalId)
         throw new HbarError('GOAL_CONFLICT', 'The goal changed before this update was applied')
       if (objective !== undefined && objective !== existing.objective) {
+        if (!input.expectedGoalId)
+          throw new HbarError('GOAL_CONFLICT', 'Replacing an objective requires the current expectedGoalId')
+        if (input.status === 'complete')
+          throw new HbarError('GOAL_INVALID', 'A replacement objective cannot be completed in the same update')
         const now = Date.now()
         const goal: PersistedGoal = {
           threadId: sessionId,
@@ -424,8 +450,6 @@ class GoalRuntime implements GoalService {
           accountedRuns: [],
         }
         await this.persist(goal, undefined, 'goal.created')
-        for (const [runId, tracking] of this.activeRuns)
-          if (tracking.goalId === existing.goalId) this.activeRuns.delete(runId)
         await this.api.hooks.dispatch('goal.replaced', {
           sessionId,
           previous: publicGoal(existing),
@@ -454,24 +478,19 @@ class GoalRuntime implements GoalService {
           ? { executionFailureStreak: 0, executionFailureRuns: [] }
           : {}),
       }
-      await this.persist(goal)
-      return response(goal)
+      return this.persistTransition(existing, goal)
     })
   }
 
   async update(sessionId: string, status: 'complete' | 'blocked', runId?: string) {
     return this.serial(sessionId, async () => {
+      if (runId && this.activeRuns.get(runId)?.goalId !== this.goals.get(sessionId)?.goalId)
+        throw new HbarError('GOAL_CONFLICT', 'This run belongs to a different goal; use the current goal session')
       const mode: AccountingMode = status === 'complete' ? 'active-or-complete' : 'active-or-stopped'
       if (runId) await this.accountProgressUnlocked(sessionId, runId, mode)
       else await this.accountActiveRunsUnlocked(sessionId, mode)
       const existing = this.goals.get(sessionId)
       if (!existing) throw new HbarError('GOAL_NOT_FOUND', 'Cannot update a thread without a goal')
-      if (status === 'complete')
-        await this.api.hooks.dispatch('goal.beforeComplete', {
-          sessionId,
-          ...(runId ? { runId } : {}),
-          goal: publicGoal(existing),
-        })
       const goal: PersistedGoal = {
         ...existing,
         status: existing.status === 'budget_limited' && status === 'blocked' ? 'budget_limited' : status,
@@ -480,9 +499,7 @@ class GoalRuntime implements GoalService {
         executionFailureStreak: 0,
         executionFailureRuns: [],
       }
-      await this.persist(goal, runId)
-      const report = status === 'complete' ? completionReport(goal) : undefined
-      return response(goal, report)
+      return this.persistTransition(existing, goal, runId)
     })
   }
 
@@ -492,11 +509,7 @@ class GoalRuntime implements GoalService {
       const cleared = this.goals.has(sessionId)
       if (cleared) {
         const previous = this.goals.get(sessionId)!
-        const goalId = previous.goalId
         await this.persistClear(sessionId)
-        for (const [runId, tracking] of this.activeRuns) {
-          if (tracking.goalId === goalId) this.activeRuns.delete(runId)
-        }
         await this.api.hooks.dispatch('goal.cleared', { sessionId, previous: publicGoal(previous) })
       }
       return { cleared }
@@ -509,6 +522,11 @@ class GoalRuntime implements GoalService {
     return this.serial(event.sessionId, async () => {
       let existing = this.goals.get(event.sessionId)
       if (!existing || existing.accountedRuns.includes(event.runId)) {
+        this.activeRuns.delete(event.runId)
+        return
+      }
+      const tracking = this.activeRuns.get(event.runId)
+      if (tracking && tracking.goalId !== existing.goalId) {
         this.activeRuns.delete(event.runId)
         return
       }
@@ -644,7 +662,7 @@ function toolsFor(runtime: GoalRuntime): ToolDefinition[] {
     {
       name: 'create_goal',
       description:
-        'Create a goal only when explicitly requested by the user or system/developer instructions; do not infer goals from ordinary tasks. Set token_budget only when an explicit token budget is requested. Repeating the active objective fails; a different objective replaces the prior goal and resets its accounting.',
+        'Create a goal only when explicitly requested by the user or system/developer instructions; do not infer goals from ordinary tasks. Set token_budget only when an explicit token budget is requested. Fails while any unfinished goal exists. Only explicit user goal editing may replace an unfinished objective.',
       inputSchema: createGoalArgs,
       effect: 'read',
       execute: async (args, context) => {

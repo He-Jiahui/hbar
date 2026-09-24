@@ -27,7 +27,7 @@ export type PlanConfig = z.infer<typeof planConfigSchema>
 
 const restoredPlanSchema = planStateSchema.extend({ revision: z.number().int().positive().optional() })
 const planUpdatedEventSchema = z.object({ plan: restoredPlanSchema })
-const planClearedEventSchema = z.object({ sessionId: idSchema })
+const planClearedEventSchema = z.object({ sessionId: idSchema, revision: z.number().int().positive().optional() })
 const modeChangedEventSchema = z.object({ mode: runModeSchema })
 const updatePlanSchema = z.object({
   explanation: z.string().max(4_000).optional(),
@@ -52,6 +52,7 @@ function escapeXml(value: string) {
 
 class PlanRuntime implements PlanService {
   private plans = new Map<string, PlanState>()
+  private revisions = new Map<string, number>()
   private modes = new Map<string, RunMode>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
@@ -86,12 +87,14 @@ class PlanRuntime implements PlanService {
       const parsed = planUpdatedEventSchema.safeParse(event.data)
       if (!parsed.success || parsed.data.plan.sessionId !== sessionId)
         throw new HbarError('PLAN_REPLAY', `Invalid plan.updated event in ${sessionId}`)
-      const previous = this.plans.get(sessionId)
+      const previousRevision = this.revisions.get(sessionId) ?? 0
+      const revision = parsed.data.plan.revision ?? previousRevision + 1
+      this.revisions.set(sessionId, Math.max(previousRevision, revision))
       this.plans.set(
         sessionId,
         planStateSchema.parse({
           ...parsed.data.plan,
-          revision: parsed.data.plan.revision ?? (previous?.revision ?? 0) + 1,
+          revision,
         }),
       )
       return
@@ -101,6 +104,7 @@ class PlanRuntime implements PlanService {
       if (!parsed.success || parsed.data.sessionId !== sessionId)
         throw new HbarError('PLAN_REPLAY', `Invalid plan.cleared event in ${sessionId}`)
       this.plans.delete(sessionId)
+      this.revisions.set(sessionId, Math.max(this.revisions.get(sessionId) ?? 0, parsed.data.revision ?? 0))
       return
     }
     if (event.type === 'mode.changed') {
@@ -138,6 +142,14 @@ class PlanRuntime implements PlanService {
     return this.plans.get(sessionId) ?? null
   }
 
+  async withRevision(sessionId: string, revision: number | null, commit: () => Promise<void>) {
+    return this.serial(sessionId, async () => {
+      if ((this.plans.get(sessionId)?.revision ?? null) !== revision)
+        throw new HbarError('PLAN_REVISION_CONFLICT', 'The plan changed before the dependent update was committed')
+      await commit()
+    })
+  }
+
   async update(
     sessionId: string,
     steps: PlanStep[],
@@ -156,7 +168,7 @@ class PlanRuntime implements PlanService {
         throw new HbarError('PLAN_INVALID', 'An Agent Plan can have at most one in-progress step')
       const state = planStateSchema.parse({
         sessionId,
-        revision: (current?.revision ?? 0) + 1,
+        revision: (this.revisions.get(sessionId) ?? 0) + 1,
         turnId: turnId ?? null,
         explanation: explanation === undefined ? null : explanation,
         plan: parsedSteps,
@@ -173,8 +185,10 @@ class PlanRuntime implements PlanService {
       if (expectedRevision !== undefined && expectedRevision !== (current?.revision ?? 0))
         throw new HbarError('PLAN_REVISION_CONFLICT', 'The plan changed before this update was applied')
       if (!current) return { cleared: false }
-      await this.api.sessions.append(sessionId, 'plan.cleared', { sessionId })
+      const revision = (this.revisions.get(sessionId) ?? 0) + 1
+      await this.api.sessions.append(sessionId, 'plan.cleared', { sessionId, revision })
       this.plans.delete(sessionId)
+      this.revisions.set(sessionId, revision)
       this.api.notify({ method: 'plan.cleared', params: { sessionId } })
       this.api.changed('plans')
       return { cleared: true }
@@ -246,6 +260,7 @@ class PlanRuntime implements PlanService {
   private async persistPlan(plan: PlanState, runId?: string) {
     await this.api.sessions.append(plan.sessionId, 'plan.updated', { plan }, runId)
     this.plans.set(plan.sessionId, plan)
+    this.revisions.set(plan.sessionId, plan.revision)
     this.api.notify({ method: 'plan.updated', params: plan })
     this.api.changed('plans')
   }

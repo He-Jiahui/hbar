@@ -580,7 +580,7 @@ test('reviewer cancellation restores the main Agent without user intervention', 
 
 test('replacing a Goal cancels its reviewer and archives the old execution focus', async () => {
   const { session, goals, plans, workflows } = await fixture()
-  await goals.create(session.id, 'Original reviewed goal')
+  const original = await goals.create(session.id, 'Original reviewed goal')
   const plan = await plans.update(session.id, [{ step: 'Review before replacement', status: 'in_progress' }])
   const focused = await workflows.focus(
     session.id,
@@ -604,7 +604,7 @@ test('replacing a Goal cancels its reviewer and archives the old execution focus
     [],
     'local-fixture',
   )
-  await goals.create(session.id, 'Replacement goal')
+  await goals.set(session.id, { objective: 'Replacement goal', expectedGoalId: original.goal?.goalId })
   expect(await workflows.get(session.id)).toMatchObject({
     workflow: { status: 'cancelled', review: { status: 'cancelled' } },
   })

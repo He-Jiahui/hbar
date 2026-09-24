@@ -12,7 +12,9 @@ Plan Mode 只在对话中产出 proposed plan。回到 Default mode 后，Agent 
 
 ## Goal 生命周期
 
-不同 objective 会替换当前 Goal：生成新的 `goalId`，重置 Token/时间计量、自动续跑审计与关联 Workflow，并清除旧 Agent Plan。同一 objective 或省略 objective 时只更新状态或预算，保留累计用量。`expectedGoalId` 用于拒绝过期写入。
+`goal.create` / `create_goal` 在任何未完成 Goal 存在时返回 `GOAL_EXISTS`。用户显式替换 objective 使用 `goal.set`，必须携带当前 `expectedGoalId`；替换生成新的 `goalId`，重置 Token/时间计量、自动续跑审计与关联 Workflow，并清除旧 Agent Plan。同一 objective 或省略 objective 时只更新状态或预算，保留累计用量。旧 Goal 已清除时，携带其身份的写入也会被拒绝，不能重新创建旧目标。
+
+`goal.set complete` 与 `goal.update complete` 使用相同的完成检查。校验与持久化期间锁定观察到的 Plan 和 Workflow 版本；并发修订会被排序或返回版本冲突，不会写入未经当前工作流验收的完成状态。创建或替换 objective 时不能同时标记完成。
 
 Workflow 完成最后一个 Plan 步骤后不会擅自完成 Goal。Agent 仍需根据 objective 的停止条件调用 `update_goal complete`。Goal 可以在没有 Workflow 时独立运行。
 
@@ -37,6 +39,8 @@ Workflow 完成最后一个 Plan 步骤后不会擅自完成 Goal。Agent 仍需
 `workflow.checkpoint complete` 先写入带 operation ID 的 transition intent，再以 Plan CAS 完成当前步骤并把下一 pending 步骤设为 in_progress，最后结算 Workflow。Host 如果在任一步崩溃，恢复时会幂等补齐；若 Plan 已被其他写入改变，则进入 `needs_revision`，不会把旧结果写入新 Plan。
 
 Plan revision 或步骤文本发生变化时，旧焦点、委派与 reviewer 结果都会失效。Agent 使用 `workflow_focus` 为新 revision 建立焦点即可恢复。Workflow 最后一步完成只结算 Plan/Workflow，不修改 Goal。
+
+清除 Agent Plan 会记录 revision 墓碑；重新发布的 Plan 继续递增版本，Host 重启也不会把版本重置为 1。没有当前 Plan 时，兼容命令的 `expectedRevision: 0` 仍表示创建，但旧 Plan 的版本不能匹配新 Plan。
 
 ## 验收策略
 
