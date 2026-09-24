@@ -47,6 +47,9 @@ export const workflowPathSchema = z
       !normalized.includes('*')
     )
   }, 'Workflow paths must be workspace-relative directory prefixes without parent traversal or globs')
+  .describe(
+    'Workspace-relative file or directory prefix, e.g. "proof.txt" or "src". No absolute paths, parent traversal (..), or globs.',
+  )
 
 export const workflowToolNameSchema = z
   .string()

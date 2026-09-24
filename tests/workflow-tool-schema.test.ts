@@ -1,11 +1,22 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
+import { workflowPathSchema } from '@hbar/contracts/workflow'
 import {
   workflowUpdateActionSchema,
   workflowUpdateToolSchema,
   workflowCheckpointToolSchema,
   workflowExpandScopeToolSchema,
 } from '../plugins/workflow/src/update-tool-schema'
+
+test('scope path restrictions are advertised to the model without weakening Host validation', () => {
+  const schema = JSON.stringify(z.toJSONSchema(workflowExpandScopeToolSchema))
+  expect(schema).toContain('Workspace-relative file or directory prefix')
+  expect(schema).toContain('No absolute paths')
+  for (const path of ['proof.txt', 'src', 'src/components'])
+    expect(workflowPathSchema.safeParse(path).success).toBe(true)
+  for (const path of ['C:/repo/proof.txt', '/repo/proof.txt', '../proof.txt', 'src/**'])
+    expect(workflowPathSchema.safeParse(path).success).toBe(false)
+})
 
 test('focused tools expose smaller object schemas without weakening version preconditions', () => {
   const checkpoint = {
