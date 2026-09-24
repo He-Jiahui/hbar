@@ -113,7 +113,13 @@ try {
   await expect
     .poll(async () => (await runs.execute('operation.get', { operationId: probe.operationId })).status)
     .toBe('completed')
-  const journalSchema = z.object({ request: z.object({ system: z.string(), toolNames: z.array(z.string()) }) })
+  const journalSchema = z.object({
+    request: z.object({
+      system: z.string(),
+      systemContextOffset: z.number().int().nonnegative().optional(),
+      toolNames: z.array(z.string()),
+    }),
+  })
   const requests = (await api.call('session.export', { sessionId: session.id }))
     .filter((event) => event.type === 'request.started')
     .map((event) => journalSchema.parse(event.data).request)
@@ -121,6 +127,10 @@ try {
   expect(compactRequest?.system).toContain('get_plan({})')
   expect(compactRequest?.system).toContain('Scope-gated tools require explicit authorized scope expansion')
   expect(compactRequest?.system).toContain('<workflow_deferred_tools>')
+  if (!compactRequest || compactRequest.systemContextOffset === undefined)
+    throw new Error('Rebuilt Host context boundary not loaded')
+  expect(compactRequest.system.slice(0, compactRequest.systemContextOffset)).not.toContain('<focus_workflow>')
+  expect(compactRequest.system.slice(compactRequest.systemContextOffset)).toContain('<focus_workflow>')
   expect(compactRequest?.system).toContain(`Current Agent Plan revision: ${plan.revision}`)
   expect(compactRequest?.toolNames).toContain('workflow_execute')
   expect(compactRequest?.toolNames).not.toContain('get_plan')
@@ -211,6 +221,7 @@ try {
         compactControlCatalogLoaded: true,
         scopeGatedCatalogLoaded: true,
         deferredCapabilityInventoryLoaded: true,
+        hostContextBoundaryLoaded: true,
         freshPlanContextLoaded: true,
         boundedSequenceQuerySucceeded: true,
         dualBudgetVisible: true,
