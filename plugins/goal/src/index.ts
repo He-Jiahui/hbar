@@ -17,14 +17,17 @@ const MAX_AUDIT_RUNS = 32
 const MAX_EXECUTION_FAILURE_RUNS = 32
 const MAX_ACCOUNTED_RUNS = 256
 
-type RunAccounting = {
-  goalId: string
-  startedAt: number
-  tokensAccounted: number
-  timeAccounted: number
-}
+const runAccountingSchema = z.object({
+  goalId: z.string().min(1).max(160),
+  sessionId: z.string().min(1).max(160),
+  startedAt: z.number().int().nonnegative(),
+  usageThroughSeq: z.number().int().nonnegative(),
+  tokensAccounted: z.number().int().nonnegative(),
+  timeAccounted: z.number().int().nonnegative(),
+})
+type RunAccounting = z.infer<typeof runAccountingSchema>
 
-type AccountingMode = 'active-status-only' | 'active-only' | 'active-or-complete' | 'active-or-stopped'
+type AccountingMode = 'bound-run' | 'active-status-only' | 'active-only' | 'active-or-complete' | 'active-or-stopped'
 
 export const goalConfigSchema = z.object({
   // Codex leaves this unset by default. When present it is both the upper
@@ -125,15 +128,9 @@ function usageDelta(events: SessionEvent[], runId: string) {
     const parsed = usageSchema.safeParse(event.data)
     if (!parsed.success) continue
     const usage: Usage = parsed.data
-    tokens += Math.max(0, usage.input - usage.cacheRead + usage.output)
+    tokens += Math.max(0, usage.input - usage.cacheRead) + usage.output
   }
   return Math.max(0, Math.round(tokens))
-}
-
-function elapsedSeconds(run: Run) {
-  const started = run.startedAt ?? run.createdAt
-  const ended = run.endedAt ?? Date.now()
-  return Math.max(0, Math.floor((ended - started) / 1000))
 }
 
 function elapsedSince(startedAt: number, endedAt = Date.now()) {
@@ -142,6 +139,8 @@ function elapsedSince(startedAt: number, endedAt = Date.now()) {
 
 function statusAllowsAccounting(status: GoalStatus, mode: AccountingMode) {
   switch (mode) {
+    case 'bound-run':
+      return true
     case 'active-status-only':
       return status === 'active'
     case 'active-only':
@@ -153,17 +152,13 @@ function statusAllowsAccounting(status: GoalStatus, mode: AccountingMode) {
   }
 }
 
-function budgetCanLimit(status: GoalStatus, mode: AccountingMode) {
-  return mode === 'active-or-stopped'
-    ? ['active', 'paused', 'blocked', 'usage_limited', 'budget_limited'].includes(status)
-    : status === 'active'
-}
-
 class GoalRuntime implements GoalService {
   private goals = new Map<string, PersistedGoal>()
   private activeRuns = new Map<string, RunAccounting>()
+  private boundRuns = new Set<string>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
+  private uncertainSessions = new Set<string>()
 
   constructor(
     private api: HbarAPI,
@@ -172,6 +167,9 @@ class GoalRuntime implements GoalService {
 
   async restore() {
     this.activeRuns.clear()
+    this.boundRuns.clear()
+    this.goals.clear()
+    this.uncertainSessions.clear()
     const sessions = await this.api.sessions.list()
     for (let offset = 0; offset < sessions.length; offset += 8) {
       const batch = sessions.slice(offset, offset + 8)
@@ -181,6 +179,17 @@ class GoalRuntime implements GoalService {
           if (events.length > MAX_EVENTS)
             throw new HbarError('GOAL_RESTORE_LIMIT', `Goal replay for ${session.id} exceeded ${MAX_EVENTS} events`)
           for (const event of events) {
+            const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
+            if (
+              ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type) &&
+              checkpoint.success &&
+              event.runId
+            ) {
+              if (checkpoint.data.accounting.sessionId !== session.id)
+                throw new HbarError('GOAL_REPLAY', `Invalid run accounting in ${session.id}`)
+              this.activeRuns.set(event.runId, checkpoint.data.accounting)
+              this.boundRuns.add(event.runId)
+            }
             if (event.type === 'goal.cleared') {
               this.goals.delete(session.id)
               continue
@@ -190,6 +199,10 @@ class GoalRuntime implements GoalService {
               if (goal.threadId !== session.id)
                 throw new HbarError('GOAL_REPLAY', `Invalid goal event in ${session.id}`)
               this.goals.set(session.id, goal)
+              for (const runId of goal.accountedRuns) {
+                this.boundRuns.add(runId)
+                this.activeRuns.delete(runId)
+              }
             }
           }
         }),
@@ -212,6 +225,7 @@ class GoalRuntime implements GoalService {
     await previous
     try {
       await this.ready()
+      this.assertKnown(sessionId)
       return await operation()
     } finally {
       release()
@@ -219,29 +233,49 @@ class GoalRuntime implements GoalService {
     }
   }
 
-  private registerRun(runId: string, goal: PersistedGoal, startedAt: number) {
+  private assertKnown(sessionId: string) {
+    if (this.uncertainSessions.has(sessionId))
+      throw new HbarError('RESULT_UNKNOWN', 'Goal state requires Host recovery')
+  }
+
+  private async append(sessionId: string, type: string, data: unknown, runId?: string) {
+    try {
+      return await this.api.sessions.append(sessionId, type, data, runId)
+    } catch (error) {
+      this.uncertainSessions.add(sessionId)
+      throw error
+    }
+  }
+
+  private async registerRun(runId: string, goal: PersistedGoal, startedAt: number) {
     const current = this.activeRuns.get(runId)
-    if (current?.goalId === goal.goalId) return
-    this.activeRuns.set(runId, {
+    if (current || this.boundRuns.has(runId) || goal.accountedRuns.includes(runId)) return
+    const accounting: RunAccounting = {
       goalId: goal.goalId,
+      sessionId: goal.threadId,
       startedAt,
+      usageThroughSeq: (await this.api.sessions.get(goal.threadId)).seq,
       tokensAccounted: 0,
       timeAccounted: 0,
+    }
+    await this.append(goal.threadId, 'goal.run_bound', { accounting }, runId)
+    this.activeRuns.set(runId, accounting)
+    this.boundRuns.add(runId)
+  }
+
+  async startRun(event: HookEvents['run.start']) {
+    if (event.run.input.mode === 'plan') return
+    await this.serial(event.sessionId, async () => {
+      const goal = this.goals.get(event.sessionId)
+      if (!goal || !statusAllowsAccounting(goal.status, 'active-only')) return
+      await this.registerRun(event.runId, goal, event.run.startedAt ?? event.run.createdAt)
     })
   }
 
-  private async registerCreatedRun(sessionId: string, goal: PersistedGoal, runId: string, startedAt: number) {
-    const events = await this.api.sessions.events(sessionId, 0, MAX_EVENTS)
-    this.registerRun(runId, goal, startedAt)
-    const tracking = this.activeRuns.get(runId)
-    if (tracking) tracking.tokensAccounted = usageDelta(events, runId)
-  }
-
-  startRun(event: HookEvents['run.start']) {
-    if (event.run.input.mode === 'plan') return
-    const goal = this.goals.get(event.sessionId)
-    if (!goal || !statusAllowsAccounting(goal.status, 'active-only')) return
-    this.registerRun(event.runId, goal, event.run.startedAt ?? event.run.createdAt)
+  async accountStep(event: HookEvents['step.end']) {
+    await this.serial(event.sessionId, async () => {
+      await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run')
+    })
   }
 
   private async accountProgressUnlocked(
@@ -255,17 +289,16 @@ class GoalRuntime implements GoalService {
     if (!existing || !tracking || tracking.goalId !== existing.goalId) return existing ?? null
     if (!statusAllowsAccounting(existing.status, mode)) return existing
 
-    const events = await this.api.sessions.events(sessionId, 0, MAX_EVENTS + 1)
+    const events = await this.api.sessions.events(sessionId, tracking.usageThroughSeq, MAX_EVENTS + 1)
     if (events.length > MAX_EVENTS)
       throw new HbarError('GOAL_ACCOUNTING_LIMIT', `Goal accounting for ${sessionId} exceeded ${MAX_EVENTS} events`)
-    const totalTokens = usageDelta(events, runId)
-    const totalTime = finalRun ? elapsedSeconds(finalRun) : elapsedSince(tracking.startedAt)
-    const tokenDelta = Math.max(0, totalTokens - tracking.tokensAccounted)
+    const tokenDelta = usageDelta(events, runId)
+    const totalTime = elapsedSince(tracking.startedAt, finalRun?.endedAt ?? Date.now())
     const timeDelta = Math.max(0, totalTime - tracking.timeAccounted)
     if (tokenDelta === 0 && timeDelta === 0) return existing
 
     const status: GoalStatus =
-      budgetCanLimit(existing.status, mode) &&
+      existing.status === 'active' &&
       existing.tokenBudget !== null &&
       existing.tokensUsed + tokenDelta >= existing.tokenBudget
         ? 'budget_limited'
@@ -277,9 +310,13 @@ class GoalRuntime implements GoalService {
       timeUsedSeconds: existing.timeUsedSeconds + timeDelta,
       updatedAt: Date.now(),
     }
-    await this.persist(goal, runId, 'goal.accounted')
-    tracking.tokensAccounted = Math.max(tracking.tokensAccounted, totalTokens)
-    tracking.timeAccounted = Math.max(tracking.timeAccounted, totalTime)
+    const accounting: RunAccounting = {
+      ...tracking,
+      usageThroughSeq: events.at(-1)?.seq ?? tracking.usageThroughSeq,
+      tokensAccounted: tracking.tokensAccounted + tokenDelta,
+      timeAccounted: Math.max(tracking.timeAccounted, totalTime),
+    }
+    await this.persist(goal, runId, 'goal.accounted', accounting)
     return goal
   }
 
@@ -306,9 +343,13 @@ class GoalRuntime implements GoalService {
     return value
   }
 
-  private async persist(goal: PersistedGoal, runId?: string, type = 'goal.updated') {
-    const event = await this.api.sessions.append(goal.threadId, type, { goal }, runId)
+  private async persist(goal: PersistedGoal, runId?: string, type = 'goal.updated', accounting?: RunAccounting) {
+    const event = await this.append(goal.threadId, type, { goal, ...(accounting ? { accounting } : {}) }, runId)
     this.goals.set(goal.threadId, goal)
+    if (accounting && runId) {
+      this.activeRuns.set(runId, accounting)
+      this.boundRuns.add(runId)
+    }
     this.api.notify({
       method: 'goal.updated',
       params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: publicGoal(goal) },
@@ -317,7 +358,7 @@ class GoalRuntime implements GoalService {
   }
 
   private async persistClear(sessionId: string, runId?: string) {
-    await this.api.sessions.append(sessionId, 'goal.cleared', { sessionId }, runId)
+    await this.append(sessionId, 'goal.cleared', { sessionId }, runId)
     this.goals.delete(sessionId)
     this.api.notify({ method: 'goal.cleared', params: { sessionId } })
     this.api.changed('goals')
@@ -343,6 +384,7 @@ class GoalRuntime implements GoalService {
 
   async get(sessionId: string) {
     await this.ready()
+    this.assertKnown(sessionId)
     await this.api.sessions.get(sessionId)
     return response(this.goals.get(sessionId) ?? null)
   }
@@ -372,14 +414,23 @@ class GoalRuntime implements GoalService {
         continuationCount: 0,
         accountedRuns: [],
       }
-      await this.persist(goal, undefined, 'goal.created')
+      const accounting: RunAccounting | undefined = runId
+        ? {
+            goalId: goal.goalId,
+            sessionId,
+            startedAt: Math.max(goal.createdAt, startedAt ?? goal.createdAt),
+            usageThroughSeq: (await this.api.sessions.get(sessionId)).seq,
+            tokensAccounted: 0,
+            timeAccounted: 0,
+          }
+        : undefined
+      await this.persist(goal, runId, 'goal.created', accounting)
       if (existing && existing.goalId !== goal.goalId)
         await this.api.hooks.dispatch('goal.replaced', {
           sessionId,
           previous: publicGoal(existing),
           goal: publicGoal(goal),
         })
-      if (runId) await this.registerCreatedRun(sessionId, goal, runId, startedAt ?? Date.now())
       return response(goal)
     })
   }
@@ -471,11 +522,9 @@ class GoalRuntime implements GoalService {
       const requestedBudget = budgetWasProvided ? (budget ?? null) : existing.tokenBudget
       const requestedStatus = input.status ?? existing.status
       const status: GoalStatus =
-        existing.status === 'budget_limited' && ['paused', 'blocked'].includes(requestedStatus)
+        requestedStatus === 'active' && requestedBudget !== null && existing.tokensUsed >= requestedBudget
           ? 'budget_limited'
-          : requestedStatus === 'active' && requestedBudget !== null && existing.tokensUsed >= requestedBudget
-            ? 'budget_limited'
-            : requestedStatus
+          : requestedStatus
       const goal: PersistedGoal = {
         ...existing,
         ...(objective === undefined ? {} : { objective }),
@@ -535,22 +584,17 @@ class GoalRuntime implements GoalService {
         return
       }
       const tracking = this.activeRuns.get(event.runId)
-      if (tracking && tracking.goalId !== existing.goalId) {
+      if (!tracking || tracking.goalId !== existing.goalId) {
         this.activeRuns.delete(event.runId)
         return
       }
-      // A run can outlive a host restart, so reconstruct a missing in-memory
-      // baseline at the run boundary. Normal runs are registered by run.start.
-      if (!this.activeRuns.has(event.runId) && statusAllowsAccounting(existing.status, 'active-only'))
-        this.registerRun(event.runId, existing, run.startedAt ?? run.createdAt)
-
       const events = await this.api.sessions.events(event.sessionId, 0, MAX_EVENTS + 1)
       if (events.length > MAX_EVENTS)
         throw new HbarError(
           'GOAL_ACCOUNTING_LIMIT',
           `Goal accounting for ${event.sessionId} exceeded ${MAX_EVENTS} events`,
         )
-      const accounted = await this.accountProgressUnlocked(event.sessionId, event.runId, 'active-only', run)
+      const accounted = await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run', run)
       existing = accounted ?? this.goals.get(event.sessionId)
       if (!existing) {
         this.activeRuns.delete(event.runId)
@@ -627,7 +671,13 @@ class GoalRuntime implements GoalService {
 
   decorate(request: ModelRequest): ModelRequest {
     const sessionId = request.context?.sessionId
+    if (sessionId) this.assertKnown(sessionId)
     const goal = sessionId ? this.goals.get(sessionId) : undefined
+    if (request.context?.mode !== 'plan' && goal?.status === 'budget_limited')
+      throw new HbarError(
+        'GOAL_BUDGET_EXHAUSTED',
+        `Goal token budget exhausted (${goal.tokensUsed}/${goal.tokenBudget})`,
+      )
     if (!goal || goal.status !== 'active') return request
     const remaining = goal.tokenBudget === null ? 'unbounded' : String(Math.max(0, goal.tokenBudget - goal.tokensUsed))
     const continuation =
@@ -723,6 +773,7 @@ export const goalPlugin = definePlugin({
     await runtime.restore()
     provide<GoalService>(ctx, 'goal', runtime)
     api.hooks.on('run.start', (event) => runtime.startRun(event))
+    api.hooks.on('step.end', (event) => runtime.accountStep(event))
     api.hooks.on('run.end', (event) => runtime.accountRun(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
