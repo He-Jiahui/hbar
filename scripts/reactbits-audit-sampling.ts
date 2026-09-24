@@ -184,9 +184,68 @@ const permissionPlan: AuditSamplingPlan = {
   ],
 }
 
+const costPlan: AuditSamplingPlan = {
+  revision: 1,
+  lumenEntries: ['agent-approval.tsx', 'LumenProvider.tsx'],
+  samples: [
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '0:click',
+      change: 'Request disclosure preserves estimates and changes the centered card height',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '1:click',
+      change: 'Rejection replaces actions with Skipped while retaining the estimate',
+    },
+    { viewport: 'desktop', theme: 'dark', suffix: '2:hover', change: 'Representative decision button visual feedback' },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: 'cost-request-open:2:press-space',
+      change: 'Keyboard approval from expanded request shows background-running result',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: '0:click',
+      change: 'Narrow disclosure changes content height and scroll position',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'cost-request-open:0:click',
+      change: 'Narrow collapse restores the estimate/action flow',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'cost-request-open:1:press-enter',
+      change: 'Narrow expanded rejection removes the payload and reflows the result',
+    },
+  ],
+  inferences: [
+    {
+      scope: 'Other native button gestures and repeated decisions at other themes/sizes',
+      basis:
+        'One host-confirmed decision transition and shared native button semantics; both distinct outcomes, pointer feedback and keyboard activation are sampled. Eight static pairs cover themes and widths.',
+      verification: 'inferred-not-replayed',
+    },
+    {
+      scope: 'Repeated static cost rows, spend bar and request text',
+      basis:
+        'These are passive estimates, not executable controls. Counts/duplicates/localization and bounded bar values have unit coverage; no invented metric editing or paid operation is tested.',
+      verification: 'inferred-not-replayed',
+    },
+  ],
+}
+
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
+  if (variantId === 'hbar-app-ui-agent-approval-5') return costPlan
   return undefined
 }
 

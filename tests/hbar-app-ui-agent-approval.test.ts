@@ -57,7 +57,8 @@ describe('hbar-app-ui agent approval surfaces', () => {
     expect(markup[1]).toContain('data-boundary="none"')
     expect(markup[2]).toContain('data-boundary="none"')
     expect(markup[3]).toContain('data-boundary="none"')
-    for (const surface of markup.slice(4)) {
+    expect(markup[4]).toContain('data-boundary="none"')
+    for (const surface of markup.slice(5)) {
       expect(surface).toContain('data-boundary="horizontal"')
     }
     for (const surface of markup) {

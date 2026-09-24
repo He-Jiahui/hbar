@@ -1,6 +1,7 @@
 import { chromium, expect } from '@playwright/test'
 import { verifyQueueApproval } from './verify-hbar-app-ui-agent-approval-queue'
 import { verifyPermissionApproval } from './verify-hbar-app-ui-agent-approval-permission'
+import { verifyCostApproval } from './verify-hbar-app-ui-agent-approval-cost'
 import {
   HBAR_APP_UI_AGENT_APPROVAL_FIXTURES,
   createHbarAppUiAgentApprovalLocalizedFixtures,
@@ -12,6 +13,7 @@ const inlineOnly = process.argv.includes('--inline-only')
 const diffOnly = process.argv.includes('--diff-only')
 const queueOnly = process.argv.includes('--queue-only')
 const permissionOnly = process.argv.includes('--permission-only')
+const costOnly = process.argv.includes('--cost-only')
 type AgentApprovalFixture = 'overflow' | 'localized'
 type GeometryBox = Readonly<{ x: number; y: number; width: number; height: number }>
 type GeometryExpectation = Readonly<{
@@ -565,6 +567,11 @@ async function run(): Promise<void> {
   page.on('pageerror', (error) => pageErrors.push(error.message))
 
   try {
+    if (costOnly) {
+      await verifyCostApproval(page, baseUrl)
+      assert(pageErrors.length === 0, `Cost preview errors: ${pageErrors.join(' | ')}`)
+      return
+    }
     if (permissionOnly) {
       await verifyPermissionApproval(page, baseUrl)
       assert(pageErrors.length === 0, `Permission preview errors: ${pageErrors.join(' | ')}`)

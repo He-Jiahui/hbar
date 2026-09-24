@@ -337,6 +337,26 @@ describe('React Bits Pro visual audit contract', () => {
     expect(checkableStates('- button "Text with [checked]"')).toEqual([])
   })
 
+  test('cost approval samples distinct outcomes and wrapping instead of passive metrics', () => {
+    const id = 'hbar-app-ui-agent-approval-5'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(7)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toHaveLength(4)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toHaveLength(3)
+    expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([])
+    expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(
+      true,
+    )
+    const expanded = snapshot([
+      control(0, { name: 'Hide request', expanded: 'true' }),
+      control(1, { name: 'Reject' }),
+      control(2, { name: 'Approve' }),
+      control(3, { tag: 'pre', capabilities: ['focus', 'no-op'] }),
+    ])
+    const ids = interactionCases(expanded, id, 'cost-request-open').map((item) => item.id)
+    expect(ids).toContain(`${id}:cost-request-open:2:press-space`)
+    expect(ids).toContain(`${id}:cost-request-open:1:press-enter`)
+  })
+
   test('renders separate source/local before/after evidence without hiding missing images', () => {
     const page = renderAuditEvidencePage([
       {

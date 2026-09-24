@@ -235,6 +235,7 @@ export type InteractionCase = Readonly<{
     | 'retry-queued'
     | 'inline-request-open'
     | 'diff-request-open'
+    | 'cost-request-open'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -887,6 +888,16 @@ async function applyLocalCanvas(
     .first()
     .evaluate((element, boundarySelector) => {
       const value = { top: 0, right: 0, bottom: 0, left: 0 }
+      // Some full-canvas components own the same stage padding inside their
+      // material wrapper. Explicit ownership avoids guessing from card padding.
+      const owner = element.querySelector('.hbar-app-ui-stage-padding-owner')
+      if (owner) {
+        const style = getComputedStyle(owner)
+        value.top += Number.parseFloat(style.paddingTop) || 0
+        value.right += Number.parseFloat(style.paddingRight) || 0
+        value.bottom += Number.parseFloat(style.paddingBottom) || 0
+        value.left += Number.parseFloat(style.paddingLeft) || 0
+      }
       let ancestor = element.parentElement
       while (ancestor && !ancestor.matches(boundarySelector)) {
         const style = getComputedStyle(ancestor)
@@ -1608,6 +1619,7 @@ function isScrollAwareApproval(id: string): boolean {
     'hbar-app-ui-agent-approval-2',
     'hbar-app-ui-agent-approval-3',
     'hbar-app-ui-agent-approval-4',
+    'hbar-app-ui-agent-approval-5',
   ].includes(id)
 }
 
@@ -2084,6 +2096,8 @@ async function replayInteraction(
     await prepareInlineApprovalScenario(root)
   if (spec.id === 'hbar-app-ui-agent-approval-2' && interaction.scenario === 'diff-request-open')
     await prepareDiffApprovalScenario(root)
+  if (spec.id === 'hbar-app-ui-agent-approval-5' && interaction.scenario === 'cost-request-open')
+    await prepareInlineApprovalScenario(root)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2177,6 +2191,8 @@ async function replayReferenceInteraction(
     await prepareInlineApprovalScenario(root)
   if (reference.id === 'hbar-app-ui-agent-approval-2' && interaction.scenario === 'diff-request-open')
     await prepareDiffApprovalScenario(root)
+  if (reference.id === 'hbar-app-ui-agent-approval-5' && interaction.scenario === 'cost-request-open')
+    await prepareInlineApprovalScenario(root)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2721,6 +2737,13 @@ async function runInteractionsParallel(
             if (spec.id === 'hbar-app-ui-agent-approval-2') {
               await prepareDiffApprovalScenario(sourceRoot)
               discovered.push(...diffApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
+            }
+            if (spec.id === 'hbar-app-ui-agent-approval-5') {
+              await prepareInlineApprovalScenario(sourceRoot)
+              const expanded = await snapshotRoot(frame, sourceSelector)
+              if (!visibleControls(expanded).some((control) => control.tag === 'pre'))
+                throw new Error('Missing focusable live cost request')
+              discovered.push(...interactionCases(expanded, spec.id, 'cost-request-open'))
             }
             if (spec.id === 'hbar-app-ui-agent-approval-3') {
               for (const plan of queueApprovalScenarioPlans) {

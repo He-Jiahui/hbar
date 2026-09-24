@@ -268,6 +268,9 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
     listStrategy: { kind: 'content-grown', expectedMaximum: 3 },
   },
   cost: {
+    requestId: 'q4-forecast',
+    state: 'pending',
+    onDecision: () => undefined,
     labels: {
       badge: 'High-cost operation',
       agent: 'Demand forecast agent',
@@ -281,6 +284,7 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
       projected: 'Projected spend for this run',
       separator: '·',
       showRequest: 'Show request',
+      hideRequest: 'Hide request',
       reject: 'Reject',
       approve: 'Approve',
     },
@@ -291,8 +295,17 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
       { id: 'queries', label: 'Warehouse queries', value: '9,600', detail: 'Read-only snapshots' },
     ],
     projectedValue: '$18.40 of a $25.00 cap',
-    progress: 68,
+    progress: 74,
     progressLabel: 'Projected spend progress',
+    requestText: 'run_forecast({\n  horizon: "Q4",\n  maxSpendUsd: 25\n})',
+    outcomes: {
+      approved: {
+        status: 'Approved',
+        summary: 'Running in the background. You can stop it any time',
+        announcement: 'Approved. The forecast is running.',
+      },
+      rejected: { status: 'Skipped', summary: 'Skipped, not approved', announcement: 'Skipped, not approved.' },
+    },
     listStrategy: { kind: 'content-grown', expectedMaximum: 3 },
   },
   history: {
@@ -327,6 +340,13 @@ export function createHbarAppUiAgentApprovalOverflowFixtures(): HbarAppUiAgentAp
   const base = HBAR_APP_UI_AGENT_APPROVAL_FIXTURES
   return {
     ...base,
+    cost: base.cost && {
+      ...base.cost,
+      metrics: [
+        ...base.cost.metrics,
+        { id: 'extra-estimate', label: 'Additional estimate', value: '1 batch', detail: 'Host supplied detail' },
+      ],
+    },
     queue: base.queue && {
       ...base.queue,
       pending: [
@@ -507,8 +527,42 @@ export function createHbarAppUiAgentApprovalLocalizedFixtures(): HbarAppUiAgentA
       labels: {
         ...base.cost.labels,
         badge: 'Kostenintensive Operation',
+        agent: 'Prognose-Assistent',
+        title:
+          'Nachfrageprognose für das vierte Quartal ausführen: etwa vierzig Minuten und bis zu achtzehn Dollar Modellkosten',
+        projected: 'Voraussichtliche Ausgaben für diesen vollständigen Durchlauf',
         showRequest: 'Details zur Schätzung anzeigen',
+        hideRequest: 'Details zur Schätzung ausblenden',
+        reject: 'Ausführung ablehnen',
         approve: 'Ausführung genehmigen',
+      },
+      projectedValue: '18,40 Dollar bei einer Obergrenze von 25,00 Dollar',
+      metrics: [
+        {
+          id: 'runtime',
+          label: 'Geschätzte Gesamtdauer',
+          value: 'etwa 40 Minuten',
+          detail: 'Wird im Hintergrund ausgeführt',
+        },
+        {
+          id: 'usage',
+          label: 'Voraussichtliche Modellnutzung',
+          value: 'bis zu 18,40 Dollar',
+          detail: 'Auf 25,00 Dollar begrenzt',
+        },
+        { id: 'queries', label: 'Datenbankabfragen', value: '9.600', detail: 'Schreibgeschützte Momentaufnahmen' },
+      ],
+      outcomes: {
+        approved: {
+          status: 'Genehmigt',
+          summary: 'Wird im Hintergrund ausgeführt. Sie können den Vorgang jederzeit stoppen',
+          announcement: 'Genehmigt. Die Prognose wird ausgeführt.',
+        },
+        rejected: {
+          status: 'Übersprungen',
+          summary: 'Übersprungen, nicht genehmigt',
+          announcement: 'Übersprungen, nicht genehmigt.',
+        },
       },
     },
     history: base.history && {
