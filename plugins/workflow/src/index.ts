@@ -990,7 +990,8 @@ export class WorkflowRuntime implements WorkflowService {
         ...current,
         revision: current.revision + 1,
         status: ['blocked', 'needs_revision'].includes(current.status) ? 'active' : current.status,
-        focusRevision: current.revision + 1,
+        // Union-only scope growth keeps the same Plan step and acceptance
+        // definition. Replacement, not bookkeeping or expansion, changes ownership.
         activeItemId: itemId,
         explorationCount: 0,
         workItems: current.workItems.map((candidate) =>
@@ -2053,7 +2054,7 @@ export class WorkflowRuntime implements WorkflowService {
           ]
         : []),
       'A complete checkpoint also advances the Agent Plan and completes the workflow when its last step finishes; do not duplicate that with update_plan or workflow complete.',
-      'Tools execute sequentially in listed order. When inputs are known, emit related calls together: authorized scope repair, write, then read-back. Wait for their results before asserting verification. After verification, emit the final checkpoint and update_goal complete together; both remain Host-guarded.',
+      'Tools execute sequentially in listed order. Batch related calls when inputs are known. For Host-tool-verified checks, the same batch may include authorized scope repair, write, read-back, workflow_checkpoint complete, and update_goal complete. These request conditional completion: the Host refuses missing or failed verification. Do not claim success before settlement. For checks needing interpretation, inspect results before requesting completion.',
       '</focus_workflow>',
     ].join('\n')
     return { ...request, system: `${request.system}\n\n${prompt}` }
@@ -2104,6 +2105,14 @@ export class WorkflowRuntime implements WorkflowService {
         'Only Goal, Plan and Workflow inspection or revision tools are available during recovery',
       )
     if (CONTROL_TOOLS.has(name)) return
+    if (workflow?.status === 'completed' && tool.effect !== 'read') {
+      const goal = (await this.goals.get(context.session.id)).goal
+      if (goal?.status === 'active' && (goal.goalId ?? goal.threadId) === workflow.goalId)
+        throw new HbarError(
+          'WORKFLOW_FOCUS_REQUIRED',
+          'The current Goal already checkpointed this result. Add or revise its Agent Plan and focus before further workspace mutations; otherwise complete the Goal.',
+        )
+    }
     if (!workflow || ['completed', 'cancelled'].includes(workflow.status)) return
     if (['blocked', 'needs_revision'].includes(workflow.status))
       throw new HbarError('WORKFLOW_CHECKPOINT_REQUIRED', 'Revise the blocked workflow item before using more tools')
@@ -2432,7 +2441,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
     {
       name: 'workflow_checkpoint',
       description:
-        'Checkpoint the current focus after observing verification results. Focus and Plan versions stay valid across tool bookkeeping; replacement invalidates them. Host requires fresh passing checks and no in-flight mutation. A complete checkpoint also advances Plan.',
+        'Request a guarded focus checkpoint. May follow Host-tool verification in the same sequential batch; missing/failed checks refuse completion. Focus and Plan versions survive bookkeeping and scope expansion, not replacement. Complete also advances Plan.',
       inputSchema: workflowCheckpointToolSchema,
       effect: 'read',
       execute: async (args, context) => {

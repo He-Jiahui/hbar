@@ -121,6 +121,13 @@ test('stable focus checkpoint survives read/write bookkeeping but never accepts 
   expect((await check()).status).toBe('pending')
   await run('write_file', { path: 'proof.txt', text: 'correct proof' })
   await run('read_file', { path: 'proof.txt' })
+  await workflows.expandScope(
+    session.id,
+    'proof',
+    { readPaths: ['extra.txt'], writePaths: [], tools: [] },
+    'Add an authorized read prefix without replacing the focus',
+    (await workflows.get(session.id)).workflow!.revision,
+  )
   await run('workflow_checkpoint', checkpoint)
   expect((await workflows.get(session.id)).workflow?.status).toBe('completed')
 })
