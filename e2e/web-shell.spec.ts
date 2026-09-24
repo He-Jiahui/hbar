@@ -260,7 +260,7 @@ test('long session history preserves reading anchors, follows new content on dem
     await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
-    const viewport = page.locator('.hbar-app-ui-conversation-messages')
+    const viewport = page.locator('.lumen-conversation-messages')
     const virtual = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
     await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '60')
     await expect(page.locator('[data-message-id="history-180"]')).toBeVisible()
@@ -326,6 +326,14 @@ test('long session history preserves reading anchors, follows new content on dem
       element.dispatchEvent(new Event('scroll'))
     })
     const savedOffset = await viewport.evaluate((element) => element.scrollTop)
+    const savedReadingAnchor = await viewport.evaluate((element) => {
+      const top = element.getBoundingClientRect().top
+      const message = [...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(
+        (row) => row.getBoundingClientRect().bottom > top,
+      )
+      if (!message) throw new Error('No reading anchor is visible before switching sessions')
+      return { id: message.dataset.messageId, offset: message.getBoundingClientRect().top - top }
+    })
     await page.getByRole('button', { name: 'Open session Session 001' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Session 001' })).toBeVisible()
     await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
@@ -334,6 +342,18 @@ test('long session history preserves reading anchors, follows new content on dem
     await expect
       .poll(async () => Math.abs((await viewport.evaluate((element) => element.scrollTop)) - savedOffset))
       .toBeLessThan(32)
+    await expect
+      .poll(() =>
+        viewport.evaluate((element, saved) => {
+          const message = [...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(
+            (row) => row.dataset.messageId === saved.id,
+          )
+          return message
+            ? Math.abs(message.getBoundingClientRect().top - element.getBoundingClientRect().top - saved.offset)
+            : Number.POSITIVE_INFINITY
+        }, savedReadingAnchor),
+      )
+      .toBeLessThan(4)
 
     await prompt.fill('draft preserved through reconnect')
     if (!browserSocket) throw new Error('The browser RPC WebSocket was not routed')
