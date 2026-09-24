@@ -1321,10 +1321,11 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    // Fixed Host groups intentionally have no layered scope selector.
+    await page.getByRole('button', { name: 'Model', exact: true }).click()
     const settingsScope = page.getByRole('combobox', { name: 'Settings scope' })
     await settingsScope.selectOption('session')
     await expect(page.locator('.lumen-page-heading p')).toHaveText(`Session settings · ${fixture.ready.sessionTitle}`)
-    await page.getByRole('button', { name: 'Model', exact: true }).click()
     const settingsModel = page.getByRole('combobox', { name: 'Model' })
     await expect(settingsModel).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Thinking level' })).toBeVisible()
