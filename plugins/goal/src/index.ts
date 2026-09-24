@@ -50,6 +50,7 @@ const persistedGoalSchema = threadGoalSchema.extend({
   goalId: z.string().min(1).max(160),
   blockedAuditStreak: z.number().int().nonnegative().default(0),
   blockedAuditRuns: z.array(z.string().min(1).max(160)).max(MAX_AUDIT_RUNS).default([]),
+  blockedReason: z.string().max(2000).nullable().default(null),
   executionFailureStreak: z.number().int().nonnegative().default(0),
   executionFailureRuns: z.array(z.string().min(1).max(160)).max(MAX_EXECUTION_FAILURE_RUNS).default([]),
   continuationCount: z.number().int().nonnegative().default(0),
@@ -69,7 +70,10 @@ const createGoalArgs = z.object({
   objective: z.string().trim().min(1).max(4_000),
   token_budget: z.number().int().positive().optional(),
 })
-const updateGoalArgs = z.object({ status: z.enum(['complete', 'blocked']) })
+const updateGoalArgs = z.object({
+  status: z.enum(['complete', 'blocked']),
+  reason: z.string().trim().min(1).max(2000).optional(),
+})
 
 function escapeXml(value: string) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -88,6 +92,15 @@ function publicGoal(goal: PersistedGoal): ThreadGoal {
     updatedAt: goal.updatedAt,
     ...(goal.executionBudget ? { executionBudget: goal.executionBudget } : {}),
     ...(goal.continuationIntent ? { continuation: continuationState(goal.continuationIntent) } : {}),
+    ...(goal.blockedReason
+      ? {
+          blockerAudit: {
+            reason: goal.blockedReason,
+            consecutiveTurns: goal.blockedAuditStreak,
+            requiredTurns: 3 as const,
+          },
+        }
+      : {}),
   }
 }
 
@@ -109,25 +122,6 @@ function eventGoal(event: SessionEvent): PersistedGoal | null {
   if (!['goal.created', 'goal.updated', 'goal.accounted'].includes(event.type)) return null
   const parsed = z.object({ goal: persistedGoalSchema }).safeParse(event.data)
   return parsed.success ? parsed.data.goal : null
-}
-
-function executionFailureState(events: SessionEvent[], runId: string) {
-  let failedExecution = false
-  let successfulExecution = false
-  const executionTools = new Set(['exec', 'shell', 'run_command'])
-  for (const event of events) {
-    if (event.runId !== runId || event.type !== 'message.committed') continue
-    const parsed = z.object({ content: z.array(z.unknown()) }).safeParse(event.data)
-    if (!parsed.success) continue
-    for (const block of parsed.data.content) {
-      if (!block || typeof block !== 'object') continue
-      const value = block as { type?: unknown; name?: unknown; isError?: unknown }
-      if (value.type !== 'tool_result' || !executionTools.has(String(value.name))) continue
-      if (value.isError === true) failedExecution = true
-      else successfulExecution = true
-    }
-  }
-  return { failedExecution, successfulExecution }
 }
 
 function isUsageLimitError(run: Run) {
@@ -534,6 +528,22 @@ class GoalRuntime implements GoalService {
     return { ...goal, continuationIntent: { ...goal.continuationIntent, phase, reason, updatedAt: Date.now() } }
   }
 
+  private async stopContinuation(goal: PersistedGoal, run: Run, reason: GoalContinuation['reason']) {
+    const intent =
+      goal.continuationIntent ??
+      continuationIntentSchema.parse({
+        intentId: crypto.randomUUID(),
+        goalId: goal.goalId,
+        modelId: run.modelId,
+        trigger: run.id,
+        text: '',
+        phase: 'stopped',
+        reason,
+        updatedAt: Date.now(),
+      })
+    return this.persist(this.withContinuation({ ...goal, continuationIntent: intent }, 'stopped', reason), run.id)
+  }
+
   async requestContinuation(
     sessionId: string,
     input: { goalId: string; trigger: string; modelId: string; text?: string },
@@ -695,6 +705,7 @@ class GoalRuntime implements GoalService {
         updatedAt: now,
         blockedAuditStreak: 0,
         blockedAuditRuns: [],
+        blockedReason: null,
         executionFailureStreak: 0,
         executionFailureRuns: [],
         continuationCount: 0,
@@ -769,6 +780,7 @@ class GoalRuntime implements GoalService {
           updatedAt: now,
           blockedAuditStreak: 0,
           blockedAuditRuns: [],
+          blockedReason: null,
           executionFailureStreak: 0,
           executionFailureRuns: [],
           continuationCount: 0,
@@ -804,6 +816,7 @@ class GoalRuntime implements GoalService {
           updatedAt: now,
           blockedAuditStreak: 0,
           blockedAuditRuns: [],
+          blockedReason: null,
           executionFailureStreak: 0,
           executionFailureRuns: [],
           continuationCount: 0,
@@ -839,6 +852,7 @@ class GoalRuntime implements GoalService {
           ? {
               blockedAuditStreak: 0,
               blockedAuditRuns: [],
+              blockedReason: null,
               continuationCount: 0,
               repairKey: null,
               repairAttempts: 0,
@@ -869,7 +883,7 @@ class GoalRuntime implements GoalService {
     })
   }
 
-  async update(sessionId: string, status: 'complete' | 'blocked', runId?: string) {
+  async update(sessionId: string, status: 'complete' | 'blocked', runId?: string, reason?: string) {
     return this.serial(sessionId, async () => {
       if (runId && this.activeRuns.get(runId)?.goalId !== this.goals.get(sessionId)?.goalId)
         throw new HbarError('GOAL_CONFLICT', 'This run belongs to a different goal; use the current goal session')
@@ -878,6 +892,43 @@ class GoalRuntime implements GoalService {
       else await this.accountActiveRunsUnlocked(sessionId, mode)
       const existing = this.goals.get(sessionId)
       if (!existing) throw new HbarError('GOAL_NOT_FOUND', 'Cannot update a thread without a goal')
+      if (status === 'blocked' && runId) {
+        if (existing.status === 'budget_limited') return this.result(sessionId)
+        if (!['active', 'blocked'].includes(existing.status))
+          throw new HbarError('GOAL_INVALID', 'Only an active Goal can report a model blocker')
+        const normalized = reason?.trim().replace(/\s+/g, ' ')
+        if (!normalized || normalized.length > 2000)
+          throw new HbarError(
+            'GOAL_BLOCK_REASON_REQUIRED',
+            'Describe the specific blocking condition in reason; it must recur for three consecutive Goal turns',
+          )
+        const events = await this.api.sessions.events(sessionId, 0, MAX_EVENTS + 1)
+        if (events.length > MAX_EVENTS)
+          throw new HbarError('GOAL_AUDIT_LIMIT', 'Goal blocker audit exceeded the replay window')
+        const progress = auditProgress(events, runId, existing.progressKeys)
+        const sameReason = existing.blockedReason?.toLocaleLowerCase() === normalized.toLocaleLowerCase()
+        const sameRun = existing.blockedAuditRuns.at(-1) === runId
+        const consecutive = existing.blockedAuditRuns.at(-1) === existing.accountedRuns.at(-1)
+        const streak = progress.progress
+          ? 1
+          : sameReason && sameRun
+            ? existing.blockedAuditStreak
+            : sameReason && consecutive && !progress.progress
+              ? existing.blockedAuditStreak + 1
+              : 1
+        const goal: PersistedGoal = {
+          ...existing,
+          blockedReason: normalized,
+          blockedAuditStreak: streak,
+          blockedAuditRuns:
+            sameReason && (sameRun || consecutive)
+              ? [...new Set([...existing.blockedAuditRuns, runId])].slice(-MAX_AUDIT_RUNS)
+              : [runId],
+          status: streak >= 3 ? 'blocked' : 'active',
+          updatedAt: Date.now(),
+        }
+        return this.persistTransition(existing, goal, runId)
+      }
       const goal: PersistedGoal = {
         ...existing,
         status: existing.status === 'budget_limited' && status === 'blocked' ? 'budget_limited' : status,
@@ -929,32 +980,13 @@ class GoalRuntime implements GoalService {
         this.activeRuns.delete(event.runId)
         return
       }
-      const failure = executionFailureState(events, event.runId)
-      const alreadyTracked = existing.executionFailureRuns.includes(event.runId)
-      const failureStreak =
-        failure.failedExecution && !failure.successfulExecution
-          ? alreadyTracked
-            ? existing.executionFailureStreak
-            : existing.executionFailureStreak + 1
-          : 0
-      const failureRuns =
-        failure.failedExecution && !failure.successfulExecution
-          ? (alreadyTracked ? existing.executionFailureRuns : [...existing.executionFailureRuns, event.runId]).slice(
-              -MAX_EXECUTION_FAILURE_RUNS,
-            )
-          : []
-      const autoBlocked = failureStreak >= 3 && existing.status === 'active'
       const usageLimited = isUsageLimitError(run) && existing.status === 'active'
       const status: GoalStatus =
         run.failure?.category === 'cancelled' && ['active', 'budget_limited'].includes(existing.status)
           ? 'paused'
           : usageLimited
             ? 'usage_limited'
-            : autoBlocked
-              ? 'blocked'
-              : event.status === 'failed' && existing.status === 'active'
-                ? 'blocked'
-                : existing.status
+            : existing.status
       const progress = auditProgress(events, event.runId, existing.progressKeys)
       const noProgressStreak = progress.progress ? 0 : existing.noProgressStreak + 1
       let goal = await this.persist(
@@ -962,8 +994,11 @@ class GoalRuntime implements GoalService {
           ...existing,
           status,
           updatedAt: Date.now(),
-          executionFailureStreak: usageLimited || autoBlocked ? 0 : failureStreak,
-          executionFailureRuns: usageLimited || autoBlocked ? [] : failureRuns,
+          executionFailureStreak: 0,
+          executionFailureRuns: [],
+          ...(existing.blockedAuditRuns.at(-1) !== event.runId && existing.status === 'active'
+            ? { blockedReason: null, blockedAuditStreak: 0, blockedAuditRuns: [] }
+            : {}),
           accountedRuns: [...existing.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
           progressKeys: progress.keys,
           noProgressStreak,
@@ -972,6 +1007,20 @@ class GoalRuntime implements GoalService {
         'goal.accounted',
       )
       this.activeRuns.delete(event.runId)
+      if (['failed', 'interrupted'].includes(event.status) && goal.status !== 'budget_limited') {
+        await this.stopContinuation(
+          goal,
+          run,
+          goal.status === 'usage_limited'
+            ? 'usage_limited'
+            : run.failure?.category === 'result_unknown'
+              ? 'result_unknown'
+              : event.status === 'interrupted'
+                ? 'interrupted'
+                : 'run_failed',
+        )
+        return
+      }
       const admission =
         goal.status === 'active'
           ? await this.api.hooks.dispatch('goal.beforeContinue', {
@@ -1079,12 +1128,12 @@ function toolsFor(runtime: GoalRuntime): ToolDefinition[] {
     {
       name: 'update_goal',
       description:
-        'Update the existing goal. Use this tool only to mark the goal achieved or genuinely blocked. Set status to complete only when the objective is achieved and no required work remains. Set status to blocked only after the same blocking condition has recurred for at least three consecutive goal turns and the agent is at an impasse. Pause, resume, budget-limited, and usage-limited changes are controlled by the user or system.',
+        'Update the existing goal. Mark complete only when the objective is verified achieved and no required work remains. For blocked, provide reason describing the specific blocking condition. The Host keeps the Goal active until that same reason recurs on three consecutive distinct Goal turns without progress; inspect goal.blockerAudit in the result. Repeated calls in one turn do not count as additional turns. Pause, resume and budget changes are controlled by the user or system.',
       inputSchema: updateGoalArgs,
       effect: 'read',
       execute: async (args, context) => {
         const parsed = updateGoalArgs.parse(args)
-        const result = await runtime.update(context.session.id, parsed.status, context.run.id)
+        const result = await runtime.update(context.session.id, parsed.status, context.run.id, parsed.reason)
         return { text: JSON.stringify(result), details: result }
       },
     },

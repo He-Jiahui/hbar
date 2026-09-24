@@ -117,6 +117,13 @@ export const threadGoalSchema = z.object({
   updatedAt: z.number().int().nonnegative(),
   executionBudget: executionBudgetSchema.optional(),
   continuation: goalContinuationSchema.optional(),
+  blockerAudit: z
+    .object({
+      reason: z.string().min(1).max(2000),
+      consecutiveTurns: z.number().int().nonnegative(),
+      requiredTurns: z.literal(3),
+    })
+    .optional(),
 })
 export type ThreadGoal = z.infer<typeof threadGoalSchema>
 const userInputIdSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
