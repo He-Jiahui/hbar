@@ -206,7 +206,9 @@
 
 @media (max-width: 30rem) {
   .hbar-app-react-settings-workspace > .lumen-page-header {
+    flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
   }
 
   .hbar-app-react-settings-workspace .lumen-page-heading p {
