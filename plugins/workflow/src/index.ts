@@ -1912,6 +1912,18 @@ export class WorkflowRuntime implements WorkflowService {
       : event
   }
 
+  async advertiseTools(event: HookEvents['tools.advertise']): Promise<HookEvents['tools.advertise']> {
+    const workflow = this.workflows.get(event.sessionId)
+    if (!workflow || ['blocked', 'needs_revision', 'cancelled'].includes(workflow.status)) return event
+    const plan = await this.agentPlans.get(event.sessionId)
+    const step = workflow.activeStepIndex === null ? undefined : plan?.plan[workflow.activeStepIndex]
+    const currentFocus =
+      step && plan?.revision === workflow.planRevision && hashValue(step.step) === workflow.activeStepTextHash
+    // The large focus-creation schema is unnecessary until the Plan/focus changes.
+    // Re-evaluate each request, including after update_plan within the same Run.
+    return currentFocus ? { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_focus') } : event
+  }
+
   async complete(sessionId: string, expectedRevision: number, runId?: string) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
@@ -2340,6 +2352,7 @@ export const workflowPlugin = definePlugin({
       return { ...event, ...policy, allowed: event.allowed && policy.allowed }
     })
     api.hooks.on('tools.select', (event) => runtime.selectTools(event))
+    api.hooks.on('tools.advertise', (event) => runtime.advertiseTools(event))
     api.hooks.on('goal.replaced', (event) =>
       runtime.cancelForGoal(event.sessionId, event.previous.goalId ?? event.previous.threadId),
     )

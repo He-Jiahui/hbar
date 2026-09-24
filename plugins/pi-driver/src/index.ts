@@ -403,6 +403,7 @@ export class PiDriver implements HarnessDriver {
       try {
         const request = await input.beforeRequest(input.request, stepId)
         attemptModel = request.model
+        const toolNames = request.toolNames
         return streamProvider(
           request.model,
           {
@@ -414,7 +415,7 @@ export class PiDriver implements HarnessDriver {
               input.readFile,
               transientToolContent,
             ),
-            tools,
+            tools: toolNames ? tools.filter((tool) => toolNames.includes(tool.name)) : tools,
           },
           await input.resolveKey(request.model.id),
           input.signal,

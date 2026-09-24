@@ -888,6 +888,20 @@ export class Kernel {
               request.model.model !== registered.model
             )
               throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks must select a registered provider endpoint')
+            const advertised = await scope.hooks.dispatch('tools.advertise', {
+              sessionId,
+              runId: run.id,
+              tools: [...input.tools],
+            })
+            if (
+              advertised.tools.some((tool) => !input.tools.includes(tool)) ||
+              new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length
+            )
+              throw new HbarError(
+                'INVALID_TOOL_ADVERTISEMENT',
+                'Tool advertisements must be a unique subset of Run tools',
+              )
+            request = { ...request, toolNames: advertised.tools.map((tool) => tool.name) }
             controller.signal.throwIfAborted()
             await this.append(
               sessionId,
@@ -895,7 +909,7 @@ export class Kernel {
               {
                 ...describeUsageAttempt(stepId, 'model', request.model),
                 request,
-                tools: input.tools.map((tool) => ({
+                tools: advertised.tools.map((tool) => ({
                   name: tool.name,
                   description: tool.description,
                   schema: z.toJSONSchema(tool.inputSchema),

@@ -135,6 +135,8 @@ export interface ModelRequest {
   system: string
   messages: Message[]
   model: ProviderConfig
+  /** Per-request advertised subset of the Run tool registry; omission preserves legacy drivers. Not an authorization grant. */
+  toolNames?: readonly string[]
   context?: {
     sessionId: string
     runId?: string | undefined
@@ -445,6 +447,8 @@ export interface HookEvents {
   }
   'step.end': { sessionId: string; runId: string; stepId: string }
   'tools.select': { sessionId: string; runId: string; tools: ToolDefinition[] }
+  /** Recomputed before each model request. May only omit existing Run tools, never add or replace definitions. */
+  'tools.advertise': { sessionId: string; runId: string; tools: ToolDefinition[] }
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'run.cancelRequested': { sessionId: string; runId: string; run: Run }
