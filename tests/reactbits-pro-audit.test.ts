@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
 import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages/hbar-app-ui/src/types'
+import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import {
   REACTBITS_PRO_THEMES,
   REACTBITS_PRO_VIEWPORTS,
+  agentFailureDynamicCaseIds,
   agentLogDynamicCaseIds,
+  auditBrowserArguments,
   assessInteractionCoverage,
   alignedCanvasPadding,
   fullAuditMatrixSelected,
@@ -93,10 +96,37 @@ describe('React Bits Pro visual audit contract', () => {
       .map((item) => item.id)).toEqual(ids.filter((id) => id.includes(':running:')))
   })
 
+  test('captures Cancel retry as a second-state control in every viewport and theme', () => {
+    const ids = agentFailureDynamicCaseIds('hbar-app-ui-agent-activity-7')
+    expect(ids).toHaveLength(5)
+    expect(ids).toContain('hbar-app-ui-agent-activity-7:retry-queued:1:click')
+    expect(interactionCases(snapshot([control(1, { name: 'Cancel retry' })]), 'hbar-app-ui-agent-activity-7', 'retry-queued')
+      .map((item) => item.id)).toEqual([...ids])
+  })
+
   test('bounds parallel action replay across multiple selected variants', () => {
     expect(interactionWorkersPerVariant(8, 1)).toBe(8)
     expect(interactionWorkersPerVariant(8, 2)).toBe(4)
     expect(interactionWorkersPerVariant(2, 3)).toBe(1)
+  })
+
+  test('makes the HTTP/1 browser transport an explicit opt-in', () => {
+    expect(auditBrowserArguments(false)).toEqual([])
+    expect(auditBrowserArguments(true)).toEqual(['--disable-http2', '--disable-quic'])
+  })
+
+  test('renders separate source/local before/after evidence without hiding missing images', () => {
+    const page = renderAuditEvidencePage([{
+      label: '<script>untrusted label</script>', status: 'matched',
+      images: ['source-before.png', 'local-before.png', 'source-after.png', 'local-after.png']
+        .map((path) => ({ label: path, path })),
+    }, { label: 'incomplete', status: 'missing', images: [{ label: 'Missing local after', path: null }] }])
+    expect(page.match(/<details>/g)).toHaveLength(2)
+    expect(page.match(/<img /g)).toHaveLength(4)
+    expect(page).toContain('&lt;script&gt;untrusted label&lt;/script&gt;')
+    expect(page).not.toContain('<script>')
+    expect(page).toContain('Missing capture')
+    expect(page).toContain('does not replace the review ledger or manual sign-off')
   })
 
   test('discovers actionable roles without treating passive landmarks and meters as controls', () => {

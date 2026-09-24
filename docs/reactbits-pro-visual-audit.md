@@ -13,6 +13,7 @@
 - 主题校验：不仅检查文档外层 `html` 的 dark/light 状态，还要在每次原版交互截图前后确认真实预览 iframe 的 `html.dark` 与目标主题一致；外层切换后 iframe 未同步的案例必须重采，不能把暗色原版图当浅色证据。
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的实际矩形与 name/role/disabled/expanded/pressed/selected/state。动作差分取控件自身矩形，不依赖它恰好落在 DOM 树的前五层。
 - 交互截图：每个动作在新浏览器上下文中分别打开源 iframe 与本地预览，对每个真实可见控件逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag/upload/download；同构控件也分别保留 before/after，不以代表案例代替。只读的 `progressbar`、`status`、`banner` 等 ARIA 角色参与语义树比较，但不冒充可操作控件。CSS 隐藏控件不计入当前视口的结构数量或动作清单。
+- 状态路径：先核对初始可见控件，再实际触发会显露新控件的状态，给新状态单独命名并重做逐控件 before/after。当前明确覆盖日志运行中 Stop、离开底部的 Jump，以及失败重试排队后的 Cancel retry；后续变体若发现新状态路径，须在审计程序中补充场景与完整性门禁，不能只凭初始 DOM 宣称所有反馈已覆盖。每个新场景同样跑四视口、两主题，取消/撤销还须核对是否返回原态。
 - 反馈比较：对静态图和交互图计算尺寸差、归一化 MAE/RMSE、变化像素比例，并比较源/本地交互前后反馈幅度。
 - 验收门禁：八组静态快照、全部真实可见动作及其成对截图必须齐全；可见控件的形态与状态、根尺寸、截断/水平溢出、页面错误、动作状态与截图反馈逐项通过。机器门禁通过后仍是 `needs-review`；逐一人工并排核对八组图、查看每类动作的反馈及自动逐案报告，再对单个变体显式签核，才可成为 `passed`。绝不能把一个变体的通过推断成分类或全部 300 个通过。
 
@@ -50,6 +51,12 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 `--categories` 可以只跑一个分类；`HBAR_APP_UI_REFERENCE_URL`、
 `HBAR_APP_UI_PREVIEW_URL` 和 `HBAR_APP_UI_CHROME_PATH` 可用于切换参考地址、本地预览地址
 和 Windows Chrome 路径。
+大量冷上下文回放优先验证已构建预览：先运行 `bun run app-ui:build`，再启动
+`bunx vite preview --config apps/hbar-app-ui-preview/vite.config.ts --host 127.0.0.1 --port 5181`，
+将 `HBAR_APP_UI_PREVIEW_URL` 设为该地址；切换后仍须重新采集和核对静态画面，不假定开发/生产 CSS 完全相同。
+若自动测试 Chrome 的文档传输持续停在空白 loading，而同页的普通浏览器/HTTP 请求正常，
+可在独立诊断确认后显式设置 `HBAR_APP_UI_CHROME_HTTP1=1`，关闭测试浏览器的 HTTP/2 与 QUIC。
+它只切换传输协议，不替代真实 iframe、不开启离线模拟，也不跳过主题、内容或交互就绪检查。
 单变体调试可用 `--source-inventory <已捕获清单路径>` 避免每次重新访问 38 个类别页；
 此模式仍实时捕获变体 iframe，完整 `audit` 不复用旧清单。`--local-only` 的缓存还必须包含
 iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议版本；旧的内部 pane 裁剪缓存会被拒绝，不能据此宣称几何或交互验收通过。
@@ -60,7 +67,7 @@ iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议�
 所有动作结果与逐案视觉反馈。原图或反馈变化会使签核失效并回到 `needs-review`；
 代码或源目录变化还会使机器证据过期，必须重新采集与回放，状态为 `needs-fix`；
 `--strict` 在人工签核缺失时也会失败，不把机器绿灯当作完成。
-交互回放按源目录、画布、本地变体及实现哈希校验断点：相同运行可续跑，修改组件、宿主 fixture
+交互回放按源目录、画布、本地变体及实现哈希、本地预览地址和浏览器传输参数校验断点：相同运行可续跑，修改组件、宿主 fixture
 或预览实现后必须选新输出目录重新捕获。`--workers` 是有界并发选项；在单变体内也可并行不同动作，
 但每个动作仍有独立上下文；多变体运行时并发预算在变体之间分配，不把所有动作默认为串行。
 
@@ -71,6 +78,7 @@ iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议�
 - `structure-report.json`：根节点尺寸差、树节点/标签序列、控件数量、文本容量和溢出结果。
 - `visual-report.json`：静态配对、交互配对、差异图片路径，以及每种交互源/本地反馈幅度。
 - `interactions/<variant>/<theme>/<viewport>/<case>/{source,local}/`：可人工打开的真实 before/after 截图和快照。
+- `evidence.html`：按变体、主题、视口、案例展开的成对截图页；静态两图与每个动作的四张 before/after 分开呈现，点击查看原分辨率。缺图明确显示 Missing capture，不把图集当作通过签核。
 - `manual-review.json`：逐变体人工签核的说明、时间、覆盖数量和证据指纹；不能替代原始截图。
 - `review-ledger.json`：每个已审变体的八组静态和交互覆盖、缺项、失败原因与最终状态；未跑或只跑部分案例为 `needs-fix`，机器完整但未签核为 `needs-review`。
 

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { renderAuditEvidencePage } from './reactbits-audit-evidence-page'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
 import type {
   HbarAppUiCategory,
@@ -148,6 +149,8 @@ type InteractionReportRow = Readonly<{
   theme: string
   viewport: string
   status?: string
+  source?: Readonly<{ before?: string | null; after?: string | null }>
+  local?: Readonly<{ before?: string | null; after?: string | null }>
 }>
 
 export function assessInteractionCoverage(
@@ -203,7 +206,7 @@ export function interactionWorkersPerVariant(workers: number, selectedVariants: 
 export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
-  scenario?: 'running' | 'away' | undefined
+  scenario?: 'running' | 'away' | 'retry-queued' | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
 }>
@@ -260,8 +263,13 @@ export function manualReviewGate(
 
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
+const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 12
-const interactionProtocolVersion = 19
+const interactionProtocolVersion = 20
+
+export function auditBrowserArguments(http1: boolean): string[] {
+  return http1 ? ['--disable-http2', '--disable-quic'] : []
+}
 const sourceCanvasSelector = '#preview-root'
 const localCanvasSelector = '.hbar-app-ui-isolated-canvas'
 export const interactiveControlSelector = [
@@ -1306,6 +1314,23 @@ export function agentLogDynamicCaseIds(variantId: string): readonly string[] {
   )
 }
 
+export function agentFailureDynamicCaseIds(variantId: string): readonly string[] {
+  return ['hover', 'focus', 'click', 'press-enter', 'press-space'].map(
+    (action) => `${variantId}:retry-queued:1:${action}`,
+  )
+}
+
+async function prepareAgentFailureScenario(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Retry run' }).click()
+  await root.getByRole('button', { name: 'Cancel retry' }).waitFor({ state: 'visible' })
+}
+
+function agentFailureScenarioCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+  const control = visibleControls(snapshot).find((candidate) => candidate.name === 'Cancel retry')
+  if (!control) throw new Error('Missing Cancel retry after queuing the live React Bits Pro failure')
+  return interactionCases({ ...snapshot, controls: [control] }, variantId, 'retry-queued')
+}
+
 function agentLogScenarioCases(
   snapshot: SemanticSnapshot,
   variantId: string,
@@ -1677,6 +1702,8 @@ async function replayInteraction(
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
+  if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
+    await prepareAgentFailureScenario(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => { element.scrollTop = 0 })
   const control = await controlLocator(root, interaction.control)
@@ -1750,6 +1777,8 @@ async function replayReferenceInteraction(
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   if (reference.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, true)
+  if (reference.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
+    await prepareAgentFailureScenario(root)
   const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
   if (runningCheckpoint && !runningCheckpoint.message)
     throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
@@ -2160,6 +2189,8 @@ async function runInteractionsParallel(
     sourceUrl: inventory.sourceUrl,
     localSpecHash: stableHash(selected),
     implementationHash,
+    localPreviewUrl,
+    browserArguments,
     staticCanvasHash: stableHash([...staticCanvases]),
   }
   const runHash = stableHash(runIdentity)
@@ -2223,6 +2254,10 @@ async function runInteractionsParallel(
                   await runningContext.close()
                 }
               }
+            }
+            if (spec.id === 'hbar-app-ui-agent-activity-7') {
+              await prepareAgentFailureScenario(sourceRoot)
+              discovered.push(...agentFailureScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
             }
             const cases = selectInteractionCases(discovered, options.cases)
             let caseCursor = 0
@@ -2387,6 +2422,8 @@ async function runInteractionsParallel(
     sourceDirectoryHash: inventory.sourceDirectoryHash,
     localSpecHash: stableHash(selected),
     implementationHash,
+    localPreviewUrl,
+    browserArguments,
     staticCanvasHash: stableHash([...staticCanvases]),
     discovered: results.length,
     resumed,
@@ -2444,6 +2481,10 @@ async function runCompare(options: AuditOptions): Promise<void> {
     )
     if (record.id === 'hbar-app-ui-agent-activity-5')
       expected.push(...agentLogDynamicCaseIds(record.id).map(
+        (id) => `${record.theme}/${record.viewport}/${id}`,
+      ))
+    if (record.id === 'hbar-app-ui-agent-activity-7')
+      expected.push(...agentFailureDynamicCaseIds(record.id).map(
         (id) => `${record.theme}/${record.viewport}/${id}`,
       ))
     expectedInteractions.set(record.id, expected)
@@ -2691,9 +2732,36 @@ async function runCompare(options: AuditOptions): Promise<void> {
         `<tr><td>${entry.category}</td><td>${entry.id}</td><td>${entry.staticCombinations}</td><td>${entry.interactionCases}</td><td>${entry.status}</td><td>${entry.failures.join(', ')}</td></tr>`,
     )
     .join('')
+  const evidencePath = (path: string | null | undefined): string | null => {
+    if (!path) return null
+    const local = relative(options.outputRoot, path)
+    const parts = local.split(/[\\/]/)
+    if (isAbsolute(local) || parts.includes('..')) return null
+    return parts.map(encodeURIComponent).join('/')
+  }
+  await writeFile(join(options.outputRoot, 'evidence.html'), renderAuditEvidencePage([
+    ...comparisons.map((comparison) => ({
+      label: `${comparison.id} / ${comparison.theme} / ${comparison.viewport} / static`,
+      status: 'Static source/local pair',
+      images: [
+        { label: 'React Bits Pro — original', path: evidencePath(comparison.source.screenshot) },
+        { label: 'Lumen — local', path: evidencePath(comparison.local.screenshot) },
+      ],
+    })),
+    ...interactionReport.results.map((result) => ({
+      label: `${result.variantId ?? ''} / ${result.theme} / ${result.viewport} / ${result.id}`,
+      status: result.status ?? 'unknown',
+      images: [
+        { label: 'React Bits Pro — before', path: evidencePath(result.source?.before) },
+        { label: 'Lumen — before', path: evidencePath(result.local?.before) },
+        { label: 'React Bits Pro — after', path: evidencePath(result.source?.after) },
+        { label: 'Lumen — after', path: evidencePath(result.local?.after) },
+      ],
+    })),
+  ]), 'utf8')
   await writeFile(
     join(options.outputRoot, 'report.html'),
-    `<!doctype html><meta charset="utf-8"><title>React Bits Pro visual audit</title><style>body{font:14px system-ui;margin:2rem;background:#111;color:#eee}table{border-collapse:collapse;width:100%}td,th{border:1px solid #555;padding:.4rem;text-align:left}td:nth-child(5){font-weight:700}</style><h1>React Bits Pro ↔ lumen-app-ui audit</h1><p>${ledger.length} variants · ${comparisons.length} static pairs · ${interactionReport.results.length} interaction cases</p><table><thead><tr><th>Category</th><th>Variant</th><th>Static</th><th>Interactions</th><th>Status</th><th>Failures</th></tr></thead><tbody>${reportRows}</tbody></table>`,
+    `<!doctype html><meta charset="utf-8"><title>React Bits Pro visual audit</title><style>body{font:14px system-ui;margin:2rem;background:#111;color:#eee}a{color:#acd7ff}table{border-collapse:collapse;width:100%}td,th{border:1px solid #555;padding:.4rem;text-align:left}td:nth-child(5){font-weight:700}</style><h1>React Bits Pro ↔ lumen-app-ui audit</h1><p>${ledger.length} variants · ${comparisons.length} static pairs · ${interactionReport.results.length} interaction cases · <a href="evidence.html">Open paired screenshot evidence</a></p><table><thead><tr><th>Category</th><th>Variant</th><th>Static</th><th>Interactions</th><th>Status</th><th>Failures</th></tr></thead><tbody>${reportRows}</tbody></table>`,
     'utf8',
   )
   const existingManifest = (await Bun.file(join(options.outputRoot, 'manifest.json')).exists())
@@ -2801,7 +2869,7 @@ async function main(): Promise<void> {
     await runManualReview(options)
     return
   }
-  const browser = await chromium.launch({ headless: true, executablePath })
+  const browser = await chromium.launch({ headless: true, executablePath, args: browserArguments })
   try {
     if (options.command === 'discover') {
       const inventory = options.offline
