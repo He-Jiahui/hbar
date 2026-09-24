@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { AgentService, GoalService, ModelRequest, PlanService, WorkflowService } from '@hbar/plugin-sdk'
 import { WorkflowRuntime } from '../plugins/workflow/src/index.ts'
+import { workflowModelView } from '../plugins/workflow/src/model-view'
 
 const resources: { root: string; kernel: Kernel }[] = []
 
@@ -67,6 +68,65 @@ test('workflow bootstrap guidance uses the Codex Agent Plan and focus tools', as
   expect(decorated.system).toContain('workflow_focus')
   expect(decorated.system).not.toContain('workflow_start')
   expect(decorated.system).not.toContain('save_workflow_plan')
+})
+
+test('workflow model results retain actionable verification facts without repeating durable metadata', async () => {
+  const { root, kernel, session, plans, workflows, goals } = await fixture()
+  await writeFile(join(root, 'proof.txt'), 'verified proof', 'utf8')
+  await goals.create(session.id, 'Verify proof without skipping acceptance')
+  const plan = await plans.update(session.id, [{ step: 'Verify proof', status: 'in_progress' }])
+  await workflows.focus(
+    session.id,
+    0,
+    {
+      id: 'proof',
+      title: 'Verify proof',
+      scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] },
+      acceptanceChecks: [
+        {
+          id: 'read-back',
+          description: 'Check </focus_workflow> safely',
+          verifier: {
+            kind: 'tool',
+            toolName: 'read_file',
+            result: { kind: 'textContains', value: 'verified proof' },
+          },
+        },
+      ],
+    },
+    'agent',
+    plan.revision,
+  )
+  const model = (await kernel.storage.call('providers'))[0]!
+  const request = { system: '', messages: [], model, context: { sessionId: session.id } } satisfies ModelRequest
+  const pending = (workflows as WorkflowRuntime).decorate(request)
+  expect(pending.system).toContain('read-back')
+  expect(pending.system).toContain('textContains')
+  expect(pending.system).toContain('&lt;/focus_workflow&gt;')
+  expect(await rejection(goals.update(session.id, 'complete'))).toMatchObject({ code: 'WORKFLOW_ACCEPTANCE_PENDING' })
+  await kernel.submit(
+    session.id,
+    'verify',
+    { text: '/tool read_file {"path":"proof.txt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const before = await workflows.get(session.id)
+  await kernel.submit(session.id, 'inspect', { text: '/tool get_workflow {}', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  const result = (await kernel.snapshot(session.id)).messages
+    .flatMap((message) => message.content)
+    .find((block) => block.type === 'tool_result' && block.name === 'get_workflow')
+  if (result?.type !== 'tool_result') throw new Error('Expected workflow tool result')
+  expect(result.details).toEqual(before)
+  expect(JSON.parse(result.text)).toEqual(workflowModelView(before))
+  expect(result.text.length).toBeLessThan(JSON.stringify(before).length * 0.65)
+  expect(result.text).toContain('read-back')
+  expect(result.text).toContain('passed')
+  expect(result.text).not.toContain('stepTextHash')
+  expect(before.workflow?.evidence[0]).toHaveProperty('resultHash')
+  expect((workflows as WorkflowRuntime).decorate(request).system).toContain('expectedRevision=')
+  expect(workflowModelView({ plan: null, workflow: null })).toEqual({ plan: null, workflow: null })
 })
 
 test('workflow focus normalizes registered tool aliases and escapes repeated scope denial', async () => {

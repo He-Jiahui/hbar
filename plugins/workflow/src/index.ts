@@ -44,6 +44,7 @@ import type {
   WorkflowService,
 } from '@hbar/plugin-sdk'
 import { workflowUpdateActionSchema, workflowUpdateToolSchema } from './update-tool-schema'
+import { workflowModelResult } from './model-view'
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
@@ -1963,11 +1964,19 @@ export class WorkflowRuntime implements WorkflowService {
       `Allowed read paths: ${item?.scope.readPaths.map(escapeXml).join(', ') || 'none'}`,
       `Allowed write paths: ${item?.scope.writePaths.map(escapeXml).join(', ') || 'none'}`,
       `Allowed tools: ${item?.scope.tools.map(escapeXml).join(', ') || 'none'}`,
-      `Pending required checks: ${checks.map((check) => escapeXml(check.description)).join('; ') || 'none'}`,
+      `Required checks: ${escapeXml(JSON.stringify(item?.acceptanceChecks.filter((check) => check.required).map(({ id, description, status, verifier, evidenceId }) => ({ id, description, status, verifier, evidenceId })) ?? []))}`,
       `Delegations: ${workflow.delegations.map((entry) => `${escapeXml(entry.itemId)}=${entry.status}`).join(', ') || 'none'}`,
       `Recent failed checks: ${recentFailures.map((entry) => escapeXml(entry.checkId)).join(', ') || 'none'}`,
       'Stay on the current item. Expand scope explicitly with a reason before accessing anything outside it.',
       'Use the stable loop: orient, bounded exploration, act or delegate, verify, checkpoint.',
+      'These are current Host facts, refreshed before each request. Do not call get_workflow/get_plan merely to repeat known facts.',
+      ...(item && !checks.length
+        ? [
+            `After verifying the objective, checkpoint with action="checkpoint", itemId=${JSON.stringify(item.id)}, outcome="complete", expectedRevision=${workflow.revision}, and a concise summary.`,
+          ]
+        : []),
+      'A complete checkpoint also advances the Agent Plan and completes the workflow when its last step finishes; do not duplicate that with update_plan or workflow complete.',
+      'Batch calls only when their inputs are already known and safe in sequence. Wait for verification results before asserting success. A final verified checkpoint and update_goal complete may share a tool batch; the Host independently guards both.',
       '</focus_workflow>',
     ].join('\n')
     return { ...request, system: `${request.system}\n\n${prompt}` }
@@ -2179,7 +2188,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
       effect: 'read',
       execute: async (_args, context) => {
         const result = await runtime.get(context.session.id)
-        return { text: JSON.stringify(result), details: result }
+        return workflowModelResult(result)
       },
     },
     {
@@ -2197,7 +2206,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
           parsed.completionPolicy,
           parsed.expectedPlanRevision,
         )
-        return { text: JSON.stringify(result), details: result }
+        return workflowModelResult(result)
       },
     },
     {
@@ -2209,7 +2218,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
       execute: async (args, context) => {
         const parsed = reviewSubmitToolSchema.parse(args)
         const result = await runtime.submitReview(context.session.id, parsed.reviewId, parsed.verdict, parsed.summary)
-        return { text: JSON.stringify(result), details: result }
+        return workflowModelResult(result)
       },
     },
     {
@@ -2241,7 +2250,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
                   context.run.modelId,
                 )
               : await runtime.complete(context.session.id, parsed.expectedRevision, context.run.id)
-        return { text: JSON.stringify(result), details: result }
+        return workflowModelResult(result)
       },
     },
     {
@@ -2258,7 +2267,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
           parsed.tokenBudget,
           parsed.expectedRevision,
         )
-        return { text: JSON.stringify(result), details: result }
+        return workflowModelResult(result)
       },
     },
     {
