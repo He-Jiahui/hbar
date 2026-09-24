@@ -61,7 +61,8 @@ describe('hbar-app-ui agent activity surfaces', () => {
     expect(markup[3]).toContain('hbar-app-ui-agent-activity-history')
     expect(markup[3]).toContain('Reconcile October invoices')
     expect(markup[4]).toContain('hbar-app-ui-agent-activity-log')
-    expect(markup[4]).toContain('Run complete, 2,244 records processed')
+    expect(markup[4]).toContain('View account_health refreshed')
+    expect(markup[4]).not.toContain('Run complete, 2,244 records processed')
     expect(markup[5]).toContain('hbar-app-ui-agent-activity-workers')
     expect(markup[5]).toContain('Import workers')
     expect(markup[6]).toContain('hbar-app-ui-agent-activity-failure')
@@ -78,6 +79,7 @@ describe('hbar-app-ui agent activity surfaces', () => {
   test('keeps reference meaning in semantic text and flow regions', () => {
     const live = renderActivity(1)
     const history = renderActivity(4)
+    const log = renderActivity(5)
     const failure = renderActivity(7)
 
     expect(live).toContain('<ol class="lumen-agent-activity-list hbar-app-ui-agent-activity-live-list"')
@@ -109,6 +111,13 @@ describe('hbar-app-ui agent activity surfaces', () => {
     expect(history).toContain('Run history')
     expect(history).toContain('14 runs')
     expect(history.match(/aria-label="Re-run /g)).toHaveLength(28)
+    expect(log).toContain('role="radiogroup"')
+    expect(log).toContain('aria-label="Filter log by severity"')
+    expect(log).toContain('role="radio"')
+    expect(log).toContain('aria-checked="true"')
+    expect(log).toContain('class="is-compact">Warn</span>')
+    expect(log).not.toContain('role="tablist"')
+    expect(log).not.toContain('role="log"')
     expect(failure).toContain('<dl class="hbar-app-ui-agent-activity-definition-list">')
     expect(failure).toContain('Warehouse write timed out')
     expect(failure).toContain('data-hbar-app-ui-list-strategy="content-grown"')
@@ -124,6 +133,8 @@ describe('hbar-app-ui agent activity surfaces', () => {
     expect(live).toContain('Ausführung sicher anhalten')
     expect(log).toContain('Ausführungsprotokoll mit absichtlich langem lokalisiertem Titel')
     expect(log).toContain('Alle Einträge')
+    expect(localized.log?.labels.jumpToLatest).toBe('Zum neuesten Eintrag springen')
+    expect(localized.log?.labels.lineCountTemplate).toBe('{count} Zeilen')
     expect(failure).toContain('Oktoberbuch-Export fehlgeschlagen')
     expect(failure).toContain('Datei herunterladen')
     expect(live.match(/<button/g)).toHaveLength(1)
@@ -174,7 +185,14 @@ describe('hbar-app-ui agent activity surfaces', () => {
       ...HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES,
       log: { ...log, activeFilterId: 'missing-filter' },
     }
-    expect(renderActivity(5, staleLog)).toContain('Run complete, 2,244 records processed')
+    expect(renderActivity(5, staleLog)).toContain('View account_health refreshed')
+
+    const emptyLog: HbarAppUiAgentActivityContent = {
+      ...HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES,
+      log: { ...log, entries: [], labels: { ...log.labels, lineCount: '0 lines' } },
+    }
+    expect(renderActivity(5, emptyLog)).toContain('0 lines')
+    expect(renderActivity(5, emptyLog)).not.toContain('aria-label="Stop"')
 
     const boundary = Array.from({ length: live.listStrategy.expectedMaximum }, (_, index) => ({
       id: `boundary-${index}`,

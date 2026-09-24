@@ -4,6 +4,7 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import {
   REACTBITS_PRO_THEMES,
   REACTBITS_PRO_VIEWPORTS,
+  agentLogDynamicCaseIds,
   assessInteractionCoverage,
   alignedCanvasPadding,
   fullAuditMatrixSelected,
@@ -81,6 +82,15 @@ describe('React Bits Pro visual audit contract', () => {
     expect(REACTBITS_PRO_VIEWPORTS.length * REACTBITS_PRO_THEMES.length).toBe(8)
     expect(fullAuditMatrixSelected(REACTBITS_PRO_VIEWPORTS, REACTBITS_PRO_THEMES)).toBe(true)
     expect(fullAuditMatrixSelected([REACTBITS_PRO_VIEWPORTS[2]], ['dark'])).toBe(false)
+  })
+
+  test('keeps the live Stop and away-from-bottom Jump as separate log states', () => {
+    const ids = agentLogDynamicCaseIds('hbar-app-ui-agent-activity-5')
+    expect(ids).toHaveLength(10)
+    expect(ids).toContain('hbar-app-ui-agent-activity-5:running:4:click')
+    expect(ids).toContain('hbar-app-ui-agent-activity-5:away:4:press-space')
+    expect(interactionCases(snapshot([control(4)]), 'hbar-app-ui-agent-activity-5', 'running')
+      .map((item) => item.id)).toEqual(ids.filter((id) => id.includes(':running:')))
   })
 
   test('bounds parallel action replay across multiple selected variants', () => {
@@ -238,6 +248,7 @@ describe('React Bits Pro visual audit contract', () => {
     expect(interactionCheckpointMatches(result, { ...expected, caseHash: 'changed-source' })).toBe(false)
     expect(interactionCheckpointMatches({ ...result, local: { ...capture, after: null } }, expected)).toBe(false)
     expect(interactionCheckpointMatches({ ...result, source: { ...capture, status: 'error' } }, expected)).toBe(false)
+    expect(interactionCheckpointMatches({ ...result, status: 'lumen-different' }, expected)).toBe(false)
   })
 
   test('gates visual interaction feedback even when DOM state is unchanged', () => {

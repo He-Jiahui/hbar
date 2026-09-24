@@ -87,8 +87,25 @@ async function run(): Promise<void> {
         await rerun.click()
 
         await page.goto(previewUrl(5), {waitUntil: 'networkidle'})
-        await page.getByRole('tab', {name: 'Warnings', exact: true}).click()
+        await page.getByRole('radio', {name: 'Warnings', exact: true}).click()
         assert(await page.locator('.hbar-app-ui-agent-activity-log-list > li').count() === 2, 'Log filter did not narrow warning entries')
+        await page.reload({waitUntil: 'domcontentloaded'})
+        const logStop = page.getByRole('button', {name: 'Stop', exact: true})
+        await logStop.waitFor({state: 'visible'})
+        await page.locator('.hbar-app-ui-agent-activity-log-list > li').nth(24).waitFor({state: 'attached'})
+        const followingLatest = await page.locator('.hbar-app-ui-agent-activity-log-scroll').evaluate((pane) =>
+            pane.scrollHeight - pane.clientHeight - pane.scrollTop <= 1)
+        assert(followingLatest, 'Live log did not follow its newest entry')
+        await logStop.click()
+        assert(await logStop.count() === 0, 'Log Stop did not end its live run')
+        await page.reload({waitUntil: 'domcontentloaded'})
+        await page.locator('[data-hbar-app-ui-log-phase="complete"]').waitFor({state: 'visible'})
+        const logScroll = page.locator('.hbar-app-ui-agent-activity-log-scroll')
+        await logScroll.evaluate((pane) => { pane.scrollTop = 0 })
+        const jump = page.getByRole('button', {name: 'Jump to latest', exact: true})
+        await jump.waitFor({state: 'visible'})
+        await jump.click()
+        assert(await jump.count() === 0, 'Jump to latest did not restore log following')
 
         await page.goto(previewUrl(6), {waitUntil: 'networkidle'})
         assert(await page.getByRole('progressbar').count() === 4, 'Worker progress bars did not preserve host data')
@@ -104,7 +121,7 @@ async function run(): Promise<void> {
             [2, '.hbar-app-ui-agent-activity-nested .hbar-app-ui-agent-activity-pane'],
             [3, '.hbar-app-ui-agent-activity-deployment .hbar-app-ui-agent-activity-pane'],
             [4, '.hbar-app-ui-agent-activity-history .hbar-app-ui-agent-activity-pane'],
-            [5, '.hbar-app-ui-agent-activity-log .hbar-app-ui-agent-activity-pane'],
+            [5, '.hbar-app-ui-agent-activity-log-scroll'],
             [6, '.hbar-app-ui-agent-activity-workers .hbar-app-ui-agent-activity-pane'],
             [7, '.hbar-app-ui-agent-activity-failure-body'],
         ] as const

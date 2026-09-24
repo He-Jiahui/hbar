@@ -141,12 +141,12 @@ export const HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES: HbarAppUiAgentActivityContent 
         listStrategy: {kind: 'pane-scroll', expectedMaximum: 14},
     },
     log: {
-        labels: {title: 'Run log', lineCount: '26 lines', filters: 'Log filters', stop: 'Stop'},
+        labels: {title: 'Run log', lineCount: '26 lines', lineCountTemplate: '{count} lines', filters: 'Filter log by severity', stop: 'Stop', jumpToLatest: 'Jump to latest'},
         filters: [
-            {id: 'all', label: 'All'},
-            {id: 'info', label: 'Info', level: 'info'},
-            {id: 'warning', label: 'Warnings', level: 'warning'},
-            {id: 'error', label: 'Errors', level: 'error'},
+            {id: 'all', label: 'All', compactLabel: 'All'},
+            {id: 'info', label: 'Info', compactLabel: 'Info', level: 'info'},
+            {id: 'warning', label: 'Warnings', compactLabel: 'Warn', level: 'warning'},
+            {id: 'error', label: 'Errors', compactLabel: 'Err', level: 'error'},
         ],
         activeFilterId: 'all',
         entries: logEntries.map(([id, time, message, level]) => ({id, time, message, level})),
@@ -248,8 +248,8 @@ export function createHbarAppUiAgentActivityLocalizedFixtures(): HbarAppUiAgentA
         },
         log: base.log && {
             ...base.log,
-            labels: {...base.log.labels, title: 'Ausführungsprotokoll mit absichtlich langem lokalisiertem Titel', lineCount: '26 Zeilen', filters: 'Protokollfilter', stop: 'Ausführung anhalten'},
-            filters: [{id: 'all', label: 'Alle Einträge'}, {id: 'info', label: 'Informationen', level: 'info'}, {id: 'warning', label: 'Warnungen', level: 'warning'}, {id: 'error', label: 'Fehler', level: 'error'}],
+            labels: {...base.log.labels, title: 'Ausführungsprotokoll mit absichtlich langem lokalisiertem Titel', lineCount: '26 Zeilen', lineCountTemplate: '{count} Zeilen', filters: 'Protokollfilter', stop: 'Ausführung anhalten', jumpToLatest: 'Zum neuesten Eintrag springen'},
+            filters: [{id: 'all', label: 'Alle Einträge', compactLabel: 'Alle'}, {id: 'info', label: 'Informationen', compactLabel: 'Info', level: 'info'}, {id: 'warning', label: 'Warnungen', compactLabel: 'Warn', level: 'warning'}, {id: 'error', label: 'Fehler', compactLabel: 'Fehl', level: 'error'}],
         },
         workers: base.workers && {
             ...base.workers,

@@ -203,6 +203,7 @@ export function interactionWorkersPerVariant(workers: number, selectedVariants: 
 export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
+  scenario?: 'running' | 'away' | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
 }>
@@ -259,8 +260,8 @@ export function manualReviewGate(
 
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
-const captureProtocolVersion = 11
-const interactionProtocolVersion = 12
+const captureProtocolVersion = 12
+const interactionProtocolVersion = 19
 const sourceCanvasSelector = '#preview-root'
 const localCanvasSelector = '.hbar-app-ui-isolated-canvas'
 export const interactiveControlSelector = [
@@ -683,6 +684,30 @@ async function enforceReferenceTheme(page: Page, theme: AuditTheme): Promise<voi
   if (after !== shouldBeDark) throw new Error(`Could not set React Bits theme to ${theme}`)
 }
 
+async function assertReferenceFrameTheme(frame: Frame, theme: AuditTheme): Promise<void> {
+  await frame.waitForFunction((dark) => document.documentElement.classList.contains('dark') === dark,
+    theme === 'dark', { timeout: 5_000 })
+}
+
+async function synchroniseReferenceFrameTheme(page: Page, frame: Frame, theme: AuditTheme): Promise<Frame> {
+  let current = frame
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const matches = await current.evaluate((dark) => document.documentElement.classList.contains('dark') === dark,
+      theme === 'dark').catch(() => false)
+    if (matches) return current
+    if (attempt === 2) break
+    const toggle = page.getByRole('button', { name: 'Toggle theme' })
+    await toggle.click()
+    await toggle.click()
+    const handle = await page.locator('iframe[title="Preview"]').elementHandle()
+    const replacement = await handle?.contentFrame()
+    if (!replacement) throw new Error('React Bits preview iframe was lost during theme synchronisation')
+    current = replacement
+    await assertReferenceFrameTheme(current, theme).catch(() => undefined)
+  }
+  throw new Error(`React Bits preview iframe did not synchronise to ${theme}`)
+}
+
 async function previewFrame(page: Page): Promise<Frame> {
   const iframe = page.locator('iframe[title="Preview"]')
   await iframe.waitFor({ state: 'visible', timeout: 30_000 })
@@ -787,8 +812,11 @@ async function applyLocalCanvas(
       return value
     }, componentSelector)
   const padding = alignedCanvasPadding(canvas.padding, inset)
+  // The source preview is an iframe viewport. A taller child is clipped by
+  // that viewport; the isolated local stage must not scroll its own root.
+  const clipLogViewport = selector.includes('hbar-app-ui-agent-activity-5')
   await page.addStyleTag({
-    content: `.hbar-app-ui-isolated-canvas { padding: ${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px !important; }`,
+    content: `.hbar-app-ui-isolated-canvas { padding: ${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px !important; ${clipLogViewport ? 'overflow: hidden !important;' : ''} }`,
   })
 }
 
@@ -798,12 +826,133 @@ async function loadReferencePreview(page: Page, url: string, theme: AuditTheme):
     try {
       await gotoStable(page, url)
       await enforceReferenceTheme(page, theme)
-      return await previewFrame(page)
+      const handle = await page.locator('iframe[title="Preview"]').elementHandle()
+      const frame = await handle?.contentFrame()
+      if (!frame) throw new Error('React Bits preview iframe is unavailable')
+      await synchroniseReferenceFrameTheme(page, frame, theme)
+      const isolated = await previewFrame(page)
+      await assertReferenceFrameTheme(isolated, theme)
+      return isolated
     } catch (error) {
       lastError = error
     }
   }
   throw lastError instanceof Error ? lastError : new Error(`React Bits preview did not mount: ${url}`)
+}
+
+async function loadRunningLogPreview(
+  page: Page, url: string, theme: AuditTheme, targetRows = 24,
+): Promise<Frame> {
+  await page.addInitScript(({ targetRows: checkpoint }) => {
+    const pendingTimeouts = new Set<number>()
+    const pendingIntervals = new Set<number>()
+    const pendingFrames = new Set<number>()
+    const scheduleTimeout = window.setTimeout.bind(window)
+    const scheduleInterval = window.setInterval.bind(window)
+    const scheduleFrame = window.requestAnimationFrame.bind(window)
+    const cancelTimeout = window.clearTimeout.bind(window)
+    const cancelInterval = window.clearInterval.bind(window)
+    const cancelFrame = window.cancelAnimationFrame.bind(window)
+    let frozen = false
+    window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+      if (frozen) return 0
+      const id = scheduleTimeout(() => {
+        pendingTimeouts.delete(id)
+        if (!frozen && typeof handler === 'function')
+          (handler as (...values: unknown[]) => void)(...args)
+      }, delay)
+      pendingTimeouts.add(id)
+      return id
+    }) as typeof window.setTimeout
+    window.setInterval = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+      if (frozen) return 0
+      const id = scheduleInterval(() => {
+        if (!frozen && typeof handler === 'function')
+          (handler as (...values: unknown[]) => void)(...args)
+      }, delay)
+      pendingIntervals.add(id)
+      return id
+    }) as typeof window.setInterval
+    window.requestAnimationFrame = ((handler: FrameRequestCallback) => {
+      if (frozen) return 0
+      const id = scheduleFrame((timestamp) => {
+        pendingFrames.delete(id)
+        if (!frozen) handler(timestamp)
+      })
+      pendingFrames.add(id)
+      return id
+    }) as typeof window.requestAnimationFrame
+    const freezeTimers = () => {
+      frozen = true
+      pendingTimeouts.forEach(cancelTimeout)
+      pendingIntervals.forEach(cancelInterval)
+      pendingFrames.forEach(cancelFrame)
+    }
+    ;(window as Window & { __reactBitsAuditFreezeTimers?: () => void }).__reactBitsAuditFreezeTimers = freezeTimers
+    ;(window as Window & { __reactBitsAuditTimerState?: () => unknown }).__reactBitsAuditTimerState = () => ({
+      frozen,
+      timeouts: pendingTimeouts.size,
+      intervals: pendingIntervals.size,
+      frames: pendingFrames.size,
+      rows: document.querySelectorAll('#preview-root ol li').length,
+    })
+    const freezeAtCheckpoint = () => {
+      if (frozen) return
+      const root = document.querySelector('#preview-root')
+      if (root?.querySelectorAll('ol li').length === checkpoint &&
+        Array.from(root.querySelectorAll('button')).some((button) => button.textContent?.includes('Stop')))
+        freezeTimers()
+    }
+    const observer = new MutationObserver(freezeAtCheckpoint)
+    observer.observe(document, { childList: true, subtree: true })
+    document.addEventListener('DOMContentLoaded', freezeAtCheckpoint, { once: true })
+  }, { targetRows })
+  await page.clock.install()
+  await gotoStable(page, url)
+  await enforceReferenceTheme(page, theme)
+  const iframe = page.locator('iframe[title="Preview"]')
+  await iframe.waitFor({ state: 'visible', timeout: 30_000 })
+  const handle = await iframe.elementHandle()
+  const initialFrame = await handle?.contentFrame()
+  if (!initialFrame) throw new Error('Running log preview iframe is unavailable')
+  const frame = await synchroniseReferenceFrameTheme(page, initialFrame, theme)
+  const root = frame.locator(sourceCanvasSelector).first()
+  await root.locator('button').filter({ hasText: 'Stop' }).waitFor({ state: 'visible', timeout: 3_000 })
+  const rows = root.locator('ol li')
+  if (await rows.count() > targetRows + 1) throw new Error(`Running log passed the ${targetRows}-line checkpoint`)
+  await rows.nth(targetRows - 1).waitFor({ state: 'attached', timeout: 3_000 })
+  await page.clock.pauseAt((await root.evaluate(() => Date.now())) + 1)
+  const frozen = await frame.evaluate(() => {
+    const freeze = (window as Window & { __reactBitsAuditFreezeTimers?: () => void }).__reactBitsAuditFreezeTimers
+    if (!freeze) return false
+    freeze()
+    return true
+  })
+  if (!frozen) throw new Error('Running log timer instrumentation was not installed in the iframe')
+  await page.waitForTimeout(100)
+  const settledRows = await rows.count()
+  if ((settledRows !== targetRows && settledRows !== targetRows + 1) ||
+    !(await root.locator('button').filter({ hasText: 'Stop' }).isVisible())) {
+    const state = await frame.evaluate(() =>
+      (window as Window & { __reactBitsAuditTimerState?: () => unknown }).__reactBitsAuditTimerState?.())
+    throw new Error(`Running log changed during the ${targetRows}-line checkpoint: ${JSON.stringify(state)}`)
+  }
+  await iframe.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    let branch: Element = element
+    while (branch.parentElement) {
+      for (const sibling of branch.parentElement.children) {
+        if (sibling !== branch) (sibling as HTMLElement).style.visibility = 'hidden'
+      }
+      branch = branch.parentElement
+    }
+    Object.assign((element as HTMLElement).style, {
+      position: 'fixed', top: '0px', left: '0px',
+      width: `${rect.width}px`, height: `${rect.height}px`,
+      zIndex: '2147483647', margin: '0px',
+    })
+  })
+  return frame
 }
 
 async function gotoStable(page: Page, url: string): Promise<void> {
@@ -1018,6 +1167,12 @@ async function captureSource(
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (reference.id === 'hbar-app-ui-agent-activity-5') {
+    await root.locator('ol li').nth(25).waitFor({ state: 'attached', timeout: 15_000 })
+    await root.locator('button').filter({ hasText: 'Stop' }).waitFor({ state: 'hidden', timeout: 15_000 })
+    await root.locator('ol').locator('..').evaluate((pane) => { pane.scrollTop = pane.scrollHeight })
+    await page.waitForTimeout(150)
+  }
   const referenceCanvas = await readReferenceCanvas(frame)
   const directory = join(outputRoot, 'source', reference.id, theme)
   await ensureDirectory(directory)
@@ -1065,6 +1220,11 @@ async function captureLocal(
   const selector = localCanvasSelector
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (spec.id === 'hbar-app-ui-agent-activity-5') {
+    await root.locator('[data-hbar-app-ui-log-phase="complete"]').waitFor({ state: 'visible', timeout: 15_000 })
+    await root.locator('.hbar-app-ui-agent-activity-log-scroll').evaluate((pane) => { pane.scrollTop = pane.scrollHeight })
+    await page.waitForTimeout(150)
+  }
   const directory = join(outputRoot, 'local', spec.id, theme)
   await ensureDirectory(directory)
   const screenshot = join(directory, `${viewport.id}.png`)
@@ -1111,27 +1271,102 @@ export function semanticRoleTreeMatches(source: string, local: string): boolean 
   return sourceRoles.length > 0 && JSON.stringify(sourceRoles) === JSON.stringify(localRoles)
 }
 
-export function interactionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+export function interactionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario?: InteractionCase['scenario'],
+): readonly InteractionCase[] {
   const cases: InteractionCase[] = []
   for (const control of visibleControls(snapshot)) {
-    const prefix = `${variantId}:${control.index}`
+    const prefix = `${variantId}:${scenario ? `${scenario}:` : ''}${control.index}`
     for (const capability of control.capabilities) {
       if (capability === 'press') {
         for (const key of ['Enter', 'Space'] as const)
-          cases.push({ id: `${prefix}:press-${key.toLowerCase()}`, action: 'press', key, control })
+          cases.push({ id: `${prefix}:press-${key.toLowerCase()}`, action: 'press', key, control, scenario })
         continue
       }
       if (capability === 'tab') {
         for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const)
-          cases.push({ id: `${prefix}:tab-${key.toLowerCase()}`, action: 'press', key, control })
+          cases.push({ id: `${prefix}:tab-${key.toLowerCase()}`, action: 'press', key, control, scenario })
         continue
       }
-      cases.push({ id: `${prefix}:${capability}`, action: capability, control })
+      cases.push({ id: `${prefix}:${capability}`, action: capability, control, scenario })
       if (capability === 'expand' || capability === 'menu')
-        cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control })
+        cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control, scenario })
     }
   }
   return cases
+}
+
+export function agentLogDynamicCaseIds(variantId: string): readonly string[] {
+  return ['running', 'away'].flatMap((scenario) =>
+    ['hover', 'focus', 'click', 'press-enter', 'press-space'].map(
+      (action) => `${variantId}:${scenario}:4:${action}`,
+    ),
+  )
+}
+
+function agentLogScenarioCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario: 'running' | 'away',
+): readonly InteractionCase[] {
+  const name = scenario === 'running' ? 'Stop' : 'Jump to latest'
+  const control = visibleControls(snapshot).find((candidate) => candidate.name === name)
+  if (!control) throw new Error(`Missing ${name} in the live React Bits Pro log scenario`)
+  return interactionCases({ ...snapshot, controls: [control] }, variantId, scenario)
+}
+
+async function prepareAgentLogScenario(
+  page: Page,
+  root: Locator,
+  scenario: InteractionCase['scenario'],
+  source: boolean,
+  checkpointRows = 24,
+): Promise<void> {
+  if (scenario === 'running') {
+    const targetRows = checkpointRows
+    if (!source) {
+      await root.locator('ol li').nth(targetRows - 1).waitFor({ state: 'attached', timeout: 5_000 })
+      if (await root.locator('ol li').count() !== targetRows)
+        throw new Error(`Local running log missed the ${targetRows}-line checkpoint`)
+    }
+    await (source ? root.locator('button').filter({ hasText: 'Stop' }) : root.getByRole('button', { name: 'Stop' }))
+      .waitFor({ state: 'visible', timeout: 1_500 })
+    if (!source) {
+      await page.clock.install()
+      await page.clock.pauseAt((await root.evaluate(() => Date.now())) + 1)
+      if (await root.locator('ol li').count() !== targetRows)
+        throw new Error(`Local running log changed during the ${targetRows}-line checkpoint`)
+      // The real preview follows the newest row. Align the independently
+      // clock-paused local pane after React has committed that checkpoint.
+      await root.locator('.hbar-app-ui-agent-activity-log-scroll').evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+      })
+    }
+    return
+  }
+  if (source) {
+    await root.locator('ol li').nth(25).waitFor({ state: 'attached', timeout: 15_000 })
+    await root.locator('button').filter({ hasText: 'Stop' }).waitFor({ state: 'hidden', timeout: 15_000 })
+  } else {
+    await root.locator('[data-hbar-app-ui-log-phase="complete"]').waitFor({ state: 'visible', timeout: 15_000 })
+  }
+  const pane = source ? root.locator('ol').locator('..') : root.locator('.hbar-app-ui-agent-activity-log-scroll')
+  await pane.evaluate((element) => { element.scrollTop = element.scrollHeight })
+  await root.getByRole('button', { name: 'Jump to latest' }).waitFor({ state: 'hidden', timeout: 5_000 })
+  if (scenario === 'away') {
+    await pane.hover()
+    await pane.evaluate((element) => { element.scrollTop = 0 })
+    await root.getByRole('button', { name: 'Jump to latest' }).waitFor({ state: 'visible', timeout: 5_000 })
+  }
+}
+
+async function runningLogCheckpoint(root: Locator): Promise<{ rows: number; message: string }> {
+  return root.locator('ol').evaluate((list) => {
+    const rows = Array.from(list.querySelectorAll('li'))
+    return { rows: rows.length, message: rows.at(-1)?.lastElementChild?.textContent?.trim() ?? '' }
+  })
 }
 
 export function selectInteractionCases(
@@ -1178,9 +1413,10 @@ async function controlLocator(root: Locator, control: ControlSnapshot) {
 }
 
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
-  if (interaction.action === 'hover') await control.hover()
+  if (interaction.action === 'hover') await control.hover({ force: interaction.scenario === 'running' })
   if (interaction.action === 'focus') await control.focus()
-  if (interaction.action === 'click') await control.click({ timeout: 10_000 })
+  if (interaction.action === 'click')
+    await control.click({ timeout: 10_000, force: interaction.scenario === 'running' })
   if (interaction.action === 'fill') {
     const type = await control.getAttribute('type')
     const value = type === 'date' ? '2026-09-22' : type === 'time' ? '12:30' : type === 'number' ? '2' : 'audit sample'
@@ -1223,6 +1459,7 @@ type InteractionCapture = Readonly<{
   after: string | null
   beforeSnapshot: string
   afterSnapshot: string | null
+  checkpointRows?: number
   reason?: string
 }>
 
@@ -1249,6 +1486,7 @@ export function interactionCheckpointMatches(
     result.theme === expected.theme &&
     result.viewport === expected.viewport &&
     result.caseHash === expected.caseHash &&
+    (result.status === 'matched' || result.status === 'source-no-op') &&
     result.source?.status === 'captured' &&
     result.local?.status === 'captured' &&
     result.source.after !== null &&
@@ -1426,6 +1664,7 @@ async function replayInteraction(
   referenceCanvas: ReferenceCanvas,
   interaction: InteractionCase,
   outputRoot: string,
+  checkpointRows?: number,
 ): Promise<InteractionCapture> {
   const target = `${localPreviewUrl}/?mode=isolated&theme=${theme}&variant=${encodeURIComponent(spec.id)}`
   await page.setViewportSize({ width: referenceCanvas.width, height: referenceCanvas.height })
@@ -1436,6 +1675,10 @@ async function replayInteraction(
   const selector = localCanvasSelector
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (spec.id === 'hbar-app-ui-agent-activity-5')
+    await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
+  if (spec.id === 'hbar-app-ui-agent-activity-5')
+    await root.evaluate((element) => { element.scrollTop = 0 })
   const control = await controlLocator(root, interaction.control)
   const directory = join(
     outputRoot,
@@ -1480,6 +1723,8 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
+  if (spec.id === 'hbar-app-ui-agent-activity-5')
+    await root.evaluate((element) => { element.scrollTop = 0 })
   await screenshotStable(root, after)
   await writeJson(afterSnapshot, await localSnapshot(page, selector))
   return { id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot }
@@ -1496,11 +1741,18 @@ async function replayReferenceInteraction(
   outputRoot: string,
 ): Promise<InteractionCapture> {
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
-  const frame = await loadReferencePreview(page, referencePageUrl(reference, options), theme)
+  const frame = interaction.scenario === 'running' && reference.id === 'hbar-app-ui-agent-activity-5'
+    ? await loadRunningLogPreview(page, referencePageUrl(reference, options), theme)
+    : await loadReferencePreview(page, referencePageUrl(reference, options), theme)
   await alignReferenceInteractionCanvas(page, frame, referenceCanvas)
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (reference.id === 'hbar-app-ui-agent-activity-5')
+    await prepareAgentLogScenario(page, root, interaction.scenario, true)
+  const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
+  if (runningCheckpoint && !runningCheckpoint.message)
+    throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
   const control = await controlLocator(root, interaction.control)
   const directory = join(
     outputRoot,
@@ -1516,8 +1768,21 @@ async function replayReferenceInteraction(
   const after = join(directory, 'after.png')
   const beforeSnapshot = join(directory, 'before.json')
   const afterSnapshot = join(directory, 'after.json')
+  if (interaction.scenario === 'running' && interaction.action === 'click' && control) {
+    await control.evaluate((element) => element.addEventListener('click', (event) => {
+      (window as Window & { __reactBitsAuditTrustedClick?: boolean }).__reactBitsAuditTrustedClick = event.isTrusted
+    }, { once: true }))
+  }
+  await assertReferenceFrameTheme(frame, theme)
   await screenshotStable(root, before)
-  await writeJson(beforeSnapshot, await snapshotRoot(frame, selector))
+  const beforeState = await snapshotRoot(frame, selector)
+  await writeJson(beforeSnapshot, beforeState)
+  const runningControl = interaction.scenario === 'running'
+    ? visibleControls(beforeState).find((item) => item.name === 'Stop')
+    : undefined
+  const checkpointRows = runningCheckpoint?.rows
+  if (interaction.scenario === 'running' && !runningControl)
+    throw new Error('Running log Stop expired before the before screenshot')
   if (!control) {
     return {
       id: interaction.id,
@@ -1531,7 +1796,24 @@ async function replayReferenceInteraction(
     }
   }
   try {
-    if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
+    if (interaction.scenario === 'running' || !(await controlIsDisabled(control))) {
+      if (interaction.scenario === 'running' && (interaction.action === 'click' || interaction.action === 'hover')) {
+        const rect = runningControl?.rect
+        if (!rect) throw new Error('Running log control lost its visible bounds')
+        const x = rect.x + rect.width / 2
+        const y = rect.y + rect.height / 2
+        if (interaction.action === 'click') {
+          await page.mouse.click(x, y)
+          const delivered = await frame.evaluate(() =>
+            (window as Window & { __reactBitsAuditTrustedClick?: boolean }).__reactBitsAuditTrustedClick)
+          if (delivered !== true) throw new Error('Running log did not receive a trusted pointer click')
+        } else {
+          await page.mouse.move(x, y)
+        }
+      } else {
+        await applyInteraction(control, interaction)
+      }
+    }
   } catch (error) {
     return {
       id: interaction.id,
@@ -1544,10 +1826,24 @@ async function replayReferenceInteraction(
       reason: error instanceof Error ? error.message : String(error),
     }
   }
-  await page.waitForTimeout(120)
+  if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
+    await page.waitForTimeout(120)
+  }
+  if (runningCheckpoint) {
+    const afterCheckpoint = await runningLogCheckpoint(root)
+    if (afterCheckpoint.rows !== runningCheckpoint.rows || afterCheckpoint.message !== runningCheckpoint.message)
+      throw new Error(`Running React Bits log changed independently of the control: ${JSON.stringify({
+        before: runningCheckpoint, after: afterCheckpoint,
+      })}`)
+  }
+  await assertReferenceFrameTheme(frame, theme)
   await screenshotStable(root, after)
+  await assertReferenceFrameTheme(frame, theme)
   await writeJson(afterSnapshot, await snapshotRoot(frame, selector))
-  return { id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot }
+  return {
+    id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot,
+    ...(checkpointRows === undefined ? {} : { checkpointRows }),
+  }
 }
 
 async function runCapture(options: AuditOptions, browser: Browser, inventory: ReactBitsProInventory): Promise<void> {
@@ -1896,10 +2192,39 @@ async function runInteractionsParallel(
             await discoveryPage.setViewportSize({ width: viewport.width, height: viewport.height })
             const frame = await loadReferencePreview(discoveryPage, referencePageUrl(reference, options), theme)
             const sourceSelector = sourceCanvasSelector
+            const sourceRoot = frame.locator(sourceSelector).first()
+            if (spec.id === 'hbar-app-ui-agent-activity-5')
+              await prepareAgentLogScenario(discoveryPage, sourceRoot, undefined, true)
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
-            const cases = selectInteractionCases(interactionCases(sourceSnapshot, spec.id), options.cases)
+            let discovered = [...interactionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-agent-activity-5') {
+              await prepareAgentLogScenario(discoveryPage, sourceRoot, 'away', true)
+              discovered.push(...agentLogScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id, 'away'))
+              let runningFound = false
+              for (let attempt = 0; attempt < 4 && !runningFound; attempt += 1) {
+                const runningContext = await browser.newContext({ reducedMotion: 'reduce' })
+                try {
+                  const runningPage = await runningContext.newPage()
+                  await runningPage.setViewportSize({ width: viewport.width, height: viewport.height })
+                  const runningFrame = await loadRunningLogPreview(
+                    runningPage, referencePageUrl(reference, options), theme,
+                  )
+                  const runningRoot = runningFrame.locator(sourceSelector).first()
+                  await prepareAgentLogScenario(runningPage, runningRoot, 'running', true)
+                  discovered.push(...agentLogScenarioCases(
+                    await snapshotRoot(runningFrame, sourceSelector), spec.id, 'running',
+                  ))
+                  runningFound = true
+                } catch (error) {
+                  if (attempt === 3) throw error
+                } finally {
+                  await runningContext.close()
+                }
+              }
+            }
+            const cases = selectInteractionCases(discovered, options.cases)
             let caseCursor = 0
             const actionWorker = async () => {
               while (caseCursor < cases.length) {
@@ -1936,25 +2261,38 @@ async function runInteractionsParallel(
                   resumed += 1
                   continue
                 }
-                // An action is always replayed from a clean browser context on each side.
-                const actionContext = await browser.newContext({ reducedMotion: 'reduce' })
+                // The source and local action each need their own context: source clock control must not freeze local timers.
+                const sourceContext = await browser.newContext({ reducedMotion: 'reduce' })
+                const localContext = await browser.newContext({ reducedMotion: 'reduce' })
                 let source: InteractionCapture
                 let local: InteractionCapture
                 try {
-                  const sourcePage = await actionContext.newPage()
-                  const localPage = await actionContext.newPage()
-                  ;[source, local] = await Promise.all([
-                    replayReferenceInteraction(
-                      sourcePage,
-                      reference,
-                      options,
-                      theme,
-                      viewport,
-                      referenceCanvas,
-                      interaction,
-                      options.outputRoot,
-                    ).catch((error) => errorInteractionCapture(interaction.id, sourceDirectory, error)),
-                    replayInteraction(
+                  const sourcePage = await sourceContext.newPage()
+                  const localPage = await localContext.newPage()
+                  const captureSourceWithRetry = async (): Promise<InteractionCapture> => {
+                    let lastError: unknown
+                    const attempts = interaction.scenario === 'running' ? 8 : 3
+                    for (let attempt = 0; attempt < attempts; attempt += 1) {
+                      const retryContext = attempt === 0
+                        ? sourceContext
+                        : await browser.newContext({ reducedMotion: 'reduce' })
+                      try {
+                        const candidatePage = attempt === 0 ? sourcePage : await retryContext.newPage()
+                        const capture = await replayReferenceInteraction(
+                          candidatePage, reference, options, theme, viewport,
+                          referenceCanvas, interaction, options.outputRoot,
+                        )
+                        if (interaction.scenario !== 'running' || capture.status === 'captured') return capture
+                        lastError = new Error(capture.reason ?? capture.status)
+                      } catch (error) {
+                        lastError = error
+                      } finally {
+                        if (attempt > 0) await retryContext.close()
+                      }
+                    }
+                    return errorInteractionCapture(interaction.id, sourceDirectory, lastError)
+                  }
+                  const captureLocal = (rows?: number) => replayInteraction(
                       localPage,
                       spec,
                       theme,
@@ -1962,10 +2300,16 @@ async function runInteractionsParallel(
                       referenceCanvas,
                       interaction,
                       options.outputRoot,
-                    ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error)),
-                  ])
+                      rows,
+                    ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
+                  if (interaction.scenario === 'running') {
+                    source = await captureSourceWithRetry()
+                    local = await captureLocal(source.checkpointRows)
+                  } else {
+                    ;[source, local] = await Promise.all([captureSourceWithRetry(), captureLocal()])
+                  }
                 } finally {
-                  await actionContext.close()
+                  await Promise.all([sourceContext.close(), localContext.close()])
                 }
                 const sourceDelta = await interactionDelta(source, interaction)
                 const localDelta = await interactionDelta(local, interaction)
@@ -2098,6 +2442,10 @@ async function runCompare(options: AuditOptions): Promise<void> {
         (interaction) => `${record.theme}/${record.viewport}/${interaction.id}`,
       ),
     )
+    if (record.id === 'hbar-app-ui-agent-activity-5')
+      expected.push(...agentLogDynamicCaseIds(record.id).map(
+        (id) => `${record.theme}/${record.viewport}/${id}`,
+      ))
     expectedInteractions.set(record.id, expected)
     comparisons.push({
       id: record.id,
