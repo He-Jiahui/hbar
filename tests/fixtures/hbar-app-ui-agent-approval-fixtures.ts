@@ -23,7 +23,7 @@ const approvalHistory = [
 
 export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent = {
     inline: {
-        labels: {day: 'Today', showRequest: 'Show request', reject: 'Reject', approve: 'Delete 12 projects'},
+        labels: {day: 'Today', showRequest: 'Show request', hideRequest: 'Hide request', decisionTime: 'just now', reject: 'Reject', approve: 'Delete 12 projects'},
         userMessage: 'Clean up the archived projects: we’re over the storage quota again.',
         detailMessage: 'Twelve archived projects haven’t been opened in over a year. Removing them and their build history frees about 4.2 GB. Because this is permanent, I need you to confirm before I run it.',
         toolName: 'list_projects',
@@ -31,6 +31,19 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
         requestTitle: 'Delete 12 archived projects and their build history',
         requestDescription: 'Frees 4.2 GB in the storage-cleanup workspace. Active projects are untouched and this can’t be undone.',
         requestStatusLabel: 'Needs approval',
+        requestText: `delete_projects({
+  workspace: "storage-cleanup",
+  ids: ["prj_9f2a", "prj_7c10", "prj_5b83", … +9],
+  purgeBuildCache: true
+})`,
+        outcomes: {
+            approved: {
+                summary: 'Approved: deleted 12 projects, freed 4.2 GB',
+                followUp: 'Done: your archive is cleaned up. I’ll flag projects for review the next time you pass 90% of the quota.',
+                announcement: 'Approved. Deleted 12 projects and freed 4.2 GB.',
+            },
+            rejected: {summary: 'Skipped, not approved', announcement: 'Skipped, not approved.'},
+        },
     },
     diff: {
         labels: {headerTitle: 'Retention policy update', agent: 'Repo maintenance agent', status: 'Needs approval', separator: '·', showDiff: 'Show diff', reject: 'Reject', alwaysAllow: 'Always allow', approve: 'Approve', changeSeparator: '›'},
@@ -117,8 +130,16 @@ export function createHbarAppUiAgentApprovalLocalizedFixtures(): HbarAppUiAgentA
         ...base,
         inline: base.inline && {
             ...base.inline,
-            labels: {...base.inline.labels, day: 'Heute', showRequest: 'Vollständigen Antrag anzeigen', reject: 'Dauerhaft ablehnen', approve: 'Zwölf Projekte löschen'},
+            labels: {...base.inline.labels, day: 'Heute', showRequest: 'Vollständigen Antrag anzeigen', hideRequest: 'Antrag ausblenden', decisionTime: 'soeben', reject: 'Dauerhaft ablehnen', approve: 'Zwölf Projekte löschen'},
             requestTitle: 'Zwölf archivierte Projekte und ihre Build-Historie dauerhaft löschen',
+            outcomes: {
+                approved: {
+                    summary: 'Genehmigt: zwölf Projekte gelöscht und 4,2 GB freigegeben',
+                    followUp: 'Erledigt: Das Archiv wurde bereinigt. Beim nächsten Überschreiten von 90 Prozent des Kontingents werden Projekte zur Überprüfung markiert.',
+                    announcement: 'Genehmigt. Zwölf Projekte wurden gelöscht und 4,2 GB freigegeben.',
+                },
+                rejected: {summary: 'Übersprungen, nicht genehmigt', announcement: 'Übersprungen, nicht genehmigt.'},
+            },
         },
         diff: base.diff && {
             ...base.diff,

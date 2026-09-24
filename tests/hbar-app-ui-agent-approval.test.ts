@@ -48,9 +48,12 @@ describe('hbar-app-ui agent approval surfaces', () => {
         expect(markup[5]).toContain('Refunded 3 duplicate charges to Acme Logistics')
         expect(new Set(markup).size).toBe(6)
 
+        expect(markup[0]).toContain('data-boundary="none"')
+        for (const surface of markup.slice(1)) {
+            expect(surface).toContain('data-boundary="horizontal"')
+        }
         for (const surface of markup) {
             const normalized = surface.toLocaleLowerCase()
-            expect(surface).toContain('data-boundary="horizontal"')
             expect(normalized).not.toContain('react-bits')
             expect(normalized).not.toContain('reactbits')
         }
@@ -66,6 +69,11 @@ describe('hbar-app-ui agent approval surfaces', () => {
         expect(inline).toContain('Today')
         expect(inline).toContain('Clean up the archived projects: we’re over the storage quota again.')
         expect(inline).toContain('Needs approval')
+        expect(inline).toContain('aria-expanded="false"')
+        expect(inline).toContain('aria-label="Delete 12 archived projects and their build history"')
+        expect(inline).not.toContain('<main')
+        expect(inline).not.toContain('<h2')
+        expect(inline).not.toContain('<pre')
         expect(diff).toContain('<dl class="hbar-app-ui-agent-approval-change-list">')
         expect(diff).toContain('<s>180 days</s><span aria-hidden="true">›</span><strong>45 days</strong>')
         expect(queue).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')

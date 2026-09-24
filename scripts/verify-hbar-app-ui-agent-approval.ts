@@ -1,7 +1,9 @@
-import {chromium} from '@playwright/test'
+import {chromium, expect} from '@playwright/test'
+import {HBAR_APP_UI_AGENT_APPROVAL_FIXTURES, createHbarAppUiAgentApprovalLocalizedFixtures} from '../tests/fixtures/hbar-app-ui-agent-approval-fixtures'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+const inlineOnly = process.argv.includes('--inline-only')
 type AgentApprovalFixture = 'overflow' | 'localized'
 type GeometryBox = Readonly<{x: number; y: number; width: number; height: number}>
 type GeometryExpectation = Readonly<{
@@ -103,6 +105,7 @@ async function verifyReferenceGeometry(page: import('@playwright/test').Page): P
 
     for (const [variantText, viewports] of Object.entries(layouts)) {
         const variant = Number(variantText)
+        if (inlineOnly && variant !== 1) continue
         for (const viewport of viewports) {
             await page.setViewportSize({width: viewport.width, height: viewport.height})
             await page.goto(previewUrl(variant), {waitUntil: 'networkidle'})
@@ -150,6 +153,113 @@ async function inspectScrollable(locator: import('@playwright/test').Locator): P
     })
 }
 
+async function settledTextContrast(locator: import('@playwright/test').Locator): Promise<number> {
+    return locator.evaluate(async (element) => {
+        await Promise.all(element.getAnimations().filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+            .map((animation) => animation.finished.catch(() => undefined)))
+        const canvas = document.createElement('canvas')
+        canvas.width = canvas.height = 1
+        const context = canvas.getContext('2d')
+        if (!context) return 0
+        const fill = (color: string) => {
+            context.fillStyle = color
+            context.fillRect(0, 0, 1, 1)
+        }
+        const luminance = () => {
+            const pixel = context.getImageData(0, 0, 1, 1).data
+            const channels = [pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0].map((value) => {
+                const normalized = value / 255
+                return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+            })
+            return (channels[0] ?? 0) * 0.2126 + (channels[1] ?? 0) * 0.7152 + (channels[2] ?? 0) * 0.0722
+        }
+        const ancestors: Element[] = []
+        for (let current: Element | null = element; current; current = current.parentElement) ancestors.push(current)
+        fill('#fff')
+        for (const ancestor of ancestors.reverse()) fill(getComputedStyle(ancestor).backgroundColor)
+        const background = luminance()
+        fill(getComputedStyle(element).color)
+        const foreground = luminance()
+        return (Math.max(background, foreground) + 0.05) / (Math.min(background, foreground) + 0.05)
+    })
+}
+
+async function verifyInlineApproval(page: import('@playwright/test').Page): Promise<void> {
+    const content = HBAR_APP_UI_AGENT_APPROVAL_FIXTURES.inline
+    const localized = createHbarAppUiAgentApprovalLocalizedFixtures().inline
+    assert(content && localized, 'Missing host inline approval fixtures')
+    for (const width of [1086, 670, 356, 286]) {
+        await page.setViewportSize({width, height: 480})
+        for (const theme of ['dark', 'light']) {
+            await page.goto(`${previewUrl(1)}&theme=${theme}`, {waitUntil: 'networkidle'})
+            const topShade = page.locator('.hbar-app-ui-agent-approval-scroll-overlay.is-top')
+            const bottomShade = page.locator('.hbar-app-ui-agent-approval-scroll-overlay.is-bottom')
+            await expect(topShade).toHaveAttribute('data-visible', 'false')
+            await expect(bottomShade).toHaveAttribute('data-visible', width <= 356 ? 'true' : 'false')
+            const show = page.getByRole('button', {name: content.labels.showRequest, exact: true})
+            assert(await show.getAttribute('aria-expanded') === 'false', 'Request must start collapsed')
+            assert(await page.locator('pre').count() === 0, 'Collapsed request still rendered payload')
+            for (const label of [content.labels.showRequest, content.labels.reject, content.labels.approve]) {
+                const button = page.getByRole('button', {name: label, exact: true})
+                await button.hover()
+                assert(await settledTextContrast(button) >= 4.5, `${theme} ${label} hover lost readable contrast`)
+            }
+            await show.press('Enter')
+            const hide = page.getByRole('button', {name: content.labels.hideRequest, exact: true})
+            assert(await hide.getAttribute('aria-expanded') === 'true', 'Request did not open on Enter')
+            assert(await page.locator('pre').textContent() === content.requestText, 'Request changed the host payload')
+            await page.locator('pre').focus()
+            assert(await page.locator('pre').evaluate((element) => document.activeElement === element), 'Request payload is missing its keyboard focus entry')
+            await expect(topShade).toHaveAttribute('data-visible', 'true')
+            await hide.press('Escape')
+            assert(await hide.getAttribute('aria-expanded') === 'true', 'Escape incorrectly dismisses this inline disclosure')
+            for (let index = 0; index < 3; index += 1) await page.keyboard.press('Tab')
+            assert(await page.locator('pre').evaluate((element) => document.activeElement === element), 'Tab order did not reach the request payload after both decision buttons')
+            if (width <= 356) {
+                const payloadScroll = await page.locator('pre').evaluate((element) => {
+                    element.scrollLeft = element.scrollWidth
+                    return {moved: element.scrollLeft > 0, preformatted: getComputedStyle(element).whiteSpace === 'pre'}
+                })
+                assert(payloadScroll.preformatted && (width > 286 || payloadScroll.moved), 'Overflowing request payload must scroll horizontally inside its own frame')
+                const pane = await inspectScrollable(page.locator('.hbar-app-ui-agent-approval-inline'))
+                assert(pane.scrollable && pane.moved, 'Narrow approval content must scroll inside its bounded pane')
+                await expect(bottomShade).toHaveAttribute('data-visible', 'false')
+            }
+            assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Inline approval overflowed the outer page')
+            await hide.press('Space')
+            assert(await page.locator('pre').count() === 0, 'Space did not collapse request')
+            for (const expanded of [false, true]) {
+                for (const decision of ['approved', 'rejected'] as const) {
+                    await page.goto(`${previewUrl(1)}&theme=${theme}`, {waitUntil: 'networkidle'})
+                    if (expanded) await page.getByRole('button', {name: content.labels.showRequest, exact: true}).click()
+                    const button = page.getByRole('button', {name: decision === 'approved' ? content.labels.approve : content.labels.reject, exact: true})
+                    await button.hover()
+                    await button.press(decision === 'approved' ? 'Enter' : 'Space')
+                    const outcome = content.outcomes[decision]
+                    assert(await page.getByRole('region', {name: content.requestTitle}).count() === 0, 'Decision did not replace the entire approval card')
+                    assert(await page.getByRole('button').count() === 0, 'Decision left active approval actions behind')
+                    await expect(bottomShade).toHaveAttribute('data-visible', 'false')
+                    assert(await page.getByText(outcome.summary, {exact: true}).count() === 1, 'Missing visible decision summary')
+                    const resultRow = await page.locator('.hbar-app-ui-agent-approval-inline-result').evaluate((element) => {
+                        const summary = element.querySelector('p')
+                        return {height: element.getBoundingClientRect().height, whiteSpace: summary && getComputedStyle(summary).whiteSpace}
+                    })
+                    assert(resultRow.whiteSpace === 'nowrap' && Math.abs(resultRow.height - 23.5) < 1, 'Decision row must keep the source single-line ellipsis and timestamp alignment')
+                    assert(await page.locator('[aria-live="polite"]').textContent() === outcome.announcement, 'Missing nonvisual decision announcement')
+                    assert(await page.locator('.hbar-app-ui-agent-approval-inline-follow-up').count() === (outcome.followUp ? 1 : 0), 'Decision follow-up did not match host outcome')
+                }
+            }
+        }
+    }
+    await page.setViewportSize({width: 286, height: 480})
+    await page.goto(previewUrl(1, 'localized'), {waitUntil: 'networkidle'})
+    await page.getByRole('button', {name: localized.labels.showRequest, exact: true}).click()
+    assert(await page.getByRole('button', {name: localized.labels.hideRequest, exact: true}).isVisible(), 'Localized disclosure label missing')
+    await page.getByRole('button', {name: localized.labels.approve, exact: true}).click()
+    assert(await page.getByText(localized.outcomes.approved.summary, {exact: true}).count() === 1, 'Localized decision feedback missing')
+    assert(await page.getByText(localized.outcomes.approved.followUp ?? '', {exact: true}).count() === 1, 'Localized follow-up missing')
+}
+
 async function run(): Promise<void> {
     const server = await ensurePreview()
     const browser = await chromium.launch({headless: true, executablePath})
@@ -159,13 +269,19 @@ async function run(): Promise<void> {
 
     try {
         const geometryChecks = await verifyReferenceGeometry(page)
+        await verifyInlineApproval(page)
+        if (inlineOnly) {
+            assert(pageErrors.length === 0, `Inline approval preview errors: ${pageErrors.join(' | ')}`)
+            console.log(JSON.stringify({inlineDisclosureAndDecisions: true, pairedCanvasSizes: 4, themes: 2, localizedHostCopy: true, geometryChecks, pageErrors}))
+            return
+        }
         await page.setViewportSize({width: 1192, height: 640})
 
         await page.goto(previewUrl(1), {waitUntil: 'networkidle'})
         const inlineToggle = page.getByRole('button', {name: 'Show request', exact: true})
-        assert(await inlineToggle.getAttribute('aria-expanded') === 'true', 'Inline approval did not open the host request')
+        assert(await inlineToggle.getAttribute('aria-expanded') === 'false', 'Inline approval did not start collapsed')
         await inlineToggle.click()
-        assert(await inlineToggle.getAttribute('aria-expanded') === 'false', 'Inline approval request did not toggle')
+        assert(await page.getByRole('button', {name: 'Hide request', exact: true}).getAttribute('aria-expanded') === 'true', 'Inline approval request did not toggle')
         await page.getByRole('button', {name: 'Delete 12 projects', exact: true}).click()
 
         await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
