@@ -239,6 +239,8 @@ export type InteractionCase = Readonly<{
     | 'history-match'
     | 'history-empty'
     | 'plan-paused'
+    | 'plan-draft'
+    | 'plan-running'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1445,6 +1447,34 @@ export function interactionCases(
   return cases
 }
 
+export function planReviewScenarioCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario: 'plan-draft' | 'plan-running',
+): readonly InteractionCase[] {
+  const cases = interactionCases(snapshot, variantId, scenario)
+  if (scenario !== 'plan-draft') return cases
+  const input = visibleControls(snapshot).find((control) => control.tag === 'input' && control.name === 'Add a step')
+  if (!input) throw new Error('Missing live plan draft input')
+  return [
+    ...cases,
+    {
+      id: `${variantId}:${scenario}:${input.index}:press-enter`,
+      action: 'press',
+      key: 'Enter',
+      control: input,
+      scenario,
+    },
+  ]
+}
+
+async function preparePlanReviewScenario(root: Locator, scenario: 'plan-draft' | 'plan-running'): Promise<void> {
+  await root
+    .getByRole('textbox', { name: 'Add a step', exact: true })
+    .fill(scenario === 'plan-draft' ? 'audit sample' : '')
+  if (scenario === 'plan-running') await root.getByRole('button', { name: 'Start 8 steps', exact: true }).click()
+}
+
 export function agentLogDynamicCaseIds(variantId: string): readonly string[] {
   return ['running', 'away'].flatMap((scenario) =>
     ['hover', 'focus', 'click', 'press-enter', 'press-space'].map((action) => `${variantId}:${scenario}:4:${action}`),
@@ -2113,6 +2143,11 @@ async function replayInteraction(
     await prepareHistoryScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-plan-1' && interaction.scenario === 'plan-paused')
     await root.getByRole('button', { name: 'Stop', exact: true }).click()
+  if (
+    spec.id === 'hbar-app-ui-agent-plan-2' &&
+    (interaction.scenario === 'plan-draft' || interaction.scenario === 'plan-running')
+  )
+    await preparePlanReviewScenario(root, interaction.scenario)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2215,6 +2250,11 @@ async function replayReferenceInteraction(
     await prepareHistoryScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-plan-1' && interaction.scenario === 'plan-paused')
     await root.getByRole('button', { name: 'Stop', exact: true }).click()
+  if (
+    reference.id === 'hbar-app-ui-agent-plan-2' &&
+    (interaction.scenario === 'plan-draft' || interaction.scenario === 'plan-running')
+  )
+    await preparePlanReviewScenario(root, interaction.scenario)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2773,6 +2813,15 @@ async function runInteractionsParallel(
             ) {
               await sourceRoot.getByRole('button', { name: 'Stop', exact: true }).click()
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'plan-paused'))
+            }
+            if (spec.id === 'hbar-app-ui-agent-plan-2') {
+              for (const scenario of ['plan-draft', 'plan-running'] as const) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await preparePlanReviewScenario(sourceRoot, scenario)
+                discovered.push(
+                  ...planReviewScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
+                )
+              }
             }
             if (spec.id === 'hbar-app-ui-agent-approval-6') {
               for (const scenario of ['history-match', 'history-empty'] as const) {

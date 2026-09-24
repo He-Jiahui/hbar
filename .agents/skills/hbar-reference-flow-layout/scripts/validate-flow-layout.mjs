@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Plan 2 uses the same observed pair around its div-owned scroll area.
+  if (
+    /packages\/lumen-app-ui\/src\/plan-review\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.lumen-plan-review-edge-overlay(?:\.is-(?:top|bottom)|\[data-visible=['"]true['"]\])?$/.test(selector.trim())
+  )
+    return true
   // The rendered Plan 1 scroll frame has two pointer-transparent edge fades.
   if (
     /packages\/lumen-app-ui\/src\/agent-plan-checklist\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -284,6 +290,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     process.exit(1)
   }
   for (const suffix of ['', '.is-top', '.is-bottom', '[data-visible="true"]']) {
+    const reviewErrors = validateCss(
+      'packages/lumen-app-ui/src/plan-review.css',
+      `.lumen-plan-review-edge-overlay${suffix} {
+  position: absolute;
+  inset-inline: 0;
+}`,
+    )
+    if (reviewErrors.length) {
+      console.error(`Flow layout guard rejected verified review edge overlays: ${reviewErrors.join('; ')}`)
+      process.exit(1)
+    }
     const errors = validateCss(
       'packages/lumen-app-ui/src/agent-plan-checklist.css',
       `.hbar-app-ui-agent-plan-checklist-edge-overlay${suffix} {
@@ -297,6 +314,9 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     }
   }
   for (const [path, selector] of [
+    ['packages/lumen-app-ui/src/agent-plan.css', '.lumen-plan-review-edge-overlay'],
+    ['packages/lumen-app-ui/src/plan-review.css', '.lumen-plan-review-edge-overlay p'],
+    ['packages/lumen-app-ui/src/plan-review.css', '.lumen-plan-review-edge-overlay > button'],
     ['packages/lumen-app-ui/src/agent-plan.css', '.hbar-app-ui-agent-plan-checklist-edge-overlay'],
     ['packages/lumen-app-ui/src/agent-plan-checklist.css', '.hbar-app-ui-agent-plan-checklist-edge-overlay p'],
     ['packages/lumen-app-ui/src/agent-plan-checklist.css', '.hbar-app-ui-agent-plan-checklist-edge-overlay > button'],

@@ -352,12 +352,78 @@ const checklistPlan: AuditSamplingPlan = {
   ],
 }
 
+const planReviewPlan: AuditSamplingPlan = {
+  revision: 1,
+  lumenEntries: ['agent-plan.tsx', 'LumenProvider.tsx'],
+  samples: [
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '1:click',
+      change: 'Move first step down, preserving target focus and announcing the new position',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '2:click',
+      change: 'Skip retains the row, changes styling/action label and both counts',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '17:press-space',
+      change: 'Restore the initially skipped row and increment the included count',
+    },
+    { viewport: 'desktop', theme: 'dark', suffix: '27:fill', change: 'Draft input enables Add without creating a row' },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: 'plan-draft:28:click',
+      change: 'Add appends a stable-ID row, clears the draft and announces the addition',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '29:click',
+      change: 'Start locks all editing and replaces the footer with the Stop recovery action',
+    },
+    { viewport: 'desktop', theme: 'dark', suffix: '1:hover', change: 'Shared row/icon-button pointer feedback' },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'plan-draft:27:press-enter',
+      change: 'Narrow Enter submits the input while retaining the horizontal row and input focus',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'plan-running:29:press-space',
+      change: 'Narrow Stop unlocks the unchanged plan and restores boundary-disabled controls',
+    },
+  ],
+  inferences: [
+    {
+      scope: 'Every other row target, ordering permutation and repeated gestures/themes',
+      basis:
+        'Stable-ID adjacent movement, skip toggling and native buttons share one implementation. Unit tests cover both boundaries, all-skipped recovery, duplicate/stale IDs and controller isolation; eight static pairs cover responsive structure.',
+      verification: 'inferred-not-replayed',
+    },
+    {
+      scope: 'Blank input, empty/one/bound/over-bound plans and host failures',
+      basis:
+        'State/render tests cover validation, disabled controls, host error preservation and over-capacity retention; a local browser check verifies actual long-list scroll, localized controls and input keyboard behavior. These are not claimed as extra source/local screenshot cases.',
+      verification: 'inferred-not-replayed',
+    },
+  ],
+}
+
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
   if (variantId === 'hbar-app-ui-agent-approval-5') return costPlan
   if (variantId === 'hbar-app-ui-agent-approval-6') return historyPlan
   if (variantId === 'hbar-app-ui-agent-plan-1') return checklistPlan
+  if (variantId === 'hbar-app-ui-agent-plan-2') return planReviewPlan
   return undefined
 }
 

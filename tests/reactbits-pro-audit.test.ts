@@ -21,6 +21,7 @@ import {
   queueApprovalScenarioCases,
   queueApprovalScenarioPlans,
   permissionApprovalScenarioCases,
+  planReviewScenarioCases,
   checkableStates,
   interactionCases,
   interactionCheckpointMatches,
@@ -361,6 +362,27 @@ describe('React Bits Pro visual audit contract', () => {
     expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(
       true,
     )
+  })
+
+  test('plan review samples mechanisms and discovers input Enter only in the real draft scenario', () => {
+    const id = 'hbar-app-ui-agent-plan-2'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(9)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toHaveLength(7)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([
+      `${id}:plan-draft:27:press-enter`,
+      `${id}:plan-running:29:press-space`,
+    ])
+    expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(
+      true,
+    )
+    const draft = snapshot([
+      control(27, { tag: 'input', name: 'Add a step', capabilities: ['fill', 'focus'] }),
+      control(28, { name: 'Add' }),
+    ])
+    expect(
+      planReviewScenarioCases(draft, id, 'plan-draft').some((item) => item.id === `${id}:plan-draft:27:press-enter`),
+    ).toBe(true)
+    expect(() => planReviewScenarioCases(snapshot([]), id, 'plan-draft')).toThrow('Missing live plan draft input')
   })
 
   test('cost approval samples distinct outcomes and wrapping instead of passive metrics', () => {

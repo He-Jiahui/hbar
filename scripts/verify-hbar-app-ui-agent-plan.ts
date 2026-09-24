@@ -1,5 +1,6 @@
 import {chromium} from '@playwright/test'
 import { verifyPlanChecklist } from './verify-hbar-app-ui-plan-checklist'
+import { verifyPlanReview } from './verify-hbar-app-ui-plan-review'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5185'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -71,9 +72,9 @@ async function verifyGeometry(page: import('@playwright/test').Page): Promise<Re
             {name: 'mobile', width: 320, height: 560, selector: '.hbar-app-ui-agent-plan-checklist-pane', expected: {x: 16, y: 60, width: 288, height: 484}},
         ],
         2: [
-            {name: 'desktop', width: 1192, height: 640, selector: '.hbar-app-ui-agent-plan-editable-card', expected: {x: 24, y: 60, width: 1144, height: 460}},
-            {name: 'tablet', width: 768, height: 641, selector: '.hbar-app-ui-agent-plan-editable-card', expected: {x: 24, y: 60, width: 720, height: 460}},
-            {name: 'mobile', width: 320, height: 640, selector: '.hbar-app-ui-agent-plan-editable-card', expected: {x: 16, y: 52, width: 288, height: 476}},
+            {name: 'desktop', width: 1192, height: 640, selector: '.lumen-plan-review-card', expected: {x: 24, y: 60, width: 1144, height: 460}},
+            {name: 'tablet', width: 768, height: 641, selector: '.lumen-plan-review-card', expected: {x: 24, y: 60, width: 720, height: 461}},
+            {name: 'mobile', width: 320, height: 640, selector: '.lumen-plan-review-card', expected: {x: 16, y: 52, width: 288, height: 476}},
         ],
         3: [
             {name: 'desktop', width: 1192, height: 640, selector: '.hbar-app-ui-agent-plan-inset-card', expected: {x: 24, y: 60, width: 1144, height: 556}},
@@ -119,6 +120,11 @@ async function run(): Promise<void> {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     try {
+        if (process.argv.includes('--review-only')) {
+            await verifyPlanReview(page, baseUrl)
+            assert(pageErrors.length === 0, `Plan review page errors: ${pageErrors.join(' | ')}`)
+            return
+        }
         if (process.argv.includes('--checklist-only')) {
             await verifyPlanChecklist(page, baseUrl)
             assert(pageErrors.length === 0, `Checklist page errors: ${pageErrors.join(' | ')}`)
@@ -141,7 +147,7 @@ async function run(): Promise<void> {
         assert(await page.getByRole('button', {name: 'Restore Read the billing contract notes', exact: true}).count() === 1, 'Editable plan did not expose restore after skipping')
 
         await page.goto(previewUrl(2, 'overflow'), {waitUntil: 'networkidle'})
-        const editableOverflow = await inspectScroll(page.locator('.hbar-app-ui-agent-plan-editable-list-viewport'))
+        const editableOverflow = await inspectScroll(page.locator('.lumen-plan-review-scroll'))
         assert(editableOverflow.scrollable && editableOverflow.moved, 'Editable plan did not expose the declared pane scroll strategy')
 
         await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
