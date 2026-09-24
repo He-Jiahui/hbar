@@ -111,6 +111,7 @@ for (const compact of [false, true])
         compact ? [1, 0, 1] : [0, 0, 0],
       )
       expect(journal.every((event) => !event.request.system.includes('get_goal({})'))).toBe(true)
+      expect(journal.every((event) => !event.request.system.includes('"write_file"'))).toBe(true)
       expect(journal[1]?.request.system).toContain('Current Agent Plan revision: 2')
       expect(journal[1]?.request.system).toContain('Focus validity: stale')
       expect(journal[1]?.request.system).toContain('Revised proof')

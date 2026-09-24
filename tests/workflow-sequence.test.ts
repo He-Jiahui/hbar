@@ -88,6 +88,128 @@ const boundCheckpointCalls = successfulCalls.map((call) =>
     : call,
 )
 
+test('deferred capabilities regain complete HTTP schemas in the same Run only after authorized scope expansion', async () => {
+  const { kernel, session, workflows } = await fixture()
+  let executions = 0
+  kernel.tools.register({
+    name: 'deferred_fixture',
+    description: 'Read a bounded fixture; mode must be exact and revision is at most seven.',
+    effect: 'read',
+    workspaceAccess: { kind: 'none' },
+    inputSchema: z.strictObject({ mode: z.literal('exact'), revision: z.number().int().min(1).max(7) }),
+    execute: async () => {
+      executions++
+      return { text: 'Verified full deferred schema' }
+    },
+  })
+  const bodySchema = z.object({
+    tools: z.array(z.object({ function: z.object({ name: z.string(), parameters: z.unknown() }) })),
+    messages: z.array(z.record(z.string(), z.unknown())),
+  })
+  const requests: z.infer<typeof bodySchema>[] = []
+  const provider = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      requests.push(bodySchema.parse(await request.json()))
+      const count = requests.length
+      const call =
+        count === 1 || count === 3
+          ? { name: 'deferred_fixture', arguments: JSON.stringify({ mode: 'exact', revision: 7 }) }
+          : count === 2
+            ? {
+                name: 'workflow_execute',
+                arguments: JSON.stringify({
+                  calls: [
+                    {
+                      name: 'workflow_expand_scope',
+                      arguments: {
+                        itemId: 'proof',
+                        expectedRevision: (await workflows.get(session.id)).workflow!.revision,
+                        reason: 'Inspect the authorized test fixture',
+                        scope: { tools: ['deferred_fixture'], readPaths: [], writePaths: [] },
+                      },
+                    },
+                  ],
+                }),
+              }
+            : null
+      if (count === 2) expect(executions).toBe(0)
+      const chunk = (delta: unknown, finish_reason: string | null) =>
+        `data: ${JSON.stringify({ id: 'deferred', object: 'chat.completion.chunk', created: 1, model: 'fixture-network', choices: [{ index: 0, delta, finish_reason }] })}\n\n`
+      return new Response(
+        chunk(
+          call
+            ? { role: 'assistant', tool_calls: [{ index: 0, id: `call-${count}`, type: 'function', function: call }] }
+            : { role: 'assistant', content: 'Inspected' },
+          null,
+        ) +
+          chunk({}, call ? 'tool_calls' : 'stop') +
+          'data: [DONE]\n\n',
+        { headers: { 'Content-Type': 'text/event-stream' } },
+      )
+    },
+  })
+  try {
+    await kernel.saveProvider(
+      providerSchema.parse({
+        id: 'deferred',
+        name: 'Deferred fixture',
+        protocol: 'openai-completions',
+        baseUrl: `http://127.0.0.1:${provider.port}/v1`,
+        model: 'fixture-network',
+      }),
+      'fixture-only',
+    )
+    await kernel.submit(session.id, 'deferred', { text: 'Inspect the authorized fixture', images: [] }, 'deferred')
+    await kernel.waitForIdle()
+    expect(requests).toHaveLength(4)
+    expect(requests.map((request) => request.tools.some((tool) => tool.function.name === 'deferred_fixture'))).toEqual([
+      false,
+      false,
+      true,
+      true,
+    ])
+    expect(JSON.stringify(requests[0]!.messages)).toContain('workflow_deferred_tools')
+    expect(JSON.stringify(requests[0]!.messages)).toContain(
+      'Read a bounded fixture; mode must be exact and revision is at most seven.',
+    )
+    // The transport adapter adds Standard Schema metadata, which is not a JSON Schema constraint.
+    const constraints = (value: unknown) =>
+      Object.fromEntries(
+        Object.entries(z.record(z.string(), z.unknown()).parse(value)).filter(([key]) => key !== '~standard'),
+      )
+    expect(
+      constraints(requests[2]!.tools.find((tool) => tool.function.name === 'deferred_fixture')?.function.parameters),
+    ).toEqual(constraints(z.toJSONSchema(kernel.tools.get('deferred_fixture')!.inputSchema)))
+    expect(executions).toBe(1)
+    const snapshot = await kernel.snapshot(session.id)
+    expect(snapshot.runs[0]?.status).toBe('completed')
+    expect(
+      snapshot.messages
+        .flatMap((message) => message.content)
+        .some(
+          (block) =>
+            block.type === 'tool_result' &&
+            block.name === 'deferred_fixture' &&
+            block.isError &&
+            block.text.includes('scope'),
+        ),
+    ).toBe(true)
+    const journal = (await kernel.storage.call('events', session.id, 0))
+      .filter((event) => event.type === 'request.started')
+      .map((event) =>
+        z
+          .object({ tools: z.array(z.object({ name: z.string() })) })
+          .parse(event.data)
+          .tools.map((tool) => tool.name),
+      )
+    expect(journal).toEqual(requests.map((request) => request.tools.map((tool) => tool.function.name)))
+  } finally {
+    await provider.stop(true)
+  }
+})
+
 test('scope-gated catalog tools stay denied until expansion and then regain standalone inspection', async () => {
   const { kernel, session, workflows, run } = await fixture()
   await run([{ name: 'list_directory', arguments: { path: '.' } }])

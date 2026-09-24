@@ -51,6 +51,7 @@ import {
 } from './update-tool-schema'
 import { workflowModelResult } from './model-view'
 import { sequenceControlCatalog } from './sequence-catalog'
+import { scopeToolInventory } from './scope-tool-inventory'
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
@@ -2007,15 +2008,18 @@ export class WorkflowRuntime implements WorkflowService {
           .filter((tool) => !CONTROL_TOOLS.has(tool.name) && !scopedTools.has(tool.name))
           .map((tool) => tool.name),
       )
+      const inventory = scopeToolInventory(event.tools, scopeGatedNames)
       const catalog = sequenceControlCatalog(
-        event.tools.filter((tool) => !oversizedQueries.has(tool.name)),
+        event.tools.filter((tool) => !oversizedQueries.has(tool.name) && !inventory.names.has(tool.name)),
         scopeGatedNames,
       )
-      if (catalog.names.size)
+      if (catalog.names.size || inventory.names.size)
         event = {
           ...event,
-          tools: event.tools.filter((tool) => !catalog.names.has(tool.name)),
-          instructions: [event.instructions, catalog.text].filter(Boolean).join('\n'),
+          tools: event.tools.filter((tool) => !catalog.names.has(tool.name) && !inventory.names.has(tool.name)),
+          instructions: [event.instructions, catalog.names.size ? catalog.text : '', inventory.text]
+            .filter(Boolean)
+            .join('\n'),
         }
     }
     return event
