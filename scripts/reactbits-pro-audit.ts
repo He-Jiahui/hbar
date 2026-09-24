@@ -246,6 +246,10 @@ export type InteractionCase = Readonly<{
     | 'passive-table-row'
     | 'board-column-scroll'
     | 'board-stack-scroll'
+    | 'summary-edit'
+    | 'summary-changed'
+    | 'summary-empty'
+    | 'summary-running'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1622,6 +1626,26 @@ async function preparePlanReviewScenario(root: Locator, scenario: 'plan-draft' |
   if (scenario === 'plan-running') await root.getByRole('button', { name: 'Start 8 steps', exact: true }).click()
 }
 
+const planSummaryScenarios = ['summary-edit', 'summary-changed', 'summary-empty', 'summary-running'] as const
+async function preparePlanSummaryScenario(
+  root: Locator,
+  scenario: (typeof planSummaryScenarios)[number],
+): Promise<void> {
+  const cancel = root.getByRole('button', { name: 'Cancel', exact: true })
+  if (await cancel.isVisible()) await cancel.click()
+  const stop = root.getByRole('button', { name: 'Stop', exact: true })
+  if (await stop.isVisible()) await stop.click()
+  if (scenario === 'summary-running') {
+    await root.getByRole('button', { name: 'Run plan', exact: true }).click()
+    return
+  }
+  await root.getByRole('button', { name: 'Edit plan', exact: true }).click()
+  if (scenario !== 'summary-edit')
+    await root
+      .getByRole('textbox', { name: 'Plan goal', exact: true })
+      .fill(scenario === 'summary-empty' ? '   ' : '  audit sample  ')
+}
+
 export function agentLogDynamicCaseIds(variantId: string): readonly string[] {
   return ['running', 'away'].flatMap((scenario) =>
     ['hover', 'focus', 'click', 'press-enter', 'press-space'].map((action) => `${variantId}:${scenario}:4:${action}`),
@@ -2364,6 +2388,8 @@ async function replayInteraction(
   )
     await preparePlanReviewScenario(root, interaction.scenario)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
+  const summaryScenario = planSummaryScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-approval-4' && permissionScenario)
@@ -2474,6 +2500,9 @@ async function replayReferenceInteraction(
     await preparePlanReviewScenario(root, interaction.scenario)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
+  const summaryScenario = planSummaryScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
+    await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-4' && permissionScenario)
     await preparePermissionApprovalScenario(root, permissionScenario)
@@ -3045,6 +3074,13 @@ async function runInteractionsParallel(
             }
             if (spec.id === 'hbar-app-ui-agent-plan-5') {
               discovered.push(...(await observePlanBoardScroll(sourceRoot, spec.id)))
+            }
+            if (spec.id === 'hbar-app-ui-agent-plan-6') {
+              for (const scenario of planSummaryScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await preparePlanSummaryScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
             }
             if (spec.id === 'hbar-app-ui-agent-plan-2') {
               for (const scenario of ['plan-draft', 'plan-running'] as const) {

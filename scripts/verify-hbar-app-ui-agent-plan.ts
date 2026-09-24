@@ -4,6 +4,7 @@ import { verifyPlanReview } from './verify-hbar-app-ui-plan-review'
 import { verifyPlanTree } from './verify-hbar-app-ui-plan-tree'
 import { verifyPlanActual } from './verify-hbar-app-ui-plan-actual'
 import { verifyPlanBoard } from './verify-hbar-app-ui-plan-board'
+import { verifyPlanSummary } from './verify-hbar-app-ui-plan-summary'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5185'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -95,9 +96,9 @@ async function verifyGeometry(page: import('@playwright/test').Page): Promise<Re
             {name: 'mobile', width: 320, height: 560, selector: '.lumen-plan-board-column', expected: {x: 16, y: 52, width: 288, height: 480.5}},
         ],
         6: [
-            {name: 'desktop', width: 1192, height: 640, selector: '.hbar-app-ui-agent-plan-summary-copy', expected: {x: 24, y: 87.5, width: 1144, height: 55.125}},
-            {name: 'tablet', width: 768, height: 641, selector: '.hbar-app-ui-agent-plan-summary-copy', expected: {x: 24, y: 87.5, width: 720, height: 55.125}},
-            {name: 'mobile', width: 320, height: 640, selector: '.hbar-app-ui-agent-plan-summary-copy', expected: {x: 16, y: 79.5, width: 288, height: 97.375}},
+            {name: 'desktop', width: 1192, height: 640, selector: '.lumen-plan-summary-copy', expected: {x: 24, y: 87.5, width: 1144, height: 55.125}},
+            {name: 'tablet', width: 768, height: 641, selector: '.lumen-plan-summary-copy', expected: {x: 24, y: 87.5, width: 720, height: 55.125}},
+            {name: 'mobile', width: 320, height: 640, selector: '.lumen-plan-summary-copy', expected: {x: 16, y: 79.5, width: 288, height: 97.375}},
         ],
     }
     const checks: Record<string, number> = {}
@@ -123,6 +124,11 @@ async function run(): Promise<void> {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     try {
+        if (process.argv.includes('--summary-only')) {
+            await verifyPlanSummary(page, baseUrl)
+            assert(pageErrors.length === 0, `Plan summary page errors: ${pageErrors.join(' | ')}`)
+            return
+        }
         if (process.argv.includes('--board-only')) {
             await verifyPlanBoard(page, baseUrl)
             assert(pageErrors.length === 0, `Plan board page errors: ${pageErrors.join(' | ')}`)
@@ -177,7 +183,9 @@ async function run(): Promise<void> {
 
         await page.goto(previewUrl(6), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Edit plan', exact: true}).click()
+        await page.getByRole('button', {name: 'Cancel', exact: true}).click()
         await page.getByRole('button', {name: 'Run plan', exact: true}).click()
+        await page.getByRole('button', {name: 'Stop', exact: true}).click()
 
         await page.setViewportSize({width: 320, height: 640})
         const narrowOverflow: Record<string, boolean> = {}

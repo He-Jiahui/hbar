@@ -561,6 +561,76 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-agent-plan-6')
+    return {
+      revision: 1,
+      lumenEntries: ['agent-plan.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '0:click',
+          change: 'Edit opens the goal textarea with Save/Cancel and locks footer actions',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Run replaces review actions with running feedback and Stop',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: 'summary-edit:0:fill',
+          change: 'Goal input shows a real typed draft without prematurely committing it',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'summary-changed:1:click',
+          change: 'Save trims and commits the edited goal, then restores footer actions',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'light',
+          suffix: 'summary-changed:2:click',
+          change: 'Cancel discards the changed draft and restores the original goal',
+        },
+        {
+          viewport: 'stress',
+          theme: 'dark',
+          suffix: 'summary-empty:1:click',
+          change: 'Whitespace-only Save closes editing while preserving the previous goal',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'summary-running:0:click',
+          change: 'Stop restores the idle review actions on the narrowest canvas',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '1:hover', change: 'Primary Run button hover feedback' },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '0:press-enter',
+          change: 'Keyboard activation reaches the goal editor on the narrowest canvas',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Equivalent button gestures, themes and widths',
+          basis:
+            'Native controls share their activation mechanism. Distinct edit/fill/save/cancel/empty-save/run/stop outcomes are replayed once; eight static pairs and local locale/capacity checks cover layout risks.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Metrics, tools and breakdown records',
+          basis:
+            'The real summary records are passive, not actionable controls. No invented click, drag or row-selection cases are generated.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
   if (variantId === 'hbar-app-ui-agent-approval-5') return costPlan
