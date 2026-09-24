@@ -169,6 +169,7 @@ function statusAllowsAccounting(status: GoalStatus, mode: AccountingMode) {
 
 class GoalRuntime implements GoalService {
   private goals = new Map<string, PersistedGoal>()
+  private sequences = new Map<string, number>()
   private activeRuns = new Map<string, RunAccounting>()
   private boundRuns = new Set<string>()
   private locks = new Map<string, Promise<void>>()
@@ -185,6 +186,7 @@ class GoalRuntime implements GoalService {
     this.activeRuns.clear()
     this.boundRuns.clear()
     this.goals.clear()
+    this.sequences.clear()
     this.uncertainSessions.clear()
     this.continuationTriggers.clear()
     const sessions = await this.api.sessions.list()
@@ -209,6 +211,7 @@ class GoalRuntime implements GoalService {
             }
             if (event.type === 'goal.cleared') {
               this.goals.delete(session.id)
+              this.sequences.set(session.id, event.seq)
               this.continuationTriggers.delete(session.id)
               continue
             }
@@ -218,6 +221,7 @@ class GoalRuntime implements GoalService {
                 throw new HbarError('GOAL_REPLAY', `Invalid goal event in ${session.id}`)
               this.rememberTriggers(goal)
               this.goals.set(session.id, goal)
+              this.sequences.set(session.id, event.seq)
               for (const runId of goal.accountedRuns) {
                 this.boundRuns.add(runId)
                 this.activeRuns.delete(runId)
@@ -518,13 +522,14 @@ class GoalRuntime implements GoalService {
     const event = await this.append(goal.threadId, type, { goal, ...(accounting ? { accounting } : {}) }, runId)
     this.rememberTriggers(goal)
     this.goals.set(goal.threadId, goal)
+    this.sequences.set(goal.threadId, event.seq)
     if (accounting && runId) {
       this.activeRuns.set(runId, accounting)
       this.boundRuns.add(runId)
     }
     this.api.notify({
       method: 'goal.updated',
-      params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: publicGoal(goal) },
+      params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: publicGoal(goal), seq: event.seq },
     })
     this.api.changed('goals')
     if (
@@ -714,10 +719,11 @@ class GoalRuntime implements GoalService {
   }
 
   private async persistClear(sessionId: string, runId?: string) {
-    await this.append(sessionId, 'goal.cleared', { sessionId }, runId)
+    const event = await this.append(sessionId, 'goal.cleared', { sessionId }, runId)
     this.goals.delete(sessionId)
+    this.sequences.set(sessionId, event.seq)
     this.continuationTriggers.delete(sessionId)
-    this.api.notify({ method: 'goal.cleared', params: { sessionId } })
+    this.api.notify({ method: 'goal.cleared', params: { sessionId, seq: event.seq } })
     this.api.changed('goals')
     this.api.sessions.wake(sessionId)
   }
@@ -745,6 +751,13 @@ class GoalRuntime implements GoalService {
     this.assertKnown(sessionId)
     await this.api.sessions.get(sessionId)
     return this.result(sessionId)
+  }
+
+  async snapshot(sessionId: string) {
+    await this.ready()
+    this.assertKnown(sessionId)
+    await this.api.sessions.get(sessionId)
+    return { value: this.result(sessionId), seq: this.sequences.get(sessionId) ?? 0 }
   }
 
   async create(sessionId: string, objectiveValue: string, tokenBudget?: number, runId?: string, startedAt?: number) {

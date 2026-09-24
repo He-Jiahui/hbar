@@ -7,7 +7,9 @@ import {
   type ThreadGoal,
 } from '@hbar/contracts'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
-import { goalPlanCommands } from '@hbar/contracts/commands/goals'
+import { goalPlanCommands, goalPlanSnapshotSchema } from '@hbar/contracts/commands/goals'
+import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
+import { GoalPlanFeed } from './goal-plan-feed'
 import { createState, type StateReader } from './state'
 import type {
   GoalPlanGoalDraftState,
@@ -92,11 +94,15 @@ export function createGoalPlanWorkspace(
   const pendingGoal = (instanceId: string, sessionId: string) => goalOperations.get(instanceId)?.sessionId === sessionId
   const isTarget = (instanceId: string, sessionId: string) =>
     !isDisposed() && surfaces.getSnapshot().panels[instanceId]?.sessionId === sessionId
+  const feed = new GoalPlanFeed(options.goals, applyChange, (instanceId) => {
+    void load(instanceId, true).catch(() => {})
+  })
   const offSurfaces = surfaces.subscribe(() => {
     for (const [id, entry] of Object.entries(state.reader.getSnapshot().entries)) {
       if (isTarget(id, entry.sessionId)) continue
       generations.set(id, (generations.get(id) ?? 0) + 1)
       goalOperations.delete(id)
+      feed.close(id)
     }
   })
 
@@ -119,10 +125,27 @@ export function createGoalPlanWorkspace(
       for (const id of ids) {
         if (id !== entry.instanceId && !surfaces.getSnapshot().panels[id]) {
           delete entries[id]
+          feed.close(id)
           break
         }
       }
     state.replace({ entries })
+  }
+  function applyChange(instanceId: string, change: GoalPlanChange) {
+    const entry = state.reader.getSnapshot().entries[instanceId]
+    if (!entry || entry.sessionId !== change.sessionId || !isTarget(instanceId, change.sessionId)) return
+    if (change.kind === 'goal') {
+      const preserve = entry.goalDirty || pendingGoal(instanceId, change.sessionId)
+      replace({
+        ...entry,
+        goal: change.goal,
+        remainingTokens:
+          change.goal?.tokenBudget == null ? null : Math.max(0, change.goal.tokenBudget - change.goal.tokensUsed),
+        goalDraft: preserve ? entry.goalDraft : goalDraft(change.goal),
+        goalDirty: preserve && goalDirty(entry.goalDraft),
+      })
+    } else
+      replace({ ...entry, plan: change.plan, planDraft: entry.planDirty ? entry.planDraft : planDraft(change.plan) })
   }
   const summary = (entry: GoalPlanWorkspaceEntryState) => ({
     instanceId: entry.instanceId,
@@ -135,7 +158,7 @@ export function createGoalPlanWorkspace(
     planDirty: entry.planDirty,
     error: entry.goalAction.error ?? entry.planAction.error ?? entry.error,
   })
-  const load = async (instanceId: string) => {
+  const load = async (instanceId: string, background = false) => {
     const target = panel(instanceId)
     const previous = state.reader.getSnapshot().entries[instanceId]
     const sameTarget = previous?.sessionId === target.sessionId
@@ -145,7 +168,7 @@ export function createGoalPlanWorkspace(
       instanceId,
       sessionId: target.sessionId,
       view: sameTarget ? previous.view : 'overview',
-      status: 'loading',
+      status: background && sameTarget ? previous.status : 'loading',
       goal: sameTarget ? previous.goal : null,
       remainingTokens: sameTarget ? previous.remainingTokens : null,
       completionBudgetReport: sameTarget ? previous.completionBudgetReport : null,
@@ -159,11 +182,24 @@ export function createGoalPlanWorkspace(
       error: null,
     }
     replace(loading)
+    feed.open(instanceId, target.sessionId)
     try {
-      const [goalResponse, savedPlan] = await Promise.all([
-        requireClient().execute('goal.get', { sessionId: target.sessionId }),
-        requireClient().execute('plan.get', { sessionId: target.sessionId }),
-      ])
+      let snapshot: GoalPlanSnapshot | undefined
+      const [goalResponse, savedPlan] = options.goals?.snapshot
+        ? await options.goals.snapshot(target.sessionId).then((value) => {
+            snapshot = goalPlanSnapshotSchema.parse(value)
+            if (
+              snapshot.sessionId !== target.sessionId ||
+              (snapshot.goal && snapshot.goal.threadId !== target.sessionId) ||
+              (snapshot.plan && snapshot.plan.sessionId !== target.sessionId)
+            )
+              throw new CommandError('INVALID_OUTPUT', 'Snapshot belongs to another session')
+            return [snapshot, snapshot.plan] as const
+          })
+        : await Promise.all([
+            requireClient().execute('goal.get', { sessionId: target.sessionId }),
+            requireClient().execute('plan.get', { sessionId: target.sessionId }),
+          ])
       if (!isTarget(instanceId, target.sessionId) || generations.get(instanceId) !== generation)
         throw new CommandError('RESULT_UNKNOWN', 'Goal and plan refresh was superseded')
       const latest = state.reader.getSnapshot().entries[instanceId] ?? loading
@@ -178,17 +214,20 @@ export function createGoalPlanWorkspace(
         completionBudgetReport: goalResponse.completionBudgetReport ?? null,
         goalDraft: reconcileGoal ? goalDraft(goalResponse.goal) : latest.goalDraft,
         goalDirty: reconcileGoal ? false : goalDirty(latest.goalDraft),
-        goalAction: pendingGoal(instanceId, target.sessionId) ? latest.goalAction : { status: 'idle', error: null },
+        goalAction:
+          background || pendingGoal(instanceId, target.sessionId) ? latest.goalAction : { status: 'idle', error: null },
         plan: savedPlan,
         planDraft: reconcilePlan ? planDraft(savedPlan) : latest.planDraft,
         planDirty: reconcilePlan ? false : planDirty(savedPlan, latest.planDraft),
-        planAction: { status: 'idle', error: null },
+        planAction: background ? latest.planAction : { status: 'idle', error: null },
         error: null,
       }
       replace(ready)
-      return summary(ready)
+      if (snapshot) feed.finish(instanceId, snapshot)
+      return summary(state.reader.getSnapshot().entries[instanceId] ?? ready)
     } catch (reason) {
       if (!isTarget(instanceId, target.sessionId) || generations.get(instanceId) !== generation) throw reason
+      feed.close(instanceId)
       const failed = {
         ...(state.reader.getSnapshot().entries[instanceId] ?? loading),
         status: 'error' as const,
@@ -270,6 +309,7 @@ export function createGoalPlanWorkspace(
       throw new CommandError('INVALID_INPUT', 'Goal fields are invalid')
     }
     const operation = Symbol('goal-save')
+    const factVersion = feed.version(instanceId)
     goalOperations.set(instanceId, { sessionId: entry.sessionId, token: operation })
     const ownsOperation = () =>
       isTarget(instanceId, entry.sessionId) && goalOperations.get(instanceId)?.token === operation
@@ -284,10 +324,10 @@ export function createGoalPlanWorkspace(
         throw new CommandError('GOAL_CONFLICT', 'A newer Goal superseded this save response')
       const next: GoalPlanWorkspaceEntryState = {
         ...latest,
-        goal: response.goal,
-        remainingTokens: response.remainingTokens,
+        goal: feed.version(instanceId) > factVersion ? latest.goal : response.goal,
+        remainingTokens: feed.version(instanceId) > factVersion ? latest.remainingTokens : response.remainingTokens,
         completionBudgetReport: response.completionBudgetReport ?? null,
-        goalDraft: goalDraft(response.goal),
+        goalDraft: goalDraft(feed.version(instanceId) > factVersion ? latest.goal : response.goal),
         goalDirty: false,
         goalAction: { status: 'succeeded', error: null },
       }
@@ -535,6 +575,7 @@ export function createGoalPlanWorkspace(
     reader: state.reader,
     dispose() {
       offSurfaces()
+      feed.dispose()
       generations.clear()
       goalOperations.clear()
       state.dispose()

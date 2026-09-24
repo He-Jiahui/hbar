@@ -16,6 +16,28 @@ const goalResponseSchema = z.strictObject({
   completionBudgetReport: z.string().optional(),
 })
 const clearedSchema = z.strictObject({ cleared: z.boolean() })
+export const goalPlanSnapshotSchema = goalResponseSchema.extend({
+  sessionId: idSchema,
+  goalSeq: z.number().int().nonnegative(),
+  planSeq: z.number().int().nonnegative(),
+  plan: planStateSchema.nullable(),
+})
+export type GoalPlanSnapshot = z.infer<typeof goalPlanSnapshotSchema>
+export const goalPlanChangeSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('goal'),
+    sessionId: idSchema,
+    seq: z.number().int().positive(),
+    goal: threadGoalSchema.nullable(),
+  }),
+  z.object({
+    kind: z.literal('plan'),
+    sessionId: idSchema,
+    seq: z.number().int().positive(),
+    plan: planStateSchema.nullable(),
+  }),
+])
+export type GoalPlanChange = z.infer<typeof goalPlanChangeSchema>
 const metadata = (id: string, kind: 'command' | 'query') => ({
   id,
   version: 1,
@@ -32,6 +54,11 @@ const metadata = (id: string, kind: 'command' | 'query') => ({
 const sessionArgument = { field: 'sessionId', type: 'string' as const, flag: 'session' }
 
 export const goalPlanCommands = {
+  'goal.snapshot': defineCommand(
+    { ...metadata('goal.snapshot', 'query'), cli: { arguments: [sessionArgument] } },
+    z.strictObject({ sessionId: idSchema }),
+    goalPlanSnapshotSchema,
+  ),
   'goal.get': defineCommand(
     { ...metadata('goal.get', 'query'), cli: { arguments: [sessionArgument] } },
     z.strictObject({ sessionId: idSchema }),

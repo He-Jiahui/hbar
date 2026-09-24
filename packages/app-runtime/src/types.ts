@@ -11,6 +11,7 @@ import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/bud
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type { RunAccepted } from '@hbar/contracts/commands/run'
+import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import type { ModelConfiguration } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
@@ -95,7 +96,7 @@ export interface RuntimeOptions {
   readonly configuration?: CommandExecutor
   readonly files?: CommandExecutor
   readonly agents?: CommandExecutor
-  readonly goals?: CommandExecutor
+  readonly goals?: GoalPlanWorkspacePort
   readonly workflows?: WorkflowWorkspacePort
   readonly extensions?: CommandExecutor
   readonly metrics?: CommandExecutor
@@ -192,6 +193,11 @@ export interface AgentWorkspaceState {
 export interface GoalPlanActionState {
   readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
   readonly error: string | null
+}
+
+export interface GoalPlanWorkspacePort extends CommandExecutor {
+  snapshot?(sessionId: string): Promise<GoalPlanSnapshot>
+  watch?(sessionId: string, listener: (change: GoalPlanChange | { kind: 'reset' }) => void): () => void
 }
 
 export interface GoalPlanGoalDraftState {

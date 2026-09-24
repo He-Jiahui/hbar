@@ -52,6 +52,7 @@ function escapeXml(value: string) {
 
 class PlanRuntime implements PlanService {
   private plans = new Map<string, PlanState>()
+  private sequences = new Map<string, number>()
   private revisions = new Map<string, number>()
   private modes = new Map<string, RunMode>()
   private locks = new Map<string, Promise<void>>()
@@ -84,6 +85,7 @@ class PlanRuntime implements PlanService {
 
   private applyEvent(sessionId: string, event: SessionEvent) {
     if (event.type === 'plan.updated') {
+      this.sequences.set(sessionId, event.seq)
       const parsed = planUpdatedEventSchema.safeParse(event.data)
       if (!parsed.success || parsed.data.plan.sessionId !== sessionId)
         throw new HbarError('PLAN_REPLAY', `Invalid plan.updated event in ${sessionId}`)
@@ -100,6 +102,7 @@ class PlanRuntime implements PlanService {
       return
     }
     if (event.type === 'plan.cleared') {
+      this.sequences.set(sessionId, event.seq)
       const parsed = planClearedEventSchema.safeParse(event.data)
       if (!parsed.success || parsed.data.sessionId !== sessionId)
         throw new HbarError('PLAN_REPLAY', `Invalid plan.cleared event in ${sessionId}`)
@@ -140,6 +143,12 @@ class PlanRuntime implements PlanService {
     await this.ready()
     await this.api.sessions.get(sessionId)
     return this.plans.get(sessionId) ?? null
+  }
+
+  async snapshot(sessionId: string) {
+    await this.ready()
+    await this.api.sessions.get(sessionId)
+    return { value: this.plans.get(sessionId) ?? null, seq: this.sequences.get(sessionId) ?? 0 }
   }
 
   async withRevision(sessionId: string, revision: number | null, commit: () => Promise<void>) {
@@ -186,10 +195,11 @@ class PlanRuntime implements PlanService {
         throw new HbarError('PLAN_REVISION_CONFLICT', 'The plan changed before this update was applied')
       if (!current) return { cleared: false }
       const revision = (this.revisions.get(sessionId) ?? 0) + 1
-      await this.api.sessions.append(sessionId, 'plan.cleared', { sessionId, revision })
+      const event = await this.api.sessions.append(sessionId, 'plan.cleared', { sessionId, revision })
       this.plans.delete(sessionId)
+      this.sequences.set(sessionId, event.seq)
       this.revisions.set(sessionId, revision)
-      this.api.notify({ method: 'plan.cleared', params: { sessionId } })
+      this.api.notify({ method: 'plan.cleared', params: { sessionId, seq: event.seq } })
       this.api.changed('plans')
       return { cleared: true }
     })
@@ -259,10 +269,11 @@ class PlanRuntime implements PlanService {
   }
 
   private async persistPlan(plan: PlanState, runId?: string) {
-    await this.api.sessions.append(plan.sessionId, 'plan.updated', { plan }, runId)
+    const event = await this.api.sessions.append(plan.sessionId, 'plan.updated', { plan }, runId)
     this.plans.set(plan.sessionId, plan)
+    this.sequences.set(plan.sessionId, event.seq)
     this.revisions.set(plan.sessionId, plan.revision)
-    this.api.notify({ method: 'plan.updated', params: plan })
+    this.api.notify({ method: 'plan.updated', params: { ...plan, seq: event.seq } })
     this.api.changed('plans')
   }
 

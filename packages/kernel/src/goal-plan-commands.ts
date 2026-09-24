@@ -15,6 +15,12 @@ export function createGoalPlanCommands(goals: GoalService, plans: PlanService) {
   }
 
   registry.register(goalPlanCommands['goal.get'], ({ sessionId }) => translate(() => goals.get(sessionId)))
+  registry.register(goalPlanCommands['goal.snapshot'], ({ sessionId }) =>
+    translate(async () => {
+      const [goal, plan] = await Promise.all([goals.snapshot(sessionId), plans.snapshot(sessionId)])
+      return { ...goal.value, plan: plan.value, sessionId, goalSeq: goal.seq, planSeq: plan.seq }
+    }),
+  )
   registry.register(
     goalPlanCommands['goal.create'],
     ({ sessionId, objective, tokenBudget }) => translate(() => goals.create(sessionId, objective, tokenBudget)),

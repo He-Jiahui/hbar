@@ -914,10 +914,10 @@ export type WireNotification =
   | { method: 'stream.update'; params: StreamDelta }
   | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
-  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal } }
-  | { method: 'goal.cleared'; params: { sessionId: string } }
-  | { method: 'plan.updated'; params: PlanState }
-  | { method: 'plan.cleared'; params: { sessionId: string } }
+  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number } }
+  | { method: 'goal.cleared'; params: { sessionId: string; seq?: number } }
+  | { method: 'plan.updated'; params: PlanState & { seq?: number } }
+  | { method: 'plan.cleared'; params: { sessionId: string; seq?: number } }
   | {
       method: 'workflow.updated'
       params: { sessionId: string; snapshot: import('./workflow').WorkflowSnapshot }

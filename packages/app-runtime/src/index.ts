@@ -97,6 +97,7 @@ export type {
   AgentWorkspaceEntryState,
   AgentWorkspaceState,
   GoalPlanActionState,
+  GoalPlanWorkspacePort,
   GoalPlanGoalDraftState,
   GoalPlanStepDraftState,
   GoalPlanPlanDraftState,

@@ -198,6 +198,7 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
+  snapshot(sessionId: string): Promise<{ value: GoalToolResponse; seq: number }>
   get(sessionId: string): Promise<GoalToolResponse>
   create(sessionId: string, objective: string, tokenBudget?: number, runId?: string, startedAt?: number): Promise<GoalToolResponse>
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
@@ -209,6 +210,7 @@ export interface GoalService {
   ): Promise<void>
 }
 export interface PlanService {
+  snapshot(sessionId: string): Promise<{ value: PlanState | null; seq: number }>
   get(sessionId: string): Promise<PlanState | null>
   /** Hold the observed plan revision stable while committing a dependent fact. */
   withRevision(sessionId: string, revision: number | null, commit: () => Promise<void>): Promise<void>

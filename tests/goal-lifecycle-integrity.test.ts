@@ -210,9 +210,12 @@ test('plan clear keeps a durable revision tombstone and rejects the previous pla
   const { resource, kernel, session, plans } = await fixture()
   const first = await plans.update(session.id, [{ step: 'First', status: 'in_progress' }])
   await plans.clear(session.id, first.revision)
+  const clearedSnapshot = await plans.snapshot(session.id)
+  expect(clearedSnapshot.value).toBeNull()
   await kernel.close()
   resource.kernel = await Kernel.create({ home: join(resource.root, 'data'), demo: true, secrets: new MemorySecrets() })
   const restored = resource.kernel.plugins.get<PlanService>('plan')
+  expect(await restored.snapshot(session.id)).toEqual(clearedSnapshot)
   const next = await restored.update(session.id, [{ step: 'Replacement', status: 'in_progress' }], null, null, 0)
   expect(next.revision).toBe(first.revision + 2)
   expect(

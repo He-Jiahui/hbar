@@ -49,6 +49,7 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'goal.create',
     'goal.get',
     'goal.set',
+    'goal.snapshot',
     'goal.update',
     'mode.get',
     'mode.set',
@@ -99,6 +100,9 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
   })
   expect(updated.goal).toMatchObject({ objective: 'ship the command migration', tokensUsed: 0 })
   expect(updated.goal?.goalId).not.toBe(goalId)
+  const snapshot = await commands.snapshot(session.id)
+  expect(snapshot.goal?.goalId).toBe(updated.goal?.goalId)
+  expect(snapshot.goalSeq).toBeGreaterThan(0)
   const updatedGoalId = updated.goal?.goalId
   if (!updatedGoalId) throw new Error('Replacement goal identity missing')
   expect(await commands.execute('goal.update', { sessionId: session.id, status: 'blocked' })).toMatchObject({
@@ -127,6 +131,9 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     ],
   })
   expect(await commands.execute('plan.get', { sessionId: session.id })).toEqual(plan)
+  const planned = await commands.snapshot(session.id)
+  expect(planned.plan).toEqual(plan)
+  expect(planned.planSeq).toBeGreaterThan(snapshot.planSeq)
   await expect(
     commands.execute('plan.update', {
       sessionId: session.id,
@@ -139,6 +146,9 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
   })
   expect(await commands.execute('plan.clear', { sessionId: session.id })).toEqual({ cleared: false })
   expect(await commands.execute('plan.get', { sessionId: session.id })).toBeNull()
+  const cleared = await commands.snapshot(session.id)
+  expect(cleared.plan).toBeNull()
+  expect(cleared.planSeq).toBeGreaterThan(planned.planSeq)
   expect(await commands.execute('goal.clear', { sessionId: session.id })).toEqual({ cleared: true })
   expect(await commands.execute('goal.get', { sessionId: session.id })).toEqual({
     goal: null,
