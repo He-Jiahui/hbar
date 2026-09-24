@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createAgentCommandClient, createGoalPlanCommandClient } from '@hbar/client'
+import { createAgentCommandClient, createGoalPlanCommandClient, createRunCommandClient } from '@hbar/client'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -273,8 +273,8 @@ test('binds child agent and goal-plan actions to the original session entities',
           ],
           host: [
             {
-              description: 'Host updates the original session goal',
-              passed: goal.goal?.objective === revisedObjective,
+              description: 'Host updates only the objective while retaining its explicit budget',
+              passed: goal.goal?.objective === revisedObjective && goal.goal.tokenBudget === 16000,
             },
           ],
           hostFact: goal,
@@ -282,175 +282,94 @@ test('binds child agent and goal-plan actions to the original session entities',
       },
     )
 
-    await page.getByRole('button', { name: 'Back to goals and plans' }).click()
     await harness.exercise(
-      'goals.plan.open',
-      { role: 'button', name: 'Edit plan', description: 'open plan editor' },
+      'goals.back',
+      { role: 'button', name: 'Back to goals and plans', description: 'return from goal editor' },
       async () => {
-        await page.getByRole('button', { name: 'Edit plan' }).click()
-        const editor = page.getByRole('region', { name: 'Execution plan' })
-        await expect(editor).toBeVisible()
-        return {
-          ui: [
-            {
-              description: 'plan editor opens with explanation and step input',
-              passed:
-                (await editor.isVisible()) &&
-                (await page.getByRole('textbox', { name: 'Plan explanation' }).count()) === 1,
-            },
-          ],
-        }
+        await page.getByRole('button', { name: 'Back to goals and plans' }).click()
+        const visible = await page.getByText(revisedObjective, { exact: true }).isVisible()
+        return { ui: [{ description: 'goal summary returns to the original session', passed: visible }] }
       },
     )
 
-    await page.getByRole('textbox', { name: 'Plan explanation' }).fill('Keep changes reviewable.')
+    const runCommands = createRunCommandClient(host.client)
+    const publishPlan = async (plan: { step: string; status: 'pending' | 'in_progress' | 'completed' }[]) => {
+      await runCommands.execute(
+        'run.submit',
+        {
+          sessionId: host!.ready.sessionId,
+          modelId: 'local-fixture',
+          input: {
+            text: `/tool update_plan ${JSON.stringify({ plan, explanation: 'Agent-owned verification steps' })}`,
+            images: [],
+          },
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      await expect
+        .poll(async () => (await goalCommands.execute('plan.get', { sessionId: host!.ready.sessionId }))?.plan)
+        .toEqual(plan)
+    }
+    const panel = page.locator('.hbar-app-react-goal-plan-workspace')
+    await publishPlan([
+      { step: 'Verify Web', status: 'in_progress' },
+      { step: 'Verify Tauri', status: 'pending' },
+    ])
     await harness.exercise(
-      'goals.plan.step.add',
-      { role: 'button', name: 'Add step', description: 'add first plan step' },
-      async () => {
-        await page.getByRole('textbox', { name: 'Add plan step' }).fill('Verify Web')
-        await page.getByRole('button', { name: 'Add step' }).click()
-        const title = page.getByRole('textbox', { name: 'Step 1 title' })
-        await expect(title).toHaveValue('Verify Web')
-        return {
-          ui: [
-            {
-              description: 'new step appears in the ordered draft',
-              passed: (await title.inputValue()) === 'Verify Web',
-            },
-          ],
-        }
+      'goals.plan.observe',
+      {
+        role: 'heading',
+        name: 'Execution plan',
+        description: 'observe agent-published Plan without user edit controls',
       },
-    )
-    await page.getByRole('textbox', { name: 'Add plan step' }).fill('Verify Tauri')
-    await page.getByRole('button', { name: 'Add step' }).click()
-
-    await harness.exercise(
-      'goals.plan.step.edit',
-      { role: 'textbox', name: 'Step 1 title', description: 'edit plan step title' },
       async () => {
-        const title = page.getByRole('textbox', { name: 'Step 1 title' })
-        await title.fill('Verify Web production')
-        return {
-          ui: [
-            {
-              description: 'step title edit remains in the draft',
-              passed: (await title.inputValue()) === 'Verify Web production',
-            },
-          ],
-        }
-      },
-    )
-
-    await harness.exercise(
-      'goals.plan.step.status',
-      { role: 'combobox', name: 'Step 1 status', description: 'change plan step status' },
-      async () => {
-        const status = page.getByRole('combobox', { name: 'Step 1 status' })
-        await status.selectOption({ label: 'In progress' })
-        return {
-          ui: [
-            {
-              description: 'step status edit remains in the draft',
-              passed: (await status.inputValue()) === 'running',
-            },
-          ],
-        }
-      },
-    )
-
-    await harness.exercise(
-      'goals.plan.step.reorder',
-      { role: 'button', name: 'Move Verify Tauri up', description: 'reorder plan steps' },
-      async () => {
-        await page.getByRole('button', { name: 'Move Verify Tauri up' }).click()
-        return {
-          ui: [
-            {
-              description: 'second step moves into the first position',
-              passed: (await page.getByRole('textbox', { name: 'Step 1 title' }).inputValue()) === 'Verify Tauri',
-            },
-          ],
-        }
-      },
-    )
-
-    await harness.exercise(
-      'goals.plan.step.remove',
-      { role: 'button', name: 'Remove Verify Web production', description: 'remove a plan step' },
-      async () => {
-        await page.getByRole('button', { name: 'Remove Verify Web production' }).click()
-        return {
-          ui: [
-            {
-              description: 'only the retained step remains',
-              passed:
-                (await page.getByRole('textbox', { name: /^Step \d+ title$/ }).count()) === 1 &&
-                (await page.getByRole('textbox', { name: 'Step 1 title' }).inputValue()) === 'Verify Tauri',
-            },
-          ],
-        }
-      },
-    )
-
-    await harness.exercise(
-      'goals.plan.save',
-      { role: 'button', name: 'Save 1 step', description: 'persist the plan draft' },
-      async () => {
-        await page.getByRole('button', { name: 'Save 1 step' }).click()
-        await expect(page.getByText('Plan saved.')).toBeVisible()
+        await expect(panel.locator('.hbar-app-react-plan-summary strong')).toHaveText(['Verify Web', 'Verify Tauri'])
+        await expect(panel.getByRole('button', { name: /Edit plan|Clear plan|Add step/ })).toHaveCount(0)
         const plan = await goalCommands.execute('plan.get', { sessionId: host!.ready.sessionId })
         return {
           ui: [
-            { description: 'plan save feedback is visible', passed: await page.getByText('Plan saved.').isVisible() },
+            {
+              description: 'ordered Plan and progress are projected without a second editable TODO list',
+              passed: await panel.getByText('In progress', { exact: true }).isVisible(),
+            },
           ],
           host: [
             {
-              description: 'Host plan contains only the retained ordered step and explanation',
-              passed:
-                plan?.explanation === 'Keep changes reviewable.' &&
-                plan.plan.length === 1 &&
-                plan.plan[0]?.step === 'Verify Tauri',
+              description: 'Host owns the same two ordered steps',
+              passed: plan?.plan.length === 2 && plan.plan[0]?.step === 'Verify Web',
             },
           ],
           hostFact: plan,
         }
       },
     )
-
+    await publishPlan([{ step: 'Verify Tauri', status: 'completed' }])
     await harness.exercise(
-      'goals.back',
-      { role: 'button', name: 'Back to goals and plans', description: 'return from plan editor' },
-      async () => {
-        await page.getByRole('button', { name: 'Back to goals and plans' }).click()
-        await expect(page.getByText('Verify Tauri', { exact: true })).toBeVisible()
-        return {
-          ui: [
-            {
-              description: 'overview renders the saved plan summary',
-              passed: await page.getByText('Verify Tauri', { exact: true }).isVisible(),
-            },
-          ],
-        }
+      'goals.plan.refresh',
+      {
+        role: 'button',
+        name: 'Refresh',
+        description: 'refresh authoritative Plan after agent reorder/removal/completion',
       },
-    )
-
-    await harness.exercise(
-      'goals.plan.clear',
-      { role: 'button', name: 'Clear plan', description: 'clear the persisted session plan' },
       async () => {
-        await page.getByRole('button', { name: 'Clear plan' }).click()
-        await expect(page.getByText('Plan cleared.')).toBeVisible()
+        await panel.getByRole('button', { name: 'Refresh', exact: true }).click()
+        await expect(panel.locator('.hbar-app-react-plan-summary strong')).toHaveText(['Verify Tauri'])
+        await expect(panel.locator('.hbar-app-react-plan-summary')).toContainText('Completed')
         const plan = await goalCommands.execute('plan.get', { sessionId: host!.ready.sessionId })
         return {
           ui: [
             {
-              description: 'empty plan state replaces the saved summary',
-              passed: await page.getByText('Plan cleared.').isVisible(),
+              description: 'removed steps disappear and completed status remains read-only',
+              passed: (await panel.getByText('Verify Web', { exact: true }).count()) === 0,
             },
           ],
-          host: [{ description: 'Host plan is absent for the original session', passed: plan === null }],
-          hostFact: { sessionId: host!.ready.sessionId, plan },
+          host: [
+            {
+              description: 'the original Session retains the latest Agent Plan revision',
+              passed: plan?.plan.length === 1 && plan.plan[0]?.status === 'completed',
+            },
+          ],
+          hostFact: plan,
         }
       },
     )
@@ -462,6 +381,8 @@ test('binds child agent and goal-plan actions to the original session entities',
         await page.getByRole('button', { name: 'Clear goal' }).click()
         await expect(page.getByText('Goal cleared.')).toBeVisible()
         const goal = await goalCommands.execute('goal.get', { sessionId: host!.ready.sessionId })
+        await expect(panel.locator('.hbar-app-react-plan-summary')).toHaveCount(0)
+        expect(await goalCommands.execute('plan.get', { sessionId: host!.ready.sessionId })).toBeNull()
         return {
           ui: [
             {

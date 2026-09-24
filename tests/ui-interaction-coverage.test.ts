@@ -11,6 +11,12 @@ function evidenceFor(interaction: ProductionUiInteraction) {
 }
 
 describe('production UI interaction contract', () => {
+  test('Agent Plan coverage describes Host projection rather than obsolete user editing controls', () => {
+    const plan = productionUiInteractions.filter((interaction) => interaction.id.startsWith('goals.plan.'))
+    expect(plan.map((interaction) => interaction.id)).toEqual(['goals.plan.observe', 'goals.plan.refresh'])
+    expect(plan.every((interaction) => interaction.effect.kind === 'command-read')).toBe(true)
+    expect(plan.every((interaction) => interaction.evidence.includes('host-fact'))).toBe(true)
+  })
   test('registers every production surface with unique, reachable interactions', () => {
     const validation = validateProductionUiManifest()
 
