@@ -23,6 +23,10 @@ Agent Approval 1 还显式覆盖 `inline-request-open`：真实点击 Show reque
 
 Agent Approval 2 的 `diff-request-open` 独立覆盖 Hide diff、Reject、Always allow、Approve 和可聚焦差异代码区。原版 Show diff 追加代码而不隐藏摘要；三种决策分别改变状态、替换操作区并提供不同播报，不能合并为统一的 disabled 按钮状态。完整矩阵为每组 22 个初始动作与 29 个展开态动作，共 408 个案例；两个审批变体均等待原生滚动稳定。新增此场景的交互协议版本为 23，旧版本结果必须重新验证，不自动继承签核。
 
+Agent Approval 3 按真实逐条队列而不是页面营销描述中的批量勾选检查。协议 24 增加 13 个命名状态：初始请求展开，以及前一条或前两条经过每种 Approve/Reject 组合后的关闭/展开态。每次都从独立上下文真实点击进入，确认 waiting 数量递减和下一条 Show request 出现；不能注入状态，也不能把第一条 disabled 当成已推进。每组 17 个初始动作加 270 个动态动作，八组共 2296 个案例。四种两步前缀各自执行最终批准与拒绝，八种队列终态全部由真实 after 截图证明；代码区同样覆盖原生键盘滚动。此处定义的是要求，不代表该变体已经通过。
+
+完整线上动作发现另存于 `interaction-inventory/<variant>/<theme>/<viewport>.json`，包含来源、协议、实际画布和场景控件。即使开发时传入 `--cases`，也保留筛选前清单；只回放一个动作不能把其余已发现的动作算成完成。
+
 ## 命令
 
 ```powershell

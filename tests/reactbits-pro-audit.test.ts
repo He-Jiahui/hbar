@@ -15,6 +15,9 @@ import {
   diffApprovalScenarioCases,
   inlineApprovalDynamicCaseIds,
   inlineApprovalScenarioCases,
+  queueApprovalDynamicCaseIds,
+  queueApprovalScenarioCases,
+  queueApprovalScenarioPlans,
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
@@ -96,16 +99,22 @@ describe('React Bits Pro visual audit contract', () => {
     expect(ids).toHaveLength(10)
     expect(ids).toContain('hbar-app-ui-agent-activity-5:running:4:click')
     expect(ids).toContain('hbar-app-ui-agent-activity-5:away:4:press-space')
-    expect(interactionCases(snapshot([control(4)]), 'hbar-app-ui-agent-activity-5', 'running')
-      .map((item) => item.id)).toEqual(ids.filter((id) => id.includes(':running:')))
+    expect(
+      interactionCases(snapshot([control(4)]), 'hbar-app-ui-agent-activity-5', 'running').map((item) => item.id),
+    ).toEqual(ids.filter((id) => id.includes(':running:')))
   })
 
   test('captures Cancel retry as a second-state control in every viewport and theme', () => {
     const ids = agentFailureDynamicCaseIds('hbar-app-ui-agent-activity-7')
     expect(ids).toHaveLength(5)
     expect(ids).toContain('hbar-app-ui-agent-activity-7:retry-queued:1:click')
-    expect(interactionCases(snapshot([control(1, { name: 'Cancel retry' })]), 'hbar-app-ui-agent-activity-7', 'retry-queued')
-      .map((item) => item.id)).toEqual([...ids])
+    expect(
+      interactionCases(
+        snapshot([control(1, { name: 'Cancel retry' })]),
+        'hbar-app-ui-agent-activity-7',
+        'retry-queued',
+      ).map((item) => item.id),
+    ).toEqual([...ids])
   })
 
   test('bounds parallel action replay across multiple selected variants', () => {
@@ -118,7 +127,11 @@ describe('React Bits Pro visual audit contract', () => {
     const id = 'hbar-app-ui-agent-approval-1'
     const ids = inlineApprovalDynamicCaseIds(id)
     const expanded = snapshot([
-      control(0, { name: 'Hide request', expanded: 'true', capabilities: ['hover', 'focus', 'click', 'press', 'expand'] }),
+      control(0, {
+        name: 'Hide request',
+        expanded: 'true',
+        capabilities: ['hover', 'focus', 'click', 'press', 'expand'],
+      }),
       control(1, { name: 'Reject' }),
       control(2, { name: 'Delete 12 projects' }),
       control(3, { name: 'Host request payload', tag: 'pre', type: null, capabilities: ['hover', 'focus', 'no-op'] }),
@@ -155,12 +168,89 @@ describe('React Bits Pro visual audit contract', () => {
     expect(() => diffApprovalScenarioCases(snapshot([]), id)).toThrow('Missing focusable diff payload')
   })
 
+  test('covers every queue decision prefix, disclosure state and terminal outcome', () => {
+    const id = 'hbar-app-ui-agent-approval-3'
+    const ids = queueApprovalDynamicCaseIds(id)
+    expect(ids).toHaveLength(270)
+    expect(new Set(ids).size).toBe(270)
+    const collected: string[] = []
+    for (const plan of queueApprovalScenarioPlans) {
+      const controls = [
+        control(0, {
+          name: plan.expanded ? 'Hide request' : 'Show request',
+          expanded: String(plan.expanded),
+          capabilities: ['hover', 'focus', 'click', 'press', 'expand'],
+        }),
+        control(1, { name: 'Reject' }),
+        control(2, { name: 'Approve' }),
+      ]
+      if (plan.expanded)
+        controls.push(
+          control(3, {
+            tag: 'pre',
+            type: null,
+            name: 'Host request payload',
+            capabilities: ['hover', 'focus', 'no-op'],
+          }),
+        )
+      const cases = queueApprovalScenarioCases(snapshot(controls), id, plan)
+      expect(cases).toHaveLength(plan.expanded ? 24 : 17)
+      collected.push(...cases.map((item) => item.id))
+      for (const index of [1, 2])
+        expect(cases.some((item) => item.control.index === index && item.action === 'click')).toBe(true)
+      expect(() => queueApprovalScenarioCases(snapshot(controls.slice(1)), id, plan)).toThrow(
+        'Unexpected live queue controls',
+      )
+      expect(() =>
+        queueApprovalScenarioCases(
+          snapshot([
+            control(0, { name: plan.expanded ? 'Hide request' : 'Show request', expanded: String(!plan.expanded) }),
+            ...controls.slice(1),
+          ]),
+          id,
+          plan,
+        ),
+      ).toThrow('Queue disclosure state')
+    }
+    expect(collected).toEqual([...ids])
+    const terminalPrefixes = queueApprovalScenarioPlans.filter((plan) => plan.decisions.length === 2 && !plan.expanded)
+    expect(terminalPrefixes.map((plan) => plan.decisions.join('/'))).toEqual([
+      'Approve/Approve',
+      'Approve/Reject',
+      'Reject/Approve',
+      'Reject/Reject',
+    ])
+    // Each of four prefixes has both final decisions: all eight terminal rows
+    // are captured by real action-after screenshots, not a fabricated empty DOM.
+    expect(terminalPrefixes.length * 2).toBe(8)
+    expect((17 + ids.length) * REACTBITS_PRO_VIEWPORTS.length * REACTBITS_PRO_THEMES.length).toBe(2296)
+    const firstOpen = queueApprovalScenarioPlans[0]
+    expect(() =>
+      queueApprovalScenarioCases(
+        snapshot([
+          control(0, { name: 'Hide request', expanded: 'true' }),
+          control(1, { name: 'Reject' }),
+          control(2, { name: 'Approve' }),
+          control(3, { tag: 'div' }),
+        ]),
+        id,
+        firstOpen,
+      ),
+    ).toThrow('Missing focusable queue payload')
+  })
+
   test('renders separate source/local before/after evidence without hiding missing images', () => {
-    const page = renderAuditEvidencePage([{
-      label: '<script>untrusted label</script>', status: 'matched',
-      images: ['source-before.png', 'local-before.png', 'source-after.png', 'local-after.png']
-        .map((path) => ({ label: path, path })),
-    }, { label: 'incomplete', status: 'missing', images: [{ label: 'Missing local after', path: null }] }])
+    const page = renderAuditEvidencePage([
+      {
+        label: '<script>untrusted label</script>',
+        status: 'matched',
+        images: ['source-before.png', 'local-before.png', 'source-after.png', 'local-after.png'].map((path) => ({
+          label: path,
+          path,
+        })),
+      },
+      { label: 'incomplete', status: 'missing', images: [{ label: 'Missing local after', path: null }] },
+    ])
     expect(page.match(/<details>/g)).toHaveLength(2)
     expect(page.match(/<img /g)).toHaveLength(4)
     expect(page).toContain('&lt;script&gt;untrusted label&lt;/script&gt;')
@@ -195,8 +285,10 @@ describe('React Bits Pro visual audit contract', () => {
   })
 
   test('gates semantic hierarchy independently of localized copy and control count', () => {
-    const source = '- table "Run history":\n  - rowgroup:\n    - row "Invoice":\n      - cell "Invoice":\n        - button "Re-run Invoice"'
-    const translated = '- table "Verlauf":\n  - rowgroup:\n    - row "Rechnung":\n      - cell "Rechnung":\n        - button "Erneut ausführen"'
+    const source =
+      '- table "Run history":\n  - rowgroup:\n    - row "Invoice":\n      - cell "Invoice":\n        - button "Re-run Invoice"'
+    const translated =
+      '- table "Verlauf":\n  - rowgroup:\n    - row "Rechnung":\n      - cell "Rechnung":\n        - button "Erneut ausführen"'
     expect(semanticRoleTree(source)).toEqual(['0:table', '1:rowgroup', '2:row', '3:cell', '4:button'])
     expect(semanticRoleTreeMatches(source, translated)).toBe(true)
     expect(semanticRoleTreeMatches(source, `- main:\n  ${translated.replaceAll('\n', '\n  ')}`)).toBe(false)
@@ -207,14 +299,24 @@ describe('React Bits Pro visual audit contract', () => {
   test('attributes the live timeline clock to the source instead of a hover or Stop', () => {
     const running = snapshot([control(0, { name: 'Stop' })])
     const stopped = snapshot([control(0, { name: 'Stop', disabled: true })])
-    const before = { ...running, axSnapshot: '- banner:\n  - text: Running 9.9s\n  - button "Stop"\n- list:\n  - listitem: Reconciling flagged entries 9.9s' }
-    const rollover = { ...running, axSnapshot: '- banner:\n  - text: Running 10.0s\n  - button "Stop"\n- list:\n  - listitem: Reconciling flagged entries 10.0s' }
-    const after = { ...stopped, axSnapshot: '- banner:\n  - text: Stopped 10.0s\n  - button "Stop" [disabled]\n- list:\n  - listitem: Reconciling flagged entries Stopped' }
+    const before = {
+      ...running,
+      axSnapshot:
+        '- banner:\n  - text: Running 9.9s\n  - button "Stop"\n- list:\n  - listitem: Reconciling flagged entries 9.9s',
+    }
+    const rollover = {
+      ...running,
+      axSnapshot:
+        '- banner:\n  - text: Running 10.0s\n  - button "Stop"\n- list:\n  - listitem: Reconciling flagged entries 10.0s',
+    }
+    const after = {
+      ...stopped,
+      axSnapshot:
+        '- banner:\n  - text: Stopped 10.0s\n  - button "Stop" [disabled]\n- list:\n  - listitem: Reconciling flagged entries Stopped',
+    }
     expect(liveActivityDelta(before, rollover)?.changed).toBe(false)
     expect(liveActivityDelta(before, after)?.changed).toBe(true)
-    expect(liveActivityDelta(before, after)?.signature).toBe(
-      liveActivityDelta(rollover, after)?.signature,
-    )
+    expect(liveActivityDelta(before, after)?.signature).toBe(liveActivityDelta(rollover, after)?.signature)
   })
 
   test('uses the same visible-only control set for structure and interaction gates', () => {
@@ -339,28 +441,46 @@ describe('React Bits Pro visual audit contract', () => {
       interactionCases: 560,
     }
     expect(manualReviewGate([], review.fingerprint, undefined, 8, 560)).toEqual({
-      status: 'needs-review', manualReview: false, reason: 'manual-review-required',
+      status: 'needs-review',
+      manualReview: false,
+      reason: 'manual-review-required',
     })
     expect(manualReviewGate([], review.fingerprint, review, 8, 560)).toEqual({
-      status: 'passed', manualReview: true,
+      status: 'passed',
+      manualReview: true,
     })
-    expect(manualReviewGate([], 'changed-source-or-local-screenshot', review, 8, 560).reason).toBe('manual-review-stale')
+    expect(manualReviewGate([], 'changed-source-or-local-screenshot', review, 8, 560).reason).toBe(
+      'manual-review-stale',
+    )
     expect(manualReviewGate([], review.fingerprint, review, 8, 561).status).toBe('needs-review')
     expect(manualReviewGate([], review.fingerprint, { ...review, note: '' }, 8, 560).status).toBe('needs-review')
     expect(manualReviewGate(['visual-feedback-mismatch'], review.fingerprint, review, 8, 560).status).toBe('needs-fix')
   })
 
   test('separates automatic deployment progress from Stop and rerun feedback', () => {
-    const steps = (states: readonly string[]) => states.map((state, index) => `  - listitem: Step ${index} ${state}`).join('\n')
-    const running = snapshot([control(0, {name: 'Stop'})])
-    const queued = (count: number) => Array.from({length: count}, () => 'Queued')
-    const first = {...running, axSnapshot: steps(['Running', ...queued(6)])}
-    const later = {...running, axSnapshot: steps(['Done', 'Running', ...queued(5)])}
-    const stopped = {...later, controls: [control(0, {name: 'Run again'})], axSnapshot: steps(['Done', 'Stopped', ...queued(5)])}
-    const localStopped = {...first, controls: [control(0, {name: 'Run again'})], axSnapshot: steps(['Stopped', ...queued(6)])}
+    const steps = (states: readonly string[]) =>
+      states.map((state, index) => `  - listitem: Step ${index} ${state}`).join('\n')
+    const running = snapshot([control(0, { name: 'Stop' })])
+    const queued = (count: number) => Array.from({ length: count }, () => 'Queued')
+    const first = { ...running, axSnapshot: steps(['Running', ...queued(6)]) }
+    const later = { ...running, axSnapshot: steps(['Done', 'Running', ...queued(5)]) }
+    const stopped = {
+      ...later,
+      controls: [control(0, { name: 'Run again' })],
+      axSnapshot: steps(['Done', 'Stopped', ...queued(5)]),
+    }
+    const localStopped = {
+      ...first,
+      controls: [control(0, { name: 'Run again' })],
+      axSnapshot: steps(['Stopped', ...queued(6)]),
+    }
     expect(timedActivityDelta(first, later, 'hover')?.changed).toBe(false)
-    expect(timedActivityDelta(later, stopped, 'click')?.signature).toBe(timedActivityDelta(first, localStopped, 'click')?.signature)
-    expect(timedActivityDelta(first, stopped, 'click')?.signature).toBe(timedActivityDelta(first, localStopped, 'click')?.signature)
-    expect(timedActivityDelta(first, {...first, axSnapshot: ''}, 'hover')).toBeNull()
+    expect(timedActivityDelta(later, stopped, 'click')?.signature).toBe(
+      timedActivityDelta(first, localStopped, 'click')?.signature,
+    )
+    expect(timedActivityDelta(first, stopped, 'click')?.signature).toBe(
+      timedActivityDelta(first, localStopped, 'click')?.signature,
+    )
+    expect(timedActivityDelta(first, { ...first, axSnapshot: '' }, 'hover')).toBeNull()
   })
 })

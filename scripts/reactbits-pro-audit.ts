@@ -203,10 +203,36 @@ export function interactionWorkersPerVariant(workers: number, selectedVariants: 
   return Math.max(1, Math.floor(workers / Math.max(1, Math.min(workers, selectedVariants))))
 }
 
+export const queueApprovalScenarioPlans = [
+  { id: 'queue-start-open', decisions: [], expanded: true },
+  { id: 'queue-a-closed', decisions: ['Approve'], expanded: false },
+  { id: 'queue-a-open', decisions: ['Approve'], expanded: true },
+  { id: 'queue-r-closed', decisions: ['Reject'], expanded: false },
+  { id: 'queue-r-open', decisions: ['Reject'], expanded: true },
+  { id: 'queue-aa-closed', decisions: ['Approve', 'Approve'], expanded: false },
+  { id: 'queue-aa-open', decisions: ['Approve', 'Approve'], expanded: true },
+  { id: 'queue-ar-closed', decisions: ['Approve', 'Reject'], expanded: false },
+  { id: 'queue-ar-open', decisions: ['Approve', 'Reject'], expanded: true },
+  { id: 'queue-ra-closed', decisions: ['Reject', 'Approve'], expanded: false },
+  { id: 'queue-ra-open', decisions: ['Reject', 'Approve'], expanded: true },
+  { id: 'queue-rr-closed', decisions: ['Reject', 'Reject'], expanded: false },
+  { id: 'queue-rr-open', decisions: ['Reject', 'Reject'], expanded: true },
+] as const
+
+type QueueApprovalScenarioPlan = (typeof queueApprovalScenarioPlans)[number]
+export type QueueApprovalScenario = QueueApprovalScenarioPlan['id']
+
 export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
-  scenario?: 'running' | 'away' | 'retry-queued' | 'inline-request-open' | 'diff-request-open' | undefined
+  scenario?:
+    | 'running'
+    | 'away'
+    | 'retry-queued'
+    | 'inline-request-open'
+    | 'diff-request-open'
+    | QueueApprovalScenario
+    | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
 }>
@@ -253,11 +279,14 @@ export function manualReviewGate(
   if (!review) return { status: 'needs-review', manualReview: false, reason: 'manual-review-required' }
   if (
     review.fingerprint !== fingerprint ||
-    typeof review.note !== 'string' || review.note.trim().length < 12 ||
-    typeof review.reviewedAt !== 'string' || Number.isNaN(Date.parse(review.reviewedAt)) ||
+    typeof review.note !== 'string' ||
+    review.note.trim().length < 12 ||
+    typeof review.reviewedAt !== 'string' ||
+    Number.isNaN(Date.parse(review.reviewedAt)) ||
     review.staticCombinations !== staticCombinations ||
     review.interactionCases !== interactionCases
-  ) return { status: 'needs-review', manualReview: false, reason: 'manual-review-stale' }
+  )
+    return { status: 'needs-review', manualReview: false, reason: 'manual-review-stale' }
   return { status: 'passed', manualReview: true }
 }
 
@@ -265,7 +294,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 12
-const interactionProtocolVersion = 23
+const interactionProtocolVersion = 24
 
 export function auditBrowserArguments(http1: boolean): string[] {
   return http1 ? ['--disable-http2', '--disable-quic'] : []
@@ -273,12 +302,33 @@ export function auditBrowserArguments(http1: boolean): string[] {
 const sourceCanvasSelector = '#preview-root'
 const localCanvasSelector = '.hbar-app-ui-isolated-canvas'
 export const interactiveControlSelector = [
-  'button', 'a', 'input', 'select', 'textarea', 'summary',
-  '[contenteditable="true"]', '[aria-expanded]', '[draggable="true"]', '[tabindex]:not([role])',
-  '[role="button"]', '[role="link"]', '[role="checkbox"]', '[role="radio"]', '[role="switch"]',
-  '[role="tab"]', '[role="menuitem"]', '[role="menuitemcheckbox"]', '[role="menuitemradio"]',
-  '[role="option"]', '[role="combobox"]', '[role="listbox"]', '[role="slider"]',
-  '[role="spinbutton"]', '[role="textbox"]', '[role="searchbox"]', '[role="treeitem"]',
+  'button',
+  'a',
+  'input',
+  'select',
+  'textarea',
+  'summary',
+  '[contenteditable="true"]',
+  '[aria-expanded]',
+  '[draggable="true"]',
+  '[tabindex]:not([role])',
+  '[role="button"]',
+  '[role="link"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[role="tab"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="option"]',
+  '[role="combobox"]',
+  '[role="listbox"]',
+  '[role="slider"]',
+  '[role="spinbutton"]',
+  '[role="textbox"]',
+  '[role="searchbox"]',
+  '[role="treeitem"]',
 ].join(',')
 
 function sourceIdFor(spec: HbarAppUiVariantSpec): string {
@@ -432,12 +482,17 @@ async function manualReviewFingerprint(
       .map(async (source) => {
         const local = manifest.records.find(
           (record) =>
-            record.kind === 'local' && record.id === id &&
-            record.theme === source.theme && record.viewport === source.viewport,
+            record.kind === 'local' &&
+            record.id === id &&
+            record.theme === source.theme &&
+            record.viewport === source.viewport,
         )
-        if (!local) throw new Error(`Missing local screenshot for manual review: ${id}/${source.theme}/${source.viewport}`)
+        if (!local)
+          throw new Error(`Missing local screenshot for manual review: ${id}/${source.theme}/${source.viewport}`)
         const screenshotHash = async (path: string) =>
-          createHash('sha256').update(new Uint8Array(await Bun.file(path).arrayBuffer())).digest('hex')
+          createHash('sha256')
+            .update(new Uint8Array(await Bun.file(path).arrayBuffer()))
+            .digest('hex')
         return {
           theme: source.theme,
           viewport: source.viewport,
@@ -452,8 +507,8 @@ async function manualReviewFingerprint(
     implementationHash: manifest.implementationHash,
     staticPairs,
     interactions: interactions.filter((row) => row.variantId === id),
-    visualPairs: visualPairs.filter((pair) =>
-      typeof pair === 'object' && pair !== null && 'id' in pair && pair.id === id,
+    visualPairs: visualPairs.filter(
+      (pair) => typeof pair === 'object' && pair !== null && 'id' in pair && pair.id === id,
     ),
   })
 }
@@ -693,15 +748,19 @@ async function enforceReferenceTheme(page: Page, theme: AuditTheme): Promise<voi
 }
 
 async function assertReferenceFrameTheme(frame: Frame, theme: AuditTheme): Promise<void> {
-  await frame.waitForFunction((dark) => document.documentElement.classList.contains('dark') === dark,
-    theme === 'dark', { timeout: 5_000 })
+  await frame.waitForFunction(
+    (dark) => document.documentElement.classList.contains('dark') === dark,
+    theme === 'dark',
+    { timeout: 5_000 },
+  )
 }
 
 async function synchroniseReferenceFrameTheme(page: Page, frame: Frame, theme: AuditTheme): Promise<Frame> {
   let current = frame
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const matches = await current.evaluate((dark) => document.documentElement.classList.contains('dark') === dark,
-      theme === 'dark').catch(() => false)
+    const matches = await current
+      .evaluate((dark) => document.documentElement.classList.contains('dark') === dark, theme === 'dark')
+      .catch(() => false)
     if (matches) return current
     if (attempt === 2) break
     const toggle = page.getByRole('button', { name: 'Toggle theme' })
@@ -848,73 +907,74 @@ async function loadReferencePreview(page: Page, url: string, theme: AuditTheme):
   throw lastError instanceof Error ? lastError : new Error(`React Bits preview did not mount: ${url}`)
 }
 
-async function loadRunningLogPreview(
-  page: Page, url: string, theme: AuditTheme, targetRows = 24,
-): Promise<Frame> {
-  await page.addInitScript(({ targetRows: checkpoint }) => {
-    const pendingTimeouts = new Set<number>()
-    const pendingIntervals = new Set<number>()
-    const pendingFrames = new Set<number>()
-    const scheduleTimeout = window.setTimeout.bind(window)
-    const scheduleInterval = window.setInterval.bind(window)
-    const scheduleFrame = window.requestAnimationFrame.bind(window)
-    const cancelTimeout = window.clearTimeout.bind(window)
-    const cancelInterval = window.clearInterval.bind(window)
-    const cancelFrame = window.cancelAnimationFrame.bind(window)
-    let frozen = false
-    window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
-      if (frozen) return 0
-      const id = scheduleTimeout(() => {
-        pendingTimeouts.delete(id)
-        if (!frozen && typeof handler === 'function')
-          (handler as (...values: unknown[]) => void)(...args)
-      }, delay)
-      pendingTimeouts.add(id)
-      return id
-    }) as typeof window.setTimeout
-    window.setInterval = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
-      if (frozen) return 0
-      const id = scheduleInterval(() => {
-        if (!frozen && typeof handler === 'function')
-          (handler as (...values: unknown[]) => void)(...args)
-      }, delay)
-      pendingIntervals.add(id)
-      return id
-    }) as typeof window.setInterval
-    window.requestAnimationFrame = ((handler: FrameRequestCallback) => {
-      if (frozen) return 0
-      const id = scheduleFrame((timestamp) => {
-        pendingFrames.delete(id)
-        if (!frozen) handler(timestamp)
+async function loadRunningLogPreview(page: Page, url: string, theme: AuditTheme, targetRows = 24): Promise<Frame> {
+  await page.addInitScript(
+    ({ targetRows: checkpoint }) => {
+      const pendingTimeouts = new Set<number>()
+      const pendingIntervals = new Set<number>()
+      const pendingFrames = new Set<number>()
+      const scheduleTimeout = window.setTimeout.bind(window)
+      const scheduleInterval = window.setInterval.bind(window)
+      const scheduleFrame = window.requestAnimationFrame.bind(window)
+      const cancelTimeout = window.clearTimeout.bind(window)
+      const cancelInterval = window.clearInterval.bind(window)
+      const cancelFrame = window.cancelAnimationFrame.bind(window)
+      let frozen = false
+      window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+        if (frozen) return 0
+        const id = scheduleTimeout(() => {
+          pendingTimeouts.delete(id)
+          if (!frozen && typeof handler === 'function') (handler as (...values: unknown[]) => void)(...args)
+        }, delay)
+        pendingTimeouts.add(id)
+        return id
+      }) as typeof window.setTimeout
+      window.setInterval = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+        if (frozen) return 0
+        const id = scheduleInterval(() => {
+          if (!frozen && typeof handler === 'function') (handler as (...values: unknown[]) => void)(...args)
+        }, delay)
+        pendingIntervals.add(id)
+        return id
+      }) as typeof window.setInterval
+      window.requestAnimationFrame = ((handler: FrameRequestCallback) => {
+        if (frozen) return 0
+        const id = scheduleFrame((timestamp) => {
+          pendingFrames.delete(id)
+          if (!frozen) handler(timestamp)
+        })
+        pendingFrames.add(id)
+        return id
+      }) as typeof window.requestAnimationFrame
+      const freezeTimers = () => {
+        frozen = true
+        pendingTimeouts.forEach(cancelTimeout)
+        pendingIntervals.forEach(cancelInterval)
+        pendingFrames.forEach(cancelFrame)
+      }
+      ;(window as Window & { __reactBitsAuditFreezeTimers?: () => void }).__reactBitsAuditFreezeTimers = freezeTimers
+      ;(window as Window & { __reactBitsAuditTimerState?: () => unknown }).__reactBitsAuditTimerState = () => ({
+        frozen,
+        timeouts: pendingTimeouts.size,
+        intervals: pendingIntervals.size,
+        frames: pendingFrames.size,
+        rows: document.querySelectorAll('#preview-root ol li').length,
       })
-      pendingFrames.add(id)
-      return id
-    }) as typeof window.requestAnimationFrame
-    const freezeTimers = () => {
-      frozen = true
-      pendingTimeouts.forEach(cancelTimeout)
-      pendingIntervals.forEach(cancelInterval)
-      pendingFrames.forEach(cancelFrame)
-    }
-    ;(window as Window & { __reactBitsAuditFreezeTimers?: () => void }).__reactBitsAuditFreezeTimers = freezeTimers
-    ;(window as Window & { __reactBitsAuditTimerState?: () => unknown }).__reactBitsAuditTimerState = () => ({
-      frozen,
-      timeouts: pendingTimeouts.size,
-      intervals: pendingIntervals.size,
-      frames: pendingFrames.size,
-      rows: document.querySelectorAll('#preview-root ol li').length,
-    })
-    const freezeAtCheckpoint = () => {
-      if (frozen) return
-      const root = document.querySelector('#preview-root')
-      if (root?.querySelectorAll('ol li').length === checkpoint &&
-        Array.from(root.querySelectorAll('button')).some((button) => button.textContent?.includes('Stop')))
-        freezeTimers()
-    }
-    const observer = new MutationObserver(freezeAtCheckpoint)
-    observer.observe(document, { childList: true, subtree: true })
-    document.addEventListener('DOMContentLoaded', freezeAtCheckpoint, { once: true })
-  }, { targetRows })
+      const freezeAtCheckpoint = () => {
+        if (frozen) return
+        const root = document.querySelector('#preview-root')
+        if (
+          root?.querySelectorAll('ol li').length === checkpoint &&
+          Array.from(root.querySelectorAll('button')).some((button) => button.textContent?.includes('Stop'))
+        )
+          freezeTimers()
+      }
+      const observer = new MutationObserver(freezeAtCheckpoint)
+      observer.observe(document, { childList: true, subtree: true })
+      document.addEventListener('DOMContentLoaded', freezeAtCheckpoint, { once: true })
+    },
+    { targetRows },
+  )
   await page.clock.install()
   await gotoStable(page, url)
   await enforceReferenceTheme(page, theme)
@@ -927,7 +987,7 @@ async function loadRunningLogPreview(
   const root = frame.locator(sourceCanvasSelector).first()
   await root.locator('button').filter({ hasText: 'Stop' }).waitFor({ state: 'visible', timeout: 3_000 })
   const rows = root.locator('ol li')
-  if (await rows.count() > targetRows + 1) throw new Error(`Running log passed the ${targetRows}-line checkpoint`)
+  if ((await rows.count()) > targetRows + 1) throw new Error(`Running log passed the ${targetRows}-line checkpoint`)
   await rows.nth(targetRows - 1).waitFor({ state: 'attached', timeout: 3_000 })
   await page.clock.pauseAt((await root.evaluate(() => Date.now())) + 1)
   const frozen = await frame.evaluate(() => {
@@ -939,10 +999,13 @@ async function loadRunningLogPreview(
   if (!frozen) throw new Error('Running log timer instrumentation was not installed in the iframe')
   await page.waitForTimeout(100)
   const settledRows = await rows.count()
-  if ((settledRows !== targetRows && settledRows !== targetRows + 1) ||
-    !(await root.locator('button').filter({ hasText: 'Stop' }).isVisible())) {
+  if (
+    (settledRows !== targetRows && settledRows !== targetRows + 1) ||
+    !(await root.locator('button').filter({ hasText: 'Stop' }).isVisible())
+  ) {
     const state = await frame.evaluate(() =>
-      (window as Window & { __reactBitsAuditTimerState?: () => unknown }).__reactBitsAuditTimerState?.())
+      (window as Window & { __reactBitsAuditTimerState?: () => unknown }).__reactBitsAuditTimerState?.(),
+    )
     throw new Error(`Running log changed during the ${targetRows}-line checkpoint: ${JSON.stringify(state)}`)
   }
   await iframe.evaluate((element) => {
@@ -955,9 +1018,13 @@ async function loadRunningLogPreview(
       branch = branch.parentElement
     }
     Object.assign((element as HTMLElement).style, {
-      position: 'fixed', top: '0px', left: '0px',
-      width: `${rect.width}px`, height: `${rect.height}px`,
-      zIndex: '2147483647', margin: '0px',
+      position: 'fixed',
+      top: '0px',
+      left: '0px',
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      zIndex: '2147483647',
+      margin: '0px',
     })
   })
   return frame
@@ -980,160 +1047,175 @@ async function gotoStable(page: Page, url: string): Promise<void> {
 
 export async function waitForLocalStyles(page: Page, timeout = 15_000): Promise<void> {
   await page.waitForLoadState('load', { timeout })
-  await page.waitForFunction(() => {
-    const stylesheets = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
-    return document.styleSheets.length > 0 &&
-      stylesheets.every((link) => {
-        if (link.disabled) return true
-        try {
-          return link.sheet !== null && link.sheet.cssRules.length > 0
-        } catch {
-          return false
-        }
-      }) &&
-      document.fonts.status === 'loaded'
-  }, undefined, { timeout })
+  await page.waitForFunction(
+    () => {
+      const stylesheets = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
+      return (
+        document.styleSheets.length > 0 &&
+        stylesheets.every((link) => {
+          if (link.disabled) return true
+          try {
+            return link.sheet !== null && link.sheet.cssRules.length > 0
+          } catch {
+            return false
+          }
+        }) &&
+        document.fonts.status === 'loaded'
+      )
+    },
+    undefined,
+    { timeout },
+  )
 }
 
 type SnapshotWithoutAx = Omit<SemanticSnapshot, 'axSnapshot'>
 
 async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise<SnapshotWithoutAx> {
-  return locator.evaluate((element, { shouldCheckBody, controlSelector }) => {
-    const rectOf = (value: Element) => {
-      const rect = value.getBoundingClientRect()
+  return locator.evaluate(
+    (element, { shouldCheckBody, controlSelector }) => {
+      const rectOf = (value: Element) => {
+        const rect = value.getBoundingClientRect()
+        return {
+          x: Math.round(rect.x * 100) / 100,
+          y: Math.round(rect.y * 100) / 100,
+          width: Math.round(rect.width * 100) / 100,
+          height: Math.round(rect.height * 100) / 100,
+        }
+      }
+      const textKind = (value: Element): string => {
+        const text = (value.textContent ?? '').trim()
+        if (!text) return 'none'
+        if (value.matches('h1,h2,h3,h4,h5,h6')) return 'heading'
+        if (value.matches(controlSelector)) return 'control'
+        if (/^[\d$€£%.,:+\-/ ]+$/.test(text)) return 'numeric'
+        return 'text'
+      }
+      const tree: Array<{
+        tag: string
+        role: string | null
+        textKind: string
+        rect: ReturnType<typeof rectOf>
+        display: string
+        flexDirection: string
+        childCount: number
+      }> = []
+      const walk = (value: Element, depth: number) => {
+        if (depth > 4) return
+        const style = getComputedStyle(value)
+        tree.push({
+          tag: value.tagName.toLowerCase(),
+          role: value.getAttribute('role'),
+          textKind: textKind(value),
+          rect: rectOf(value),
+          display: style.display,
+          flexDirection: style.flexDirection,
+          childCount: value.children.length,
+        })
+        for (const child of [...value.children]) walk(child, depth + 1)
+      }
+      walk(element, 0)
+      const stablePathOf = (control: Element): string => {
+        const parts: string[] = []
+        let current: Element | null = control
+        while (current && current !== element) {
+          const parent: HTMLElement | null = current.parentElement
+          if (!parent) break
+          const currentTag = current.tagName
+          const siblings = [...parent.children].filter((child) => child.tagName === currentTag)
+          parts.unshift(`${current.tagName.toLowerCase()}:nth-of-type(${siblings.indexOf(current) + 1})`)
+          current = parent
+        }
+        return parts.join(' > ')
+      }
+      const capabilitiesOf = (control: Element): HbarAppUiInteractionCapability[] => {
+        const capabilities: HbarAppUiInteractionCapability[] = ['hover', 'focus']
+        const tag = control.tagName.toLowerCase()
+        const role = control.getAttribute('role')
+        const type = control.getAttribute('type')
+        if (
+          tag === 'button' ||
+          tag === 'a' ||
+          ['button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'treeitem', 'option'].includes(
+            role ?? '',
+          )
+        )
+          capabilities.push('click', 'press')
+        if (
+          tag === 'textarea' ||
+          (tag === 'input' &&
+            !['checkbox', 'radio', 'file', 'button', 'submit', 'reset', 'hidden'].includes(type ?? ''))
+        )
+          capabilities.push('fill')
+        if (tag === 'select' || role === 'combobox' || role === 'listbox') capabilities.push('select')
+        if (type === 'checkbox' || type === 'radio' || ['checkbox', 'radio', 'switch'].includes(role ?? ''))
+          capabilities.push('toggle')
+        if (tag === 'input' && type === 'file') capabilities.push('upload')
+        if (role === 'tab') capabilities.push('tab')
+        if (role === 'menu' || role === 'menuitem') capabilities.push('menu')
+        if (control.hasAttribute('aria-expanded')) capabilities.push('expand')
+        if (control.hasAttribute('download') || /download/i.test(control.textContent ?? ''))
+          capabilities.push('download')
+        if (control.hasAttribute('draggable') || control.getAttribute('data-draggable') === 'true')
+          capabilities.push('drag')
+        if (capabilities.length === 2) capabilities.push('no-op')
+        return [...new Set(capabilities)]
+      }
+      const controls = [...element.querySelectorAll(controlSelector)].map((control, index) => ({
+        index,
+        rect: rectOf(control),
+        tag: control.tagName.toLowerCase(),
+        role: control.getAttribute('role'),
+        type: control.getAttribute('type'),
+        name:
+          control.getAttribute('aria-label') ??
+          (control.textContent ?? '').trim().replaceAll(/\s+/g, ' ').slice(0, 160),
+        disabled: control.matches(':disabled') || control.getAttribute('aria-disabled') === 'true',
+        visible: (() => {
+          const rect = control.getBoundingClientRect()
+          const style = getComputedStyle(control)
+          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+        })(),
+        expanded: control.getAttribute('aria-expanded'),
+        pressed: control.getAttribute('aria-pressed'),
+        selected: control.getAttribute('aria-selected'),
+        state: control.getAttribute('data-state'),
+        stablePath: stablePathOf(control),
+        labelFor: control.getAttribute('id')
+          ? (element.ownerDocument
+              .querySelector(`label[for="${CSS.escape(control.getAttribute('id') ?? '')}"]`)
+              ?.textContent?.trim() ?? null)
+          : null,
+        describedBy: control.getAttribute('aria-describedby'),
+        capabilities: capabilitiesOf(control),
+        options: [...control.querySelectorAll('option')]
+          .map((option) => option.textContent?.trim() ?? '')
+          .filter(Boolean),
+      }))
+      const rootRect = element.getBoundingClientRect()
+      const body = element.ownerDocument.body
+      const lineElements = [...element.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,dt,dd,button,label')]
+      const textLineCount = lineElements.reduce(
+        (total, value) => Math.max(total, Math.round(value.getBoundingClientRect().height / 16)),
+        0,
+      )
+      const truncatedTextCount = [...element.querySelectorAll('*')].filter(
+        (value) => value.scrollWidth > value.clientWidth + 1,
+      ).length
       return {
-        x: Math.round(rect.x * 100) / 100,
-        y: Math.round(rect.y * 100) / 100,
-        width: Math.round(rect.width * 100) / 100,
-        height: Math.round(rect.height * 100) / 100,
+        rootTag: element.tagName.toLowerCase(),
+        rootRect: { width: Math.round(rootRect.width), height: Math.round(rootRect.height) },
+        bodyTextLength: (element.textContent ?? '').trim().length,
+        textLineCount,
+        truncatedTextCount,
+        horizontalOverflow: shouldCheckBody
+          ? Math.max(element.scrollWidth, body?.scrollWidth ?? 0) > (body?.clientWidth ?? 0) + 1
+          : element.scrollWidth > element.clientWidth + 1,
+        tree,
+        controls,
       }
-    }
-    const textKind = (value: Element): string => {
-      const text = (value.textContent ?? '').trim()
-      if (!text) return 'none'
-      if (value.matches('h1,h2,h3,h4,h5,h6')) return 'heading'
-      if (value.matches(controlSelector)) return 'control'
-      if (/^[\d$€£%.,:+\-/ ]+$/.test(text)) return 'numeric'
-      return 'text'
-    }
-    const tree: Array<{
-      tag: string
-      role: string | null
-      textKind: string
-      rect: ReturnType<typeof rectOf>
-      display: string
-      flexDirection: string
-      childCount: number
-    }> = []
-    const walk = (value: Element, depth: number) => {
-      if (depth > 4) return
-      const style = getComputedStyle(value)
-      tree.push({
-        tag: value.tagName.toLowerCase(),
-        role: value.getAttribute('role'),
-        textKind: textKind(value),
-        rect: rectOf(value),
-        display: style.display,
-        flexDirection: style.flexDirection,
-        childCount: value.children.length,
-      })
-      for (const child of [...value.children]) walk(child, depth + 1)
-    }
-    walk(element, 0)
-    const stablePathOf = (control: Element): string => {
-      const parts: string[] = []
-      let current: Element | null = control
-      while (current && current !== element) {
-        const parent: HTMLElement | null = current.parentElement
-        if (!parent) break
-        const currentTag = current.tagName
-        const siblings = [...parent.children].filter((child) => child.tagName === currentTag)
-        parts.unshift(`${current.tagName.toLowerCase()}:nth-of-type(${siblings.indexOf(current) + 1})`)
-        current = parent
-      }
-      return parts.join(' > ')
-    }
-    const capabilitiesOf = (control: Element): HbarAppUiInteractionCapability[] => {
-      const capabilities: HbarAppUiInteractionCapability[] = ['hover', 'focus']
-      const tag = control.tagName.toLowerCase()
-      const role = control.getAttribute('role')
-      const type = control.getAttribute('type')
-      if (
-        tag === 'button' || tag === 'a' ||
-        ['button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'treeitem', 'option'].includes(role ?? '')
-      )
-        capabilities.push('click', 'press')
-      if (
-        tag === 'textarea' ||
-        (tag === 'input' && !['checkbox', 'radio', 'file', 'button', 'submit', 'reset', 'hidden'].includes(type ?? ''))
-      )
-        capabilities.push('fill')
-      if (tag === 'select' || role === 'combobox' || role === 'listbox') capabilities.push('select')
-      if (type === 'checkbox' || type === 'radio' || ['checkbox', 'radio', 'switch'].includes(role ?? ''))
-        capabilities.push('toggle')
-      if (tag === 'input' && type === 'file') capabilities.push('upload')
-      if (role === 'tab') capabilities.push('tab')
-      if (role === 'menu' || role === 'menuitem') capabilities.push('menu')
-      if (control.hasAttribute('aria-expanded')) capabilities.push('expand')
-      if (control.hasAttribute('download') || /download/i.test(control.textContent ?? '')) capabilities.push('download')
-      if (control.hasAttribute('draggable') || control.getAttribute('data-draggable') === 'true')
-        capabilities.push('drag')
-      if (capabilities.length === 2) capabilities.push('no-op')
-      return [...new Set(capabilities)]
-    }
-    const controls = [...element.querySelectorAll(controlSelector)].map((control, index) => ({
-      index,
-      rect: rectOf(control),
-      tag: control.tagName.toLowerCase(),
-      role: control.getAttribute('role'),
-      type: control.getAttribute('type'),
-      name:
-        control.getAttribute('aria-label') ?? (control.textContent ?? '').trim().replaceAll(/\s+/g, ' ').slice(0, 160),
-      disabled: control.matches(':disabled') || control.getAttribute('aria-disabled') === 'true',
-      visible: (() => {
-        const rect = control.getBoundingClientRect()
-        const style = getComputedStyle(control)
-        return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
-      })(),
-      expanded: control.getAttribute('aria-expanded'),
-      pressed: control.getAttribute('aria-pressed'),
-      selected: control.getAttribute('aria-selected'),
-      state: control.getAttribute('data-state'),
-      stablePath: stablePathOf(control),
-      labelFor: control.getAttribute('id')
-        ? (element.ownerDocument
-            .querySelector(`label[for="${CSS.escape(control.getAttribute('id') ?? '')}"]`)
-            ?.textContent?.trim() ?? null)
-        : null,
-      describedBy: control.getAttribute('aria-describedby'),
-      capabilities: capabilitiesOf(control),
-      options: [...control.querySelectorAll('option')]
-        .map((option) => option.textContent?.trim() ?? '')
-        .filter(Boolean),
-    }))
-    const rootRect = element.getBoundingClientRect()
-    const body = element.ownerDocument.body
-    const lineElements = [...element.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,dt,dd,button,label')]
-    const textLineCount = lineElements.reduce(
-      (total, value) => Math.max(total, Math.round(value.getBoundingClientRect().height / 16)),
-      0,
-    )
-    const truncatedTextCount = [...element.querySelectorAll('*')].filter(
-      (value) => value.scrollWidth > value.clientWidth + 1,
-    ).length
-    return {
-      rootTag: element.tagName.toLowerCase(),
-      rootRect: { width: Math.round(rootRect.width), height: Math.round(rootRect.height) },
-      bodyTextLength: (element.textContent ?? '').trim().length,
-      textLineCount,
-      truncatedTextCount,
-      horizontalOverflow: shouldCheckBody
-        ? Math.max(element.scrollWidth, body?.scrollWidth ?? 0) > (body?.clientWidth ?? 0) + 1
-        : element.scrollWidth > element.clientWidth + 1,
-      tree,
-      controls,
-    }
-  }, { shouldCheckBody: bodyOverflow, controlSelector: interactiveControlSelector })
+    },
+    { shouldCheckBody: bodyOverflow, controlSelector: interactiveControlSelector },
+  )
 }
 
 async function snapshotRoot(frame: Frame, selector: string): Promise<SemanticSnapshot> {
@@ -1195,7 +1277,12 @@ async function captureSource(
   if (reference.id === 'hbar-app-ui-agent-activity-5') {
     await root.locator('ol li').nth(25).waitFor({ state: 'attached', timeout: 15_000 })
     await root.locator('button').filter({ hasText: 'Stop' }).waitFor({ state: 'hidden', timeout: 15_000 })
-    await root.locator('ol').locator('..').evaluate((pane) => { pane.scrollTop = pane.scrollHeight })
+    await root
+      .locator('ol')
+      .locator('..')
+      .evaluate((pane) => {
+        pane.scrollTop = pane.scrollHeight
+      })
     await page.waitForTimeout(150)
   }
   const referenceCanvas = await readReferenceCanvas(frame)
@@ -1248,7 +1335,9 @@ async function captureLocal(
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   if (spec.id === 'hbar-app-ui-agent-activity-5') {
     await root.locator('[data-hbar-app-ui-log-phase="complete"]').waitFor({ state: 'visible', timeout: 15_000 })
-    await root.locator('.hbar-app-ui-agent-activity-log-scroll').evaluate((pane) => { pane.scrollTop = pane.scrollHeight })
+    await root.locator('.hbar-app-ui-agent-activity-log-scroll').evaluate((pane) => {
+      pane.scrollTop = pane.scrollHeight
+    })
     await page.waitForTimeout(150)
   }
   const directory = join(outputRoot, 'local', spec.id, theme)
@@ -1283,12 +1372,10 @@ export function visibleControls(snapshot: SemanticSnapshot): readonly ControlSna
 }
 
 export function semanticRoleTree(axSnapshot: string): readonly string[] {
-  return axSnapshot
-    .split('\n')
-    .flatMap((line) => {
-      const match = /^(\s*)-\s+([a-z][a-z0-9-]*)\b/.exec(line)
-      return match ? [`${Math.floor((match[1]?.length ?? 0) / 2)}:${match[2]}`] : []
-    })
+  return axSnapshot.split('\n').flatMap((line) => {
+    const match = /^(\s*)-\s+([a-z][a-z0-9-]*)\b/.exec(line)
+    return match ? [`${Math.floor((match[1]?.length ?? 0) / 2)}:${match[2]}`] : []
+  })
 }
 
 export function semanticRoleTreeMatches(source: string, local: string): boolean {
@@ -1326,9 +1413,7 @@ export function interactionCases(
 
 export function agentLogDynamicCaseIds(variantId: string): readonly string[] {
   return ['running', 'away'].flatMap((scenario) =>
-    ['hover', 'focus', 'click', 'press-enter', 'press-space'].map(
-      (action) => `${variantId}:${scenario}:4:${action}`,
-    ),
+    ['hover', 'focus', 'click', 'press-enter', 'press-space'].map((action) => `${variantId}:${scenario}:4:${action}`),
   )
 }
 
@@ -1339,23 +1424,25 @@ export function agentFailureDynamicCaseIds(variantId: string): readonly string[]
 }
 
 export function inlineApprovalDynamicCaseIds(variantId: string): readonly string[] {
-  return [0, 1, 2, 3].flatMap((index) => (
-    index === 0
+  return [0, 1, 2, 3].flatMap((index) =>
+    (index === 0
       ? ['hover', 'focus', 'click', 'press-enter', 'press-space', 'expand', 'expand-escape']
       : index === 3
         ? ['hover', 'focus', 'no-op', 'scroll-arrowright', 'scroll-arrowleft', 'scroll-home', 'scroll-end']
         : ['hover', 'focus', 'click', 'press-enter', 'press-space']
-  ).map((action) => `${variantId}:inline-request-open:${index}:${action}`))
+    ).map((action) => `${variantId}:inline-request-open:${index}:${action}`),
+  )
 }
 
 export function diffApprovalDynamicCaseIds(variantId: string): readonly string[] {
-  return [0, 1, 2, 3, 4].flatMap((index) => (
-    index === 0
+  return [0, 1, 2, 3, 4].flatMap((index) =>
+    (index === 0
       ? ['hover', 'focus', 'click', 'press-enter', 'press-space', 'expand', 'expand-escape']
       : index === 4
         ? ['hover', 'focus', 'no-op', 'scroll-arrowright', 'scroll-arrowleft', 'scroll-home', 'scroll-end']
         : ['hover', 'focus', 'click', 'press-enter', 'press-space']
-  ).map((action) => `${variantId}:diff-request-open:${index}:${action}`))
+    ).map((action) => `${variantId}:diff-request-open:${index}:${action}`),
+  )
 }
 
 export function diffApprovalScenarioCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
@@ -1366,7 +1453,59 @@ export function diffApprovalScenarioCases(snapshot: SemanticSnapshot, variantId:
     ...interactionCases(snapshot, variantId, scenario),
     ...(['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const).map((key): InteractionCase => ({
       id: `${variantId}:${scenario}:${payload.index}:scroll-${key.toLowerCase()}`,
-      action: 'press', key, control: payload, scenario,
+      action: 'press',
+      key,
+      control: payload,
+      scenario,
+    })),
+  ]
+}
+
+export function queueApprovalDynamicCaseIds(variantId: string): readonly string[] {
+  return queueApprovalScenarioPlans.flatMap((plan) =>
+    (plan.expanded ? [0, 1, 2, 3] : [0, 1, 2]).flatMap((index) =>
+      (index === 0
+        ? ['hover', 'focus', 'click', 'press-enter', 'press-space', 'expand', 'expand-escape']
+        : index === 3
+          ? ['hover', 'focus', 'no-op', 'scroll-arrowright', 'scroll-arrowleft', 'scroll-home', 'scroll-end']
+          : ['hover', 'focus', 'click', 'press-enter', 'press-space']
+      ).map((action) => `${variantId}:${plan.id}:${index}:${action}`),
+    ),
+  )
+}
+
+export function queueApprovalScenarioCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  plan: QueueApprovalScenarioPlan,
+): readonly InteractionCase[] {
+  const controls = visibleControls(snapshot)
+  const names = [plan.expanded ? 'Hide request' : 'Show request', 'Reject', 'Approve']
+  if (
+    controls.length !== (plan.expanded ? 4 : 3) ||
+    names.some(
+      (name, index) =>
+        controls[index]?.tag !== 'button' || controls[index]?.index !== index || controls[index]?.name !== name,
+    )
+  )
+    throw new Error(
+      `Unexpected live queue controls for ${plan.id}; re-observe the reference before changing the manifest`,
+    )
+  if (controls[0]?.expanded !== String(plan.expanded))
+    throw new Error(`Queue disclosure state did not match ${plan.id}`)
+  const cases = interactionCases(snapshot, variantId, plan.id)
+  if (!plan.expanded) return cases
+  const payload = controls[3]
+  if (!payload || payload.tag !== 'pre' || payload.index !== 3)
+    throw new Error(`Missing focusable queue payload for ${plan.id}`)
+  return [
+    ...cases,
+    ...(['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const).map((key): InteractionCase => ({
+      id: `${variantId}:${plan.id}:${payload.index}:scroll-${key.toLowerCase()}`,
+      action: 'press',
+      key,
+      control: payload,
+      scenario: plan.id,
     })),
   ]
 }
@@ -1379,15 +1518,19 @@ export function inlineApprovalScenarioCases(snapshot: SemanticSnapshot, variantI
     ...interactionCases(snapshot, variantId, scenario),
     ...(['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const).map((key): InteractionCase => ({
       id: `${variantId}:${scenario}:${payload.index}:scroll-${key.toLowerCase()}`,
-      action: 'press', key, control: payload, scenario,
+      action: 'press',
+      key,
+      control: payload,
+      scenario,
     })),
   ]
 }
 
 export async function settleInlineApprovalScroll(root: Locator): Promise<void> {
   await root.evaluate(async (element) => {
-    const panes = [element, ...element.querySelectorAll('*')].filter((candidate) =>
-      candidate.scrollHeight > candidate.clientHeight || candidate.scrollWidth > candidate.clientWidth)
+    const panes = [element, ...element.querySelectorAll('*')].filter(
+      (candidate) => candidate.scrollHeight > candidate.clientHeight || candidate.scrollWidth > candidate.clientWidth,
+    )
     let previous = ''
     let unchanged = 0
     for (let frame = 0; frame < 120; frame += 1) {
@@ -1421,11 +1564,33 @@ async function prepareDiffApprovalScenario(root: Locator): Promise<void> {
   await settleInlineApprovalScroll(root)
 }
 
-function isScrollAwareApproval(id: string): boolean {
-  return id === 'hbar-app-ui-agent-approval-1' || id === 'hbar-app-ui-agent-approval-2'
+export async function prepareQueueApprovalScenario(root: Locator, plan: QueueApprovalScenarioPlan): Promise<void> {
+  for (const [index, decision] of plan.decisions.entries()) {
+    const control = root.getByRole('button', { name: decision, exact: true })
+    await control.scrollIntoViewIfNeeded()
+    await settleInlineApprovalScroll(root)
+    await control.click()
+    // A click that merely disables the first card must not masquerade as
+    // reaching a later request. The live header is the authoritative checkpoint.
+    await root
+      .locator('header')
+      .getByText(`${2 - index} waiting`, { exact: true })
+      .waitFor({ state: 'visible', timeout: 5000 })
+    await root.getByRole('button', { name: 'Show request', exact: true }).waitFor({ state: 'visible' })
+    await settleInlineApprovalScroll(root)
+  }
+  if (plan.expanded) await prepareInlineApprovalScenario(root)
 }
 
-async function prepareInlineApprovalActivation(root: Locator, control: Locator, interaction: InteractionCase): Promise<void> {
+function isScrollAwareApproval(id: string): boolean {
+  return ['hbar-app-ui-agent-approval-1', 'hbar-app-ui-agent-approval-2', 'hbar-app-ui-agent-approval-3'].includes(id)
+}
+
+async function prepareInlineApprovalActivation(
+  root: Locator,
+  control: Locator,
+  interaction: InteractionCase,
+): Promise<void> {
   if (interaction.action === 'click' || interaction.action === 'expand') {
     await control.scrollIntoViewIfNeeded()
     await settleInlineApprovalScroll(root)
@@ -1467,16 +1632,20 @@ async function prepareAgentLogScenario(
   if (scenario === 'running') {
     const targetRows = checkpointRows
     if (!source) {
-      await root.locator('ol li').nth(targetRows - 1).waitFor({ state: 'attached', timeout: 5_000 })
-      if (await root.locator('ol li').count() !== targetRows)
+      await root
+        .locator('ol li')
+        .nth(targetRows - 1)
+        .waitFor({ state: 'attached', timeout: 5_000 })
+      if ((await root.locator('ol li').count()) !== targetRows)
         throw new Error(`Local running log missed the ${targetRows}-line checkpoint`)
     }
-    await (source ? root.locator('button').filter({ hasText: 'Stop' }) : root.getByRole('button', { name: 'Stop' }))
-      .waitFor({ state: 'visible', timeout: 1_500 })
+    await (
+      source ? root.locator('button').filter({ hasText: 'Stop' }) : root.getByRole('button', { name: 'Stop' })
+    ).waitFor({ state: 'visible', timeout: 1_500 })
     if (!source) {
       await page.clock.install()
       await page.clock.pauseAt((await root.evaluate(() => Date.now())) + 1)
-      if (await root.locator('ol li').count() !== targetRows)
+      if ((await root.locator('ol li').count()) !== targetRows)
         throw new Error(`Local running log changed during the ${targetRows}-line checkpoint`)
       // The real preview follows the newest row. Align the independently
       // clock-paused local pane after React has committed that checkpoint.
@@ -1493,11 +1662,15 @@ async function prepareAgentLogScenario(
     await root.locator('[data-hbar-app-ui-log-phase="complete"]').waitFor({ state: 'visible', timeout: 15_000 })
   }
   const pane = source ? root.locator('ol').locator('..') : root.locator('.hbar-app-ui-agent-activity-log-scroll')
-  await pane.evaluate((element) => { element.scrollTop = element.scrollHeight })
+  await pane.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+  })
   await root.getByRole('button', { name: 'Jump to latest' }).waitFor({ state: 'hidden', timeout: 5_000 })
   if (scenario === 'away') {
     await pane.hover()
-    await pane.evaluate((element) => { element.scrollTop = 0 })
+    await pane.evaluate((element) => {
+      element.scrollTop = 0
+    })
     await root.getByRole('button', { name: 'Jump to latest' }).waitFor({ state: 'visible', timeout: 5_000 })
   }
 }
@@ -1838,8 +2011,12 @@ async function replayInteraction(
     await prepareInlineApprovalScenario(root)
   if (spec.id === 'hbar-app-ui-agent-approval-2' && interaction.scenario === 'diff-request-open')
     await prepareDiffApprovalScenario(root)
+  const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
-    await root.evaluate((element) => { element.scrollTop = 0 })
+    await root.evaluate((element) => {
+      element.scrollTop = 0
+    })
   const control = await controlLocator(root, interaction.control)
   const directory = join(
     outputRoot,
@@ -1889,7 +2066,9 @@ async function replayInteraction(
   await page.waitForTimeout(120)
   if (isScrollAwareApproval(spec.id)) await settleInlineApprovalScroll(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
-    await root.evaluate((element) => { element.scrollTop = 0 })
+    await root.evaluate((element) => {
+      element.scrollTop = 0
+    })
   await screenshotStable(root, after)
   await writeJson(afterSnapshot, await localSnapshot(page, selector))
   return { id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot }
@@ -1906,9 +2085,10 @@ async function replayReferenceInteraction(
   outputRoot: string,
 ): Promise<InteractionCapture> {
   await page.setViewportSize({ width: viewport.width, height: viewport.height })
-  const frame = interaction.scenario === 'running' && reference.id === 'hbar-app-ui-agent-activity-5'
-    ? await loadRunningLogPreview(page, referencePageUrl(reference, options), theme)
-    : await loadReferencePreview(page, referencePageUrl(reference, options), theme)
+  const frame =
+    interaction.scenario === 'running' && reference.id === 'hbar-app-ui-agent-activity-5'
+      ? await loadRunningLogPreview(page, referencePageUrl(reference, options), theme)
+      : await loadReferencePreview(page, referencePageUrl(reference, options), theme)
   await alignReferenceInteractionCanvas(page, frame, referenceCanvas)
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
@@ -1921,6 +2101,8 @@ async function replayReferenceInteraction(
     await prepareInlineApprovalScenario(root)
   if (reference.id === 'hbar-app-ui-agent-approval-2' && interaction.scenario === 'diff-request-open')
     await prepareDiffApprovalScenario(root)
+  const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
   if (runningCheckpoint && !runningCheckpoint.message)
     throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
@@ -1940,17 +2122,23 @@ async function replayReferenceInteraction(
   const beforeSnapshot = join(directory, 'before.json')
   const afterSnapshot = join(directory, 'after.json')
   if (interaction.scenario === 'running' && interaction.action === 'click' && control) {
-    await control.evaluate((element) => element.addEventListener('click', (event) => {
-      (window as Window & { __reactBitsAuditTrustedClick?: boolean }).__reactBitsAuditTrustedClick = event.isTrusted
-    }, { once: true }))
+    await control.evaluate((element) =>
+      element.addEventListener(
+        'click',
+        (event) => {
+          ;(window as Window & { __reactBitsAuditTrustedClick?: boolean }).__reactBitsAuditTrustedClick =
+            event.isTrusted
+        },
+        { once: true },
+      ),
+    )
   }
   await assertReferenceFrameTheme(frame, theme)
   await screenshotStable(root, before)
   const beforeState = await snapshotRoot(frame, selector)
   await writeJson(beforeSnapshot, beforeState)
-  const runningControl = interaction.scenario === 'running'
-    ? visibleControls(beforeState).find((item) => item.name === 'Stop')
-    : undefined
+  const runningControl =
+    interaction.scenario === 'running' ? visibleControls(beforeState).find((item) => item.name === 'Stop') : undefined
   const checkpointRows = runningCheckpoint?.rows
   if (interaction.scenario === 'running' && !runningControl)
     throw new Error('Running log Stop expired before the before screenshot')
@@ -1976,8 +2164,9 @@ async function replayReferenceInteraction(
         const y = rect.y + rect.height / 2
         if (interaction.action === 'click') {
           await page.mouse.click(x, y)
-          const delivered = await frame.evaluate(() =>
-            (window as Window & { __reactBitsAuditTrustedClick?: boolean }).__reactBitsAuditTrustedClick)
+          const delivered = await frame.evaluate(
+            () => (window as Window & { __reactBitsAuditTrustedClick?: boolean }).__reactBitsAuditTrustedClick,
+          )
           if (delivered !== true) throw new Error('Running log did not receive a trusted pointer click')
         } else {
           await page.mouse.move(x, y)
@@ -2005,16 +2194,25 @@ async function replayReferenceInteraction(
   if (runningCheckpoint) {
     const afterCheckpoint = await runningLogCheckpoint(root)
     if (afterCheckpoint.rows !== runningCheckpoint.rows || afterCheckpoint.message !== runningCheckpoint.message)
-      throw new Error(`Running React Bits log changed independently of the control: ${JSON.stringify({
-        before: runningCheckpoint, after: afterCheckpoint,
-      })}`)
+      throw new Error(
+        `Running React Bits log changed independently of the control: ${JSON.stringify({
+          before: runningCheckpoint,
+          after: afterCheckpoint,
+        })}`,
+      )
   }
   await assertReferenceFrameTheme(frame, theme)
   await screenshotStable(root, after)
   await assertReferenceFrameTheme(frame, theme)
   await writeJson(afterSnapshot, await snapshotRoot(frame, selector))
   return {
-    id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot,
+    id: interaction.id,
+    status: 'captured',
+    directory,
+    before,
+    after,
+    beforeSnapshot,
+    afterSnapshot,
     ...(checkpointRows === undefined ? {} : { checkpointRows }),
   }
 }
@@ -2301,7 +2499,11 @@ async function runInteractionsParallel(
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
   const staticCapturePath = join(resolve(options.sourceCaptureRoot ?? options.outputRoot), 'capture-manifest.json')
   const staticManifest = (await Bun.file(staticCapturePath).exists())
-    ? await readJson<{ captureProtocolVersion?: number; sourceDirectoryHash: string; records: readonly CaptureRecord[] }>(staticCapturePath)
+    ? await readJson<{
+        captureProtocolVersion?: number
+        sourceDirectoryHash: string
+        records: readonly CaptureRecord[]
+      }>(staticCapturePath)
     : undefined
   if (staticManifest && staticManifest.captureProtocolVersion !== captureProtocolVersion)
     throw new Error(`Static captures use an obsolete canvas protocol; recapture the live iframe: ${staticCapturePath}`)
@@ -2384,13 +2586,15 @@ async function runInteractionsParallel(
                   const runningPage = await runningContext.newPage()
                   await runningPage.setViewportSize({ width: viewport.width, height: viewport.height })
                   const runningFrame = await loadRunningLogPreview(
-                    runningPage, referencePageUrl(reference, options), theme,
+                    runningPage,
+                    referencePageUrl(reference, options),
+                    theme,
                   )
                   const runningRoot = runningFrame.locator(sourceSelector).first()
                   await prepareAgentLogScenario(runningPage, runningRoot, 'running', true)
-                  discovered.push(...agentLogScenarioCases(
-                    await snapshotRoot(runningFrame, sourceSelector), spec.id, 'running',
-                  ))
+                  discovered.push(
+                    ...agentLogScenarioCases(await snapshotRoot(runningFrame, sourceSelector), spec.id, 'running'),
+                  )
                   runningFound = true
                 } catch (error) {
                   if (attempt === 3) throw error
@@ -2403,14 +2607,41 @@ async function runInteractionsParallel(
               await prepareAgentFailureScenario(sourceRoot)
               discovered.push(...agentFailureScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
             }
-              if (spec.id === 'hbar-app-ui-agent-approval-1') {
-                await prepareInlineApprovalScenario(sourceRoot)
-                discovered.push(...inlineApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
+            if (spec.id === 'hbar-app-ui-agent-approval-1') {
+              await prepareInlineApprovalScenario(sourceRoot)
+              discovered.push(...inlineApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
+            }
+            if (spec.id === 'hbar-app-ui-agent-approval-2') {
+              await prepareDiffApprovalScenario(sourceRoot)
+              discovered.push(...diffApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
+            }
+            if (spec.id === 'hbar-app-ui-agent-approval-3') {
+              for (const plan of queueApprovalScenarioPlans) {
+                const context = await browser.newContext({ reducedMotion: 'reduce' })
+                try {
+                  const page = await context.newPage()
+                  await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                  const scenarioFrame = await loadReferencePreview(page, referencePageUrl(reference, options), theme)
+                  await alignReferenceInteractionCanvas(page, scenarioFrame, referenceCanvas)
+                  const root = scenarioFrame.locator(sourceSelector).first()
+                  await prepareQueueApprovalScenario(root, plan)
+                  discovered.push(
+                    ...queueApprovalScenarioCases(await snapshotRoot(scenarioFrame, sourceSelector), spec.id, plan),
+                  )
+                } finally {
+                  await context.close()
+                }
               }
-              if (spec.id === 'hbar-app-ui-agent-approval-2') {
-                await prepareDiffApprovalScenario(sourceRoot)
-                discovered.push(...diffApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
-              }
+            }
+            // Keep the complete live discovery, even for a development-only
+            // case filter. A successful probe is not a full interaction audit.
+            await writeJson(join(options.outputRoot, 'interaction-inventory', spec.id, theme, `${viewport.id}.json`), {
+              generatedAt: new Date().toISOString(),
+              referenceUrl: referencePageUrl(reference, options),
+              interactionProtocolVersion,
+              referenceCanvas,
+              cases: discovered,
+            })
             const cases = selectInteractionCases(discovered, options.cases)
             let caseCursor = 0
             const actionWorker = async () => {
@@ -2460,14 +2691,19 @@ async function runInteractionsParallel(
                     let lastError: unknown
                     const attempts = interaction.scenario === 'running' ? 8 : 3
                     for (let attempt = 0; attempt < attempts; attempt += 1) {
-                      const retryContext = attempt === 0
-                        ? sourceContext
-                        : await browser.newContext({ reducedMotion: 'reduce' })
+                      const retryContext =
+                        attempt === 0 ? sourceContext : await browser.newContext({ reducedMotion: 'reduce' })
                       try {
                         const candidatePage = attempt === 0 ? sourcePage : await retryContext.newPage()
                         const capture = await replayReferenceInteraction(
-                          candidatePage, reference, options, theme, viewport,
-                          referenceCanvas, interaction, options.outputRoot,
+                          candidatePage,
+                          reference,
+                          options,
+                          theme,
+                          viewport,
+                          referenceCanvas,
+                          interaction,
+                          options.outputRoot,
                         )
                         if (interaction.scenario !== 'running' || capture.status === 'captured') return capture
                         lastError = new Error(capture.reason ?? capture.status)
@@ -2482,10 +2718,20 @@ async function runInteractionsParallel(
                   const captureLocal = async (rows?: number): Promise<InteractionCapture> => {
                     let lastError: unknown
                     for (let attempt = 0; attempt < 2; attempt += 1) {
-                      const retryContext = attempt === 0 ? localContext : await browser.newContext({ reducedMotion: 'reduce' })
+                      const retryContext =
+                        attempt === 0 ? localContext : await browser.newContext({ reducedMotion: 'reduce' })
                       try {
                         const candidatePage = attempt === 0 ? localPage : await retryContext.newPage()
-                        return await replayInteraction(candidatePage, spec, theme, viewport, referenceCanvas, interaction, options.outputRoot, rows)
+                        return await replayInteraction(
+                          candidatePage,
+                          spec,
+                          theme,
+                          viewport,
+                          referenceCanvas,
+                          interaction,
+                          options.outputRoot,
+                          rows,
+                        )
                       } catch (error) {
                         lastError = error
                       } finally {
@@ -2637,21 +2883,15 @@ async function runCompare(options: AuditOptions): Promise<void> {
       ),
     )
     if (record.id === 'hbar-app-ui-agent-activity-5')
-      expected.push(...agentLogDynamicCaseIds(record.id).map(
-        (id) => `${record.theme}/${record.viewport}/${id}`,
-      ))
+      expected.push(...agentLogDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
     if (record.id === 'hbar-app-ui-agent-activity-7')
-      expected.push(...agentFailureDynamicCaseIds(record.id).map(
-        (id) => `${record.theme}/${record.viewport}/${id}`,
-      ))
+      expected.push(...agentFailureDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
     if (record.id === 'hbar-app-ui-agent-approval-1')
-      expected.push(...inlineApprovalDynamicCaseIds(record.id).map(
-        (id) => `${record.theme}/${record.viewport}/${id}`,
-      ))
+      expected.push(...inlineApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
     if (record.id === 'hbar-app-ui-agent-approval-2')
-      expected.push(...diffApprovalDynamicCaseIds(record.id).map(
-        (id) => `${record.theme}/${record.viewport}/${id}`,
-      ))
+      expected.push(...diffApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
+    if (record.id === 'hbar-app-ui-agent-approval-3')
+      expected.push(...queueApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
     expectedInteractions.set(record.id, expected)
     comparisons.push({
       id: record.id,
@@ -2685,10 +2925,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
         localAxSnapshot: localSnapshotValue.axSnapshot,
         sourceSemanticRoles: semanticRoleTree(sourceSnapshot.axSnapshot),
         localSemanticRoles: semanticRoleTree(localSnapshotValue.axSnapshot),
-        semanticRoleTreeMatched: semanticRoleTreeMatches(
-          sourceSnapshot.axSnapshot,
-          localSnapshotValue.axSnapshot,
-        ),
+        semanticRoleTreeMatched: semanticRoleTreeMatches(sourceSnapshot.axSnapshot, localSnapshotValue.axSnapshot),
         sourceTreeNodes: sourceSnapshot.tree.length,
         localTreeNodes: localSnapshotValue.tree.length,
         sourceTreeTags: sourceSnapshot.tree.map((node) => node.tag),
@@ -2820,63 +3057,68 @@ async function runCompare(options: AuditOptions): Promise<void> {
   const manualReviews = (await Bun.file(manualReviewPath).exists())
     ? await readJson<ManualReviewFile>(manualReviewPath)
     : undefined
-  const ledger = await Promise.all(selectedIds.map(async (id) => {
-    const staticRows = comparisons.filter((comparison) => comparison.id === id)
-    const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
-    const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
-    if (manifest.implementationHash !== currentImplementationHash) failures.push('stale-local-implementation')
-    if (!fullAuditMatrixSelected(manifest.viewports, manifest.themes)) failures.push('full-audit-matrix-incomplete')
-    if (staticRows.length !== manifest.viewports.length * manifest.themes.length)
-      failures.push(`static-combinations-incomplete:${staticRows.length}`)
-    const interactionFailures = interactionRows
-      .filter((result) => result.status !== 'matched' && result.status !== 'source-no-op')
-      .map((result) => `${result.id}:${result.status}`)
-    for (const result of interactionRows) {
-      const pair = visualInteractions.get(`${id}/${result.theme}/${result.viewport}/${result.id.replaceAll(':', '_')}`)
-      if (!pair) interactionFailures.push(`${result.id}:feedback-screenshots-missing`)
-      else if (
-        !interactionFeedbackMatches(
-          id === 'hbar-app-ui-agent-activity-3'
-            ? (pair.feedback.sourceControlChangedPixelRatio ?? Number.NaN)
-            : pair.feedback.sourceChangedPixelRatio,
-          id === 'hbar-app-ui-agent-activity-3'
-            ? (pair.feedback.localControlChangedPixelRatio ?? Number.NaN)
-            : pair.feedback.localChangedPixelRatio,
+  const ledger = await Promise.all(
+    selectedIds.map(async (id) => {
+      const staticRows = comparisons.filter((comparison) => comparison.id === id)
+      const interactionRows = interactionReport.results.filter((result) => result.variantId === id)
+      const failures = structuralFailures.filter((failure) => failure.id === id).map((failure) => failure.reason)
+      if (manifest.implementationHash !== currentImplementationHash) failures.push('stale-local-implementation')
+      if (!fullAuditMatrixSelected(manifest.viewports, manifest.themes)) failures.push('full-audit-matrix-incomplete')
+      if (staticRows.length !== manifest.viewports.length * manifest.themes.length)
+        failures.push(`static-combinations-incomplete:${staticRows.length}`)
+      const interactionFailures = interactionRows
+        .filter((result) => result.status !== 'matched' && result.status !== 'source-no-op')
+        .map((result) => `${result.id}:${result.status}`)
+      for (const result of interactionRows) {
+        const pair = visualInteractions.get(
+          `${id}/${result.theme}/${result.viewport}/${result.id.replaceAll(':', '_')}`,
         )
+        if (!pair) interactionFailures.push(`${result.id}:feedback-screenshots-missing`)
+        else if (
+          !interactionFeedbackMatches(
+            id === 'hbar-app-ui-agent-activity-3'
+              ? (pair.feedback.sourceControlChangedPixelRatio ?? Number.NaN)
+              : pair.feedback.sourceChangedPixelRatio,
+            id === 'hbar-app-ui-agent-activity-3'
+              ? (pair.feedback.localControlChangedPixelRatio ?? Number.NaN)
+              : pair.feedback.localChangedPixelRatio,
+          )
+        )
+          interactionFailures.push(`${result.id}:visual-feedback-mismatch`)
+      }
+      const coverage = assessInteractionCoverage(expectedInteractions.get(id) ?? [], interactionRows)
+      if (!matrixComplete) interactionFailures.push('interaction-matrix-incomplete')
+      if (coverage.missing.length > 0) interactionFailures.push(`interaction-cases-missing:${coverage.missing.length}`)
+      if (coverage.duplicate.length > 0)
+        interactionFailures.push(`interaction-cases-duplicate:${coverage.duplicate.length}`)
+      if (coverage.unexpected.length > 0)
+        interactionFailures.push(`interaction-cases-unexpected:${coverage.unexpected.length}`)
+      const machineFailures = [...failures, ...interactionFailures]
+      const fingerprint =
+        machineFailures.length === 0
+          ? await manualReviewFingerprint(id, manifest, interactionReport.results, visualReport.interactionPairs)
+          : ''
+      const gate = manualReviewGate(
+        machineFailures,
+        fingerprint,
+        manualReviews?.schemaVersion === 1 ? manualReviews.entries[id] : undefined,
+        staticRows.length,
+        interactionRows.length,
       )
-        interactionFailures.push(`${result.id}:visual-feedback-mismatch`)
-    }
-    const coverage = assessInteractionCoverage(expectedInteractions.get(id) ?? [], interactionRows)
-    if (!matrixComplete) interactionFailures.push('interaction-matrix-incomplete')
-    if (coverage.missing.length > 0) interactionFailures.push(`interaction-cases-missing:${coverage.missing.length}`)
-    if (coverage.duplicate.length > 0)
-      interactionFailures.push(`interaction-cases-duplicate:${coverage.duplicate.length}`)
-    if (coverage.unexpected.length > 0)
-      interactionFailures.push(`interaction-cases-unexpected:${coverage.unexpected.length}`)
-    const machineFailures = [...failures, ...interactionFailures]
-    const fingerprint = machineFailures.length === 0
-      ? await manualReviewFingerprint(id, manifest, interactionReport.results, visualReport.interactionPairs)
-      : ''
-    const gate = manualReviewGate(
-      machineFailures,
-      fingerprint,
-      manualReviews?.schemaVersion === 1 ? manualReviews.entries[id] : undefined,
-      staticRows.length,
-      interactionRows.length,
-    )
-    return {
-      id,
-      category: inventory.variants.find((variant) => variant.id === id)?.category ?? 'unknown',
-      staticCombinations: staticRows.length,
-      interactionCases: interactionRows.length,
-      expectedInteractionCases: expectedInteractions.get(id)?.length ?? 0,
-      missingInteractionCases: coverage.missing.length,
-      status: gate.status,
-      failures: gate.reason ? [...machineFailures, gate.reason] : machineFailures,
-      manualReview: gate.manualReview,
-      lastVerified: new Date().toISOString(),
-    }
-  }))
+      return {
+        id,
+        category: inventory.variants.find((variant) => variant.id === id)?.category ?? 'unknown',
+        staticCombinations: staticRows.length,
+        interactionCases: interactionRows.length,
+        expectedInteractionCases: expectedInteractions.get(id)?.length ?? 0,
+        missingInteractionCases: coverage.missing.length,
+        status: gate.status,
+        failures: gate.reason ? [...machineFailures, gate.reason] : machineFailures,
+        manualReview: gate.manualReview,
+        lastVerified: new Date().toISOString(),
+      }
+    }),
+  )
   await writeJson(join(options.outputRoot, 'review-ledger.json'), {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -2904,26 +3146,30 @@ async function runCompare(options: AuditOptions): Promise<void> {
     if (isAbsolute(local) || parts.includes('..')) return null
     return parts.map(encodeURIComponent).join('/')
   }
-  await writeFile(join(options.outputRoot, 'evidence.html'), renderAuditEvidencePage([
-    ...comparisons.map((comparison) => ({
-      label: `${comparison.id} / ${comparison.theme} / ${comparison.viewport} / static`,
-      status: 'Static source/local pair',
-      images: [
-        { label: 'React Bits Pro — original', path: evidencePath(comparison.source.screenshot) },
-        { label: 'Lumen — local', path: evidencePath(comparison.local.screenshot) },
-      ],
-    })),
-    ...interactionReport.results.map((result) => ({
-      label: `${result.variantId ?? ''} / ${result.theme} / ${result.viewport} / ${result.id}`,
-      status: result.status ?? 'unknown',
-      images: [
-        { label: 'React Bits Pro — before', path: evidencePath(result.source?.before) },
-        { label: 'Lumen — before', path: evidencePath(result.local?.before) },
-        { label: 'React Bits Pro — after', path: evidencePath(result.source?.after) },
-        { label: 'Lumen — after', path: evidencePath(result.local?.after) },
-      ],
-    })),
-  ]), 'utf8')
+  await writeFile(
+    join(options.outputRoot, 'evidence.html'),
+    renderAuditEvidencePage([
+      ...comparisons.map((comparison) => ({
+        label: `${comparison.id} / ${comparison.theme} / ${comparison.viewport} / static`,
+        status: 'Static source/local pair',
+        images: [
+          { label: 'React Bits Pro — original', path: evidencePath(comparison.source.screenshot) },
+          { label: 'Lumen — local', path: evidencePath(comparison.local.screenshot) },
+        ],
+      })),
+      ...interactionReport.results.map((result) => ({
+        label: `${result.variantId ?? ''} / ${result.theme} / ${result.viewport} / ${result.id}`,
+        status: result.status ?? 'unknown',
+        images: [
+          { label: 'React Bits Pro — before', path: evidencePath(result.source?.before) },
+          { label: 'Lumen — before', path: evidencePath(result.local?.before) },
+          { label: 'React Bits Pro — after', path: evidencePath(result.source?.after) },
+          { label: 'Lumen — after', path: evidencePath(result.local?.after) },
+        ],
+      })),
+    ]),
+    'utf8',
+  )
   await writeFile(
     join(options.outputRoot, 'report.html'),
     `<!doctype html><meta charset="utf-8"><title>React Bits Pro visual audit</title><style>body{font:14px system-ui;margin:2rem;background:#111;color:#eee}a{color:#acd7ff}table{border-collapse:collapse;width:100%}td,th{border:1px solid #555;padding:.4rem;text-align:left}td:nth-child(5){font-weight:700}</style><h1>React Bits Pro ↔ lumen-app-ui audit</h1><p>${ledger.length} variants · ${comparisons.length} static pairs · ${interactionReport.results.length} interaction cases · <a href="evidence.html">Open paired screenshot evidence</a></p><table><thead><tr><th>Category</th><th>Variant</th><th>Static</th><th>Interactions</th><th>Status</th><th>Failures</th></tr></thead><tbody>${reportRows}</tbody></table>`,
@@ -2982,7 +3228,8 @@ async function runManualReview(options: AuditOptions): Promise<void> {
     entry.failures.some((failure) => failure !== 'manual-review-required' && failure !== 'manual-review-stale') ||
     entry.staticCombinations !== REACTBITS_PRO_VIEWPORTS.length * REACTBITS_PRO_THEMES.length ||
     entry.interactionCases !== entry.expectedInteractionCases
-  ) throw new Error(`Complete machine-passed evidence is required before manual review: ${spec.id}`)
+  )
+    throw new Error(`Complete machine-passed evidence is required before manual review: ${spec.id}`)
   const manifest = await readJson<{
     sourceDirectoryHash: string
     implementationHash?: string
@@ -3005,7 +3252,10 @@ async function runManualReview(options: AuditOptions): Promise<void> {
       ...existing.entries,
       [spec.id]: {
         fingerprint: await manualReviewFingerprint(
-          spec.id, manifest, interactionReport.results, visualReport.interactionPairs,
+          spec.id,
+          manifest,
+          interactionReport.results,
+          visualReport.interactionPairs,
         ),
         reviewedAt: new Date().toISOString(),
         note,
@@ -3018,7 +3268,11 @@ async function runManualReview(options: AuditOptions): Promise<void> {
   const signed = await readJson<{ variants: readonly { id: string; status: string; manualReview: boolean }[] }>(
     join(options.outputRoot, 'review-ledger.json'),
   )
-  if (!signed.variants.some((candidate) => candidate.id === spec.id && candidate.status === 'passed' && candidate.manualReview))
+  if (
+    !signed.variants.some(
+      (candidate) => candidate.id === spec.id && candidate.status === 'passed' && candidate.manualReview,
+    )
+  )
     throw new Error(`Manual sign-off did not validate: ${spec.id}`)
   console.log(JSON.stringify({ command: 'review', variant: spec.id, outputRoot: options.outputRoot }))
 }
