@@ -390,6 +390,7 @@ for (const failFirst of [false, true])
     const requestSchema = z.object({
       parallel_tool_calls: z.boolean(),
       input: z.array(z.record(z.string(), z.unknown())),
+      tools: z.array(z.object({ name: z.string() })),
     })
     const requests: z.infer<typeof requestSchema>[] = []
     const provider = Bun.serve({
@@ -457,6 +458,14 @@ for (const failFirst of [false, true])
       const count = failFirst ? 2 : 1
       expect(requests).toHaveLength(count)
       expect(requests.every((request) => request.parallel_tool_calls)).toBe(true)
+      for (const request of requests) {
+        const names = request.tools.map((tool) => tool.name)
+        expect(names).toContain('workflow_execute')
+        expect(names).not.toContain('workflow_checkpoint')
+        expect(names).not.toContain('get_plan')
+        expect(JSON.stringify(request.input)).toContain('workflow_sequence_controls')
+        expect(JSON.stringify(request.input)).toContain('workflow_checkpoint(')
+      }
       expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('verified proof')
       // Host input includes cache; the established budget unit excludes cache reads exactly once.
       const usage = (await kernel.storage.call('events', session.id, 0))

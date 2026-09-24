@@ -909,13 +909,19 @@ export class Kernel {
             })
             if (
               advertised.tools.some((tool) => !input.tools.includes(tool)) ||
-              new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length
+              new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length ||
+              (advertised.instructions !== undefined &&
+                !z.string().max(16_000).safeParse(advertised.instructions).success)
             )
               throw new HbarError(
                 'INVALID_TOOL_ADVERTISEMENT',
-                'Tool advertisements must be a unique subset of Run tools',
+                'Tool advertisements must be a unique subset of Run tools with at most 16000 instruction characters',
               )
-            request = { ...request, toolNames: advertised.tools.map((tool) => tool.name) }
+            request = {
+              ...request,
+              toolNames: advertised.tools.map((tool) => tool.name),
+              system: advertised.instructions ? `${request.system}\n\n${advertised.instructions}` : request.system,
+            }
             controller.signal.throwIfAborted()
             await this.append(
               sessionId,

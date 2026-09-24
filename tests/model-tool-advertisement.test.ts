@@ -107,37 +107,42 @@ test('model tool advertisement changes within a Run while journal and transport 
   }
 })
 
-test('advertisement hooks cannot add tools outside the selected Run registry', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'hbar-invalid-advertisement-'))
-  const kernel = await Kernel.create({
-    home: join(root, 'data'),
-    workspace: root,
-    demo: true,
-    secrets: new MemorySecrets(),
+for (const invalid of ['forged-tool', 'oversized-instructions'] as const)
+  test(`advertisement hooks reject ${invalid} before making a model request`, async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hbar-invalid-advertisement-'))
+    const kernel = await Kernel.create({
+      home: join(root, 'data'),
+      workspace: root,
+      demo: true,
+      secrets: new MemorySecrets(),
+    })
+    try {
+      const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
+      kernel.hooks.on('tools.advertise', (event) => ({
+        ...event,
+        ...(invalid === 'oversized-instructions'
+          ? { instructions: 'x'.repeat(16001) }
+          : {
+              tools: [
+                ...event.tools,
+                {
+                  name: 'forged_tool',
+                  description: 'Not registered',
+                  effect: 'read',
+                  inputSchema: z.object({}),
+                  execute: async () => ({ text: '' }),
+                },
+              ],
+            }),
+      }))
+      await kernel.submit(session.id, 'invalid', { text: 'Inspect', images: [] }, 'local-fixture')
+      await kernel.waitForIdle()
+      expect((await kernel.snapshot(session.id)).runs[0]?.failure?.code).toBe('INVALID_TOOL_ADVERTISEMENT')
+      expect(
+        (await kernel.storage.call('events', session.id, 0)).some((event) => event.type === 'request.started'),
+      ).toBe(false)
+    } finally {
+      await kernel.close()
+      await rm(root, { recursive: true, force: true })
+    }
   })
-  try {
-    const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
-    kernel.hooks.on('tools.advertise', (event) => ({
-      ...event,
-      tools: [
-        ...event.tools,
-        {
-          name: 'forged_tool',
-          description: 'Not registered',
-          effect: 'read',
-          inputSchema: z.object({}),
-          execute: async () => ({ text: '' }),
-        },
-      ],
-    }))
-    await kernel.submit(session.id, 'invalid', { text: 'Inspect', images: [] }, 'local-fixture')
-    await kernel.waitForIdle()
-    expect((await kernel.snapshot(session.id)).runs[0]?.failure?.code).toBe('INVALID_TOOL_ADVERTISEMENT')
-    expect((await kernel.storage.call('events', session.id, 0)).some((event) => event.type === 'request.started')).toBe(
-      false,
-    )
-  } finally {
-    await kernel.close()
-    await rm(root, { recursive: true, force: true })
-  }
-})

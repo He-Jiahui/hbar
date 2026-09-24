@@ -50,6 +50,7 @@ import {
   workflowExpandScopeToolSchema,
 } from './update-tool-schema'
 import { workflowModelResult } from './model-view'
+import { sequenceControlCatalog } from './sequence-catalog'
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
@@ -1983,9 +1984,18 @@ export class WorkflowRuntime implements WorkflowService {
       workflow.status === 'completed' &&
       plan?.revision === workflow.planRevision &&
       plan.plan.every((step) => step.status === 'completed')
-    return currentFocus || completedPlan
-      ? { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_focus') }
-      : event
+    if (currentFocus || completedPlan)
+      event = { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_focus') }
+    if (currentFocus && focusTools && event.tools.some((tool) => tool.name === 'workflow_execute')) {
+      const catalog = sequenceControlCatalog(event.tools)
+      if (catalog.names.size)
+        event = {
+          ...event,
+          tools: event.tools.filter((tool) => !catalog.names.has(tool.name)),
+          instructions: [event.instructions, catalog.text].filter(Boolean).join('\n'),
+        }
+    }
+    return event
   }
 
   async complete(sessionId: string, expectedRevision: number, runId?: string) {

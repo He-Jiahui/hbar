@@ -464,8 +464,8 @@ export interface HookEvents {
   }
   'step.end': { sessionId: string; runId: string; stepId: string; stop?: 'goal_complete' }
   'tools.select': { sessionId: string; runId: string; tools: ToolDefinition[] }
-  /** Recomputed before each model request. May only omit existing Run tools, never add or replace definitions. */
-  'tools.advertise': { sessionId: string; runId: string; tools: ToolDefinition[] }
+  /** Recomputed per request. Only omit Run tools; bounded instructions may describe access via an existing tool. */
+  'tools.advertise': { sessionId: string; runId: string; tools: ToolDefinition[]; instructions?: string }
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'run.cancelRequested': { sessionId: string; runId: string; run: Run }
