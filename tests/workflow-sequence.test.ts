@@ -684,6 +684,7 @@ for (const failFirst of [false, true])
     const { kernel, session, root, goals } = await fixture()
     const requestSchema = z.object({
       parallel_tool_calls: z.boolean(),
+      prompt_cache_key: z.string(),
       input: z.array(z.record(z.string(), z.unknown())),
       tools: z.array(z.object({ name: z.string() })),
     })
@@ -692,6 +693,7 @@ for (const failFirst of [false, true])
       hostname: '127.0.0.1',
       port: 0,
       async fetch(request) {
+        expect(request.headers.get('session_id')).toBe(session.id)
         requests.push(requestSchema.parse(await request.json()))
         const calls =
           failFirst && requests.length === 1
@@ -753,6 +755,7 @@ for (const failFirst of [false, true])
       const count = failFirst ? 2 : 1
       expect(requests).toHaveLength(count)
       expect(requests.every((request) => request.parallel_tool_calls)).toBe(true)
+      expect(requests.every((request) => request.prompt_cache_key === session.id)).toBe(true)
       for (const request of requests) {
         expect(String(request.input[0]?.content)).not.toContain('<focus_workflow>')
         expect(request.input.at(-1)?.role).toBe(request.input[0]?.role)

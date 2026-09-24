@@ -187,6 +187,7 @@ function streamProvider(
   signal: AbortSignal,
   thinking: ThinkingLevel = 'off',
   runtimeContext = '',
+  sessionId?: string,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const options: SimpleStreamOptions = {
@@ -194,6 +195,7 @@ function streamProvider(
     signal,
     maxTokens: config.maxOutput,
     maxRetries: 0,
+    ...(sessionId ? { sessionId } : {}),
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
       ? { samplingParams: { parallel_tool_calls: true } }
       : {}),
@@ -443,6 +445,7 @@ export class PiDriver implements HarnessDriver {
           input.signal,
           input.run.input.thinking,
           context.context,
+          input.session.id,
         )
       } catch (error) {
         requestFailure = error
@@ -479,6 +482,9 @@ export class PiDriver implements HarnessDriver {
       },
       apiKey,
       signal,
+      'off',
+      '',
+      request.context?.sessionId,
     )
     for await (const event of stream) {
       void event
