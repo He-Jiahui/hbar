@@ -2057,7 +2057,7 @@ export class WorkflowRuntime implements WorkflowService {
           ]
         : []),
       'A complete checkpoint also advances the Agent Plan and completes the workflow when its last step finishes; do not duplicate that with update_plan or workflow complete.',
-      'When available, prefer workflow_execute for a known-input text-tool sequence such as write, read-back, workflow_checkpoint complete, update_goal complete. It accepts calls [{name, arguments}], runs each through normal Host gates, and stops on the first error or image result requiring inspection. A successful earlier write is not rolled back; inspect results before retrying.',
+      'When available, prefer workflow_execute for known-input text tools: calls [{name, arguments}]. Omit checkpoint version fields inside it to bind them to the Host focus/Plan snapshot at batch start; explicit versions stay strict. Scope expansion preserves that identity. Each call passes normal gates; failure or images stop the sequence. Earlier effects remain: inspect before retrying.',
       'Tools execute sequentially in listed order. Batch related calls when inputs are known. For Host-tool-verified checks, the same batch may include authorized scope repair, write, read-back, workflow_checkpoint complete, and update_goal complete. These request conditional completion: the Host refuses missing or failed verification. Do not claim success before settlement. For checks needing interpretation, inspect results before requesting completion.',
       '</focus_workflow>',
     ].join('\n')
@@ -2373,7 +2373,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
     {
       name: 'workflow_execute',
       description:
-        'Execute 1-8 known-input tools in order through the current Run scope, permissions and verification gates. Prefer one sequence for write, read-back, checkpoint and Goal completion. Stops at the first error; earlier effects remain. No recursion or new authority.',
+        'Execute 1-8 known-input tools in order through Run scope, permissions and verification gates. Prefer one sequence for write, read-back, checkpoint and Goal completion. Omit checkpoint version fields to bind to the Host snapshot at batch start; explicit versions stay strict. Stops at first error; earlier effects remain. No recursion or new authority.',
       inputSchema: z.strictObject({
         calls: z
           .array(z.strictObject({ name: z.string().min(1).max(160), arguments: z.record(z.string(), z.unknown()) }))
@@ -2391,7 +2391,20 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
         const calls = z
           .array(z.strictObject({ name: z.string(), arguments: z.record(z.string(), z.unknown()) }))
           .parse(args.calls)
-        const results = await context.executeSequence(calls)
+        // Bind omitted checkpoint preconditions once, never to a later state produced by child calls.
+        const bound = calls.map((call) =>
+          call.name === 'workflow_checkpoint' && current.workflow?.focusRevision !== undefined
+            ? {
+                ...call,
+                arguments: {
+                  expectedFocusRevision: current.workflow.focusRevision,
+                  expectedPlanRevision: current.workflow.planRevision,
+                  ...call.arguments,
+                },
+              }
+            : call,
+        )
+        const results = await context.executeSequence(bound)
         return {
           text: JSON.stringify({ completed: results.length, requested: calls.length, results }),
           isError: results.some((result) => result.isError),

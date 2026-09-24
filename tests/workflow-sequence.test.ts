@@ -82,6 +82,57 @@ const successfulCalls = [
   { name: 'update_goal', arguments: { status: 'complete' } },
 ]
 
+const boundCheckpointCalls = successfulCalls.map((call) =>
+  call.name === 'workflow_checkpoint'
+    ? { name: call.name, arguments: { itemId: 'proof', outcome: 'complete', summary: 'Host checked the proof' } }
+    : call,
+)
+
+test('Host binds omitted checkpoint versions before scope expansion and bookkeeping', async () => {
+  const { run, workflows, goals, session } = await fixture()
+  const current = (await workflows.get(session.id)).workflow!
+  await run([
+    {
+      name: 'workflow_expand_scope',
+      arguments: {
+        itemId: 'proof',
+        expectedRevision: current.revision,
+        scope: { tools: [], readPaths: ['another.txt'], writePaths: [] },
+        reason: 'Expand a bounded read path',
+      },
+    },
+    ...boundCheckpointCalls,
+  ])
+  expect((await goals.get(session.id)).goal?.status).toBe('complete')
+})
+
+for (const conflict of ['explicit-version', 'changed-plan'] as const)
+  test(`snapshot-bound checkpoint still rejects ${conflict}`, async () => {
+    const { kernel, session, run, goals } = await fixture()
+    if (conflict === 'changed-plan')
+      kernel.hooks.on('tool.after', async (event) => {
+        if (event.name === 'write_file')
+          await kernel.plugins
+            .get<PlanService>('plan')
+            .update(session.id, [{ step: 'Changed concurrently; verify this instead', status: 'in_progress' }])
+      })
+    const calls =
+      conflict === 'explicit-version'
+        ? successfulCalls.map((call) =>
+            call.name === 'workflow_checkpoint'
+              ? { ...call, arguments: { ...call.arguments, expectedFocusRevision: 99 } }
+              : call,
+          )
+        : boundCheckpointCalls
+    const snapshot = await run(calls)
+    expect((await goals.get(session.id)).goal?.status).toBe('active')
+    expect(
+      snapshot.messages
+        .flatMap((message) => message.content)
+        .some((block) => block.type === 'tool_result' && block.name === 'workflow_execute' && block.isError),
+    ).toBe(true)
+  })
+
 test('one workflow function request runs a guarded sequence and completes without orphan protocol messages', async () => {
   const { root, kernel, session, goals, workflows, run } = await fixture()
   const snapshot = await run(successfulCalls)
