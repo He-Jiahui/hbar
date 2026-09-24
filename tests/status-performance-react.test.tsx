@@ -76,8 +76,35 @@ test('performance dashboard renders bounded Host process and availability facts'
     expect(html).toContain('lumen-compact-metrics')
     expect(html).toContain('lumen-bar-series')
     expect(html).toContain('block-size:42%')
-    expect(html).toContain('class="hbar-lumen-disclosure hbar-app-react-status-details"')
-    expect(html).toContain('>Host process</span><span data-edge="bottom"')
+    const disclosures: { label: string; expanded: string | null; contentId: string | null }[] = []
+    const hiddenContent = new Map<string, boolean>()
+    await new HTMLRewriter()
+      .on('button[aria-expanded][aria-controls]', {
+        element(element) {
+          disclosures.push({
+            label: '',
+            expanded: element.getAttribute('aria-expanded'),
+            contentId: element.getAttribute('aria-controls'),
+          })
+        },
+        text(chunk) {
+          const disclosure = disclosures.at(-1)
+          if (disclosure) disclosure.label += chunk.text
+        },
+      })
+      .on('[id]', {
+        element(element) {
+          const id = element.getAttribute('id')
+          if (id) hiddenContent.set(id, element.hasAttribute('hidden'))
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    // The process details start collapsed and the named control targets the hidden content.
+    const processDisclosure = disclosures.find((disclosure) => disclosure.label === 'Host process')
+    expect(processDisclosure?.expanded).toBe('false')
+    if (!processDisclosure?.contentId) throw new Error('Host process disclosure has no controlled content')
+    expect(hiddenContent.get(processDisclosure.contentId)).toBe(true)
     expect(html).not.toContain('hbar-app-ui-metric-strip')
     expect(html).toContain('Performance query filters')
     expect(html).toContain('Last hour')

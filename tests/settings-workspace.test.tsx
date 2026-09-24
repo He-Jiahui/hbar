@@ -215,9 +215,23 @@ test('settings workspace composes client groups from the app.openSettings sectio
     expect(runtime.view.state.settings.getSnapshot().forms['settings:session:session-settings']?.selectedGroup).toBe(
       'model',
     )
-    expect(html).toContain('aria-current="page" type="button"')
-    expect(html).toContain('data-lumen-variant="text" data-tone="neutral" data-size="s"')
-    expect(html).toContain('>外观<span data-edge="right" data-state="selected"')
+    const selectedNavigation = { count: 0, text: '', buttonTypes: [] as (string | null)[] }
+    await new HTMLRewriter()
+      .on('nav[aria-label="设置分组"] button[aria-current="page"]', {
+        element(element) {
+          selectedNavigation.count++
+          selectedNavigation.buttonTypes.push(element.getAttribute('type'))
+        },
+        text(chunk) {
+          selectedNavigation.text += chunk.text
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    // Selection belongs to the named navigation control, not its decorative indicator or attribute order.
+    expect(selectedNavigation.count).toBe(1)
+    expect(selectedNavigation.text).toBe('外观')
+    expect(selectedNavigation.buttonTypes).toEqual(['button'])
     expect(html).toContain('设备全局外观')
     expect(html).toContain('<option value="appearance" selected="">外观</option>')
     expect(html).not.toContain('模型选择')
