@@ -167,10 +167,13 @@ export const HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES: HbarAppUiAgentActivityContent 
     failure: {
         labels: {
             title: 'Export October ledger', status: 'Failed', duration: '42.1s', separator: '·', viewLog: 'View log', errorTitle: 'Failure summary',
-            inputs: 'Inputs', attempts: 'Attempts', output: 'Output', retry: 'Retry run', download: 'Download',
+            inputs: 'Inputs', attempts: 'Attempts', output: 'Output', retry: 'Retry run', cancelRetry: 'Cancel retry', download: 'Download',
         },
         summaryTitle: 'Warehouse write timed out',
         summaryDescription: 'Two attempts exceeded the 30s write limit. Retry off-peak or lower the batch size before running again.',
+        retryQueuedTitle: 'Retry queued',
+        retryQueuedDescription: 'Attempt 3 starts off-peak at 22:00 with a 512-row batch size.',
+        attemptsNote: 'Reduced the batch size after the first timeout, then stopped to avoid partial writes.',
         inputs: [
             {id: 'trigger', label: 'Trigger', value: 'Scheduled'},
             {id: 'dataset', label: 'Dataset', value: 'reporting.ledger'},
@@ -257,8 +260,11 @@ export function createHbarAppUiAgentActivityLocalizedFixtures(): HbarAppUiAgentA
         },
         failure: base.failure && {
             ...base.failure,
-            labels: {...base.failure.labels, title: 'Oktoberbuch-Export fehlgeschlagen', viewLog: 'Protokoll anzeigen', retry: 'Ausführung erneut versuchen', download: 'Datei herunterladen'},
+            labels: {...base.failure.labels, title: 'Oktoberbuch-Export fehlgeschlagen', viewLog: 'Protokoll anzeigen', retry: 'Ausführung erneut versuchen', cancelRetry: 'Erneuten Versuch abbrechen', download: 'Datei herunterladen'},
             summaryDescription: 'Zwei Versuche überschritten das Schreiblimit von 30 Sekunden. Erneut außerhalb der Spitzenzeit oder mit kleinerer Batch-Größe ausführen.',
+            retryQueuedTitle: 'Erneuter Versuch vorgemerkt',
+            retryQueuedDescription: 'Versuch 3 startet um 22:00 Uhr außerhalb der Spitzenzeit mit einer Batch-Größe von 512 Zeilen.',
+            attemptsNote: 'Nach dem ersten Zeitlimit wurde die Batch-Größe reduziert; anschließend wurde der Lauf gestoppt, um Teilschreibvorgänge zu vermeiden.',
         },
     }
 }

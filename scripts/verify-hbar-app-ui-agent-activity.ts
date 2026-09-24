@@ -48,6 +48,37 @@ async function inspectScrollable(locator: import('@playwright/test').Locator): P
     })
 }
 
+async function textContrast(locator: import('@playwright/test').Locator): Promise<number> {
+    return locator.evaluate(async (element) => {
+        await Promise.all(element.getAnimations().filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+            .map((animation) => animation.finished.catch(() => undefined)))
+        const canvas = document.createElement('canvas')
+        canvas.width = canvas.height = 1
+        const context = canvas.getContext('2d')
+        if (!context) return 0
+        const fill = (color: string) => {
+            context.fillStyle = color
+            context.fillRect(0, 0, 1, 1)
+        }
+        const luminance = () => {
+            const pixel = context.getImageData(0, 0, 1, 1).data
+            const channels = [pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0].map((value) => {
+                const normalized = value / 255
+                return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+            })
+            return (channels[0] ?? 0) * 0.2126 + (channels[1] ?? 0) * 0.7152 + (channels[2] ?? 0) * 0.0722
+        }
+        const ancestors: Element[] = []
+        for (let current: Element | null = element; current; current = current.parentElement) ancestors.push(current)
+        fill('#fff')
+        for (const ancestor of ancestors.reverse()) fill(getComputedStyle(ancestor).backgroundColor)
+        const background = luminance()
+        fill(getComputedStyle(element).color)
+        const foreground = luminance()
+        return (Math.max(background, foreground) + 0.05) / (Math.min(background, foreground) + 0.05)
+    })
+}
+
 async function run(): Promise<void> {
     const server = await ensurePreview()
     const browser = await chromium.launch({headless: true, executablePath})
@@ -114,8 +145,30 @@ async function run(): Promise<void> {
 
         await page.goto(previewUrl(7), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Retry run', exact: true}).click()
+        assert(await page.getByRole('alert').getByText('Retry queued', {exact: true}).count() === 1, 'Failure retry did not show queued feedback')
+        assert(await page.getByRole('alert').getByText('Attempt 3 starts off-peak at 22:00 with a 512-row batch size.', {exact: true}).count() === 1, 'Failure retry did not show host-provided schedule')
+        await page.getByRole('button', {name: 'Cancel retry', exact: true}).click()
+        assert(await page.getByRole('alert').getByText('Warehouse write timed out', {exact: true}).count() === 1, 'Cancelling a queued retry did not restore the failure')
+        assert(await page.getByRole('button', {name: 'Retry run', exact: true}).count() === 1, 'Retry action did not return after cancelling')
         const download = page.getByRole('button', {name: /Download ledger-partial\.csv/, exact: false})
         assert(await download.count() === 1, 'Failure output action was not rendered')
+        const failureHeader = page.getByRole('banner')
+        const headerY = (await failureHeader.boundingBox())?.y
+        await download.focus()
+        assert(await page.locator('.hbar-app-ui-agent-activity-failure-body').evaluate((element) => element.scrollTop) > 0, 'Download focus did not scroll the failure content pane')
+        assert((await failureHeader.boundingBox())?.y === headerY, 'Download focus scrolled the failure header out of view')
+
+        for (const theme of ['dark', 'light']) {
+            await page.goto(`${previewUrl(7)}&theme=${theme}`, {waitUntil: 'networkidle'})
+            const retry = page.getByRole('button', {name: 'Retry run', exact: true})
+            await retry.hover()
+            assert(await textContrast(retry) >= 4.5, `${theme} Retry hover lost readable contrast`)
+            await retry.click()
+            const cancelRetry = page.getByRole('button', {name: 'Cancel retry', exact: true})
+            await cancelRetry.hover()
+            assert(await textContrast(cancelRetry) >= 4.5, `${theme} Cancel retry hover lost readable contrast`)
+            assert(await cancelRetry.locator('path').evaluate((path) => getComputedStyle(path).stroke !== 'none'), 'Cancel retry glyph lost its stroke')
+        }
 
         const overflowChecks: Record<string, {readonly scrollable: boolean; readonly moved: boolean}> = {}
         const overflowSelectors = [
@@ -155,6 +208,9 @@ async function run(): Promise<void> {
         assert(await page.getByText('Angehalten', {exact: true}).count() === 2, 'Localized live Stop did not use the host-provided status')
         await page.goto(previewUrl(7, 'localized'), {waitUntil: 'networkidle'})
         assert(await page.getByText('Oktoberbuch-Export fehlgeschlagen', {exact: true}).count() === 1, 'Localized failure title was not rendered from the host bundle')
+        await page.getByRole('button', {name: 'Ausführung erneut versuchen', exact: true}).click()
+        assert(await page.getByRole('alert').getByText('Erneuter Versuch vorgemerkt', {exact: true}).count() === 1, 'Localized retry feedback was not rendered from the host bundle')
+        await page.getByRole('button', {name: 'Erneuten Versuch abbrechen', exact: true}).click()
 
         assert(pageErrors.length === 0, `Agent activity preview reported page errors: ${pageErrors.join(' | ')}`)
         console.log(JSON.stringify({
