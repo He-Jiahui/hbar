@@ -2080,7 +2080,9 @@ export class WorkflowRuntime implements WorkflowService {
       })
       const marksVerification = tool.effect !== 'read' && !result.isError
       if (!evaluations.length && !marksVerification) {
-        if (current.rejection)
+        // Inspection must not invalidate the revision it just returned. Only
+        // successful execution progress can clear a recorded scope rejection.
+        if (current.rejection && !result.isError && !CONTROL_TOOLS.has(name))
           await this.persistWorkflow(
             workflowStateSchema.parse({
               ...current,

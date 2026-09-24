@@ -180,6 +180,57 @@ test('workflow focus normalizes registered tool aliases and escapes repeated sco
   })
 })
 
+test('control queries preserve rejection and the returned workflow revision remains usable for recovery', async () => {
+  const { root, kernel, session, goals, plans, workflows } = await fixture()
+  await writeFile(join(root, 'proof.txt'), 'verified proof', 'utf8')
+  await goals.create(session.id, 'Inspect the proof')
+  const plan = await plans.update(session.id, [{ step: 'Inspect the proof', status: 'in_progress' }])
+  await workflows.focus(
+    session.id,
+    0,
+    {
+      id: 'proof',
+      title: 'Inspect the proof',
+      scope: { readPaths: ['elsewhere'], writePaths: [], tools: ['read_file'] },
+      acceptanceChecks: [],
+    },
+    'agent',
+    plan.revision,
+  )
+  await kernel.submit(
+    session.id,
+    'denied-read',
+    { text: '/tool read_file {"path":"proof.txt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const denied = (await workflows.get(session.id)).workflow!
+  expect(denied.rejection?.count).toBe(1)
+  for (const name of ['get_workflow', 'get_goal', 'get_plan']) {
+    await kernel.submit(session.id, `inspect-${name}`, { text: `/tool ${name} {}`, images: [] }, 'local-fixture')
+    await kernel.waitForIdle()
+    const after = (await workflows.get(session.id)).workflow!
+    expect(after.revision).toBe(denied.revision)
+    expect(after.rejection).toEqual(denied.rejection)
+  }
+  await kernel.submit(
+    session.id,
+    'repair-scope',
+    {
+      text: `/tool workflow_update ${JSON.stringify({ action: 'expand_scope', itemId: 'proof', expectedRevision: denied.revision, reason: 'Align the scope with the authorized task', scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] } })}`,
+      images: [],
+    },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect((await workflows.get(session.id)).workflow?.rejection).toBeNull()
+  expect((await workflows.get(session.id)).workflow?.focus?.scope.readPaths).toContain('proof.txt')
+  const results = (await kernel.snapshot(session.id)).messages.flatMap((message) => message.content)
+  expect(
+    results.some((block) => block.type === 'tool_result' && block.name === 'workflow_update' && !block.isError),
+  ).toBe(true)
+})
+
 test('blocked checkpoints request autonomous revision instead of exposing a legacy blocked workflow state', async () => {
   const { session, plans, workflows } = await fixture()
   const plan = await plans.update(session.id, [{ step: 'Recover the bounded task', status: 'in_progress' }])
