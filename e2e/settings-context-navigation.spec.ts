@@ -104,7 +104,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 390]) {
         await page.setViewportSize({ width, height: 960 })
         const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
-        if (await show.isVisible()) await show.click()
+        await expect(show).toBeVisible()
+        await show.click()
         const settings = page.getByRole('button', { name: copy.shell.settings, exact: true })
         await settings.focus()
         await page.keyboard.press('Enter')

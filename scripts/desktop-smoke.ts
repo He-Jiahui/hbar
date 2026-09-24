@@ -144,7 +144,7 @@ try {
   await createDialog.waitFor({ state: 'hidden' })
   await page.getByRole('heading', { level: 1, name: 'Tauri visual session' }).waitFor()
   const fileChooser = page.waitForEvent('filechooser')
-  await page.locator('label.lumen-attachment-button').click()
+  await page.getByRole('button', { name: /^(添加附件|Add attachment)$/ }).click()
   await (
     await fileChooser
   ).setFiles({

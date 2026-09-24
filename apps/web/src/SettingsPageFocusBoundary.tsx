@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import type { PresentationState } from '@hbar/app-runtime'
+import { LumenFrame } from '@lumen/app-ui'
 import './SettingsPageFocusBoundary.css'
 
 function canRestoreFocus(element: HTMLElement): boolean {
@@ -69,8 +70,8 @@ export function SettingsPageFocusBoundary({
   }, [pageKind, sidebarOpen])
 
   return (
-    <div ref={boundary} className="hbar-settings-page-focus" role="region" aria-label={label} tabIndex={-1}>
+    <LumenFrame ref={boundary} className="hbar-settings-page-focus" role="region" aria-label={label} tabIndex={-1}>
       {children}
-    </div>
+    </LumenFrame>
   )
 }
