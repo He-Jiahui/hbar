@@ -963,10 +963,18 @@ export class WorkflowRuntime implements WorkflowService {
     itemId: string,
     scopeValue: WorkflowScope,
     reason: string,
-    expectedRevision: number,
+    expectedRevision: CheckpointRevision,
   ) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
+      if (typeof expectedRevision !== 'number') {
+        const plan = await this.agentPlans.get(sessionId)
+        if (current.activeItemId !== itemId || plan?.revision !== expectedRevision.planRevision)
+          throw new HbarError(
+            'WORKFLOW_REVISION_CONFLICT',
+            'Scope expansion does not target the current Agent Plan focus',
+          )
+      }
       const scope = workflowScopeSchema.parse({
         readPaths: unique(scopeValue.readPaths.map(normalizedScopePath)),
         writePaths: unique(scopeValue.writePaths.map(normalizedScopePath)),
@@ -2133,8 +2141,9 @@ export class WorkflowRuntime implements WorkflowService {
         : []),
       ...(executable
         ? [
-            'Batch known-input text calls with workflow_execute when available (otherwise sequential tools): authorized scope repair, write, read-back, workflow_checkpoint complete, update_goal complete. Normal gates apply; failure/images stop, earlier effects remain. Inspect before retrying. Only Host-tool-verified checks allow same-batch completion; inspect interpretive checks before completing. Host refuses missing/failed verification; claim success after settlement.',
-            'Omitted batch checkpoint versions bind to its starting focus/Plan snapshot; explicit versions remain strict. Scope expansion preserves that identity. A complete checkpoint advances Plan and finishes Workflow at the last step; do not duplicate with update_plan or workflow complete.',
+            'Batch known-input text calls with workflow_execute when available (otherwise sequential tools): authorized scope repair, write, read-back, workflow_checkpoint complete, update_goal complete. Normal gates apply; errors/images stop, earlier effects remain. Only Host-tool-verified checks allow same-batch completion; inspect interpretive checks before completing. Host refuses missing/failed verification; claim success after settlement.',
+            'For a known scope-repair path, mark the probe continueOnScopeDenied:true and immediately follow with workflow_expand_scope, then verification and guarded completion in the same batch. Only Host-confirmed pre-execution scope denial may continue; every other failure stops. No user authority is added.',
+            'Omitted batch checkpoint/scope versions bind to its starting focus/Plan snapshot; explicit versions remain strict. Scope expansion preserves that identity. A complete checkpoint advances Plan and finishes Workflow at the last step; do not duplicate with update_plan or workflow complete.',
           ]
         : []),
       '</focus_workflow>',
@@ -2451,10 +2460,16 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
     {
       name: 'workflow_execute',
       description:
-        'Execute 1-8 known-input tools in order through Run scope, permissions and verification gates. Prefer one sequence for write, read-back, checkpoint and Goal completion. Omit checkpoint version fields to bind to the Host snapshot at batch start; explicit versions stay strict. Stops at first error; earlier effects remain. No recursion or new authority.',
+        'Execute 1-8 known-input tools in order through Run scope, permissions and verification gates. Prefer one sequence for write, read-back, checkpoint and Goal completion. Omitted checkpoint/scope versions bind to the starting focus/Plan; explicit versions stay strict. Stops on errors/images, except a call marked continueOnScopeDenied may continue to an immediately following workflow_expand_scope after a Host-confirmed pre-execution scope denial. Earlier effects remain; no recursion or new authority.',
       inputSchema: z.strictObject({
         calls: z
-          .array(z.strictObject({ name: z.string().min(1).max(160), arguments: z.record(z.string(), z.unknown()) }))
+          .array(
+            z.strictObject({
+              name: z.string().min(1).max(160),
+              arguments: z.record(z.string(), z.unknown()),
+              continueOnScopeDenied: z.boolean().optional(),
+            }),
+          )
           .min(1)
           .max(8),
       }),
@@ -2467,11 +2482,26 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
         if (!context.executeSequence)
           throw new HbarError('TOOL_SEQUENCE_UNAVAILABLE', 'This execution context cannot start a nested sequence')
         const calls = z
-          .array(z.strictObject({ name: z.string(), arguments: z.record(z.string(), z.unknown()) }))
+          .array(
+            z.strictObject({
+              name: z.string(),
+              arguments: z.record(z.string(), z.unknown()),
+              continueOnScopeDenied: z.boolean().optional(),
+            }),
+          )
           .parse(args.calls)
+        if (
+          calls.some((call, index) => call.continueOnScopeDenied && calls[index + 1]?.name !== 'workflow_expand_scope')
+        )
+          throw new HbarError(
+            'WORKFLOW_SEQUENCE_RECOVERY',
+            'A scope-denial continuation must immediately attempt workflow_expand_scope',
+          )
         // Bind omitted checkpoint preconditions once, never to a later state produced by child calls.
         const bound = calls.map((call) =>
-          call.name === 'workflow_checkpoint' && current.workflow?.focusRevision !== undefined
+          (call.name === 'workflow_checkpoint' ||
+            (call.name === 'workflow_expand_scope' && call.arguments.expectedRevision === undefined)) &&
+          current.workflow?.focusRevision !== undefined
             ? {
                 ...call,
                 arguments: {
@@ -2485,7 +2515,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
         const results = await context.executeSequence(bound)
         return {
           text: JSON.stringify({ completed: results.length, requested: calls.length, results }),
-          isError: results.some((result) => result.isError),
+          isError: results.some((result) => result.isError && !result.continuedScopeDenial),
         }
       },
     },
@@ -2591,14 +2621,13 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
       effect: 'read',
       execute: async (args, context) => {
         const parsed = workflowExpandScopeToolSchema.parse(args)
+        let revision: CheckpointRevision
+        if (parsed.expectedRevision !== undefined) revision = parsed.expectedRevision
+        else if (parsed.expectedFocusRevision !== undefined && parsed.expectedPlanRevision !== undefined)
+          revision = { focusRevision: parsed.expectedFocusRevision, planRevision: parsed.expectedPlanRevision }
+        else throw new HbarError('WORKFLOW_REVISION_REQUIRED', 'Scope expansion requires a complete version identity')
         return workflowModelResult(
-          await runtime.expandScope(
-            context.session.id,
-            parsed.itemId,
-            parsed.scope,
-            parsed.reason,
-            parsed.expectedRevision,
-          ),
+          await runtime.expandScope(context.session.id, parsed.itemId, parsed.scope, parsed.reason, revision),
         )
       },
     },

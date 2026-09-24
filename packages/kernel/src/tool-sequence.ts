@@ -4,7 +4,13 @@ import { TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
 import type { ToolContext, ToolDefinition, ToolResult, ToolSequenceCall, ToolSequenceResult } from '@hbar/plugin-sdk'
 
 const callsSchema = z
-  .array(z.strictObject({ name: z.string().min(1).max(160), arguments: z.record(z.string(), z.unknown()) }))
+  .array(
+    z.strictObject({
+      name: z.string().min(1).max(160),
+      arguments: z.record(z.string(), z.unknown()),
+      continueOnScopeDenied: z.boolean().optional(),
+    }),
+  )
   .min(1)
   .max(8)
 
@@ -44,6 +50,7 @@ export function createToolSequenceExecutor(
           index,
           name: call.name,
           arguments: call.arguments,
+          ...(call.continueOnScopeDenied ? { continueOnScopeDenied: true } : {}),
         })
         const result = await execute(call.name, call.arguments, {
           session: context.session,
@@ -54,6 +61,13 @@ export function createToolSequenceExecutor(
           parentCallId: context.callId,
         })
         const needsInspection = result.content?.some((block) => block.type === 'image') ?? false
+        const continuedScopeDenial = Boolean(
+          call.continueOnScopeDenied &&
+          result.isError &&
+          !needsInspection &&
+          result.hostFailure?.code === 'WORKFLOW_SCOPE_REQUIRED' &&
+          !result.hostFailure.executionStarted,
+        )
         results.push({
           callId,
           name: call.name,
@@ -62,8 +76,9 @@ export function createToolSequenceExecutor(
             : result.text.slice(0, TOOL_SEQUENCE_RESULT_CHARACTERS),
           isError: Boolean(result.isError) || needsInspection,
           truncated: result.text.length > TOOL_SEQUENCE_RESULT_CHARACTERS,
+          ...(continuedScopeDenial ? { continuedScopeDenial: true } : {}),
         })
-        if (result.isError || needsInspection) break
+        if ((result.isError && !continuedScopeDenial) || needsInspection) break
       }
       return results
     },

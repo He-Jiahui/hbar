@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { z } from 'zod'
-import { providerSchema } from '@hbar/contracts'
-import type { GoalService, PlanService, ToolContext, WorkflowService } from '@hbar/plugin-sdk'
+import { HbarError, providerSchema } from '@hbar/contracts'
+import type { GoalService, PlanService, ToolContext, ToolSequenceCall, WorkflowService } from '@hbar/plugin-sdk'
 import { auditProgress } from '../plugins/goal/src/continuation'
 
 const resources: { root: string; kernel: Kernel }[] = []
@@ -53,7 +53,7 @@ async function fixture() {
     'agent',
     plan.revision,
   )
-  const run = async (calls: { name: string; arguments: Record<string, unknown> }[]) => {
+  const run = async (calls: ToolSequenceCall[]) => {
     await kernel.submit(
       session.id,
       crypto.randomUUID(),
@@ -87,6 +87,189 @@ const boundCheckpointCalls = successfulCalls.map((call) =>
     ? { name: call.name, arguments: { itemId: 'proof', outcome: 'complete', summary: 'Host checked the proof' } }
     : call,
 )
+
+const scopeRepairCalls: ToolSequenceCall[] = [
+  { name: 'read_file', arguments: { path: 'proof.txt' }, continueOnScopeDenied: true },
+  {
+    name: 'workflow_expand_scope',
+    arguments: {
+      itemId: 'proof',
+      scope: { readPaths: ['proof.txt'], writePaths: ['proof.txt'], tools: ['read_file', 'write_file'] },
+      reason: 'Correct scope for the authorized proof task',
+    },
+  },
+  ...boundCheckpointCalls,
+]
+
+async function misfocused(completionPolicy: 'agent' | 'user' = 'agent') {
+  const resource = await fixture()
+  await resource.workflows.focus(
+    resource.session.id,
+    0,
+    {
+      id: 'proof',
+      title: 'Produce verified proof',
+      scope: { readPaths: ['elsewhere'], writePaths: [], tools: ['read_file'] },
+      acceptanceChecks: [
+        {
+          id: 'content',
+          description: 'Correct proof',
+          verifier:
+            completionPolicy === 'user'
+              ? { kind: 'user' }
+              : { kind: 'tool', toolName: 'read_file', result: { kind: 'textContains', value: 'verified proof' } },
+        },
+      ],
+    },
+    completionPolicy,
+    1,
+  )
+  return resource
+}
+
+test('declared pre-execution scope denial is recorded, repaired and verified in one model request', async () => {
+  const { kernel, root, session, goals, workflows, run } = await misfocused()
+  const snapshot = await run(scopeRepairCalls)
+  expect(snapshot.runs[0]?.status).toBe('completed')
+  expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('verified proof')
+  expect((await goals.get(session.id)).goal?.status).toBe('complete')
+  const workflow = (await workflows.get(session.id)).workflow!
+  expect(workflow.status).toBe('completed')
+  expect(workflow.scopeExpansions).toHaveLength(1)
+  expect(
+    workflow.evidence.some(
+      (evidence) => evidence.checkId === 'content' && evidence.outcome === 'passed' && evidence.source === 'tool',
+    ),
+  ).toBe(true)
+  const results = snapshot.messages
+    .flatMap((message) => message.content)
+    .filter((block) => block.type === 'tool_result')
+  expect(results).toHaveLength(1)
+  expect(results[0]?.isError).toBe(false)
+  expect(results[0]?.text).toContain('"continuedScopeDenial":true')
+  const events = await kernel.storage.call('events', session.id, 0)
+  expect(events.filter((event) => event.type === 'request.started')).toHaveLength(1)
+  expect(events.filter((event) => event.type === 'tool.sequence_call')).toHaveLength(6)
+  const firstResult = events.find((event) => event.type === 'tool.sequence_result')
+  expect(
+    z.object({ content: z.array(z.object({ name: z.string(), isError: z.boolean() })) }).parse(firstResult?.data)
+      .content[0],
+  ).toEqual({ name: 'read_file', isError: true })
+})
+
+for (const conflict of ['stale-plan', 'replaced-focus', 'explicit-revision'] as const)
+  test(`scope recovery cannot cross the batch-start ${conflict} boundary`, async () => {
+    const { kernel, root, session, goals, workflows, run } = await misfocused()
+    if (conflict !== 'explicit-revision')
+      kernel.hooks.on('tool.before', async (event) => {
+        if (event.name === 'workflow_expand_scope') {
+          if (conflict === 'stale-plan')
+            await kernel.plugins
+              .get<PlanService>('plan')
+              .update(session.id, [{ step: 'Different authoritative task', status: 'in_progress' }])
+          else
+            await workflows.focus(
+              session.id,
+              0,
+              {
+                id: 'proof',
+                title: 'Replaced focus',
+                scope: { readPaths: [], writePaths: [], tools: [] },
+                acceptanceChecks: [],
+              },
+              'agent',
+              1,
+            )
+        }
+      })
+    await run(
+      scopeRepairCalls.map((call) =>
+        conflict === 'explicit-revision' && call.name === 'workflow_expand_scope'
+          ? { ...call, arguments: { ...call.arguments, expectedRevision: 99 } }
+          : call,
+      ),
+    )
+    expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('initial')
+    expect((await goals.get(session.id)).goal?.status).toBe('active')
+    expect((await workflows.get(session.id)).workflow?.scopeExpansions).toHaveLength(0)
+  })
+
+test('scope continuation cannot skip the explicit expansion or manufacture user acceptance', async () => {
+  const { root, session, goals, workflows, run } = await misfocused('user')
+  await run([scopeRepairCalls[0]!, ...boundCheckpointCalls])
+  expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('initial')
+  await run(scopeRepairCalls)
+  expect((await goals.get(session.id)).goal?.status).toBe('active')
+  expect((await workflows.get(session.id)).workflow?.status).toBe('waiting_user')
+  expect((await workflows.get(session.id)).workflow?.focus?.acceptanceChecks[0]).toMatchObject({
+    required: true,
+    status: 'pending',
+    verifier: { kind: 'user' },
+  })
+})
+
+for (const failure of ['spoof', 'started', 'unknown', 'policy', 'image'] as const)
+  test(`scope continuation cannot override ${failure} failures`, async () => {
+    const { kernel, root, session, goals, workflows, run } = await fixture()
+    let executed = 0
+    kernel.tools.register({
+      name: 'scope_failure_fixture',
+      description: 'Host rejection authority fixture',
+      inputSchema: z.object({}),
+      effect: failure === 'policy' ? 'process' : 'write',
+      workspaceAccess: { kind: 'none' },
+      execute: async () => {
+        executed++
+        if (failure === 'image')
+          return {
+            text: 'Image requires inspection',
+            content: [{ type: 'image', data: 'fixture', mimeType: 'image/png' }],
+          }
+        if (failure === 'spoof')
+          return {
+            text: 'Fake scope rejection',
+            isError: true,
+            hostFailure: { code: 'WORKFLOW_SCOPE_REQUIRED', executionStarted: false },
+          }
+        await writeFile(join(root, 'proof.txt'), 'partial effect')
+        throw new HbarError(
+          failure === 'unknown' ? 'EFFECT_UNKNOWN' : 'WORKFLOW_SCOPE_REQUIRED',
+          'Started tool cannot be retried as a scope rejection',
+        )
+      },
+    })
+    await workflows.expandScope(
+      session.id,
+      'proof',
+      { tools: ['scope_failure_fixture'], readPaths: [], writePaths: [] },
+      'Exercise rejection authority',
+      (await workflows.get(session.id)).workflow!.revision,
+    )
+    if (failure === 'policy') await kernel.setPermissionMode('deny')
+    const snapshot = await run([
+      { name: 'scope_failure_fixture', arguments: {}, continueOnScopeDenied: true },
+      {
+        name: 'workflow_expand_scope',
+        arguments: {
+          itemId: 'proof',
+          scope: { tools: [], readPaths: ['extra.txt'], writePaths: [] },
+          reason: 'Must not run after a non-scope failure',
+        },
+      },
+      ...boundCheckpointCalls,
+    ])
+    expect(executed).toBe(failure === 'policy' ? 0 : 1)
+    expect((await workflows.get(session.id)).workflow?.scopeExpansions).toHaveLength(1)
+    expect((await goals.get(session.id)).goal?.status).toBe('active')
+    expect(
+      snapshot.messages
+        .flatMap((message) => message.content)
+        .some((block) => block.type === 'tool_result' && block.name === 'workflow_execute' && block.isError),
+    ).toBe(true)
+    expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe(
+      ['started', 'unknown'].includes(failure) ? 'partial effect' : 'initial',
+    )
+  })
 
 test('deferred capabilities regain complete HTTP schemas in the same Run only after authorized scope expansion', async () => {
   const { kernel, session, workflows } = await fixture()
@@ -679,9 +862,10 @@ test('image results stop the text sequence and request a separate visual inspect
   ).toBe(true)
 })
 
-for (const failFirst of [false, true])
-  test(`Responses HTTP transport preserves sequence settlement, protocol and inclusive usage (${failFirst})`, async () => {
-    const { kernel, session, root, goals } = await fixture()
+for (const scenario of ['normal', 'verification-retry', 'scope-repair'] as const)
+  test(`Responses HTTP transport preserves sequence settlement, protocol and inclusive usage (${scenario})`, async () => {
+    const failFirst = scenario === 'verification-retry'
+    const { kernel, session, root, goals } = await (scenario === 'scope-repair' ? misfocused() : fixture())
     const requestSchema = z.object({
       parallel_tool_calls: z.boolean(),
       prompt_cache_key: z.string(),
@@ -701,7 +885,9 @@ for (const failFirst of [false, true])
                 { name: 'write_file', arguments: { path: 'proof.txt', text: 'wrong proof' } },
                 ...successfulCalls.slice(1),
               ]
-            : successfulCalls
+            : scenario === 'scope-repair'
+              ? scopeRepairCalls
+              : successfulCalls
         const item = {
           id: `fc_${requests.length}`,
           call_id: `call_${requests.length}`,

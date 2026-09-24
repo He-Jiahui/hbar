@@ -61,3 +61,25 @@ test('a scope catalog is not added when its hint costs more than the native decl
   expect(catalog.names.size).toBe(0)
   expect(catalog.text).not.toContain('scope-gated;')
 })
+
+test('scope tool requires one complete strict numeric or focus identity precondition', () => {
+  const input = {
+    itemId: 'proof',
+    scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] },
+    reason: 'Inspect authorized proof',
+  }
+  expect(workflowExpandScopeToolSchema.safeParse(input).success).toBe(false)
+  expect(workflowExpandScopeToolSchema.safeParse({ ...input, expectedRevision: 1 }).success).toBe(true)
+  expect(
+    workflowExpandScopeToolSchema.safeParse({ ...input, expectedFocusRevision: 1, expectedPlanRevision: 1 }).success,
+  ).toBe(true)
+  expect(workflowExpandScopeToolSchema.safeParse({ ...input, expectedFocusRevision: 1 }).success).toBe(false)
+  expect(
+    workflowExpandScopeToolSchema.safeParse({
+      ...input,
+      expectedRevision: 1,
+      expectedFocusRevision: 1,
+      expectedPlanRevision: 1,
+    }).success,
+  ).toBe(false)
+})

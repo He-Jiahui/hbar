@@ -86,7 +86,7 @@ export function sequenceControlCatalog(
   const render = (entries: readonly string[], withScopeGated = hasScopeGated) =>
     [
       '<workflow_sequence_controls>',
-      'Call these signatures inside workflow_execute, not as separate functions; ? means optional. Omitted checkpoint versions bind to the Host batch-start snapshot; explicit values remain strict. Normal permissions, scope and verification gates apply.',
+      'Call these signatures inside workflow_execute, not as separate functions; ? means optional. Omitted checkpoint/scope versions bind to the Host batch-start focus/Plan snapshot; explicit values remain strict. Normal permissions, scope and verification gates apply.',
       ...(withScopeGated
         ? [
             'Scope-gated tools require explicit authorized scope expansion before use; standalone tools return next request for full text/images.',

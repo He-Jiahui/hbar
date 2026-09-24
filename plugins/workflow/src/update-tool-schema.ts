@@ -20,7 +20,22 @@ const checkpointFields = workflowCheckpointInputSchema.shape
 const evidenceIdsDescription =
   'Optional Host-issued evidence IDs, not acceptance-check IDs. Omit to use verified evidence from the current focus; never invent IDs.'
 
-export const workflowExpandScopeToolSchema = workflowExpandScopeInputSchema.omit({ sessionId: true })
+export const workflowExpandScopeToolSchema = workflowExpandScopeInputSchema
+  .omit({ sessionId: true })
+  .extend({
+    expectedRevision: scopeFields.expectedRevision.optional(),
+    expectedFocusRevision: z.number().int().positive().optional(),
+    expectedPlanRevision: z.number().int().positive().optional(),
+  })
+  .describe(
+    'Provide expectedRevision OR both expectedFocusRevision and expectedPlanRevision, not both forms. In workflow_execute omitted versions bind to the starting focus and Plan.',
+  )
+  .superRefine((value, context) => {
+    const numeric = value.expectedRevision !== undefined
+    const focus = value.expectedFocusRevision !== undefined && value.expectedPlanRevision !== undefined
+    if (numeric ? value.expectedFocusRevision !== undefined || value.expectedPlanRevision !== undefined : !focus)
+      context.addIssue({ code: 'custom', message: 'Provide exactly one complete workflow revision precondition' })
+  })
 export const workflowCheckpointToolSchema = workflowCheckpointInputSchema
   .omit({ sessionId: true, expectedRevision: true, nextItemId: true })
   .extend({

@@ -69,6 +69,8 @@ export interface ToolResult {
   content?: ToolResultContent[]
   isError?: boolean
   details?: unknown
+  /** Host-owned failure metadata. The execution gateway overwrites any plugin-provided value. */
+  hostFailure?: { code: string; executionStarted: boolean } | undefined
 }
 export interface ToolContext {
   session: Session
@@ -84,6 +86,7 @@ export interface ToolContext {
 export interface ToolSequenceCall {
   name: string
   arguments: Record<string, unknown>
+  continueOnScopeDenied?: boolean | undefined
 }
 export const TOOL_SEQUENCE_RESULT_CHARACTERS = 8_000
 export interface ToolSequenceResult {
@@ -92,6 +95,7 @@ export interface ToolSequenceResult {
   text: string
   isError: boolean
   truncated: boolean
+  continuedScopeDenial?: boolean
 }
 export type ToolWorkspaceAccess =
   | { kind: 'none' }
@@ -273,7 +277,7 @@ export interface WorkflowService {
     itemId: string,
     scope: WorkflowScope,
     reason: string,
-    expectedRevision: number,
+    expectedRevision: number | { focusRevision: number; planRevision: number },
   ): Promise<WorkflowSnapshot>
   checkpoint(
     sessionId: string,

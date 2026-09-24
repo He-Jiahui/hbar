@@ -1045,6 +1045,7 @@ export class Kernel {
     let result: ToolResult,
       started = false,
       executedArgs: Record<string, unknown> | undefined
+    let hostFailure: ToolResult['hostFailure']
     try {
       context.signal.throwIfAborted()
       const initial = tool.inputSchema.parse(rawArgs) as Record<string, unknown>
@@ -1073,7 +1074,9 @@ export class Kernel {
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
     } catch (error) {
       result = { text: error instanceof Error ? error.message : String(error), isError: true }
+      hostFailure = { code: error instanceof HbarError ? error.code : 'TOOL_FAILED', executionStarted: started }
     }
+    result = { ...result, hostFailure }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
       {
