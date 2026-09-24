@@ -3,6 +3,7 @@ import { HbarError, threadGoalSchema, usageSchema } from '@hbar/contracts'
 import type { GoalStatus, Run, SessionEvent, ThreadGoal, Usage } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
+  BudgetService,
   GoalService,
   GoalSetInput,
   GoalToolResponse,
@@ -11,6 +12,7 @@ import type {
   ModelRequest,
   ToolDefinition,
 } from '@hbar/plugin-sdk'
+import { withExecutionBudget } from './execution-budget.ts'
 
 const MAX_EVENTS = 100_000
 const MAX_AUDIT_RUNS = 32
@@ -46,6 +48,7 @@ const persistedGoalSchema = threadGoalSchema.extend({
   executionFailureRuns: z.array(z.string().min(1).max(160)).max(MAX_EXECUTION_FAILURE_RUNS).default([]),
   continuationCount: z.number().int().nonnegative().default(0),
   accountedRuns: z.array(z.string().min(1).max(160)).max(MAX_ACCOUNTED_RUNS).default([]),
+  budgetResumeIntent: z.boolean().default(false),
 })
 type PersistedGoal = z.infer<typeof persistedGoalSchema>
 
@@ -71,6 +74,7 @@ function publicGoal(goal: PersistedGoal): ThreadGoal {
     timeUsedSeconds: goal.timeUsedSeconds,
     createdAt: goal.createdAt,
     updatedAt: goal.updatedAt,
+    ...(goal.executionBudget ? { executionBudget: goal.executionBudget } : {}),
   }
 }
 
@@ -205,6 +209,11 @@ class GoalRuntime implements GoalService {
               }
             }
           }
+          const goal = this.goals.get(session.id)
+          if (goal) {
+            const normalized = await this.withBudget(goal)
+            if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
+          }
         }),
       )
     }
@@ -297,15 +306,8 @@ class GoalRuntime implements GoalService {
     const timeDelta = Math.max(0, totalTime - tracking.timeAccounted)
     if (tokenDelta === 0 && timeDelta === 0) return existing
 
-    const status: GoalStatus =
-      existing.status === 'active' &&
-      existing.tokenBudget !== null &&
-      existing.tokensUsed + tokenDelta >= existing.tokenBudget
-        ? 'budget_limited'
-        : existing.status
     const goal: PersistedGoal = {
       ...existing,
-      status,
       tokensUsed: existing.tokensUsed + tokenDelta,
       timeUsedSeconds: existing.timeUsedSeconds + timeDelta,
       updatedAt: Date.now(),
@@ -316,8 +318,7 @@ class GoalRuntime implements GoalService {
       tokensAccounted: tracking.tokensAccounted + tokenDelta,
       timeAccounted: Math.max(tracking.timeAccounted, totalTime),
     }
-    await this.persist(goal, runId, 'goal.accounted', accounting)
-    return goal
+    return this.persist(goal, runId, 'goal.accounted', accounting)
   }
 
   private async accountActiveRunsUnlocked(sessionId: string, mode: AccountingMode) {
@@ -344,6 +345,7 @@ class GoalRuntime implements GoalService {
   }
 
   private async persist(goal: PersistedGoal, runId?: string, type = 'goal.updated', accounting?: RunAccounting) {
+    goal = await this.withBudget(goal)
     const event = await this.append(goal.threadId, type, { goal, ...(accounting ? { accounting } : {}) }, runId)
     this.goals.set(goal.threadId, goal)
     if (accounting && runId) {
@@ -355,6 +357,25 @@ class GoalRuntime implements GoalService {
       params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: publicGoal(goal) },
     })
     this.api.changed('goals')
+    return goal
+  }
+
+  private async withBudget(goal: PersistedGoal) {
+    return withExecutionBudget(goal, await this.api.service<BudgetService>('budget').get(goal.threadId))
+  }
+
+  async refreshBudget(sessionId: string) {
+    await this.serial(sessionId, async () => {
+      const goal = this.goals.get(sessionId)
+      if (!goal) return
+      const normalized = await this.withBudget(goal)
+      if (JSON.stringify(normalized) !== JSON.stringify(goal))
+        await this.persist({ ...normalized, updatedAt: Date.now() })
+    })
+  }
+
+  private result(sessionId: string, completionBudgetReport?: string) {
+    return response(this.goals.get(sessionId) ?? null, completionBudgetReport)
   }
 
   private async persistClear(sessionId: string, runId?: string) {
@@ -379,14 +400,14 @@ class GoalRuntime implements GoalService {
       })
       await guarded.commit()
     } else await commit()
-    return response(goal, goal.status === 'complete' ? completionReport(goal) : undefined)
+    return this.result(goal.threadId, goal.status === 'complete' ? completionReport(goal) : undefined)
   }
 
   async get(sessionId: string) {
     await this.ready()
     this.assertKnown(sessionId)
     await this.api.sessions.get(sessionId)
-    return response(this.goals.get(sessionId) ?? null)
+    return this.result(sessionId)
   }
 
   async create(sessionId: string, objectiveValue: string, tokenBudget?: number, runId?: string, startedAt?: number) {
@@ -413,6 +434,7 @@ class GoalRuntime implements GoalService {
         executionFailureRuns: [],
         continuationCount: 0,
         accountedRuns: [],
+        budgetResumeIntent: false,
       }
       const accounting: RunAccounting | undefined = runId
         ? {
@@ -431,7 +453,7 @@ class GoalRuntime implements GoalService {
           previous: publicGoal(existing),
           goal: publicGoal(goal),
         })
-      return response(goal)
+      return this.result(sessionId)
     })
   }
 
@@ -480,9 +502,10 @@ class GoalRuntime implements GoalService {
           executionFailureRuns: [],
           continuationCount: 0,
           accountedRuns: [],
+          budgetResumeIntent: false,
         }
         await this.persist(goal)
-        return response(goal)
+        return this.result(sessionId)
       }
       if (input.expectedGoalId && input.expectedGoalId !== existing.goalId)
         throw new HbarError('GOAL_CONFLICT', 'The goal changed before this update was applied')
@@ -508,6 +531,7 @@ class GoalRuntime implements GoalService {
           executionFailureRuns: [],
           continuationCount: 0,
           accountedRuns: [],
+          budgetResumeIntent: false,
         }
         await this.persist(goal, undefined, 'goal.created')
         await this.api.hooks.dispatch('goal.replaced', {
@@ -515,16 +539,13 @@ class GoalRuntime implements GoalService {
           previous: publicGoal(existing),
           goal: publicGoal(goal),
         })
-        return response(goal)
+        return this.result(sessionId)
       }
       const hasStatus = input.status !== undefined && input.status !== null
-      if (objective === undefined && !budgetWasProvided && !hasStatus) return response(existing)
+      if (objective === undefined && !budgetWasProvided && !hasStatus) return this.result(sessionId)
       const requestedBudget = budgetWasProvided ? (budget ?? null) : existing.tokenBudget
       const requestedStatus = input.status ?? existing.status
-      const status: GoalStatus =
-        requestedStatus === 'active' && requestedBudget !== null && existing.tokensUsed >= requestedBudget
-          ? 'budget_limited'
-          : requestedStatus
+      const status = requestedStatus
       const goal: PersistedGoal = {
         ...existing,
         ...(objective === undefined ? {} : { objective }),
@@ -615,7 +636,7 @@ class GoalRuntime implements GoalService {
             )
           : []
       const autoBlocked = failureStreak >= 3 && existing.status === 'active'
-      const usageLimited = isUsageLimitError(run) && ['active', 'budget_limited'].includes(existing.status)
+      const usageLimited = isUsageLimitError(run) && existing.status === 'active'
       const status: GoalStatus = usageLimited
         ? 'usage_limited'
         : autoBlocked
@@ -623,15 +644,18 @@ class GoalRuntime implements GoalService {
           : event.status === 'failed' && existing.status === 'active'
             ? 'blocked'
             : existing.status
-      const goal: PersistedGoal = {
-        ...existing,
-        status,
-        updatedAt: Date.now(),
-        executionFailureStreak: usageLimited || autoBlocked ? 0 : failureStreak,
-        executionFailureRuns: usageLimited || autoBlocked ? [] : failureRuns,
-        accountedRuns: [...existing.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
-      }
-      await this.persist(goal, event.runId, 'goal.accounted')
+      const goal = await this.persist(
+        {
+          ...existing,
+          status,
+          updatedAt: Date.now(),
+          executionFailureStreak: usageLimited || autoBlocked ? 0 : failureStreak,
+          executionFailureRuns: usageLimited || autoBlocked ? [] : failureRuns,
+          accountedRuns: [...existing.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
+        },
+        event.runId,
+        'goal.accounted',
+      )
       this.activeRuns.delete(event.runId)
       if (
         this.config.autoContinue &&
@@ -762,7 +786,7 @@ export const goalPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { goal: '1.0.0' },
-    requires: { storage: '^1.0.0' },
+    requires: { storage: '^1.0.0', budget: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: goalConfigSchema,
@@ -774,6 +798,7 @@ export const goalPlugin = definePlugin({
     provide<GoalService>(ctx, 'goal', runtime)
     api.hooks.on('run.start', (event) => runtime.startRun(event))
     api.hooks.on('step.end', (event) => runtime.accountStep(event))
+    api.hooks.on('budget.committed', (event) => runtime.refreshBudget(event.sessionId))
     api.hooks.on('run.end', (event) => runtime.accountRun(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)

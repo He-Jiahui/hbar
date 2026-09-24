@@ -69,6 +69,13 @@ export const runSourceSchema = z.enum(['user', 'goal', 'system'])
 export type RunSource = z.infer<typeof runSourceSchema>
 export const goalStatusSchema = z.enum(['active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'complete'])
 export type GoalStatus = z.infer<typeof goalStatusSchema>
+export const executionBudgetSchema = z.object({
+  goalRemainingTokens: z.number().int().nonnegative().nullable(),
+  sessionRemainingTokens: z.number().int().nonnegative().nullable(),
+  effectiveRemainingTokens: z.number().int().nonnegative().nullable(),
+  limitingSource: z.enum(['goal', 'session', 'both']).nullable(),
+})
+export type ExecutionBudget = z.infer<typeof executionBudgetSchema>
 export const threadGoalSchema = z.object({
   threadId: idSchema,
   /** Internal identity used to reject stale external mutations. */
@@ -80,6 +87,7 @@ export const threadGoalSchema = z.object({
   timeUsedSeconds: z.number().int().nonnegative(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
+  executionBudget: executionBudgetSchema.optional(),
 })
 export type ThreadGoal = z.infer<typeof threadGoalSchema>
 const userInputIdSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)

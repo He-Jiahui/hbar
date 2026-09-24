@@ -438,6 +438,8 @@ export interface HookEvents {
   'step.end': { sessionId: string; runId: string; stepId: string }
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
+  /** Published after the session budget fact has been committed. */
+  'budget.committed': { sessionId: string; budget: SessionBudget | null }
   'goal.beforeComplete': {
     sessionId: string
     runId?: string | undefined

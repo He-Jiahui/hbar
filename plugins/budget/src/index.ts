@@ -269,6 +269,7 @@ export class BudgetRuntime {
         this.budgets.delete(sessionId)
         this.api.notify({ method: 'budget.cleared', params: { sessionId } })
         this.api.changed('budgets')
+        await this.publishCommitted(sessionId, null)
       }
       return { cleared }
     })
@@ -362,6 +363,17 @@ export class BudgetRuntime {
       params: { sessionId, budget: publicBudget(budget), runId: event.runId },
     })
     this.api.changed('budgets')
+    await this.publishCommitted(sessionId, publicBudget(budget))
+  }
+
+  private async publishCommitted(sessionId: string, budget: SessionBudget | null) {
+    // A failed projection observer must not invalidate an already committed
+    // command receipt. Its owner must fail closed and reconcile on restore.
+    try {
+      await this.api.hooks.dispatch('budget.committed', { sessionId, budget })
+    } catch (error) {
+      console.error('Budget observer failed:', error)
+    }
   }
 }
 
