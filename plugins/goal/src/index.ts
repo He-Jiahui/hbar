@@ -238,7 +238,8 @@ class GoalRuntime implements GoalService {
             const current = this.goals.get(session.id)
             if (current?.goalId === tracking.goalId && !current.accountedRuns.includes(runId)) {
               const accounted = await this.accountProgressUnlocked(session.id, runId, 'bound-run', run)
-              if (accounted)
+              if (accounted) {
+                const progress = auditProgress(events, runId, accounted.progressKeys)
                 await this.persist(
                   {
                     ...accounted,
@@ -247,11 +248,14 @@ class GoalRuntime implements GoalService {
                         ? 'paused'
                         : accounted.status,
                     accountedRuns: [...accounted.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS),
+                    progressKeys: progress.keys,
+                    noProgressStreak: progress.progress ? 0 : accounted.noProgressStreak + 1,
                     updatedAt: Date.now(),
                   },
                   runId,
                   'goal.accounted',
                 )
+              }
             }
             this.activeRuns.delete(runId)
           }
@@ -261,11 +265,33 @@ class GoalRuntime implements GoalService {
             const intent = normalized.continuationIntent
             if (intent && ['running', 'queued'].includes(intent.phase)) {
               const terminal = [...settled.values()].find((run) => run.input.continuation?.intentId === intent.intentId)
-              if (terminal)
+              if (terminal?.status === 'completed' && ['active', 'budget_limited'].includes(normalized.status)) {
+                // Resume only an explicitly persisted execution intent. Historical
+                // active Goals with no intent remain inert after upgrading.
+                const progress = auditProgress(events, terminal.id, normalized.progressKeys)
+                const reason =
+                  progress.toolCalls === 0
+                    ? 'no_tool_calls'
+                    : normalized.noProgressStreak >= 3 && normalized.repairAttempts === 0
+                      ? 'no_progress'
+                      : null
+                if (reason) normalized = this.withContinuation(normalized, 'stopped', reason)
+                else {
+                  await this.queueContinuation(this.withContinuation(normalized, 'running', 'goal_active'), {
+                    trigger: terminal.id,
+                    modelId: terminal.modelId,
+                  })
+                  normalized = this.goals.get(session.id) ?? normalized
+                }
+              } else if (terminal)
                 normalized = this.withContinuation(
                   normalized,
                   'stopped',
-                  terminal.failure?.category === 'result_unknown' ? 'result_unknown' : 'interrupted',
+                  terminal.failure?.category === 'result_unknown'
+                    ? 'result_unknown'
+                    : terminal.status === 'failed'
+                      ? 'run_failed'
+                      : 'interrupted',
                 )
             }
             if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
@@ -431,7 +457,19 @@ class GoalRuntime implements GoalService {
     if (events.length > MAX_EVENTS)
       throw new HbarError('GOAL_ACCOUNTING_LIMIT', `Goal accounting for ${sessionId} exceeded ${MAX_EVENTS} events`)
     const tokenDelta = usageDelta(events, runId)
-    const totalTime = elapsedSince(tracking.startedAt, finalRun?.endedAt ?? Date.now())
+    // Recovery timestamps describe when the Host came back, not when execution
+    // stopped. Charge only known live progress, never the time the Host was down.
+    const recovered = finalRun?.status === 'interrupted'
+    const accountedThrough = recovered
+      ? events.reduce(
+          (latest, event) =>
+            event.runId === runId && ['usage.recorded', 'request.started', 'tool.started'].includes(event.type)
+              ? Math.max(latest, event.time)
+              : latest,
+          tracking.startedAt + tracking.timeAccounted * 1000,
+        )
+      : (finalRun?.endedAt ?? Date.now())
+    const totalTime = elapsedSince(tracking.startedAt, accountedThrough)
     const timeDelta = Math.max(0, totalTime - tracking.timeAccounted)
     if (tokenDelta === 0 && timeDelta === 0) return existing
 
@@ -616,7 +654,10 @@ class GoalRuntime implements GoalService {
           allowed: true,
         })
         if (!admission.allowed) reason = 'workflow_wait'
-        else if (admission.reason === 'repair') executionReason = 'repair'
+        else if (admission.reason === 'repair') {
+          if (goal.repairKey === admission.recoveryKey && goal.repairAttempts >= 3) reason = 'repair_exhausted'
+          else executionReason = 'repair'
+        }
       }
       if (!reason && intent.retryAt !== undefined && intent.retryAt > Date.now()) {
         const waiting = this.withContinuation(goal, 'waiting', 'retry_wait')
@@ -625,7 +666,11 @@ class GoalRuntime implements GoalService {
       }
       const next = this.withContinuation(
         goal,
-        reason ? (['disabled', 'continuation_limit'].includes(reason) ? 'stopped' : 'waiting') : 'queued',
+        reason
+          ? ['disabled', 'continuation_limit', 'repair_exhausted'].includes(reason)
+            ? 'stopped'
+            : 'waiting'
+          : 'queued',
         reason ?? executionReason,
       )
       if (next !== goal) await this.persist(next)
