@@ -1,5 +1,13 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowUpRight, Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings } from 'lucide-react'
+import {
+  ArrowUpRight,
+  Bot,
+  ChartNoAxesColumnIncreasing,
+  Files,
+  ListTodo,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
@@ -11,7 +19,6 @@ import {
   LumenCompactUsage,
   LumenConversation,
   LumenIcon,
-  LumenPageAction,
   LumenPageHeader,
   LumenPromptComposer,
   LumenQuestionnaire,
@@ -200,6 +207,37 @@ function usageContent(controls: SessionControlsState, labels: HbarSessionWorkspa
   }
 }
 
+function SessionToolButton({
+  icon,
+  label,
+  selected,
+  disabled,
+  onClick,
+}: {
+  readonly icon: LucideIcon
+  readonly label: string
+  readonly selected?: boolean
+  readonly disabled: boolean
+  readonly onClick: () => void
+}) {
+  return (
+    <LumenButton
+      className="hbar-app-react-session-tool"
+      size="s"
+      variant="text"
+      indicator="none"
+      aria-pressed={selected}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <LumenIcon icon={icon} tier="sm" />
+      <LumenText as="span" className="hbar-app-react-session-tool-label">
+        {label}
+      </LumenText>
+    </LumenButton>
+  )
+}
+
 export function HbarSessionWorkspace({
   sessionTitle,
   workspaceName,
@@ -273,10 +311,12 @@ export function HbarSessionWorkspace({
   const toolInstanceId = presentation.toolInstanceId
   const activeTool = toolInstanceId ? surfaces.panels[toolInstanceId] : undefined
   const isToolActive = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') =>
+    sessionId !== null &&
     activeTool?.panelId === panelId &&
     activeTool.workspaceId === navigation.workspaceId &&
     (panelId === 'files' || activeTool.sessionId === sessionId)
   const toggleTool = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') => {
+    if (!sessionId) return
     if (toolInstanceId && isToolActive(panelId)) {
       invoke('app.closePanel', { instanceId: toolInstanceId })
       return
@@ -588,39 +628,46 @@ export function HbarSessionWorkspace({
         }
         actionsLabel={labels.tools.label}
         actions={
-          sessionId ? (
-            <>
-              <LumenPageAction
-                icon={<LumenIcon icon={Files} tier="sm" />}
-                label={labels.tools.files}
-                selected={isToolActive('files')}
-                onClick={() => toggleTool('files')}
-              />
-              <LumenPageAction
-                icon={<LumenIcon icon={ChartNoAxesColumnIncreasing} tier="sm" />}
-                label={labels.tools.monitoring}
-                selected={isToolActive('monitoring')}
-                onClick={() => toggleTool('monitoring')}
-              />
-              <LumenPageAction
-                icon={<LumenIcon icon={Bot} tier="sm" />}
-                label={labels.tools.agents}
-                selected={isToolActive('agents')}
-                onClick={() => toggleTool('agents')}
-              />
-              <LumenPageAction
-                icon={<LumenIcon icon={ListTodo} tier="sm" />}
-                label={labels.tools.goals}
-                selected={isToolActive('goals')}
-                onClick={() => toggleTool('goals')}
-              />
-              <LumenPageAction
-                icon={<LumenIcon icon={Settings} tier="sm" />}
-                label={labels.tools.settings}
-                onClick={() => invoke('app.openSettings', { scope: 'session', targetId: sessionId })}
-              />
-            </>
-          ) : undefined
+          // Five host-labelled actions form a bounded, content-grown collection.
+          // They wrap with the header instead of hiding tools behind a width breakpoint.
+          <>
+            <SessionToolButton
+              icon={Files}
+              label={labels.tools.files}
+              selected={isToolActive('files')}
+              disabled={!sessionId}
+              onClick={() => toggleTool('files')}
+            />
+            <SessionToolButton
+              icon={ChartNoAxesColumnIncreasing}
+              label={labels.tools.monitoring}
+              selected={isToolActive('monitoring')}
+              disabled={!sessionId}
+              onClick={() => toggleTool('monitoring')}
+            />
+            <SessionToolButton
+              icon={Bot}
+              label={labels.tools.agents}
+              selected={isToolActive('agents')}
+              disabled={!sessionId}
+              onClick={() => toggleTool('agents')}
+            />
+            <SessionToolButton
+              icon={ListTodo}
+              label={labels.tools.goals}
+              selected={isToolActive('goals')}
+              disabled={!sessionId}
+              onClick={() => toggleTool('goals')}
+            />
+            <SessionToolButton
+              icon={Settings}
+              label={labels.tools.settings}
+              disabled={!sessionId}
+              onClick={() => {
+                if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })
+              }}
+            />
+          </>
         }
       />
       <LumenFrame className="hbar-app-react-session-main">

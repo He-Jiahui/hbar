@@ -643,14 +643,24 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
           const usage = document.querySelector<HTMLElement>('.hbar-app-ui-inline-usage')
           if (!header || actions.length !== 5 || !sessionMain || !conversation || !timeline || !composer || !usage)
             return false
-          const actionTops = actions.map((action) => action.getBoundingClientRect().top)
+          const headerRect = header.getBoundingClientRect()
+          const actionRects = actions.map((action) => action.getBoundingClientRect())
           const sessionMainRect = sessionMain.getBoundingClientRect()
           const conversationRect = conversation.getBoundingClientRect()
           const timelineRect = timeline.getBoundingClientRect()
           const composerRect = composer.getBoundingClientRect()
           return (
             header.scrollWidth <= header.clientWidth &&
-            Math.max(...actionTops) - Math.min(...actionTops) <= 1 &&
+            actionRects.every((rect, index) => {
+              const previous = actionRects[index - 1]
+              return (
+                rect.left >= headerRect.left - 1 &&
+                rect.right <= headerRect.right + 1 &&
+                rect.top >= headerRect.top - 1 &&
+                rect.bottom <= headerRect.bottom + 1 &&
+                (!previous || rect.top >= previous.bottom - 1 || rect.left >= previous.right - 1)
+              )
+            }) &&
             actions.every((action) => getComputedStyle(action).writingMode === 'horizontal-tb') &&
             getComputedStyle(conversation).display === 'flex' &&
             Math.abs(sessionMainRect.left - conversationRect.left) <= 1 &&
