@@ -136,6 +136,9 @@ describe('reference plan tree', () => {
       expect(render({ ...content, groups }).match(/data-group-id=/g)).toHaveLength(count)
     }
     const busy = render({ ...content, busy: true })
-    expect(busy).toMatch(/class="lumen-plan-tree-retry" disabled=""/)
+    const retry = busy.match(/<button[^>]*class="[^"]*lumen-plan-tree-retry[^"]*"[^>]*>/)?.[0]
+    expect(retry).toContain('disabled=""')
+    expect(retry).toContain('data-lumen-variant="text"')
+    expect(retry).toContain('data-lumen-indicator="lamp"')
   })
 })
