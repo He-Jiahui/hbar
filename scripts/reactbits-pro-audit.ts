@@ -265,7 +265,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 12
-const interactionProtocolVersion = 21
+const interactionProtocolVersion = 22
 
 export function auditBrowserArguments(http1: boolean): string[] {
   return http1 ? ['--disable-http2', '--disable-quic'] : []
@@ -1361,9 +1361,42 @@ export function inlineApprovalScenarioCases(snapshot: SemanticSnapshot, variantI
   ]
 }
 
+export async function settleInlineApprovalScroll(root: Locator): Promise<void> {
+  await root.evaluate(async (element) => {
+    const panes = [element, ...element.querySelectorAll('*')].filter((candidate) =>
+      candidate.scrollHeight > candidate.clientHeight || candidate.scrollWidth > candidate.clientWidth)
+    let previous = ''
+    let unchanged = 0
+    for (let frame = 0; frame < 120; frame += 1) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const current = JSON.stringify(panes.map((pane) => [pane.scrollTop, pane.scrollLeft]))
+      unchanged = current === previous ? unchanged + 1 : 0
+      previous = current
+      if (unchanged >= 4) return
+    }
+    throw new Error('Inline approval native scroll did not settle before capture')
+  })
+}
+
 async function prepareInlineApprovalScenario(root: Locator): Promise<void> {
-  await root.getByRole('button', { name: 'Show request', exact: true }).click()
+  const trigger = root.getByRole('button', { name: 'Show request', exact: true })
+  // Settle the native scroll event before opening the disclosure, so its edge
+  // indicators are not sampled during Playwright's implicit scroll/click race.
+  await trigger.scrollIntoViewIfNeeded()
+  await settleInlineApprovalScroll(root)
+  await trigger.click()
   await root.getByRole('button', { name: 'Hide request', exact: true }).waitFor({ state: 'visible' })
+  await settleInlineApprovalScroll(root)
+}
+
+async function prepareInlineApprovalActivation(root: Locator, control: Locator, interaction: InteractionCase): Promise<void> {
+  if (interaction.action === 'click' || interaction.action === 'expand') {
+    await control.scrollIntoViewIfNeeded()
+    await settleInlineApprovalScroll(root)
+  } else if (interaction.action === 'press') {
+    await control.focus()
+    await settleInlineApprovalScroll(root)
+  }
 }
 
 async function prepareAgentFailureScenario(root: Locator): Promise<void> {
@@ -1799,7 +1832,10 @@ async function replayInteraction(
     }
   }
   try {
-    if (!(await controlIsDisabled(control))) await applyInteraction(control, interaction)
+    if (!(await controlIsDisabled(control))) {
+      if (spec.id === 'hbar-app-ui-agent-approval-1') await prepareInlineApprovalActivation(root, control, interaction)
+      await applyInteraction(control, interaction)
+    }
   } catch (error) {
     return {
       id: interaction.id,
@@ -1813,6 +1849,7 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
+  if (spec.id === 'hbar-app-ui-agent-approval-1') await settleInlineApprovalScroll(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => { element.scrollTop = 0 })
   await screenshotStable(root, after)
@@ -1891,6 +1928,7 @@ async function replayReferenceInteraction(
   }
   try {
     if (interaction.scenario === 'running' || !(await controlIsDisabled(control))) {
+      if (reference.id === 'hbar-app-ui-agent-approval-1') await prepareInlineApprovalActivation(root, control, interaction)
       if (interaction.scenario === 'running' && (interaction.action === 'click' || interaction.action === 'hover')) {
         const rect = runningControl?.rect
         if (!rect) throw new Error('Running log control lost its visible bounds')
@@ -1923,6 +1961,7 @@ async function replayReferenceInteraction(
   if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
     await page.waitForTimeout(120)
   }
+  if (reference.id === 'hbar-app-ui-agent-approval-1') await settleInlineApprovalScroll(root)
   if (runningCheckpoint) {
     const afterCheckpoint = await runningLogCheckpoint(root)
     if (afterCheckpoint.rows !== runningCheckpoint.rows || afterCheckpoint.message !== runningCheckpoint.message)

@@ -1,5 +1,5 @@
 import {chromium} from '@playwright/test'
-import {waitForLocalStyles} from './reactbits-pro-audit'
+import {settleInlineApprovalScroll, waitForLocalStyles} from './reactbits-pro-audit'
 
 // Fault injection is confined to this local test fixture. Reference captures
 // still use the real React Bits Pro iframe without mocked content or assets.
@@ -36,7 +36,14 @@ try {
     let rejected = false
     try {await waitForLocalStyles(page, 500)} catch {rejected = true}
     if (!rejected) throw new Error('Readiness accepted a failed stylesheet')
-    console.log(JSON.stringify({waitsForDelayedStylesheet: true, rejectsFailedStylesheet: true}))
+    await page.setContent('<div id="scroll-fixture" style="height:5rem;overflow:auto"><div style="height:40rem">Native scroll fixture</div></div>')
+    const scrollPane = page.locator('#scroll-fixture')
+    await scrollPane.evaluate((element) => element.scrollTo({top: 480, behavior: 'smooth'}))
+    await settleInlineApprovalScroll(scrollPane)
+    if (await scrollPane.evaluate((element) => element.scrollTop) !== 480) {
+        throw new Error('Readiness accepted an intermediate native scroll frame')
+    }
+    console.log(JSON.stringify({waitsForDelayedStylesheet: true, rejectsFailedStylesheet: true, waitsForNativeScroll: true}))
 } finally {
     releaseCss()
     await browser.close()
