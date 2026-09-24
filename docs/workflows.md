@@ -58,6 +58,14 @@ reviewer 拒绝同样进入 `needs_revision`，不能绕过修订直接重复原
 
 ## 检查点与恢复
 
+`workflow_execute` 将 1–8 个参数已知的工具调用按顺序送入同一 Run 的正常执行入口。注册表、路径、审批、取消和验收检查仍逐项执行；批次不是事务，前面已经成功的副作用不会因后续失败自动回滚。普通错误和图片结果停止批次，Agent 应先检查结果再决定后续操作。
+
+已知的范围修复路径可以在探测调用上声明 `continueOnScopeDenied: true`，但下一项必须是显式的 `workflow_expand_scope`。仅当 Host 确认该工具尚未开始执行、错误码为 `WORKFLOW_SCOPE_REQUIRED` 时才允许继续。子结果仍保留 `isError: true` 和 `continuedScopeDenial: true`，范围拒绝也保留在持久 Workflow 中；这不是忽略错误或自动扩大用户授权。权限拒绝、已开始的写入、插件伪造的错误元数据、未知效果、图片及其他错误均不得借此继续。
+
+因此，在参数和 Host 工具验收谓词已知时，可以用一次模型请求声明「范围探测 → 有界范围扩展 → 写入 → 读回 → checkpoint → Goal 完成」。Host 仍会拒绝缺少或失败的证据；需要解释结果的检查或显式人工验收不能提前完成。此机制减少控制往返，不保证任意任务都能在指定预算内完成。
+
+批次内省略的 checkpoint / scope 版本绑定到批次开始时的焦点和 Agent Plan，不会跟随子调用自动刷新。显式版本仍严格检查，旧 Plan 或被替换的焦点不能继续写入。模型工具 `workflow_expand_scope` 接受 `expectedRevision`，或完整的 `expectedFocusRevision` / `expectedPlanRevision` 二元身份，不能混用；独立调用不可省略版本。原公开 `workflow.expandScope` 命令保持数值 revision 的兼容契约。
+
 `workflow.checkpoint complete` 先写入带 operation ID 的 transition intent，再以 Plan CAS 完成当前步骤并把下一 pending 步骤设为 in_progress，最后结算 Workflow。Host 如果在任一步崩溃，恢复时会幂等补齐；若 Plan 已被其他写入改变，则进入 `needs_revision`，不会把旧结果写入新 Plan。
 
 Plan revision 或步骤文本发生变化时，旧焦点、委派与 reviewer 结果都会失效。Agent 使用 `workflow_focus` 为新 revision 建立焦点即可恢复。Workflow 最后一步完成只结算 Plan/Workflow，不修改 Goal。
