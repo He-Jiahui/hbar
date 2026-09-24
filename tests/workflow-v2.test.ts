@@ -231,6 +231,63 @@ test('control queries preserve rejection and the returned workflow revision rema
   ).toBe(true)
 })
 
+test('scope denial supplies the committed recovery identity without another model inspection turn', async () => {
+  const { root, kernel, session, plans, workflows } = await fixture()
+  await writeFile(join(root, 'proof.txt'), 'verified proof', 'utf8')
+  const plan = await plans.update(session.id, [{ step: 'Inspect the proof', status: 'in_progress' }])
+  await workflows.focus(
+    session.id,
+    0,
+    {
+      id: 'proof',
+      title: 'Inspect the proof',
+      scope: { readPaths: ['elsewhere'], writePaths: [], tools: ['read_file'] },
+      acceptanceChecks: [],
+    },
+    'agent',
+    plan.revision,
+  )
+  const deniedRun = await kernel.submit(
+    session.id,
+    'denied-hint',
+    { text: '/tool read_file {"path":"proof.txt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const result = (await kernel.snapshot(session.id)).messages
+    .filter((message) => message.runId === deniedRun.id)
+    .flatMap((message) => message.content)
+    .find((block) => block.type === 'tool_result' && block.isError)
+  if (result?.type !== 'tool_result') throw new Error('Expected scope denial result')
+  expect(result.text).toContain('does not grant new user permission')
+  const hint = /itemId=("[^"]+"), expectedRevision=(\d+)/.exec(result.text)
+  if (!hint?.[1] || !hint[2]) throw new Error('Expected usable committed scope recovery hint')
+  const itemId = z.string().parse(JSON.parse(hint[1]))
+  await kernel.submit(
+    session.id,
+    'use-denial-hint',
+    {
+      text: `/tool workflow_update ${JSON.stringify({ action: 'expand_scope', itemId, expectedRevision: Number(hint[2]), reason: 'Correct the scope of the already authorized proof', scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] } })}`,
+      images: [],
+    },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  expect((await workflows.get(session.id)).workflow).toMatchObject({ status: 'active', rejection: null })
+  await kernel.submit(
+    session.id,
+    'verified-read',
+    { text: '/tool read_file {"path":"proof.txt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const results = (await kernel.snapshot(session.id)).messages.flatMap((message) => message.content)
+  expect(
+    results.some((block) => block.type === 'tool_result' && !block.isError && block.text.includes('verified proof')),
+  ).toBe(true)
+  expect(results.some((block) => block.type === 'tool_result' && block.name === 'get_workflow')).toBe(false)
+})
+
 test('blocked checkpoints request autonomous revision instead of exposing a legacy blocked workflow state', async () => {
   const { session, plans, workflows } = await fixture()
   const plan = await plans.update(session.id, [{ step: 'Recover the bounded task', status: 'in_progress' }])

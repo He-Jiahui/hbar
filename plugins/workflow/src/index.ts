@@ -1960,6 +1960,8 @@ export class WorkflowRuntime implements WorkflowService {
       '<focus_workflow>',
       `Status: ${workflow.status}`,
       `Revision: ${workflow.revision}`,
+      `Plan revision: ${workflow.planRevision}`,
+      `Item ID: ${item ? escapeXml(item.id) : 'none'}`,
       `Current item: ${item ? escapeXml(item.title) : 'none'}`,
       `Exploration: ${workflow.explorationCount}/${this.config.maxExplorationCalls}`,
       `Allowed read paths: ${item?.scope.readPaths.map(escapeXml).join(', ') || 'none'}`,
@@ -1989,7 +1991,7 @@ export class WorkflowRuntime implements WorkflowService {
       planRevision: workflow.planRevision,
       activeStepTextHash: workflow.activeStepTextHash,
     })
-    await this.serial(context.session.id, async () => {
+    const rejected = await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
       if (!current || current.workflowId !== workflow.workflowId) return
       const count = current.rejection?.fingerprint === fingerprint ? current.rejection.count + 1 : 1
@@ -2001,10 +2003,14 @@ export class WorkflowRuntime implements WorkflowService {
         updatedAt: Date.now(),
       })
       await this.persistWorkflow(next, context.run.id, { rejection: { fingerprint, count, reason } })
+      return next
     })
+    const recovery = rejected?.activeItemId
+      ? `To correct scope within the authorized task, use workflow_update with action="expand_scope", itemId=${JSON.stringify(rejected.activeItemId)}, expectedRevision=${rejected.revision}, a bounded scope and reason. This does not grant new user permission. If the Agent Plan changed, inspect get_plan and replace workflow_focus instead.`
+      : 'Inspect get_workflow to recover the current focus before retrying.'
     throw new HbarError(
       'WORKFLOW_SCOPE_REQUIRED',
-      `${reason}${workflow.rejection?.count === 2 ? '; repeated denial moved the workflow to needs_revision' : ''}`,
+      `${reason}${rejected?.status === 'needs_revision' ? '; repeated denial moved the workflow to needs_revision' : ''}\n${recovery}`,
     )
   }
 
