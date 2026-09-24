@@ -2,6 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { z } from 'zod'
 import { emptyUsage } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
@@ -322,3 +323,55 @@ test('explicit resume starts a fresh intent but merely raising a paused Goal bud
   expect(turns).toBe(3)
   expect((await goals.get(session.id)).goal?.status).toBe('complete')
 })
+
+for (const change of ['pause', 'replace', 'clear'] as const) {
+  for (const source of ['user', 'goal'] as const) {
+    test(`${change} during a ${source} run prevents the next already-produced tool call from causing an effect`, async () => {
+      let effects = 0
+      let stop!: () => Promise<unknown>
+      const { kernel, session, goals } = await fixture(async (input) => {
+        await call(input, 'effect_probe', {})
+        await stop()
+        const callId = crypto.randomUUID()
+        await input.commit('assistant', [{ type: 'tool_call', callId, name: 'effect_probe', args: {} }])
+        const result = await input.execute('effect_probe', {}, callId)
+        expect(result.isError).toBe(true)
+        expect(result.text).toContain('paused, replaced or cleared')
+      })
+      const dispose = kernel.tools.register({
+        name: 'effect_probe',
+        description: 'Record a bounded fixture effect',
+        inputSchema: z.object({}),
+        effect: 'write',
+        workspaceAccess: { kind: 'none' },
+        execute: async () => {
+          effects++
+          return { text: 'effect recorded' }
+        },
+      })
+      await kernel.setPermissionMode('allow')
+      const goal = (await goals.create(session.id, 'Invalidate old tool calls')).goal!
+      stop = () =>
+        change === 'pause'
+          ? goals.set(session.id, { status: 'paused' })
+          : change === 'clear'
+            ? goals.clear(session.id)
+            : goals.set(session.id, { objective: 'Replacement task', expectedGoalId: goal.goalId })
+      try {
+        if (source === 'goal')
+          await goals.requestContinuation(session.id, {
+            goalId: goal.goalId!,
+            trigger: 'auto',
+            modelId: 'local-fixture',
+          })
+        else await kernel.submit(session.id, 'user-start', { text: 'Work', images: [] }, 'local-fixture')
+        await kernel.waitForIdle()
+        expect(effects).toBe(1)
+        if (change === 'replace')
+          expect((await goals.get(session.id)).goal).toMatchObject({ objective: 'Replacement task', tokensUsed: 0 })
+      } finally {
+        await dispose()
+      }
+    })
+  }
+}

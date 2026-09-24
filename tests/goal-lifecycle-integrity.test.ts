@@ -183,7 +183,7 @@ test('a run from a replaced goal cannot complete or charge the new objective', a
     await goals.set(session.id, { objective: 'Replacement task', expectedGoalId: original.goal?.goalId })
   })
   try {
-    await kernel.submit(
+    const run = await kernel.submit(
       session.id,
       'stale-goal-run',
       {
@@ -198,11 +198,10 @@ test('a run from a replaced goal cannot complete or charge the new objective', a
       status: 'active',
       tokensUsed: 0,
     })
+    expect((await kernel.storage.call('run', run.id)).failure?.code).toBe('CONTINUATION_STALE')
     expect(
-      (await kernel.snapshot(session.id)).messages
-        .flatMap((message) => message.content)
-        .some((block) => block.type === 'tool_result' && block.name === 'update_goal' && block.isError),
-    ).toBe(true)
+      (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'request.started'),
+    ).toHaveLength(0)
   } finally {
     await dispose()
   }

@@ -12,6 +12,7 @@ import type {
   ModelRequest,
   ModeService,
   ToolDefinition,
+  ToolContext,
 } from '@hbar/plugin-sdk'
 import { withExecutionBudget } from './execution-budget.ts'
 import { auditProgress, continuationIntentSchema, continuationState } from './continuation.ts'
@@ -628,6 +629,19 @@ class GoalRuntime implements GoalService {
     })
   }
 
+  private assertRunCurrent(sessionId: string, runId: string) {
+    const tracking = this.activeRuns.get(runId)
+    if (!tracking) return
+    const goal = this.goals.get(sessionId)
+    if (tracking.goalId !== goal?.goalId || goal.status === 'paused')
+      throw new HbarError('CONTINUATION_STALE', 'The Goal was paused, replaced or cleared during this run')
+  }
+
+  beforeTool(context: ToolContext) {
+    this.assertKnown(context.session.id)
+    this.assertRunCurrent(context.session.id, context.run.id)
+  }
+
   private async persistClear(sessionId: string, runId?: string) {
     await this.append(sessionId, 'goal.cleared', { sessionId }, runId)
     this.goals.delete(sessionId)
@@ -993,11 +1007,7 @@ class GoalRuntime implements GoalService {
     const sessionId = request.context?.sessionId
     if (sessionId) this.assertKnown(sessionId)
     const goal = sessionId ? this.goals.get(sessionId) : undefined
-    if (request.context?.source === 'goal' && request.context.runId) {
-      const tracking = this.activeRuns.get(request.context.runId)
-      if (tracking && (tracking.goalId !== goal?.goalId || goal.status === 'paused'))
-        throw new HbarError('CONTINUATION_STALE', 'Automatic continuation was invalidated')
-    }
+    if (sessionId && request.context?.runId) this.assertRunCurrent(sessionId, request.context.runId)
     if (request.context?.mode !== 'plan' && goal?.status === 'budget_limited')
       throw new HbarError(
         'GOAL_BUDGET_EXHAUSTED',
@@ -1110,6 +1120,7 @@ export const goalPlugin = definePlugin({
     api.hooks.on('session.idle', (event) => runtime.idle(event))
     api.hooks.on('session.continuationFailed', (event) => runtime.continuationFailed(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
+    api.hooks.on('tool.before', (event) => runtime.beforeTool(event.context))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },
 })
