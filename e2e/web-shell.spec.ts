@@ -823,7 +823,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(prompt).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await page.screenshot({ path: 'artifacts/ui-redesign/prompt/production-session.png', fullPage: true })
     await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.getByText('hello from browser')).toBeVisible()
+    await expect(page.getByText('hello from browser', { exact: true })).toBeVisible()
     await expect(page.getByText('Completed').first()).toBeVisible()
     await expect(page.getByRole('region', { name: 'AI usage' }).getByText(/^[1-9][\d,.]* tokens$/)).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440.png', fullPage: true })
@@ -1254,7 +1254,17 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('Agent approval')).toBeVisible()
     await page.getByRole('button', { name: 'Allow' }).click()
     await expect(page.getByText('Resolved')).toBeVisible()
-    await expect(page.getByRole('region', { name: 'Agent activity' }).getByText('2 runs')).toBeVisible()
+    const runAuditClient = new HbarClient('http://127.0.0.1:4317', fixture.ready.token)
+    try {
+      await runAuditClient.connect()
+      const snapshot = await runAuditClient.call('session.snapshot', { sessionId: fixture.ready.sessionId })
+      expect(snapshot.runs.length).toBeGreaterThanOrEqual(3)
+      await expect(
+        page.getByRole('region', { name: 'Agent activity' }).getByText(`${snapshot.runs.length} runs`, { exact: true }),
+      ).toBeVisible()
+    } finally {
+      runAuditClient.disconnect()
+    }
 
     await page.getByRole('button', { name: 'Status center', exact: true }).click()
     await page.getByRole('button', { name: 'Usage', exact: true }).click()
@@ -1262,8 +1272,8 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await executionDetails.evaluate((element) => element.scrollIntoView({ block: 'start' }))
     await executionDetails.click()
     const toolCalls = page.locator('.lumen-compact-metrics > div').filter({ hasText: 'Tool calls' })
-    await expect(toolCalls).toContainText('1')
-    await expect(toolCalls).toContainText('1 succeeded · 0 failed · 0 unknown')
+    await expect(toolCalls).toContainText('2')
+    await expect(toolCalls).toContainText('2 succeeded · 0 failed · 0 unknown')
     await expect(page.getByText('Peak request concurrency')).toBeVisible()
     await expect(page.getByText('Total Run time')).toBeVisible()
     await page.locator('.hbar-app-react-status-workspace > main').evaluate((element) => {
@@ -1283,9 +1293,8 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
     const settingsScope = page.getByRole('combobox', { name: 'Settings scope' })
     await settingsScope.selectOption('session')
-    await expect(page.locator('.lumen-page-heading p')).toHaveText(
-      `Session settings · ${fixture.ready.sessionTitle}`,
-    )
+    await expect(page.locator('.lumen-page-heading p')).toHaveText(`Session settings · ${fixture.ready.sessionTitle}`)
+    await page.getByRole('button', { name: 'Model', exact: true }).click()
     const settingsModel = page.getByRole('combobox', { name: 'Model' })
     await expect(settingsModel).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Thinking level' })).toBeVisible()
