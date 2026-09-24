@@ -104,7 +104,20 @@ try {
       sessionId: session.id,
       modelId: 'local-fixture',
       input: {
-        text: `/tool workflow_execute ${JSON.stringify({ calls: [{ name: 'get_plan', arguments: {} }] })}`,
+        text: `/tool workflow_execute ${JSON.stringify({
+          calls: [
+            { name: 'list_directory', arguments: { path: '.' }, continueOnScopeDenied: true },
+            {
+              name: 'workflow_expand_scope',
+              arguments: {
+                itemId: 'native-proof',
+                scope: { readPaths: ['.'], writePaths: [], tools: ['list_directory'] },
+                reason: 'Inspect the authorized native fixture workspace',
+              },
+            },
+            { name: 'get_plan', arguments: {} },
+          ],
+        })}`,
         images: [],
       },
     },
@@ -140,6 +153,24 @@ try {
       .flatMap((message) => message.content)
       .filter((block) => block.type === 'tool_result' && block.isError),
   ).toEqual([])
+  const sequenceResult = probeSnapshot.messages
+    .flatMap((message) => message.content)
+    .find((block) => block.type === 'tool_result' && block.name === 'workflow_execute')
+  if (sequenceResult?.type !== 'tool_result') throw new Error('Native scope recovery result is missing')
+  const recovery = z
+    .object({
+      completed: z.literal(3),
+      requested: z.literal(3),
+      results: z.array(
+        z.object({ name: z.string(), isError: z.boolean(), continuedScopeDenial: z.boolean().optional() }),
+      ),
+    })
+    .parse(JSON.parse(sequenceResult.text))
+  expect(recovery.results).toEqual([
+    { name: 'list_directory', isError: true, continuedScopeDenial: true },
+    { name: 'workflow_expand_scope', isError: false },
+    { name: 'get_plan', isError: false },
+  ])
   await createBudgetCommandClient(api).execute(
     'session.setBudget',
     { sessionId: session.id, tokens: 120000 },
@@ -224,6 +255,7 @@ try {
         hostContextBoundaryLoaded: true,
         freshPlanContextLoaded: true,
         boundedSequenceQuerySucceeded: true,
+        boundedScopeRecoverySucceeded: true,
         dualBudgetVisible: true,
         planReadOnly: true,
         completionGuard: true,
@@ -236,7 +268,7 @@ try {
     ),
   )
   console.log(
-    'PASS: rebuilt native WebView verifies compact control catalog and sequence, dual budgets, read-only/live Plan, guarded Goal completion, reopen/clear subscription, title/Usage flow at 1440 and 900.',
+    'PASS: rebuilt native WebView verifies compact control catalog, bounded scope-denial recovery, dual budgets, read-only/live Plan, guarded Goal completion, reopen/clear subscription, title/Usage flow at 1440 and 900.',
   )
 } finally {
   client?.disconnect()
