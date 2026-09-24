@@ -722,6 +722,7 @@ export class WorkflowRuntime implements WorkflowService {
   private async persistWorkflow(workflow: WorkflowState, runId?: string, data: Record<string, unknown> = {}) {
     await this.api.sessions.append(workflow.sessionId, 'workflow.updated', { workflow, ...data }, runId)
     this.workflows.set(workflow.sessionId, workflow)
+    this.api.sessions.wake(workflow.sessionId)
     return this.publish(workflow.sessionId)
   }
 
@@ -1817,21 +1818,16 @@ export class WorkflowRuntime implements WorkflowService {
     const current = result.workflow
     if (resumeModelId && current && current.review?.status !== 'stale') {
       const goal = await this.goals.get(sessionId)
-      if (goal.goal?.status === 'active' && (goal.remainingTokens === null || goal.remainingTokens > 0))
-        await this.api.sessions.submit(
-          sessionId,
-          `workflow-review-${reviewId}`,
-          {
-            text:
-              verdict === 'approved'
-                ? `Independent review approved the prior focus: ${summary}. Continue the authoritative Agent Plan and Goal.`
-                : `Independent review rejected the prior focus: ${summary}. Revise the focus and continue without asking the user to decide.`,
-            images: [],
-            files: [],
-            source: 'goal',
-          },
-          resumeModelId,
-        )
+      if (goal.goal?.goalId && ['active', 'budget_limited'].includes(goal.goal.status))
+        await this.goals.requestContinuation(sessionId, {
+          goalId: goal.goal.goalId,
+          trigger: `workflow-review-${reviewId}`,
+          modelId: resumeModelId,
+          text:
+            verdict === 'approved'
+              ? `Independent review approved the prior focus: ${summary}. Continue the authoritative Agent Plan and Goal.`
+              : `Independent review rejected the prior focus: ${summary}. Revise the focus and continue without asking the user to decide.`,
+        })
     }
     return result
   }

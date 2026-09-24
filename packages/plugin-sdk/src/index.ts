@@ -177,6 +177,8 @@ export interface SessionService {
   events(id: string, after?: number, limit?: number): Promise<SessionEvent[]>
   create(workspaceId: string, title?: string, parentId?: string): Promise<Session>
   submit(sessionId: string, requestId: string, input: UserInput, modelId: string): Promise<Run>
+  /** Wake the Host idle dispatcher; this does not enqueue a model turn. */
+  wake(sessionId: string): void
   cancel(runId: string): Promise<void>
   snapshot(sessionId: string): Promise<SessionSnapshot>
   workspace(workspaceId: string): Promise<Workspace>
@@ -201,6 +203,10 @@ export interface GoalService {
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
   update(sessionId: string, status: 'complete' | 'blocked', runId?: string): Promise<GoalToolResponse>
   clear(sessionId: string): Promise<{ cleared: boolean }>
+  requestContinuation(
+    sessionId: string,
+    input: { goalId: string; trigger: string; modelId: string; text?: string },
+  ): Promise<void>
 }
 export interface PlanService {
   get(sessionId: string): Promise<PlanState | null>
@@ -439,6 +445,8 @@ export interface HookEvents {
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'run.cancelRequested': { sessionId: string; runId: string; run: Run }
+  'session.idle': { sessionId: string; submission?: { requestId: string; input: UserInput; modelId: string } }
+  'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean }
   /** Published after the session budget fact has been committed. */
   'budget.committed': { sessionId: string; budget: SessionBudget | null }
   'goal.beforeComplete': {

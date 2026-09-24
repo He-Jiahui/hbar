@@ -10,9 +10,13 @@ import type {
   HbarAPI,
   HookEvents,
   ModelRequest,
+  ModeService,
   ToolDefinition,
 } from '@hbar/plugin-sdk'
 import { withExecutionBudget } from './execution-budget.ts'
+import { auditProgress, continuationIntentSchema, continuationState } from './continuation.ts'
+import type { ContinuationIntent } from './continuation.ts'
+import type { GoalContinuation } from '@hbar/contracts'
 
 const MAX_EVENTS = 100_000
 const MAX_AUDIT_RUNS = 32
@@ -35,7 +39,7 @@ export const goalConfigSchema = z.object({
   // Codex leaves this unset by default. When present it is both the upper
   // bound and the default budget for newly-created goals.
   maxTokenBudget: z.number().int().positive().max(1_000_000_000).nullable().default(null),
-  maxContinuations: z.number().int().min(0).max(100).default(8),
+  maxContinuations: z.number().int().min(0).max(100).nullable().default(null),
   autoContinue: z.boolean().default(true),
 })
 export type GoalConfig = z.infer<typeof goalConfigSchema>
@@ -49,6 +53,10 @@ const persistedGoalSchema = threadGoalSchema.extend({
   continuationCount: z.number().int().nonnegative().default(0),
   accountedRuns: z.array(z.string().min(1).max(160)).max(MAX_ACCOUNTED_RUNS).default([]),
   budgetResumeIntent: z.boolean().default(false),
+  continuationIntent: continuationIntentSchema.nullable().default(null),
+  continuationTriggers: z.array(z.string().max(200)).max(512).default([]),
+  progressKeys: z.array(z.string()).max(512).default([]),
+  noProgressStreak: z.number().int().nonnegative().default(0),
 })
 type PersistedGoal = z.infer<typeof persistedGoalSchema>
 
@@ -75,6 +83,7 @@ function publicGoal(goal: PersistedGoal): ThreadGoal {
     createdAt: goal.createdAt,
     updatedAt: goal.updatedAt,
     ...(goal.executionBudget ? { executionBudget: goal.executionBudget } : {}),
+    ...(goal.continuationIntent ? { continuation: continuationState(goal.continuationIntent) } : {}),
   }
 }
 
@@ -164,6 +173,7 @@ class GoalRuntime implements GoalService {
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
   private uncertainSessions = new Set<string>()
+  private continuationTriggers = new Map<string, Set<string>>()
 
   constructor(
     private api: HbarAPI,
@@ -175,6 +185,7 @@ class GoalRuntime implements GoalService {
     this.boundRuns.clear()
     this.goals.clear()
     this.uncertainSessions.clear()
+    this.continuationTriggers.clear()
     const sessions = await this.api.sessions.list()
     for (let offset = 0; offset < sessions.length; offset += 8) {
       const batch = sessions.slice(offset, offset + 8)
@@ -197,12 +208,14 @@ class GoalRuntime implements GoalService {
             }
             if (event.type === 'goal.cleared') {
               this.goals.delete(session.id)
+              this.continuationTriggers.delete(session.id)
               continue
             }
             const goal = eventGoal(event)
             if (goal) {
               if (goal.threadId !== session.id)
                 throw new HbarError('GOAL_REPLAY', `Invalid goal event in ${session.id}`)
+              this.rememberTriggers(goal)
               this.goals.set(session.id, goal)
               for (const runId of goal.accountedRuns) {
                 this.boundRuns.add(runId)
@@ -243,7 +256,17 @@ class GoalRuntime implements GoalService {
           }
           const goal = this.goals.get(session.id)
           if (goal) {
-            const normalized = await this.withBudget(goal)
+            let normalized = await this.withBudget(goal)
+            const intent = normalized.continuationIntent
+            if (intent && ['running', 'queued'].includes(intent.phase)) {
+              const terminal = [...settled.values()].find((run) => run.input.continuation?.intentId === intent.intentId)
+              if (terminal)
+                normalized = this.withContinuation(
+                  normalized,
+                  'stopped',
+                  terminal.failure?.category === 'result_unknown' ? 'result_unknown' : 'interrupted',
+                )
+            }
             if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
           }
         }),
@@ -305,9 +328,52 @@ class GoalRuntime implements GoalService {
   }
 
   async startRun(event: HookEvents['run.start']) {
-    if (event.run.input.mode === 'plan') return
     await this.serial(event.sessionId, async () => {
-      const goal = this.goals.get(event.sessionId)
+      let goal = this.goals.get(event.sessionId)
+      const binding = event.run.input.continuation
+      if (binding) {
+        if (
+          !goal ||
+          goal.goalId !== binding.goalId ||
+          goal.continuationIntent?.intentId !== binding.intentId ||
+          !['queued', 'pending', 'waiting'].includes(goal.continuationIntent.phase)
+        )
+          throw new HbarError('CONTINUATION_STALE', 'Automatic continuation no longer matches the active Goal')
+        const mode = await this.api.service<ModeService>('mode').get(event.sessionId)
+        const admission = await this.api.hooks.dispatch('goal.beforeContinue', {
+          sessionId: event.sessionId,
+          runId: event.runId,
+          goal: publicGoal(goal),
+          allowed: true,
+        })
+        if (!admission.allowed || mode.mode === 'plan' || goal.status !== 'active') {
+          const waiting = this.withContinuation(
+            goal,
+            'waiting',
+            goal.status === 'budget_limited'
+              ? 'budget_exhausted'
+              : mode.mode === 'plan'
+                ? 'plan_mode'
+                : 'workflow_wait',
+          )
+          await this.persist({
+            ...waiting,
+            continuationIntent: {
+              ...goal.continuationIntent,
+              ...waiting.continuationIntent,
+              intentId: crypto.randomUUID(),
+            },
+          })
+          throw new HbarError('CONTINUATION_WAIT', 'Automatic work is waiting for its execution conditions')
+        }
+        goal = await this.persist(
+          { ...this.withContinuation(goal, 'running', 'goal_active'), continuationCount: goal.continuationCount + 1 },
+          event.runId,
+        )
+      } else if (goal?.continuationIntent && event.run.input.source !== 'goal') {
+        goal = await this.persist(this.withContinuation(goal, 'stopped', 'user_turn'), event.runId)
+      }
+      if (event.run.input.mode === 'plan') return
       if (!goal || !statusAllowsAccounting(goal.status, 'active-only')) return
       await this.registerRun(event.runId, goal, event.run.startedAt ?? event.run.createdAt)
     })
@@ -393,7 +459,10 @@ class GoalRuntime implements GoalService {
 
   private async persist(goal: PersistedGoal, runId?: string, type = 'goal.updated', accounting?: RunAccounting) {
     goal = await this.withBudget(goal)
+    if (goal.continuationIntent && ['paused', 'complete', 'blocked', 'usage_limited'].includes(goal.status))
+      goal = this.withContinuation(goal, 'stopped', goal.status as 'paused' | 'complete' | 'blocked' | 'usage_limited')
     const event = await this.append(goal.threadId, type, { goal, ...(accounting ? { accounting } : {}) }, runId)
+    this.rememberTriggers(goal)
     this.goals.set(goal.threadId, goal)
     if (accounting && runId) {
       this.activeRuns.set(runId, accounting)
@@ -404,11 +473,22 @@ class GoalRuntime implements GoalService {
       params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: publicGoal(goal) },
     })
     this.api.changed('goals')
+    if (this.hydrated && goal.continuationIntent && ['pending', 'waiting'].includes(goal.continuationIntent.phase))
+      this.api.sessions.wake(goal.threadId)
     return goal
   }
 
   private async withBudget(goal: PersistedGoal) {
     return withExecutionBudget(goal, await this.api.service<BudgetService>('budget').get(goal.threadId))
+  }
+
+  private rememberTriggers(goal: PersistedGoal) {
+    const known =
+      this.goals.get(goal.threadId)?.goalId === goal.goalId
+        ? (this.continuationTriggers.get(goal.threadId) ?? new Set<string>())
+        : new Set<string>()
+    for (const trigger of goal.continuationTriggers) known.add(trigger)
+    this.continuationTriggers.set(goal.threadId, known)
   }
 
   async refreshBudget(sessionId: string) {
@@ -425,9 +505,113 @@ class GoalRuntime implements GoalService {
     return response(this.goals.get(sessionId) ?? null, completionBudgetReport)
   }
 
+  private withContinuation(
+    goal: PersistedGoal,
+    phase: GoalContinuation['phase'],
+    reason: GoalContinuation['reason'],
+  ): PersistedGoal {
+    if (!goal.continuationIntent) return goal
+    if (goal.continuationIntent.phase === phase && goal.continuationIntent.reason === reason) return goal
+    return { ...goal, continuationIntent: { ...goal.continuationIntent, phase, reason, updatedAt: Date.now() } }
+  }
+
+  async requestContinuation(
+    sessionId: string,
+    input: { goalId: string; trigger: string; modelId: string; text?: string },
+  ) {
+    await this.serial(sessionId, async () => {
+      const goal = this.goals.get(sessionId)
+      if (!goal || goal.goalId !== input.goalId) return
+      await this.queueContinuation(goal, input)
+    })
+  }
+
+  private async queueContinuation(goal: PersistedGoal, input: { trigger: string; modelId: string; text?: string }) {
+    if (
+      !this.config.autoContinue ||
+      !['active', 'budget_limited'].includes(goal.status) ||
+      this.continuationTriggers.get(goal.threadId)?.has(input.trigger)
+    )
+      return
+    const prior = goal.continuationIntent
+    const intent: ContinuationIntent =
+      prior?.phase === 'queued'
+        ? prior
+        : continuationIntentSchema.parse({
+            intentId:
+              prior && ['pending', 'waiting', 'queued'].includes(prior.phase) ? prior.intentId : crypto.randomUUID(),
+            goalId: goal.goalId,
+            trigger: input.trigger,
+            modelId: input.modelId,
+            text: input.text ?? '',
+            phase: 'pending',
+            reason: 'goal_active',
+            updatedAt: Date.now(),
+          })
+    await this.persist({
+      ...goal,
+      continuationIntent: intent,
+      continuationTriggers: [...goal.continuationTriggers, input.trigger].slice(-512),
+    })
+  }
+
+  async idle(event: HookEvents['session.idle']): Promise<HookEvents['session.idle']> {
+    return this.serial(event.sessionId, async () => {
+      const goal = this.goals.get(event.sessionId)
+      const intent = goal?.continuationIntent
+      if (!goal || !intent || !['pending', 'waiting', 'queued'].includes(intent.phase)) return event
+      let reason: GoalContinuation['reason'] | undefined
+      if (!this.config.autoContinue) reason = 'disabled'
+      else if (goal.status === 'budget_limited') reason = 'budget_exhausted'
+      else if (goal.status !== 'active') return event
+      else if ((await this.api.service<ModeService>('mode').get(event.sessionId)).mode === 'plan') reason = 'plan_mode'
+      else if (this.config.maxContinuations !== null && goal.continuationCount >= this.config.maxContinuations)
+        reason = 'continuation_limit'
+      else {
+        const admission = await this.api.hooks.dispatch('goal.beforeContinue', {
+          sessionId: event.sessionId,
+          runId: intent.trigger,
+          goal: publicGoal(goal),
+          allowed: true,
+        })
+        if (!admission.allowed) reason = 'workflow_wait'
+      }
+      const next = this.withContinuation(
+        goal,
+        reason ? (['disabled', 'continuation_limit'].includes(reason) ? 'stopped' : 'waiting') : 'queued',
+        reason ?? 'goal_active',
+      )
+      if (next !== goal) await this.persist(next)
+      if (reason) return event
+      return {
+        ...event,
+        submission: {
+          requestId: `goal-${intent.intentId}`,
+          modelId: intent.modelId,
+          input: {
+            text: intent.text,
+            images: [],
+            source: 'goal',
+            mode: 'default',
+            continuation: { goalId: goal.goalId, intentId: intent.intentId },
+          },
+        },
+      }
+    })
+  }
+
+  async continuationFailed(event: HookEvents['session.continuationFailed']) {
+    await this.serial(event.sessionId, async () => {
+      const goal = this.goals.get(event.sessionId)
+      if (goal?.continuationIntent && event.requestId === `goal-${goal.continuationIntent.intentId}`)
+        await this.persist(this.withContinuation(goal, 'stopped', event.unknown ? 'result_unknown' : 'run_failed'))
+    })
+  }
+
   private async persistClear(sessionId: string, runId?: string) {
     await this.append(sessionId, 'goal.cleared', { sessionId }, runId)
     this.goals.delete(sessionId)
+    this.continuationTriggers.delete(sessionId)
     this.api.notify({ method: 'goal.cleared', params: { sessionId } })
     this.api.changed('goals')
   }
@@ -482,6 +666,10 @@ class GoalRuntime implements GoalService {
         continuationCount: 0,
         accountedRuns: [],
         budgetResumeIntent: false,
+        continuationIntent: null,
+        continuationTriggers: [],
+        progressKeys: [],
+        noProgressStreak: 0,
       }
       const accounting: RunAccounting | undefined = runId
         ? {
@@ -550,6 +738,10 @@ class GoalRuntime implements GoalService {
           continuationCount: 0,
           accountedRuns: [],
           budgetResumeIntent: false,
+          continuationIntent: null,
+          continuationTriggers: [],
+          progressKeys: [],
+          noProgressStreak: 0,
         }
         await this.persist(goal)
         return this.result(sessionId)
@@ -579,6 +771,10 @@ class GoalRuntime implements GoalService {
           continuationCount: 0,
           accountedRuns: [],
           budgetResumeIntent: false,
+          continuationIntent: null,
+          continuationTriggers: [],
+          progressKeys: [],
+          noProgressStreak: 0,
         }
         await this.persist(goal, undefined, 'goal.created')
         await this.api.hooks.dispatch('goal.replaced', {
@@ -604,7 +800,23 @@ class GoalRuntime implements GoalService {
           ? { executionFailureStreak: 0, executionFailureRuns: [] }
           : {}),
       }
-      return this.persistTransition(existing, goal)
+      await this.persistTransition(existing, goal)
+      const committed = this.goals.get(sessionId)!
+      if (
+        input.status === 'active' &&
+        committed.status === 'active' &&
+        committed.continuationIntent?.phase === 'stopped'
+      ) {
+        await this.queueContinuation(
+          { ...committed, noProgressStreak: 0 },
+          {
+            trigger: `resume-${crypto.randomUUID()}`,
+            modelId: committed.continuationIntent.modelId,
+            text: committed.continuationIntent.text,
+          },
+        )
+      }
+      return this.result(sessionId, goal.status === 'complete' ? completionReport(committed) : undefined)
     })
   }
 
@@ -694,7 +906,9 @@ class GoalRuntime implements GoalService {
               : event.status === 'failed' && existing.status === 'active'
                 ? 'blocked'
                 : existing.status
-      const goal = await this.persist(
+      const progress = auditProgress(events, event.runId, existing.progressKeys)
+      const noProgressStreak = progress.progress ? 0 : existing.noProgressStreak + 1
+      let goal = await this.persist(
         {
           ...existing,
           status,
@@ -702,44 +916,25 @@ class GoalRuntime implements GoalService {
           executionFailureStreak: usageLimited || autoBlocked ? 0 : failureStreak,
           executionFailureRuns: usageLimited || autoBlocked ? [] : failureRuns,
           accountedRuns: [...existing.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
+          progressKeys: progress.keys,
+          noProgressStreak,
         },
         event.runId,
         'goal.accounted',
       )
       this.activeRuns.delete(event.runId)
+      const noTools = run.input.source === 'goal' && progress.toolCalls === 0
       if (
-        this.config.autoContinue &&
-        event.status === 'completed' &&
         goal.status === 'active' &&
-        goal.continuationCount < this.config.maxContinuations
+        event.status === 'completed' &&
+        (noTools || (run.input.source === 'goal' && noProgressStreak >= 3))
       ) {
-        const continuation = await this.api.hooks.dispatch('goal.beforeContinue', {
-          sessionId: event.sessionId,
-          runId: event.runId,
-          goal: publicGoal(goal),
-          allowed: true,
-        })
-        if (!continuation.allowed) return
-        const next: PersistedGoal = { ...goal, continuationCount: goal.continuationCount + 1, updatedAt: Date.now() }
-        await this.persist(next, event.runId)
-        try {
-          await this.api.sessions.submit(
-            event.sessionId,
-            `goal-${crypto.randomUUID()}`,
-            { text: '', images: [], source: 'goal' },
-            run.modelId,
-          )
-        } catch (error) {
-          await this.api.sessions.append(
-            event.sessionId,
-            'goal.continuation_failed',
-            {
-              error: error instanceof Error ? error.message : String(error),
-            },
-            event.runId,
-          )
-        }
+        goal = this.withContinuation(goal, 'stopped', noTools ? 'no_tool_calls' : 'no_progress')
+        await this.persist(goal, event.runId)
+        return
       }
+      if (event.status === 'completed' || goal.status === 'budget_limited')
+        await this.queueContinuation(goal, { trigger: event.runId, modelId: run.modelId })
     })
   }
 
@@ -747,6 +942,11 @@ class GoalRuntime implements GoalService {
     const sessionId = request.context?.sessionId
     if (sessionId) this.assertKnown(sessionId)
     const goal = sessionId ? this.goals.get(sessionId) : undefined
+    if (request.context?.source === 'goal' && request.context.runId) {
+      const tracking = this.activeRuns.get(request.context.runId)
+      if (tracking && (tracking.goalId !== goal?.goalId || goal.status === 'paused'))
+        throw new HbarError('CONTINUATION_STALE', 'Automatic continuation was invalidated')
+    }
     if (request.context?.mode !== 'plan' && goal?.status === 'budget_limited')
       throw new HbarError(
         'GOAL_BUDGET_EXHAUSTED',
@@ -836,7 +1036,7 @@ export const goalPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { goal: '1.0.0' },
-    requires: { storage: '^1.0.0', budget: '^1.0.0' },
+    requires: { storage: '^1.0.0', budget: '^1.0.0', mode: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: goalConfigSchema,
@@ -851,6 +1051,8 @@ export const goalPlugin = definePlugin({
     api.hooks.on('budget.committed', (event) => runtime.refreshBudget(event.sessionId))
     api.hooks.on('run.end', (event) => runtime.accountRun(event))
     api.hooks.on('run.cancelRequested', (event) => runtime.cancelRun(event))
+    api.hooks.on('session.idle', (event) => runtime.idle(event))
+    api.hooks.on('session.continuationFailed', (event) => runtime.continuationFailed(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },

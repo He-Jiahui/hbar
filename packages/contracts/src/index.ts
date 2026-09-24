@@ -76,6 +76,32 @@ export const executionBudgetSchema = z.object({
   limitingSource: z.enum(['goal', 'session', 'both']).nullable(),
 })
 export type ExecutionBudget = z.infer<typeof executionBudgetSchema>
+export const goalContinuationSchema = z.object({
+  intentId: idSchema,
+  phase: z.enum(['pending', 'queued', 'running', 'waiting', 'stopped']),
+  reason: z.enum([
+    'goal_active',
+    'workflow_wait',
+    'plan_mode',
+    'budget_exhausted',
+    'paused',
+    'complete',
+    'blocked',
+    'usage_limited',
+    'no_tool_calls',
+    'no_progress',
+    'continuation_limit',
+    'disabled',
+    'interrupted',
+    'result_unknown',
+    'stale_goal',
+    'user_turn',
+    'run_failed',
+  ]),
+  trigger: z.string().min(1).max(200),
+  updatedAt: z.number().int().nonnegative(),
+})
+export type GoalContinuation = z.infer<typeof goalContinuationSchema>
 export const threadGoalSchema = z.object({
   threadId: idSchema,
   /** Internal identity used to reject stale external mutations. */
@@ -88,6 +114,7 @@ export const threadGoalSchema = z.object({
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
   executionBudget: executionBudgetSchema.optional(),
+  continuation: goalContinuationSchema.optional(),
 })
 export type ThreadGoal = z.infer<typeof threadGoalSchema>
 const userInputIdSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
@@ -369,6 +396,7 @@ export const inputSchema = z.object({
   approval: approvalModeSchema.optional(),
   mode: runModeSchema.optional(),
   source: runSourceSchema.optional(),
+  continuation: z.object({ goalId: idSchema, intentId: idSchema }).optional(),
 })
 export type UserInput = z.infer<typeof inputSchema>
 export const usageSchema = z.object({

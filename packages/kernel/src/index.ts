@@ -227,6 +227,7 @@ export class Kernel {
   private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
   private admissions = 0
   private closing = false
+  private readyForRuns = false
   recovered = 0
   private constructor(
     readonly options: ResolvedKernelOptions,
@@ -257,6 +258,7 @@ export class Kernel {
           children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           create: (id, title, parentId) => this.createSession(id, title, parentId),
           submit: (...args) => this.submit(...args),
+          wake: (id) => this.kick(id),
           cancel: (id) => this.cancel(id),
           snapshot: (id) => this.snapshot(id),
           workspace: (id) => this.storage.call('workspace', id),
@@ -377,7 +379,10 @@ export class Kernel {
             reasoning: true,
           }),
         )
-      for (const sessionId of await kernel.storage.call('queuedSessions')) kernel.kick(sessionId)
+      kernel.readyForRuns = true
+      // Only persisted continuation intents can start new work. Old active
+      // Goals without an intent remain inert during this startup scan.
+      for (const session of await kernel.storage.call('sessions')) kernel.kick(session.id)
       return kernel
     } catch (error) {
       await kernel.storage.close()
@@ -683,7 +688,8 @@ export class Kernel {
       if (run.status === 'queued') {
         if (run.queuedEvent) {
           // Only a newly accepted turn clears unresolved interactive requests.
-          await this.clearPendingUserInputs(sessionId, new HbarError('USER_INPUT_CANCELLED', 'A new turn started'))
+          if (input.source !== 'goal')
+            await this.clearPendingUserInputs(sessionId, new HbarError('USER_INPUT_CANCELLED', 'A new turn started'))
           this.publishEvent(run.queuedEvent)
         }
         this.kick(sessionId)
@@ -696,7 +702,7 @@ export class Kernel {
   }
   private kick(sessionId: string) {
     this.wakeups.add(sessionId)
-    if (this.drains.has(sessionId) || this.closing) return
+    if (this.drains.has(sessionId) || this.closing || this.maintenance || !this.readyForRuns) return
     const drain = this.drain(sessionId)
       .catch((error) => {
         console.error('Session driver failed:', error)
@@ -711,7 +717,39 @@ export class Kernel {
     while (!this.closing) {
       this.wakeups.delete(sessionId)
       const run = await this.storage.call('claim', sessionId)
-      if (!run) return
+      if (!run) {
+        if (
+          this.active.has(sessionId) ||
+          [...this.userInputs.values()].some(({ request }) => request.sessionId === sessionId)
+        )
+          return
+        const idle = await this.hooks.dispatch('session.idle', { sessionId })
+        if (!idle.submission || this.closing) return
+        let submitted: Run
+        try {
+          submitted = await this.submit(
+            sessionId,
+            idle.submission.requestId,
+            idle.submission.input,
+            idle.submission.modelId,
+          )
+        } catch (error) {
+          // Admission may have committed before its acknowledgement was lost.
+          // Reconcile the same request identity, never generate a replacement.
+          const found = await this.storage.call('runByRequest', sessionId, idle.submission.requestId)
+          if (found) submitted = found.run
+          else {
+            await this.hooks.dispatch('session.continuationFailed', {
+              sessionId,
+              requestId: idle.submission.requestId,
+              unknown: !(error instanceof HbarError) || error.code === 'RESULT_UNKNOWN',
+            })
+            return
+          }
+        }
+        if (submitted.status !== 'queued') return
+        continue
+      }
       if (this.cancelled.has(run.id)) {
         this.publishEvent(await this.storage.call('setRun', run.id, 'cancelled'))
         this.cancelled.delete(run.id)
@@ -1293,6 +1331,7 @@ export class Kernel {
       return plugins
     } finally {
       this.maintenance = false
+      for (const sessionId of this.wakeups) this.kick(sessionId)
     }
   }
   async installPlugin(path: string, projectId?: string) {

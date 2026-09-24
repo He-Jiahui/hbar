@@ -639,7 +639,9 @@ const methods: StorageMethods = {
       if (db.query("SELECT id FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval')").get(sessionId))
         return null
       const row = db
-        .query("SELECT * FROM runs WHERE sessionId=? AND status='queued' ORDER BY createdAt,rowid LIMIT 1")
+        .query(
+          "SELECT * FROM runs WHERE sessionId=? AND status='queued' ORDER BY CASE WHEN json_extract(input,'$.source')='goal' THEN 1 ELSE 0 END,createdAt,rowid LIMIT 1",
+        )
         .get(sessionId) as Row | null
       if (!row) return null
       db.query("UPDATE runs SET status='running',startedAt=? WHERE id=?").run(Date.now(), row.id as string)

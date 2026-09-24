@@ -30,6 +30,12 @@ Run 保留兼容的 `error` 文本，并可附带 `failure`（`code`、`category
 
 启动恢复会先补结算已写入但尚未经过 step/end 回调的 usage，再开放模型请求。Goal 仅结算具有持久归属且已经终止的 Run；session budget 则按其游标结算遗漏的会话用量。已经写入的用户取消即使遗漏 Goal 回调也会恢复为暂停。这一步只恢复账目与停止状态，不重放工具，也不凭旧的 active 状态自动启动运行。
 
+## 自动续跑调度
+
+Goal 结束一轮、reviewer 返回与预算恢复使用同一个持久化续跑意图，由 Host 在会话空闲时提交。意图绑定 `goalId`、触发事件和稳定请求 ID；同一会话只有一个待处理意图，触发去重从历史事件恢复。用户排队消息先于自动消息执行；暂停、替换和清除会在实际运行入口使旧意图失效。提交确认丢失时按原请求 ID 核对，不能生成新 ID 重放。Plan mode、Workflow 等待与预算不足保留等待原因；配置未就绪时不调度。
+
+新配置的 `maxContinuations` 默认为 `null`，有可验证进展时不再固定停止于 8 轮。显式轮数上限仍有效，并公开 `continuation_limit`。自动轮次没有工具调用时停止为 `no_tool_calls`；新的成功工具结果和实质 Plan 更新计为进展，纯状态查询、重复同一结果或重复同一 Plan 不计为进展，连续三轮无进展停止为 `no_progress`。Host 的 `goal.continuation` 提供阶段与原因；显式恢复可生成新意图，单纯修改暂停目标的预算不能恢复执行。旧 active Goal 没有持久意图时不会在升级后自动运行。
+
 ## 焦点与范围
 
 `workflow.focus.set`（模型工具 `workflow_focus`）为某个 Agent Plan 步骤设置或完整替换焦点。焦点绑定：

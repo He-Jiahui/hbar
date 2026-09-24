@@ -208,6 +208,7 @@ class PlanRuntime implements PlanService {
       await this.api.sessions.append(sessionId, 'mode.changed', { mode })
       this.modes.set(sessionId, mode)
       this.api.notify({ method: 'mode.changed', params: { sessionId, mode } })
+      this.api.sessions.wake(sessionId)
       this.api.changed('modes')
       return { mode }
     })
