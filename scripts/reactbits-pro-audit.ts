@@ -236,6 +236,8 @@ export type InteractionCase = Readonly<{
     | 'inline-request-open'
     | 'diff-request-open'
     | 'cost-request-open'
+    | 'history-match'
+    | 'history-empty'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1575,6 +1577,11 @@ export async function settleInlineApprovalScroll(root: Locator): Promise<void> {
   })
 }
 
+async function prepareHistoryScenario(root: Locator, scenario: 'history-match' | 'history-empty'): Promise<void> {
+  if (scenario === 'history-empty') await root.locator('button').nth(2).click()
+  await root.locator('input').fill(scenario === 'history-match' ? 'Maya' : 'audit sample')
+}
+
 async function prepareInlineApprovalScenario(root: Locator): Promise<void> {
   const trigger = root.getByRole('button', { name: 'Show request', exact: true })
   // Settle the native scroll event before opening the disclosure, so its edge
@@ -2098,6 +2105,11 @@ async function replayInteraction(
     await prepareDiffApprovalScenario(root)
   if (spec.id === 'hbar-app-ui-agent-approval-5' && interaction.scenario === 'cost-request-open')
     await prepareInlineApprovalScenario(root)
+  if (
+    spec.id === 'hbar-app-ui-agent-approval-6' &&
+    (interaction.scenario === 'history-match' || interaction.scenario === 'history-empty')
+  )
+    await prepareHistoryScenario(root, interaction.scenario)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2193,6 +2205,11 @@ async function replayReferenceInteraction(
     await prepareDiffApprovalScenario(root)
   if (reference.id === 'hbar-app-ui-agent-approval-5' && interaction.scenario === 'cost-request-open')
     await prepareInlineApprovalScenario(root)
+  if (
+    reference.id === 'hbar-app-ui-agent-approval-6' &&
+    (interaction.scenario === 'history-match' || interaction.scenario === 'history-empty')
+  )
+    await prepareHistoryScenario(root, interaction.scenario)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2744,6 +2761,13 @@ async function runInteractionsParallel(
               if (!visibleControls(expanded).some((control) => control.tag === 'pre'))
                 throw new Error('Missing focusable live cost request')
               discovered.push(...interactionCases(expanded, spec.id, 'cost-request-open'))
+            }
+            if (spec.id === 'hbar-app-ui-agent-approval-6') {
+              for (const scenario of ['history-match', 'history-empty'] as const) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareHistoryScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
             }
             if (spec.id === 'hbar-app-ui-agent-approval-3') {
               for (const plan of queueApprovalScenarioPlans) {

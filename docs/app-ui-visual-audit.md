@@ -50,14 +50,14 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 - `source-inventory.json` / `local-inventory.json`：38/300 发现与本地映射；
 - `capture-manifest.json`：每个 source/local 截图、上下文截图和语义快照；
 - `structure-report.json`：DOM/ARIA/几何/文本容量/溢出/截断/控件形状；
-- `interaction-report.json`：真实 iframe 每个可见控件、每个适用动作的操作前后状态；完整控件清单保存在语义快照中；
+- `interaction-report.json`：已审阅选样计划中每个实际动作的操作前后状态；访问状态的完整控件清单保存在语义快照中，未回放的等价项单列推断依据；
 - `interaction-run.json`：所选变体、视口、主题、源目录与本地实现代码/fixture 的续跑指纹；同一输出目录仅在指纹一致时复用。每个动作在全新浏览器上下文中重放，只有源/本地截图和快照均完整、且动作/画布指纹未变化的 `comparison.json` 才能续用；错误和残缺案例重新测试。静态清单也记录实现指纹；代码变化后的旧截图不能标记为验收通过。
 - `visual-report.json`：静态和交互截图差异、尺寸差、MAE/RMSE、变化像素和反馈幅度；
 - `review-ledger.json`：逐变体、逐交互的 passed/needs-fix 记录；
 - `report.html`：可人工浏览的汇总表。
 
 交互必须从 React Bits Pro iframe 真实 DOM 发现，不能只读取本地 `profile.controls`。即使
-多个控件有相同 `tag/type/role`，也必须按各自稳定 ID 逐个回放；每个动作保存
+多个控件有相同 `tag/type/role`，仍保留各自稳定 ID；是否需要单独回放按行为差异判断，不仅按控件形状合并。每个选中的真实动作保存
 `before.png`、`after.png`、`source-state.json`、
 `lumen-state.json` 和 `comparison.json`。结果分类为 `matched`、`lumen-different`、
 `missing`、`source-no-op`、`blocked`、`not-applicable` 或 `error`。旧的
@@ -73,7 +73,7 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 ## 类别修复边界
 
 按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
-控件顺序、状态和响应式流，再用 flex/grid/正常文档流实现；只有真实 dialog/menu/drawer/
+控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/
 popover overlay 才能使用定位。内容、文案、集合和容量继续由宿主 contract 提供，不能在可复用
 组件中硬编码源文案或伪造记录。图标使用共享语义尺寸等级；每个类别通过后独立提交子模块、
 wrapper、fixture、测试和审计证据。

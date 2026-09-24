@@ -309,18 +309,23 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
     listStrategy: { kind: 'content-grown', expectedMaximum: 3 },
   },
   history: {
+    historyId: 'approval-history',
+    query: '',
     labels: {
       title: 'Approval history',
       export: 'Export',
       searchLabel: 'Search history',
       filtersLabel: 'Approval history filters',
+      emptyTitle: 'No decisions match',
+      emptyDescription: 'Clear the search or switch the filter to see the full history.',
+      clearFilters: 'Clear filters',
     },
     searchPlaceholder: 'Search decisions',
     filters: [
-      { id: 'all', label: 'All' },
-      { id: 'approved', label: 'Approved' },
-      { id: 'skipped', label: 'Skipped' },
-      { id: 'expired', label: 'Expired' },
+      { id: 'all', label: 'all' },
+      { id: 'approved', label: 'approved' },
+      { id: 'skipped', label: 'skipped' },
+      { id: 'expired', label: 'expired' },
     ],
     activeFilterId: 'all',
     entries: approvalHistory.map(([id, title, detail, stateLabel, when, state]) => ({
@@ -572,6 +577,9 @@ export function createHbarAppUiAgentApprovalLocalizedFixtures(): HbarAppUiAgentA
         title: 'Genehmigungsverlauf für diesen Arbeitsbereich',
         export: 'Verlauf exportieren',
         searchLabel: 'Entscheidungen durchsuchen',
+        emptyTitle: 'Keine passenden Entscheidungen',
+        emptyDescription: 'Löschen Sie den Suchtext oder ändern Sie den Filter, um den vollständigen Verlauf zu sehen.',
+        clearFilters: 'Filter zurücksetzen',
       },
       searchPlaceholder: 'Entscheidungen mit langen Beschreibungen durchsuchen',
       filters: [

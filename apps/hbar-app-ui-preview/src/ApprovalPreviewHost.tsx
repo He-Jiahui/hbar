@@ -4,6 +4,7 @@ import { HbarAppUiAgentApprovalProvider, type HbarAppUiAgentApprovalContent } fr
 import { createApprovalPreviewStore, projectApprovalPreviewContent } from './approval-preview-model'
 import { createPermissionPreviewStore, projectPermissionPreviewContent } from './permission-preview-model'
 import { createCostPreviewStore, projectCostPreviewContent } from './cost-preview-model'
+import { createHistoryPreviewStore, projectHistoryPreviewContent } from './history-preview-model'
 
 export function ApprovalPreviewHost({
   content,
@@ -30,9 +31,13 @@ export function ApprovalPreviewHost({
   useLayoutEffect(() => costStore.getState().replace(content.cost), [content.cost, costStore])
   const costState = useStore(costStore)
   const cost = useMemo(() => projectCostPreviewContent(costState), [costState])
+  const [historyStore] = useState(() => createHistoryPreviewStore(content.history))
+  useLayoutEffect(() => historyStore.getState().replace(content.history), [content.history, historyStore])
+  const historyState = useStore(historyStore)
+  const history = useMemo(() => projectHistoryPreviewContent(historyState), [historyState])
   const projected = useMemo(
-    () => ({ ...projectApprovalPreviewContent(state), permission, cost }),
-    [state, permission, cost],
+    () => ({ ...projectApprovalPreviewContent(state), permission, cost, history }),
+    [state, permission, cost, history],
   )
   return <HbarAppUiAgentApprovalProvider content={projected}>{children}</HbarAppUiAgentApprovalProvider>
 }

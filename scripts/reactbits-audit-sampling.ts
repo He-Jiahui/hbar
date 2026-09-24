@@ -242,10 +242,69 @@ const costPlan: AuditSamplingPlan = {
   ],
 }
 
+const historyPlan: AuditSamplingPlan = {
+  revision: 1,
+  lumenEntries: ['agent-approval.tsx', 'LumenProvider.tsx'],
+  samples: [
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '0:press-enter',
+      change: 'Export: observe real download/no-op result without inventing success feedback',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '3:click',
+      change: 'Pressed filter reduces eight records to four approved decisions',
+    },
+    { viewport: 'desktop', theme: 'dark', suffix: '1:focus', change: 'Search control keyboard focus feedback' },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '1:fill',
+      change: 'Unmatched search replaces the list with a recovery empty state',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: 'history-match:4:click',
+      change: 'Detail search matches Maya; composing with skipped filter produces no results',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: '3:press-space',
+      change: 'Narrow keyboard filter preserves stacked controls and hidden timestamps',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'history-empty:6:click',
+      change: 'Clear resets both query and approved filter and restores all records',
+    },
+  ],
+  inferences: [
+    {
+      scope: 'Other filter values and query strings',
+      basis:
+        'The same ID membership and case-insensitive title/detail predicate is used; all filter counts, composed matches, empty/recovery, stale IDs and duplicate entries have unit coverage.',
+      verification: 'inferred-not-replayed',
+    },
+    {
+      scope: 'Passive history rows and repeated gestures/themes/viewport combinations',
+      basis:
+        'Rows have no controls. Shared native button behavior is sampled by click and Space; search focus and eight static viewport/theme pairs cover visual boundaries without a Cartesian replay.',
+      verification: 'inferred-not-replayed',
+    },
+  ],
+}
+
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
   if (variantId === 'hbar-app-ui-agent-approval-5') return costPlan
+  if (variantId === 'hbar-app-ui-agent-approval-6') return historyPlan
   return undefined
 }
 

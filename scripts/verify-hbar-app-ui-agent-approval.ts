@@ -2,6 +2,7 @@ import { chromium, expect } from '@playwright/test'
 import { verifyQueueApproval } from './verify-hbar-app-ui-agent-approval-queue'
 import { verifyPermissionApproval } from './verify-hbar-app-ui-agent-approval-permission'
 import { verifyCostApproval } from './verify-hbar-app-ui-agent-approval-cost'
+import { verifyHistoryApproval } from './verify-hbar-app-ui-agent-approval-history'
 import {
   HBAR_APP_UI_AGENT_APPROVAL_FIXTURES,
   createHbarAppUiAgentApprovalLocalizedFixtures,
@@ -14,6 +15,7 @@ const diffOnly = process.argv.includes('--diff-only')
 const queueOnly = process.argv.includes('--queue-only')
 const permissionOnly = process.argv.includes('--permission-only')
 const costOnly = process.argv.includes('--cost-only')
+const historyOnly = process.argv.includes('--history-only')
 type AgentApprovalFixture = 'overflow' | 'localized'
 type GeometryBox = Readonly<{ x: number; y: number; width: number; height: number }>
 type GeometryExpectation = Readonly<{
@@ -206,7 +208,7 @@ async function verifyReferenceGeometry(page: import('@playwright/test').Page): P
         expectations: [
           {
             name: 'history search',
-            selector: '.hbar-app-ui-agent-approval-search',
+            selector: '.hbar-app-ui-agent-approval-history-search',
             expected: { x: 24, y: 64, width: 320, height: 32 },
           },
           {
@@ -223,7 +225,7 @@ async function verifyReferenceGeometry(page: import('@playwright/test').Page): P
         expectations: [
           {
             name: 'history search',
-            selector: '.hbar-app-ui-agent-approval-search',
+            selector: '.hbar-app-ui-agent-approval-history-search',
             expected: { x: 16, y: 56, width: 288, height: 32 },
           },
           {
@@ -567,6 +569,11 @@ async function run(): Promise<void> {
   page.on('pageerror', (error) => pageErrors.push(error.message))
 
   try {
+    if (historyOnly) {
+      await verifyHistoryApproval(page, baseUrl)
+      assert(pageErrors.length === 0, `History preview errors: ${pageErrors.join(' | ')}`)
+      return
+    }
     if (costOnly) {
       await verifyCostApproval(page, baseUrl)
       assert(pageErrors.length === 0, `Cost preview errors: ${pageErrors.join(' | ')}`)
@@ -672,7 +679,7 @@ async function run(): Promise<void> {
     )
 
     await page.goto(previewUrl(6), { waitUntil: 'networkidle' })
-    await page.getByRole('tab', { name: 'Skipped', exact: true }).click()
+    await page.getByRole('button', { name: 'skipped', exact: true }).click()
     assert(
       (await page.locator('.hbar-app-ui-agent-approval-history-pane > ul > li').count()) === 3,
       'Approval history filter did not narrow entries',

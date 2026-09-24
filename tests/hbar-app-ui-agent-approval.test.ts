@@ -59,7 +59,7 @@ describe('hbar-app-ui agent approval surfaces', () => {
     expect(markup[3]).toContain('data-boundary="none"')
     expect(markup[4]).toContain('data-boundary="none"')
     for (const surface of markup.slice(5)) {
-      expect(surface).toContain('data-boundary="horizontal"')
+      expect(surface).toContain('data-boundary="none"')
     }
     for (const surface of markup) {
       const normalized = surface.toLocaleLowerCase()
@@ -95,7 +95,7 @@ describe('hbar-app-ui agent approval surfaces', () => {
     expect(permission).toContain('data-hbar-app-ui-list-strategy="content-grown"')
     expect(permission).toContain('<h3')
     expect(permission).not.toContain('<pre')
-    expect(history).toContain('aria-label="Search history"')
+    expect(history).toContain('>Search history</label>')
     expect(history).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
   })
 

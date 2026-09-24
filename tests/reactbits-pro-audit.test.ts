@@ -337,6 +337,18 @@ describe('React Bits Pro visual audit contract', () => {
     expect(checkableStates('- button "Text with [checked]"')).toEqual([])
   })
 
+  test('history samples data-changing groups and recovery without clicking passive rows', () => {
+    const id = 'hbar-app-ui-agent-approval-6'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(7)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toHaveLength(5)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toHaveLength(2)
+    expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([])
+    expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(
+      true,
+    )
+    expect(sampledInteractionIds(id, 'stress', 'light')).toContain(`${id}:history-empty:6:click`)
+  })
+
   test('cost approval samples distinct outcomes and wrapping instead of passive metrics', () => {
     const id = 'hbar-app-ui-agent-approval-5'
     expect(auditSamplingPlan(id)?.samples).toHaveLength(7)
