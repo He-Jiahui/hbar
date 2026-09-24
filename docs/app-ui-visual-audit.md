@@ -25,7 +25,10 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 动作前会强制回到静态参考画布；目录哈希、画布指纹或源/本地实现不一致时不能复用旧案例。
 浏览器外窗尺寸不等于原版 iframe 内容画布尺寸（例如 390 宽外窗中的 iframe 可能只有 356 宽）。
 每次 live 捕获会记录 iframe 实际宽高与参考舞台 padding，并在本地隔离预览中复用相同可用空间；
-本地组件自身已有的内边距会从舞台 padding 中扣除，避免同一空间重复计算。缺少这些元数据的
+本地组件自身已有的内边距会从舞台 padding 中扣除，避免同一空间重复计算。
+显式声明 `hbar-app-ui-full-canvas-owner` 的组件已经拥有整个 iframe
+画布的布局和滚动，其隔离画布外层不再注入任何参考 padding；组件自身的真实留白仍保留在截图中，
+不能由捕获器补齐或掩盖。其他组件继续使用已有的内边距扣除规则。缺少这些元数据的
 旧 source 缓存不能用于 `--local-only` 几何验收，必须重新捕获原版。
 
 live 参考可通过以下变量配置：

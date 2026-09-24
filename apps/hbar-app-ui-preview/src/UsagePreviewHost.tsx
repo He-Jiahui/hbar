@@ -6,14 +6,15 @@ import { usageOverviewDatasets } from '../../../tests/fixtures/hbar-app-ui-usage
 import { createUsageOverviewPreviewStore, projectUsageOverviewPreview } from './usage-overview-preview-model'
 import { modelSpendFixture } from '../../../tests/fixtures/hbar-app-ui-usage-model-fixtures'
 import { createUsageModelPreviewStore, projectUsageModelPreview } from './usage-model-preview-model'
+import { usageLimitFixture } from '../../../tests/fixtures/hbar-app-ui-usage-limit-fixtures'
+import { createUsageLimitPreviewStore, projectUsageLimitPreview } from './usage-limit-preview-model'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const [tier, setTier] = useState('team'),
-    [query, setQuery] = useState(''),
+  const [query, setQuery] = useState(''),
     [teamOnly, setTeamOnly] = useState(false),
     [cap, setCap] = useState('60'),
     [threshold, setThreshold] = useState('80'),
@@ -28,6 +29,11 @@ export function UsagePreviewHost({
   const [modelFixture] = useState(() => modelSpendFixture(mode))
   const [modelStore] = useState(() => createUsageModelPreviewStore(modelFixture.records))
   const modelSpend = projectUsageModelPreview(useStore(modelStore), modelFixture.content, modelFixture.pagination)
+  const [limitFixture] = useState(() => usageLimitFixture(mode))
+  const [limitStore] = useState(() => createUsageLimitPreviewStore(limitFixture.tiers, limitFixture.metrics))
+  const rateLimits = projectUsageLimitPreview(useStore(limitStore), limitFixture.copy, (tierId) =>
+    report('request-increase', tierId),
+  )
   function collection<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
     return mode === 'empty'
       ? []
@@ -43,11 +49,7 @@ export function UsagePreviewHost({
       content={{
         overview,
         modelSpend,
-        rateLimits: {
-          ...base.rateLimits,
-          meters: mode === 'empty' ? [] : base.rateLimits.meters,
-          tier: { ...base.rateLimits.tier!, value: tier, onChange: setTier },
-        },
+        rateLimits,
         seats: {
           ...base.seats,
           strategy: mode === 'overflow' ? 'virtual' : 'content-grown',

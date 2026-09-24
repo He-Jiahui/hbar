@@ -1,6 +1,7 @@
 import type { HbarAppUiUsageContent, UsageMeter } from '../../packages/hbar-app-ui/src/ai-usage'
 import { USAGE_OVERVIEW_FIXTURE } from './hbar-app-ui-usage-overview-fixtures'
 import { USAGE_MODEL_FIXTURE } from './hbar-app-ui-usage-model-fixtures'
+import { USAGE_LIMIT_FIXTURE } from './hbar-app-ui-usage-limit-fixtures'
 const noop = () => {}
 const tiers = [
   { id: 'starter', label: 'Starter' },
@@ -19,17 +20,7 @@ const meter = (id: string, label: string, value: string, progress: number, detai
 export const USAGE_FIXTURES: { [K in keyof HbarAppUiUsageContent]-?: NonNullable<HbarAppUiUsageContent[K]> } = {
   overview: USAGE_OVERVIEW_FIXTURE,
   modelSpend: USAGE_MODEL_FIXTURE,
-  rateLimits: {
-    title: 'Rate limits',
-    description: 'Utilisation per window',
-    emptyLabel: 'No limits configured',
-    tier: { label: 'Rate limit tier', value: 'team', options: tiers, onChange: noop },
-    meters: [
-      meter('minute', 'Per minute', '62%', 62, 'Resets in 38s'),
-      meter('hour', 'Per hour', '44%', 44, 'Resets in 22m'),
-      { ...meter('day', 'Per day', '78%', 78, 'Resets tomorrow'), tone: 'warning' },
-    ],
-  },
+  rateLimits: USAGE_LIMIT_FIXTURE,
   seats: {
     title: 'Per-seat usage',
     description: 'Team filters and individual caps',

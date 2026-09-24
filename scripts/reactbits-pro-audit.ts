@@ -120,7 +120,12 @@ export type ReferenceCanvas = Readonly<{
 
 type CanvasPadding = ReferenceCanvas['padding']
 
-export function alignedCanvasPadding(reference: CanvasPadding, localInset: CanvasPadding): CanvasPadding {
+export function alignedCanvasPadding(
+  reference: CanvasPadding,
+  localInset: CanvasPadding,
+  fullCanvas = false,
+): CanvasPadding {
+  if (fullCanvas) return { top: 0, right: 0, bottom: 0, left: 0 }
   return {
     top: Math.max(0, reference.top - localInset.top),
     right: Math.max(0, reference.right - localInset.right),
@@ -254,6 +259,7 @@ export type InteractionCase = Readonly<{
     | 'usage-detail'
     | 'usage-model-requests'
     | 'usage-model-row'
+    | 'usage-limits-raised'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -926,9 +932,11 @@ async function applyLocalCanvas(
         value.left += Number.parseFloat(style.paddingLeft) || 0
         ancestor = ancestor.parentElement
       }
-      return value
+      return { padding: value, fullCanvas: Boolean(element.querySelector('.hbar-app-ui-full-canvas-owner')) }
     }, componentSelector)
-  const padding = alignedCanvasPadding(canvas.padding, inset)
+  // A full-canvas owner already lays itself out against the iframe viewport.
+  // Injecting the reference's padding here would alter (and conceal) its layout.
+  const padding = alignedCanvasPadding(canvas.padding, inset.padding, inset.fullCanvas)
   // The source preview is an iframe viewport. A taller child is clipped by
   // that viewport; the isolated local stage must not scroll its own root.
   const clipLogViewport = selector.includes('hbar-app-ui-agent-activity-5')
@@ -2455,6 +2463,8 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-ai-usage-1' && usageScenario) await prepareUsageOverviewScenario(root, usageScenario)
   if (spec.id === 'hbar-app-ui-ai-usage-2' && interaction.scenario === 'usage-model-requests')
     await root.getByRole('tab', { name: 'Requests', exact: true }).click()
+  if (spec.id === 'hbar-app-ui-ai-usage-3' && interaction.scenario === 'usage-limits-raised')
+    await root.getByRole('tab', { name: 'Tier 2', exact: true }).click()
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2572,6 +2582,8 @@ async function replayReferenceInteraction(
     await prepareUsageOverviewScenario(root, usageScenario)
   if (reference.id === 'hbar-app-ui-ai-usage-2' && interaction.scenario === 'usage-model-requests')
     await root.getByRole('tab', { name: 'Requests', exact: true }).click()
+  if (reference.id === 'hbar-app-ui-ai-usage-3' && interaction.scenario === 'usage-limits-raised')
+    await root.getByRole('tab', { name: 'Tier 2', exact: true }).click()
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3169,6 +3181,15 @@ async function runInteractionsParallel(
                   ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'usage-model-requests'),
                 )
               }
+            }
+            if (
+              spec.id === 'hbar-app-ui-ai-usage-3' &&
+              (!sampleIds || sampleIds.some((id) => id.includes(':usage-limits-raised:')))
+            ) {
+              await sourceRoot.getByRole('tab', { name: 'Tier 2', exact: true }).click()
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'usage-limits-raised'),
+              )
             }
             if (spec.id === 'hbar-app-ui-agent-plan-2') {
               for (const scenario of ['plan-draft', 'plan-running'] as const) {

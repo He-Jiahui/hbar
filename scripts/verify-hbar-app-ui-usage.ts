@@ -2,6 +2,7 @@ import { chromium, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { verifyUsageOverview } from './verify-hbar-app-ui-usage-overview'
 import { verifyUsageModel } from './verify-hbar-app-ui-usage-model'
+import { verifyUsageLimits } from './verify-hbar-app-ui-usage-limits'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 let server: ReturnType<typeof Bun.spawn> | undefined
@@ -38,6 +39,9 @@ try {
   } else if (process.argv.includes('--model-only')) {
     await verifyUsageModel(page, baseUrl)
     expect(errors).toEqual([])
+  } else if (process.argv.includes('--limits-only')) {
+    await verifyUsageLimits(page, baseUrl)
+    expect(errors).toEqual([])
   } else {
     for (const theme of ['dark', 'light'])
       for (const width of [1192, 768, 320]) {
@@ -50,7 +54,9 @@ try {
                 ? '.lumen-usage-overview'
                 : variant === 2
                   ? '.lumen-usage-model-table'
-                  : '.hbar-app-ui-usage-content',
+                  : variant === 3
+                    ? '.lumen-usage-rate-panel'
+                    : '.hbar-app-ui-usage-content',
             ),
           ).toBeVisible()
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -83,6 +89,7 @@ try {
     await page.getByRole('button', { name: 'Expand request req_91a2', exact: true }).click()
     await expect(page.locator('pre')).toContainText('model=balanced')
     await verifyUsageModel(page, baseUrl)
+    await verifyUsageLimits(page, baseUrl)
     expect(errors).toEqual([])
     console.log(
       JSON.stringify({

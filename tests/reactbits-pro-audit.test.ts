@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('rate limits sample tier outcomes and request feedback without clicking passive meters', () => {
+  const plan = auditSamplingPlan('hbar-app-ui-ai-usage-3')!
+  expect(plan.samples).toHaveLength(5)
+  expect(sampledInteractionIds('hbar-app-ui-ai-usage-3', 'stress', 'light')).toEqual([
+    'hbar-app-ui-ai-usage-3:usage-limits-raised:0:press-enter',
+  ])
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('model spend samples three sort outcomes and a passive row without repeated model clicks', () => {
   const plan = auditSamplingPlan('hbar-app-ui-ai-usage-2')!
   expect(plan.samples).toHaveLength(6)
@@ -636,6 +645,13 @@ describe('React Bits Pro visual audit contract', () => {
     expect(
       alignedCanvasPadding({ top: 24, right: 24, bottom: 24, left: 24 }, { top: 0, right: 0, bottom: 0, left: 0 }),
     ).toEqual({ top: 24, right: 24, bottom: 24, left: 24 })
+    expect(
+      alignedCanvasPadding(
+        { top: 24, right: 24, bottom: 24, left: 24 },
+        { top: 0, right: 24, bottom: 0, left: 24 },
+        true,
+      ),
+    ).toEqual({ top: 0, right: 0, bottom: 0, left: 0 })
   })
 
   test('resumes only a matching case with complete paired before/after captures', () => {

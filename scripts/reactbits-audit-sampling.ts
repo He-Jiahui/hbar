@@ -760,6 +760,58 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-ai-usage-3')
+    return {
+      revision: 1,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Tier 2 increases all ceilings and clears the near-capacity warning without changing current usage',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '2:press-enter',
+          change: 'Tier 3 changes ceilings, ratios and the highest-tier footer through keyboard activation',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'usage-limits-raised:0:press-enter',
+          change: 'Returning to Tier 1 restores the capacity warning and narrow meter values',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '3:click',
+          change:
+            'Request an increase has no visible result in the public preview; do not invent successful submission',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '3:hover',
+          change: 'Footer request control has representative pointer feedback',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated tier gestures, focus and remaining widths/themes',
+          basis:
+            'Three distinct tier outcomes and a narrow return are replayed. The same controlled tabs and projection handle other equivalent gestures; static pairs cover responsive geometry.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Passive utilisation meters',
+          basis:
+            'The source exposes progressbar values but no meter action. Ratio and capacity updates are verified together on tier changes rather than clicking each bar.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 
