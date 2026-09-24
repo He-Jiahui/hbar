@@ -29,7 +29,9 @@ const piUsage = (): PiUsage => ({
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 })
 const normalizeUsage = (usage: PiUsage): Usage => ({
-  input: usage.input,
+  // Pi separates uncached, cache-read and cache-write buckets. Hbar's input is
+  // inclusive; its budget layer subtracts cache reads exactly once.
+  input: usage.input + usage.cacheRead + usage.cacheWrite,
   output: usage.output,
   cacheRead: usage.cacheRead,
   cacheWrite: usage.cacheWrite,
