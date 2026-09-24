@@ -18,6 +18,8 @@ Plan Mode 只在对话中产出 proposed plan。回到 Default mode 后，Agent 
 
 Workflow 完成最后一个 Plan 步骤后不会擅自完成 Goal。Agent 仍需根据 objective 的停止条件调用 `update_goal complete`。Goal 可以在没有 Workflow 时独立运行。
 
+Goal 的 Host `maxTokenBudget` 是上限；兼容 `goal.set` 参数中的同名字段只能收紧它。新建、替换和普通预算更新共用这一上限，`tokenBudget: null` 也不能取消 Host 已配置的限制。
+
 ## 焦点与范围
 
 `workflow.focus.set`（模型工具 `workflow_focus`）为某个 Agent Plan 步骤设置或完整替换焦点。焦点绑定：

@@ -81,6 +81,44 @@ test('goal creation and null budget updates follow the configured maximum', asyn
   expect(kept.goal?.tokenBudget).toBe(200)
   const unbounded = await goals.set(session.id, { tokenBudget: null, expectedGoalId: created.goal?.goalId })
   expect(unbounded.goal?.tokenBudget).toBe(200)
+  await expectRejected(goals.set(session.id, { tokenBudget: 1000, maxTokenBudget: 2000 }), 'maximum allowed')
+  const stillBounded = await goals.set(session.id, { tokenBudget: null, maxTokenBudget: 2000 })
+  expect(stillBounded.goal?.tokenBudget).toBe(200)
+  const tightened = await goals.set(session.id, { tokenBudget: null, maxTokenBudget: 150 })
+  expect(tightened.goal?.tokenBudget).toBe(150)
+  await expectRejected(goals.set(session.id, { maxTokenBudget: 0 }), 'positive integers')
+})
+
+test('public goal set cannot override Host budget limits during creation or replacement', async () => {
+  const { kernel, session } = await fixture()
+  await kernel.changePlugin('goal.codex', true, { maxTokenBudget: 200, autoContinue: false, maxContinuations: 0 })
+  const goals = kernel.plugins.get<GoalService>('goal')
+  await expectRejected(
+    goals.set(session.id, {
+      objective: 'Over-budget creation',
+      tokenBudget: 1000,
+      maxTokenBudget: 2000,
+    }),
+    'maximum allowed',
+  )
+  expect((await goals.get(session.id)).goal).toBeNull()
+  const original = await goals.create(session.id, 'Original bounded objective')
+  await expectRejected(
+    goals.set(session.id, {
+      objective: 'Over-budget replacement',
+      expectedGoalId: original.goal?.goalId,
+      tokenBudget: 1000,
+      maxTokenBudget: 2000,
+    }),
+    'maximum allowed',
+  )
+  expect((await goals.get(session.id)).goal?.goalId).toBe(original.goal?.goalId)
+  const replacement = await goals.set(session.id, {
+    objective: 'Bounded replacement',
+    expectedGoalId: original.goal?.goalId,
+    maxTokenBudget: 2000,
+  })
+  expect(replacement.goal?.tokenBudget).toBe(200)
 })
 
 test('goal accounting uses input minus cache plus output and plan-mode runs are excluded', async () => {

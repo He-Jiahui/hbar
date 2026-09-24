@@ -391,7 +391,16 @@ class GoalRuntime implements GoalService {
       const objective =
         input.objective === undefined || input.objective === null ? undefined : this.validateObjective(input.objective)
       const budgetWasProvided = input.tokenBudget !== undefined
-      const maxTokenBudget = input.maxTokenBudget ?? this.config.maxTokenBudget
+      const hostMaximum = this.config.maxTokenBudget
+      const requestedMaximum = input.maxTokenBudget
+      if (requestedMaximum !== undefined && (!Number.isSafeInteger(requestedMaximum) || requestedMaximum <= 0))
+        throw new HbarError('GOAL_INVALID', 'Goal budget limits must be positive integers')
+      const maxTokenBudget =
+        requestedMaximum === undefined
+          ? hostMaximum
+          : hostMaximum === null
+            ? requestedMaximum
+            : Math.min(hostMaximum, requestedMaximum)
       const budget = budgetWasProvided
         ? this.validateBudget(input.tokenBudget ?? maxTokenBudget, maxTokenBudget)
         : undefined
