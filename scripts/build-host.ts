@@ -2,8 +2,8 @@ import { cp, mkdir, rm } from 'node:fs/promises'
 import { resolve, join, relative } from 'node:path'
 import './icons'
 import './build-native-tools'
-import { optionalBundleExternals } from './bundle-externals'
 import { copyBuildArtifact } from './copy-build-artifact'
+import { buildHostBundle } from './build-host-bundle'
 
 const project = resolve(import.meta.dir, '..')
 const output = resolve(project, 'dist/desktop-resources')
@@ -14,17 +14,7 @@ for (const [entry, name] of [
   ['apps/host/src/main.ts', 'host.js'],
   ['packages/storage/src/worker.ts', 'storage-worker.js'],
 ] as const) {
-  const build = await Bun.build({
-    entrypoints: [entry],
-    outdir: output,
-    naming: name,
-    target: 'bun',
-    packages: 'bundle',
-    external: [...optionalBundleExternals],
-    minify: false,
-    sourcemap: 'external',
-  })
-  if (!build.success) throw new AggregateError(build.logs, `Failed to build ${entry}`)
+  await buildHostBundle(entry, name, output)
 }
 await copyBuildArtifact(process.execPath, join(output, process.platform === 'win32' ? 'bun.exe' : 'bun'))
 await mkdir(nativeOutput, { recursive: true })
