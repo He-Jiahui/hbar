@@ -43,6 +43,8 @@ export const goalConfigSchema = z.object({
   maxTokenBudget: z.number().int().positive().max(1_000_000_000).nullable().default(null),
   maxContinuations: z.number().int().min(0).max(100).nullable().default(null),
   autoContinue: z.boolean().default(true),
+  maxTransientRetries: z.number().int().min(0).max(5).default(2),
+  retryDelayMs: z.number().int().min(10).max(30_000).default(1000),
 })
 export type GoalConfig = z.infer<typeof goalConfigSchema>
 
@@ -62,6 +64,7 @@ const persistedGoalSchema = threadGoalSchema.extend({
   noProgressStreak: z.number().int().nonnegative().default(0),
   repairKey: z.string().nullable().default(null),
   repairAttempts: z.number().int().nonnegative().default(0),
+  transientRetries: z.number().int().nonnegative().default(0),
 })
 type PersistedGoal = z.infer<typeof persistedGoalSchema>
 
@@ -486,7 +489,11 @@ class GoalRuntime implements GoalService {
       params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: publicGoal(goal) },
     })
     this.api.changed('goals')
-    if (this.hydrated && goal.continuationIntent && ['pending', 'waiting'].includes(goal.continuationIntent.phase))
+    if (
+      this.hydrated &&
+      goal.continuationIntent &&
+      ['pending', 'waiting', 'stopped'].includes(goal.continuationIntent.phase)
+    )
       this.api.sessions.wake(goal.threadId)
     return goal
   }
@@ -555,7 +562,10 @@ class GoalRuntime implements GoalService {
     })
   }
 
-  private async queueContinuation(goal: PersistedGoal, input: { trigger: string; modelId: string; text?: string }) {
+  private async queueContinuation(
+    goal: PersistedGoal,
+    input: { trigger: string; modelId: string; text?: string; retryAt?: number },
+  ) {
     if (
       !this.config.autoContinue ||
       !['active', 'budget_limited'].includes(goal.status) ||
@@ -574,7 +584,8 @@ class GoalRuntime implements GoalService {
             modelId: input.modelId,
             text: input.text ?? '',
             phase: 'pending',
-            reason: 'goal_active',
+            reason: input.retryAt === undefined ? 'goal_active' : 'retry_wait',
+            ...(input.retryAt === undefined ? {} : { retryAt: input.retryAt }),
             updatedAt: Date.now(),
           })
     await this.persist({
@@ -606,6 +617,11 @@ class GoalRuntime implements GoalService {
         })
         if (!admission.allowed) reason = 'workflow_wait'
         else if (admission.reason === 'repair') executionReason = 'repair'
+      }
+      if (!reason && intent.retryAt !== undefined && intent.retryAt > Date.now()) {
+        const waiting = this.withContinuation(goal, 'waiting', 'retry_wait')
+        if (waiting !== goal) await this.persist(waiting)
+        return { ...event, wakeAt: intent.retryAt }
       }
       const next = this.withContinuation(
         goal,
@@ -658,6 +674,7 @@ class GoalRuntime implements GoalService {
     this.continuationTriggers.delete(sessionId)
     this.api.notify({ method: 'goal.cleared', params: { sessionId } })
     this.api.changed('goals')
+    this.api.sessions.wake(sessionId)
   }
 
   private async persistTransition(existing: PersistedGoal, goal: PersistedGoal, runId?: string) {
@@ -717,6 +734,7 @@ class GoalRuntime implements GoalService {
         noProgressStreak: 0,
         repairKey: null,
         repairAttempts: 0,
+        transientRetries: 0,
       }
       const accounting: RunAccounting | undefined = runId
         ? {
@@ -792,6 +810,7 @@ class GoalRuntime implements GoalService {
           noProgressStreak: 0,
           repairKey: null,
           repairAttempts: 0,
+          transientRetries: 0,
         }
         await this.persist(goal)
         return this.result(sessionId)
@@ -828,6 +847,7 @@ class GoalRuntime implements GoalService {
           noProgressStreak: 0,
           repairKey: null,
           repairAttempts: 0,
+          transientRetries: 0,
         }
         await this.persist(goal, undefined, 'goal.created')
         await this.api.hooks.dispatch('goal.replaced', {
@@ -856,6 +876,7 @@ class GoalRuntime implements GoalService {
               continuationCount: 0,
               repairKey: null,
               repairAttempts: 0,
+              transientRetries: 0,
               noProgressStreak: 0,
             }
           : {}),
@@ -996,6 +1017,7 @@ class GoalRuntime implements GoalService {
           updatedAt: Date.now(),
           executionFailureStreak: 0,
           executionFailureRuns: [],
+          transientRetries: event.status === 'completed' ? 0 : existing.transientRetries,
           ...(existing.blockedAuditRuns.at(-1) !== event.runId && existing.status === 'active'
             ? { blockedReason: null, blockedAuditStreak: 0, blockedAuditRuns: [] }
             : {}),
@@ -1008,6 +1030,25 @@ class GoalRuntime implements GoalService {
       )
       this.activeRuns.delete(event.runId)
       if (['failed', 'interrupted'].includes(event.status) && goal.status !== 'budget_limited') {
+        if (
+          goal.status === 'active' &&
+          run.failure?.category === 'transient' &&
+          run.failure.retryable &&
+          this.config.autoContinue
+        ) {
+          if (goal.transientRetries < this.config.maxTransientRetries) {
+            await this.queueContinuation(
+              { ...goal, transientRetries: goal.transientRetries + 1 },
+              {
+                trigger: `retry:${run.id}`,
+                modelId: run.modelId,
+                retryAt: Date.now() + Math.min(60_000, this.config.retryDelayMs * 2 ** goal.transientRetries),
+                text: 'The previous model request failed transiently. Inspect the durable tool results and current Goal/Plan before continuing. Do not repeat a committed write or an operation whose result is unknown.',
+              },
+            )
+          } else await this.stopContinuation(goal, run, 'retry_exhausted')
+          return
+        }
         await this.stopContinuation(
           goal,
           run,

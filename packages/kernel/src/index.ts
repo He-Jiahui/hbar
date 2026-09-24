@@ -87,6 +87,7 @@ import { createDirectoryQueries } from './directory-queries'
 import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
+import { SessionWakeups } from './session-wakeups.ts'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -214,6 +215,7 @@ export class Kernel {
   private streamPublished = new Map<string, { text: string; thinking: string; version: number }>()
   readonly active = new Map<string, ActiveRun>()
   private drains = new Map<string, Promise<void>>()
+  private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
   private wakeups = new Set<string>()
   private listeners = new Set<(event: WireNotification) => void>()
   private approvals = new Map<string, (allowed: boolean) => void>()
@@ -701,6 +703,7 @@ export class Kernel {
     }
   }
   private kick(sessionId: string) {
+    this.scheduledWakeups.cancel(sessionId)
     this.wakeups.add(sessionId)
     if (this.drains.has(sessionId) || this.closing || this.maintenance || !this.readyForRuns) return
     const drain = this.drain(sessionId)
@@ -724,7 +727,11 @@ export class Kernel {
         )
           return
         const idle = await this.hooks.dispatch('session.idle', { sessionId })
-        if (!idle.submission || this.closing) return
+        if (this.closing) return
+        if (!idle.submission) {
+          if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt)
+          return
+        }
         let submitted: Run
         try {
           submitted = await this.submit(
@@ -1352,10 +1359,12 @@ export class Kernel {
     }
   }
   async waitForIdle() {
-    while (this.drains.size) await Promise.all([...this.drains.values()])
+    while (this.drains.size || this.scheduledWakeups.waiting.length)
+      await Promise.all([...this.drains.values(), ...this.scheduledWakeups.waiting])
   }
   async close() {
     this.closing = true
+    this.scheduledWakeups.close()
     this.schemaCallbacks.dispose()
     this.directoryQueries.dispose()
     for (const active of this.active.values())

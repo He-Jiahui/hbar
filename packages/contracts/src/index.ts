@@ -99,8 +99,11 @@ export const goalContinuationSchema = z.object({
     'run_failed',
     'repair',
     'repair_exhausted',
+    'retry_wait',
+    'retry_exhausted',
   ]),
   trigger: z.string().min(1).max(200),
+  retryAt: z.number().int().nonnegative().optional(),
   updatedAt: z.number().int().nonnegative(),
 })
 export type GoalContinuation = z.infer<typeof goalContinuationSchema>

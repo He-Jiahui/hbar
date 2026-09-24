@@ -446,7 +446,11 @@ export interface HookEvents {
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'run.cancelRequested': { sessionId: string; runId: string; run: Run }
-  'session.idle': { sessionId: string; submission?: { requestId: string; input: UserInput; modelId: string } }
+  'session.idle': {
+    sessionId: string
+    wakeAt?: number
+    submission?: { requestId: string; input: UserInput; modelId: string }
+  }
   'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean }
   /** Published after the session budget fact has been committed. */
   'budget.committed': { sessionId: string; budget: SessionBudget | null }
