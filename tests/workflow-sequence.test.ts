@@ -162,6 +162,31 @@ test('failed verification stops the sequence before completion and later side ef
   expect(events.filter((event) => event.type === 'tool.sequence_result')).toHaveLength(3)
 })
 
+test('check IDs cannot substitute for evidence IDs and recovery does not require replaying writes', async () => {
+  const { kernel, session, goals, run } = await fixture()
+  const rejected = await run(
+    successfulCalls.map((call) =>
+      call.name === 'workflow_checkpoint'
+        ? { ...call, arguments: { ...call.arguments, evidenceIds: ['content'] } }
+        : call,
+    ),
+  )
+  expect((await goals.get(session.id)).goal?.status).toBe('active')
+  expect(
+    rejected.messages
+      .flatMap((message) => message.content)
+      .some(
+        (block) => block.type === 'tool_result' && block.isError && block.text.includes('not acceptance-check IDs'),
+      ),
+  ).toBe(true)
+  await run(successfulCalls.slice(2))
+  expect((await goals.get(session.id)).goal?.status).toBe('complete')
+  const writes = (await kernel.storage.call('events', session.id, 0)).filter(
+    (event) => event.type === 'tool.started' && z.object({ name: z.string() }).parse(event.data).name === 'write_file',
+  )
+  expect(writes).toHaveLength(1)
+})
+
 for (const gate of ['policy', 'scope', 'selected-tools', 'recursion'] as const)
   test(`sequence respects the ${gate} gate`, async () => {
     const { root, kernel, session, run } = await fixture()

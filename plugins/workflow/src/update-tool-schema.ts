@@ -17,12 +17,14 @@ export const workflowUpdateActionSchema = z.discriminatedUnion('action', [
 
 const scopeFields = workflowExpandScopeInputSchema.shape
 const checkpointFields = workflowCheckpointInputSchema.shape
+const evidenceIdsDescription =
+  'Optional Host-issued evidence IDs, not acceptance-check IDs. Omit to use verified evidence from the current focus; never invent IDs.'
 
 export const workflowExpandScopeToolSchema = workflowExpandScopeInputSchema.omit({ sessionId: true })
 export const workflowCheckpointToolSchema = workflowCheckpointInputSchema
   .omit({ sessionId: true, expectedRevision: true, nextItemId: true })
   .extend({
-    evidenceIds: checkpointFields.evidenceIds.unwrap().optional(),
+    evidenceIds: checkpointFields.evidenceIds.unwrap().optional().describe(evidenceIdsDescription),
     expectedFocusRevision: z.number().int().positive(),
     expectedPlanRevision: z.number().int().positive(),
   })
@@ -36,7 +38,7 @@ export const workflowUpdateToolSchema = z
     reason: scopeFields.reason.optional().describe('Required for expand_scope.'),
     outcome: checkpointFields.outcome.optional().describe('Required for checkpoint.'),
     summary: checkpointFields.summary.optional().describe('Required for checkpoint.'),
-    evidenceIds: checkpointFields.evidenceIds.unwrap().optional().describe('For checkpoint; defaults to [].'),
+    evidenceIds: checkpointFields.evidenceIds.unwrap().optional().describe(evidenceIdsDescription),
     nextItemId: checkpointFields.nextItemId.describe('Optional for checkpoint only.'),
   })
   // Some compatible providers fill every advertised property. Validate all

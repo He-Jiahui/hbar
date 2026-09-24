@@ -19,6 +19,7 @@ test('compact control catalog derives parameters and bounds without changing exe
   expect(catalog.names.size).toBe(5)
   expect(catalog.text).toContain('"expectedFocusRevision"?:integer')
   expect(catalog.text).toContain('Workspace-relative file or directory prefix')
+  expect(catalog.text).toContain('Optional Host-issued evidence IDs, not acceptance-check IDs')
   expect(catalog.text).toContain('items<=128')
   expect(catalog.text).toContain('"progress"|"revise"|"complete"|"blocked"')
   expect(catalog.text.length).toBeLessThan(JSON.stringify(tools.map((tool) => z.toJSONSchema(tool.inputSchema))).length)

@@ -1165,7 +1165,7 @@ export class WorkflowRuntime implements WorkflowService {
         if (invalidEvidence)
           throw new HbarError(
             'WORKFLOW_EVIDENCE_STALE',
-            `Evidence ${invalidEvidence} does not belong to the current Plan focus`,
+            `Evidence ${invalidEvidence} does not belong to the current Plan focus. Use Host-issued evidence IDs, not acceptance-check IDs; omit evidenceIds to select the current focus's verified evidence. Do not replay already successful writes.`,
           )
       }
       if (
