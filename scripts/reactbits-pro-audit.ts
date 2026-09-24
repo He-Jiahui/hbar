@@ -260,12 +260,15 @@ export type InteractionCase = Readonly<{
     | 'usage-model-requests'
     | 'usage-model-row'
     | 'usage-limits-raised'
+    | 'usage-members-platform'
+    | 'usage-members-empty'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
   wheelDeltaY?: number | undefined
+  fillValue?: string | undefined
 }>
 
 type AuditOptions = Readonly<{
@@ -1854,6 +1857,28 @@ async function prepareHistoryScenario(root: Locator, scenario: 'history-match' |
   await root.locator('input').fill(scenario === 'history-match' ? 'Maya' : 'audit sample')
 }
 
+const usageMemberScenarios = ['usage-members-platform', 'usage-members-empty'] as const
+async function prepareUsageMemberScenario(
+  root: Locator,
+  scenario: (typeof usageMemberScenarios)[number],
+): Promise<void> {
+  await root.getByRole('tab', { name: 'Platform', exact: true }).click()
+  await root
+    .getByRole('searchbox', { name: 'Search members', exact: true })
+    .fill(scenario === 'usage-members-empty' ? 'audit sample' : '')
+}
+export function usageMemberScenarioCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario: (typeof usageMemberScenarios)[number],
+): readonly InteractionCase[] {
+  return interactionCases(snapshot, variantId, scenario).map((interaction) =>
+    interaction.action === 'fill'
+      ? { ...interaction, fillValue: scenario === 'usage-members-empty' ? '' : 'Sofia' }
+      : interaction,
+  )
+}
+
 async function prepareInlineApprovalScenario(root: Locator): Promise<void> {
   const trigger = root.getByRole('button', { name: 'Show request', exact: true })
   // Settle the native scroll event before opening the disclosure, so its edge
@@ -2115,7 +2140,7 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
   if (interaction.action === 'fill') {
     const type = await control.getAttribute('type')
     const value = type === 'date' ? '2026-09-22' : type === 'time' ? '12:30' : type === 'number' ? '2' : 'audit sample'
-    await control.fill(value)
+    await control.fill(interaction.fillValue ?? value)
   }
   if (interaction.action === 'select') {
     const values = await control
@@ -2465,6 +2490,8 @@ async function replayInteraction(
     await root.getByRole('tab', { name: 'Requests', exact: true }).click()
   if (spec.id === 'hbar-app-ui-ai-usage-3' && interaction.scenario === 'usage-limits-raised')
     await root.getByRole('tab', { name: 'Tier 2', exact: true }).click()
+  const memberScenario = usageMemberScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-ai-usage-4' && memberScenario) await prepareUsageMemberScenario(root, memberScenario)
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2584,6 +2611,9 @@ async function replayReferenceInteraction(
     await root.getByRole('tab', { name: 'Requests', exact: true }).click()
   if (reference.id === 'hbar-app-ui-ai-usage-3' && interaction.scenario === 'usage-limits-raised')
     await root.getByRole('tab', { name: 'Tier 2', exact: true }).click()
+  const memberScenario = usageMemberScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-ai-usage-4' && memberScenario)
+    await prepareUsageMemberScenario(root, memberScenario)
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3190,6 +3220,15 @@ async function runInteractionsParallel(
               discovered.push(
                 ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'usage-limits-raised'),
               )
+            }
+            if (spec.id === 'hbar-app-ui-ai-usage-4') {
+              for (const scenario of usageMemberScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareUsageMemberScenario(sourceRoot, scenario)
+                discovered.push(
+                  ...usageMemberScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
+                )
+              }
             }
             if (spec.id === 'hbar-app-ui-agent-plan-2') {
               for (const scenario of ['plan-draft', 'plan-running'] as const) {

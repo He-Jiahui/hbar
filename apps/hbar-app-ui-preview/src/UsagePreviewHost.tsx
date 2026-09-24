@@ -8,15 +8,15 @@ import { modelSpendFixture } from '../../../tests/fixtures/hbar-app-ui-usage-mod
 import { createUsageModelPreviewStore, projectUsageModelPreview } from './usage-model-preview-model'
 import { usageLimitFixture } from '../../../tests/fixtures/hbar-app-ui-usage-limit-fixtures'
 import { createUsageLimitPreviewStore, projectUsageLimitPreview } from './usage-limit-preview-model'
+import { usageMemberFixture } from '../../../tests/fixtures/hbar-app-ui-usage-member-fixtures'
+import { createUsageMemberPreviewStore, projectUsageMemberPreview } from './usage-member-preview-model'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const [query, setQuery] = useState(''),
-    [teamOnly, setTeamOnly] = useState(false),
-    [cap, setCap] = useState('60'),
+  const [cap, setCap] = useState('60'),
     [threshold, setThreshold] = useState('80'),
     [hardStop, setHardStop] = useState(true),
     [saved, setSaved] = useState(false),
@@ -34,6 +34,9 @@ export function UsagePreviewHost({
   const rateLimits = projectUsageLimitPreview(useStore(limitStore), limitFixture.copy, (tierId) =>
     report('request-increase', tierId),
   )
+  const [memberFixture] = useState(() => usageMemberFixture(mode))
+  const [memberStore] = useState(() => createUsageMemberPreviewStore(memberFixture.teams, memberFixture.records))
+  const seats = projectUsageMemberPreview(useStore(memberStore), memberFixture.copy)
   function collection<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
     return mode === 'empty'
       ? []
@@ -50,18 +53,7 @@ export function UsagePreviewHost({
         overview,
         modelSpend,
         rateLimits,
-        seats: {
-          ...base.seats,
-          strategy: mode === 'overflow' ? 'virtual' : 'content-grown',
-          query,
-          onQueryChange: setQuery,
-          rows: collection(base.seats.rows).filter(
-            (row) =>
-              row.name.toLowerCase().includes(query.toLowerCase()) &&
-              (!teamOnly || row.detail.startsWith('Engineering')),
-          ),
-          filter: { label: teamOnly ? 'All teams' : 'Team filter', onInvoke: () => setTeamOnly(!teamOnly) },
-        },
+        seats,
         budget: {
           ...base.budget,
           cap: { ...base.budget.cap, value: cap, display: `$${cap}` },

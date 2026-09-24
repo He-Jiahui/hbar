@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises'
 import { verifyUsageOverview } from './verify-hbar-app-ui-usage-overview'
 import { verifyUsageModel } from './verify-hbar-app-ui-usage-model'
 import { verifyUsageLimits } from './verify-hbar-app-ui-usage-limits'
+import { verifyUsageMembers } from './verify-hbar-app-ui-usage-members'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 let server: ReturnType<typeof Bun.spawn> | undefined
@@ -42,6 +43,9 @@ try {
   } else if (process.argv.includes('--limits-only')) {
     await verifyUsageLimits(page, baseUrl)
     expect(errors).toEqual([])
+  } else if (process.argv.includes('--members-only')) {
+    await verifyUsageMembers(page, baseUrl)
+    expect(errors).toEqual([])
   } else {
     for (const theme of ['dark', 'light'])
       for (const width of [1192, 768, 320]) {
@@ -56,7 +60,9 @@ try {
                   ? '.lumen-usage-model-table'
                   : variant === 3
                     ? '.lumen-usage-rate-panel'
-                    : '.hbar-app-ui-usage-content',
+                    : variant === 4
+                      ? '.lumen-usage-member-list'
+                      : '.hbar-app-ui-usage-content',
             ),
           ).toBeVisible()
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -64,7 +70,7 @@ try {
             await page.screenshot({ path: `artifacts/app-ui-integration/usage/${variant}-${width}-${theme}.png` })
         }
       }
-    for (const variant of [4, 7]) {
+    for (const variant of [7]) {
       await page.goto(url(variant, 'dark', 'overflow'), { waitUntil: 'networkidle' })
       const viewport = page.locator('.hbar-app-ui-virtual-list')
       expect(await viewport.getByRole('listitem').count()).toBeLessThan(200)
@@ -77,10 +83,7 @@ try {
       await page.goto(url(variant, 'light', 'empty'), { waitUntil: 'networkidle' })
       await expect(page.locator('.hbar-app-ui-usage-content')).toContainText(/No /)
     }
-    await page.goto(url(4), { waitUntil: 'networkidle' })
-    await page.getByRole('textbox', { name: 'Search people', exact: true }).fill('Mina')
-    await expect(page.getByText('Mina Patel', { exact: true })).toBeVisible()
-    await expect(page.getByText('Avery Chen', { exact: true })).toHaveCount(0)
+    await verifyUsageMembers(page, baseUrl)
     await page.goto(url(5), { waitUntil: 'networkidle' })
     await page.getByRole('slider', { name: 'Monthly cap', exact: true }).press('End')
     await page.getByRole('button', { name: 'Save budget', exact: true }).click()
@@ -95,7 +98,7 @@ try {
       JSON.stringify({
         variants: 8,
         viewportThemes: 48,
-        virtualLists: 2,
+        virtualLists: 1,
         emptyStates: 3,
         interactions: 3,
         pageErrors: errors,

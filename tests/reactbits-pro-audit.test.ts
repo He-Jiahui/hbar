@@ -4,6 +4,22 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('member usage samples distinct filter outcomes and honestly infers repeated row/team gestures', () => {
+  const plan = auditSamplingPlan('hbar-app-ui-ai-usage-4')!
+  expect(plan.samples).toHaveLength(6)
+  expect(sampledInteractionIds('hbar-app-ui-ai-usage-4', 'stress', 'light')).toEqual([
+    'hbar-app-ui-ai-usage-4:usage-members-platform:1:press-enter',
+  ])
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  const input = control(0, { tag: 'input', type: 'search', name: 'Search members', capabilities: ['fill'] })
+  expect(
+    usageMemberScenarioCases(snapshot([input]), 'hbar-app-ui-ai-usage-4', 'usage-members-platform')[0]!.fillValue,
+  ).toBe('Sofia')
+  expect(
+    usageMemberScenarioCases(snapshot([input]), 'hbar-app-ui-ai-usage-4', 'usage-members-empty')[0]!.fillValue,
+  ).toBe('')
+})
+
 test('rate limits sample tier outcomes and request feedback without clicking passive meters', () => {
   const plan = auditSamplingPlan('hbar-app-ui-ai-usage-3')!
   expect(plan.samples).toHaveLength(5)
@@ -62,6 +78,7 @@ import {
   planReviewScenarioCases,
   passiveTableRowHoverCase,
   passiveModelRowHoverCase,
+  usageMemberScenarioCases,
   planBoardScrollCase,
   passiveScrollDelta,
   checkableStates,

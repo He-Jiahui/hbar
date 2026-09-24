@@ -812,6 +812,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-ai-usage-4')
+    return {
+      revision: 1,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '2:click',
+          change: 'Platform filters members and recalculates total spend and seats together',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'usage-members-platform:0:fill',
+          change: 'Name search combines with selected team and uses singular seat copy',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '0:fill',
+          change: 'An unmatched name produces the original two-line empty state and zero total',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'usage-members-empty:0:fill',
+          change: 'Clearing search restores matching members while retaining the selected team',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'usage-members-platform:1:press-enter',
+          change: 'Narrow keyboard return to All teams restores the complete member list and total',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '0:focus',
+          change: 'Search focus has visual feedback without changing results',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other team labels, repeated member rows and equivalent activation gestures',
+          basis:
+            'One shared team-ID filter and name predicate determine results; filtering, composition, empty and recovery are replayed. Passive rows are not buttons. Remaining team values are checked in host projection tests.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Repeated theme/viewport interactions and host pagination',
+          basis:
+            'Eight static pairs cover all four widths and both themes. The data projection has no viewport branch. Pagination above 50 members is a separately tested local capacity extension, not a claimed source feature.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 
