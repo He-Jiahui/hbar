@@ -18,6 +18,8 @@ const child = Bun.spawn([executable], {
     HBAR_HOME: root,
     HBAR_WORKSPACE: process.cwd(),
     HBAR_DEMO: '1',
+    // Keep a running user desktop's WebView2 browser/profile out of the test.
+    WEBVIEW2_USER_DATA_FOLDER: join(root, 'webview'),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9433',
   },
   stdin: 'ignore',
@@ -185,5 +187,6 @@ try {
       /* This isolated Host may already have stopped. */
     }
   }
-  await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  // WebView2 can release its profile after the native window process exits.
+  await rm(root, { recursive: true, force: true, maxRetries: 12, retryDelay: 250 })
 }
