@@ -21,10 +21,14 @@ function numericValue(value) {
 function validateSource(path, source) {
   const errors = []
 
-  for (const match of source.matchAll(/\bsize\s*=\s*(?:\{\s*([0-9]+(?:\.[0-9]+)?)\s*\}|["']([0-9]+(?:\.[0-9]+)?)["'])/g)) {
+  for (const match of source.matchAll(
+    /\bsize\s*=\s*(?:\{\s*([0-9]+(?:\.[0-9]+)?)\s*\}|["']([0-9]+(?:\.[0-9]+)?)["'])/g,
+  )) {
     const value = numericValue(match[1] ?? match[2] ?? '')
     if (value !== undefined && !canonicalNumericSizes.has(value)) {
-      errors.push(`${path}:${lineNumber(source, match.index ?? 0)}: icon size ${value} is not a shared tier; use xs/sm/md/lg/xl.`)
+      errors.push(
+        `${path}:${lineNumber(source, match.index ?? 0)}: icon size ${value} is not a shared tier; use xs/sm/md/lg/xl.`,
+      )
     }
   }
 
@@ -32,8 +36,11 @@ function validateSource(path, source) {
     const tier = match[1]
     const actual = match[2].trim().replaceAll(/\s+/g, ' ')
     const expected = canonicalTokens.get(tier)
-    if (expected !== actual) {
-      errors.push(`${path}:${lineNumber(source, match.index ?? 0)}: icon token ${tier} must be ${expected}, found ${actual}.`)
+    // Prettier adds a leading zero; it does not change the semantic rem tier.
+    if (expected !== actual.replace(/^0(?=\.)/, '')) {
+      errors.push(
+        `${path}:${lineNumber(source, match.index ?? 0)}: icon token ${tier} must be ${expected}, found ${actual}.`,
+      )
     }
   }
 
@@ -42,10 +49,14 @@ function validateSource(path, source) {
     const selector = match[1]
     if (!/(?:icon|lucide|glyph|avatar)/i.test(selector)) continue
     const body = match[2]
-    for (const dimension of body.matchAll(/\b(?:width|height|inline-size|block-size)\s*:\s*([0-9]+(?:\.[0-9]+)?)px\b/g)) {
+    for (const dimension of body.matchAll(
+      /\b(?:width|height|inline-size|block-size)\s*:\s*([0-9]+(?:\.[0-9]+)?)px\b/g,
+    )) {
       const value = numericValue(dimension[1] ?? '')
       if (value !== undefined && !canonicalNumericSizes.has(value)) {
-        errors.push(`${path}:${lineNumber(source, (match.index ?? 0) + (dimension.index ?? 0))}: icon dimension ${value}px is not a shared tier.`)
+        errors.push(
+          `${path}:${lineNumber(source, (match.index ?? 0) + (dimension.index ?? 0))}: icon dimension ${value}px is not a shared tier.`,
+        )
       }
     }
   }
@@ -54,11 +65,13 @@ function validateSource(path, source) {
 }
 
 function selfTest() {
-  const good = '<Check size={14} />\n:root { --hbar-app-ui-icon-md: 1rem; }'
-  const bad = '<Check size={15} />\n:root { --hbar-app-ui-icon-md: 15px; }'
+  const good =
+    '<Check size={14} />\n:root { --hbar-app-ui-icon-md: 1rem; --hbar-app-ui-icon-xs: 0.75rem; --hbar-app-ui-icon-sm: 0.875rem; }'
+  const bad =
+    '<Check size={15} />\n:root { --hbar-app-ui-icon-md: 15px; --hbar-app-ui-icon-xs: 0.76rem; --hbar-app-ui-icon-sm: 0.875px; }'
   const goodErrors = validateSource('good', good)
   const badErrors = validateSource('bad', bad)
-  if (goodErrors.length !== 0 || badErrors.length < 2) {
+  if (goodErrors.length !== 0 || badErrors.length !== 4) {
     console.error('Icon scale self-test failed.')
     process.exit(1)
   }
@@ -79,7 +92,7 @@ if (inputPaths.length === 0) {
 const allErrors = []
 for (const path of inputPaths) {
   const file = Bun.file(path)
-  if (!await file.exists()) {
+  if (!(await file.exists())) {
     allErrors.push(`${path}: file does not exist`)
     continue
   }
