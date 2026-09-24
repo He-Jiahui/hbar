@@ -357,6 +357,13 @@ export const workflowStateSchema = z.strictObject({
   activeStepTextHash: sha256Schema.nullable().default(null),
   revision: z.number().int().positive(),
   status: workflowStatusSchema,
+  /** Stable ownership generation; unlike revision, tool bookkeeping does not advance it. */
+  focusRevision: z.number().int().positive().optional(),
+  /** Persisted before workspace mutation, cleared only after settlement or crash recovery. */
+  pendingMutations: z
+    .array(z.strictObject({ callId: idSchema, runId: idSchema, toolName: idSchema }))
+    .max(128)
+    .optional(),
   activeItemId: idSchema.nullable(),
   explorationCount: z.number().int().nonnegative(),
   workItems: z

@@ -287,6 +287,10 @@ function evaluateToolCheck(
 }
 
 export class WorkflowRuntime implements WorkflowService {
+  private readonly toolTargets = new WeakMap<
+    ToolContext,
+    { workflowId: string; focusRevision: number; planRevision: number; itemId: string | null }
+  >()
   private plans = new Map<string, WorkflowPlan>()
   private agentPlanSnapshots = new Map<string, PlanState>()
   private workflows = new Map<string, WorkflowState>()
@@ -324,6 +328,23 @@ export class WorkflowRuntime implements WorkflowService {
         `Workflow replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
       )
     for (const event of events) this.applyEvent(sessionId, event)
+    const interrupted = this.workflows.get(sessionId)
+    if (interrupted?.pendingMutations?.length) {
+      await this.persistWorkflow(
+        workflowStateSchema.parse({
+          ...interrupted,
+          revision: interrupted.revision + 1,
+          status: ['completed', 'cancelled'].includes(interrupted.status) ? interrupted.status : 'needs_revision',
+          pendingMutations: [],
+          updatedAt: Date.now(),
+        }),
+        undefined,
+        {
+          diagnosis:
+            'A workspace mutation did not settle before restart; inspect its outcome and reverify before completing. Do not replay it blindly.',
+        },
+      )
+    }
     await this.migrateLegacySession(sessionId)
     await this.recoverTransition(sessionId)
     const plan = await this.agentPlans.get(sessionId)
@@ -664,6 +685,7 @@ export class WorkflowRuntime implements WorkflowService {
       const now = Date.now()
       const goal = await this.goals.get(sessionId)
       const current = this.workflows.get(sessionId)
+      if (current) this.assertNoMutations(current)
       const plan = workflowPlanSchema.parse({
         schemaVersion: WORKFLOW_SCHEMA_VERSION,
         planId: `agent-plan-${sessionId}`,
@@ -679,6 +701,7 @@ export class WorkflowRuntime implements WorkflowService {
         schemaVersion: WORKFLOW_SCHEMA_VERSION,
         executionModel: 'focus_v2',
         workflowId: current?.workflowId ?? crypto.randomUUID(),
+        focusRevision: (current?.revision ?? 0) + 1,
         sessionId,
         goalId: goal.goal ? (goal.goal.goalId ?? goal.goal.threadId) : null,
         planId: plan.planId,
@@ -906,6 +929,7 @@ export class WorkflowRuntime implements WorkflowService {
   private current(sessionId: string, expectedRevision: number) {
     const workflow = this.workflows.get(sessionId)
     if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'No workflow exists for this session')
+    this.assertNoMutations(workflow)
     if (workflow.revision !== expectedRevision)
       throw new HbarError(
         'WORKFLOW_REVISION_CONFLICT',
@@ -951,6 +975,7 @@ export class WorkflowRuntime implements WorkflowService {
         ...current,
         revision: current.revision + 1,
         status: ['blocked', 'needs_revision'].includes(current.status) ? 'active' : current.status,
+        focusRevision: current.revision + 1,
         activeItemId: itemId,
         explorationCount: 0,
         workItems: current.workItems.map((candidate) =>
@@ -1843,6 +1868,7 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   private assertCompletable(workflow: WorkflowState) {
+    this.assertNoMutations(workflow)
     const pendingItems = workflow.workItems.filter((item) => item.status !== 'completed')
     const pendingChecks = workflow.workItems.flatMap((item) =>
       item.acceptanceChecks.filter(
@@ -2074,10 +2100,14 @@ export class WorkflowRuntime implements WorkflowService {
         context,
         workflow,
       )
-    if (tool.effect !== 'read') return
+    if (tool.effect !== 'read') {
+      this.rememberToolTarget(context, workflow)
+      return
+    }
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
-      if (!current || current.workflowId !== workflow.workflowId) return
+      if (!current || current.workflowId !== workflow.workflowId || current.focusRevision !== workflow.focusRevision)
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The workflow focus changed during tool admission')
       if (current.explorationCount >= this.config.maxExplorationCalls)
         throw new HbarError(
           'WORKFLOW_CHECKPOINT_REQUIRED',
@@ -2090,6 +2120,75 @@ export class WorkflowRuntime implements WorkflowService {
         updatedAt: Date.now(),
       })
       await this.persistWorkflow(next, context.run.id)
+      this.rememberToolTarget(context, next)
+    })
+  }
+
+  private assertNoMutations(workflow: WorkflowState) {
+    if (workflow.pendingMutations?.length)
+      throw new HbarError(
+        'WORKFLOW_TOOL_IN_FLIGHT',
+        'Wait for the current workspace mutation to settle before changing or completing its focus',
+      )
+  }
+
+  private rememberToolTarget(context: ToolContext, workflow: WorkflowState) {
+    this.toolTargets.set(context, {
+      workflowId: workflow.workflowId,
+      focusRevision: workflow.focusRevision ?? workflow.createdAt,
+      planRevision: workflow.planRevision,
+      itemId: workflow.activeItemId,
+    })
+  }
+
+  private ownsToolResult(context: ToolContext, workflow: WorkflowState) {
+    const target = this.toolTargets.get(context)
+    return (
+      target?.workflowId === workflow.workflowId &&
+      target.focusRevision === (workflow.focusRevision ?? workflow.createdAt) &&
+      target.planRevision === workflow.planRevision &&
+      target.itemId === workflow.activeItemId
+    )
+  }
+
+  async beginTool(name: string, context: ToolContext, tool: ToolDefinition) {
+    if (CONTROL_TOOLS.has(name)) return
+    await this.serial(context.session.id, async () => {
+      const current = this.workflows.get(context.session.id)
+      if (!current || (['completed', 'cancelled'].includes(current.status) && !this.toolTargets.has(context))) return
+      if (
+        !this.ownsToolResult(context, current) ||
+        ['completed', 'cancelled', 'needs_revision'].includes(current.status)
+      )
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The admitted workflow focus changed before tool execution')
+      if (tool.effect === 'read') return
+      this.assertNoMutations(current)
+      const now = Date.now()
+      await this.persistWorkflow(
+        workflowStateSchema.parse({
+          ...current,
+          revision: current.revision + 1,
+          status: 'verifying',
+          pendingMutations: [{ callId: context.callId, runId: context.run.id, toolName: name }],
+          workItems: current.workItems.map((item) =>
+            item.id === current.activeItemId
+              ? {
+                  ...item,
+                  status: 'verifying',
+                  acceptanceChecks: item.acceptanceChecks.map((check) => ({
+                    ...check,
+                    status: 'pending',
+                    evidenceId: null,
+                    updatedAt: now,
+                  })),
+                }
+              : item,
+          ),
+          updatedAt: now,
+        }),
+        context.run.id,
+        { verificationInvalidated: { callId: context.callId, toolName: name } },
+      )
     })
   }
 
@@ -2102,7 +2201,28 @@ export class WorkflowRuntime implements WorkflowService {
   ) {
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
-      if (!current || current.status === 'completed' || !current.activeItemId) return
+      if (!current) return
+      const pendingMutations = (current.pendingMutations ?? []).filter((entry) => entry.callId !== context.callId)
+      const mutationSettled = pendingMutations.length !== (current.pendingMutations?.length ?? 0)
+      if (
+        current.status === 'completed' ||
+        !current.activeItemId ||
+        (!CONTROL_TOOLS.has(name) && !this.ownsToolResult(context, current))
+      ) {
+        this.toolTargets.delete(context)
+        if (mutationSettled)
+          await this.persistWorkflow(
+            workflowStateSchema.parse({
+              ...current,
+              revision: current.revision + 1,
+              pendingMutations,
+              updatedAt: Date.now(),
+            }),
+            context.run.id,
+          )
+        return
+      }
+      this.toolTargets.delete(context)
       const item = current.workItems.find((candidate) => candidate.id === current.activeItemId)
       if (!item) return
       const evaluations = item.acceptanceChecks.flatMap((check) => {
@@ -2111,7 +2231,7 @@ export class WorkflowRuntime implements WorkflowService {
         return outcome ? [{ check, outcome }] : []
       })
       const marksVerification = tool.effect !== 'read' && !result.isError
-      if (!evaluations.length && !marksVerification) {
+      if (!evaluations.length && !marksVerification && !mutationSettled) {
         // Inspection must not invalidate the revision it just returned. Only
         // successful execution progress can clear a recorded scope rejection.
         if (current.rejection && !result.isError && !CONTROL_TOOLS.has(name))
@@ -2163,7 +2283,11 @@ export class WorkflowRuntime implements WorkflowService {
           status: blocksItem ? ('blocked' as const) : marksVerification ? ('verifying' as const) : candidate.status,
           acceptanceChecks: candidate.acceptanceChecks.map((check) => {
             const proof = evidenceByCheck.get(check.id)
-            return proof ? { ...check, status: proof.outcome, evidenceId: proof.evidenceId, updatedAt: now } : check
+            return proof
+              ? { ...check, status: proof.outcome, evidenceId: proof.evidenceId, updatedAt: now }
+              : mutationSettled
+                ? { ...check, status: 'pending' as const, evidenceId: null, updatedAt: now }
+                : check
           }),
         }
       })
@@ -2173,6 +2297,7 @@ export class WorkflowRuntime implements WorkflowService {
         status: blocksItem ? 'needs_revision' : marksVerification ? 'verifying' : current.status,
         workItems,
         evidence: [...current.evidence, ...evidence].slice(-MAX_WORKFLOW_EVIDENCE),
+        pendingMutations,
         rejection: null,
         updatedAt: now,
       })
@@ -2352,6 +2477,7 @@ export const workflowPlugin = definePlugin({
     api.hooks.on('tool.settled', (event) =>
       runtime.settleTool(event.name, event.args, event.result, event.context, event.tool),
     )
+    api.hooks.on('tool.executing', (event) => runtime.beginTool(event.name, event.context, event.tool))
     api.hooks.on('goal.beforeComplete', async (event) => ({
       ...event,
       commit: await runtime.guardCompletion(event.sessionId, event.goal.goalId, event.commit),

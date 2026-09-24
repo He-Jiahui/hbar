@@ -437,6 +437,8 @@ export interface HookEvents {
   'context.build': ModelRequest
   'model.request': ModelRequest
   'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
+  /** After approval and durable intent, before execution. Failure prevents execution; returned arguments are ignored. */
+  'tool.executing': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
   'tool.after': { name: string; result: ToolResult; context: ToolContext }
   'tool.settled': {
     name: string

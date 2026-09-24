@@ -1045,6 +1045,8 @@ export class Kernel {
         await this.storage.call('toolStart', context.session.id, context.run.id, context.callId, name, args),
       )
       started = true
+      await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
+      context.signal.throwIfAborted()
       result = await tool.execute(args, context)
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
     } catch (error) {
