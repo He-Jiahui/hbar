@@ -65,6 +65,8 @@ import {
   type WebAppearancePreferences,
 } from './appearance'
 import { getShellCopy, type ShellLocale } from './shell-copy'
+import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
+import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
@@ -115,17 +117,33 @@ function createRuntime(
   })
 }
 
-function WorkspaceBody({
-  locale,
-  connected,
-  prepareAttachment,
-  systemPrefersDark,
-}: {
+type WorkspaceBodyProps = {
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
   readonly systemPrefersDark: boolean
-}) {
+}
+
+function WorkspaceBody(props: WorkspaceBodyProps) {
+  const runtime = useHbarRuntime()
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const copy = getShellCopy(props.locale)
+  const label =
+    presentation.page.kind === 'settings'
+      ? copy.settings.pageTitle
+      : presentation.page.kind === 'status'
+        ? copy.shell.status
+        : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ?? copy.empty.title)
+  return (
+    <SettingsPageFocusBoundary pageKind={presentation.page.kind} sidebarOpen={presentation.sidebarOpen} label={label}>
+      <WorkspaceBodyContent {...props} />
+    </SettingsPageFocusBoundary>
+  )
+}
+
+function WorkspaceBodyContent({ locale, connected, prepareAttachment, systemPrefersDark }: WorkspaceBodyProps) {
   const copy = getShellCopy(locale)
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -139,6 +157,7 @@ function WorkspaceBody({
       <HbarSettingsWorkspace
         labels={copy.settings}
         connected={connected}
+        groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
         additionalGroups={[{ id: 'appearance', label: copy.appearance.group, order: 0 }]}
         renderGroup={(groupId) => {
           if (groupId === 'appearance')

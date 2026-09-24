@@ -457,6 +457,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     back: choose('返回会话', 'Back to session'),
     controls: choose('设置控制', 'Settings controls'),
     scopes: choose('设置作用域', 'Settings scope'),
+    hostScope: choose('Host 全局设置', 'Host-wide settings'),
+    clientScope: choose('当前客户端设置', 'Current client settings'),
     global: choose('全局', 'Global'),
     workspace: choose('工作区', 'Workspace'),
     session: choose('会话', 'Session'),

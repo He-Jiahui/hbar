@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Cpu, MessageSquare, Palette, Puzzle, Server, Settings, type LucideIcon } from 'lucide-react'
 import { encodePath, type CompiledField, type FieldItemValue, type FieldValue } from '@hbar/schema-core'
 import {
   HbarSchemaForm,
@@ -34,6 +34,8 @@ export interface HbarSettingsWorkspaceLabels {
   readonly back: string
   readonly controls: string
   readonly scopes: string
+  readonly hostScope: string
+  readonly clientScope: string
   readonly global: string
   readonly workspace: string
   readonly session: string
@@ -61,6 +63,8 @@ export interface HbarSettingsWorkspaceProps {
   readonly connected: boolean
   readonly components?: SchemaComponentRegistry
   readonly additionalGroups?: readonly HbarSettingsAdditionalGroup[]
+  /** Presentation only: fixed-scope groups do not change the underlying layered form or its draft. */
+  readonly groupPresentation?: readonly HbarSettingsGroupPresentation[]
   readonly renderGroup?: (groupId: string) => ReactNode
   readonly headerActions?: ReactNode
 }
@@ -70,6 +74,23 @@ export interface HbarSettingsAdditionalGroup {
   readonly label: string
   readonly order: number
 }
+
+export type HbarSettingsGroupIcon = 'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'settings'
+
+export interface HbarSettingsGroupPresentation {
+  readonly id: string
+  readonly icon: HbarSettingsGroupIcon
+  readonly scope: 'layered' | 'host' | 'client'
+}
+
+const groupIcons = {
+  appearance: Palette,
+  model: Cpu,
+  session: MessageSquare,
+  providers: Server,
+  extensions: Puzzle,
+  settings: Settings,
+} satisfies Readonly<Record<HbarSettingsGroupIcon, LucideIcon>>
 
 function reasonCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -87,6 +108,7 @@ export function HbarSettingsWorkspace({
   connected,
   components = standardComponents,
   additionalGroups = [],
+  groupPresentation = [],
   renderGroup,
   headerActions,
 }: HbarSettingsWorkspaceProps) {
@@ -143,6 +165,16 @@ export function HbarSettingsWorkspace({
   )
   const activeClientGroup = clientGroups.find((group) => group.id === requestedSection)
   const activeGroupId = activeClientGroup?.id ?? entry?.selectedGroup ?? null
+  const presentationByGroup = useMemo(() => {
+    const knownIds = new Set(groups.map((group) => group.id))
+    const result = new Map<string, HbarSettingsGroupPresentation>()
+    // The first known ID wins; stray metadata must not create navigation or change another group.
+    for (const item of groupPresentation) if (knownIds.has(item.id) && !result.has(item.id)) result.set(item.id, item)
+    return result
+  }, [groupPresentation, groups])
+  const scopePresentation = (activeGroupId ? presentationByGroup.get(activeGroupId)?.scope : undefined) ?? 'layered'
+  const fixedScopeLabel =
+    scopePresentation === 'host' ? labels.hostScope : scopePresentation === 'client' ? labels.clientScope : null
   const definitions = useMemo(
     () => new Map(entry?.description?.fields.map((field) => [encodePath(field.path), field] as const) ?? []),
     [entry?.description],
@@ -262,7 +294,7 @@ export function HbarSettingsWorkspace({
     <LumenFrame as="section" className="hbar-app-react-settings-workspace">
       <LumenPageHeader
         title={labels.pageTitle}
-        context={labels.title(entry?.scope.kind ?? 'global', selectedTargetName)}
+        context={fixedScopeLabel === null ? labels.title(entry?.scope.kind ?? 'global', selectedTargetName) : undefined}
         leading={
           <LumenIconButton
             label={labels.back}
@@ -274,20 +306,26 @@ export function HbarSettingsWorkspace({
         actionsLabel={labels.controls}
         actions={
           <LumenFrame className="hbar-app-react-settings-header-controls">
-            <LumenSelect
-              className="hbar-app-react-settings-scope"
-              aria-label={labels.scopes}
-              value={entry?.scope.kind ?? 'global'}
-              onChange={onScopeChange}
-            >
-              <LumenOption value="global">{labels.scopeOption('global', null)}</LumenOption>
-              <LumenOption value="workspace" disabled={!workspaceId}>
-                {labels.scopeOption('workspace', workspaceTargetName)}
-              </LumenOption>
-              <LumenOption value="session" disabled={!sessionId}>
-                {labels.scopeOption('session', sessionTargetName)}
-              </LumenOption>
-            </LumenSelect>
+            {fixedScopeLabel === null ? (
+              <LumenSelect
+                className="hbar-app-react-settings-scope"
+                aria-label={labels.scopes}
+                value={entry?.scope.kind ?? 'global'}
+                onChange={onScopeChange}
+              >
+                <LumenOption value="global">{labels.scopeOption('global', null)}</LumenOption>
+                <LumenOption value="workspace" disabled={!workspaceId}>
+                  {labels.scopeOption('workspace', workspaceTargetName)}
+                </LumenOption>
+                <LumenOption value="session" disabled={!sessionId}>
+                  {labels.scopeOption('session', sessionTargetName)}
+                </LumenOption>
+              </LumenSelect>
+            ) : (
+              <LumenText as="span" className="hbar-app-react-settings-fixed-scope" tone="muted" variant="supporting">
+                {fixedScopeLabel}
+              </LumenText>
+            )}
             {headerActions}
           </LumenFrame>
         }
@@ -316,7 +354,10 @@ export function HbarSettingsWorkspace({
                 selected={activeGroupId === group.id}
                 onClick={() => selectGroup(group.id)}
               >
-                {group.label}
+                <LumenIcon icon={groupIcons[presentationByGroup.get(group.id)?.icon ?? 'settings']} tier="md" />
+                <LumenText as="span" className="hbar-app-react-settings-group-label">
+                  {group.label}
+                </LumenText>
               </LumenNavigationButton>
             ))}
           </LumenFrame>

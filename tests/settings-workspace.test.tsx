@@ -1,6 +1,11 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { HbarRuntimeProvider, HbarSettingsWorkspace, type HbarSettingsWorkspaceLabels } from '@hbar/app-react'
+import {
+  HbarRuntimeProvider,
+  HbarSettingsWorkspace,
+  type HbarSettingsGroupPresentation,
+  type HbarSettingsWorkspaceLabels,
+} from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { CommandExecutor } from '@hbar/commands'
 import { settingsCommands } from '@hbar/contracts/commands/settings'
@@ -8,6 +13,8 @@ import type { Session, Workspace } from '@hbar/contracts/directory'
 import { HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
 import { encodePath, type FieldIssue, type FieldValue } from '@hbar/schema-core'
 import { resolveSettings } from '@hbar/settings-core'
+import { getShellCopy } from '../apps/web/src/shell-copy'
+import { WEB_SETTINGS_GROUP_PRESENTATION } from '../apps/web/src/settings-group-presentation'
 
 const workspace: Workspace = { id: 'workspace-settings', name: 'Schema 工程', path: 'D:/schema', createdAt: 1 }
 const session: Session = {
@@ -79,6 +86,8 @@ const labels: HbarSettingsWorkspaceLabels = {
   back: '返回会话',
   controls: '设置控制',
   scopes: '设置作用域',
+  hostScope: 'Host 全局设置',
+  clientScope: '当前客户端设置',
   global: '全局',
   workspace: '工作区',
   session: '会话',
@@ -133,6 +142,62 @@ async function waitForReady(runtime: ReturnType<typeof createAppRuntime>) {
     await Bun.sleep(2)
   }
   throw new Error('Settings form did not become ready')
+}
+
+async function readSettingsNavigation(html: string) {
+  const result = {
+    fixedScope: '',
+    scopes: [] as { value: string | null; selected: boolean; disabled: boolean; text: string }[],
+    groups: [] as { text: string; current: boolean; icon: string | null; tier: string | null; iconHidden: boolean }[],
+  }
+  await new HTMLRewriter()
+    .on('.hbar-app-react-settings-fixed-scope', {
+      text(chunk) {
+        result.fixedScope += chunk.text
+      },
+    })
+    .on('select.hbar-app-react-settings-scope option', {
+      element(element) {
+        result.scopes.push({
+          value: element.getAttribute('value'),
+          selected: element.hasAttribute('selected'),
+          disabled: element.hasAttribute('disabled'),
+          text: '',
+        })
+      },
+      text(chunk) {
+        const option = result.scopes.at(-1)
+        if (option) option.text += chunk.text
+      },
+    })
+    .on('.hbar-app-react-settings-groups button', {
+      element(element) {
+        result.groups.push({
+          text: '',
+          current: element.getAttribute('aria-current') === 'page',
+          icon: null,
+          tier: null,
+          iconHidden: false,
+        })
+      },
+      text(chunk) {
+        const group = result.groups.at(-1)
+        if (group) group.text += chunk.text
+      },
+    })
+    .on('.hbar-app-react-settings-groups button svg', {
+      element(element) {
+        const group = result.groups.at(-1)
+        if (group) {
+          group.icon = element.getAttribute('class')
+          group.tier = element.getAttribute('data-tier')
+          group.iconHidden = element.getAttribute('aria-hidden') === 'true'
+        }
+      },
+    })
+    .transform(new Response(html))
+    .text()
+  return result
 }
 
 test('settings workspace renders Host schema, scoped source state, and command-owned grouping', async () => {
@@ -324,6 +389,227 @@ test('pinned project settings name their project instead of borrowing the active
       disabled: false,
     })
     expect(options.find((option) => option.value === 'session')).toMatchObject({ text: 'session', disabled: true })
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test.each(['zh-CN', 'en-US'] as const)(
+  'fixed settings groups describe their actual scope without changing %s session drafts',
+  async (locale) => {
+    const copy = getShellCopy(locale)
+    const runtime = createAppRuntime({
+      instanceId: `settings-group-scopes-${locale}`,
+      hostId: 'host',
+      directory,
+      settings,
+      surfaces: { canRender: (panelId) => panelId === 'settings' },
+    })
+    const render = () =>
+      renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarSettingsWorkspace
+            labels={copy.settings}
+            connected
+            additionalGroups={[{ id: 'appearance', label: copy.appearance.group, order: 0 }]}
+            groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+            renderGroup={(groupId) =>
+              ['appearance', 'providers', 'extensions'].includes(groupId) ? (
+                <div data-test-group={groupId}>{copy.settings.pageTitle}</div>
+              ) : null
+            }
+          />
+        </HbarRuntimeProvider>,
+      )
+    try {
+      await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+      await runtime.view.commands.execute('app.openSettings', { scope: 'session', targetId: session.id })
+      const initial = await waitForReady(runtime)
+      await runtime.view.commands.execute('settingsForm.setField', {
+        formId: initial.formId,
+        field: model,
+        value: 'unsaved-session-model',
+      })
+      for (const section of ['providers', 'extensions', 'appearance']) {
+        await runtime.view.commands.execute('app.openSettings', { scope: 'session', targetId: session.id, section })
+        const entry = await waitForReady(runtime)
+        const html = render()
+        const navigation = await readSettingsNavigation(html)
+        expect(navigation.fixedScope).toBe(
+          section === 'appearance' ? copy.settings.clientScope : copy.settings.hostScope,
+        )
+        expect(navigation.scopes).toEqual([])
+        expect(html).not.toContain(copy.settings.title('session', session.title))
+        expect(entry.formId).toBe(initial.formId)
+        expect(entry.scope).toEqual({ kind: 'session', targetId: session.id })
+        expect(entry.form?.draft[model]).toBe('unsaved-session-model')
+        expect(entry.form?.dirty).toContain(model)
+      }
+      await runtime.view.commands.execute('app.openSettings', {
+        scope: 'session',
+        targetId: session.id,
+        section: 'model',
+      })
+      const restored = await waitForReady(runtime)
+      const html = render()
+      const navigation = await readSettingsNavigation(html)
+      expect(navigation.fixedScope).toBe('')
+      expect(navigation.scopes.find((option) => option.selected)?.value).toBe('session')
+      expect(html).toContain(copy.settings.title('session', session.title))
+      expect(restored.formId).toBe(initial.formId)
+      expect(restored.form?.draft[model]).toBe('unsaved-session-model')
+      expect(restored.form?.dirty).toContain(model)
+      expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
+      expect(navigation.groups.map((group) => group.text)).toEqual([
+        copy.appearance.group,
+        copy.settings.resolve('i18n:settings.groups.model'),
+        copy.settings.resolve('i18n:settings.groups.session'),
+        copy.settings.resolve('i18n:settings.groups.providers'),
+        copy.settings.resolve('i18n:settings.groups.extensions'),
+      ])
+      for (const [index, glyph] of ['palette', 'cpu', 'message-square', 'server', 'puzzle'].entries()) {
+        expect(navigation.groups[index]?.icon).toContain(`lucide-${glyph}`)
+        expect(navigation.groups[index]?.tier).toBe('md')
+        expect(navigation.groups[index]?.iconHidden).toBe(true)
+      }
+    } finally {
+      runtime.dispose()
+    }
+  },
+)
+
+test('settings group metadata preserves long labels and ignores unknown or duplicate presentation IDs', async () => {
+  const longLabel = '这是宿主提供的一个很长的设置分组名称，必须完整保留并参与正常文字流'
+  const runtime = createAppRuntime({
+    instanceId: 'settings-group-metadata',
+    hostId: 'host',
+    directory,
+    settings,
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  const groupPresentation: readonly HbarSettingsGroupPresentation[] = [
+    ...WEB_SETTINGS_GROUP_PRESENTATION,
+    { id: 'appearance', icon: 'providers', scope: 'host' },
+    { id: 'not-registered', icon: 'extensions', scope: 'host' },
+  ]
+  const render = () =>
+    renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace
+          labels={labels}
+          connected
+          additionalGroups={[
+            { id: 'appearance', label: longLabel, order: 0 },
+            { id: 'appearance', label: '重复项不得覆盖首项', order: 1 },
+            { id: 'model', label: '客户端不得覆盖 Host 分组', order: 2 },
+            { id: 'future-group', label: '未提供展示元数据的后续分组', order: 50 },
+          ]}
+          groupPresentation={groupPresentation}
+          renderGroup={(groupId) => (groupId === 'appearance' ? <div>{longLabel}</div> : null)}
+        />
+      </HbarRuntimeProvider>,
+    )
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'appearance' })
+    await waitForReady(runtime)
+    const appearance = await readSettingsNavigation(render())
+    expect(appearance.fixedScope).toBe(labels.clientScope)
+    expect(appearance.groups.filter((group) => group.current).map((group) => group.text)).toEqual([longLabel])
+    expect(appearance.groups[0]?.icon).toContain('lucide-palette')
+    expect(appearance.groups).toHaveLength(6)
+    expect(appearance.groups.map((group) => group.text)).not.toContain('重复项不得覆盖首项')
+    expect(appearance.groups.map((group) => group.text)).not.toContain('客户端不得覆盖 Host 分组')
+    expect(render()).not.toContain('not-registered')
+
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'future-group' })
+    const fallback = await readSettingsNavigation(render())
+    expect(fallback.fixedScope).toBe('')
+    expect(fallback.scopes.find((option) => option.selected)?.value).toBe('global')
+    expect(fallback.groups.find((group) => group.current)).toMatchObject({
+      text: '未提供展示元数据的后续分组',
+      tier: 'md',
+      iconHidden: true,
+    })
+    expect(fallback.groups.find((group) => group.current)?.icon).toContain('lucide-settings')
+
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'not-registered' })
+    expect(
+      (await readSettingsNavigation(render())).groups.filter((group) => group.current).map((group) => group.text),
+    ).toEqual(['模型'])
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('pinned workspace drafts return from fixed-scope groups without borrowing the active session', async () => {
+  const target = { ...workspace, id: 'workspace-presentation', name: 'Pinned scope 工程' }
+  const runtime = createAppRuntime({
+    instanceId: 'settings-pinned-presentation',
+    hostId: 'host',
+    settings,
+    directory: {
+      execute(name, input, options) {
+        if (
+          name === 'workspace.get' &&
+          input &&
+          typeof input === 'object' &&
+          'workspaceId' in input &&
+          input.workspaceId === target.id
+        )
+          return Promise.resolve(target)
+        return directory.execute(name, input, options)
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  const render = () =>
+    renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace labels={labels} connected groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION} />
+      </HbarRuntimeProvider>,
+    )
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('workspace.get', { workspaceId: target.id })
+    const panel = await runtime.view.commands.execute('app.openSettings', {
+      scope: 'workspace',
+      targetId: target.id,
+      workspaceId: target.id,
+      binding: 'pinned',
+    })
+    const form = await waitForReady(runtime)
+    await runtime.view.commands.execute('settingsForm.setField', {
+      formId: form.formId,
+      field: model,
+      value: 'pinned-draft',
+    })
+    for (const section of ['providers', 'model']) {
+      await runtime.view.commands.execute('app.openSettings', {
+        scope: 'workspace',
+        targetId: target.id,
+        workspaceId: target.id,
+        binding: 'pinned',
+        instanceId: panel.instanceId,
+        section,
+      })
+      const entry = await waitForReady(runtime)
+      expect(entry.formId).toBe(form.formId)
+      expect(entry.form?.draft[model]).toBe('pinned-draft')
+      expect(entry.form?.dirty).toContain(model)
+      expect(entry.scope).toEqual({ kind: 'workspace', targetId: target.id })
+      const navigation = await readSettingsNavigation(render())
+      if (section === 'providers') {
+        expect(navigation.fixedScope).toBe(labels.hostScope)
+        expect(navigation.scopes).toEqual([])
+      } else {
+        expect(navigation.scopes.find((option) => option.value === 'workspace')).toMatchObject({
+          selected: true,
+          text: `workspace · ${target.name}`,
+        })
+        expect(navigation.scopes.find((option) => option.value === 'session')?.disabled).toBe(true)
+      }
+    }
     expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
   } finally {
     runtime.dispose()

@@ -1823,7 +1823,11 @@ test('global appearance saves through preferences, survives reload, and restores
     await page.screenshot({ path: 'artifacts/ui-redesign/appearance/after/settings-light-l-1440.png', fullPage: true })
 
     await page.setViewportSize({ width: 320, height: 720 })
+    await expect(page.getByText('Current client settings', { exact: true })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Settings scope' })).toHaveCount(0)
+    await page.getByRole('combobox', { name: 'Settings groups', exact: true }).selectOption('model')
     await expect(page.getByRole('combobox', { name: 'Settings scope' })).toBeVisible()
+    await page.getByRole('combobox', { name: 'Settings groups', exact: true }).selectOption('appearance')
     await expect(theme).toBeVisible()
     await expectAppearance({ theme: 'light', size: 'l' })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
