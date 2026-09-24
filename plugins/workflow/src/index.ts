@@ -2036,8 +2036,9 @@ export class WorkflowRuntime implements WorkflowService {
     await this.activate(event.sessionId, plan.revision, undefined, event.run)
   }
 
-  decorate(request: ModelRequest): ModelRequest {
+  async decorate(request: ModelRequest): Promise<ModelRequest> {
     const sessionId = request.context?.sessionId
+    const plan = sessionId ? await this.agentPlans.get(sessionId) : null
     const workflow = sessionId ? this.workflows.get(sessionId) : undefined
     if (!workflow || workflow.status === 'completed') {
       const guidance = [
@@ -2049,6 +2050,18 @@ export class WorkflowRuntime implements WorkflowService {
       return { ...request, system: `${request.system}\n\n${guidance}` }
     }
     const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
+    const step = workflow.activeStepIndex === null ? undefined : plan?.plan[workflow.activeStepIndex]
+    const currentFocus = Boolean(
+      item &&
+      step &&
+      step.status === 'in_progress' &&
+      plan?.revision === workflow.planRevision &&
+      hashValue(step.step) === workflow.activeStepTextHash,
+    )
+    const executable = currentFocus && ['active', 'verifying'].includes(workflow.status)
+    const needsFocus =
+      workflow.status !== 'cancelled' && (!currentFocus || ['blocked', 'needs_revision'].includes(workflow.status))
+    const nextIndex = plan?.plan.findIndex((candidate) => candidate.status === 'in_progress') ?? -1
     const checks =
       item?.acceptanceChecks.filter((check) => check.required && !['passed', 'accepted'].includes(check.status)) ?? []
     const recentFailures = workflow.evidence.filter((entry) => entry.outcome === 'failed').slice(-3)
@@ -2060,6 +2073,9 @@ export class WorkflowRuntime implements WorkflowService {
         ? []
         : [`Focus revision: ${workflow.focusRevision} (stable across read/write bookkeeping)`]),
       `Plan revision: ${workflow.planRevision}`,
+      `Current Agent Plan revision: ${plan?.revision ?? 'none'}`,
+      `Focus validity: ${currentFocus ? 'current' : 'stale'}`,
+      `Completion policy: ${workflow.completionPolicy}`,
       `Item ID: ${item ? escapeXml(item.id) : 'none'}`,
       `Current item: ${item ? escapeXml(item.title) : 'none'}`,
       `Exploration: ${workflow.explorationCount}/${this.config.maxExplorationCalls}`,
@@ -2067,21 +2083,46 @@ export class WorkflowRuntime implements WorkflowService {
       `Allowed write paths: ${item?.scope.writePaths.map(escapeXml).join(', ') || 'none'}`,
       `Allowed tools: ${item?.scope.tools.map(escapeXml).join(', ') || 'none'}`,
       `Required checks: ${escapeXml(JSON.stringify(item?.acceptanceChecks.filter((check) => check.required).map(({ id, description, status, verifier, evidenceId }) => ({ id, description, status, verifier, evidenceId })) ?? []))}`,
-      `Delegations: ${workflow.delegations.map((entry) => `${escapeXml(entry.itemId)}=${entry.status}`).join(', ') || 'none'}`,
-      `Recent failed checks: ${recentFailures.map((entry) => escapeXml(entry.checkId)).join(', ') || 'none'}`,
-      'Stay on the current item. Expand scope explicitly with a reason before accessing anything outside it.',
-      'Use the stable loop: orient, bounded exploration, act or delegate, verify, checkpoint.',
-      'These are current Host facts, refreshed before each request. Do not call get_workflow/get_plan merely to repeat known facts.',
-      ...(item && !checks.length
+      ...(workflow.delegations.length
+        ? [
+            `Delegations: ${workflow.delegations.map((entry) => `${escapeXml(entry.itemId)}=${entry.status}`).join(', ')}`,
+          ]
+        : []),
+      ...(recentFailures.length
+        ? [`Recent failed checks: ${recentFailures.map((entry) => escapeXml(entry.checkId)).join(', ')}`]
+        : []),
+      'Fresh Host snapshot; do not query again just to repeat these facts. Stay within the authorized task and explicitly expand scope with a reason before outside access.',
+      ...(workflow.completionPolicy === 'user'
+        ? [
+            "Completion requires explicit user acceptance; do not accept on the user's behalf or switch policy to bypass it.",
+          ]
+        : workflow.completionPolicy === 'review_agent'
+          ? ['Completion requires the assigned read-only reviewer; do not substitute your own acceptance.']
+          : []),
+      ...(workflow.status === 'waiting_user'
+        ? ['Await the explicit user acceptance; do not replace the focus to bypass it.']
+        : workflow.status === 'cancelled'
+          ? ['This Workflow is cancelled; do not resume it without an authorized new task.']
+          : []),
+      ...(needsFocus
+        ? [
+            `Next focus step: ${nextIndex < 0 ? 'none' : escapeXml(JSON.stringify({ stepIndex: nextIndex, step: plan?.plan[nextIndex]?.step }))}`,
+            'Execution is not ready. Preserve task and acceptance requirements. Use update_plan if no in_progress step exists, then workflow_focus for the current Agent Plan revision. Do not execute the stale scope or request completion using its old versions.',
+          ]
+        : []),
+      ...(executable && item && !checks.length
         ? [
             workflow.focusRevision === undefined
               ? `After verifying the objective, use workflow_update with action="checkpoint", itemId=${JSON.stringify(item.id)}, outcome="complete", expectedRevision=${workflow.revision}, and a concise summary.`
               : `After verifying, use workflow_checkpoint with itemId=${JSON.stringify(item.id)}, outcome="complete", expectedFocusRevision=${workflow.focusRevision}, expectedPlanRevision=${workflow.planRevision}, and a concise summary. If unavailable, use workflow_update action="checkpoint" with current expectedRevision.`,
           ]
         : []),
-      'A complete checkpoint also advances the Agent Plan and completes the workflow when its last step finishes; do not duplicate that with update_plan or workflow complete.',
-      'When available, prefer workflow_execute for known-input text tools: calls [{name, arguments}]. Omit checkpoint version fields inside it to bind them to the Host focus/Plan snapshot at batch start; explicit versions stay strict. Scope expansion preserves that identity. Each call passes normal gates; failure or images stop the sequence. Earlier effects remain: inspect before retrying.',
-      'Tools execute sequentially in listed order. Batch related calls when inputs are known. For Host-tool-verified checks, the same batch may include authorized scope repair, write, read-back, workflow_checkpoint complete, and update_goal complete. These request conditional completion: the Host refuses missing or failed verification. Do not claim success before settlement. For checks needing interpretation, inspect results before requesting completion.',
+      ...(executable
+        ? [
+            'Batch known-input text calls with workflow_execute when available (otherwise sequential tools): authorized scope repair, write, read-back, workflow_checkpoint complete, update_goal complete. Normal gates apply; failure/images stop, earlier effects remain. Inspect before retrying. Only Host-tool-verified checks allow same-batch completion; inspect interpretive checks before completing. Host refuses missing/failed verification; claim success after settlement.',
+            'Omitted batch checkpoint versions bind to its starting focus/Plan snapshot; explicit versions remain strict. Scope expansion preserves that identity. A complete checkpoint advances Plan and finishes Workflow at the last step; do not duplicate with update_plan or workflow complete.',
+          ]
+        : []),
       '</focus_workflow>',
     ].join('\n')
     return { ...request, system: `${request.system}\n\n${prompt}` }

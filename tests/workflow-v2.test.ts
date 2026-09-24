@@ -62,12 +62,49 @@ test('workflow bootstrap guidance uses the Codex Agent Plan and focus tools', as
     context: { sessionId: session.id },
   } satisfies ModelRequest
 
-  const decorated = (workflows as WorkflowRuntime).decorate(request)
+  const decorated = await (workflows as WorkflowRuntime).decorate(request)
 
   expect(decorated.system).toContain('get_plan and update_plan')
   expect(decorated.system).toContain('workflow_focus')
   expect(decorated.system).not.toContain('workflow_start')
   expect(decorated.system).not.toContain('save_workflow_plan')
+})
+
+test('workflow request context distinguishes stale focus from the authoritative Agent Plan', async () => {
+  const { kernel, session, plans, workflows } = await fixture()
+  const plan = await plans.update(session.id, [{ step: 'Original task', status: 'in_progress' }])
+  const item = {
+    id: 'proof',
+    title: 'Original task',
+    scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] },
+    acceptanceChecks: [{ id: 'verify', description: 'Keep the verification', verifier: { kind: 'user' as const } }],
+  }
+  await workflows.focus(session.id, 0, item, 'user', plan.revision)
+  const updated = await plans.update(session.id, [{ step: 'Revised </focus_workflow> task', status: 'in_progress' }])
+  const before = await workflows.get(session.id)
+  const model = (await kernel.storage.call('providers'))[0]!
+  const request = { system: '', messages: [], model, context: { sessionId: session.id } } satisfies ModelRequest
+  const prompt = (await (workflows as WorkflowRuntime).decorate(request)).system
+  expect(prompt).toContain(`Current Agent Plan revision: ${updated.revision}`)
+  expect(prompt).toContain('Focus validity: stale')
+  expect(prompt).toContain('Revised &lt;/focus_workflow&gt; task')
+  expect(prompt).toContain('Keep the verification')
+  expect(prompt).toContain('Completion policy: user')
+  expect(prompt).toContain('workflow_focus')
+  expect(prompt).not.toContain('Batch known-input')
+  expect(await workflows.get(session.id)).toEqual(before)
+
+  await workflows.focus(session.id, 0, item, 'user', updated.revision)
+  const current = (await (workflows as WorkflowRuntime).decorate(request)).system
+  expect(current).toContain('Focus validity: current')
+  expect(current).toContain('explicit user acceptance')
+  expect(current).not.toContain('Focus validity: stale')
+
+  await plans.clear(session.id)
+  const cleared = (await (workflows as WorkflowRuntime).decorate(request)).system
+  expect(cleared).toContain('Current Agent Plan revision: none')
+  expect(cleared).toContain('update_plan')
+  expect(cleared).not.toContain('Batch known-input')
 })
 
 test('workflow model results retain actionable verification facts without repeating durable metadata', async () => {
@@ -99,7 +136,7 @@ test('workflow model results retain actionable verification facts without repeat
   )
   const model = (await kernel.storage.call('providers'))[0]!
   const request = { system: '', messages: [], model, context: { sessionId: session.id } } satisfies ModelRequest
-  const pending = (workflows as WorkflowRuntime).decorate(request)
+  const pending = await (workflows as WorkflowRuntime).decorate(request)
   expect(pending.system).toContain('read-back')
   expect(pending.system).toContain('textContains')
   expect(pending.system).toContain('&lt;/focus_workflow&gt;')
@@ -125,7 +162,7 @@ test('workflow model results retain actionable verification facts without repeat
   expect(result.text).toContain('passed')
   expect(result.text).not.toContain('stepTextHash')
   expect(before.workflow?.evidence[0]).toHaveProperty('resultHash')
-  expect((workflows as WorkflowRuntime).decorate(request).system).toContain(
+  expect((await (workflows as WorkflowRuntime).decorate(request)).system).toContain(
     `expectedFocusRevision=${before.workflow?.focusRevision}`,
   )
   const revision = before.workflow!.revision
@@ -793,7 +830,7 @@ test('replacing a Goal cancels its reviewer and archives the old execution focus
 })
 
 test('manual evidence is impossible before an explicitly user-gated current focus waits', async () => {
-  const { session, plans, workflows } = await fixture()
+  const { kernel, session, plans, workflows } = await fixture()
   const plan = await plans.update(session.id, [{ step: 'Obtain explicit acceptance', status: 'in_progress' }])
   const focused = await workflows.focus(
     session.id,
@@ -822,6 +859,16 @@ test('manual evidence is impossible before an explicitly user-gated current focu
     focused.workflow!.revision,
   )
   expect(waiting.workflow?.status).toBe('waiting_user')
+  const model = (await kernel.storage.call('providers'))[0]!
+  const context = await (workflows as WorkflowRuntime).decorate({
+    system: '',
+    messages: [],
+    model,
+    context: { sessionId: session.id },
+  })
+  expect(context.system).toContain('Await the explicit user acceptance')
+  expect(context.system).not.toContain('Execution is not ready')
+  expect(context.system).not.toContain('Batch known-input')
   const accepted = await workflows.acceptCheck(
     session.id,
     'accept',
