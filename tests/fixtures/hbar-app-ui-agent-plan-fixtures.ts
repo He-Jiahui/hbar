@@ -1,13 +1,13 @@
 import type {HbarAppUiAgentPlanContent, HbarAppUiAgentPlanStep} from '../../packages/hbar-app-ui/src/index'
 
 const checklistSteps: readonly HbarAppUiAgentPlanStep[] = [
-    {id: 'contract-notes', title: 'Read the billing contract notes', state: 'done', stateLabel: 'Done'},
-    {id: 'resolver-map', title: 'Map the entitlement resolver', state: 'done', stateLabel: 'Done'},
+    {id: 'contract-notes', title: 'Read the billing contract notes', state: 'done', stateLabel: 'Done', detail: 'Collected the pricing rules, renewal terms and license caps.', target: 'docs/billing.md', estimate: '2 min'},
+    {id: 'resolver-map', title: 'Map the entitlement resolver', state: 'done', stateLabel: 'Done', detail: 'Traced how a key resolves to a tier before touching the branch.', target: 'lib/registry-auth.ts', estimate: '3 min'},
     {id: 'tier-lookup', title: 'Patch the tier lookup', state: 'running', stateLabel: 'Running', detail: 'Adding the renewal fallback so expired keys keep access through the grace window, without changing the response shape.', target: 'lib/registry-auth.ts', estimate: '6 min'},
-    {id: 'renewal-test', title: 'Add a renewal-grace test', state: 'queued', stateLabel: 'Queued'},
-    {id: 'license-checks', title: 'Run the license checks', state: 'queued', stateLabel: 'Queued'},
-    {id: 'entitlement-fixtures', title: 'Regenerate the entitlement fixtures', state: 'skipped', stateLabel: 'Skipped'},
-    {id: 'installation-docs', title: 'Update the installation docs', state: 'queued', stateLabel: 'Queued'},
+    {id: 'renewal-test', title: 'Add a renewal-grace test', state: 'queued', stateLabel: 'Queued', detail: 'Covers the expired-but-in-grace path from key to response.', target: 'tests/entitlements.test.ts', estimate: '4 min'},
+    {id: 'license-checks', title: 'Run the license checks', state: 'queued', stateLabel: 'Queued', detail: 'Verifies expired, starter, pro and ultimate keys each branch.', target: 'npm test', estimate: '5 min'},
+    {id: 'entitlement-fixtures', title: 'Regenerate the entitlement fixtures', state: 'skipped', stateLabel: 'Skipped', detail: 'Skipped in review: the current fixtures already cover the change.', target: 'scripts/fixtures.ts', estimate: '4 min'},
+    {id: 'installation-docs', title: 'Update the installation docs', state: 'queued', stateLabel: 'Queued', detail: 'Describes the renewal fallback in plain language.', target: 'docs/installation.md', estimate: '3 min'},
 ]
 
 const editableSteps: readonly HbarAppUiAgentPlanStep[] = [
@@ -92,10 +92,11 @@ const verifyItems: readonly HbarAppUiAgentPlanStep[] = statefulPlanSteps([
 
 export const HBAR_APP_UI_AGENT_PLAN_FIXTURES: HbarAppUiAgentPlanContent = {
     checklist: {
-        labels: {title: 'Fix billing entitlements', progress: (done, total) => `${done} of ${total} done`, stop: 'Stop', target: 'Target', estimate: 'Estimate', empty: 'No plan steps', workingOn: (title) => `Working on ${title}.`},
+        runId: 'billing-entitlements', paused: false,
+        labels: {title: 'Fix billing entitlements', progress: (done, total) => `${done} of ${total} done`, stop: 'Stop', resume: 'Resume', paused: 'Paused', target: 'Target', estimate: 'Estimate', empty: 'No plan steps', workingOn: (title) => `Working on ${title}.`, pausedOn: (title) => `Paused on ${title}.`},
         steps: checklistSteps,
         activeStepId: 'tier-lookup',
-        listStrategy: {kind: 'content-grown', expectedMaximum: 12},
+        listStrategy: {kind: 'pane-scroll', expectedMaximum: 12},
     },
     editable: {
         draft: '', busy: false, canAdd: true, canSubmit: true,
@@ -152,7 +153,7 @@ export function createHbarAppUiAgentPlanLocalizedFixtures(): HbarAppUiAgentPlanC
     const base = HBAR_APP_UI_AGENT_PLAN_FIXTURES
     return {
         ...base,
-        checklist: base.checklist && {...base.checklist, labels: {...base.checklist.labels, title: 'Abrechnung und Berechtigungen reparieren', stop: 'Ausführung stoppen', target: 'Zieldatei', estimate: 'Schätzung', progress: (done, total) => `${done} von ${total} Schritten abgeschlossen`, workingOn: (title) => `Aktiver Schritt: ${title}.`}},
+        checklist: base.checklist && {...base.checklist, labels: {...base.checklist.labels, title: 'Abrechnung und Berechtigungen reparieren', stop: 'Ausführung stoppen', resume: 'Ausführung fortsetzen', paused: 'Pausiert', empty: 'Keine Planschritte', target: 'Zieldatei', estimate: 'Schätzung', progress: (done, total) => `${done} von ${total} Schritten abgeschlossen`, workingOn: (title) => `Aktiver Schritt: ${title}.`, pausedOn: (title) => `Pausierter Schritt: ${title}.`}},
         editable: base.editable && {...base.editable, labels: {...base.editable.labels, title: 'Plan vor dem Start prüfen', summary: '8 ausführen · 1 übersprungen', review: 'Schritte neu ordnen oder überspringen und danach den Lauf starten.', addPlaceholder: 'Einen weiteren Schritt hinzufügen', add: 'Hinzufügen', start: (count) => `${count} Schritte starten`, moveUp: (title) => `${title} nach oben`, moveDown: (title) => `${title} nach unten`, skip: (title) => `${title} überspringen`, restore: (title) => `${title} wiederherstellen`, newStepStateLabel: 'Bereit'}},
         tree: base.tree && {...base.tree, labels: {...base.tree.labels, title: 'Berechtigungstabellen migrieren', retry: 'Erneut versuchen'}},
         actual: base.actual && {...base.actual, labels: {...base.actual.labels, title: 'Plan und Ist-Zeit vergleichen', remaining: 'Noch ein Schritt', description: 'Geplante und tatsächliche Dauer je Arbeitsschritt'}},

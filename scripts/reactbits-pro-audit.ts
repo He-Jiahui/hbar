@@ -238,6 +238,7 @@ export type InteractionCase = Readonly<{
     | 'cost-request-open'
     | 'history-match'
     | 'history-empty'
+    | 'plan-paused'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -2110,6 +2111,8 @@ async function replayInteraction(
     (interaction.scenario === 'history-match' || interaction.scenario === 'history-empty')
   )
     await prepareHistoryScenario(root, interaction.scenario)
+  if (spec.id === 'hbar-app-ui-agent-plan-1' && interaction.scenario === 'plan-paused')
+    await root.getByRole('button', { name: 'Stop', exact: true }).click()
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2210,6 +2213,8 @@ async function replayReferenceInteraction(
     (interaction.scenario === 'history-match' || interaction.scenario === 'history-empty')
   )
     await prepareHistoryScenario(root, interaction.scenario)
+  if (reference.id === 'hbar-app-ui-agent-plan-1' && interaction.scenario === 'plan-paused')
+    await root.getByRole('button', { name: 'Stop', exact: true }).click()
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2761,6 +2766,13 @@ async function runInteractionsParallel(
               if (!visibleControls(expanded).some((control) => control.tag === 'pre'))
                 throw new Error('Missing focusable live cost request')
               discovered.push(...interactionCases(expanded, spec.id, 'cost-request-open'))
+            }
+            if (
+              spec.id === 'hbar-app-ui-agent-plan-1' &&
+              (!sampleIds || sampleIds.some((id) => id.includes(':plan-paused:')))
+            ) {
+              await sourceRoot.getByRole('button', { name: 'Stop', exact: true }).click()
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'plan-paused'))
             }
             if (spec.id === 'hbar-app-ui-agent-approval-6') {
               for (const scenario of ['history-match', 'history-empty'] as const) {

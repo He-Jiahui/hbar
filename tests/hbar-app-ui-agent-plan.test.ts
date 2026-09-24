@@ -55,7 +55,7 @@ describe('hbar-app-ui agent plan surfaces', () => {
         const summary = renderPlan(6)
 
         expect(checklist.indexOf('Fix billing entitlements')).toBeLessThan(checklist.indexOf('Read the billing contract notes'))
-        expect(checklist).toContain('data-hbar-app-ui-list-strategy="content-grown"')
+        expect(checklist).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
         expect(editable).toContain('aria-label="Move Read the billing contract notes up"')
         expect(editable).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
         expect(editable).toContain('Reorder or skip steps, then start the run.')

@@ -349,6 +349,20 @@ describe('React Bits Pro visual audit contract', () => {
     expect(sampledInteractionIds(id, 'stress', 'light')).toContain(`${id}:history-empty:6:click`)
   })
 
+  test('checklist samples independent run and disclosure changes rather than every step', () => {
+    const id = 'hbar-app-ui-agent-plan-1'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(6)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toHaveLength(4)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([
+      `${id}:4:press-enter`,
+      `${id}:plan-paused:0:press-space`,
+    ])
+    expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([])
+    expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(
+      true,
+    )
+  })
+
   test('cost approval samples distinct outcomes and wrapping instead of passive metrics', () => {
     const id = 'hbar-app-ui-agent-approval-5'
     expect(auditSamplingPlan(id)?.samples).toHaveLength(7)

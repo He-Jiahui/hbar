@@ -300,11 +300,64 @@ const historyPlan: AuditSamplingPlan = {
   ],
 }
 
+const checklistPlan: AuditSamplingPlan = {
+  revision: 1,
+  lumenEntries: ['agent-plan.tsx', 'LumenProvider.tsx'],
+  samples: [
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '0:click',
+      change: 'Stop changes the running status and live announcement to paused, retaining progress and disclosure',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '1:click',
+      change: 'Completed step disclosure replaces the running step detail, not the running state',
+    },
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: '3:click',
+      change: 'Activating the expanded step collapses all details',
+    },
+    { viewport: 'desktop', theme: 'dark', suffix: '1:hover', change: 'Shared full-row pointer feedback' },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: '4:press-enter',
+      change: 'Narrow queued-step disclosure wraps the description and metadata',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'plan-paused:0:press-space',
+      change: 'Narrow Resume restores the running status without changing progress or open detail',
+    },
+  ],
+  inferences: [
+    {
+      scope: 'Other step IDs and repeated row gestures',
+      basis:
+        'All seven host-owned descriptions/targets/estimates are populated from rendered disclosures. One shared single-open toggle handles done/running/queued/skipped rows; unit coverage checks data and duplicate/stale/capacity behavior.',
+      verification: 'inferred-not-replayed',
+    },
+    {
+      scope: 'Repeated pause/disclosure sequences across remaining themes and sizes',
+      basis:
+        'Pause and disclosure are independent states. Desktop and narrow samples cover both transitions and both keyboard gestures; eight static source/local pairs cover four widths and two themes. Passive progress is not treated as a control.',
+      verification: 'inferred-not-replayed',
+    },
+  ],
+}
+
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
   if (variantId === 'hbar-app-ui-agent-approval-5') return costPlan
   if (variantId === 'hbar-app-ui-agent-approval-6') return historyPlan
+  if (variantId === 'hbar-app-ui-agent-plan-1') return checklistPlan
   return undefined
 }
 

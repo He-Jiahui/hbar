@@ -1,4 +1,5 @@
 import {chromium} from '@playwright/test'
+import { verifyPlanChecklist } from './verify-hbar-app-ui-plan-checklist'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5185'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -118,12 +119,17 @@ async function run(): Promise<void> {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     try {
+        if (process.argv.includes('--checklist-only')) {
+            await verifyPlanChecklist(page, baseUrl)
+            assert(pageErrors.length === 0, `Checklist page errors: ${pageErrors.join(' | ')}`)
+            return
+        }
         const geometryChecks = await verifyGeometry(page)
 
         await page.goto(previewUrl(1), {waitUntil: 'networkidle'})
         const stop = page.getByRole('button', {name: 'Stop', exact: true})
         await stop.click()
-        assert(await stop.isDisabled(), 'Checklist stop action did not settle')
+        assert(await page.getByRole('button', {name: 'Resume', exact: true}).count() === 1, 'Checklist stop action did not pause')
 
         await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
         const addInput = page.getByRole('textbox', {name: 'Add a step', exact: true})

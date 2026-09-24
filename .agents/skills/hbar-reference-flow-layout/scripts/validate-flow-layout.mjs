@@ -89,6 +89,14 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // The rendered Plan 1 scroll frame has two pointer-transparent edge fades.
+  if (
+    /packages\/lumen-app-ui\/src\/agent-plan-checklist\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-app-ui-agent-plan-checklist-edge-overlay(?:\.is-(?:top|bottom)|\[data-visible=['"]true['"]\])?$/.test(
+      selector.trim(),
+    )
+  )
+    return true
   // Live Agent Approval 1 has two pointer-transparent scroll-edge fades.
   // Allow only those containers in their owning file, never their descendants.
   if (
@@ -275,7 +283,23 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     console.error(`Flow layout guard rejected verified scroll-edge overlays: ${approvalScrollOverlay.join('; ')}`)
     process.exit(1)
   }
+  for (const suffix of ['', '.is-top', '.is-bottom', '[data-visible="true"]']) {
+    const errors = validateCss(
+      'packages/lumen-app-ui/src/agent-plan-checklist.css',
+      `.hbar-app-ui-agent-plan-checklist-edge-overlay${suffix} {
+  position: absolute;
+  inset-inline: 0;
+}`,
+    )
+    if (errors.length) {
+      console.error(`Flow layout guard rejected verified checklist edge overlays: ${errors.join('; ')}`)
+      process.exit(1)
+    }
+  }
   for (const [path, selector] of [
+    ['packages/lumen-app-ui/src/agent-plan.css', '.hbar-app-ui-agent-plan-checklist-edge-overlay'],
+    ['packages/lumen-app-ui/src/agent-plan-checklist.css', '.hbar-app-ui-agent-plan-checklist-edge-overlay p'],
+    ['packages/lumen-app-ui/src/agent-plan-checklist.css', '.hbar-app-ui-agent-plan-checklist-edge-overlay > button'],
     ['packages/hbar-app-ui/src/feature.css', '.hbar-app-ui-agent-approval-scroll-overlay'],
     ['packages/lumen-app-ui/src/agent-approval.css', '.hbar-app-ui-agent-approval-scroll-overlay p'],
     ['packages/lumen-app-ui/src/agent-approval.css', '.hbar-app-ui-agent-approval-scroll-overlay > button'],

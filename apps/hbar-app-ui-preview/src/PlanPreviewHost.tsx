@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
+import { useStore } from 'zustand'
 import { HbarAppUiAgentPlanProvider, type HbarAppUiAgentPlanContent } from 'hbar-app-ui/catalog'
+import { createChecklistPreviewStore, projectChecklistPreviewContent } from './checklist-preview-model'
 
 export function PlanPreviewHost({
   content,
@@ -8,6 +10,10 @@ export function PlanPreviewHost({
   readonly content: HbarAppUiAgentPlanContent
   readonly children: ReactNode
 }) {
+  const [checklistStore] = useState(() => createChecklistPreviewStore(content.checklist))
+  useLayoutEffect(() => checklistStore.getState().replace(content.checklist), [content.checklist, checklistStore])
+  const checklistState = useStore(checklistStore)
+  const checklist = useMemo(() => projectChecklistPreviewContent(checklistState), [checklistState])
   const [source, setSource] = useState(content)
   const [steps, setSteps] = useState(content.editable?.steps ?? [])
   const [draft, setDraft] = useState('')
@@ -21,6 +27,7 @@ export function PlanPreviewHost({
     <HbarAppUiAgentPlanProvider
       content={{
         ...content,
+        checklist,
         editable: editable && {
           ...editable,
           steps,

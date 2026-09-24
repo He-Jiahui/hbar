@@ -28,6 +28,10 @@ Approval 6 的滚动边界区分预览外壳和实际宿主：原版外壳声明
 
 ## 覆盖矩阵
 
+Agent Plan 1 的计划为 **6 个代表案例**：暂停、展开已完成步骤、收起运行步骤、行 hover、极窄键盘展开待办步骤、极窄键盘恢复。展开项与运行项相互独立，进度条是被动信息。七个步骤的说明/目标/估时来自真实展开内容；同构行按钮不逐项乘以鼠标/键盘/主题重放。其他行状态与目标数据、重复/过期 ID、空态和容量边界由单元测试支撑；浏览器补充 25 行滚动、短宿主和长德语动作可达性。
+
+Plan 1 的窄屏边界有明确取舍：真实原版 286px 画布的 Resume 超出右边界，本地允许被动进度条收缩，保留原生键盘焦点环及完整操作入口；这不是颜色差异或像素完全一致。列表沿剩余宿主高度滚动，不强制原版预览外壳的 35rem 最小高度。其余层级、展开/收起流、正文换行和暂停/恢复反馈按真实截图比较。
+
 - 发现：38 个分类、300 个变体，并与 `packages/hbar-app-ui/src/specs.ts` 的本地注册表逐 ID 校验。
 - 静态截图：1440×900、1024×768、390×844、320×720 四个视口；dark/light 两个主题。
 - 完整预览根：源截图、结构快照和动作发现均取 iframe 的 `#preview-root`；本地取整个隔离画布。必须包括源变体的标题、状态、工具栏、筛选、内容与页脚，绝不能从内部 pane 猜测组件根节点。页面外的文档导航不属于组件。
@@ -67,7 +71,7 @@ bun run app-ui:reactbits:capture -- `
   --output artifacts/reactbits-pro-visual-audit/card-11 `
   --workers 2
 
-# 同一变体做所有视口/主题的真实交互 before/after 截图
+# 对已配置选样计划的变体，采集关键变化的真实交互 before/after 截图
 bun run app-ui:reactbits:interactions -- `
   --variants hbar-app-ui-card-11 `
   --output artifacts/reactbits-pro-visual-audit/card-11
@@ -81,7 +85,7 @@ bun scripts/reactbits-pro-audit.ts review `
   --output artifacts/reactbits-pro-visual-audit/card-11 `
   --note "逐一核对八组静态图、窄宽度溢出和所有动作反馈报告"
 
-# 对全部 300 个变体生成机器证据；--strict 会等待每个变体的人工签核才最终通过
+# 全量命令：每个变体须先有已审阅选样计划；缺计划会失败，不退回穷举
 bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/all --workers 2 --strict
 ```
 
