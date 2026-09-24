@@ -126,6 +126,17 @@ test('workflow model results retain actionable verification facts without repeat
   expect(result.text).not.toContain('stepTextHash')
   expect(before.workflow?.evidence[0]).toHaveProperty('resultHash')
   expect((workflows as WorkflowRuntime).decorate(request).system).toContain('expectedRevision=')
+  const revision = before.workflow!.revision
+  const conflict = await rejection(
+    workflows.checkpoint(session.id, 'proof', 'complete', 'Verified', null, revision - 1),
+  )
+  expect(conflict).toMatchObject({ code: 'WORKFLOW_REVISION_CONFLICT' })
+  expect(conflict instanceof Error && conflict.message).toContain(`expectedRevision=${revision}`)
+  expect(conflict instanceof Error && conflict.message).toContain('itemId="proof"')
+  expect(await workflows.get(session.id)).toEqual(before)
+  expect(
+    (await workflows.checkpoint(session.id, 'proof', 'complete', 'Verified', null, revision)).workflow?.status,
+  ).toBe('completed')
   expect(workflowModelView({ plan: null, workflow: null })).toEqual({ plan: null, workflow: null })
 })
 

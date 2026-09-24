@@ -907,7 +907,10 @@ export class WorkflowRuntime implements WorkflowService {
     const workflow = this.workflows.get(sessionId)
     if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'No workflow exists for this session')
     if (workflow.revision !== expectedRevision)
-      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The workflow changed before this update was applied')
+      throw new HbarError(
+        'WORKFLOW_REVISION_CONFLICT',
+        `The workflow changed before this update was applied. Current expectedRevision=${workflow.revision}, itemId=${JSON.stringify(workflow.activeItemId)}, planRevision=${workflow.planRevision}, status=${workflow.status}. Tool settlement can advance the revision; checkpoint with the revision after verification. Revalidate the current focus and checks before retrying; do not replay completed side effects.`,
+      )
     if (['completed', 'cancelled'].includes(workflow.status))
       throw new HbarError('WORKFLOW_COMPLETE', 'The workflow is already settled')
     return workflow
