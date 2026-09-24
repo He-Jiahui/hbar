@@ -54,6 +54,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 390, height: 844 },
       ]) {
         await page.setViewportSize(viewport)
+        // The media-query listener closes the desktop sidebar after the viewport changes.
+        // Wait for that transition before reopening it and sending a keyboard event.
+        if (viewport.width < 1024)
+          await expect(page.getByRole('button', { name: copy.shell.showSidebar, exact: true })).toBeVisible()
         await revealSidebar(page, locale)
         const actions = page.getByTitle(copy.shell.workspaceActions(second.name), { exact: true })
         await actions.focus()
