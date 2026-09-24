@@ -1,8 +1,9 @@
-import { cp, mkdir, copyFile, rm } from 'node:fs/promises'
+import { cp, mkdir, rm } from 'node:fs/promises'
 import { resolve, join, relative } from 'node:path'
 import './icons'
 import './build-native-tools'
 import { optionalBundleExternals } from './bundle-externals'
+import { copyBuildArtifact } from './copy-build-artifact'
 
 const project = resolve(import.meta.dir, '..')
 const output = resolve(project, 'dist/desktop-resources')
@@ -25,9 +26,9 @@ for (const [entry, name] of [
   })
   if (!build.success) throw new AggregateError(build.logs, `Failed to build ${entry}`)
 }
-await copyFile(process.execPath, join(output, process.platform === 'win32' ? 'bun.exe' : 'bun'))
+await copyBuildArtifact(process.execPath, join(output, process.platform === 'win32' ? 'bun.exe' : 'bun'))
 await mkdir(nativeOutput, { recursive: true })
-await copyFile(
+await copyBuildArtifact(
   resolve(project, 'plugins/local-tools/native/hbar_workspace_query.node'),
   join(nativeOutput, 'hbar_workspace_query.node'),
 )

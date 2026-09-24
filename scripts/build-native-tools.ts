@@ -1,5 +1,6 @@
-import { copyFile, mkdir } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
+import { copyBuildArtifact } from './copy-build-artifact'
 
 const project = resolve(import.meta.dir, '..')
 const manifest = join(project, 'plugins/local-tools/native/Cargo.toml')
@@ -29,6 +30,5 @@ const library = join(
 )
 const output = join(project, 'plugins/local-tools/native/hbar_workspace_query.node')
 await mkdir(resolve(output, '..'), { recursive: true })
-await copyFile(library, output)
+await copyBuildArtifact(library, output)
 console.log(`Native workspace query module: ${basename(output)}`)
-
