@@ -11,6 +11,7 @@
 - 完整预览根：源截图、结构快照和动作发现均取 iframe 的 `#preview-root`；本地取整个隔离画布。必须包括源变体的标题、状态、工具栏、筛选、内容与页脚，绝不能从内部 pane 猜测组件根节点。页面外的文档导航不属于组件。
 - 画布校准：记录原版 iframe 实际内容宽高和舞台 padding，并以相同可用空间渲染本地隔离预览；外窗宽度不能直接当成组件可用宽度。
 - 主题校验：不仅检查文档外层 `html` 的 dark/light 状态，还要在每次原版交互截图前后确认真实预览 iframe 的 `html.dark` 与目标主题一致；外层切换后 iframe 未同步的案例必须重采，不能把暗色原版图当浅色证据。
+- 本地资源就绪：等待页面 load、实际样式表与字体加载完成后才采集。样式资源失败必须失败/重试，不能把已经出现文字的无样式页面当成已就绪；断点复用还要检查动作前后画布几何，避免语义状态相同掩盖丢失样式。
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的实际矩形与 name/role/disabled/expanded/pressed/selected/state。动作差分取控件自身矩形，不依赖它恰好落在 DOM 树的前五层。
 - 交互截图：每个动作在新浏览器上下文中分别打开源 iframe 与本地预览，对每个真实可见控件逐一覆盖 hover、focus、click、文本填充、Enter/Space press 及适用的 select/toggle/expand/menu/tab/drag/upload/download；同构控件也分别保留 before/after，不以代表案例代替。只读的 `progressbar`、`status`、`banner` 等 ARIA 角色参与语义树比较，但不冒充可操作控件。CSS 隐藏控件不计入当前视口的结构数量或动作清单。
 - 状态路径：先核对初始可见控件，再实际触发会显露新控件的状态，给新状态单独命名并重做逐控件 before/after。当前明确覆盖日志运行中 Stop、离开底部的 Jump，以及失败重试排队后的 Cancel retry；后续变体若发现新状态路径，须在审计程序中补充场景与完整性门禁，不能只凭初始 DOM 宣称所有反馈已覆盖。每个新场景同样跑四视口、两主题，取消/撤销还须核对是否返回原态。
@@ -22,6 +23,9 @@ Agent Approval 1 还显式覆盖 `inline-request-open`：真实点击 Show reque
 ## 命令
 
 ```powershell
+# 故障注入验证本地资源门禁；测试 fixture 不替代真实原版截图
+bun scripts/verify-reactbits-audit-readiness.ts
+
 # 只发现并校验 React Bits Pro 的 38/300 清单
 bun run app-ui:reactbits:discover -- --output artifacts/reactbits-pro-visual-audit/all
 

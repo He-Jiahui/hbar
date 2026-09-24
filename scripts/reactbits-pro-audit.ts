@@ -978,6 +978,23 @@ async function gotoStable(page: Page, url: string): Promise<void> {
   throw lastError instanceof Error ? lastError : new Error(`Could not navigate to ${url}`)
 }
 
+export async function waitForLocalStyles(page: Page, timeout = 15_000): Promise<void> {
+  await page.waitForLoadState('load', { timeout })
+  await page.waitForFunction(() => {
+    const stylesheets = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
+    return document.styleSheets.length > 0 &&
+      stylesheets.every((link) => {
+        if (link.disabled) return true
+        try {
+          return link.sheet !== null && link.sheet.cssRules.length > 0
+        } catch {
+          return false
+        }
+      }) &&
+      document.fonts.status === 'loaded'
+  }, undefined, { timeout })
+}
+
 type SnapshotWithoutAx = Omit<SemanticSnapshot, 'axSnapshot'>
 
 async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise<SnapshotWithoutAx> {
@@ -1224,6 +1241,7 @@ async function captureLocal(
   await gotoStable(page, target)
   const rootSelector = `[data-hbar-app-ui-component="${spec.id}"]`
   await page.locator(rootSelector).first().waitFor({ state: 'visible', timeout: 30_000 })
+  await waitForLocalStyles(page)
   await applyLocalCanvas(page, referenceCanvas, rootSelector, localCanvasSelector)
   const selector = localCanvasSelector
   const root = page.locator(selector).first()
@@ -1574,6 +1592,20 @@ async function completedInteractionCheckpoint(
     const withinRoot = relative(root, absolute)
     if (withinRoot.startsWith('..') || isAbsolute(withinRoot) || !(await Bun.file(absolute).exists())) return undefined
   }
+  // A semantic match can still be an unstyled page after a dropped CSS request.
+  // Do not resume it merely because its button changed the expected text.
+  for (const phase of ['beforeSnapshot', 'afterSnapshot'] as const) {
+    const sourcePath = result.source[phase]
+    const localPath = result.local[phase]
+    if (!sourcePath || !localPath) return undefined
+    try {
+      const source = await readJson<SemanticSnapshot>(sourcePath)
+      const local = await readJson<SemanticSnapshot>(localPath)
+      if (!rootGeometryMatches(source.rootRect, local.rootRect)) return undefined
+    } catch {
+      return undefined
+    }
+  }
   return result
 }
 
@@ -1724,6 +1756,7 @@ async function replayInteraction(
   await gotoStable(page, target)
   const componentRoot = `[data-hbar-app-ui-component="${spec.id}"]`
   await page.locator(componentRoot).first().waitFor({ state: 'visible', timeout: 30_000 })
+  await waitForLocalStyles(page)
   await applyLocalCanvas(page, referenceCanvas, componentRoot, localCanvasSelector)
   const selector = localCanvasSelector
   const root = page.locator(selector).first()
@@ -2363,16 +2396,21 @@ async function runInteractionsParallel(
                     }
                     return errorInteractionCapture(interaction.id, sourceDirectory, lastError)
                   }
-                  const captureLocal = (rows?: number) => replayInteraction(
-                      localPage,
-                      spec,
-                      theme,
-                      viewport,
-                      referenceCanvas,
-                      interaction,
-                      options.outputRoot,
-                      rows,
-                    ).catch((error) => errorInteractionCapture(interaction.id, localDirectory, error))
+                  const captureLocal = async (rows?: number): Promise<InteractionCapture> => {
+                    let lastError: unknown
+                    for (let attempt = 0; attempt < 2; attempt += 1) {
+                      const retryContext = attempt === 0 ? localContext : await browser.newContext({ reducedMotion: 'reduce' })
+                      try {
+                        const candidatePage = attempt === 0 ? localPage : await retryContext.newPage()
+                        return await replayInteraction(candidatePage, spec, theme, viewport, referenceCanvas, interaction, options.outputRoot, rows)
+                      } catch (error) {
+                        lastError = error
+                      } finally {
+                        if (attempt > 0) await retryContext.close()
+                      }
+                    }
+                    return errorInteractionCapture(interaction.id, localDirectory, lastError)
+                  }
                   if (interaction.scenario === 'running') {
                     source = await captureSourceWithRetry()
                     local = await captureLocal(source.checkpointRows)

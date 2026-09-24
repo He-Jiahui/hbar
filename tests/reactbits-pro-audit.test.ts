@@ -253,6 +253,7 @@ describe('React Bits Pro visual audit contract', () => {
   test('does not mistake a mobile width mismatch for a theme-token difference', () => {
     expect(rootGeometryMatches({ width: 400, height: 474 }, { width: 400, height: 471 })).toBe(true)
     expect(rootGeometryMatches({ width: 292, height: 474 }, { width: 366, height: 471 })).toBe(false)
+    expect(rootGeometryMatches({ width: 1086, height: 480 }, { width: 1070, height: 329 })).toBe(false)
     expect(rootGeometryMatches({ width: 0, height: 474 }, { width: 0, height: 474 })).toBe(false)
   })
 
