@@ -9,6 +9,7 @@ import {
   createBudgetCommandClient,
   createGoalPlanCommandClient,
   createRunCommandClient,
+  createWorkflowCommandClient,
 } from '@hbar/client'
 
 const root = await mkdtemp(join(tmpdir(), 'hbar-native-session-'))
@@ -88,6 +89,44 @@ try {
       .toBe(step)
   }
   await publishPlan('Verify the desktop-loaded session implementation')
+  const plan = await goals.execute('plan.get', { sessionId: session.id })
+  if (!plan) throw new Error('Native fixture Plan was not persisted')
+  await createWorkflowCommandClient(api).execute('workflow.focus.set', {
+    sessionId: session.id,
+    stepIndex: 0,
+    item: { id: 'native-proof', title: 'Native catalog probe', scope: { tools: [] }, acceptanceChecks: [] },
+    completionPolicy: 'agent',
+    expectedPlanRevision: plan.revision,
+  })
+  const probe = await runs.execute(
+    'run.submit',
+    {
+      sessionId: session.id,
+      modelId: 'local-fixture',
+      input: {
+        text: `/tool workflow_execute ${JSON.stringify({ calls: [{ name: 'get_plan', arguments: {} }] })}`,
+        images: [],
+      },
+    },
+    { idempotencyKey: crypto.randomUUID() },
+  )
+  await expect
+    .poll(async () => (await runs.execute('operation.get', { operationId: probe.operationId })).status)
+    .toBe('completed')
+  const journalSchema = z.object({ request: z.object({ system: z.string(), toolNames: z.array(z.string()) }) })
+  const requests = (await api.call('session.export', { sessionId: session.id }))
+    .filter((event) => event.type === 'request.started')
+    .map((event) => journalSchema.parse(event.data).request)
+  const compactRequest = requests.find((request) => request.system.includes('<workflow_sequence_controls>'))
+  expect(compactRequest?.system).toContain('get_plan({})')
+  expect(compactRequest?.toolNames).toContain('workflow_execute')
+  expect(compactRequest?.toolNames).not.toContain('get_plan')
+  const probeSnapshot = await api.call('session.snapshot', { sessionId: session.id })
+  expect(
+    probeSnapshot.messages
+      .flatMap((message) => message.content)
+      .filter((block) => block.type === 'tool_result' && block.isError),
+  ).toEqual([])
   await createBudgetCommandClient(api).execute(
     'session.setBudget',
     { sessionId: session.id, tokens: 120000 },
@@ -105,7 +144,8 @@ try {
     .click()
   await page.getByRole('button', { name: /^(目标与计划|Goals and plans)$/ }).click()
   const panel = page.locator('.hbar-app-react-goal-plan-workspace')
-  await expect(panel.getByText('Verify the desktop-loaded session implementation', { exact: true })).toBeVisible()
+  const planSummary = panel.locator('.hbar-app-react-plan-summary')
+  await expect(planSummary.getByText('Verify the desktop-loaded session implementation', { exact: true })).toBeVisible()
   await expect(panel.getByRole('button', { name: /^(编辑计划|Edit plan|清除计划|Clear plan)$/ })).toHaveCount(0)
   await expect(panel.locator('.hbar-app-react-goal-execution')).toContainText('120,000')
   await panel.getByRole('button', { name: /^(编辑目标|Edit goal)$/ }).click()
@@ -117,7 +157,7 @@ try {
   await page.getByRole('button', { name: /^(关闭目标与计划|Close goals and plans)$/ }).click()
   await page.getByRole('button', { name: /^(目标与计划|Goals and plans)$/ }).click()
   await publishPlan('Desktop Plan live update')
-  await expect(panel.getByText('Desktop Plan live update', { exact: true })).toBeVisible()
+  await expect(planSummary.getByText('Desktop Plan live update', { exact: true })).toBeVisible()
   await mkdir('artifacts/session-autonomy', { recursive: true })
   const geometry: unknown[] = []
   for (const size of [
@@ -138,16 +178,19 @@ try {
       const usage = document.querySelector('.lumen-inline-usage')!
       return {
         noOverflow: document.documentElement.scrollWidth <= innerWidth + 1,
+        titleText: heading.textContent,
+        titleWidth: heading.getBoundingClientRect().width,
         titleHeight: heading.getBoundingClientRect().height,
         titleLine: parseFloat(getComputedStyle(heading).lineHeight),
         usageHeight: usage.getBoundingClientRect().height,
       }
     })
+    await page.screenshot({ path: `artifacts/session-autonomy/native-session-${size.width}.png` })
+    console.log(JSON.stringify({ size, ...layout }))
     expect(layout.noOverflow).toBe(true)
     expect(layout.titleHeight).toBeLessThanOrEqual(layout.titleLine * 2 + 1)
     expect(layout.usageHeight).toBeLessThanOrEqual(160)
     geometry.push({ size, ...layout })
-    await page.screenshot({ path: `artifacts/session-autonomy/native-session-${size.width}.png` })
   }
   await goals.execute('goal.clear', { sessionId: session.id, expectedGoalId: created.goal!.goalId! })
   await expect(panel.getByText('Desktop Plan live update', { exact: true })).toHaveCount(0)
@@ -162,6 +205,8 @@ try {
         url: page.url(),
         geometry,
         nativeConnection: true,
+        compactControlCatalogLoaded: true,
+        boundedSequenceQuerySucceeded: true,
         dualBudgetVisible: true,
         planReadOnly: true,
         completionGuard: true,
@@ -174,7 +219,7 @@ try {
     ),
   )
   console.log(
-    'PASS: rebuilt native WebView verifies dual budgets, read-only/live Plan, guarded Goal completion, reopen/clear subscription, title/Usage flow at 1440 and 900.',
+    'PASS: rebuilt native WebView verifies compact control catalog and sequence, dual budgets, read-only/live Plan, guarded Goal completion, reopen/clear subscription, title/Usage flow at 1440 and 900.',
   )
 } finally {
   client?.disconnect()
