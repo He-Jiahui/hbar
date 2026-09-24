@@ -486,7 +486,7 @@ test('read-only reviewer approval survives restart and stale or rejected verdict
   )
   await rejectedFixture.kernel.waitForIdle()
   expect(await rejectedFixture.workflows.get(rejectedFixture.session.id)).toMatchObject({
-    workflow: { status: 'active', review: { status: 'rejected' } },
+    workflow: { status: 'needs_revision', review: { status: 'rejected' } },
   })
   expect(await rejectedFixture.plans.get(rejectedFixture.session.id)).toMatchObject({
     revision: rejectedPlan.revision,

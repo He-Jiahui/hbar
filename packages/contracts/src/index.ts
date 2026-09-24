@@ -97,6 +97,8 @@ export const goalContinuationSchema = z.object({
     'stale_goal',
     'user_turn',
     'run_failed',
+    'repair',
+    'repair_exhausted',
   ]),
   trigger: z.string().min(1).max(200),
   updatedAt: z.number().int().nonnegative(),

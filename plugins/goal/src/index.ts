@@ -30,6 +30,7 @@ const runAccountingSchema = z.object({
   usageThroughSeq: z.number().int().nonnegative(),
   tokensAccounted: z.number().int().nonnegative(),
   timeAccounted: z.number().int().nonnegative(),
+  repairKey: z.string().optional(),
 })
 type RunAccounting = z.infer<typeof runAccountingSchema>
 
@@ -57,6 +58,8 @@ const persistedGoalSchema = threadGoalSchema.extend({
   continuationTriggers: z.array(z.string().max(200)).max(512).default([]),
   progressKeys: z.array(z.string()).max(512).default([]),
   noProgressStreak: z.number().int().nonnegative().default(0),
+  repairKey: z.string().nullable().default(null),
+  repairAttempts: z.number().int().nonnegative().default(0),
 })
 type PersistedGoal = z.infer<typeof persistedGoalSchema>
 
@@ -311,7 +314,7 @@ class GoalRuntime implements GoalService {
     }
   }
 
-  private async registerRun(runId: string, goal: PersistedGoal, startedAt: number) {
+  private async registerRun(runId: string, goal: PersistedGoal, startedAt: number, repairKey?: string) {
     const current = this.activeRuns.get(runId)
     if (current || this.boundRuns.has(runId) || goal.accountedRuns.includes(runId)) return
     const accounting: RunAccounting = {
@@ -321,6 +324,7 @@ class GoalRuntime implements GoalService {
       usageThroughSeq: (await this.api.sessions.get(goal.threadId)).seq,
       tokensAccounted: 0,
       timeAccounted: 0,
+      ...(repairKey ? { repairKey } : {}),
     }
     await this.append(goal.threadId, 'goal.run_bound', { accounting }, runId)
     this.activeRuns.set(runId, accounting)
@@ -367,7 +371,16 @@ class GoalRuntime implements GoalService {
           throw new HbarError('CONTINUATION_WAIT', 'Automatic work is waiting for its execution conditions')
         }
         goal = await this.persist(
-          { ...this.withContinuation(goal, 'running', 'goal_active'), continuationCount: goal.continuationCount + 1 },
+          {
+            ...this.withContinuation(goal, 'running', admission.reason === 'repair' ? 'repair' : 'goal_active'),
+            continuationCount: goal.continuationCount + 1,
+            repairKey: admission.recoveryKey ?? null,
+            repairAttempts: admission.recoveryKey
+              ? goal.repairKey === admission.recoveryKey
+                ? goal.repairAttempts + 1
+                : 1
+              : 0,
+          },
           event.runId,
         )
       } else if (goal?.continuationIntent && event.run.input.source !== 'goal') {
@@ -375,7 +388,12 @@ class GoalRuntime implements GoalService {
       }
       if (event.run.input.mode === 'plan') return
       if (!goal || !statusAllowsAccounting(goal.status, 'active-only')) return
-      await this.registerRun(event.runId, goal, event.run.startedAt ?? event.run.createdAt)
+      await this.registerRun(
+        event.runId,
+        goal,
+        event.run.startedAt ?? event.run.createdAt,
+        goal.continuationIntent?.reason === 'repair' ? (goal.repairKey ?? undefined) : undefined,
+      )
     })
   }
 
@@ -561,6 +579,7 @@ class GoalRuntime implements GoalService {
       const intent = goal?.continuationIntent
       if (!goal || !intent || !['pending', 'waiting', 'queued'].includes(intent.phase)) return event
       let reason: GoalContinuation['reason'] | undefined
+      let executionReason: GoalContinuation['reason'] = 'goal_active'
       if (!this.config.autoContinue) reason = 'disabled'
       else if (goal.status === 'budget_limited') reason = 'budget_exhausted'
       else if (goal.status !== 'active') return event
@@ -575,11 +594,12 @@ class GoalRuntime implements GoalService {
           allowed: true,
         })
         if (!admission.allowed) reason = 'workflow_wait'
+        else if (admission.reason === 'repair') executionReason = 'repair'
       }
       const next = this.withContinuation(
         goal,
         reason ? (['disabled', 'continuation_limit'].includes(reason) ? 'stopped' : 'waiting') : 'queued',
-        reason ?? 'goal_active',
+        reason ?? executionReason,
       )
       if (next !== goal) await this.persist(next)
       if (reason) return event
@@ -670,6 +690,8 @@ class GoalRuntime implements GoalService {
         continuationTriggers: [],
         progressKeys: [],
         noProgressStreak: 0,
+        repairKey: null,
+        repairAttempts: 0,
       }
       const accounting: RunAccounting | undefined = runId
         ? {
@@ -742,6 +764,8 @@ class GoalRuntime implements GoalService {
           continuationTriggers: [],
           progressKeys: [],
           noProgressStreak: 0,
+          repairKey: null,
+          repairAttempts: 0,
         }
         await this.persist(goal)
         return this.result(sessionId)
@@ -775,6 +799,8 @@ class GoalRuntime implements GoalService {
           continuationTriggers: [],
           progressKeys: [],
           noProgressStreak: 0,
+          repairKey: null,
+          repairAttempts: 0,
         }
         await this.persist(goal, undefined, 'goal.created')
         await this.api.hooks.dispatch('goal.replaced', {
@@ -795,7 +821,16 @@ class GoalRuntime implements GoalService {
         status,
         tokenBudget: requestedBudget,
         updatedAt: Date.now(),
-        ...(status === 'active' ? { blockedAuditStreak: 0, blockedAuditRuns: [], continuationCount: 0 } : {}),
+        ...(status === 'active'
+          ? {
+              blockedAuditStreak: 0,
+              blockedAuditRuns: [],
+              continuationCount: 0,
+              repairKey: null,
+              repairAttempts: 0,
+              noProgressStreak: 0,
+            }
+          : {}),
         ...(['active', 'complete', 'blocked'].includes(status)
           ? { executionFailureStreak: 0, executionFailureRuns: [] }
           : {}),
@@ -923,11 +958,27 @@ class GoalRuntime implements GoalService {
         'goal.accounted',
       )
       this.activeRuns.delete(event.runId)
+      const admission =
+        goal.status === 'active'
+          ? await this.api.hooks.dispatch('goal.beforeContinue', {
+              sessionId: event.sessionId,
+              runId: event.runId,
+              goal: publicGoal(goal),
+              allowed: true,
+            })
+          : null
+      const repairing = admission?.reason === 'repair'
+      if (tracking.repairKey && repairing && goal.repairKey === admission.recoveryKey && goal.repairAttempts >= 3) {
+        await this.persist(this.withContinuation(goal, 'stopped', 'repair_exhausted'), event.runId)
+        return
+      }
+      if (!repairing && goal.repairAttempts > 0)
+        goal = await this.persist({ ...goal, repairKey: null, repairAttempts: 0 }, event.runId)
       const noTools = run.input.source === 'goal' && progress.toolCalls === 0
       if (
         goal.status === 'active' &&
         event.status === 'completed' &&
-        (noTools || (run.input.source === 'goal' && noProgressStreak >= 3))
+        (noTools || (!repairing && run.input.source === 'goal' && noProgressStreak >= 3))
       ) {
         goal = this.withContinuation(goal, 'stopped', noTools ? 'no_tool_calls' : 'no_progress')
         await this.persist(goal, event.runId)
@@ -966,6 +1017,11 @@ class GoalRuntime implements GoalService {
     const prompt = [
       '<active_goal>',
       ...continuation,
+      ...(goal.continuationIntent?.reason === 'repair'
+        ? [
+            'This is a restricted recovery turn. Inspect and revise the Agent Plan or Workflow focus using the available control tools. Normal execution tools return in the next turn after the focus is valid. Do not ask the user to choose a repair strategy.',
+          ]
+        : []),
       '<objective>',
       escapeXml(goal.objective),
       '</objective>',

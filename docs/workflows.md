@@ -50,7 +50,9 @@ Goal 结束一轮、reviewer 返回与预算恢复使用同一个持久化续跑
 
 工具名在持久化前与真实 ToolRegistry 核对。历史 `functions.read_file` 会在工具存在时规范化为 `read_file`；未知工具立即返回 `WORKFLOW_TOOL_UNKNOWN`。ToolDefinition 明确声明无工作区访问、结构化路径访问或 workspace-wide 访问，Workflow 不再猜测 `path`/`cwd` 字段。`shell` 与 Git 工具属于 workspace-wide；写入或进程工具必须显式拥有 `.` 写范围。
 
-`workflow.expandScope` 只接受真实增量；重复扩展返回 `WORKFLOW_SCOPE_NOOP`，不消耗 revision。普通工具连续三次遇到相同工具、路径、Plan revision 和焦点拒绝时，Workflow 进入 `needs_revision` 并停止 Goal 自动续跑。`get_workflow`、`update_plan`、`workflow_focus`、`workflow_update` 与 Goal 控制工具始终可用，Agent 可以自行修订后继续，不需要用户选择。
+`workflow.expandScope` 只接受真实增量；重复扩展返回 `WORKFLOW_SCOPE_NOOP`，不消耗 revision。普通工具连续三次遇到相同工具、路径、Plan revision 和焦点拒绝时，Workflow 进入 `needs_revision`，统一调度器安排受限修订轮次。修订时只提供 `get_goal`、`update_goal`、`get_plan`、`update_plan`、`get_workflow`、`workflow_focus`、`workflow_update`；工具执行入口也检查这一限制，不能通过构造调用绕过。焦点有效后，下一轮恢复普通工具及原有权限检查。
+
+reviewer 拒绝同样进入 `needs_revision`，不能绕过修订直接重复原执行。相同 Workflow/步骤焦点连续三个修订轮次仍未恢复时停止为 `repair_exhausted`；修订成功或显式恢复重置审计。纯状态查询、重复相同 Plan 或焦点、只变化的 revision/时间戳/证据 ID 都不构成新进展。确定性回归覆盖 14 个主 Agent 轮次与 2 个 reviewer 轮次，包括范围拒绝、过期 Plan revision、reviewer 拒绝后修订，再验证 Plan/Workflow/Goal 一致完成；此测试证明调度链路，不代表真实模型效果。
 
 ## 检查点与恢复
 

@@ -37,6 +37,7 @@ import {
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   AgentService,
+  HookEvents,
   GitService,
   GoalService,
   HbarAPI,
@@ -66,6 +67,15 @@ const CONTROL_TOOLS = new Set([
   'workflow_update',
   'save_workflow_plan',
   'request_user_input',
+])
+const REPAIR_TOOLS = new Set([
+  'get_goal',
+  'update_goal',
+  'get_plan',
+  'update_plan',
+  'get_workflow',
+  'workflow_focus',
+  'workflow_update',
 ])
 
 export const workflowConfigSchema = z.object({
@@ -1732,7 +1742,7 @@ export class WorkflowRuntime implements WorkflowService {
           workflowStateSchema.parse({
             ...current,
             revision: current.revision + 1,
-            status: 'active',
+            status: 'needs_revision',
             evidence: [...current.evidence, reviewerEvidence].slice(-MAX_WORKFLOW_EVIDENCE),
             review: { ...review, status: 'rejected', summary, updatedAt: now },
             updatedAt: now,
@@ -1880,6 +1890,29 @@ export class WorkflowRuntime implements WorkflowService {
     )
   }
 
+  continuationPolicy(sessionId: string): {
+    allowed: boolean
+    reason?: 'workflow_wait' | 'repair'
+    recoveryKey?: string
+  } {
+    const workflow = this.workflows.get(sessionId)
+    if (workflow && ['blocked', 'needs_revision'].includes(workflow.status))
+      return {
+        allowed: true,
+        reason: 'repair',
+        recoveryKey: `${workflow.workflowId}:${workflow.activeStepTextHash ?? 'unfocused'}`,
+      }
+    const allowed = this.canAutoContinue(sessionId)
+    return allowed ? { allowed } : { allowed, reason: 'workflow_wait' }
+  }
+
+  selectTools(event: HookEvents['tools.select']): HookEvents['tools.select'] {
+    const workflow = this.workflows.get(event.sessionId)
+    return workflow && ['blocked', 'needs_revision'].includes(workflow.status)
+      ? { ...event, tools: event.tools.filter((tool) => REPAIR_TOOLS.has(tool.name)) }
+      : event
+  }
+
   async complete(sessionId: string, expectedRevision: number, runId?: string) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
@@ -1974,8 +2007,13 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   async beforeTool(name: string, args: Record<string, unknown>, context: ToolContext, tool: ToolDefinition) {
-    if (CONTROL_TOOLS.has(name)) return
     const workflow = this.workflows.get(context.session.id)
+    if (workflow && ['blocked', 'needs_revision'].includes(workflow.status) && !REPAIR_TOOLS.has(name))
+      throw new HbarError(
+        'WORKFLOW_REPAIR_ONLY',
+        'Only Goal, Plan and Workflow inspection or revision tools are available during recovery',
+      )
+    if (CONTROL_TOOLS.has(name)) return
     if (!workflow || ['completed', 'cancelled'].includes(workflow.status)) return
     if (['blocked', 'needs_revision'].includes(workflow.status))
       throw new HbarError('WORKFLOW_CHECKPOINT_REQUIRED', 'Revise the blocked workflow item before using more tools')
@@ -2288,10 +2326,11 @@ export const workflowPlugin = definePlugin({
       ...event,
       commit: await runtime.guardCompletion(event.sessionId, event.goal.goalId, event.commit),
     }))
-    api.hooks.on('goal.beforeContinue', (event) => ({
-      ...event,
-      allowed: event.allowed && runtime.canAutoContinue(event.sessionId),
-    }))
+    api.hooks.on('goal.beforeContinue', (event) => {
+      const policy = runtime.continuationPolicy(event.sessionId)
+      return { ...event, ...policy, allowed: event.allowed && policy.allowed }
+    })
+    api.hooks.on('tools.select', (event) => runtime.selectTools(event))
     api.hooks.on('goal.replaced', (event) =>
       runtime.cancelForGoal(event.sessionId, event.previous.goalId ?? event.previous.threadId),
     )

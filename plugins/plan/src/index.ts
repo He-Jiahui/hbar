@@ -293,6 +293,17 @@ class PlanRuntime implements PlanService {
 function planTools(runtime: PlanRuntime): ToolDefinition[] {
   return [
     {
+      name: 'get_plan',
+      description:
+        'Read the authoritative Agent Plan and its current revision. Returns null when no plan has been published.',
+      inputSchema: z.object({}),
+      effect: 'read',
+      execute: async (_args, context) => {
+        const plan = await runtime.get(context.session.id)
+        return { text: JSON.stringify(plan), details: plan }
+      },
+    },
+    {
       name: 'update_plan',
       description:
         'Update the current TODO/checklist plan. Use concise steps, mark completed work accurately, and keep at most one in_progress step. This tool is not available in Plan mode.',

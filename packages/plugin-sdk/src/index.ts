@@ -442,6 +442,7 @@ export interface HookEvents {
     tool: ToolDefinition
   }
   'step.end': { sessionId: string; runId: string; stepId: string }
+  'tools.select': { sessionId: string; runId: string; tools: ToolDefinition[] }
   'run.start': { sessionId: string; runId: string; run: Run }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'run.cancelRequested': { sessionId: string; runId: string; run: Run }
@@ -456,7 +457,14 @@ export interface HookEvents {
     /** Validators may wrap this commit to keep their facts stable through persistence. */
     commit: () => Promise<void>
   }
-  'goal.beforeContinue': { sessionId: string; runId: string; goal: ThreadGoal; allowed: boolean }
+  'goal.beforeContinue': {
+    sessionId: string
+    runId: string
+    goal: ThreadGoal
+    allowed: boolean
+    reason?: 'workflow_wait' | 'repair'
+    recoveryKey?: string
+  }
   'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal }
   'goal.cleared': { sessionId: string; previous: ThreadGoal }
   'agent.patch': {

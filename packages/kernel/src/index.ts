@@ -812,6 +812,11 @@ export class Kernel {
             ).slice(0, 80),
           })
         const driver = this.plugins.get<HarnessDriver>('driver')
+        const selectedTools = await scope.hooks.dispatch('tools.select', {
+          sessionId,
+          runId: run.id,
+          tools: scope.tools.list(),
+        })
         const input: DriverInput = {
           session,
           workspace,
@@ -819,7 +824,7 @@ export class Kernel {
           request: await this.buildRequest(sessionId, model, scope.hooks, run),
           apiKey,
           signal: controller.signal,
-          tools: scope.tools.list(),
+          tools: selectedTools.tools,
           resolveKey: (id) => this.plugins.get<ModelRegistry>('models').secret(id),
           readImage: async (id) => {
             const artifact = await this.storage.call('artifact', id)

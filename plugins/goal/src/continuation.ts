@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { goalContinuationSchema } from '@hbar/contracts'
+import { goalContinuationSchema, workflowSnapshotSchema } from '@hbar/contracts'
 import type { GoalContinuation, SessionEvent } from '@hbar/contracts'
 
 export const continuationIntentSchema = goalContinuationSchema.extend({
@@ -49,8 +49,47 @@ export function auditProgress(events: SessionEvent[], runId: string, known: stri
       if (!parsed.success) continue
       for (const block of parsed.data.content) {
         if (block.type === 'tool_call') toolCalls++
-        if (block.type === 'tool_result' && !block.isError && !queries.has(block.name ?? ''))
-          facts.push({ name: block.name, text: block.text })
+        if (block.type === 'tool_result' && !block.isError && !queries.has(block.name ?? '')) {
+          if (block.name === 'workflow_focus' || block.name === 'workflow_update') {
+            const snapshot = workflowSnapshotSchema.safeParse(block.details)
+            if (!snapshot.success) continue
+            const workflow = snapshot.data.workflow
+            const focus = workflow?.focus
+            facts.push({
+              workflow: workflow?.status,
+              plan: snapshot.data.plan?.plan,
+              focus: focus
+                ? {
+                    step: focus.stepIndex,
+                    title: focus.title,
+                    status: focus.status,
+                    policy: focus.completionPolicy,
+                    scope: {
+                      tools: [...focus.scope.tools].sort(),
+                      readPaths: [...focus.scope.readPaths].sort(),
+                      writePaths: [...focus.scope.writePaths].sort(),
+                    },
+                    checks: focus.acceptanceChecks.map((check) => ({
+                      required: check.required,
+                      verifier: check.verifier,
+                      status: check.status,
+                    })),
+                  }
+                : null,
+              evidence: [
+                ...new Set(
+                  workflow?.evidence.map((evidence) =>
+                    JSON.stringify({
+                      source: evidence.source,
+                      outcome: evidence.outcome,
+                      resultHash: 'resultHash' in evidence ? evidence.resultHash : null,
+                    }),
+                  ) ?? [],
+                ),
+              ].sort(),
+            })
+          } else facts.push({ name: block.name, text: block.text })
+        }
       }
     }
     if (event.type === 'plan.updated') {
