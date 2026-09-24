@@ -15,6 +15,7 @@ import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
+import { ApprovalPreviewHost } from './ApprovalPreviewHost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Maximize2, Moon, RotateCcw, Search, Sun, X } from 'lucide-react'
@@ -26,7 +27,6 @@ import {
   HbarAppUiAiChatProvider,
   HbarAppUiKanbanProvider,
   HbarAppUiAgentActivityProvider,
-  HbarAppUiAgentApprovalProvider,
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
   HbarAppUiFeedbackProvider,
@@ -471,7 +471,7 @@ function PreviewApp() {
                                                                 >
                                                                   <HbarAppUiPaywallProvider content={paywallContent}>
                                                                     <PlanPreviewHost content={agentPlanContent}>
-                                                                      <HbarAppUiAgentApprovalProvider
+                                                                      <ApprovalPreviewHost
                                                                         content={agentApprovalContent}
                                                                       >
                                                                         <HbarAppUiAgentActivityProvider
@@ -514,7 +514,7 @@ function PreviewApp() {
                                                                             </HbarAppUiNavbarProvider>
                                                                           </HbarAppUiToolCallsProvider>
                                                                         </HbarAppUiAgentActivityProvider>
-                                                                      </HbarAppUiAgentApprovalProvider>
+                                                                      </ApprovalPreviewHost>
                                                                     </PlanPreviewHost>
                                                                   </HbarAppUiPaywallProvider>
                                                                 </HbarAppUiMonitoringProvider>
@@ -721,7 +721,7 @@ function PreviewApp() {
                                                                               <PlanPreviewHost
                                                                                 content={agentPlanContent}
                                                                               >
-                                                                                <HbarAppUiAgentApprovalProvider
+                                                                                <ApprovalPreviewHost
                                                                                   content={agentApprovalContent}
                                                                                 >
                                                                                   <HbarAppUiAgentActivityProvider
@@ -768,7 +768,7 @@ function PreviewApp() {
                                                                                       </HbarAppUiNavbarProvider>
                                                                                     </HbarAppUiToolCallsProvider>
                                                                                   </HbarAppUiAgentActivityProvider>
-                                                                                </HbarAppUiAgentApprovalProvider>
+                                                                                </ApprovalPreviewHost>
                                                                               </PlanPreviewHost>
                                                                             </HbarAppUiPaywallProvider>
                                                                           </HbarAppUiMonitoringProvider>
