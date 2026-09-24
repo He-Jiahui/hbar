@@ -90,6 +90,7 @@ export function createGoalPlanWorkspace(
   const state = createState<GoalPlanWorkspaceState>({ entries: {} }, onSubscriberError)
   const client = options.goals ? createCommandClient(goalPlanCommands, options.goals) : null
   const generations = new Map<string, number>()
+  const detachedPanels = new Set<string>()
   const goalOperations = new Map<string, { sessionId: string; token: symbol }>()
   const pendingGoal = (instanceId: string, sessionId: string) => goalOperations.get(instanceId)?.sessionId === sessionId
   const isTarget = (instanceId: string, sessionId: string) =>
@@ -99,7 +100,13 @@ export function createGoalPlanWorkspace(
   })
   const offSurfaces = surfaces.subscribe(() => {
     for (const [id, entry] of Object.entries(state.reader.getSnapshot().entries)) {
-      if (isTarget(id, entry.sessionId)) continue
+      if (isTarget(id, entry.sessionId)) {
+        // The View may reuse a cached same-session entry on reopen. Restore
+        // the subscription and reconcile while preserving unsaved drafts.
+        if (detachedPanels.delete(id)) void load(id).catch(() => {})
+        continue
+      }
+      detachedPanels.add(id)
       generations.set(id, (generations.get(id) ?? 0) + 1)
       goalOperations.delete(id)
       feed.close(id)
@@ -125,6 +132,7 @@ export function createGoalPlanWorkspace(
       for (const id of ids) {
         if (id !== entry.instanceId && !surfaces.getSnapshot().panels[id]) {
           delete entries[id]
+          detachedPanels.delete(id)
           feed.close(id)
           break
         }
@@ -160,6 +168,7 @@ export function createGoalPlanWorkspace(
   })
   const load = async (instanceId: string, background = false) => {
     const target = panel(instanceId)
+    detachedPanels.delete(instanceId)
     const previous = state.reader.getSnapshot().entries[instanceId]
     const sameTarget = previous?.sessionId === target.sessionId
     const generation = (generations.get(instanceId) ?? 0) + 1
@@ -577,6 +586,7 @@ export function createGoalPlanWorkspace(
       offSurfaces()
       feed.dispose()
       generations.clear()
+      detachedPanels.clear()
       goalOperations.clear()
       state.dispose()
     },

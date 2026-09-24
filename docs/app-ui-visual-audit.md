@@ -7,6 +7,8 @@ Application UI 预览作为参考，并保留 Lumen 的黑白、玻璃、边缘�
 
 ## 运行矩阵
 
+2026-09-24 用户调整：交互改按变化机制选样，不再逐按钮、逐输入方式和逐布局切换穷举；结构覆盖仍遍及全部变体。集中检查修复结果，关键状态保存真实原版/本地截图，等价行为记录依据并标注“推断、未逐项回放”。具体选样计划与流程见 [当前审计策略](reactbits-pro-visual-audit.md)。协议 25 默认要求逐变体的已审阅选样计划；尚未配置的变体先做结构/行为分析，不自动启动旧穷举任务。
+
 ```powershell
 bun run app-ui:reactbits:discover -- --output artifacts/reactbits-pro-visual-audit/all
 bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/all --workers 2 --strict
@@ -16,7 +18,7 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 和 dark/light 两种主题，即 2400 组静态 source/local 配对。开发期可以使用
 `--variants`、`--categories`、`--viewports`、`--themes` 缩小范围；缩小范围不能代替最终全量验收。
 调试单个真实动作可对 `interactions` 加 `--cases <完整案例 ID[,其他 ID]>`；报告标记为
-`selected-cases`，`compare` 永远不能把它当作全部可见控件的通过证据。
+`selected-cases`，`compare` 不把随意缩小的调试集当作已审阅选样计划的完整通过证据。
 交互重放优先读取同一输出目录的 `capture-manifest.json` 画布尺寸；若调试结果另存目录，可用
 `--source-output <静态捕获目录>` 指向对应的真实 source 清单。站点重载时 iframe 高度可能变化，
 动作前会强制回到静态参考画布；目录哈希、画布指纹或源/本地实现不一致时不能复用旧案例。

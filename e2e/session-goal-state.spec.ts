@@ -72,6 +72,9 @@ test('Goal panel matches Host budgets and stop state, with a read-only Agent Pla
     await expect(execution).toContainText(
       new Intl.NumberFormat('en-US').format(fact.executionBudget!.effectiveRemainingTokens!),
     )
+    await page.getByRole('button', { name: 'Close goals and plans', exact: true }).click()
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await expect(panel.getByText('Verify the durable session state', { exact: true })).toBeVisible()
     await goals.execute('goal.set', { sessionId, status: 'paused' })
     await expect(panel.getByText('Stopped · Paused by user')).toBeVisible()
     await runs.execute(

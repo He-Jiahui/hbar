@@ -184,6 +184,43 @@ test('reconnect reconciles authoritative facts automatically and disposes previo
   expect(listeners.size).toBe(0)
 })
 
+test('reopening a cached panel restores its live feed and reconciles facts without manual refresh', async () => {
+  const { runtime, target, goal, session, facts, listeners, entry, emit } = await fixture()
+  await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)
+  await runtime.view.commands.execute('goalPlanWorkspace.showGoalEditor', target)
+  await runtime.view.commands.execute('goalPlanWorkspace.setGoalField', {
+    ...target,
+    field: 'tokenBudget',
+    value: '2000',
+  })
+  await runtime.view.commands.execute('app.closePanel', target)
+  expect(listeners.size).toBe(0)
+  facts.snapshot = {
+    ...facts.snapshot,
+    goal: { ...goal, status: 'paused' },
+    goalSeq: 30,
+    plan: {
+      sessionId: session.id,
+      revision: 1,
+      turnId: null,
+      explanation: null,
+      plan: [{ step: 'While closed', status: 'in_progress' }],
+      updatedAt: 30,
+    },
+    planSeq: 31,
+  }
+  const reopened = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
+  expect(reopened.instanceId).toBe(target.instanceId)
+  for (let attempt = 0; attempt < 100 && entry().goal?.status !== 'paused'; attempt++) await Bun.sleep(5)
+  expect(listeners.size).toBe(1)
+  expect(entry().goal?.status).toBe('paused')
+  expect(entry().goalDirty).toBe(true)
+  expect(entry().goalDraft).toMatchObject({ tokenBudget: '2000', baseline: { goalId: 'goal', status: 'active' } })
+  expect(entry().plan?.plan[0]?.step).toBe('While closed')
+  emit({ kind: 'plan', sessionId: session.id, plan: null, seq: 32 })
+  expect(entry().plan).toBeNull()
+})
+
 test('a stale refresh cannot roll back a newer live Goal fact', async () => {
   const { runtime, target, goal, session, facts, emit, entry } = await fixture()
   await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)

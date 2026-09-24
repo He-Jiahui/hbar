@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
 import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages/hbar-app-ui/src/types'
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
+import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
+import { includesLumenAuditFile, lumenDependencyFiles } from '../scripts/reactbits-audit-scope'
 import {
   REACTBITS_PRO_THEMES,
   REACTBITS_PRO_VIEWPORTS,
@@ -168,7 +170,7 @@ describe('React Bits Pro visual audit contract', () => {
     expect(() => diffApprovalScenarioCases(snapshot([]), id)).toThrow('Missing focusable diff payload')
   })
 
-  test('covers every queue decision prefix, disclosure state and terminal outcome', () => {
+  test('keeps the exhaustive queue inventory available for explicit diagnostics, not the default gate', () => {
     const id = 'hbar-app-ui-agent-approval-3'
     const ids = queueApprovalDynamicCaseIds(id)
     expect(ids).toHaveLength(270)
@@ -237,6 +239,57 @@ describe('React Bits Pro visual audit contract', () => {
         firstOpen,
       ),
     ).toThrow('Missing focusable queue payload')
+  })
+
+  test('scopes queue code to its dependencies while retaining global styles and registries', async () => {
+    const dependencies = await lumenDependencyFiles(['agent-approval.tsx', 'LumenProvider.tsx'])
+    for (const file of [
+      'agent-approval.tsx',
+      'LumenSurface.tsx',
+      'primitives.tsx',
+      'LumenProvider.tsx',
+      'theme.ts',
+      'forms.tsx',
+    ]) {
+      expect(includesLumenAuditFile(file, dependencies)).toBe(true)
+    }
+    expect(includesLumenAuditFile('agent-activity.tsx', dependencies)).toBe(false)
+    expect(includesLumenAuditFile('agent-activity.css', dependencies)).toBe(true)
+    expect(includesLumenAuditFile('styles.css', dependencies)).toBe(true)
+    expect(includesLumenAuditFile('index.ts', dependencies)).toBe(true)
+    expect(includesLumenAuditFile('source-catalog.json', dependencies)).toBe(true)
+    expect(includesLumenAuditFile('agent-activity.tsx', undefined)).toBe(true)
+    await expect(lumenDependencyFiles(['../package.json'])).rejects.toThrow('escapes its source boundary')
+  })
+
+  test('samples distinct queue changes and labels inferred equivalent cases honestly', () => {
+    const id = 'hbar-app-ui-agent-approval-3'
+    const plan = auditSamplingPlan(id)
+    expect(plan?.samples).toHaveLength(11)
+    expect(renderAuditEvidencePage([], 'representative-states')).toContain('inferred, not replayed')
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toHaveLength(7)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toHaveLength(4)
+    expect(sampledInteractionIds(id, 'tablet', 'dark')).toEqual([])
+    expect(sampledInteractionIds(id, 'mobile', 'light')).toEqual([])
+    expect(
+      plan?.inferences.every((entry) => entry.verification === 'inferred-not-replayed' && entry.basis.length > 30),
+    ).toBe(true)
+    const all = REACTBITS_PRO_VIEWPORTS.flatMap((viewport) =>
+      REACTBITS_PRO_THEMES.flatMap((theme) =>
+        sampledInteractionIds(id, viewport.id, theme).map((caseId) => `${theme}/${viewport.id}/${caseId}`),
+      ),
+    )
+    expect(new Set(all).size).toBe(11)
+    expect(all).toContain(`light/stress/${id}:queue-ar-open:2:click`)
+    const captured = all.map((value) => {
+      const [theme, viewport, caseId] = value.split('/')
+      return { theme: theme ?? '', viewport: viewport ?? '', id: caseId ?? '' }
+    })
+    expect(assessInteractionCoverage(all, captured).missing).toEqual([])
+    expect(assessInteractionCoverage(all, captured.slice(1)).missing).toHaveLength(1)
+    expect(() => sampledInteractionIds('unreviewed-variant', 'desktop', 'dark')).toThrow(
+      'Missing reviewed interaction sampling plan',
+    )
   })
 
   test('renders separate source/local before/after evidence without hiding missing images', () => {

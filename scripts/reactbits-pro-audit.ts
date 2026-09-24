@@ -4,6 +4,8 @@ import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { renderAuditEvidencePage } from './reactbits-audit-evidence-page'
+import { auditSamplingPlan, sampledInteractionIds } from './reactbits-audit-sampling'
+import { includesLumenAuditFile, lumenDependencyFiles } from './reactbits-audit-scope'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
 import type {
   HbarAppUiCategory,
@@ -252,6 +254,7 @@ type AuditOptions = Readonly<{
   offline: boolean
   workers: number
   strict: boolean
+  exhaustive: boolean
   reviewNote: string | undefined
 }>
 
@@ -294,7 +297,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 12
-const interactionProtocolVersion = 24
+const interactionProtocolVersion = 25
 
 export function auditBrowserArguments(http1: boolean): string[] {
   return http1 ? ['--disable-http2', '--disable-quic'] : []
@@ -406,6 +409,7 @@ function parseOptions(): AuditOptions {
       process.env.HBAR_APP_UI_OFFLINE === 'true',
     workers,
     strict: args.includes('--strict') || command === 'audit',
+    exhaustive: args.includes('--exhaustive'),
     reviewNote: optionValue(args, '--note'),
   }
 }
@@ -513,8 +517,13 @@ async function manualReviewFingerprint(
   })
 }
 
-async function localImplementationHash(): Promise<string> {
+async function localImplementationHash(variantIds: readonly string[], outputRoot?: string): Promise<string> {
   const hash = createHash('sha256')
+  const plans = variantIds.map(auditSamplingPlan)
+  const dependencies = plans.every((plan) => plan !== undefined)
+    ? await lumenDependencyFiles(plans.flatMap((plan) => plan?.lumenEntries ?? []))
+    : undefined
+  const coveredFiles: string[] = []
   for (const root of [
     'hbar-ui/packages/lumen-app-ui/src',
     'packages/hbar-app-ui/src',
@@ -525,11 +534,19 @@ async function localImplementationHash(): Promise<string> {
       .filter((file) => /\.(css|json|ts|tsx)$/.test(file))
       .sort()
     for (const file of files) {
+      if (root === 'hbar-ui/packages/lumen-app-ui/src' && !includesLumenAuditFile(file, dependencies)) continue
       const path = join(root, file)
+      coveredFiles.push(path)
       hash.update(path)
       hash.update(new Uint8Array(await Bun.file(path).arrayBuffer()))
     }
   }
+  if (outputRoot)
+    await writeJson(join(outputRoot, 'implementation-scope.json'), {
+      variants: variantIds,
+      policy: dependencies ? 'rendered-family-dependencies-plus-global-styles-and-host-inputs' : 'full-source-tree',
+      files: coveredFiles,
+    })
   return hash.digest('hex')
 }
 
@@ -2219,7 +2236,10 @@ async function replayReferenceInteraction(
 
 async function runCapture(options: AuditOptions, browser: Browser, inventory: ReactBitsProInventory): Promise<void> {
   const selected = selectedLocalSpecs(options)
-  const implementationHash = await localImplementationHash()
+  const implementationHash = await localImplementationHash(
+    selected.map((spec) => spec.id),
+    options.outputRoot,
+  )
   await writeLocalInventory(options.outputRoot)
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
   const cachedSourceRecords: readonly CaptureRecord[] = options.localOnly
@@ -2496,6 +2516,20 @@ async function runInteractionsParallel(
   inventory: ReactBitsProInventory,
 ): Promise<void> {
   const selected = selectedLocalSpecs(options)
+  const samplingPlans = selected.map((spec) => ({ id: spec.id, plan: auditSamplingPlan(spec.id) }))
+  if (!options.exhaustive && samplingPlans.some((entry) => !entry.plan))
+    throw new Error(
+      `Missing reviewed sampling plans: ${samplingPlans
+        .filter((entry) => !entry.plan)
+        .map((entry) => entry.id)
+        .join(', ')}. Inspect behavior groups before replay; --exhaustive is an explicit legacy diagnostic only.`,
+    )
+  const samplingPlanHash = options.exhaustive ? null : stableHash(samplingPlans)
+  await writeJson(join(options.outputRoot, 'sampling-plan.json'), {
+    mode: options.exhaustive ? 'exhaustive' : 'representative-states',
+    samplingPlanHash,
+    plans: options.exhaustive ? [] : samplingPlans,
+  })
   const references = new Map(inventory.variants.map((reference) => [reference.id, reference]))
   const staticCapturePath = join(resolve(options.sourceCaptureRoot ?? options.outputRoot), 'capture-manifest.json')
   const staticManifest = (await Bun.file(staticCapturePath).exists())
@@ -2522,11 +2556,20 @@ async function runInteractionsParallel(
       .map((record) => [`${record.id}/${record.theme}/${record.viewport}`, record.referenceCanvas!]) ?? [],
   )
   const metadataPath = join(options.outputRoot, 'interaction-run.json')
-  const implementationHash = await localImplementationHash()
+  const implementationHash = await localImplementationHash(
+    selected.map((spec) => spec.id),
+    options.outputRoot,
+  )
   const runIdentity = {
     schemaVersion: 1,
     interactionProtocolVersion,
-    coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
+    coverage:
+      options.cases.length > 0
+        ? 'selected-cases'
+        : options.exhaustive
+          ? 'all-visible-controls'
+          : 'representative-states',
+    samplingPlanHash,
     cases: options.cases,
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
@@ -2566,6 +2609,8 @@ async function runInteractionsParallel(
         if (!reference) throw new Error(`Missing React Bits reference for ${spec.id}`)
         for (const viewport of options.viewports) {
           for (const theme of options.themes) {
+            const sampleIds = options.exhaustive ? undefined : sampledInteractionIds(spec.id, viewport.id, theme)
+            if (sampleIds?.length === 0) continue
             await discoveryPage.setViewportSize({ width: viewport.width, height: viewport.height })
             const frame = await loadReferencePreview(discoveryPage, referencePageUrl(reference, options), theme)
             const sourceSelector = sourceCanvasSelector
@@ -2617,6 +2662,7 @@ async function runInteractionsParallel(
             }
             if (spec.id === 'hbar-app-ui-agent-approval-3') {
               for (const plan of queueApprovalScenarioPlans) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${plan.id}:`))) continue
                 const context = await browser.newContext({ reducedMotion: 'reduce' })
                 try {
                   const page = await context.newPage()
@@ -2642,7 +2688,8 @@ async function runInteractionsParallel(
               referenceCanvas,
               cases: discovered,
             })
-            const cases = selectInteractionCases(discovered, options.cases)
+            const planned = sampleIds ? selectInteractionCases(discovered, sampleIds) : discovered
+            const cases = options.cases.length > 0 ? selectInteractionCases(planned, options.cases) : planned
             let caseCursor = 0
             const actionWorker = async () => {
               while (caseCursor < cases.length) {
@@ -2820,7 +2867,13 @@ async function runInteractionsParallel(
     selected: selected.map((spec) => spec.id),
     viewports: options.viewports,
     themes: options.themes,
-    coverage: options.cases.length > 0 ? 'selected-cases' : 'all-visible-controls',
+    coverage:
+      options.cases.length > 0
+        ? 'selected-cases'
+        : options.exhaustive
+          ? 'all-visible-controls'
+          : 'representative-states',
+    samplingPlanHash,
     runHash,
     sourceDirectoryHash: inventory.sourceDirectoryHash,
     localSpecHash: stableHash(selected),
@@ -2877,21 +2930,31 @@ async function runCompare(options: AuditOptions): Promise<void> {
     const sourceVisibleControls = visibleControls(sourceSnapshot)
     const localVisibleControls = visibleControls(localSnapshotValue)
     const expected = expectedInteractions.get(record.id) ?? []
-    expected.push(
-      ...interactionCases(sourceSnapshot, record.id).map(
-        (interaction) => `${record.theme}/${record.viewport}/${interaction.id}`,
-      ),
-    )
-    if (record.id === 'hbar-app-ui-agent-activity-5')
-      expected.push(...agentLogDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
-    if (record.id === 'hbar-app-ui-agent-activity-7')
-      expected.push(...agentFailureDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
-    if (record.id === 'hbar-app-ui-agent-approval-1')
-      expected.push(...inlineApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
-    if (record.id === 'hbar-app-ui-agent-approval-2')
-      expected.push(...diffApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
-    if (record.id === 'hbar-app-ui-agent-approval-3')
-      expected.push(...queueApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
+    if (!options.exhaustive) {
+      expected.push(
+        ...sampledInteractionIds(record.id, record.viewport, record.theme).map(
+          (id) => `${record.theme}/${record.viewport}/${id}`,
+        ),
+      )
+    } else {
+      expected.push(
+        ...interactionCases(sourceSnapshot, record.id).map(
+          (interaction) => `${record.theme}/${record.viewport}/${interaction.id}`,
+        ),
+      )
+      if (record.id === 'hbar-app-ui-agent-activity-5')
+        expected.push(...agentLogDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
+      if (record.id === 'hbar-app-ui-agent-activity-7')
+        expected.push(...agentFailureDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
+      if (record.id === 'hbar-app-ui-agent-approval-1')
+        expected.push(
+          ...inlineApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`),
+        )
+      if (record.id === 'hbar-app-ui-agent-approval-2')
+        expected.push(...diffApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
+      if (record.id === 'hbar-app-ui-agent-approval-3')
+        expected.push(...queueApprovalDynamicCaseIds(record.id).map((id) => `${record.theme}/${record.viewport}/${id}`))
+    }
     expectedInteractions.set(record.id, expected)
     comparisons.push({
       id: record.id,
@@ -3030,12 +3093,13 @@ async function runCompare(options: AuditOptions): Promise<void> {
         sourceDirectoryHash?: string
         localSpecHash?: string
         implementationHash?: string
+        samplingPlanHash?: string | null
         staticCanvasHash?: string
         results: readonly InteractionReportRow[]
       }>(interactionPath)
     : { results: [] }
   const selectedIds = [...new Set(manifest.records.map((record) => record.id))]
-  const currentImplementationHash = await localImplementationHash()
+  const currentImplementationHash = await localImplementationHash(manifest.selected)
   const captureCanvases = new Map(
     manifest.records
       .filter((record) => record.kind === 'source' && record.referenceCanvas)
@@ -3043,7 +3107,10 @@ async function runCompare(options: AuditOptions): Promise<void> {
   )
   const matrixComplete =
     interactionReport.interactionProtocolVersion === interactionProtocolVersion &&
-    interactionReport.coverage === 'all-visible-controls' &&
+    interactionReport.coverage === (options.exhaustive ? 'all-visible-controls' : 'representative-states') &&
+    (options.exhaustive ||
+      interactionReport.samplingPlanHash ===
+        stableHash(manifest.selected.map((id) => ({ id, plan: auditSamplingPlan(id) })))) &&
     interactionReport.sourceDirectoryHash === manifest.sourceDirectoryHash &&
     interactionReport.localSpecHash ===
       stableHash(HBAR_APP_UI_VARIANT_SPECS.filter((spec) => manifest.selected.includes(spec.id))) &&
@@ -3111,6 +3178,8 @@ async function runCompare(options: AuditOptions): Promise<void> {
         staticCombinations: staticRows.length,
         interactionCases: interactionRows.length,
         expectedInteractionCases: expectedInteractions.get(id)?.length ?? 0,
+        interactionCoverage: options.exhaustive ? 'exhaustive' : 'representative-states',
+        inferredCoverage: options.exhaustive ? [] : (auditSamplingPlan(id)?.inferences ?? []),
         missingInteractionCases: coverage.missing.length,
         status: gate.status,
         failures: gate.reason ? [...machineFailures, gate.reason] : machineFailures,
@@ -3148,26 +3217,29 @@ async function runCompare(options: AuditOptions): Promise<void> {
   }
   await writeFile(
     join(options.outputRoot, 'evidence.html'),
-    renderAuditEvidencePage([
-      ...comparisons.map((comparison) => ({
-        label: `${comparison.id} / ${comparison.theme} / ${comparison.viewport} / static`,
-        status: 'Static source/local pair',
-        images: [
-          { label: 'React Bits Pro — original', path: evidencePath(comparison.source.screenshot) },
-          { label: 'Lumen — local', path: evidencePath(comparison.local.screenshot) },
-        ],
-      })),
-      ...interactionReport.results.map((result) => ({
-        label: `${result.variantId ?? ''} / ${result.theme} / ${result.viewport} / ${result.id}`,
-        status: result.status ?? 'unknown',
-        images: [
-          { label: 'React Bits Pro — before', path: evidencePath(result.source?.before) },
-          { label: 'Lumen — before', path: evidencePath(result.local?.before) },
-          { label: 'React Bits Pro — after', path: evidencePath(result.source?.after) },
-          { label: 'Lumen — after', path: evidencePath(result.local?.after) },
-        ],
-      })),
-    ]),
+    renderAuditEvidencePage(
+      [
+        ...comparisons.map((comparison) => ({
+          label: `${comparison.id} / ${comparison.theme} / ${comparison.viewport} / static`,
+          status: 'Static source/local pair',
+          images: [
+            { label: 'React Bits Pro — original', path: evidencePath(comparison.source.screenshot) },
+            { label: 'Lumen — local', path: evidencePath(comparison.local.screenshot) },
+          ],
+        })),
+        ...interactionReport.results.map((result) => ({
+          label: `${result.variantId ?? ''} / ${result.theme} / ${result.viewport} / ${result.id}`,
+          status: result.status ?? 'unknown',
+          images: [
+            { label: 'React Bits Pro — before', path: evidencePath(result.source?.before) },
+            { label: 'Lumen — before', path: evidencePath(result.local?.before) },
+            { label: 'React Bits Pro — after', path: evidencePath(result.source?.after) },
+            { label: 'Lumen — after', path: evidencePath(result.local?.after) },
+          ],
+        })),
+      ],
+      options.exhaustive ? 'exhaustive' : 'representative-states',
+    ),
     'utf8',
   )
   await writeFile(
