@@ -19,7 +19,7 @@ import {
   type LumenPlanEditorLabels,
 } from '@lumen/app-ui'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
-import { goalControlStatusSchema } from '@hbar/contracts'
+import { goalControlStatuses } from '@hbar/app-runtime'
 import { HbarGoalExecutionState, type HbarGoalExecutionLabels } from './goal-execution-state'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
@@ -216,12 +216,12 @@ export function HbarGoalPlanWorkspace({
                     value={entry.goalDraft.status}
                     onChange={(event) => setGoalField('status', event.currentTarget.value)}
                   >
-                    {!goalControlStatusSchema.safeParse(entry.goalDraft.status).success && (
+                    {!goalControlStatuses.some((status) => status === entry.goalDraft.status) && (
                       <LumenOption value={entry.goalDraft.status} disabled>
                         {labels.goal.statuses[entry.goalDraft.status]}
                       </LumenOption>
                     )}
-                    {goalControlStatusSchema.options.map((status) => (
+                    {goalControlStatuses.map((status) => (
                       <LumenOption key={status} value={status}>
                         {labels.goal.statuses[status]}
                       </LumenOption>

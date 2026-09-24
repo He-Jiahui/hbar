@@ -20,6 +20,7 @@ import type {
 
 const MAX_PANELS = 8
 const UNKNOWN_CODES = new Set(['RESULT_UNKNOWN', 'DISCONNECTED', 'TIMEOUT'])
+export const goalControlStatuses = Object.freeze([...goalControlStatusSchema.options])
 
 function code(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'

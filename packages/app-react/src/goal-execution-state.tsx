@@ -1,5 +1,9 @@
-import type { ExecutionBudget, GoalContinuation, ThreadGoal } from '@hbar/contracts'
+import type { GoalPlanWorkspaceEntryState } from '@hbar/app-runtime'
 import { LumenCompactMetrics, LumenFrame, LumenText } from '@lumen/app-ui'
+
+type ThreadGoal = NonNullable<GoalPlanWorkspaceEntryState['goal']>
+type ExecutionBudget = NonNullable<ThreadGoal['executionBudget']>
+type GoalContinuation = NonNullable<ThreadGoal['continuation']>
 
 export interface HbarGoalExecutionLabels {
   readonly title: string

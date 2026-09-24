@@ -47,6 +47,7 @@ import { createExtensionWorkspace } from './extension-workspace'
 import { createStatusWorkspace } from './status-workspace'
 import { createClientPersistence } from './client-persistence'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
+export { goalControlStatuses } from './goal-plan-workspace'
 export type { StateReader } from './state'
 export type {
   BudgetCommandPort,
