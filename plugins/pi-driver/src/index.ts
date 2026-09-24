@@ -190,6 +190,9 @@ function streamProvider(
     signal,
     maxTokens: config.maxOutput,
     maxRetries: 0,
+    ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
+      ? { samplingParams: { parallel_tool_calls: true } }
+      : {}),
     ...(thinking !== 'off' ? { reasoning: thinking as Exclude<ThinkingLevel, 'off'> } : {}),
   }
   try {

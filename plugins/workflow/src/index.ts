@@ -1921,7 +1921,13 @@ export class WorkflowRuntime implements WorkflowService {
       step && plan?.revision === workflow.planRevision && hashValue(step.step) === workflow.activeStepTextHash
     // The large focus-creation schema is unnecessary until the Plan/focus changes.
     // Re-evaluate each request, including after update_plan within the same Run.
-    return currentFocus ? { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_focus') } : event
+    const completedPlan =
+      workflow.status === 'completed' &&
+      plan?.revision === workflow.planRevision &&
+      plan.plan.every((step) => step.status === 'completed')
+    return currentFocus || completedPlan
+      ? { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_focus') }
+      : event
   }
 
   async complete(sessionId: string, expectedRevision: number, runId?: string) {
@@ -1988,7 +1994,7 @@ export class WorkflowRuntime implements WorkflowService {
           ]
         : []),
       'A complete checkpoint also advances the Agent Plan and completes the workflow when its last step finishes; do not duplicate that with update_plan or workflow complete.',
-      'Batch calls only when their inputs are already known and safe in sequence. Wait for verification results before asserting success. A final verified checkpoint and update_goal complete may share a tool batch; the Host independently guards both.',
+      'Tools execute sequentially in listed order. When inputs are known, emit related calls together: authorized scope repair, write, then read-back. Wait for their results before asserting verification. After verification, emit the final checkpoint and update_goal complete together; both remain Host-guarded.',
       '</focus_workflow>',
     ].join('\n')
     return { ...request, system: `${request.system}\n\n${prompt}` }
