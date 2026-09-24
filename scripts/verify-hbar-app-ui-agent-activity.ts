@@ -108,7 +108,9 @@ async function run(): Promise<void> {
         assert(await jump.count() === 0, 'Jump to latest did not restore log following')
 
         await page.goto(previewUrl(6), {waitUntil: 'networkidle'})
-        assert(await page.getByRole('progressbar').count() === 4, 'Worker progress bars did not preserve host data')
+        assert(await page.getByRole('progressbar').count() === 0, 'Decorative worker tracks became announced progress controls')
+        assert(await page.locator('.hbar-app-ui-agent-activity-worker-list > li').count() === 6, 'Worker list did not preserve all host records')
+        assert(await page.locator('.hbar-app-ui-agent-activity-worker-list .lumen-agent-activity-progress').count() === 4, 'Worker visual tracks did not preserve host data')
 
         await page.goto(previewUrl(7), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Retry run', exact: true}).click()
