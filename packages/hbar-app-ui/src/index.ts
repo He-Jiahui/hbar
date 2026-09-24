@@ -990,3 +990,4 @@ export { HBAR_APP_UI_VARIANT_EXPORTS } from './variants'
 export * from './variants'
 
 export { HbarAppUiUsageProvider } from './components/ai-usage/UsageProvider'
+export type { HbarAppUiUsageOverviewContent } from './ai-usage'

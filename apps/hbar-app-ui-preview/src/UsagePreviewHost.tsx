@@ -1,14 +1,16 @@
 import { useState, type ReactNode } from 'react'
+import { useStore } from 'zustand'
 import { HbarAppUiUsageProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { USAGE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-usage-fixtures'
+import { usageOverviewDatasets } from '../../../tests/fixtures/hbar-app-ui-usage-overview-fixtures'
+import { createUsageOverviewPreviewStore, projectUsageOverviewPreview } from './usage-overview-preview-model'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const [range, setRange] = useState('7d'),
-    [reversed, setReversed] = useState(false),
+  const [reversed, setReversed] = useState(false),
     [tier, setTier] = useState('team'),
     [query, setQuery] = useState(''),
     [teamOnly, setTeamOnly] = useState(false),
@@ -20,6 +22,8 @@ export function UsagePreviewHost({
     [filtered, setFiltered] = useState(false)
   const base = USAGE_FIXTURES
   const mode = new URLSearchParams(location.search).get('usageFixture')
+  const [overviewStore] = useState(() => createUsageOverviewPreviewStore(usageOverviewDatasets(mode)))
+  const overview = projectUsageOverviewPreview(useStore(overviewStore), mode === 'localized' ? 'Zeitraum' : 'Range')
   function collection<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
     return mode === 'empty'
       ? []
@@ -33,11 +37,7 @@ export function UsagePreviewHost({
   return (
     <HbarAppUiUsageProvider
       content={{
-        overview: {
-          ...base.overview,
-          range: { ...base.overview.range!, value: range, onChange: setRange },
-          description: `${range} · input and output`,
-        },
+        overview,
         modelSpend: {
           ...base.modelSpend,
           strategy: mode === 'overflow' ? 'virtual' : 'content-grown',

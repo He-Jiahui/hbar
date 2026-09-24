@@ -1,4 +1,5 @@
 import type { HbarAppUiUsageContent, UsageMeter } from '../../packages/hbar-app-ui/src/ai-usage'
+import { USAGE_OVERVIEW_FIXTURE } from './hbar-app-ui-usage-overview-fixtures'
 const noop = () => {}
 const tiers = [
   { id: 'starter', label: 'Starter' },
@@ -15,26 +16,7 @@ const meter = (id: string, label: string, value: string, progress: number, detai
   tone: 'accent',
 })
 export const USAGE_FIXTURES: { [K in keyof HbarAppUiUsageContent]-?: NonNullable<HbarAppUiUsageContent[K]> } = {
-  overview: {
-    title: 'Token usage',
-    description: '7d · input and output',
-    range: {
-      label: 'Usage range',
-      value: '7d',
-      options: [
-        { id: '24h', label: '24h' },
-        { id: '7d', label: '7d' },
-        { id: '30d', label: '30d' },
-      ],
-      onChange: noop,
-    },
-    metrics: [
-      { label: 'Total tokens', value: '72k' },
-      { label: 'Input', value: '44k' },
-      { label: 'Output', value: '28k' },
-    ],
-    meters: [meter('input', 'Input tokens', '44k', 61), meter('output', 'Output tokens', '28k', 39)],
-  },
+  overview: USAGE_OVERVIEW_FIXTURE,
   modelSpend: {
     title: 'Spend by model',
     description: 'Share bars · period deltas',

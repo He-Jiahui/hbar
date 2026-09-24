@@ -250,6 +250,8 @@ export type InteractionCase = Readonly<{
     | 'summary-changed'
     | 'summary-empty'
     | 'summary-running'
+    | 'usage-month'
+    | 'usage-detail'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1627,6 +1629,14 @@ async function preparePlanReviewScenario(root: Locator, scenario: 'plan-draft' |
 }
 
 const planSummaryScenarios = ['summary-edit', 'summary-changed', 'summary-empty', 'summary-running'] as const
+const usageOverviewScenarios = ['usage-month', 'usage-detail'] as const
+async function prepareUsageOverviewScenario(
+  root: Locator,
+  scenario: (typeof usageOverviewScenarios)[number],
+): Promise<void> {
+  await root.getByRole('tab', { name: scenario === 'usage-month' ? '30d' : '7d', exact: true }).click()
+  if (scenario === 'usage-detail') await root.getByRole('button', { name: 'Mon: 5.7M tokens', exact: true }).focus()
+}
 async function preparePlanSummaryScenario(
   root: Locator,
   scenario: (typeof planSummaryScenarios)[number],
@@ -2389,6 +2399,8 @@ async function replayInteraction(
     await preparePlanReviewScenario(root, interaction.scenario)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   const summaryScenario = planSummaryScenarios.find((scenario) => scenario === interaction.scenario)
+  const usageScenario = usageOverviewScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-ai-usage-1' && usageScenario) await prepareUsageOverviewScenario(root, usageScenario)
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2501,6 +2513,9 @@ async function replayReferenceInteraction(
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const summaryScenario = planSummaryScenarios.find((scenario) => scenario === interaction.scenario)
+  const usageScenario = usageOverviewScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-ai-usage-1' && usageScenario)
+    await prepareUsageOverviewScenario(root, usageScenario)
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3079,6 +3094,13 @@ async function runInteractionsParallel(
               for (const scenario of planSummaryScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await preparePlanSummaryScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-ai-usage-1') {
+              for (const scenario of usageOverviewScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareUsageOverviewScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

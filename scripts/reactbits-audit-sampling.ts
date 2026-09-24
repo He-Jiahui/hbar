@@ -640,6 +640,69 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
   if (variantId === 'hbar-app-ui-agent-plan-3') return planTreePlan
   if (variantId === 'hbar-app-ui-agent-plan-4') return planActualPlan
   if (variantId === 'hbar-app-ui-agent-plan-5') return planBoardPlan
+  if (variantId === 'hbar-app-ui-ai-usage-1')
+    return {
+      revision: 1,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: '30-day selection replaces all four totals and seven day bars with four week bars',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '2:click',
+          change: '90-day selection displays three monthly buckets and its own totals',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '3:hover',
+          change: 'Representative day pointer entry replaces the inline hint with usage and spend',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '9:focus',
+          change: 'Keyboard focus on a different day reveals that original point detail',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'usage-detail:0:focus',
+          change: 'Leaving the focused bar restores the chart hint without changing the selected range',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'usage-month:3:hover',
+          change: 'New range points reveal their own week data, not stale day details',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'usage-month:0:press-enter',
+          change: 'Narrow keyboard return restores the seven-day totals and bars',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Every other bar and equivalent activation gesture',
+          basis:
+            'All points use the same ID-based ephemeral detail handler; days, weeks and monthly datasets are checked as separate data projections. Hover/focus are replayed on representative points rather than every bar.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Repeated viewport/theme transitions and passive metrics',
+          basis:
+            'Eight static pairs cover responsive structure and theme. Range state has no viewport/theme branch, and metrics have no actionable behavior. Native Arrow navigation did not select another source tab, so no custom keyboard selection is invented.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 

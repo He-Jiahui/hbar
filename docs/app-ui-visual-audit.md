@@ -19,6 +19,7 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 `--variants`、`--categories`、`--viewports`、`--themes` 缩小范围；缩小范围不能代替最终全量验收。
 调试单个真实动作可对 `interactions` 加 `--cases <完整案例 ID[,其他 ID]>`；报告标记为
 `selected-cases`，`compare` 不把随意缩小的调试集当作已审阅选样计划的完整通过证据。
+必须等待静态捕获完成后再启动交互回放，不要并发启动这两个有前后依赖的阶段。
 交互重放优先读取同一输出目录的 `capture-manifest.json` 画布尺寸；若调试结果另存目录，可用
 `--source-output <静态捕获目录>` 指向对应的真实 source 清单。站点重载时 iframe 高度可能变化，
 动作前会强制回到静态参考画布；目录哈希、画布指纹或源/本地实现不一致时不能复用旧案例。
@@ -71,6 +72,13 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 依据，也不能屏蔽几何差异。
 
 ## 类别修复边界
+
+AI Usage 1 的选样示例已固化在 `scripts/reactbits-audit-sampling.ts`：30d／90d 两种数据投影、
+代表日柱 hover、另一日柱 focus、失焦恢复提示、切换后的周柱明细，以及极窄屏键盘返回 7d。
+共七个真实源／本地案例，不重复每根柱子的所有手势。其余同类点、主题与宽度标为
+`inferred-not-replayed`；该选样计划不能代替其它七个 Usage 变体的独立结构分析。
+本地 `bun scripts/verify-hbar-app-ui-usage.ts --overview-only` 额外检查断点、德语长文案、
+空态、32 点溢出与短宿主可达性。原版短预览的顶部裁切须单列人工差异，不能伪装成主题差异。
 
 按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
 控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/

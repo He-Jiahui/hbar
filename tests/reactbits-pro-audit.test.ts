@@ -4,6 +4,13 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('usage overview groups range, point detail, restoration and keyboard feedback into seven samples', () => {
+  const id = 'hbar-app-ui-ai-usage-1'
+  expect(auditSamplingPlan(id)?.samples).toHaveLength(7)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:usage-month:0:press-enter`])
+  expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('plan tree sampling covers distinct disclosure content and retry without per-row gesture products', () => {
   const id = 'hbar-app-ui-agent-plan-3'
   expect(auditSamplingPlan(id)?.samples).toHaveLength(9)
