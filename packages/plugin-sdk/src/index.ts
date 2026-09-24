@@ -84,6 +84,7 @@ export interface ToolSequenceCall {
   name: string
   arguments: Record<string, unknown>
 }
+export const TOOL_SEQUENCE_RESULT_CHARACTERS = 8_000
 export interface ToolSequenceResult {
   callId: string
   name: string

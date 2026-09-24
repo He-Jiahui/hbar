@@ -149,6 +149,50 @@ test('one workflow function request runs a guarded sequence and completes withou
   expect(events.filter((event) => event.type === 'tool.sequence_result')).toHaveLength(4)
 })
 
+test('large Plan and Workflow queries remain available without the sequence text truncation limit', async () => {
+  const { kernel, session, workflows, run } = await fixture()
+  const previous = (await workflows.get(session.id)).workflow!
+  const plan = await kernel.plugins.get<PlanService>('plan').update(
+    session.id,
+    Array.from({ length: 40 }, (_, index) => ({
+      step: `Step ${index}: ${'detailed task '.repeat(30)}`,
+      status: index === 0 ? 'in_progress' : 'pending',
+    })),
+  )
+  const item = previous.focus!
+  await workflows.focus(
+    session.id,
+    0,
+    { id: item.focusId, title: item.title, scope: item.scope, acceptanceChecks: [] },
+    'agent',
+    plan.revision,
+  )
+  const bounded = await run([{ name: 'get_plan', arguments: {} }])
+  expect(
+    bounded.messages
+      .flatMap((message) => message.content)
+      .some(
+        (block) =>
+          block.type === 'tool_result' && block.name === 'workflow_execute' && block.text.includes('"truncated":true'),
+      ),
+  ).toBe(true)
+  await kernel.submit(session.id, 'large-query', { text: '/tool get_plan {}', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  const request = (await kernel.storage.call('events', session.id, 0)).find(
+    (event) => event.type === 'request.started',
+  )!
+  const names = z.object({ request: z.object({ toolNames: z.array(z.string()) }) }).parse(request.data)
+    .request.toolNames
+  expect(names).toContain('get_plan')
+  expect(names).toContain('get_workflow')
+  expect(names).not.toContain('workflow_checkpoint')
+  expect(
+    (await kernel.snapshot(session.id)).messages
+      .flatMap((message) => message.content)
+      .some((block) => block.type === 'tool_result' && block.name === 'get_plan' && block.text.includes('Step 39:')),
+  ).toBe(true)
+})
+
 test('failed verification stops the sequence before completion and later side effects', async () => {
   const { root, kernel, session, goals, run } = await fixture()
   await run([

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
+import { TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
 import type { ToolContext, ToolDefinition, ToolResult, ToolSequenceCall, ToolSequenceResult } from '@hbar/plugin-sdk'
 
 const callsSchema = z
@@ -58,9 +59,9 @@ export function createToolSequenceExecutor(
           name: call.name,
           text: needsInspection
             ? 'This tool returned images. Call it separately to inspect the images before continuing; remaining sequence calls were not executed.'
-            : result.text.slice(0, 8_000),
+            : result.text.slice(0, TOOL_SEQUENCE_RESULT_CHARACTERS),
           isError: Boolean(result.isError) || needsInspection,
-          truncated: result.text.length > 8_000,
+          truncated: result.text.length > TOOL_SEQUENCE_RESULT_CHARACTERS,
         })
         if (result.isError || needsInspection) break
       }

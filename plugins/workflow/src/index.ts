@@ -29,7 +29,7 @@ import type {
   WorkflowWorkItem,
 } from '@hbar/contracts'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { definePlugin, provide, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   HookEvents,
@@ -1987,7 +1987,20 @@ export class WorkflowRuntime implements WorkflowService {
     if (currentFocus || completedPlan)
       event = { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_focus') }
     if (currentFocus && focusTools && event.tools.some((tool) => tool.name === 'workflow_execute')) {
-      const catalog = sequenceControlCatalog(event.tools)
+      // Keep the standalone escape hatch when a full query would not fit a sequence result.
+      const oversizedQueries = new Set<string>()
+      if (JSON.stringify(plan).length > TOOL_SEQUENCE_RESULT_CHARACTERS) oversizedQueries.add('get_plan')
+      if (
+        event.tools.some((tool) => tool.name === 'get_workflow') &&
+        workflowModelResult(await this.get(event.sessionId)).text.length > TOOL_SEQUENCE_RESULT_CHARACTERS
+      )
+        oversizedQueries.add('get_workflow')
+      if (
+        event.tools.some((tool) => tool.name === 'get_goal') &&
+        JSON.stringify(await this.goals.get(event.sessionId)).length > TOOL_SEQUENCE_RESULT_CHARACTERS
+      )
+        oversizedQueries.add('get_goal')
+      const catalog = sequenceControlCatalog(event.tools.filter((tool) => !oversizedQueries.has(tool.name)))
       if (catalog.names.size)
         event = {
           ...event,
