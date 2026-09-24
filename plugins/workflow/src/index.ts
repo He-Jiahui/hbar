@@ -2000,7 +2000,17 @@ export class WorkflowRuntime implements WorkflowService {
         JSON.stringify(await this.goals.get(event.sessionId)).length > TOOL_SEQUENCE_RESULT_CHARACTERS
       )
         oversizedQueries.add('get_goal')
-      const catalog = sequenceControlCatalog(event.tools.filter((tool) => !oversizedQueries.has(tool.name)))
+      const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
+      const scopedTools = new Set(item?.scope.tools ?? [])
+      const scopeGatedNames = new Set(
+        event.tools
+          .filter((tool) => !CONTROL_TOOLS.has(tool.name) && !scopedTools.has(tool.name))
+          .map((tool) => tool.name),
+      )
+      const catalog = sequenceControlCatalog(
+        event.tools.filter((tool) => !oversizedQueries.has(tool.name)),
+        scopeGatedNames,
+      )
       if (catalog.names.size)
         event = {
           ...event,

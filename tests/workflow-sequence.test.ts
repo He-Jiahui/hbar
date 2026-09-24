@@ -88,6 +88,110 @@ const boundCheckpointCalls = successfulCalls.map((call) =>
     : call,
 )
 
+test('scope-gated catalog tools stay denied until expansion and then regain standalone inspection', async () => {
+  const { kernel, session, workflows, run } = await fixture()
+  await run([{ name: 'list_directory', arguments: { path: '.' } }])
+  const rejected = (await workflows.get(session.id)).workflow!
+  expect(rejected.rejection?.toolName).toBe('list_directory')
+  const journal = async () =>
+    (await kernel.storage.call('events', session.id, 0))
+      .filter((event) => event.type === 'request.started')
+      .map(
+        (event) =>
+          z.object({ request: z.object({ system: z.string(), toolNames: z.array(z.string()) }) }).parse(event.data)
+            .request,
+      )
+  const before = (await journal())[0]!
+  expect(before.toolNames).not.toContain('list_directory')
+  expect(before.system).toContain('list_directory(')
+  expect(before.system).toContain('require explicit authorized scope expansion')
+  const expanded = await run([
+    {
+      name: 'workflow_expand_scope',
+      arguments: {
+        itemId: 'proof',
+        expectedRevision: rejected.revision,
+        reason: 'Inspect the authorized temporary repository',
+        scope: { readPaths: ['.'], writePaths: [], tools: ['list_directory'] },
+      },
+    },
+    { name: 'list_directory', arguments: { path: '.' } },
+  ])
+  const latest = expanded.messages
+    .flatMap((message) => message.content)
+    .filter((block) => block.type === 'tool_result')
+    .at(-1)
+  expect(latest).toMatchObject({ isError: false })
+  if (latest?.type !== 'tool_result') throw new Error('Missing sequence result')
+  expect(latest.text).toContain('proof.txt')
+  await kernel.submit(
+    session.id,
+    'inspect-new-scope',
+    { text: '/tool list_directory {"path":"."}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const after = (await journal()).at(-1)!
+  expect(after.toolNames).toContain('list_directory')
+  expect(after.system).not.toContain('list_directory(')
+})
+
+test('scope-expanded large reads keep the standalone escape hatch after bounded sequence output', async () => {
+  const { kernel, root, session, workflows, run } = await fixture()
+  const plan = await kernel.plugins.get<PlanService>('plan').get(session.id)
+  if (!plan) throw new Error('Missing fixture plan')
+  await writeFile(join(root, 'proof.txt'), 'large proof '.repeat(900))
+  const focused = await workflows.focus(
+    session.id,
+    0,
+    {
+      id: 'proof',
+      title: 'Produce verified proof',
+      scope: { readPaths: [], writePaths: ['proof.txt'], tools: ['write_file'] },
+      acceptanceChecks: [],
+    },
+    'agent',
+    plan.revision,
+  )
+  const snapshot = await run([
+    {
+      name: 'workflow_expand_scope',
+      arguments: {
+        itemId: 'proof',
+        expectedRevision: focused.workflow!.revision,
+        reason: 'Read back the authorized proof',
+        scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] },
+      },
+    },
+    { name: 'read_file', arguments: { path: 'proof.txt' } },
+  ])
+  expect(
+    snapshot.messages
+      .flatMap((message) => message.content)
+      .some((block) => block.type === 'tool_result' && block.text.includes('"truncated":true')),
+  ).toBe(true)
+  await kernel.submit(
+    session.id,
+    'full-read',
+    { text: '/tool read_file {"path":"proof.txt"}', images: [] },
+    'local-fixture',
+  )
+  await kernel.waitForIdle()
+  const result = (await kernel.snapshot(session.id)).messages
+    .flatMap((message) => message.content)
+    .filter((block) => block.type === 'tool_result')
+    .at(-1)
+  if (result?.type !== 'tool_result') throw new Error('Missing full read result')
+  expect(result.isError).toBe(false)
+  expect(result.text.length).toBeGreaterThan(8000)
+  const request = (await kernel.storage.call('events', session.id, 0))
+    .filter((event) => event.type === 'request.started')
+    .at(-1)
+  expect(
+    z.object({ request: z.object({ toolNames: z.array(z.string()) }) }).parse(request?.data).request.toolNames,
+  ).toContain('read_file')
+})
+
 test('Host binds omitted checkpoint versions before scope expansion and bookkeeping', async () => {
   const { run, workflows, goals, session } = await fixture()
   const current = (await workflows.get(session.id)).workflow!

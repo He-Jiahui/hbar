@@ -34,3 +34,30 @@ test('unsupported or noncontrol schemas are kept as native tools', () => {
   ])
   expect(catalog.names.size).toBe(0)
 })
+
+test('scope-gated selected tools retain complete signatures, descriptions and a bounded native fallback', () => {
+  const tools = [
+    tool('get_plan', z.object({})),
+    ...Array.from({ length: 20 }, (_, i) => ({
+      ...tool(`scope_tool_${i}`, z.object({ path: z.string().max(4000), mode: z.enum(['read', 'write']) })),
+      description: 'Keep the complete tool semantics. '.repeat(18),
+    })),
+  ]
+  const gated = new Set(tools.slice(1).map((tool) => tool.name))
+  const catalog = sequenceControlCatalog(tools, gated)
+  expect(catalog.text.length).toBeLessThanOrEqual(8000)
+  expect(catalog.names.has('get_plan')).toBe(true)
+  expect(catalog.names.has('scope_tool_0')).toBe(true)
+  expect(catalog.names.size).toBeLessThan(tools.length)
+  expect(catalog.text).toContain('scope-gated; read:')
+  expect(catalog.text).toContain(JSON.stringify(tools[1]!.description))
+  expect(catalog.text).toContain('"read"|"write"')
+  expect(catalog.text).toContain('length<=4000')
+  expect(catalog.names.has('not_selected')).toBe(false)
+})
+
+test('a scope catalog is not added when its hint costs more than the native declaration', () => {
+  const catalog = sequenceControlCatalog([tool('tiny', z.object({}))], new Set(['tiny']))
+  expect(catalog.names.size).toBe(0)
+  expect(catalog.text).not.toContain('scope-gated;')
+})

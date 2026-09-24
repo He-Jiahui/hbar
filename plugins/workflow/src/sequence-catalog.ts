@@ -30,10 +30,14 @@ function record(value: unknown): Record<string, unknown> {
 }
 
 /** Presentation only. Unsupported schema forms retain their original native advertisement. */
-export function sequenceControlCatalog(tools: readonly ToolDefinition[]) {
+export function sequenceControlCatalog(
+  tools: readonly ToolDefinition[],
+  scopeGatedNames: ReadonlySet<string> = new Set(),
+) {
   const names = new Set<string>()
   const declarations: string[] = []
   const descriptions = new Map<string, string>()
+  let hasScopeGated = false
   let nodes = 0
   const format = (value: unknown, depth: number, optionalVersions = false): string => {
     if (depth > 8 || ++nodes > 256) throw new Error('Schema exceeds the compact catalog traversal bound')
@@ -79,26 +83,47 @@ export function sequenceControlCatalog(tools: readonly ToolDefinition[]) {
     }
     return type
   }
-  for (const tool of tools) {
-    if (!controlNames.has(tool.name)) continue
+  const render = (entries: readonly string[], withScopeGated = hasScopeGated) =>
+    [
+      '<workflow_sequence_controls>',
+      'Call these signatures inside workflow_execute, not as separate functions; ? means optional. Omitted checkpoint versions bind to the Host batch-start snapshot; explicit values remain strict. Normal permissions, scope and verification gates apply.',
+      ...(withScopeGated
+        ? [
+            'Scope-gated tools require explicit authorized scope expansion before use; standalone tools return next request for full text/images.',
+          ]
+        : []),
+      ...entries,
+      ...[...descriptions].map(([description, id]) => `${id}: ${JSON.stringify(description)}`),
+      '</workflow_sequence_controls>',
+    ].join('\n')
+  const candidates = [
+    ...tools.filter((tool) => controlNames.has(tool.name)),
+    ...tools.filter((tool) => !controlNames.has(tool.name) && scopeGatedNames.has(tool.name)),
+  ]
+  for (const tool of candidates) {
     const before = new Map(descriptions)
+    const beforeLength = render(declarations).length
     try {
       nodes = 0
-      const declaration = `${tool.name}(${format(z.toJSONSchema(tool.inputSchema), 0, tool.name === 'workflow_checkpoint')})`
+      const schema = z.toJSONSchema(tool.inputSchema)
+      const gated = scopeGatedNames.has(tool.name)
+      const declaration = `${tool.name}(${format(schema, 0, tool.name === 'workflow_checkpoint')})${gated ? ` scope-gated; ${tool.effect}: ${JSON.stringify(tool.description)}` : ''}`
       if (declaration.length > 3_000) throw new Error('Catalog declaration too large')
+      const afterLength = render([...declarations, declaration], hasScopeGated || gated).length
+      if (afterLength > 8_000) throw new Error('Catalog capacity reached')
+      if (
+        gated &&
+        afterLength - beforeLength >= JSON.stringify({ name: tool.name, description: tool.description, schema }).length
+      )
+        throw new Error('Compact form would not save context')
       declarations.push(declaration)
       names.add(tool.name)
+      hasScopeGated ||= gated
     } catch {
       descriptions.clear()
       for (const [description, id] of before) descriptions.set(description, id)
     }
   }
-  const text = [
-    '<workflow_sequence_controls>',
-    'These selected controls are called inside workflow_execute calls, not as separate functions. Signatures list accepted fields; ? means optional. Omitted checkpoint versions bind to the Host batch-start snapshot; explicit values remain strict. All normal permissions, scope and verification gates apply.',
-    ...declarations,
-    ...[...descriptions].map(([description, id]) => `${id}: ${JSON.stringify(description)}`),
-    '</workflow_sequence_controls>',
-  ].join('\n')
+  const text = render(declarations)
   return text.length <= 8_000 ? { names, text } : { names: new Set<string>(), text: '' }
 }
