@@ -119,6 +119,8 @@ try {
     .map((event) => journalSchema.parse(event.data).request)
   const compactRequest = requests.find((request) => request.system.includes('<workflow_sequence_controls>'))
   expect(compactRequest?.system).toContain('get_plan({})')
+  expect(compactRequest?.system).toContain('Scope-gated tools require explicit authorized scope expansion')
+  expect(compactRequest?.system).toContain(`Current Agent Plan revision: ${plan.revision}`)
   expect(compactRequest?.toolNames).toContain('workflow_execute')
   expect(compactRequest?.toolNames).not.toContain('get_plan')
   const probeSnapshot = await api.call('session.snapshot', { sessionId: session.id })
@@ -206,6 +208,8 @@ try {
         geometry,
         nativeConnection: true,
         compactControlCatalogLoaded: true,
+        scopeGatedCatalogLoaded: true,
+        freshPlanContextLoaded: true,
         boundedSequenceQuerySucceeded: true,
         dualBudgetVisible: true,
         planReadOnly: true,
