@@ -56,6 +56,7 @@ const RESTORE_CONCURRENCY = 8
 type CheckpointRevision = Parameters<WorkflowService['checkpoint']>[5]
 const FOCUS_TOOLS = new Set(['workflow_checkpoint', 'workflow_expand_scope'])
 const CONTROL_TOOLS = new Set([
+  'workflow_execute',
   ...FOCUS_TOOLS,
   'apply_agent_patch',
   'delegate_work',
@@ -1961,6 +1962,8 @@ export class WorkflowRuntime implements WorkflowService {
 
   async advertiseTools(event: HookEvents['tools.advertise']): Promise<HookEvents['tools.advertise']> {
     const workflow = this.workflows.get(event.sessionId)
+    if (!workflow || !['active', 'verifying'].includes(workflow.status))
+      event = { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_execute') }
     const focusTools =
       workflow?.executionModel === 'focus_v2' &&
       workflow.focusRevision !== undefined &&
@@ -2054,6 +2057,7 @@ export class WorkflowRuntime implements WorkflowService {
           ]
         : []),
       'A complete checkpoint also advances the Agent Plan and completes the workflow when its last step finishes; do not duplicate that with update_plan or workflow complete.',
+      'When available, prefer workflow_execute for a known-input text-tool sequence such as write, read-back, workflow_checkpoint complete, update_goal complete. It accepts calls [{name, arguments}], runs each through normal Host gates, and stops on the first error or image result requiring inspection. A successful earlier write is not rolled back; inspect results before retrying.',
       'Tools execute sequentially in listed order. Batch related calls when inputs are known. For Host-tool-verified checks, the same batch may include authorized scope repair, write, read-back, workflow_checkpoint complete, and update_goal complete. These request conditional completion: the Host refuses missing or failed verification. Do not claim success before settlement. For checks needing interpretation, inspect results before requesting completion.',
       '</focus_workflow>',
     ].join('\n')
@@ -2366,6 +2370,34 @@ const applyPatchToolSchema = z.strictObject({
 })
 function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
   return [
+    {
+      name: 'workflow_execute',
+      description:
+        'Execute 1-8 known-input tools in order through the current Run scope, permissions and verification gates. Prefer one sequence for write, read-back, checkpoint and Goal completion. Stops at the first error; earlier effects remain. No recursion or new authority.',
+      inputSchema: z.strictObject({
+        calls: z
+          .array(z.strictObject({ name: z.string().min(1).max(160), arguments: z.record(z.string(), z.unknown()) }))
+          .min(1)
+          .max(8),
+      }),
+      effect: 'read',
+      workspaceAccess: { kind: 'none' },
+      execute: async (args, context) => {
+        const current = await runtime.get(context.session.id)
+        if (!current.workflow?.focus || !['active', 'verifying'].includes(current.workflow.status))
+          throw new HbarError('WORKFLOW_FOCUS_REQUIRED', 'A current executable focus is required for a sequence')
+        if (!context.executeSequence)
+          throw new HbarError('TOOL_SEQUENCE_UNAVAILABLE', 'This execution context cannot start a nested sequence')
+        const calls = z
+          .array(z.strictObject({ name: z.string(), arguments: z.record(z.string(), z.unknown()) }))
+          .parse(args.calls)
+        const results = await context.executeSequence(calls)
+        return {
+          text: JSON.stringify({ completed: results.length, requested: calls.length, results }),
+          isError: results.some((result) => result.isError),
+        }
+      },
+    },
     {
       name: 'get_workflow',
       description: 'Read the authoritative Agent Plan and its current workflow focus, scope, evidence, and revision.',

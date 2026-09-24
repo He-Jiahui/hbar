@@ -75,6 +75,21 @@ export interface ToolContext {
   run: Run
   signal: AbortSignal
   callId: string
+  /** Host-owned parent identity; nested results stay out of the model's tool-call protocol. */
+  parentCallId?: string
+  /** One bounded, sequential batch through this Run's selected tools and normal execution gates. No recursion. */
+  executeSequence?: (calls: readonly ToolSequenceCall[]) => Promise<readonly ToolSequenceResult[]>
+}
+export interface ToolSequenceCall {
+  name: string
+  arguments: Record<string, unknown>
+}
+export interface ToolSequenceResult {
+  callId: string
+  name: string
+  text: string
+  isError: boolean
+  truncated: boolean
 }
 export type ToolWorkspaceAccess =
   | { kind: 'none' }

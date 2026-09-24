@@ -24,6 +24,7 @@ import { USAGE_EVENT_TYPES } from '@hbar/usage'
 import type { UsageReadInput, UsageReadRow } from '@hbar/usage'
 import type {
   Approval,
+  ContentBlock,
   ArtifactRef,
   Device,
   Message,
@@ -738,6 +739,25 @@ const methods: StorageMethods = {
       )
       for (const run of active) {
         let unknownEffects = false
+        const sequenceCalls = new Map<string, string>()
+        const sequenceResults: string[] = []
+        for (const row of db
+          .query(
+            "SELECT type,data FROM events WHERE runId=? AND type IN ('tool.sequence_call','tool.sequence_result') ORDER BY seq",
+          )
+          .all(run.id) as { type: string; data: string }[]) {
+          const value: unknown = JSON.parse(row.data)
+          if (row.type === 'tool.sequence_call') {
+            const parsed = z.object({ callId: z.string(), parentCallId: z.string() }).safeParse(value)
+            if (parsed.success) sequenceCalls.set(parsed.data.callId, parsed.data.parentCallId)
+          } else {
+            const parsed = z.object({ content: z.array(contentBlockSchema) }).safeParse(value)
+            if (parsed.success)
+              sequenceResults.push(
+                ...parsed.data.content.flatMap((block) => (block.type === 'tool_result' ? [block.callId] : [])),
+              )
+          }
+        }
         const settledCalls = new Set(
           (
             db.query("SELECT content FROM messages WHERE runId=? AND role='tool'").all(run.id) as { content: string }[]
@@ -747,6 +767,7 @@ const methods: StorageMethods = {
             ),
           ),
         )
+        for (const callId of sequenceResults) if (sequenceCalls.has(callId)) settledCalls.add(callId)
         for (const intent of db.query("SELECT * FROM tool_intents WHERE runId=? AND status='started'").all(run.id) as {
           callId: string
           name: string
@@ -757,7 +778,7 @@ const methods: StorageMethods = {
           }
           appendEvent(run.sessionId, 'tool.unknown', intent, run.id)
           unknownEffects = true
-          methods.commit(run.sessionId, run.id, 'tool', [
+          const content: ContentBlock[] = [
             {
               type: 'tool_result',
               callId: intent.callId,
@@ -765,7 +786,10 @@ const methods: StorageMethods = {
               text: 'Host interrupted during execution. The effect may already have happened. Inspect state before retrying.',
               isError: true,
             },
-          ])
+          ]
+          const parentCallId = sequenceCalls.get(intent.callId)
+          if (parentCallId) appendEvent(run.sessionId, 'tool.sequence_result', { parentCallId, content }, run.id)
+          else methods.commit(run.sessionId, run.id, 'tool', content)
           settledCalls.add(intent.callId)
         }
         // Complete the model protocol even when a crash occurred before approval/execution.

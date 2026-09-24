@@ -13,6 +13,7 @@ export function continuationState(intent: ContinuationIntent): GoalContinuation 
   return goalContinuationSchema.parse(intent)
 }
 const queries = new Set([
+  'workflow_execute',
   'get_goal',
   'get_plan',
   'get_workflow',
@@ -44,13 +45,17 @@ export function auditProgress(events: SessionEvent[], runId: string, known: stri
   for (const event of events) {
     if (event.runId !== runId) continue
     const facts: unknown[] = []
-    if (event.type === 'message.committed') {
+    if (event.type === 'message.committed' || event.type === 'tool.sequence_result') {
       const parsed = resultSchema.safeParse(event.data)
       if (!parsed.success) continue
       for (const block of parsed.data.content) {
         if (block.type === 'tool_call') toolCalls++
         if (block.type === 'tool_result' && !block.isError && !queries.has(block.name ?? '')) {
-          if (block.name === 'workflow_focus' || block.name === 'workflow_update') {
+          if (
+            ['workflow_focus', 'workflow_update', 'workflow_checkpoint', 'workflow_expand_scope'].includes(
+              block.name ?? '',
+            )
+          ) {
             const snapshot = workflowSnapshotSchema.safeParse(block.details)
             if (!snapshot.success) continue
             const workflow = snapshot.data.workflow

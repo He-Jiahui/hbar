@@ -88,6 +88,7 @@ import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
 import { SessionWakeups } from './session-wakeups.ts'
+import { createToolSequenceExecutor } from './tool-sequence'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -871,8 +872,21 @@ export class Kernel {
             return result.message
           },
           stream: (id, text, thinking) => this.updateStream({ id, sessionId, runId: run.id, text, thinking }),
-          execute: (name, args, callId) =>
-            this.execute(name, args, { session, workspace, run, signal: controller.signal, callId }, scope),
+          execute: async (name, args, callId) => {
+            const context: ToolContext = { session, workspace, run, signal: controller.signal, callId }
+            const sequence = createToolSequenceExecutor(
+              context,
+              selectedTools.tools,
+              name,
+              (childName, childArgs, childContext) => this.execute(childName, childArgs, childContext, scope),
+              (type, data) => this.append(sessionId, type, data, run.id),
+            )
+            try {
+              return await this.execute(name, args, { ...context, executeSequence: sequence.execute }, scope)
+            } finally {
+              sequence.dispose()
+            }
+          },
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
             let request = await this.buildRequest(sessionId, model, scope.hooks, run)
@@ -1056,7 +1070,7 @@ export class Kernel {
       result = { text: error instanceof Error ? error.message : String(error), isError: true }
     }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
-    const { event } = await this.storage.call('commit', context.session.id, context.run.id, 'tool', [
+    const content: ContentBlock[] = [
       {
         type: 'tool_result',
         callId: context.callId,
@@ -1065,7 +1079,16 @@ export class Kernel {
         isError: Boolean(result.isError),
         details: result.details,
       },
-    ])
+    ]
+    const event = context.parentCallId
+      ? await this.storage.call(
+          'append',
+          context.session.id,
+          'tool.sequence_result',
+          { parentCallId: context.parentCallId, content },
+          context.run.id,
+        )
+      : (await this.storage.call('commit', context.session.id, context.run.id, 'tool', content)).event
     const settled = started
       ? await this.storage.call('toolEnd', context.session.id, context.run.id, context.callId, Boolean(result.isError))
       : null
