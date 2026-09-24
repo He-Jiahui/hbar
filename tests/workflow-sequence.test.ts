@@ -754,6 +754,16 @@ for (const failFirst of [false, true])
       expect(requests).toHaveLength(count)
       expect(requests.every((request) => request.parallel_tool_calls)).toBe(true)
       for (const request of requests) {
+        expect(String(request.input[0]?.content)).not.toContain('<focus_workflow>')
+        expect(request.input.at(-1)?.role).toBe(request.input[0]?.role)
+        expect(String(request.input.at(-1)?.content)).toContain('<focus_workflow>')
+      }
+      if (failFirst) {
+        expect(requests[1]!.input[0]).toEqual(requests[0]!.input[0])
+        expect(String(requests[1]!.input.at(-1)?.content)).toContain('Tokens used: 1250')
+        expect(requests[1]!.input.at(-1)).not.toEqual(requests[0]!.input.at(-1))
+      }
+      for (const request of requests) {
         const names = request.tools.map((tool) => tool.name)
         expect(names).toContain('workflow_execute')
         expect(names).not.toContain('workflow_checkpoint')

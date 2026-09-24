@@ -19,6 +19,7 @@ import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
+import { appendProviderContext, splitModelContext } from './model-context'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -185,6 +186,7 @@ function streamProvider(
   apiKey: string | null,
   signal: AbortSignal,
   thinking: ThinkingLevel = 'off',
+  runtimeContext = '',
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const options: SimpleStreamOptions = {
@@ -196,6 +198,16 @@ function streamProvider(
       ? { samplingParams: { parallel_tool_calls: true } }
       : {}),
     ...(thinking !== 'off' ? { reasoning: thinking as Exclude<ThinkingLevel, 'off'> } : {}),
+    ...(runtimeContext && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
+      ? {
+          onPayload: (payload: unknown) =>
+            appendProviderContext(
+              payload,
+              runtimeContext,
+              config.protocol === 'openai-responses' ? 'openai-responses' : 'openai-completions',
+            ),
+        }
+      : {}),
   }
   try {
     switch (config.protocol) {
@@ -410,10 +422,14 @@ export class PiDriver implements HarnessDriver {
         const request = await input.beforeRequest(input.request, stepId)
         attemptModel = request.model
         const toolNames = request.toolNames
+        const context =
+          request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
+            ? splitModelContext(request)
+            : { instructions: request.system, context: '' }
         return streamProvider(
           request.model,
           {
-            systemPrompt: request.system,
+            systemPrompt: context.instructions,
             messages: await toPiMessages(
               request.messages,
               request.model,
@@ -426,6 +442,7 @@ export class PiDriver implements HarnessDriver {
           await input.resolveKey(request.model.id),
           input.signal,
           input.run.input.thinking,
+          context.context,
         )
       } catch (error) {
         requestFailure = error

@@ -32,7 +32,7 @@ import type {
   UserInput,
   WireNotification,
 } from '@hbar/contracts'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { definePlugin, prependModelInstructions, provide } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   DriverInput,
@@ -918,9 +918,8 @@ export class Kernel {
                 'Tool advertisements must be a unique subset of Run tools with at most 16000 instruction characters',
               )
             request = {
-              ...request,
+              ...prependModelInstructions(request, advertised.instructions ?? ''),
               toolNames: advertised.tools.map((tool) => tool.name),
-              system: advertised.instructions ? `${request.system}\n\n${advertised.instructions}` : request.system,
             }
             controller.signal.throwIfAborted()
             await this.append(

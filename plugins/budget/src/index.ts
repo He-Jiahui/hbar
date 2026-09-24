@@ -4,7 +4,7 @@ import { HbarError, idSchema, usageSchema } from '@hbar/contracts'
 import type { SessionEvent, Usage } from '@hbar/contracts'
 import { budgetReceiptSchema, setBudgetInputSchema } from '@hbar/contracts/commands/budget'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { appendModelContext, definePlugin, provide } from '@hbar/plugin-sdk'
 import type { HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
 
 const MAX_RESTORE_EVENTS = 100_000
@@ -339,7 +339,7 @@ export class BudgetRuntime {
       'Respect the remaining token budget and avoid unnecessary repetition.',
       '</session_budget>',
     ].join('\n')
-    return { ...request, system: `${request.system}\n\n${prompt}` }
+    return appendModelContext(request, prompt)
   }
 
   private async persist(

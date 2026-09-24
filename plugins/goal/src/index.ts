@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { HbarError, runSchema, threadGoalSchema, usageSchema } from '@hbar/contracts'
 import type { GoalStatus, Run, SessionEvent, ThreadGoal, Usage } from '@hbar/contracts'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { appendModelContext, definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   BudgetService,
   GoalService,
@@ -1211,7 +1211,7 @@ class GoalRuntime implements GoalService {
       `- Tokens remaining: ${remaining}`,
       '</active_goal>',
     ].join('\n')
-    return { ...request, system: `${request.system}\n\n${prompt}` }
+    return appendModelContext(request, prompt)
   }
 }
 

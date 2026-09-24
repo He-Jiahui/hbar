@@ -1,4 +1,5 @@
 import { Context, Service } from 'cordis'
+export { appendModelContext, prependModelInstructions } from './model-context'
 import type { z } from 'zod'
 import type {
   Approval,
@@ -149,6 +150,8 @@ export interface PolicyProvider {
 }
 export interface ModelRequest {
   system: string
+  /** UTF-16 boundary of fresh Host context in system. Drivers may move this suffix after history at the same authority. */
+  systemContextOffset?: number
   messages: Message[]
   model: ProviderConfig
   /** Per-request advertised subset of the Run tool registry; omission preserves legacy drivers. Not an authorization grant. */

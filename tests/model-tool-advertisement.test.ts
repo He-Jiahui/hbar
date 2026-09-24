@@ -11,7 +11,11 @@ for (const compact of [false, true])
   test(`model tool advertisement changes within a Run while journal and transport agree (${compact})`, async () => {
     const root = await mkdtemp(join(tmpdir(), 'hbar-tool-advertisement-'))
     const received: string[][] = []
-    const bodySchema = z.object({ tools: z.array(z.object({ function: z.object({ name: z.string() }) })) })
+    const systemMessages: string[][] = []
+    const bodySchema = z.object({
+      tools: z.array(z.object({ function: z.object({ name: z.string() }) })),
+      messages: z.array(z.object({ role: z.string(), content: z.unknown() })),
+    })
     const item = {
       id: 'proof',
       title: 'Revised proof',
@@ -22,7 +26,13 @@ for (const compact of [false, true])
       hostname: '127.0.0.1',
       port: 0,
       async fetch(request) {
-        received.push(bodySchema.parse(await request.json()).tools.map((tool) => tool.function.name))
+        const body = bodySchema.parse(await request.json())
+        received.push(body.tools.map((tool) => tool.function.name))
+        systemMessages.push(
+          body.messages
+            .filter((message) => ['system', 'developer'].includes(message.role))
+            .map((message) => z.string().parse(message.content)),
+        )
         const call =
           received.length === 1
             ? {
@@ -107,6 +117,10 @@ for (const compact of [false, true])
         .map((event) => journalSchema.parse(event.data))
       expect(journal.map((event) => event.tools.map((tool) => tool.name))).toEqual(received)
       expect(journal.map((event) => event.request.toolNames)).toEqual(received)
+      expect(systemMessages.map((messages) => messages.join(''))).toEqual(journal.map((event) => event.request.system))
+      expect(systemMessages.every((messages) => messages.length === 2)).toBe(true)
+      expect(systemMessages.every((messages) => !messages[0]?.includes('<focus_workflow>'))).toBe(true)
+      expect(systemMessages[1]?.at(-1)).toContain('Focus validity: stale')
       expect(journal.map((event) => event.request.system.split('<workflow_sequence_controls>').length - 1)).toEqual(
         compact ? [1, 0, 1] : [0, 0, 0],
       )

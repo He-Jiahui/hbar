@@ -29,7 +29,7 @@ import type {
   WorkflowWorkItem,
 } from '@hbar/contracts'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
-import { definePlugin, provide, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
+import { appendModelContext, definePlugin, provide, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   HookEvents,
@@ -2139,7 +2139,7 @@ export class WorkflowRuntime implements WorkflowService {
         : []),
       '</focus_workflow>',
     ].join('\n')
-    return { ...request, system: `${request.system}\n\n${prompt}` }
+    return appendModelContext(request, prompt)
   }
 
   private async rejectTool(
