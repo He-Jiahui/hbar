@@ -82,7 +82,9 @@ test('budget command clears an existing ledger and converges when repeated', asy
   expect(await commands.execute('session.clearBudget', { sessionId: session.id })).toEqual({ cleared: true })
   expect(await commands.execute('session.clearBudget', { sessionId: session.id })).toEqual({ cleared: false })
   expect(await commands.execute('session.getBudget', { sessionId: session.id })).toBeNull()
-  expect((await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'budget.cleared')).toHaveLength(1)
+  expect(
+    (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'budget.cleared'),
+  ).toHaveLength(1)
 })
 
 test('typed command persists one budget fact and receipt across retries, conflicts and restart', async () => {
@@ -192,7 +194,7 @@ test('an ACK lost after append is unknown until restart, then the original recei
     sessions: {
       get: async (id: string) => {
         if (id !== sessionId) throw new Error('Session not found')
-        return { id }
+        return { id, seq: events.length }
       },
       list: async () => [{ id: sessionId }],
       events: async (id: string) => (id === sessionId ? [...events] : []),

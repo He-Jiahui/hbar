@@ -28,6 +28,7 @@ export type SessionBudget = z.infer<typeof sessionBudgetSchema>
 
 const persistedBudgetSchema = sessionBudgetSchema.extend({
   accountedRuns: z.array(idSchema).max(MAX_ACCOUNTED_RUNS).default([]),
+  usageThroughSeq: z.number().int().nonnegative().default(0),
 })
 type PersistedBudget = z.infer<typeof persistedBudgetSchema>
 
@@ -45,14 +46,14 @@ const createBudgetArgs = z.object({ limit: z.number().int().positive() })
 const getBudgetArgs = z.object({})
 
 function publicBudget(value: PersistedBudget): SessionBudget {
-  const { accountedRuns: _accountedRuns, ...budget } = value
+  const { accountedRuns: _accountedRuns, usageThroughSeq: _usageThroughSeq, ...budget } = value
   return budget
 }
 
-function tokenDelta(events: SessionEvent[], runId: string): number {
+function tokenDelta(events: SessionEvent[], after: number): number {
   let total = 0
   for (const event of events) {
-    if (event.runId !== runId || event.type !== 'usage.recorded') continue
+    if (event.seq <= after || event.type !== 'usage.recorded') continue
     const parsed = usageSchema.safeParse(event.data)
     if (!parsed.success) continue
     const usage: Usage = parsed.data
@@ -114,7 +115,16 @@ export class BudgetRuntime {
       const parsed = budgetEventSchema.safeParse(event.data)
       if (!parsed.success || parsed.data.budget.sessionId !== sessionId)
         throw new HbarError('BUDGET_REPLAY', `Invalid ${event.type} event in ${sessionId}`)
-      this.budgets.set(sessionId, withPhase(parsed.data.budget))
+      // Older ledgers settled complete runs. Preserve their high-water mark
+      // without replaying their already-charged usage into the new step ledger.
+      const source = z.object({ budget: z.object({ usageThroughSeq: z.number().optional() }) }).parse(event.data)
+      const budget = {
+        ...parsed.data.budget,
+        usageThroughSeq:
+          source.budget.usageThroughSeq ??
+          (event.type === 'budget.accounted' ? event.seq : (this.budgets.get(sessionId)?.usageThroughSeq ?? event.seq)),
+      }
+      this.budgets.set(sessionId, withPhase(budget))
       if (parsed.data.command) {
         const command = parsed.data.command
         const receipt = budgetReceiptSchema.parse({
@@ -245,6 +255,7 @@ export class BudgetRuntime {
       createdAt: prior?.createdAt ?? now,
       updatedAt: now,
       accountedRuns: prior?.accountedRuns ?? [],
+      usageThroughSeq: prior?.usageThroughSeq ?? (await this.api.sessions.get(sessionId)).seq,
     })
     await this.persist(sessionId, next, prior ? 'budget.updated' : 'budget.created', undefined, command)
     return publicBudget(next)
@@ -264,25 +275,39 @@ export class BudgetRuntime {
   }
 
   async accountRun(event: HookEvents['run.end']) {
-    return this.serial(event.sessionId, async () => {
-      const prior = this.budgets.get(event.sessionId)
-      if (!prior || prior.accountedRuns.includes(event.runId)) return
-      const events = await this.api.sessions.events(event.sessionId, 0, MAX_RESTORE_EVENTS)
-      const delta = tokenDelta(events, event.runId)
+    return this.accountUsage(event.sessionId, event.runId, true)
+  }
+
+  async accountStep(event: HookEvents['step.end']) {
+    return this.accountUsage(event.sessionId, event.runId, false)
+  }
+
+  private async accountUsage(sessionId: string, runId: string, final: boolean) {
+    return this.serial(sessionId, async () => {
+      const prior = this.budgets.get(sessionId)
+      if (!prior || prior.accountedRuns.includes(runId)) return
+      const events = await this.api.sessions.events(sessionId, prior.usageThroughSeq, MAX_RESTORE_EVENTS + 1)
+      if (events.length > MAX_RESTORE_EVENTS)
+        throw new HbarError('BUDGET_ACCOUNTING_LIMIT', 'Unsettled budget usage exceeded the bounded replay window')
+      const delta = tokenDelta(events, prior.usageThroughSeq)
+      if (delta === 0 && !final) return
       const next = withPhase({
         ...prior,
         usedTokens: prior.usedTokens + delta,
         remainingTokens: Math.max(0, prior.limit - prior.usedTokens - delta),
         revision: prior.revision + 1,
         updatedAt: Date.now(),
-        accountedRuns: [...prior.accountedRuns, event.runId].slice(-MAX_ACCOUNTED_RUNS),
+        usageThroughSeq: events.at(-1)?.seq ?? prior.usageThroughSeq,
+        accountedRuns: final ? [...prior.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS) : prior.accountedRuns,
       })
-      await this.persist(event.sessionId, next, 'budget.accounted', event.runId)
+      await this.persist(sessionId, next, 'budget.accounted', runId)
     })
   }
 
   decorate(request: ModelRequest): ModelRequest {
     const sessionId = request.context?.sessionId
+    if (sessionId && this.uncertainSessions.has(sessionId))
+      throw new HbarError('RESULT_UNKNOWN', 'Budget state requires Host recovery')
     const budget = sessionId ? this.budgets.get(sessionId) : undefined
     if (!budget) return request
     if (budget.phase === 'exhausted')
@@ -311,7 +336,7 @@ export class BudgetRuntime {
     } catch (error) {
       // Canonical JSONL may have been appended before the SQLite projection failed.
       // Do not replay this key in-process until startup has reconciled the log.
-      if (command) this.uncertainSessions.add(sessionId)
+      this.uncertainSessions.add(sessionId)
       throw error
     }
     this.budgets.set(sessionId, budget)
@@ -391,6 +416,7 @@ export const budgetPlugin = definePlugin({
     provide<BudgetRuntime>(ctx, 'budget', runtime)
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))
     ctx.hbar.api.hooks.on('run.end', (event) => runtime.accountRun(event))
+    ctx.hbar.api.hooks.on('step.end', (event) => runtime.accountStep(event))
     for (const tool of budgetTools(runtime)) ctx.hbar.api.tools.register(tool)
   },
 })

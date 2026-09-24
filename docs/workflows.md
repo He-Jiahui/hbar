@@ -20,6 +20,8 @@ Workflow 完成最后一个 Plan 步骤后不会擅自完成 Goal。Agent 仍需
 
 Goal 的 Host `maxTokenBudget` 是上限；兼容 `goal.set` 参数中的同名字段只能收紧它。新建、替换和普通预算更新共用这一上限，`tokenBudget: null` 也不能取消 Host 已配置的限制。
 
+独立 session budget 在每个模型步骤结束时结算，并使用持久事件游标避免重复计费；下一次模型请求前检查已结算额度。单次已发出的请求可能超额，但不会在长 Run 中继续发起新的模型请求。旧的整轮账本保持已结算金额，升级和重启不会重算既有消耗；账本写入结果未知时阻止新请求，Host 恢复后回读持久事实。
+
 ## 焦点与范围
 
 `workflow.focus.set`（模型工具 `workflow_focus`）为某个 Agent Plan 步骤设置或完整替换焦点。焦点绑定：
