@@ -10,6 +10,7 @@ import {
   HbarAppUiUsageOverage,
   HbarAppUiUsageRequestLog,
   HbarAppUiCompactUsage,
+  type HbarAppUiModelSpendRow,
 } from '../packages/hbar-app-ui/src/ai-usage'
 import { USAGE_FIXTURES } from './fixtures/hbar-app-ui-usage-fixtures'
 
@@ -33,8 +34,16 @@ test('all eight usage surfaces render typed host facts without gallery specs', (
   }
 })
 test('usage lists merge duplicate IDs, preserve every bounded row, and expose host empty labels', () => {
-  const content = USAGE_FIXTURES.modelSpend,
-    first = content.rows[0]!
+  const content = { ...USAGE_FIXTURES.modelSpend, table: undefined }
+  const first: HbarAppUiModelSpendRow = {
+    id: 'legacy',
+    model: 'Legacy model',
+    share: 72,
+    shareLabel: 'Legacy share',
+    spend: '$12.40',
+    change: '8%',
+    direction: 'up',
+  }
   const rows = Array.from({ length: 101 }, (_, index) => ({ ...first, id: `row-${index}`, model: `模型 ${index}` }))
   const markup = renderToStaticMarkup(
     createElement(HbarAppUiModelSpend, { ...content, rows: [...rows, { ...rows[0]!, model: '更新后的模型' }] }),

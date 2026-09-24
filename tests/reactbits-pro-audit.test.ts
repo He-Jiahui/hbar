@@ -4,6 +4,13 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('model spend samples three sort outcomes and a passive row without repeated model clicks', () => {
+  const plan = auditSamplingPlan('hbar-app-ui-ai-usage-2')!
+  expect(plan.samples).toHaveLength(6)
+  expect(plan.samples.filter((sample) => sample.suffix.includes('usage-model-row'))).toHaveLength(1)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('usage overview groups range, point detail, restoration and keyboard feedback into seven samples', () => {
   const id = 'hbar-app-ui-ai-usage-1'
   expect(auditSamplingPlan(id)?.samples).toHaveLength(7)
@@ -45,6 +52,7 @@ import {
   permissionApprovalScenarioCases,
   planReviewScenarioCases,
   passiveTableRowHoverCase,
+  passiveModelRowHoverCase,
   planBoardScrollCase,
   passiveScrollDelta,
   checkableStates,
@@ -145,6 +153,13 @@ describe('React Bits Pro visual audit contract', () => {
     expect(sampledInteractionIds(id, 'desktop', 'dark')).toEqual([probe.id])
     expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([probe.id])
     expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([])
+  })
+  test('model spend passive div probes reject invented click or focus capabilities', () => {
+    const id = 'hbar-app-ui-ai-usage-2'
+    const row = control(0, { tag: 'div', role: null, type: null, capabilities: ['hover'] })
+    expect(passiveModelRowHoverCase(id, row).id).toBe(`${id}:usage-model-row:0:hover`)
+    expect(() => passiveModelRowHoverCase(id, control(0))).toThrow('passive div')
+    expect(() => passiveModelRowHoverCase(id, { ...row, capabilities: ['hover', 'click'] })).toThrow('hover-only')
   })
   test('keeps the full 38-category and 300-variant matrix explicit', () => {
     expect(HBAR_APP_UI_CATEGORIES).toHaveLength(38)

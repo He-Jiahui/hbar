@@ -252,6 +252,8 @@ export type InteractionCase = Readonly<{
     | 'summary-running'
     | 'usage-month'
     | 'usage-detail'
+    | 'usage-model-requests'
+    | 'usage-model-row'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1637,6 +1639,52 @@ async function prepareUsageOverviewScenario(
   await root.getByRole('tab', { name: scenario === 'usage-month' ? '30d' : '7d', exact: true }).click()
   if (scenario === 'usage-detail') await root.getByRole('button', { name: 'Mon: 5.7M tokens', exact: true }).focus()
 }
+export function passiveModelRowHoverCase(variantId: string, control: ControlSnapshot): InteractionCase {
+  if (
+    control.tag !== 'div' ||
+    control.role !== null ||
+    !control.visible ||
+    control.capabilities.length !== 1 ||
+    control.capabilities[0] !== 'hover'
+  )
+    throw new Error('Model spend row probes require an observed visible passive div with hover-only capability')
+  return { id: `${variantId}:usage-model-row:0:hover`, action: 'hover', scenario: 'usage-model-row', control }
+}
+async function observeModelSpendRow(root: Locator, variantId: string): Promise<InteractionCase> {
+  const control = await root
+    .getByText('Atlas Pro', { exact: true })
+    .locator('../../..')
+    .evaluate((e): ControlSnapshot => {
+      if (
+        e.tagName !== 'DIV' ||
+        e.children.length !== 7 ||
+        e.children[1]?.tagName !== 'P' ||
+        e.querySelector('button,a,input,select')
+      )
+        throw new Error('The model spend row structure changed; re-observe before sampling it')
+      const rect = e.getBoundingClientRect()
+      return {
+        index: 0,
+        tag: 'div',
+        role: null,
+        type: null,
+        name: 'Atlas Pro',
+        disabled: false,
+        visible: rect.width > 0 && rect.height > 0,
+        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        expanded: null,
+        pressed: null,
+        selected: null,
+        state: null,
+        stablePath: 'p[Atlas Pro]/ancestor::div[3]',
+        labelFor: null,
+        describedBy: null,
+        capabilities: ['hover'],
+        options: [],
+      }
+    })
+  return passiveModelRowHoverCase(variantId, control)
+}
 async function preparePlanSummaryScenario(
   root: Locator,
   scenario: (typeof planSummaryScenarios)[number],
@@ -1990,6 +2038,10 @@ export function selectInteractionCases(
 }
 
 async function controlLocator(root: Locator, control: ControlSnapshot, scenario?: InteractionCase['scenario']) {
+  if (scenario === 'usage-model-row') {
+    passiveModelRowHoverCase('probe', control)
+    return root.getByText('Atlas Pro', { exact: true }).locator('../../..')
+  }
   if (scenario === 'board-column-scroll') return root.locator('section ol').nth(control.index)
   if (scenario === 'board-stack-scroll') return root.locator('section:has(> h3)').first().locator('..')
   if (scenario === 'passive-table-row') {
@@ -2046,7 +2098,7 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
       throw new Error('Native wheel did not move the observed scroll owner')
     return
   }
-  if (interaction.scenario === 'passive-table-row' && interaction.action !== 'hover')
+  if (['passive-table-row', 'usage-model-row'].includes(interaction.scenario ?? '') && interaction.action !== 'hover')
     throw new Error('Passive table probes must not click, focus or mutate the row')
   if (interaction.action === 'hover') await control.hover({ force: interaction.scenario === 'running' })
   if (interaction.action === 'focus') await control.focus()
@@ -2401,6 +2453,8 @@ async function replayInteraction(
   const summaryScenario = planSummaryScenarios.find((scenario) => scenario === interaction.scenario)
   const usageScenario = usageOverviewScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-ai-usage-1' && usageScenario) await prepareUsageOverviewScenario(root, usageScenario)
+  if (spec.id === 'hbar-app-ui-ai-usage-2' && interaction.scenario === 'usage-model-requests')
+    await root.getByRole('tab', { name: 'Requests', exact: true }).click()
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2516,6 +2570,8 @@ async function replayReferenceInteraction(
   const usageScenario = usageOverviewScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-ai-usage-1' && usageScenario)
     await prepareUsageOverviewScenario(root, usageScenario)
+  if (reference.id === 'hbar-app-ui-ai-usage-2' && interaction.scenario === 'usage-model-requests')
+    await root.getByRole('tab', { name: 'Requests', exact: true }).click()
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3102,6 +3158,16 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareUsageOverviewScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-ai-usage-2') {
+              if (!sampleIds || sampleIds.some((id) => id.includes(':usage-model-row:')))
+                discovered.push(await observeModelSpendRow(sourceRoot, spec.id))
+              if (!sampleIds || sampleIds.some((id) => id.includes(':usage-model-requests:'))) {
+                await sourceRoot.getByRole('tab', { name: 'Requests', exact: true }).click()
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'usage-model-requests'),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-agent-plan-2') {

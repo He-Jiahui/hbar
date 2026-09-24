@@ -1,5 +1,6 @@
 import type { HbarAppUiUsageContent, UsageMeter } from '../../packages/hbar-app-ui/src/ai-usage'
 import { USAGE_OVERVIEW_FIXTURE } from './hbar-app-ui-usage-overview-fixtures'
+import { USAGE_MODEL_FIXTURE } from './hbar-app-ui-usage-model-fixtures'
 const noop = () => {}
 const tiers = [
   { id: 'starter', label: 'Starter' },
@@ -17,52 +18,7 @@ const meter = (id: string, label: string, value: string, progress: number, detai
 })
 export const USAGE_FIXTURES: { [K in keyof HbarAppUiUsageContent]-?: NonNullable<HbarAppUiUsageContent[K]> } = {
   overview: USAGE_OVERVIEW_FIXTURE,
-  modelSpend: {
-    title: 'Spend by model',
-    description: 'Share bars · period deltas',
-    emptyLabel: 'No model usage',
-    strategy: 'content-grown',
-    columns: { model: 'Model', share: 'Share', spend: 'Spend', change: 'Delta' },
-    sort: { label: 'Sort: Spend', onInvoke: noop },
-    rows: [
-      {
-        id: 'balanced',
-        model: 'Balanced assistant',
-        share: 72,
-        shareLabel: 'Balanced assistant share',
-        spend: '$12.40',
-        change: '8%',
-        direction: 'up',
-      },
-      {
-        id: 'fast',
-        model: 'Fast assistant',
-        share: 59,
-        shareLabel: 'Fast assistant share',
-        spend: '$10.30',
-        change: '7%',
-        direction: 'up',
-      },
-      {
-        id: 'reasoning',
-        model: 'Reasoning assistant',
-        share: 46,
-        shareLabel: 'Reasoning assistant share',
-        spend: '$8.20',
-        change: '4%',
-        direction: 'down',
-      },
-      {
-        id: 'embedding',
-        model: 'Embedding worker',
-        share: 33,
-        shareLabel: 'Embedding worker share',
-        spend: '$6.10',
-        change: '5%',
-        direction: 'up',
-      },
-    ],
-  },
+  modelSpend: USAGE_MODEL_FIXTURE,
   rateLimits: {
     title: 'Rate limits',
     description: 'Utilisation per window',

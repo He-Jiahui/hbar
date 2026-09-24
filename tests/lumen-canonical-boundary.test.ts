@@ -3,10 +3,12 @@ import { expect, test } from 'bun:test'
 
 async function collectFiles(root: string, suffix: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true })
-  const files = await Promise.all(entries.map(async (entry) => {
-    const path = `${root}/${entry.name}`
-    return entry.isDirectory() ? collectFiles(path, suffix) : path.endsWith(suffix) ? [path] : []
-  }))
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const path = `${root}/${entry.name}`
+      return entry.isDirectory() ? collectFiles(path, suffix) : path.endsWith(suffix) ? [path] : []
+    }),
+  )
   return files.flat()
 }
 
@@ -50,6 +52,7 @@ const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/tool-calls.tsx',
   'hbar-ui/packages/lumen-app-ui/src/usage.tsx',
   'hbar-ui/packages/lumen-app-ui/src/usage-overview.tsx',
+  'hbar-ui/packages/lumen-app-ui/src/usage-model-table.tsx',
   'hbar-ui/packages/lumen-app-ui/src/wizard.tsx',
 ]
 
@@ -103,10 +106,7 @@ test('hbar compatibility code cannot recreate Lumen control visuals', async () =
     if (/role=["']switch["']/.test(source)) violations.push(`${file}:private-switch`)
   }
 
-  const cssFiles = [
-    'packages/hbar-app-ui/src/theme.css',
-    'packages/hbar-app-ui/src/components/forms/FormControls.css',
-  ]
+  const cssFiles = ['packages/hbar-app-ui/src/theme.css', 'packages/hbar-app-ui/src/components/forms/FormControls.css']
   const sharedControl = /\.hbar-app-ui-(?:button|input|textarea|select|checkbox|toggle|combobox|field)(?![\w-])/
   const forbiddenVisual = /\b(?:border(?:-[\w-]+)?|background|outline|box-shadow)\s*:/
 

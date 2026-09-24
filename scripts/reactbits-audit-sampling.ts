@@ -703,6 +703,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-ai-usage-2')
+    return {
+      revision: 1,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Requests sorting changes model order and the Share metric together',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '2:press-enter',
+          change: 'Keyboard Tokens sorting changes order, relative widths and emphasis without changing billing facts',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'usage-model-requests:0:click',
+          change: 'Return to Cost restores the original model order and cost-relative bars',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:focus',
+          change: 'Native sort-tab focus does not silently activate a different sort',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'usage-model-row:0:hover',
+          change: 'One representative passive model row receives background hover feedback, not a click action',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '2:press-enter',
+          change: 'Narrow keyboard sorting keeps compact row summaries and costs associated with their models',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other model row hovers and equivalent sort gestures',
+          basis:
+            'All passive rows share one renderer and hover rule. The three distinct sort outcomes are replayed; models are not actionable controls and do not acquire invented clicks or expansion.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Repeated viewport/theme transitions and pagination stress data',
+          basis:
+            'Eight static pairs cover responsive presentation. Sorting logic is viewport-independent; host paging is a local capacity extension tested separately, not claimed as a source interaction.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 

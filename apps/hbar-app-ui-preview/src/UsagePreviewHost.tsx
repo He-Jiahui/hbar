@@ -4,14 +4,15 @@ import { HbarAppUiUsageProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/
 import { USAGE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-usage-fixtures'
 import { usageOverviewDatasets } from '../../../tests/fixtures/hbar-app-ui-usage-overview-fixtures'
 import { createUsageOverviewPreviewStore, projectUsageOverviewPreview } from './usage-overview-preview-model'
+import { modelSpendFixture } from '../../../tests/fixtures/hbar-app-ui-usage-model-fixtures'
+import { createUsageModelPreviewStore, projectUsageModelPreview } from './usage-model-preview-model'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const [reversed, setReversed] = useState(false),
-    [tier, setTier] = useState('team'),
+  const [tier, setTier] = useState('team'),
     [query, setQuery] = useState(''),
     [teamOnly, setTeamOnly] = useState(false),
     [cap, setCap] = useState('60'),
@@ -24,6 +25,9 @@ export function UsagePreviewHost({
   const mode = new URLSearchParams(location.search).get('usageFixture')
   const [overviewStore] = useState(() => createUsageOverviewPreviewStore(usageOverviewDatasets(mode)))
   const overview = projectUsageOverviewPreview(useStore(overviewStore), mode === 'localized' ? 'Zeitraum' : 'Range')
+  const [modelFixture] = useState(() => modelSpendFixture(mode))
+  const [modelStore] = useState(() => createUsageModelPreviewStore(modelFixture.records))
+  const modelSpend = projectUsageModelPreview(useStore(modelStore), modelFixture.content, modelFixture.pagination)
   function collection<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
     return mode === 'empty'
       ? []
@@ -38,12 +42,7 @@ export function UsagePreviewHost({
     <HbarAppUiUsageProvider
       content={{
         overview,
-        modelSpend: {
-          ...base.modelSpend,
-          strategy: mode === 'overflow' ? 'virtual' : 'content-grown',
-          rows: collection(reversed ? [...base.modelSpend.rows].reverse() : base.modelSpend.rows),
-          sort: { label: reversed ? 'Sort: Delta' : 'Sort: Spend', onInvoke: () => setReversed(!reversed) },
-        },
+        modelSpend,
         rateLimits: {
           ...base.rateLimits,
           meters: mode === 'empty' ? [] : base.rateLimits.meters,
