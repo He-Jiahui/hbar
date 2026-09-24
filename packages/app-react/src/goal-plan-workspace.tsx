@@ -19,6 +19,8 @@ import {
   type LumenPlanEditorLabels,
 } from '@lumen/app-ui'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
+import { goalControlStatusSchema } from '@hbar/contracts'
+import { HbarGoalExecutionState, type HbarGoalExecutionLabels } from './goal-execution-state'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 import './goal-plan-workspace.css'
@@ -35,6 +37,7 @@ export interface HbarGoalPlanWorkspaceLabels {
   readonly back: string
   readonly unavailable: string
   readonly goal: {
+    readonly execution: HbarGoalExecutionLabels
     readonly title: string
     readonly objective: string
     readonly objectivePlaceholder: string
@@ -213,7 +216,12 @@ export function HbarGoalPlanWorkspace({
                     value={entry.goalDraft.status}
                     onChange={(event) => setGoalField('status', event.currentTarget.value)}
                   >
-                    {(Object.keys(labels.goal.statuses) as GoalStatus[]).map((status) => (
+                    {!goalControlStatusSchema.safeParse(entry.goalDraft.status).success && (
+                      <LumenOption value={entry.goalDraft.status} disabled>
+                        {labels.goal.statuses[entry.goalDraft.status]}
+                      </LumenOption>
+                    )}
+                    {goalControlStatusSchema.options.map((status) => (
                       <LumenOption key={status} value={status}>
                         {labels.goal.statuses[status]}
                       </LumenOption>
@@ -266,11 +274,6 @@ export function HbarGoalPlanWorkspace({
                 <LumenCompactMetrics
                   label={labels.goal.title}
                   metrics={[
-                    {
-                      id: 'remaining',
-                      label: labels.goal.remaining,
-                      value: entry.remainingTokens === null ? labels.unavailable : labels.number(entry.remainingTokens),
-                    },
                     { id: 'used', label: labels.goal.used, value: labels.number(entry.goal.tokensUsed) },
                     { id: 'elapsed', label: labels.goal.elapsed, value: labels.duration(entry.goal.timeUsedSeconds) },
                     {
@@ -280,6 +283,11 @@ export function HbarGoalPlanWorkspace({
                         entry.goal.tokenBudget === null ? labels.unavailable : labels.number(entry.goal.tokenBudget),
                     },
                   ]}
+                />
+                <HbarGoalExecutionState
+                  goal={entry.goal}
+                  remainingTokens={entry.remainingTokens}
+                  labels={labels.goal.execution}
                 />
               </>
             ) : (

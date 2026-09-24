@@ -1,5 +1,11 @@
 import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/commands'
-import { goalStatusSchema, MAX_PLAN_STEPS, type PlanState, type PlanStepStatus, type ThreadGoal } from '@hbar/contracts'
+import {
+  goalControlStatusSchema,
+  MAX_PLAN_STEPS,
+  type PlanState,
+  type PlanStepStatus,
+  type ThreadGoal,
+} from '@hbar/contracts'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { createState, type StateReader } from './state'
@@ -188,7 +194,7 @@ export function createGoalPlanWorkspace(
     const entry = current(instanceId)
     if (entry.view !== 'goal') throw new CommandError('INVALID_INPUT', 'Open the goal editor before editing it')
     available(entry.goalAction)
-    const normalized = field === 'status' ? goalStatusSchema.safeParse(value) : null
+    const normalized = field === 'status' ? goalControlStatusSchema.safeParse(value) : null
     if (normalized && !normalized.success) throw new CommandError('INVALID_INPUT', 'Goal status is invalid')
     const issues = { ...entry.goalDraft.issues }
     delete issues[field]
@@ -217,7 +223,7 @@ export function createGoalPlanWorkspace(
       ? {
           sessionId: entry.sessionId,
           objective: entry.goalDraft.objective,
-          status: entry.goalDraft.status,
+          ...(entry.goalDraft.status === entry.goal.status ? {} : { status: entry.goalDraft.status }),
           tokenBudget,
           ...(entry.goal.goalId ? { expectedGoalId: entry.goal.goalId } : {}),
         }

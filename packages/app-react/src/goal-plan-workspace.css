@@ -80,8 +80,16 @@
 }
 
 .hbar-app-react-goal-objective,
+.hbar-app-react-goal-execution,
 .hbar-app-react-plan-explanation {
   overflow-wrap: anywhere;
+}
+
+.hbar-app-react-goal-execution {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .hbar-app-react-plan-summary {

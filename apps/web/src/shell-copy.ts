@@ -13,6 +13,7 @@ import type {
   HbarWorkspaceShellLabels,
 } from '@hbar/app-react'
 import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
+import { goalExecutionCopy } from './goal-execution-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 interface ShellCopy {
@@ -1208,6 +1209,7 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
     back: choose('返回目标与计划', 'Back to goals and plans'),
     unavailable: choose('未限定', 'Unlimited'),
     goal: {
+      execution: goalExecutionCopy(locale),
       title: choose('会话目标', 'Session goal'),
       objective: choose('目标', 'Goal objective'),
       objectivePlaceholder: choose('描述需要持续完成的成果', 'Describe the outcome to pursue'),

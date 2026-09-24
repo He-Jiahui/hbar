@@ -69,6 +69,8 @@ export const runSourceSchema = z.enum(['user', 'goal', 'system'])
 export type RunSource = z.infer<typeof runSourceSchema>
 export const goalStatusSchema = z.enum(['active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'complete'])
 export type GoalStatus = z.infer<typeof goalStatusSchema>
+/** Explicit user controls, excluding Host-derived allowance and blocker states. */
+export const goalControlStatusSchema = z.enum(['active', 'paused', 'complete'])
 export const executionBudgetSchema = z.object({
   goalRemainingTokens: z.number().int().nonnegative().nullable(),
   sessionRemainingTokens: z.number().int().nonnegative().nullable(),
