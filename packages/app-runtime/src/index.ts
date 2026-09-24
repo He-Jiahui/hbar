@@ -201,6 +201,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     directory.reader,
     onSubscriberError,
     () => disposed,
+    controls.settingsCommitted,
   )
   const providerSettings = createProviderSettings(
     local,

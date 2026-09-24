@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { ArrowUpRight, Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
@@ -54,6 +54,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly prompt: LumenPromptLabels
   readonly model: (name: string, thinkingLevel: string | null) => string
   readonly modelUnavailable: string
+  readonly configureModel: (currentModel: string) => string
   readonly tools: {
     readonly label: string
     readonly files: string
@@ -217,14 +218,29 @@ export function HbarSessionWorkspace({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
+  const [modelActionError, setModelActionError] = useState<{ sessionId: string; code: string } | null>(null)
   const draft = sessionId ? drafts[sessionId] : undefined
   const model = controls.sessionId === sessionId ? controls.model : null
   const configured = model?.status === 'configured' && model.modelId !== null
+  const modelSummary = configured ? labels.model(model.model!.modelName, model.thinkingLevel) : labels.modelUnavailable
   const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const activeRun = activeRuns[0]
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
+  const configureModel = () => {
+    if (!sessionId) return
+    setModelActionError(null)
+    void runtime.commands
+      .execute('app.openSettings', { scope: 'session', targetId: sessionId, section: 'model' })
+      .catch((reason: unknown) => {
+        const code =
+          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+            ? reason.code
+            : 'EXECUTION_FAILED'
+        setModelActionError({ sessionId, code })
+      })
+  }
   const addAttachments = (files: readonly File[]) => {
     if (!sessionId || !prepareAttachment) return
     const available = Math.max(0, 12 - ((draft?.attachments.length ?? 0) + (draft?.uploading ?? 0)))
@@ -405,8 +421,16 @@ export function HbarSessionWorkspace({
   const loadOlder = () => sessionId && invoke('timeline.loadOlder', { sessionId })
   const historyNotices = sessionId ? (
     <LumenFrame className="hbar-app-react-session-history-controls">
-      {!connected && <LumenText as="p" role="status">{labels.disconnected}</LumenText>}
-      {timeline.status === 'loading' && timeline.messages.length > 0 && <LumenText as="p" role="status">{labels.refreshing}</LumenText>}
+      {!connected && (
+        <LumenText as="p" role="status">
+          {labels.disconnected}
+        </LumenText>
+      )}
+      {timeline.status === 'loading' && timeline.messages.length > 0 && (
+        <LumenText as="p" role="status">
+          {labels.refreshing}
+        </LumenText>
+      )}
       {timeline.status === 'error' && timeline.messages.length > 0 && (
         <LumenFrame className="hbar-app-react-session-history-error" role="alert">
           <LumenText as="span">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
@@ -418,11 +442,15 @@ export function HbarSessionWorkspace({
         </LumenFrame>
       )}
       {timeline.olderStatus === 'limit' ? (
-        <LumenText as="p" role="status">{labels.historyLimit}</LumenText>
+        <LumenText as="p" role="status">
+          {labels.historyLimit}
+        </LumenText>
       ) : timeline.hasOlder || timeline.olderStatus === 'error' ? (
         <LumenFrame className="hbar-app-react-session-history-page">
           {timeline.olderStatus === 'error' && (
-            <LumenText as="span" role="alert">{labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}</LumenText>
+            <LumenText as="span" role="alert">
+              {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+            </LumenText>
           )}
           <LumenButton size="s" disabled={!connected || timeline.olderStatus === 'loading'} onClick={loadOlder}>
             {timeline.olderStatus === 'loading'
@@ -487,9 +515,28 @@ export function HbarSessionWorkspace({
                 : undefined
         }
         context={
-          <LumenText as="span" className="hbar-app-react-model-status">
-            {configured ? labels.model(model.model!.modelName, model.thinkingLevel) : labels.modelUnavailable}
-          </LumenText>
+          <LumenFrame className="hbar-app-react-model-context">
+            <LumenButton
+              className="hbar-app-react-model-control"
+              size="s"
+              variant="text"
+              indicator="none"
+              aria-label={labels.configureModel(modelSummary)}
+              title={labels.configureModel(modelSummary)}
+              disabled={!connected}
+              onClick={configureModel}
+            >
+              <LumenText as="span" className="hbar-app-react-model-value">
+                {modelSummary}
+              </LumenText>
+              <LumenIcon icon={ArrowUpRight} tier="sm" />
+            </LumenButton>
+            {modelActionError?.sessionId === sessionId && (
+              <LumenText as="span" role="alert">
+                {labels.error(modelActionError.code)}
+              </LumenText>
+            )}
+          </LumenFrame>
         }
         onChange={(text) => invoke('draft.setText', { sessionId, text })}
         onAddAttachments={prepareAttachment ? addAttachments : undefined}

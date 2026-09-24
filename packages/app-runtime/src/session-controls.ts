@@ -1,5 +1,10 @@
 import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/commands'
-import { modelConfigurationSchema, modelWriteResultSchema } from '@hbar/contracts/commands/models'
+import {
+  modelConfigurationSchema,
+  modelWriteResultSchema,
+  type ModelConfiguration,
+} from '@hbar/contracts/commands/models'
+import type { SettingsApplyInput } from '@hbar/contracts/commands/settings'
 import { usageQueryResultSchema } from '@hbar/contracts/commands/usage'
 import { createState, type StateReader } from './state'
 import type { BudgetCommandPort, NavigationState, SessionControlsState, SessionTimelineState } from './types'
@@ -31,11 +36,21 @@ export function createSessionControls(
 ) {
   const state = createState<SessionControlsState>(initial(null, 'idle'), onSubscriberError)
   let generation = 0
+  // A settings confirmation can invalidate only the model while a previous
+  // full load still owns its usage/budget reads. Neither result may erase the other.
+  let modelGeneration = 0
+  let pendingLoad: number | null = null
+  let pendingModel: number | null = null
   let observedTimeline = { sessionId: null as string | null, status: 'idle' as string, cursor: 0 }
 
   const load = async (sessionId: string | null) => {
     const intent = ++generation
+    const modelIntent = ++modelGeneration
+    pendingLoad = intent
+    pendingModel = modelIntent
     if (!sessionId) {
+      pendingLoad = null
+      pendingModel = null
       state.replace(initial(null, 'idle'))
       return
     }
@@ -53,21 +68,59 @@ export function createSessionControls(
       budget?.execute('session.getBudget', { sessionId }) ?? Promise.reject(new Error('CAPABILITY_UNAVAILABLE')),
     ])
     if (isDisposed() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId) return
-    const model = modelResult.status === 'fulfilled' ? modelConfigurationSchema.parse(modelResult.value) : null
+    pendingLoad = null
+    const current = state.reader.getSnapshot()
+    const ownsModel = modelIntent === modelGeneration
+    if (ownsModel) pendingModel = null
+    const model = ownsModel
+      ? modelResult.status === 'fulfilled'
+        ? modelConfigurationSchema.parse(modelResult.value)
+        : null
+      : current.model
     const usageReport = usageResult.status === 'fulfilled' ? usageQueryResultSchema.parse(usageResult.value) : null
     const sessionBudget = budgetResult.status === 'fulfilled' ? budgetResult.value : null
     const errors = {
-      model: modelResult.status === 'rejected' ? code(modelResult.reason) : null,
+      model: ownsModel ? (modelResult.status === 'rejected' ? code(modelResult.reason) : null) : current.errors.model,
       usage: usageResult.status === 'rejected' ? code(usageResult.reason) : null,
       budget: budgetResult.status === 'rejected' ? code(budgetResult.reason) : null,
     }
     state.replace({
       sessionId,
-      status: Object.values(errors).some(Boolean) ? 'partial' : 'ready',
+      status: pendingModel !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
       model,
       usage: usageReport,
       budget: sessionBudget,
       errors,
+    })
+  }
+
+  const refreshModel = async (sessionId: string): Promise<void> => {
+    const intent = ++modelGeneration
+    pendingModel = intent
+    const previous = state.reader.getSnapshot()
+    // The previous configuration no longer authorizes sending with those values.
+    state.replace({ ...previous, model: null, status: 'loading' })
+    let model: ModelConfiguration | null = null
+    let error: string | null = null
+    try {
+      if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
+      const result = await models.execute('session.getModel', { sessionId })
+      const parsed = modelConfigurationSchema.safeParse(result)
+      if (!parsed.success || parsed.data.sessionId !== sessionId)
+        throw new CommandError('INVALID_OUTPUT', 'Model response does not match the requested session')
+      model = parsed.data
+    } catch (failure) {
+      error = code(failure)
+    }
+    if (isDisposed() || intent !== modelGeneration || navigation.getSnapshot().sessionId !== sessionId) return
+    pendingModel = null
+    const current = state.reader.getSnapshot()
+    const errors = { ...current.errors, model: error }
+    state.replace({
+      ...current,
+      model,
+      errors,
+      status: pendingLoad !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
     })
   }
 
@@ -94,6 +147,20 @@ export function createSessionControls(
 
   return {
     reader: state.reader,
+    async settingsCommitted(input: SettingsApplyInput): Promise<void> {
+      if (isDisposed()) return
+      const selection = navigation.getSnapshot()
+      const affectsModel = input.changes.some(
+        ({ path }) =>
+          path.length === 1 &&
+          path[0]?.kind === 'field' &&
+          (path[0].name === 'provider.model' || path[0].name === 'provider.thinkingLevel'),
+      )
+      if (!affectsModel || !selection.sessionId) return
+      if (input.scope.kind === 'session' && input.scope.targetId !== selection.sessionId) return
+      if (input.scope.kind === 'workspace' && input.scope.targetId !== selection.workspaceId) return
+      await refreshModel(selection.sessionId)
+    },
     async executeModel(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
       if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
       const persistent = name === 'session.setModel' || name === 'session.setThinkingLevel'
@@ -132,6 +199,7 @@ export function createSessionControls(
     },
     dispose() {
       generation += 1
+      modelGeneration += 1
       offNavigation()
       offTimeline()
       state.dispose()

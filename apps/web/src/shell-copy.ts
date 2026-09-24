@@ -16,6 +16,24 @@ import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import { goalExecutionCopy } from './goal-execution-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
+
+function thinkingLevelLabel(locale: ShellLocale, value: unknown): string {
+  const labels: Readonly<Record<string, string>> =
+    locale === 'zh-CN'
+      ? { off: '关闭', minimal: '最少', low: '低', medium: '中', high: '高', xhigh: '超高', max: '最大' }
+      : {
+          off: 'Off',
+          minimal: 'Minimal',
+          low: 'Low',
+          medium: 'Medium',
+          high: 'High',
+          xhigh: 'Extra high',
+          max: 'Maximum',
+        }
+  const key = String(value)
+  return labels[key] ?? key
+}
+
 interface ShellCopy {
   readonly shell: HbarWorkspaceShellLabels
   readonly windowControls: {
@@ -419,29 +437,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.session.defaultBudget.label': 'Default token budget',
         'i18n:settings.session.defaultBudget.help': 'Set the default token limit for new session runs.',
       }
-  const option = (value: unknown) => {
-    const key = String(value)
-    const translated: Readonly<Record<string, string>> = zh
-      ? {
-          off: '关闭',
-          minimal: '最少',
-          low: '低',
-          medium: '中',
-          high: '高',
-          xhigh: '超高',
-          max: '最大',
-        }
-      : {
-          off: 'Off',
-          minimal: 'Minimal',
-          low: 'Low',
-          medium: 'Medium',
-          high: 'High',
-          xhigh: 'Extra high',
-          max: 'Maximum',
-        }
-    return translated[key] ?? key
-  }
+  const option = (value: unknown) => thinkingLevelLabel(locale, value)
   const source = (value: string) => {
     if (value.includes(':session:')) return choose('会话层', 'session scope')
     if (value.includes(':workspace:')) return choose('工作区层', 'workspace scope')
@@ -510,7 +506,12 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
           ? choose('此字段必填。', 'This field is required.')
           : choose('字段值不符合约束。', 'The value does not satisfy this field.'),
       option: (_field, value) => option(value),
-      contentText: (text) => (text.kind === 'literal' ? text.text : (messages[text.key] ?? text.key)),
+      contentText: (text) => {
+        if (text.kind === 'literal') return text.text
+        if (text.key.startsWith('settings.thinkingLevels.'))
+          return option(text.key.slice('settings.thinkingLevels.'.length))
+        return messages[text.key] ?? text.key
+      },
       pickResource: (kind) =>
         kind === 'file' ? choose('选择文件', 'Choose file') : choose('选择文件夹', 'Choose directory'),
       openOptions: (label) => choose(`打开${label}选项`, `Open ${label} options`),
@@ -800,13 +801,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     model: (name, thinkingLevel) =>
       choose(
-        `${name}${thinkingLevel ? ` · 思考 ${thinkingLevel}` : ''}`,
-        `${name}${thinkingLevel ? ` · thinking ${thinkingLevel}` : ''}`,
+        `${name}${thinkingLevel ? ` · 思考 ${thinkingLevelLabel(locale, thinkingLevel)}` : ''}`,
+        `${name}${thinkingLevel ? ` · thinking ${thinkingLevelLabel(locale, thinkingLevel)}` : ''}`,
       ),
-    modelUnavailable: choose(
-      '请先在 Session 设置中选择可用模型。',
-      'Choose an available model in Session settings first.',
-    ),
+    modelUnavailable: choose('选择模型', 'Choose a model'),
+    configureModel: (currentModel) => choose(`模型设置：${currentModel}`, `Model settings: ${currentModel}`),
     tools: {
       label: choose('会话工具', 'Session tools'),
       files: choose('文件', 'Files'),

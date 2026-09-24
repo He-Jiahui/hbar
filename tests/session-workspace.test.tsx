@@ -256,7 +256,8 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('<strong>safe</strong>')
     expect(html).not.toContain('<script>')
     expect(html).toContain('next prompt')
-    expect(html).toContain('Fixture Model · thinking low')
+    expect(html).toContain('Fixture Model · thinking Low')
+    expect(html).toContain('aria-label="Model settings: Fixture Model · thinking Low"')
     expect(html).toContain('Agent approval')
     expect(html).toContain('Agent plan')
     expect(html).toContain('1 of 2 completed')
@@ -267,6 +268,63 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('aria-label="Add attachment"')
     expect(html).toContain('20 tokens')
     expect(html).toContain('Workspace 1')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('an unconfigured session exposes a localized model recovery action instead of a dead instruction', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'model-entry-empty',
+    hostId: 'model-entry-host',
+    directory: {
+      async execute(name) {
+        if (name === 'session.get') return session
+        if (name === 'workspace.get') return workspace
+        throw new Error(`Unexpected directory query: ${name}`)
+      },
+    },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const labels = {
+      ...getShellCopy('zh-CN').session,
+      configureModel: (currentModel: string) =>
+        `为当前会话选择模型与思考等级，保留尚未发送的长文本草稿：${currentModel}`,
+    }
+    for (const connected of [true, false]) {
+      const html = renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarSessionWorkspace
+            sessionTitle={session.title}
+            workspaceName={workspace.name}
+            labels={labels}
+            connected={connected}
+          />
+        </HbarRuntimeProvider>,
+      )
+      const control = { count: 0, label: '', disabled: false, text: '' }
+      await new HTMLRewriter()
+        .on('button.hbar-app-react-model-control', {
+          element(element) {
+            control.count++
+            control.label = element.getAttribute('aria-label') ?? ''
+            control.disabled = element.hasAttribute('disabled')
+          },
+          text(chunk) {
+            control.text += chunk.text
+          },
+        })
+        .transform(new Response(html))
+        .text()
+      expect(control).toEqual({
+        count: 1,
+        label: labels.configureModel('选择模型'),
+        disabled: !connected,
+        text: '选择模型',
+      })
+      expect(html).not.toContain('Session settings first')
+    }
   } finally {
     runtime.dispose()
   }

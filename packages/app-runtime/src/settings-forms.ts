@@ -193,6 +193,7 @@ export function createSettingsForms(
   directory: StateReader<DirectoryState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
+  onCommitted: (input: SettingsApplyInput) => Promise<void>,
 ) {
   const state = createState<SettingsWorkspaceState>({ activeFormId: null, forms: {} }, onSubscriberError)
   const generations = new Map<string, number>()
@@ -542,9 +543,9 @@ export function createSettingsForms(
       replaceEntry(formId, { ...current, form: begun.state, pendingKey: key, receipt: null, error: null })
     }
     if (!operation) throw new CommandError('SUBMISSION_PENDING', 'Settings submission state is unavailable')
+    let receipt: SettingsReceipt
     try {
-      const receipt = await apply(operation.input, operation.key)
-      return settle(formId, receipt)
+      receipt = await apply(operation.input, operation.key)
     } catch (error) {
       const latest = ready(formId)
       if (latest.pendingKey === operation.key) {
@@ -561,6 +562,10 @@ export function createSettingsForms(
       }
       throw error
     }
+    const settled = settle(formId, receipt)
+    // A confirmed write remains committed even if a dependent read cannot be refreshed.
+    await onCommitted(operation.input)
+    return settled
   }
 
   local.register(settingsEditorCommands['settingsForm.selectGroup'], ({ formId, groupId }) => {
