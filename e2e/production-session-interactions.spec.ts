@@ -87,7 +87,11 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
       async () => {
         const chooser = page.waitForEvent('filechooser')
         const upload = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/artifacts')
-        await page.getByRole('button', { name: 'Add attachment' }).click()
+        const addAttachment = page.getByRole('button', { name: 'Add attachment' })
+        await expect(addAttachment).toBeVisible()
+        await addAttachment.focus()
+        await expect(addAttachment).toBeFocused()
+        await page.keyboard.press('Enter')
         await (
           await chooser
         ).setFiles({ name: attachmentName, mimeType: 'text/plain', buffer: Buffer.from(attachmentText) })
