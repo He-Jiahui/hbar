@@ -46,7 +46,7 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
         },
     },
     diff: {
-        labels: {headerTitle: 'Retention policy update', agent: 'Repo maintenance agent', status: 'Needs approval', separator: '·', showDiff: 'Show diff', reject: 'Reject', alwaysAllow: 'Always allow', approve: 'Approve', changeSeparator: '›'},
+        labels: {headerTitle: 'Retention policy update', agent: 'Repo maintenance agent', status: 'Needs approval', separator: '·', showDiff: 'Show diff', hideDiff: 'Hide diff', reject: 'Reject', alwaysAllow: 'Always allow', approve: 'Approve', changeSeparator: '›'},
         title: 'Change the invoice retention window from 180 to 45 days',
         description: 'Applies to the finance workspace. Invoice drafts older than 45 days will be purged nightly; posted invoices are never touched.',
         changes: [
@@ -54,6 +54,17 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
             {id: 'nightly-purge', label: 'Nightly purge', previousValue: 'Off', nextValue: 'On'},
             {id: 'grace-period', label: 'Grace period before purge', previousValue: 'None', nextValue: '7 days'},
         ],
+        diffText: `retention:
+- invoiceDraftDays: 180
++ invoiceDraftDays: 45
++ nightlyPurge: true
++ purgeGraceDays: 7
+  keepPostedInvoices: true`,
+        outcomes: {
+            approved: {status: 'Approved', summary: 'Allowed once, the retention policy was updated', announcement: 'Approved. The policy was updated.'},
+            rejected: {status: 'Skipped', summary: 'Skipped, not approved', announcement: 'Skipped, not approved.'},
+            'always-allow': {status: 'Always allowed', summary: 'Always allowed: policy edits in this project now run automatically', announcement: 'Always allowed for this project.'},
+        },
         listStrategy: {kind: 'content-grown', expectedMaximum: 3},
     },
     queue: {
@@ -143,7 +154,12 @@ export function createHbarAppUiAgentApprovalLocalizedFixtures(): HbarAppUiAgentA
         },
         diff: base.diff && {
             ...base.diff,
-            labels: {...base.diff.labels, showDiff: 'Vollständige Änderungsliste anzeigen', alwaysAllow: 'Für diesen Arbeitsbereich immer erlauben'},
+            labels: {...base.diff.labels, showDiff: 'Vollständige Änderungsliste anzeigen', hideDiff: 'Änderungen ausblenden', alwaysAllow: 'Für diesen Arbeitsbereich immer erlauben'},
+            outcomes: {
+                approved: {status: 'Genehmigt', summary: 'Einmal erlaubt: Die Aufbewahrungsrichtlinie wurde aktualisiert', announcement: 'Genehmigt. Die Richtlinie wurde aktualisiert.'},
+                rejected: {status: 'Übersprungen', summary: 'Übersprungen, nicht genehmigt', announcement: 'Übersprungen, nicht genehmigt.'},
+                'always-allow': {status: 'Immer erlaubt', summary: 'Immer erlaubt: Änderungen der Richtlinie werden für dieses Projekt jetzt automatisch ausgeführt', announcement: 'Für dieses Projekt immer erlaubt.'},
+            },
         },
         queue: base.queue && {
             ...base.queue,

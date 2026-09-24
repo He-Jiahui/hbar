@@ -4,6 +4,7 @@ import {HBAR_APP_UI_AGENT_APPROVAL_FIXTURES, createHbarAppUiAgentApprovalLocaliz
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const inlineOnly = process.argv.includes('--inline-only')
+const diffOnly = process.argv.includes('--diff-only')
 type AgentApprovalFixture = 'overflow' | 'localized'
 type GeometryBox = Readonly<{x: number; y: number; width: number; height: number}>
 type GeometryExpectation = Readonly<{
@@ -58,10 +59,10 @@ async function verifyReferenceGeometry(page: import('@playwright/test').Page): P
         ],
         2: [
             {name: 'desktop', width: 1192, height: 561, expectations: [
-                {name: 'diff card', selector: '.hbar-app-ui-agent-approval-card', expected: {x: 260, y: 144.5, width: 672, height: 327}},
+                {name: 'diff card', selector: '.hbar-app-ui-agent-approval-diff-card', expected: {x: 260, y: 144.5, width: 672, height: 327}},
             ]},
             {name: 'mobile', width: 320, height: 561, expectations: [
-                {name: 'diff card', selector: '.hbar-app-ui-agent-approval-card', expected: {x: 16, y: 96.75, width: 288, height: 422.5}},
+                {name: 'diff card', selector: '.hbar-app-ui-agent-approval-diff-card', expected: {x: 16, y: 96.75, width: 288, height: 422.5}},
             ]},
         ],
         3: [
@@ -106,6 +107,7 @@ async function verifyReferenceGeometry(page: import('@playwright/test').Page): P
     for (const [variantText, viewports] of Object.entries(layouts)) {
         const variant = Number(variantText)
         if (inlineOnly && variant !== 1) continue
+        if (diffOnly && variant !== 2) continue
         for (const viewport of viewports) {
             await page.setViewportSize({width: viewport.width, height: viewport.height})
             await page.goto(previewUrl(variant), {waitUntil: 'networkidle'})
@@ -260,6 +262,81 @@ async function verifyInlineApproval(page: import('@playwright/test').Page): Prom
     assert(await page.getByText(localized.outcomes.approved.followUp ?? '', {exact: true}).count() === 1, 'Localized follow-up missing')
 }
 
+async function verifyDiffApproval(page: import('@playwright/test').Page): Promise<void> {
+    const content = HBAR_APP_UI_AGENT_APPROVAL_FIXTURES.diff
+    const localized = createHbarAppUiAgentApprovalLocalizedFixtures().diff
+    assert(content && localized, 'Missing host diff fixtures')
+    const labels = {approved: content.labels.approve, rejected: content.labels.reject, 'always-allow': content.labels.alwaysAllow}
+    for (const width of [1086, 670, 356, 286]) {
+        await page.setViewportSize({width, height: 560})
+        for (const theme of ['dark', 'light']) {
+            const url = `${previewUrl(2)}&theme=${theme}`
+            await page.goto(url, {waitUntil: 'networkidle'})
+            await expect(page.getByRole('banner')).toHaveCount(1)
+            await expect(page.locator('dl > div')).toHaveCount(3)
+            await expect(page.locator('pre')).toHaveCount(0)
+            const show = page.getByRole('button', {name: content.labels.showDiff, exact: true})
+            await expect(show).toHaveAttribute('aria-expanded', 'false')
+            for (const name of [content.labels.showDiff, ...Object.values(labels)]) {
+                const button = page.getByRole('button', {name, exact: true})
+                await button.hover()
+                assert(await settledTextContrast(button) >= 4.5, `${theme} ${name} hover lost contrast`)
+            }
+            await show.press('Enter')
+            const hide = page.getByRole('button', {name: content.labels.hideDiff, exact: true})
+            await expect(hide).toHaveAttribute('aria-expanded', 'true')
+            await expect(page.locator('dl > div')).toHaveCount(3)
+            assert(await page.locator('pre').textContent() === content.diffText, 'Diff payload changed host data')
+            await hide.press('Escape')
+            await expect(page.locator('pre')).toHaveCount(1)
+            for (let index = 0; index < 4; index += 1) await page.keyboard.press('Tab')
+            assert(await page.locator('pre').evaluate((element) => document.activeElement === element), 'Expanded diff is missing its Tab entry after the three decisions')
+            await page.locator('pre').press('End')
+            assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Diff expanded beyond outer page')
+            await hide.press('Space')
+            await expect(page.locator('pre')).toHaveCount(0)
+            await expect(page.locator('dl > div')).toHaveCount(3)
+            for (const expanded of [false, true]) {
+                for (const decision of ['approved', 'rejected', 'always-allow'] as const) {
+                    await page.goto(url, {waitUntil: 'networkidle'})
+                    if (expanded) await page.getByRole('button', {name: content.labels.showDiff, exact: true}).click()
+                    await page.getByRole('button', {name: labels[decision], exact: true}).press(decision === 'approved' ? 'Enter' : 'Space')
+                    const outcome = content.outcomes[decision]
+                    await expect(page.getByRole('region', {name: content.title})).toHaveCount(1)
+                    await expect(page.locator('dl > div')).toHaveCount(3)
+                    await expect(page.getByRole('button')).toHaveCount(0)
+                    await expect(page.locator('pre')).toHaveCount(0)
+                    await expect(page.locator('.hbar-app-ui-agent-approval-diff-status')).toHaveText(outcome.status)
+                    await expect(page.locator('.hbar-app-ui-agent-approval-diff-result')).toHaveText(outcome.summary)
+                    await expect(page.locator('[aria-live="polite"]')).toHaveText(outcome.announcement)
+                    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Diff outcome overflowed outer page')
+                }
+            }
+        }
+    }
+    await page.setViewportSize({width: 286, height: 560})
+    await page.goto(previewUrl(2, 'localized'), {waitUntil: 'networkidle'})
+    const localizedButtons = await page.getByRole('button').evaluateAll((buttons) => buttons.map((button) => {
+        const rect = button.getBoundingClientRect()
+        return {left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom}
+    }))
+    assert(localizedButtons.every((box, index) => localizedButtons.slice(index + 1).every((other) =>
+        Math.min(box.right, other.right) <= Math.max(box.left, other.left)
+        || Math.min(box.bottom, other.bottom) <= Math.max(box.top, other.top))), 'Long localized actions overlap another hit target')
+    await page.getByRole('button', {name: localized.labels.showDiff, exact: true}).click()
+    await expect(page.getByRole('button', {name: localized.labels.hideDiff, exact: true})).toHaveAttribute('aria-expanded', 'true')
+    await page.getByRole('button', {name: localized.labels.alwaysAllow, exact: true}).click()
+    await expect(page.locator('.hbar-app-ui-agent-approval-diff-result')).toHaveText(localized.outcomes['always-allow'].summary)
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Long localized result overflowed the page')
+    await page.goto(previewUrl(2, 'overflow'), {waitUntil: 'networkidle'})
+    await expect(page.locator('dl > div')).toHaveCount(13)
+    const pane = await inspectScrollable(page.locator('.hbar-app-ui-agent-approval-diff-scroll'))
+    assert(pane.scrollable && pane.moved, 'Over-bound diff rows must grow inside the pane scroll owner')
+    await page.getByRole('button', {name: content.labels.approve, exact: true}).click()
+    await expect(page.locator('dl > div')).toHaveCount(13)
+    await expect(page.locator('.hbar-app-ui-agent-approval-diff-result')).toHaveText(content.outcomes.approved.summary)
+}
+
 async function run(): Promise<void> {
     const server = await ensurePreview()
     const browser = await chromium.launch({headless: true, executablePath})
@@ -269,7 +346,13 @@ async function run(): Promise<void> {
 
     try {
         const geometryChecks = await verifyReferenceGeometry(page)
-        await verifyInlineApproval(page)
+        if (!diffOnly) await verifyInlineApproval(page)
+        if (!inlineOnly) await verifyDiffApproval(page)
+        if (diffOnly) {
+            assert(pageErrors.length === 0, `Diff approval preview errors: ${pageErrors.join(' | ')}`)
+            console.log(JSON.stringify({diffDisclosureAndThreeDecisions: true, pairedCanvasSizes: 4, themes: 2, localizedHostCopy: true, geometryChecks, pageErrors}))
+            return
+        }
         if (inlineOnly) {
             assert(pageErrors.length === 0, `Inline approval preview errors: ${pageErrors.join(' | ')}`)
             console.log(JSON.stringify({inlineDisclosureAndDecisions: true, pairedCanvasSizes: 4, themes: 2, localizedHostCopy: true, geometryChecks, pageErrors}))
@@ -286,9 +369,10 @@ async function run(): Promise<void> {
 
         await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
         const diffToggle = page.getByRole('button', {name: 'Show diff', exact: true})
-        assert(await diffToggle.getAttribute('aria-expanded') === 'true', 'Diff approval did not open its change list')
+        assert(await diffToggle.getAttribute('aria-expanded') === 'false', 'Diff approval did not start with its payload collapsed')
         await diffToggle.click()
-        assert(await diffToggle.getAttribute('aria-expanded') === 'false', 'Diff approval did not collapse its change list')
+        assert(await page.getByRole('button', {name: 'Hide diff', exact: true}).getAttribute('aria-expanded') === 'true', 'Diff approval did not reveal its payload')
+        assert(await page.locator('dl > div').count() === 3, 'Diff disclosure hid the summary rows')
         await page.getByRole('button', {name: 'Approve', exact: true}).click()
 
         await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
@@ -316,7 +400,7 @@ async function run(): Promise<void> {
 
         const overflowChecks: Record<string, {readonly scrollable: boolean; readonly moved: boolean}> = {}
         const overflowSelectors = [
-            [2, '.hbar-app-ui-agent-approval-centered-body'],
+            [2, '.hbar-app-ui-agent-approval-diff-scroll'],
             [3, '.hbar-app-ui-agent-approval-queue-pane'],
             [4, '.hbar-app-ui-agent-approval-centered-body'],
             [6, '.hbar-app-ui-agent-approval-history-pane'],
