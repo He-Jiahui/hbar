@@ -82,6 +82,7 @@ export type SemanticSnapshot = Readonly<{
   truncatedTextCount: number
   horizontalOverflow: boolean
   axSnapshot: string
+  observedScroll?: Readonly<{ top: number; left: number; maximum: number }> | undefined
   tree: readonly Readonly<{
     tag: string
     role: string | null
@@ -243,11 +244,14 @@ export type InteractionCase = Readonly<{
     | 'plan-running'
     | 'tree-shipping-open'
     | 'passive-table-row'
+    | 'board-column-scroll'
+    | 'board-stack-scroll'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
+  wheelDeltaY?: number | undefined
 }>
 
 type AuditOptions = Readonly<{
@@ -1449,6 +1453,85 @@ export function interactionCases(
   return cases
 }
 
+export function planBoardScrollCase(
+  variantId: string,
+  owner: ControlSnapshot,
+  scope: 'column' | 'stack',
+  destination: 'middle' | 'end',
+): InteractionCase {
+  if (
+    owner.tag !== (scope === 'column' ? 'ol' : 'div') ||
+    !owner.visible ||
+    !Number.isInteger(owner.index) ||
+    owner.index < 0 ||
+    owner.capabilities.length !== 1 ||
+    owner.capabilities[0] !== 'scroll'
+  )
+    throw new Error('A board scroll probe requires an observed scroll-only owner')
+  if (scope === 'column' && destination !== 'end') throw new Error('Column sampling only requires its end boundary')
+  return {
+    id: `${variantId}:board-${scope}${scope === 'column' ? `:${owner.index}` : ''}:scroll:${destination}`,
+    action: 'scroll',
+    scenario: scope === 'column' ? 'board-column-scroll' : 'board-stack-scroll',
+    control: owner,
+    wheelDeltaY: destination === 'middle' ? 500 : 2000,
+  }
+}
+
+async function observePlanBoardScroll(root: Locator, variantId: string): Promise<InteractionCase[]> {
+  if ((await root.locator(interactiveControlSelector).count()) !== 0)
+    throw new Error('Plan 5 gained an actionable control; re-observe its sampling plan')
+  const owners = await root.evaluate((element): { control: ControlSnapshot; scope: 'stack' | 'column' }[] => {
+    const sections = [...element.querySelectorAll('section:has(> h3)')]
+    const stack = sections[0]?.parentElement
+    if (
+      !stack ||
+      sections.length !== 3 ||
+      sections.some((section) => !section.querySelector('h3') || !section.querySelector('ol'))
+    )
+      throw new Error('Missing observed three-section Plan 5 board')
+    const candidates = [stack, ...sections.flatMap((section) => [...section.querySelectorAll('ol')])]
+    const owner = element.getBoundingClientRect()
+    return candidates.flatMap((target, index) => {
+      const style = getComputedStyle(target),
+        rect = target.getBoundingClientRect()
+      if (!['auto', 'scroll'].includes(style.overflowY) || target.scrollHeight <= target.clientHeight + 1) return []
+      const scope = index === 0 ? 'stack' : 'column'
+      return [
+        {
+          scope,
+          control: {
+            index: index === 0 ? 0 : index - 1,
+            tag: target.tagName.toLowerCase(),
+            role: index === 0 ? null : 'list',
+            type: null,
+            name: index === 0 ? '' : (sections[index - 1]?.querySelector('h3')?.textContent?.trim() ?? ''),
+            disabled: false,
+            visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden',
+            rect: { x: rect.x - owner.x, y: rect.y - owner.y, width: rect.width, height: rect.height },
+            expanded: null,
+            pressed: null,
+            selected: null,
+            state: null,
+            stablePath: index === 0 ? 'section/parent' : `section:nth-of-type(${index}) ol`,
+            labelFor: null,
+            describedBy: null,
+            capabilities: ['scroll'],
+            options: [],
+          },
+        },
+      ]
+    })
+  })
+  return owners.flatMap(({ control, scope }) =>
+    scope === 'stack'
+      ? ['middle', 'end'].map((destination) =>
+          planBoardScrollCase(variantId, control, scope, destination === 'middle' ? 'middle' : 'end'),
+        )
+      : [planBoardScrollCase(variantId, control, scope, 'end')],
+  )
+}
+
 export function passiveTableRowHoverCase(variantId: string, row: ControlSnapshot): InteractionCase {
   if (
     row.tag !== 'tr' ||
@@ -1655,6 +1738,10 @@ export function inlineApprovalScenarioCases(snapshot: SemanticSnapshot, variantI
 }
 
 export async function settleInlineApprovalScroll(root: Locator): Promise<void> {
+  await settleNativeScroll(root)
+}
+
+async function settleNativeScroll(root: Locator): Promise<void> {
   await root.evaluate(async (element) => {
     const panes = [element, ...element.querySelectorAll('*')].filter(
       (candidate) => candidate.scrollHeight > candidate.clientHeight || candidate.scrollWidth > candidate.clientWidth,
@@ -1668,7 +1755,7 @@ export async function settleInlineApprovalScroll(root: Locator): Promise<void> {
       previous = current
       if (unchanged >= 4) return
     }
-    throw new Error('Inline approval native scroll did not settle before capture')
+    throw new Error('Native scroll did not settle before capture')
   })
 }
 
@@ -1868,8 +1955,10 @@ export function selectInteractionCases(
   return cases.filter((interaction) => requested.has(interaction.id))
 }
 
-async function controlLocator(root: Locator, control: ControlSnapshot, passiveRow = false) {
-  if (passiveRow) {
+async function controlLocator(root: Locator, control: ControlSnapshot, scenario?: InteractionCase['scenario']) {
+  if (scenario === 'board-column-scroll') return root.locator('section ol').nth(control.index)
+  if (scenario === 'board-stack-scroll') return root.locator('section:has(> h3)').first().locator('..')
+  if (scenario === 'passive-table-row') {
     passiveTableRowHoverCase('probe', control)
     const rows = root.locator('table > tbody > tr')
     return (await rows.count()) > control.index ? rows.nth(control.index) : undefined
@@ -1908,6 +1997,21 @@ async function controlLocator(root: Locator, control: ControlSnapshot, passiveRo
 }
 
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
+  if (interaction.action === 'scroll') {
+    if (
+      !['board-column-scroll', 'board-stack-scroll'].includes(interaction.scenario ?? '') ||
+      !Number.isFinite(interaction.wheelDeltaY) ||
+      !interaction.wheelDeltaY
+    )
+      throw new Error('Native scroll requires an observed board owner and finite wheel delta')
+    const before = await control.evaluate((element) => element.scrollTop)
+    await control.hover()
+    await control.page().mouse.wheel(0, interaction.wheelDeltaY)
+    await settleNativeScroll(control)
+    if ((await control.evaluate((element) => element.scrollTop)) === before)
+      throw new Error('Native wheel did not move the observed scroll owner')
+    return
+  }
   if (interaction.scenario === 'passive-table-row' && interaction.action !== 'hover')
     throw new Error('Passive table probes must not click, focus or mutate the row')
   if (interaction.action === 'hover') await control.hover({ force: interaction.scenario === 'running' })
@@ -2078,6 +2182,7 @@ async function interactionDelta(
   if (capture.status !== 'captured' || !capture.afterSnapshot) return null
   const before = await readJson<SemanticSnapshot>(capture.beforeSnapshot)
   const after = await readJson<SemanticSnapshot>(capture.afterSnapshot)
+  if (interaction.action === 'scroll') return passiveScrollDelta(before, after)
   if (interaction.id.startsWith('hbar-app-ui-agent-activity-3:')) {
     const timed = timedActivityDelta(before, after, interaction.action)
     if (timed) return timed
@@ -2114,6 +2219,43 @@ async function interactionDelta(
   }
   const signature = JSON.stringify(changes)
   return { changed: JSON.stringify(beforeState) !== JSON.stringify(afterState), signature }
+}
+
+export function passiveScrollDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+): Readonly<{ changed: boolean; signature: string }> {
+  const from = before.observedScroll,
+    to = after.observedScroll
+  if (!from || !to) throw new Error('Native scroll evidence is missing its observed positions')
+  const direction = Math.sign(to.top - from.top)
+  return {
+    changed: direction !== 0 || to.left !== from.left,
+    signature: JSON.stringify({
+      direction,
+      horizontal: Math.sign(to.left - from.left),
+      atStart: to.top <= 1,
+      atEnd: to.maximum - to.top <= 1,
+      textChanged: before.bodyTextLength !== after.bodyTextLength,
+      overflowChanged: before.horizontalOverflow !== after.horizontalOverflow,
+    }),
+  }
+}
+
+async function withObservedScroll(
+  snapshot: SemanticSnapshot,
+  control: Locator | undefined,
+  interaction: InteractionCase,
+): Promise<SemanticSnapshot> {
+  if (interaction.action !== 'scroll' || !control) return snapshot
+  return {
+    ...snapshot,
+    observedScroll: await control.evaluate((element) => ({
+      top: element.scrollTop,
+      left: element.scrollLeft,
+      maximum: element.scrollHeight - element.clientHeight,
+    })),
+  }
 }
 
 // The original live timeline keeps updating its elapsed seconds without an
@@ -2230,7 +2372,7 @@ async function replayInteraction(
     await root.evaluate((element) => {
       element.scrollTop = 0
     })
-  const control = await controlLocator(root, interaction.control, interaction.scenario === 'passive-table-row')
+  const control = await controlLocator(root, interaction.control, interaction.scenario)
   const directory = join(
     outputRoot,
     'interactions',
@@ -2246,7 +2388,7 @@ async function replayInteraction(
   const beforeSnapshot = join(directory, 'before.json')
   const afterSnapshot = join(directory, 'after.json')
   await screenshotStable(root, before)
-  await writeJson(beforeSnapshot, await localSnapshot(page, selector))
+  await writeJson(beforeSnapshot, await withObservedScroll(await localSnapshot(page, selector), control, interaction))
   if (!control) {
     return {
       id: interaction.id,
@@ -2283,7 +2425,7 @@ async function replayInteraction(
       element.scrollTop = 0
     })
   await screenshotStable(root, after)
-  await writeJson(afterSnapshot, await localSnapshot(page, selector))
+  await writeJson(afterSnapshot, await withObservedScroll(await localSnapshot(page, selector), control, interaction))
   return { id: interaction.id, status: 'captured', directory, before, after, beforeSnapshot, afterSnapshot }
 }
 
@@ -2338,7 +2480,7 @@ async function replayReferenceInteraction(
   const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
   if (runningCheckpoint && !runningCheckpoint.message)
     throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
-  const control = await controlLocator(root, interaction.control, interaction.scenario === 'passive-table-row')
+  const control = await controlLocator(root, interaction.control, interaction.scenario)
   const directory = join(
     outputRoot,
     'interactions',
@@ -2367,7 +2509,7 @@ async function replayReferenceInteraction(
   }
   await assertReferenceFrameTheme(frame, theme)
   await screenshotStable(root, before)
-  const beforeState = await snapshotRoot(frame, selector)
+  const beforeState = await withObservedScroll(await snapshotRoot(frame, selector), control, interaction)
   await writeJson(beforeSnapshot, beforeState)
   const runningControl =
     interaction.scenario === 'running' ? visibleControls(beforeState).find((item) => item.name === 'Stop') : undefined
@@ -2436,7 +2578,7 @@ async function replayReferenceInteraction(
   await assertReferenceFrameTheme(frame, theme)
   await screenshotStable(root, after)
   await assertReferenceFrameTheme(frame, theme)
-  await writeJson(afterSnapshot, await snapshotRoot(frame, selector))
+  await writeJson(afterSnapshot, await withObservedScroll(await snapshotRoot(frame, selector), control, interaction))
   return {
     id: interaction.id,
     status: 'captured',
@@ -2900,6 +3042,9 @@ async function runInteractionsParallel(
             }
             if (spec.id === 'hbar-app-ui-agent-plan-4') {
               discovered.push(await observePlanActualHover(sourceRoot, spec.id))
+            }
+            if (spec.id === 'hbar-app-ui-agent-plan-5') {
+              discovered.push(...(await observePlanBoardScroll(sourceRoot, spec.id)))
             }
             if (spec.id === 'hbar-app-ui-agent-plan-2') {
               for (const scenario of ['plan-draft', 'plan-running'] as const) {

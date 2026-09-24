@@ -38,6 +38,8 @@ import {
   permissionApprovalScenarioCases,
   planReviewScenarioCases,
   passiveTableRowHoverCase,
+  planBoardScrollCase,
+  passiveScrollDelta,
   checkableStates,
   interactionCases,
   interactionCheckpointMatches,
@@ -94,6 +96,32 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('board sampling replays native scroll owners rather than passive card gestures', () => {
+    const id = 'hbar-app-ui-agent-plan-5'
+    const owner = control(0, { tag: 'ol', role: 'list', capabilities: ['scroll'] })
+    expect(planBoardScrollCase(id, owner, 'column', 'end').id).toBe(`${id}:board-column:0:scroll:end`)
+    const stack = { ...owner, tag: 'div', role: null }
+    expect(planBoardScrollCase(id, stack, 'stack', 'middle').wheelDeltaY).toBe(500)
+    expect(planBoardScrollCase(id, stack, 'stack', 'end').wheelDeltaY).toBe(2000)
+    expect(() => planBoardScrollCase(id, control(0), 'column', 'end')).toThrow('scroll-only')
+    expect(() => planBoardScrollCase(id, { ...owner, visible: false }, 'column', 'end')).toThrow('scroll-only')
+    expect(() => planBoardScrollCase(id, owner, 'column', 'middle')).toThrow('end boundary')
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(3)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toHaveLength(1)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toHaveLength(2)
+    expect(sampledInteractionIds(id, 'tablet', 'dark')).toEqual([])
+  })
+
+  test('native scroll feedback includes direction and reached boundary even when all text is unchanged', () => {
+    const before = { ...snapshot([]), observedScroll: { top: 0, left: 0, maximum: 100 } }
+    const middle = { ...before, observedScroll: { ...before.observedScroll, top: 50 } }
+    const end = { ...before, observedScroll: { ...before.observedScroll, top: 100 } }
+    expect(passiveScrollDelta(before, middle).changed).toBe(true)
+    expect(passiveScrollDelta(before, end).signature).not.toBe(passiveScrollDelta(before, middle).signature)
+    expect(passiveScrollDelta(before, before).changed).toBe(false)
+    expect(passiveScrollDelta(end, before).signature).not.toBe(passiveScrollDelta(before, end).signature)
+    expect(() => passiveScrollDelta(snapshot([]), end)).toThrow('observed positions')
+  })
   test('observed passive timing rows receive hover probes, never invented focus or click controls', () => {
     const id = 'hbar-app-ui-agent-plan-4'
     const row = control(0, { tag: 'tr', role: 'row', type: null, capabilities: ['hover'] })

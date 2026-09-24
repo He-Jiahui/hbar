@@ -3,6 +3,7 @@ import { verifyPlanChecklist } from './verify-hbar-app-ui-plan-checklist'
 import { verifyPlanReview } from './verify-hbar-app-ui-plan-review'
 import { verifyPlanTree } from './verify-hbar-app-ui-plan-tree'
 import { verifyPlanActual } from './verify-hbar-app-ui-plan-actual'
+import { verifyPlanBoard } from './verify-hbar-app-ui-plan-board'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5185'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -89,9 +90,9 @@ async function verifyGeometry(page: import('@playwright/test').Page): Promise<Re
             {name: 'mobile', width: 320, height: 480, selector: '.lumen-plan-actual-card', expected: {x: 16, y: 144, width: 288, height: 320}},
         ],
         5: [
-            {name: 'desktop', width: 1192, height: 560, selector: '.hbar-app-ui-agent-plan-board-column', expected: {x: 24, y: 60, width: 373.328, height: 476}},
-            {name: 'tablet', width: 768, height: 561, selector: '.hbar-app-ui-agent-plan-board-column', expected: {x: 24, y: 60, width: 720, height: 480.5}},
-            {name: 'mobile', width: 320, height: 560, selector: '.hbar-app-ui-agent-plan-board-column', expected: {x: 16, y: 52, width: 288, height: 480.5}},
+            {name: 'desktop', width: 1192, height: 560, selector: '.lumen-plan-board-column', expected: {x: 24, y: 60, width: 373.328, height: 476}},
+            {name: 'tablet', width: 768, height: 561, selector: '.lumen-plan-board-column', expected: {x: 24, y: 60, width: 720, height: 480.5}},
+            {name: 'mobile', width: 320, height: 560, selector: '.lumen-plan-board-column', expected: {x: 16, y: 52, width: 288, height: 480.5}},
         ],
         6: [
             {name: 'desktop', width: 1192, height: 640, selector: '.hbar-app-ui-agent-plan-summary-copy', expected: {x: 24, y: 87.5, width: 1144, height: 55.125}},
@@ -122,6 +123,11 @@ async function run(): Promise<void> {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     try {
+        if (process.argv.includes('--board-only')) {
+            await verifyPlanBoard(page, baseUrl)
+            assert(pageErrors.length === 0, `Plan board page errors: ${pageErrors.join(' | ')}`)
+            return
+        }
         if (process.argv.includes('--actual-only')) {
             await verifyPlanActual(page, baseUrl)
             assert(pageErrors.length === 0, `Plan actual page errors: ${pageErrors.join(' | ')}`)
@@ -166,7 +172,7 @@ async function run(): Promise<void> {
         await page.getByRole('button', {name: 'Retry', exact: true}).click()
 
         await page.goto(previewUrl(5, 'overflow'), {waitUntil: 'networkidle'})
-        const boardOverflow = await inspectScroll(page.locator('.hbar-app-ui-agent-plan-board-pane'))
+        const boardOverflow = await inspectScroll(page.locator('.lumen-plan-board-columns'))
         assert(boardOverflow.scrollable && boardOverflow.moved, 'Board did not expose the declared pane scroll strategy')
 
         await page.goto(previewUrl(6), {waitUntil: 'networkidle'})

@@ -171,6 +171,7 @@ export type HbarAppUiInteractionCapability =
   | 'menu'
   | 'tab'
   | 'drag'
+  | 'scroll'
   | 'upload'
   | 'download'
   | 'no-op'

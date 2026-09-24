@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Plan 5 has observed fades for the stacked board and each wide-screen column.
+  if (
+    /packages\/lumen-app-ui\/src\/agent-plan-board\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.lumen-plan-board-edge-overlay(?:\.is-(?:top|bottom)|\[data-visible=['"]true['"]\])?$/.test(selector.trim())
+  )
+    return true
   // Plan 4's main scroll region has the same observed pointer-transparent fades.
   if (
     /packages\/lumen-app-ui\/src\/agent-plan-actual\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -302,6 +308,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     process.exit(1)
   }
   for (const suffix of ['', '.is-top', '.is-bottom', '[data-visible="true"]']) {
+    const boardErrors = validateCss(
+      'packages/lumen-app-ui/src/agent-plan-board.css',
+      `.lumen-plan-board-edge-overlay${suffix} {
+  position: absolute;
+  inset-inline: 0;
+}`,
+    )
+    if (boardErrors.length) {
+      console.error(`Flow layout guard rejected verified board edge overlays: ${boardErrors.join('; ')}`)
+      process.exit(1)
+    }
     const actualErrors = validateCss(
       'packages/lumen-app-ui/src/agent-plan-actual.css',
       `.lumen-plan-actual-edge-overlay${suffix} {
@@ -348,6 +365,9 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     }
   }
   for (const [path, selector] of [
+    ['packages/lumen-app-ui/src/agent-plan.css', '.lumen-plan-board-edge-overlay'],
+    ['packages/lumen-app-ui/src/agent-plan-board.css', '.lumen-plan-board-edge-overlay p'],
+    ['packages/lumen-app-ui/src/agent-plan-board.css', '.lumen-plan-board-edge-overlay > button'],
     ['packages/lumen-app-ui/src/agent-plan.css', '.lumen-plan-actual-edge-overlay'],
     ['packages/lumen-app-ui/src/agent-plan-actual.css', '.lumen-plan-actual-edge-overlay p'],
     ['packages/lumen-app-ui/src/agent-plan-actual.css', '.lumen-plan-actual-edge-overlay > button'],

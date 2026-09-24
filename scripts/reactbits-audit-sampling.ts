@@ -521,6 +521,45 @@ const planActualPlan: AuditSamplingPlan = {
   ],
 }
 
+const planBoardPlan: AuditSamplingPlan = {
+  revision: 1,
+  lumenEntries: ['agent-plan.tsx', 'LumenProvider.tsx'],
+  samples: [
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: 'board-column:0:scroll:end',
+      change: 'Native wheel reaches an individual column end while other columns and headings stay fixed',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'board-stack:scroll:middle',
+      change: 'Native wheel reveals the middle Implement phase and its running task in the stacked layout',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'board-stack:scroll:end',
+      change: 'Native wheel reaches Verify and the final handoff task while the global heading stays fixed',
+    },
+  ],
+  inferences: [
+    {
+      scope: 'Card click, drag, focus and hover feedback',
+      basis:
+        'The real reference has no actionable or draggable elements. Representative done/running/queued cards retain the same background, border and text on hover; no card interaction is invented.',
+      verification: 'inferred-not-replayed',
+    },
+    {
+      scope: 'Other columns and repeated wheel positions, themes and viewports',
+      basis:
+        'Three equal columns share the wide-screen scroll mechanism, while narrow sizes share the stacked owner. Three real wheel cases cover the different owners and middle/end content; eight static pairs and local overflow/locale tests cover layout boundaries.',
+      verification: 'inferred-not-replayed',
+    },
+  ],
+}
+
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
@@ -530,6 +569,7 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
   if (variantId === 'hbar-app-ui-agent-plan-2') return planReviewPlan
   if (variantId === 'hbar-app-ui-agent-plan-3') return planTreePlan
   if (variantId === 'hbar-app-ui-agent-plan-4') return planActualPlan
+  if (variantId === 'hbar-app-ui-agent-plan-5') return planBoardPlan
   return undefined
 }
 
