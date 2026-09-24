@@ -272,12 +272,16 @@ export function HbarSessionWorkspace({
   const runErrorAction = timeline.runs.map((run) => runActions[run.id]).find((action) => action?.error)
   const toolInstanceId = presentation.toolInstanceId
   const activeTool = toolInstanceId ? surfaces.panels[toolInstanceId] : undefined
+  const isToolActive = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') =>
+    activeTool?.panelId === panelId &&
+    activeTool.workspaceId === navigation.workspaceId &&
+    (panelId === 'files' || activeTool.sessionId === sessionId)
   const toggleTool = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') => {
-    if (toolInstanceId && activeTool?.panelId === panelId) {
+    if (toolInstanceId && isToolActive(panelId)) {
       invoke('app.closePanel', { instanceId: toolInstanceId })
       return
     }
-    invoke('app.openPanel', { panelId, sessionId, binding: 'followActive' })
+    invoke('app.openPanel', { panelId, workspaceId: navigation.workspaceId, sessionId, binding: 'followActive' })
   }
 
   const messages: LumenMessageProps[] = [
@@ -589,25 +593,25 @@ export function HbarSessionWorkspace({
               <LumenPageAction
                 icon={<LumenIcon icon={Files} tier="sm" />}
                 label={labels.tools.files}
-                selected={activeTool?.panelId === 'files'}
+                selected={isToolActive('files')}
                 onClick={() => toggleTool('files')}
               />
               <LumenPageAction
                 icon={<LumenIcon icon={ChartNoAxesColumnIncreasing} tier="sm" />}
                 label={labels.tools.monitoring}
-                selected={activeTool?.panelId === 'monitoring'}
+                selected={isToolActive('monitoring')}
                 onClick={() => toggleTool('monitoring')}
               />
               <LumenPageAction
                 icon={<LumenIcon icon={Bot} tier="sm" />}
                 label={labels.tools.agents}
-                selected={activeTool?.panelId === 'agents'}
+                selected={isToolActive('agents')}
                 onClick={() => toggleTool('agents')}
               />
               <LumenPageAction
                 icon={<LumenIcon icon={ListTodo} tier="sm" />}
                 label={labels.tools.goals}
-                selected={activeTool?.panelId === 'goals'}
+                selected={isToolActive('goals')}
                 onClick={() => toggleTool('goals')}
               />
               <LumenPageAction

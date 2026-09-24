@@ -40,6 +40,8 @@ const labels: HbarWorkspaceShellLabels = {
   collapseWorkspace: (name) => `折叠 ${name}`,
   workspaceActions: (name) => `${name} 的工程操作`,
   newSessionInWorkspace: '在该工程新建会话',
+  workspaceFiles: '查看该工程的文件',
+  workspaceSettings: '查看并编辑此工作区的设置与覆盖值',
   openSession: (name) => `选择 ${name}`,
   sessionUpdatedAt: (timestamp) => `更新于 ${timestamp}`,
   sessionActions: (name) => `${name} 的操作`,
@@ -95,6 +97,8 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('已经连接')
     expect(html).toContain('非常长的工程名称 的工程操作')
     expect(html).toContain('在该工程新建会话')
+    expect(html).toContain(labels.workspaceFiles)
+    expect(html).toContain(labels.workspaceSettings)
     expect(html).toContain('需要键盘导航的会话 的操作')
     expect(html).toContain('重命名会话')
     expect(html).toContain('归档会话')
@@ -129,6 +133,57 @@ test('separate React runtime providers keep each window selection private', asyn
   } finally {
     selected.dispose()
     idle.dispose()
+  }
+})
+
+test('settings and status highlight only their page while preserving the selected session for return', async () => {
+  const runtime = runtimeFixture('page-selection')
+  const currentPageLabels = async () => {
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <h1>当前页面内容</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    const current: { label: string | null; text: string }[] = []
+    let button: (typeof current)[number] | undefined
+    await new HTMLRewriter()
+      .on('button[aria-current="page"]', {
+        element(element) {
+          button = { label: element.getAttribute('aria-label'), text: '' }
+          current.push(button)
+        },
+        text(chunk) {
+          if (button) button.text += chunk.text
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    return current.map((item) => item.label ?? item.text)
+  }
+  try {
+    await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
+    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    await runtime.view.commands.execute('app.openSettings', {
+      scope: 'workspace',
+      targetId: workspace.id,
+      workspaceId: workspace.id,
+      binding: 'pinned',
+    })
+    expect(await currentPageLabels()).toEqual([labels.settings])
+    expect(runtime.view.state.navigation.getSnapshot()).toMatchObject({
+      workspaceId: workspace.id,
+      sessionId: session.id,
+    })
+    await runtime.view.commands.execute('app.back', {})
+    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    await runtime.view.commands.execute('app.openStatus', { section: 'dashboard' })
+    expect(await currentPageLabels()).toEqual([labels.status])
+    await runtime.view.commands.execute('app.back', {})
+    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+  } finally {
+    runtime.dispose()
   }
 })
 

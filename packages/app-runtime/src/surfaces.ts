@@ -75,7 +75,10 @@ export function registerSurfaceCommands(
       throw new CommandError('CAPABILITY_UNAVAILABLE', `This runtime cannot render panel: ${panelId}`)
     const active = navigation.getSnapshot()
     const workspaceId = input.workspaceId ?? active.workspaceId
-    const sessionId = input.sessionId ?? active.sessionId
+    // An explicit workspace without a session is a workspace-scoped target,
+    // even when it happens to be the selected workspace. Do not borrow a
+    // session from the active conversation to identify this panel.
+    const sessionId = input.sessionId ?? (input.workspaceId === undefined ? active.sessionId : null)
     if (input.binding === 'pinned' && !workspaceId && !sessionId)
       throw new CommandError('INVALID_INPUT', 'Pinned panels require an explicit or selected target')
     const instanceId =

@@ -269,3 +269,63 @@ test('settings workspace presents one bounded failure when the Host is unavailab
     runtime.dispose()
   }
 })
+
+test('pinned project settings name their project instead of borrowing the active session scope', async () => {
+  const target = { ...workspace, id: 'workspace-pinned', name: 'Pinned 工程，与活动会话不同' }
+  const runtime = createAppRuntime({
+    instanceId: 'settings-react-pinned',
+    hostId: 'host',
+    settings,
+    directory: {
+      execute(name, input, options) {
+        if (
+          name === 'workspace.get' &&
+          input &&
+          typeof input === 'object' &&
+          'workspaceId' in input &&
+          input.workspaceId === target.id
+        )
+          return Promise.resolve(target)
+        return directory.execute(name, input, options)
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('workspace.get', { workspaceId: target.id })
+    await runtime.view.commands.execute('app.openSettings', {
+      scope: 'workspace',
+      targetId: target.id,
+      workspaceId: target.id,
+      binding: 'pinned',
+    })
+    await waitForReady(runtime)
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace labels={labels} connected />
+      </HbarRuntimeProvider>,
+    )
+    const options: { value: string | null; disabled: boolean; text: string }[] = []
+    await new HTMLRewriter()
+      .on('select[aria-label="设置作用域"] option', {
+        element(element) {
+          options.push({ value: element.getAttribute('value'), disabled: element.hasAttribute('disabled'), text: '' })
+        },
+        text(chunk) {
+          const option = options.at(-1)
+          if (option) option.text += chunk.text
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    expect(options.find((option) => option.value === 'workspace')).toMatchObject({
+      text: `workspace · ${target.name}`,
+      disabled: false,
+    })
+    expect(options.find((option) => option.value === 'session')).toMatchObject({ text: 'session', disabled: true })
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
+  } finally {
+    runtime.dispose()
+  }
+})

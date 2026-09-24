@@ -100,6 +100,8 @@ export function HbarSettingsWorkspace({
   const entry = settings.activeFormId ? settings.forms[settings.activeFormId] : undefined
   const settingsPanel =
     presentation.page.kind === 'settings' ? surfaces.panels[presentation.page.instanceId] : undefined
+  const workspaceId = settingsPanel?.binding === 'pinned' ? settingsPanel.workspaceId : navigation.workspaceId
+  const sessionId = settingsPanel?.binding === 'pinned' ? settingsPanel.sessionId : navigation.sessionId
   const requestedSection =
     settingsPanel && typeof settingsPanel.params.section === 'string' ? settingsPanel.params.section : null
   const selectedTargetName = entry
@@ -109,10 +111,8 @@ export function HbarSettingsWorkspace({
         ? (directory.workspaces[entry.scope.targetId]?.name ?? null)
         : (directory.sessions[entry.scope.targetId]?.title ?? null)
     : null
-  const workspaceTargetName = navigation.workspaceId
-    ? (directory.workspaces[navigation.workspaceId]?.name ?? null)
-    : null
-  const sessionTargetName = navigation.sessionId ? (directory.sessions[navigation.sessionId]?.title ?? null) : null
+  const workspaceTargetName = workspaceId ? (directory.workspaces[workspaceId]?.name ?? null) : null
+  const sessionTargetName = sessionId ? (directory.sessions[sessionId]?.title ?? null) : null
   const hostGroups = useMemo(
     () =>
       entry?.description
@@ -175,11 +175,11 @@ export function HbarSettingsWorkspace({
       scope === 'global'
         ? openSettings(scope, null, activeGroupId)
         : scope === 'workspace'
-          ? navigation.workspaceId
-            ? openSettings(scope, navigation.workspaceId, activeGroupId)
+          ? workspaceId
+            ? openSettings(scope, workspaceId, activeGroupId)
             : null
-          : navigation.sessionId
-            ? openSettings(scope, navigation.sessionId, activeGroupId)
+          : sessionId
+            ? openSettings(scope, sessionId, activeGroupId)
             : null
     if (request) void request.catch(reportError)
   }
@@ -281,10 +281,10 @@ export function HbarSettingsWorkspace({
               onChange={onScopeChange}
             >
               <LumenOption value="global">{labels.scopeOption('global', null)}</LumenOption>
-              <LumenOption value="workspace" disabled={!navigation.workspaceId}>
+              <LumenOption value="workspace" disabled={!workspaceId}>
                 {labels.scopeOption('workspace', workspaceTargetName)}
               </LumenOption>
-              <LumenOption value="session" disabled={!navigation.sessionId}>
+              <LumenOption value="session" disabled={!sessionId}>
                 {labels.scopeOption('session', sessionTargetName)}
               </LumenOption>
             </LumenSelect>
@@ -299,7 +299,9 @@ export function HbarSettingsWorkspace({
         </LumenText>
       ) : entry.status === 'error' || !entry.description || !entry.schema || !entry.form ? (
         <LumenFrame className="hbar-app-react-settings-state">
-          <LumenText as="p" role="alert">{labels.error(entry.error ?? 'FORM_NOT_READY')}</LumenText>
+          <LumenText as="p" role="alert">
+            {labels.error(entry.error ?? 'FORM_NOT_READY')}
+          </LumenText>
           <LumenButton disabled={!connected} onClick={() => runFormCommand('refresh')}>
             {labels.refresh}
           </LumenButton>
@@ -387,7 +389,9 @@ export function HbarSettingsWorkspace({
         </LumenFrame>
       )}
       {(actionError || (entry?.status === 'ready' && entry.error)) && (
-        <LumenText as="p" role="alert">{labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}</LumenText>
+        <LumenText as="p" role="alert">
+          {labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}
+        </LumenText>
       )}
     </LumenFrame>
   )

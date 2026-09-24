@@ -1672,6 +1672,8 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       collapseWorkspace: (name) => `折叠工程 ${name}`,
       workspaceActions: (name) => `工程“${name}”的操作`,
       newSessionInWorkspace: '在此工程新建会话',
+      workspaceFiles: '文件',
+      workspaceSettings: '工作区设置',
       openSession: (name) => `打开会话 ${name}`,
       sessionUpdatedAt: (timestamp) =>
         `更新于 ${new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(timestamp)}`,
@@ -1725,6 +1727,8 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       collapseWorkspace: (name) => `Collapse project ${name}`,
       workspaceActions: (name) => `Actions for project ${name}`,
       newSessionInWorkspace: 'New session in this project',
+      workspaceFiles: 'Files',
+      workspaceSettings: 'Workspace settings',
       openSession: (name) => `Open session ${name}`,
       sessionUpdatedAt: (timestamp) =>
         `Updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(timestamp)}`,

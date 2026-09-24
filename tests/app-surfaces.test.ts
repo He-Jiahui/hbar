@@ -134,6 +134,103 @@ test('presentation commands separate the main page, session tool, modal, return 
   }
 })
 
+test('workspace-scoped panels never inherit a session and stay pinned without changing navigation', async () => {
+  const otherWorkspace: Workspace = { id: 'w2', name: 'two', path: 'D:/two', createdAt: 2 }
+  const otherSession: Session = {
+    id: 's3',
+    workspaceId: otherWorkspace.id,
+    title: 'other project',
+    archived: false,
+    parentId: null,
+    createdAt: 2,
+    updatedAt: 2,
+    seq: 1,
+  }
+  const runtime = createAppRuntime({
+    instanceId: 'workspace-surface-targets',
+    hostId: 'host',
+    directory: {
+      execute(name, raw, options) {
+        const input = raw as Record<string, unknown>
+        if (name === 'workspace.get' && input.workspaceId === otherWorkspace.id) return Promise.resolve(otherWorkspace)
+        if (name === 'session.get' && input.sessionId === otherSession.id) return Promise.resolve(otherSession)
+        return directory.execute(name, raw, options)
+      },
+    },
+    surfaces: { canRender: () => true },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: 's1' })
+    const originalNavigation = runtime.view.state.navigation.getSnapshot()
+    const follow = await runtime.view.commands.execute('app.openPanel', { panelId: 'files' })
+    const workspacePanels = []
+    for (const workspaceId of [workspace.id, otherWorkspace.id]) {
+      const panel = await runtime.view.commands.execute('app.openPanel', {
+        panelId: 'files',
+        workspaceId,
+        binding: 'pinned',
+      })
+      expect(panel).toMatchObject({
+        instanceId: `files:${workspaceId}:none`,
+        workspaceId,
+        sessionId: null,
+        binding: 'pinned',
+      })
+      expect(runtime.view.state.navigation.getSnapshot()).toEqual(originalNavigation)
+      workspacePanels.push(panel)
+    }
+    const settings = await runtime.view.commands.execute('app.openSettings', {
+      scope: 'workspace',
+      targetId: otherWorkspace.id,
+      workspaceId: otherWorkspace.id,
+      binding: 'pinned',
+    })
+    expect(settings).toMatchObject({ workspaceId: otherWorkspace.id, sessionId: null, binding: 'pinned' })
+    expect(runtime.view.state.surfaces.getSnapshot().panels[settings.instanceId]?.params).toMatchObject({
+      scope: 'workspace',
+      targetId: otherWorkspace.id,
+    })
+    expect(runtime.view.state.navigation.getSnapshot()).toEqual(originalNavigation)
+    await runtime.view.commands.execute('app.back', {})
+    expect(runtime.view.state.presentation.getSnapshot().toolInstanceId).toBe(`files:${otherWorkspace.id}:none`)
+    await runtime.view.commands.execute('app.setSession', {
+      workspaceId: otherWorkspace.id,
+      sessionId: otherSession.id,
+    })
+    for (const panel of workspacePanels)
+      expect(runtime.view.state.surfaces.getSnapshot().panels[panel.instanceId]).toMatchObject({
+        workspaceId: panel.workspaceId,
+        sessionId: null,
+        binding: 'pinned',
+      })
+    expect(runtime.view.state.surfaces.getSnapshot().panels[follow.instanceId]).toMatchObject({
+      workspaceId: otherWorkspace.id,
+      sessionId: otherSession.id,
+      binding: 'followActive',
+    })
+    const explicitSession = await runtime.view.commands.execute('app.openPanel', {
+      panelId: 'files',
+      workspaceId: otherWorkspace.id,
+      sessionId: otherSession.id,
+      binding: 'pinned',
+    })
+    expect(explicitSession).toMatchObject({ workspaceId: otherWorkspace.id, sessionId: otherSession.id })
+    const workspaceOnlyFollow = await runtime.view.commands.execute('app.openPanel', {
+      panelId: 'files',
+      workspaceId: workspace.id,
+    })
+    expect(workspaceOnlyFollow).toMatchObject({ workspaceId: workspace.id, sessionId: null, binding: 'followActive' })
+    await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: 's2' })
+    expect(runtime.view.state.surfaces.getSnapshot().panels[workspaceOnlyFollow.instanceId]).toMatchObject({
+      workspaceId: workspace.id,
+      sessionId: 's2',
+      binding: 'followActive',
+    })
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('window commands publish state only after the platform succeeds and close exact IDs', async () => {
   const opened: string[] = []
   const closed: string[] = []

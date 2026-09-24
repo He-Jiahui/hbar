@@ -56,6 +56,8 @@ export interface HbarWorkspaceShellLabels {
   readonly collapseWorkspace: (name: string) => string
   readonly workspaceActions: (name: string) => string
   readonly newSessionInWorkspace: string
+  readonly workspaceFiles: string
+  readonly workspaceSettings: string
   readonly openSession: (name: string) => string
   readonly sessionUpdatedAt: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
@@ -125,6 +127,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [sessionCursors, setSessionCursors] = useState<Readonly<Record<string, string | null | undefined>>>({})
   const [loading, setLoading] = useState<ReadonlySet<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
+  const [workspaceActionError, setWorkspaceActionError] = useState<{ workspaceId: string; code: string } | null>(null)
 
   const execute = runtime.commands.execute
   const recordError = useCallback((reason: unknown) => {
@@ -230,6 +233,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }
   const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
+  const openWorkspaceSurface = (workspaceId: string, surface: 'files' | 'settings') => {
+    setWorkspaceActionError(null)
+    const operation =
+      surface === 'files'
+        ? execute('app.openPanel', { panelId: 'files', workspaceId, binding: 'pinned' })
+        : execute('app.openSettings', { scope: 'workspace', targetId: workspaceId, workspaceId, binding: 'pinned' })
+    void operation.then(closeNarrowSidebar).catch((reason: unknown) => {
+      setWorkspaceActionError({ workspaceId, code: reason instanceof Error ? reason.message : String(reason) })
+    })
+  }
   const openCommandForm = (commandId: string, parameters: Readonly<Record<string, string | boolean>> = {}) => {
     let operation: Promise<unknown> = execute('commandPalette.refresh', {})
       .then(() => execute('commandPalette.setQuery', { query: commandId }))
@@ -242,8 +255,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const openWorkspace = () => {
     openCommandForm('workspace.open')
   }
-  const openSession = (sessionId: string) => {
-    void execute('app.setSession', { sessionId })
+  const openSession = (workspaceId: string, sessionId: string) => {
+    void execute('app.setSession', { workspaceId, sessionId })
       .then(() => {
         return closeNarrowSidebar()
       })
@@ -340,7 +353,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         >
           <LumenFrame as="nav" className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
             {workspaces.length === 0 && (
-              <LumenText as="p">{loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}</LumenText>
+              <LumenText as="p">
+                {loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
+              </LumenText>
             )}
             {workspaces.map((workspace) => {
               const isExpanded = expanded.has(workspace.id)
@@ -376,10 +391,23 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     </LumenButton>
                     <LumenActionMenu
                       label={props.labels.workspaceActions(workspace.name)}
-                      items={[{ id: 'new-session', label: props.labels.newSessionInWorkspace }]}
-                      onAction={() => openCommandForm('app.createSession', { workspaceId: workspace.id })}
+                      items={[
+                        { id: 'new-session', label: props.labels.newSessionInWorkspace },
+                        { id: 'files', label: props.labels.workspaceFiles },
+                        { id: 'settings', label: props.labels.workspaceSettings },
+                      ]}
+                      onAction={(action) => {
+                        if (action === 'new-session')
+                          openCommandForm('app.createSession', { workspaceId: workspace.id })
+                        else if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
+                      }}
                     />
                   </LumenFrame>
+                  {workspaceActionError?.workspaceId === workspace.id && (
+                    <LumenText as="p" role="alert" tone="danger">
+                      {props.labels.error(workspaceActionError.code)}
+                    </LumenText>
+                  )}
                   {isExpanded && (
                     <LumenFrame className="hbar-app-react-session-list">
                       {loading.has(workspace.id) && sessions.length === 0 ? (
@@ -391,17 +419,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           <LumenFrame
                             key={session.id}
                             className="hbar-app-react-session-row"
-                            data-selected={navigation.sessionId === session.id}
+                            data-selected={
+                              presentation.page.kind === 'session' &&
+                              navigation.workspaceId === session.workspaceId &&
+                              navigation.sessionId === session.id
+                            }
                           >
                             <LumenNavigationButton
                               className="hbar-app-react-session-target"
                               size="s"
                               variant="text"
-                              selected={navigation.sessionId === session.id}
+                              selected={
+                                presentation.page.kind === 'session' &&
+                                navigation.workspaceId === session.workspaceId &&
+                                navigation.sessionId === session.id
+                              }
                               indicatorEdge="left"
                               aria-label={props.labels.openSession(session.title)}
                               title={session.title}
-                              onClick={() => openSession(session.id)}
+                              onClick={() => openSession(session.workspaceId, session.id)}
                             >
                               <WorkspaceShellIcon name="message" tier="sm" />
                               <LumenText as="span" className="hbar-app-react-session-label">
@@ -463,7 +499,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               </LumenButton>
             )}
           </LumenFrame>
-          {error && <LumenText as="p" role="alert">{props.labels.error(error)}</LumenText>}
+          {error && (
+            <LumenText as="p" role="alert">
+              {props.labels.error(error)}
+            </LumenText>
+          )}
         </LumenAppSidebar>
       }
     >
