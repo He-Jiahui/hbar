@@ -12,10 +12,12 @@ import {
   usageOverviewDatasets,
 } from './fixtures/hbar-app-ui-usage-overview-fixtures'
 
-test('overview renders the real four summaries and stacked plot with native tab semantics', () => {
+test('overview renders summaries and interactive data through Lumen controls with tab semantics', () => {
   const html = renderToStaticMarkup(createElement(HbarAppUiUsageOverview, USAGE_OVERVIEW_FIXTURE))
   expect(html.match(/role="tab"/g)).toHaveLength(3)
-  expect(html).toContain('aria-selected="true">7d')
+  const tabs = html.match(/<button\b[^>]*role="tab"[^>]*>[\s\S]*?<\/button>/g) ?? []
+  expect(tabs.some((tab) => tab.includes('aria-selected="true"') && tab.replace(/<[^>]+>/g, '') === '7d')).toBe(true)
+  expect(html.match(/data-lumen-variant="text"/g)).toHaveLength(3 + USAGE_OVERVIEW_FIXTURE.chart!.points.length)
   expect(html).toContain('aria-label="Mon: 5.7M tokens"')
   expect(html).toContain('$311')
   expect(html).toContain('Hover a bar for detail')
@@ -64,7 +66,7 @@ test('duplicate IDs use the newest record and remain stable after reordering', (
       chart: { ...original.content.chart!, points: [point, { ...point, label: 'Updated' }] },
     }),
   )
-  expect(html.match(/class="lumen-usage-overview-bar"/g)).toHaveLength(1)
+  expect(html.match(/class="[^"]*\blumen-usage-overview-bar\b[^"]*"/g)).toHaveLength(1)
   expect(html).toContain('Updated')
 })
 
@@ -77,7 +79,7 @@ test('host-localized copy, empty, one, normal, boundary and over-bound series re
     )
     expect(html).toContain('Token-Nutzung')
     expect(html).toContain('Gesamte Tokenanzahl')
-    expect((html.match(/class="lumen-usage-overview-bar"/g) ?? []).length).toBe(count)
+    expect((html.match(/class="[^"]*\blumen-usage-overview-bar\b[^"]*"/g) ?? []).length).toBe(count)
     if (count === 0) expect(html).toContain('Keine Nutzung')
     if (count > 7) expect(html).toContain('data-overflow="true"')
   }
