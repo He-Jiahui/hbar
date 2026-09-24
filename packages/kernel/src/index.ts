@@ -920,7 +920,10 @@ export class Kernel {
             )
             return request
           },
-          stepEnded: (stepId) => scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId }).then(() => {}),
+          stepEnded: async (stepId) => {
+            const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
+            return settled.stop ? { stop: settled.stop } : undefined
+          },
         }
         await driver.run(input)
       } catch (error) {

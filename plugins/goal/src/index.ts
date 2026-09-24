@@ -426,8 +426,14 @@ class GoalRuntime implements GoalService {
   }
 
   async accountStep(event: HookEvents['step.end']) {
-    await this.serial(event.sessionId, async () => {
-      await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run')
+    return this.serial(event.sessionId, async () => {
+      const goal = await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run')
+      // Only this Run's binding can terminate its loop. A historical completed Goal
+      // must not truncate a subsequent ordinary user conversation.
+      const tracking = this.activeRuns.get(event.runId)
+      return goal?.status === 'complete' && tracking?.goalId === goal.goalId
+        ? { ...event, stop: 'goal_complete' as const }
+        : event
     })
   }
 

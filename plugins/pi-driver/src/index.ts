@@ -314,6 +314,7 @@ export class PiDriver implements HarnessDriver {
       firstThinking = false,
       firstText = false
     const completedTools = new Set<string>()
+    let goalCompleted = false
     let requestFailure: unknown
     const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
@@ -401,7 +402,7 @@ export class PiDriver implements HarnessDriver {
         }
       } else if (event.type === 'turn_end') {
         await input.emit('step.ended', {}, stepId)
-        await input.stepEnded(stepId)
+        goalCompleted = (await input.stepEnded(stepId))?.stop === 'goal_complete'
       }
     }
     const streamFn: StreamFn = async () => {
@@ -442,7 +443,7 @@ export class PiDriver implements HarnessDriver {
         model: modelOf(input.request.model),
         convertToLlm: (messages) => messages as PiMessage[],
         toolExecution: 'sequential',
-        shouldStopAfterTurn: () => input.signal.aborted,
+        shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
       },
       emit,
       input.signal,

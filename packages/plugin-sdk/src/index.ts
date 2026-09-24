@@ -166,7 +166,7 @@ export interface DriverInput {
   stream(id: string, text: string, thinking: string): void
   execute(name: string, args: Record<string, unknown>, callId: string): Promise<ToolResult>
   beforeRequest(request: ModelRequest, stepId: string): Promise<ModelRequest>
-  stepEnded(stepId: string): Promise<void>
+  stepEnded(stepId: string): Promise<{ stop: 'goal_complete' } | void>
 }
 export interface HarnessDriver {
   run(input: DriverInput): Promise<void>
@@ -447,7 +447,7 @@ export interface HookEvents {
     context: ToolContext
     tool: ToolDefinition
   }
-  'step.end': { sessionId: string; runId: string; stepId: string }
+  'step.end': { sessionId: string; runId: string; stepId: string; stop?: 'goal_complete' }
   'tools.select': { sessionId: string; runId: string; tools: ToolDefinition[] }
   /** Recomputed before each model request. May only omit existing Run tools, never add or replace definitions. */
   'tools.advertise': { sessionId: string; runId: string; tools: ToolDefinition[] }
