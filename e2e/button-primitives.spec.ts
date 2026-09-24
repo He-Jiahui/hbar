@@ -1,32 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { existsSync, readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
-import { delimiter, join } from 'node:path'
-
-function resolveBun() {
-  if (process.platform !== 'win32') return 'bun'
-  const executable = (process.env.PATH ?? '')
-    .split(delimiter)
-    .flatMap((directory) => [join(directory, 'bun.exe'), join(directory, 'node_modules', 'bun', 'bin', 'bun.exe')])
-    .find(existsSync)
-  if (!executable) throw new Error('Bun executable is unavailable for the button fixture')
-  return executable
-}
-
-function renderFixture() {
-  return execFileSync(resolveBun(), ['tests/fixtures/render-button-primitives.tsx'], {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-  })
-}
-
-const tokens = readFileSync('packages/hbar-app-ui/src/tokens.css', 'utf8')
-const theme = readFileSync('packages/hbar-app-ui/src/theme.css', 'utf8').replace("@import './tokens.css';", '')
-const primitives = readFileSync('packages/hbar-app-ui/src/primitives.css', 'utf8')
+import { mountButtonFixture } from './support/button-fixture'
 const fixtureStyles = `
   * { box-sizing: border-box; }
   html { min-block-size: 100%; background: var(--hbar-app-ui-bg); }
-  body { min-block-size: 100%; margin: 0; background: var(--hbar-app-ui-bg); color: var(--hbar-app-ui-text); font-family: var(--hbar-app-ui-font); }
+  body { min-block-size: 100%; margin: 0; background: var(--lumen-frost); color: var(--lumen-ink); font-family: system-ui, sans-serif; font-size: var(--lumen-font-size); }
   .button-fixture { display: flex; max-inline-size: 68rem; min-inline-size: 0; flex-direction: column; gap: 1rem; margin-inline: auto; padding: 2rem; }
   .button-fixture-header { display: flex; min-inline-size: 0; flex-direction: column; gap: .25rem; padding-block: .5rem 1rem; }
   .button-fixture-header p, .button-fixture-header h1, .button-fixture-header span, .button-fixture-card h2 { margin: 0; }
@@ -57,11 +34,7 @@ test('button primitives keep their hierarchy and boundaries across themes and na
   ] as const) {
     for (const colorScheme of ['dark', 'light'] as const) {
       await page.setViewportSize(viewport)
-      await page.setContent(`<!doctype html>
-        <html lang="en" data-hbar-app-ui-theme="${colorScheme}">
-          <head><meta name="viewport" content="width=device-width,initial-scale=1" /><style>${tokens}\n${theme}\n${primitives}\n${fixtureStyles}</style></head>
-          <body>${renderFixture()}</body>
-        </html>`)
+      await mountButtonFixture(page, { theme: colorScheme, styles: fixtureStyles })
 
       await expect(page.getByRole('heading', { name: 'Button system' })).toBeVisible()
       await expect(page.getByRole('button')).toHaveCount(15)
@@ -95,16 +68,16 @@ test('button primitives keep their hierarchy and boundaries across themes and na
         }
       })
 
-      expect(measurements.small.height).toBe(32)
+      expect(measurements.small.height).toBe(30)
       expect(measurements.medium.height).toBe(36)
-      expect(measurements.large.height).toBe(44)
+      expect(measurements.large.height).toBe(42)
       expect(measurements.defaultButton.height).toBe(36)
       expect(Math.abs(measurements.smallIcon.width - measurements.smallIcon.height)).toBeLessThanOrEqual(1)
       expect(Math.abs(measurements.mediumIcon.width - measurements.mediumIcon.height)).toBeLessThanOrEqual(1)
       expect(Math.abs(measurements.largeIcon.width - measurements.largeIcon.height)).toBeLessThanOrEqual(1)
-      expect(measurements.smallIcon.height).toBe(32)
+      expect(measurements.smallIcon.height).toBe(30)
       expect(measurements.mediumIcon.height).toBe(36)
-      expect(measurements.largeIcon.height).toBe(44)
+      expect(measurements.largeIcon.height).toBe(42)
       expect(measurements.long.scrollWidth).toBeLessThanOrEqual(measurements.long.clientWidth)
       expect(measurements.documentWidth).toBeLessThanOrEqual(measurements.viewportWidth)
 
@@ -112,12 +85,20 @@ test('button primitives keep their hierarchy and boundaries across themes and na
       await page.keyboard.press('Tab')
       const focusedButton = page.locator(':focus')
       await expect(focusedButton).toHaveAttribute('data-testid', 's-button')
-      const focusStyle = await focusedButton.evaluate((element) => {
-        const style = getComputedStyle(element)
-        return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) }
-      })
-      expect(focusStyle.outlineStyle).toBe('solid')
-      expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(1)
+      const lamp = focusedButton.locator('[data-edge="bottom"]')
+      await expect(lamp).toBeVisible()
+      const beam = lamp.locator(':scope > span')
+      await expect
+        .poll(() => beam.evaluate((element) => Number(getComputedStyle(element).opacity)))
+        .toBeGreaterThan(0.6)
+      await expect
+        .poll(() =>
+          lamp.evaluate((element) => {
+            const beam = element.firstElementChild
+            return beam ? beam.getBoundingClientRect().width / element.getBoundingClientRect().width : 0
+          }),
+        )
+        .toBeGreaterThan(0.65)
 
       await page.screenshot({
         path: `artifacts/ui-redesign/buttons/after/${colorScheme}-${viewport.name}.png`,
