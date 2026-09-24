@@ -21,6 +21,8 @@
 Agent Approval 1 还显式覆盖 `inline-request-open`：真实点击 Show request 后，逐一回放 Hide request、Reject、Delete 12 projects 的指针与键盘动作，以及可聚焦请求代码块的 hover、focus、左右方向键和 Home/End 滚动，核对卡片替换、后续消息和非视觉播报。展开/收起/Escape 与两种初始状态下的决策均须保留独立证据；不能用关闭态的按钮测试替代打开态。
 该场景准备时先让触发器的原生滚动稳定，再展开。动作内部的自动滚动/聚焦完成后再发送点击或按键，每次动作后还需确认滚动偏移连续四帧不再变化；操作前截图仍在这些动作之前采集，保留完整滚动反馈。不能把键盘平滑滚动的中间帧或隐式 scroll/click 的事件竞争当作稳定反馈。
 
+Agent Approval 2 的 `diff-request-open` 独立覆盖 Hide diff、Reject、Always allow、Approve 和可聚焦差异代码区。原版 Show diff 追加代码而不隐藏摘要；三种决策分别改变状态、替换操作区并提供不同播报，不能合并为统一的 disabled 按钮状态。完整矩阵为每组 22 个初始动作与 29 个展开态动作，共 408 个案例；两个审批变体均等待原生滚动稳定。新增此场景的交互协议版本为 23，旧版本结果必须重新验证，不自动继承签核。
+
 ## 命令
 
 ```powershell

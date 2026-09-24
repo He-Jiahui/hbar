@@ -11,6 +11,8 @@ import {
   assessInteractionCoverage,
   alignedCanvasPadding,
   fullAuditMatrixSelected,
+  diffApprovalDynamicCaseIds,
+  diffApprovalScenarioCases,
   inlineApprovalDynamicCaseIds,
   inlineApprovalScenarioCases,
   interactionCases,
@@ -132,6 +134,25 @@ describe('React Bits Pro visual audit contract', () => {
   test('makes the HTTP/1 browser transport an explicit opt-in', () => {
     expect(auditBrowserArguments(false)).toEqual([])
     expect(auditBrowserArguments(true)).toEqual(['--disable-http2', '--disable-quic'])
+  })
+
+  test('audits all three distinct decisions and the payload after Show diff', () => {
+    const id = 'hbar-app-ui-agent-approval-2'
+    const expanded = snapshot([
+      control(0, { name: 'Hide diff', expanded: 'true', capabilities: ['hover', 'focus', 'click', 'press', 'expand'] }),
+      control(1, { name: 'Reject' }),
+      control(2, { name: 'Always allow' }),
+      control(3, { name: 'Approve' }),
+      control(4, { name: 'Host diff payload', tag: 'pre', type: null, capabilities: ['hover', 'focus', 'no-op'] }),
+    ])
+    const ids = diffApprovalDynamicCaseIds(id)
+    expect(ids).toHaveLength(29)
+    expect(diffApprovalScenarioCases(expanded, id).map((item) => item.id)).toEqual([...ids])
+    expect(ids).toContain(`${id}:diff-request-open:0:expand-escape`)
+    expect(ids).toContain(`${id}:diff-request-open:2:press-space`)
+    expect(ids).toContain(`${id}:diff-request-open:3:click`)
+    expect(ids).toContain(`${id}:diff-request-open:4:scroll-end`)
+    expect(() => diffApprovalScenarioCases(snapshot([]), id)).toThrow('Missing focusable diff payload')
   })
 
   test('renders separate source/local before/after evidence without hiding missing images', () => {

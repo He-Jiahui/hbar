@@ -206,7 +206,7 @@ export function interactionWorkersPerVariant(workers: number, selectedVariants: 
 export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
-  scenario?: 'running' | 'away' | 'retry-queued' | 'inline-request-open' | undefined
+  scenario?: 'running' | 'away' | 'retry-queued' | 'inline-request-open' | 'diff-request-open' | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
 }>
@@ -265,7 +265,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 12
-const interactionProtocolVersion = 22
+const interactionProtocolVersion = 23
 
 export function auditBrowserArguments(http1: boolean): string[] {
   return http1 ? ['--disable-http2', '--disable-quic'] : []
@@ -1348,6 +1348,29 @@ export function inlineApprovalDynamicCaseIds(variantId: string): readonly string
   ).map((action) => `${variantId}:inline-request-open:${index}:${action}`))
 }
 
+export function diffApprovalDynamicCaseIds(variantId: string): readonly string[] {
+  return [0, 1, 2, 3, 4].flatMap((index) => (
+    index === 0
+      ? ['hover', 'focus', 'click', 'press-enter', 'press-space', 'expand', 'expand-escape']
+      : index === 4
+        ? ['hover', 'focus', 'no-op', 'scroll-arrowright', 'scroll-arrowleft', 'scroll-home', 'scroll-end']
+        : ['hover', 'focus', 'click', 'press-enter', 'press-space']
+  ).map((action) => `${variantId}:diff-request-open:${index}:${action}`))
+}
+
+export function diffApprovalScenarioCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+  const payload = visibleControls(snapshot).find((control) => control.tag === 'pre')
+  if (!payload) throw new Error('Missing focusable diff payload in the live approval')
+  const scenario = 'diff-request-open'
+  return [
+    ...interactionCases(snapshot, variantId, scenario),
+    ...(['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const).map((key): InteractionCase => ({
+      id: `${variantId}:${scenario}:${payload.index}:scroll-${key.toLowerCase()}`,
+      action: 'press', key, control: payload, scenario,
+    })),
+  ]
+}
+
 export function inlineApprovalScenarioCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
   const payload = visibleControls(snapshot).find((control) => control.tag === 'pre')
   if (!payload) throw new Error('Missing focusable request payload in the live inline approval')
@@ -1387,6 +1410,19 @@ async function prepareInlineApprovalScenario(root: Locator): Promise<void> {
   await trigger.click()
   await root.getByRole('button', { name: 'Hide request', exact: true }).waitFor({ state: 'visible' })
   await settleInlineApprovalScroll(root)
+}
+
+async function prepareDiffApprovalScenario(root: Locator): Promise<void> {
+  const trigger = root.getByRole('button', { name: 'Show diff', exact: true })
+  await trigger.scrollIntoViewIfNeeded()
+  await settleInlineApprovalScroll(root)
+  await trigger.click()
+  await root.getByRole('button', { name: 'Hide diff', exact: true }).waitFor({ state: 'visible' })
+  await settleInlineApprovalScroll(root)
+}
+
+function isScrollAwareApproval(id: string): boolean {
+  return id === 'hbar-app-ui-agent-approval-1' || id === 'hbar-app-ui-agent-approval-2'
 }
 
 async function prepareInlineApprovalActivation(root: Locator, control: Locator, interaction: InteractionCase): Promise<void> {
@@ -1800,6 +1836,8 @@ async function replayInteraction(
     await prepareAgentFailureScenario(root)
   if (spec.id === 'hbar-app-ui-agent-approval-1' && interaction.scenario === 'inline-request-open')
     await prepareInlineApprovalScenario(root)
+  if (spec.id === 'hbar-app-ui-agent-approval-2' && interaction.scenario === 'diff-request-open')
+    await prepareDiffApprovalScenario(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => { element.scrollTop = 0 })
   const control = await controlLocator(root, interaction.control)
@@ -1833,7 +1871,7 @@ async function replayInteraction(
   }
   try {
     if (!(await controlIsDisabled(control))) {
-      if (spec.id === 'hbar-app-ui-agent-approval-1') await prepareInlineApprovalActivation(root, control, interaction)
+      if (isScrollAwareApproval(spec.id)) await prepareInlineApprovalActivation(root, control, interaction)
       await applyInteraction(control, interaction)
     }
   } catch (error) {
@@ -1849,7 +1887,7 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
-  if (spec.id === 'hbar-app-ui-agent-approval-1') await settleInlineApprovalScroll(root)
+  if (isScrollAwareApproval(spec.id)) await settleInlineApprovalScroll(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => { element.scrollTop = 0 })
   await screenshotStable(root, after)
@@ -1881,6 +1919,8 @@ async function replayReferenceInteraction(
     await prepareAgentFailureScenario(root)
   if (reference.id === 'hbar-app-ui-agent-approval-1' && interaction.scenario === 'inline-request-open')
     await prepareInlineApprovalScenario(root)
+  if (reference.id === 'hbar-app-ui-agent-approval-2' && interaction.scenario === 'diff-request-open')
+    await prepareDiffApprovalScenario(root)
   const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
   if (runningCheckpoint && !runningCheckpoint.message)
     throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
@@ -1928,7 +1968,7 @@ async function replayReferenceInteraction(
   }
   try {
     if (interaction.scenario === 'running' || !(await controlIsDisabled(control))) {
-      if (reference.id === 'hbar-app-ui-agent-approval-1') await prepareInlineApprovalActivation(root, control, interaction)
+      if (isScrollAwareApproval(reference.id)) await prepareInlineApprovalActivation(root, control, interaction)
       if (interaction.scenario === 'running' && (interaction.action === 'click' || interaction.action === 'hover')) {
         const rect = runningControl?.rect
         if (!rect) throw new Error('Running log control lost its visible bounds')
@@ -1961,7 +2001,7 @@ async function replayReferenceInteraction(
   if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
     await page.waitForTimeout(120)
   }
-  if (reference.id === 'hbar-app-ui-agent-approval-1') await settleInlineApprovalScroll(root)
+  if (isScrollAwareApproval(reference.id)) await settleInlineApprovalScroll(root)
   if (runningCheckpoint) {
     const afterCheckpoint = await runningLogCheckpoint(root)
     if (afterCheckpoint.rows !== runningCheckpoint.rows || afterCheckpoint.message !== runningCheckpoint.message)
@@ -2363,10 +2403,14 @@ async function runInteractionsParallel(
               await prepareAgentFailureScenario(sourceRoot)
               discovered.push(...agentFailureScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
             }
-            if (spec.id === 'hbar-app-ui-agent-approval-1') {
-              await prepareInlineApprovalScenario(sourceRoot)
-              discovered.push(...inlineApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
-            }
+              if (spec.id === 'hbar-app-ui-agent-approval-1') {
+                await prepareInlineApprovalScenario(sourceRoot)
+                discovered.push(...inlineApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
+              }
+              if (spec.id === 'hbar-app-ui-agent-approval-2') {
+                await prepareDiffApprovalScenario(sourceRoot)
+                discovered.push(...diffApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
+              }
             const cases = selectInteractionCases(discovered, options.cases)
             let caseCursor = 0
             const actionWorker = async () => {
@@ -2602,6 +2646,10 @@ async function runCompare(options: AuditOptions): Promise<void> {
       ))
     if (record.id === 'hbar-app-ui-agent-approval-1')
       expected.push(...inlineApprovalDynamicCaseIds(record.id).map(
+        (id) => `${record.theme}/${record.viewport}/${id}`,
+      ))
+    if (record.id === 'hbar-app-ui-agent-approval-2')
+      expected.push(...diffApprovalDynamicCaseIds(record.id).map(
         (id) => `${record.theme}/${record.viewport}/${id}`,
       ))
     expectedInteractions.set(record.id, expected)
