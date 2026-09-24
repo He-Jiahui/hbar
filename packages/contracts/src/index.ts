@@ -385,19 +385,46 @@ export interface FileEntry {
   path: string
   directory: boolean
 }
-export type RunStatus = 'queued' | 'running' | 'waiting_approval' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
-export interface Run {
-  id: string
-  sessionId: string
-  requestId: string
-  input: UserInput
-  modelId: string
-  status: RunStatus
-  createdAt: number
-  startedAt: number | null
-  endedAt: number | null
-  error: string | null
-}
+export const runStatusSchema = z.enum([
+  'queued',
+  'running',
+  'waiting_approval',
+  'completed',
+  'cancelled',
+  'failed',
+  'interrupted',
+])
+export type RunStatus = z.infer<typeof runStatusSchema>
+export const runFailureSchema = z.object({
+  code: z.string().min(1).max(160),
+  category: z.enum([
+    'budget',
+    'usage_limit',
+    'cancelled',
+    'timeout',
+    'interrupted',
+    'result_unknown',
+    'transient',
+    'execution',
+  ]),
+  retryable: z.boolean(),
+  budgetSource: z.enum(['goal', 'session', 'both']).optional(),
+})
+export type RunFailure = z.infer<typeof runFailureSchema>
+export const runSchema = z.object({
+  id: idSchema,
+  sessionId: idSchema,
+  requestId: idSchema,
+  input: inputSchema,
+  modelId: idSchema,
+  status: runStatusSchema,
+  createdAt: z.number().int().nonnegative(),
+  startedAt: z.number().int().nonnegative().nullable(),
+  endedAt: z.number().int().nonnegative().nullable(),
+  error: z.string().nullable(),
+  failure: runFailureSchema.optional(),
+})
+export type Run = z.infer<typeof runSchema>
 export interface Message {
   id: string
   sessionId: string

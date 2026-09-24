@@ -169,6 +169,7 @@ export function createRunCommands(kernel: Kernel) {
         startedAt: run.startedAt,
         endedAt: run.endedAt,
         error: run.error,
+        ...(run.failure ? { failure: run.failure } : {}),
       }
     } catch (error) {
       if (error instanceof HbarError) throw new CommandError(error.code, error.message)
@@ -197,7 +198,10 @@ export function createRunCommands(kernel: Kernel) {
       try {
         return await kernel.compact(sessionId, modelId, context.signal)
       } catch (error) {
-        if (error instanceof HbarError && ['NOTHING_TO_COMPACT', 'MODEL_NOT_FOUND', 'DEMO_DISABLED', 'BUSY'].includes(error.code))
+        if (
+          error instanceof HbarError &&
+          ['NOTHING_TO_COMPACT', 'MODEL_NOT_FOUND', 'DEMO_DISABLED', 'BUSY'].includes(error.code)
+        )
           throw new CommandError(error.code, error.message)
         if (error instanceof CommandError) throw error
         throw new CommandError('RESULT_UNKNOWN', 'Compaction outcome requires session reconciliation')

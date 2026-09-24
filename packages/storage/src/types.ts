@@ -7,6 +7,7 @@ import type {
   ProviderConfig,
   Run,
   RunStatus,
+  RunFailure,
   Session,
   SessionEvent,
   SessionSnapshot,
@@ -102,7 +103,7 @@ export interface StorageMethods {
   run(id: string): Run
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
   cancelRequested(id: string): boolean
-  setRun(id: string, status: RunStatus, error?: string): SessionEvent
+  setRun(id: string, status: RunStatus, error?: string, failure?: RunFailure): SessionEvent
   queuedSessions(): string[]
   createApproval(approval: Approval): SessionEvent
   resolveApproval(id: string, status: Approval['status']): { approval: Approval; event: SessionEvent } | null

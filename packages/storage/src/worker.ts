@@ -7,8 +7,9 @@ import {
   HbarError,
   contentBlockSchema,
   emptyUsage,
-  inputSchema,
   providerSchema,
+  runFailureSchema,
+  runSchema,
   sessionEventSchema,
 } from '@hbar/contracts'
 import { z } from 'zod'
@@ -43,7 +44,7 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 4) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 5) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -99,6 +100,11 @@ if (schemaVersion > 0 && schemaVersion <= 3)
       PRAGMA user_version=4;
     `)
   })()
+if (schemaVersion < 5)
+  db.transaction(() => {
+    db.exec('ALTER TABLE runs ADD COLUMN failure TEXT; PRAGMA user_version=5;')
+  })()
+
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 
 type Row = Record<string, unknown>
@@ -158,7 +164,12 @@ function sessionRow(row: Row | null): Session {
 }
 function runRow(row: Row | null): Run {
   const value = required(row, 'Run')
-  return { ...value, input: inputSchema.parse(parseJson(value.input as string)) } as unknown as Run
+  const { failure, ...fields } = value
+  return runSchema.parse({
+    ...fields,
+    input: parseJson(z.string().parse(value.input)),
+    ...(typeof failure === 'string' ? { failure: runFailureSchema.parse(parseJson(failure)) } : {}),
+  })
 }
 function messageRow(row: Row): Message {
   return {
@@ -606,18 +617,9 @@ const methods: StorageMethods = {
         endedAt: null,
         error: null,
       }
-      db.query('INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?,?)').run(
-        run.id,
-        sessionId,
-        requestId,
-        JSON.stringify(input),
-        modelId,
-        'queued',
-        run.createdAt,
-        null,
-        null,
-        null,
-      )
+      db.query(
+        'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
+      ).run(run.id, sessionId, requestId, JSON.stringify(input), modelId, 'queued', run.createdAt, null, null, null)
       const queuedEvent = appendEvent(sessionId, 'run.queued', { run, ...(command ? { command } : {}) }, run.id)
       return { ...run, queuedEvent }
     })(),
@@ -649,9 +651,13 @@ const methods: StorageMethods = {
       const run = methods.run(id)
       if (['completed', 'cancelled', 'failed', 'interrupted'].includes(run.status)) return { run, event: null }
       if (run.status === 'queued') {
-        db.query("UPDATE runs SET status='cancelled',endedAt=? WHERE id=?").run(Date.now(), id)
+        const event = methods.setRun(id, 'cancelled', 'Cancelled by user', {
+          code: 'USER_CANCELLED',
+          category: 'cancelled',
+          retryable: false,
+        })
         const cancelled = methods.run(id)
-        return { run: cancelled, event: appendEvent(run.sessionId, 'run.settled', { run: cancelled }, id) }
+        return { run: cancelled, event }
       }
       const already = db
         .query("SELECT eventId FROM events WHERE runId=? AND type='run.cancelRequested' LIMIT 1")
@@ -663,14 +669,16 @@ const methods: StorageMethods = {
     })(),
   cancelRequested: (id) =>
     Boolean(db.query("SELECT eventId FROM events WHERE runId=? AND type='run.cancelRequested' LIMIT 1").get(id)),
-  setRun: (id, status, error) =>
+  setRun: (id, status, error, failure) =>
     db.transaction(() => {
       const run = methods.run(id)
       const settled = !['queued', 'running', 'waiting_approval'].includes(status)
-      db.query('UPDATE runs SET status=?,error=?,endedAt=? WHERE id=?').run(
+      const parsedFailure = failure === undefined ? undefined : runFailureSchema.parse(failure)
+      db.query('UPDATE runs SET status=?,error=?,endedAt=?,failure=? WHERE id=?').run(
         status,
         error ?? null,
         settled ? Date.now() : null,
+        parsedFailure ? JSON.stringify(parsedFailure) : null,
         id,
       )
       return appendEvent(run.sessionId, settled ? 'run.settled' : 'run.status', { run: methods.run(id) }, id)
@@ -727,6 +735,7 @@ const methods: StorageMethods = {
         runRow,
       )
       for (const run of active) {
+        let unknownEffects = false
         const settledCalls = new Set(
           (
             db.query("SELECT content FROM messages WHERE runId=? AND role='tool'").all(run.id) as { content: string }[]
@@ -745,6 +754,7 @@ const methods: StorageMethods = {
             continue
           }
           appendEvent(run.sessionId, 'tool.unknown', intent, run.id)
+          unknownEffects = true
           methods.commit(run.sessionId, run.id, 'tool', [
             {
               type: 'tool_result',
@@ -783,6 +793,11 @@ const methods: StorageMethods = {
           run.id,
           'interrupted',
           'Host stopped before this run settled. Inspect tool outcomes before resuming.',
+          {
+            code: unknownEffects ? 'EFFECT_UNKNOWN' : 'HOST_INTERRUPTED',
+            category: unknownEffects ? 'result_unknown' : 'interrupted',
+            retryable: false,
+          },
         )
         for (const queued of db
           .query("SELECT id FROM runs WHERE sessionId=? AND status='queued'")
@@ -791,6 +806,7 @@ const methods: StorageMethods = {
             queued.id,
             'interrupted',
             'Queued input retained; resume explicitly after inspecting the interrupted run.',
+            { code: 'HOST_INTERRUPTED', category: 'interrupted', retryable: false },
           )
       }
       return active.length
@@ -998,11 +1014,11 @@ function restoreProjection(event: SessionEvent) {
       data.providerData === undefined ? null : JSON.stringify(data.providerData),
     )
   } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type)) {
-    const run = data.run as Run
+    const run = runSchema.parse(data.run)
     db.query(
       `
-      INSERT INTO runs VALUES(?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(id) DO UPDATE SET status=excluded.status,startedAt=excluded.startedAt,endedAt=excluded.endedAt,error=excluded.error
+      INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error,failure) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET status=excluded.status,startedAt=excluded.startedAt,endedAt=excluded.endedAt,error=excluded.error,failure=excluded.failure
     `,
     ).run(
       run.id,
@@ -1015,6 +1031,7 @@ function restoreProjection(event: SessionEvent) {
       run.startedAt,
       run.endedAt,
       run.error,
+      run.failure ? JSON.stringify(runFailureSchema.parse(run.failure)) : null,
     )
   } else if (event.type === 'approval.requested') {
     const approval = event.data as Approval

@@ -309,6 +309,7 @@ export class PiDriver implements HarnessDriver {
       firstThinking = false,
       firstText = false
     const completedTools = new Set<string>()
+    let requestFailure: unknown
     const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
       name: tool.name,
@@ -420,6 +421,7 @@ export class PiDriver implements HarnessDriver {
           input.run.input.thinking,
         )
       } catch (error) {
+        requestFailure = error
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
       }
     }
@@ -441,6 +443,7 @@ export class PiDriver implements HarnessDriver {
       streamFn,
     )
     input.signal.throwIfAborted()
+    if (requestFailure !== undefined) throw requestFailure
     if (failure) throw new Error(failure)
   }
   async summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal) {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
-import { idSchema, inputSchema, sessionEventSchema } from '../index'
+import { idSchema, inputSchema, runFailureSchema, sessionEventSchema } from '../index'
 import type { SessionEvent } from '../index'
 
 export const submitRunInputSchema = z.strictObject({
@@ -45,6 +45,7 @@ export const operationSnapshotSchema = z.strictObject({
   startedAt: z.number().int().nonnegative().nullable(),
   endedAt: z.number().int().nonnegative().nullable(),
   error: z.string().nullable(),
+  failure: runFailureSchema.optional(),
 })
 export const operationCancelResultSchema = z.strictObject({
   operationId: idSchema,

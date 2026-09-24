@@ -24,6 +24,7 @@ import type {
   ProviderConfig,
   ProviderInput,
   Run,
+  RunFailure,
   SessionEvent,
   SessionSnapshot,
   UserInputRequest,
@@ -85,6 +86,7 @@ export {
 import { createDirectoryQueries } from './directory-queries'
 import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
+import { classifyRunFailure } from './run-failure.ts'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -729,6 +731,7 @@ export class Kernel {
             run.id,
             'failed',
             `Plugin scope failed: ${error instanceof Error ? error.message : String(error)}`,
+            classifyRunFailure(error),
           ),
         )
         this.changed('sessions')
@@ -736,17 +739,21 @@ export class Kernel {
       }
       scope.ctx.effect(() => () => controller.abort())
       this.active.set(sessionId, { run, controller, context: scope })
-      if (this.cancelled.has(run.id)) controller.abort(new Error('Cancelled by user'))
-      const timer = setTimeout(() => controller.abort(new Error('Run exceeded its 20-minute limit')), 20 * 60_000)
+      if (this.cancelled.has(run.id)) controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
+      const timer = setTimeout(
+        () => controller.abort(new HbarError('RUN_TIMEOUT', 'Run exceeded its 20-minute limit')),
+        20 * 60_000,
+      )
       let status: Run['status'] = 'completed',
-        failure: string | undefined
+        failure: string | undefined,
+        failureDetails: RunFailure | undefined
       try {
         this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
-        await scope.hooks
-          .dispatch('run.start', { sessionId, runId: run.id, run: await this.storage.call('run', run.id) })
-          .catch((error) => {
-            console.error('Run start observer failed:', error)
-          })
+        await scope.hooks.dispatch('run.start', {
+          sessionId,
+          runId: run.id,
+          run: await this.storage.call('run', run.id),
+        })
         const session = await this.storage.call('session', sessionId)
         const workspace = await this.storage.call('workspace', session.workspaceId)
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
@@ -853,12 +860,19 @@ export class Kernel {
         }
         await driver.run(input)
       } catch (error) {
-        status = controller.signal.aborted ? 'cancelled' : 'failed'
-        failure = error instanceof Error ? error.message : String(error)
+        const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
+        failureDetails = classifyRunFailure(cause)
+        status =
+          failureDetails.category === 'cancelled'
+            ? 'cancelled'
+            : failureDetails.category === 'interrupted'
+              ? 'interrupted'
+              : 'failed'
+        failure = cause instanceof Error ? cause.message : String(cause)
       } finally {
         clearTimeout(timer)
         for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
-        const settledEvent = await this.storage.call('setRun', run.id, status, failure)
+        const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
         this.publishEvent(settledEvent)
         this.active.delete(sessionId)
         this.cancelled.delete(run.id)
@@ -1130,8 +1144,9 @@ export class Kernel {
     if (['running', 'waiting_approval'].includes(run.status)) {
       this.cancelled.add(runId)
       for (const active of this.active.values())
-        if (active.run.id === runId) active.controller.abort(new Error('Cancelled by user'))
+        if (active.run.id === runId) active.controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
     } else this.cancelled.delete(runId)
+    if (event) await this.hooks.dispatch('run.cancelRequested', { sessionId: run.sessionId, runId, run })
   }
   async compact(sessionId: string, modelId: string, signal?: AbortSignal) {
     this.assertIdle()
@@ -1299,7 +1314,8 @@ export class Kernel {
     this.closing = true
     this.schemaCallbacks.dispose()
     this.directoryQueries.dispose()
-    for (const active of this.active.values()) active.controller.abort(new Error('Host shutting down'))
+    for (const active of this.active.values())
+      active.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
     await this.waitForIdle()
     for (const pending of this.userInputs.values())
       await pending.settle(undefined, new HbarError('USER_INPUT_CANCELLED', 'Host shutting down'))

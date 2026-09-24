@@ -118,6 +118,7 @@ function executionFailureState(events: SessionEvent[], runId: string) {
 }
 
 function isUsageLimitError(run: Run) {
+  if (run.failure) return run.failure.category === 'usage_limit'
   return (
     run.status === 'failed' &&
     typeof run.error === 'string' &&
@@ -284,6 +285,21 @@ class GoalRuntime implements GoalService {
   async accountStep(event: HookEvents['step.end']) {
     await this.serial(event.sessionId, async () => {
       await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run')
+    })
+  }
+
+  async cancelRun(event: HookEvents['run.cancelRequested']) {
+    await this.serial(event.sessionId, async () => {
+      const goal = this.goals.get(event.sessionId)
+      const tracking = this.activeRuns.get(event.runId)
+      if (!goal || !['active', 'budget_limited'].includes(goal.status)) return
+      if (tracking ? tracking.goalId !== goal.goalId : event.run.createdAt < goal.createdAt) return
+      await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run')
+      const current = this.goals.get(event.sessionId)!
+      await this.persist(
+        { ...current, status: 'paused', budgetResumeIntent: false, updatedAt: Date.now() },
+        event.runId,
+      )
     })
   }
 
@@ -637,13 +653,16 @@ class GoalRuntime implements GoalService {
           : []
       const autoBlocked = failureStreak >= 3 && existing.status === 'active'
       const usageLimited = isUsageLimitError(run) && existing.status === 'active'
-      const status: GoalStatus = usageLimited
-        ? 'usage_limited'
-        : autoBlocked
-          ? 'blocked'
-          : event.status === 'failed' && existing.status === 'active'
-            ? 'blocked'
-            : existing.status
+      const status: GoalStatus =
+        run.failure?.category === 'cancelled' && ['active', 'budget_limited'].includes(existing.status)
+          ? 'paused'
+          : usageLimited
+            ? 'usage_limited'
+            : autoBlocked
+              ? 'blocked'
+              : event.status === 'failed' && existing.status === 'active'
+                ? 'blocked'
+                : existing.status
       const goal = await this.persist(
         {
           ...existing,
@@ -800,6 +819,7 @@ export const goalPlugin = definePlugin({
     api.hooks.on('step.end', (event) => runtime.accountStep(event))
     api.hooks.on('budget.committed', (event) => runtime.refreshBudget(event.sessionId))
     api.hooks.on('run.end', (event) => runtime.accountRun(event))
+    api.hooks.on('run.cancelRequested', (event) => runtime.cancelRun(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },

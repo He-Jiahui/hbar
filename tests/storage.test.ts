@@ -54,6 +54,11 @@ test('recovery preserves an unknown tool outcome without replaying it', async ()
   await store.call('toolStart', session.id, run.id, 'call', 'write_file', { path: 'output.txt' })
   expect(await store.call('recover')).toBe(1)
   expect((await store.call('run', run.id)).status).toBe('interrupted')
+  expect((await store.call('run', run.id)).failure).toEqual({
+    code: 'EFFECT_UNKNOWN',
+    category: 'result_unknown',
+    retryable: false,
+  })
   expect((await store.call('snapshot', session.id)).messages[0]?.content[0]).toMatchObject({
     type: 'tool_result',
     isError: true,
