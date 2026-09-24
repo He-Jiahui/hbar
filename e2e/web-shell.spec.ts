@@ -224,7 +224,7 @@ test('session tree paginates the 101st row inside its sidebar pane', async ({ br
     await expect(selectedRow).toHaveAttribute('aria-current', 'page')
     expect(
       await sidebar
-        .locator('.hbar-app-ui-app-sidebar-content')
+        .locator('.lumen-app-sidebar-content')
         .evaluate((element) => element.scrollHeight > element.clientHeight),
     ).toBe(true)
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/capacity-101.png', fullPage: true })
@@ -1586,7 +1586,7 @@ test('provider presets persist custom models, thinking levels, and independent v
       .getByRole('option')
       .filter({ has: page.getByText('GPT-5.4', { exact: true }) })
       .click()
-    await expect(page.getByRole('button', { name: 'Select GPT-5.4' })).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByRole('button', { name: 'Select GPT-5.4' })).toHaveAttribute('aria-current', 'page')
     await page.getByRole('button', { name: 'Set as default' }).click()
 
     const providerPrimaryColumn = page.locator('.hbar-app-react-provider-primary-column')
@@ -1604,7 +1604,7 @@ test('provider presets persist custom models, thinking levels, and independent v
 
     await page.getByRole('textbox', { name: 'Custom model ID' }).fill('browser-custom')
     await page.getByRole('button', { name: 'Add custom model' }).click()
-    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'page')
     await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level Off' })).toBeVisible()
     await thinkingLevels.fill('High')
     await page.getByRole('option', { name: 'High', exact: true }).click()
@@ -1665,7 +1665,7 @@ test('provider presets persist custom models, thinking levels, and independent v
     await page.getByRole('button', { name: 'Edit Browser provider' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Edit provider · Browser provider' })).toBeVisible()
     await expect(providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' })).not.toBeChecked()
-    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'page')
     await expect(
       page.getByRole('button', { name: 'Select GPT-5.4' }).getByLabel('Hidden', { exact: true }),
     ).toBeVisible()
