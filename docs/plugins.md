@@ -165,6 +165,10 @@ export default definePlugin({
 
 工具前置钩子可返回变换后的参数；内核会重新校验，并以最终参数进行审批。模型钩子可选择已注册模型，但不能把现有凭据转发给未注册的 endpoint。插件处理上下文时，最终模型请求会进入事件日志。副作用不得绕开执行入口去伪装成只读工具。
 
+会话级动态事实使用 SDK 的 `appendModelContext(request, text)` 追加；稳定指令需要置于事实之前时，使用 `prependModelInstructions(request, text)`。两者都保留完整 `ModelRequest.system`，以可选 `systemContextOffset`（UTF-16 索引）标记每请求刷新的 Host 状态起点，不复制另一份业务状态。不要手动拼接前缀后继续沿用旧的偏移量。
+
+当前 Pi 驱动对 OpenAI-compatible 协议将动态后缀放在历史之后，保持原 system / developer 层级；持久会话消息和工具配对不变。其他协议及未支持该元数据的驱动仍可使用完整 `system`，不会丢失预算或焦点。工具广告中的稳定指令放在前缀。该结构及传给供应商适配器的 Session ID 为缓存复用提供条件，但不保证命中；预算仍以实际 usage 结算。
+
 SessionService 是创建子任务、调度和团队等后续插件的入口。`sessions.append` 用于插件自己的事件，建议使用插件名前缀，如 `example.progress`；不要冒用内核事件类型改变核心投影。
 
 ## Client 入口
