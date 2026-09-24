@@ -85,7 +85,7 @@ async function fixture() {
       null,
       (await workflows.get(session.id)).workflow!.revision,
     )
-  return { root, kernel, session, workflows, goals, focus, run, check, complete }
+  return { root, kernel, session, workflows, goals, plans, focus, run, check, complete }
 }
 
 test('a later write invalidates earlier verification and completion requires a new passing read', async () => {
@@ -102,6 +102,57 @@ test('a later write invalidates earlier verification and completion requires a n
   expect((await check()).status).toBe('passed')
   expect((await complete()).workflow?.status).toBe('completed')
   expect((await goals.update(session.id, 'complete')).goal?.status).toBe('complete')
+})
+
+test('stable focus checkpoint survives read/write bookkeeping but never accepts stale proof', async () => {
+  const { session, workflows, run, check } = await fixture()
+  const baseline = (await workflows.get(session.id)).workflow!
+  const checkpoint = {
+    itemId: 'proof',
+    outcome: 'complete',
+    summary: 'Verified current proof',
+    expectedFocusRevision: baseline.focusRevision,
+    expectedPlanRevision: baseline.planRevision,
+  }
+  await run('read_file', { path: 'proof.txt' })
+  await run('write_file', { path: 'proof.txt', text: 'bad proof' })
+  await run('workflow_checkpoint', checkpoint)
+  expect((await workflows.get(session.id)).workflow?.status).not.toBe('completed')
+  expect((await check()).status).toBe('pending')
+  await run('write_file', { path: 'proof.txt', text: 'correct proof' })
+  await run('read_file', { path: 'proof.txt' })
+  await run('workflow_checkpoint', checkpoint)
+  expect((await workflows.get(session.id)).workflow?.status).toBe('completed')
+})
+
+test('stable focus checkpoint rejects replacement focus and changed Plan while numeric CAS stays strict', async () => {
+  const { session, workflows, plans, focus, run } = await fixture()
+  const baseline = (await workflows.get(session.id)).workflow!
+  const checkpoint = {
+    itemId: 'proof',
+    outcome: 'complete',
+    summary: 'Verified current proof',
+    expectedFocusRevision: baseline.focusRevision,
+    expectedPlanRevision: baseline.planRevision,
+  }
+  await run('read_file', { path: 'proof.txt' })
+  expect(
+    await rejection(
+      workflows.checkpoint(session.id, 'proof', 'complete', 'Old numeric version', null, baseline.revision),
+    ),
+  ).toMatchObject({ code: 'WORKFLOW_REVISION_CONFLICT' })
+  await focus()
+  await run('read_file', { path: 'proof.txt' })
+  await run('workflow_checkpoint', checkpoint)
+  expect((await workflows.get(session.id)).workflow?.status).not.toBe('completed')
+  const current = (await workflows.get(session.id)).workflow!
+  await plans.update(session.id, [{ step: 'New objective', status: 'in_progress' }])
+  await run('workflow_checkpoint', {
+    ...checkpoint,
+    expectedFocusRevision: current.focusRevision,
+    expectedPlanRevision: current.planRevision,
+  })
+  expect((await workflows.get(session.id)).workflow?.status).not.toBe('completed')
 })
 
 test('completion cannot race an in-flight mutation and a partial failure cannot reuse old proof', async () => {

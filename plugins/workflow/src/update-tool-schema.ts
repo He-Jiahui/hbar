@@ -18,6 +18,15 @@ export const workflowUpdateActionSchema = z.discriminatedUnion('action', [
 const scopeFields = workflowExpandScopeInputSchema.shape
 const checkpointFields = workflowCheckpointInputSchema.shape
 
+export const workflowExpandScopeToolSchema = workflowExpandScopeInputSchema.omit({ sessionId: true })
+export const workflowCheckpointToolSchema = workflowCheckpointInputSchema
+  .omit({ sessionId: true, expectedRevision: true, nextItemId: true })
+  .extend({
+    evidenceIds: checkpointFields.evidenceIds.unwrap().optional(),
+    expectedFocusRevision: z.number().int().positive(),
+    expectedPlanRevision: z.number().int().positive(),
+  })
+
 export const workflowUpdateToolSchema = z
   .strictObject({
     action: z.enum(['expand_scope', 'checkpoint', 'complete']),

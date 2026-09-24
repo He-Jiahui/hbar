@@ -125,7 +125,9 @@ test('workflow model results retain actionable verification facts without repeat
   expect(result.text).toContain('passed')
   expect(result.text).not.toContain('stepTextHash')
   expect(before.workflow?.evidence[0]).toHaveProperty('resultHash')
-  expect((workflows as WorkflowRuntime).decorate(request).system).toContain('expectedRevision=')
+  expect((workflows as WorkflowRuntime).decorate(request).system).toContain(
+    `expectedFocusRevision=${before.workflow?.focusRevision}`,
+  )
   const revision = before.workflow!.revision
   const conflict = await rejection(
     workflows.checkpoint(session.id, 'proof', 'complete', 'Verified', null, revision - 1),

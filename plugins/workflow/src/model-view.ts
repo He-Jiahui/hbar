@@ -7,6 +7,7 @@ export function workflowModelView({ plan, workflow }: WorkflowSnapshot) {
     plan: plan && { revision: plan.revision, plan: plan.plan, explanation: plan.explanation },
     workflow: workflow && {
       revision: workflow.revision,
+      ...(workflow.focusRevision === undefined ? {} : { focusRevision: workflow.focusRevision }),
       status: workflow.status,
       planRevision: workflow.planRevision,
       explorationCount: workflow.explorationCount,

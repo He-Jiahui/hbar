@@ -1,6 +1,32 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
-import { workflowUpdateActionSchema, workflowUpdateToolSchema } from '../plugins/workflow/src/update-tool-schema'
+import {
+  workflowUpdateActionSchema,
+  workflowUpdateToolSchema,
+  workflowCheckpointToolSchema,
+  workflowExpandScopeToolSchema,
+} from '../plugins/workflow/src/update-tool-schema'
+
+test('focused tools expose smaller object schemas without weakening version preconditions', () => {
+  const checkpoint = {
+    itemId: 'proof',
+    outcome: 'complete',
+    summary: 'Verified',
+    expectedFocusRevision: 1,
+    expectedPlanRevision: 2,
+  }
+  expect(workflowCheckpointToolSchema.safeParse(checkpoint).success).toBe(true)
+  expect(workflowCheckpointToolSchema.safeParse({ ...checkpoint, expectedFocusRevision: undefined }).success).toBe(
+    false,
+  )
+  expect(workflowCheckpointToolSchema.safeParse({ ...checkpoint, expectedPlanRevision: 0 }).success).toBe(false)
+  expect(workflowCheckpointToolSchema.safeParse({ ...checkpoint, scope: {} }).success).toBe(false)
+  const schemas = [workflowCheckpointToolSchema, workflowExpandScopeToolSchema].map((schema) => z.toJSONSchema(schema))
+  expect(schemas.every((schema) => schema.type === 'object' && !schema.anyOf && !schema.oneOf)).toBe(true)
+  expect(schemas.reduce((size, schema) => size + JSON.stringify(schema).length, 0)).toBeLessThan(
+    JSON.stringify(z.toJSONSchema(workflowUpdateToolSchema)).length,
+  )
+})
 
 test('workflow update advertises object parameters while retaining per-action Host validation', () => {
   const schema = z.toJSONSchema(workflowUpdateToolSchema)

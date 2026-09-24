@@ -262,7 +262,7 @@ export interface WorkflowService {
     outcome: 'progress' | 'revise' | 'complete' | 'blocked',
     summary: string,
     nextItemId: string | null | undefined,
-    expectedRevision: number,
+    expectedRevision: number | { focusRevision: number; planRevision: number },
     evidenceIds?: string[],
     reviewModelId?: string,
   ): Promise<WorkflowSnapshot>

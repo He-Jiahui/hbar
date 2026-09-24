@@ -43,12 +43,20 @@ import type {
   PlanService,
   WorkflowService,
 } from '@hbar/plugin-sdk'
-import { workflowUpdateActionSchema, workflowUpdateToolSchema } from './update-tool-schema'
+import {
+  workflowUpdateActionSchema,
+  workflowUpdateToolSchema,
+  workflowCheckpointToolSchema,
+  workflowExpandScopeToolSchema,
+} from './update-tool-schema'
 import { workflowModelResult } from './model-view'
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
+type CheckpointRevision = Parameters<WorkflowService['checkpoint']>[5]
+const FOCUS_TOOLS = new Set(['workflow_checkpoint', 'workflow_expand_scope'])
 const CONTROL_TOOLS = new Set([
+  ...FOCUS_TOOLS,
   'apply_agent_patch',
   'delegate_work',
   'get_agent_result',
@@ -66,6 +74,7 @@ const CONTROL_TOOLS = new Set([
   'request_user_input',
 ])
 const REPAIR_TOOLS = new Set([
+  ...FOCUS_TOOLS,
   'get_goal',
   'update_goal',
   'get_plan',
@@ -926,14 +935,20 @@ export class WorkflowRuntime implements WorkflowService {
     })
   }
 
-  private current(sessionId: string, expectedRevision: number) {
+  private current(sessionId: string, expectedRevision: CheckpointRevision) {
     const workflow = this.workflows.get(sessionId)
     if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'No workflow exists for this session')
     this.assertNoMutations(workflow)
-    if (workflow.revision !== expectedRevision)
+    const matches =
+      typeof expectedRevision === 'number'
+        ? workflow.revision === expectedRevision
+        : workflow.executionModel === 'focus_v2' &&
+          workflow.focusRevision === expectedRevision.focusRevision &&
+          workflow.planRevision === expectedRevision.planRevision
+    if (!matches)
       throw new HbarError(
         'WORKFLOW_REVISION_CONFLICT',
-        `The workflow changed before this update was applied. Current expectedRevision=${workflow.revision}, itemId=${JSON.stringify(workflow.activeItemId)}, planRevision=${workflow.planRevision}, status=${workflow.status}. Tool settlement can advance the revision; checkpoint with the revision after verification. Revalidate the current focus and checks before retrying; do not replay completed side effects.`,
+        `The workflow changed before this update was applied. Current expectedRevision=${workflow.revision}, expectedFocusRevision=${workflow.focusRevision ?? 'unavailable'}, itemId=${JSON.stringify(workflow.activeItemId)}, planRevision=${workflow.planRevision}, status=${workflow.status}. Tool settlement can advance revision but not focusRevision. Revalidate the current focus and checks before retrying; do not replay completed side effects.`,
       )
     if (['completed', 'cancelled'].includes(workflow.status))
       throw new HbarError('WORKFLOW_COMPLETE', 'The workflow is already settled')
@@ -1121,13 +1136,15 @@ export class WorkflowRuntime implements WorkflowService {
     outcome: 'progress' | 'revise' | 'complete' | 'blocked',
     summary: string,
     nextItemId: string | null | undefined,
-    expectedRevision: number,
+    expectedRevision: CheckpointRevision,
     evidenceIds: string[] = [],
     reviewModelId?: string,
   ) {
     const cancelAgentIds: string[] = []
     await this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
+      if (typeof expectedRevision !== 'number' && current.activeItemId !== itemId)
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The checkpoint does not target the current focus')
       const item = current.workItems.find((candidate) => candidate.id === itemId)
       if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The workflow item does not exist')
       const pendingRequired = item.acceptanceChecks.filter(
@@ -1943,6 +1960,14 @@ export class WorkflowRuntime implements WorkflowService {
 
   async advertiseTools(event: HookEvents['tools.advertise']): Promise<HookEvents['tools.advertise']> {
     const workflow = this.workflows.get(event.sessionId)
+    const focusTools =
+      workflow?.executionModel === 'focus_v2' &&
+      workflow.focusRevision !== undefined &&
+      [...FOCUS_TOOLS].every((name) => event.tools.some((tool) => tool.name === name))
+    event = {
+      ...event,
+      tools: event.tools.filter((tool) => (focusTools ? tool.name !== 'workflow_update' : !FOCUS_TOOLS.has(tool.name))),
+    }
     if (!workflow || ['blocked', 'needs_revision', 'cancelled'].includes(workflow.status)) return event
     const plan = await this.agentPlans.get(event.sessionId)
     const step = workflow.activeStepIndex === null ? undefined : plan?.plan[workflow.activeStepIndex]
@@ -2004,6 +2029,9 @@ export class WorkflowRuntime implements WorkflowService {
       '<focus_workflow>',
       `Status: ${workflow.status}`,
       `Revision: ${workflow.revision}`,
+      ...(workflow.focusRevision === undefined
+        ? []
+        : [`Focus revision: ${workflow.focusRevision} (stable across read/write bookkeeping)`]),
       `Plan revision: ${workflow.planRevision}`,
       `Item ID: ${item ? escapeXml(item.id) : 'none'}`,
       `Current item: ${item ? escapeXml(item.title) : 'none'}`,
@@ -2019,7 +2047,9 @@ export class WorkflowRuntime implements WorkflowService {
       'These are current Host facts, refreshed before each request. Do not call get_workflow/get_plan merely to repeat known facts.',
       ...(item && !checks.length
         ? [
-            `After verifying the objective, checkpoint with action="checkpoint", itemId=${JSON.stringify(item.id)}, outcome="complete", expectedRevision=${workflow.revision}, and a concise summary.`,
+            workflow.focusRevision === undefined
+              ? `After verifying the objective, use workflow_update with action="checkpoint", itemId=${JSON.stringify(item.id)}, outcome="complete", expectedRevision=${workflow.revision}, and a concise summary.`
+              : `After verifying, use workflow_checkpoint with itemId=${JSON.stringify(item.id)}, outcome="complete", expectedFocusRevision=${workflow.focusRevision}, expectedPlanRevision=${workflow.planRevision}, and a concise summary. If unavailable, use workflow_update action="checkpoint" with current expectedRevision.`,
           ]
         : []),
       'A complete checkpoint also advances the Agent Plan and completes the workflow when its last step finishes; do not duplicate that with update_plan or workflow complete.',
@@ -2058,7 +2088,7 @@ export class WorkflowRuntime implements WorkflowService {
       return next
     })
     const recovery = rejected?.activeItemId
-      ? `To correct scope within the authorized task, use workflow_update with action="expand_scope", itemId=${JSON.stringify(rejected.activeItemId)}, expectedRevision=${rejected.revision}, a bounded scope and reason. This does not grant new user permission. If the Agent Plan changed, inspect get_plan and replace workflow_focus instead.`
+      ? `To correct scope within the authorized task, use workflow_expand_scope (or workflow_update action="expand_scope") with itemId=${JSON.stringify(rejected.activeItemId)}, expectedRevision=${rejected.revision}, a bounded scope and reason. This does not grant new user permission. If the Agent Plan changed, inspect get_plan and replace workflow_focus instead.`
       : 'Inspect get_workflow to recover the current focus before retrying.'
     throw new HbarError(
       'WORKFLOW_SCOPE_REQUIRED',
@@ -2397,6 +2427,47 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
                 )
               : await runtime.complete(context.session.id, parsed.expectedRevision, context.run.id)
         return workflowModelResult(result)
+      },
+    },
+    {
+      name: 'workflow_checkpoint',
+      description:
+        'Checkpoint the current focus after observing verification results. Focus and Plan versions stay valid across tool bookkeeping; replacement invalidates them. Host requires fresh passing checks and no in-flight mutation. A complete checkpoint also advances Plan.',
+      inputSchema: workflowCheckpointToolSchema,
+      effect: 'read',
+      execute: async (args, context) => {
+        const parsed = workflowCheckpointToolSchema.parse(args)
+        return workflowModelResult(
+          await runtime.checkpoint(
+            context.session.id,
+            parsed.itemId,
+            parsed.outcome,
+            parsed.summary,
+            null,
+            { focusRevision: parsed.expectedFocusRevision, planRevision: parsed.expectedPlanRevision },
+            parsed.evidenceIds,
+            context.run.modelId,
+          ),
+        )
+      },
+    },
+    {
+      name: 'workflow_expand_scope',
+      description:
+        'Correct the current focus scope within the authorized task. Provide bounded paths/tools and a reason. Does not grant new user permission.',
+      inputSchema: workflowExpandScopeToolSchema,
+      effect: 'read',
+      execute: async (args, context) => {
+        const parsed = workflowExpandScopeToolSchema.parse(args)
+        return workflowModelResult(
+          await runtime.expandScope(
+            context.session.id,
+            parsed.itemId,
+            parsed.scope,
+            parsed.reason,
+            parsed.expectedRevision,
+          ),
+        )
       },
     },
     {

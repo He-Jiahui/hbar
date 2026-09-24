@@ -24,6 +24,8 @@ const repairTools = [
   'get_workflow',
   'workflow_focus',
   'workflow_update',
+  'workflow_checkpoint',
+  'workflow_expand_scope',
 ]
 const item: WorkflowPlanItemInput = {
   id: 'verify',
