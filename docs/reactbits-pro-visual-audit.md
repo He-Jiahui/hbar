@@ -29,6 +29,9 @@ Agent Approval 2 的 `diff-request-open` 独立覆盖 Hide diff、Reject、Alway
 # 故障注入验证本地资源门禁；测试 fixture 不替代真实原版截图
 bun scripts/verify-reactbits-audit-readiness.ts
 
+# 构建 @lumen/app-ui 后，检查不加载 hbar 样式时的发布 CSS 契约
+bun scripts/verify-lumen-icon-scale.ts
+
 # 只发现并校验 React Bits Pro 的 38/300 清单
 bun run app-ui:reactbits:discover -- --output artifacts/reactbits-pro-visual-audit/all
 
@@ -76,6 +79,12 @@ iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议�
 所有动作结果与逐案视觉反馈。原图或反馈变化会使签核失效并回到 `needs-review`；
 代码或源目录变化还会使机器证据过期，必须重新采集与回放，状态为 `needs-fix`；
 `--strict` 在人工签核缺失时也会失败，不把机器绿灯当作完成。
+
+独立 CSS 检查只读取 Lumen 构建产物，不注入 hbar 主题或令牌，并禁止外部网络请求。
+它验证双主题基础令牌、五档图标尺寸、审批图标消费者、根字号缩放与宿主局部覆盖；
+不能把在 hbar 预览里恰好继承到的样式当作组件包已经自足。该检查是包边界回归，
+不替代任何原版结构或交互截图。共享样式修改后，即使静态图逐字节相同，也应保留
+实现哈希失效规则；旧的完整签核属于其对应提交，不能改写成新实现的全量证明。
 交互回放按源目录、画布、本地变体及实现哈希、本地预览地址和浏览器传输参数校验断点：相同运行可续跑，修改组件、宿主 fixture
 或预览实现后必须选新输出目录重新捕获。`--workers` 是有界并发选项；在单变体内也可并行不同动作，
 但每个动作仍有独立上下文；多变体运行时并发预算在变体之间分配，不把所有动作默认为串行。
