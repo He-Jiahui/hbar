@@ -89,6 +89,32 @@ test('goal creation and null budget updates follow the configured maximum', asyn
   await expectRejected(goals.set(session.id, { maxTokenBudget: 0 }), 'positive integers')
 })
 
+test('editing only an objective preserves an explicit budget and paused intent', async () => {
+  const { kernel, session } = await fixture()
+  const goals = kernel.plugins.get<GoalService>('goal')
+  const original = await goals.create(session.id, 'Original bounded task', 100)
+  await goals.set(session.id, { status: 'paused' })
+  const replacement = await goals.set(session.id, {
+    objective: 'Reworded bounded task',
+    expectedGoalId: original.goal?.goalId,
+  })
+  expect(replacement.goal).toMatchObject({ tokenBudget: 100, status: 'paused', tokensUsed: 0 })
+  expect(replacement.goal?.goalId).not.toBe(original.goal?.goalId)
+  const tighter = await goals.set(session.id, {
+    objective: 'Tighter replacement',
+    expectedGoalId: replacement.goal?.goalId,
+    maxTokenBudget: 80,
+  })
+  expect(tighter.goal).toMatchObject({ tokenBudget: 80, status: 'paused' })
+  const explicit = await goals.set(session.id, {
+    objective: 'Explicitly changed allowance',
+    expectedGoalId: tighter.goal?.goalId,
+    tokenBudget: 150,
+    status: 'active',
+  })
+  expect(explicit.goal).toMatchObject({ tokenBudget: 150, status: 'active' })
+})
+
 test('public goal set cannot override Host budget limits during creation or replacement', async () => {
   const { kernel, session } = await fixture()
   await kernel.changePlugin('goal.codex', true, { maxTokenBudget: 200, autoContinue: false, maxContinuations: 0 })

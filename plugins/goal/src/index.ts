@@ -881,12 +881,18 @@ class GoalRuntime implements GoalService {
         if (input.status === 'complete')
           throw new HbarError('GOAL_INVALID', 'A replacement objective cannot be completed in the same update')
         const now = Date.now()
+        const inheritedBudget =
+          existing.tokenBudget === null
+            ? maxTokenBudget
+            : maxTokenBudget === null
+              ? existing.tokenBudget
+              : Math.min(existing.tokenBudget, maxTokenBudget)
         const goal: PersistedGoal = {
           threadId: sessionId,
           goalId: crypto.randomUUID(),
           objective,
-          status: input.status ?? 'active',
-          tokenBudget: budgetWasProvided ? (budget ?? null) : maxTokenBudget,
+          status: input.status ?? (existing.status === 'paused' ? 'paused' : 'active'),
+          tokenBudget: budgetWasProvided ? (budget ?? null) : inheritedBudget,
           tokensUsed: 0,
           timeUsedSeconds: 0,
           createdAt: now,
@@ -947,16 +953,20 @@ class GoalRuntime implements GoalService {
       if (
         input.status === 'active' &&
         committed.status === 'active' &&
-        committed.continuationIntent?.phase === 'stopped'
+        (!committed.continuationIntent || committed.continuationIntent.phase === 'stopped')
       ) {
-        await this.queueContinuation(
-          { ...committed, noProgressStreak: 0 },
-          {
-            trigger: `resume-${crypto.randomUUID()}`,
-            modelId: committed.continuationIntent.modelId,
-            text: committed.continuationIntent.text,
-          },
-        )
+        const modelId =
+          committed.continuationIntent?.modelId ??
+          (await this.api.sessions.snapshot(sessionId)).runs.find((run) => run.input.mode !== 'plan')?.modelId
+        if (modelId)
+          await this.queueContinuation(
+            { ...committed, noProgressStreak: 0 },
+            {
+              trigger: `resume-${crypto.randomUUID()}`,
+              modelId,
+              ...(committed.continuationIntent ? { text: committed.continuationIntent.text } : {}),
+            },
+          )
       }
       return this.result(sessionId, goal.status === 'complete' ? completionReport(committed) : undefined)
     })

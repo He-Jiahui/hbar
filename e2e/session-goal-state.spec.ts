@@ -77,6 +77,16 @@ test('Goal panel matches Host budgets and stop state, with a read-only Agent Pla
     await expect(panel.getByText('Verify the durable session state', { exact: true })).toBeVisible()
     await goals.execute('goal.set', { sessionId, status: 'paused' })
     await expect(panel.getByText('Stopped · Paused by user')).toBeVisible()
+    await panel.getByRole('button', { name: 'Edit goal' }).click()
+    await panel.getByRole('textbox', { name: 'Goal objective' }).fill('Verify visible Goal state after rewording')
+    await panel.getByRole('button', { name: 'Save goal' }).click()
+    await expect(panel.getByText('Goal saved.', { exact: true })).toBeVisible()
+    expect((await goals.execute('goal.get', { sessionId })).goal).toMatchObject({
+      objective: 'Verify visible Goal state after rewording',
+      tokenBudget: 200000,
+      status: 'paused',
+    })
+    await panel.getByRole('button', { name: 'Back to goals and plans' }).click()
     await runs.execute(
       'run.submit',
       {
