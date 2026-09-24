@@ -89,16 +89,26 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Live Agent Approval 1 has two pointer-transparent scroll-edge fades.
+  // Allow only those containers in their owning file, never their descendants.
+  if (
+    /packages\/lumen-app-ui\/src\/agent-approval\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-app-ui-agent-approval-scroll-overlay(?:\.is-(?:top|bottom)|\[data-visible=['"]true['"]\])?$/.test(
+      selector.trim(),
+    )
+  ) {
+    return true
+  }
   if (/hbar-app-ui-(?:dialog-backdrop|dialog-menu|app-sidebar-drawer|app-tool-drawer)(?:[\s.:#>+~]|$)/.test(selector)) {
     return true
   }
   if (!/packages\/lumen-app-ui\/src\/(?:materials|primitives)\.module\.css$/.test(path.replaceAll('\\', '/'))) {
     return (
       /packages\/lumen-app-ui\/src\/forms\.css$/.test(path.replaceAll('\\', '/')) &&
-      /(?:^|,)\s*\.lumen-(?:combobox-popup|checkbox-input|toggle-input)(?:[\s\[:.#>+~]|$)/.test(selector)
+      /(?:^|,)\s*\.lumen-(?:combobox-popup|checkbox-input|toggle-input)(?:[\s[:.#>+~]|$)/.test(selector)
     )
   }
-  return /(?:^|,)\s*(?:\.surface\s*>\s*\.indicator|\.field\s*>\s*\.indicator|\.button\s*>\s*\[data-edge|\.iconButton\s*>\s*\[data-edge|\.glass|\.filter|\.halo)(?:[=\]\s\[:.#>+~]|$)/.test(
+  return /(?:^|,)\s*(?:\.surface\s*>\s*\.indicator|\.field\s*>\s*\.indicator|\.button\s*>\s*\[data-edge|\.iconButton\s*>\s*\[data-edge|\.glass|\.filter|\.halo)(?:[=\]\s[:.#>+~]|$)/.test(
     selector,
   )
 }
@@ -246,6 +256,41 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
       `Flow layout guard self-test expected Lumen native control overlay exception, got: ${lumenNativeControlOverlay.join('; ')}`,
     )
     process.exit(1)
+  }
+  const approvalScrollOverlay = validateCss(
+    'packages/lumen-app-ui/src/agent-approval.css',
+    `.hbar-app-ui-agent-approval-scroll-overlay {
+  position: absolute;
+  inset-inline: 0;
+  block-size: 2rem;
+}
+.hbar-app-ui-agent-approval-scroll-overlay.is-top {
+  inset-block-start: 0;
+}
+.hbar-app-ui-agent-approval-scroll-overlay.is-bottom {
+  inset-block-end: 0;
+}`,
+  )
+  if (approvalScrollOverlay.length !== 0) {
+    console.error(`Flow layout guard rejected verified scroll-edge overlays: ${approvalScrollOverlay.join('; ')}`)
+    process.exit(1)
+  }
+  for (const [path, selector] of [
+    ['packages/hbar-app-ui/src/feature.css', '.hbar-app-ui-agent-approval-scroll-overlay'],
+    ['packages/lumen-app-ui/src/agent-approval.css', '.hbar-app-ui-agent-approval-scroll-overlay p'],
+    ['packages/lumen-app-ui/src/agent-approval.css', '.hbar-app-ui-agent-approval-scroll-overlay > button'],
+  ]) {
+    const errors = validateCss(
+      path,
+      `${selector} {
+  position: absolute;
+  inset: 0;
+}`,
+    )
+    if (errors.length < 2) {
+      console.error(`Flow layout guard leaked the scroll-edge exception into ${path}: ${selector}`)
+      process.exit(1)
+    }
   }
   console.log('Flow layout guard self-test passed.')
   process.exit(0)
