@@ -103,6 +103,11 @@ test('Goal panel matches Host budgets and stop state, with a read-only Agent Pla
     await expect(execution).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: 'artifacts/session-autonomy/goal-mobile.png', fullPage: true })
+    await panel.getByRole('button', { name: 'Clear goal' }).click()
+    await expect(panel.getByText('Goal cleared.', { exact: true })).toBeVisible()
+    await expect(panel.getByText('No plan steps yet.', { exact: true })).toBeVisible()
+    expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
+    expect(await goals.execute('plan.get', { sessionId })).toBeNull()
     expect(errors).toEqual([])
   } finally {
     await context.close()

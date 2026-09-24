@@ -1075,15 +1075,22 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-goal.png', fullPage: true })
     await page.getByRole('button', { name: 'Back to goals and plans' }).click()
     await expectGoalPlanLayout('overview')
-    await page.getByRole('button', { name: 'Edit plan' }).click()
-    await expectGoalPlanLayout('plan')
-    await page.getByRole('textbox', { name: 'Plan explanation' }).fill('Keep the browser flow reviewable.')
-    await page.getByRole('textbox', { name: 'Add plan step' }).fill('Verify the connected workbench')
-    await page.getByRole('button', { name: 'Add step' }).click()
-    await page.getByRole('button', { name: 'Save 1 step' }).click()
-    await expect(page.getByText('Plan saved.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Edit plan' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Clear plan' })).toHaveCount(0)
+    await prompt.fill(
+      '/tool update_plan {"explanation":"Keep the browser flow reviewable.","plan":[{"step":"Verify the connected workbench","status":"in_progress"}]}',
+    )
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(
+      page.locator('.hbar-app-react-goal-plan-workspace').getByText('Verify the connected workbench', { exact: true }),
+    ).toBeVisible()
+    await expect(
+      page
+        .locator('.hbar-app-react-goal-plan-workspace')
+        .getByText('Keep the browser flow reviewable.', { exact: true }),
+    ).toBeVisible()
+    fixture.ready.sessionTitle = await page.getByRole('heading', { level: 1 }).innerText()
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-plan.png', fullPage: true })
-    await page.getByRole('button', { name: 'Back to goals and plans' }).click()
     await expectGoalPlanLayout('overview')
     await page.screenshot({ path: 'artifacts/web-b5/goals-and-plans.png', fullPage: true })
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-overview.png', fullPage: true })
@@ -1184,14 +1191,17 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expectGoalPlanLayout('goal')
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/mobile-390-goal.png', fullPage: true })
     await page.getByRole('button', { name: 'Back to goals and plans' }).click()
-    await page.getByRole('button', { name: 'Edit plan' }).click()
-    await expectGoalPlanLayout('plan')
+    await expect(page.getByRole('button', { name: 'Edit plan' })).toHaveCount(0)
+    await expect(
+      page.locator('.hbar-app-react-goal-plan-workspace').getByText('Verify the connected workbench', { exact: true }),
+    ).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/mobile-390-plan.png', fullPage: true })
-    await page.getByRole('button', { name: 'Back to goals and plans' }).click()
-    await page.getByRole('button', { name: 'Clear plan' }).click()
-    await expect(page.getByText('Plan cleared.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Clear plan' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Clear goal' }).click()
     await expect(page.getByText('Goal cleared.')).toBeVisible()
+    await expect(
+      page.locator('.hbar-app-react-goal-plan-workspace').getByText('No plan steps yet.', { exact: true }),
+    ).toBeVisible()
     await page.getByRole('button', { name: 'Close goals and plans' }).click()
 
     await openShellNavigation()
