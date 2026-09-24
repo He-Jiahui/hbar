@@ -211,11 +211,16 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
     listStrategy: { kind: 'pane-scroll', expectedMaximum: 10 },
   },
   permission: {
+    requestId: 'support-read-access',
+    state: 'pending',
+    onScopeChange: () => undefined,
+    onDecision: () => undefined,
     labels: {
       title: 'Permission request',
       agent: 'Support agent',
       status: 'Needs approval',
       showRequest: 'Show request',
+      hideRequest: 'Hide request',
       scopes: 'Scopes requested',
       expires: 'Expires in',
       reject: 'Reject',
@@ -245,7 +250,21 @@ export const HBAR_APP_UI_AGENT_APPROVAL_FIXTURES: HbarAppUiAgentApprovalContent 
         checked: true,
       },
     ],
-    expiry: '44:59',
+    expiry: '45:00',
+    requestText:
+      'grant_access({\n  service: "api.lumendesk.com",\n  mode: "read",\n  scopes: ["customers.read", "tickets.read", "exports.create"],\n  ttlSeconds: 2700\n})',
+    outcomes: {
+      approved: {
+        status: 'Granted',
+        summary: (selected, total) => `Access granted for ${selected} of ${total} scopes · expires in 45 min`,
+        announcement: (selected) => `Granted access for ${selected} scopes.`,
+      },
+      rejected: {
+        status: 'Skipped',
+        summary: () => 'Skipped, not approved',
+        announcement: () => 'Skipped, not approved.',
+      },
+    },
     listStrategy: { kind: 'content-grown', expectedMaximum: 3 },
   },
   cost: {
@@ -442,8 +461,45 @@ export function createHbarAppUiAgentApprovalLocalizedFixtures(): HbarAppUiAgentA
       labels: {
         ...base.permission.labels,
         title: 'Berechtigungsanfrage mit lokalisiertem Inhalt',
+        agent: 'Support-Assistent',
+        status: 'Genehmigung erforderlich',
         showRequest: 'Anfrage und Umfang anzeigen',
+        hideRequest: 'Anfrage und Umfang ausblenden',
+        scopes: 'Angeforderte Berechtigungen',
         expires: 'Läuft ab in',
+        reject: 'Berechtigungsanfrage ablehnen',
+        approve: 'Ausgewählte Berechtigungen genehmigen',
+      },
+      requestTitle: 'Lesezugriff auf Kundendatensätze für fünfundvierzig Minuten genehmigen',
+      description:
+        'Der Support-Assistent benötigt schreibgeschützten Zugriff auf api.lumendesk.com. Rechnungsdaten bleiben unverändert; die Berechtigung endet automatisch.',
+      scopes: base.permission.scopes.map((scope, index) => ({
+        ...scope,
+        title:
+          [
+            'Kundendatensätze einschließlich Rechnungsstatus lesen',
+            'Aktuelle Support-Anfragen lesen',
+            'Einmaligen Export für den Arbeitsbereich erstellen',
+          ][index] ?? scope.title,
+        description:
+          [
+            'Namen, E-Mail-Adressen, Tarif und Rechnungsstatus.',
+            'Offene und ausstehende Anfragen der letzten dreißig Tage.',
+            'CSV-Datei mit gefährdeten Verlängerungen im westlichen Arbeitsbereich.',
+          ][index] ?? scope.description,
+      })),
+      outcomes: {
+        approved: {
+          status: 'Gewährt',
+          summary: (selected, total) =>
+            `Zugriff für ${selected} von ${total} Berechtigungen gewährt · läuft in 45 Minuten ab`,
+          announcement: (selected) => `Zugriff für ${selected} Berechtigungen gewährt.`,
+        },
+        rejected: {
+          status: 'Übersprungen',
+          summary: () => 'Übersprungen, nicht genehmigt',
+          announcement: () => 'Übersprungen, nicht genehmigt.',
+        },
       },
     },
     cost: base.cost && {

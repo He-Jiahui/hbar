@@ -20,6 +20,8 @@ import {
   queueApprovalDynamicCaseIds,
   queueApprovalScenarioCases,
   queueApprovalScenarioPlans,
+  permissionApprovalScenarioCases,
+  checkableStates,
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
@@ -290,6 +292,49 @@ describe('React Bits Pro visual audit contract', () => {
     expect(() => sampledInteractionIds('unreviewed-variant', 'desktop', 'dark')).toThrow(
       'Missing reviewed interaction sampling plan',
     )
+  })
+
+  test('samples permission behavior groups without multiplying scope combinations by gestures', () => {
+    const id = 'hbar-app-ui-agent-approval-4'
+    const plan = auditSamplingPlan(id)
+    expect(plan?.samples).toHaveLength(10)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toHaveLength(5)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toHaveLength(5)
+    expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([])
+    expect(plan?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+    const controls = [
+      ...[0, 1, 2].map((index) =>
+        control(index, { tag: 'input', type: 'checkbox', capabilities: ['toggle', 'focus'] }),
+      ),
+      control(3, { name: 'Hide request', expanded: 'true' }),
+      control(4, { name: 'Reject' }),
+      control(5, { name: 'Approve' }),
+      control(6, { tag: 'pre', capabilities: ['focus', 'no-op'] }),
+    ]
+    expect(permissionApprovalScenarioCases(snapshot(controls), id, 'permission-open').map((item) => item.id)).toContain(
+      `${id}:permission-open:6:scroll-arrowright`,
+    )
+    expect(() => permissionApprovalScenarioCases(snapshot(controls.slice(0, 6)), id, 'permission-open')).toThrow(
+      'Missing focusable permission request payload',
+    )
+    expect(
+      permissionApprovalScenarioCases(snapshot(controls.slice(0, 6)), id, 'permission-empty').some(
+        (item) => item.key === 'ArrowRight',
+      ),
+    ).toBe(false)
+  })
+
+  test('treats checked-state changes as real feedback even when text and control count stay unchanged', () => {
+    expect(checkableStates('- checkbox "Read" [checked]\n- checkbox "Export"\n- button "Approve"')).toEqual([
+      'checkbox:checked',
+      'checkbox:unchecked',
+    ])
+    expect(checkableStates('- checkbox "All" [mixed]\n- switch "Enabled" [checked]\n- radio "Choice"')).toEqual([
+      'checkbox:mixed',
+      'switch:checked',
+      'radio:unchecked',
+    ])
+    expect(checkableStates('- button "Text with [checked]"')).toEqual([])
   })
 
   test('renders separate source/local before/after evidence without hiding missing images', () => {

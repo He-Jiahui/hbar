@@ -56,7 +56,8 @@ describe('hbar-app-ui agent approval surfaces', () => {
     expect(markup[0]).toContain('data-boundary="none"')
     expect(markup[1]).toContain('data-boundary="none"')
     expect(markup[2]).toContain('data-boundary="none"')
-    for (const surface of markup.slice(3)) {
+    expect(markup[3]).toContain('data-boundary="none"')
+    for (const surface of markup.slice(4)) {
       expect(surface).toContain('data-boundary="horizontal"')
     }
     for (const surface of markup) {
@@ -89,7 +90,10 @@ describe('hbar-app-ui agent approval surfaces', () => {
     expect(diff).not.toContain('<pre')
     expect(diff).toContain('aria-label="Change the invoice retention window from 180 to 45 days"')
     expect(queue).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
-    expect(permission).toContain('class="hbar-app-ui-agent-approval-scope-list" role="group"')
+    expect(permission).toContain('class="hbar-app-ui-agent-approval-scope-list"')
+    expect(permission).toContain('data-hbar-app-ui-list-strategy="content-grown"')
+    expect(permission).toContain('<h3')
+    expect(permission).not.toContain('<pre')
     expect(history).toContain('aria-label="Search history"')
     expect(history).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
   })

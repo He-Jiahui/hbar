@@ -223,6 +223,8 @@ export const queueApprovalScenarioPlans = [
 
 type QueueApprovalScenarioPlan = (typeof queueApprovalScenarioPlans)[number]
 export type QueueApprovalScenario = QueueApprovalScenarioPlan['id']
+export const permissionApprovalScenarios = ['permission-open', 'permission-partial-open', 'permission-empty'] as const
+type PermissionApprovalScenario = (typeof permissionApprovalScenarios)[number]
 
 export type InteractionCase = Readonly<{
   id: string
@@ -234,6 +236,7 @@ export type InteractionCase = Readonly<{
     | 'inline-request-open'
     | 'diff-request-open'
     | QueueApprovalScenario
+    | PermissionApprovalScenario
     | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
@@ -297,7 +300,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 12
-const interactionProtocolVersion = 25
+const interactionProtocolVersion = 26
 
 export function auditBrowserArguments(http1: boolean): string[] {
   return http1 ? ['--disable-http2', '--disable-quic'] : []
@@ -1600,7 +1603,50 @@ export async function prepareQueueApprovalScenario(root: Locator, plan: QueueApp
 }
 
 function isScrollAwareApproval(id: string): boolean {
-  return ['hbar-app-ui-agent-approval-1', 'hbar-app-ui-agent-approval-2', 'hbar-app-ui-agent-approval-3'].includes(id)
+  return [
+    'hbar-app-ui-agent-approval-1',
+    'hbar-app-ui-agent-approval-2',
+    'hbar-app-ui-agent-approval-3',
+    'hbar-app-ui-agent-approval-4',
+  ].includes(id)
+}
+
+export async function preparePermissionApprovalScenario(
+  root: Locator,
+  scenario: PermissionApprovalScenario,
+): Promise<void> {
+  const scopes = root.getByRole('checkbox')
+  if ((await scopes.count()) !== 3) throw new Error('Permission reference scope count changed; re-observe the preview')
+  if (scenario === 'permission-empty') {
+    for (const scope of await scopes.all()) await scope.uncheck()
+    if (!(await root.getByRole('button', { name: 'Approve', exact: true }).isDisabled()))
+      throw new Error('Zero-scope approval must be disabled')
+  } else {
+    if (scenario === 'permission-partial-open') await scopes.nth(1).uncheck()
+    await prepareInlineApprovalScenario(root)
+  }
+  await settleInlineApprovalScroll(root)
+}
+
+export function permissionApprovalScenarioCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario: PermissionApprovalScenario,
+): readonly InteractionCase[] {
+  const cases = interactionCases(snapshot, variantId, scenario)
+  if (scenario === 'permission-empty') return cases
+  const payload = visibleControls(snapshot).find((control) => control.tag === 'pre')
+  if (!payload) throw new Error('Missing focusable permission request payload')
+  return [
+    ...cases,
+    {
+      id: `${variantId}:${scenario}:${payload.index}:scroll-arrowright`,
+      action: 'press',
+      key: 'ArrowRight',
+      control: payload,
+      scenario,
+    },
+  ]
 }
 
 async function prepareInlineApprovalActivation(
@@ -1896,6 +1942,14 @@ function interactionDirectory(
   return join(outputRoot, 'interactions', id, theme, viewport.id, interaction.id.replaceAll(':', '_'), kind)
 }
 
+export function checkableStates(axSnapshot: string): readonly string[] {
+  return axSnapshot.split('\n').flatMap((line) => {
+    const match = /^\s*- (checkbox|radio|switch)\b/.exec(line)
+    if (!match) return []
+    return [`${match[1]}:${line.includes('[mixed]') ? 'mixed' : line.includes('[checked]') ? 'checked' : 'unchecked'}`]
+  })
+}
+
 async function interactionDelta(
   capture: InteractionCapture,
   interaction: InteractionCase,
@@ -1912,6 +1966,7 @@ async function interactionDelta(
     if (live) return live
   }
   const state = (snapshot: SemanticSnapshot) => ({
+    checkableStates: checkableStates(snapshot.axSnapshot),
     bodyTextLength: snapshot.bodyTextLength,
     horizontalOverflow: snapshot.horizontalOverflow,
     controls: snapshot.controls.map((control) => ({
@@ -1927,6 +1982,7 @@ async function interactionDelta(
   const beforeState = state(before)
   const afterState = state(after)
   const changes = {
+    checkableStates: { before: beforeState.checkableStates, after: afterState.checkableStates },
     bodyTextLengthDelta: afterState.bodyTextLength - beforeState.bodyTextLength,
     horizontalOverflowChanged: afterState.horizontalOverflow !== beforeState.horizontalOverflow,
     controls: afterState.controls.map((control, index) => ({
@@ -2030,6 +2086,9 @@ async function replayInteraction(
     await prepareDiffApprovalScenario(root)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
+  const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-agent-approval-4' && permissionScenario)
+    await preparePermissionApprovalScenario(root, permissionScenario)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => {
       element.scrollTop = 0
@@ -2120,6 +2179,9 @@ async function replayReferenceInteraction(
     await prepareDiffApprovalScenario(root)
   const queuePlan = queueApprovalScenarioPlans.find((plan) => plan.id === interaction.scenario)
   if (reference.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
+  const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-agent-approval-4' && permissionScenario)
+    await preparePermissionApprovalScenario(root, permissionScenario)
   const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
   if (runningCheckpoint && !runningCheckpoint.message)
     throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
@@ -2673,6 +2735,29 @@ async function runInteractionsParallel(
                   await prepareQueueApprovalScenario(root, plan)
                   discovered.push(
                     ...queueApprovalScenarioCases(await snapshotRoot(scenarioFrame, sourceSelector), spec.id, plan),
+                  )
+                } finally {
+                  await context.close()
+                }
+              }
+            }
+            if (spec.id === 'hbar-app-ui-agent-approval-4') {
+              for (const scenario of permissionApprovalScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                const context = await browser.newContext({ reducedMotion: 'reduce' })
+                try {
+                  const page = await context.newPage()
+                  await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                  const scenarioFrame = await loadReferencePreview(page, referencePageUrl(reference, options), theme)
+                  await alignReferenceInteractionCanvas(page, scenarioFrame, referenceCanvas)
+                  const root = scenarioFrame.locator(sourceSelector).first()
+                  await preparePermissionApprovalScenario(root, scenario)
+                  discovered.push(
+                    ...permissionApprovalScenarioCases(
+                      await snapshotRoot(scenarioFrame, sourceSelector),
+                      spec.id,
+                      scenario,
+                    ),
                   )
                 } finally {
                   await context.close()
