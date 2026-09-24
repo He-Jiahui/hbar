@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
@@ -11,9 +11,14 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
 })
 
-async function fixture(firstTool = 'update_goal', args: Record<string, unknown> = { status: 'complete' }) {
+async function fixture(
+  firstTool = 'update_goal',
+  args: Record<string, unknown> = { status: 'complete' },
+  tail: { name: string; args: Record<string, unknown> }[] = [],
+) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-goal-driver-'))
   cleanups.push(() => rm(root, { recursive: true, force: true }))
+  await writeFile(join(root, 'proof.txt'), 'verified')
   let requests = 0
   const server = Bun.serve({
     hostname: '127.0.0.1',
@@ -35,6 +40,12 @@ async function fixture(firstTool = 'update_goal', args: Record<string, unknown> 
                     type: 'function',
                     function: { name: firstTool, arguments: JSON.stringify(args) },
                   },
+                  ...tail.map((tool, index) => ({
+                    index: index + 1,
+                    id: `tail-${index}`,
+                    type: 'function',
+                    function: { name: tool.name, arguments: JSON.stringify(tool.args) },
+                  })),
                 ],
               }
             : { role: 'assistant', content: 'Follow-up inference' },
@@ -75,7 +86,7 @@ async function fixture(firstTool = 'update_goal', args: Record<string, unknown> 
     await kernel.waitForIdle()
     return kernel.snapshot(session.id)
   }
-  return { kernel, session, goals, plans, budgets, run, requests: () => requests }
+  return { root, kernel, session, goals, plans, budgets, run, requests: () => requests }
 }
 
 test('a completed bound Goal stops after settlement without another paid inference and preserves both ledgers', async () => {
@@ -115,4 +126,19 @@ test('a previously completed Goal cannot truncate an unrelated new user Run', as
   expect(snapshot.runs[0]?.status).toBe('completed')
   expect((await goals.get(session.id)).goal).toMatchObject({ status: 'complete', tokensUsed: 0 })
   expect(await budgets.get(session.id)).toMatchObject({ usedTokens: 120 })
+})
+
+test('completion seals its bound Run against late mutations in the same tool batch', async () => {
+  const { root, run, requests } = await fixture('update_goal', { status: 'complete' }, [
+    { name: 'write_file', args: { path: 'proof.txt', text: 'broken after completion' } },
+  ])
+  const snapshot = await run()
+  expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('verified')
+  expect(requests()).toBe(1)
+  expect(snapshot.runs[0]?.status).toBe('completed')
+  expect(
+    snapshot.messages
+      .flatMap((message) => message.content)
+      .some((block) => block.type === 'tool_result' && block.name === 'write_file' && block.isError),
+  ).toBe(true)
 })

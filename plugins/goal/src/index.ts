@@ -722,6 +722,10 @@ class GoalRuntime implements GoalService {
   beforeTool(context: ToolContext) {
     this.assertKnown(context.session.id)
     this.assertRunCurrent(context.session.id, context.run.id)
+    const tracking = this.activeRuns.get(context.run.id)
+    const goal = this.goals.get(context.session.id)
+    if (goal?.status === 'complete' && tracking?.goalId === goal.goalId)
+      throw new HbarError('GOAL_COMPLETE', 'This Run completed its Goal; no further tool actions may alter its result')
   }
 
   private async persistClear(sessionId: string, runId?: string) {
@@ -1287,6 +1291,7 @@ export const goalPlugin = definePlugin({
     api.hooks.on('session.continuationFailed', (event) => runtime.continuationFailed(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     api.hooks.on('tool.before', (event) => runtime.beforeTool(event.context))
+    api.hooks.on('tool.executing', (event) => runtime.beforeTool(event.context))
     for (const tool of toolsFor(runtime)) api.tools.register(tool)
   },
 })
