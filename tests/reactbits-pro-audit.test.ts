@@ -11,6 +11,8 @@ import {
   assessInteractionCoverage,
   alignedCanvasPadding,
   fullAuditMatrixSelected,
+  inlineApprovalDynamicCaseIds,
+  inlineApprovalScenarioCases,
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
@@ -108,6 +110,23 @@ describe('React Bits Pro visual audit contract', () => {
     expect(interactionWorkersPerVariant(8, 1)).toBe(8)
     expect(interactionWorkersPerVariant(8, 2)).toBe(4)
     expect(interactionWorkersPerVariant(2, 3)).toBe(1)
+  })
+
+  test('requires both the Hide request control and decisions after disclosure', () => {
+    const id = 'hbar-app-ui-agent-approval-1'
+    const ids = inlineApprovalDynamicCaseIds(id)
+    const expanded = snapshot([
+      control(0, { name: 'Hide request', expanded: 'true', capabilities: ['hover', 'focus', 'click', 'press', 'expand'] }),
+      control(1, { name: 'Reject' }),
+      control(2, { name: 'Delete 12 projects' }),
+      control(3, { name: 'Host request payload', tag: 'pre', type: null, capabilities: ['hover', 'focus', 'no-op'] }),
+    ])
+    expect(ids).toHaveLength(24)
+    expect(inlineApprovalScenarioCases(expanded, id).map((item) => item.id)).toEqual([...ids])
+    expect(ids).toContain(`${id}:inline-request-open:0:expand-escape`)
+    expect(ids).toContain(`${id}:inline-request-open:2:press-space`)
+    expect(ids).toContain(`${id}:inline-request-open:3:scroll-arrowright`)
+    expect(() => inlineApprovalScenarioCases(snapshot([]), id)).toThrow('Missing focusable request payload')
   })
 
   test('makes the HTTP/1 browser transport an explicit opt-in', () => {

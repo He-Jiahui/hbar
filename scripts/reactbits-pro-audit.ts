@@ -206,7 +206,7 @@ export function interactionWorkersPerVariant(workers: number, selectedVariants: 
 export type InteractionCase = Readonly<{
   id: string
   action: HbarAppUiInteractionCapability
-  scenario?: 'running' | 'away' | 'retry-queued' | undefined
+  scenario?: 'running' | 'away' | 'retry-queued' | 'inline-request-open' | undefined
   key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
   control: ControlSnapshot
 }>
@@ -265,7 +265,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 12
-const interactionProtocolVersion = 20
+const interactionProtocolVersion = 21
 
 export function auditBrowserArguments(http1: boolean): string[] {
   return http1 ? ['--disable-http2', '--disable-quic'] : []
@@ -1320,6 +1320,34 @@ export function agentFailureDynamicCaseIds(variantId: string): readonly string[]
   )
 }
 
+export function inlineApprovalDynamicCaseIds(variantId: string): readonly string[] {
+  return [0, 1, 2, 3].flatMap((index) => (
+    index === 0
+      ? ['hover', 'focus', 'click', 'press-enter', 'press-space', 'expand', 'expand-escape']
+      : index === 3
+        ? ['hover', 'focus', 'no-op', 'scroll-arrowright', 'scroll-arrowleft', 'scroll-home', 'scroll-end']
+        : ['hover', 'focus', 'click', 'press-enter', 'press-space']
+  ).map((action) => `${variantId}:inline-request-open:${index}:${action}`))
+}
+
+export function inlineApprovalScenarioCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+  const payload = visibleControls(snapshot).find((control) => control.tag === 'pre')
+  if (!payload) throw new Error('Missing focusable request payload in the live inline approval')
+  const scenario = 'inline-request-open'
+  return [
+    ...interactionCases(snapshot, variantId, scenario),
+    ...(['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const).map((key): InteractionCase => ({
+      id: `${variantId}:${scenario}:${payload.index}:scroll-${key.toLowerCase()}`,
+      action: 'press', key, control: payload, scenario,
+    })),
+  ]
+}
+
+async function prepareInlineApprovalScenario(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Show request', exact: true }).click()
+  await root.getByRole('button', { name: 'Hide request', exact: true }).waitFor({ state: 'visible' })
+}
+
 async function prepareAgentFailureScenario(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Retry run' }).click()
   await root.getByRole('button', { name: 'Cancel retry' }).waitFor({ state: 'visible' })
@@ -1704,6 +1732,8 @@ async function replayInteraction(
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
     await prepareAgentFailureScenario(root)
+  if (spec.id === 'hbar-app-ui-agent-approval-1' && interaction.scenario === 'inline-request-open')
+    await prepareInlineApprovalScenario(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => { element.scrollTop = 0 })
   const control = await controlLocator(root, interaction.control)
@@ -1779,6 +1809,8 @@ async function replayReferenceInteraction(
     await prepareAgentLogScenario(page, root, interaction.scenario, true)
   if (reference.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
     await prepareAgentFailureScenario(root)
+  if (reference.id === 'hbar-app-ui-agent-approval-1' && interaction.scenario === 'inline-request-open')
+    await prepareInlineApprovalScenario(root)
   const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
   if (runningCheckpoint && !runningCheckpoint.message)
     throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
@@ -2259,6 +2291,10 @@ async function runInteractionsParallel(
               await prepareAgentFailureScenario(sourceRoot)
               discovered.push(...agentFailureScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
             }
+            if (spec.id === 'hbar-app-ui-agent-approval-1') {
+              await prepareInlineApprovalScenario(sourceRoot)
+              discovered.push(...inlineApprovalScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id))
+            }
             const cases = selectInteractionCases(discovered, options.cases)
             let caseCursor = 0
             const actionWorker = async () => {
@@ -2485,6 +2521,10 @@ async function runCompare(options: AuditOptions): Promise<void> {
       ))
     if (record.id === 'hbar-app-ui-agent-activity-7')
       expected.push(...agentFailureDynamicCaseIds(record.id).map(
+        (id) => `${record.theme}/${record.viewport}/${id}`,
+      ))
+    if (record.id === 'hbar-app-ui-agent-approval-1')
+      expected.push(...inlineApprovalDynamicCaseIds(record.id).map(
         (id) => `${record.theme}/${record.viewport}/${id}`,
       ))
     expectedInteractions.set(record.id, expected)
