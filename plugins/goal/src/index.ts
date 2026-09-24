@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HbarError, threadGoalSchema, usageSchema } from '@hbar/contracts'
+import { HbarError, runSchema, threadGoalSchema, usageSchema } from '@hbar/contracts'
 import type { GoalStatus, Run, SessionEvent, ThreadGoal, Usage } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
@@ -209,6 +209,37 @@ class GoalRuntime implements GoalService {
                 this.activeRuns.delete(runId)
               }
             }
+          }
+          const settled = new Map<string, Run>()
+          for (const event of events) {
+            if (event.type !== 'run.settled') continue
+            const parsed = z.object({ run: runSchema }).safeParse(event.data)
+            if (parsed.success && parsed.data.run.sessionId === session.id)
+              settled.set(parsed.data.run.id, parsed.data.run)
+          }
+          for (const [runId, tracking] of this.activeRuns) {
+            if (tracking.sessionId !== session.id) continue
+            const run = settled.get(runId)
+            if (!run) continue
+            const current = this.goals.get(session.id)
+            if (current?.goalId === tracking.goalId && !current.accountedRuns.includes(runId)) {
+              const accounted = await this.accountProgressUnlocked(session.id, runId, 'bound-run', run)
+              if (accounted)
+                await this.persist(
+                  {
+                    ...accounted,
+                    status:
+                      run.failure?.category === 'cancelled' && ['active', 'budget_limited'].includes(accounted.status)
+                        ? 'paused'
+                        : accounted.status,
+                    accountedRuns: [...accounted.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS),
+                    updatedAt: Date.now(),
+                  },
+                  runId,
+                  'goal.accounted',
+                )
+            }
+            this.activeRuns.delete(runId)
           }
           const goal = this.goals.get(session.id)
           if (goal) {

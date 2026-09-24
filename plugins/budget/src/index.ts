@@ -142,6 +142,24 @@ export class BudgetRuntime {
         this.rememberCommand(sessionId, command, receipt)
       }
     }
+    // Usage facts may have committed just before the Host lost its step/end
+    // callback. Reconcile them before exposing a budget or admitting a model.
+    const prior = this.budgets.get(sessionId)
+    if (prior) {
+      const delta = tokenDelta(events, prior.usageThroughSeq)
+      if (delta > 0)
+        await this.persist(
+          sessionId,
+          withPhase({
+            ...prior,
+            usedTokens: prior.usedTokens + delta,
+            usageThroughSeq: events.at(-1)?.seq ?? prior.usageThroughSeq,
+            revision: prior.revision + 1,
+            updatedAt: Date.now(),
+          }),
+          'budget.accounted',
+        )
+    }
   }
 
   private async ready() {

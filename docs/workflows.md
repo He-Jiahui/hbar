@@ -28,6 +28,8 @@ Goal 的可选 `executionBudget` 投影分别提供 Goal 余量、session 余量
 
 Run 保留兼容的 `error` 文本，并可附带 `failure`（`code`、`category`、`retryable` 和可选预算来源）。模型驱动保留 Host 请求前检查的错误码；`operation.get` 与持久事件携带相同结构。用户取消当前 Run（包括尚未执行的排队 Run）会暂停对应 Goal，预算调整不会撤销这一暂停。Host 关闭、中断、超时与用户取消使用不同原因；崩溃恢复中的未知工具效果标记 `result_unknown`，不自动重放。run.start 检查失败阻止模型请求，不再仅记录日志后继续运行。
 
+启动恢复会先补结算已写入但尚未经过 step/end 回调的 usage，再开放模型请求。Goal 仅结算具有持久归属且已经终止的 Run；session budget 则按其游标结算遗漏的会话用量。已经写入的用户取消即使遗漏 Goal 回调也会恢复为暂停。这一步只恢复账目与停止状态，不重放工具，也不凭旧的 active 状态自动启动运行。
+
 ## 焦点与范围
 
 `workflow.focus.set`（模型工具 `workflow_focus`）为某个 Agent Plan 步骤设置或完整替换焦点。焦点绑定：
