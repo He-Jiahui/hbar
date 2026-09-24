@@ -15,8 +15,18 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
     async fetch(request) {
       expect(request.headers.get('authorization')).toBe('Bearer fixture-credential')
       expect(new URL(request.url).pathname).toBe('/v1/chat/completions')
-      const body = (await request.json()) as { messages: { role: string; content: unknown }[] }
+      const body = (await request.json()) as {
+        messages: { role: string; content: unknown }[]
+        tools: { function: { name: string; parameters: Record<string, unknown> } }[]
+      }
       const first = requests++ === 0
+      if (first) {
+        const update = body.tools.find((tool) => tool.function.name === 'workflow_update')?.function.parameters
+        expect(update?.type).toBe('object')
+        expect(update?.properties).toHaveProperty('action')
+        expect(update?.properties).toHaveProperty('scope')
+        expect(update?.oneOf).toBeUndefined()
+      }
       if (!first)
         expect(body.messages.some((message) => message.role === 'tool' && message.content === 'from file')).toBeTrue()
       const chunk = (delta: unknown, finish_reason: string | null = null, usage?: unknown) =>
@@ -97,7 +107,9 @@ test('read_file sends images to the model without persisting binary data in sess
         receivedImage =
           Array.isArray(attachment?.content) &&
           attachment.content.some(
-            (block) => block.type === 'image_url' && block.image_url?.url === `data:image/png;base64,${image.toString('base64')}`,
+            (block) =>
+              block.type === 'image_url' &&
+              block.image_url?.url === `data:image/png;base64,${image.toString('base64')}`,
           )
       }
       const chunk = (delta: unknown, finishReason: string | null = null) =>

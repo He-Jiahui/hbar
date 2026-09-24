@@ -28,12 +28,7 @@ import type {
   WorkflowState,
   WorkflowWorkItem,
 } from '@hbar/contracts'
-import {
-  workflowCheckpointInputSchema,
-  workflowDelegateInputSchema,
-  workflowExpandScopeInputSchema,
-  workflowFocusInputSchema,
-} from '@hbar/contracts/commands/workflows'
+import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   AgentService,
@@ -48,6 +43,7 @@ import type {
   PlanService,
   WorkflowService,
 } from '@hbar/plugin-sdk'
+import { workflowUpdateActionSchema, workflowUpdateToolSchema } from './update-tool-schema'
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
@@ -2174,12 +2170,6 @@ const applyPatchToolSchema = z.strictObject({
   agentId: z.string().min(1).max(160),
   planRevision: z.number().int().positive(),
 })
-const updateToolSchema = z.discriminatedUnion('action', [
-  workflowExpandScopeInputSchema.omit({ sessionId: true }).extend({ action: z.literal('expand_scope') }),
-  workflowCheckpointInputSchema.omit({ sessionId: true }).extend({ action: z.literal('checkpoint') }),
-  z.strictObject({ action: z.literal('complete'), expectedRevision: z.number().int().positive() }),
-])
-
 function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
   return [
     {
@@ -2225,11 +2215,11 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
     {
       name: 'workflow_update',
       description:
-        'Expand the current focus scope, record a checkpoint, complete a verified work item, or complete the workflow.',
-      inputSchema: updateToolSchema,
+        'Expand the current focus scope, record a checkpoint, complete a verified work item, or complete the workflow. Supply fields for the selected action only; fields belonging to other actions are ignored.',
+      inputSchema: workflowUpdateToolSchema,
       effect: 'read',
       execute: async (args, context) => {
-        const parsed = updateToolSchema.parse(args)
+        const parsed = workflowUpdateActionSchema.parse(args)
         const result =
           parsed.action === 'expand_scope'
             ? await runtime.expandScope(
