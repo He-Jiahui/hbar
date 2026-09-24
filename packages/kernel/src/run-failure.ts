@@ -22,7 +22,10 @@ export function classifyRunFailure(error: unknown): RunFailure {
   if (
     /(rate[_ -]?limit|too many requests|\b429\b|\b(?:502|503|504)\b|ECONNRESET|ETIMEDOUT|temporarily unavailable)/i.test(
       message,
-    )
+    ) ||
+    // Bun's fetch stream may surface its socket closure without an errno code.
+    // Do not reclassify a typed Host failure merely because it contains this provider text.
+    (code === null && /\bThe socket connection was closed unexpectedly\b/i.test(message))
   )
     return { code: code ?? 'PROVIDER_TRANSIENT', category: 'transient', retryable: true }
   return { code: code ?? 'RUN_FAILED', category: 'execution', retryable: false }

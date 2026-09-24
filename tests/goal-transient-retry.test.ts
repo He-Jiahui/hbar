@@ -89,6 +89,26 @@ test('two transient failures back off and complete automatically with exact acco
   expect((await goals.get(session.id)).goal).toMatchObject({ status: 'complete', tokensUsed: 3 })
 })
 
+test('Bun socket interruption resumes with bounded backoff and settled usage without a user decision', async () => {
+  let calls = 0
+  const { kernel, goals, session } = await fixture(async (input) => {
+    if (++calls < 3)
+      throw new Error(
+        'The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()',
+      )
+    await complete(input)
+  })
+  await kernel.submit(session.id, 'socket', { text: 'Work', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  expect(calls).toBe(3)
+  expect((await goals.get(session.id)).goal).toMatchObject({ status: 'complete', tokensUsed: 3 })
+  expect(
+    (await kernel.snapshot(session.id)).runs
+      .filter((run) => run.status === 'failed')
+      .map((run) => run.failure?.category),
+  ).toEqual(['transient', 'transient'])
+})
+
 test('transient retry exhaustion is bounded, durable and not a fabricated blocker', async () => {
   let calls = 0
   const { kernel, goals, session, options, resource } = await fixture(async () => {
@@ -157,6 +177,7 @@ test('a user turn supersedes waiting automatic work', async () => {
 
 for (const [code, message, reason] of [
   ['EFFECT_UNKNOWN', '503 during write acknowledgement', 'result_unknown'],
+  ['RESULT_UNKNOWN', 'The socket connection was closed unexpectedly', 'result_unknown'],
   ['PROVIDER_QUOTA', 'insufficient quota', 'usage_limited'],
   ['RUN_TIMEOUT', 'execution timeout', 'run_failed'],
 ] as const)

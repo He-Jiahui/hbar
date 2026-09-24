@@ -50,6 +50,16 @@ test('failure classification distinguishes explicit cancellation, allowance, tra
   expect(classifyRunFailure(new Error('unexpected'))).toMatchObject({ category: 'execution', retryable: false })
 })
 
+test('Bun provider socket closure is transient but typed Host failures and unknown effects are not', () => {
+  const message =
+    'The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()'
+  expect(classifyRunFailure(new Error(message))).toMatchObject({ category: 'transient', retryable: true })
+  for (const code of ['EFFECT_UNKNOWN', 'RESULT_UNKNOWN', 'USER_CANCELLED', 'RUN_TIMEOUT', 'STORAGE_FAILURE']) {
+    expect(classifyRunFailure(new HbarError(code, message)).retryable).toBe(false)
+  }
+  expect(classifyRunFailure(new Error('fetch failed'))).toMatchObject({ category: 'execution', retryable: false })
+})
+
 for (const source of ['goal', 'session'] as const) {
   test(`${source} allowance errors preserve their code through PiDriver, operation queries and restart`, async () => {
     const { resource, kernel, session, goals } = await fixture()
