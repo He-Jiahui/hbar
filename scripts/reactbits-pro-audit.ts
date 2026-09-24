@@ -242,6 +242,7 @@ export type InteractionCase = Readonly<{
     | 'plan-draft'
     | 'plan-running'
     | 'tree-shipping-open'
+    | 'passive-table-row'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1448,6 +1449,59 @@ export function interactionCases(
   return cases
 }
 
+export function passiveTableRowHoverCase(variantId: string, row: ControlSnapshot): InteractionCase {
+  if (
+    row.tag !== 'tr' ||
+    row.role !== 'row' ||
+    !row.visible ||
+    !Number.isInteger(row.index) ||
+    row.index < 0 ||
+    row.capabilities.length !== 1 ||
+    row.capabilities[0] !== 'hover'
+  ) {
+    throw new Error('A passive table probe requires an observed visible row with hover-only capability')
+  }
+  return {
+    id: `${variantId}:passive-row:${row.index}:hover`,
+    action: 'hover',
+    scenario: 'passive-table-row',
+    control: row,
+  }
+}
+
+async function observePlanActualHover(root: Locator, variantId: string): Promise<InteractionCase> {
+  if ((await root.locator(interactiveControlSelector).count()) !== 0)
+    throw new Error('Plan 4 reference gained an actionable control; re-observe its sampling plan')
+  const row = await root.evaluate((element): ControlSnapshot => {
+    const target = element.querySelector('table tbody tr')
+    if (!target || element.querySelectorAll('table').length !== 1 || !target.querySelector('th[scope="row"]'))
+      throw new Error('Missing observed Plan 4 timing table row')
+    const rect = target.getBoundingClientRect(),
+      owner = element.getBoundingClientRect(),
+      style = getComputedStyle(target)
+    return {
+      index: 0,
+      tag: 'tr',
+      role: 'row',
+      type: null,
+      name: target.textContent?.trim() ?? '',
+      disabled: false,
+      visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none',
+      rect: { x: rect.x - owner.x, y: rect.y - owner.y, width: rect.width, height: rect.height },
+      expanded: null,
+      pressed: null,
+      selected: null,
+      state: null,
+      stablePath: 'table > tbody > tr:nth-child(1)',
+      labelFor: null,
+      describedBy: null,
+      capabilities: ['hover'],
+      options: [],
+    }
+  })
+  return passiveTableRowHoverCase(variantId, row)
+}
+
 export function planReviewScenarioCases(
   snapshot: SemanticSnapshot,
   variantId: string,
@@ -1814,7 +1868,12 @@ export function selectInteractionCases(
   return cases.filter((interaction) => requested.has(interaction.id))
 }
 
-async function controlLocator(root: Locator, control: ControlSnapshot) {
+async function controlLocator(root: Locator, control: ControlSnapshot, passiveRow = false) {
+  if (passiveRow) {
+    passiveTableRowHoverCase('probe', control)
+    const rows = root.locator('table > tbody > tr')
+    return (await rows.count()) > control.index ? rows.nth(control.index) : undefined
+  }
   const controls = root.locator(interactiveControlSelector)
   const count = await controls.count()
   if (count === 0) return undefined
@@ -1849,6 +1908,8 @@ async function controlLocator(root: Locator, control: ControlSnapshot) {
 }
 
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
+  if (interaction.scenario === 'passive-table-row' && interaction.action !== 'hover')
+    throw new Error('Passive table probes must not click, focus or mutate the row')
   if (interaction.action === 'hover') await control.hover({ force: interaction.scenario === 'running' })
   if (interaction.action === 'focus') await control.focus()
   if (interaction.action === 'click')
@@ -2169,7 +2230,7 @@ async function replayInteraction(
     await root.evaluate((element) => {
       element.scrollTop = 0
     })
-  const control = await controlLocator(root, interaction.control)
+  const control = await controlLocator(root, interaction.control, interaction.scenario === 'passive-table-row')
   const directory = join(
     outputRoot,
     'interactions',
@@ -2277,7 +2338,7 @@ async function replayReferenceInteraction(
   const runningCheckpoint = interaction.scenario === 'running' ? await runningLogCheckpoint(root) : undefined
   if (runningCheckpoint && !runningCheckpoint.message)
     throw new Error('Running React Bits log has an incomplete final row at the screenshot checkpoint')
-  const control = await controlLocator(root, interaction.control)
+  const control = await controlLocator(root, interaction.control, interaction.scenario === 'passive-table-row')
   const directory = join(
     outputRoot,
     'interactions',
@@ -2836,6 +2897,9 @@ async function runInteractionsParallel(
               discovered.push(
                 ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'tree-shipping-open'),
               )
+            }
+            if (spec.id === 'hbar-app-ui-agent-plan-4') {
+              discovered.push(await observePlanActualHover(sourceRoot, spec.id))
             }
             if (spec.id === 'hbar-app-ui-agent-plan-2') {
               for (const scenario of ['plan-draft', 'plan-running'] as const) {

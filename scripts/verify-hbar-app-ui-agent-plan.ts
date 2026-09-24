@@ -2,6 +2,7 @@ import {chromium} from '@playwright/test'
 import { verifyPlanChecklist } from './verify-hbar-app-ui-plan-checklist'
 import { verifyPlanReview } from './verify-hbar-app-ui-plan-review'
 import { verifyPlanTree } from './verify-hbar-app-ui-plan-tree'
+import { verifyPlanActual } from './verify-hbar-app-ui-plan-actual'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5185'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -83,9 +84,9 @@ async function verifyGeometry(page: import('@playwright/test').Page): Promise<Re
             {name: 'mobile', width: 320, height: 640, selector: '.lumen-plan-tree-card', expected: {x: 16, y: 52, width: 288, height: 572}},
         ],
         4: [
-            {name: 'desktop', width: 1192, height: 480, selector: '.hbar-app-ui-agent-plan-actual-pane', expected: {x: 24, y: 152, width: 1144, height: 304}},
-            {name: 'tablet', width: 768, height: 481, selector: '.hbar-app-ui-agent-plan-actual-pane', expected: {x: 24, y: 152, width: 720, height: 304}},
-            {name: 'mobile', width: 320, height: 480, selector: '.hbar-app-ui-agent-plan-actual-pane', expected: {x: 16, y: 144, width: 288, height: 320}},
+            {name: 'desktop', width: 1192, height: 480, selector: '.lumen-plan-actual-card', expected: {x: 24, y: 152, width: 1144, height: 304}},
+            {name: 'tablet', width: 768, height: 481, selector: '.lumen-plan-actual-card', expected: {x: 24, y: 152, width: 720, height: 305}},
+            {name: 'mobile', width: 320, height: 480, selector: '.lumen-plan-actual-card', expected: {x: 16, y: 144, width: 288, height: 320}},
         ],
         5: [
             {name: 'desktop', width: 1192, height: 560, selector: '.hbar-app-ui-agent-plan-board-column', expected: {x: 24, y: 60, width: 373.328, height: 476}},
@@ -121,6 +122,11 @@ async function run(): Promise<void> {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     try {
+        if (process.argv.includes('--actual-only')) {
+            await verifyPlanActual(page, baseUrl)
+            assert(pageErrors.length === 0, `Plan actual page errors: ${pageErrors.join(' | ')}`)
+            return
+        }
         if (process.argv.includes('--tree-only')) {
             await verifyPlanTree(page, baseUrl)
             assert(pageErrors.length === 0, `Plan tree page errors: ${pageErrors.join(' | ')}`)

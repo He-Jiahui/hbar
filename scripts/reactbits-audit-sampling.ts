@@ -488,6 +488,39 @@ const planTreePlan: AuditSamplingPlan = {
   ],
 }
 
+const planActualPlan: AuditSamplingPlan = {
+  revision: 1,
+  lumenEntries: ['agent-plan.tsx', 'LumenProvider.tsx'],
+  samples: [
+    {
+      viewport: 'desktop',
+      theme: 'dark',
+      suffix: 'passive-row:0:hover',
+      change: 'Observed passive table row highlight without changing values or inventing an action',
+    },
+    {
+      viewport: 'stress',
+      theme: 'light',
+      suffix: 'passive-row:0:hover',
+      change: 'Narrow row highlight after the Duration diagram column is hidden',
+    },
+  ],
+  inferences: [
+    {
+      scope: 'Other table rows and repeated viewport/theme hover states',
+      basis:
+        'The live reference has no buttons or other actionable controls. All data rows share the same hover rule; desktop/narrow representative pairs and eight static pairs cover the differing column layouts. No click/focus/press behavior is invented.',
+      verification: 'inferred-not-replayed',
+    },
+    {
+      scope: 'Passive metrics, planned markers and actual-duration tracks',
+      basis:
+        'These are read-only values, not progress controls. Host/render tests cover independent planned/actual ratios, missing actual values, clamping, empty/duplicate/bound/over-bound rows and localization; a browser check verifies native table scrolling.',
+      verification: 'inferred-not-replayed',
+    },
+  ],
+}
+
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
   if (variantId === 'hbar-app-ui-agent-approval-3') return queuePlan
   if (variantId === 'hbar-app-ui-agent-approval-4') return permissionPlan
@@ -496,6 +529,7 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
   if (variantId === 'hbar-app-ui-agent-plan-1') return checklistPlan
   if (variantId === 'hbar-app-ui-agent-plan-2') return planReviewPlan
   if (variantId === 'hbar-app-ui-agent-plan-3') return planTreePlan
+  if (variantId === 'hbar-app-ui-agent-plan-4') return planActualPlan
   return undefined
 }
 

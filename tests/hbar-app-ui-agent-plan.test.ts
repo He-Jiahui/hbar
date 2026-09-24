@@ -61,7 +61,7 @@ describe('hbar-app-ui agent plan surfaces', () => {
         expect(editable).toContain('Reorder or skip steps, then start the run.')
         expect(tree).toContain('Retry')
         expect(actual).toContain('<table')
-        expect(actual).toContain('hbar-app-ui-agent-plan-duration-cell')
+        expect(actual).toContain('lumen-plan-actual-duration-cell')
         expect(board).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
         expect(summary).toContain('Goal')
     })

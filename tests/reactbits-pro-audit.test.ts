@@ -37,6 +37,7 @@ import {
   queueApprovalScenarioPlans,
   permissionApprovalScenarioCases,
   planReviewScenarioCases,
+  passiveTableRowHoverCase,
   checkableStates,
   interactionCases,
   interactionCheckpointMatches,
@@ -93,6 +94,23 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('observed passive timing rows receive hover probes, never invented focus or click controls', () => {
+    const id = 'hbar-app-ui-agent-plan-4'
+    const row = control(0, { tag: 'tr', role: 'row', type: null, capabilities: ['hover'] })
+    const probe = passiveTableRowHoverCase(id, row)
+    expect(probe.id).toBe(`${id}:passive-row:0:hover`)
+    expect(probe.action).toBe('hover')
+    expect(probe.scenario).toBe('passive-table-row')
+    expect(probe.control.capabilities).toEqual(['hover'])
+    expect(() => passiveTableRowHoverCase(id, control(0))).toThrow('hover-only')
+    expect(() => passiveTableRowHoverCase(id, { ...row, capabilities: ['hover', 'click'] })).toThrow('hover-only')
+    expect(() => passiveTableRowHoverCase(id, { ...row, visible: false })).toThrow('visible row')
+    expect(() => passiveTableRowHoverCase(id, { ...row, index: -1 })).toThrow('visible row')
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(2)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toEqual([probe.id])
+    expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([probe.id])
+    expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([])
+  })
   test('keeps the full 38-category and 300-variant matrix explicit', () => {
     expect(HBAR_APP_UI_CATEGORIES).toHaveLength(38)
     expect(HBAR_APP_UI_VARIANT_SPECS).toHaveLength(300)

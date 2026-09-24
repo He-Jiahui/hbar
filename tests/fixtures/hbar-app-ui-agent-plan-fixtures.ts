@@ -53,11 +53,11 @@ const treeGroups = [
 ] as const
 
 const actualRows = [
-    {id: 'contract-notes', title: 'Read the billing contract notes', durationProgress: .27, planned: '2m', actual: '3m', drift: '+1m', tone: 'warning' as const},
-    {id: 'resolver-map', title: 'Map the entitlement resolver', durationProgress: .18, planned: '3m', actual: '2m', drift: '−1m', tone: 'neutral' as const},
-    {id: 'tier-fallback', title: 'Patch the tier lookup fallback', durationProgress: 1, planned: '6m', actual: '11m', drift: '+5m', tone: 'warning' as const},
-    {id: 'renewal-test', title: 'Add a renewal-grace test', durationProgress: .46, planned: '5m', actual: '5m', drift: ',', tone: 'neutral' as const},
-    {id: 'handoff', title: 'Summarize the handoff', durationProgress: .09, planned: '1m', actual: '-', drift: '-', tone: 'neutral' as const},
+    {id: 'contract-notes', title: 'Read the billing contract notes', durationProgress: 3/11, plannedProgress: 2/11, planned: '2m', actual: '3m', drift: '+1m', tone: 'warning' as const},
+    {id: 'resolver-map', title: 'Map the entitlement resolver', durationProgress: 2/11, plannedProgress: 3/11, planned: '3m', actual: '2m', drift: '−1m', tone: 'neutral' as const},
+    {id: 'tier-fallback', title: 'Patch the tier lookup fallback', durationProgress: 1, plannedProgress: 6/11, planned: '6m', actual: '11m', drift: '+5m', tone: 'warning' as const},
+    {id: 'renewal-test', title: 'Add a renewal-grace test', durationProgress: 5/11, plannedProgress: 5/11, planned: '5m', actual: '5m', drift: ',', tone: 'neutral' as const},
+    {id: 'handoff', title: 'Summarize the handoff', durationProgress: 0, plannedProgress: 1/11, planned: '1m', actual: '-', drift: '-', tone: 'neutral' as const},
 ]
 
 function completedPlanSteps(entries: readonly (readonly [string, string, string])[]): readonly HbarAppUiAgentPlanStep[] {
@@ -124,7 +124,7 @@ export const HBAR_APP_UI_AGENT_PLAN_FIXTURES: HbarAppUiAgentPlanContent = {
         labels: {title: 'Plan vs actual', remaining: '1 step left', description: 'Planned versus actual duration for each step', step: 'Step', duration: 'Duration', planned: 'Planned', actual: 'Actual', drift: 'Drift', empty: 'No timing rows'},
         metrics: [{id: 'planned', label: 'Planned', value: '17m'}, {id: 'actual', label: 'Actual', value: '21m'}, {id: 'drift', label: 'Drift', value: '+4m', tone: 'warning'}],
         rows: actualRows,
-        listStrategy: {kind: 'content-grown', expectedMaximum: 12},
+        listStrategy: {kind: 'pane-scroll', expectedMaximum: 12},
     },
     board: {
         labels: {title: 'Fix billing entitlements', progress: (done, total) => `${done} of ${total} done`, separator: '·', empty: 'No tasks in this phase'},
@@ -166,7 +166,7 @@ export function createHbarAppUiAgentPlanLocalizedFixtures(): HbarAppUiAgentPlanC
         checklist: base.checklist && {...base.checklist, labels: {...base.checklist.labels, title: 'Abrechnung und Berechtigungen reparieren', stop: 'Ausführung stoppen', resume: 'Ausführung fortsetzen', paused: 'Pausiert', empty: 'Keine Planschritte', target: 'Zieldatei', estimate: 'Schätzung', progress: (done, total) => `${done} von ${total} Schritten abgeschlossen`, workingOn: (title) => `Aktiver Schritt: ${title}.`, pausedOn: (title) => `Pausierter Schritt: ${title}.`}},
         editable: base.editable && {...base.editable, labels: {...base.editable.labels, title: 'Plan vor dem Start prüfen', summary: '8 ausführen · 1 übersprungen', summaryCounts: (included, skipped) => `${included} ausführen${skipped ? ` · ${skipped} übersprungen` : ''}`, skippedSuffix: ': übersprungen', stop: 'Ausführung stoppen', runningReview: 'Läuft. Zum Bearbeiten zuerst stoppen.', moved: (title, position, total) => `${title} auf Position ${position} von ${total} verschoben.`, added: (title) => `${title} am Ende des Plans hinzugefügt.`, empty: 'Keine bearbeitbaren Schritte', review: 'Schritte neu ordnen oder überspringen und danach den Lauf starten.', addPlaceholder: 'Einen weiteren Schritt hinzufügen', add: 'Hinzufügen', start: (count) => `${count} Schritte starten`, moveUp: (title) => `${title} nach oben`, moveDown: (title) => `${title} nach unten`, skip: (title) => `${title} überspringen`, restore: (title) => `${title} wiederherstellen`, newStepStateLabel: 'Bereit'}},
         tree: base.tree && {...base.tree, labels: {...base.tree.labels, title: 'Berechtigungstabellen migrieren', retry: 'Erneut versuchen', running: 'Wird ausgeführt', empty: 'Keine Plangruppen', progress: (done, total) => `${done} von ${total} abgeschlossen`}},
-        actual: base.actual && {...base.actual, labels: {...base.actual.labels, title: 'Plan und Ist-Zeit vergleichen', remaining: 'Noch ein Schritt', description: 'Geplante und tatsächliche Dauer je Arbeitsschritt'}},
+        actual: base.actual && {...base.actual, labels: {...base.actual.labels, title: 'Plan und Ist-Zeit vergleichen', remaining: 'Noch ein Schritt', description: 'Geplante und tatsächliche Dauer je Arbeitsschritt', step: 'Arbeitsschritt', duration: 'Zeitdauer', planned: 'Geplant', actual: 'Tatsächlich', drift: 'Abweichung', empty: 'Keine Zeitmessungen'}, metrics: base.actual.metrics.map(metric => ({...metric, label: metric.id === 'planned' ? 'Geplante Gesamtdauer' : metric.id === 'actual' ? 'Tatsächliche Gesamtdauer' : 'Zeitliche Abweichung'}))},
         board: base.board && {...base.board, labels: {...base.board.labels, title: 'Berechtigungen reparieren', empty: 'Keine Aufgaben in dieser Phase', separator: '·'}},
         summary: base.summary && {...base.summary, labels: {...base.summary.labels, title: 'Berechtigungen reparieren', stepCount: '10 Schritte', goal: 'Ziel', tools: 'Werkzeuge', breakdown: 'Aufschlüsselung', review: 'Plan vor dem Start prüfen.', edit: 'Plan bearbeiten', run: 'Plan ausführen'}, goal: 'Der Tier-Lookup fällt für abgelaufene Schlüssel auf die Verlängerungsfrist zurück, bevor der Zugriff widerrufen wird.', tools: ['Dateien lesen', 'Code suchen', 'Dateien bearbeiten', 'Tests ausführen', 'Shell-Befehle']},
     }
