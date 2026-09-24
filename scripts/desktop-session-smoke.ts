@@ -1,8 +1,9 @@
 import { chromium, expect } from '@playwright/test'
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
+import { cleanupNativeSessionFixture } from './native-fixture-cleanup'
 import {
   HbarClient,
   createBudgetCommandClient,
@@ -188,5 +189,5 @@ try {
     }
   }
   // WebView2 can release its profile after the native window process exits.
-  await rm(root, { recursive: true, force: true, maxRetries: 12, retryDelay: 250 })
+  await cleanupNativeSessionFixture(root)
 }
