@@ -1873,6 +1873,8 @@ export class WorkflowRuntime implements WorkflowService {
             if (workflow.status !== 'completed' || workflow.planRevision !== plan?.revision)
               throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Complete the current Agent Plan workflow first')
           }
+          if (plan?.plan.some((step) => step.status !== 'completed'))
+            throw new HbarError('PLAN_INCOMPLETE', 'Complete the remaining Agent Plan steps before completing the Goal')
           await commit()
         })
       })

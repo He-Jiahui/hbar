@@ -101,6 +101,52 @@ test('both public completion commands and the model tool enforce workflow accept
   )
 })
 
+test('an unfinished Agent Plan cannot complete a Goal before a Workflow focus exists', async () => {
+  const { kernel, session, goals, plans, workflows, resource } = await fixture()
+  await plans.update(session.id, [{ step: 'Still required', status: 'in_progress' }])
+  await goals.create(session.id, 'Verify all planned work')
+  expect((await workflows.get(session.id)).workflow).toBeNull()
+  const host = await startServer(kernel, { port: 0 })
+  const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+  try {
+    await client.pair(host.pairing.code, 'plan completion integrity')
+    const commands = createGoalPlanCommandClient(client)
+    for (const command of ['goal.set', 'goal.update'] as const)
+      expect(await rejection(commands.execute(command, { sessionId: session.id, status: 'complete' }))).toMatchObject({
+        code: 'PLAN_INCOMPLETE',
+      })
+    await kernel.submit(
+      session.id,
+      'premature',
+      { text: '/tool update_goal {"status":"complete"}', images: [] },
+      'local-fixture',
+    )
+    await kernel.waitForIdle()
+    expect((await goals.get(session.id)).goal?.status).toBe('active')
+    expect(
+      (await kernel.snapshot(session.id)).messages
+        .flatMap((message) => message.content)
+        .some(
+          (block) =>
+            block.type === 'tool_result' &&
+            block.name === 'update_goal' &&
+            block.isError &&
+            block.text.includes('Agent Plan steps'),
+        ),
+    ).toBe(true)
+    await plans.update(session.id, [{ step: 'Still required', status: 'completed' }])
+    expect((await commands.execute('goal.set', { sessionId: session.id, status: 'complete' })).goal?.status).toBe(
+      'complete',
+    )
+  } finally {
+    client.disconnect()
+    await host.close()
+  }
+  await kernel.close()
+  resource.kernel = await Kernel.create({ home: join(resource.root, 'data'), demo: true, secrets: new MemorySecrets() })
+  expect((await resource.kernel.plugins.get<GoalService>('goal').get(session.id)).goal?.status).toBe('complete')
+})
+
 test('unfinished objectives require explicit identity-checked replacement and cannot be created complete', async () => {
   const { session, goals, plans } = await fixture()
   await expect(goals.set(session.id, { objective: 'already done', status: 'complete' })).rejects.toMatchObject({
