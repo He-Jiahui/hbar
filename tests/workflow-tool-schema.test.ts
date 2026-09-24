@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
-import { workflowPathSchema } from '@hbar/contracts/workflow'
+import { MAX_WORKFLOW_SCOPE_ENTRIES, workflowPathSchema, workflowScopeSchema } from '@hbar/contracts/workflow'
 import {
   workflowUpdateActionSchema,
   workflowUpdateToolSchema,
@@ -37,6 +37,36 @@ test('focused tools expose smaller object schemas without weakening version prec
   expect(schemas.reduce((size, schema) => size + JSON.stringify(schema).length, 0)).toBeLessThan(
     JSON.stringify(z.toJSONSchema(workflowUpdateToolSchema)).length,
   )
+})
+
+test('deduplicated scope descriptions preserve canonical path validation, defaults and capacity', () => {
+  const scopes = [
+    {},
+    { readPaths: [' proof.txt ', 'src/components'], writePaths: ['src\\components'], tools: ['read_file'] },
+    { readPaths: Array.from({ length: MAX_WORKFLOW_SCOPE_ENTRIES }, (_, index) => `src/${index}`) },
+    { writePaths: Array.from({ length: MAX_WORKFLOW_SCOPE_ENTRIES + 1 }, (_, index) => `src/${index}`) },
+    { readPaths: ['C:/repo/proof.txt'] },
+    { writePaths: ['/repo/proof.txt'] },
+    { readPaths: ['src/../proof.txt'] },
+    { writePaths: ['src/**'] },
+    { readPaths: [''] },
+    { readPaths: ['x'.repeat(4001)] },
+    { tools: ['invalid tool'] },
+    { extra: true },
+  ]
+  for (const scope of scopes) {
+    const canonical = workflowScopeSchema.safeParse(scope)
+    const compact = workflowExpandScopeToolSchema.safeParse({
+      itemId: 'proof',
+      scope,
+      reason: 'Authorized task',
+      expectedRevision: 1,
+    })
+    expect(compact.success).toBe(canonical.success)
+    if (canonical.success && compact.success) expect(compact.data.scope).toEqual(canonical.data)
+  }
+  // Metadata compaction must not mutate the public contract's shared path schema.
+  expect(z.toJSONSchema(workflowPathSchema).description).toContain('e.g. "proof.txt" or "src"')
 })
 
 test('workflow update advertises object parameters while retaining per-action Host validation', () => {

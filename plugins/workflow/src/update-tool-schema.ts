@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { workflowCheckpointInputSchema, workflowExpandScopeInputSchema } from '@hbar/contracts/commands/workflows'
+import { MAX_WORKFLOW_SCOPE_ENTRIES, workflowPathSchema } from '@hbar/contracts/workflow'
 
 // Keep action validation authoritative, but advertise an object with visible
 // properties: root unions are not portable function parameter schemas.
@@ -19,17 +20,24 @@ const scopeFields = workflowExpandScopeInputSchema.shape
 const checkpointFields = workflowCheckpointInputSchema.shape
 const evidenceIdsDescription =
   'Optional Host-issued evidence IDs, not acceptance-check IDs. Omit to use verified evidence from the current focus; never invent IDs.'
+// Keep the same path validator and bounds; advertise the shared restriction once per scope.
+const focusPaths = z
+  .array(workflowPathSchema.meta({ description: undefined }))
+  .max(MAX_WORKFLOW_SCOPE_ENTRIES)
+  .default([])
+const focusScope = scopeFields.scope
+  .extend({ readPaths: focusPaths, writePaths: focusPaths })
+  .describe('Workspace-relative file or directory prefix. No absolute paths, .. or globs.')
 
 export const workflowExpandScopeToolSchema = workflowExpandScopeInputSchema
   .omit({ sessionId: true })
   .extend({
+    scope: focusScope,
     expectedRevision: scopeFields.expectedRevision.optional(),
     expectedFocusRevision: z.number().int().positive().optional(),
     expectedPlanRevision: z.number().int().positive().optional(),
   })
-  .describe(
-    'Provide expectedRevision OR both expectedFocusRevision and expectedPlanRevision, not both forms. In workflow_execute omitted versions bind to the starting focus and Plan.',
-  )
+  .describe('expectedRevision XOR (expectedFocusRevision,expectedPlanRevision).')
   .superRefine((value, context) => {
     const numeric = value.expectedRevision !== undefined
     const focus = value.expectedFocusRevision !== undefined && value.expectedPlanRevision !== undefined
@@ -39,7 +47,10 @@ export const workflowExpandScopeToolSchema = workflowExpandScopeInputSchema
 export const workflowCheckpointToolSchema = workflowCheckpointInputSchema
   .omit({ sessionId: true, expectedRevision: true, nextItemId: true })
   .extend({
-    evidenceIds: checkpointFields.evidenceIds.unwrap().optional().describe(evidenceIdsDescription),
+    evidenceIds: checkpointFields.evidenceIds
+      .unwrap()
+      .optional()
+      .describe('Host evidence IDs, not acceptance-check IDs; omit for current verified evidence.'),
     expectedFocusRevision: z.number().int().positive(),
     expectedPlanRevision: z.number().int().positive(),
   })
