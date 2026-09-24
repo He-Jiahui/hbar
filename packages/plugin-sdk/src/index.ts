@@ -202,7 +202,7 @@ export interface GoalService {
   create(sessionId: string, objective: string, tokenBudget?: number, runId?: string, startedAt?: number): Promise<GoalToolResponse>
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
   update(sessionId: string, status: 'complete' | 'blocked', runId?: string, reason?: string): Promise<GoalToolResponse>
-  clear(sessionId: string): Promise<{ cleared: boolean }>
+  clear(sessionId: string, expectedGoalId?: string): Promise<{ cleared: boolean }>
   requestContinuation(
     sessionId: string,
     input: { goalId: string; trigger: string; modelId: string; text?: string },

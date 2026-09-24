@@ -34,10 +34,14 @@ function commandFailure(reason: unknown): CommandError {
 }
 
 function goalDraft(goal: ThreadGoal | null): GoalPlanGoalDraftState {
-  return {
+  const fields = {
     objective: goal?.objective ?? '',
     status: goal?.status ?? 'active',
     tokenBudget: goal?.tokenBudget === null || goal?.tokenBudget === undefined ? '' : String(goal.tokenBudget),
+  }
+  return {
+    ...fields,
+    baseline: { ...fields, goalId: goal?.goalId ?? null, exists: goal !== null },
     revision: 0,
     issues: {},
   }
@@ -53,12 +57,11 @@ function planDraft(plan: PlanState | null): GoalPlanPlanDraftState {
   }
 }
 
-function goalDirty(goal: ThreadGoal | null, draft: GoalPlanGoalDraftState): boolean {
+function goalDirty(draft: GoalPlanGoalDraftState): boolean {
   return (
-    draft.objective !== (goal?.objective ?? '') ||
-    draft.status !== (goal?.status ?? 'active') ||
-    draft.tokenBudget !==
-      (goal?.tokenBudget === null || goal?.tokenBudget === undefined ? '' : String(goal.tokenBudget))
+    draft.objective !== draft.baseline.objective ||
+    draft.status !== draft.baseline.status ||
+    draft.tokenBudget !== draft.baseline.tokenBudget
   )
 }
 
@@ -85,6 +88,17 @@ export function createGoalPlanWorkspace(
   const state = createState<GoalPlanWorkspaceState>({ entries: {} }, onSubscriberError)
   const client = options.goals ? createCommandClient(goalPlanCommands, options.goals) : null
   const generations = new Map<string, number>()
+  const goalOperations = new Map<string, { sessionId: string; token: symbol }>()
+  const pendingGoal = (instanceId: string, sessionId: string) => goalOperations.get(instanceId)?.sessionId === sessionId
+  const isTarget = (instanceId: string, sessionId: string) =>
+    !isDisposed() && surfaces.getSnapshot().panels[instanceId]?.sessionId === sessionId
+  const offSurfaces = surfaces.subscribe(() => {
+    for (const [id, entry] of Object.entries(state.reader.getSnapshot().entries)) {
+      if (isTarget(id, entry.sessionId)) continue
+      generations.set(id, (generations.get(id) ?? 0) + 1)
+      goalOperations.delete(id)
+    }
+  })
 
   const panel = (instanceId: string) => {
     const value = surfaces.getSnapshot().panels[instanceId]
@@ -150,30 +164,36 @@ export function createGoalPlanWorkspace(
         requireClient().execute('goal.get', { sessionId: target.sessionId }),
         requireClient().execute('plan.get', { sessionId: target.sessionId }),
       ])
-      if (isDisposed() || generations.get(instanceId) !== generation)
+      if (!isTarget(instanceId, target.sessionId) || generations.get(instanceId) !== generation)
         throw new CommandError('RESULT_UNKNOWN', 'Goal and plan refresh was superseded')
-      const reconcileGoal = loading.goalAction.status === 'unknown' || !loading.goalDirty
-      const reconcilePlan = loading.planAction.status === 'unknown' || !loading.planDirty
+      const latest = state.reader.getSnapshot().entries[instanceId] ?? loading
+      const reconcileGoal =
+        !pendingGoal(instanceId, target.sessionId) && (latest.goalAction.status === 'unknown' || !latest.goalDirty)
+      const reconcilePlan = latest.planAction.status === 'unknown' || !latest.planDirty
       const ready: GoalPlanWorkspaceEntryState = {
-        ...loading,
+        ...latest,
         status: 'ready',
         goal: goalResponse.goal,
         remainingTokens: goalResponse.remainingTokens,
         completionBudgetReport: goalResponse.completionBudgetReport ?? null,
-        goalDraft: reconcileGoal ? goalDraft(goalResponse.goal) : loading.goalDraft,
-        goalDirty: reconcileGoal ? false : goalDirty(goalResponse.goal, loading.goalDraft),
-        goalAction: { status: 'idle', error: null },
+        goalDraft: reconcileGoal ? goalDraft(goalResponse.goal) : latest.goalDraft,
+        goalDirty: reconcileGoal ? false : goalDirty(latest.goalDraft),
+        goalAction: pendingGoal(instanceId, target.sessionId) ? latest.goalAction : { status: 'idle', error: null },
         plan: savedPlan,
-        planDraft: reconcilePlan ? planDraft(savedPlan) : loading.planDraft,
-        planDirty: reconcilePlan ? false : planDirty(savedPlan, loading.planDraft),
+        planDraft: reconcilePlan ? planDraft(savedPlan) : latest.planDraft,
+        planDirty: reconcilePlan ? false : planDirty(savedPlan, latest.planDraft),
         planAction: { status: 'idle', error: null },
         error: null,
       }
       replace(ready)
       return summary(ready)
     } catch (reason) {
-      if (isDisposed() || generations.get(instanceId) !== generation) throw reason
-      const failed = { ...loading, status: 'error' as const, error: code(reason) }
+      if (!isTarget(instanceId, target.sessionId) || generations.get(instanceId) !== generation) throw reason
+      const failed = {
+        ...(state.reader.getSnapshot().entries[instanceId] ?? loading),
+        status: 'error' as const,
+        error: code(reason),
+      }
       replace(failed)
       throw commandFailure(reason)
     }
@@ -208,7 +228,7 @@ export function createGoalPlanWorkspace(
     const next = {
       ...entry,
       goalDraft: goalDraftState,
-      goalDirty: goalDirty(entry.goal, goalDraftState),
+      goalDirty: goalDirty(goalDraftState),
       goalAction: { status: 'idle' as const, error: null },
     }
     replace(next)
@@ -218,22 +238,24 @@ export function createGoalPlanWorkspace(
     const entry = current(instanceId)
     if (entry.view !== 'goal') throw new CommandError('INVALID_INPUT', 'Open the goal editor before saving it')
     available(entry.goalAction)
+    if (pendingGoal(instanceId, entry.sessionId)) throw new CommandError('BUSY', 'A Goal operation is still pending')
     const tokenText = entry.goalDraft.tokenBudget.trim()
     const tokenBudget = tokenText ? Number(tokenText) : null
-    const input = entry.goal
+    const baseline = entry.goalDraft.baseline
+    const input = baseline.exists
       ? {
           sessionId: entry.sessionId,
-          objective: entry.goalDraft.objective,
-          ...(entry.goalDraft.status === entry.goal.status ? {} : { status: entry.goalDraft.status }),
-          tokenBudget,
-          ...(entry.goal.goalId ? { expectedGoalId: entry.goal.goalId } : {}),
+          ...(entry.goalDraft.objective === baseline.objective ? {} : { objective: entry.goalDraft.objective }),
+          ...(entry.goalDraft.status === baseline.status ? {} : { status: entry.goalDraft.status }),
+          ...(entry.goalDraft.tokenBudget === baseline.tokenBudget ? {} : { tokenBudget }),
+          ...(baseline.goalId ? { expectedGoalId: baseline.goalId } : {}),
         }
       : {
           sessionId: entry.sessionId,
           objective: entry.goalDraft.objective,
           ...(tokenBudget === null ? {} : { tokenBudget }),
         }
-    const definition = entry.goal ? goalPlanCommands['goal.set'] : goalPlanCommands['goal.create']
+    const definition = baseline.exists ? goalPlanCommands['goal.set'] : goalPlanCommands['goal.create']
     const parsed = definition.input.safeParse(input)
     if (!parsed.success) {
       const fields = Object.fromEntries(
@@ -247,12 +269,19 @@ export function createGoalPlanWorkspace(
       replace(failed)
       throw new CommandError('INVALID_INPUT', 'Goal fields are invalid')
     }
+    const operation = Symbol('goal-save')
+    goalOperations.set(instanceId, { sessionId: entry.sessionId, token: operation })
+    const ownsOperation = () =>
+      isTarget(instanceId, entry.sessionId) && goalOperations.get(instanceId)?.token === operation
     replace({ ...entry, goalAction: { status: 'submitting', error: null } })
     try {
-      const response = entry.goal
+      const response = baseline.exists
         ? await requireClient().execute('goal.set', parsed.data as never)
         : await requireClient().execute('goal.create', parsed.data as never)
+      if (!ownsOperation()) throw new CommandError('RESULT_UNKNOWN', 'Goal save belongs to a previous panel target')
       const latest = current(instanceId)
+      if (latest.goal?.goalId !== entry.goal?.goalId && latest.goal?.goalId !== response.goal?.goalId)
+        throw new CommandError('GOAL_CONFLICT', 'A newer Goal superseded this save response')
       const next: GoalPlanWorkspaceEntryState = {
         ...latest,
         goal: response.goal,
@@ -265,6 +294,7 @@ export function createGoalPlanWorkspace(
       replace(next)
       return summary(next)
     } catch (reason) {
+      if (!ownsOperation()) throw commandFailure(reason)
       const latest = current(instanceId)
       const error = code(reason)
       const failed = {
@@ -273,15 +303,28 @@ export function createGoalPlanWorkspace(
       }
       replace(failed)
       throw commandFailure(reason)
+    } finally {
+      if (goalOperations.get(instanceId)?.token === operation) goalOperations.delete(instanceId)
     }
   }
   const clearGoal = async (instanceId: string) => {
     const entry = current(instanceId)
     available(entry.goalAction)
+    if (pendingGoal(instanceId, entry.sessionId)) throw new CommandError('BUSY', 'A Goal operation is still pending')
+    const operation = Symbol('goal-clear')
+    goalOperations.set(instanceId, { sessionId: entry.sessionId, token: operation })
+    const ownsOperation = () =>
+      isTarget(instanceId, entry.sessionId) && goalOperations.get(instanceId)?.token === operation
     replace({ ...entry, goalAction: { status: 'submitting', error: null } })
     try {
-      await requireClient().execute('goal.clear', { sessionId: entry.sessionId })
+      await requireClient().execute('goal.clear', {
+        sessionId: entry.sessionId,
+        ...(entry.goal?.goalId ? { expectedGoalId: entry.goal.goalId } : {}),
+      })
+      if (!ownsOperation()) throw new CommandError('RESULT_UNKNOWN', 'Goal clear belongs to a previous panel target')
       const latest = current(instanceId)
+      if (latest.goal && latest.goal.goalId !== entry.goal?.goalId)
+        throw new CommandError('GOAL_CONFLICT', 'A newer Goal superseded this clear response')
       const next: GoalPlanWorkspaceEntryState = {
         ...latest,
         goal: null,
@@ -294,6 +337,7 @@ export function createGoalPlanWorkspace(
       replace(next)
       return summary(next)
     } catch (reason) {
+      if (!ownsOperation()) throw commandFailure(reason)
       const latest = current(instanceId)
       const error = code(reason)
       const failed = {
@@ -302,6 +346,8 @@ export function createGoalPlanWorkspace(
       }
       replace(failed)
       throw commandFailure(reason)
+    } finally {
+      if (goalOperations.get(instanceId)?.token === operation) goalOperations.delete(instanceId)
     }
   }
   const updatePlanDraft = (entry: GoalPlanWorkspaceEntryState, draft: GoalPlanPlanDraftState) => {
@@ -488,7 +534,9 @@ export function createGoalPlanWorkspace(
   return {
     reader: state.reader,
     dispose() {
+      offSurfaces()
       generations.clear()
+      goalOperations.clear()
       state.dispose()
     },
   }

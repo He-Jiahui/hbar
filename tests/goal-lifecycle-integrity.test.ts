@@ -161,6 +161,9 @@ test('unfinished objectives require explicit identity-checked replacement and ca
   ).rejects.toMatchObject({ code: 'GOAL_INVALID' })
   expect((await goals.get(session.id)).goal?.goalId).toBe(original.goal?.goalId)
   expect((await plans.get(session.id))?.plan[0]?.step).toBe('Original work')
+  await goals.set(session.id, { objective: 'New objective', expectedGoalId: original.goal?.goalId })
+  expect(await rejection(goals.clear(session.id, original.goal?.goalId))).toMatchObject({ code: 'GOAL_CONFLICT' })
+  expect((await goals.get(session.id)).goal?.objective).toBe('New objective')
   await goals.clear(session.id)
   await expect(
     goals.set(session.id, { objective: 'Stale resurrection', expectedGoalId: original.goal?.goalId }),

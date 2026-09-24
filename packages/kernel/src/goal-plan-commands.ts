@@ -30,9 +30,13 @@ export function createGoalPlanCommands(goals: GoalService, plans: PlanService) {
     ({ sessionId, status }) => translate(() => goals.update(sessionId, status)),
     { durable: true },
   )
-  registry.register(goalPlanCommands['goal.clear'], ({ sessionId }) => translate(() => goals.clear(sessionId)), {
-    durable: true,
-  })
+  registry.register(
+    goalPlanCommands['goal.clear'],
+    ({ sessionId, expectedGoalId }) => translate(() => goals.clear(sessionId, expectedGoalId)),
+    {
+      durable: true,
+    },
+  )
   registry.register(goalPlanCommands['plan.get'], ({ sessionId }) => translate(() => plans.get(sessionId)))
   registry.register(
     goalPlanCommands['plan.update'],

@@ -79,7 +79,7 @@ export const goalPlanCommands = {
   ),
   'goal.clear': defineCommand(
     { ...metadata('goal.clear', 'command'), cli: { arguments: [sessionArgument] } },
-    z.strictObject({ sessionId: idSchema }),
+    z.strictObject({ sessionId: idSchema, expectedGoalId: idSchema.optional() }),
     clearedSchema,
   ),
   'plan.get': defineCommand(

@@ -1007,8 +1007,10 @@ class GoalRuntime implements GoalService {
     })
   }
 
-  async clear(sessionId: string) {
+  async clear(sessionId: string, expectedGoalId?: string) {
     return this.serial(sessionId, async () => {
+      if (expectedGoalId !== undefined && expectedGoalId !== this.goals.get(sessionId)?.goalId)
+        throw new HbarError('GOAL_CONFLICT', 'The Goal changed before it could be cleared')
       await this.accountActiveRunsUnlocked(sessionId, 'active-only')
       const cleared = this.goals.has(sessionId)
       if (cleared) {

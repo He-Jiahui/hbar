@@ -195,6 +195,13 @@ export interface GoalPlanActionState {
 }
 
 export interface GoalPlanGoalDraftState {
+  readonly baseline: {
+    readonly exists: boolean
+    readonly goalId: string | null
+    readonly objective: string
+    readonly status: GoalStatus
+    readonly tokenBudget: string
+  }
   readonly objective: string
   readonly status: GoalStatus
   readonly tokenBudget: string
