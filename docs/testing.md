@@ -4,6 +4,8 @@
 
 `bun run check` 串行运行严格 lint、类型检查和 Bun 测试。覆盖组件库以及 Pi 流式循环、真实 pi-ai HTTP 协议适配、工具成功/失败、批准/拒绝、幂等队列、取消、插件依赖与作用域、卸载释放、压缩与分支、配对与 Origin、设备撤销以及崩溃后的未知副作用恢复。
 
+`bun run lint` 固定使用根配置与 `tsconfig.eslint.json`，覆盖 hbar 源码、脚本、测试、配置和已声明 workspace `hbar-ui/packages/lumen-app-ui`。子模块内未接入 hbar workspace 的 MUI 上游包、文档和示例由其独立工程检查负责，不混入 hbar 的检查项目；生成产物仍排除。入口为类型感知 ESLint 显式分配最多 8 GiB Node 堆，避免默默依赖终端环境变量。`tests/lint-workspace-coverage.test.ts` 检查根 TypeScript 范围、Lumen 源码 / 构建配置均被覆盖，并保持同一套严格规则。
+
 崩溃测试启动额外 Bun 进程，在已提交工具意图且实际写入完成、结果尚未提交时终止进程，重新打开同一数据目录，检查 WAL 历史和 unknown 结果，不重放调用。它不宣称覆盖所有磁盘故障或断电场景。
 
 `bun run build && bun run test:e2e` 使用 Vite preview 和 Edge/Playwright，覆盖无 Host 时的中英文桌面/窄屏外壳、Ctrl+K 本地命令目录、命令关闭后的导航、刷新、旧 localStorage 隔离和明确失败状态。真实临时 Host 场景覆盖选择会话、文件 compare-and-write、通用 descriptor 预算表单、发送/审批/取消、可靠 Usage、真实工具结算/并发/耗时统计、三层设置动态内容、ProviderDialog 凭据保存、Session Monitoring、子 Agent、目标/计划、扩展/技能以及 Performance/Usage/Git 状态中心。连接 Host 后还会切换到 390×844，逐项重开上述工具，检查水平溢出和 AppSidebar/Main 几何重叠。组件库的受控交互测试和独立预览验证脚本继续保留。

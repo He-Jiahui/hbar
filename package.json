@@ -45,7 +45,7 @@
     "native:build": "bun scripts/build-native-tools.ts",
     "build:cli": "bun run native:build && bun build --compile apps/cli/src/main.ts packages/storage/src/worker.ts --outfile dist/hbar.exe --external @aws-sdk/client-s3 --external chromium-bidi/lib/cjs/bidiMapper/BidiMapper --external chromium-bidi/lib/cjs/cdp/CdpConnection",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "node --max-old-space-size=8192 node_modules/eslint/bin/eslint.js --config eslint.config.js . --max-warnings 0",
     "test": "bun run native:build && bun test tests --timeout 20000",
     "test:e2e": "playwright test",
     "bench": "bun scripts/benchmark.ts",
