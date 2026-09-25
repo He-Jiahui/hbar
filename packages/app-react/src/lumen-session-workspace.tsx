@@ -48,6 +48,7 @@ import {
   type HbarSessionProjectContextLabels,
 } from './session-project-context'
 import { localSlashCanSubmit, localSlashCommand } from './composer-slash'
+import { HbarSessionEmptyHero, showSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import {
   HbarComposerAttachmentDropTarget,
@@ -60,7 +61,8 @@ import './lumen-session-workspace.css'
 export interface HbarSessionWorkspaceLabels {
   readonly conversationTitle: (title: string) => string
   readonly loading: string
-  readonly empty: string
+  readonly emptyHistory: string
+  readonly emptyHero: HbarSessionEmptyHeroLabels
   readonly disconnected: string
   readonly refreshing: string
   readonly loadOlder: string
@@ -714,10 +716,33 @@ export function HbarSessionWorkspace({
     </LumenFrame>
   ) : null
 
-  const emptyTimeline = (
+  const welcome = showSessionEmptyHero({
+    connected,
+    sessionId,
+    loadedSessionId: timeline.sessionId,
+    timelineStatus: timeline.status,
+    timelineError: timeline.error,
+    olderStatus: timeline.olderStatus,
+    hasOlder: timeline.hasOlder,
+    messageCount: timeline.messages.length,
+    runCount: timeline.runs.length,
+    streamCount: Object.keys(timeline.streams).length,
+    approvalCount: timeline.approvals.length,
+    userInputCount: timeline.userInputs.length,
+    draftStatus: draft?.status ?? null,
+    lastOperationId: draft?.lastOperationId ?? null,
+    submissionPending: intentPending || Boolean(permissionEntry?.locked),
+  })
+  const emptyTimeline = welcome ? (
+    <HbarSessionEmptyHero labels={labels.emptyHero} />
+  ) : (
     <LumenFrame className="hbar-app-react-session-empty">
       <LumenText as="p">
-        {timeline.status === 'loading' ? labels.loading : timeline.error ? labels.error(timeline.error) : labels.empty}
+        {timeline.status === 'loading'
+          ? labels.loading
+          : timeline.error
+            ? labels.error(timeline.error)
+            : labels.emptyHistory}
       </LumenText>
       {connected && timeline.status === 'error' && sessionId && (
         <LumenButton size="s" onClick={retryTimeline}>

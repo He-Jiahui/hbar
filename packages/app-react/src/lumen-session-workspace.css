@@ -112,6 +112,53 @@
   display: none;
 }
 
+.hbar-app-react-session-main .lumen-conversation-messages:has(.hbar-app-react-session-empty-hero) {
+  display: flex;
+  flex-direction: column;
+}
+
+.hbar-app-react-session-main .lumen-conversation-content:has(> .hbar-app-react-session-empty-hero) {
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.hbar-app-react-session-empty-hero {
+  display: flex;
+  inline-size: min(100%, 28rem);
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding-block: 2rem;
+  text-align: center;
+}
+
+.hbar-app-react-session-empty-mark {
+  display: block;
+  inline-size: 4.5rem;
+  block-size: 4.5rem;
+  border-radius: 1rem;
+  object-fit: cover;
+}
+
+.hbar-app-react-session-empty-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-session-empty-description {
+  margin: 0;
+  color: var(--lumen-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .hbar-app-react-session-history-controls p,
 .hbar-app-react-session-history-page,
 .hbar-app-react-session-history-error,

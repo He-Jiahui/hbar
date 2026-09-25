@@ -841,7 +841,12 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
   return {
     conversationTitle: (title) => choose(`会话：${title}`, `Session: ${title}`),
     loading: choose('正在加载会话记录…', 'Loading session history…'),
-    empty: choose('发送提示词以开始会话。', 'Send a prompt to begin this session.'),
+    emptyHistory: choose('此会话暂无可显示的消息。', 'No messages to show in this session.'),
+    emptyHero: {
+      markUrl: '/favicon.png',
+      title: choose('新建会话', 'New session'),
+      description: choose('发送提示词以开始会话。', 'Send a prompt to begin this session.'),
+    },
     disconnected: choose(
       '连接已中断；现有记录、草稿和附件已保留。',
       'Connection lost. Existing history, draft, and attachments are preserved.',

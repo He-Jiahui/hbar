@@ -34,6 +34,12 @@ export {
   type HbarSessionWorkspaceProps,
 } from './lumen-session-workspace'
 export {
+  HbarSessionEmptyHero,
+  showSessionEmptyHero,
+  type HbarSessionEmptyHeroLabels,
+  type SessionEmptyHeroFacts,
+} from './session-empty-hero'
+export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,
   type HbarSettingsGroupIcon,
