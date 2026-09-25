@@ -157,6 +157,7 @@ import { appSidebarRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-s
 import { appSidebarWorkspaceFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-workspace-fixtures'
 import { appSidebarDualFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-dual-fixtures'
 import { appSidebarTreeFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-tree-fixtures'
+import { appSidebarDrawerFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-drawer-fixtures'
 import {
   createHbarAppUiAiChatLocalizedFixtures,
   HBAR_APP_UI_AI_CHAT_FIXTURES,
@@ -372,6 +373,7 @@ function PreviewApp() {
         appSidebarDualSectionId,
       ),
       treePreview: appSidebarTreeFixture(new URLSearchParams(window.location.search).get('appSidebarTreeFixture')),
+      drawerPreview: appSidebarDrawerFixture(new URLSearchParams(window.location.search).get('appSidebarDrawerFixture')),
     }),
     [appSidebarWorkspaceId, appSidebarDualSectionId],
   )

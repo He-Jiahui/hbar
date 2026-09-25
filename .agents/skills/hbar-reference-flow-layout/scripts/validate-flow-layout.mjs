@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Sidebar 6: the scrim covers the preview, with the observed drawer
+  // anchored at its left edge; the drawer's internal content remains in flow.
+  if (/packages\/lumen-app-ui\/src\/app-sidebar-drawer\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set(['.lumen-drawer-scrim', '.lumen-drawer-panel'])
+    if (overlays.has(selector.trim())) return true
+  }
   // App Sidebar 5: a row's More button opens a trigger-anchored action menu
   // over later document rows. The menu contents themselves remain in flex flow.
   if (
@@ -444,6 +450,14 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   const leakedTreeMenu = validateCss('packages/lumen-app-ui/src/other.css', treeMenuCss)
   if (treeMenu.length !== 0 || leakedTreeMenu.length === 0) {
     console.error('Flow layout guard self-test expected a path-scoped tree menu overlay exception')
+    process.exit(1)
+  }
+  const drawerOverlayCss = `.lumen-drawer-scrim { position: absolute; inset: 0; }
+.lumen-drawer-panel { position: absolute; inset-block: 0; inset-inline-start: 0; }`
+  const drawerOverlay = validateCss('packages/lumen-app-ui/src/app-sidebar-drawer.css', drawerOverlayCss)
+  const leakedDrawerOverlay = validateCss('packages/lumen-app-ui/src/other.css', drawerOverlayCss)
+  if (drawerOverlay.length !== 0 || leakedDrawerOverlay.length === 0) {
+    console.error('Flow layout guard self-test expected path-scoped drawer and scrim overlay exceptions')
     process.exit(1)
   }
   const lumenMaterialOverlay = validateCss(

@@ -298,6 +298,7 @@ export type InteractionCase = Readonly<{
     | 'sidebar-rail-account-open'
     | 'sidebar-workspace-open'
     | 'sidebar-tree-menu-open'
+    | 'sidebar-drawer-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -367,7 +368,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 14
-const interactionProtocolVersion = 28
+const interactionProtocolVersion = 29
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -1570,6 +1571,10 @@ const sidebarPrimaryScenarios = ['sidebar-account-open'] as const
 const sidebarRailScenarios = ['sidebar-rail-flyout-open', 'sidebar-rail-account-open'] as const
 const sidebarWorkspaceScenarios = ['sidebar-workspace-open'] as const
 const sidebarTreeScenarios = ['sidebar-tree-menu-open'] as const
+const sidebarDrawerScenarios = ['sidebar-drawer-closed'] as const
+async function prepareSidebarDrawerScenario(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Close navigation', exact: true }).click()
+}
 async function prepareSidebarTreeScenario(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Actions for Customer operations', exact: true }).click()
 }
@@ -2534,8 +2539,15 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
     throw new Error('Passive table probes must not click, focus or mutate the row')
   if (interaction.action === 'hover') await control.hover({ force: interaction.scenario === 'running' })
   if (interaction.action === 'focus') await control.focus()
-  if (interaction.action === 'click')
-    await control.click({ timeout: 10_000, force: interaction.scenario === 'running' })
+  if (interaction.action === 'click') {
+    if (interaction.id === 'hbar-app-ui-app-sidebar-6:1:click') {
+      const bounds = await control.boundingBox()
+      if (!bounds) throw new Error('Navigation scrim is not visible')
+      // The actual uncovered scrim is a strip beside the sheet. Its centre
+      // lies beneath the drawer, especially at the 286px stress canvas.
+      await control.click({ position: { x: bounds.width - 8, y: bounds.height / 2 }, timeout: 10_000 })
+    } else await control.click({ timeout: 10_000, force: interaction.scenario === 'running' })
+  }
   if (interaction.action === 'fill') {
     const type = await control.getAttribute('type')
     const value = type === 'date' ? '2026-09-22' : type === 'time' ? '12:30' : type === 'number' ? '2' : 'audit sample'
@@ -2920,6 +2932,8 @@ async function replayInteraction(
     await prepareSidebarWorkspaceScenario(root)
   if (spec.id === 'hbar-app-ui-app-sidebar-5' && interaction.scenario === 'sidebar-tree-menu-open')
     await prepareSidebarTreeScenario(root)
+  if (spec.id === 'hbar-app-ui-app-sidebar-6' && interaction.scenario === 'sidebar-drawer-closed')
+    await prepareSidebarDrawerScenario(root)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3076,6 +3090,8 @@ async function replayReferenceInteraction(
     await prepareSidebarWorkspaceScenario(root)
   if (reference.id === 'hbar-app-ui-app-sidebar-5' && interaction.scenario === 'sidebar-tree-menu-open')
     await prepareSidebarTreeScenario(root)
+  if (reference.id === 'hbar-app-ui-app-sidebar-6' && interaction.scenario === 'sidebar-drawer-closed')
+    await prepareSidebarDrawerScenario(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3688,6 +3704,13 @@ async function runInteractionsParallel(
               for (const scenario of sidebarTreeScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareSidebarTreeScenario(sourceRoot)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-sidebar-6') {
+              for (const scenario of sidebarDrawerScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareSidebarDrawerScenario(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

@@ -561,6 +561,33 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-sidebar-6')
+    return {
+      revision: 1,
+      lumenEntries: ['app-sidebar-drawer.tsx', 'app-sidebar-drawer.css', 'app-sidebar-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'stress', theme: 'light', suffix: '1:click', change: 'Exposed scrim strip closes the narrow overlay' },
+        { viewport: 'mobile', theme: 'dark', suffix: '2:click', change: 'Narrow drawer close button collapses to the opener' },
+        { viewport: 'mobile', theme: 'dark', suffix: 'sidebar-drawer-closed:0:click', change: 'Closed drawer reopens from its header trigger' },
+        { viewport: 'desktop', theme: 'dark', suffix: '2:press-space', change: 'Keyboard Space activates the close button' },
+        { viewport: 'mobile', theme: 'light', suffix: '4:click', change: 'Inbox link retains the open drawer and selected Home' },
+        { viewport: 'desktop', theme: 'dark', suffix: '7:hover', change: 'Representative unselected navigation row hover feedback' },
+      ],
+      inferences: [
+        {
+          scope: 'Other navigation links and repeated pointer or keyboard activation',
+          basis:
+            'The live iframe exposes twelve links in three groups with the same href and row mechanism; Inbox samples no visible navigation change, Customers samples unselected hover, and Space samples native button activation. Repeated links and gestures are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining viewport/theme interaction permutations and Escape',
+          basis:
+            'Eight static pairs cover four widths and both themes. Stress-width scrim and mobile close/reopen exercise the two real drawer transitions and exposed hit targets; Escape was probed on the live dialog and had no visible effect. Other equivalent permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-sidebar-5')
     return {
       revision: 1,
