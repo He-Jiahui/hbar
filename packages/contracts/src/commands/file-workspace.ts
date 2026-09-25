@@ -105,7 +105,7 @@ export const fileWorkspaceCommands = {
   ),
   'fileWorkspace.filterTree': defineCommand(
     metadata('fileWorkspace.filterTree'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), filter: z.string().max(4000) }),
+    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), filter: z.string().max(160) }),
     summary,
   ),
   'fileWorkspace.refresh': defineCommand(metadata('fileWorkspace.refresh'), z.strictObject({ instanceId }), summary),

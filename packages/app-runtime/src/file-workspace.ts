@@ -177,7 +177,8 @@ export function createFileWorkspace(
       const latest = state.reader.getSnapshot().entries[instanceId] ?? loading
       const ready = { ...latest, status: 'ready' as const, items: page.items, nextCursor: page.nextCursor ?? null }
       replace(ready)
-      return summary(ready)
+      if (ready.tree.filter.trim()) tree.search(instanceId, target.workspaceId, ready.tree.filter)
+      return summary(state.reader.getSnapshot().entries[instanceId] ?? ready)
     } catch (reason) {
       if (!matchesTarget(instanceId, target.workspaceId, generation)) throw reason
       const latest = state.reader.getSnapshot().entries[instanceId] ?? loading
@@ -450,11 +451,16 @@ export function createFileWorkspace(
   local.register(fileWorkspaceCommands['fileWorkspace.setBrowserMode'], async ({ instanceId, workspaceId, mode }) => {
     const entry = requireEntry(instanceId, workspaceId)
     generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
-    if (mode === 'changed') return summary(await changes.load(instanceId, workspaceId))
+    if (mode === 'changed') {
+      tree.cancelAll(instanceId)
+      return summary(await changes.load(instanceId, workspaceId))
+    }
     changes.cancel(instanceId)
+    tree.cancelAll(instanceId)
     if (entry.status !== 'ready' || entry.tree.revalidateOnOpen) return load(instanceId)
     const next = { ...entry, view: 'browser' as const, browserMode: 'all' as const }
     replace(next)
+    if (next.tree.filter.trim()) tree.search(instanceId, workspaceId, next.tree.filter)
     return summary(next)
   })
   local.register(fileWorkspaceCommands['fileWorkspace.toggleTree'], async ({ instanceId, workspaceId, path }) =>
@@ -467,10 +473,9 @@ export function createFileWorkspace(
     summary(await tree.more(instanceId, workspaceId, path)),
   )
   local.register(fileWorkspaceCommands['fileWorkspace.filterTree'], ({ instanceId, workspaceId, filter }) => {
-    const entry = requireEntry(instanceId, workspaceId)
-    const next = { ...entry, tree: { ...entry.tree, filter } }
-    replace(next)
-    return summary(next)
+    requireEntry(instanceId, workspaceId)
+    tree.search(instanceId, workspaceId, filter)
+    return summary(requireEntry(instanceId, workspaceId))
   })
   local.register(fileWorkspaceCommands['fileWorkspace.refreshChanges'], async ({ instanceId, workspaceId }) =>
     summary(await changes.load(instanceId, workspaceId)),

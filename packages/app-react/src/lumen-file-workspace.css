@@ -46,6 +46,10 @@
   flex: 1 1 8rem;
 }
 
+.hbar-file-tree-controls {
+  flex-wrap: nowrap;
+}
+
 .hbar-file-tree-breadcrumbs button {
   min-inline-size: 0;
   block-size: auto;
@@ -102,6 +106,22 @@
 
 .hbar-file-tree-row[aria-current='page'] {
   background: var(--lumen-selected);
+}
+
+.hbar-file-search-row[aria-current='true'] {
+  background: var(--lumen-selected);
+}
+
+.hbar-file-search-path {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-search-path small {
+  color: var(--lumen-muted);
 }
 
 .hbar-file-tree-children > button,

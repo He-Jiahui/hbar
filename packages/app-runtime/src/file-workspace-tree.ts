@@ -13,9 +13,12 @@ const MAX_DIRECTORY_ENTRIES = 500
 const MAX_TREE_DIRECTORIES = 64
 const MAX_VISIBLE_ENTRIES = 1000
 const MAX_CONCURRENT_LOADS = 8
+const SEARCH_LIMIT = 100
+const SEARCH_DELAY_MS = 250
 
 export const emptyFileTree = (filter = '', revalidateOnOpen = false): FileWorkspaceTreeState => ({
   filter,
+  search: { status: 'idle', paths: [], truncated: false, error: null },
   nodes: {},
   revalidateOnOpen,
   error: null,
@@ -43,6 +46,7 @@ interface TreePorts {
 export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePorts) {
   const files = options.files ? createCommandClient(fileCommands, options.files) : null
   const pending = new Map<string, AbortController>()
+  const searches = new Map<string, { controller: AbortController; timer: ReturnType<typeof setTimeout> | null }>()
   const key = (instanceId: string, path: string) => `${instanceId}\0${path}`
   const target = (instanceId: string, workspaceId: string) => {
     const entry = ports.read(instanceId)
@@ -70,6 +74,66 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
       controller.abort()
       pending.delete(requestKey)
     }
+  }
+  const cancelSearch = (instanceId: string) => {
+    const active = searches.get(instanceId)
+    if (!active) return
+    if (active.timer) clearTimeout(active.timer)
+    active.controller.abort()
+    searches.delete(instanceId)
+  }
+  const search = (instanceId: string, workspaceId: string, filter: string, delay = SEARCH_DELAY_MS) => {
+    cancelSearch(instanceId)
+    const query = filter.trim()
+    const entry = target(instanceId, workspaceId)
+    if (!query) {
+      ports.replace({ ...entry, tree: { ...entry.tree, filter, search: emptyFileTree().search } })
+      return
+    }
+    const controller = new AbortController()
+    const active: { controller: AbortController; timer: ReturnType<typeof setTimeout> | null } = {
+      controller,
+      timer: null,
+    }
+    searches.set(instanceId, active)
+    ports.replace({
+      ...entry,
+      tree: { ...entry.tree, filter, search: { status: 'loading', paths: [], truncated: false, error: null } },
+    })
+    const run = async () => {
+      active.timer = null
+      try {
+        if (!files) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Files are unavailable')
+        const result = await files.execute(
+          'file.find',
+          { workspaceId, query, path: '.', limit: SEARCH_LIMIT },
+          { signal: controller.signal },
+        )
+        if (searches.get(instanceId) !== active || ports.isDisposed() || ports.workspaceId(instanceId) !== workspaceId)
+          return
+        const latest = target(instanceId, workspaceId)
+        if (latest.tree.filter !== filter) return
+        if (result.paths.length > SEARCH_LIMIT || result.paths.some((path) => canonicalFilePath(path) !== path))
+          throw new CommandError('INVALID_OUTPUT', 'Invalid file search results')
+        const paths = [...new Set(result.paths)]
+        ports.replace({
+          ...latest,
+          tree: { ...latest.tree, search: { status: 'ready', paths, truncated: result.truncated, error: null } },
+        })
+      } catch (error) {
+        if (searches.get(instanceId) !== active || ports.isDisposed() || ports.workspaceId(instanceId) !== workspaceId)
+          return
+        const latest = target(instanceId, workspaceId)
+        if (latest.tree.filter !== filter) return
+        ports.replace({
+          ...latest,
+          tree: { ...latest.tree, search: { status: 'error', paths: [], truncated: false, error: code(error) } },
+        })
+      } finally {
+        if (searches.get(instanceId) === active) searches.delete(instanceId)
+      }
+    }
+    active.timer = setTimeout(() => void run(), delay)
   }
   const replaceNode = (entry: FileWorkspaceEntryState, path: string, node: FileWorkspaceTreeDirectoryState) =>
     ports.replace({ ...entry, tree: { ...entry.tree, nodes: { ...entry.tree.nodes, [path]: node } } })
@@ -173,10 +237,15 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
     toggle,
     refresh,
     more,
-    cancelAll: (instanceId: string) => cancelSubtree(instanceId),
+    search,
+    cancelAll: (instanceId: string) => {
+      cancelSubtree(instanceId)
+      cancelSearch(instanceId)
+    },
     dispose: () => {
       for (const controller of pending.values()) controller.abort()
       pending.clear()
+      for (const instanceId of searches.keys()) cancelSearch(instanceId)
     },
   }
 }

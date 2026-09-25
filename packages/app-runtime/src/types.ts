@@ -414,6 +414,12 @@ export interface FileWorkspaceTreeDirectoryState {
 
 export interface FileWorkspaceTreeState {
   readonly filter: string
+  readonly search: {
+    readonly status: 'idle' | 'loading' | 'ready' | 'error'
+    readonly paths: readonly string[]
+    readonly truncated: boolean
+    readonly error: string | null
+  }
   readonly nodes: Readonly<Record<string, Readonly<FileWorkspaceTreeDirectoryState>>>
   readonly revalidateOnOpen: boolean
   readonly error: string | null

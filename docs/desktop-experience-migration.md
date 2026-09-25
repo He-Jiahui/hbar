@@ -50,6 +50,7 @@
 | 插件详情              | Extensions 列表就近展开真实 Host 插件详情、键盘返回与缺省反馈                                                | `73295a9`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
 | Changed / diff        | Files 中查看真实工作区/暂存差异、只读比较与明确编辑入口                                                      | `cc87a9e`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
 | All 文件树            | 按需展开目录、已加载路径筛选、分页上限与失败重试                                                             | `f02f61b`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
+| All 路径搜索          | 同一搜索框可查未展开目录中的文件路径、显示父目录并直接预览；清空恢复懒树，晚响应不串项目                     | 本次提交                                                         | [路径搜索记录](desktop-files-path-search.md)          |
 | 会话页签              | 32 项上限、关闭活动核对、右键批关、独立草稿与刷新恢复                                                        | `96e782f`                                                        | [页签集成](desktop-tabs-host-integration.md)          |
 | Files 工作台页签      | 原面板展开为临时中央页签、Back 返回来源、X 选邻居、保留文件草稿                                              | `c6c2e78`                                                        | [页签集成](desktop-tabs-host-integration.md)          |
 | 子 Agent 返回来源     | 从详情打开真实子会话页签，保留父会话及来源关系；断线就近重试，Back 仅在原父页签有效时显示                    | `3947a8a`、`34f8cfa`、`04b0d02`、`9a2b23a`                       | [剩余入口审计](desktop-workbench-remaining-audit.md)  |
