@@ -92,6 +92,9 @@ export function createWorkspaceSessionCommands(kernel: Kernel) {
     },
     { durable: true },
   )
+  registry.register(workspaceSessionCommands['session.forkableMessages'], ({ sessionId, messageIds }) =>
+    translate(() => kernel.storage.call('forkableMessages', { sessionId, messageIds })),
+  )
   registry.register(workspaceSessionCommands['session.export'], async ({ sessionId, after, limit }) => {
     const rows = await translate(() => kernel.storage.call('events', sessionId, after, limit + 1))
     const events = rows.slice(0, limit)

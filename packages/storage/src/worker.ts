@@ -180,6 +180,95 @@ function messageRow(row: Row): Message {
     providerData: row.providerData ? parseJson(row.providerData as string) : undefined,
   } as unknown as Message
 }
+
+/** Shared target/run checks for the read-only affordance and the atomic write. */
+function messageForkTarget(sessionId: string, messageId: string): Message {
+  const targetRow = db
+    .query('SELECT * FROM messages WHERE id=? AND sessionId=?')
+    .get(messageId, sessionId) as Row | null
+  if (!targetRow) throw new HbarError('NOT_FOUND', 'Message not found in source session')
+  const target = messageRow(targetRow)
+  if (target.role !== 'user' && target.role !== 'assistant')
+    throw new HbarError('INVALID_TARGET', 'Only completed user or final assistant messages can be forked')
+  const runRowValue = db
+    .query('SELECT * FROM runs WHERE id=? AND sessionId=?')
+    .get(target.runId, sessionId) as Row | null
+  if (!runRowValue || runRow(runRowValue).status !== 'completed')
+    throw new HbarError('INVALID_TARGET', 'The target run must have completed successfully')
+  if (
+    db
+      .query("SELECT id FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') LIMIT 1")
+      .get(sessionId)
+  )
+    throw new HbarError('BUSY', 'Fork after the source run has settled')
+
+  const lastRow = db
+    .query('SELECT * FROM messages WHERE sessionId=? AND runId=? ORDER BY seq DESC LIMIT 1')
+    .get(sessionId, target.runId) as Row | null
+  const lastMessage = lastRow ? messageRow(lastRow) : null
+  const settled = db
+    .query("SELECT seq FROM events WHERE sessionId=? AND runId=? AND type='run.settled' ORDER BY seq LIMIT 1")
+    .get(sessionId, target.runId) as { seq: number } | null
+  if (!settled || !lastMessage || lastMessage.seq >= settled.seq)
+    throw new HbarError('INVALID_TARGET', 'The message must precede its run settlement')
+  if (
+    lastMessage.role !== 'assistant' ||
+    !lastMessage.content.some((block) => block.type === 'text' && block.text.trim())
+  )
+    throw new HbarError('INVALID_TARGET', 'The completed turn has no final assistant reply')
+  if (target.role === 'user') {
+    if (!target.content.some((block) => block.type === 'text' && block.text.trim()))
+      throw new HbarError('INVALID_TARGET', 'The user prompt has no visible text')
+    if (
+      db
+        .query('SELECT id FROM messages WHERE sessionId=? AND runId=? AND seq<? LIMIT 1')
+        .get(sessionId, target.runId, target.seq)
+    )
+      throw new HbarError('INVALID_TARGET', 'The user message must start its run')
+    if (lastMessage.seq <= target.seq) throw new HbarError('INVALID_TARGET', 'The user turn has no committed response')
+  } else if (lastMessage.id !== target.id) {
+    throw new HbarError('INVALID_TARGET', 'The assistant reply is not the end of its run')
+  }
+
+  return target
+}
+
+function toolPrefixChecker() {
+  const toolCalls = new Set<string>()
+  const toolResults = new Set<string>()
+  let unmatched = 0
+  let duplicated = false
+  return {
+    add(message: Pick<Message, 'runId' | 'content'>) {
+      for (const block of message.content) {
+        if (block.type !== 'tool_call' && block.type !== 'tool_result') continue
+        const key = JSON.stringify([message.runId, block.callId, block.name])
+        const bucket = block.type === 'tool_call' ? toolCalls : toolResults
+        const other = block.type === 'tool_call' ? toolResults : toolCalls
+        if (bucket.has(key)) duplicated = true
+        else {
+          bucket.add(key)
+          unmatched += other.has(key) ? -1 : 1
+        }
+      }
+    },
+    valid() {
+      return !duplicated && unmatched === 0
+    },
+  }
+}
+
+function messageForkPrefix(sessionId: string, messageId: string): { target: Message; prefix: Message[] } {
+  const target = messageForkTarget(sessionId, messageId)
+  const prefix = (
+    db.query('SELECT * FROM messages WHERE sessionId=? AND seq<=? ORDER BY seq').all(sessionId, target.seq) as Row[]
+  ).map(messageRow)
+  const checker = toolPrefixChecker()
+  for (const message of prefix) checker.add(message)
+  if (!checker.valid())
+    throw new HbarError('INVALID_BOUNDARY', 'The message prefix contains unfinished or duplicate tool facts')
+  return { target, prefix }
+}
 function eventRow(row: Row): SessionEvent {
   return sessionEventSchema.parse({ ...row, data: parseJson(row.data as string) })
 }
@@ -614,72 +703,7 @@ const methods: StorageMethods = {
       if (prior) return prior
 
       const parent = methods.session(input.sessionId)
-      const targetRow = db
-        .query('SELECT * FROM messages WHERE id=? AND sessionId=?')
-        .get(input.messageId, parent.id) as Row | null
-      if (!targetRow) throw new HbarError('NOT_FOUND', 'Message not found in source session')
-      const target = messageRow(targetRow)
-      if (target.role !== 'user' && target.role !== 'assistant')
-        throw new HbarError('INVALID_TARGET', 'Only completed user or final assistant messages can be forked')
-      const runRowValue = db
-        .query('SELECT * FROM runs WHERE id=? AND sessionId=?')
-        .get(target.runId, parent.id) as Row | null
-      if (!runRowValue || runRow(runRowValue).status !== 'completed')
-        throw new HbarError('INVALID_TARGET', 'The target run must have completed successfully')
-      if (
-        db
-          .query("SELECT id FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') LIMIT 1")
-          .get(parent.id)
-      )
-        throw new HbarError('BUSY', 'Fork after the source run has settled')
-
-      const lastRow = db
-        .query('SELECT * FROM messages WHERE sessionId=? AND runId=? ORDER BY seq DESC LIMIT 1')
-        .get(parent.id, target.runId) as Row | null
-      const lastMessage = lastRow ? messageRow(lastRow) : null
-      const settled = db
-        .query("SELECT seq FROM events WHERE sessionId=? AND runId=? AND type='run.settled' ORDER BY seq LIMIT 1")
-        .get(parent.id, target.runId) as { seq: number } | null
-      if (!settled || !lastMessage || lastMessage.seq >= settled.seq)
-        throw new HbarError('INVALID_TARGET', 'The message must precede its run settlement')
-      if (
-        lastMessage.role !== 'assistant' ||
-        !lastMessage.content.some((block) => block.type === 'text' && block.text.trim())
-      )
-        throw new HbarError('INVALID_TARGET', 'The completed turn has no final assistant reply')
-
-      if (target.role === 'user') {
-        if (!target.content.some((block) => block.type === 'text' && block.text.trim()))
-          throw new HbarError('INVALID_TARGET', 'The user prompt has no visible text')
-        if (
-          db
-            .query('SELECT id FROM messages WHERE sessionId=? AND runId=? AND seq<? LIMIT 1')
-            .get(parent.id, target.runId, target.seq)
-        )
-          throw new HbarError('INVALID_TARGET', 'The user message must start its run')
-        if (lastMessage.seq <= target.seq)
-          throw new HbarError('INVALID_TARGET', 'The user turn has no committed response')
-      } else {
-        if (lastMessage.id !== target.id)
-          throw new HbarError('INVALID_TARGET', 'The assistant reply is not the end of its run')
-      }
-
-      const prefix = (
-        db.query('SELECT * FROM messages WHERE sessionId=? AND seq<=? ORDER BY seq').all(parent.id, target.seq) as Row[]
-      ).map(messageRow)
-      const toolCalls = new Set<string>()
-      const toolResults = new Set<string>()
-      for (const message of prefix)
-        for (const block of message.content) {
-          if (block.type !== 'tool_call' && block.type !== 'tool_result') continue
-          const key = JSON.stringify([message.runId, block.callId, block.name])
-          const bucket = block.type === 'tool_call' ? toolCalls : toolResults
-          if (bucket.has(key))
-            throw new HbarError('INVALID_BOUNDARY', 'The message prefix contains duplicate tool facts')
-          bucket.add(key)
-        }
-      if ([...toolCalls].some((key) => !toolResults.has(key)) || [...toolResults].some((key) => !toolCalls.has(key)))
-        throw new HbarError('INVALID_BOUNDARY', 'The message prefix contains an unfinished tool call')
+      const { target, prefix } = messageForkPrefix(parent.id, input.messageId)
 
       const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id)
       appendEvent(child.id, 'session.forked', {
@@ -693,6 +717,65 @@ const methods: StorageMethods = {
       const session = methods.session(child.id)
       storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
       return session
+    })()
+  },
+  forkableMessages(input) {
+    return db.transaction(() => {
+      const parsed = z
+        .object({
+          sessionId: z.string().min(1).max(160),
+          messageIds: z.array(z.string().min(1).max(160)).min(1).max(200),
+        })
+        .parse(input)
+      methods.session(parsed.sessionId)
+      const unique = new Map<
+        string,
+        {
+          messageId: string
+          eligible: boolean
+          reason: 'ready' | 'not_found' | 'invalid_target' | 'busy' | 'invalid_boundary' | 'scan_limit'
+        }
+      >()
+      const candidates = new Map<number, string[]>()
+      for (const messageId of parsed.messageIds) {
+        if (unique.has(messageId)) continue
+        try {
+          const target = messageForkTarget(parsed.sessionId, messageId)
+          candidates.set(target.seq, [...(candidates.get(target.seq) ?? []), messageId])
+          unique.set(messageId, { messageId, eligible: false, reason: 'scan_limit' })
+        } catch (error) {
+          if (!(error instanceof HbarError)) throw error
+          const reason =
+            error.code === 'NOT_FOUND'
+              ? 'not_found'
+              : error.code === 'BUSY'
+                ? 'busy'
+                : error.code === 'INVALID_BOUNDARY'
+                  ? 'invalid_boundary'
+                  : error.code === 'INVALID_TARGET'
+                    ? 'invalid_target'
+                    : null
+          if (!reason) throw error
+          unique.set(messageId, { messageId, eligible: false, reason })
+        }
+      }
+      if (candidates.size > 0) {
+        const checker = toolPrefixChecker()
+        const lastSeq = Math.max(...candidates.keys())
+        // One streaming read for all targets, capped independently of the total session history.
+        for (const row of db
+          .query('SELECT seq,runId,content FROM messages WHERE sessionId=? AND seq<=? ORDER BY seq LIMIT 50000')
+          .iterate(parsed.sessionId, lastSeq) as IterableIterator<{ seq: number; runId: string; content: string }>) {
+          checker.add({ runId: row.runId, content: z.array(contentBlockSchema).parse(parseJson(row.content)) })
+          for (const messageId of candidates.get(row.seq) ?? [])
+            unique.set(messageId, {
+              messageId,
+              eligible: checker.valid(),
+              reason: checker.valid() ? 'ready' : 'invalid_boundary',
+            })
+        }
+      }
+      return { sessionId: parsed.sessionId, items: parsed.messageIds.map((id) => unique.get(id)!) }
     })()
   },
   enqueue: (sessionId, requestId, input, modelId, command) =>

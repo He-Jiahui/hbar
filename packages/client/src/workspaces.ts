@@ -6,7 +6,11 @@ import type { SessionEvent } from '@hbar/contracts'
 import type { ClientTransport } from './transport'
 
 export const allWorkspaceSessionCommands = { ...directoryCommands, ...workspaceSessionCommands }
-const writes = new Set(Object.keys(workspaceSessionCommands).filter((id) => id !== 'session.export'))
+const writes = new Set(
+  Object.entries(workspaceSessionCommands)
+    .filter(([, definition]) => definition.metadata.kind === 'command')
+    .map(([id]) => id),
+)
 
 export function createWorkspaceSessionCommandClient(client: ClientTransport) {
   return createCommandClient(allWorkspaceSessionCommands, {

@@ -67,6 +67,19 @@ export interface ForkFromMessageCommandInput {
   messageId: string
 }
 
+export interface ForkableMessagesInput {
+  sessionId: string
+  messageIds: string[]
+}
+export interface ForkableMessagesResult {
+  sessionId: string
+  items: {
+    messageId: string
+    eligible: boolean
+    reason: 'ready' | 'not_found' | 'invalid_target' | 'busy' | 'invalid_boundary' | 'scan_limit'
+  }[]
+}
+
 export interface StorageMethods {
   ready(): { version: number }
   createWorkspace(path: string, name: string): Workspace
@@ -103,6 +116,7 @@ export interface StorageMethods {
   fork(sessionId: string, atSeq?: number): Session
   forkSessionCommand(input: ForkSessionCommandInput): Session
   forkFromMessageCommand(input: ForkFromMessageCommandInput): Session
+  forkableMessages(input: ForkableMessagesInput): ForkableMessagesResult
   enqueue(
     sessionId: string,
     requestId: string,

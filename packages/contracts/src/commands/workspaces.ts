@@ -23,6 +23,19 @@ export const sessionExportPageSchema = z.strictObject({
   nextCursor: z.number().int().positive().nullable(),
 })
 
+export const forkableMessagesResultSchema = z.strictObject({
+  sessionId: idSchema,
+  items: z
+    .array(
+      z.strictObject({
+        messageId: idSchema,
+        eligible: z.boolean(),
+        reason: z.enum(['ready', 'not_found', 'invalid_target', 'busy', 'invalid_boundary', 'scan_limit']),
+      }),
+    )
+    .max(200),
+})
+
 export const workspaceSessionCommands = {
   'workspace.create': defineCommand(
     {
@@ -103,6 +116,19 @@ export const workspaceSessionCommands = {
     },
     z.strictObject({ sessionId: idSchema, messageId: idSchema }),
     sessionSchema,
+  ),
+  'session.forkableMessages': defineCommand(
+    {
+      ...metadata('session.forkableMessages', 'query', 'session'),
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'messageIds', type: 'json', flag: 'messages' },
+        ],
+      },
+    },
+    z.strictObject({ sessionId: idSchema, messageIds: z.array(idSchema).min(1).max(200) }),
+    forkableMessagesResultSchema,
   ),
   'session.export': defineCommand(
     {
