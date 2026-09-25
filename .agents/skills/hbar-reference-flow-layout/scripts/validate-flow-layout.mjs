@@ -89,6 +89,21 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Shell 9: observed model-trigger menu, narrow navigation drawer/backdrop,
+  // the visually hidden Expand control at the model trigger, and the composer
+  // label overlaying its native textarea without altering flow.
+  if (/packages\/lumen-app-ui\/src\/app-shell-chat\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-chat-model-menu',
+      '.lumen-chat-drawer-layer',
+      '.lumen-chat-backdrop',
+      '.lumen-shell-chat-composer',
+      '.lumen-chat-field-label',
+      '.lumen-shell-chat-header',
+      '.lumen-chat-expand',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // App Shell 8: observed mobile queue drawer/backdrop, anchored bottom navigation
   // and the follow-up action covering the card's top-right corner.
   if (/packages\/lumen-app-ui\/src\/app-shell-adaptive\.css$/.test(path.replaceAll('\\', '/'))) {

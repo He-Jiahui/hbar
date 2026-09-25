@@ -1292,6 +1292,82 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-9')
+    return {
+      revision: 1,
+      lumenEntries: ['app-shell-chat.tsx', 'app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '0:click',
+          change: 'Collapse the desktop history sidebar while keeping the conversation pane',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '3:click',
+          change: 'Sidebar model radio updates both selected model and header/composer labels',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '7:click',
+          change: 'Recent thread replaces welcome content with its messages',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'chat-thread-open:1:click',
+          change: 'New chat returns to welcome and clears the draft',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '18:click',
+          change: 'Header model trigger opens the alternative model menu',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '20:fill',
+          change: 'Native composer accepts text and enables Send',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '25:click',
+          change: 'Suggested task inserts its text and focuses composer',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'chat-suggestion:24:click',
+          change: 'Public demo Send leaves draft intact without inventing a reply',
+        },
+        { viewport: 'desktop', theme: 'dark', suffix: '19:click', change: 'Share is an observed public demo no-op' },
+        {
+          viewport: 'mobile',
+          theme: 'light',
+          suffix: '16:click',
+          change: 'Mobile navigation opens the full model/history drawer',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other recent threads, pinned row, quick actions, prompt chips and native button gestures',
+          basis:
+            'Each family shares one ID-bound handler; representative model, thread and suggestion outcomes are replayed. Repeated labels and public demo no-op buttons are not individually claimed as replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining theme/viewport feedback permutations and model menu selections',
+          basis:
+            'Eight static pairs cover four widths and both themes. The menu opening and sidebar model selection exercise distinct feedback while contract tests cover IDs, stale state, long locale and capacity.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-7')
     return {
       revision: 1,
