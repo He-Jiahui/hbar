@@ -266,6 +266,8 @@ export type InteractionCase = Readonly<{
     | 'usage-requests-error-open'
     | 'shell-account'
     | 'shell-navigation-closed'
+    | 'rail-workspace'
+    | 'rail-navigation-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1479,6 +1481,16 @@ export function interactionCases(
 }
 
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
+const shellRailScenarios = ['rail-workspace', 'rail-navigation-closed'] as const
+async function prepareShellRailScenario(root: Locator, scenario: (typeof shellRailScenarios)[number]): Promise<void> {
+  if (scenario === 'rail-workspace') {
+    await root.getByRole('button', { name: 'K Kestrel Freight 24 members', exact: true }).click()
+    await root.getByRole('menu', { name: 'Switch workspace', exact: true }).waitFor({ state: 'visible' })
+  } else {
+    await root.getByRole('button', { name: 'Close navigation', exact: true }).click()
+    await root.getByRole('dialog', { name: 'Navigation', exact: true }).waitFor({ state: 'hidden' })
+  }
+}
 async function prepareShellSidebarScenario(
   root: Locator,
   scenario: (typeof shellSidebarScenarios)[number],
@@ -2628,6 +2640,8 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-ai-usage-7' && requestScenario) await prepareUsageRequestScenario(root, requestScenario)
   const shellScenario = shellSidebarScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-1' && shellScenario) await prepareShellSidebarScenario(root, shellScenario)
+  const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2757,6 +2771,8 @@ async function replayReferenceInteraction(
   const shellScenario = shellSidebarScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-1' && shellScenario)
     await prepareShellSidebarScenario(root, shellScenario)
+  const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3288,6 +3304,14 @@ async function runInteractionsParallel(
                 discovered.push(
                   ...shellSidebarInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
                 )
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-shell-2') {
+              discovered = [...shellSidebarInteractionCases(sourceSnapshot, spec.id)]
+              for (const scenario of shellRailScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareShellRailScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-agent-activity-5') {

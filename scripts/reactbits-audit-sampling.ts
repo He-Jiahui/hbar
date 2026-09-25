@@ -1099,6 +1099,111 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-2')
+    return {
+      revision: 1,
+      lumenEntries: ['app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Area selection swaps navigation, heading, action and all records together',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:hover',
+          change: 'Shared icon rail pointer feedback without changing the selected area',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '6:click',
+          change: 'Workspace menu opens with native radio selection semantics',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'rail-workspace:8:click',
+          change: 'Choose Europe: change the workspace label and close its menu, retaining the area',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'rail-workspace:10:click',
+          change: 'Add workspace closes the source demo menu without creating a result',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '8:click',
+          change: 'Fragment anchor leaves the selected navigation and records unchanged',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '27:click',
+          change: 'One record represents the source row action with no detail result',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '26:click',
+          change: 'Primary source action does not fabricate a workflow result',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '5:click',
+          change: 'Account avatar is an action, not a menu trigger',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '42:click',
+          change: 'Area selection inside the drawer updates Fleet but leaves the drawer open',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '39:click',
+          change: 'Close the initial mobile drawer to expose narrow records',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'rail-navigation-closed:25:click',
+          change: 'Reopen navigation from the narrow header',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'dark',
+          suffix: '39:press-escape',
+          change: 'Escape closes the drawer and returns focus',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other area buttons and 55 record actions',
+          basis:
+            'All five observed datasets use the same area projection and row template. Desktop Dispatch plus narrow Fleet sample content replacement; one native record action represents the no-result callback mechanism.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other workspaces, fragment links and equivalent gestures',
+          basis:
+            'Menu radios share selection/close behavior; anchors retain their fragment behavior. Eight static pairs cover responsive and theme structure without multiplying every action by every viewport.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining menu keyboard directions, repeated hover and backdrop dismissal',
+          basis:
+            'Shared native buttons, menu focus navigation and common drawer close path are checked by focused production tests; these are not claimed as source/local screenshot replays.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-1')
     return {
       revision: 1,

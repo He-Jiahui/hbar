@@ -109,6 +109,18 @@ function isOverlaySelector(path, selector) {
     ])
     if (selector.split(',').every((part) => containers.has(part.trim()))) return true
   }
+  // App Shell 2: observed mobile navigation, workspace menu and scroll-edge fades.
+  if (/packages\/lumen-app-ui\/src\/app-shell-rail\.css$/.test(path.replaceAll('\\', '/'))) {
+    const containers = new Set([
+      '.lumen-rail-overlay',
+      '.lumen-rail-backdrop',
+      '.lumen-rail-mobile',
+      '.lumen-rail-workspace-menu',
+      '.lumen-rail-nav-frame::after',
+      '.lumen-rail-main-frame::after',
+    ])
+    if (selector.split(',').every((part) => containers.has(part.trim()))) return true
+  }
   // Plan 6's main scroll pane has observed pointer-transparent edge fades.
   if (
     /packages\/lumen-app-ui\/src\/agent-plan-summary\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -472,6 +484,26 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     ).length !== 1
   )
     throw new Error('Hidden text exception allowed fixed placement')
+  for (const selector of [
+    '.lumen-rail-overlay',
+    '.lumen-rail-backdrop',
+    '.lumen-rail-mobile',
+    '.lumen-rail-workspace-menu',
+    '.lumen-rail-nav-frame::after, .lumen-rail-main-frame::after',
+  ]) {
+    const path = 'packages/lumen-app-ui/src/app-shell-rail.css'
+    if (validateCss(path, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length)
+      throw new Error(`Rejected observed rail overlay: ${selector}`)
+    if (validateCss('other.css', `${selector} {\nposition: absolute;\ninset: 0;\n}`).length < 2)
+      throw new Error('Rail exception leaked across files')
+  }
+  if (
+    validateCss(
+      'packages/lumen-app-ui/src/app-shell-rail.css',
+      '.lumen-rail-workspace-menu > button {\nposition: absolute;\n}',
+    ).length !== 1
+  )
+    throw new Error('Rail exception leaked to menu content')
   const composerPath = 'packages/app-react/src/composer-model-picker.css'
   if (validateCss(composerPath, '.hbar-composer-picker-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed composer popover container')
