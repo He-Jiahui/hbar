@@ -4,15 +4,15 @@
 
 ## 参考体验与当前能力
 
-| 证据 | 可确认的行为与边界 |
-| --- | --- |
-| 画面：[workspace-preview.webp](../../cc-haha/docs/images/app/zh-CN/workspace-preview.webp) | 同一会话右侧工作台有 Files/Browser 切换，Browser 工具栏有后退、前进、刷新、地址、截图、元素选择；页面真实渲染，底部有缩放。截图不足以证明任意 URL、权限或下载均可用。 |
-| 源码：cc-haha `desktop/src/components/workbench/WorkbenchPanel.tsx:20-147`、`WorkbenchTab.tsx:13-29`、`desktop/src/stores/browserPanelStore.ts` | Browser 与 Files 共用会话工作台；展开为带 `sourceSessionId` 的工作台标签，返回原会话；URL、历史、缩放和选择状态按会话保存。 |
-| 源码：cc-haha `desktop/src/components/browser/BrowserSurface.tsx:77-179,215-294,302-489`、`BrowserAddressBar.tsx:22-86` | 桌面桥创建/导航/调整原生视图边界、覆盖弹窗时隐藏、卸载关闭；选取草稿有撤销、清空、发送与导航前确认；地址输入有导航工具，截图与缩放是独立动作。 |
+| 证据                                                                                                                                                                                                     | 可确认的行为与边界                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 画面：[workspace-preview.webp](../../cc-haha/docs/images/app/zh-CN/workspace-preview.webp)                                                                                                               | 同一会话右侧工作台有 Files/Browser 切换，Browser 工具栏有后退、前进、刷新、地址、截图、元素选择；页面真实渲染，底部有缩放。截图不足以证明任意 URL、权限或下载均可用。                                                  |
+| 源码：cc-haha `desktop/src/components/workbench/WorkbenchPanel.tsx:20-147`、`WorkbenchTab.tsx:13-29`、`desktop/src/stores/browserPanelStore.ts`                                                          | Browser 与 Files 共用会话工作台；展开为带 `sourceSessionId` 的工作台标签，返回原会话；URL、历史、缩放和选择状态按会话保存。                                                                                            |
+| 源码：cc-haha `desktop/src/components/browser/BrowserSurface.tsx:77-179,215-294,302-489`、`BrowserAddressBar.tsx:22-86`                                                                                  | 桌面桥创建/导航/调整原生视图边界、覆盖弹窗时隐藏、卸载关闭；选取草稿有撤销、清空、发送与导航前确认；地址输入有导航工具，截图与缩放是独立动作。                                                                         |
 | 源码：cc-haha `desktop/electron/main.ts:289-308,659-669`、`services/preview.ts:155-244,266-400`、`services/previewSession.ts:18-107`、`services/navigationGuards.ts:74-88`、`ipc/previewMessage.ts:1-95` | 一个随当前页面切换的原生 Electron `WebContentsView`；随机非持久 partition、沙盒、禁 Node、权限请求拒绝，弹窗和非 HTTP(S) 导航拒绝；截图尺寸与页面消息有界，并只转发当前预览内容的消息。平台专属，并非普通 DOM iframe。 |
-| 源码：cc-haha `desktop/src/lib/desktopHost/browserHost.ts:16,280-300` | 网页宿主报告 `previewWebview:false`，预览桥不可用；参考截图代表 Electron 桌面能力，不代表其 H5 版有同等预览。 |
-| 源码：hbar `apps/desktop/src-tauri/src/main.rs:35-46,223-254`、`apps/desktop/src-tauri/capabilities/main.json:5-17` | 目前只有加载 Host 回环地址的 `main` WebView，主视图顶层导航限制在 Host 同一 origin；取连接凭据的自定义命令还核查 `main` label/origin。尚无独立不可信页面的子 WebView/隔离 profile。 |
-| 源码：hbar `packages/app-runtime/src/workspace-tabs-runtime.ts:52-94,245-267`、`apps/web/src/App.tsx:279-326,446-492`、`packages/app-react/src/lumen-file-workspace.tsx:65-205` | 已有会话所属的临时工作台标签、返回原会话和 Files dock。文件工作区的 `browser` 视图只是文件列表，不是网页浏览器。适合复用**容器归属与返回语义**，不可误用文件 browser 视图。 |
+| 源码：cc-haha `desktop/src/lib/desktopHost/browserHost.ts:16,280-300`                                                                                                                                    | 网页宿主报告 `previewWebview:false`，预览桥不可用；参考截图代表 Electron 桌面能力，不代表其 H5 版有同等预览。                                                                                                          |
+| 源码：hbar `apps/desktop/src-tauri/src/main.rs:35-46,223-254`、`apps/desktop/src-tauri/capabilities/main.json:5-17`                                                                                      | 目前只有加载 Host 回环地址的 `main` WebView，主视图顶层导航限制在 Host 同一 origin；取连接凭据的自定义命令还核查 `main` label/origin。尚无独立不可信页面的子 WebView/隔离 profile。                                    |
+| 源码：hbar `packages/app-runtime/src/workspace-tabs-runtime.ts:52-94,245-267`、`apps/web/src/App.tsx:279-326,446-492`、`packages/app-react/src/lumen-file-workspace.tsx:65-205`                          | 已有会话所属的临时工作台标签、返回原会话和 Files dock。文件工作区的 `browser` 视图只是文件列表，不是网页浏览器。适合复用**容器归属与返回语义**，不可误用文件 browser 视图。                                            |
 
 ## 不可复用为内嵌浏览器的现有自动化
 
@@ -39,3 +39,9 @@ hbar 的公开 `browser.status/navigate/snapshot/click/type/press/screenshot/eva
 3. **截图与元素选择。** 真实 native 页面的视口/全页能力、尺寸/内存上限、元素定位/页面变更后失效、选择草稿发送/撤销、跨会话隔离和用户确认，以中英及 320/1440 宽度、键盘操作和真实桌面 smoke 验收。若某平台无法提供，则保留明确 unavailable，不用 browser-use 的独立 Chromium 截图兜底。
 
 以上阶段需要各自通过适用的单元/Host/桌面真实测试后分别提交，且不得把尚未存在的能力写进 UI 文案或测试假设。
+
+## 已完成的权限前提，尚非 Browser 预览
+
+`5c0e58e` 把 `apps/desktop/src-tauri/capabilities/main.json` 从 `windows:["main"]` 收窄为 `webviews:["main"]`，保留原有主视图权限与回环来源配置。锁定版本 Tauri 的窗口级 capability 会覆盖窗口内所有 child WebView；不同 label 自身不足以隔离，这是先行修改的原因。静态测试防止未来再次授予整窗权限；Windows MSVC check/build 通过，隔离原生 smoke 验证现有主视图的 `connection_info`、窗口可见性命令与认证 Host 查询仍可使用。
+
+该提交**没有创建 child WebView**。隔离探针虽已编译确认 Tauri/WebView2 的 child、权限/资源请求回调和实际 profile 路径读取 API 可用，仍没有运行时证明未来预览页不能调用 Tauri 命令、不能共享主视图的实际 UserDataFolder、不能访问 Host 回环子资源。WebView2 环境变量可能覆盖传入的 profile 路径；`on_navigation` 只覆盖主帧，不覆盖 iframe、图片和 fetch。上述运行时拒绝测试与先安装守门、再从 `about:blank` 导航的顺序仍是第一阶段的阻断门槛，不能把已完成的 ACL 前提写成 Browser 功能已上线。

@@ -45,6 +45,7 @@
 | 只读系统诊断          | 设置中的真实 Host/runtime/storage 概况、刷新与失败时保留旧数据，未提供清理或修复假按钮                       | `bcfaf1f`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
 | 工作区路径与 `@` 提及 | Host/CLI 有界路径发现；composer 从真实文件结果选取路径，保留草稿中的结构化引用，键盘浏览及失联反馈就近可见   | `9f25f77`、`45e082e`、`5a3cd62`、`ab5ddcf`、`8ca1592`、`3d9f19a` | [提及记录](desktop-composer-mentions.md)              |
 | 消息旁 Fork           | 幂等 Host 命令从已完成用户消息或最终助手回复复制精确历史；原消息旁资格查询、创建、丢回执核对及子会话页签入口 | `3e5e16b`、`7d79aa3`、`9829e57`、`2726679`、`ad9dadb`、`ff5607c` | [Fork 记录](desktop-message-fork-integration.md)      |
+| Composer `/` 本地入口 | 输入框上方搜索与键盘补全；只有完整 `/model`、`/settings` 且无附件时才打开真实本地目标，失败保留草稿          | `e153489`                                                        | [斜杠边界](desktop-slash-command-boundary.md)         |
 
 表中提交为本地交付，不代表已经推送、发布或安装到用户正在运行的窗口。各单元的精确测试数量、截图位置与边界以对应记录为准。
 
@@ -53,7 +54,7 @@
 完整逐入口审计见 [会话](desktop-conversation-interaction-audit.md)、[导航与文件](desktop-navigation-interaction-audit.md)、[设置](desktop-settings-interaction-audit.md)。它们保留起始基线与交付复核的区别。
 Terminal、Browser、子 Agent 与 Team 的证据等级及公开能力边界另见 [剩余工作台入口审计](desktop-workbench-remaining-audit.md)。子 Agent 来源返回已完成，但它使用真实子 Session，不是参考产品中依据 tool-use ID 的独立 run 投影；不能把设计稿的 Team 图或 Terminal 架构图当现行软件画面。
 
-Files 的 All/Changed/diff、会话/文件工作台页签、子 Agent 来源返回、`@` 路径提及和消息旁 Fork 已形成上述有限闭环；这不等于参考的 Browser、Terminal、Team、任意文件全文搜索或 `@` 行范围引用也已具备。`@` 当前引用的是工作区路径，不自动读取文件正文；Fork 只作用于已完成且已加载的用户消息或最终助手回复，不承诺任意中间消息。诊断只读入口已落地。材料预览、`/`、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
+Files 的 All/Changed/diff、会话/文件工作台页签、子 Agent 来源返回、`@` 路径提及、消息旁 Fork 和有限的 `/` 本地入口已形成上述闭环；这不等于参考的 Browser、Terminal、Team、任意文件全文搜索或 `@` 行范围引用也已具备。`@` 当前引用的是工作区路径，不自动读取文件正文；Fork 只作用于已完成且已加载的用户消息或最终助手回复，不承诺任意中间消息。`/` 菜单只展示 `/model`、`/settings`；未列出的 `/compact`、技能/MCP 等并非 hbar 的本地命令。诊断只读入口已落地。材料预览、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
 
 原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。当时稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s；这是较早基线而非本次新增 Files/页签后的全仓结果。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
 
@@ -66,6 +67,8 @@ Agent 来源返回提交后的本轮 `bun run check` 已通过原生查询构建
 Agent UI 提交后的 Windows x64 debug 桌面再次构建成功，隔离 WebView smoke 通过原生文件选择、会话/文件面板尺寸、隐藏及 Host 生命周期；该原生 smoke 未专门创建子 Agent，子会话来源路径由上述真实 Host 浏览器 E2E 验证。没有重启或覆盖用户正在运行的桌面窗口。
 
 `@` 和消息旁 Fork 接入后，首次全仓检查的原生构建、严格 ESLint 和 TypeScript 均通过，但 app-react 的两个模块边界测试发现 `@` UI 直接依赖了 contracts 子路径（当次 1,474 通过、2 失败）；`3d9f19a` 将解析与类型移到 app-runtime 公开入口，未放宽边界测试。复跑 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript、**1,477 tests / 11,102 assertions**（294 个测试文件，测试阶段 199.86s）。Fork 的真实 Host 中英文交互 3 项及 `@` 的 2 项真实 Host 提及流程另行通过；各自的具体边界见上方记录。Windows x64 release 桌面应用和 NSIS 安装包也已构建成功，随后使用隔离数据目录的原生 WebView smoke 验证连接、文件选择上传、默认/最小窗口布局、侧栏、窗口隐藏与 Host 生命周期、独立取消；没有安装包或重启用户当前窗口。这轮原生 smoke 没有专门操作 `@` 或 Fork，不能拿它替代两者的 Host 浏览器用例。
+
+`e153489` 的 `/` 入口通过 30 项聚焦 Bun 测试/180 次断言、严格定向 lint、TypeScript、内容/图标/流式布局 guard、隔离生产构建及中英真实 Host 新旧 composer 回归 6/6；覆盖菜单补全与执行分离、原会话设置/模型入口、附件保留、IME、未知命令普通提交、`@` 和模型选择器回归。`5c0e58e` 将桌面权限从整个 `main` 窗口收窄至 `main` WebView，定向测试 2/2、Windows MSVC Rust 构建及隔离原生 smoke 中的主视图连接/窗口命令/认证 Host 查询通过。这只为将来的 child 预览封住权限继承；未创建 Browser child，也未验证不可信页面的 ACL、profile 或网络隔离。本段不声称这两项提交后已经重跑全仓 `check`。
 
 此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
