@@ -30,6 +30,10 @@ import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeli
 import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
+import { createWorkspaceTabs, workspaceTabCommands } from './workspace-tabs-runtime'
+export { workspaceTabCommands } from './workspace-tabs-runtime'
+export { MAX_WORKSPACE_TABS } from './workspace-tabs-runtime'
+export type { WorkspaceTabRef, WorkspaceTabsState, WorkspaceTabNavigationHooks } from './workspace-tabs-runtime'
 import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
@@ -174,6 +178,7 @@ const runtimeCommands = {
   ...sessionArchiveCommands,
   ...planProposalCommands,
   ...interactionRecoveryCommands,
+  ...workspaceTabCommands,
 }
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -219,7 +224,20 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   )
   const remote = directory.registry
-  registerNavigationCommands(
+  let tabNavigation: ReturnType<typeof registerNavigationCommands> | undefined
+  const workspaceTabs = createWorkspaceTabs(local, {
+    navigation: navigation.reader,
+    directory: directory.reader,
+    queries: directory.queries,
+    preferences: clientPersistence.preferences,
+    preferenceCommands: local,
+    preferencesReady: clientPersistence.ready,
+    retryPreferencesRestore: clientPersistence.retryPreferencesRestore,
+    selectSession: (sessionId, workspaceId) => local.execute('app.setSession', { sessionId, workspaceId }),
+    commitLocalSelection: (closedId, next) => tabNavigation?.commitLocalSelection(closedId, next),
+    onSubscriberError,
+  })
+  tabNavigation = registerNavigationCommands(
     local,
     directory.queries,
     directory.createSession,
@@ -228,6 +246,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     directory.openWorkspace,
     navigation,
     () => disposed,
+    workspaceTabs.hooks,
   )
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
@@ -392,6 +411,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionRenameCommands, name) ||
         Object.hasOwn(sessionArchiveCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||
+        Object.hasOwn(workspaceTabCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -423,6 +443,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     hostId: options.hostId,
     state: Object.freeze({
       navigation: navigation.reader,
+      workspaceTabs: workspaceTabs.reader,
       directory: directory.reader,
       forms: forms.reader,
       surfaces: surfaces.reader,
@@ -461,10 +482,18 @@ export function createAppRuntime(options: RuntimeOptions) {
   })
   return {
     view,
-    ready: clientPersistence.ready,
+    workspaceTabs: Object.freeze({
+      capture: workspaceTabs.capture,
+      closeCaptured: workspaceTabs.closeCaptured,
+      select: workspaceTabs.select,
+      move: workspaceTabs.move,
+      whenIdle: workspaceTabs.whenIdle,
+    }),
+    ready: Promise.all([clientPersistence.ready, workspaceTabs.ready]).then(() => undefined),
     dispose() {
       if (disposed) return
       disposed = true
+      workspaceTabs.dispose()
 
       local.dispose()
       platform.dispose()

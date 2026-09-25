@@ -4,6 +4,7 @@ import type { createState } from './state'
 import type { NavigationState } from './types'
 import type { DirectoryQueries } from './directory'
 import type { Session, Workspace } from '@hbar/contracts/directory'
+import type { WorkspaceTabNavigationHooks } from './workspace-tabs-runtime'
 const MAX_PENDING_SESSION_CREATIONS = 128
 const UNCERTAIN_CREATION_CODES = new Set([
   'RESULT_UNKNOWN',
@@ -46,10 +47,11 @@ export function registerNavigationCommands(
   openWorkspace: (path: string, execution: ExecuteOptions) => Promise<Workspace>,
   navigation: ReturnType<typeof createState<NavigationState>>,
   isDisposed: () => boolean,
-): void {
+  tabs?: WorkspaceTabNavigationHooks,
+) {
   let generation = 0
   const pendingSessionCreations = new Map<string, string>()
-  async function navigate<Selection extends { workspaceId: string; sessionId: string | null }>(
+  async function navigate<Selection extends { workspaceId: string; sessionId: string | null; session?: Session }>(
     operation: (execution: ExecuteOptions) => Promise<Selection>,
     execution: ExecuteOptions,
   ) {
@@ -59,6 +61,7 @@ export function registerNavigationCommands(
       const selection = await operation(execution)
       if (isDisposed() || execution.signal?.aborted || generation !== current)
         throw new SessionSelectionError('NAVIGATION_SUPERSEDED')
+      if ('session' in selection && selection.session) tabs?.commitSelected(selection.session)
       navigation.replace({
         workspaceId: selection.workspaceId,
         sessionId: selection.sessionId,
@@ -93,16 +96,19 @@ export function registerNavigationCommands(
       const result = await navigate(async (execution) => {
         const workspace = await queries.execute('workspace.get', { workspaceId: input.workspaceId }, execution)
         if (!workspace) throw new SessionSelectionError('WORKSPACE_NOT_FOUND')
+        tabs?.reserveCreation(key, input.workspaceId)
         creationStarted = true
         const session = await createSession(input.workspaceId, input.title, {
           ...execution,
           idempotencyKey: key,
         })
+        tabs?.commitCreation(key, session)
         return { workspaceId: workspace.id, sessionId: session.id, session }
       }, context)
       pendingSessionCreations.delete(operation)
       return result.session
     } catch (error) {
+      tabs?.settleCreation(key, creationStarted && UNCERTAIN_CREATION_CODES.has(errorCode(error)))
       if (!creationStarted || !UNCERTAIN_CREATION_CODES.has(errorCode(error))) pendingSessionCreations.delete(operation)
       throw error
     }
@@ -158,7 +164,19 @@ export function registerNavigationCommands(
         throw new SessionSelectionError('SESSION_WORKSPACE_MISMATCH')
       const workspace = await queries.execute('workspace.get', { workspaceId: session.workspaceId }, execution)
       if (!workspace) throw new SessionSelectionError('WORKSPACE_NOT_FOUND')
-      return { workspaceId: workspace.id, sessionId: session.id }
-    }, context)
+      tabs?.beforeSelect(session)
+      return { workspaceId: workspace.id, sessionId: session.id, session }
+    }, context).then(({ workspaceId: resolvedWorkspaceId, sessionId }) => ({
+      workspaceId: resolvedWorkspaceId,
+      sessionId,
+    }))
   })
+  return {
+    commitLocalSelection(closedId: string, next: { workspaceId: string; sessionId: string | null }) {
+      const current = navigation.reader.getSnapshot()
+      if (isDisposed() || current.status === 'loading' || current.sessionId !== closedId) return
+      generation += 1
+      navigation.replace({ workspaceId: next.workspaceId, sessionId: next.sessionId, status: 'idle', error: null })
+    },
+  }
 }

@@ -303,6 +303,23 @@ export function createClientPersistence(
     layout: layout.reader,
     preferences: preferences.reader,
     ready,
+    retryPreferencesRestore: () =>
+      serialize(async () => {
+        const current = preferences.reader.getSnapshot()
+        if (!current.restoreError) return current
+        try {
+          const saved = await read(preferencesKey)
+          const next: ClientPreferencesState = saved
+            ? { status: 'ready', revision: saved.revision, persisted: true, values: saved.value, restoreError: null }
+            : { status: 'ready', revision: 0, persisted: false, values: {}, restoreError: null }
+          if (!isDisposed()) preferences.replace(next)
+          return next
+        } catch (reason) {
+          const next = { ...current, restoreError: errorCode(reason) }
+          if (!isDisposed()) preferences.replace(next)
+          return next
+        }
+      }),
     commands: createCommandClient(clientPersistenceCommands, local),
     dispose() {
       layout.dispose()
