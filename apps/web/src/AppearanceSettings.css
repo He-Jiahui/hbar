@@ -110,6 +110,24 @@
   outline-offset: 0.125rem;
 }
 
+.hbar-web-appearance-settings .hbar-web-appearance-control {
+  border: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-contrast);
+}
+
+.hbar-web-appearance-settings .hbar-web-appearance-control:focus-visible {
+  border-color: color-mix(in srgb, var(--lumen-ink) 48%, var(--lumen-edge));
+  outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 42%, transparent);
+  outline-offset: 0.0625rem;
+}
+
+@media (forced-colors: active) {
+  .hbar-web-appearance-settings .hbar-web-appearance-control:focus-visible {
+    border-color: Highlight;
+    outline-color: Highlight;
+  }
+}
+
 .hbar-web-appearance-preview {
   display: flex;
   min-inline-size: 0;

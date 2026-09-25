@@ -43,6 +43,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const choice = (value: 'system' | 'light' | 'dark') =>
         choices.getByRole('radio', { name: copy.appearance.theme[value], exact: true })
       const preview = form.getByRole('region', { name: copy.appearance.preview.title })
+      const controlSize = form.locator('#hbar-appearance-controlSize')
+      await expect(form.locator('.hbar-web-appearance-control')).toHaveCount(5)
+      await expect(form.locator('[data-edge]')).toHaveCount(0)
+      await controlSize.focus()
+      expect(
+        await controlSize.evaluate((element) => parseFloat(getComputedStyle(element).outlineWidth)),
+      ).toBeGreaterThanOrEqual(1)
       await expect(choices.getByRole('radio')).toHaveCount(3)
       for (const value of ['system', 'light', 'dark'] as const) await expect(choice(value)).toBeVisible()
       await expect(choice('system')).toHaveAttribute('aria-checked', 'true')
@@ -77,6 +84,16 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await expect(choice('light')).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/reference-ux-v2/appearance-choice-${locale}-320.png` })
+
+      await controlSize.focus()
+      await controlSize.scrollIntoViewIfNeeded()
+      await page.emulateMedia({ forcedColors: 'active' })
+      expect(await controlSize.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid')
+      expect(
+        await controlSize.evaluate((element) => parseFloat(getComputedStyle(element).outlineWidth)),
+      ).toBeGreaterThanOrEqual(1)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/appearance-control-contrast-${locale}-320.png` })
+      await page.emulateMedia({ forcedColors: 'none' })
 
       await form.getByRole('button', { name: copy.appearance.save, exact: true }).click()
       await expect(form.getByText(copy.appearance.saved, { exact: true })).toBeVisible()

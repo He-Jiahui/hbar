@@ -6,7 +6,6 @@ import {
   LumenFrame,
   LumenFormField,
   LumenIcon,
-  LumenIconButton,
   LumenInput,
   LumenOption,
   LumenSelect,
@@ -115,6 +114,8 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
     <LumenFormField controlId={`hbar-appearance-${dimension}`} label={field.label} description={field.description}>
       <LumenSelect
         id={`hbar-appearance-${dimension}`}
+        className="hbar-web-appearance-control"
+        variant="plain"
         value={state.draft[dimension]}
         disabled={!ready || locked}
         onChange={(event) => editor.change(dimension, event.currentTarget.value as LumenSize)}
@@ -198,17 +199,35 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
         </LumenFrame>
         <LumenFrame className="hbar-web-appearance-preview-controls">
           <LumenFormField controlId="hbar-appearance-preview-input" label={labels.preview.label}>
-            <LumenInput id="hbar-appearance-preview-input" readOnly value={labels.preview.input} />
+            <LumenInput
+              id="hbar-appearance-preview-input"
+              className="hbar-web-appearance-control"
+              variant="plain"
+              readOnly
+              value={labels.preview.input}
+            />
           </LumenFormField>
-          <LumenSelect aria-label={labels.preview.select} value="preview" onChange={() => undefined}>
+          <LumenSelect
+            className="hbar-web-appearance-control"
+            variant="plain"
+            aria-label={labels.preview.select}
+            value="preview"
+            onChange={() => undefined}
+          >
             <LumenOption value="preview">{labels.preview.select}</LumenOption>
           </LumenSelect>
-          <LumenButton type="button" tone="primary">
+          <LumenButton type="button" tone="primary" indicator="none">
             {labels.preview.button}
           </LumenButton>
-          <LumenIconButton type="button" label={labels.preview.iconButton}>
+          <LumenButton
+            type="button"
+            variant="text"
+            indicator="none"
+            aria-label={labels.preview.iconButton}
+            title={labels.preview.iconButton}
+          >
             <LumenIcon icon={Palette} tier="sm" />
-          </LumenIconButton>
+          </LumenButton>
         </LumenFrame>
       </LumenFrame>
 
@@ -255,10 +274,10 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
                 <LumenText as="p">{labels.partial(progress.count, progress.total)}</LumenText>
               )}
               <LumenFrame>
-                <LumenButton type="button" size="s" variant="outlined" onClick={editor.continueDraft}>
+                <LumenButton type="button" size="s" variant="outlined" indicator="none" onClick={editor.continueDraft}>
                   {state.action?.kind === 'reset' ? labels.continueAfterReset : labels.continueDraft}
                 </LumenButton>
-                <LumenButton type="button" size="s" variant="outlined" onClick={editor.discard}>
+                <LumenButton type="button" size="s" variant="outlined" indicator="none" onClick={editor.discard}>
                   {state.action?.kind === 'reset' ? labels.acceptCurrent : labels.discard}
                 </LumenButton>
               </LumenFrame>
@@ -267,12 +286,19 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
           {(state.status === 'unknown' ||
             (state.status === 'conflict' && !state.checked) ||
             state.status === 'restore-error') && (
-            <LumenButton type="button" size="s" variant="outlined" disabled={busy} onClick={() => void editor.check()}>
+            <LumenButton
+              type="button"
+              size="s"
+              variant="outlined"
+              indicator="none"
+              disabled={busy}
+              onClick={() => void editor.check()}
+            >
               {labels.check}
             </LumenButton>
           )}
           {dirty && state.status !== 'unknown' && state.status !== 'conflict' && !busy && ready && (
-            <LumenButton type="button" size="s" variant="text" onClick={editor.discard}>
+            <LumenButton type="button" size="s" variant="text" indicator="none" onClick={editor.discard}>
               {labels.discard}
             </LumenButton>
           )}
@@ -281,6 +307,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
           <LumenButton
             type="button"
             variant="outlined"
+            indicator="none"
             disabled={!ready || locked || !canReset}
             onClick={() => void editor.reset()}
           >
@@ -289,6 +316,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
           <LumenButton
             type="submit"
             tone="primary"
+            indicator={state.status === 'saving' ? 'lamp' : 'none'}
             loading={state.status === 'saving'}
             disabled={!ready || locked || !dirty}
           >
