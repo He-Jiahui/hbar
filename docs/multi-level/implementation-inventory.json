@@ -202,12 +202,16 @@
         "user_input.resolve",
         "context.compact"
       ],
-      "additionalCommands": ["run.retry", "operation.watch"],
+      "additionalCommands": ["run.retry", "operation.watch", "interaction.reconcile"],
       "tests": [
         "tests/kernel.test.ts",
         "tests/crash.test.ts",
         "tests/capabilities.test.ts",
         "tests/interaction-commands.test.ts",
+        "tests/session-decisions-runtime.test.ts",
+        "tests/session-decisions-recovery.test.ts",
+        "tests/session-decisions-recovery-host.test.ts",
+        "tests/session-decisions-react.test.tsx",
         "tests/run-commands.test.ts"
       ]
     },
@@ -437,6 +441,7 @@
     "draft.setText",
     "extensionWorkspace.refresh",
     "extensionWorkspace.setEnabled",
+    "fileWorkspace.discardAndReload",
     "fileWorkspace.loadMore",
     "fileWorkspace.openEntry",
     "fileWorkspace.reconcile",
@@ -451,6 +456,7 @@
     "goalPlanWorkspace.addStep",
     "goalPlanWorkspace.clearGoal",
     "goalPlanWorkspace.clearPlan",
+    "goalPlanWorkspace.discardGoalEdits",
     "goalPlanWorkspace.moveStep",
     "goalPlanWorkspace.refresh",
     "goalPlanWorkspace.removeStep",
