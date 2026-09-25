@@ -31,12 +31,16 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
       trigger: 'Delete project',
       title: 'Delete atlas-production?',
       detail: "This permanently removes the project and everything in it. It can't be undone.",
-      close: 'Close delete dialog',
+      close: 'Close dialog',
       confirmation: (name) => `Type ${name} to confirm`,
+      confirmationBefore: 'Type ',
+      confirmationAfter: ' to confirm',
       placeholder: 'atlas-production',
       cancel: 'Cancel',
       confirm: 'Delete project',
       empty: 'No project metrics',
+      successTitle: 'Project deleted',
+      successDetail: 'atlas-production and its 1,204 deployments were removed.',
     },
     projectName: 'atlas-production',
     metrics: [
@@ -45,7 +49,7 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
       { id: 'domains', value: '3', label: 'Custom domains' },
       { id: 'members', value: '11', label: 'Team members' },
     ],
-    listStrategy: grown,
+    listStrategy: scroll,
   },
   invite: {
     labels: {
@@ -181,6 +185,23 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
   },
 }
 
+export function appDialogDeleteFixture(name: string | null): HbarAppUiAppDialogContent {
+  if (name === 'localized') return createHbarAppUiAppDialogLocalizedFixtures()
+  if (name !== 'overflow') return HBAR_APP_UI_APP_DIALOG_FIXTURES
+  const deleteProject = HBAR_APP_UI_APP_DIALOG_FIXTURES.deleteProject!
+  return {
+    ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
+    deleteProject: {
+      ...deleteProject,
+      metrics: Array.from({ length: deleteProject.listStrategy.expectedMaximum + 1 }, (_, index) => ({
+        id: `metric-${index}`,
+        label: `Metric ${index + 1}`,
+        value: String(index + 1),
+      })),
+    },
+  }
+}
+
 export function createHbarAppUiAppDialogLocalizedFixtures(): HbarAppUiAppDialogContent {
   return {
     ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
@@ -199,6 +220,27 @@ export function createHbarAppUiAppDialogLocalizedFixtures(): HbarAppUiAppDialogC
         empty: '没有变更',
       },
       rows: [{ id: 'plan', label: '方案', from: '团队版', to: '规模版' }],
+    },
+    deleteProject: {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES.deleteProject!,
+      labels: {
+        ...HBAR_APP_UI_APP_DIALOG_FIXTURES.deleteProject!.labels,
+        trigger: '删除项目',
+        title: '删除生产项目？',
+        detail: '这将永久移除项目及其全部内容，无法撤销。',
+        close: '关闭对话框',
+        confirmation: (name) => `输入 ${name} 确认`,
+        confirmationBefore: '输入 ',
+        confirmationAfter: ' 确认',
+        placeholder: '生产项目',
+        cancel: '取消',
+        confirm: '删除项目',
+        empty: '没有项目指标',
+        successTitle: '项目已删除',
+        successDetail: '项目和部署记录已移除。',
+      },
+      projectName: '生产项目',
+      metrics: [{ id: 'deployments', value: '1,204', label: '部署' }],
     },
   }
 }

@@ -152,6 +152,7 @@ import {
   selectInteractionCases,
   semanticRoleTree,
   semanticRoleTreeMatches,
+  semanticInteractionDelta,
   timedActivityDelta,
   visibleControls,
   type ControlSnapshot,
@@ -205,6 +206,18 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('counts actual text input changes as feedback independently of semantic roles', () => {
+    const input = control(0, { tag: 'input', type: 'text', name: '', value: '' })
+    const before = snapshot([input])
+    const filled = snapshot([{ ...input, value: 'audit sample' }])
+    const result = semanticInteractionDelta(before, filled)
+    expect(result.changed).toBe(true)
+    expect(result.signature).toContain('audit sample')
+    expect(semanticInteractionDelta(before, snapshot([{ ...input, value: '' }])).changed).toBe(false)
+    expect(semanticInteractionDelta(before, filled).signature).not.toBe(
+      semanticInteractionDelta(before, snapshot([{ ...input, value: 'different' }])).signature,
+    )
+  })
   test('board sampling replays native scroll owners rather than passive card gestures', () => {
     const id = 'hbar-app-ui-agent-plan-5'
     const owner = control(0, { tag: 'ol', role: 'list', capabilities: ['scroll'] })

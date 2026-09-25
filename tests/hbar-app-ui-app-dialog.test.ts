@@ -101,4 +101,52 @@ describe('hbar-app-ui app dialog surfaces', () => {
     ])
     expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
   })
+
+  test('destructive confirmation keeps source landmarks and the exact target label', () => {
+    const value = render(2)
+    expect(value).toContain('role="dialog"')
+    expect(value).toContain('role="banner"')
+    expect(value).toContain('role="contentinfo"')
+    expect(value).toContain('aria-label="Close dialog"')
+    expect(value).toContain('hbar-app-ui-full-canvas-owner')
+    expect(value).toContain('Type <span class="lumen-delete-project-name">atlas-production</span> to confirm')
+    expect(value).toContain('disabled=""')
+    expect(value.match(/<dd>/g)).toHaveLength(4)
+    expect(render(2, createHbarAppUiAppDialogLocalizedFixtures())).toContain('输入 <span class="lumen-delete-project-name">生产项目</span> 确认')
+    const legacy = HBAR_APP_UI_APP_DIALOG_FIXTURES.deleteProject!
+    expect(render(2, {
+      deleteProject: {
+        ...legacy,
+        labels: {
+          ...legacy.labels,
+          confirmationBefore: undefined,
+          confirmationAfter: undefined,
+          successTitle: undefined,
+          successDetail: undefined,
+        },
+      },
+    })).toContain('Type atlas-production to confirm')
+  })
+
+  test('destructive metrics are host supplied and pane owned at capacity boundaries', () => {
+    const original = HBAR_APP_UI_APP_DIALOG_FIXTURES.deleteProject!
+    for (const count of [0, 1, 80, 81]) {
+      const metrics = Array.from({ length: count }, (_, index) => ({
+        id: `metric-${index}`, label: `Metric ${index}`, value: String(index),
+      }))
+      const value = render(2, { deleteProject: { ...original, metrics: [...metrics, ...metrics.slice(0, 1)] } })
+      expect(value.match(/<dd>/g)?.length ?? 0).toBe(count)
+      expect(value).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+      if (!count) expect(value).toContain(original.labels.empty)
+    }
+  })
+
+  test('delete dialog sampling exercises invalid, valid, confirm and dismissal mechanisms', () => {
+    const plan = auditSamplingPlan('hbar-app-ui-app-dialog-2')!
+    expect(plan.samples.map((sample) => sample.suffix)).toEqual([
+      '2:fill', '2:fill-valid', 'dialog-delete-valid:4:click',
+      '3:click', '1:press-space', 'dialog-delete-closed:0:click',
+    ])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
 })

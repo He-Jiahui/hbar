@@ -561,6 +561,33 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-dialog-2')
+    return {
+      revision: 1,
+      lumenEntries: ['app-dialog.tsx', 'app-dialog-delete.css', 'app-dialog.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '2:fill', change: 'Incorrect resource name leaves destructive action disabled' },
+        { viewport: 'mobile', theme: 'dark', suffix: '2:fill-valid', change: 'Exact resource name enables deletion in narrow layout' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'dialog-delete-valid:4:click', change: 'Enabled destructive action closes and reports the deleted resource' },
+        { viewport: 'mobile', theme: 'light', suffix: '3:click', change: 'Cancel dismisses without deletion' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:press-space', change: 'Keyboard close dismisses without deletion' },
+        { viewport: 'stress', theme: 'light', suffix: 'dialog-delete-closed:0:click', change: 'Trigger reopens after a completed dismissal' },
+      ],
+      inferences: [
+        {
+          scope: 'Four read-only project metrics and other names',
+          basis:
+            'The original metrics are definition data, not controls. Wrong and exact-name fills exercise both disabled and enabled branches; repeated incorrect strings and passive metric gestures are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Equivalent close gestures across remaining widths and themes',
+          basis:
+            'Eight source/local static pairs cover four widths in two themes. Pointer Cancel, keyboard close, confirmation and reopen sample distinct feedback paths; equivalent permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-dialog-1')
     return {
       revision: 1,

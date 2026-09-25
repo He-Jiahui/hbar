@@ -145,7 +145,7 @@ import { HBAR_APP_UI_DATA_TABLE_FIXTURES } from '../../../tests/fixtures/hbar-ap
 import { HBAR_APP_UI_DASHBOARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-dashboard-fixtures'
 import { HBAR_APP_UI_ANALYTICS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-analytics-fixtures'
 import { HBAR_APP_UI_FORMS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-forms-fixtures'
-import { HBAR_APP_UI_APP_DIALOG_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-dialog-fixtures'
+import { appDialogDeleteFixture } from '../../../tests/fixtures/hbar-app-ui-app-dialog-fixtures'
 import { HBAR_APP_UI_NOTIFICATIONS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
 import { HBAR_APP_UI_MOBILE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-mobile-fixtures'
 import { HBAR_APP_UI_SUPPORT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-support-fixtures'
@@ -354,7 +354,10 @@ function PreviewApp() {
   const dashboardContent = useMemo(() => HBAR_APP_UI_DASHBOARD_FIXTURES, [])
   const analyticsContent = useMemo(() => HBAR_APP_UI_ANALYTICS_FIXTURES, [])
   const formsContent = useMemo(() => HBAR_APP_UI_FORMS_FIXTURES, [])
-  const appDialogContent = useMemo(() => HBAR_APP_UI_APP_DIALOG_FIXTURES, [])
+  const appDialogContent = useMemo(
+    () => appDialogDeleteFixture(new URLSearchParams(window.location.search).get('appDialogDeleteFixture')),
+    [],
+  )
   const notificationsContent = useMemo(() => HBAR_APP_UI_NOTIFICATIONS_FIXTURES, [])
   const mobileContent = useMemo(() => HBAR_APP_UI_MOBILE_FIXTURES, [])
   const supportContent = useMemo(() => HBAR_APP_UI_SUPPORT_FIXTURES, [])

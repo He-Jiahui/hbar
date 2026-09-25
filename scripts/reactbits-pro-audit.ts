@@ -67,6 +67,7 @@ export type ControlSnapshot = Readonly<{
   pressed: string | null
   selected: string | null
   state: string | null
+  value?: string | null | undefined
   stablePath: string
   labelFor: string | null
   describedBy: string | null
@@ -301,6 +302,8 @@ export type InteractionCase = Readonly<{
     | 'sidebar-drawer-closed'
     | 'sidebar-full-closed'
     | 'dialog-plan-closed'
+    | 'dialog-delete-valid'
+    | 'dialog-delete-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -370,7 +373,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 14
-const interactionProtocolVersion = 31
+const interactionProtocolVersion = 33
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -1318,6 +1321,12 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
         pressed: control.getAttribute('aria-pressed'),
         selected: control.getAttribute('aria-selected'),
         state: control.getAttribute('data-state'),
+        value: (() => {
+          if (!('value' in control) || typeof control.value !== 'string') return null
+          if (control.getAttribute('type') === 'password') return control.value ? '<redacted-nonempty>' : ''
+          if (control.getAttribute('type') === 'file') return control.value ? '<selected-file>' : ''
+          return control.value
+        })(),
         stablePath: stablePathOf(control),
         labelFor: control.getAttribute('id')
           ? (element.ownerDocument
@@ -1576,6 +1585,15 @@ const sidebarTreeScenarios = ['sidebar-tree-menu-open'] as const
 const sidebarDrawerScenarios = ['sidebar-drawer-closed'] as const
 const sidebarFullScenarios = ['sidebar-full-closed'] as const
 const dialogPlanScenarios = ['dialog-plan-closed'] as const
+const dialogDeleteScenarios = ['dialog-delete-valid', 'dialog-delete-closed'] as const
+async function prepareDialogDeleteScenario(root: Locator, scenario: (typeof dialogDeleteScenarios)[number]): Promise<void> {
+  if (scenario === 'dialog-delete-valid') {
+    await root.getByRole('textbox', { name: 'Type atlas-production to confirm' }).fill('atlas-production')
+    return
+  }
+  await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
+  await root.getByRole('dialog', { name: 'Delete atlas-production?', exact: true }).waitFor({ state: 'hidden' })
+}
 async function prepareDialogPlanScenario(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
   await root.getByRole('dialog', { name: 'Apply plan change', exact: true }).waitFor({ state: 'hidden' })
@@ -2740,6 +2758,13 @@ async function interactionDelta(
     const live = liveActivityDelta(before, after)
     if (live) return live
   }
+  return semanticInteractionDelta(before, after)
+}
+
+export function semanticInteractionDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+): Readonly<{ changed: boolean; signature: string }> {
   const state = (snapshot: SemanticSnapshot) => ({
     checkableStates: checkableStates(snapshot.axSnapshot),
     bodyTextLength: snapshot.bodyTextLength,
@@ -2752,6 +2777,7 @@ async function interactionDelta(
       pressed: control.pressed,
       selected: control.selected,
       state: control.state,
+      value: control.value ?? null,
     })),
   })
   const beforeState = state(before)
@@ -2952,6 +2978,9 @@ async function replayInteraction(
     await prepareSidebarFullScenario(root)
   if (spec.id === 'hbar-app-ui-app-dialog-1' && interaction.scenario === 'dialog-plan-closed')
     await prepareDialogPlanScenario(root)
+  if (spec.id === 'hbar-app-ui-app-dialog-2' &&
+      (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed'))
+    await prepareDialogDeleteScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3114,6 +3143,9 @@ async function replayReferenceInteraction(
     await prepareSidebarFullScenario(root)
   if (reference.id === 'hbar-app-ui-app-dialog-1' && interaction.scenario === 'dialog-plan-closed')
     await prepareDialogPlanScenario(root)
+  if (reference.id === 'hbar-app-ui-app-dialog-2' &&
+      (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed'))
+    await prepareDialogDeleteScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3747,6 +3779,16 @@ async function runInteractionsParallel(
               for (const scenario of dialogPlanScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareDialogPlanScenario(sourceRoot)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-dialog-2') {
+              const fill = discovered.find((item) => item.id === `${spec.id}:2:fill`)
+              if (!fill) throw new Error('Delete dialog confirmation input changed; re-observe its behavior groups')
+              discovered.push({ ...fill, id: `${spec.id}:2:fill-valid`, fillValue: 'atlas-production' })
+              for (const scenario of dialogDeleteScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareDialogDeleteScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
