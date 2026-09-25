@@ -10,17 +10,15 @@ import { usageLimitFixture } from '../../../tests/fixtures/hbar-app-ui-usage-lim
 import { createUsageLimitPreviewStore, projectUsageLimitPreview } from './usage-limit-preview-model'
 import { usageMemberFixture } from '../../../tests/fixtures/hbar-app-ui-usage-member-fixtures'
 import { createUsageMemberPreviewStore, projectUsageMemberPreview } from './usage-member-preview-model'
+import { usageBudgetFixture } from '../../../tests/fixtures/hbar-app-ui-usage-budget-fixtures'
+import { createUsageBudgetPreviewStore, projectUsageBudgetPreview } from './usage-budget-preview-model'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const [cap, setCap] = useState('60'),
-    [threshold, setThreshold] = useState('80'),
-    [hardStop, setHardStop] = useState(true),
-    [saved, setSaved] = useState(false),
-    [plan, setPlan] = useState('pro'),
+  const [plan, setPlan] = useState('pro'),
     [filtered, setFiltered] = useState(false)
   const base = USAGE_FIXTURES
   const mode = new URLSearchParams(location.search).get('usageFixture')
@@ -37,6 +35,11 @@ export function UsagePreviewHost({
   const [memberFixture] = useState(() => usageMemberFixture(mode))
   const [memberStore] = useState(() => createUsageMemberPreviewStore(memberFixture.teams, memberFixture.records))
   const seats = projectUsageMemberPreview(useStore(memberStore), memberFixture.copy)
+  const [budgetFixture] = useState(() => usageBudgetFixture(mode))
+  const [budgetStore] = useState(() =>
+    createUsageBudgetPreviewStore(budgetFixture.facts, budgetFixture.thresholds, budgetFixture.settings),
+  )
+  const budget = projectUsageBudgetPreview(useStore(budgetStore), budgetFixture.copy)
   function collection<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
     return mode === 'empty'
       ? []
@@ -54,24 +57,7 @@ export function UsagePreviewHost({
         modelSpend,
         rateLimits,
         seats,
-        budget: {
-          ...base.budget,
-          cap: { ...base.budget.cap, value: cap, display: `$${cap}` },
-          onCapChange: (value) => {
-            setCap(value)
-            setSaved(false)
-          },
-          threshold: { ...base.budget.threshold!, value: threshold, onChange: setThreshold },
-          hardStop: { ...base.budget.hardStop!, checked: hardStop, onChange: setHardStop },
-          status: {
-            label: saved ? 'Budget saved' : Number(cap) > 80 ? 'Near cap' : 'Within budget',
-            tone: Number(cap) > 80 ? 'warning' : 'positive',
-          },
-          onSave: () => {
-            setSaved(true)
-            report('save', cap)
-          },
-        },
+        budget,
         overage: {
           ...base.overage,
           plan: { ...base.overage.plan!, value: plan, onChange: setPlan },

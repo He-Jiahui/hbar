@@ -995,4 +995,5 @@ export type {
   HbarAppUiModelSpendContent,
   HbarAppUiRateLimitsContent,
   HbarAppUiSeatUsageContent,
+  HbarAppUiBudgetSettingsContent,
 } from './ai-usage'

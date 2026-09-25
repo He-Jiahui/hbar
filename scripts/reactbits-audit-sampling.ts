@@ -869,6 +869,65 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-ai-usage-5')
+    return {
+      revision: 2,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '0:range-end',
+          change: 'Native End reaches the maximum cap and changes budget ratio and forecast to within budget',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '0:range-home',
+          change:
+            'Native Home reaches minimum cap, clamps consumption to 100%, and keeps the source over-budget forecast',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Adding one threshold does not deselect the other active reminders',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '2:press-space',
+          change: 'Keyboard removal changes only the selected threshold',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '4:click',
+          change: 'Pause-requests switch changes independently without inventing submission feedback',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '5:press-enter',
+          change:
+            'Weekly digest turns on with native Enter after keyboard focus is ready; actual focus/scroll preparation is saved separately',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Intermediate cap values and repeated pointer/key gestures',
+          basis:
+            'The two distinct forecast branches and cap boundaries are replayed. Keys start from a focused control, with native focus/scroll preparation retained as separate before/after images. Step quantization, intermediate ratios and restoration are checked locally rather than replaying every slider position.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Equivalent reminder values, repeated themes and passive summary text',
+          basis:
+            'Add/remove pressed states and independent switches are sampled separately. Each control is ID-bound; unselected/selected states and eight static pairs cover presentation. The real source has no save button or submission outcome.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 

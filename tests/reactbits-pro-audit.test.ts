@@ -4,6 +4,21 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('budget samples numeric branches, independent threshold states and native switch activation', () => {
+  const id = 'hbar-app-ui-ai-usage-5'
+  expect(auditSamplingPlan(id)!.samples).toHaveLength(6)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:5:press-enter`])
+  expect(auditSamplingPlan(id)!.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  const slider = control(0, { tag: 'input', type: 'range', name: '', labelFor: 'Monthly cap', capabilities: ['fill'] })
+  expect(usageBudgetSliderCases(snapshot([slider]), id).map((item) => item.key)).toEqual(['Home', 'End'])
+  expect(usageBudgetSliderCases(snapshot([slider]), id).every((item) => item.focusBefore)).toBe(true)
+  const toggle = control(1, { role: 'switch', capabilities: ['click', 'press'] })
+  const cases = usageBudgetInteractionCases(snapshot([slider, toggle]), id)
+  expect(cases.filter((item) => item.action === 'press').every((item) => item.focusBefore)).toBe(true)
+  expect(cases.filter((item) => item.action === 'click').every((item) => !item.focusBefore)).toBe(true)
+  expect(() => usageBudgetSliderCases(snapshot([]), id)).toThrow('Budget slider changed')
+})
+
 test('member usage samples distinct filter outcomes and honestly infers repeated row/team gestures', () => {
   const plan = auditSamplingPlan('hbar-app-ui-ai-usage-4')!
   expect(plan.samples).toHaveLength(6)
@@ -79,6 +94,8 @@ import {
   passiveTableRowHoverCase,
   passiveModelRowHoverCase,
   usageMemberScenarioCases,
+  usageBudgetSliderCases,
+  usageBudgetInteractionCases,
   planBoardScrollCase,
   passiveScrollDelta,
   checkableStates,

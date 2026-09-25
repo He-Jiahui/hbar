@@ -4,6 +4,7 @@ import { verifyUsageOverview } from './verify-hbar-app-ui-usage-overview'
 import { verifyUsageModel } from './verify-hbar-app-ui-usage-model'
 import { verifyUsageLimits } from './verify-hbar-app-ui-usage-limits'
 import { verifyUsageMembers } from './verify-hbar-app-ui-usage-members'
+import { verifyUsageBudget } from './verify-hbar-app-ui-usage-budget'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 let server: ReturnType<typeof Bun.spawn> | undefined
@@ -46,6 +47,9 @@ try {
   } else if (process.argv.includes('--members-only')) {
     await verifyUsageMembers(page, baseUrl)
     expect(errors).toEqual([])
+  } else if (process.argv.includes('--budget-only')) {
+    await verifyUsageBudget(page, baseUrl)
+    expect(errors).toEqual([])
   } else {
     for (const theme of ['dark', 'light'])
       for (const width of [1192, 768, 320]) {
@@ -62,7 +66,9 @@ try {
                     ? '.lumen-usage-rate-panel'
                     : variant === 4
                       ? '.lumen-usage-member-list'
-                      : '.hbar-app-ui-usage-content',
+                      : variant === 5
+                        ? '.lumen-usage-budget-panel'
+                        : '.hbar-app-ui-usage-content',
             ),
           ).toBeVisible()
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -84,10 +90,7 @@ try {
       await expect(page.locator('.hbar-app-ui-usage-content')).toContainText(/No /)
     }
     await verifyUsageMembers(page, baseUrl)
-    await page.goto(url(5), { waitUntil: 'networkidle' })
-    await page.getByRole('slider', { name: 'Monthly cap', exact: true }).press('End')
-    await page.getByRole('button', { name: 'Save budget', exact: true }).click()
-    await expect(page.getByText('Budget saved', { exact: true })).toBeVisible()
+    await verifyUsageBudget(page, baseUrl)
     await page.goto(url(7), { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: 'Expand request req_91a2', exact: true }).click()
     await expect(page.locator('pre')).toContainText('model=balanced')

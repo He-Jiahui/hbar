@@ -269,6 +269,8 @@ export type InteractionCase = Readonly<{
   control: ControlSnapshot
   wheelDeltaY?: number | undefined
   fillValue?: string | undefined
+  /** Keyboard precondition; its real focus/scroll screenshots are saved separately. */
+  focusBefore?: boolean | undefined
 }>
 
 type AuditOptions = Readonly<{
@@ -1472,6 +1474,27 @@ export function interactionCases(
   return cases
 }
 
+export function usageBudgetSliderCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+  const input = visibleControls(snapshot).find(
+    (control) =>
+      control.tag === 'input' && control.type === 'range' && (control.name || control.labelFor) === 'Monthly cap',
+  )
+  if (!input) throw new Error('Budget slider changed; observe the live native range before sampling it')
+  return (['Home', 'End'] as const).map((key) => ({
+    id: `${variantId}:${input.index}:range-${key.toLowerCase()}`,
+    control: input,
+    action: 'press',
+    key,
+    focusBefore: true,
+  }))
+}
+
+export function usageBudgetInteractionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+  return [...interactionCases(snapshot, variantId), ...usageBudgetSliderCases(snapshot, variantId)].map(
+    (interaction) => (interaction.action === 'press' ? { ...interaction, focusBefore: true } : interaction),
+  )
+}
+
 export function planBoardScrollCase(
   variantId: string,
   owner: ControlSnapshot,
@@ -1849,6 +1872,35 @@ async function settleNativeScroll(root: Locator): Promise<void> {
       if (unchanged >= 4) return
     }
     throw new Error('Native scroll did not settle before capture')
+  })
+}
+
+async function prepareFocusedKeyboardBaseline(
+  root: Locator,
+  control: Locator | undefined,
+  interaction: InteractionCase,
+  directory: string,
+  snapshot: () => Promise<SemanticSnapshot>,
+): Promise<void> {
+  if (!interaction.focusBefore || !control || (await controlIsDisabled(control))) return
+  if (interaction.action !== 'press') throw new Error('A focused keyboard baseline requires a key action')
+  const before = join(directory, 'focus-before.png'),
+    after = join(directory, 'focus-after.png')
+  const beforeSnapshot = join(directory, 'focus-before.json'),
+    afterSnapshot = join(directory, 'focus-after.json')
+  await screenshotStable(root, before)
+  await writeJson(beforeSnapshot, await snapshot())
+  await control.focus()
+  await settleNativeScroll(root)
+  await screenshotStable(root, after)
+  await writeJson(afterSnapshot, await snapshot())
+  await writeJson(join(directory, 'focus-preparation.json'), {
+    kind: 'native-keyboard-focus',
+    before,
+    after,
+    beforeSnapshot,
+    afterSnapshot,
+    note: 'Focus and any native scrolling precede the key. These unmodified captures retain that preparation feedback separately.',
   })
 }
 
@@ -2516,6 +2568,7 @@ async function replayInteraction(
   const after = join(directory, 'after.png')
   const beforeSnapshot = join(directory, 'before.json')
   const afterSnapshot = join(directory, 'after.json')
+  await prepareFocusedKeyboardBaseline(root, control, interaction, directory, () => localSnapshot(page, selector))
   await screenshotStable(root, before)
   await writeJson(beforeSnapshot, await withObservedScroll(await localSnapshot(page, selector), control, interaction))
   if (!control) {
@@ -2650,6 +2703,7 @@ async function replayReferenceInteraction(
     )
   }
   await assertReferenceFrameTheme(frame, theme)
+  await prepareFocusedKeyboardBaseline(root, control, interaction, directory, () => snapshotRoot(frame, selector))
   await screenshotStable(root, before)
   const beforeState = await withObservedScroll(await snapshotRoot(frame, selector), control, interaction)
   await writeJson(beforeSnapshot, beforeState)
@@ -3120,6 +3174,8 @@ async function runInteractionsParallel(
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-ai-usage-5')
+              discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-agent-activity-5') {
               await prepareAgentLogScenario(discoveryPage, sourceRoot, 'away', true)
               discovered.push(...agentLogScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id, 'away'))
