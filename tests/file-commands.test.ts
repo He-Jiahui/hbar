@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -66,6 +66,7 @@ test('file commands page, read, and compare-and-write within the workspace bound
     'computer.status',
     'computer.type',
     'computer.wait',
+    'file.find',
     'file.list',
     'file.read',
     'file.write',
@@ -80,6 +81,17 @@ test('file commands page, read, and compare-and-write within the workspace bound
     limit: 10,
   })
   expect(secondPage.items.every((entry) => entry.path > firstPage.nextCursor!)).toBe(true)
+  expect(await commands.execute('file.find', { workspaceId: workspace.id, query: 'ALPHA' })).toMatchObject({
+    paths: ['alpha.txt'],
+    truncated: false,
+  })
+  expect(await commands.execute('file.find', { workspaceId: workspace.id, query: '.txt', limit: 1 })).toMatchObject({
+    paths: ['alpha.txt'],
+    truncated: true,
+  })
+  await expect(
+    commands.execute('file.find', { workspaceId: workspace.id, query: 'alpha', path: '..' }),
+  ).rejects.toMatchObject({ code: 'PATH_DENIED' })
 
   const before = await commands.execute('file.read', { workspaceId: workspace.id, path: 'alpha.txt' })
   expect(before).toMatchObject({ text: 'alpha', size: 5 })
@@ -129,6 +141,32 @@ test('file commands page, read, and compare-and-write within the workspace bound
   await expect(
     commands.execute('file.read', { workspaceId: workspace.id, path: '../outside.txt' }),
   ).rejects.toMatchObject({ code: 'PATH_DENIED' })
+})
+
+test('file path search is bounded, scoped, case-insensitive and read-only', async () => {
+  const { root, workspace, commands } = await fixture()
+  await mkdir(join(root, 'src'))
+  await writeFile(join(root, 'src', 'Alpha.TS'), 'first', 'utf8')
+  await writeFile(join(root, 'src', 'beta.ts'), 'second', 'utf8')
+  await writeFile(join(root, 'outside.ts'), 'third', 'utf8')
+  expect(await commands.execute('file.find', { workspaceId: workspace.id, path: 'src', query: 'ALPHA' })).toMatchObject(
+    {
+      paths: ['src/Alpha.TS'],
+      truncated: false,
+    },
+  )
+  expect(
+    await commands.execute('file.find', { workspaceId: workspace.id, path: 'src', query: '.ts', limit: 1 }),
+  ).toMatchObject({
+    paths: ['src/Alpha.TS'],
+    truncated: true,
+  })
+  expect(
+    await commands.execute('file.find', { workspaceId: workspace.id, path: 'src', query: 'outside' }),
+  ).toMatchObject({
+    paths: [],
+    truncated: false,
+  })
 })
 
 test('attachment query resolves immutable artifact metadata by content id', async () => {

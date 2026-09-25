@@ -30,6 +30,15 @@ test('native workspace query searches, finds, reads ranges, and validates cached
     limit: 20,
   }
   expect(await query.find(common, crypto.randomUUID())).toMatchObject({ paths: ['alpha.ts'], truncated: false })
+  expect(await query.find({ ...common, include: [], nameQuery: 'ALPHA' }, crypto.randomUUID())).toMatchObject({
+    paths: ['alpha.ts'],
+    truncated: false,
+    filesChecked: 2,
+  })
+  expect(await query.find({ ...common, include: [], nameQuery: 't', limit: 1 }, crypto.randomUUID())).toMatchObject({
+    paths: ['alpha.ts'],
+    truncated: true,
+  })
   const first = await query.search(
     {
       ...common,
@@ -88,6 +97,28 @@ test('native workspace query searches, finds, reads ranges, and validates cached
     lineIndexEntries: 1,
   })
   expect(stats.lineIndexBytes).toBeGreaterThan(0)
+})
+
+test('path discovery includes large files without reading their contents', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-native-path-discovery-'))
+  roots.push(root)
+  await writeFile(join(root, 'large-asset.bin'), new Uint8Array(2 * 1024 * 1024 + 1))
+  const query = new NativeWorkspaceQuery(1024 * 1024)
+  expect(
+    await query.find(
+      {
+        workspace: root,
+        path: '.',
+        include: [],
+        exclude: [],
+        includeHidden: false,
+        blocked: [],
+        limit: 20,
+        nameQuery: 'LARGE-ASSET',
+      },
+      crypto.randomUUID(),
+    ),
+  ).toMatchObject({ paths: ['large-asset.bin'], truncated: false })
 })
 
 test('native cache detects same-size edits even when modification time is restored', async () => {

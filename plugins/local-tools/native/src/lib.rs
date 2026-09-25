@@ -260,6 +260,8 @@ struct CommonRequest {
     workspace: String,
     path: String,
     #[serde(default)]
+    name_query: Option<String>,
+    #[serde(default)]
     include: Vec<String>,
     #[serde(default)]
     exclude: Vec<String>,
@@ -642,6 +644,7 @@ fn walk_files(
     state: &EngineState,
     request: &CommonRequest,
     cancel: &AtomicBool,
+    content_limited: bool,
 ) -> ComputeResult<Vec<(PathBuf, String)>> {
     let (workspace, scope) = canonical_root(&request.workspace, &request.path)?;
     let blocked = blocked_paths(&request.blocked);
@@ -654,7 +657,7 @@ fn walk_files(
     builder
         .hidden(!request.include_hidden)
         .follow_links(false)
-        .max_filesize(Some(MAX_FILE_BYTES))
+        .max_filesize(content_limited.then_some(MAX_FILE_BYTES))
         .git_ignore(true)
         .git_exclude(true)
         .ignore(true)
@@ -700,14 +703,34 @@ fn find(state: &EngineState, request: CommonRequest, cancel: &AtomicBool) -> Com
     if request.limit == 0 || request.limit > 1000 {
         return Err("find limit must be between 1 and 1000".to_owned());
     }
-    let files = walk_files(state, &request, cancel)?;
+    let needle = request
+        .name_query
+        .as_ref()
+        .map(|query| query.trim().to_lowercase());
+    if needle
+        .as_ref()
+        .is_some_and(|query| query.is_empty() || query.len() > 640)
+    {
+        return Err("find name query must contain 1 to 640 bytes".to_owned());
+    }
+    let files = walk_files(state, &request, cancel, false)?;
     let files_checked = files.len();
-    let truncated = files_checked > request.limit;
-    let paths = files
-        .into_iter()
-        .take(request.limit)
-        .map(|(_, relative)| relative)
-        .collect();
+    let mut paths = Vec::with_capacity(request.limit);
+    let mut truncated = false;
+    for (_, relative) in files {
+        cancelled(cancel)?;
+        if needle
+            .as_ref()
+            .is_some_and(|query| !relative.to_lowercase().contains(query))
+        {
+            continue;
+        }
+        if paths.len() == request.limit {
+            truncated = true;
+            break;
+        }
+        paths.push(relative);
+    }
     json(&FindResponse {
         paths,
         truncated,
@@ -1041,7 +1064,7 @@ fn search(
     let mut matches = Vec::new();
     let mut truncated = false;
     let mut operation = OperationCacheStats::default();
-    let files = walk_files(state, &request.common, cancel)?;
+    let files = walk_files(state, &request.common, cancel, true)?;
     let files_checked = files.len();
     for (path, relative) in files {
         cancelled(cancel)?;
@@ -1165,6 +1188,7 @@ mod tests {
             common: CommonRequest {
                 workspace: ".".to_owned(),
                 path: ".".to_owned(),
+                name_query: None,
                 include: vec![],
                 exclude: vec![],
                 include_hidden: false,

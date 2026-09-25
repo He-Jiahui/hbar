@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { fileCommands } from '@hbar/contracts/commands/files'
+import { workspaceFindInputSchema } from '@hbar/contracts/workspace-query'
 import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import type { StoragePort } from '@hbar/storage'
 
@@ -55,6 +56,19 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
     }
   }
 
+  registry.register(fileCommands['file.find'], (input, context) =>
+    translate(async () => {
+      const target = await workspace(input.workspaceId)
+      if (!execution.workspaceQuery)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Workspace path search is unavailable')
+      context.signal.throwIfAborted()
+      return execution.workspaceQuery.find(
+        target.path,
+        workspaceFindInputSchema.parse({ path: input.path, nameQuery: input.query, limit: input.limit }),
+        context.signal,
+      )
+    }),
+  )
   registry.register(fileCommands['file.list'], (input) =>
     translate(async () => {
       const target = await workspace(input.workspaceId)

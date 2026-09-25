@@ -3,6 +3,7 @@ import { z } from 'zod'
 export interface NativeCommonRequest {
   workspace: string
   path: string
+  nameQuery?: string | undefined
   include: string[]
   exclude: string[]
   includeHidden: boolean

@@ -112,6 +112,7 @@ Usage:
   hbar exec operation.get|operation.cancel <operationId>
   hbar exec usage.query|usage.export --scope global|workspace|session|run [target]
   hbar exec metrics.current|metrics.query [--from <ms> --to <ms> --bucket-ms <ms>]
+  hbar exec file.find <query> [--path <directory> --limit <count>] [--workspace <id|name>]
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>
   hbar exec agent.create|agent.list|agent.cancel|agent.result.get|agent.patch.apply --session <id|name>

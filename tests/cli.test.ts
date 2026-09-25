@@ -276,6 +276,9 @@ test('exec file commands read and compare-and-write workspace files without requ
   expect(
     (JSON.parse(listed.stdout) as { items: { path: string }[] }).items.some((item) => item.path === 'command-file.txt'),
   ).toBe(true)
+  const found = await run([...common, 'exec', 'file.find', 'COMMAND-FILE'])
+  expect(found.code).toBe(0)
+  expect(JSON.parse(found.stdout)).toMatchObject({ paths: ['command-file.txt'], truncated: false })
   const uploaded = await run([...common, 'exec', 'attachment.upload', source])
   expect(uploaded.code).toBe(0)
   const artifact = JSON.parse(uploaded.stdout) as { id: string; name: string; size: number }

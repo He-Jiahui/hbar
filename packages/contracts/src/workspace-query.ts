@@ -23,7 +23,10 @@ export const workspaceSearchInputSchema = workspaceQueryCommonSchema.extend({
   beforeContext: z.number().int().min(0).max(20).default(0),
   afterContext: z.number().int().min(0).max(20).default(0),
 })
-export const workspaceFindInputSchema = workspaceQueryCommonSchema
+export const workspaceFindInputSchema = workspaceQueryCommonSchema.extend({
+  /** Case-insensitive literal substring of a workspace-relative file path. */
+  nameQuery: z.string().trim().min(1).max(160).optional(),
+})
 export const workspaceSearchToolInputSchema = workspaceQueryToolCommonSchema.extend({
   pattern: z.string().min(1).max(4_096),
   literal: z.boolean().optional(),
@@ -31,7 +34,9 @@ export const workspaceSearchToolInputSchema = workspaceQueryToolCommonSchema.ext
   beforeContext: z.number().int().min(0).max(20).optional(),
   afterContext: z.number().int().min(0).max(20).optional(),
 })
-export const workspaceFindToolInputSchema = workspaceQueryToolCommonSchema
+export const workspaceFindToolInputSchema = workspaceQueryToolCommonSchema.extend({
+  nameQuery: z.string().trim().min(1).max(160).optional(),
+})
 export const workspaceListInputSchema = z.strictObject({
   path: workspaceQueryPathSchema,
   after: z.string().min(1).max(4_000).optional(),

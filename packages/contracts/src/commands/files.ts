@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { artifactSchema, idSchema } from '../index'
+import { workspaceFindResultSchema } from '../workspace-query'
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/)
 export const workspaceFileEntrySchema = z.strictObject({
@@ -62,6 +63,26 @@ const metadata = (id: string, kind: 'command' | 'query', scope: 'workspace' | 'g
 })
 
 export const fileCommands = {
+  'file.find': defineCommand(
+    {
+      ...metadata('file.find', 'query', 'workspace'),
+      cli: {
+        arguments: [
+          { field: 'query', type: 'string' as const, position: 0 },
+          { field: 'workspaceId', type: 'string' as const, flag: 'workspace' },
+          { field: 'path', type: 'string' as const, flag: 'path' },
+          { field: 'limit', type: 'number' as const, flag: 'limit' },
+        ],
+      },
+    },
+    z.strictObject({
+      workspaceId: idSchema,
+      query: z.string().trim().min(1).max(160),
+      path: z.string().max(4000).default('.'),
+      limit: z.number().int().min(1).max(200).default(50),
+    }),
+    workspaceFindResultSchema,
+  ),
   'file.list': defineCommand(
     {
       ...metadata('file.list', 'query', 'workspace'),
