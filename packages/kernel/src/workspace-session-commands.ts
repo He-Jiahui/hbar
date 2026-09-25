@@ -95,6 +95,17 @@ export function createWorkspaceSessionCommands(kernel: Kernel) {
   registry.register(workspaceSessionCommands['session.forkableMessages'], ({ sessionId, messageIds }) =>
     translate(() => kernel.storage.call('forkableMessages', { sessionId, messageIds })),
   )
+  registry.register(workspaceSessionCommands['session.forkFromMessageReceipt'], (input, context) => {
+    if (!context.actorId) throw new CommandError('INVALID_INPUT', 'Authenticated actor is required')
+    return translate(() =>
+      kernel.storage.call('forkFromMessageReceipt', {
+        actorId: context.actorId!,
+        idempotencyKey: input.idempotencyKey,
+        sessionId: input.sessionId,
+        messageId: input.messageId,
+      }),
+    )
+  })
   registry.register(workspaceSessionCommands['session.export'], async ({ sessionId, after, limit }) => {
     const rows = await translate(() => kernel.storage.call('events', sessionId, after, limit + 1))
     const events = rows.slice(0, limit)

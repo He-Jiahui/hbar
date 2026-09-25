@@ -67,6 +67,8 @@ export interface ForkFromMessageCommandInput {
   messageId: string
 }
 
+export interface ForkFromMessageReceiptInput extends ForkFromMessageCommandInput {}
+
 export interface ForkableMessagesInput {
   sessionId: string
   messageIds: string[]
@@ -116,6 +118,7 @@ export interface StorageMethods {
   fork(sessionId: string, atSeq?: number): Session
   forkSessionCommand(input: ForkSessionCommandInput): Session
   forkFromMessageCommand(input: ForkFromMessageCommandInput): Session
+  forkFromMessageReceipt(input: ForkFromMessageReceiptInput): Session | null
   forkableMessages(input: ForkableMessagesInput): ForkableMessagesResult
   enqueue(
     sessionId: string,

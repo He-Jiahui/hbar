@@ -5,6 +5,7 @@ export type {
   CreateSessionCommandInput,
   ForkSessionCommandInput,
   ForkFromMessageCommandInput,
+  ForkFromMessageReceiptInput,
   ForkableMessagesInput,
   ForkableMessagesResult,
   SettingsCommitInput,

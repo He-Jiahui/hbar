@@ -557,6 +557,7 @@ export async function runWorkspaceSessionCommand(
   add('after', args.after)
   add('limit', args.limit)
   add('atSeq', args.atSeq)
+  if (action === 'session.forkFromMessageReceipt') add('idempotencyKey', args.idempotencyKey)
   if (args.archived && definition.metadata.cli.arguments.some((item) => item.field === 'includeArchived'))
     argv.push('--archived')
   const input = definition.input.safeParse(parseArguments(definition.metadata, argv))

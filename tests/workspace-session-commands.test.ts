@@ -45,6 +45,7 @@ test('workspace and session commands share the Host catalog and bounded director
     'session.fork',
     'session.forkableMessages',
     'session.forkFromMessage',
+    'session.forkFromMessageReceipt',
     'session.get',
     'session.list',
     'session.rename',

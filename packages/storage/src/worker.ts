@@ -719,6 +719,11 @@ const methods: StorageMethods = {
       return session
     })()
   },
+  forkFromMessageReceipt(input) {
+    const commandId = 'session.forkFromMessage'
+    const payloadHash = entityPayloadHash(commandId, { sessionId: input.sessionId, messageId: input.messageId })
+    return entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
+  },
   forkableMessages(input) {
     return db.transaction(() => {
       const parsed = z

@@ -130,6 +130,20 @@ export const workspaceSessionCommands = {
     z.strictObject({ sessionId: idSchema, messageIds: z.array(idSchema).min(1).max(200) }),
     forkableMessagesResultSchema,
   ),
+  'session.forkFromMessageReceipt': defineCommand(
+    {
+      ...metadata('session.forkFromMessageReceipt', 'query', 'session'),
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'messageId', type: 'string', flag: 'message' },
+          { field: 'idempotencyKey', type: 'string', flag: 'idempotency-key' },
+        ],
+      },
+    },
+    z.strictObject({ sessionId: idSchema, messageId: idSchema, idempotencyKey: idSchema }),
+    sessionSchema.nullable(),
+  ),
   'session.export': defineCommand(
     {
       ...metadata('session.export', 'query', 'session'),
