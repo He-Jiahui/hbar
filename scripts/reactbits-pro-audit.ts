@@ -365,7 +365,7 @@ export function manualReviewGate(
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
-const captureProtocolVersion = 13
+const captureProtocolVersion = 14
 const interactionProtocolVersion = 27
 
 export function auditBrowserArguments(http1: boolean): string[] {
@@ -1323,9 +1323,16 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
         (total, value) => Math.max(total, Math.round(value.getBoundingClientRect().height / 16)),
         0,
       )
-      const truncatedTextCount = [...element.querySelectorAll('*')].filter(
-        (value) => value.scrollWidth > value.clientWidth + 1,
-      ).length
+      // A narrow viewport may intentionally clip a wider layout (for example a
+      // dual sidebar). Only count overflow on text-bearing elements here; the
+      // separate horizontalOverflow metric records structural clipping.
+      const truncatedTextCount = [...element.querySelectorAll('*')].filter((value) => {
+        const textBearing = value.matches('h1,h2,h3,h4,h5,h6,p,span,button,a,label,dt,dd,input,textarea')
+          || [...value.childNodes].some(
+            (node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()),
+          )
+        return textBearing && value.scrollWidth > value.clientWidth + 1
+      }).length
       return {
         rootTag: element.tagName.toLowerCase(),
         rootRect: { width: Math.round(rootRect.width), height: Math.round(rootRect.height) },

@@ -561,6 +561,57 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-sidebar-4')
+    return {
+      revision: 1,
+      lumenEntries: ['app-sidebar-dual.tsx', 'app-sidebar-dual.css', 'app-sidebar-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Projects rail selection swaps the complete contextual panel',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '11:click',
+          change: 'Representative page selection retains the initial page while pointer feedback appears',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '8:click',
+          change: 'New automation has no visible reference transition',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '9:fill',
+          change: 'Search draft persists without filtering the contextual list',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'light',
+          suffix: '7:click',
+          change: 'Narrow rail settings action has no visible reference transition',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other section icons and contextual page rows',
+          basis:
+            'All seven section data sets were structurally read from the live iframe; Projects exercises the section-replacement mechanism and Playbooks the page-row mechanism. The remaining repeated clicks are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining viewport/theme interaction permutations',
+          basis:
+            'Eight static pairs cover four widths and both themes. The 56px rail stays fixed; the contextual pane is 256px at wider sizes and fills the remaining width below 640px. The mobile settings action tests narrow hit geometry, while other repeated dynamic permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-sidebar-3')
     return {
       revision: 2,
