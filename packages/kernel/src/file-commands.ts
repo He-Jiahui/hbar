@@ -72,7 +72,10 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
   registry.register(fileCommands['file.list'], (input) =>
     translate(async () => {
       const target = await workspace(input.workspaceId)
-      const entries = await execution.list(target.path, input.path)
+      // Cursor comparison and page ordering must use one global strict order.
+      const entries = (await execution.list(target.path, input.path)).sort((left, right) =>
+        left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+      )
       const filtered = input.after ? entries.filter((entry) => entry.path > input.after!) : entries
       const items = filtered.slice(0, input.limit)
       return {

@@ -143,6 +143,28 @@ test('file commands page, read, and compare-and-write within the workspace bound
   ).rejects.toMatchObject({ code: 'PATH_DENIED' })
 })
 
+test('file.list cursor visits every directory and file exactly once across mixed pages', async () => {
+  const { root, workspace, commands } = await fixture()
+  await mkdir(join(root, 'z-directory'))
+  await writeFile(join(root, 'a-file.txt'), 'a')
+  const expected = await commands.execute('file.list', { workspaceId: workspace.id, path: '.', limit: 500 })
+  const paths: string[] = []
+  let after: string | undefined
+  for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
+    const page = await commands.execute('file.list', {
+      workspaceId: workspace.id,
+      path: '.',
+      limit: 1,
+      ...(after ? { after } : {}),
+    })
+    paths.push(...page.items.map((item) => item.path))
+    after = page.nextCursor
+    if (!after) break
+  }
+  expect(paths).toEqual(expected.items.map((item) => item.path))
+  expect(new Set(paths).size).toBe(paths.length)
+})
+
 test('file path search is bounded, scoped, case-insensitive and read-only', async () => {
   const { root, workspace, commands } = await fixture()
   await mkdir(join(root, 'src'))
