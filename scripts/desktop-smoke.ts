@@ -14,6 +14,7 @@ const child = Bun.spawn(
       HBAR_WORKSPACE: process.cwd(),
       HBAR_DEMO: '1',
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9431',
+      WEBVIEW2_USER_DATA_FOLDER: join(root, 'webview-profile'),
     },
     stdin: 'ignore',
     stdout: 'ignore',
@@ -133,16 +134,53 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/appearance-reset-default-window.png' })
   await page.getByRole('button', { name: /^(返回会话|Back to session)$/ }).click()
   await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
-  const createDialog = page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ })
-  const workspace = createDialog.getByRole('combobox', { name: /^(工作区 ID|Workspace ID)$/ })
+  // A fresh profile has no selected project. The first creation makes that choice explicit.
+  const projectPicker = page.getByRole('dialog', { name: /^(选择项目|Choose a project)$/ })
+  await projectPicker.waitFor()
+  const projects = projectPicker.locator('.hbar-app-react-workspace-picker-item')
+  if ((await projects.count()) !== 1) throw new Error('Native fixture did not expose its single project')
+  await projects.click()
+  await projectPicker.waitFor({ state: 'hidden' })
+  const initialRow = page.locator('[data-session-id][data-selected="true"]')
+  await initialRow.waitFor()
+  const initialSessionId = await initialRow.getAttribute('data-session-id')
+  // Once a project is selected, the same entry creates and opens directly.
+  await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
   await until(async () => {
-    const value = await workspace.inputValue()
-    if (!value) throw new Error('Desktop session workspace options are still loading')
+    const activeId = await page.locator('[data-session-id][data-selected="true"]').getAttribute('data-session-id')
+    if (!activeId || activeId === initialSessionId) throw new Error('Direct creation has not opened the new session')
   })
-  await createDialog.getByRole('textbox', { name: /^(标题|Title)$/ }).fill('Tauri visual session')
-  await createDialog.getByRole('button', { name: /^(执行命令|Execute command)$/ }).click()
-  await createDialog.waitFor({ state: 'hidden' })
+  await page
+    .getByRole('textbox', { name: /^(提示词|Prompt)$/ })
+    .waitFor()
+    .catch(async (error: unknown) => {
+      await page.screenshot({ path: 'artifacts/ui-redesign/tauri/new-session-failure.png' })
+      await Bun.write('artifacts/ui-redesign/tauri/new-session-failure.txt', await page.locator('body').innerText())
+      throw error
+    })
+  if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
+    throw new Error('Known-workspace new session unexpectedly opened the command catalog')
+  const currentRow = page.locator('[data-session-id][data-selected="true"]')
+  await currentRow.locator('summary').click()
+  await currentRow.getByRole('menuitem', { name: /^(重命名|Rename)$/ }).click()
+  const titleInput = currentRow.getByRole('textbox', { name: /^(会话标题|Session title)$/ })
+  await titleInput.fill('Tauri visual session')
+  await titleInput.press('Enter')
   await page.getByRole('heading', { level: 1, name: 'Tauri visual session' }).waitFor()
+  const modelTrigger = page.locator('.hbar-composer-model-trigger')
+  await modelTrigger.click()
+  await page.locator('.hbar-composer-picker-popover[data-kind="model"]:popover-open').waitFor()
+  await page.keyboard.press('Escape')
+  for (const intent of await page.locator('.hbar-composer-intents button').all()) {
+    await intent.click()
+    await until(async () => {
+      if ((await intent.getAttribute('aria-pressed')) !== 'true') throw new Error('Composer intent did not activate')
+    })
+    await intent.click()
+    await until(async () => {
+      if ((await intent.getAttribute('aria-pressed')) !== 'false') throw new Error('Composer intent did not clear')
+    })
+  }
   const fileChooser = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: /^(添加附件|Add attachment)$/ }).click()
   await (
