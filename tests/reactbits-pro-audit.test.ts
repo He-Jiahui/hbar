@@ -140,6 +140,7 @@ import {
   planBoardScrollCase,
   passiveScrollDelta,
   checkableStates,
+  cachedInventorySourcePath,
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
@@ -156,6 +157,15 @@ import {
   type ControlSnapshot,
   type SemanticSnapshot,
 } from '../scripts/reactbits-pro-audit'
+
+test('local-only recapture binds inventory to the source screenshots it copies', () => {
+  const options = { sourceInventoryPath: undefined, sourceCaptureRoot: 'artifacts/source-a', localOnly: true }
+  expect(cachedInventorySourcePath(options)?.replaceAll('\\', '/').endsWith(
+    'artifacts/source-a/source-inventory.json',
+  )).toBe(true)
+  expect(cachedInventorySourcePath({ ...options, sourceInventoryPath: 'explicit.json' })).toBe('explicit.json')
+  expect(cachedInventorySourcePath({ ...options, localOnly: false })).toBeUndefined()
+})
 
 function control(index: number, overrides: Partial<ControlSnapshot> = {}): ControlSnapshot {
   return {

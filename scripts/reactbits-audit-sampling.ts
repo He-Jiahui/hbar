@@ -561,6 +561,37 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-sidebar-5')
+    return {
+      revision: 1,
+      lumenEntries: ['app-sidebar-tree.tsx', 'app-sidebar-tree.css', 'app-sidebar-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'mobile', theme: 'light', suffix: '2:click', change: 'Collapse a folder and its nested documents' },
+        { viewport: 'desktop', theme: 'light', suffix: '3:click', change: 'Open folder row-action menu' },
+        { viewport: 'desktop', theme: 'dark', suffix: '7:click', change: 'Open the same row-action menu on a document' },
+        {
+          viewport: 'desktop', theme: 'light', suffix: 'sidebar-tree-menu-open:4:click',
+          change: 'Rename closes the menu without changing the reference tree',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '8:click', change: 'Selecting another document retains the initial visual selection' },
+        { viewport: 'mobile', theme: 'dark', suffix: '1:fill', change: 'Search keeps its draft without filtering the tree' },
+        { viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'New document has no visible reference transition' },
+      ],
+      inferences: [
+        {
+          scope: 'Other folders, documents, row menus and Duplicate/Delete outcomes',
+          basis:
+            'All four folders and twelve documents were read from the live iframe. Folder collapse, folder and document menus, menu dismissal and static page selection exercise the distinct mechanisms; other repeated rows and menu choices were inspected in the source and are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining width/theme interaction permutations',
+          basis:
+            'Eight static pairs cover four widths and two themes; narrow folder and search samples test row hit targets while the same fixed 256px pane and scroll owner persist across widths. Other permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-sidebar-4')
     return {
       revision: 1,

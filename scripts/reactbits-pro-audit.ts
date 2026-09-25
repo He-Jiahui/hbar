@@ -297,6 +297,7 @@ export type InteractionCase = Readonly<{
     | 'sidebar-rail-flyout-open'
     | 'sidebar-rail-account-open'
     | 'sidebar-workspace-open'
+    | 'sidebar-tree-menu-open'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -366,7 +367,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 14
-const interactionProtocolVersion = 27
+const interactionProtocolVersion = 28
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -652,6 +653,15 @@ function inventoryPath(options: AuditOptions): string {
   return join(options.outputRoot, 'source-inventory.json')
 }
 
+export function cachedInventorySourcePath(
+  options: Pick<AuditOptions, 'sourceInventoryPath' | 'sourceCaptureRoot' | 'localOnly'>,
+): string | undefined {
+  return options.sourceInventoryPath ??
+    (options.localOnly && options.sourceCaptureRoot
+      ? join(resolve(options.sourceCaptureRoot), 'source-inventory.json')
+      : undefined)
+}
+
 async function discoverReferenceInventory(browser: Browser, options: AuditOptions): Promise<ReactBitsProInventory> {
   const outputRoot = options.outputRoot
   const context = await browser.newContext({ reducedMotion: 'reduce' })
@@ -769,8 +779,9 @@ async function discoverReferenceInventory(browser: Browser, options: AuditOption
 
 async function loadOrDiscoverInventory(browser: Browser, options: AuditOptions): Promise<ReactBitsProInventory> {
   const cachedPath = inventoryPath(options)
-  if (options.sourceInventoryPath && !options.offline) {
-    const sourcePath = resolve(options.sourceInventoryPath)
+  const sourceInventory = cachedInventorySourcePath(options)
+  if (sourceInventory && !options.offline) {
+    const sourcePath = resolve(sourceInventory)
     const inventory = await readJson<ReactBitsProInventory>(sourcePath)
     const localCounts = await localCategoryCounts()
     const localIds = new Set(HBAR_APP_UI_VARIANT_SPECS.map((spec) => spec.id))
@@ -1558,6 +1569,10 @@ const chatScenarios = ['chat-thread-open', 'chat-suggestion'] as const
 const sidebarPrimaryScenarios = ['sidebar-account-open'] as const
 const sidebarRailScenarios = ['sidebar-rail-flyout-open', 'sidebar-rail-account-open'] as const
 const sidebarWorkspaceScenarios = ['sidebar-workspace-open'] as const
+const sidebarTreeScenarios = ['sidebar-tree-menu-open'] as const
+async function prepareSidebarTreeScenario(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Actions for Customer operations', exact: true }).click()
+}
 async function prepareSidebarWorkspaceScenario(root: Locator): Promise<void> {
   await root
     .getByRole('button', { name: /Northwind Logistics Enterprise/ })
@@ -2525,6 +2540,11 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
     const type = await control.getAttribute('type')
     const value = type === 'date' ? '2026-09-22' : type === 'time' ? '12:30' : type === 'number' ? '2' : 'audit sample'
     await control.fill(interaction.fillValue ?? value)
+    // Sidebar tree search does not hover a folder. The live documentation's
+    // pointer can rest over its first row after iframe alignment, so remove
+    // that unrelated hover from both sides of this sampled input feedback.
+    if (interaction.id.startsWith('hbar-app-ui-app-sidebar-5:'))
+      await control.page().mouse.move(0, 0)
   }
   if (interaction.action === 'select') {
     const values = await control
@@ -2898,6 +2918,8 @@ async function replayInteraction(
     await prepareSidebarRailScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-sidebar-3' && interaction.scenario === 'sidebar-workspace-open')
     await prepareSidebarWorkspaceScenario(root)
+  if (spec.id === 'hbar-app-ui-app-sidebar-5' && interaction.scenario === 'sidebar-tree-menu-open')
+    await prepareSidebarTreeScenario(root)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3052,6 +3074,8 @@ async function replayReferenceInteraction(
     await prepareSidebarRailScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-sidebar-3' && interaction.scenario === 'sidebar-workspace-open')
     await prepareSidebarWorkspaceScenario(root)
+  if (reference.id === 'hbar-app-ui-app-sidebar-5' && interaction.scenario === 'sidebar-tree-menu-open')
+    await prepareSidebarTreeScenario(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3657,6 +3681,13 @@ async function runInteractionsParallel(
               for (const scenario of sidebarWorkspaceScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareSidebarWorkspaceScenario(sourceRoot)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-sidebar-5') {
+              for (const scenario of sidebarTreeScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareSidebarTreeScenario(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

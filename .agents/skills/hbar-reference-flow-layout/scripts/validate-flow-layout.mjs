@@ -89,6 +89,13 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Sidebar 5: a row's More button opens a trigger-anchored action menu
+  // over later document rows. The menu contents themselves remain in flex flow.
+  if (
+    /packages\/lumen-app-ui\/src\/app-sidebar-tree\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-tree-menu'
+  )
+    return true
   // App Sidebar 3: the workspace radio menu overlays the search and navigation below its switcher.
   if (
     /packages\/lumen-app-ui\/src\/app-sidebar-workspace\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -426,6 +433,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   )
   if (overlay.length !== 0) {
     console.error(`Flow layout guard self-test expected overlay exception, got: ${overlay.join('; ')}`)
+    process.exit(1)
+  }
+  const treeMenuCss = `.lumen-tree-menu {
+  position: absolute;
+  inset-block-start: 1.875rem;
+  inset-inline-end: 0.125rem;
+}`
+  const treeMenu = validateCss('packages/lumen-app-ui/src/app-sidebar-tree.css', treeMenuCss)
+  const leakedTreeMenu = validateCss('packages/lumen-app-ui/src/other.css', treeMenuCss)
+  if (treeMenu.length !== 0 || leakedTreeMenu.length === 0) {
+    console.error('Flow layout guard self-test expected a path-scoped tree menu overlay exception')
     process.exit(1)
   }
   const lumenMaterialOverlay = validateCss(
