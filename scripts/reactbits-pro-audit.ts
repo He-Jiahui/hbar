@@ -296,6 +296,7 @@ export type InteractionCase = Readonly<{
     | 'sidebar-account-open'
     | 'sidebar-rail-flyout-open'
     | 'sidebar-rail-account-open'
+    | 'sidebar-workspace-open'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1549,6 +1550,13 @@ const scopeScenarios = [
 const chatScenarios = ['chat-thread-open', 'chat-suggestion'] as const
 const sidebarPrimaryScenarios = ['sidebar-account-open'] as const
 const sidebarRailScenarios = ['sidebar-rail-flyout-open', 'sidebar-rail-account-open'] as const
+const sidebarWorkspaceScenarios = ['sidebar-workspace-open'] as const
+async function prepareSidebarWorkspaceScenario(root: Locator): Promise<void> {
+  await root
+    .getByRole('button', { name: /Northwind Logistics Enterprise/ })
+    .first()
+    .click()
+}
 async function prepareSidebarPrimaryScenario(root: Locator): Promise<void> {
   await root
     .getByRole('button', { name: /Iris Renner Operations lead/ })
@@ -2881,6 +2889,8 @@ async function replayInteraction(
     await prepareSidebarRailScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-sidebar-2' && interaction.scenario === 'sidebar-rail-account-open')
     await prepareSidebarRailScenario(root, interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-sidebar-3' && interaction.scenario === 'sidebar-workspace-open')
+    await prepareSidebarWorkspaceScenario(root)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3033,6 +3043,8 @@ async function replayReferenceInteraction(
     await prepareSidebarRailScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-sidebar-2' && interaction.scenario === 'sidebar-rail-account-open')
     await prepareSidebarRailScenario(root, interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-sidebar-3' && interaction.scenario === 'sidebar-workspace-open')
+    await prepareSidebarWorkspaceScenario(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3631,6 +3643,13 @@ async function runInteractionsParallel(
               for (const scenario of sidebarRailScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareSidebarRailScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-sidebar-3') {
+              for (const scenario of sidebarWorkspaceScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareSidebarWorkspaceScenario(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

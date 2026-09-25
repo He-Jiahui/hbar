@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Sidebar 3: the workspace radio menu overlays the search and navigation below its switcher.
+  if (
+    /packages\/lumen-app-ui\/src\/app-sidebar-workspace\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-workspace-menu'
+  )
+    return true
   // App Sidebar 2: hover flyouts and the account menu anchor to their icon buttons.
   if (/packages\/lumen-app-ui\/src\/app-sidebar-rail\.css$/.test(path.replaceAll('\\', '/'))) {
     const overlays = new Set([
@@ -103,11 +109,7 @@ function isOverlaySelector(path, selector) {
   // App Sidebar 1: the account menu is anchored above its profile trigger;
   // the narrow navigation dialog and backdrop cover the blank preview canvas.
   if (/packages\/lumen-app-ui\/src\/app-sidebar-primary\.css$/.test(path.replaceAll('\\', '/'))) {
-    const overlays = new Set([
-      '.lumen-primary-account-menu',
-      '.lumen-primary-drawer-layer',
-      '.lumen-primary-backdrop',
-    ])
+    const overlays = new Set(['.lumen-primary-account-menu', '.lumen-primary-drawer-layer', '.lumen-primary-backdrop'])
     if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
   }
   // App Shell 9: observed model-trigger menu, narrow navigation drawer/backdrop,
@@ -376,6 +378,11 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const workspaceMenu = '.lumen-workspace-menu {\nposition: absolute;\ninset-block-start: 0;\n}'
+  if (validateCss('packages/lumen-app-ui/src/app-sidebar-workspace.css', workspaceMenu).length)
+    throw new Error('Rejected observed workspace switcher overlay')
+  if (validateCss('other.css', workspaceMenu).length < 2)
+    throw new Error('Workspace switcher overlay exception leaked to another stylesheet')
   const valid = validateCss(
     'self-test-valid.css',
     `.card {

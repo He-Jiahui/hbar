@@ -561,6 +561,69 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-sidebar-3')
+    return {
+      revision: 2,
+      lumenEntries: [
+        'app-sidebar-workspace.tsx',
+        'app-sidebar-workspace.css',
+        'app-sidebar-workflows.tsx',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Workspace switcher opens radio menu' },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'sidebar-workspace-open:2:click',
+          change: 'Selecting Atlas updates workspace identity',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:fill',
+          change: 'Scoped search retains draft without inventing navigation filtering',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'light',
+          suffix: '6:click',
+          change: 'Representative workspace link and selected-row feedback',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'sidebar-workspace-open:0:click',
+          change: 'Switcher closes an already-open menu',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'sidebar-workspace-open:4:click',
+          change: 'Create workspace closes the menu without switching identity',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'sidebar-workspace-open:0:expand-escape',
+          change: 'Escape dismisses the workspace menu on narrow canvas',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other pinned, workspace and administration links',
+          basis:
+            'All three groups use the same semantic link and ID-bound callback; one representative link is replayed, the remaining sibling destinations are inferred-not-replayed. The full 3/5/3 structure is checked in eight static pairs.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining workspace menu choices and viewport/theme permutations',
+          basis:
+            'One radio choice exercises host-owned workspace selection, while other choices share that mechanism. Four-width/two-theme static coverage and a mobile link sample exercise the unchanged 256px sidebar flow.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-sidebar-2')
     return {
       revision: 4,

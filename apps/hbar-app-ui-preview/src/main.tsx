@@ -154,6 +154,7 @@ import { HBAR_APP_UI_APP_SHELL_FIXTURES } from '../../../tests/fixtures/hbar-app
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-fixtures'
 import { appSidebarPrimaryFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-primary-fixtures'
 import { appSidebarRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-rail-fixtures'
+import { appSidebarWorkspaceFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-workspace-fixtures'
 import {
   createHbarAppUiAiChatLocalizedFixtures,
   HBAR_APP_UI_AI_CHAT_FIXTURES,
@@ -187,6 +188,7 @@ function PreviewApp() {
   const [viewport, setViewport] = useState<Viewport>('desktop')
   const [eventLog, setEventLog] = useState<readonly HbarAppUiEvent[]>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [appSidebarWorkspaceId, setAppSidebarWorkspaceId] = useState('northwind')
   const previewRef = useRef<HTMLDivElement>(null)
   const isolated = useMemo(() => new URLSearchParams(window.location.search).get('mode') === 'isolated', [])
   const editorContent = useMemo(() => {
@@ -358,8 +360,12 @@ function PreviewApp() {
       ...HBAR_APP_UI_APP_SIDEBAR_FIXTURES,
       primary: appSidebarPrimaryFixture(new URLSearchParams(window.location.search).get('appSidebarFixture')),
       railPreview: appSidebarRailFixture(new URLSearchParams(window.location.search).get('appSidebarRailFixture')),
+      workspacePreview: appSidebarWorkspaceFixture(
+        new URLSearchParams(window.location.search).get('appSidebarWorkspaceFixture'),
+        appSidebarWorkspaceId,
+      ),
     }),
-    [],
+    [appSidebarWorkspaceId],
   )
   const aiChatContent = useMemo(
     () =>
@@ -415,6 +421,9 @@ function PreviewApp() {
   }
 
   const handleAction = (event: HbarAppUiEvent) => {
+    if (event.variantId === 'hbar-app-ui-app-sidebar-3' && event.actionId === 'workspace' && event.value) {
+      setAppSidebarWorkspaceId(event.value)
+    }
     setEventLog((current) => [event, ...current].slice(0, 12))
   }
 
