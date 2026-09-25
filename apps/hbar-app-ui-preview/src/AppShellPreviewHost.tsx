@@ -11,6 +11,8 @@ import { appShellContractsFixture } from '../../../tests/fixtures/hbar-app-ui-ap
 import { appShellEditorialFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-editorial-fixtures'
 import { appShellInboxFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-inbox-fixtures'
 import { appShellDocumentsFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-documents-fixtures'
+import { appShellScopeFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-scope-fixtures'
+import { createAppShellScopePreviewStore, projectAppShellScopePreview } from './app-shell-scope-preview-model'
 import {
   createAppShellDocumentsPreviewStore,
   projectAppShellDocumentsPreview,
@@ -39,6 +41,15 @@ export function AppShellPreviewHost({
   const [editorialStore] = useState(createAppShellEditorialPreviewStore)
   const [inboxStore] = useState(createAppShellInboxPreviewStore)
   const [documentsStore] = useState(createAppShellDocumentsPreviewStore)
+  const [scopeStore] = useState(createAppShellScopePreviewStore)
+  const scopeMode = new URLSearchParams(location.search).get('appShellFixture')
+  const scope = projectAppShellScopePreview(
+    useStore(scopeStore),
+    appShellScopeFixture(scopeMode, (actionId, value) =>
+      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
+    ),
+    scopeMode,
+  )
   const documents = projectAppShellDocumentsPreview(
     useStore(documentsStore),
     appShellDocumentsFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
@@ -75,7 +86,7 @@ export function AppShellPreviewHost({
   )
   const sidebar = projectAppShellSidebarPreview(useStore(store), fixture)
   return (
-    <HbarAppUiAppShellProvider content={{ ...content, sidebar, rail, contracts, editorial, inbox, documents }}>
+    <HbarAppUiAppShellProvider content={{ ...content, sidebar, rail, contracts, editorial, inbox, documents, scope }}>
       {children}
     </HbarAppUiAppShellProvider>
   )

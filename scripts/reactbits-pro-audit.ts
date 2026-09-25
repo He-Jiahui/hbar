@@ -285,6 +285,12 @@ export type InteractionCase = Readonly<{
     | 'documents-closed'
     | 'documents-menu'
     | 'documents-format-menu'
+    | 'scope-closed'
+    | 'scope-organisation'
+    | 'scope-project'
+    | 'scope-environment'
+    | 'scope-combined'
+    | 'scope-account'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1527,6 +1533,29 @@ export function interactionCases(
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
 const inboxScenarios = ['inbox-empty', 'inbox-unread', 'inbox-menu', 'inbox-reading', 'inbox-mailboxes'] as const
 const documentsScenarios = ['documents-closed', 'documents-menu', 'documents-format-menu'] as const
+const scopeScenarios = [
+  'scope-closed',
+  'scope-organisation',
+  'scope-project',
+  'scope-environment',
+  'scope-combined',
+  'scope-account',
+] as const
+async function prepareScopeScenario(root: Locator, scenario: (typeof scopeScenarios)[number]): Promise<void> {
+  const expanded = root.locator('button[aria-expanded="true"][aria-haspopup]')
+  for (const button of await expanded.all()) if (await button.isVisible()) await button.press('Escape')
+  const close = root.getByRole('button', { name: 'Close navigation', exact: true })
+  if (await close.isVisible()) await close.press('Space')
+  if (scenario === 'scope-closed') return
+  const names = {
+    'scope-organisation': 'Organisation: Northwind Labs',
+    'scope-project': 'Project: Payments API',
+    'scope-environment': 'Environment: Production',
+    'scope-combined': 'Organisation and project',
+    'scope-account': 'DW Dana Whitfield dana.whitfield@northwindlabs.com',
+  }
+  await root.getByRole('button', { name: names[scenario], exact: true }).press('Space')
+}
 async function prepareDocumentsScenario(root: Locator, scenario: (typeof documentsScenarios)[number]): Promise<void> {
   const menu = root.getByRole('menu')
   if (await menu.isVisible()) await menu.press('Escape')
@@ -2809,6 +2838,8 @@ async function replayInteraction(
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
+  const scopeScenario = scopeScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-shell-7' && scopeScenario) await prepareScopeScenario(root, scopeScenario)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -2951,6 +2982,8 @@ async function replayReferenceInteraction(
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
+  const scopeScenario = scopeScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-shell-7' && scopeScenario) await prepareScopeScenario(root, scopeScenario)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3522,6 +3555,13 @@ async function runInteractionsParallel(
                 discovered.push(
                   ...documentsInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
                 )
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-shell-7') {
+              for (const scenario of scopeScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareScopeScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {

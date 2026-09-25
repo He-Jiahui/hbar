@@ -1222,6 +1222,108 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-7')
+    return {
+      revision: 1,
+      lumenEntries: ['app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Organisation opens a radio-choice menu' },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'scope-organisation:3:click',
+          change: 'Organisation changes independently, preserving project and data',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'scope-project:4:click',
+          change: 'Project changes the prefix of every database name, without changing its row metrics',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'scope-environment:6:click',
+          change: 'Staging replaces the database inventory, connection counts and system status',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'scope-environment:7:click',
+          change: 'Preview uses its distinct branch/PR inventory',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '5:click', change: 'Status opens a regional health dialog' },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '8:click',
+          change: 'Data disclosure visually hides its nested navigation links while retaining stable DOM nodes',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '18:click',
+          change: 'Notice dismissal returns space to navigation without moving the footer',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '19:click',
+          change: 'Account opens a bottom-anchored action menu',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'scope-account:20:click',
+          change: 'Account action closes its demo menu without inventing persistence',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '6:fill',
+          change: 'Search retains input but does not filter the original demo',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '20:click', change: 'Create database is a source demo no-op' },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '23:click',
+          change: 'Close the initially open narrow navigation to expose card flow',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '27:click',
+          change: 'Narrow navigation link keeps its drawer open and follows the native database anchor',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'scope-closed:3:click',
+          change: 'Combined organisation/project menu replaces separate triggers at narrow widths',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'scope-combined:8:click',
+          change: 'Project selection from combined menu updates the narrow database cards',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other organisation/project choices, navigation rows and create/account demo callbacks',
+          basis:
+            'Shared ID-bound callbacks and independently projected scope state; one representative per distinct transition is captured. Repeated buttons are not replayed or claimed individually matched.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Repeated widths, themes, hover/focus and menu key permutations',
+          basis:
+            'Eight static pairs retain responsive/theme coverage. Narrow combined menus and drawer get separate samples; local tests cover roving menu keys, long labels, stale IDs and overflow.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-5')
     return {
       revision: 3,

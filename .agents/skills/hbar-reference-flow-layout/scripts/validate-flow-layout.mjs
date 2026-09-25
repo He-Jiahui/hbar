@@ -89,6 +89,20 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Shell 7: observed scope/status/account popovers, navigation backdrop and scroll fades.
+  if (/packages\/lumen-app-ui\/src\/app-shell-scope\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-scope-sr-only',
+      '.lumen-scope-menu',
+      '.lumen-scope-status-popover',
+      '.lumen-scope-account-menu > .lumen-scope-menu',
+      '.lumen-scope-overlay',
+      '.lumen-scope-backdrop',
+      '.lumen-scope-scroll-frame::before',
+      '.lumen-scope-scroll-frame::after',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // App Shell 6: observed trigger-relative menus and document drawer/backdrop only.
   if (/packages\/lumen-app-ui\/src\/app-shell-documents\.css$/.test(path.replaceAll('\\', '/'))) {
     const overlays = new Set([
